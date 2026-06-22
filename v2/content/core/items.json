@@ -1,0 +1,37 @@
+[
+  {
+    "id": 2001,
+    "name": "Hearth Tonic",
+    "description": "A warm, soulbound potion with one gentle charge."
+  },
+  {
+    "id": 2002,
+    "name": "Dewbright Button",
+    "description": "A tiny pearled button that hums with first-step magic."
+  },
+  {
+    "id": 2003,
+    "name": "Wolfprint Charm",
+    "description": "A cool iron charm marked with a careful pawprint."
+  },
+  {
+    "id": 2004,
+    "name": "Moonwool Thread",
+    "description": "A silvery strand that remembers stories told after rain."
+  },
+  {
+    "id": 2005,
+    "name": "Story Button",
+    "description": "A warm wooden button with a tiny tale tucked under its rim."
+  },
+  {
+    "id": 2006,
+    "name": "Hearthstone Tag",
+    "description": "A smooth tag cut from warm stone and quiet promises."
+  },
+  {
+    "id": 2007,
+    "name": "Watch Bell",
+    "description": "A mute little bell that rings only for those keeping watch."
+  }
+]

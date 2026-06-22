@@ -2,8 +2,15 @@
 
 !Dockerfile
 !v2/
+!v2/ai-model-rust/
+!v2/ai-model-rust/Cargo.toml
+!v2/ai-model-rust/Cargo.lock
+!v2/ai-model-rust/src/
+!v2/ai-model-rust/src/**
 !v2/core-c/
 !v2/core-c/**
+!v2/content/
+!v2/content/**
 !v2/orchestrator-rust/
 !v2/orchestrator-rust/Cargo.toml
 !v2/orchestrator-rust/Cargo.lock
@@ -19,3 +26,4 @@
 
 v2/orchestrator-rust/target/
 v2/orchestrator-rust/.runtime/
+v2/ai-model-rust/target/

@@ -121,6 +121,8 @@ pub struct CwAction {
     pub destination_location_id: u64,
     pub content_id: u64,
     pub item_id: u64,
+    #[serde(default)]
+    pub modifier: i16,
 }
 
 #[repr(C)]

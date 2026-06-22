@@ -84,11 +84,13 @@ The Rust orchestrator owns durability and IO:
 
 Costly choice: do not let AI or UI mutate world state directly. All meaningful state changes, including chat messages that open branches, item pickup, item use, movement, evolution, combat, and recovery, should pass through the reducer.
 
-## Card Registry And NFT Metadata
+## Card Registry And Target Ownership Chain
 
-CosyWorld should treat cards as the presentation and provenance layer for every visible world entity.
+CosyWorld should treat cards as the presentation and provenance layer for every visible world entity. The current MVP can use seed/local cards plus the optional external bridge; the target ownership layer is a **native signed provenance log** rather than external NFTs.
 
-The C kernel should only store stable numeric ids, actor/item/location type flags, state, and rule-relevant fields. It should not parse NFT metadata, know image URLs, or understand wallet ownership.
+The ownership substrate is the one proven in the sibling `signal` project (see [`signal/docs/decentralization-synthesis.md`](../signal/docs/decentralization-synthesis.md)): Ed25519 identity (`client/identity.h`), content-addressed assets with `parent_merkle` provenance (`shared/types.h`), a per-authority signed append-only event log (`server/chain_log.h`, a 184-byte signed header + payload), and `signal_verify` to validate the chain. CosyWorld's C kernel is architecturally a Signal station authority, so `chain_log` can be shared. Crypto stack matches Signal: TweetNaCl (Ed25519), SHA-256 content addressing. External NFTs are an optional bridge resolver, not the ownership layer.
+
+The C kernel should only store stable numeric ids, actor/item/location type flags, state, and rule-relevant fields. It should not parse NFT metadata, know image URLs, or understand wallet ownership. The signed card log is a Rust/service concern; the kernel emits the world events that mints and transfers are *bound to* (`because: event_id`).
 
 The Rust orchestrator should resolve kernel ids into card projections:
 
@@ -116,38 +118,40 @@ Projection rules:
 - Actors use tall card art and are rendered as round portraits in compact UI.
 - Items use square card art and are rendered as square command images.
 - Locations use wide card art and are rendered as rectangular location tabs and travel buttons.
-- Ruby High First Bell cards can be imported from `hall-pass-card-catalog.ts` and `nft-arweave-assets.ts`.
-- CosyWorld seed cards use the same schema with `asset_status: "seed_art"` or `asset_status: "pending_art"` until the card pipeline mints them.
-- Wallet ownership, reveal receipts, burned-card state, and chain provenance remain Rust/service concerns. The kernel can receive explicit rule-safe capabilities later, but never raw wallet data.
-- Wallet ownership filters access to shared locations; it must not instantiate private rooms. If two wallets own `location-science-lab`, both avatars move into the same `Science Class` location id and see the same shared chat/event feed.
+- Native cards: a card *type* id is `sha256(definition)`; a card *instance* is `{type, serial, mint_event}` with `parent_merkle` provenance. Ownership is a fold over the signed `card_events` log — latest signed transfer to a pubkey wins.
+- External Ruby High First Bell cards can be imported from `hall-pass-card-catalog.ts` and `nft-arweave-assets.ts` through the bridge and projected into native cards; they are never required to own a base-game card.
+- CosyWorld seed cards use the same schema with `asset_status: "seed_art"` or `asset_status: "pending_art"` until the card pipeline mints them natively.
+- Identity is an Ed25519 keypair held by the client. Ownership, transfers, reveal receipts, and provenance are Rust/service concerns; the kernel never sees raw wallet data.
+- Bridge wallet ownership (when used) filters access to expansion locations; it must not instantiate private rooms. If two wallets own `location-science-lab`, both avatars move into the same `Science Class` location id and see the same shared chat/event feed.
 - AI inference is one-to-many at the location level. A resident response is a world event broadcast to all present humans, not a direct message generated separately per user.
-- Client-provided card ids are not authoritative. The server resolves wallet access from a trusted ownership index; query/body card ids are ignored unless an explicit local dev flag is enabled.
+- Client-provided card ids and ownership claims are not authoritative. The server recomputes ownership from the signed log and verifies signatures; query/body card ids are ignored unless an explicit local dev flag is enabled.
 
-This gives v2 one asset/content contract for avatars, items, locations, evolution requirements, and future NFT-backed collections.
+This gives v2 one asset/content contract for avatars, items, locations, evolution requirements, native chain ownership, and optional NFT-bridged collections.
 
 ## Economy And Pack Integration
 
 The v2 economy should be Rust-orchestrated and C-kernel validated.
 
-Currency split:
+Resource split:
 
 - `Orbs`: fungible off-chain play currency in the v2 SQLite/event ledger.
-- `Intricately Carved Wooden Boxes`: wallet-owned NFTs that can be burned to create avatar card packs.
+- `Cards`: native chain-owned world objects in the signed provenance log; minted, gifted, and traded without a wallet.
+- `Intricately Carved Wooden Boxes`: optional external NFTs that can be burned to mint a native card pack (bridge only).
 
-The C kernel should stay wallet-blind. It can validate challenges, item use, combat, movement, and message creation. It should not store Orb balances, wallet addresses, NFT asset ids, Solana signatures, pack metadata, or payment prices.
+The C kernel should stay wallet-blind. It can validate challenges, item use, combat, movement, and message creation. It should not store Orb balances, wallet addresses, NFT asset ids, Solana signatures, pack metadata, payment prices, or the card log.
 
-Rust should own:
+In the native ownership phase, Rust should own:
 
-- Wallet sessions and trusted ownership feed hydration.
-- Orb ledger mutations.
-- Chat affordability checks.
-- Box ownership projection.
-- Box burn prepare/confirm.
-- Avatar pack creation and opening.
-- Card grants from pack reveal.
-- Idempotency across every irreversible economy action.
+- Ed25519 player identity sessions and the card provenance log (mint / transfer / gift / swap), each event signed by the authority key.
+- Ownership recomputation from the log and signature verification (shared `signal_verify`).
+- Card pack creation and opening, minting native cards bound to the reveal event.
+- Poem-claim commit-reveal state and validation; world-gate incantation checks.
+- Orb ledger mutations and Chat affordability checks.
+- Arweave/Irys anchoring of card art and definitions.
+- Optional NFT bridge: trusted ownership feed hydration, Box ownership projection, Box burn prepare/confirm, projection of held NFTs into native cards.
+- Idempotency across every irreversible ownership and economy action.
 
-Recommended first data model:
+Target native ownership data model. The current MVP bridge may keep wallet-shaped fields until these tables replace it:
 
 ```sql
 CREATE TABLE orb_ledger (
@@ -175,25 +179,57 @@ CREATE TABLE wooden_box_receipts (
 
 CREATE TABLE avatar_pack_openings (
   idempotency_key TEXT PRIMARY KEY,
-  owner_wallet_address TEXT NOT NULL,
-  box_asset_address TEXT,
+  owner_pubkey TEXT NOT NULL,
+  box_asset_address TEXT,          -- null for in-world (non-bridge) packs
   pack_id TEXT NOT NULL,
   reveal_seed TEXT NOT NULL,
   catalog_hash TEXT NOT NULL,
-  card_ids_json TEXT NOT NULL,
+  card_instance_pubs_json TEXT NOT NULL,
   provenance_json TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL
 );
+
+-- Native ownership chain (mirrors signal/server/chain_log.h)
+CREATE TABLE card_events (
+  event_seq INTEGER PRIMARY KEY,        -- append-only
+  kind TEXT NOT NULL,                   -- mint | transfer | gift | swap
+  card_instance_pub TEXT NOT NULL,      -- content-addressed instance id
+  from_pubkey TEXT,                     -- null for mint
+  to_pubkey TEXT NOT NULL,
+  parent_merkle TEXT NOT NULL,          -- provenance lineage
+  because_event_id TEXT,                -- world event the mint/transfer is bound to
+  authority_pubkey TEXT NOT NULL,       -- uint8_t[32] in the binary log
+  signature TEXT NOT NULL,              -- Ed25519 over the header+payload
+  arweave_uri TEXT,                     -- anchored art/definition
+  created_at_ms INTEGER NOT NULL
+);
+
+CREATE TABLE poem_claims (
+  claim_id TEXT PRIMARY KEY,
+  card_instance_pub TEXT NOT NULL,
+  commit_hash TEXT,                     -- sha256(poem + claimer_pubkey), set on commit
+  claimed_by_pubkey TEXT,               -- set on reveal; null until claimed
+  status TEXT NOT NULL,                 -- open | committed | claimed | spent
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL
+);
 ```
 
-Recommended route shape:
+Ownership is not stored as a balance; it is recomputed by folding `card_events` and verifying signatures. The `wooden_box_receipts` table is bridge-only and may be absent on shards that disable external NFTs.
+
+Target route shape. Current bridge pack opening remains `/nft/packs/open` until native packs land:
 
 ```text
 GET  /economy
 POST /actions/combat
-POST /nft/boxes/burn-prepare
-POST /nft/boxes/burn-confirm
-POST /nft/packs/open
+POST /cards/gift            # signed transfer, free, first-class
+POST /cards/trade           # world-bound, co-signed, atomic swap
+POST /cards/claim-commit    # commit hash(poem + pubkey)
+POST /cards/claim-reveal    # reveal poem, bind card once
+POST /packs/open            # mint native cards (in-world or bridge-fed)
+POST /nft/boxes/burn-prepare   # optional external bridge
+POST /nft/boxes/burn-confirm   # optional external bridge
+POST /nft/packs/open           # current bridge pack route, deprecated once /packs/open exists
 ```
 
 `POST /actions/chat` should become an atomic economy action:
@@ -1536,6 +1572,15 @@ Keep the current static UI and `/api/cosyworld` route available while building t
 - Add autonomous movement and item-seeking.
 - Add exits and a second location only after the one-room loop is stable.
 
+### Phase 10: Native Ownership Chain
+
+- Add Ed25519 client identity and the `card_events` signed log (share `signal/server/chain_log.h`).
+- Mint seed cards natively; recompute ownership by folding the log; verify with shared `signal_verify`.
+- Add `/cards/gift` (free) and world-bound `/cards/trade` (co-signed, atomic), preserving `parent_merkle` lineage.
+- Add poem claims (commit-reveal) and world-gate incantations.
+- Anchor card art/definitions to Arweave.
+- Keep the external NFT bridge (Box burn → native pack) optional and behind the trusted ownership feed. Run federated (authority = operator, quorum 1); leave the P2P quorum endpoint for later.
+
 ## Testing Plan
 
 ### Unit Tests
@@ -1620,8 +1665,10 @@ Log and measure:
 - Item discovery, pickup, and give counts.
 - Evolution attempts and successes.
 - Orb grants, spends, balances, and rejection reasons.
-- Box burn prepare/confirm attempts and duplicate receipts.
-- Pack opens, reveal provenance, and card grant counts.
+- Box burn prepare/confirm attempts and duplicate receipts (bridge only).
+- Card mint / gift / trade / swap events, signature-verify failures, and ownership-fold mismatches.
+- Poem claim commits, reveals, front-run rejections, and double-claim attempts.
+- Pack opens, reveal provenance, and card mint counts.
 - Autonomous avatar actions per hour.
 - SSE reconnects.
 - Room event replay counts.
@@ -1630,7 +1677,10 @@ Log and measure:
 
 ## Open Questions
 
-- What is the initial player identity model: anonymous session, local display name, or authenticated account?
+- What is the initial player identity model: anonymous session, local display name, or authenticated account? The native chain wants an Ed25519 keypair per player — when is it generated, where is it stored, and how is it recovered?
+- Should the card log start as a single operator-signed authority (federation, quorum 1), and what is the concrete trigger to revisit the P2P quorum endpoint?
+- Are claim poems authored per card, drawn from a curated pool, or generated? What entropy floor keeps them un-guessable while still memorable?
+- Should world-gate incantations be discoverable through play (like the cosy MUD command discovery), or seeded as known lore?
 - Should human avatars use `dungeon_positions` immediately, or should that table stay NPC-only until movement expands?
 - Which parts of The Cosy Cottage timeline are globally public before moderation is ready?
 - How much of Discord channel history should interoperate with web room history?

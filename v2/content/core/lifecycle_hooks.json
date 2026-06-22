@@ -1,0 +1,113 @@
+[
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "3",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "moonlit-trail.progress",
+        "amount": 1,
+        "reason": "listen_success"
+      }
+    ]
+  },
+  {
+    "hook": "on_enter",
+    "target_kind": "room",
+    "target_id": "3",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:3:moonlit_threshold_crossed",
+        "scope": "room",
+        "scope_id": 3,
+        "label": "moonlit threshold crossed",
+        "kind": "memory",
+        "reason": "enter_moonlit_trail"
+      }
+    ]
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "2001",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:3:hearth_tonic_used",
+        "scope": "room",
+        "scope_id": 3,
+        "label": "hearth tonic warmth",
+        "kind": "memory",
+        "reason": "use_hearth_tonic"
+      }
+    ]
+  },
+  {
+    "hook": "on_give",
+    "target_kind": "actor",
+    "target_id": "1001",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "resident:1001:gift_noticed",
+        "scope": "resident",
+        "scope_id": 1001,
+        "label": "gift noticed",
+        "kind": "bond",
+        "reason": "give_to_rati"
+      }
+    ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "moonlit-trail.progress",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:3:quieted_moonlight",
+        "scope": "room",
+        "scope_id": 3,
+        "label": "quieted moonlight",
+        "kind": "aspect",
+        "reason": "moonlit_progress_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "moonlit-trail:quiet-the-echo",
+        "status": "completed",
+        "reason": "moonlit_progress_filled"
+      }
+    ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "moonlit-trail.danger",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:3:echo_fractured",
+        "scope": "room",
+        "scope_id": 3,
+        "label": "echo-fractured trail",
+        "kind": "hook",
+        "reason": "moonlit_danger_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "moonlit-trail:quiet-the-echo",
+        "status": "failed",
+        "reason": "moonlit_danger_filled"
+      }
+    ]
+  }
+]

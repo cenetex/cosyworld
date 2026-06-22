@@ -32,6 +32,8 @@ attached_assets/*
 src/config/user.config.json
 CLAUDE.md
 .lore-*
+.runtime/
+v2/orchestrator-rust/.runtime/
 
 # Terraform
 infra/terraform/.terraform/

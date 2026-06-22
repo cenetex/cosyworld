@@ -1,0 +1,638 @@
+{
+  "id": "lonely-forest-character-source-slices",
+  "source": "source/lonely-forest-characters-contact-sheet.png",
+  "review_index": "source/lonely-forest-characters-index.png",
+  "source_image_size": {
+    "width": 2600,
+    "height": 1454
+  },
+  "slice_count": 41,
+  "excluded_regions": [
+    {
+      "reason": "prompt text/reference UI, not character art",
+      "approx_rect": {
+        "x": 2314,
+        "y": 630,
+        "width": 261,
+        "height": 181
+      }
+    }
+  ],
+  "entries": [
+    {
+      "id": "lf-character-source-01",
+      "slug": "shadow-wolf",
+      "asset_type": "character",
+      "description": "dark wolf figure with red glow",
+      "file": "slices/01-shadow-wolf.png",
+      "source_rect": {
+        "x": 59,
+        "y": 18,
+        "width": 168,
+        "height": 262
+      },
+      "source_component_pixels": 41459,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-02",
+      "slug": "forest-dryad",
+      "asset_type": "character",
+      "description": "green-haired forest dryad portrait",
+      "file": "slices/02-forest-dryad.png",
+      "source_rect": {
+        "x": 300,
+        "y": 18,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68508,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-03",
+      "slug": "woodland-tea-party",
+      "asset_type": "scene",
+      "description": "woodland tea party with badger host",
+      "file": "slices/03-woodland-tea-party.png",
+      "source_rect": {
+        "x": 588,
+        "y": 72,
+        "width": 261,
+        "height": 154
+      },
+      "source_component_pixels": 40079,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-04",
+      "slug": "red-roadster-paris",
+      "asset_type": "scene",
+      "description": "red roadster under pink sky",
+      "file": "slices/04-red-roadster-paris.png",
+      "source_rect": {
+        "x": 875,
+        "y": 65,
+        "width": 262,
+        "height": 168
+      },
+      "source_component_pixels": 43925,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-05",
+      "slug": "badger-burrow-kitchen",
+      "asset_type": "scene",
+      "description": "warm burrow kitchen with badger",
+      "file": "slices/05-badger-burrow-kitchen.png",
+      "source_rect": {
+        "x": 1163,
+        "y": 72,
+        "width": 262,
+        "height": 154
+      },
+      "source_component_pixels": 40204,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-06",
+      "slug": "hearth-library",
+      "asset_type": "scene",
+      "description": "library room with fireplace",
+      "file": "slices/06-hearth-library.png",
+      "source_rect": {
+        "x": 1451,
+        "y": 18,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68015,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-07",
+      "slug": "moonlit-treehouse",
+      "asset_type": "scene",
+      "description": "moonlit treehouse beneath blue moon",
+      "file": "slices/07-moonlit-treehouse.png",
+      "source_rect": {
+        "x": 1739,
+        "y": 18,
+        "width": 261,
+        "height": 262
+      },
+      "source_component_pixels": 68301,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-08",
+      "slug": "fireside-study",
+      "asset_type": "scene",
+      "description": "fireside study with seated animal residents",
+      "file": "slices/08-fireside-study.png",
+      "source_rect": {
+        "x": 2026,
+        "y": 65,
+        "width": 262,
+        "height": 168
+      },
+      "source_component_pixels": 43710,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-09",
+      "slug": "old-oak-sunny",
+      "asset_type": "scene",
+      "description": "sunlit old oak in meadow",
+      "file": "slices/09-old-oak-sunny.png",
+      "source_rect": {
+        "x": 2314,
+        "y": 18,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68551,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-10",
+      "slug": "woodland-bear",
+      "asset_type": "character",
+      "description": "standing bear in green forest",
+      "file": "slices/10-woodland-bear.png",
+      "source_rect": {
+        "x": 12,
+        "y": 306,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68560,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-11",
+      "slug": "golden-squirrel",
+      "asset_type": "character",
+      "description": "bright squirrel on branch",
+      "file": "slices/11-golden-squirrel.png",
+      "source_rect": {
+        "x": 300,
+        "y": 306,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68557,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-12",
+      "slug": "blue-squirrel",
+      "asset_type": "character",
+      "description": "blue-toned squirrel portrait",
+      "file": "slices/12-blue-squirrel.png",
+      "source_rect": {
+        "x": 588,
+        "y": 306,
+        "width": 261,
+        "height": 262
+      },
+      "source_component_pixels": 68228,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-13",
+      "slug": "badger-cub",
+      "asset_type": "character",
+      "description": "young badger portrait",
+      "file": "slices/13-badger-cub.png",
+      "source_rect": {
+        "x": 875,
+        "y": 306,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68482,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-14",
+      "slug": "llama-scholar",
+      "asset_type": "character",
+      "description": "llama scholar with glasses and books",
+      "file": "slices/14-llama-scholar.png",
+      "source_rect": {
+        "x": 1163,
+        "y": 306,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68543,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-15",
+      "slug": "cloaked-mouse-reader",
+      "asset_type": "character",
+      "description": "mouse in orange cloak holding book",
+      "file": "slices/15-cloaked-mouse-reader.png",
+      "source_rect": {
+        "x": 1451,
+        "y": 306,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68379,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-16",
+      "slug": "rabbit-scribe",
+      "asset_type": "character",
+      "description": "rabbit reader in woodland",
+      "file": "slices/16-rabbit-scribe.png",
+      "source_rect": {
+        "x": 1739,
+        "y": 306,
+        "width": 261,
+        "height": 262
+      },
+      "source_component_pixels": 66251,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-17",
+      "slug": "mouse-wanderer",
+      "asset_type": "character",
+      "description": "mouse wanderer with red cloak and staff",
+      "file": "slices/17-mouse-wanderer.png",
+      "source_rect": {
+        "x": 2026,
+        "y": 306,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68564,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-18",
+      "slug": "forest-clock-shrine",
+      "asset_type": "scene",
+      "description": "forest path with clock shrine",
+      "file": "slices/18-forest-clock-shrine.png",
+      "source_rect": {
+        "x": 2314,
+        "y": 353,
+        "width": 262,
+        "height": 168
+      },
+      "source_component_pixels": 43797,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-19",
+      "slug": "dark-forest-gate",
+      "asset_type": "scene",
+      "description": "dark forest gate with warm light",
+      "file": "slices/19-dark-forest-gate.png",
+      "source_rect": {
+        "x": 12,
+        "y": 653,
+        "width": 262,
+        "height": 144
+      },
+      "source_component_pixels": 37630,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-20",
+      "slug": "garden-rabbit",
+      "asset_type": "character",
+      "description": "rabbit in dense garden",
+      "file": "slices/20-garden-rabbit.png",
+      "source_rect": {
+        "x": 300,
+        "y": 594,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 67511,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-21",
+      "slug": "veiled-forest-ghost",
+      "asset_type": "character",
+      "description": "veiled green forest ghost",
+      "file": "slices/21-veiled-forest-ghost.png",
+      "source_rect": {
+        "x": 635,
+        "y": 594,
+        "width": 167,
+        "height": 262
+      },
+      "source_component_pixels": 43639,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-22",
+      "slug": "wolf-pup",
+      "asset_type": "character",
+      "description": "small grey wolf pup",
+      "file": "slices/22-wolf-pup.png",
+      "source_rect": {
+        "x": 875,
+        "y": 594,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68503,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-23",
+      "slug": "forest-icon-panel",
+      "asset_type": "scene",
+      "description": "icon-like woodland gathering panel",
+      "file": "slices/23-forest-icon-panel.png",
+      "source_rect": {
+        "x": 1163,
+        "y": 648,
+        "width": 262,
+        "height": 154
+      },
+      "source_component_pixels": 40224,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-24",
+      "slug": "moon-wolves",
+      "asset_type": "scene",
+      "description": "wolves under colorful moon",
+      "file": "slices/24-moon-wolves.png",
+      "source_rect": {
+        "x": 1451,
+        "y": 641,
+        "width": 262,
+        "height": 168
+      },
+      "source_component_pixels": 43890,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-25",
+      "slug": "white-ferret-noble",
+      "asset_type": "character",
+      "description": "white ferret noble portrait",
+      "file": "slices/25-white-ferret-noble.png",
+      "source_rect": {
+        "x": 1739,
+        "y": 594,
+        "width": 261,
+        "height": 262
+      },
+      "source_component_pixels": 68310,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-26",
+      "slug": "violet-world-tree",
+      "asset_type": "scene",
+      "description": "violet tree beside water",
+      "file": "slices/26-violet-world-tree.png",
+      "source_rect": {
+        "x": 2026,
+        "y": 594,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68558,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-27",
+      "slug": "blue-shadow-man",
+      "asset_type": "character",
+      "description": "blue shadowed man with glowing wings",
+      "file": "slices/27-blue-shadow-man.png",
+      "source_rect": {
+        "x": 59,
+        "y": 882,
+        "width": 168,
+        "height": 262
+      },
+      "source_component_pixels": 43617,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-28",
+      "slug": "golden-winged-boy",
+      "asset_type": "character",
+      "description": "golden winged boy",
+      "file": "slices/28-golden-winged-boy.png",
+      "source_rect": {
+        "x": 353,
+        "y": 882,
+        "width": 155,
+        "height": 262
+      },
+      "source_component_pixels": 40540,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-29",
+      "slug": "grey-winged-boy",
+      "asset_type": "character",
+      "description": "grey winged boy by clouds",
+      "file": "slices/29-grey-winged-boy.png",
+      "source_rect": {
+        "x": 588,
+        "y": 882,
+        "width": 261,
+        "height": 262
+      },
+      "source_component_pixels": 68316,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-30",
+      "slug": "sunlit-winged-boy",
+      "asset_type": "character",
+      "description": "sunlit winged boy profile",
+      "file": "slices/30-sunlit-winged-boy.png",
+      "source_rect": {
+        "x": 875,
+        "y": 882,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68564,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-31",
+      "slug": "violet-corruption-grove",
+      "asset_type": "scene",
+      "description": "violet corrupted grove",
+      "file": "slices/31-violet-corruption-grove.png",
+      "source_rect": {
+        "x": 1163,
+        "y": 882,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68525,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-32",
+      "slug": "tavern-blond-boy",
+      "asset_type": "character",
+      "description": "blond boy in warm tavern",
+      "file": "slices/32-tavern-blond-boy.png",
+      "source_rect": {
+        "x": 1451,
+        "y": 882,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 67896,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-33",
+      "slug": "moon-orb-tree",
+      "asset_type": "scene",
+      "description": "dark tree with blue moon orbs",
+      "file": "slices/33-moon-orb-tree.png",
+      "source_rect": {
+        "x": 1739,
+        "y": 882,
+        "width": 261,
+        "height": 262
+      },
+      "source_component_pixels": 68306,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-34",
+      "slug": "armored-winged-hero",
+      "asset_type": "character",
+      "description": "gold-armored winged hero",
+      "file": "slices/34-armored-winged-hero.png",
+      "source_rect": {
+        "x": 2026,
+        "y": 882,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68559,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-35",
+      "slug": "neon-tiger",
+      "asset_type": "character",
+      "description": "neon tiger character",
+      "file": "slices/35-neon-tiger.png",
+      "source_rect": {
+        "x": 2314,
+        "y": 882,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68566,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-36",
+      "slug": "steampunk-mouse",
+      "asset_type": "character",
+      "description": "mouse with goggles and brass gear",
+      "file": "slices/36-steampunk-mouse.png",
+      "source_rect": {
+        "x": 12,
+        "y": 1170,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68542,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-37",
+      "slug": "red-shadow-figure",
+      "asset_type": "character",
+      "description": "red and black shadow figure",
+      "file": "slices/37-red-shadow-figure.png",
+      "source_rect": {
+        "x": 300,
+        "y": 1170,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68539,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-38",
+      "slug": "beetle-armor",
+      "asset_type": "character",
+      "description": "black beetle-armored creature",
+      "file": "slices/38-beetle-armor.png",
+      "source_rect": {
+        "x": 588,
+        "y": 1170,
+        "width": 261,
+        "height": 262
+      },
+      "source_component_pixels": 68309,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-39",
+      "slug": "silver-orb-relic",
+      "asset_type": "object",
+      "description": "silver orb relic",
+      "file": "slices/39-silver-orb-relic.png",
+      "source_rect": {
+        "x": 875,
+        "y": 1170,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 63669,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-40",
+      "slug": "pastel-umbrella",
+      "asset_type": "object",
+      "description": "pastel iridescent umbrella",
+      "file": "slices/40-pastel-umbrella.png",
+      "source_rect": {
+        "x": 1163,
+        "y": 1170,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68568,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    },
+    {
+      "id": "lf-character-source-41",
+      "slug": "purple-portal",
+      "asset_type": "scene",
+      "description": "purple cosmic portal",
+      "file": "slices/41-purple-portal.png",
+      "source_rect": {
+        "x": 1451,
+        "y": 1170,
+        "width": 262,
+        "height": 262
+      },
+      "source_component_pixels": 68539,
+      "notes": "raw crop from user-provided Lonely Forest contact sheet; may include source UI overlays"
+    }
+  ]
+}

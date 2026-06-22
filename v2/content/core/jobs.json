@@ -1,0 +1,19 @@
+[
+  {
+    "id": "moonlit-trail:quiet-the-echo",
+    "premise": "The Moonlit Trail is carrying too much echo.",
+    "stakes": "If nobody steadies the trail, every rest makes its danger louder.",
+    "location_ids": [
+      3
+    ],
+    "participant_ids": [
+      1004
+    ],
+    "progress_clock_id": "moonlit-trail.progress",
+    "danger_clock_id": "moonlit-trail.danger",
+    "status": "active",
+    "reward": "quieted moonlight",
+    "consequence": "echo-fractured trail",
+    "memory_summary": ""
+  }
+]

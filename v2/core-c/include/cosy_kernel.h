@@ -173,6 +173,7 @@ typedef struct {
   cw_id destination_location_id;
   cw_id content_id;
   cw_id item_id;
+  int16_t modifier;
 } cw_action;
 
 typedef struct {

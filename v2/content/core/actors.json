@@ -1,0 +1,480 @@
+[
+  {
+    "id": 1001,
+    "name": "Rati",
+    "speech_mode": "prose",
+    "title": "Knitter of Blue Stories",
+    "description": "A warm mouse who collects small noticed things into stories."
+  },
+  {
+    "id": 1002,
+    "name": "Whiskerwind",
+    "speech_mode": "emoji_only",
+    "title": "Emoji Weather Tongue",
+    "description": "A wind-bright resident who speaks only in symbols."
+  },
+  {
+    "id": 1003,
+    "name": "Skull",
+    "speech_mode": "emote_only",
+    "title": "Silent Hearth Wolf",
+    "description": "A watchful wolf whose silence is part of the room."
+  },
+  {
+    "id": 1004,
+    "name": "Moonlit Echo",
+    "speech_mode": "silent",
+    "title": "Sparring Reflection",
+    "description": "A soft practice shape on the trail, bright enough to test courage."
+  },
+  {
+    "id": 1005,
+    "name": "Old Oak Tree",
+    "speech_mode": "prose",
+    "title": "Four-Voice Elder",
+    "description": "A rooted stranger whose leaves, rings, roots, and hollow remember different truths.",
+    "location_id": 40,
+    "stats": {
+      "strength": 16,
+      "dexterity": 6,
+      "constitution": 18,
+      "intelligence": 14,
+      "wisdom": 18,
+      "charisma": 13,
+      "hp_base": 16,
+      "level": 1
+    }
+  },
+  {
+    "id": 1040,
+    "name": "Shadow Wolf",
+    "speech_mode": "emote_only",
+    "title": "Red-Eyed Night Watch",
+    "description": "A dark wolf who keeps the Haunted Mansion threshold warm by watching every unlit path.",
+    "location_id": 42,
+    "stats": {
+      "strength": 17,
+      "dexterity": 14,
+      "constitution": 15,
+      "intelligence": 9,
+      "wisdom": 14,
+      "charisma": 8,
+      "hp_base": 18,
+      "level": 1
+    }
+  },
+  {
+    "id": 1041,
+    "name": "Forest Dryad",
+    "speech_mode": "prose",
+    "title": "Green-Breath Dreamer",
+    "description": "A leaf-haired spirit who remembers the first promise made under the Flower Meadow boughs.",
+    "location_id": 44,
+    "stats": {
+      "strength": 8,
+      "dexterity": 13,
+      "constitution": 12,
+      "intelligence": 15,
+      "wisdom": 17,
+      "charisma": 15,
+      "hp_base": 12,
+      "level": 1
+    }
+  },
+  {
+    "id": 1042,
+    "name": "Woodland Bear",
+    "speech_mode": "prose",
+    "title": "Keeper of the Moss Path",
+    "description": "A broad-shouldered forest neighbor who knows which roots trip travelers and which ones hold doors open.",
+    "location_id": 40,
+    "stats": {
+      "strength": 17,
+      "dexterity": 8,
+      "constitution": 16,
+      "intelligence": 10,
+      "wisdom": 14,
+      "charisma": 11,
+      "hp_base": 20,
+      "level": 1
+    }
+  },
+  {
+    "id": 1043,
+    "name": "Golden Squirrel",
+    "speech_mode": "prose",
+    "title": "Acorn-Bright Messenger",
+    "description": "A quick meadow courier with a sunlit tail and a talent for overhearing useful gossip.",
+    "location_id": 44,
+    "stats": {
+      "strength": 6,
+      "dexterity": 18,
+      "constitution": 8,
+      "intelligence": 11,
+      "wisdom": 13,
+      "charisma": 14,
+      "hp_base": 8,
+      "level": 1
+    }
+  },
+  {
+    "id": 1044,
+    "name": "Blue Squirrel",
+    "speech_mode": "prose",
+    "title": "Dusk Nut Archivist",
+    "description": "A blue-furred collector who hides tiny records in the Lost Woods where only moonlight can find them.",
+    "location_id": 41,
+    "stats": {
+      "strength": 5,
+      "dexterity": 17,
+      "constitution": 8,
+      "intelligence": 12,
+      "wisdom": 12,
+      "charisma": 13,
+      "hp_base": 8,
+      "level": 1
+    }
+  },
+  {
+    "id": 1045,
+    "name": "Badger Cub",
+    "speech_mode": "prose",
+    "title": "Brave Little Burrower",
+    "description": "A young badger with paint on their paws and more courage than their worried elders prefer.",
+    "location_id": 41,
+    "stats": {
+      "strength": 8,
+      "dexterity": 10,
+      "constitution": 12,
+      "intelligence": 10,
+      "wisdom": 13,
+      "charisma": 12,
+      "hp_base": 10,
+      "level": 1
+    }
+  },
+  {
+    "id": 1046,
+    "name": "Llama Scholar",
+    "speech_mode": "prose",
+    "title": "Abbey Bookkeeper",
+    "description": "A bespectacled scholar balancing old folios, warm tea, and a private theory about talking trees.",
+    "location_id": 43,
+    "stats": {
+      "strength": 7,
+      "dexterity": 8,
+      "constitution": 10,
+      "intelligence": 18,
+      "wisdom": 16,
+      "charisma": 14,
+      "hp_base": 10,
+      "level": 1
+    }
+  },
+  {
+    "id": 1047,
+    "name": "Cloaked Mouse Reader",
+    "speech_mode": "prose",
+    "title": "Orange-Cloak Listener",
+    "description": "A small reader who carries a book like a lantern and notices the page everyone else skipped.",
+    "location_id": 43,
+    "stats": {
+      "strength": 5,
+      "dexterity": 13,
+      "constitution": 8,
+      "intelligence": 15,
+      "wisdom": 15,
+      "charisma": 13,
+      "hp_base": 8,
+      "level": 1
+    }
+  },
+  {
+    "id": 1048,
+    "name": "Rabbit Scribe",
+    "speech_mode": "prose",
+    "title": "Fernside Copyist",
+    "description": "A careful rabbit who copies forest laws into margins full of corrections and wildflower sketches.",
+    "location_id": 43,
+    "stats": {
+      "strength": 6,
+      "dexterity": 15,
+      "constitution": 9,
+      "intelligence": 15,
+      "wisdom": 14,
+      "charisma": 12,
+      "hp_base": 9,
+      "level": 1
+    }
+  },
+  {
+    "id": 1049,
+    "name": "Mouse Wanderer",
+    "speech_mode": "prose",
+    "title": "Red-Cloak Wayfarer",
+    "description": "A staff-carrying mouse who walks the Lost Woods as if every wrong turn has something kind to teach.",
+    "location_id": 41,
+    "stats": {
+      "strength": 5,
+      "dexterity": 14,
+      "constitution": 9,
+      "intelligence": 12,
+      "wisdom": 13,
+      "charisma": 14,
+      "hp_base": 8,
+      "level": 1
+    }
+  },
+  {
+    "id": 1050,
+    "name": "Garden Rabbit",
+    "speech_mode": "prose",
+    "title": "Keyhole Gardener",
+    "description": "A rabbit in the deep garden who tends locked gates, stubborn reeds, and secret vegetable beds.",
+    "location_id": 44,
+    "stats": {
+      "strength": 6,
+      "dexterity": 16,
+      "constitution": 9,
+      "intelligence": 12,
+      "wisdom": 14,
+      "charisma": 13,
+      "hp_base": 9,
+      "level": 1
+    }
+  },
+  {
+    "id": 1051,
+    "name": "Veiled Forest Ghost",
+    "speech_mode": "silent",
+    "title": "Green Veil Remnant",
+    "description": "A moss-veiled presence who drifts through the Haunted Mansion carrying the shape of an unfinished song.",
+    "location_id": 42,
+    "stats": {
+      "strength": 5,
+      "dexterity": 14,
+      "constitution": 9,
+      "intelligence": 15,
+      "wisdom": 17,
+      "charisma": 10,
+      "hp_base": 12,
+      "level": 1
+    }
+  },
+  {
+    "id": 1052,
+    "name": "Wolf Pup",
+    "speech_mode": "prose",
+    "title": "Grey Paw Apprentice",
+    "description": "A small wolf pup learning which shadows are dangerous and which are only embarrassed to be seen.",
+    "location_id": 41,
+    "stats": {
+      "strength": 9,
+      "dexterity": 15,
+      "constitution": 10,
+      "intelligence": 8,
+      "wisdom": 12,
+      "charisma": 12,
+      "hp_base": 10,
+      "level": 1
+    }
+  },
+  {
+    "id": 1053,
+    "name": "White Ferret Noble",
+    "speech_mode": "prose",
+    "title": "Pearl-Coat Envoy",
+    "description": "A soft-spoken noble with bright eyes, careful manners, and a surprisingly practical map of the roots.",
+    "location_id": 40,
+    "stats": {
+      "strength": 6,
+      "dexterity": 14,
+      "constitution": 9,
+      "intelligence": 14,
+      "wisdom": 13,
+      "charisma": 17,
+      "hp_base": 9,
+      "level": 1
+    }
+  },
+  {
+    "id": 1054,
+    "name": "Blue Shadow Man",
+    "speech_mode": "prose",
+    "title": "Indigo Rift Walker",
+    "description": "A luminous stranger whose wings look less like feathers than weather seen through a cracked mirror.",
+    "location_id": 42,
+    "stats": {
+      "strength": 14,
+      "dexterity": 15,
+      "constitution": 13,
+      "intelligence": 14,
+      "wisdom": 12,
+      "charisma": 10,
+      "hp_base": 16,
+      "level": 1
+    }
+  },
+  {
+    "id": 1055,
+    "name": "Golden Winged Boy",
+    "speech_mode": "prose",
+    "title": "Sun-Marked Herald",
+    "description": "A golden-winged visitor from the high weather who treats every omen like a letter addressed by name.",
+    "location_id": 30,
+    "stats": {
+      "strength": 13,
+      "dexterity": 15,
+      "constitution": 12,
+      "intelligence": 12,
+      "wisdom": 15,
+      "charisma": 16,
+      "hp_base": 14,
+      "level": 1
+    }
+  },
+  {
+    "id": 1056,
+    "name": "Grey Winged Boy",
+    "speech_mode": "prose",
+    "title": "Cloud-Quiet Pilgrim",
+    "description": "A grey-winged pilgrim resting above the tree line with storm-light still caught in his feathers.",
+    "location_id": 31,
+    "stats": {
+      "strength": 12,
+      "dexterity": 14,
+      "constitution": 12,
+      "intelligence": 13,
+      "wisdom": 14,
+      "charisma": 13,
+      "hp_base": 13,
+      "level": 1
+    }
+  },
+  {
+    "id": 1057,
+    "name": "Sunlit Winged Boy",
+    "speech_mode": "prose",
+    "title": "Noon-Feather Witness",
+    "description": "A bright-winged witness who sees paths from above and never quite remembers to land quietly.",
+    "location_id": 30,
+    "stats": {
+      "strength": 10,
+      "dexterity": 15,
+      "constitution": 11,
+      "intelligence": 12,
+      "wisdom": 16,
+      "charisma": 15,
+      "hp_base": 12,
+      "level": 1
+    }
+  },
+  {
+    "id": 1058,
+    "name": "Tavern Blond Boy",
+    "speech_mode": "prose",
+    "title": "Hearthside Cupbearer",
+    "description": "A warm tavern helper who can turn a spare cup, a tired smile, and a rumor into hospitality.",
+    "location_id": 40,
+    "stats": {
+      "strength": 8,
+      "dexterity": 13,
+      "constitution": 10,
+      "intelligence": 12,
+      "wisdom": 11,
+      "charisma": 16,
+      "hp_base": 10,
+      "level": 1
+    }
+  },
+  {
+    "id": 1059,
+    "name": "Armored Winged Hero",
+    "speech_mode": "prose",
+    "title": "Moon-Circle Guardian",
+    "description": "A gold-armored guardian with wings like vows and a habit of standing between fear and the door.",
+    "location_id": 35,
+    "stats": {
+      "strength": 18,
+      "dexterity": 13,
+      "constitution": 16,
+      "intelligence": 11,
+      "wisdom": 13,
+      "charisma": 15,
+      "hp_base": 20,
+      "level": 1
+    }
+  },
+  {
+    "id": 1060,
+    "name": "Neon Tiger",
+    "speech_mode": "prose",
+    "title": "Bright-Stripe Glitchcat",
+    "description": "A color-slashed tiger from the Digital Realm, all teeth, swagger, and improbable kindness.",
+    "location_id": 63,
+    "stats": {
+      "strength": 16,
+      "dexterity": 18,
+      "constitution": 12,
+      "intelligence": 12,
+      "wisdom": 10,
+      "charisma": 15,
+      "hp_base": 16,
+      "level": 1
+    }
+  },
+  {
+    "id": 1061,
+    "name": "Steampunk Mouse",
+    "speech_mode": "prose",
+    "title": "Brass-Key Tinker",
+    "description": "A goggle-wearing mouse whose pockets click with tiny inventions, borrowed keys, and half-finished plans.",
+    "location_id": 40,
+    "stats": {
+      "strength": 6,
+      "dexterity": 15,
+      "constitution": 9,
+      "intelligence": 16,
+      "wisdom": 12,
+      "charisma": 14,
+      "hp_base": 9,
+      "level": 1
+    }
+  },
+  {
+    "id": 1062,
+    "name": "Red Shadow Figure",
+    "speech_mode": "emote_only",
+    "title": "Ash-Cloak Omen",
+    "description": "A red-black figure who appears where the forest has swallowed a warning and left only heat behind.",
+    "location_id": 42,
+    "stats": {
+      "strength": 15,
+      "dexterity": 14,
+      "constitution": 12,
+      "intelligence": 13,
+      "wisdom": 10,
+      "charisma": 8,
+      "hp_base": 16,
+      "level": 1
+    }
+  },
+  {
+    "id": 1063,
+    "name": "Beetle Armor",
+    "speech_mode": "emote_only",
+    "title": "Chitinous Black Knight",
+    "description": "A towering beetle-armored creature whose shell reflects violet light and old swamp grudges.",
+    "location_id": 60,
+    "stats": {
+      "strength": 18,
+      "dexterity": 8,
+      "constitution": 18,
+      "intelligence": 8,
+      "wisdom": 10,
+      "charisma": 7,
+      "hp_base": 22,
+      "level": 1
+    }
+  }
+]

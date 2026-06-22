@@ -1,0 +1,70 @@
+[
+  {
+    "id": "room:1",
+    "location_id": 1,
+    "name": "The Cosy Cottage",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "warm threshold",
+      "careful host"
+    ],
+    "boons": [
+      "new avatars can begin here"
+    ],
+    "hooks": [
+      "the hearth notices unfinished promises"
+    ],
+    "resources": {
+      "warmth": 3,
+      "tea": 2
+    },
+    "projects": []
+  },
+  {
+    "id": "room:2",
+    "location_id": 2,
+    "name": "Rain-Soft Garden",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "rain-bright leaves",
+      "small discoveries"
+    ],
+    "boons": [
+      "seed items surface after gentle attention"
+    ],
+    "hooks": [
+      "the garden remembers what was taken"
+    ],
+    "resources": {
+      "dew": 3,
+      "shelter": 1
+    },
+    "projects": []
+  },
+  {
+    "id": "room:3",
+    "location_id": 3,
+    "name": "Moonlit Trail",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": [
+      "silver hush",
+      "practice circle"
+    ],
+    "boons": [
+      "fleeing remains a valid success"
+    ],
+    "hooks": [
+      "the echo sharpens when travelers push too hard"
+    ],
+    "resources": {
+      "moonlight": 2,
+      "quiet": 1
+    },
+    "projects": [
+      "moonlit-trail:quiet-the-echo"
+    ]
+  }
+]

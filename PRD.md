@@ -29,7 +29,8 @@ The player should first become someone in the world. After generating a human av
 - Replace the existing multi-panel prototype UX with a single-room chat server experience.
 - Gate chat behind human avatar generation.
 - Keep one primary action surface in the resting UI. It usually says "Chat", but can become "Create Avatar", "Give Item", "Travel", or another context action.
-- Treat avatars, items, and locations as card-backed world entities, with NFT metadata and card art as the canonical presentation layer when available.
+- Treat avatars, items, and locations as card-backed world entities now, while designing toward a native signed provenance chain (token-free) as the post-MVP ownership layer; external NFT metadata remains an optional bridge for official expansions.
+- Plan for free gifting, world-bound trading, and secret-poem unlocks in the native ownership phase, without making those features first-release gates.
 - Treat locations as channel-backed places with shared history.
 - Treat the world as one shared global state, not a private per-user simulation.
 - Treat avatar movement, entrances, exits, idle beats, and failed movement as room events.
@@ -92,24 +93,33 @@ Design consequence:
 
 ## Card-Backed World Objects
 
-CosyWorld 2.0 should use the Ruby High card/NFT system as inspiration and infrastructure.
+Avatars, resident NPCs, items, and locations are not merely database rows with optional images. They are cards first: stable ids, roles, names, art aspect, flavor text, rarity, and provenance.
 
-Avatars, resident NPCs, items, and locations are not merely database rows with optional images. They are cards first: stable ids, roles, names, art aspect, flavor text, rarity, provenance, and eventually chain-backed ownership or reveal data.
+Target ownership is **native and token-free**. Cards should be owned through CosyWorld's own signed provenance chain — an Ed25519 + content-addressed append-only log (the substrate proven in the sibling `signal` project), not a blockchain or token. A card carries its lineage: who minted it, the world event it was earned through, and every prior owner. The current MVP can keep local seed cards and the optional external bridge while this native layer is built. The Ruby High card system remains *inspiration and an optional external bridge* (see [Free Core And Official Expansions](#free-core-and-official-expansions)), not the base ownership layer.
 
 Requirements:
 
 - Every visible avatar, item, and location has a card identity.
-- Card records expose role, display name, title, blurb, art aspect, image URL, asset status, and optional chain metadata.
-- Known Ruby High cards, such as Rati, should resolve through the existing First Bell catalog and on-chain image metadata.
-- CosyWorld-only seed objects can start as local or pending cards, then graduate into the same pipeline when art and metadata are minted.
+- Card records expose role, display name, title, blurb, art aspect, image URL, and asset status now; native chain provenance (mint event, owner pubkey, lineage) is added in the ownership phase.
+- Target native card *types* are content-addressed (hash of the definition); card *instances* carry serial + mint event + `parent_merkle` provenance.
+- CosyWorld seed objects start as local or pending cards, then graduate into the same native mint pipeline when art is finalized.
+- Optional external NFTs (e.g. Ruby High First Bell) project into the native chain as cards through a trusted bridge feed; they are never required to own, gift, or trade a base-game card.
 - The UI shape follows card aspect: avatars are round portrait crops, items are square, and locations are wide rectangles.
-- Card ownership is additive by default: identity, cosmetics, collection, provenance, community status, and sharing. It must not accidentally become required progression.
+- Card ownership is additive by default: identity, cosmetics, collection, provenance, community status, gifting, and trading. It must not accidentally become required progression.
+
+### Trading, Gifting, And Secret Poems
+
+In the native ownership phase, cards can change hands, and CosyWorld defaults to a **provenance-preserving** stance — the cozy middle between freely-tradeable property and soulbound memory:
+
+- **Gifting is free and first-class.** Handing a card to another player is a single signed transfer; the lineage records who gave it, forever.
+- **Trading is world-bound.** A swap requires both players present in the same room or covenant, is co-signed (or escrowed by the authority), and is atomic. A trade re-attributes provenance; it never erases it. There is no anonymous secondary market.
+- **Secret poems unlock and gift.** A card earned as a reward can carry a claim poem; reciting it (via commit-reveal, so it can't be front-run) binds the card to the reciter once, then the poem is spent. Public *incantation* poems instead gate shared world content (a hidden exit, a covenant boon) and are repeatable. A poem never controls a private key — identity is always a real Ed25519 keypair.
 
 ### Free Core And Official Expansions
 
 The free game must feel complete. CosyWorld Core includes the avatar gate, The Cosy Cottage, public nearby rooms, listening, Orbs, seed items, resident evolution, and the public practice/combat loop. A free player should feel like they live in the world, not like they are waiting in a storefront.
 
-Official NFTs unlock official expansions inside the shared world. The first official expansion is **Ruby High: First Bell**, tied to Ruby High ownership from the trusted official feed. Its school rooms, such as Science Class and Library, require matching Ruby High location cards on the official shard.
+Native ownership is the target canonical layer: base-game cards, gifting, trading, and poem unlocks work without a wallet once Phase 10 lands. Until then, CosyWorld Core still works from seed/local cards, and official *external* NFTs remain an optional bridge that unlocks official expansions inside the shared world. The first official expansion is **Ruby High: First Bell**, tied to Ruby High ownership from the trusted official feed. Its school rooms, such as Science Class and Library, require matching Ruby High location cards on the official shard. Holding such an NFT should eventually project into the native chain as expansion access; it never replaces the native ownership layer.
 
 Expansion ownership never creates private copies. If Alice and Bob both own the Science Class card, they enter the same Science Class channel, see the same shared timeline, and share the same AI residents. The system must not create one-on-one teacher DMs or per-user room instances for card owners.
 
@@ -131,12 +141,14 @@ Example: if wallets holding `rati` mostly also hold `location-science-lab`, Rati
 
 This keeps the world extensible. Adding Whiskerwind art, Skull art, cottage variants, or evolution items should be a content pipeline operation, not a bespoke UI rewrite.
 
-## Orbs, Boxes, And Packs
+## Orbs, Cards, And Packs
 
 CosyWorld has two economy resources:
 
-- Orbs are fungible in-world currency.
-- Intricately Carved Wooden Boxes are wallet-owned NFTs.
+- Orbs are fungible in-world currency (an attention-and-amplification economy, never a power source).
+- Cards are world objects now and become native chain-owned objects in the ownership phase — earned, minted, gifted, and traded through the signed provenance log, no wallet required.
+
+Intricately Carved Wooden Boxes remain as an *optional external NFT bridge*: a held Box can be burned to mint a native card pack, but the base pack/card economy does not depend on any external NFT.
 
 Orbs should behave like MMO play energy, not like an external payment rail. They are earned by completing challenges, solving puzzles, advancing room goals, or resolving encounters. Chat costs Orbs because `Chat` asks the server to author a player-avatar line, commit it to the shared room, and potentially trigger resident AI. If the player has no Orbs, the primary command should become a world action that can earn them, such as `Challenge`, `Listen`, `Practice`, or `Notice`, rather than opening a shop.
 
@@ -150,16 +162,18 @@ Product requirements:
 - If the player has no connected OpenRouter payer and insufficient Orbs, the primary command should route them toward earning Orbs through a world action.
 - "Unlimited" means no CosyWorld Orb cost; OpenRouter credit limits, rate limits, and model availability still apply.
 
-Boxes are collectible NFT objects. A Box can be burned in a Ruby High card-pack style flow to create an avatar card pack. Opening the pack reveals avatar cards from the CosyWorld/Ruby High world catalog. The burn is irreversible and wallet-verified; the reveal is a shared provenance event.
+Target packs mint native cards. Opening a pack reveals avatar cards from the CosyWorld catalog and records each as a signed mint event in the native provenance chain, bound to the reveal. The current MVP bridge can still burn an *external* Box NFT to open a pack through the wallet-verified, idempotent route; native in-world packs arrive with the ownership phase.
 
 Product requirements:
 
 - Orbs are off-chain in the first production slice and live in the v2 account ledger.
 - Orbs are non-transferable until there is a separate bridge design.
 - Chat affordability is server-derived; the client must not decide that a player can spend Orbs.
-- Boxes come from the trusted wallet ownership feed, not query params.
-- Burning a Box requires a signed wallet transaction and an idempotent server receipt.
-- Opening a Box or pack can be exposed as a contextual account/inventory command, but it must not replace the transcript as the main experience.
+- In the native ownership phase, card mint, gift, transfer, and swap are signed events in the provenance log; the client never decides ownership.
+- In that phase, gifting is free and first-class; trading is world-bound (same room or covenant), co-signed, atomic, and lineage-preserving. No anonymous secondary market.
+- A future poem-claim uses commit-reveal so a public-log watcher cannot front-run it; a claim poem is consumable, a world-gate incantation is repeatable. Poems never derive owning keys.
+- External Boxes, when used, come from the trusted wallet ownership feed, not query params, and burning one requires a signed wallet transaction and an idempotent server receipt.
+- Opening a pack can be exposed as a contextual account/inventory command, but it must not replace the transcript as the main experience.
 - Revealed avatar cards influence global shared-world systems, including resident placement and future cosmetic/evolution affordances.
 - Revealed avatar cards do not spawn private NPC copies.
 
@@ -566,7 +580,7 @@ Requirements:
 - Add higher-level evolution tracks beyond level 2.
 - Add turn-based encounter support: challenge, initiative, attack, defend, hide, flee, use item, knockout, and recovery.
 - Add OpenRouter account connection and key verification for player-paid Chat/media.
-- Add verified Box burn, avatar pack reveal, and card grants with Ruby High-style provenance.
+- Add verified Box burn and avatar pack reveal as the optional external bridge; keep card grants compatible with the later native provenance chain.
 
 ## Success Metrics
 
@@ -597,7 +611,10 @@ Requirements:
 - Item evolution could become grindy if requirements are generic rather than story-specific.
 - Future monetization or wallet features could overwhelm the core room experience if placed in the main surface.
 - If Orbs are treated like USDC payments, the game loop will become brittle and expensive to reason about.
-- If Box burns are not idempotent, irreversible NFT actions could duplicate or lose card grants.
+- If card mint/transfer/swap or external Box burns are not idempotent, irreversible ownership actions could duplicate or lose cards.
+- Tradeable cards could reintroduce the speculation the native chain was chosen to avoid; the provenance-preserving, world-bound trade model must hold the line.
+- Poem unlocks implemented as poem-derived keys (brainwallets) would be drained by bots and would publish private keys in a public world; claims must be commit-reveal tickets, never owning keys.
+- "Decentralized" in federation means verifiable and permanent, not trustless; messaging must not over-claim until the P2P endpoint ships.
 
 ## Acceptance Criteria
 
@@ -615,4 +632,7 @@ Requirements:
 - The first release works on mobile without exposing sidebars as primary navigation.
 - Item discoveries and avatar evolution requirements are represented as world state, not local-only UI state.
 - The economy design preserves one shared world: cards influence shared rooms and residents, never private NPC DMs.
+- Native ownership phase acceptance: a player can own, gift, and trade a base-game card with no wallet and no external NFT.
+- Native ownership phase acceptance: card ownership is recomputable from the signed provenance log and verifies against its authority's signatures.
+- Native ownership phase acceptance: a claim poem can be redeemed exactly once via commit-reveal; a world-gate incantation can be recited repeatably.
 - Combat/challenge earning uses `Attack`, `Defend`, `Flee`, and `Use` style actions instead of quiz answers.

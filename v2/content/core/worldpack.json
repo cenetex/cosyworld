@@ -1,0 +1,20 @@
+{
+  "id": "cosyworld.core",
+  "name": "CosyWorld Core",
+  "version": 1,
+  "description": "Authoritative seed worldpack for the core CosyWorld shard.",
+  "files": {
+    "actors": "actors.json",
+    "items": "items.json",
+    "locations": "locations.json",
+    "exits": "exits.json",
+    "room_features": "room_features.json",
+    "room_sheets": "room_sheets.json",
+    "clocks": "clocks.json",
+    "jobs": "jobs.json",
+    "cards": "cards.json",
+    "fallback_lines": "fallback_lines.json",
+    "lifecycle_hooks": "lifecycle_hooks.json",
+    "evolution_tracks": "evolution_tracks.json"
+  }
+}

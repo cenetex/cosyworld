@@ -19,7 +19,7 @@ use kernel::*;
 use qrcode::{render::svg, QrCode};
 use rand::{rngs::OsRng, RngCore};
 use rusqlite::{params, Connection, OptionalExtension};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     convert::Infallible,
@@ -193,6 +193,13 @@ const RATE_LIMITED_STATUS: u32 = 429;
 const CLIENT_SPEECH_DISABLED_STATUS: u32 = 410;
 const CHAT_IN_FLIGHT_STATUS: u32 = 409;
 const MAX_AVATAR_NAME_CHARS: usize = 28;
+const MAX_CALLING_STATEMENT_CHARS: usize = 96;
+const MAX_BOND_STATEMENT_CHARS: usize = 96;
+const CALLING_REVISION_COST: u8 = 1;
+const BOND_SLOT_COST: u8 = 1;
+const BOND_REVISION_COST: u8 = 1;
+const SKILL_STEP_COST: u8 = 1;
+const MAX_SKILL_RANK: u8 = 3;
 const DEFAULT_EVENT_REPLAY_LIMIT: usize = 80;
 const MAX_EVENT_REPLAY_LIMIT: usize = 500;
 const MAX_EVENT_STORE_SCAN: usize = 1000;
@@ -203,10 +210,12 @@ const LISTEN_ORB_REWARD: i32 = 1;
 const LISTEN_REPEAT_ORB_COST: i32 = 1;
 const LISTEN_ABILITY: u8 = 4;
 const LISTEN_DC: u16 = 12;
+const ZONE_SANCTUARY: &str = "sanctuary";
+const ZONE_FRONTIER: &str = "frontier";
 const MOONLIT_TRAIL_LOCATION_ID: u64 = 3;
-const MOONLIT_JOB_ID: &str = "job_moonlit_trail_quiet";
-const MOONLIT_PROGRESS_CLOCK_ID: &str = "moonlit_trail_quiet_progress";
-const MOONLIT_DANGER_CLOCK_ID: &str = "moonlit_trail_echo_danger";
+const MOONLIT_JOB_ID: &str = "moonlit-trail:quiet-the-echo";
+const MOONLIT_PROGRESS_CLOCK_ID: &str = "moonlit-trail.progress";
+const MOONLIT_DANGER_CLOCK_ID: &str = "moonlit-trail.danger";
 const ATTACK_HIT_ORB_REWARD: i32 = 1;
 const KNOCKOUT_ORB_REWARD: i32 = 3;
 const FLEE_ORB_REWARD: i32 = 1;
@@ -236,17 +245,54 @@ struct LocationMeta {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "op", rename_all = "snake_case")]
+enum EffectDescriptor {
+    AdvanceClock {
+        clock_id: String,
+        amount: u8,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    SetTag {
+        tag_id: String,
+        scope: String,
+        scope_id: u64,
+        label: String,
+        kind: String,
+        #[serde(default)]
+        expires: Option<String>,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    ClearTag {
+        tag_id: String,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+    SetJobStatus {
+        job_id: String,
+        status: String,
+        #[serde(default)]
+        reason: Option<String>,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct ClockState {
     id: String,
     scope: String,
     scope_id: u64,
     kind: String,
+    #[serde(default = "default_zone")]
+    zone: String,
     label: String,
     segments: u8,
     filled: u8,
     visible_to_players: bool,
     #[serde(default)]
     status: String,
+    #[serde(default)]
+    on_fill: Vec<EffectDescriptor>,
     #[serde(default)]
     created_event_seq: Option<u64>,
     #[serde(default)]
@@ -291,6 +337,8 @@ struct RoomSheetState {
     location_id: u64,
     name: String,
     safety: String,
+    #[serde(default = "default_zone")]
+    zone: String,
     aspects: Vec<String>,
     boons: Vec<String>,
     hooks: Vec<String>,
@@ -316,6 +364,93 @@ enum ProjectionMutation {
         tag_id: String,
         reason: String,
     },
+    SetJobStatus {
+        job_id: String,
+        status: String,
+        reason: String,
+    },
+    BankVisitLedger {
+        reason: String,
+    },
+    ReviseCalling {
+        statement: String,
+        cost: u8,
+        reason: String,
+    },
+    CreateBond {
+        target_actor_id: u64,
+        statement: String,
+        cost: u8,
+        reason: String,
+    },
+    ReviseBond {
+        target_actor_id: u64,
+        statement: String,
+        cost: u8,
+        reason: String,
+    },
+    TrainSkill {
+        skill_id: String,
+        cost: u8,
+        reason: String,
+    },
+    ResolveBond {
+        target_actor_id: u64,
+        reason: String,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct CallingState {
+    actor_id: u64,
+    statement: String,
+    #[serde(default)]
+    source_event_seq: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SkillState {
+    actor_id: u64,
+    skill_id: String,
+    label: String,
+    rank: u8,
+    #[serde(default)]
+    updated_event_seq: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct VisitLedgerMarkState {
+    id: String,
+    actor_id: u64,
+    category: String,
+    label: String,
+    source_event_seq: u64,
+    #[serde(default)]
+    banked: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct AdvancementSpendState {
+    id: String,
+    actor_id: u64,
+    kind: String,
+    label: String,
+    cost: u8,
+    source_event_seq: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct BondState {
+    id: String,
+    actor_id: u64,
+    target_actor_id: u64,
+    statement: String,
+    strength: u8,
+    status: String,
+    #[serde(default)]
+    source_event_seq: Option<u64>,
+    #[serde(default)]
+    updated_event_seq: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -324,16 +459,48 @@ struct ItemMeta {
     description: String,
 }
 
-const SEED_CONTENT_JSON: &str = include_str!("seed_content.json");
+const SEED_CONTENT_JSON: &str = include_str!("../../content/core/worldpack.json");
+const SEED_ACTORS_JSON: &str = include_str!("../../content/core/actors.json");
+const SEED_ITEMS_JSON: &str = include_str!("../../content/core/items.json");
+const SEED_LOCATIONS_JSON: &str = include_str!("../../content/core/locations.json");
+const SEED_EXITS_JSON: &str = include_str!("../../content/core/exits.json");
+const SEED_ROOM_FEATURES_JSON: &str = include_str!("../../content/core/room_features.json");
+const SEED_ROOM_SHEETS_JSON: &str = include_str!("../../content/core/room_sheets.json");
+const SEED_CLOCKS_JSON: &str = include_str!("../../content/core/clocks.json");
+const SEED_JOBS_JSON: &str = include_str!("../../content/core/jobs.json");
+const SEED_CARDS_JSON: &str = include_str!("../../content/core/cards.json");
+const SEED_FALLBACK_LINES_JSON: &str = include_str!("../../content/core/fallback_lines.json");
+const SEED_LIFECYCLE_HOOKS_JSON: &str = include_str!("../../content/core/lifecycle_hooks.json");
+const SEED_EVOLUTION_TRACKS_JSON: &str = include_str!("../../content/core/evolution_tracks.json");
+const LONELY_FOREST_CHARACTER_MANIFEST_JSON: &str =
+    include_str!("../../content/lonely-forest/assets/characters/manifest.json");
+const LONELY_FOREST_CHARACTER_ASSET_PREFIX: &str = "/assets/lonely-forest/characters/";
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 struct SeedContent {
+    manifest: SeedWorldpackManifest,
     actors: Vec<SeedActorContent>,
     items: Vec<SeedItemContent>,
     locations: Vec<SeedLocationContent>,
-    #[serde(default)]
     room_features: Vec<SeedRoomFeatureContent>,
+    exits: Vec<SeedExitContent>,
+    room_sheets: Vec<RoomSheetState>,
+    clocks: Vec<ClockState>,
+    jobs: Vec<JobState>,
+    cards: Vec<SeedCardContent>,
+    fallback_lines: Vec<SeedFallbackLineContent>,
+    lifecycle_hooks: Vec<SeedLifecycleHookContent>,
     evolution_tracks: Vec<SeedEvolutionTrack>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SeedWorldpackManifest {
+    id: String,
+    name: String,
+    version: u32,
+    #[serde(default)]
+    description: String,
+    files: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -343,6 +510,22 @@ struct SeedActorContent {
     speech_mode: String,
     title: String,
     description: String,
+    #[serde(default)]
+    location_id: Option<u64>,
+    #[serde(default)]
+    stats: Option<SeedStatBlockContent>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+struct SeedStatBlockContent {
+    strength: i8,
+    dexterity: i8,
+    constitution: i8,
+    intelligence: i8,
+    wisdom: i8,
+    charisma: i8,
+    hp_base: i16,
+    level: u8,
 }
 
 #[derive(Debug, Deserialize)]
@@ -387,10 +570,91 @@ struct SeedFeatureUseContent {
     text: String,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+struct SeedExitContent {
+    from_location_id: u64,
+    to_location_id: u64,
+    #[serde(default)]
+    flags: u32,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedCardContent {
+    subject_kind: String,
+    subject_id: u64,
+    card_id: String,
+    display_name: String,
+    role: String,
+    rarity: String,
+    title: String,
+    blurb: String,
+    aspect: String,
+    source: String,
+    asset_status: String,
+    #[serde(default)]
+    image_url: Option<String>,
+    #[serde(default)]
+    external_card_id: Option<String>,
+    #[serde(default)]
+    set_number: Option<String>,
+    #[serde(default)]
+    profile_id: Option<String>,
+    #[serde(default)]
+    subject: Option<String>,
+    #[serde(default)]
+    chain_image_uri: Option<String>,
+    #[serde(default)]
+    requires_ownership: bool,
+    #[serde(default)]
+    art: Option<SeedCardArtContent>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedCardArtContent {
+    label: String,
+    role: String,
+    aspect: String,
+    bg: String,
+    ink: String,
+    accent: String,
+    glyph: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedFallbackLineContent {
+    kind: String,
+    #[serde(default)]
+    actor_id: Option<u64>,
+    #[serde(default)]
+    target_actor_id: Option<u64>,
+    text: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedLifecycleHookContent {
+    hook: String,
+    target_kind: String,
+    target_id: String,
+    #[serde(default)]
+    claim_scope: String,
+    #[serde(default)]
+    effects: Vec<EffectDescriptor>,
+}
+
 #[derive(Debug, Deserialize)]
 struct SeedEvolutionTrack {
     actor_id: u64,
     item_ids: Vec<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LonelyForestCharacterManifest {
+    entries: Vec<LonelyForestCharacterAsset>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LonelyForestCharacterAsset {
+    file: String,
 }
 
 #[derive(Debug)]
@@ -406,6 +670,11 @@ struct RuntimeWorld {
     tags: BTreeMap<String, RpgTagState>,
     jobs: BTreeMap<String, JobState>,
     room_sheets: BTreeMap<u64, RoomSheetState>,
+    callings: BTreeMap<u64, CallingState>,
+    skills: BTreeMap<String, SkillState>,
+    ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
+    advancement_spends: BTreeMap<String, AdvancementSpendState>,
+    bonds: BTreeMap<String, BondState>,
     rpg_claims: BTreeSet<String>,
     orb_balances: BTreeMap<u64, i32>,
     orb_reward_claims: BTreeSet<String>,
@@ -443,6 +712,16 @@ struct RuntimeSnapshot {
     jobs: BTreeMap<String, JobState>,
     #[serde(default)]
     room_sheets: BTreeMap<u64, RoomSheetState>,
+    #[serde(default)]
+    callings: BTreeMap<u64, CallingState>,
+    #[serde(default)]
+    skills: BTreeMap<String, SkillState>,
+    #[serde(default)]
+    ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
+    #[serde(default)]
+    advancement_spends: BTreeMap<String, AdvancementSpendState>,
+    #[serde(default)]
+    bonds: BTreeMap<String, BondState>,
     #[serde(default)]
     rpg_claims: BTreeSet<String>,
     #[serde(default)]
@@ -712,6 +991,10 @@ struct StateResponse {
     tags: Vec<TagView>,
     jobs: Vec<JobView>,
     room_sheet: Option<RoomSheetView>,
+    calling: Option<CallingView>,
+    skills: Vec<SkillView>,
+    ledger: VisitLedgerView,
+    bonds: Vec<BondView>,
     cards: CardRegistryView,
     access: AccessView,
     account: AccountView,
@@ -719,6 +1002,8 @@ struct StateResponse {
     branch: Option<BranchView>,
     recent_events: Vec<EventView>,
     primary_action: PrimaryAction,
+    action_offers: Vec<RankedActionOffer>,
+    inspector: InspectorView,
 }
 
 #[derive(Debug, Serialize)]
@@ -737,6 +1022,7 @@ struct EconomyView {
     can_chat_with_orbs: bool,
     listen_cost_orbs: i32,
     listen_reward_claimable: bool,
+    listen_attempted_here: bool,
     openrouter_connected: bool,
     chat_payer: String,
     wooden_boxes: usize,
@@ -853,6 +1139,7 @@ struct ClockView {
     scope: String,
     scope_id: u64,
     kind: String,
+    zone: String,
     label: String,
     segments: u8,
     filled: u8,
@@ -887,11 +1174,55 @@ struct RoomSheetView {
     location_id: u64,
     name: String,
     safety: String,
+    zone: String,
     aspects: Vec<String>,
     boons: Vec<String>,
     hooks: Vec<String>,
     resources: BTreeMap<String, i16>,
     projects: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct CallingView {
+    actor_id: u64,
+    statement: String,
+}
+
+#[derive(Debug, Serialize)]
+struct SkillView {
+    skill_id: String,
+    label: String,
+    rank: u8,
+    tier: String,
+    bonus: i16,
+}
+
+#[derive(Debug, Serialize)]
+struct VisitLedgerView {
+    unbanked_count: usize,
+    banked_count: usize,
+    spent_count: usize,
+    advancement_points: usize,
+    unbanked_marks: Vec<VisitLedgerMarkView>,
+}
+
+#[derive(Debug, Serialize)]
+struct VisitLedgerMarkView {
+    id: String,
+    category: String,
+    label: String,
+    source_event_seq: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct BondView {
+    id: String,
+    actor_id: u64,
+    target_actor_id: u64,
+    target_actor_name: Option<String>,
+    statement: String,
+    strength: u8,
+    status: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -989,6 +1320,113 @@ struct ActionOption {
     kind: String,
     label: String,
     command: String,
+}
+
+#[derive(Debug, Serialize)]
+struct RankedActionOffer {
+    id: String,
+    kind: String,
+    label: String,
+    command: String,
+    rank: u16,
+    disabled: bool,
+    disabled_reason: Option<String>,
+    zone: String,
+    source: String,
+    target: Option<ActionTargetView>,
+    cost: Option<ActionCostView>,
+    risk: Option<String>,
+    effect: Option<String>,
+    claim_key: Option<String>,
+    reason: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ActionTargetView {
+    kind: String,
+    id: Option<u64>,
+    label: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct ActionCostView {
+    orbs: i32,
+    reason: String,
+}
+
+#[derive(Debug, Serialize)]
+struct InspectorView {
+    location_id: u64,
+    room: RoomInspectorView,
+    suggested_action: Option<ActionInspectorView>,
+    jobs: Vec<JobInspectorView>,
+    clocks: Vec<ClockInspectorView>,
+    lifecycle_hooks: Vec<LifecycleHookInspectorView>,
+}
+
+#[derive(Debug, Serialize)]
+struct RoomInspectorView {
+    name: String,
+    zone: String,
+    safety: Option<String>,
+    aspects: Vec<String>,
+    boons: Vec<String>,
+    hooks: Vec<String>,
+    resources: BTreeMap<String, i16>,
+    projects: Vec<String>,
+    features: Vec<String>,
+    listen_reason: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct ActionInspectorView {
+    offer_id: String,
+    kind: String,
+    label: String,
+    command: String,
+    reason: String,
+    effect: Option<String>,
+    risk: Option<String>,
+    cost_orbs: Option<i32>,
+}
+
+#[derive(Debug, Serialize)]
+struct JobInspectorView {
+    id: String,
+    status: String,
+    premise: String,
+    needs: Vec<String>,
+    blockers: Vec<String>,
+    participants: Vec<String>,
+    progress_clock_id: String,
+    danger_clock_id: String,
+    reward: String,
+    consequence: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ClockInspectorView {
+    id: String,
+    kind: String,
+    label: String,
+    zone: String,
+    filled: u8,
+    segments: u8,
+    status: String,
+    visible_to_players: bool,
+    updated_event_seq: Option<u64>,
+    last_delta: Option<i16>,
+    last_reason: Option<String>,
+    on_fill_effect: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct LifecycleHookInspectorView {
+    hook: String,
+    target_kind: String,
+    target_id: String,
+    claim_scope: String,
+    effect: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1108,21 +1546,60 @@ struct ResolvedCommand {
 
 #[derive(Clone, Debug)]
 enum CommandDispatch {
-    Read { output: String },
-    Disabled { status: u32, output: String },
-    Move { destination_location_id: u64 },
-    Flee { destination_location_id: u64 },
+    Read {
+        output: String,
+    },
+    Disabled {
+        status: u32,
+        output: String,
+    },
+    Move {
+        destination_location_id: u64,
+    },
+    Flee {
+        destination_location_id: u64,
+    },
     Check,
-    PickUp { item_id: u64 },
-    UseItem { item_id: u64, target_actor_id: u64 },
-    GiveItem { item_id: u64, target_actor_id: u64 },
-    Attack { target_actor_id: u64 },
+    PickUp {
+        item_id: u64,
+    },
+    UseItem {
+        item_id: u64,
+        target_actor_id: u64,
+    },
+    GiveItem {
+        item_id: u64,
+        target_actor_id: u64,
+    },
+    Attack {
+        target_actor_id: u64,
+    },
     Defend,
     Prepare,
     Work,
     Help,
     Rest,
-    Chat { target_actor_id: u64 },
+    BankLedger,
+    ReviseCalling {
+        statement: String,
+    },
+    CreateBond {
+        target_actor_id: u64,
+        statement: String,
+    },
+    ReviseBond {
+        target_actor_id: u64,
+        statement: String,
+    },
+    TrainSkill {
+        skill_id: String,
+    },
+    ResolveBond {
+        target_actor_id: u64,
+    },
+    Chat {
+        target_actor_id: u64,
+    },
 }
 
 #[derive(Debug)]
@@ -1364,6 +1841,28 @@ struct AttackRequest {
 struct ActorRequest {
     actor_id: u64,
     actor_session: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ReviseCallingRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    statement: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ReviseBondRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    target_actor_id: u64,
+    statement: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TrainSkillRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    skill_id: String,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1642,10 +2141,104 @@ fn seed_content() -> &'static SeedContent {
     })
 }
 
-fn parse_seed_content(value: &str) -> Result<SeedContent, String> {
-    let content: SeedContent = serde_json::from_str(value).map_err(|error| error.to_string())?;
+fn parse_seed_content(manifest_json: &str) -> Result<SeedContent, String> {
+    let manifest: SeedWorldpackManifest = parse_seed_json("worldpack.json", manifest_json)?;
+    validate_worldpack_manifest(&manifest)?;
+    let content = SeedContent {
+        manifest,
+        actors: parse_seed_json("actors.json", SEED_ACTORS_JSON)?,
+        items: parse_seed_json("items.json", SEED_ITEMS_JSON)?,
+        locations: parse_seed_json("locations.json", SEED_LOCATIONS_JSON)?,
+        exits: parse_seed_json("exits.json", SEED_EXITS_JSON)?,
+        room_features: parse_seed_json("room_features.json", SEED_ROOM_FEATURES_JSON)?,
+        room_sheets: parse_seed_json("room_sheets.json", SEED_ROOM_SHEETS_JSON)?,
+        clocks: parse_seed_json("clocks.json", SEED_CLOCKS_JSON)?,
+        jobs: parse_seed_json("jobs.json", SEED_JOBS_JSON)?,
+        cards: parse_seed_json("cards.json", SEED_CARDS_JSON)?,
+        fallback_lines: parse_seed_json("fallback_lines.json", SEED_FALLBACK_LINES_JSON)?,
+        lifecycle_hooks: parse_seed_json("lifecycle_hooks.json", SEED_LIFECYCLE_HOOKS_JSON)?,
+        evolution_tracks: parse_seed_json("evolution_tracks.json", SEED_EVOLUTION_TRACKS_JSON)?,
+    };
     validate_seed_content(&content)?;
     Ok(content)
+}
+
+fn parse_seed_json<T: DeserializeOwned>(label: &str, value: &str) -> Result<T, String> {
+    serde_json::from_str(value).map_err(|error| format!("{label}: {error}"))
+}
+
+fn lonely_forest_character_manifest() -> &'static LonelyForestCharacterManifest {
+    static MANIFEST: OnceLock<LonelyForestCharacterManifest> = OnceLock::new();
+    MANIFEST.get_or_init(|| {
+        parse_seed_json(
+            "lonely-forest character manifest",
+            LONELY_FOREST_CHARACTER_MANIFEST_JSON,
+        )
+        .expect("embedded Lonely Forest character manifest must parse")
+    })
+}
+
+fn lonely_forest_character_asset_exists(asset_file: &str) -> bool {
+    if !safe_asset_file_name(asset_file) {
+        return false;
+    }
+    let manifest_file = format!("slices/{asset_file}");
+    lonely_forest_character_manifest()
+        .entries
+        .iter()
+        .any(|entry| entry.file == manifest_file)
+}
+
+fn safe_asset_file_name(asset_file: &str) -> bool {
+    !asset_file.is_empty()
+        && asset_file.len() <= 128
+        && asset_file.ends_with(".png")
+        && asset_file
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
+}
+
+fn seed_content_root() -> PathBuf {
+    if let Ok(path) = std::env::var("COSYWORLD_CONTENT_ROOT") {
+        return PathBuf::from(path);
+    }
+    let source_tree_content = Path::new(env!("CARGO_MANIFEST_DIR")).join("../content");
+    if source_tree_content.exists() {
+        source_tree_content
+    } else {
+        PathBuf::from("/app/v2/content")
+    }
+}
+
+fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), String> {
+    if manifest.id.trim().is_empty() || manifest.name.trim().is_empty() || manifest.version == 0 {
+        return Err("worldpack manifest is missing id, name, or version".to_string());
+    }
+    for (key, expected_file) in [
+        ("actors", "actors.json"),
+        ("items", "items.json"),
+        ("locations", "locations.json"),
+        ("exits", "exits.json"),
+        ("room_features", "room_features.json"),
+        ("room_sheets", "room_sheets.json"),
+        ("clocks", "clocks.json"),
+        ("jobs", "jobs.json"),
+        ("cards", "cards.json"),
+        ("fallback_lines", "fallback_lines.json"),
+        ("lifecycle_hooks", "lifecycle_hooks.json"),
+        ("evolution_tracks", "evolution_tracks.json"),
+    ] {
+        match manifest.files.get(key).map(String::as_str) {
+            Some(actual) if actual == expected_file => {}
+            Some(actual) => {
+                return Err(format!(
+                    "worldpack manifest maps {key} to {actual}, expected {expected_file}"
+                ));
+            }
+            None => return Err(format!("worldpack manifest is missing {key} file entry")),
+        }
+    }
+    Ok(())
 }
 
 fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
@@ -1659,6 +2252,9 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
                 "seed actor {} is missing name or speech mode",
                 actor.id
             ));
+        }
+        if let Some(stats) = actor.stats.as_ref() {
+            validate_seed_stats(actor.id, stats)?;
         }
     }
 
@@ -1690,6 +2286,30 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
             return Err(format!(
                 "seed location {} is missing title, description, or persona",
                 location.id
+            ));
+        }
+    }
+
+    for actor in &content.actors {
+        if let Some(location_id) = actor.location_id {
+            if !location_ids.contains(&location_id) {
+                return Err(format!(
+                    "seed actor {} references missing location {}",
+                    actor.id, location_id
+                ));
+            }
+        }
+    }
+
+    let mut exit_keys = BTreeSet::new();
+    for exit in &content.exits {
+        if !location_ids.contains(&exit.from_location_id)
+            || !location_ids.contains(&exit.to_location_id)
+            || !exit_keys.insert((exit.from_location_id, exit.to_location_id))
+        {
+            return Err(format!(
+                "invalid or duplicate seed exit {} -> {}",
+                exit.from_location_id, exit.to_location_id
             ));
         }
     }
@@ -1729,6 +2349,174 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
         }
     }
 
+    let mut room_sheet_locations = BTreeSet::new();
+    for sheet in &content.room_sheets {
+        if sheet.id.trim().is_empty()
+            || sheet.name.trim().is_empty()
+            || sheet.safety.trim().is_empty()
+            || !location_ids.contains(&sheet.location_id)
+            || !room_sheet_locations.insert(sheet.location_id)
+        {
+            return Err(format!(
+                "invalid or duplicate room sheet for location {}",
+                sheet.location_id
+            ));
+        }
+        if !matches!(room_sheet_zone(sheet), ZONE_SANCTUARY | ZONE_FRONTIER) {
+            return Err(format!("room sheet {} has invalid zone", sheet.id));
+        }
+    }
+
+    let mut clock_ids = BTreeSet::new();
+    for clock in &content.clocks {
+        if clock.id.trim().is_empty()
+            || clock.scope.trim().is_empty()
+            || clock.kind.trim().is_empty()
+            || clock.label.trim().is_empty()
+            || clock.segments == 0
+            || clock.filled > clock.segments
+            || !clock_ids.insert(clock.id.clone())
+        {
+            return Err(format!("invalid or duplicate clock {}", clock.id));
+        }
+        if clock.scope == "room" && !location_ids.contains(&clock.scope_id) {
+            return Err(format!(
+                "clock {} references missing room {}",
+                clock.id, clock.scope_id
+            ));
+        }
+    }
+
+    let mut job_ids = BTreeSet::new();
+    for job in &content.jobs {
+        if job.id.trim().is_empty()
+            || job.premise.trim().is_empty()
+            || job.stakes.trim().is_empty()
+            || !job_ids.insert(job.id.clone())
+            || !clock_ids.contains(&job.progress_clock_id)
+            || !clock_ids.contains(&job.danger_clock_id)
+        {
+            return Err(format!("invalid seed job {}", job.id));
+        }
+        for location_id in &job.location_ids {
+            if !location_ids.contains(location_id) {
+                return Err(format!(
+                    "job {} references missing location {}",
+                    job.id, location_id
+                ));
+            }
+        }
+        for participant_id in &job.participant_ids {
+            if !actor_ids.contains(participant_id) {
+                return Err(format!(
+                    "job {} references missing participant {}",
+                    job.id, participant_id
+                ));
+            }
+        }
+    }
+
+    let mut card_subjects = BTreeSet::new();
+    let mut card_ids = BTreeSet::new();
+    for card in &content.cards {
+        if card.subject_kind.trim().is_empty()
+            || card.subject_id == 0
+            || card.card_id.trim().is_empty()
+            || card.display_name.trim().is_empty()
+            || card.role.trim().is_empty()
+            || card.rarity.trim().is_empty()
+            || card.title.trim().is_empty()
+            || card.blurb.trim().is_empty()
+            || card.aspect.trim().is_empty()
+            || card.source.trim().is_empty()
+            || card.asset_status.trim().is_empty()
+            || !card_subjects.insert((card.subject_kind.clone(), card.subject_id))
+            || !card_ids.insert(card.card_id.clone())
+        {
+            return Err(format!(
+                "invalid or duplicate seed card {} for {}:{}",
+                card.card_id, card.subject_kind, card.subject_id
+            ));
+        }
+        let subject_exists = match card.subject_kind.as_str() {
+            "actor" => actor_ids.contains(&card.subject_id),
+            "item" => item_ids.contains(&card.subject_id),
+            "location" => location_ids.contains(&card.subject_id),
+            other => return Err(format!("invalid seed card subject kind {other}")),
+        };
+        if !subject_exists {
+            return Err(format!(
+                "seed card {} references missing {} {}",
+                card.card_id, card.subject_kind, card.subject_id
+            ));
+        }
+        if let Some(image_url) = card.image_url.as_deref() {
+            if let Some(asset_file) = image_url.strip_prefix(LONELY_FOREST_CHARACTER_ASSET_PREFIX) {
+                if !lonely_forest_character_asset_exists(asset_file) {
+                    return Err(format!(
+                        "seed card {} references missing Lonely Forest asset {}",
+                        card.card_id, asset_file
+                    ));
+                }
+            }
+        }
+        if let Some(art) = card.art.as_ref() {
+            if art.label.trim().is_empty()
+                || art.role.trim().is_empty()
+                || art.aspect.trim().is_empty()
+                || art.bg.trim().is_empty()
+                || art.ink.trim().is_empty()
+                || art.accent.trim().is_empty()
+                || art.glyph.trim().is_empty()
+            {
+                return Err(format!(
+                    "seed card {} has incomplete art spec",
+                    card.card_id
+                ));
+            }
+        }
+    }
+
+    for fallback in &content.fallback_lines {
+        if fallback.kind.trim().is_empty() || fallback.text.trim().is_empty() {
+            return Err("fallback line is missing kind or text".to_string());
+        }
+        match fallback.kind.as_str() {
+            "resident_reply" => {
+                let Some(actor_id) = fallback.actor_id else {
+                    return Err("resident_reply fallback is missing actor_id".to_string());
+                };
+                if !actor_ids.contains(&actor_id) {
+                    return Err(format!(
+                        "resident_reply fallback references missing actor {actor_id}"
+                    ));
+                }
+            }
+            "avatar_chat" => {
+                let Some(target_actor_id) = fallback.target_actor_id else {
+                    return Err("avatar_chat fallback is missing target_actor_id".to_string());
+                };
+                if !actor_ids.contains(&target_actor_id) {
+                    return Err(format!(
+                        "avatar_chat fallback references missing actor {target_actor_id}"
+                    ));
+                }
+            }
+            other => return Err(format!("invalid fallback line kind {other}")),
+        }
+    }
+
+    for hook in &content.lifecycle_hooks {
+        validate_seed_lifecycle_hook(
+            hook,
+            &actor_ids,
+            &item_ids,
+            &location_ids,
+            &clock_ids,
+            &job_ids,
+        )?;
+    }
+
     let mut tracked_actors = BTreeSet::new();
     for track in &content.evolution_tracks {
         if !actor_ids.contains(&track.actor_id) || !tracked_actors.insert(track.actor_id) {
@@ -1755,6 +2543,155 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_seed_stats(actor_id: u64, stats: &SeedStatBlockContent) -> Result<(), String> {
+    let ability_scores = [
+        stats.strength,
+        stats.dexterity,
+        stats.constitution,
+        stats.intelligence,
+        stats.wisdom,
+        stats.charisma,
+    ];
+    if ability_scores.iter().any(|score| !(1..=30).contains(score))
+        || stats.hp_base <= 0
+        || stats.level == 0
+    {
+        return Err(format!("seed actor {actor_id} has invalid stats"));
+    }
+    Ok(())
+}
+
+fn validate_seed_lifecycle_hook(
+    hook: &SeedLifecycleHookContent,
+    actor_ids: &BTreeSet<u64>,
+    item_ids: &BTreeSet<u64>,
+    location_ids: &BTreeSet<u64>,
+    clock_ids: &BTreeSet<String>,
+    job_ids: &BTreeSet<String>,
+) -> Result<(), String> {
+    if !matches!(
+        hook.hook.as_str(),
+        "on_enter" | "on_listen" | "on_use" | "on_give" | "on_clock_fill"
+    ) {
+        return Err(format!("invalid lifecycle hook {}", hook.hook));
+    }
+    if hook.effects.is_empty() {
+        return Err(format!("lifecycle hook {} has no effects", hook.hook));
+    }
+    match hook.target_kind.as_str() {
+        "room" => {
+            let target_id = hook
+                .target_id
+                .parse::<u64>()
+                .map_err(|_| format!("hook {} has invalid room target", hook.hook))?;
+            if !location_ids.contains(&target_id) {
+                return Err(format!(
+                    "hook {} references missing room {target_id}",
+                    hook.hook
+                ));
+            }
+        }
+        "actor" => {
+            let target_id = hook
+                .target_id
+                .parse::<u64>()
+                .map_err(|_| format!("hook {} has invalid actor target", hook.hook))?;
+            if !actor_ids.contains(&target_id) {
+                return Err(format!(
+                    "hook {} references missing actor {target_id}",
+                    hook.hook
+                ));
+            }
+        }
+        "item" => {
+            let target_id = hook
+                .target_id
+                .parse::<u64>()
+                .map_err(|_| format!("hook {} has invalid item target", hook.hook))?;
+            if !item_ids.contains(&target_id) {
+                return Err(format!(
+                    "hook {} references missing item {target_id}",
+                    hook.hook
+                ));
+            }
+        }
+        "clock" => {
+            if !clock_ids.contains(&hook.target_id) {
+                return Err(format!(
+                    "hook {} references missing clock {}",
+                    hook.hook, hook.target_id
+                ));
+            }
+        }
+        other => return Err(format!("invalid lifecycle target kind {other}")),
+    }
+    if !matches!(
+        hook.claim_scope.as_str(),
+        "" | "event_once" | "actor_target_once"
+    ) {
+        return Err(format!(
+            "hook {} has invalid claim scope {}",
+            hook.hook, hook.claim_scope
+        ));
+    }
+    for effect in &hook.effects {
+        match effect {
+            EffectDescriptor::AdvanceClock {
+                clock_id, amount, ..
+            } => {
+                if !clock_ids.contains(clock_id) || *amount == 0 {
+                    return Err(format!(
+                        "hook {} has invalid clock effect {}",
+                        hook.hook, clock_id
+                    ));
+                }
+            }
+            EffectDescriptor::SetTag {
+                tag_id,
+                scope,
+                scope_id,
+                label,
+                kind,
+                ..
+            } => {
+                if tag_id.trim().is_empty()
+                    || label.trim().is_empty()
+                    || !tag_scope_is_allowed(scope)
+                    || !tag_kind_is_allowed(kind)
+                {
+                    return Err(format!("hook {} has invalid tag effect", hook.hook));
+                }
+                if scope == "actor" && !actor_ids.contains(scope_id) {
+                    return Err(format!(
+                        "hook {} tag references missing actor {}",
+                        hook.hook, scope_id
+                    ));
+                }
+                if scope == "room" && !location_ids.contains(scope_id) {
+                    return Err(format!(
+                        "hook {} tag references missing room {}",
+                        hook.hook, scope_id
+                    ));
+                }
+            }
+            EffectDescriptor::ClearTag { tag_id, .. } => {
+                if tag_id.trim().is_empty() {
+                    return Err(format!("hook {} has empty clear tag effect", hook.hook));
+                }
+            }
+            EffectDescriptor::SetJobStatus { job_id, status, .. } => {
+                if !job_ids.contains(job_id) || normalize_job_status(status).is_none() {
+                    return Err(format!(
+                        "hook {} has invalid job status effect {}",
+                        hook.hook, job_id
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn seed_actor_meta() -> BTreeMap<u64, ActorMeta> {
     seed_content()
         .actors
@@ -1771,6 +2708,32 @@ fn seed_actor_meta() -> BTreeMap<u64, ActorMeta> {
             )
         })
         .collect()
+}
+
+fn seed_actor_stats(actor: &SeedActorContent) -> CwStatBlock {
+    actor.stats.map(seed_stat_block).unwrap_or(CwStatBlock {
+        strength: 10,
+        dexterity: 10,
+        constitution: 10,
+        intelligence: 10,
+        wisdom: 10,
+        charisma: 10,
+        hp_base: 10,
+        level: 1,
+    })
+}
+
+fn seed_stat_block(stats: SeedStatBlockContent) -> CwStatBlock {
+    CwStatBlock {
+        strength: stats.strength,
+        dexterity: stats.dexterity,
+        constitution: stats.constitution,
+        intelligence: stats.intelligence,
+        wisdom: stats.wisdom,
+        charisma: stats.charisma,
+        hp_base: stats.hp_base,
+        level: stats.level,
+    }
 }
 
 fn seed_item_meta() -> BTreeMap<u64, ItemMeta> {
@@ -2763,6 +3726,44 @@ fn normalize_avatar_name(name: Option<&str>, actor_id: u64) -> String {
     }
 }
 
+fn normalize_calling_statement(statement: &str) -> Option<String> {
+    if statement
+        .chars()
+        .any(|ch| ch.is_control() && !ch.is_whitespace())
+    {
+        return None;
+    }
+    let normalized = compact_whitespace(statement);
+    if normalized.is_empty()
+        || normalized.chars().count() > MAX_CALLING_STATEMENT_CHARS
+        || !human_message_is_cozy_safe(&normalized)
+        || !normalized.chars().any(|ch| ch.is_ascii_alphanumeric())
+    {
+        None
+    } else {
+        Some(normalized)
+    }
+}
+
+fn normalize_bond_statement(statement: &str) -> Option<String> {
+    if statement
+        .chars()
+        .any(|ch| ch.is_control() && !ch.is_whitespace())
+    {
+        return None;
+    }
+    let normalized = compact_whitespace(statement);
+    if normalized.is_empty()
+        || normalized.chars().count() > MAX_BOND_STATEMENT_CHARS
+        || !human_message_is_cozy_safe(&normalized)
+        || !normalized.chars().any(|ch| ch.is_ascii_alphanumeric())
+    {
+        None
+    } else {
+        Some(normalized)
+    }
+}
+
 fn avatar_name_is_reserved(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
@@ -3132,6 +4133,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .route("/assets/cards/{card_file}", get(ruby_high_card_asset))
         .route(
+            "/assets/lonely-forest/characters/{asset_file}",
+            get(lonely_forest_character_asset),
+        )
+        .route(
             "/assets/generated/cards/{card_file}",
             get(generated_seed_card_asset),
         )
@@ -3158,6 +4163,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/nft/boxes/burn-confirm", post(box_burn_confirm))
         .route("/nft/packs/open", post(pack_open))
         .route("/state", get(state_view))
+        .route("/inspect", get(inspect_view))
         .route("/world", get(world_view))
         .route("/events", get(events_view))
         .route("/moderation/events", get(moderation_events_view))
@@ -3186,6 +4192,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/actions/work", post(work))
         .route("/actions/help", post(help_room))
         .route("/actions/rest", post(rest))
+        .route("/actions/bank-ledger", post(bank_ledger))
+        .route("/actions/revise-calling", post(revise_calling))
+        .route("/actions/create-bond", post(create_bond))
+        .route("/actions/revise-bond", post(revise_bond))
+        .route("/actions/train-skill", post(train_skill))
+        .route("/actions/resolve-bond", post(resolve_bond))
         .route("/actions/flee", post(flee))
         .route("/commands", post(command))
         .route("/stream", get(stream))
@@ -3744,6 +4756,11 @@ impl RuntimeSnapshot {
             tags: runtime.tags.clone(),
             jobs: runtime.jobs.clone(),
             room_sheets: runtime.room_sheets.clone(),
+            callings: runtime.callings.clone(),
+            skills: runtime.skills.clone(),
+            ledger_marks: runtime.ledger_marks.clone(),
+            advancement_spends: runtime.advancement_spends.clone(),
+            bonds: runtime.bonds.clone(),
             rpg_claims: runtime.rpg_claims.clone(),
             orb_balances: runtime.orb_balances.clone(),
             orb_reward_claims: runtime.orb_reward_claims.clone(),
@@ -3830,6 +4847,11 @@ impl RuntimeSnapshot {
             tags: self.tags,
             jobs: self.jobs,
             room_sheets: self.room_sheets,
+            callings: self.callings,
+            skills: self.skills,
+            ledger_marks: self.ledger_marks,
+            advancement_spends: self.advancement_spends,
+            bonds: self.bonds,
             rpg_claims: self.rpg_claims,
             orb_balances: self.orb_balances,
             orb_reward_claims: self.orb_reward_claims,
@@ -3883,6 +4905,11 @@ fn canonical_command_verb(verb: &str) -> String {
         "work" | "repair" | "study" => "work",
         "assist" | "aid" => "assist",
         "rest" | "breathe" | "catch" => "rest",
+        "bank" | "review" | "advance" => "bank",
+        "skill" | "train" | "practice" => "skill",
+        "bond" | "relationship" => "bond",
+        "calling" | "drive" | "revise" => "calling",
+        "resolve" | "settle" => "resolve",
         "hit" | "attack" | "strike" => "attack",
         "guard" | "defend" => "defend",
         "run" | "flee" | "escape" => "flee",
@@ -3944,30 +4971,14 @@ fn command_list_or_none(values: &[String]) -> String {
     }
 }
 
-fn room_sheet<const A: usize, const B: usize, const H: usize, const R: usize, const P: usize>(
-    location_id: u64,
-    name: &str,
-    safety: &str,
-    aspects: [&str; A],
-    boons: [&str; B],
-    hooks: [&str; H],
-    resources: [(&str, i16); R],
-    projects: [&str; P],
-) -> RoomSheetState {
-    RoomSheetState {
-        id: format!("room:{location_id}"),
-        location_id,
-        name: name.to_string(),
-        safety: safety.to_string(),
-        aspects: aspects.into_iter().map(ToString::to_string).collect(),
-        boons: boons.into_iter().map(ToString::to_string).collect(),
-        hooks: hooks.into_iter().map(ToString::to_string).collect(),
-        resources: resources
-            .into_iter()
-            .map(|(key, value)| (key.to_string(), value))
-            .collect(),
-        projects: projects.into_iter().map(ToString::to_string).collect(),
-        season_clock_id: None,
+fn default_zone() -> String {
+    ZONE_SANCTUARY.to_string()
+}
+
+fn zone_for_safety(safety: &str) -> &'static str {
+    match safety {
+        "risky" | "dangerous" => ZONE_FRONTIER,
+        _ => ZONE_SANCTUARY,
     }
 }
 
@@ -4028,6 +5039,11 @@ impl RuntimeWorld {
             tags: BTreeMap::new(),
             jobs: BTreeMap::new(),
             room_sheets: BTreeMap::new(),
+            callings: BTreeMap::new(),
+            skills: BTreeMap::new(),
+            ledger_marks: BTreeMap::new(),
+            advancement_spends: BTreeMap::new(),
+            bonds: BTreeMap::new(),
             rpg_claims: BTreeSet::new(),
             orb_balances: BTreeMap::new(),
             orb_reward_claims: BTreeSet::new(),
@@ -4064,162 +5080,45 @@ impl RuntimeWorld {
         // away from the cottage-as-global-hub layout.
         self.world.exit_count = 0;
 
-        for (from_location_id, to_location_id) in [
-            (1, 2),
-            (2, 1),
-            (1, 11),
-            (11, 1),
-            (2, 3),
-            (3, 2),
-            (2, 40),
-            (40, 2),
-            (10, 11),
-            (11, 10),
-            (11, 12),
-            (12, 11),
-            (11, 13),
-            (13, 11),
-            (11, 15),
-            (15, 11),
-            (10, 14),
-            (14, 10),
-            (10, 15),
-            (15, 10),
-            (13, 15),
-            (15, 13),
-            (14, 15),
-            (15, 14),
-            (12, 50),
-            (50, 12),
-            (15, 32),
-            (32, 15),
-            (3, 35),
-            (35, 3),
-            (30, 31),
-            (31, 30),
-            (31, 32),
-            (32, 31),
-            (32, 33),
-            (33, 32),
-            (33, 34),
-            (34, 33),
-            (34, 35),
-            (35, 34),
-            (40, 41),
-            (41, 40),
-            (40, 44),
-            (44, 40),
-            (41, 42),
-            (42, 41),
-            (41, 43),
-            (43, 41),
-            (42, 43),
-            (43, 42),
-            (43, 44),
-            (44, 43),
-            (44, 14),
-            (14, 44),
-            (50, 60),
-            (60, 50),
-            (50, 63),
-            (63, 50),
-            (60, 61),
-            (61, 60),
-            (61, 62),
-            (62, 61),
-            (62, 63),
-            (63, 62),
-        ] {
-            self.ensure_exit(from_location_id, to_location_id, 0);
+        for exit in &seed_content().exits {
+            self.ensure_exit(exit.from_location_id, exit.to_location_id, exit.flags);
         }
         self.ensure_seed_residents();
     }
 
     fn ensure_seed_rpg_projection(&mut self) {
-        self.room_sheets.entry(1).or_insert_with(|| {
-            room_sheet(
-                1,
-                "The Cosy Cottage",
-                "safe",
-                ["warm threshold", "careful host"],
-                ["new avatars can begin here"],
-                ["the hearth notices unfinished promises"],
-                [("warmth", 3), ("tea", 2)],
-                [],
-            )
-        });
-        self.room_sheets.entry(2).or_insert_with(|| {
-            room_sheet(
-                2,
-                "Rain-Soft Garden",
-                "safe",
-                ["rain-bright leaves", "small discoveries"],
-                ["seed items surface after gentle attention"],
-                ["the garden remembers what was taken"],
-                [("dew", 3), ("shelter", 1)],
-                [],
-            )
-        });
-        self.room_sheets
-            .entry(MOONLIT_TRAIL_LOCATION_ID)
-            .or_insert_with(|| {
-                room_sheet(
-                    MOONLIT_TRAIL_LOCATION_ID,
-                    "Moonlit Trail",
-                    "dangerous",
-                    ["silver hush", "practice circle"],
-                    ["fleeing remains a valid success"],
-                    ["the echo sharpens when travelers push too hard"],
-                    [("moonlight", 2), ("quiet", 1)],
-                    [MOONLIT_JOB_ID],
-                )
-            });
-        self.clocks
-            .entry(MOONLIT_PROGRESS_CLOCK_ID.to_string())
-            .or_insert_with(|| ClockState {
-                id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
-                scope: "room".to_string(),
-                scope_id: MOONLIT_TRAIL_LOCATION_ID,
-                kind: "progress".to_string(),
-                label: "Quiet the Moonlit Trail".to_string(),
-                segments: 4,
-                filled: 0,
-                visible_to_players: true,
-                status: "active".to_string(),
-                created_event_seq: None,
-                updated_event_seq: None,
-            });
-        self.clocks
-            .entry(MOONLIT_DANGER_CLOCK_ID.to_string())
-            .or_insert_with(|| ClockState {
-                id: MOONLIT_DANGER_CLOCK_ID.to_string(),
-                scope: "room".to_string(),
-                scope_id: MOONLIT_TRAIL_LOCATION_ID,
-                kind: "danger".to_string(),
-                label: "Echo Shatters the Trail".to_string(),
-                segments: 4,
-                filled: 0,
-                visible_to_players: true,
-                status: "active".to_string(),
-                created_event_seq: None,
-                updated_event_seq: None,
-            });
-        self.jobs
-            .entry(MOONLIT_JOB_ID.to_string())
-            .or_insert_with(|| JobState {
-                id: MOONLIT_JOB_ID.to_string(),
-                premise: "The Moonlit Trail is carrying too much echo.".to_string(),
-                stakes: "If nobody steadies the trail, every rest makes its danger louder."
-                    .to_string(),
-                location_ids: vec![MOONLIT_TRAIL_LOCATION_ID],
-                participant_ids: vec![1004],
-                progress_clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
-                danger_clock_id: MOONLIT_DANGER_CLOCK_ID.to_string(),
-                status: "active".to_string(),
-                reward: "quieted moonlight".to_string(),
-                consequence: "echo-fractured trail".to_string(),
-                memory_summary: String::new(),
-            });
+        for sheet in &seed_content().room_sheets {
+            self.room_sheets
+                .entry(sheet.location_id)
+                .or_insert_with(|| sheet.clone());
+            if let Some(sheet) = self.room_sheets.get_mut(&sheet.location_id) {
+                if sheet.zone.trim().is_empty() {
+                    sheet.zone = zone_for_safety(&sheet.safety).to_string();
+                }
+            }
+        }
+        for clock in &seed_content().clocks {
+            let mut seeded_clock = clock.clone();
+            if seeded_clock.on_fill.is_empty() {
+                seeded_clock.on_fill = lifecycle_effects_for("on_clock_fill", "clock", &clock.id);
+            }
+            self.clocks
+                .entry(seeded_clock.id.clone())
+                .or_insert_with(|| seeded_clock.clone());
+            if let Some(clock) = self.clocks.get_mut(&seeded_clock.id) {
+                if clock.zone.trim().is_empty() {
+                    clock.zone = default_zone_for_scope(&clock.scope, clock.scope_id).to_string();
+                }
+                if clock.on_fill.is_empty() {
+                    clock.on_fill = seeded_clock.on_fill;
+                }
+            }
+        }
+        for job in &seed_content().jobs {
+            self.jobs
+                .entry(job.id.clone())
+                .or_insert_with(|| job.clone());
+        }
     }
 
     fn ensure_seed_metadata(&mut self) {
@@ -4240,21 +5139,12 @@ impl RuntimeWorld {
     }
 
     fn ensure_seed_residents(&mut self) {
-        self.ensure_actor(
-            1005,
-            CW_ACTOR_NPC,
-            40,
-            CwStatBlock {
-                strength: 16,
-                dexterity: 6,
-                constitution: 18,
-                intelligence: 14,
-                wisdom: 18,
-                charisma: 13,
-                hp_base: 16,
-                level: 1,
-            },
-        );
+        for actor in &seed_content().actors {
+            let Some(location_id) = actor.location_id else {
+                continue;
+            };
+            self.ensure_actor(actor.id, CW_ACTOR_NPC, location_id, seed_actor_stats(actor));
+        }
     }
 
     fn ensure_location(&mut self, location_id: u64, flags: u32) {
@@ -4601,6 +5491,364 @@ impl RuntimeWorld {
         event
     }
 
+    fn append_job_event(
+        &mut self,
+        type_name: &str,
+        actor_id: u64,
+        job: &JobState,
+        reason: &str,
+    ) -> EventView {
+        let location_id = job
+            .location_ids
+            .first()
+            .copied()
+            .or_else(|| self.actor_by_id(actor_id).map(|actor| actor.location_id));
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: type_name.to_string(),
+            success: true,
+            reason: 0,
+            actor_id: opt_id(actor_id),
+            actor_name: self.actor_name(actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id,
+            location_name: location_id.and_then(|id| self.location_name(id)),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(format!("{}:{}:{reason}", job.id, self.job_status(job))),
+            item_id: None,
+            item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_calling_event(
+        &mut self,
+        type_name: &str,
+        calling: &CallingState,
+        reason: &str,
+    ) -> EventView {
+        let location_id = self
+            .actor_by_id(calling.actor_id)
+            .map(|actor| actor.location_id);
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: type_name.to_string(),
+            success: true,
+            reason: 0,
+            actor_id: Some(calling.actor_id),
+            actor_name: self.actor_name(calling.actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id,
+            location_name: location_id.and_then(|id| self.location_name(id)),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(format!("{}:{reason}", calling.statement)),
+            item_id: None,
+            item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_skill_event(
+        &mut self,
+        type_name: &str,
+        skill: &SkillState,
+        reason: &str,
+    ) -> EventView {
+        let location_id = self
+            .actor_by_id(skill.actor_id)
+            .map(|actor| actor.location_id);
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: type_name.to_string(),
+            success: true,
+            reason: 0,
+            actor_id: Some(skill.actor_id),
+            actor_name: self.actor_name(skill.actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id,
+            location_name: location_id.and_then(|id| self.location_name(id)),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(format!("{}:{}:{reason}", skill.skill_id, skill.rank)),
+            item_id: None,
+            item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_ledger_event(
+        &mut self,
+        type_name: &str,
+        mark: &VisitLedgerMarkState,
+        reason: &str,
+    ) -> EventView {
+        let location_id = self
+            .actor_by_id(mark.actor_id)
+            .map(|actor| actor.location_id);
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: type_name.to_string(),
+            success: true,
+            reason: 0,
+            actor_id: Some(mark.actor_id),
+            actor_name: self.actor_name(mark.actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id,
+            location_name: location_id.and_then(|id| self.location_name(id)),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(format!("{}:{}:{reason}", mark.category, mark.label)),
+            item_id: None,
+            item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_ledger_bank_event(
+        &mut self,
+        actor_id: u64,
+        count: usize,
+        categories: &[String],
+        reason: &str,
+    ) -> EventView {
+        let location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: "ledger.banked".to_string(),
+            success: true,
+            reason: 0,
+            actor_id: Some(actor_id),
+            actor_name: self.actor_name(actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id,
+            location_name: location_id.and_then(|id| self.location_name(id)),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(format!("{count}:{}:{reason}", categories.join(","))),
+            item_id: None,
+            item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_advancement_event(
+        &mut self,
+        type_name: &str,
+        spend: &AdvancementSpendState,
+        reason: &str,
+    ) -> EventView {
+        let location_id = self
+            .actor_by_id(spend.actor_id)
+            .map(|actor| actor.location_id);
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: type_name.to_string(),
+            success: true,
+            reason: 0,
+            actor_id: Some(spend.actor_id),
+            actor_name: self.actor_name(spend.actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id,
+            location_name: location_id.and_then(|id| self.location_name(id)),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(format!(
+                "{}:{}:{}:{reason}",
+                spend.kind, spend.cost, spend.label
+            )),
+            item_id: None,
+            item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_bond_event(&mut self, type_name: &str, bond: &BondState, reason: &str) -> EventView {
+        let location_id = self
+            .actor_by_id(bond.actor_id)
+            .or_else(|| self.actor_by_id(bond.target_actor_id))
+            .map(|actor| actor.location_id);
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: type_name.to_string(),
+            success: true,
+            reason: 0,
+            actor_id: Some(bond.actor_id),
+            actor_name: self.actor_name(bond.actor_id),
+            target_actor_id: Some(bond.target_actor_id),
+            target_actor_name: self.actor_name(bond.target_actor_id),
+            location_id,
+            location_name: location_id.and_then(|id| self.location_name(id)),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(format!("{}:{}:{reason}", bond.id, bond.strength)),
+            item_id: None,
+            item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
     fn push_projected_event(&mut self, event: EventView) {
         self.event_log.push(event);
         if self.event_log.len() > 512 {
@@ -4670,15 +5918,16 @@ impl RuntimeWorld {
         }
 
         self.next_seed = record.seed;
+        let action = self.action_with_skill_bonus(record.action);
         let (status, mut events) =
-            if record.action.kind == CW_ACTION_NONE && !record.projection_mutations.is_empty() {
+            if action.kind == CW_ACTION_NONE && !record.projection_mutations.is_empty() {
                 self.world.tick = self.world.tick.saturating_add(1);
                 (CW_OK, Vec::new())
             } else {
-                self.apply_action_with_seed(record.action, record.seed)
+                self.apply_action_with_seed(action, record.seed)
             };
         if status == CW_OK {
-            let listen_context = self.listen_context_for_action(&record.action, &events);
+            let listen_context = self.listen_context_for_action(&action, &events);
             let was_repeat_listen = listen_context
                 .map(|(actor_id, location_id)| {
                     self.listen_attempt_claimed_at(actor_id, location_id)
@@ -4693,17 +5942,17 @@ impl RuntimeWorld {
                     events.push(self.append_branch_lifecycle_event("branch.resolved", &branch));
                 }
             }
+            events.extend(self.apply_actor_creation_rpg_projection(&action, &events));
             events.extend(self.expire_stale_branches());
-            events.extend(
-                self.apply_projection_mutations(&record.action, &record.projection_mutations),
-            );
-            self.record_listen_attempt(&record.action, &events);
-            events.extend(self.apply_listen_rpg_projection(
-                &record.action,
-                &events,
-                was_repeat_listen,
-            ));
-            self.apply_automatic_orb_rewards(&record.action, &events);
+            events.extend(self.apply_projection_mutations(&action, &record.projection_mutations));
+            let committed_events = events.clone();
+            events.extend(self.apply_event_lifecycle_hooks(&action, &committed_events));
+            events.extend(self.apply_progress_contribution_ledger_projection(&events));
+            events.extend(self.apply_frontier_return_ledger_projection(&action, &events));
+            events.extend(self.apply_gift_bond_projection(&events));
+            self.record_listen_attempt(&action, &events);
+            events.extend(self.apply_listen_rpg_projection(&action, &events, was_repeat_listen));
+            self.apply_automatic_orb_rewards(&action, &events);
             for delta in &record.orb_deltas {
                 self.apply_orb_delta(delta.actor_id, delta.delta);
             }
@@ -4716,22 +5965,399 @@ impl RuntimeWorld {
         action: &CwAction,
         mutations: &[ProjectionMutation],
     ) -> Vec<EventView> {
-        mutations
-            .iter()
-            .filter_map(|mutation| match mutation {
+        let mut events = Vec::new();
+        for mutation in mutations {
+            match mutation {
                 ProjectionMutation::AdvanceClock {
                     clock_id,
                     amount,
                     reason,
-                } => self.advance_clock(clock_id, *amount, action.actor_id, reason),
+                } => events.extend(self.advance_clock(clock_id, *amount, action.actor_id, reason)),
                 ProjectionMutation::SetTag { tag, reason } => {
-                    self.set_rpg_tag(tag.clone(), action.actor_id, reason)
+                    if let Some(event) = self.set_rpg_tag(tag.clone(), action.actor_id, reason) {
+                        events.push(event);
+                    }
                 }
                 ProjectionMutation::ClearTag { tag_id, reason } => {
-                    self.clear_rpg_tag(tag_id, action.actor_id, reason)
+                    if let Some(event) = self.clear_rpg_tag(tag_id, action.actor_id, reason) {
+                        events.push(event);
+                    }
                 }
-            })
-            .collect()
+                ProjectionMutation::SetJobStatus {
+                    job_id,
+                    status,
+                    reason,
+                } => {
+                    if let Some(event) =
+                        self.set_job_status(job_id, status, action.actor_id, reason)
+                    {
+                        events.push(event);
+                    }
+                }
+                ProjectionMutation::BankVisitLedger { reason } => {
+                    if let Some(event) = self.bank_visit_ledger(action.actor_id, reason) {
+                        events.push(event);
+                    }
+                }
+                ProjectionMutation::ReviseCalling {
+                    statement,
+                    cost,
+                    reason,
+                } => {
+                    events.extend(self.revise_calling(action.actor_id, statement, *cost, reason));
+                }
+                ProjectionMutation::CreateBond {
+                    target_actor_id,
+                    statement,
+                    cost,
+                    reason,
+                } => {
+                    events.extend(self.create_bond(
+                        action.actor_id,
+                        *target_actor_id,
+                        statement,
+                        *cost,
+                        reason,
+                    ));
+                }
+                ProjectionMutation::ReviseBond {
+                    target_actor_id,
+                    statement,
+                    cost,
+                    reason,
+                } => {
+                    events.extend(self.revise_bond(
+                        action.actor_id,
+                        *target_actor_id,
+                        statement,
+                        *cost,
+                        reason,
+                    ));
+                }
+                ProjectionMutation::TrainSkill {
+                    skill_id,
+                    cost,
+                    reason,
+                } => {
+                    events.extend(self.train_skill(action.actor_id, skill_id, *cost, reason));
+                }
+                ProjectionMutation::ResolveBond {
+                    target_actor_id,
+                    reason,
+                } => {
+                    events.extend(self.resolve_bond(action.actor_id, *target_actor_id, reason));
+                }
+            }
+        }
+        events
+    }
+
+    fn apply_event_lifecycle_hooks(
+        &mut self,
+        action: &CwAction,
+        events: &[EventView],
+    ) -> Vec<EventView> {
+        let mut projected = Vec::new();
+        for event in events {
+            if !event.success {
+                continue;
+            }
+            if event.type_name == "actor.moved" && event.actor_id == Some(action.actor_id) {
+                if let Some(destination_location_id) = event.destination_location_id {
+                    projected.extend(self.apply_lifecycle_hooks(
+                        "on_enter",
+                        "room",
+                        &destination_location_id.to_string(),
+                        action.actor_id,
+                        event.seq,
+                    ));
+                }
+            } else if event.type_name == "item.used" && event.actor_id == Some(action.actor_id) {
+                if let Some(item_id) = event.item_id {
+                    projected.extend(self.apply_lifecycle_hooks(
+                        "on_use",
+                        "item",
+                        &item_id.to_string(),
+                        action.actor_id,
+                        event.seq,
+                    ));
+                }
+            } else if event.type_name == "item.given" && event.actor_id == Some(action.actor_id) {
+                if let Some(target_actor_id) = event.target_actor_id {
+                    projected.extend(self.apply_lifecycle_hooks(
+                        "on_give",
+                        "actor",
+                        &target_actor_id.to_string(),
+                        action.actor_id,
+                        event.seq,
+                    ));
+                }
+            }
+        }
+        projected
+    }
+
+    fn apply_lifecycle_hooks(
+        &mut self,
+        hook_name: &str,
+        target_kind: &str,
+        target_id: &str,
+        actor_id: u64,
+        source_event_seq: u64,
+    ) -> Vec<EventView> {
+        let mut projected = Vec::new();
+        for hook in lifecycle_hooks_for(hook_name, target_kind, target_id) {
+            if let Some(claim_key) =
+                lifecycle_hook_claim_key(hook, actor_id, target_kind, target_id, source_event_seq)
+            {
+                if !self.rpg_claims.insert(claim_key) {
+                    continue;
+                }
+            }
+            projected.extend(self.apply_lifecycle_effects(
+                hook_name,
+                actor_id,
+                source_event_seq,
+                &hook.effects,
+            ));
+        }
+        projected
+    }
+
+    fn apply_lifecycle_effects(
+        &mut self,
+        hook_name: &str,
+        actor_id: u64,
+        source_event_seq: u64,
+        effects: &[EffectDescriptor],
+    ) -> Vec<EventView> {
+        if effects.is_empty() || self.validate_runtime_effects(effects).is_err() {
+            return Vec::new();
+        }
+        let mut events = Vec::new();
+        for effect in effects {
+            match effect {
+                EffectDescriptor::AdvanceClock {
+                    clock_id,
+                    amount,
+                    reason,
+                } => events.extend(self.advance_clock(
+                    clock_id,
+                    *amount,
+                    actor_id,
+                    reason.as_deref().unwrap_or(hook_name),
+                )),
+                EffectDescriptor::SetTag {
+                    tag_id,
+                    scope,
+                    scope_id,
+                    label,
+                    kind,
+                    expires,
+                    reason,
+                } => {
+                    let tag = RpgTagState {
+                        id: tag_id.clone(),
+                        scope: scope.clone(),
+                        scope_id: *scope_id,
+                        label: label.clone(),
+                        kind: kind.clone(),
+                        active: true,
+                        source_event_seq: Some(source_event_seq),
+                        expires: expires.clone(),
+                    };
+                    if let Some(event) =
+                        self.set_rpg_tag(tag, actor_id, reason.as_deref().unwrap_or(hook_name))
+                    {
+                        events.push(event);
+                    }
+                }
+                EffectDescriptor::ClearTag { tag_id, reason } => {
+                    if let Some(event) =
+                        self.clear_rpg_tag(tag_id, actor_id, reason.as_deref().unwrap_or(hook_name))
+                    {
+                        events.push(event);
+                    }
+                }
+                EffectDescriptor::SetJobStatus {
+                    job_id,
+                    status,
+                    reason,
+                } => {
+                    if let Some(event) = self.set_job_status(
+                        job_id,
+                        status,
+                        actor_id,
+                        reason.as_deref().unwrap_or(hook_name),
+                    ) {
+                        events.push(event);
+                    }
+                }
+            }
+        }
+        events
+    }
+
+    fn apply_actor_creation_rpg_projection(
+        &mut self,
+        action: &CwAction,
+        events: &[EventView],
+    ) -> Vec<EventView> {
+        if action.kind != CW_ACTION_CREATE_ACTOR || self.callings.contains_key(&action.actor_id) {
+            return Vec::new();
+        }
+        let Some(actor) = self.actor_by_id(action.actor_id) else {
+            return Vec::new();
+        };
+        if actor.kind != CW_ACTOR_HUMAN {
+            return Vec::new();
+        }
+        let source_event_seq = events
+            .iter()
+            .find(|event| event.actor_id == Some(action.actor_id))
+            .map(|event| event.seq);
+        let calling = CallingState {
+            actor_id: action.actor_id,
+            statement: default_calling_statement().to_string(),
+            source_event_seq,
+        };
+        self.callings.insert(action.actor_id, calling.clone());
+        vec![self.append_calling_event("calling.set", &calling, "avatar_created")]
+    }
+
+    fn apply_progress_contribution_ledger_projection(
+        &mut self,
+        events: &[EventView],
+    ) -> Vec<EventView> {
+        let mut projected = Vec::new();
+        for event in events {
+            if event.type_name != "clock.updated"
+                || event.clock_kind.as_deref() != Some("progress")
+                || !matches!(
+                    event.content.as_deref(),
+                    Some("work" | "prepared_work" | "help" | "prepared_help")
+                )
+            {
+                continue;
+            }
+            let Some(actor_id) = event.actor_id else {
+                continue;
+            };
+            let Some(clock_id) = event.clock_id.as_deref() else {
+                continue;
+            };
+            if let Some(event) = self.mark_visit_ledger(
+                actor_id,
+                "helped",
+                "You helped move a shared project forward.",
+                event.seq,
+                &format!("clock:{clock_id}:helped"),
+            ) {
+                projected.push(event);
+            }
+        }
+        projected
+    }
+
+    fn apply_frontier_return_ledger_projection(
+        &mut self,
+        action: &CwAction,
+        events: &[EventView],
+    ) -> Vec<EventView> {
+        if action.kind != CW_ACTION_FLEE {
+            return Vec::new();
+        }
+        let mut projected = Vec::new();
+        for event in events {
+            if event.type_name != "combat.flee.success"
+                || !event.success
+                || event.actor_id != Some(action.actor_id)
+            {
+                continue;
+            }
+            let Some(from_location_id) = event.location_id else {
+                continue;
+            };
+            let to_location_id = event
+                .destination_location_id
+                .unwrap_or(action.destination_location_id);
+            if !self.location_is_frontier(from_location_id)
+                || self.location_is_frontier(to_location_id)
+            {
+                continue;
+            }
+            if let Some(event) = self.mark_visit_ledger(
+                action.actor_id,
+                "frontier_return",
+                "You dared the frontier and returned.",
+                event.seq,
+                &format!("flee:{from_location_id}:{to_location_id}:frontier_return"),
+            ) {
+                projected.push(event);
+            }
+        }
+        projected
+    }
+
+    fn apply_gift_bond_projection(&mut self, events: &[EventView]) -> Vec<EventView> {
+        let mut projected = Vec::new();
+        for event in events {
+            if event.type_name != "item.given" || !event.success {
+                continue;
+            }
+            let (Some(actor_id), Some(target_actor_id), Some(item_id)) =
+                (event.actor_id, event.target_actor_id, event.item_id)
+            else {
+                continue;
+            };
+            let Some(actor) = self.actor_by_id(actor_id) else {
+                continue;
+            };
+            let Some(target) = self.actor_by_id(target_actor_id) else {
+                continue;
+            };
+            if actor.kind != CW_ACTOR_HUMAN || target.kind != CW_ACTOR_NPC {
+                continue;
+            }
+
+            let claim_key = gift_bond_claim_key(actor_id, target_actor_id, item_id);
+            if !self.rpg_claims.insert(claim_key) {
+                continue;
+            }
+
+            let target_name = self
+                .actor_name(target_actor_id)
+                .unwrap_or_else(|| format!("Resident {target_actor_id}"));
+            let id = bond_id(actor_id, target_actor_id);
+            let bond = {
+                let bond = self.bonds.entry(id.clone()).or_insert_with(|| BondState {
+                    id,
+                    actor_id,
+                    target_actor_id,
+                    statement: default_bond_statement(&target_name),
+                    strength: 0,
+                    status: "active".to_string(),
+                    source_event_seq: Some(event.seq),
+                    updated_event_seq: None,
+                });
+                bond.strength = bond.strength.saturating_add(1).min(3);
+                bond.status = "active".to_string();
+                bond.updated_event_seq = Some(event.seq);
+                bond.clone()
+            };
+
+            projected.push(self.append_bond_event("bond.deepened", &bond, "resident_gift"));
+            if let Some(ledger_event) = self.mark_visit_ledger(
+                actor_id,
+                "bond",
+                &format!("You deepened a Bond with {target_name}."),
+                event.seq,
+                &format!("gift:{actor_id}:{target_actor_id}:{item_id}:bond"),
+            ) {
+                projected.push(ledger_event);
+            }
+        }
+        projected
     }
 
     fn apply_listen_rpg_projection(
@@ -4760,22 +6386,21 @@ impl RuntimeWorld {
                 .map(|(total, dc)| total >= dc)
                 .unwrap_or(false);
         if listen_succeeded {
-            if let Some(clock_id) = listen_progress_clock_id_for_location(location_id) {
-                let claim_key = format!(
-                    "rpg:listen_progress:{}:{location_id}:{clock_id}",
-                    action.actor_id
-                );
-                if self.rpg_claims.insert(claim_key) {
-                    if let Some(event) =
-                        self.advance_clock(clock_id, 1, action.actor_id, "listen_success")
-                    {
-                        projected.push(event);
-                    }
-                }
-            }
+            projected.extend(self.apply_listen_ledger_projection(
+                action.actor_id,
+                location_id,
+                listen_event.seq,
+            ));
+            projected.extend(self.apply_lifecycle_hooks(
+                "on_listen",
+                "room",
+                &location_id.to_string(),
+                action.actor_id,
+                listen_event.seq,
+            ));
         }
 
-        if was_repeat_listen {
+        if was_repeat_listen && self.location_is_frontier(location_id) {
             let tag = RpgTagState {
                 id: tired_tag_id(action.actor_id),
                 scope: "actor".to_string(),
@@ -4792,6 +6417,41 @@ impl RuntimeWorld {
         }
 
         projected
+    }
+
+    fn apply_listen_ledger_projection(
+        &mut self,
+        actor_id: u64,
+        location_id: u64,
+        source_event_seq: u64,
+    ) -> Vec<EventView> {
+        let mut events = Vec::new();
+        if let Some(event) = self.mark_visit_ledger(
+            actor_id,
+            "learned_truth",
+            "You learned a true thing by listening.",
+            source_event_seq,
+            &format!("listen:{location_id}:learned_truth"),
+        ) {
+            events.push(event);
+        }
+        if self
+            .callings
+            .get(&actor_id)
+            .map(|calling| calling_matches_listen(&calling.statement))
+            .unwrap_or(false)
+        {
+            if let Some(event) = self.mark_visit_ledger(
+                actor_id,
+                "calling",
+                "You followed your Calling by listening closely.",
+                source_event_seq,
+                &format!("listen:{location_id}:calling"),
+            ) {
+                events.push(event);
+            }
+        }
+        events
     }
 
     fn listen_context_for_action(
@@ -4821,17 +6481,20 @@ impl RuntimeWorld {
         amount: u8,
         actor_id: u64,
         reason: &str,
-    ) -> Option<EventView> {
+    ) -> Vec<EventView> {
         if amount == 0 {
-            return None;
+            return Vec::new();
         }
         let next_seq = self.world.next_event_seq;
-        let clock = self.clocks.get_mut(clock_id)?;
+        let Some(clock) = self.clocks.get_mut(clock_id) else {
+            return Vec::new();
+        };
         let before = clock.filled;
         let after = before.saturating_add(amount).min(clock.segments);
         if after == before {
-            return None;
+            return Vec::new();
         }
+        let crossed_fill = before < clock.segments && after >= clock.segments;
         clock.filled = after;
         clock.status = if clock.filled >= clock.segments {
             "filled".to_string()
@@ -4840,13 +6503,178 @@ impl RuntimeWorld {
         };
         clock.updated_event_seq = Some(next_seq);
         let clock = clock.clone();
-        Some(self.append_clock_event(
+        let update_event = self.append_clock_event(
             "clock.updated",
             actor_id,
             &clock,
             i16::from(after.saturating_sub(before)),
             reason,
-        ))
+        );
+        let mut events = vec![update_event.clone()];
+        if crossed_fill && !clock.on_fill.is_empty() {
+            let claim_key = clock_fill_claim_key(&clock.id, update_event.seq);
+            if self.rpg_claims.insert(claim_key) {
+                events.extend(self.apply_clock_fill_effects(
+                    &clock.id,
+                    actor_id,
+                    update_event.seq,
+                    &clock.on_fill,
+                ));
+            }
+        }
+        events
+    }
+
+    fn apply_clock_fill_effects(
+        &mut self,
+        clock_id: &str,
+        actor_id: u64,
+        source_event_seq: u64,
+        effects: &[EffectDescriptor],
+    ) -> Vec<EventView> {
+        if effects.is_empty() {
+            return Vec::new();
+        }
+        if let Err(error) = self.validate_clock_fill_effects(effects) {
+            return self
+                .clocks
+                .get(clock_id)
+                .cloned()
+                .map(|clock| {
+                    vec![self.append_clock_event(
+                        "clock.fill_effect_rejected",
+                        actor_id,
+                        &clock,
+                        0,
+                        &error,
+                    )]
+                })
+                .unwrap_or_default();
+        }
+
+        let mut events = Vec::new();
+        for effect in effects {
+            match effect {
+                EffectDescriptor::AdvanceClock {
+                    clock_id,
+                    amount,
+                    reason,
+                } => events.extend(self.advance_clock(
+                    clock_id,
+                    *amount,
+                    actor_id,
+                    reason.as_deref().unwrap_or("clock_fill_effect"),
+                )),
+                EffectDescriptor::SetTag {
+                    tag_id,
+                    scope,
+                    scope_id,
+                    label,
+                    kind,
+                    expires,
+                    reason,
+                } => {
+                    let tag = RpgTagState {
+                        id: tag_id.clone(),
+                        scope: scope.clone(),
+                        scope_id: *scope_id,
+                        label: label.clone(),
+                        kind: kind.clone(),
+                        active: true,
+                        source_event_seq: Some(source_event_seq),
+                        expires: expires.clone(),
+                    };
+                    if let Some(event) =
+                        self.set_rpg_tag(tag, actor_id, reason.as_deref().unwrap_or("clock_fill"))
+                    {
+                        events.push(event);
+                    }
+                }
+                EffectDescriptor::ClearTag { tag_id, reason } => {
+                    if let Some(event) = self.clear_rpg_tag(
+                        tag_id,
+                        actor_id,
+                        reason.as_deref().unwrap_or("clock_fill"),
+                    ) {
+                        events.push(event);
+                    }
+                }
+                EffectDescriptor::SetJobStatus {
+                    job_id,
+                    status,
+                    reason,
+                } => {
+                    if let Some(event) = self.set_job_status(
+                        job_id,
+                        status,
+                        actor_id,
+                        reason.as_deref().unwrap_or("clock_fill"),
+                    ) {
+                        events.push(event);
+                    }
+                }
+            }
+        }
+        events
+    }
+
+    fn validate_clock_fill_effects(&self, effects: &[EffectDescriptor]) -> Result<(), String> {
+        self.validate_runtime_effects(effects)
+    }
+
+    fn validate_runtime_effects(&self, effects: &[EffectDescriptor]) -> Result<(), String> {
+        for effect in effects {
+            match effect {
+                EffectDescriptor::AdvanceClock {
+                    clock_id, amount, ..
+                } => {
+                    let Some(clock) = self.clocks.get(clock_id) else {
+                        return Err(format!("missing clock {clock_id}"));
+                    };
+                    if *amount == 0 || *amount > clock.segments.max(1) {
+                        return Err(format!("invalid clock amount {amount} for {clock_id}"));
+                    }
+                }
+                EffectDescriptor::SetTag {
+                    tag_id,
+                    scope,
+                    scope_id,
+                    label,
+                    kind,
+                    ..
+                } => {
+                    if tag_id.trim().is_empty() || label.trim().is_empty() {
+                        return Err("tag id and label are required".to_string());
+                    }
+                    if !tag_scope_is_allowed(scope) || !tag_kind_is_allowed(kind) {
+                        return Err(format!("invalid tag {scope}/{kind}"));
+                    }
+                    if scope == "actor" && self.actor_by_id(*scope_id).is_none() {
+                        return Err(format!("missing actor {scope_id}"));
+                    }
+                    if scope == "room" && self.location_name(*scope_id).is_none() {
+                        return Err(format!("missing room {scope_id}"));
+                    }
+                }
+                EffectDescriptor::ClearTag { tag_id, .. } => {
+                    if !self.tags.contains_key(tag_id) {
+                        return Err(format!("missing tag {tag_id}"));
+                    }
+                }
+                EffectDescriptor::SetJobStatus { job_id, status, .. } => {
+                    let Some(job) = self.jobs.get(job_id) else {
+                        return Err(format!("missing job {job_id}"));
+                    };
+                    let next = normalize_job_status(status)
+                        .ok_or_else(|| format!("invalid job status {status}"))?;
+                    let current = job.status.trim();
+                    if matches!(current, "completed" | "failed") && current != next {
+                        return Err(format!("illegal job status transition {current}->{next}"));
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     fn set_rpg_tag(
@@ -4876,6 +6704,321 @@ impl RuntimeWorld {
         tag.active = false;
         let tag = tag.clone();
         Some(self.append_tag_event("tag.cleared", actor_id, &tag, reason))
+    }
+
+    fn set_job_status(
+        &mut self,
+        job_id: &str,
+        status: &str,
+        actor_id: u64,
+        reason: &str,
+    ) -> Option<EventView> {
+        let normalized = normalize_job_status(status)?;
+        let job = self.jobs.get_mut(job_id)?;
+        if job.status == normalized {
+            return None;
+        }
+        if matches!(job.status.as_str(), "completed" | "failed") && job.status != normalized {
+            return None;
+        }
+        job.status = normalized.to_string();
+        let job = job.clone();
+        Some(self.append_job_event("job.updated", actor_id, &job, reason))
+    }
+
+    fn mark_visit_ledger(
+        &mut self,
+        actor_id: u64,
+        category: &str,
+        label: &str,
+        source_event_seq: u64,
+        reason: &str,
+    ) -> Option<EventView> {
+        let id = visit_ledger_mark_id(actor_id, category, reason);
+        let claim_key = visit_ledger_claim_key(&id);
+        if !self.rpg_claims.insert(claim_key) || self.ledger_marks.contains_key(&id) {
+            return None;
+        }
+        let mark = VisitLedgerMarkState {
+            id: id.clone(),
+            actor_id,
+            category: category.to_string(),
+            label: label.to_string(),
+            source_event_seq,
+            banked: false,
+        };
+        self.ledger_marks.insert(id, mark.clone());
+        Some(self.append_ledger_event("ledger.marked", &mark, reason))
+    }
+
+    fn bank_visit_ledger(&mut self, actor_id: u64, reason: &str) -> Option<EventView> {
+        let mut mark_ids: Vec<_> = self
+            .ledger_marks
+            .values()
+            .filter(|mark| mark.actor_id == actor_id && !mark.banked)
+            .map(|mark| (mark.source_event_seq, mark.id.clone()))
+            .collect();
+        mark_ids.sort_by_key(|(source_event_seq, _)| *source_event_seq);
+        if mark_ids.is_empty() {
+            return None;
+        }
+
+        let mut categories = Vec::new();
+        for (_, mark_id) in &mark_ids {
+            if let Some(mark) = self.ledger_marks.get_mut(mark_id) {
+                mark.banked = true;
+                categories.push(mark.category.clone());
+            }
+        }
+        Some(self.append_ledger_bank_event(actor_id, mark_ids.len(), &categories, reason))
+    }
+
+    fn revise_calling(
+        &mut self,
+        actor_id: u64,
+        statement: &str,
+        cost: u8,
+        reason: &str,
+    ) -> Vec<EventView> {
+        if cost == 0
+            || self.advancement_points_available(actor_id) < usize::from(cost)
+            || self
+                .callings
+                .get(&actor_id)
+                .map(|calling| calling.statement == statement)
+                .unwrap_or(false)
+        {
+            return Vec::new();
+        }
+
+        let spend_seq = self.world.next_event_seq;
+        let spend = AdvancementSpendState {
+            id: advancement_spend_id(actor_id, "calling_revision", spend_seq),
+            actor_id,
+            kind: "calling_revision".to_string(),
+            label: "Calling revision".to_string(),
+            cost,
+            source_event_seq: spend_seq,
+        };
+        if self.advancement_spends.contains_key(&spend.id) {
+            return Vec::new();
+        }
+        self.advancement_spends
+            .insert(spend.id.clone(), spend.clone());
+        let mut events = vec![self.append_advancement_event("advancement.spent", &spend, reason)];
+
+        let calling = CallingState {
+            actor_id,
+            statement: statement.to_string(),
+            source_event_seq: Some(self.world.next_event_seq),
+        };
+        self.callings.insert(actor_id, calling.clone());
+        events.push(self.append_calling_event("calling.revised", &calling, reason));
+        events
+    }
+
+    fn create_bond(
+        &mut self,
+        actor_id: u64,
+        target_actor_id: u64,
+        statement: &str,
+        cost: u8,
+        reason: &str,
+    ) -> Vec<EventView> {
+        let id = bond_id(actor_id, target_actor_id);
+        if cost == 0
+            || self.advancement_points_available(actor_id) < usize::from(cost)
+            || self.active_bond(actor_id, target_actor_id).is_some()
+        {
+            return Vec::new();
+        }
+
+        let spend_seq = self.world.next_event_seq;
+        let target_name = self
+            .actor_name(target_actor_id)
+            .unwrap_or_else(|| format!("Resident {target_actor_id}"));
+        let spend = AdvancementSpendState {
+            id: advancement_spend_id(actor_id, "bond_slot", spend_seq),
+            actor_id,
+            kind: "bond_slot".to_string(),
+            label: format!("Bond with {target_name}"),
+            cost,
+            source_event_seq: spend_seq,
+        };
+        if self.advancement_spends.contains_key(&spend.id) {
+            return Vec::new();
+        }
+        self.advancement_spends
+            .insert(spend.id.clone(), spend.clone());
+        let mut events = vec![self.append_advancement_event("advancement.spent", &spend, reason)];
+
+        let bond = BondState {
+            id: id.clone(),
+            actor_id,
+            target_actor_id,
+            statement: statement.to_string(),
+            strength: 1,
+            status: "active".to_string(),
+            source_event_seq: Some(self.world.next_event_seq),
+            updated_event_seq: Some(self.world.next_event_seq),
+        };
+        self.bonds.insert(id, bond.clone());
+        events.push(self.append_bond_event("bond.created", &bond, reason));
+        events
+    }
+
+    fn revise_bond(
+        &mut self,
+        actor_id: u64,
+        target_actor_id: u64,
+        statement: &str,
+        cost: u8,
+        reason: &str,
+    ) -> Vec<EventView> {
+        let id = bond_id(actor_id, target_actor_id);
+        if cost == 0 || self.advancement_points_available(actor_id) < usize::from(cost) {
+            return Vec::new();
+        }
+        let Some(existing) = self.bonds.get(&id) else {
+            return Vec::new();
+        };
+        if existing.status == "resolved"
+            || existing.strength == 0
+            || existing.statement == statement
+        {
+            return Vec::new();
+        }
+
+        let spend_seq = self.world.next_event_seq;
+        let spend = AdvancementSpendState {
+            id: advancement_spend_id(actor_id, "bond_revision", spend_seq),
+            actor_id,
+            kind: "bond_revision".to_string(),
+            label: "Bond revision".to_string(),
+            cost,
+            source_event_seq: spend_seq,
+        };
+        if self.advancement_spends.contains_key(&spend.id) {
+            return Vec::new();
+        }
+        self.advancement_spends
+            .insert(spend.id.clone(), spend.clone());
+        let mut events = vec![self.append_advancement_event("advancement.spent", &spend, reason)];
+
+        let Some(bond) = self.bonds.get_mut(&id) else {
+            return events;
+        };
+        bond.statement = statement.to_string();
+        bond.status = "active".to_string();
+        bond.updated_event_seq = Some(self.world.next_event_seq);
+        let bond = bond.clone();
+        events.push(self.append_bond_event("bond.revised", &bond, reason));
+        events
+    }
+
+    fn train_skill(
+        &mut self,
+        actor_id: u64,
+        skill_id: &str,
+        cost: u8,
+        reason: &str,
+    ) -> Vec<EventView> {
+        let Some(label) = skill_label(skill_id) else {
+            return Vec::new();
+        };
+        let id = skill_state_id(actor_id, skill_id);
+        let current_rank = self.skills.get(&id).map(|skill| skill.rank).unwrap_or(0);
+        if cost == 0
+            || current_rank >= MAX_SKILL_RANK
+            || self.advancement_points_available(actor_id) < usize::from(cost)
+        {
+            return Vec::new();
+        }
+
+        let spend_seq = self.world.next_event_seq;
+        let spend = AdvancementSpendState {
+            id: advancement_spend_id(actor_id, "skill_step", spend_seq),
+            actor_id,
+            kind: "skill_step".to_string(),
+            label: format!("{label} skill step"),
+            cost,
+            source_event_seq: spend_seq,
+        };
+        if self.advancement_spends.contains_key(&spend.id) {
+            return Vec::new();
+        }
+        self.advancement_spends
+            .insert(spend.id.clone(), spend.clone());
+        let mut events = vec![self.append_advancement_event("advancement.spent", &spend, reason)];
+
+        let skill = SkillState {
+            actor_id,
+            skill_id: skill_id.to_string(),
+            label: label.to_string(),
+            rank: current_rank.saturating_add(1).min(MAX_SKILL_RANK),
+            updated_event_seq: Some(self.world.next_event_seq),
+        };
+        self.skills.insert(id, skill.clone());
+        events.push(self.append_skill_event("skill.stepped", &skill, reason));
+        events
+    }
+
+    fn action_with_skill_bonus(&self, mut action: CwAction) -> CwAction {
+        if action.kind == CW_ACTION_ABILITY_CHECK {
+            action.modifier = action
+                .modifier
+                .saturating_add(self.skill_bonus_for_ability(action.actor_id, action.ability));
+        }
+        action
+    }
+
+    fn skill_bonus_for_ability(&self, actor_id: u64, ability: u8) -> i16 {
+        let Some(skill_id) = skill_id_for_ability(ability) else {
+            return 0;
+        };
+        self.skills
+            .get(&skill_state_id(actor_id, skill_id))
+            .map(|skill| skill_bonus_for_rank(skill.rank))
+            .unwrap_or(0)
+    }
+
+    fn active_bond(&self, actor_id: u64, target_actor_id: u64) -> Option<&BondState> {
+        self.bonds
+            .get(&bond_id(actor_id, target_actor_id))
+            .filter(|bond| bond.status != "resolved" && bond.strength > 0)
+    }
+
+    fn resolve_bond(
+        &mut self,
+        actor_id: u64,
+        target_actor_id: u64,
+        reason: &str,
+    ) -> Vec<EventView> {
+        let bond_id = bond_id(actor_id, target_actor_id);
+        let Some(bond) = self.bonds.get_mut(&bond_id) else {
+            return Vec::new();
+        };
+        if bond.status == "resolved" || bond.strength == 0 {
+            return Vec::new();
+        }
+        bond.status = "resolved".to_string();
+        bond.updated_event_seq = Some(self.world.next_event_seq);
+        let bond = bond.clone();
+        let bond_event = self.append_bond_event("bond.resolved", &bond, reason);
+        let mut events = vec![bond_event.clone()];
+        let target_name = self
+            .actor_name(target_actor_id)
+            .unwrap_or_else(|| format!("Resident {target_actor_id}"));
+        if let Some(event) = self.mark_visit_ledger(
+            actor_id,
+            "bond",
+            &format!("You resolved a Bond with {target_name}."),
+            bond_event.seq,
+            &format!("bond_resolved:{}", bond.id),
+        ) {
+            events.push(event);
+        }
+        events
     }
 
     fn apply_orb_delta(&mut self, actor_id: u64, delta: i32) {
@@ -5161,9 +7304,15 @@ impl RuntimeWorld {
         let listen_reward_claimable = client_actor_id
             .map(|id| self.listen_reward_claimable(id))
             .unwrap_or(false);
+        let listen_attempted_here = client_actor_id
+            .map(|id| self.listen_attempted_here(id))
+            .unwrap_or(false);
         let listen_cost_orbs = client_actor_id
             .map(|id| self.listen_cost_orbs(id))
             .unwrap_or(0);
+        let primary_action = self.primary_action(client_actor_id, access);
+        let action_offers = self.ranked_action_offers(client_actor_id, access, &primary_action);
+        let inspector = self.inspector_view(location_id, &primary_action, &action_offers);
         StateResponse {
             location,
             exits,
@@ -5174,6 +7323,16 @@ impl RuntimeWorld {
             tags: self.tag_views(client_actor_id, location_id),
             jobs: self.job_views(location_id),
             room_sheet: self.room_sheet_view(location_id),
+            calling: client_actor_id.and_then(|id| self.calling_view(id)),
+            skills: client_actor_id
+                .map(|id| self.skill_views(id))
+                .unwrap_or_default(),
+            ledger: client_actor_id
+                .map(|id| self.visit_ledger_view(id))
+                .unwrap_or_else(empty_visit_ledger_view),
+            bonds: client_actor_id
+                .map(|id| self.bond_views(id))
+                .unwrap_or_default(),
             cards,
             access: access_view,
             account: account_view(access),
@@ -5183,6 +7342,7 @@ impl RuntimeWorld {
                 can_chat_with_orbs: orbs >= CHAT_ORB_COST,
                 listen_cost_orbs,
                 listen_reward_claimable,
+                listen_attempted_here,
                 openrouter_connected,
                 chat_payer: if openrouter_connected {
                     "player_openrouter".to_string()
@@ -5201,7 +7361,9 @@ impl RuntimeWorld {
                 .take(80)
                 .cloned()
                 .collect(),
-            primary_action: self.primary_action(client_actor_id, access),
+            primary_action,
+            action_offers,
+            inspector,
         }
     }
 
@@ -5221,6 +7383,16 @@ impl RuntimeWorld {
         !self.orb_reward_claims.contains(&claim_key)
     }
 
+    fn listen_attempted_here(&self, actor_id: u64) -> bool {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return false;
+        };
+        if actor.status != CW_ACTOR_ACTIVE {
+            return false;
+        }
+        self.listen_attempt_claimed_at(actor_id, actor.location_id)
+    }
+
     fn listen_cost_orbs(&self, actor_id: u64) -> i32 {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return 0;
@@ -5228,7 +7400,9 @@ impl RuntimeWorld {
         if actor.status != CW_ACTOR_ACTIVE {
             return 0;
         }
-        if self.listen_attempt_claimed_at(actor_id, actor.location_id) {
+        if self.location_is_frontier(actor.location_id)
+            && self.listen_attempt_claimed_at(actor_id, actor.location_id)
+        {
             LISTEN_REPEAT_ORB_COST
         } else {
             0
@@ -5245,6 +7419,20 @@ impl RuntimeWorld {
             .get(&tired_tag_id(actor_id))
             .map(|tag| tag.active)
             .unwrap_or(false)
+    }
+
+    fn clock_is_frontier(&self, clock_id: &str) -> bool {
+        self.clocks
+            .get(clock_id)
+            .map(|clock| clock_zone(clock) == ZONE_FRONTIER)
+            .unwrap_or(false)
+    }
+
+    fn location_is_frontier(&self, location_id: u64) -> bool {
+        self.room_sheets
+            .get(&location_id)
+            .map(|sheet| room_sheet_zone(sheet) == ZONE_FRONTIER)
+            .unwrap_or_else(|| default_zone_for_scope("room", location_id) == ZONE_FRONTIER)
     }
 
     fn prepare_available(&self, actor_id: u64) -> bool {
@@ -5308,6 +7496,20 @@ impl RuntimeWorld {
             })
     }
 
+    fn active_danger_clock_id_for_location(&self, location_id: u64) -> Option<String> {
+        self.jobs
+            .values()
+            .filter(|job| job.location_ids.contains(&location_id))
+            .filter(|job| self.job_status(job) == "active")
+            .filter_map(|job| {
+                self.clocks
+                    .get(&job.danger_clock_id)
+                    .map(|clock| (job, clock))
+            })
+            .find(|(_, clock)| clock.filled < clock.segments)
+            .map(|(job, _)| job.danger_clock_id.clone())
+    }
+
     fn prepared_tag_active(&self, actor_id: u64, location_id: u64) -> bool {
         self.tags
             .get(&prepared_tag_id(actor_id, location_id))
@@ -5326,6 +7528,7 @@ impl RuntimeWorld {
                 scope: clock.scope.clone(),
                 scope_id: clock.scope_id,
                 kind: clock.kind.clone(),
+                zone: clock_zone(clock).to_string(),
                 label: clock.label.clone(),
                 segments: clock.segments,
                 filled: clock.filled,
@@ -5380,6 +7583,7 @@ impl RuntimeWorld {
                 location_id: sheet.location_id,
                 name: sheet.name.clone(),
                 safety: sheet.safety.clone(),
+                zone: room_sheet_zone(sheet).to_string(),
                 aspects: sheet.aspects.clone(),
                 boons: sheet.boons.clone(),
                 hooks: sheet.hooks.clone(),
@@ -5388,7 +7592,295 @@ impl RuntimeWorld {
             })
     }
 
+    fn inspector_view(
+        &self,
+        location_id: u64,
+        primary_action: &PrimaryAction,
+        action_offers: &[RankedActionOffer],
+    ) -> InspectorView {
+        let room_sheet = self.room_sheets.get(&location_id);
+        let zone = room_sheet
+            .map(|sheet| room_sheet_zone(sheet).to_string())
+            .unwrap_or_else(|| default_zone_for_scope("room", location_id).to_string());
+        let features = self
+            .room_features(location_id)
+            .into_iter()
+            .map(|feature| feature.key.clone())
+            .collect();
+        let listen_offer = action_offers.iter().find(|offer| offer.kind == "check");
+        let listen_reason = listen_offer
+            .map(|offer| {
+                let effect = offer
+                    .effect
+                    .clone()
+                    .unwrap_or_else(|| "rolls Listening in this room".to_string());
+                format!("Listen is suggested from the check offer; {effect}")
+            })
+            .or_else(|| {
+                self.active_progress_clock_id_for_location(location_id)
+                    .map(|clock_id| {
+                        format!(
+                            "Listen can feed {clock_id}, but it is not currently the top offer."
+                        )
+                    })
+            });
+        let suggested_action = action_offers
+            .iter()
+            .find(|offer| offer.kind == primary_action.kind)
+            .or_else(|| action_offers.first())
+            .map(|offer| ActionInspectorView {
+                offer_id: offer.id.clone(),
+                kind: offer.kind.clone(),
+                label: offer.label.clone(),
+                command: offer.command.clone(),
+                reason: offer.reason.clone(),
+                effect: offer.effect.clone(),
+                risk: offer.risk.clone(),
+                cost_orbs: offer.cost.as_ref().map(|cost| cost.orbs),
+            });
+
+        InspectorView {
+            location_id,
+            room: RoomInspectorView {
+                name: self
+                    .location_name(location_id)
+                    .unwrap_or_else(|| format!("Location {location_id}")),
+                zone,
+                safety: room_sheet.map(|sheet| sheet.safety.clone()),
+                aspects: room_sheet
+                    .map(|sheet| sheet.aspects.clone())
+                    .unwrap_or_default(),
+                boons: room_sheet
+                    .map(|sheet| sheet.boons.clone())
+                    .unwrap_or_default(),
+                hooks: room_sheet
+                    .map(|sheet| sheet.hooks.clone())
+                    .unwrap_or_default(),
+                resources: room_sheet
+                    .map(|sheet| sheet.resources.clone())
+                    .unwrap_or_default(),
+                projects: room_sheet
+                    .map(|sheet| sheet.projects.clone())
+                    .unwrap_or_default(),
+                features,
+                listen_reason,
+            },
+            suggested_action,
+            jobs: self.job_inspector_views(location_id),
+            clocks: self.clock_inspector_views(location_id),
+            lifecycle_hooks: self.lifecycle_hook_inspector_views(location_id),
+        }
+    }
+
+    fn job_inspector_views(&self, location_id: u64) -> Vec<JobInspectorView> {
+        self.jobs
+            .values()
+            .filter(|job| job.location_ids.contains(&location_id))
+            .map(|job| {
+                let progress = self.clocks.get(&job.progress_clock_id);
+                let danger = self.clocks.get(&job.danger_clock_id);
+                let mut needs = Vec::new();
+                if let Some(clock) = progress {
+                    let remaining = clock.segments.saturating_sub(clock.filled);
+                    if remaining > 0 {
+                        needs.push(format!("{remaining} progress segments"));
+                    }
+                }
+                if needs.is_empty() {
+                    needs.push("progress clock filled".to_string());
+                }
+                let mut blockers = Vec::new();
+                if danger
+                    .map(|clock| clock.filled >= clock.segments)
+                    .unwrap_or(false)
+                {
+                    blockers.push("danger clock filled".to_string());
+                }
+                let participants = job
+                    .participant_ids
+                    .iter()
+                    .map(|actor_id| {
+                        self.actor_name(*actor_id)
+                            .unwrap_or_else(|| format!("Actor {actor_id}"))
+                    })
+                    .collect();
+                JobInspectorView {
+                    id: job.id.clone(),
+                    status: self.job_status(job),
+                    premise: job.premise.clone(),
+                    needs,
+                    blockers,
+                    participants,
+                    progress_clock_id: job.progress_clock_id.clone(),
+                    danger_clock_id: job.danger_clock_id.clone(),
+                    reward: job.reward.clone(),
+                    consequence: job.consequence.clone(),
+                }
+            })
+            .collect()
+    }
+
+    fn clock_inspector_views(&self, location_id: u64) -> Vec<ClockInspectorView> {
+        self.clocks
+            .values()
+            .filter(|clock| clock.scope == "room" && clock.scope_id == location_id)
+            .map(|clock| {
+                let last_event = self.event_log.iter().rev().find(|event| {
+                    event.type_name == "clock.updated"
+                        && event.clock_id.as_deref() == Some(clock.id.as_str())
+                });
+                ClockInspectorView {
+                    id: clock.id.clone(),
+                    kind: clock.kind.clone(),
+                    label: clock.label.clone(),
+                    zone: clock_zone(clock).to_string(),
+                    filled: clock.filled,
+                    segments: clock.segments,
+                    status: clock_status(clock),
+                    visible_to_players: clock.visible_to_players,
+                    updated_event_seq: clock.updated_event_seq,
+                    last_delta: last_event.and_then(|event| event.clock_delta),
+                    last_reason: last_event.and_then(|event| event.content.clone()),
+                    on_fill_effect: summarize_effects(&clock.on_fill),
+                }
+            })
+            .collect()
+    }
+
+    fn lifecycle_hook_inspector_views(&self, location_id: u64) -> Vec<LifecycleHookInspectorView> {
+        let room_actor_ids: BTreeSet<String> = self.world.actors[..self.world.actor_count]
+            .iter()
+            .filter(|actor| actor.location_id == location_id)
+            .map(|actor| actor.id.to_string())
+            .collect();
+        let room_item_ids: BTreeSet<String> = self.world.items[..self.world.item_count]
+            .iter()
+            .filter(|item| item.location_id == location_id)
+            .map(|item| item.id.to_string())
+            .collect();
+        let room_clock_ids: BTreeSet<String> = self
+            .clocks
+            .values()
+            .filter(|clock| clock.scope == "room" && clock.scope_id == location_id)
+            .map(|clock| clock.id.clone())
+            .collect();
+        seed_content()
+            .lifecycle_hooks
+            .iter()
+            .filter(|hook| match hook.target_kind.as_str() {
+                "room" => hook.target_id == location_id.to_string(),
+                "actor" => room_actor_ids.contains(&hook.target_id),
+                "item" => room_item_ids.contains(&hook.target_id),
+                "clock" => room_clock_ids.contains(&hook.target_id),
+                _ => false,
+            })
+            .map(|hook| LifecycleHookInspectorView {
+                hook: hook.hook.clone(),
+                target_kind: hook.target_kind.clone(),
+                target_id: hook.target_id.clone(),
+                claim_scope: hook.claim_scope.clone(),
+                effect: summarize_effects(&hook.effects),
+            })
+            .collect()
+    }
+
+    fn calling_view(&self, actor_id: u64) -> Option<CallingView> {
+        self.callings.get(&actor_id).map(|calling| CallingView {
+            actor_id: calling.actor_id,
+            statement: calling.statement.clone(),
+        })
+    }
+
+    fn skill_views(&self, actor_id: u64) -> Vec<SkillView> {
+        let mut skills: Vec<_> = self
+            .skills
+            .values()
+            .filter(|skill| skill.actor_id == actor_id && skill.rank > 0)
+            .map(|skill| SkillView {
+                skill_id: skill.skill_id.clone(),
+                label: skill.label.clone(),
+                rank: skill.rank,
+                tier: skill_rank_label(skill.rank).to_string(),
+                bonus: skill_bonus_for_rank(skill.rank),
+            })
+            .collect();
+        skills.sort_by(|a, b| a.label.cmp(&b.label));
+        skills
+    }
+
+    fn visit_ledger_view(&self, actor_id: u64) -> VisitLedgerView {
+        let mut marks: Vec<_> = self
+            .ledger_marks
+            .values()
+            .filter(|mark| mark.actor_id == actor_id && !mark.banked)
+            .map(|mark| VisitLedgerMarkView {
+                id: mark.id.clone(),
+                category: mark.category.clone(),
+                label: mark.label.clone(),
+                source_event_seq: mark.source_event_seq,
+            })
+            .collect();
+        marks.sort_by_key(|mark| mark.source_event_seq);
+        let banked_count = self
+            .ledger_marks
+            .values()
+            .filter(|mark| mark.actor_id == actor_id && mark.banked)
+            .count();
+        let spent_count = self.advancement_spent_count(actor_id);
+        VisitLedgerView {
+            unbanked_count: marks.len(),
+            banked_count,
+            spent_count,
+            advancement_points: banked_count.saturating_sub(spent_count),
+            unbanked_marks: marks,
+        }
+    }
+
+    fn advancement_spent_count(&self, actor_id: u64) -> usize {
+        self.advancement_spends
+            .values()
+            .filter(|spend| spend.actor_id == actor_id)
+            .map(|spend| usize::from(spend.cost))
+            .sum()
+    }
+
+    fn advancement_points_available(&self, actor_id: u64) -> usize {
+        let banked = self
+            .ledger_marks
+            .values()
+            .filter(|mark| mark.actor_id == actor_id && mark.banked)
+            .count();
+        banked.saturating_sub(self.advancement_spent_count(actor_id))
+    }
+
+    fn bond_views(&self, actor_id: u64) -> Vec<BondView> {
+        let mut bonds: Vec<_> = self
+            .bonds
+            .values()
+            .filter(|bond| bond.actor_id == actor_id && bond.status != "resolved")
+            .map(|bond| BondView {
+                id: bond.id.clone(),
+                actor_id: bond.actor_id,
+                target_actor_id: bond.target_actor_id,
+                target_actor_name: self.actor_name(bond.target_actor_id),
+                statement: bond.statement.clone(),
+                strength: bond.strength,
+                status: bond.status.clone(),
+            })
+            .collect();
+        bonds.sort_by(|a, b| {
+            a.target_actor_name
+                .cmp(&b.target_actor_name)
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        bonds
+    }
+
     fn job_status(&self, job: &JobState) -> String {
+        let explicit = job.status.trim();
+        if matches!(explicit, "completed" | "failed") {
+            return explicit.to_string();
+        }
         let progress_filled = self
             .clocks
             .get(&job.progress_clock_id)
@@ -5405,10 +7897,10 @@ impl RuntimeWorld {
         if danger_filled {
             return "failed".to_string();
         }
-        if job.status.trim().is_empty() {
+        if explicit.is_empty() {
             "active".to_string()
         } else {
-            job.status.clone()
+            explicit.to_string()
         }
     }
 
@@ -5898,6 +8390,258 @@ impl RuntimeWorld {
         }
     }
 
+    fn ranked_action_offers(
+        &self,
+        actor_id: Option<u64>,
+        access: &AccessContext,
+        primary_action: &PrimaryAction,
+    ) -> Vec<RankedActionOffer> {
+        let Some(actor_id) = actor_id else {
+            return vec![self.ranked_offer_from_parts(
+                "create_avatar",
+                "Create Avatar",
+                "create avatar",
+                0,
+                false,
+                None,
+                None,
+                None,
+                None,
+                Some("Creates a new avatar at the cottage threshold.".to_string()),
+                None,
+                "no_active_avatar",
+            )];
+        };
+        let zone = self
+            .actor_by_id(actor_id)
+            .map(|actor| {
+                self.room_sheets
+                    .get(&actor.location_id)
+                    .map(|sheet| room_sheet_zone(sheet).to_string())
+                    .unwrap_or_else(|| {
+                        default_zone_for_scope("room", actor.location_id).to_string()
+                    })
+            })
+            .unwrap_or_else(default_zone);
+        let options: Vec<ActionOption> = if primary_action.options.is_empty() {
+            vec![ActionOption {
+                kind: primary_action.kind.clone(),
+                label: primary_action.label.clone(),
+                command: primary_action.command.clone(),
+            }]
+        } else {
+            primary_action
+                .options
+                .iter()
+                .map(|option| ActionOption {
+                    kind: option.kind.clone(),
+                    label: option.label.clone(),
+                    command: option.command.clone(),
+                })
+                .collect()
+        };
+        let mut offers: Vec<_> = options
+            .into_iter()
+            .map(|option| {
+                let rank = action_offer_rank(&option.kind);
+                let target = self.action_offer_target(&option.kind, actor_id, access);
+                let cost = self.action_offer_cost(&option.kind, actor_id);
+                let risk = self.action_offer_risk(&option.kind, actor_id);
+                let effect = self.action_offer_effect(&option.kind, actor_id);
+                let claim_key = self.action_offer_claim_key(&option.kind, actor_id);
+                RankedActionOffer {
+                    id: format!(
+                        "{}:{}",
+                        option.kind,
+                        normalize_command_text(&option.command)
+                    ),
+                    kind: option.kind,
+                    label: option.label,
+                    command: option.command,
+                    rank,
+                    disabled: primary_action.disabled,
+                    disabled_reason: primary_action
+                        .disabled
+                        .then(|| "primary action is currently unavailable".to_string()),
+                    zone: zone.clone(),
+                    source: "kernel_flags+rpg_projection".to_string(),
+                    target,
+                    cost,
+                    risk,
+                    effect,
+                    claim_key,
+                    reason: "ranked from current room affordances and RPG projection".to_string(),
+                }
+            })
+            .collect();
+        offers.sort_by_key(|offer| offer.rank);
+        offers
+    }
+
+    fn ranked_offer_from_parts(
+        &self,
+        kind: &str,
+        label: &str,
+        command: &str,
+        rank: u16,
+        disabled: bool,
+        disabled_reason: Option<String>,
+        target: Option<ActionTargetView>,
+        cost: Option<ActionCostView>,
+        risk: Option<String>,
+        effect: Option<String>,
+        claim_key: Option<String>,
+        reason: &str,
+    ) -> RankedActionOffer {
+        RankedActionOffer {
+            id: format!("{kind}:{}", normalize_command_text(command)),
+            kind: kind.to_string(),
+            label: label.to_string(),
+            command: normalize_command_text(command),
+            rank,
+            disabled,
+            disabled_reason,
+            zone: default_zone(),
+            source: "server".to_string(),
+            target,
+            cost,
+            risk,
+            effect,
+            claim_key,
+            reason: reason.to_string(),
+        }
+    }
+
+    fn action_offer_target(
+        &self,
+        kind: &str,
+        actor_id: u64,
+        access: &AccessContext,
+    ) -> Option<ActionTargetView> {
+        let actor = self.actor_by_id(actor_id)?;
+        match kind {
+            "chat" => self.world.actors[..self.world.actor_count]
+                .iter()
+                .find(|target| {
+                    target.id != actor_id
+                        && target.kind == CW_ACTOR_NPC
+                        && target.status == CW_ACTOR_ACTIVE
+                        && target.location_id == actor.location_id
+                })
+                .map(|target| ActionTargetView {
+                    kind: "actor".to_string(),
+                    id: Some(target.id),
+                    label: self.actor_name(target.id),
+                }),
+            "attack" | "defend" => self.world.actors[..self.world.actor_count]
+                .iter()
+                .find(|target| {
+                    target.id != actor_id
+                        && target.kind == CW_ACTOR_NPC
+                        && target.status == CW_ACTOR_ACTIVE
+                        && target.location_id == actor.location_id
+                        && self.location_allows_combat(actor.location_id)
+                })
+                .map(|target| ActionTargetView {
+                    kind: "actor".to_string(),
+                    id: Some(target.id),
+                    label: self.actor_name(target.id),
+                }),
+            "move" | "flee" => self
+                .exit_views(actor.location_id, access)
+                .into_iter()
+                .find(|exit| exit.accessible && !exit.locked)
+                .map(|exit| ActionTargetView {
+                    kind: "location".to_string(),
+                    id: Some(exit.destination_location_id),
+                    label: Some(exit.destination_location_name),
+                }),
+            _ => None,
+        }
+    }
+
+    fn action_offer_cost(&self, kind: &str, actor_id: u64) -> Option<ActionCostView> {
+        match kind {
+            "chat" => Some(ActionCostView {
+                orbs: CHAT_ORB_COST,
+                reason: "server-authored avatar chat".to_string(),
+            }),
+            "check" => {
+                let orbs = self.listen_cost_orbs(actor_id);
+                (orbs > 0).then(|| ActionCostView {
+                    orbs,
+                    reason: "repeat frontier listen".to_string(),
+                })
+            }
+            _ => None,
+        }
+    }
+
+    fn action_offer_risk(&self, kind: &str, actor_id: u64) -> Option<String> {
+        let actor = self.actor_by_id(actor_id)?;
+        match kind {
+            "attack" => Some("combat can damage or knock out the target".to_string()),
+            "defend" => Some("defense spends the moment without moving the project".to_string()),
+            "flee" => {
+                Some("fleeing exits danger but gives up the current room position".to_string())
+            }
+            "check" if self.location_is_frontier(actor.location_id) => {
+                Some("repeat listening on the frontier can leave you tired".to_string())
+            }
+            "work" | "help" if !self.prepared_tag_active(actor_id, actor.location_id) => {
+                Some("unprepared effort can leave you tired".to_string())
+            }
+            "rest" => self
+                .active_danger_clock_id_for_location(actor.location_id)
+                .map(|_| "resting on the frontier advances the danger clock".to_string()),
+            _ => None,
+        }
+    }
+
+    fn action_offer_effect(&self, kind: &str, actor_id: u64) -> Option<String> {
+        let actor = self.actor_by_id(actor_id)?;
+        match kind {
+            "check" => {
+                let effects =
+                    lifecycle_effects_for("on_listen", "room", &actor.location_id.to_string());
+                summarize_effects(&effects)
+                    .or_else(|| Some("rolls Listening for truths in the current room".to_string()))
+            }
+            "prepare" => Some("marks you prepared for the active room project".to_string()),
+            "work" => self
+                .active_progress_clock_id_for_location(actor.location_id)
+                .map(|clock_id| format!("advances progress clock {clock_id}")),
+            "help" => self
+                .active_progress_clock_id_for_location(actor.location_id)
+                .map(|clock_id| format!("helps a resident and advances {clock_id}")),
+            "rest" => Some("clears tired; may advance danger in frontier rooms".to_string()),
+            "move" => Some("moves to an accessible adjacent room".to_string()),
+            "flee" => {
+                Some("returns from a frontier room and can mark the visit ledger".to_string())
+            }
+            "give_item" => {
+                Some("offers a held item to a resident and may deepen a bond".to_string())
+            }
+            "use_item" => Some("uses a held item on a valid room or actor target".to_string()),
+            "pick_up" => Some("takes an available item into inventory".to_string()),
+            _ => None,
+        }
+    }
+
+    fn action_offer_claim_key(&self, kind: &str, actor_id: u64) -> Option<String> {
+        let actor = self.actor_by_id(actor_id)?;
+        match kind {
+            "check" => Some(ability_check_success_claim_key(
+                actor_id,
+                actor.location_id,
+                LISTEN_ABILITY,
+                LISTEN_DC as i16,
+            )),
+            "rest" => Some(tired_tag_id(actor_id)),
+            _ => None,
+        }
+    }
+
     fn has_accessible_exit(&self, actor_id: u64, access: &AccessContext) -> bool {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return false;
@@ -5929,12 +8673,7 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return false;
         };
-        let location_allows_combat = self.world.locations[..self.world.location_count]
-            .iter()
-            .any(|location| {
-                location.id == actor.location_id && (location.flags & CW_LOCATION_ALLOW_COMBAT) != 0
-            });
-        location_allows_combat
+        self.location_allows_combat(actor.location_id)
             && self.world.actors[..self.world.actor_count]
                 .iter()
                 .any(|target| {
@@ -5943,6 +8682,14 @@ impl RuntimeWorld {
                         && target.status == CW_ACTOR_ACTIVE
                         && target.location_id == actor.location_id
                 })
+    }
+
+    fn location_allows_combat(&self, location_id: u64) -> bool {
+        self.world.locations[..self.world.location_count]
+            .iter()
+            .any(|location| {
+                location.id == location_id && (location.flags & CW_LOCATION_ALLOW_COMBAT) != 0
+            })
     }
 
     fn has_matching_evolution_gift(&self, actor_id: u64) -> bool {
@@ -5992,8 +8739,15 @@ impl RuntimeWorld {
         if command.is_empty() {
             return Err(command_error("", "", 400, "Try a command like look, who, inventory, go Rain-Soft Garden, take Story Button, or chat Rati."));
         }
-        let (verb, rest) = command_verb_and_rest(&command);
-        let verb = canonical_command_verb(&verb);
+        let (raw_verb, rest) = command_verb_and_rest(&command);
+        let verb = if raw_verb == "revise"
+            && rest.trim_start().strip_prefix("bond").is_some_and(|tail| {
+                tail.is_empty() || tail.chars().next().is_some_and(char::is_whitespace)
+            }) {
+            "bond".to_string()
+        } else {
+            canonical_command_verb(&raw_verb)
+        };
         let Some(actor) = self.actor_by_id(payload.actor_id) else {
             return Err(command_error(
                 &command,
@@ -6017,7 +8771,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                    output: "Commands: look, look <thing>, search <feature>, who, inventory, go <room>, take <item>, give <item> to <resident>, use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, attack <target>, defend, flee <room>.".to_string(),
+                    output: "Commands: look, look <thing>, search <feature>, who, inventory, go <room>, take <item>, give <item> to <resident>, use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, bank ledger, skill <name>, calling <new drive>, bond <resident>: <relationship>, resolve bond <resident>, attack <target>, defend, flee <room>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -6275,6 +9029,300 @@ impl RuntimeWorld {
                     dispatch: CommandDispatch::Rest,
                 })
             }
+            "bank" => {
+                let ledger = self.visit_ledger_view(actor.id);
+                if ledger.unbanked_count == 0 {
+                    return Ok(ResolvedCommand {
+                        command: "bank ledger".to_string(),
+                        verb,
+                        action: Some(command_action("bank_ledger", "Bank Ledger", "bank ledger")),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "Your Visit Ledger has nothing unbanked yet.".to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: "bank ledger".to_string(),
+                    verb,
+                    action: Some(command_action("bank_ledger", "Bank Ledger", "bank ledger")),
+                    dispatch: CommandDispatch::BankLedger,
+                })
+            }
+            "skill" => {
+                let skill_query = rest
+                    .strip_prefix("skill ")
+                    .or_else(|| rest.strip_prefix("train "))
+                    .or_else(|| rest.strip_prefix("practice "))
+                    .unwrap_or(rest)
+                    .trim();
+                let Some(skill_id) = normalize_skill_id(skill_query) else {
+                    return Ok(ResolvedCommand {
+                        command,
+                        verb,
+                        action: Some(command_action("train_skill", "Train Skill", &payload.command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 400,
+                            output:
+                                "Use: skill listening, lorecraft, nimble hands, lifting, steadiness, or kindness."
+                                    .to_string(),
+                        },
+                    });
+                };
+                let label = skill_label(skill_id).unwrap_or("Skill");
+                let current_rank = self
+                    .skills
+                    .get(&skill_state_id(actor.id, skill_id))
+                    .map(|skill| skill.rank)
+                    .unwrap_or(0);
+                if current_rank >= MAX_SKILL_RANK {
+                    return Ok(ResolvedCommand {
+                        command: format!("skill {skill_id}"),
+                        verb,
+                        action: Some(command_action(
+                            "train_skill",
+                            "Train Skill",
+                            &format!("skill {skill_id}"),
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: format!("{label} is already master rank."),
+                        },
+                    });
+                }
+                if self.advancement_points_available(actor.id) < usize::from(SKILL_STEP_COST) {
+                    return Ok(ResolvedCommand {
+                        command: format!("skill {skill_id}"),
+                        verb,
+                        action: Some(command_action(
+                            "train_skill",
+                            "Train Skill",
+                            &format!("skill {skill_id}"),
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "Bank Visit Ledger marks before training a skill.".to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: format!("skill {skill_id}"),
+                    verb,
+                    action: Some(command_action(
+                        "train_skill",
+                        "Train Skill",
+                        &format!("skill {skill_id}"),
+                    )),
+                    dispatch: CommandDispatch::TrainSkill {
+                        skill_id: skill_id.to_string(),
+                    },
+                })
+            }
+            "calling" => {
+                let statement = rest
+                    .strip_prefix("calling ")
+                    .unwrap_or(rest)
+                    .trim();
+                let Some(statement) = normalize_calling_statement(statement) else {
+                    return Ok(ResolvedCommand {
+                        command,
+                        verb,
+                        action: Some(command_action("revise_calling", "Revise Calling", &payload.command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 400,
+                            output: "Use: calling <a short cozy drive statement>.".to_string(),
+                        },
+                    });
+                };
+                if self.advancement_points_available(actor.id) < usize::from(CALLING_REVISION_COST)
+                {
+                    return Ok(ResolvedCommand {
+                        command,
+                        verb,
+                        action: Some(command_action("revise_calling", "Revise Calling", &payload.command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "Bank Visit Ledger marks before revising your Calling."
+                                .to_string(),
+                        },
+                    });
+                }
+                if self
+                    .callings
+                    .get(&actor.id)
+                    .map(|calling| calling.statement == statement)
+                    .unwrap_or(false)
+                {
+                    return Ok(ResolvedCommand {
+                        command,
+                        verb,
+                        action: Some(command_action("revise_calling", "Revise Calling", &payload.command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "That is already your Calling.".to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: format!("calling {statement}"),
+                    verb,
+                    action: Some(command_action(
+                        "revise_calling",
+                        "Revise Calling",
+                        &format!("calling {statement}"),
+                    )),
+                    dispatch: CommandDispatch::ReviseCalling { statement },
+                })
+            }
+            "bond" => {
+                let rest = rest
+                    .strip_prefix("bond with ")
+                    .or_else(|| rest.strip_prefix("bond "))
+                    .or_else(|| rest.strip_prefix("with "))
+                    .unwrap_or(rest)
+                    .trim();
+                let (target_query, statement) = rest.split_once(':').ok_or_else(|| {
+                    command_error(
+                        &command,
+                        "bond",
+                        400,
+                        "Use: bond <resident>: <short relationship statement>.",
+                    )
+                })?;
+                let Some(statement) = normalize_bond_statement(statement) else {
+                    return Ok(ResolvedCommand {
+                        command,
+                        verb,
+                        action: Some(command_action(
+                            "revise_bond",
+                            "Revise Bond",
+                            &payload.command,
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 400,
+                            output: "Use: bond <resident>: <short cozy relationship statement>."
+                                .to_string(),
+                        },
+                    });
+                };
+                let target = self
+                    .resolve_room_actor(actor, target_query, CommandActorFilter::ActiveNpc)
+                    .map_err(|output| command_error(&command, "bond", 404, output))?;
+                let target_name = self.actor_view(target).name;
+                let Some(active_bond) = self.active_bond(actor.id, target.id) else {
+                    if self.advancement_points_available(actor.id) < usize::from(BOND_SLOT_COST) {
+                        return Ok(ResolvedCommand {
+                            command: format!("bond {target_name}: {statement}"),
+                            verb,
+                            action: Some(command_action(
+                                "create_bond",
+                                "Write Bond",
+                                &format!("bond {target_name}: {statement}"),
+                            )),
+                            dispatch: CommandDispatch::Disabled {
+                                status: 409,
+                                output: format!(
+                                    "Bank Visit Ledger marks before writing a new Bond with {target_name}."
+                                ),
+                            },
+                        });
+                    }
+                    return Ok(ResolvedCommand {
+                        command: format!("bond {target_name}: {statement}"),
+                        verb,
+                        action: Some(command_action(
+                            "create_bond",
+                            "Write Bond",
+                            &format!("bond {target_name}: {statement}"),
+                        )),
+                        dispatch: CommandDispatch::CreateBond {
+                            target_actor_id: target.id,
+                            statement,
+                        },
+                    });
+                };
+                if self.advancement_points_available(actor.id) < usize::from(BOND_REVISION_COST) {
+                    return Ok(ResolvedCommand {
+                        command: format!("bond {target_name}: {statement}"),
+                        verb,
+                        action: Some(command_action(
+                            "revise_bond",
+                            "Revise Bond",
+                            &format!("bond {target_name}: {statement}"),
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "Bank Visit Ledger marks before revising a Bond.".to_string(),
+                        },
+                    });
+                }
+                if active_bond.statement == statement {
+                    return Ok(ResolvedCommand {
+                        command: format!("bond {target_name}: {statement}"),
+                        verb,
+                        action: Some(command_action(
+                            "revise_bond",
+                            "Revise Bond",
+                            &format!("bond {target_name}: {statement}"),
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "That Bond already says that.".to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: format!("bond {target_name}: {statement}"),
+                    verb,
+                    action: Some(command_action(
+                        "revise_bond",
+                        "Revise Bond",
+                        &format!("bond {target_name}: {statement}"),
+                    )),
+                    dispatch: CommandDispatch::ReviseBond {
+                        target_actor_id: target.id,
+                        statement,
+                    },
+                })
+            }
+            "resolve" => {
+                let target_query = rest
+                    .strip_prefix("bond with ")
+                    .or_else(|| rest.strip_prefix("bond "))
+                    .unwrap_or(rest)
+                    .trim();
+                let target = self
+                    .resolve_room_actor(actor, target_query, CommandActorFilter::ActiveNpc)
+                    .map_err(|output| command_error(&command, "resolve", 404, output))?;
+                let target_name = self.actor_view(target).name;
+                if self.active_bond(actor.id, target.id).is_none() {
+                    return Ok(ResolvedCommand {
+                        command: format!("resolve bond {target_name}"),
+                        verb,
+                        action: Some(command_action(
+                            "resolve_bond",
+                            "Resolve Bond",
+                            &format!("resolve bond {target_name}"),
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: format!("You do not have an active Bond with {target_name}."),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: format!("resolve bond {target_name}"),
+                    verb,
+                    action: Some(command_action(
+                        "resolve_bond",
+                        "Resolve Bond",
+                        &format!("resolve bond {target_name}"),
+                    )),
+                    dispatch: CommandDispatch::ResolveBond {
+                        target_actor_id: target.id,
+                    },
+                })
+            }
             "attack" => {
                 let target = self
                     .resolve_room_actor(actor, rest, CommandActorFilter::ActiveNpc)
@@ -6317,7 +9365,7 @@ impl RuntimeWorld {
                 &command,
                 &verb,
                 404,
-                "I do not know that command yet. Try help, look, search, who, inventory, go, take, give, use, chat, listen, prepare, work, assist, rest, attack, defend, or flee.",
+                "I do not know that command yet. Try help, look, search, who, inventory, go, take, give, use, chat, listen, prepare, work, assist, rest, bank ledger, skill, calling, bond, resolve bond, attack, defend, or flee.",
             )),
         }
     }
@@ -6979,6 +10027,9 @@ impl RuntimeWorld {
     }
 
     fn resident_fallback_for_target(&self, npc_actor_id: u64) -> String {
+        if let Some(line) = seed_resident_fallback_line(npc_actor_id) {
+            return line;
+        }
         let meta = self.actors.get(&npc_actor_id);
         cosyworld_ai_model::generate_resident_reply(&ResidentReplyModelInput {
             npc_actor_id,
@@ -7518,93 +10569,31 @@ fn card_for_actor(
     description: &str,
     level: u8,
 ) -> CardView {
-    let card = match actor_id {
-        1001 => ruby_high_card_by_id("rati").unwrap_or_else(|| {
-            seed_card(SeedCardSpec {
-                card_id: "rati",
-                display_name: "Rati",
-                role: "resident",
-                rarity: "seed",
-                title: "Knitter of Blue Stories",
-                blurb: "A warm mouse who collects small noticed things into stories.",
-                aspect: "tall",
-                source: "cosyworld_seed",
-                asset_status: "pending_art",
-                image_url: None,
-            })
-        }),
-        1002 => seed_card(SeedCardSpec {
-            card_id: "cosy-whiskerwind",
-            display_name: "Whiskerwind",
-            role: "resident",
-            rarity: "seed",
-            title: "Emoji Weather Tongue",
-            blurb: "A wind-bright resident who speaks only in symbols.",
+    let card = if let Some(card) = seed_card_for_subject("actor", actor_id) {
+        card
+    } else {
+        let mut card = seed_card(SeedCardSpec {
+            card_id: &format!("human-avatar-{actor_id}"),
+            display_name: name,
+            role: "avatar",
+            rarity: "generated",
+            title: if title.is_empty() {
+                "World Traveler"
+            } else {
+                title
+            },
+            blurb: if description.is_empty() {
+                "A human avatar generated at the cottage threshold."
+            } else {
+                description
+            },
             aspect: "tall",
-            source: "cosyworld_seed",
-            asset_status: "pending_art",
+            source: "cosyworld_runtime",
+            asset_status: "generated_art",
             image_url: None,
-        }),
-        1003 => seed_card(SeedCardSpec {
-            card_id: "cosy-skull",
-            display_name: "Skull",
-            role: "resident",
-            rarity: "seed",
-            title: "Silent Hearth Wolf",
-            blurb: "A watchful wolf whose silence is part of the room.",
-            aspect: "tall",
-            source: "cosyworld_seed",
-            asset_status: "pending_art",
-            image_url: None,
-        }),
-        1004 => seed_card(SeedCardSpec {
-            card_id: "cosy-moonlit-echo",
-            display_name: "Moonlit Echo",
-            role: "encounter",
-            rarity: "seed",
-            title: "Sparring Reflection",
-            blurb: "A soft practice shape on the trail, bright enough to test courage.",
-            aspect: "tall",
-            source: "cosyworld_seed",
-            asset_status: "pending_art",
-            image_url: None,
-        }),
-        1005 => seed_card(SeedCardSpec {
-            card_id: "cosy-old-oak",
-            display_name: "Old Oak Tree",
-            role: "stranger",
-            rarity: "free",
-            title: "Four-Voice Elder",
-            blurb: "A rooted stranger whose leaves, rings, roots, and hollow remember different truths.",
-            aspect: "tall",
-            source: "cosyworld_seed",
-            asset_status: "pending_art",
-            image_url: None,
-        }),
-        _ => {
-            let mut card = seed_card(SeedCardSpec {
-                card_id: &format!("human-avatar-{actor_id}"),
-                display_name: name,
-                role: "avatar",
-                rarity: "generated",
-                title: if title.is_empty() {
-                    "World Traveler"
-                } else {
-                    title
-                },
-                blurb: if description.is_empty() {
-                    "A human avatar generated at the cottage threshold."
-                } else {
-                    description
-                },
-                aspect: "tall",
-                source: "cosyworld_runtime",
-                asset_status: "generated_art",
-                image_url: None,
-            });
-            card.image_url = Some(generated_avatar_image_url(actor_id));
-            card
-        }
+        });
+        card.image_url = Some(generated_avatar_image_url(actor_id));
+        card
     };
 
     apply_actor_evolution_card(card, actor_id, level)
@@ -7647,206 +10636,75 @@ fn apply_actor_evolution_card(mut card: CardView, actor_id: u64, level: u8) -> C
 }
 
 fn card_for_item(item_id: u64, name: &str, description: &str) -> CardView {
-    let (card_id, title, blurb) = match item_id {
-        2001 => ("cosy-hearth-tonic", "Hearth Tonic", description),
-        2002 => ("cosy-dewbright-button", "Dewbright Button", description),
-        2003 => ("cosy-wolfprint-charm", "Wolfprint Charm", description),
-        2004 => ("cosy-moonwool-thread", "Moonwool Thread", description),
-        2005 => ("cosy-story-button", "Story Button", description),
-        2006 => ("cosy-hearthstone-tag", "Hearthstone Tag", description),
-        2007 => ("cosy-watch-bell", "Watch Bell", description),
-        _ => ("cosy-item", "Found Item", description),
-    };
+    if let Some(card) = seed_card_for_subject("item", item_id) {
+        return card;
+    }
 
     seed_card(SeedCardSpec {
-        card_id,
+        card_id: "cosy-item",
         display_name: name,
         role: "item",
-        rarity: "seed",
-        title,
-        blurb,
+        rarity: "generated",
+        title: "Found Item",
+        blurb: description,
         aspect: "square",
-        source: "cosyworld_seed",
+        source: "cosyworld_runtime",
         asset_status: "pending_art",
         image_url: None,
     })
 }
 
 fn card_for_location(location_id: u64, name: &str) -> CardView {
-    match location_id {
-        1 => seed_card(SeedCardSpec {
-            card_id: "cosy-cottage",
-            display_name: "The Cosy Cottage",
-            role: "location",
-            rarity: "seed",
-            title: "Rainlit Hearth",
-            blurb:
-                "A warm room of firelight, knitting needles, quiet symbols, and watchful silence.",
-            aspect: "wide",
-            source: "cosyworld_seed",
-            asset_status: "seed_art",
-            image_url: Some("/assets/locations/cosy-cottage.png"),
-        }),
-        10 => ruby_high_card_by_id("location-science-lab")
-            .unwrap_or_else(|| unknown_location_card(location_id, name)),
-        11 => ruby_high_card_by_id("location-homeroom")
-            .unwrap_or_else(|| unknown_location_card(location_id, name)),
-        12 => ruby_high_card_by_id("location-library")
-            .unwrap_or_else(|| unknown_location_card(location_id, name)),
-        13 => ruby_high_card_by_id("location-cafeteria")
-            .unwrap_or_else(|| unknown_location_card(location_id, name)),
-        14 => ruby_high_card_by_id("location-greenhouse")
-            .unwrap_or_else(|| unknown_location_card(location_id, name)),
-        15 => ruby_high_card_by_id("location-courtyard")
-            .unwrap_or_else(|| unknown_location_card(location_id, name)),
-        2 => seed_card(SeedCardSpec {
-            card_id: "cosy-rain-soft-garden",
-            display_name: "Rain-Soft Garden",
-            role: "location",
-            rarity: "seed",
-            title: "Garden Annex",
-            blurb: "Rain beads on broad leaves. Something small and pearled waits in the grass.",
-            aspect: "wide",
-            source: "cosyworld_seed",
-            asset_status: "pending_art",
-            image_url: None,
-        }),
-        3 => seed_card(SeedCardSpec {
-            card_id: "cosy-moonlit-trail",
-            display_name: "Moonlit Trail",
-            role: "location",
-            rarity: "seed",
-            title: "Moonlit Route",
-            blurb: "The path shines under cold moonlight. The air permits sharper choices.",
-            aspect: "wide",
-            source: "cosyworld_seed",
-            asset_status: "pending_art",
-            image_url: None,
-        }),
-        _ => free_world_location_card(location_id)
-            .unwrap_or_else(|| unknown_location_card(location_id, name)),
+    if let Some(card) = seed_card_for_subject("location", location_id) {
+        return card;
     }
+    unknown_location_card(location_id, name)
 }
 
-fn free_world_location_card(location_id: u64) -> Option<CardView> {
-    let (card_id, display_name, title, blurb) = match location_id {
-        30 => (
-            "location-the-heavens",
-            "The Heavens",
-            "Forbidden Mountain",
-            "A high bright threshold where cloud paths gather above the mountain.",
-        ),
-        31 => (
-            "location-lofty-peak",
-            "Lofty Peak",
-            "Forbidden Mountain",
-            "Thin air, ringing stone, and a summit wind that listens back.",
-        ),
-        32 => (
-            "location-summit-trail",
-            "Summit Trail",
-            "Forbidden Mountain",
-            "A switchback path between cold scree and stubborn lantern light.",
-        ),
-        33 => (
-            "location-alpine-forest",
-            "Alpine Forest",
-            "Forbidden Mountain",
-            "Pines lean over snowmelt tracks and old mountain signs.",
-        ),
-        34 => (
-            "location-goblin-cave",
-            "Goblin Cave",
-            "Forbidden Mountain",
-            "A low cave mouth full of echoes, loose coins, and sharper choices.",
-        ),
-        35 => (
-            "location-circle-of-the-moon",
-            "Circle of the Moon",
-            "Forbidden Mountain",
-            "Silver stones mark a quiet circle where night keeps perfect time.",
-        ),
-        40 => (
-            "location-old-oak-tree",
-            "Old Oak Tree",
-            "Lonely Forest",
-            "A vast oak with roots like roads and leaves that remember names.",
-        ),
-        41 => (
-            "location-lost-woods",
-            "Lost Woods",
-            "Lonely Forest",
-            "Soft moss, repeating paths, and birdsong that refuses to point north.",
-        ),
-        42 => (
-            "location-haunted-mansion",
-            "Haunted Mansion",
-            "Lonely Forest",
-            "A leaning house with lit windows, patient dust, and doors that sigh.",
-        ),
-        43 => (
-            "location-quiet-abbey",
-            "Quiet Abbey",
-            "Lonely Forest",
-            "Stone arches hold a hush deep enough to hear small vows.",
-        ),
-        44 => (
-            "location-flower-meadow",
-            "Flower Meadow",
-            "Lonely Forest",
-            "A clear meadow of small flowers, warm bees, and open sky.",
-        ),
-        50 => (
-            "location-great-library",
-            "Great Library",
-            "The World",
-            "Endless shelves, brass ladders, and marginalia from travelers before you.",
-        ),
-        60 => (
-            "location-turgid-swamp",
-            "Turgid Swamp",
-            "Farthest Mists",
-            "Black water shifts under reeds while bubbles spell unfinished warnings.",
-        ),
-        61 => (
-            "location-wilting-jungle",
-            "Wilting Jungle",
-            "Farthest Mists",
-            "Heavy leaves droop over hot paths where every vine seems tired.",
-        ),
-        62 => (
-            "location-endless-ocean",
-            "Endless Ocean",
-            "Farthest Mists",
-            "A blue horizon with no visible shore and songs under the waves.",
-        ),
-        63 => (
-            "location-digital-realm",
-            "Digital Realm",
-            "Farthest Mists",
-            "Green cursors blink across a world made of doors, echoes, and code.",
-        ),
-        _ => return None,
-    };
+fn seed_card_for_subject(subject_kind: &str, subject_id: u64) -> Option<CardView> {
+    seed_content()
+        .cards
+        .iter()
+        .find(|card| card.subject_kind == subject_kind && card.subject_id == subject_id)
+        .map(card_from_seed_content)
+}
 
-    Some(seed_card(SeedCardSpec {
-        card_id,
-        display_name,
-        role: "location",
-        rarity: "free",
-        title,
-        blurb,
-        aspect: "wide",
-        source: "cosyworld_seed",
-        asset_status: "pending_art",
-        image_url: None,
-    }))
-    .map(|mut card| {
-        card.subject = Some(title.to_string());
-        card.profile_id = Some(card_id.to_string());
-        card.blurb = blurb.to_string();
-        card
-    })
+fn card_from_seed_content(card: &SeedCardContent) -> CardView {
+    if let Some(external_card_id) = card.external_card_id.as_deref() {
+        if let Some(external_card) = ruby_high_card_by_id(external_card_id) {
+            return external_card;
+        }
+    }
+    let image_url = card.image_url.clone().or_else(|| {
+        (card.source == "cosyworld_seed").then(|| generated_seed_card_image_url(&card.card_id))
+    });
+    let asset_status = if image_url.is_some() && card.asset_status == "pending_art" {
+        "seed_art".to_string()
+    } else {
+        card.asset_status.clone()
+    };
+    CardView {
+        card_id: card.card_id.clone(),
+        display_name: card.display_name.clone(),
+        role: card.role.clone(),
+        rarity: card.rarity.clone(),
+        title: card.title.clone(),
+        blurb: card.blurb.clone(),
+        level: 0,
+        evolved: false,
+        aspect: card.aspect.clone(),
+        source: card.source.clone(),
+        asset_status,
+        set_number: card.set_number.clone(),
+        profile_id: card.profile_id.clone(),
+        subject: card.subject.clone(),
+        image_url,
+        chain_image_uri: card.chain_image_uri.clone(),
+        requires_ownership: card.requires_ownership,
+        owned: false,
+        accessible: true,
+        access_reason: None,
+    }
 }
 
 fn unknown_location_card(location_id: u64, name: &str) -> CardView {
@@ -9506,6 +12364,32 @@ async fn state_view(
     Json(response)
 }
 
+async fn inspect_view(
+    State(state): State<AppState>,
+    Query(query): Query<StateQuery>,
+) -> Json<InspectorView> {
+    let ownership = state.ownership_snapshot().await;
+    let access = AccessContext::from_query(
+        &query,
+        &ownership,
+        state.trust_client_card_ids,
+        &state.wallet_sessions,
+        state.allow_unsigned_wallet_claims,
+    );
+    let runtime = state.inner.lock().await;
+    let actor_id = query.actor_id.filter(|id| {
+        client_actor_authorized_for_state(&runtime, &state, *id, query.actor_session.as_deref())
+    });
+    let active_humans = active_actor_ids_for_state(&state);
+    let response = runtime.state_response_with_presence(
+        actor_id,
+        &access,
+        Some(&active_humans),
+        query_openrouter_connected(query.openrouter_connected.as_deref()),
+    );
+    Json(response.inspector)
+}
+
 async fn world_view(
     State(state): State<AppState>,
     Query(query): Query<StateQuery>,
@@ -10476,6 +13360,19 @@ async fn command(
             .await;
             command_action_response(resolved, response)
         }
+        CommandDispatch::ResolveBond { target_actor_id } => {
+            let Json(response) = resolve_bond(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(AttackRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
         CommandDispatch::Defend => {
             let Json(response) = defend(
                 ConnectInfo(client_addr),
@@ -10531,6 +13428,78 @@ async fn command(
                 Json(ActorRequest {
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::BankLedger => {
+            let Json(response) = bank_ledger(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::ReviseCalling { statement } => {
+            let Json(response) = revise_calling(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ReviseCallingRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    statement,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::CreateBond {
+            target_actor_id,
+            statement,
+        } => {
+            let Json(response) = create_bond(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ReviseBondRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                    statement,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::ReviseBond {
+            target_actor_id,
+            statement,
+        } => {
+            let Json(response) = revise_bond(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ReviseBondRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                    statement,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::TrainSkill { skill_id } => {
+            let Json(response) = train_skill(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(TrainSkillRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    skill_id,
                 }),
             )
             .await;
@@ -10942,12 +13911,44 @@ fn avatar_chat_fallback_text(
     target_actor_id: u64,
     missing_need: Option<&str>,
 ) -> String {
+    if let Some(line) =
+        seed_avatar_chat_fallback_line(target_actor_id, target_actor_name, missing_need)
+    {
+        return line;
+    }
     cosyworld_ai_model::generate_avatar_chat(&AvatarChatModelInput {
         actor_id,
         target_actor_id,
         target_actor_name: target_actor_name.to_string(),
         missing_need: missing_need.map(ToString::to_string),
     })
+}
+
+fn seed_resident_fallback_line(actor_id: u64) -> Option<String> {
+    seed_content()
+        .fallback_lines
+        .iter()
+        .find(|line| line.kind == "resident_reply" && line.actor_id == Some(actor_id))
+        .map(|line| line.text.clone())
+}
+
+fn seed_avatar_chat_fallback_line(
+    target_actor_id: u64,
+    target_actor_name: &str,
+    missing_need: Option<&str>,
+) -> Option<String> {
+    seed_content()
+        .fallback_lines
+        .iter()
+        .find(|line| line.kind == "avatar_chat" && line.target_actor_id == Some(target_actor_id))
+        .map(|line| {
+            line.text
+                .replace("{target_actor_name}", target_actor_name)
+                .replace(
+                    "{missing_need}",
+                    missing_need.unwrap_or("the next small need"),
+                )
+        })
 }
 
 fn sanitize_avatar_chat(text: &str) -> Option<String> {
@@ -11591,11 +14592,14 @@ async fn rest(
             tag_id: tired_tag_id(payload.actor_id),
             reason: "rest".to_string(),
         });
-    if let Some(clock_id) = danger_clock_id_for_location(location_id) {
+    if let Some(clock_id) = runtime
+        .active_danger_clock_id_for_location(location_id)
+        .filter(|clock_id| runtime.clock_is_frontier(clock_id))
+    {
         record
             .projection_mutations
             .push(ProjectionMutation::AdvanceClock {
-                clock_id: clock_id.to_string(),
+                clock_id,
                 amount: 1,
                 reason: "rest".to_string(),
             });
@@ -11614,6 +14618,510 @@ async fn rest(
     Json(ActionResponse {
         ok: status == CW_OK,
         status,
+        events,
+    })
+}
+
+async fn bank_ledger(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ActorRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    if runtime.visit_ledger_view(payload.actor_id).unbanked_count == 0 {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::BankVisitLedger {
+            reason: "visit_ledger".to_string(),
+        });
+
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK && !events.is_empty(),
+        status: if events.is_empty() { 409 } else { status },
+        events,
+    })
+}
+
+async fn revise_calling(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ReviseCallingRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let Some(statement) = normalize_calling_statement(&payload.statement) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 400,
+            events: Vec::new(),
+        });
+    };
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    if runtime.advancement_points_available(payload.actor_id) < usize::from(CALLING_REVISION_COST)
+        || runtime
+            .callings
+            .get(&payload.actor_id)
+            .map(|calling| calling.statement == statement)
+            .unwrap_or(false)
+    {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ReviseCalling {
+            statement,
+            cost: CALLING_REVISION_COST,
+            reason: "advancement".to_string(),
+        });
+
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK && !events.is_empty(),
+        status: if events.is_empty() { 409 } else { status },
+        events,
+    })
+}
+
+async fn train_skill(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<TrainSkillRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let Some(skill_id) = normalize_skill_id(&payload.skill_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 400,
+            events: Vec::new(),
+        });
+    };
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let current_rank = runtime
+        .skills
+        .get(&skill_state_id(payload.actor_id, skill_id))
+        .map(|skill| skill.rank)
+        .unwrap_or(0);
+    if current_rank >= MAX_SKILL_RANK
+        || runtime.advancement_points_available(payload.actor_id) < usize::from(SKILL_STEP_COST)
+    {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::TrainSkill {
+            skill_id: skill_id.to_string(),
+            cost: SKILL_STEP_COST,
+            reason: "advancement".to_string(),
+        });
+
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK && !events.is_empty(),
+        status: if events.is_empty() { 409 } else { status },
+        events,
+    })
+}
+
+async fn create_bond(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ReviseBondRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let Some(statement) = normalize_bond_statement(&payload.statement) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 400,
+            events: Vec::new(),
+        });
+    };
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    let Some(target) = runtime.actor_by_id(payload.target_actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    if target.kind != CW_ACTOR_NPC
+        || target.status != CW_ACTOR_ACTIVE
+        || target.location_id != actor.location_id
+        || runtime
+            .active_bond(payload.actor_id, payload.target_actor_id)
+            .is_some()
+        || runtime.advancement_points_available(payload.actor_id) < usize::from(BOND_SLOT_COST)
+    {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::CreateBond {
+            target_actor_id: payload.target_actor_id,
+            statement,
+            cost: BOND_SLOT_COST,
+            reason: "advancement".to_string(),
+        });
+
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK && !events.is_empty(),
+        status: if events.is_empty() { 409 } else { status },
+        events,
+    })
+}
+
+async fn revise_bond(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ReviseBondRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let Some(statement) = normalize_bond_statement(&payload.statement) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 400,
+            events: Vec::new(),
+        });
+    };
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    let Some(target) = runtime.actor_by_id(payload.target_actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    if target.kind != CW_ACTOR_NPC
+        || target.status != CW_ACTOR_ACTIVE
+        || target.location_id != actor.location_id
+    {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    let Some(active_bond) = runtime.active_bond(payload.actor_id, payload.target_actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    };
+    if active_bond.statement == statement
+        || runtime.advancement_points_available(payload.actor_id) < usize::from(BOND_REVISION_COST)
+    {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ReviseBond {
+            target_actor_id: payload.target_actor_id,
+            statement,
+            cost: BOND_REVISION_COST,
+            reason: "advancement".to_string(),
+        });
+
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK && !events.is_empty(),
+        status: if events.is_empty() { 409 } else { status },
+        events,
+    })
+}
+
+async fn resolve_bond(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<AttackRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    let Some(target) = runtime.actor_by_id(payload.target_actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    if target.kind != CW_ACTOR_NPC
+        || target.status != CW_ACTOR_ACTIVE
+        || target.location_id != actor.location_id
+        || runtime
+            .active_bond(payload.actor_id, payload.target_actor_id)
+            .is_none()
+    {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ResolveBond {
+            target_actor_id: payload.target_actor_id,
+            reason: "bond_resolved".to_string(),
+        });
+
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK && !events.is_empty(),
+        status: if events.is_empty() { 409 } else { status },
         events,
     })
 }
@@ -11763,6 +15271,30 @@ async fn ruby_high_card_asset(AxumPath(card_file): AxumPath<String>) -> impl Int
     }
 }
 
+async fn lonely_forest_character_asset(
+    AxumPath(asset_file): AxumPath<String>,
+) -> impl IntoResponse {
+    if !lonely_forest_character_asset_exists(&asset_file) {
+        return (StatusCode::NOT_FOUND, "unknown Lonely Forest asset").into_response();
+    }
+
+    let path = seed_content_root()
+        .join("lonely-forest/assets/characters/slices")
+        .join(&asset_file);
+    match fs::read(path) {
+        Ok(bytes) => (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, "image/png"),
+                (header::CACHE_CONTROL, "public, max-age=86400"),
+            ],
+            bytes,
+        )
+            .into_response(),
+        Err(_) => (StatusCode::NOT_FOUND, "missing Lonely Forest asset").into_response(),
+    }
+}
+
 fn ruby_high_card_missing_asset_response(spec: RubyHighCardSpec) -> Response {
     Redirect::temporary(spec.chain_image_uri).into_response()
 }
@@ -11838,321 +15370,36 @@ async fn legacy_rati_asset() -> impl IntoResponse {
 
 struct SeedCardArtSpec {
     card_id: String,
-    label: &'static str,
-    role: &'static str,
-    aspect: &'static str,
-    bg: &'static str,
-    ink: &'static str,
-    accent: &'static str,
-    glyph: &'static str,
+    label: String,
+    role: String,
+    aspect: String,
+    bg: String,
+    ink: String,
+    accent: String,
+    glyph: String,
 }
 
 fn seed_card_art_spec(card_id: &str) -> Option<SeedCardArtSpec> {
-    match card_id {
-        "rati" => Some(seed_art(
-            card_id, "Rati", "resident", "tall", "#26341f", "#d8f7dc", "#efc96b", "RS",
-        )),
-        "cosy-whiskerwind" => Some(seed_art(
-            card_id,
-            "Whiskerwind",
-            "resident",
-            "tall",
-            "#17353c",
-            "#d8f7dc",
-            "#75e5d6",
-            "☔",
-        )),
-        "cosy-skull" => Some(seed_art(
-            card_id, "Skull", "resident", "tall", "#25272c", "#d8f7dc", "#efc96b", "✦",
-        )),
-        "cosy-moonlit-echo" => Some(seed_art(
-            card_id,
-            "Moonlit Echo",
-            "encounter",
-            "tall",
-            "#172235",
-            "#d8f7dc",
-            "#91b9ff",
-            "ME",
-        )),
-        "cosy-hearth-tonic" => Some(seed_art(
-            card_id,
-            "Hearth Tonic",
-            "item",
-            "square",
-            "#3b2f1a",
-            "#f5e6b8",
-            "#efc96b",
-            "HT",
-        )),
-        "cosy-dewbright-button" => Some(seed_art(
-            card_id,
-            "Dewbright Button",
-            "item",
-            "square",
-            "#173b3b",
-            "#d8f7dc",
-            "#75e5d6",
-            "DB",
-        )),
-        "cosy-wolfprint-charm" => Some(seed_art(
-            card_id,
-            "Wolfprint Charm",
-            "item",
-            "square",
-            "#263047",
-            "#d8f7dc",
-            "#8bb7ff",
-            "WC",
-        )),
-        "cosy-moonwool-thread" => Some(seed_art(
-            card_id,
-            "Moonwool Thread",
-            "item",
-            "square",
-            "#2c2948",
-            "#f1edff",
-            "#bca1ff",
-            "MT",
-        )),
-        "cosy-story-button" => Some(seed_art(
-            card_id,
-            "Story Button",
-            "item",
-            "square",
-            "#33261e",
-            "#f6e5c4",
-            "#efc96b",
-            "SB",
-        )),
-        "cosy-hearthstone-tag" => Some(seed_art(
-            card_id,
-            "Hearthstone Tag",
-            "item",
-            "square",
-            "#352826",
-            "#f6dfca",
-            "#f29c9c",
-            "HT",
-        )),
-        "cosy-watch-bell" => Some(seed_art(
-            card_id,
-            "Watch Bell",
-            "item",
-            "square",
-            "#1f3327",
-            "#d8f7dc",
-            "#65e68a",
-            "WB",
-        )),
-        "cosy-rain-soft-garden" => Some(seed_art(
-            card_id,
-            "Rain-Soft Garden",
-            "location",
-            "wide",
-            "#132f24",
-            "#d8f7dc",
-            "#65e68a",
-            "RG",
-        )),
-        "cosy-moonlit-trail" => Some(seed_art(
-            card_id,
-            "Moonlit Trail",
-            "location",
-            "wide",
-            "#1c2645",
-            "#d8f7dc",
-            "#8bb7ff",
-            "MT",
-        )),
-        "location-the-heavens" => Some(seed_art(
-            card_id,
-            "The Heavens",
-            "location",
-            "wide",
-            "#182744",
-            "#d8f7dc",
-            "#8bb7ff",
-            "TH",
-        )),
-        "location-lofty-peak" => Some(seed_art(
-            card_id,
-            "Lofty Peak",
-            "location",
-            "wide",
-            "#1f2f3f",
-            "#d8f7dc",
-            "#efc96b",
-            "LP",
-        )),
-        "location-summit-trail" => Some(seed_art(
-            card_id,
-            "Summit Trail",
-            "location",
-            "wide",
-            "#223020",
-            "#d8f7dc",
-            "#efc96b",
-            "ST",
-        )),
-        "location-alpine-forest" => Some(seed_art(
-            card_id,
-            "Alpine Forest",
-            "location",
-            "wide",
-            "#123328",
-            "#d8f7dc",
-            "#65e68a",
-            "AF",
-        )),
-        "location-goblin-cave" => Some(seed_art(
-            card_id,
-            "Goblin Cave",
-            "location",
-            "wide",
-            "#2f2732",
-            "#d8f7dc",
-            "#efc96b",
-            "GC",
-        )),
-        "location-circle-of-the-moon" => Some(seed_art(
-            card_id,
-            "Circle of the Moon",
-            "location",
-            "wide",
-            "#202746",
-            "#f1edff",
-            "#bca1ff",
-            "CM",
-        )),
-        "location-old-oak-tree" => Some(seed_art(
-            card_id,
-            "Old Oak Tree",
-            "location",
-            "wide",
-            "#2d2b18",
-            "#d8f7dc",
-            "#65e68a",
-            "OO",
-        )),
-        "location-lost-woods" => Some(seed_art(
-            card_id,
-            "Lost Woods",
-            "location",
-            "wide",
-            "#173326",
-            "#d8f7dc",
-            "#8bb7ff",
-            "LW",
-        )),
-        "location-haunted-mansion" => Some(seed_art(
-            card_id,
-            "Haunted Mansion",
-            "location",
-            "wide",
-            "#30263a",
-            "#f1edff",
-            "#efc96b",
-            "HM",
-        )),
-        "location-quiet-abbey" => Some(seed_art(
-            card_id,
-            "Quiet Abbey",
-            "location",
-            "wide",
-            "#24313a",
-            "#d8f7dc",
-            "#8bb7ff",
-            "QA",
-        )),
-        "location-flower-meadow" => Some(seed_art(
-            card_id,
-            "Flower Meadow",
-            "location",
-            "wide",
-            "#20371f",
-            "#d8f7dc",
-            "#f29c9c",
-            "FM",
-        )),
-        "location-great-library" => Some(seed_art(
-            card_id,
-            "Great Library",
-            "location",
-            "wide",
-            "#2b2618",
-            "#f5e6b8",
-            "#efc96b",
-            "GL",
-        )),
-        "location-turgid-swamp" => Some(seed_art(
-            card_id,
-            "Turgid Swamp",
-            "location",
-            "wide",
-            "#142d27",
-            "#d8f7dc",
-            "#65e68a",
-            "TS",
-        )),
-        "location-wilting-jungle" => Some(seed_art(
-            card_id,
-            "Wilting Jungle",
-            "location",
-            "wide",
-            "#263316",
-            "#f5e6b8",
-            "#efc96b",
-            "WJ",
-        )),
-        "location-endless-ocean" => Some(seed_art(
-            card_id,
-            "Endless Ocean",
-            "location",
-            "wide",
-            "#12304a",
-            "#d8f7dc",
-            "#75e5d6",
-            "EO",
-        )),
-        "location-digital-realm" => Some(seed_art(
-            card_id,
-            "Digital Realm",
-            "location",
-            "wide",
-            "#101b25",
-            "#d8f7dc",
-            "#65e68a",
-            "DR",
-        )),
-        _ => None,
-    }
-}
-
-fn seed_art(
-    card_id: &str,
-    label: &'static str,
-    role: &'static str,
-    aspect: &'static str,
-    bg: &'static str,
-    ink: &'static str,
-    accent: &'static str,
-    glyph: &'static str,
-) -> SeedCardArtSpec {
-    SeedCardArtSpec {
-        card_id: card_id.to_string(),
-        label,
-        role,
-        aspect,
-        bg,
-        ink,
-        accent,
-        glyph,
-    }
+    seed_content()
+        .cards
+        .iter()
+        .find(|card| card.card_id == card_id)
+        .and_then(|card| {
+            card.art.as_ref().map(|art| SeedCardArtSpec {
+                card_id: card.card_id.clone(),
+                label: art.label.clone(),
+                role: art.role.clone(),
+                aspect: art.aspect.clone(),
+                bg: art.bg.clone(),
+                ink: art.ink.clone(),
+                accent: art.accent.clone(),
+                glyph: art.glyph.clone(),
+            })
+        })
 }
 
 fn generated_seed_card_svg(spec: &SeedCardArtSpec) -> String {
-    let (width, height) = match spec.aspect {
+    let (width, height) = match spec.aspect.as_str() {
         "tall" => (320, 480),
         "wide" => (480, 270),
         _ => (320, 320),
@@ -12160,14 +15407,14 @@ fn generated_seed_card_svg(spec: &SeedCardArtSpec) -> String {
     let label_y = height - 28;
     let mid_x = width / 2;
     let mid_y = height / 2;
-    let glyph_size = match spec.aspect {
+    let glyph_size = match spec.aspect.as_str() {
         "tall" => 92,
         "wide" => 70,
         _ => 80,
     };
-    let label = escape_xml(spec.label);
-    let role = escape_xml(spec.role);
-    let glyph = escape_xml(spec.glyph);
+    let label = escape_xml(&spec.label);
+    let role = escape_xml(&spec.role);
+    let glyph = escape_xml(&spec.glyph);
     let card_id = escape_xml(&spec.card_id);
 
     format!(
@@ -12177,9 +15424,9 @@ fn generated_seed_card_svg(spec: &SeedCardArtSpec) -> String {
         circle_r = width.min(height) / 4,
         circle_r2 = width.min(height) / 4 + 14,
         glyph_y = mid_y + glyph_size / 3,
-        bg = spec.bg,
-        ink = spec.ink,
-        accent = spec.accent,
+        bg = spec.bg.as_str(),
+        ink = spec.ink.as_str(),
+        accent = spec.accent.as_str(),
     )
 }
 
@@ -12355,16 +15602,58 @@ fn listen_attempt_claim_key(actor_id: u64, location_id: u64) -> String {
     format!("listen_attempt:{actor_id}:{location_id}")
 }
 
-fn listen_progress_clock_id_for_location(location_id: u64) -> Option<&'static str> {
-    match location_id {
-        MOONLIT_TRAIL_LOCATION_ID => Some(MOONLIT_PROGRESS_CLOCK_ID),
+fn clock_fill_claim_key(clock_id: &str, event_seq: u64) -> String {
+    format!("clock_fill:{clock_id}:{event_seq}")
+}
+
+fn lifecycle_hooks_for(
+    hook_name: &str,
+    target_kind: &str,
+    target_id: &str,
+) -> Vec<&'static SeedLifecycleHookContent> {
+    seed_content()
+        .lifecycle_hooks
+        .iter()
+        .filter(|hook| {
+            hook.hook == hook_name && hook.target_kind == target_kind && hook.target_id == target_id
+        })
+        .collect()
+}
+
+fn lifecycle_effects_for(
+    hook_name: &str,
+    target_kind: &str,
+    target_id: &str,
+) -> Vec<EffectDescriptor> {
+    lifecycle_hooks_for(hook_name, target_kind, target_id)
+        .into_iter()
+        .flat_map(|hook| hook.effects.clone())
+        .collect()
+}
+
+fn lifecycle_hook_claim_key(
+    hook: &SeedLifecycleHookContent,
+    actor_id: u64,
+    target_kind: &str,
+    target_id: &str,
+    source_event_seq: u64,
+) -> Option<String> {
+    match hook.claim_scope.as_str() {
+        "event_once" => Some(format!(
+            "hook:{}:{target_kind}:{target_id}:event:{source_event_seq}",
+            hook.hook
+        )),
+        "actor_target_once" => Some(format!(
+            "hook:{}:{target_kind}:{target_id}:actor:{actor_id}",
+            hook.hook
+        )),
         _ => None,
     }
 }
 
-fn danger_clock_id_for_location(location_id: u64) -> Option<&'static str> {
+fn listen_progress_clock_id_for_location(location_id: u64) -> Option<&'static str> {
     match location_id {
-        MOONLIT_TRAIL_LOCATION_ID => Some(MOONLIT_DANGER_CLOCK_ID),
+        MOONLIT_TRAIL_LOCATION_ID => Some(MOONLIT_PROGRESS_CLOCK_ID),
         _ => None,
     }
 }
@@ -12381,6 +15670,136 @@ fn helped_room_tag_id(location_id: u64) -> String {
     format!("room:{location_id}:helped")
 }
 
+fn quieted_moonlight_tag_id(location_id: u64) -> String {
+    format!("room:{location_id}:quieted_moonlight")
+}
+
+fn echo_fractured_tag_id(location_id: u64) -> String {
+    format!("room:{location_id}:echo_fractured")
+}
+
+fn visit_ledger_mark_id(actor_id: u64, category: &str, reason: &str) -> String {
+    format!("ledger:{actor_id}:{category}:{reason}")
+}
+
+fn visit_ledger_claim_key(mark_id: &str) -> String {
+    format!("visit_ledger:{mark_id}")
+}
+
+fn advancement_spend_id(actor_id: u64, kind: &str, source_event_seq: u64) -> String {
+    format!("advancement:{actor_id}:{kind}:{source_event_seq}")
+}
+
+fn skill_state_id(actor_id: u64, skill_id: &str) -> String {
+    format!("skill:{actor_id}:{skill_id}")
+}
+
+fn bond_id(actor_id: u64, target_actor_id: u64) -> String {
+    format!("bond:{actor_id}:{target_actor_id}")
+}
+
+fn gift_bond_claim_key(actor_id: u64, target_actor_id: u64, item_id: u64) -> String {
+    format!("bond_gift:{actor_id}:{target_actor_id}:{item_id}")
+}
+
+fn default_bond_statement(target_name: &str) -> String {
+    format!("I bring small kindnesses to {target_name}.")
+}
+
+fn default_calling_statement() -> &'static str {
+    "I listen for small truths and help where I can."
+}
+
+fn normalize_skill_id(value: &str) -> Option<&'static str> {
+    let normalized = compact_whitespace(value).to_ascii_lowercase();
+    match normalized.as_str() {
+        "lift" | "lifting" | "might" | "str" | "strength" => Some("lifting"),
+        "nimble" | "nimble hands" | "hands" | "dex" | "dexterity" => Some("nimble_hands"),
+        "steady" | "steadiness" | "endurance" | "con" | "constitution" => Some("steadiness"),
+        "lore" | "lorecraft" | "study" | "int" | "intelligence" => Some("lorecraft"),
+        "listen" | "listening" | "notice" | "noticing" | "wis" | "wisdom" => Some("listening"),
+        "kind" | "kindness" | "heart" | "cha" | "charisma" | "charm" => Some("kindness"),
+        _ => None,
+    }
+}
+
+fn skill_label(skill_id: &str) -> Option<&'static str> {
+    match skill_id {
+        "lifting" => Some("Lifting"),
+        "nimble_hands" => Some("Nimble Hands"),
+        "steadiness" => Some("Steadiness"),
+        "lorecraft" => Some("Lorecraft"),
+        "listening" => Some("Listening"),
+        "kindness" => Some("Kindness"),
+        _ => None,
+    }
+}
+
+fn skill_id_for_ability(ability: u8) -> Option<&'static str> {
+    match ability {
+        0 => Some("lifting"),
+        1 => Some("nimble_hands"),
+        2 => Some("steadiness"),
+        3 => Some("lorecraft"),
+        4 => Some("listening"),
+        5 => Some("kindness"),
+        _ => None,
+    }
+}
+
+fn skill_rank_label(rank: u8) -> &'static str {
+    match rank {
+        1 => "trained",
+        2 => "expert",
+        3..=u8::MAX => "master",
+        _ => "none",
+    }
+}
+
+fn skill_bonus_for_rank(rank: u8) -> i16 {
+    i16::from(rank.min(MAX_SKILL_RANK))
+}
+
+fn calling_matches_listen(statement: &str) -> bool {
+    statement.to_ascii_lowercase().contains("listen")
+}
+
+fn empty_visit_ledger_view() -> VisitLedgerView {
+    VisitLedgerView {
+        unbanked_count: 0,
+        banked_count: 0,
+        spent_count: 0,
+        advancement_points: 0,
+        unbanked_marks: Vec::new(),
+    }
+}
+
+fn clock_zone(clock: &ClockState) -> &str {
+    let zone = clock.zone.trim();
+    if zone.is_empty() {
+        default_zone_for_scope(&clock.scope, clock.scope_id)
+    } else {
+        zone
+    }
+}
+
+fn room_sheet_zone(sheet: &RoomSheetState) -> &str {
+    let zone = sheet.zone.trim();
+    if zone.is_empty() {
+        zone_for_safety(&sheet.safety)
+    } else {
+        zone
+    }
+}
+
+fn default_zone_for_scope(scope: &str, scope_id: u64) -> &'static str {
+    if scope == "room" && scope_id == MOONLIT_TRAIL_LOCATION_ID {
+        ZONE_FRONTIER
+    } else {
+        ZONE_SANCTUARY
+    }
+}
+
 fn clock_status(clock: &ClockState) -> String {
     if !clock.status.trim().is_empty() {
         clock.status.clone()
@@ -12391,10 +15810,68 @@ fn clock_status(clock: &ClockState) -> String {
     }
 }
 
+fn tag_scope_is_allowed(scope: &str) -> bool {
+    matches!(
+        scope,
+        "actor" | "room" | "resident" | "faction" | "job" | "season" | "shard"
+    )
+}
+
+fn tag_kind_is_allowed(kind: &str) -> bool {
+    matches!(
+        kind,
+        "aspect" | "condition" | "memory" | "bond" | "boon" | "hook"
+    )
+}
+
+fn normalize_job_status(value: &str) -> Option<&'static str> {
+    match value.trim() {
+        "complete" | "completed" => Some("completed"),
+        "fail" | "failed" => Some("failed"),
+        _ => None,
+    }
+}
+
 fn action_is_listen_check(action: &CwAction) -> bool {
     action.kind == CW_ACTION_ABILITY_CHECK
         && action.ability == LISTEN_ABILITY
         && action.dc == LISTEN_DC
+}
+
+fn action_offer_rank(kind: &str) -> u16 {
+    match kind {
+        "give_item" => 10,
+        "use_item" => 20,
+        "rest" => 30,
+        "attack" => 40,
+        "defend" => 50,
+        "flee" => 60,
+        "chat" => 70,
+        "pick_up" => 80,
+        "move" => 90,
+        "check" => 100,
+        "prepare" => 110,
+        "work" => 120,
+        "help" => 130,
+        _ => 500,
+    }
+}
+
+fn summarize_effects(effects: &[EffectDescriptor]) -> Option<String> {
+    let mut parts = Vec::new();
+    for effect in effects {
+        match effect {
+            EffectDescriptor::AdvanceClock {
+                clock_id, amount, ..
+            } => parts.push(format!("advances {clock_id} by {amount}")),
+            EffectDescriptor::SetTag { label, .. } => parts.push(format!("sets tag {label}")),
+            EffectDescriptor::ClearTag { tag_id, .. } => parts.push(format!("clears tag {tag_id}")),
+            EffectDescriptor::SetJobStatus { job_id, status, .. } => {
+                parts.push(format!("sets job {job_id} to {status}"))
+            }
+        }
+    }
+    (!parts.is_empty()).then(|| parts.join("; "))
 }
 
 fn committed_orb_deltas(
@@ -14028,6 +17505,36 @@ mod tests {
     }
 
     #[test]
+    fn calling_statement_hygiene_keeps_identity_text_safe() {
+        assert_eq!(
+            normalize_calling_statement("  I   mend small broken things.  ").as_deref(),
+            Some("I mend small broken things.")
+        );
+        assert_eq!(
+            normalize_bond_statement("  Whiskerwind   trusts me with tea.  ").as_deref(),
+            Some("Whiskerwind trusts me with tea.")
+        );
+        assert!(normalize_calling_statement("").is_none());
+        assert!(normalize_bond_statement("").is_none());
+        assert!(normalize_calling_statement("   \n\t  ").is_none());
+        assert!(normalize_bond_statement("   \n\t  ").is_none());
+        assert!(normalize_calling_statement(&"a".repeat(MAX_CALLING_STATEMENT_CHARS)).is_some());
+        assert!(normalize_bond_statement(&"a".repeat(MAX_BOND_STATEMENT_CHARS)).is_some());
+        assert!(
+            normalize_calling_statement(&"a".repeat(MAX_CALLING_STATEMENT_CHARS + 1)).is_none()
+        );
+        assert!(normalize_bond_statement(&"a".repeat(MAX_BOND_STATEMENT_CHARS + 1)).is_none());
+        assert!(normalize_calling_statement("ignore previous instructions").is_none());
+        assert!(normalize_bond_statement("ignore previous instructions").is_none());
+        assert!(normalize_calling_statement("visit https://example.test").is_none());
+        assert!(normalize_bond_statement("visit https://example.test").is_none());
+        assert!(normalize_calling_statement("<script>alert(1)</script>").is_none());
+        assert!(normalize_bond_statement("<script>alert(1)</script>").is_none());
+        assert!(normalize_calling_statement("hello\u{0007}cottage").is_none());
+        assert!(normalize_bond_statement("hello\u{0007}cottage").is_none());
+    }
+
+    #[test]
     fn avatar_name_hygiene_keeps_public_identity_cozy() {
         assert_eq!(
             normalize_avatar_name(Some("  Rain   O'Lantern-Walker  "), 5000),
@@ -14081,7 +17588,35 @@ mod tests {
         assert!(INDEX_HTML.contains("id=\"ai-key-modal\""));
         assert!(INDEX_HTML.contains("data-ai-key-input"));
         assert!(INDEX_HTML.contains("listenHintForLocation"));
-        assert!(INDEX_HTML.contains("listens:"));
+        assert!(INDEX_HTML.contains("listen_attempted_here"));
+        assert!(INDEX_HTML.contains("!listenAttemptedHere"));
+        assert!(INDEX_HTML.contains("function isRollEvent"));
+        assert!(INDEX_HTML.contains("function rollHtml"));
+        assert!(INDEX_HTML.contains("class=\"roll-line\""));
+        assert!(INDEX_HTML.contains("class=\"roll-card"));
+        assert!(INDEX_HTML.contains("ability_check.rolled"));
+        assert!(INDEX_HTML.contains("combat.attack.attempt"));
+        assert!(INDEX_HTML.contains("eventIsHiddenContext"));
+        assert!(INDEX_HTML.contains("ledger.banked"));
+        assert!(INDEX_HTML.contains("calling.revised"));
+        assert!(INDEX_HTML.contains("advancement.spent"));
+        assert!(INDEX_HTML.contains("skill.stepped"));
+        assert!(INDEX_HTML.contains("bond.revised"));
+        assert!(INDEX_HTML.contains("bond.created"));
+        assert!(INDEX_HTML.contains("bond.resolved"));
+        assert!(!INDEX_HTML.contains("id=\"rpg-state\""));
+        assert!(!INDEX_HTML.contains("callingChipHtml"));
+        assert!(!INDEX_HTML.contains("skillChipHtml"));
+        assert!(!INDEX_HTML.contains("ledgerChipHtml"));
+        assert!(!INDEX_HTML.contains("bondChipHtml"));
+        assert!(!INDEX_HTML.contains("again,"));
+        assert!(!INDEX_HTML.contains("/actions/bank-ledger"));
+        assert!(!INDEX_HTML.contains("revise calling"));
+        assert!(!INDEX_HTML.contains("train skill"));
+        assert!(!INDEX_HTML.contains("write bond"));
+        assert!(!INDEX_HTML.contains("revise bond"));
+        assert!(!INDEX_HTML.contains("/actions/resolve-bond"));
+        assert!(!INDEX_HTML.contains("resolve bond"));
         assert!(!INDEX_HTML.contains("prompt("));
         assert!(!INDEX_HTML.contains("<textarea"));
         assert!(!INDEX_HTML.contains("contenteditable=\"true\""));
@@ -14201,7 +17736,7 @@ mod tests {
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
         create.actor_id = 5000;
-        create.location_id = 1;
+        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
         append_action_journal(&path, &JournalRecord::new(create, 8001)).expect("append journal");
         assert!(action_journal_has_records(&path).expect("journal exists"));
         let actor_session = ActorSession {
@@ -15042,7 +18577,7 @@ mod tests {
     }
 
     #[test]
-    fn listen_cost_tracks_first_attempt() {
+    fn sanctuary_listen_repeat_stays_free_and_calm() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -15059,19 +18594,10 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
-        assert!(
-            runtime
-                .state_response(Some(5000), &AccessContext::default())
-                .economy
-                .listen_reward_claimable
-        );
-        assert_eq!(
-            runtime
-                .state_response(Some(5000), &AccessContext::default())
-                .economy
-                .listen_cost_orbs,
-            0
-        );
+        let initial_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(initial_state.economy.listen_reward_claimable);
+        assert_eq!(initial_state.economy.listen_cost_orbs, 0);
+        assert!(!initial_state.economy.listen_attempted_here);
 
         let mut check = CwAction::default();
         check.kind = CW_ACTION_ABILITY_CHECK;
@@ -15090,13 +18616,54 @@ mod tests {
                 .state_response(Some(5000), &AccessContext::default())
                 .economy
                 .listen_cost_orbs,
-            LISTEN_REPEAT_ORB_COST
+            0
         );
+        assert!(
+            runtime
+                .state_response(Some(5000), &AccessContext::default())
+                .economy
+                .listen_attempted_here
+        );
+        let (status, repeat_events) =
+            runtime.apply_journal_record(&JournalRecord::new(check, 7083));
+        assert_eq!(status, CW_OK);
+        assert!(!repeat_events
+            .iter()
+            .any(|event| event.type_name == "tag.applied"));
+        let repeat_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(repeat_state.economy.listen_cost_orbs, 0);
+        assert!(repeat_state.economy.listen_attempted_here);
+        assert!(!repeat_state.tags.iter().any(|tag| tag.label == "tired"));
     }
 
     #[test]
     fn rpg_state_exposes_moonlit_room_clocks() {
         let mut runtime = RuntimeWorld::seeded();
+        let mut cottage_create = CwAction::default();
+        cottage_create.kind = CW_ACTION_CREATE_ACTOR;
+        cottage_create.actor_id = 4999;
+        cottage_create.location_id = 1;
+        let mut cottage_record = JournalRecord::new(cottage_create, 7082);
+        cottage_record.actor_meta_upserts.insert(
+            4999,
+            ActorMeta {
+                name: "Cottage Watcher".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Hearth Listener".to_string(),
+                description: "A test avatar checking sanctuary room state.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&cottage_record).0, CW_OK);
+        let cottage_state = runtime.state_response(Some(4999), &AccessContext::default());
+        assert_eq!(
+            cottage_state
+                .room_sheet
+                .as_ref()
+                .map(|sheet| sheet.zone.as_str()),
+            Some(ZONE_SANCTUARY)
+        );
+        assert!(cottage_state.clocks.is_empty());
+
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
         create.actor_id = 5000;
@@ -15115,7 +18682,12 @@ mod tests {
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         assert_eq!(state.location.id, MOONLIT_TRAIL_LOCATION_ID);
+        assert_eq!(
+            state.room_sheet.as_ref().map(|sheet| sheet.zone.as_str()),
+            Some(ZONE_FRONTIER)
+        );
         assert_eq!(state.clocks.len(), 2);
+        assert!(state.clocks.iter().all(|clock| clock.zone == ZONE_FRONTIER));
         assert!(state.clocks.iter().any(|clock| {
             clock.id == MOONLIT_PROGRESS_CLOCK_ID
                 && clock.kind == "progress"
@@ -15148,6 +18720,15 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        let initial_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(
+            initial_state
+                .calling
+                .as_ref()
+                .map(|calling| calling.statement.as_str()),
+            Some(default_calling_statement())
+        );
+        assert_eq!(initial_state.ledger.unbanked_count, 0);
         if let Some(actor) = runtime
             .world
             .actors
@@ -15170,6 +18751,9 @@ mod tests {
                 && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
                 && event.clock_filled == Some(1)
         }));
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "ledger.marked"));
         assert_eq!(
             runtime
                 .clocks
@@ -15177,12 +18761,27 @@ mod tests {
                 .map(|clock| clock.filled),
             Some(1)
         );
+        let listened_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(listened_state.ledger.unbanked_count, 2);
+        assert!(listened_state
+            .ledger
+            .unbanked_marks
+            .iter()
+            .any(|mark| mark.category == "learned_truth"));
+        assert!(listened_state
+            .ledger
+            .unbanked_marks
+            .iter()
+            .any(|mark| mark.category == "calling"));
 
         let (status, events) = runtime.apply_journal_record(&JournalRecord::new(listen, 7086));
         assert_eq!(status, CW_OK);
         assert!(events.iter().any(|event| {
             event.type_name == "tag.applied" && event.tag_label.as_deref() == Some("tired")
         }));
+        assert!(!events
+            .iter()
+            .any(|event| event.type_name == "ledger.marked"));
         assert_eq!(
             runtime
                 .clocks
@@ -15198,6 +18797,7 @@ mod tests {
             .unwrap_or(false));
         let tired_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(tired_state.tags.iter().any(|tag| tag.label == "tired"));
+        assert_eq!(tired_state.ledger.unbanked_count, 2);
         assert_eq!(tired_state.primary_action.kind, "rest");
 
         let mut rest_action = CwAction::default();
@@ -15260,6 +18860,633 @@ mod tests {
             .get(&tired_tag)
             .map(|tag| tag.active)
             .unwrap_or(false));
+        let restored_state = restored.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(
+            restored_state
+                .calling
+                .as_ref()
+                .map(|calling| calling.statement.as_str()),
+            Some(default_calling_statement())
+        );
+        assert_eq!(restored_state.ledger.unbanked_count, 2);
+    }
+
+    #[test]
+    fn visit_ledger_banking_converts_marks_to_advancement_points() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut create_record = JournalRecord::new(create, 7088);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Ledger Banker".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Visit Ledger Tester".to_string(),
+                description: "A test avatar banking Visit Ledger marks.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        if let Some(actor) = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+        {
+            actor.stats.wisdom = 32;
+        }
+
+        let mut listen = CwAction::default();
+        listen.kind = CW_ACTION_ABILITY_CHECK;
+        listen.actor_id = 5000;
+        listen.ability = LISTEN_ABILITY;
+        listen.dc = LISTEN_DC;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(listen, 7089))
+                .0,
+            CW_OK
+        );
+        let earned_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(earned_state.ledger.unbanked_count, 2);
+        assert_eq!(earned_state.ledger.banked_count, 0);
+        assert_eq!(earned_state.ledger.advancement_points, 0);
+
+        let bank_command = runtime
+            .resolve_command(
+                &command_request(5000, "bank ledger"),
+                &AccessContext::default(),
+            )
+            .expect("bank ledger resolves");
+        match bank_command.dispatch {
+            CommandDispatch::BankLedger => {}
+            other => panic!("bank ledger should dispatch banking, got {other:?}"),
+        }
+
+        let mut bank_action = CwAction::default();
+        bank_action.kind = CW_ACTION_NONE;
+        bank_action.actor_id = 5000;
+        let mut bank_record = JournalRecord::new(bank_action, 7090);
+        bank_record
+            .projection_mutations
+            .push(ProjectionMutation::BankVisitLedger {
+                reason: "visit_ledger".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&bank_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "ledger.banked"
+                && event.actor_id == Some(5000)
+                && event
+                    .content
+                    .as_deref()
+                    .map(|content| content.starts_with("2:"))
+                    .unwrap_or(false)
+        }));
+        let banked_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(banked_state.ledger.unbanked_count, 0);
+        assert!(banked_state.ledger.unbanked_marks.is_empty());
+        assert_eq!(banked_state.ledger.banked_count, 2);
+        assert_eq!(banked_state.ledger.advancement_points, 2);
+        assert!(runtime
+            .ledger_marks
+            .values()
+            .filter(|mark| mark.actor_id == 5000)
+            .all(|mark| mark.banked));
+
+        let blocked_command = runtime
+            .resolve_command(
+                &command_request(5000, "bank ledger"),
+                &AccessContext::default(),
+            )
+            .expect("bank ledger remains recognized");
+        match blocked_command.dispatch {
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 409);
+                assert!(output.contains("nothing unbanked"));
+            }
+            other => panic!("bank ledger should be disabled after banking, got {other:?}"),
+        }
+
+        let mut repeat_action = CwAction::default();
+        repeat_action.kind = CW_ACTION_NONE;
+        repeat_action.actor_id = 5000;
+        let mut repeat_record = JournalRecord::new(repeat_action, 7091);
+        repeat_record
+            .projection_mutations
+            .push(ProjectionMutation::BankVisitLedger {
+                reason: "visit_ledger".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&repeat_record);
+        assert_eq!(status, CW_OK);
+        assert!(!events
+            .iter()
+            .any(|event| event.type_name == "ledger.banked"));
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("snapshot restores banked Visit Ledger marks");
+        let restored_state = restored.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(restored_state.ledger.unbanked_count, 0);
+        assert_eq!(restored_state.ledger.banked_count, 2);
+        assert_eq!(restored_state.ledger.advancement_points, 2);
+    }
+
+    #[test]
+    fn banked_advancement_points_train_listening_skill_bonus() {
+        let mut runtime = RuntimeWorld::seeded();
+        assert_eq!(normalize_skill_id("dexterity"), Some("nimble_hands"));
+        assert_eq!(normalize_skill_id("lore"), Some("lorecraft"));
+        assert_eq!(skill_id_for_ability(1), Some("nimble_hands"));
+
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut create_record = JournalRecord::new(create, 7092);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Skill Trainee".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Listening Student".to_string(),
+                description: "A test avatar spending advancement on a skill step.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        if let Some(actor) = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+        {
+            actor.stats.wisdom = 32;
+        }
+
+        let mut listen = CwAction::default();
+        listen.kind = CW_ACTION_ABILITY_CHECK;
+        listen.actor_id = 5000;
+        listen.ability = LISTEN_ABILITY;
+        listen.dc = LISTEN_DC;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(listen, 7093))
+                .0,
+            CW_OK
+        );
+
+        let mut bank_action = CwAction::default();
+        bank_action.kind = CW_ACTION_NONE;
+        bank_action.actor_id = 5000;
+        let mut bank_record = JournalRecord::new(bank_action, 7094);
+        bank_record
+            .projection_mutations
+            .push(ProjectionMutation::BankVisitLedger {
+                reason: "visit_ledger".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&bank_record).0, CW_OK);
+
+        let command = runtime
+            .resolve_command(
+                &command_request(5000, "skill listening"),
+                &AccessContext::default(),
+            )
+            .expect("skill command resolves");
+        assert_eq!(
+            command.action.as_ref().map(|action| action.kind.as_str()),
+            Some("train_skill")
+        );
+        let skill_id = match command.dispatch {
+            CommandDispatch::TrainSkill { skill_id } => skill_id,
+            other => panic!("skill command should dispatch training, got {other:?}"),
+        };
+        assert_eq!(skill_id, "listening");
+
+        let mut train_action = CwAction::default();
+        train_action.kind = CW_ACTION_NONE;
+        train_action.actor_id = 5000;
+        let mut train_record = JournalRecord::new(train_action, 7095);
+        train_record
+            .projection_mutations
+            .push(ProjectionMutation::TrainSkill {
+                skill_id,
+                cost: SKILL_STEP_COST,
+                reason: "advancement".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&train_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "advancement.spent"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.starts_with("skill_step:1:"))
+        }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "skill.stepped"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.starts_with("listening:1:"))
+        }));
+
+        let trained_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(trained_state.skills.len(), 1);
+        assert_eq!(trained_state.skills[0].skill_id, "listening");
+        assert_eq!(trained_state.skills[0].tier, "trained");
+        assert_eq!(trained_state.skills[0].bonus, 1);
+        assert_eq!(trained_state.ledger.banked_count, 2);
+        assert_eq!(trained_state.ledger.spent_count, 1);
+        assert_eq!(trained_state.ledger.advancement_points, 1);
+
+        if let Some(actor) = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+        {
+            actor.stats.wisdom = 10;
+        }
+        let mut skill_check = CwAction::default();
+        skill_check.kind = CW_ACTION_ABILITY_CHECK;
+        skill_check.actor_id = 5000;
+        skill_check.ability = LISTEN_ABILITY;
+        skill_check.dc = 99;
+        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(skill_check, 7096));
+        assert_eq!(status, CW_OK);
+        let roll = events
+            .iter()
+            .find(|event| event.type_name == "ability_check.rolled")
+            .expect("skill check emits a roll");
+        assert_eq!(roll.modifier, Some(1));
+        assert_eq!(roll.total, roll.raw_roll.map(|raw| raw + 1));
+
+        let command = runtime
+            .resolve_command(
+                &command_request(5000, "skill dexterity"),
+                &AccessContext::default(),
+            )
+            .expect("dexterity skill command resolves");
+        assert_eq!(
+            command.action.as_ref().map(|action| action.kind.as_str()),
+            Some("train_skill")
+        );
+        let nimble_skill_id = match command.dispatch {
+            CommandDispatch::TrainSkill { skill_id } => skill_id,
+            other => panic!("dexterity skill command should dispatch training, got {other:?}"),
+        };
+        assert_eq!(nimble_skill_id, "nimble_hands");
+
+        let mut train_action = CwAction::default();
+        train_action.kind = CW_ACTION_NONE;
+        train_action.actor_id = 5000;
+        let mut train_record = JournalRecord::new(train_action, 7097);
+        train_record
+            .projection_mutations
+            .push(ProjectionMutation::TrainSkill {
+                skill_id: nimble_skill_id,
+                cost: SKILL_STEP_COST,
+                reason: "advancement".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&train_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "skill.stepped"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.starts_with("nimble_hands:1:"))
+        }));
+
+        let trained_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(trained_state.skills.len(), 2);
+        let nimble_skill = trained_state
+            .skills
+            .iter()
+            .find(|skill| skill.skill_id == "nimble_hands")
+            .expect("nimble hands appears in state");
+        assert_eq!(nimble_skill.label, "Nimble Hands");
+        assert_eq!(nimble_skill.tier, "trained");
+        assert_eq!(nimble_skill.bonus, 1);
+        assert_eq!(trained_state.ledger.banked_count, 2);
+        assert_eq!(trained_state.ledger.spent_count, 2);
+        assert_eq!(trained_state.ledger.advancement_points, 0);
+
+        if let Some(actor) = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+        {
+            actor.stats.dexterity = 10;
+        }
+        let mut dexterity_check = CwAction::default();
+        dexterity_check.kind = CW_ACTION_ABILITY_CHECK;
+        dexterity_check.actor_id = 5000;
+        dexterity_check.ability = ability_from_string("dexterity");
+        dexterity_check.dc = 99;
+        let (status, events) =
+            runtime.apply_journal_record(&JournalRecord::new(dexterity_check, 7098));
+        assert_eq!(status, CW_OK);
+        let roll = events
+            .iter()
+            .find(|event| event.type_name == "ability_check.rolled")
+            .expect("dexterity skill check emits a roll");
+        assert_eq!(roll.modifier, Some(1));
+        assert_eq!(roll.total, roll.raw_roll.map(|raw| raw + 1));
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("snapshot restores trained skill");
+        let restored_state = restored.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(restored_state.skills.len(), 2);
+        assert!(restored_state
+            .skills
+            .iter()
+            .all(|skill| skill.rank == 1 && skill.bonus == 1));
+    }
+
+    #[test]
+    fn banked_advancement_points_write_new_bond_slot() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut create_record = JournalRecord::new(create, 7101);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Bond Writer".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Relationship Scribe".to_string(),
+                description: "A test avatar writing a player-authored Bond.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        if let Some(actor) = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+        {
+            actor.stats.wisdom = 32;
+        }
+
+        let mut listen = CwAction::default();
+        listen.kind = CW_ACTION_ABILITY_CHECK;
+        listen.actor_id = 5000;
+        listen.ability = LISTEN_ABILITY;
+        listen.dc = LISTEN_DC;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(listen, 7102))
+                .0,
+            CW_OK
+        );
+
+        let mut bank_action = CwAction::default();
+        bank_action.kind = CW_ACTION_NONE;
+        bank_action.actor_id = 5000;
+        let mut bank_record = JournalRecord::new(bank_action, 7103);
+        bank_record
+            .projection_mutations
+            .push(ProjectionMutation::BankVisitLedger {
+                reason: "visit_ledger".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&bank_record).0, CW_OK);
+
+        let statement = "Rati trusts me with the greenhouse keys.";
+        let command = runtime
+            .resolve_command(
+                &command_request(5000, &format!("bond rati: {statement}")),
+                &AccessContext::default(),
+            )
+            .expect("new bond command resolves");
+        assert_eq!(
+            command.action.as_ref().map(|action| action.kind.as_str()),
+            Some("create_bond")
+        );
+        match command.dispatch {
+            CommandDispatch::CreateBond {
+                target_actor_id,
+                statement: resolved_statement,
+            } => {
+                assert_eq!(target_actor_id, 1001);
+                assert_eq!(resolved_statement, statement);
+            }
+            other => panic!("new bond should dispatch creation, got {other:?}"),
+        }
+
+        let mut create_bond_action = CwAction::default();
+        create_bond_action.kind = CW_ACTION_NONE;
+        create_bond_action.actor_id = 5000;
+        let mut create_bond_record = JournalRecord::new(create_bond_action, 7104);
+        create_bond_record
+            .projection_mutations
+            .push(ProjectionMutation::CreateBond {
+                target_actor_id: 1001,
+                statement: statement.to_string(),
+                cost: BOND_SLOT_COST,
+                reason: "advancement".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&create_bond_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "advancement.spent"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.starts_with("bond_slot:1:"))
+        }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "bond.created"
+                && event.actor_id == Some(5000)
+                && event.target_actor_id == Some(1001)
+        }));
+
+        let bonded_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(bonded_state.bonds.len(), 1);
+        assert_eq!(bonded_state.bonds[0].target_actor_id, 1001);
+        assert_eq!(bonded_state.bonds[0].statement, statement);
+        assert_eq!(bonded_state.bonds[0].strength, 1);
+        assert_eq!(bonded_state.ledger.banked_count, 2);
+        assert_eq!(bonded_state.ledger.spent_count, 1);
+        assert_eq!(bonded_state.ledger.advancement_points, 1);
+
+        let repeat = runtime
+            .resolve_command(
+                &command_request(5000, &format!("bond rati: {statement}")),
+                &AccessContext::default(),
+            )
+            .expect("active bond command remains recognized");
+        match repeat.dispatch {
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 409);
+                assert!(output.contains("already"));
+            }
+            other => panic!("same active bond should be disabled, got {other:?}"),
+        }
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("snapshot restores player-authored bond");
+        let restored_state = restored.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(restored_state.bonds.len(), 1);
+        assert_eq!(restored_state.bonds[0].target_actor_id, 1001);
+        assert_eq!(restored_state.bonds[0].statement, statement);
+        assert_eq!(restored_state.ledger.spent_count, 1);
+    }
+
+    #[test]
+    fn banked_advancement_points_revise_calling_once() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut create_record = JournalRecord::new(create, 7092);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Calling Changer".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Milestone Tester".to_string(),
+                description: "A test avatar spending advancement on identity.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        if let Some(actor) = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+        {
+            actor.stats.wisdom = 32;
+        }
+
+        let mut listen = CwAction::default();
+        listen.kind = CW_ACTION_ABILITY_CHECK;
+        listen.actor_id = 5000;
+        listen.ability = LISTEN_ABILITY;
+        listen.dc = LISTEN_DC;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(listen, 7093))
+                .0,
+            CW_OK
+        );
+        let mut bank_action = CwAction::default();
+        bank_action.kind = CW_ACTION_NONE;
+        bank_action.actor_id = 5000;
+        let mut bank_record = JournalRecord::new(bank_action, 7094);
+        bank_record
+            .projection_mutations
+            .push(ProjectionMutation::BankVisitLedger {
+                reason: "visit_ledger".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&bank_record).0, CW_OK);
+        assert_eq!(
+            runtime
+                .state_response(Some(5000), &AccessContext::default())
+                .ledger
+                .advancement_points,
+            2
+        );
+
+        let command = runtime
+            .resolve_command(
+                &command_request(5000, "revise calling I mend what the rain loosens."),
+                &AccessContext::default(),
+            )
+            .expect("calling revision command resolves");
+        assert_eq!(
+            command.action.as_ref().map(|action| action.kind.as_str()),
+            Some("revise_calling")
+        );
+        let statement = match command.dispatch {
+            CommandDispatch::ReviseCalling { statement } => statement,
+            other => panic!("calling revision should dispatch, got {other:?}"),
+        };
+        assert_eq!(statement, "I mend what the rain loosens.");
+
+        let mut revise_action = CwAction::default();
+        revise_action.kind = CW_ACTION_NONE;
+        revise_action.actor_id = 5000;
+        let mut revise_record = JournalRecord::new(revise_action, 7095);
+        revise_record
+            .projection_mutations
+            .push(ProjectionMutation::ReviseCalling {
+                statement: statement.clone(),
+                cost: CALLING_REVISION_COST,
+                reason: "advancement".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&revise_record);
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "advancement.spent"
+                && event.actor_id == Some(5000)
+                && event
+                    .content
+                    .as_deref()
+                    .map(|content| content.starts_with("calling_revision:1:"))
+                    .unwrap_or(false)));
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "calling.revised"
+                && event
+                    .content
+                    .as_deref()
+                    .map(|content| content.starts_with("I mend what the rain loosens."))
+                    .unwrap_or(false)));
+        let revised_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(
+            revised_state
+                .calling
+                .as_ref()
+                .map(|calling| calling.statement.as_str()),
+            Some("I mend what the rain loosens.")
+        );
+        assert_eq!(revised_state.ledger.banked_count, 2);
+        assert_eq!(revised_state.ledger.spent_count, 1);
+        assert_eq!(revised_state.ledger.advancement_points, 1);
+
+        let repeat = runtime
+            .resolve_command(
+                &command_request(5000, "calling I mend what the rain loosens."),
+                &AccessContext::default(),
+            )
+            .expect("same calling remains recognized");
+        match repeat.dispatch {
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 409);
+                assert!(output.contains("already"));
+            }
+            other => panic!("same calling should be disabled, got {other:?}"),
+        }
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("snapshot restores Calling revision and advancement spend");
+        let restored_state = restored.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(
+            restored_state
+                .calling
+                .as_ref()
+                .map(|calling| calling.statement.as_str()),
+            Some("I mend what the rain loosens.")
+        );
+        assert_eq!(restored_state.ledger.spent_count, 1);
+        assert_eq!(restored_state.ledger.advancement_points, 1);
     }
 
     #[test]
@@ -15359,6 +19586,13 @@ mod tests {
                 && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
                 && event.clock_delta == Some(2)
         }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "ledger.marked"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("helped"))
+        }));
         assert_eq!(
             runtime
                 .clocks
@@ -15366,11 +19600,19 @@ mod tests {
                 .map(|clock| clock.filled),
             Some(2)
         );
+        let worked_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(worked_state.ledger.unbanked_count, 1);
+        assert!(worked_state
+            .ledger
+            .unbanked_marks
+            .iter()
+            .any(|mark| mark.category == "helped"));
         assert!(!runtime.prepared_tag_active(5000, MOONLIT_TRAIL_LOCATION_ID));
 
         let mut help_action = CwAction::default();
         help_action.kind = CW_ACTION_NONE;
         help_action.actor_id = 5000;
+        let mut completion_events = Vec::new();
         for (seed, expected) in [(7091, 3), (7092, 4)] {
             let mut help_record = JournalRecord::new(help_action, seed);
             help_record
@@ -15395,7 +19637,7 @@ mod tests {
                     },
                     reason: "help".to_string(),
                 });
-            let (status, _) = runtime.apply_journal_record(&help_record);
+            let (status, events) = runtime.apply_journal_record(&help_record);
             assert_eq!(status, CW_OK);
             assert_eq!(
                 runtime
@@ -15404,7 +19646,22 @@ mod tests {
                     .map(|clock| clock.filled),
                 Some(expected)
             );
+            if expected == 4 {
+                completion_events = events;
+            }
         }
+        let quieted_tag_id = quieted_moonlight_tag_id(MOONLIT_TRAIL_LOCATION_ID);
+        assert!(completion_events.iter().any(|event| {
+            event.type_name == "tag.applied"
+                && event.tag_id.as_deref() == Some(quieted_tag_id.as_str())
+        }));
+        assert!(completion_events.iter().any(|event| {
+            event.type_name == "job.updated"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("completed"))
+        }));
 
         let completed = runtime.state_response(Some(5000), &AccessContext::default());
         assert_eq!(completed.jobs[0].status, "completed");
@@ -15414,12 +19671,37 @@ mod tests {
             .iter()
             .any(|option| matches!(option.kind.as_str(), "prepare" | "work" | "help")));
         assert!(completed.tags.iter().any(|tag| tag.label == "helped"));
+        assert!(completed
+            .tags
+            .iter()
+            .any(|tag| tag.label == "quieted moonlight"));
+        assert_eq!(completed.ledger.unbanked_count, 1);
+
+        let mut repeat_record = JournalRecord::new(help_action, 7093);
+        repeat_record
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
+                amount: 1,
+                reason: "repeat_help".to_string(),
+            });
+        let (status, repeat_events) = runtime.apply_journal_record(&repeat_record);
+        assert_eq!(status, CW_OK);
+        assert!(!repeat_events
+            .iter()
+            .any(|event| event.type_name == "job.updated"));
 
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
             .expect("snapshot restores jobs and room sheets");
         let restored_state = restored.state_response(Some(5000), &AccessContext::default());
         assert_eq!(restored_state.jobs[0].status, "completed");
+        assert_eq!(restored_state.ledger.unbanked_count, 1);
+        assert!(restored
+            .clocks
+            .get(MOONLIT_PROGRESS_CLOCK_ID)
+            .map(|clock| !clock.on_fill.is_empty())
+            .unwrap_or(false));
         assert_eq!(
             restored_state
                 .room_sheet
@@ -15427,6 +19709,79 @@ mod tests {
                 .map(|sheet| sheet.projects.clone()),
             Some(vec![MOONLIT_JOB_ID.to_string()])
         );
+    }
+
+    #[test]
+    fn danger_clock_on_fill_fails_seed_job() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
+        let mut create_record = JournalRecord::new(create, 7094);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Danger Tester".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Echo Witness".to_string(),
+                description: "A test avatar checking danger resolution.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+
+        let mut danger_action = CwAction::default();
+        danger_action.kind = CW_ACTION_NONE;
+        danger_action.actor_id = 5000;
+        let mut danger_record = JournalRecord::new(danger_action, 7095);
+        danger_record
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: MOONLIT_DANGER_CLOCK_ID.to_string(),
+                amount: 4,
+                reason: "test_danger_fill".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&danger_record);
+        assert_eq!(status, CW_OK);
+        let echo_tag_id = echo_fractured_tag_id(MOONLIT_TRAIL_LOCATION_ID);
+        assert!(events.iter().any(|event| {
+            event.type_name == "tag.applied"
+                && event.tag_id.as_deref() == Some(echo_tag_id.as_str())
+        }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "job.updated"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("failed"))
+        }));
+
+        let failed = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(failed.jobs[0].status, "failed");
+        assert!(failed
+            .tags
+            .iter()
+            .any(|tag| tag.label == "echo-fractured trail"));
+
+        let mut progress_record = JournalRecord::new(danger_action, 7096);
+        progress_record
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
+                amount: 4,
+                reason: "late_progress_fill".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&progress_record);
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "clock.fill_effect_rejected"));
+        let still_failed = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(still_failed.jobs[0].status, "failed");
+        assert!(!still_failed
+            .tags
+            .iter()
+            .any(|tag| tag.label == "quieted moonlight"));
     }
 
     #[tokio::test]
@@ -15447,14 +19802,23 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        if let Some(actor) = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+        {
+            actor.location_id = MOONLIT_TRAIL_LOCATION_ID;
+        }
         runtime
             .listen_attempt_claims
-            .insert(listen_attempt_claim_key(5000, 1));
+            .insert(listen_attempt_claim_key(5000, MOONLIT_TRAIL_LOCATION_ID));
         runtime
             .orb_reward_claims
             .insert(ability_check_success_claim_key(
                 5000,
-                1,
+                MOONLIT_TRAIL_LOCATION_ID,
                 LISTEN_ABILITY,
                 LISTEN_DC as i16,
             ));
@@ -15493,7 +19857,7 @@ mod tests {
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
         create.actor_id = 5000;
-        create.location_id = 1;
+        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
         let mut create_record = JournalRecord::new(create, 8091);
         create_record.actor_meta_upserts.insert(
             5000,
@@ -15505,9 +19869,18 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        if let Some(actor) = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+        {
+            actor.location_id = MOONLIT_TRAIL_LOCATION_ID;
+        }
         runtime
             .listen_attempt_claims
-            .insert(listen_attempt_claim_key(5000, 1));
+            .insert(listen_attempt_claim_key(5000, MOONLIT_TRAIL_LOCATION_ID));
         runtime.orb_balances.insert(5000, 0);
 
         let state = test_app_state(runtime, None);
@@ -15528,6 +19901,64 @@ mod tests {
         assert!(!response.ok);
         assert_eq!(response.status, 402);
         assert!(response.events.is_empty());
+    }
+
+    #[tokio::test]
+    async fn listen_action_endpoint_allows_unfunded_sanctuary_repeats() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut create_record = JournalRecord::new(create, 8092);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Calm Listener".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Hearth Noticer".to_string(),
+                description: "A test avatar repeating Listen at home without pressure.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(5000, 1));
+        runtime.orb_balances.insert(5000, 0);
+
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let client_addr: SocketAddr = "127.0.0.1:43103".parse().expect("client address");
+        let response = ability_check(
+            ConnectInfo(client_addr),
+            State(state.clone()),
+            Json(CheckRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                ability: "wisdom".to_string(),
+                dc: Some(LISTEN_DC),
+            }),
+        )
+        .await
+        .0;
+        assert!(response.ok);
+        assert_eq!(response.status, CW_OK);
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "ability_check.rolled"));
+        assert!(!response.events.iter().any(|event| {
+            event.type_name == "tag.applied" && event.tag_label.as_deref() == Some("tired")
+        }));
+        let runtime = state.inner.lock().await;
+        assert_eq!(runtime.orb_balance(5000), 0);
+        assert_eq!(
+            runtime
+                .state_response(Some(5000), &AccessContext::default())
+                .economy
+                .listen_cost_orbs,
+            0
+        );
     }
 
     #[tokio::test]
@@ -15704,11 +20135,36 @@ mod tests {
     #[test]
     fn seed_content_manifest_drives_runtime_metadata_and_evolution_tracks() {
         let content = parse_seed_content(SEED_CONTENT_JSON).expect("seed content parses");
-        assert_eq!(content.actors.len(), 5);
+        assert_eq!(content.manifest.id, "cosyworld.core");
+        assert_eq!(content.manifest.version, 1);
+        assert!(content.manifest.description.contains("seed worldpack"));
+        assert_eq!(content.actors.len(), 29);
         assert_eq!(content.items.len(), 7);
         assert_eq!(content.locations.len(), 25);
+        assert_eq!(content.exits.len(), 64);
         assert_eq!(content.room_features.len(), 13);
+        assert_eq!(content.room_sheets.len(), 3);
+        assert_eq!(content.clocks.len(), 2);
+        assert_eq!(content.jobs.len(), 1);
+        assert_eq!(content.cards.len(), 61);
+        assert_eq!(content.fallback_lines.len(), 10);
+        assert_eq!(content.lifecycle_hooks.len(), 6);
         assert_eq!(content.evolution_tracks.len(), 3);
+        assert!(content
+            .lifecycle_hooks
+            .iter()
+            .any(|hook| hook.hook == "on_listen"
+                && hook.target_kind == "room"
+                && hook.target_id == MOONLIT_TRAIL_LOCATION_ID.to_string()
+                && summarize_effects(&hook.effects)
+                    .as_deref()
+                    .is_some_and(|effect| effect.contains(MOONLIT_PROGRESS_CLOCK_ID))));
+        assert!(content.cards.iter().any(|card| {
+            card.subject_kind == "location"
+                && card.subject_id == MOONLIT_TRAIL_LOCATION_ID
+                && card.card_id == "cosy-moonlit-trail"
+                && card.art.is_some()
+        }));
 
         let runtime = RuntimeWorld::seeded();
         for actor in &content.actors {
@@ -15757,6 +20213,167 @@ mod tests {
         assert_eq!(evolution_track_item_ids(1003), Some([2006, 2007]));
         assert_eq!(evolution_track_item_ids(1004), None);
         assert_eq!(evolution_track_item_ids(1005), None);
+    }
+
+    #[tokio::test]
+    async fn lonely_forest_source_characters_are_seeded_with_png_cards() {
+        let content = parse_seed_content(SEED_CONTENT_JSON).expect("seed content parses");
+        let runtime = RuntimeWorld::seeded();
+
+        let placed_seed_actors: Vec<&SeedActorContent> = content
+            .actors
+            .iter()
+            .filter(|actor| actor.location_id.is_some())
+            .collect();
+        assert_eq!(placed_seed_actors.len(), 25);
+        for actor in placed_seed_actors {
+            let world_actor = runtime.actor_by_id(actor.id).expect("placed seed actor");
+            assert_eq!(world_actor.location_id, actor.location_id.unwrap());
+            assert_eq!(world_actor.kind, CW_ACTOR_NPC);
+            assert_eq!(world_actor.stats.hp_base, seed_actor_stats(actor).hp_base);
+        }
+
+        let lonely_forest_actor_cards: Vec<&SeedCardContent> = content
+            .cards
+            .iter()
+            .filter(|card| {
+                card.subject_kind == "actor"
+                    && card
+                        .image_url
+                        .as_deref()
+                        .is_some_and(|url| url.starts_with(LONELY_FOREST_CHARACTER_ASSET_PREFIX))
+            })
+            .collect();
+        assert_eq!(lonely_forest_actor_cards.len(), 25);
+        for card in lonely_forest_actor_cards {
+            let image_url = card.image_url.as_deref().expect("Lonely Forest image URL");
+            let asset_file = image_url
+                .strip_prefix(LONELY_FOREST_CHARACTER_ASSET_PREFIX)
+                .expect("Lonely Forest asset prefix");
+            assert!(
+                lonely_forest_character_asset_exists(asset_file),
+                "missing manifest asset for {}",
+                card.card_id
+            );
+
+            let projected = card_for_actor(card.subject_id, &card.display_name, &card.title, "", 1);
+            assert_eq!(projected.image_url.as_deref(), Some(image_url));
+            assert_eq!(projected.asset_status, "source_art");
+        }
+
+        let response = lonely_forest_character_asset(AxumPath("10-woodland-bear.png".to_string()))
+            .await
+            .into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("image/png")
+        );
+
+        let missing =
+            lonely_forest_character_asset(AxumPath("../10-woodland-bear.png".to_string()))
+                .await
+                .into_response();
+        assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn ranked_action_offers_and_inspector_explain_room_state() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut record = JournalRecord::new(create, 7840);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Inspector Tester".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Room Auditor".to_string(),
+                description: "A test avatar checking offer and inspector metadata.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        for (destination, seed) in [(2, 7841), (MOONLIT_TRAIL_LOCATION_ID, 7842)] {
+            let mut move_action = CwAction::default();
+            move_action.kind = CW_ACTION_MOVE;
+            move_action.actor_id = 5000;
+            move_action.destination_location_id = destination;
+            assert_eq!(
+                runtime
+                    .apply_journal_record(&JournalRecord::new(move_action, seed))
+                    .0,
+                CW_OK
+            );
+        }
+
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(state.primary_action.kind, "attack");
+        assert!(state
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "check" && option.command == "listen"));
+        let listen_offer = state
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "check")
+            .expect("listen offer is exposed");
+        assert_eq!(listen_offer.zone, ZONE_FRONTIER);
+        assert!(listen_offer
+            .effect
+            .as_deref()
+            .is_some_and(|effect| effect.contains(MOONLIT_PROGRESS_CLOCK_ID)));
+        assert!(listen_offer
+            .risk
+            .as_deref()
+            .is_some_and(|risk| risk.contains("frontier")));
+        assert!(state
+            .action_offers
+            .windows(2)
+            .all(|pair| pair[0].rank <= pair[1].rank));
+
+        let inspector = state.inspector;
+        assert_eq!(inspector.location_id, MOONLIT_TRAIL_LOCATION_ID);
+        assert_eq!(
+            inspector
+                .suggested_action
+                .as_ref()
+                .map(|offer| offer.kind.as_str()),
+            Some("attack")
+        );
+        assert!(inspector
+            .room
+            .listen_reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains(MOONLIT_PROGRESS_CLOCK_ID)));
+        assert!(
+            inspector
+                .jobs
+                .iter()
+                .any(|job| job.id == MOONLIT_JOB_ID
+                    && job.needs.iter().any(|need| need.contains("4")))
+        );
+        assert!(inspector.clocks.iter().any(|clock| {
+            clock.id == MOONLIT_PROGRESS_CLOCK_ID
+                && clock
+                    .on_fill_effect
+                    .as_deref()
+                    .is_some_and(|effect| effect.contains("quieted moonlight"))
+        }));
+        assert!(inspector.lifecycle_hooks.iter().any(|hook| {
+            hook.hook == "on_listen"
+                && hook.target_kind == "room"
+                && hook
+                    .effect
+                    .as_deref()
+                    .is_some_and(|effect| effect.contains(MOONLIT_PROGRESS_CLOCK_ID))
+        }));
     }
 
     #[test]
@@ -15986,12 +20603,25 @@ mod tests {
                 && event.actor_id == Some(5000)
                 && event.location_id == Some(3)
                 && event.destination_location_id == Some(2)));
+        assert!(events.iter().any(|event| {
+            event.type_name == "ledger.marked"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("frontier_return"))
+        }));
         assert_eq!(
             runtime.orb_balance(5000),
             before_flee_orbs + FLEE_ORB_REWARD
         );
         let garden = runtime.state_response(Some(5000), &access);
         assert_eq!(garden.location.name, "Rain-Soft Garden");
+        assert_eq!(garden.ledger.unbanked_count, 1);
+        assert!(garden
+            .ledger
+            .unbanked_marks
+            .iter()
+            .any(|mark| mark.category == "frontier_return"));
         assert!(!garden
             .primary_action
             .options
@@ -16791,7 +21421,30 @@ mod tests {
         let (status, events) = runtime.apply_journal_record(&JournalRecord::new(give, 7211));
         assert_eq!(status, CW_OK);
         assert_eq!(events[0].type_name, "item.given");
+        assert!(events.iter().any(|event| event.type_name == "bond.deepened"
+            && event.actor_id == Some(5000)
+            && event.target_actor_id == Some(1002)));
+        assert!(events.iter().any(|event| event.type_name == "ledger.marked"
+            && event
+                .content
+                .as_deref()
+                .map(|content| content.starts_with("bond:"))
+                .unwrap_or(false)));
         assert_eq!(runtime.actor_by_id(1002).unwrap().stats.level, 1);
+        let state = runtime.state_response(Some(5000), &access);
+        assert_eq!(state.bonds.len(), 1);
+        assert_eq!(state.bonds[0].target_actor_id, 1002);
+        assert_eq!(
+            state.bonds[0].target_actor_name.as_deref(),
+            Some("Whiskerwind")
+        );
+        assert!(state.bonds[0].statement.contains("Whiskerwind"));
+        assert_eq!(state.bonds[0].strength, 1);
+        assert!(state
+            .ledger
+            .unbanked_marks
+            .iter()
+            .any(|mark| mark.category == "bond"));
 
         give.item_id = 2003;
         let (status, events) = runtime.apply_journal_record(&JournalRecord::new(give, 7212));
@@ -16801,9 +21454,18 @@ mod tests {
             .any(|event| event.type_name == "avatar.evolved"
                 && event.target_actor_id == Some(1002)
                 && event.total == Some(2)));
+        assert!(
+            events
+                .iter()
+                .any(|event| event.type_name == "bond.deepened"
+                    && event.target_actor_id == Some(1002))
+        );
         assert_eq!(runtime.actor_by_id(1002).unwrap().stats.level, 2);
 
         let state = runtime.state_response(Some(5000), &access);
+        assert_eq!(state.bonds.len(), 1);
+        assert_eq!(state.bonds[0].strength, 2);
+        assert_eq!(state.ledger.unbanked_count, 2);
         let whiskerwind = state
             .actors
             .iter()
@@ -16815,6 +21477,196 @@ mod tests {
         assert_eq!(whiskerwind_card.level, 2);
         assert_eq!(whiskerwind_card.rarity, "evolved");
         assert_eq!(whiskerwind_card.title, "Storm-Symbol Speaker");
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("snapshot restores runtime with bonds");
+        let restored_state = restored.state_response(Some(5000), &access);
+        assert_eq!(restored_state.bonds.len(), 1);
+        assert_eq!(restored_state.bonds[0].target_actor_id, 1002);
+        assert_eq!(restored_state.bonds[0].strength, 2);
+
+        let revised_statement = "Whiskerwind trusts me with thunder tea.";
+        let blocked_revision = runtime
+            .resolve_command(
+                &command_request(5000, &format!("bond whisker: {revised_statement}")),
+                &access,
+            )
+            .expect("bond revision command remains recognized before banking");
+        match blocked_revision.dispatch {
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 409);
+                assert!(output.contains("Bank Visit Ledger"));
+            }
+            other => panic!("unbanked bond revision should be disabled, got {other:?}"),
+        }
+
+        let mut bank_action = CwAction::default();
+        bank_action.kind = CW_ACTION_NONE;
+        bank_action.actor_id = 5000;
+        let mut bank_record = JournalRecord::new(bank_action, 7213);
+        bank_record
+            .projection_mutations
+            .push(ProjectionMutation::BankVisitLedger {
+                reason: "visit_ledger".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&bank_record);
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "ledger.banked"));
+
+        let revise_command = runtime
+            .resolve_command(
+                &command_request(5000, &format!("revise bond whisker: {revised_statement}")),
+                &access,
+            )
+            .expect("banked bond revision resolves as a command");
+        match revise_command.dispatch {
+            CommandDispatch::ReviseBond {
+                target_actor_id,
+                statement,
+            } => {
+                assert_eq!(target_actor_id, 1002);
+                assert_eq!(statement, revised_statement);
+            }
+            other => panic!("banked bond revision should dispatch, got {other:?}"),
+        }
+
+        let mut revise_action = CwAction::default();
+        revise_action.kind = CW_ACTION_NONE;
+        revise_action.actor_id = 5000;
+        let mut revise_record = JournalRecord::new(revise_action, 7214);
+        revise_record
+            .projection_mutations
+            .push(ProjectionMutation::ReviseBond {
+                target_actor_id: 1002,
+                statement: revised_statement.to_string(),
+                cost: BOND_REVISION_COST,
+                reason: "advancement".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&revise_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "advancement.spent"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.starts_with("bond_revision:1:"))
+        }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "bond.revised"
+                && event.actor_id == Some(5000)
+                && event.target_actor_id == Some(1002)
+        }));
+        let revised_state = runtime.state_response(Some(5000), &access);
+        assert_eq!(revised_state.bonds.len(), 1);
+        assert_eq!(revised_state.bonds[0].statement, revised_statement);
+        assert_eq!(revised_state.ledger.banked_count, 2);
+        assert_eq!(revised_state.ledger.spent_count, 1);
+        assert_eq!(revised_state.ledger.advancement_points, 1);
+
+        let repeat_revision = runtime
+            .resolve_command(
+                &command_request(5000, &format!("bond whisker: {revised_statement}")),
+                &access,
+            )
+            .expect("same bond revision remains recognized");
+        match repeat_revision.dispatch {
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 409);
+                assert!(output.contains("already"));
+            }
+            other => panic!("same bond revision should be disabled, got {other:?}"),
+        }
+
+        let resolve_command = runtime
+            .resolve_command(&command_request(5000, "resolve bond whisker"), &access)
+            .expect("active bond resolves as a command");
+        match resolve_command.dispatch {
+            CommandDispatch::ResolveBond { target_actor_id } => {
+                assert_eq!(target_actor_id, 1002);
+            }
+            other => panic!("active bond should dispatch resolution, got {other:?}"),
+        }
+
+        let mut resolve_action = CwAction::default();
+        resolve_action.kind = CW_ACTION_NONE;
+        resolve_action.actor_id = 5000;
+        let mut resolve_record = JournalRecord::new(resolve_action, 7215);
+        resolve_record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveBond {
+                target_actor_id: 1002,
+                reason: "bond_resolved".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&resolve_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "bond.resolved"
+                && event.actor_id == Some(5000)
+                && event.target_actor_id == Some(1002)
+        }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "ledger.marked"
+                && event
+                    .content
+                    .as_deref()
+                    .map(|content| content.contains("bond_resolved"))
+                    .unwrap_or(false)
+        }));
+        let resolved_state = runtime.state_response(Some(5000), &access);
+        assert!(resolved_state.bonds.is_empty());
+        assert_eq!(resolved_state.ledger.unbanked_count, 1);
+        assert_eq!(
+            runtime
+                .bonds
+                .get(&bond_id(5000, 1002))
+                .map(|bond| bond.status.as_str()),
+            Some("resolved")
+        );
+
+        let repeat_command = runtime
+            .resolve_command(&command_request(5000, "resolve bond whisker"), &access)
+            .expect("resolved bond command remains recognized");
+        match repeat_command.dispatch {
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 409);
+                assert!(output.contains("active Bond"));
+            }
+            other => panic!("resolved bond should be disabled, got {other:?}"),
+        }
+
+        let mut repeat_action = CwAction::default();
+        repeat_action.kind = CW_ACTION_NONE;
+        repeat_action.actor_id = 5000;
+        let mut repeat_record = JournalRecord::new(repeat_action, 7216);
+        repeat_record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveBond {
+                target_actor_id: 1002,
+                reason: "bond_resolved".to_string(),
+            });
+        let (status, repeat_events) = runtime.apply_journal_record(&repeat_record);
+        assert_eq!(status, CW_OK);
+        assert!(repeat_events.is_empty());
+        let repeat_state = runtime.state_response(Some(5000), &access);
+        assert_eq!(repeat_state.ledger.unbanked_count, 1);
+
+        let restored_resolved = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("snapshot restores resolved bond");
+        let restored_resolved_state = restored_resolved.state_response(Some(5000), &access);
+        assert!(restored_resolved_state.bonds.is_empty());
+        assert_eq!(
+            restored_resolved
+                .bonds
+                .get(&bond_id(5000, 1002))
+                .map(|bond| bond.status.as_str()),
+            Some("resolved")
+        );
+        assert_eq!(restored_resolved_state.ledger.spent_count, 1);
+        assert_eq!(restored_resolved_state.ledger.advancement_points, 1);
     }
 
     #[test]

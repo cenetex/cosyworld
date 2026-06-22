@@ -401,7 +401,7 @@ static cw_status apply_ability_check(cw_world *world, const cw_action *action, u
   if (status != CW_OK) return status;
 
   int16_t raw = roll_die(seed, 1, 20);
-  int16_t modifier = ability_modifier((int8_t)stat_value(&actor->stats, action->ability));
+  int16_t modifier = (int16_t)(ability_modifier((int8_t)stat_value(&actor->stats, action->ability)) + action->modifier);
   int16_t total = (int16_t)(raw + modifier);
   int16_t dc = (int16_t)(action->dc ? action->dc : 10);
 

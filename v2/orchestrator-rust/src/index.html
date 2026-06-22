@@ -342,68 +342,6 @@
       font-weight: 900;
       opacity: 0.82;
     }
-    .rpg-state {
-      margin-top: 10px;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 8px;
-    }
-    .rpg-state:empty {
-      display: none;
-    }
-    .clock-chip,
-    .tag-chip,
-    .job-chip,
-    .sheet-chip {
-      min-width: 0;
-      border: 1px solid var(--line);
-      border-radius: 4px;
-      background: rgba(16, 25, 18, 0.72);
-      padding: 6px 8px;
-      display: grid;
-      gap: 4px;
-    }
-    .clock-chip.danger {
-      border-color: rgba(255, 141, 141, 0.32);
-    }
-    .clock-top,
-    .tag-top,
-    .job-top,
-    .sheet-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      color: var(--dim);
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-    .clock-label,
-    .tag-label,
-    .job-label,
-    .sheet-label {
-      min-width: 0;
-      color: var(--text);
-      font-weight: 850;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .clock-track {
-      height: 6px;
-      border-radius: 999px;
-      background: rgba(216, 247, 220, 0.1);
-      overflow: hidden;
-    }
-    .clock-fill {
-      height: 100%;
-      width: 0%;
-      border-radius: inherit;
-      background: var(--green);
-    }
-    .clock-chip.danger .clock-fill {
-      background: var(--red);
-    }
     .presence {
       margin-top: 10px;
       display: flex;
@@ -564,6 +502,115 @@
       min-width: 0;
       overflow-wrap: anywhere;
       white-space: pre-wrap;
+    }
+    .roll-line {
+      display: grid;
+      grid-template-columns: minmax(12ch, 20ch) minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      margin: 2px 0;
+    }
+    .roll-label {
+      color: var(--dim);
+      text-align: right;
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .roll-card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: rgba(16, 25, 18, 0.72);
+      padding: 7px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .roll-card.success {
+      border-color: rgba(101, 230, 138, 0.38);
+      background: rgba(101, 230, 138, 0.07);
+    }
+    .roll-card.failure {
+      border-color: rgba(242, 156, 156, 0.36);
+      background: rgba(242, 156, 156, 0.06);
+    }
+    .roll-die {
+      width: 38px;
+      height: 38px;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      background: var(--terminal-2);
+      color: var(--amber);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .roll-copy {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+    .roll-title {
+      color: var(--amber);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .roll-detail {
+      color: var(--dim);
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .roll-math {
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 5px;
+    }
+    .roll-token {
+      min-width: 42px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--terminal-2);
+      padding: 2px 6px;
+      display: grid;
+      gap: 1px;
+      text-align: center;
+    }
+    .roll-token small {
+      color: var(--dim);
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .roll-token b {
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.05;
+    }
+    .roll-token.total b,
+    .roll-card.success .roll-outcome,
+    .roll-card.success .roll-outcome b {
+      color: var(--green);
+    }
+    .roll-card.failure .roll-token.total b,
+    .roll-card.failure .roll-outcome,
+    .roll-card.failure .roll-outcome b {
+      color: var(--red);
+    }
+    .roll-outcome {
+      border-color: var(--line-strong);
+      font-weight: 900;
     }
     .account-panel {
       border: 1px solid var(--line);
@@ -1013,6 +1060,18 @@
         max-width: 100%;
       }
       .text { padding-left: 1ch; }
+      .roll-line {
+        grid-template-columns: 1fr;
+        gap: 3px;
+      }
+      .roll-label { text-align: left; }
+      .roll-card {
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+      .roll-math {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+      }
       .prompt {
         grid-template-columns: auto minmax(0, 1fr);
         gap: 7px;
@@ -1027,9 +1086,6 @@
       .route-map {
         grid-template-columns: 1fr;
         gap: 6px;
-      }
-      .rpg-state {
-        grid-template-columns: 1fr;
       }
       .route-current {
         display: none;
@@ -1086,7 +1142,6 @@
         </div>
         <div class="room-copy" id="location-copy"></div>
         <div class="route-map" id="route-map" aria-label="Room map"></div>
-        <div class="rpg-state" id="rpg-state" aria-label="Room clocks and conditions"></div>
         <div class="presence" id="presence"></div>
         <div class="features" id="features" aria-label="Searchable room features"></div>
       </section>
@@ -1586,12 +1641,10 @@
       const listenCost = Number.isFinite(Number(economy.listen_cost_orbs))
         ? Number(economy.listen_cost_orbs)
         : (listenRewardClaimable ? 0 : 1);
+      const listenAttemptedHere = economy.listen_attempted_here === true;
       const listenCanHelp = listenCost <= 0 || Number(economy.orbs || 0) >= listenCost;
-      if (options.has("check") && listenCanHelp) {
-        const detail = listenCost > 0
-          ? `again, ${listenCost} ${listenCost === 1 ? "orb" : "orbs"}`
-          : "for clues";
-        built.push({ label: "listen", detail, command: "listen", focusKey: "check", card: cardForLocation(view.location?.id), shape: "location", run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }) });
+      if (options.has("check") && listenCanHelp && !listenAttemptedHere) {
+        built.push({ label: "listen", detail: "for clues", command: "listen", focusKey: "check", card: cardForLocation(view.location?.id), shape: "location", run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }) });
       }
       if (!canChat && options.has("chat") && !built.length) {
         built.push({
@@ -1971,7 +2024,7 @@
       for (const event of events) {
         if (!event || seenSeq.has(event.seq)) continue;
         seenSeq.add(event.seq);
-        if (event.type === "world.bootstrapped") continue;
+        if (eventIsHiddenContext(event)) continue;
         logEvents.push(event);
         changed = true;
       }
@@ -1982,11 +2035,29 @@
     function rebuildLog(events) {
       logEvents = [];
       for (const event of events) {
-        if (!event || event.type === "world.bootstrapped") continue;
+        if (!event || eventIsHiddenContext(event)) continue;
         seenSeq.add(event.seq);
         logEvents.push(event);
       }
       logEvents = logEvents.slice(-60);
+    }
+
+    function eventIsHiddenContext(event) {
+      return event.type === "world.bootstrapped"
+        || event.type === "clock.updated"
+        || event.type === "tag.applied"
+        || event.type === "tag.cleared"
+        || event.type === "calling.set"
+        || event.type === "calling.revised"
+        || event.type === "ledger.marked"
+        || event.type === "ledger.banked"
+        || event.type === "advancement.spent"
+        || event.type === "skill.stepped"
+        || event.type === "bond.deepened"
+        || event.type === "bond.created"
+        || event.type === "bond.revised"
+        || event.type === "bond.resolved"
+        || event.type === "job.updated";
     }
 
     function eventMatchesCurrentLocation(event) {
@@ -2007,6 +2078,20 @@
         || event.type === "item.given"
         || event.type === "avatar.evolved"
         || event.type === "rule.rejected"
+        || event.type === "clock.updated"
+        || event.type === "tag.applied"
+        || event.type === "tag.cleared"
+        || event.type === "calling.set"
+        || event.type === "calling.revised"
+        || event.type === "ledger.marked"
+        || event.type === "ledger.banked"
+        || event.type === "advancement.spent"
+        || event.type === "skill.stepped"
+        || event.type === "bond.deepened"
+        || event.type === "bond.created"
+        || event.type === "bond.revised"
+        || event.type === "bond.resolved"
+        || event.type === "job.updated"
         || event.type === "combat.defend"
         || event.type === "combat.attack.attempt"
         || event.type === "combat.attack.hit"
@@ -2062,7 +2147,6 @@
       }
       renderRoomCopy(location.id);
       $("route-map").innerHTML = routeMapHtml(state);
-      $("rpg-state").innerHTML = rpgStateHtml(state);
       $("presence").innerHTML = presenceHtml(state, me);
       $("features").innerHTML = featureRowHtml(state);
       renderLog();
@@ -2134,46 +2218,6 @@
         ? `<span class="route-thumb"${cardDataAttr(card)} style="background-image:url('${escapeAttr(image)}')"></span>`
         : `<span class="route-thumb"${cardDataAttr(card)}>${fallback}</span>`;
       return `<${tag} class="route-node${classes}${focused ? " focused" : ""}"${attrs}>${thumb}<span class="route-copy"><span class="route-kicker">${escapeHtml(kicker)}</span><span class="route-name">${escapeHtml(label)}</span></span></${tag}>`;
-    }
-
-    function rpgStateHtml(view) {
-      const clocks = Array.isArray(view.clocks) ? view.clocks : [];
-      const tags = Array.isArray(view.tags) ? view.tags : [];
-      const jobs = Array.isArray(view.jobs) ? view.jobs : [];
-      const parts = [];
-      if (view.room_sheet) parts.push(roomSheetChipHtml(view.room_sheet));
-      for (const job of jobs) parts.push(jobChipHtml(job));
-      for (const clock of clocks) parts.push(clockChipHtml(clock));
-      for (const tag of tags) parts.push(tagChipHtml(tag));
-      return parts.join("");
-    }
-
-    function roomSheetChipHtml(sheet) {
-      const aspects = (sheet.aspects || []).slice(0, 2).join(" / ");
-      const safety = sheet.safety || "room";
-      return `<div class="sheet-chip" title="${escapeAttr(aspects || sheet.name || "room sheet")}"><div class="sheet-top"><span>room</span><span>${escapeHtml(safety)}</span></div><div class="sheet-label">${escapeHtml(aspects || sheet.name || "room sheet")}</div></div>`;
-    }
-
-    function jobChipHtml(job) {
-      const status = job.status || "active";
-      const premise = job.premise || "room job";
-      return `<div class="job-chip ${escapeAttr(status)}" title="${escapeAttr(job.stakes || premise)}"><div class="job-top"><span>job</span><span>${escapeHtml(status)}</span></div><div class="job-label">${escapeHtml(premise)}</div></div>`;
-    }
-
-    function clockChipHtml(clock) {
-      const segments = Math.max(1, Number(clock.segments || 0));
-      const filled = Math.max(0, Math.min(segments, Number(clock.filled || 0)));
-      const pct = Math.round((filled / segments) * 100);
-      const kind = String(clock.kind || "clock");
-      const label = String(clock.label || "Clock");
-      return `<div class="clock-chip ${escapeAttr(kind)}" title="${escapeAttr(`${label}: ${filled}/${segments}`)}"><div class="clock-top"><span>${escapeHtml(kind)}</span><span>${filled}/${segments}</span></div><div class="clock-label">${escapeHtml(label)}</div><div class="clock-track" aria-hidden="true"><div class="clock-fill" style="width:${pct}%"></div></div></div>`;
-    }
-
-    function tagChipHtml(tag) {
-      const kind = String(tag.kind || "tag");
-      const label = String(tag.label || "tag");
-      const scope = String(tag.scope || "");
-      return `<div class="tag-chip ${escapeAttr(kind)}" title="${escapeAttr(`${kind}: ${label}`)}"><div class="tag-top"><span>${escapeHtml(kind)}</span><span>${escapeHtml(scope)}</span></div><div class="tag-label">${escapeHtml(label)}</div></div>`;
     }
 
     function presenceHtml(view, me) {
@@ -2354,12 +2398,81 @@
     }
 
     function messageHtml(event) {
+      if (isRollEvent(event)) return rollHtml(event);
       const speaker = event.actor_name || "CosyWorld";
       const body = eventText(event);
       const kind = event.actor_id === actorId ? "you" : event.actor_id ? "npc" : "world";
       const label = eventAriaLabel(event, speaker, body);
       const attrs = label ? ` aria-label="${escapeAttr(label)}"` : "";
       return `<div class="line ${kind}"${attrs}><span class="speaker">${escapeHtml(speaker)}</span><span class="text">${escapeHtml(body)}</span></div>`;
+    }
+
+    function isRollEvent(event) {
+      return event.type === "ability_check.rolled" || event.type === "combat.attack.attempt";
+    }
+
+    function rollHtml(event) {
+      const meta = rollMeta(event);
+      const outcome = event.success ? "success" : "failure";
+      const detail = meta.detail ? `<span class="roll-detail">${escapeHtml(meta.detail)}</span>` : "";
+      const aria = `${meta.title}: ${meta.ariaMath}. ${outcome}.`;
+      return `<div class="roll-line" aria-label="${escapeAttr(aria)}"><span class="roll-label">roll</span><div class="roll-card ${outcome}"><span class="roll-die">d20</span><span class="roll-copy"><span class="roll-title">${escapeHtml(meta.title)}</span>${detail}</span><span class="roll-math">${meta.tokens.join("")}<span class="roll-token roll-outcome"><small>result</small><b>${escapeHtml(outcome)}</b></span></span></div></div>`;
+    }
+
+    function rollMeta(event) {
+      const raw = finiteNumber(event.raw_roll);
+      const modifier = finiteNumber(event.modifier);
+      const total = finiteNumber(event.total);
+      const dc = finiteNumber(event.dc);
+      const title = event.type === "combat.attack.attempt"
+        ? `Attack roll${event.target_actor_name ? ` vs ${event.target_actor_name}` : ""}`
+        : "Listen check";
+      const detailParts = [];
+      if (event.actor_name) detailParts.push(event.actor_name);
+      if (event.location_name) detailParts.push(event.location_name);
+      const tokens = [];
+      const ariaParts = [];
+      if (raw !== null) {
+        tokens.push(rollTokenHtml("d20", raw));
+        ariaParts.push(`d20 ${raw}`);
+      }
+      if (modifier !== null && modifier !== 0) {
+        tokens.push(rollTokenHtml("mod", signedNumber(modifier)));
+        ariaParts.push(`modifier ${signedNumber(modifier)}`);
+      }
+      if (total !== null) {
+        tokens.push(rollTokenHtml("total", total, "total"));
+        ariaParts.push(`total ${total}`);
+      }
+      if (dc !== null) {
+        const label = event.type === "combat.attack.attempt" ? "ac" : "dc";
+        tokens.push(rollTokenHtml(label, dc));
+        ariaParts.push(`${label.toUpperCase()} ${dc}`);
+      }
+      if (!tokens.length) {
+        tokens.push(rollTokenHtml("roll", "?"));
+        ariaParts.push("roll unknown");
+      }
+      return {
+        title,
+        detail: detailParts.join(" / "),
+        tokens,
+        ariaMath: ariaParts.join(", "),
+      };
+    }
+
+    function rollTokenHtml(label, value, className = "") {
+      const extra = className ? ` ${className}` : "";
+      return `<span class="roll-token${extra}"><small>${escapeHtml(label)}</small><b>${escapeHtml(String(value))}</b></span>`;
+    }
+
+    function finiteNumber(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function signedNumber(value) {
+      return value > 0 ? `+${value}` : String(value);
     }
 
     function eventAriaLabel(event, speaker, body) {
@@ -2421,6 +2534,17 @@
       }
       if (event.type === "tag.applied") return `gains ${event.tag_label || "a condition"}.`;
       if (event.type === "tag.cleared") return `clears ${event.tag_label || "a condition"}.`;
+      if (event.type === "calling.set") return `sets a Calling: ${callingEventLabel(event)}.`;
+      if (event.type === "calling.revised") return `revises their Calling: ${callingEventLabel(event)}.`;
+      if (event.type === "ledger.marked") return `marks the Visit Ledger: ${ledgerEventLabel(event)}.`;
+      if (event.type === "ledger.banked") return `banks the Visit Ledger: ${ledgerBankedEventLabel(event)}.`;
+      if (event.type === "advancement.spent") return `spends advancement: ${advancementEventLabel(event)}.`;
+      if (event.type === "skill.stepped") return `steps up ${skillEventLabel(event)}.`;
+      if (event.type === "bond.deepened") return `deepens a Bond with ${event.target_actor_name || "someone"}.`;
+      if (event.type === "bond.created") return `writes a Bond with ${event.target_actor_name || "someone"}.`;
+      if (event.type === "bond.revised") return `revises a Bond with ${event.target_actor_name || "someone"}.`;
+      if (event.type === "bond.resolved") return `resolves a Bond with ${event.target_actor_name || "someone"}.`;
+      if (event.type === "job.updated") return `updates ${jobEventLabel(event)}.`;
       if (event.type === "combat.defend") return `raises a careful guard.`;
       if (event.type === "combat.attack.attempt") return `tests ${event.target_actor_name}'s guard: roll ${event.total} vs ac ${event.dc}.`;
       if (event.type === "combat.attack.hit") {
@@ -2432,6 +2556,44 @@
       if (event.type === "combat.flee.success") return `flees to ${event.destination_location_name}, carrying the trail's silver hush.`;
       if (event.type === "rule.rejected") return `hesitates.`;
       return event.type;
+    }
+
+    function callingEventLabel(event) {
+      const content = String(event.content || "").trim();
+      const reasonIndex = content.lastIndexOf(":");
+      return reasonIndex > 0 ? content.slice(0, reasonIndex) : content || "a small truth";
+    }
+
+    function ledgerEventLabel(event) {
+      const parts = String(event.content || "").split(":");
+      return parts[1] || parts[0] || "a visit mark";
+    }
+
+    function ledgerBankedEventLabel(event) {
+      const parts = String(event.content || "").split(":");
+      const count = Math.max(0, Number(parts[0]) || 0);
+      return `${count} advancement point${count === 1 ? "" : "s"}`;
+    }
+
+    function advancementEventLabel(event) {
+      const parts = String(event.content || "").split(":");
+      const cost = Math.max(0, Number(parts[1]) || 0);
+      const label = parts[2] || "growth";
+      return `${label} (${cost} point${cost === 1 ? "" : "s"})`;
+    }
+
+    function skillEventLabel(event) {
+      const parts = String(event.content || "").split(":");
+      const skill = parts[0] || "a skill";
+      const rank = Math.max(0, Number(parts[1]) || 0);
+      const tier = rank >= 3 ? "master" : rank === 2 ? "expert" : "trained";
+      return `${skill} to ${tier}`;
+    }
+
+    function jobEventLabel(event) {
+      const parts = String(event.content || "").split(":");
+      const status = parts[1] || "a room job";
+      return `the room job to ${status}`;
     }
 
     function listenEventText(event) {
