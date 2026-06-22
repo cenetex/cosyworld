@@ -321,6 +321,7 @@ async function main() {
         economy: {
           orbs: 0,
           can_chat_with_orbs: false,
+          listen_cost_orbs: claimable ? 0 : 1,
           listen_reward_claimable: claimable,
           openrouter_connected: false,
         },
@@ -1324,8 +1325,11 @@ async function main() {
   await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
   assert((await visibleCommandButtons()).length === 1, "normal play must show one command button");
   await assertNoComposerOrDebugChrome();
-  assert((await primaryText()).toLowerCase().includes("chat"), "normal resident focus should use the Chat verb");
+  assert((await primaryText()).toLowerCase().includes("take"), "normal play should surface a collectible before chat");
   assert(!(await primaryText()).toLowerCase().includes("orb chat"), "chat command should not show an Orb cost suffix");
+  assert(await page.locator(".feature-pill").count() >= 3, "room features should render as clickable search targets");
+  steps.push({ label: "focus Hearth feature", primary: await focusBySelector(".feature-pill[data-focus-index]", "Hearth") });
+  assert((await primaryText()).toLowerCase().includes("search"), "feature focus should offer a Search verb");
   await assertZeroOrbModePrefersWorldEarningAction();
   await assertCompactDescriptionAndCardModal();
   await assertMudShellVisualContract("mobile visual shell");
@@ -1340,7 +1344,9 @@ async function main() {
   await listenAtCurrentLocation();
   await assertBoundedEventReplay();
 
-  await chatWithFocusedResident("avatar chat with Rati");
+  steps.push({ label: "focus resident chat", primary: await focusPrimaryMatching("resident chat", (text) => text.includes("chat")) });
+  assert((await primaryText()).toLowerCase().includes("chat"), "resident focus should still use the Chat verb");
+  await chatWithFocusedResident("avatar chat with resident");
 
   await takeItem("Story Button");
   await assertReloadContinuity("The Cosy Cottage", "takes Story Button.");

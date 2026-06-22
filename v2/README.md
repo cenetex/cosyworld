@@ -11,6 +11,7 @@ For the OpenRouter player payer, Orb-paid Chat fallback, real AI media, combat r
 ## Layout
 
 - `core-c/`: deterministic C rules kernel.
+- `ai-model-rust/`: deterministic local AI generation model with native and WASM exports.
 - `orchestrator-rust/`: Rust HTTP/SSE host that compiles and calls the C kernel through FFI.
 - `orchestrator-rust/src/index.html`: one-button browser MUD shell served by the Rust host.
 - `orchestrator-rust/src/seed_content.json`: seed actor/item/location labels and level-2 evolution tracks consumed by the Rust host.
@@ -77,6 +78,7 @@ The Rust orchestrator currently owns:
 - HTTP routes.
 - SSE broadcast.
 - Actor/item/location/content labels.
+- Native calls into the local Rust AI model for deterministic avatar identity, fallback chat, resident replies, and speech sanitizer behavior that can also run in WASM.
 - Card projections for visible actors, items, and locations.
 - Session-touched live human presence, so stale generated avatars do not crowd active rooms.
 - Generated human avatar flavor: name, title, description, and runtime avatar card.
@@ -109,7 +111,16 @@ That script builds the Rust orchestrator, starts it detached on `127.0.0.1:3102`
 ./v2/mvp.sh stop
 ```
 
-Use `./v2/mvp.sh check` as the local MVP gate. It runs the C kernel test, Rust format/tests/build, JavaScript and terminal-client syntax checks, starts a production-profile smoke against a protected local Ruby High-style ownership feed, restarts the detached browser server, runs the Playwright browser smoke, runs a non-typing terminal smoke, and leaves the verified server running.
+Use `./v2/mvp.sh check` as the local MVP gate. It runs the C kernel test, local AI model native tests plus WASM build, Rust format/tests/build, JavaScript and terminal-client syntax checks, starts a production-profile smoke against a protected local Ruby High-style ownership feed, restarts the detached browser server, runs the Playwright browser smoke, runs a non-typing terminal smoke, and leaves the verified server running.
+
+The local AI model can be checked and built for browser use from the repository root:
+
+```sh
+npm run v2:ai-model:test
+npm run v2:ai-model:wasm
+```
+
+The WASM build writes the raw `wasm32-unknown-unknown` artifact under `v2/ai-model-rust/target/wasm32-unknown-unknown/release/`. It exports JSON-string functions for the model manifest, avatar identity generation, avatar chat fallback, and resident replies.
 
 From `v2/orchestrator-rust`:
 

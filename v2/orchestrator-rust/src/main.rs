@@ -10,6 +10,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use cosyworld_ai_model::{
+    AvatarChatModelInput, GeneratedAvatarIdentity as ModelGeneratedAvatarIdentity,
+    ResidentReplyModelInput,
+};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use kernel::*;
 use qrcode::{render::svg, QrCode};
@@ -110,6 +114,16 @@ struct GeneratedAvatarIdentity {
     description: String,
 }
 
+impl From<ModelGeneratedAvatarIdentity> for GeneratedAvatarIdentity {
+    fn from(identity: ModelGeneratedAvatarIdentity) -> Self {
+        Self {
+            name: identity.name,
+            title: identity.title,
+            description: identity.description,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 struct AmbientConfig {
     enabled: bool,
@@ -186,8 +200,13 @@ const STARTING_ORBS: i32 = 3;
 const CHAT_ORB_COST: i32 = 1;
 const CORE_PROGRAM_ID: &str = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
 const LISTEN_ORB_REWARD: i32 = 1;
+const LISTEN_REPEAT_ORB_COST: i32 = 1;
 const LISTEN_ABILITY: u8 = 4;
 const LISTEN_DC: u16 = 12;
+const MOONLIT_TRAIL_LOCATION_ID: u64 = 3;
+const MOONLIT_JOB_ID: &str = "job_moonlit_trail_quiet";
+const MOONLIT_PROGRESS_CLOCK_ID: &str = "moonlit_trail_quiet_progress";
+const MOONLIT_DANGER_CLOCK_ID: &str = "moonlit_trail_echo_danger";
 const ATTACK_HIT_ORB_REWARD: i32 = 1;
 const KNOCKOUT_ORB_REWARD: i32 = 3;
 const FLEE_ORB_REWARD: i32 = 1;
@@ -214,6 +233,89 @@ struct LocationMeta {
     persona: String,
     #[serde(default)]
     memory: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ClockState {
+    id: String,
+    scope: String,
+    scope_id: u64,
+    kind: String,
+    label: String,
+    segments: u8,
+    filled: u8,
+    visible_to_players: bool,
+    #[serde(default)]
+    status: String,
+    #[serde(default)]
+    created_event_seq: Option<u64>,
+    #[serde(default)]
+    updated_event_seq: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct RpgTagState {
+    id: String,
+    scope: String,
+    scope_id: u64,
+    label: String,
+    kind: String,
+    #[serde(default)]
+    active: bool,
+    #[serde(default)]
+    source_event_seq: Option<u64>,
+    #[serde(default)]
+    expires: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct JobState {
+    id: String,
+    premise: String,
+    stakes: String,
+    location_ids: Vec<u64>,
+    participant_ids: Vec<u64>,
+    progress_clock_id: String,
+    danger_clock_id: String,
+    #[serde(default)]
+    status: String,
+    reward: String,
+    consequence: String,
+    #[serde(default)]
+    memory_summary: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct RoomSheetState {
+    id: String,
+    location_id: u64,
+    name: String,
+    safety: String,
+    aspects: Vec<String>,
+    boons: Vec<String>,
+    hooks: Vec<String>,
+    resources: BTreeMap<String, i16>,
+    projects: Vec<String>,
+    #[serde(default)]
+    season_clock_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum ProjectionMutation {
+    AdvanceClock {
+        clock_id: String,
+        amount: u8,
+        reason: String,
+    },
+    SetTag {
+        tag: RpgTagState,
+        reason: String,
+    },
+    ClearTag {
+        tag_id: String,
+        reason: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -300,8 +402,14 @@ struct RuntimeWorld {
     location_meta: BTreeMap<u64, LocationMeta>,
     content: BTreeMap<u64, String>,
     branches: BTreeMap<u64, DialogueBranch>,
+    clocks: BTreeMap<String, ClockState>,
+    tags: BTreeMap<String, RpgTagState>,
+    jobs: BTreeMap<String, JobState>,
+    room_sheets: BTreeMap<u64, RoomSheetState>,
+    rpg_claims: BTreeSet<String>,
     orb_balances: BTreeMap<u64, i32>,
     orb_reward_claims: BTreeSet<String>,
+    listen_attempt_claims: BTreeSet<String>,
     event_log: Vec<EventView>,
     next_actor_id: u64,
     next_content_id: u64,
@@ -328,9 +436,21 @@ struct RuntimeSnapshot {
     #[serde(default)]
     branches: BTreeMap<u64, DialogueBranch>,
     #[serde(default)]
+    clocks: BTreeMap<String, ClockState>,
+    #[serde(default)]
+    tags: BTreeMap<String, RpgTagState>,
+    #[serde(default)]
+    jobs: BTreeMap<String, JobState>,
+    #[serde(default)]
+    room_sheets: BTreeMap<u64, RoomSheetState>,
+    #[serde(default)]
+    rpg_claims: BTreeSet<String>,
+    #[serde(default)]
     orb_balances: BTreeMap<u64, i32>,
     #[serde(default)]
     orb_reward_claims: BTreeSet<String>,
+    #[serde(default)]
+    listen_attempt_claims: BTreeSet<String>,
     event_log: Vec<EventView>,
     next_actor_id: u64,
     next_content_id: u64,
@@ -351,6 +471,8 @@ struct JournalRecord {
     #[serde(default)]
     branch_resolutions: Vec<u64>,
     #[serde(default)]
+    projection_mutations: Vec<ProjectionMutation>,
+    #[serde(default)]
     orb_deltas: Vec<OrbDelta>,
 }
 
@@ -364,6 +486,7 @@ impl JournalRecord {
             content_upserts: BTreeMap::new(),
             branch_upserts: BTreeMap::new(),
             branch_resolutions: Vec::new(),
+            projection_mutations: Vec::new(),
             orb_deltas: Vec::new(),
         }
     }
@@ -584,6 +707,11 @@ struct StateResponse {
     exits: Vec<ExitView>,
     actors: Vec<ActorView>,
     items: Vec<ItemView>,
+    room_features: Vec<RoomFeatureView>,
+    clocks: Vec<ClockView>,
+    tags: Vec<TagView>,
+    jobs: Vec<JobView>,
+    room_sheet: Option<RoomSheetView>,
     cards: CardRegistryView,
     access: AccessView,
     account: AccountView,
@@ -607,6 +735,7 @@ struct EconomyView {
     orbs: i32,
     chat_cost_orbs: i32,
     can_chat_with_orbs: bool,
+    listen_cost_orbs: i32,
     listen_reward_claimable: bool,
     openrouter_connected: bool,
     chat_payer: String,
@@ -700,6 +829,69 @@ struct ItemView {
     location_id: Option<u64>,
     holder_actor_id: Option<u64>,
     charges: u8,
+}
+
+#[derive(Debug, Serialize)]
+struct RoomFeatureView {
+    key: String,
+    name: String,
+    aliases: Vec<String>,
+    look: String,
+    search: String,
+    uses: Vec<RoomFeatureUseView>,
+}
+
+#[derive(Debug, Serialize)]
+struct RoomFeatureUseView {
+    item_id: u64,
+    text: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ClockView {
+    id: String,
+    scope: String,
+    scope_id: u64,
+    kind: String,
+    label: String,
+    segments: u8,
+    filled: u8,
+    status: String,
+}
+
+#[derive(Debug, Serialize)]
+struct TagView {
+    id: String,
+    scope: String,
+    scope_id: u64,
+    label: String,
+    kind: String,
+    expires: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct JobView {
+    id: String,
+    premise: String,
+    stakes: String,
+    status: String,
+    progress_clock_id: String,
+    danger_clock_id: String,
+    reward: String,
+    consequence: String,
+}
+
+#[derive(Debug, Serialize)]
+struct RoomSheetView {
+    id: String,
+    location_id: u64,
+    name: String,
+    safety: String,
+    aspects: Vec<String>,
+    boons: Vec<String>,
+    hooks: Vec<String>,
+    resources: BTreeMap<String, i16>,
+    projects: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -824,6 +1016,61 @@ struct EventView {
     dc: Option<i16>,
     damage: Option<i16>,
     current_hp: Option<i16>,
+    clock_id: Option<String>,
+    clock_scope: Option<String>,
+    clock_scope_id: Option<u64>,
+    clock_kind: Option<String>,
+    clock_label: Option<String>,
+    clock_filled: Option<u8>,
+    clock_segments: Option<u8>,
+    clock_delta: Option<i16>,
+    tag_id: Option<String>,
+    tag_scope: Option<String>,
+    tag_scope_id: Option<u64>,
+    tag_kind: Option<String>,
+    tag_label: Option<String>,
+}
+
+impl Default for EventView {
+    fn default() -> Self {
+        Self {
+            seq: 0,
+            type_name: String::new(),
+            success: false,
+            reason: 0,
+            actor_id: None,
+            actor_name: None,
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id: None,
+            location_name: None,
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: None,
+            item_id: None,
+            item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -871,6 +1118,10 @@ enum CommandDispatch {
     GiveItem { item_id: u64, target_actor_id: u64 },
     Attack { target_actor_id: u64 },
     Defend,
+    Prepare,
+    Work,
+    Help,
+    Rest,
     Chat { target_actor_id: u64 },
 }
 
@@ -2523,26 +2774,8 @@ fn compact_whitespace(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn fallback_generated_avatar_name(actor_id: u64) -> String {
-    const FIRST: [&str; 8] = [
-        "Moss", "Button", "Hearth", "Rain", "Moon", "Thimble", "Lantern", "Brindle",
-    ];
-    const SECOND: [&str; 8] = [
-        "Wanderer", "Stitch", "Keeper", "Guest", "Scout", "Dreamer", "Walker", "Friend",
-    ];
-    let first = FIRST[(actor_id as usize) % FIRST.len()];
-    let second = SECOND[((actor_id / FIRST.len() as u64) as usize) % SECOND.len()];
-    format!("{first} {second}")
-}
-
 fn fallback_avatar_identity(actor_id: u64) -> GeneratedAvatarIdentity {
-    let name = fallback_generated_avatar_name(actor_id);
-    let (title, description) = generated_avatar_flavor(actor_id, &name);
-    GeneratedAvatarIdentity {
-        name,
-        title,
-        description,
-    }
+    cosyworld_ai_model::generate_avatar_identity(actor_id, None).into()
 }
 
 fn sanitize_avatar_title(value: Option<&str>, fallback: &str) -> String {
@@ -2627,13 +2860,7 @@ async fn generate_avatar_identity(
     requested_name: Option<&str>,
 ) -> GeneratedAvatarIdentity {
     if let Some(name) = requested_name {
-        let name = normalize_avatar_name(Some(name), actor_id);
-        let (title, description) = generated_avatar_flavor(actor_id, &name);
-        return GeneratedAvatarIdentity {
-            name,
-            title,
-            description,
-        };
+        return cosyworld_ai_model::generate_avatar_identity(actor_id, Some(name)).into();
     }
 
     let fallback = fallback_avatar_identity(actor_id);
@@ -2955,6 +3182,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/actions/give-item", post(give_item))
         .route("/actions/attack", post(attack))
         .route("/actions/defend", post(defend))
+        .route("/actions/prepare", post(prepare))
+        .route("/actions/work", post(work))
+        .route("/actions/help", post(help_room))
+        .route("/actions/rest", post(rest))
         .route("/actions/flee", post(flee))
         .route("/commands", post(command))
         .route("/stream", get(stream))
@@ -3509,8 +3740,14 @@ impl RuntimeSnapshot {
             location_meta: runtime.location_meta.clone(),
             content: runtime.content.clone(),
             branches: runtime.branches.clone(),
+            clocks: runtime.clocks.clone(),
+            tags: runtime.tags.clone(),
+            jobs: runtime.jobs.clone(),
+            room_sheets: runtime.room_sheets.clone(),
+            rpg_claims: runtime.rpg_claims.clone(),
             orb_balances: runtime.orb_balances.clone(),
             orb_reward_claims: runtime.orb_reward_claims.clone(),
+            listen_attempt_claims: runtime.listen_attempt_claims.clone(),
             event_log: runtime.event_log.clone(),
             next_actor_id: runtime.next_actor_id,
             next_content_id: runtime.next_content_id,
@@ -3589,8 +3826,14 @@ impl RuntimeSnapshot {
             location_meta: self.location_meta,
             content: self.content,
             branches: self.branches,
+            clocks: self.clocks,
+            tags: self.tags,
+            jobs: self.jobs,
+            room_sheets: self.room_sheets,
+            rpg_claims: self.rpg_claims,
             orb_balances: self.orb_balances,
             orb_reward_claims: self.orb_reward_claims,
+            listen_attempt_claims: self.listen_attempt_claims,
             event_log: self.event_log,
             next_actor_id: self.next_actor_id,
             next_content_id: self.next_content_id,
@@ -3598,7 +3841,9 @@ impl RuntimeSnapshot {
         })
         .map(|mut runtime| {
             runtime.ensure_seed_topology();
+            runtime.ensure_seed_rpg_projection();
             runtime.backfill_generated_avatar_flavor();
+            runtime.backfill_listen_attempt_claims_from_events();
             runtime
         })
     }
@@ -3634,6 +3879,10 @@ fn canonical_command_verb(verb: &str) -> String {
         "use" | "drink" | "ring" => "use",
         "talk" | "chat" | "speak" => "chat",
         "listen" | "check" => "listen",
+        "prepare" | "ready" => "prepare",
+        "work" | "repair" | "study" => "work",
+        "assist" | "aid" => "assist",
+        "rest" | "breathe" | "catch" => "rest",
         "hit" | "attack" | "strike" => "attack",
         "guard" | "defend" => "defend",
         "run" | "flee" | "escape" => "flee",
@@ -3695,6 +3944,33 @@ fn command_list_or_none(values: &[String]) -> String {
     }
 }
 
+fn room_sheet<const A: usize, const B: usize, const H: usize, const R: usize, const P: usize>(
+    location_id: u64,
+    name: &str,
+    safety: &str,
+    aspects: [&str; A],
+    boons: [&str; B],
+    hooks: [&str; H],
+    resources: [(&str, i16); R],
+    projects: [&str; P],
+) -> RoomSheetState {
+    RoomSheetState {
+        id: format!("room:{location_id}"),
+        location_id,
+        name: name.to_string(),
+        safety: safety.to_string(),
+        aspects: aspects.into_iter().map(ToString::to_string).collect(),
+        boons: boons.into_iter().map(ToString::to_string).collect(),
+        hooks: hooks.into_iter().map(ToString::to_string).collect(),
+        resources: resources
+            .into_iter()
+            .map(|(key, value)| (key.to_string(), value))
+            .collect(),
+        projects: projects.into_iter().map(ToString::to_string).collect(),
+        season_clock_id: None,
+    }
+}
+
 fn command_action(kind: &str, label: &str, command: &str) -> CommandActionView {
     CommandActionView {
         kind: kind.to_string(),
@@ -3726,6 +4002,7 @@ impl RuntimeWorld {
         }
         runtime.recompute_counters();
         runtime.ensure_seed_topology();
+        runtime.ensure_seed_rpg_projection();
         runtime.backfill_generated_avatar_flavor();
         Ok(runtime)
     }
@@ -3747,8 +4024,14 @@ impl RuntimeWorld {
             location_meta: seed_location_meta(),
             content: BTreeMap::new(),
             branches: BTreeMap::new(),
+            clocks: BTreeMap::new(),
+            tags: BTreeMap::new(),
+            jobs: BTreeMap::new(),
+            room_sheets: BTreeMap::new(),
+            rpg_claims: BTreeSet::new(),
             orb_balances: BTreeMap::new(),
             orb_reward_claims: BTreeSet::new(),
+            listen_attempt_claims: BTreeSet::new(),
             event_log: Vec::new(),
             next_actor_id: 5000,
             next_content_id: 9000,
@@ -3758,6 +4041,7 @@ impl RuntimeWorld {
         let seed_events = runtime.views_from_buffer(&events);
         runtime.event_log.extend(seed_events);
         runtime.ensure_seed_topology();
+        runtime.ensure_seed_rpg_projection();
         runtime.backfill_generated_avatar_flavor();
         runtime
     }
@@ -3849,6 +4133,93 @@ impl RuntimeWorld {
             self.ensure_exit(from_location_id, to_location_id, 0);
         }
         self.ensure_seed_residents();
+    }
+
+    fn ensure_seed_rpg_projection(&mut self) {
+        self.room_sheets.entry(1).or_insert_with(|| {
+            room_sheet(
+                1,
+                "The Cosy Cottage",
+                "safe",
+                ["warm threshold", "careful host"],
+                ["new avatars can begin here"],
+                ["the hearth notices unfinished promises"],
+                [("warmth", 3), ("tea", 2)],
+                [],
+            )
+        });
+        self.room_sheets.entry(2).or_insert_with(|| {
+            room_sheet(
+                2,
+                "Rain-Soft Garden",
+                "safe",
+                ["rain-bright leaves", "small discoveries"],
+                ["seed items surface after gentle attention"],
+                ["the garden remembers what was taken"],
+                [("dew", 3), ("shelter", 1)],
+                [],
+            )
+        });
+        self.room_sheets
+            .entry(MOONLIT_TRAIL_LOCATION_ID)
+            .or_insert_with(|| {
+                room_sheet(
+                    MOONLIT_TRAIL_LOCATION_ID,
+                    "Moonlit Trail",
+                    "dangerous",
+                    ["silver hush", "practice circle"],
+                    ["fleeing remains a valid success"],
+                    ["the echo sharpens when travelers push too hard"],
+                    [("moonlight", 2), ("quiet", 1)],
+                    [MOONLIT_JOB_ID],
+                )
+            });
+        self.clocks
+            .entry(MOONLIT_PROGRESS_CLOCK_ID.to_string())
+            .or_insert_with(|| ClockState {
+                id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
+                scope: "room".to_string(),
+                scope_id: MOONLIT_TRAIL_LOCATION_ID,
+                kind: "progress".to_string(),
+                label: "Quiet the Moonlit Trail".to_string(),
+                segments: 4,
+                filled: 0,
+                visible_to_players: true,
+                status: "active".to_string(),
+                created_event_seq: None,
+                updated_event_seq: None,
+            });
+        self.clocks
+            .entry(MOONLIT_DANGER_CLOCK_ID.to_string())
+            .or_insert_with(|| ClockState {
+                id: MOONLIT_DANGER_CLOCK_ID.to_string(),
+                scope: "room".to_string(),
+                scope_id: MOONLIT_TRAIL_LOCATION_ID,
+                kind: "danger".to_string(),
+                label: "Echo Shatters the Trail".to_string(),
+                segments: 4,
+                filled: 0,
+                visible_to_players: true,
+                status: "active".to_string(),
+                created_event_seq: None,
+                updated_event_seq: None,
+            });
+        self.jobs
+            .entry(MOONLIT_JOB_ID.to_string())
+            .or_insert_with(|| JobState {
+                id: MOONLIT_JOB_ID.to_string(),
+                premise: "The Moonlit Trail is carrying too much echo.".to_string(),
+                stakes: "If nobody steadies the trail, every rest makes its danger louder."
+                    .to_string(),
+                location_ids: vec![MOONLIT_TRAIL_LOCATION_ID],
+                participant_ids: vec![1004],
+                progress_clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
+                danger_clock_id: MOONLIT_DANGER_CLOCK_ID.to_string(),
+                status: "active".to_string(),
+                reward: "quieted moonlight".to_string(),
+                consequence: "echo-fractured trail".to_string(),
+                memory_summary: String::new(),
+            });
     }
 
     fn ensure_seed_metadata(&mut self) {
@@ -4003,6 +4374,19 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -4038,6 +4422,19 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -4076,6 +4473,128 @@ impl RuntimeWorld {
             dc: None,
             damage: None,
             current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_clock_event(
+        &mut self,
+        type_name: &str,
+        actor_id: u64,
+        clock: &ClockState,
+        delta: i16,
+        reason: &str,
+    ) -> EventView {
+        let location_id = if clock.scope == "room" {
+            Some(clock.scope_id)
+        } else {
+            self.actor_by_id(actor_id).map(|actor| actor.location_id)
+        };
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: type_name.to_string(),
+            success: true,
+            reason: 0,
+            actor_id: opt_id(actor_id),
+            actor_name: self.actor_name(actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id,
+            location_name: location_id.and_then(|id| self.location_name(id)),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(reason.to_string()),
+            item_id: None,
+            item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: Some(clock.id.clone()),
+            clock_scope: Some(clock.scope.clone()),
+            clock_scope_id: Some(clock.scope_id),
+            clock_kind: Some(clock.kind.clone()),
+            clock_label: Some(clock.label.clone()),
+            clock_filled: Some(clock.filled),
+            clock_segments: Some(clock.segments),
+            clock_delta: Some(delta),
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_tag_event(
+        &mut self,
+        type_name: &str,
+        actor_id: u64,
+        tag: &RpgTagState,
+        reason: &str,
+    ) -> EventView {
+        let location_id = if tag.scope == "room" {
+            Some(tag.scope_id)
+        } else {
+            self.actor_by_id(actor_id).map(|actor| actor.location_id)
+        };
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: type_name.to_string(),
+            success: true,
+            reason: 0,
+            actor_id: opt_id(actor_id),
+            actor_name: self.actor_name(actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id,
+            location_name: location_id.and_then(|id| self.location_name(id)),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(reason.to_string()),
+            item_id: None,
+            item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: Some(tag.id.clone()),
+            tag_scope: Some(tag.scope.clone()),
+            tag_scope_id: Some(tag.scope_id),
+            tag_kind: Some(tag.kind.clone()),
+            tag_label: Some(tag.label.clone()),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -4151,8 +4670,20 @@ impl RuntimeWorld {
         }
 
         self.next_seed = record.seed;
-        let (status, mut events) = self.apply_action_with_seed(record.action, record.seed);
+        let (status, mut events) =
+            if record.action.kind == CW_ACTION_NONE && !record.projection_mutations.is_empty() {
+                self.world.tick = self.world.tick.saturating_add(1);
+                (CW_OK, Vec::new())
+            } else {
+                self.apply_action_with_seed(record.action, record.seed)
+            };
         if status == CW_OK {
+            let listen_context = self.listen_context_for_action(&record.action, &events);
+            let was_repeat_listen = listen_context
+                .map(|(actor_id, location_id)| {
+                    self.listen_attempt_claimed_at(actor_id, location_id)
+                })
+                .unwrap_or(false);
             for (actor_id, branch) in &record.branch_upserts {
                 self.branches.insert(*actor_id, branch.clone());
                 events.push(self.append_branch_lifecycle_event("branch.opened", branch));
@@ -4163,12 +4694,188 @@ impl RuntimeWorld {
                 }
             }
             events.extend(self.expire_stale_branches());
+            events.extend(
+                self.apply_projection_mutations(&record.action, &record.projection_mutations),
+            );
+            self.record_listen_attempt(&record.action, &events);
+            events.extend(self.apply_listen_rpg_projection(
+                &record.action,
+                &events,
+                was_repeat_listen,
+            ));
             self.apply_automatic_orb_rewards(&record.action, &events);
             for delta in &record.orb_deltas {
                 self.apply_orb_delta(delta.actor_id, delta.delta);
             }
         }
         (status, events)
+    }
+
+    fn apply_projection_mutations(
+        &mut self,
+        action: &CwAction,
+        mutations: &[ProjectionMutation],
+    ) -> Vec<EventView> {
+        mutations
+            .iter()
+            .filter_map(|mutation| match mutation {
+                ProjectionMutation::AdvanceClock {
+                    clock_id,
+                    amount,
+                    reason,
+                } => self.advance_clock(clock_id, *amount, action.actor_id, reason),
+                ProjectionMutation::SetTag { tag, reason } => {
+                    self.set_rpg_tag(tag.clone(), action.actor_id, reason)
+                }
+                ProjectionMutation::ClearTag { tag_id, reason } => {
+                    self.clear_rpg_tag(tag_id, action.actor_id, reason)
+                }
+            })
+            .collect()
+    }
+
+    fn apply_listen_rpg_projection(
+        &mut self,
+        action: &CwAction,
+        events: &[EventView],
+        was_repeat_listen: bool,
+    ) -> Vec<EventView> {
+        if !action_is_listen_check(action) {
+            return Vec::new();
+        }
+        let Some(listen_event) = events.iter().find(|event| {
+            event.type_name == "ability_check.rolled" && event.actor_id == Some(action.actor_id)
+        }) else {
+            return Vec::new();
+        };
+        let Some(location_id) = listen_event.location_id else {
+            return Vec::new();
+        };
+
+        let mut projected = Vec::new();
+        let listen_succeeded = listen_event.success
+            && listen_event
+                .total
+                .zip(listen_event.dc)
+                .map(|(total, dc)| total >= dc)
+                .unwrap_or(false);
+        if listen_succeeded {
+            if let Some(clock_id) = listen_progress_clock_id_for_location(location_id) {
+                let claim_key = format!(
+                    "rpg:listen_progress:{}:{location_id}:{clock_id}",
+                    action.actor_id
+                );
+                if self.rpg_claims.insert(claim_key) {
+                    if let Some(event) =
+                        self.advance_clock(clock_id, 1, action.actor_id, "listen_success")
+                    {
+                        projected.push(event);
+                    }
+                }
+            }
+        }
+
+        if was_repeat_listen {
+            let tag = RpgTagState {
+                id: tired_tag_id(action.actor_id),
+                scope: "actor".to_string(),
+                scope_id: action.actor_id,
+                label: "tired".to_string(),
+                kind: "condition".to_string(),
+                active: true,
+                source_event_seq: Some(listen_event.seq),
+                expires: Some("after_rest".to_string()),
+            };
+            if let Some(event) = self.set_rpg_tag(tag, action.actor_id, "repeat_listen") {
+                projected.push(event);
+            }
+        }
+
+        projected
+    }
+
+    fn listen_context_for_action(
+        &self,
+        action: &CwAction,
+        events: &[EventView],
+    ) -> Option<(u64, u64)> {
+        if !action_is_listen_check(action) {
+            return None;
+        }
+        let location_id = events
+            .iter()
+            .find(|event| {
+                event.type_name == "ability_check.rolled" && event.actor_id == Some(action.actor_id)
+            })
+            .and_then(|event| event.location_id)
+            .or_else(|| {
+                self.actor_by_id(action.actor_id)
+                    .map(|actor| actor.location_id)
+            })?;
+        Some((action.actor_id, location_id))
+    }
+
+    fn advance_clock(
+        &mut self,
+        clock_id: &str,
+        amount: u8,
+        actor_id: u64,
+        reason: &str,
+    ) -> Option<EventView> {
+        if amount == 0 {
+            return None;
+        }
+        let next_seq = self.world.next_event_seq;
+        let clock = self.clocks.get_mut(clock_id)?;
+        let before = clock.filled;
+        let after = before.saturating_add(amount).min(clock.segments);
+        if after == before {
+            return None;
+        }
+        clock.filled = after;
+        clock.status = if clock.filled >= clock.segments {
+            "filled".to_string()
+        } else {
+            "active".to_string()
+        };
+        clock.updated_event_seq = Some(next_seq);
+        let clock = clock.clone();
+        Some(self.append_clock_event(
+            "clock.updated",
+            actor_id,
+            &clock,
+            i16::from(after.saturating_sub(before)),
+            reason,
+        ))
+    }
+
+    fn set_rpg_tag(
+        &mut self,
+        mut tag: RpgTagState,
+        actor_id: u64,
+        reason: &str,
+    ) -> Option<EventView> {
+        if self
+            .tags
+            .get(&tag.id)
+            .map(|existing| existing.active)
+            .unwrap_or(false)
+        {
+            return None;
+        }
+        tag.active = true;
+        self.tags.insert(tag.id.clone(), tag.clone());
+        Some(self.append_tag_event("tag.applied", actor_id, &tag, reason))
+    }
+
+    fn clear_rpg_tag(&mut self, tag_id: &str, actor_id: u64, reason: &str) -> Option<EventView> {
+        let tag = self.tags.get_mut(tag_id)?;
+        if !tag.active {
+            return None;
+        }
+        tag.active = false;
+        let tag = tag.clone();
+        Some(self.append_tag_event("tag.cleared", actor_id, &tag, reason))
     }
 
     fn apply_orb_delta(&mut self, actor_id: u64, delta: i32) {
@@ -4249,6 +4956,19 @@ impl RuntimeWorld {
             dc: opt_i16(event.dc),
             damage: opt_i16(event.damage),
             current_hp: event_current_hp(event),
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
         }
     }
 
@@ -4441,11 +5161,19 @@ impl RuntimeWorld {
         let listen_reward_claimable = client_actor_id
             .map(|id| self.listen_reward_claimable(id))
             .unwrap_or(false);
+        let listen_cost_orbs = client_actor_id
+            .map(|id| self.listen_cost_orbs(id))
+            .unwrap_or(0);
         StateResponse {
             location,
             exits,
             actors,
             items,
+            room_features: self.room_feature_views(location_id),
+            clocks: self.clock_views(location_id),
+            tags: self.tag_views(client_actor_id, location_id),
+            jobs: self.job_views(location_id),
+            room_sheet: self.room_sheet_view(location_id),
             cards,
             access: access_view,
             account: account_view(access),
@@ -4453,6 +5181,7 @@ impl RuntimeWorld {
                 orbs,
                 chat_cost_orbs: CHAT_ORB_COST,
                 can_chat_with_orbs: orbs >= CHAT_ORB_COST,
+                listen_cost_orbs,
                 listen_reward_claimable,
                 openrouter_connected,
                 chat_payer: if openrouter_connected {
@@ -4490,6 +5219,235 @@ impl RuntimeWorld {
             i16::try_from(LISTEN_DC).unwrap_or(i16::MAX),
         );
         !self.orb_reward_claims.contains(&claim_key)
+    }
+
+    fn listen_cost_orbs(&self, actor_id: u64) -> i32 {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return 0;
+        };
+        if actor.status != CW_ACTOR_ACTIVE {
+            return 0;
+        }
+        if self.listen_attempt_claimed_at(actor_id, actor.location_id) {
+            LISTEN_REPEAT_ORB_COST
+        } else {
+            0
+        }
+    }
+
+    fn listen_affordable(&self, actor_id: u64) -> bool {
+        let cost = self.listen_cost_orbs(actor_id);
+        cost <= 0 || self.orb_balance(actor_id) >= cost
+    }
+
+    fn rest_available(&self, actor_id: u64) -> bool {
+        self.tags
+            .get(&tired_tag_id(actor_id))
+            .map(|tag| tag.active)
+            .unwrap_or(false)
+    }
+
+    fn prepare_available(&self, actor_id: u64) -> bool {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return false;
+        };
+        actor.status == CW_ACTOR_ACTIVE
+            && self
+                .active_progress_clock_id_for_location(actor.location_id)
+                .is_some()
+            && !self.prepared_tag_active(actor_id, actor.location_id)
+    }
+
+    fn work_available(&self, actor_id: u64) -> bool {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return false;
+        };
+        actor.status == CW_ACTOR_ACTIVE
+            && self
+                .active_progress_clock_id_for_location(actor.location_id)
+                .is_some()
+    }
+
+    fn help_available(&self, actor_id: u64) -> bool {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return false;
+        };
+        actor.status == CW_ACTOR_ACTIVE
+            && self
+                .active_progress_clock_id_for_location(actor.location_id)
+                .is_some()
+            && self.world.actors[..self.world.actor_count]
+                .iter()
+                .any(|other| {
+                    other.id != actor_id
+                        && other.kind == CW_ACTOR_NPC
+                        && other.status == CW_ACTOR_ACTIVE
+                        && other.location_id == actor.location_id
+                })
+    }
+
+    fn active_progress_clock_id_for_location(&self, location_id: u64) -> Option<String> {
+        self.jobs
+            .values()
+            .filter(|job| job.location_ids.contains(&location_id))
+            .filter(|job| self.job_status(job) == "active")
+            .filter_map(|job| {
+                self.clocks
+                    .get(&job.progress_clock_id)
+                    .map(|clock| (job, clock))
+            })
+            .find(|(_, clock)| clock.filled < clock.segments)
+            .map(|(job, _)| job.progress_clock_id.clone())
+            .or_else(|| {
+                listen_progress_clock_id_for_location(location_id).and_then(|clock_id| {
+                    self.clocks
+                        .get(clock_id)
+                        .filter(|clock| clock.filled < clock.segments)
+                        .map(|_| clock_id.to_string())
+                })
+            })
+    }
+
+    fn prepared_tag_active(&self, actor_id: u64, location_id: u64) -> bool {
+        self.tags
+            .get(&prepared_tag_id(actor_id, location_id))
+            .map(|tag| tag.active)
+            .unwrap_or(false)
+    }
+
+    fn clock_views(&self, location_id: u64) -> Vec<ClockView> {
+        self.clocks
+            .values()
+            .filter(|clock| {
+                clock.visible_to_players && clock.scope == "room" && clock.scope_id == location_id
+            })
+            .map(|clock| ClockView {
+                id: clock.id.clone(),
+                scope: clock.scope.clone(),
+                scope_id: clock.scope_id,
+                kind: clock.kind.clone(),
+                label: clock.label.clone(),
+                segments: clock.segments,
+                filled: clock.filled,
+                status: clock_status(clock),
+            })
+            .collect()
+    }
+
+    fn tag_views(&self, actor_id: Option<u64>, location_id: u64) -> Vec<TagView> {
+        self.tags
+            .values()
+            .filter(|tag| tag.active)
+            .filter(|tag| {
+                (tag.scope == "room" && tag.scope_id == location_id)
+                    || actor_id
+                        .map(|id| tag.scope == "actor" && tag.scope_id == id)
+                        .unwrap_or(false)
+            })
+            .map(|tag| TagView {
+                id: tag.id.clone(),
+                scope: tag.scope.clone(),
+                scope_id: tag.scope_id,
+                label: tag.label.clone(),
+                kind: tag.kind.clone(),
+                expires: tag.expires.clone(),
+            })
+            .collect()
+    }
+
+    fn job_views(&self, location_id: u64) -> Vec<JobView> {
+        self.jobs
+            .values()
+            .filter(|job| job.location_ids.contains(&location_id))
+            .map(|job| JobView {
+                id: job.id.clone(),
+                premise: job.premise.clone(),
+                stakes: job.stakes.clone(),
+                status: self.job_status(job),
+                progress_clock_id: job.progress_clock_id.clone(),
+                danger_clock_id: job.danger_clock_id.clone(),
+                reward: job.reward.clone(),
+                consequence: job.consequence.clone(),
+            })
+            .collect()
+    }
+
+    fn room_sheet_view(&self, location_id: u64) -> Option<RoomSheetView> {
+        self.room_sheets
+            .get(&location_id)
+            .map(|sheet| RoomSheetView {
+                id: sheet.id.clone(),
+                location_id: sheet.location_id,
+                name: sheet.name.clone(),
+                safety: sheet.safety.clone(),
+                aspects: sheet.aspects.clone(),
+                boons: sheet.boons.clone(),
+                hooks: sheet.hooks.clone(),
+                resources: sheet.resources.clone(),
+                projects: sheet.projects.clone(),
+            })
+    }
+
+    fn job_status(&self, job: &JobState) -> String {
+        let progress_filled = self
+            .clocks
+            .get(&job.progress_clock_id)
+            .map(|clock| clock.filled >= clock.segments)
+            .unwrap_or(false);
+        if progress_filled {
+            return "completed".to_string();
+        }
+        let danger_filled = self
+            .clocks
+            .get(&job.danger_clock_id)
+            .map(|clock| clock.filled >= clock.segments)
+            .unwrap_or(false);
+        if danger_filled {
+            return "failed".to_string();
+        }
+        if job.status.trim().is_empty() {
+            "active".to_string()
+        } else {
+            job.status.clone()
+        }
+    }
+
+    fn listen_attempt_claimed_at(&self, actor_id: u64, location_id: u64) -> bool {
+        self.listen_attempt_claims
+            .contains(&listen_attempt_claim_key(actor_id, location_id))
+    }
+
+    fn record_listen_attempt(&mut self, action: &CwAction, events: &[EventView]) {
+        if !action_is_listen_check(action) {
+            return;
+        }
+        let location_id = events
+            .iter()
+            .find(|event| {
+                event.type_name == "ability_check.rolled" && event.actor_id == Some(action.actor_id)
+            })
+            .and_then(|event| event.location_id)
+            .or_else(|| {
+                self.actor_by_id(action.actor_id)
+                    .map(|actor| actor.location_id)
+            });
+        if let Some(location_id) = location_id {
+            self.listen_attempt_claims
+                .insert(listen_attempt_claim_key(action.actor_id, location_id));
+        }
+    }
+
+    fn backfill_listen_attempt_claims_from_events(&mut self) {
+        for event in &self.event_log {
+            if event.type_name != "ability_check.rolled" || event.dc != Some(LISTEN_DC as i16) {
+                continue;
+            }
+            let (Some(actor_id), Some(location_id)) = (event.actor_id, event.location_id) else {
+                continue;
+            };
+            self.listen_attempt_claims
+                .insert(listen_attempt_claim_key(actor_id, location_id));
+        }
     }
 
     #[cfg(test)]
@@ -4768,6 +5726,10 @@ impl RuntimeWorld {
         let has_chat_target = self.has_active_chat_target(actor_id);
         let has_combat_target = self.has_active_combat_target(actor_id);
         let has_matching_gift = self.has_matching_evolution_gift(actor_id);
+        let can_prepare = self.prepare_available(actor_id);
+        let can_work = self.work_available(actor_id);
+        let can_help = self.help_available(actor_id);
+        let can_rest = self.rest_available(actor_id);
 
         let mut options = Vec::new();
         if offers.option_flags & CW_OFFER_CHAT != 0 && has_chat_target {
@@ -4777,7 +5739,7 @@ impl RuntimeWorld {
                 command: "chat".to_string(),
             });
         }
-        if offers.option_flags & CW_OFFER_CHECK != 0 {
+        if offers.option_flags & CW_OFFER_CHECK != 0 && self.listen_affordable(actor_id) {
             options.push(ActionOption {
                 kind: "check".to_string(),
                 label: "Check".to_string(),
@@ -4836,11 +5798,41 @@ impl RuntimeWorld {
                 command: "attack".to_string(),
             });
         }
+        if can_prepare {
+            options.push(ActionOption {
+                kind: "prepare".to_string(),
+                label: "Prepare".to_string(),
+                command: "prepare".to_string(),
+            });
+        }
+        if can_work {
+            options.push(ActionOption {
+                kind: "work".to_string(),
+                label: "Work".to_string(),
+                command: "work".to_string(),
+            });
+        }
+        if can_help {
+            options.push(ActionOption {
+                kind: "help".to_string(),
+                label: "Help".to_string(),
+                command: "help".to_string(),
+            });
+        }
+        if can_rest {
+            options.push(ActionOption {
+                kind: "rest".to_string(),
+                label: "Rest".to_string(),
+                command: "rest".to_string(),
+            });
+        }
 
         let label = if options.iter().any(|o| o.kind == "give_item") {
             "Give Item"
         } else if options.iter().any(|o| o.kind == "use_item") {
             "Use"
+        } else if options.iter().any(|o| o.kind == "rest") {
+            "Rest"
         } else if options.iter().any(|o| o.kind == "attack") {
             "Attack"
         } else if options.iter().any(|o| o.kind == "defend") {
@@ -4855,6 +5847,12 @@ impl RuntimeWorld {
             "Travel"
         } else if options.iter().any(|o| o.kind == "check") {
             "Listen"
+        } else if options.iter().any(|o| o.kind == "prepare") {
+            "Prepare"
+        } else if options.iter().any(|o| o.kind == "work") {
+            "Work"
+        } else if options.iter().any(|o| o.kind == "help") {
+            "Help"
         } else {
             "Act"
         };
@@ -4866,10 +5864,14 @@ impl RuntimeWorld {
                 "Flee" => "flee",
                 "Give Item" => "give_item",
                 "Use" => "use_item",
+                "Rest" => "rest",
                 "Attack" => "attack",
                 "Defend" => "defend",
                 "Take" => "pick_up",
                 "Listen" => "check",
+                "Prepare" => "prepare",
+                "Work" => "work",
+                "Help" => "help",
                 _ => "act",
             }
             .to_string(),
@@ -4880,10 +5882,14 @@ impl RuntimeWorld {
                 "Flee" => "flee",
                 "Give Item" => "give",
                 "Use" => "use",
+                "Rest" => "rest",
                 "Attack" => "attack",
                 "Defend" => "defend",
                 "Take" => "take",
                 "Listen" => "listen",
+                "Prepare" => "prepare",
+                "Work" => "work",
+                "Help" => "help",
                 _ => "look",
             }
             .to_string(),
@@ -5011,7 +6017,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                    output: "Commands: look, look <thing>, search <feature>, who, inventory, go <room>, take <item>, give <item> to <resident>, use <item> on <target>, chat <resident>, listen, attack <target>, defend, flee <room>.".to_string(),
+                    output: "Commands: look, look <thing>, search <feature>, who, inventory, go <room>, take <item>, give <item> to <resident>, use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, attack <target>, defend, flee <room>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -5171,12 +6177,104 @@ impl RuntimeWorld {
                     },
                 })
             }
-            "listen" => Ok(ResolvedCommand {
-                command: "listen".to_string(),
-                verb,
-                action: Some(command_action("check", "Listen", "listen")),
-                dispatch: CommandDispatch::Check,
-            }),
+            "listen" => {
+                let listen_cost = self.listen_cost_orbs(actor.id);
+                if listen_cost > 0 && self.orb_balance(actor.id) < listen_cost {
+                    return Ok(ResolvedCommand {
+                        command: "listen".to_string(),
+                        verb,
+                        action: Some(command_action("check", "Listen", "listen")),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 402,
+                            output: format!(
+                                "Listening again here costs {listen_cost} Orb. Search a feature, talk with someone, or earn more Orbs."
+                            ),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: "listen".to_string(),
+                    verb,
+                    action: Some(command_action("check", "Listen", "listen")),
+                    dispatch: CommandDispatch::Check,
+                })
+            }
+            "prepare" => {
+                if !self.prepare_available(actor.id) {
+                    return Ok(ResolvedCommand {
+                        command: "prepare".to_string(),
+                        verb,
+                        action: Some(command_action("prepare", "Prepare", "prepare")),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "There is nothing useful to prepare here right now.".to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: "prepare".to_string(),
+                    verb,
+                    action: Some(command_action("prepare", "Prepare", "prepare")),
+                    dispatch: CommandDispatch::Prepare,
+                })
+            }
+            "work" => {
+                if !self.work_available(actor.id) {
+                    return Ok(ResolvedCommand {
+                        command: "work".to_string(),
+                        verb,
+                        action: Some(command_action("work", "Work", "work")),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "There is no active room project to work on here.".to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: "work".to_string(),
+                    verb,
+                    action: Some(command_action("work", "Work", "work")),
+                    dispatch: CommandDispatch::Work,
+                })
+            }
+            "assist" => {
+                if !self.help_available(actor.id) {
+                    return Ok(ResolvedCommand {
+                        command: "assist".to_string(),
+                        verb,
+                        action: Some(command_action("help", "Help", "assist")),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "Nobody here can use that kind of help right now.".to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: "assist".to_string(),
+                    verb,
+                    action: Some(command_action("help", "Help", "assist")),
+                    dispatch: CommandDispatch::Help,
+                })
+            }
+            "rest" => {
+                if !self.rest_available(actor.id) {
+                    return Ok(ResolvedCommand {
+                        command: "rest".to_string(),
+                        verb,
+                        action: Some(command_action("rest", "Rest", "rest")),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "You are already steady enough to keep going.".to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: "rest".to_string(),
+                    verb,
+                    action: Some(command_action("rest", "Rest", "rest")),
+                    dispatch: CommandDispatch::Rest,
+                })
+            }
             "attack" => {
                 let target = self
                     .resolve_room_actor(actor, rest, CommandActorFilter::ActiveNpc)
@@ -5219,7 +6317,7 @@ impl RuntimeWorld {
                 &command,
                 &verb,
                 404,
-                "I do not know that command yet. Try help, look, search, who, inventory, go, take, give, use, chat, listen, attack, defend, or flee.",
+                "I do not know that command yet. Try help, look, search, who, inventory, go, take, give, use, chat, listen, prepare, work, assist, rest, attack, defend, or flee.",
             )),
         }
     }
@@ -5390,6 +6488,27 @@ impl RuntimeWorld {
             })
             .collect::<Vec<_>>();
         format!("Here: {}.", command_list_or_none(&actors))
+    }
+
+    fn room_feature_views(&self, location_id: u64) -> Vec<RoomFeatureView> {
+        self.room_features(location_id)
+            .into_iter()
+            .map(|feature| RoomFeatureView {
+                key: feature.key.clone(),
+                name: feature.name.clone(),
+                aliases: feature.aliases.clone(),
+                look: feature.look.clone(),
+                search: feature.search.clone(),
+                uses: feature
+                    .uses
+                    .iter()
+                    .map(|use_case| RoomFeatureUseView {
+                        item_id: use_case.item_id,
+                        text: use_case.text.clone(),
+                    })
+                    .collect(),
+            })
+            .collect()
     }
 
     fn room_features(&self, location_id: u64) -> Vec<&'static SeedRoomFeatureContent> {
@@ -5860,19 +6979,17 @@ impl RuntimeWorld {
     }
 
     fn resident_fallback_for_target(&self, npc_actor_id: u64) -> String {
-        match npc_actor_id {
-            1001 => {
-                "Rati tucks another stitch into the blue scarf. \"Tell me one small thing you noticed on your way in.\""
-                    .to_string()
-            }
-            1002 => "🌧️🫖✨🧶".to_string(),
-            1003 => "*Skull lifts his head toward the low doorway.*".to_string(),
-            1005 => {
-                "Root: I remember your footstep before you named it. Leaf: Ask softly."
-                    .to_string()
-            }
-            _ => "They listen carefully.".to_string(),
-        }
+        let meta = self.actors.get(&npc_actor_id);
+        cosyworld_ai_model::generate_resident_reply(&ResidentReplyModelInput {
+            npc_actor_id,
+            npc_name: self
+                .actor_name(npc_actor_id)
+                .unwrap_or_else(|| format!("Actor {npc_actor_id}")),
+            speech_mode: meta
+                .map(|meta| meta.speech_mode.clone())
+                .unwrap_or_else(|| "prose".to_string()),
+            user_text: String::new(),
+        })
     }
 
     fn resident_reply_plan_for_target(
@@ -9371,6 +10488,54 @@ async fn command(
             .await;
             command_action_response(resolved, response)
         }
+        CommandDispatch::Prepare => {
+            let Json(response) = prepare(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::Work => {
+            let Json(response) = work(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::Help => {
+            let Json(response) = help_room(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
+        CommandDispatch::Rest => {
+            let Json(response) = rest(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                }),
+            )
+            .await;
+            command_action_response(resolved, response)
+        }
         CommandDispatch::Chat { target_actor_id } => {
             let Json(response) = chat(
                 ConnectInfo(client_addr),
@@ -9772,58 +10937,21 @@ fn format_location_memory(memory: &[String]) -> String {
 }
 
 fn avatar_chat_fallback_text(
-    _actor_id: u64,
+    actor_id: u64,
     target_actor_name: &str,
     target_actor_id: u64,
     missing_need: Option<&str>,
 ) -> String {
-    if let Some(item_name) = missing_need {
-        return match target_actor_id {
-            1001 => format!("{target_actor_name}, what story should I follow toward {item_name}?"),
-            1002 => format!("{target_actor_name}, does the weather point toward {item_name}?"),
-            1003 => {
-                format!("{target_actor_name}, should I listen for {item_name} beyond the door?")
-            }
-            1005 => {
-                format!("{target_actor_name}, which of your four voices remembers {item_name}?")
-            }
-            _ => format!("{target_actor_name}, what should I notice about {item_name}?"),
-        };
-    }
-    match target_actor_id {
-        1001 => "Rati, what story is hiding in the cottage tonight?".to_string(),
-        1002 => "Whiskerwind, what weather is passing through this room?".to_string(),
-        1003 => "Skull, what should I listen for by the door?".to_string(),
-        1005 => "Old Oak, which voice should I follow through the forest?".to_string(),
-        _ => format!("{target_actor_name}, what should we notice next?"),
-    }
+    cosyworld_ai_model::generate_avatar_chat(&AvatarChatModelInput {
+        actor_id,
+        target_actor_id,
+        target_actor_name: target_actor_name.to_string(),
+        missing_need: missing_need.map(ToString::to_string),
+    })
 }
 
 fn sanitize_avatar_chat(text: &str) -> Option<String> {
-    if text
-        .chars()
-        .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        return None;
-    }
-    let mut line = text
-        .lines()
-        .next()
-        .unwrap_or_default()
-        .trim()
-        .trim_matches('"')
-        .trim()
-        .to_string();
-    if line.starts_with('-') {
-        line = line.trim_start_matches('-').trim().to_string();
-    }
-    if line.is_empty() || mentions_system_internals(&line) {
-        return None;
-    }
-    if line.chars().count() > 220 {
-        line = line.chars().take(220).collect();
-    }
-    Some(line)
+    cosyworld_ai_model::sanitize_avatar_chat(text)
 }
 
 fn resident_system_prompt(plan: &ResidentReplyPlan) -> String {
@@ -9846,55 +10974,15 @@ fn resident_system_prompt(plan: &ResidentReplyPlan) -> String {
 }
 
 fn sanitize_resident_reply(plan: &ResidentReplyPlan, text: &str) -> Option<String> {
-    let trimmed = text.trim();
-    if trimmed.is_empty() || mentions_system_internals(trimmed) {
-        return None;
-    }
-    match plan.speech_mode.as_str() {
-        "emoji_only" => {
-            let compact: String = trimmed.chars().filter(|ch| !ch.is_whitespace()).collect();
-            if compact.is_empty()
-                || compact.chars().any(|ch| ch.is_alphanumeric())
-                || compact.chars().count() > 24
-            {
-                None
-            } else {
-                Some(compact)
-            }
-        }
-        "emote_only" => {
-            if trimmed.contains('"') || trimmed.contains('\'') {
-                return None;
-            }
-            let emote = if trimmed.starts_with('*') && trimmed.ends_with('*') {
-                trimmed.to_string()
-            } else {
-                format!("*{}*", trimmed.trim_matches('*'))
-            };
-            if emote.chars().count() > 180 {
-                None
-            } else {
-                Some(emote)
-            }
-        }
-        _ => {
-            let mut reply = trimmed.trim_matches('"').trim().to_string();
-            if reply.chars().count() > 320 {
-                reply = reply.chars().take(320).collect();
-            }
-            Some(reply)
-        }
-    }
-}
-
-fn mentions_system_internals(text: &str) -> bool {
-    let lower = text.to_lowercase();
-    lower.split(|ch: char| !ch.is_alphanumeric()).any(|word| {
-        matches!(
-            word,
-            "system" | "prompt" | "policy" | "model" | "tool" | "tools" | "assistant" | "ai"
-        )
-    })
+    cosyworld_ai_model::sanitize_resident_reply(
+        &ResidentReplyModelInput {
+            npc_actor_id: plan.npc_actor_id,
+            npc_name: plan.npc_name.clone(),
+            speech_mode: plan.speech_mode.clone(),
+            user_text: plan.user_text.clone(),
+        },
+        text,
+    )
 }
 
 async fn move_actor(
@@ -10159,6 +11247,377 @@ async fn defend(
     .await
 }
 
+async fn prepare(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ActorRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    if !runtime.prepare_available(payload.actor_id) {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::SetTag {
+            tag: RpgTagState {
+                id: prepared_tag_id(payload.actor_id, actor.location_id),
+                scope: "actor".to_string(),
+                scope_id: payload.actor_id,
+                label: "prepared".to_string(),
+                kind: "aspect".to_string(),
+                active: true,
+                source_event_seq: None,
+                expires: Some("after_work".to_string()),
+            },
+            reason: "prepare".to_string(),
+        });
+
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
+        events,
+    })
+}
+
+async fn work(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ActorRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    if !runtime.work_available(payload.actor_id) {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    let location_id = actor.location_id;
+    let Some(clock_id) = runtime.active_progress_clock_id_for_location(location_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    };
+    let prepared = runtime.prepared_tag_active(payload.actor_id, location_id);
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::AdvanceClock {
+            clock_id,
+            amount: if prepared { 2 } else { 1 },
+            reason: if prepared {
+                "prepared_work".to_string()
+            } else {
+                "work".to_string()
+            },
+        });
+    if prepared {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ClearTag {
+                tag_id: prepared_tag_id(payload.actor_id, location_id),
+                reason: "prepared_work".to_string(),
+            });
+    } else {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::SetTag {
+                tag: RpgTagState {
+                    id: tired_tag_id(payload.actor_id),
+                    scope: "actor".to_string(),
+                    scope_id: payload.actor_id,
+                    label: "tired".to_string(),
+                    kind: "condition".to_string(),
+                    active: true,
+                    source_event_seq: None,
+                    expires: Some("after_rest".to_string()),
+                },
+                reason: "work".to_string(),
+            });
+    }
+
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
+        events,
+    })
+}
+
+async fn help_room(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ActorRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    if !runtime.help_available(payload.actor_id) {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    let location_id = actor.location_id;
+    let Some(clock_id) = runtime.active_progress_clock_id_for_location(location_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    };
+    let prepared = runtime.prepared_tag_active(payload.actor_id, location_id);
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::AdvanceClock {
+            clock_id,
+            amount: if prepared { 2 } else { 1 },
+            reason: if prepared {
+                "prepared_help".to_string()
+            } else {
+                "help".to_string()
+            },
+        });
+    record
+        .projection_mutations
+        .push(ProjectionMutation::SetTag {
+            tag: RpgTagState {
+                id: helped_room_tag_id(location_id),
+                scope: "room".to_string(),
+                scope_id: location_id,
+                label: "helped".to_string(),
+                kind: "memory".to_string(),
+                active: true,
+                source_event_seq: None,
+                expires: Some("when_job_resolves".to_string()),
+            },
+            reason: "help".to_string(),
+        });
+    if prepared {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ClearTag {
+                tag_id: prepared_tag_id(payload.actor_id, location_id),
+                reason: "prepared_help".to_string(),
+            });
+    }
+
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
+        events,
+    })
+}
+
+async fn rest(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ActorRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    if !runtime.rest_available(payload.actor_id) {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+
+    let location_id = runtime
+        .actor_by_id(payload.actor_id)
+        .map(|actor| actor.location_id)
+        .unwrap_or(0);
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ClearTag {
+            tag_id: tired_tag_id(payload.actor_id),
+            reason: "rest".to_string(),
+        });
+    if let Some(clock_id) = danger_clock_id_for_location(location_id) {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: clock_id.to_string(),
+                amount: 1,
+                reason: "rest".to_string(),
+            });
+    }
+
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
+        events,
+    })
+}
+
 async fn apply_and_broadcast(
     state: AppState,
     action: CwAction,
@@ -10168,7 +11627,27 @@ async fn apply_and_broadcast(
     if !client_actor_authorized_for_state(&runtime, &state, action.actor_id, actor_session) {
         return client_actor_rejected_response();
     }
-    let record = JournalRecord::new(action, runtime.next_seed_value());
+    let listen_cost = if action_is_listen_check(&action) {
+        runtime.listen_cost_orbs(action.actor_id)
+    } else {
+        0
+    };
+    if listen_cost > 0 && runtime.orb_balance(action.actor_id) < listen_cost {
+        return Json(ActionResponse {
+            ok: false,
+            status: 402,
+            events: Vec::new(),
+        });
+    }
+    let actor_id = action.actor_id;
+    let mut record = JournalRecord::new(action, runtime.next_seed_value());
+    if listen_cost > 0 {
+        record.orb_deltas.push(OrbDelta {
+            actor_id,
+            delta: -listen_cost,
+            reason: "listen".to_string(),
+        });
+    }
     let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
             ok: false,
@@ -10872,6 +12351,52 @@ fn ability_check_success_claim_key(
     format!("ability_check_success:{actor_id}:{location_id}:{ability}:{dc}")
 }
 
+fn listen_attempt_claim_key(actor_id: u64, location_id: u64) -> String {
+    format!("listen_attempt:{actor_id}:{location_id}")
+}
+
+fn listen_progress_clock_id_for_location(location_id: u64) -> Option<&'static str> {
+    match location_id {
+        MOONLIT_TRAIL_LOCATION_ID => Some(MOONLIT_PROGRESS_CLOCK_ID),
+        _ => None,
+    }
+}
+
+fn danger_clock_id_for_location(location_id: u64) -> Option<&'static str> {
+    match location_id {
+        MOONLIT_TRAIL_LOCATION_ID => Some(MOONLIT_DANGER_CLOCK_ID),
+        _ => None,
+    }
+}
+
+fn tired_tag_id(actor_id: u64) -> String {
+    format!("actor:{actor_id}:tired")
+}
+
+fn prepared_tag_id(actor_id: u64, location_id: u64) -> String {
+    format!("actor:{actor_id}:prepared:{location_id}")
+}
+
+fn helped_room_tag_id(location_id: u64) -> String {
+    format!("room:{location_id}:helped")
+}
+
+fn clock_status(clock: &ClockState) -> String {
+    if !clock.status.trim().is_empty() {
+        clock.status.clone()
+    } else if clock.filled >= clock.segments {
+        "filled".to_string()
+    } else {
+        "active".to_string()
+    }
+}
+
+fn action_is_listen_check(action: &CwAction) -> bool {
+    action.kind == CW_ACTION_ABILITY_CHECK
+        && action.ability == LISTEN_ABILITY
+        && action.dc == LISTEN_DC
+}
+
 fn committed_orb_deltas(
     record: &JournalRecord,
     events: &[EventView],
@@ -10900,6 +12425,7 @@ fn source_event_for_orb_delta<'a>(
         "combat_hit" => Some("combat.attack.hit"),
         "combat_flee" => Some("combat.flee.success"),
         "chat" => Some("message.created"),
+        "listen" => Some("ability_check.rolled"),
         _ => None,
     };
     events
@@ -12596,6 +14122,7 @@ mod tests {
                 dc: None,
                 damage: None,
                 current_hp: None,
+                ..EventView::default()
             },
             EventView {
                 seq: 2,
@@ -12620,6 +14147,7 @@ mod tests {
                 dc: None,
                 damage: None,
                 current_hp: None,
+                ..EventView::default()
             },
         ];
 
@@ -12666,6 +14194,7 @@ mod tests {
             dc: None,
             damage: None,
             current_hp: None,
+            ..EventView::default()
         };
         append_event_store(&path, &[old_event]).expect("append old event");
 
@@ -12777,6 +14306,7 @@ mod tests {
             dc: None,
             damage: None,
             current_hp: None,
+            ..EventView::default()
         };
         reset_event_store(&path, &[reset_event]).expect("reset store");
 
@@ -13288,6 +14818,7 @@ mod tests {
         assert_eq!(state.economy.orbs, STARTING_ORBS);
         assert_eq!(state.economy.chat_cost_orbs, CHAT_ORB_COST);
         assert!(state.economy.can_chat_with_orbs);
+        assert_eq!(state.economy.listen_cost_orbs, 0);
         assert!(state.economy.listen_reward_claimable);
         assert!(state.economy.openrouter_connected);
         assert_eq!(state.economy.chat_payer, "player_openrouter");
@@ -13511,7 +15042,7 @@ mod tests {
     }
 
     #[test]
-    fn listen_reward_claimability_tracks_successful_reward_claim() {
+    fn listen_cost_tracks_first_attempt() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -13534,35 +15065,469 @@ mod tests {
                 .economy
                 .listen_reward_claimable
         );
-
-        let mut claimed = false;
-        for seed in 7082..7182 {
-            let mut check = CwAction::default();
-            check.kind = CW_ACTION_ABILITY_CHECK;
-            check.actor_id = 5000;
-            check.ability = LISTEN_ABILITY;
-            check.dc = LISTEN_DC;
-            let (status, events) = runtime.apply_journal_record(&JournalRecord::new(check, seed));
-            assert_eq!(status, CW_OK);
-            if events.iter().any(|event| {
-                event.type_name == "ability_check.rolled"
-                    && event.actor_id == Some(5000)
-                    && event.success
-            }) {
-                claimed = true;
-                break;
-            }
-        }
-        assert!(
-            claimed,
-            "test seed range should include one successful Listen roll"
-        );
-        assert!(
-            !runtime
+        assert_eq!(
+            runtime
                 .state_response(Some(5000), &AccessContext::default())
                 .economy
-                .listen_reward_claimable
+                .listen_cost_orbs,
+            0
         );
+
+        let mut check = CwAction::default();
+        check.kind = CW_ACTION_ABILITY_CHECK;
+        check.actor_id = 5000;
+        check.ability = LISTEN_ABILITY;
+        check.dc = LISTEN_DC;
+        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(check, 7082));
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "ability_check.rolled"
+                && event.actor_id == Some(5000)
+                && event.dc == Some(LISTEN_DC as i16)
+        }));
+        assert_eq!(
+            runtime
+                .state_response(Some(5000), &AccessContext::default())
+                .economy
+                .listen_cost_orbs,
+            LISTEN_REPEAT_ORB_COST
+        );
+    }
+
+    #[test]
+    fn rpg_state_exposes_moonlit_room_clocks() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
+        let mut create_record = JournalRecord::new(create, 7083);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Clock Watcher".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Moonlit Listener".to_string(),
+                description: "A test avatar checking room clocks.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(state.location.id, MOONLIT_TRAIL_LOCATION_ID);
+        assert_eq!(state.clocks.len(), 2);
+        assert!(state.clocks.iter().any(|clock| {
+            clock.id == MOONLIT_PROGRESS_CLOCK_ID
+                && clock.kind == "progress"
+                && clock.filled == 0
+                && clock.segments == 4
+        }));
+        assert!(state.clocks.iter().any(|clock| {
+            clock.id == MOONLIT_DANGER_CLOCK_ID
+                && clock.kind == "danger"
+                && clock.filled == 0
+                && clock.segments == 4
+        }));
+    }
+
+    #[test]
+    fn listen_and_rest_move_public_clocks_and_tags() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
+        let mut create_record = JournalRecord::new(create, 7084);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Rest Tester".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Clock-Touched Listener".to_string(),
+                description: "A test avatar checking Listen and Rest projection.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        if let Some(actor) = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+        {
+            actor.stats.wisdom = 32;
+        }
+
+        let mut listen = CwAction::default();
+        listen.kind = CW_ACTION_ABILITY_CHECK;
+        listen.actor_id = 5000;
+        listen.ability = LISTEN_ABILITY;
+        listen.dc = LISTEN_DC;
+        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(listen, 7085));
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
+                && event.clock_filled == Some(1)
+        }));
+        assert_eq!(
+            runtime
+                .clocks
+                .get(MOONLIT_PROGRESS_CLOCK_ID)
+                .map(|clock| clock.filled),
+            Some(1)
+        );
+
+        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(listen, 7086));
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "tag.applied" && event.tag_label.as_deref() == Some("tired")
+        }));
+        assert_eq!(
+            runtime
+                .clocks
+                .get(MOONLIT_PROGRESS_CLOCK_ID)
+                .map(|clock| clock.filled),
+            Some(1)
+        );
+        let tired_tag = tired_tag_id(5000);
+        assert!(runtime
+            .tags
+            .get(&tired_tag)
+            .map(|tag| tag.active)
+            .unwrap_or(false));
+        let tired_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(tired_state.tags.iter().any(|tag| tag.label == "tired"));
+        assert_eq!(tired_state.primary_action.kind, "rest");
+
+        let mut rest_action = CwAction::default();
+        rest_action.kind = CW_ACTION_NONE;
+        rest_action.actor_id = 5000;
+        let mut rest_record = JournalRecord::new(rest_action, 7087);
+        rest_record
+            .projection_mutations
+            .push(ProjectionMutation::ClearTag {
+                tag_id: tired_tag.clone(),
+                reason: "rest".to_string(),
+            });
+        rest_record
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: MOONLIT_DANGER_CLOCK_ID.to_string(),
+                amount: 1,
+                reason: "rest".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&rest_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "tag.cleared" && event.tag_label.as_deref() == Some("tired")
+        }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.clock_id.as_deref() == Some(MOONLIT_DANGER_CLOCK_ID)
+                && event.clock_filled == Some(1)
+        }));
+        let rested_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(!rested_state.tags.iter().any(|tag| tag.label == "tired"));
+        assert_eq!(
+            rested_state
+                .clocks
+                .iter()
+                .find(|clock| clock.id == MOONLIT_DANGER_CLOCK_ID)
+                .map(|clock| clock.filled),
+            Some(1)
+        );
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("snapshot restores RPG projection state");
+        assert_eq!(
+            restored
+                .clocks
+                .get(MOONLIT_PROGRESS_CLOCK_ID)
+                .map(|clock| clock.filled),
+            Some(1)
+        );
+        assert_eq!(
+            restored
+                .clocks
+                .get(MOONLIT_DANGER_CLOCK_ID)
+                .map(|clock| clock.filled),
+            Some(1)
+        );
+        assert!(!restored
+            .tags
+            .get(&tired_tag)
+            .map(|tag| tag.active)
+            .unwrap_or(false));
+    }
+
+    #[test]
+    fn prepare_work_and_help_drive_seed_job() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
+        let mut create_record = JournalRecord::new(create, 7088);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Project Tester".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Room Project Avatar".to_string(),
+                description: "A test avatar checking jobs and room sheets.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+
+        let initial = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(
+            initial
+                .room_sheet
+                .as_ref()
+                .map(|sheet| sheet.safety.as_str()),
+            Some("dangerous")
+        );
+        assert_eq!(initial.jobs.len(), 1);
+        assert_eq!(initial.jobs[0].id, MOONLIT_JOB_ID);
+        assert_eq!(initial.jobs[0].status, "active");
+        assert!(initial
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "prepare"));
+        assert!(initial
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "work"));
+        assert!(initial
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "help"));
+
+        let mut prepare_action = CwAction::default();
+        prepare_action.kind = CW_ACTION_NONE;
+        prepare_action.actor_id = 5000;
+        let mut prepare_record = JournalRecord::new(prepare_action, 7089);
+        prepare_record
+            .projection_mutations
+            .push(ProjectionMutation::SetTag {
+                tag: RpgTagState {
+                    id: prepared_tag_id(5000, MOONLIT_TRAIL_LOCATION_ID),
+                    scope: "actor".to_string(),
+                    scope_id: 5000,
+                    label: "prepared".to_string(),
+                    kind: "aspect".to_string(),
+                    active: true,
+                    source_event_seq: None,
+                    expires: Some("after_work".to_string()),
+                },
+                reason: "prepare".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&prepare_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "tag.applied" && event.tag_label.as_deref() == Some("prepared")
+        }));
+        assert!(runtime.prepared_tag_active(5000, MOONLIT_TRAIL_LOCATION_ID));
+        assert!(!runtime.prepare_available(5000));
+
+        let mut work_action = CwAction::default();
+        work_action.kind = CW_ACTION_NONE;
+        work_action.actor_id = 5000;
+        let mut work_record = JournalRecord::new(work_action, 7090);
+        work_record
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
+                amount: 2,
+                reason: "prepared_work".to_string(),
+            });
+        work_record
+            .projection_mutations
+            .push(ProjectionMutation::ClearTag {
+                tag_id: prepared_tag_id(5000, MOONLIT_TRAIL_LOCATION_ID),
+                reason: "prepared_work".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&work_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
+                && event.clock_delta == Some(2)
+        }));
+        assert_eq!(
+            runtime
+                .clocks
+                .get(MOONLIT_PROGRESS_CLOCK_ID)
+                .map(|clock| clock.filled),
+            Some(2)
+        );
+        assert!(!runtime.prepared_tag_active(5000, MOONLIT_TRAIL_LOCATION_ID));
+
+        let mut help_action = CwAction::default();
+        help_action.kind = CW_ACTION_NONE;
+        help_action.actor_id = 5000;
+        for (seed, expected) in [(7091, 3), (7092, 4)] {
+            let mut help_record = JournalRecord::new(help_action, seed);
+            help_record
+                .projection_mutations
+                .push(ProjectionMutation::AdvanceClock {
+                    clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
+                    amount: 1,
+                    reason: "help".to_string(),
+                });
+            help_record
+                .projection_mutations
+                .push(ProjectionMutation::SetTag {
+                    tag: RpgTagState {
+                        id: helped_room_tag_id(MOONLIT_TRAIL_LOCATION_ID),
+                        scope: "room".to_string(),
+                        scope_id: MOONLIT_TRAIL_LOCATION_ID,
+                        label: "helped".to_string(),
+                        kind: "memory".to_string(),
+                        active: true,
+                        source_event_seq: None,
+                        expires: Some("when_job_resolves".to_string()),
+                    },
+                    reason: "help".to_string(),
+                });
+            let (status, _) = runtime.apply_journal_record(&help_record);
+            assert_eq!(status, CW_OK);
+            assert_eq!(
+                runtime
+                    .clocks
+                    .get(MOONLIT_PROGRESS_CLOCK_ID)
+                    .map(|clock| clock.filled),
+                Some(expected)
+            );
+        }
+
+        let completed = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(completed.jobs[0].status, "completed");
+        assert!(!completed
+            .primary_action
+            .options
+            .iter()
+            .any(|option| matches!(option.kind.as_str(), "prepare" | "work" | "help")));
+        assert!(completed.tags.iter().any(|tag| tag.label == "helped"));
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("snapshot restores jobs and room sheets");
+        let restored_state = restored.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(restored_state.jobs[0].status, "completed");
+        assert_eq!(
+            restored_state
+                .room_sheet
+                .as_ref()
+                .map(|sheet| sheet.projects.clone()),
+            Some(vec![MOONLIT_JOB_ID.to_string()])
+        );
+    }
+
+    #[tokio::test]
+    async fn listen_action_endpoint_spends_orb_for_repeat_attempts() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut create_record = JournalRecord::new(create, 8081);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Repeat Listener".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Too Careful".to_string(),
+                description: "A test avatar trying to listen twice.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(5000, 1));
+        runtime
+            .orb_reward_claims
+            .insert(ability_check_success_claim_key(
+                5000,
+                1,
+                LISTEN_ABILITY,
+                LISTEN_DC as i16,
+            ));
+
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let client_addr: SocketAddr = "127.0.0.1:43101".parse().expect("client address");
+        let response = ability_check(
+            ConnectInfo(client_addr),
+            State(state.clone()),
+            Json(CheckRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                ability: "wisdom".to_string(),
+                dc: Some(LISTEN_DC),
+            }),
+        )
+        .await
+        .0;
+        assert!(response.ok);
+        assert_eq!(response.status, CW_OK);
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "ability_check.rolled"));
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime.orb_balance(5000),
+            STARTING_ORBS - LISTEN_REPEAT_ORB_COST
+        );
+    }
+
+    #[tokio::test]
+    async fn listen_action_endpoint_rejects_unfunded_repeat_attempts() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut create_record = JournalRecord::new(create, 8091);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Broke Listener".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Empty-Pocket Listener".to_string(),
+                description: "A test avatar trying to listen twice without Orbs.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(5000, 1));
+        runtime.orb_balances.insert(5000, 0);
+
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let client_addr: SocketAddr = "127.0.0.1:43102".parse().expect("client address");
+        let response = ability_check(
+            ConnectInfo(client_addr),
+            State(state.clone()),
+            Json(CheckRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                ability: "wisdom".to_string(),
+                dc: Some(LISTEN_DC),
+            }),
+        )
+        .await
+        .0;
+        assert!(!response.ok);
+        assert_eq!(response.status, 402);
+        assert!(response.events.is_empty());
     }
 
     #[tokio::test]
@@ -14167,6 +16132,16 @@ mod tests {
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
 
         let access = AccessContext::default();
+        let state = runtime.state_response(Some(5000), &access);
+        assert!(state
+            .room_features
+            .iter()
+            .any(|feature| feature.key == "hearth"));
+        assert!(state
+            .room_features
+            .iter()
+            .any(|feature| feature.uses.iter().any(|use_case| use_case.item_id == 2005)));
+
         let look = runtime
             .resolve_command(&command_request(5000, "look"), &access)
             .expect("look resolves");
@@ -15003,6 +16978,7 @@ mod tests {
             dc: None,
             damage: None,
             current_hp: None,
+            ..EventView::default()
         };
         assert!(event_visible_to_locations(
             &library_event,
@@ -15060,6 +17036,7 @@ mod tests {
                 dc: None,
                 damage: None,
                 current_hp: None,
+                ..EventView::default()
             })
             .collect();
 

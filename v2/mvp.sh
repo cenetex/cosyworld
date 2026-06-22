@@ -147,6 +147,15 @@ run_kernel_check() {
   /tmp/cosy_kernel_test
 }
 
+run_ai_model_checks() {
+  (
+    cd "$ROOT/ai-model-rust"
+    cargo fmt --check
+    cargo test
+    cargo build --target wasm32-unknown-unknown --release
+  )
+}
+
 run_rust_checks() {
   (
     cd "$ROOT/orchestrator-rust"
@@ -186,6 +195,7 @@ run_cli_smoke() {
 
 check_all() {
   run_kernel_check
+  run_ai_model_checks
   run_rust_checks
   run_js_checks
   run_cli_checks

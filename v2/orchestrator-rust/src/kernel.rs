@@ -28,6 +28,7 @@ pub const CW_EXIT_LOCKED: u32 = 1 << 0;
 pub const CW_ITEM_POTION: u8 = 1;
 pub const CW_ITEM_EVOLUTION: u8 = 2;
 
+pub const CW_ACTION_NONE: u8 = 0;
 pub const CW_ACTION_CREATE_ACTOR: u8 = 1;
 pub const CW_ACTION_SAY: u8 = 2;
 pub const CW_ACTION_MOVE: u8 = 3;

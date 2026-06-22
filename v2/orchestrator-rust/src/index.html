@@ -78,7 +78,7 @@
       color: var(--dim);
       font-size: 13px;
       white-space: nowrap;
-      max-width: 150px;
+      max-width: min(260px, 34vw);
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -87,6 +87,13 @@
     .economy strong {
       color: var(--amber);
       font-weight: 850;
+    }
+    .economy-flash {
+      color: var(--green);
+      font-weight: 850;
+    }
+    .economy-flash.spend {
+      color: var(--amber);
     }
     .economy.focused,
     .economy:focus-visible {
@@ -335,6 +342,68 @@
       font-weight: 900;
       opacity: 0.82;
     }
+    .rpg-state {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 8px;
+    }
+    .rpg-state:empty {
+      display: none;
+    }
+    .clock-chip,
+    .tag-chip,
+    .job-chip,
+    .sheet-chip {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: rgba(16, 25, 18, 0.72);
+      padding: 6px 8px;
+      display: grid;
+      gap: 4px;
+    }
+    .clock-chip.danger {
+      border-color: rgba(255, 141, 141, 0.32);
+    }
+    .clock-top,
+    .tag-top,
+    .job-top,
+    .sheet-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .clock-label,
+    .tag-label,
+    .job-label,
+    .sheet-label {
+      min-width: 0;
+      color: var(--text);
+      font-weight: 850;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .clock-track {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(216, 247, 220, 0.1);
+      overflow: hidden;
+    }
+    .clock-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: var(--green);
+    }
+    .clock-chip.danger .clock-fill {
+      background: var(--red);
+    }
     .presence {
       margin-top: 10px;
       display: flex;
@@ -365,6 +434,7 @@
     .chip.you { color: var(--blue); border-color: rgba(139, 183, 255, 0.34); }
     .chip.evolved { color: var(--amber); border-color: rgba(239, 201, 107, 0.52); }
     .chip.item { color: var(--amber); border-color: rgba(239, 201, 107, 0.28); }
+    .chip.feature { color: var(--green); border-color: rgba(101, 230, 138, 0.22); }
     .chip.path { color: var(--green); }
     .chip.locked {
       color: var(--dim);
@@ -413,6 +483,52 @@
     .chip-thumb.location {
       width: 34px;
       border-radius: 4px;
+    }
+    .features {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+    .features:empty {
+      display: none;
+    }
+    .feature-pill {
+      min-width: 0;
+      max-width: 176px;
+      border: 1px solid rgba(101, 230, 138, 0.18);
+      border-radius: 4px;
+      background: rgba(101, 230, 138, 0.055);
+      color: var(--green);
+      padding: 4px 7px;
+      display: inline-grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 5px;
+      align-items: center;
+      text-align: left;
+      line-height: 1.15;
+    }
+    .feature-pill::before {
+      content: "search";
+      color: var(--amber);
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .feature-pill span {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .feature-pill.focused {
+      border-color: rgba(101, 230, 138, 0.82);
+      background: rgba(101, 230, 138, 0.11);
+      box-shadow: inset 0 0 0 1px rgba(101, 230, 138, 0.24);
+    }
+    .feature-pill:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
     }
     .log {
       min-height: 0;
@@ -912,6 +1028,9 @@
         grid-template-columns: 1fr;
         gap: 6px;
       }
+      .rpg-state {
+        grid-template-columns: 1fr;
+      }
       .route-current {
         display: none;
       }
@@ -941,7 +1060,6 @@
         font-size: 12px;
         line-height: 1.16;
       }
-      .detail { display: none; }
     }
     @media (max-width: 360px) {
       .route-destinations {
@@ -968,7 +1086,9 @@
         </div>
         <div class="room-copy" id="location-copy"></div>
         <div class="route-map" id="route-map" aria-label="Room map"></div>
+        <div class="rpg-state" id="rpg-state" aria-label="Room clocks and conditions"></div>
         <div class="presence" id="presence"></div>
+        <div class="features" id="features" aria-label="Searchable room features"></div>
       </section>
       <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room timeline"></section>
     </main>
@@ -1049,6 +1169,8 @@
     let openingBoxId = "";
     let roomCopyExpanded = false;
     let lastRoomCopyLocationId = null;
+    let economyFlash = null;
+    let economyFlashTimer = null;
     let walletQrPollTimer = null;
     let walletQrResolve = null;
     let aiKeyResolve = null;
@@ -1252,6 +1374,8 @@
       const canChat = hasOpenRouterKey() || economy.can_chat_with_orbs !== false;
       const heldEvolutionItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "evolution");
       const heldUsableItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "potion" && item.charges > 0);
+      const heldItems = (view.items || []).filter((item) => item.holder_actor_id === actorId);
+      const roomFeatures = Array.isArray(view.room_features) ? view.room_features : [];
       const usableTargets = (view.actors || []).filter((actor) => actorNeedsHealing(actor));
       const residentTargets = (view.actors || []).filter((actor) => actor.id !== actorId && actor.kind === "npc" && actor.status === "active");
       const giveTargetIds = new Set();
@@ -1287,6 +1411,35 @@
             run: () => action("/actions/give-item", { actor_id: actorId, item_id: item.id, target_actor_id: defaultTarget.id }),
           });
         }
+      }
+      for (const feature of roomFeatures) {
+        const matchingUses = (feature.uses || [])
+          .map((useCase) => heldItems.find((item) => item.id === useCase.item_id))
+          .filter(Boolean);
+        for (const item of matchingUses) {
+          built.push({
+            label: "try",
+            detail: `${item.name} on ${feature.name}`,
+            command: `use ${item.name} on ${feature.name}`,
+            focusKey: `use-feature:${feature.key}:${item.id}`,
+            card: cardForItem(item.id) || cardForLocation(view.location?.id),
+            shape: "item",
+            priority: 15,
+            run: () => runCommandText(`use ${item.name} on ${feature.name}`),
+          });
+        }
+      }
+      for (const feature of roomFeatures) {
+        built.push({
+          label: "search",
+          detail: feature.name,
+          command: `search ${feature.name}`,
+          focusKey: `feature:${feature.key}`,
+          card: cardForLocation(view.location?.id),
+          shape: "location",
+          priority: 55,
+          run: () => runCommandText(`search ${feature.name}`),
+        });
       }
       for (const actor of view.actors || []) {
         if (actor.id === actorId || actor.kind !== "npc") continue;
@@ -1378,9 +1531,67 @@
       if (options.has("defend")) {
         built.push({ label: "defend", detail: "Brace.", command: "defend", focusKey: "defend", card: cardForActor(actorId), shape: "avatar", run: () => action("/actions/defend", { actor_id: actorId }) });
       }
-      const listenCanHelp = canChat || economy.listen_reward_claimable !== false;
+      if (options.has("prepare")) {
+        built.push({
+          label: "prepare",
+          detail: "set up",
+          command: "prepare",
+          focusKey: "prepare",
+          card: cardForLocation(view.location?.id),
+          shape: "location",
+          priority: 56,
+          run: () => action("/actions/prepare", { actor_id: actorId }),
+        });
+      }
+      if (options.has("work")) {
+        const job = (view.jobs || []).find((entry) => entry.status === "active");
+        built.push({
+          label: "work",
+          detail: job ? job.premise : "room project",
+          command: "work",
+          focusKey: "work",
+          card: cardForLocation(view.location?.id),
+          shape: "location",
+          priority: 57,
+          run: () => action("/actions/work", { actor_id: actorId }),
+        });
+      }
+      if (options.has("rest")) {
+        const tired = (view.tags || []).find((tag) => tag.label === "tired");
+        built.push({
+          label: "rest",
+          detail: tired ? "clear tired" : "catch breath",
+          command: "rest",
+          focusKey: "rest",
+          card: cardForActor(actorId) || cardForLocation(view.location?.id),
+          shape: "avatar",
+          priority: 58,
+          run: () => action("/actions/rest", { actor_id: actorId }),
+        });
+      }
+      if (options.has("help")) {
+        const target = residentTargets[0];
+        built.push({
+          label: "help",
+          detail: target ? actorLabel(target) : "room",
+          command: "assist",
+          focusKey: "help",
+          card: target ? cardForActor(target.id) : cardForLocation(view.location?.id),
+          shape: target ? "avatar" : "location",
+          priority: 59,
+          run: () => action("/actions/help", { actor_id: actorId }),
+        });
+      }
+      const listenRewardClaimable = economy.listen_reward_claimable !== false;
+      const listenCost = Number.isFinite(Number(economy.listen_cost_orbs))
+        ? Number(economy.listen_cost_orbs)
+        : (listenRewardClaimable ? 0 : 1);
+      const listenCanHelp = listenCost <= 0 || Number(economy.orbs || 0) >= listenCost;
       if (options.has("check") && listenCanHelp) {
-        built.push({ label: "listen", detail: "for clues", command: "listen", focusKey: "check", card: cardForLocation(view.location?.id), shape: "location", run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }) });
+        const detail = listenCost > 0
+          ? `again, ${listenCost} ${listenCost === 1 ? "orb" : "orbs"}`
+          : "for clues";
+        built.push({ label: "listen", detail, command: "listen", focusKey: "check", card: cardForLocation(view.location?.id), shape: "location", run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }) });
       }
       if (!canChat && options.has("chat") && !built.length) {
         built.push({
@@ -1393,8 +1604,40 @@
           run: () => connectOpenRouter(),
         });
       }
+      built.sort(compareActions);
       if (!built.length) built.push({ label: "wait", detail: "", command: "wait", focusKey: "wait", run: async () => {} });
       return built;
+    }
+
+    function compareActions(left, right) {
+      const rank = actionRank(left) - actionRank(right);
+      if (rank) return rank;
+      return String(left.detail || left.label || "").localeCompare(String(right.detail || right.label || ""));
+    }
+
+    function actionRank(action) {
+      if (Number.isFinite(Number(action.priority))) return Number(action.priority);
+      const label = String(action.label || "").toLowerCase();
+      const ranks = {
+        "give item": 10,
+        "try": 15,
+        "use": 20,
+        "take": 30,
+        "attack": 40,
+        "defend": 45,
+        "flee": 50,
+        "search": 55,
+        "prepare": 56,
+        "work": 57,
+        "rest": 58,
+        "help": 59,
+        "listen": 60,
+        "chat": 70,
+        "travel": 80,
+        "connect wallet": 85,
+        "connect ai": 90,
+      };
+      return ranks[label] || 100;
     }
 
     function setWalletQrStatus(message, kind = "ok") {
@@ -1645,16 +1888,18 @@
 
     async function action(path, payload) {
       setError("");
+      const beforeOrbs = economyOrbCount();
       const result = await post(path, withAccess(payload));
       pushEvents(result.events || []);
       if (!result.ok) {
-        if (result.status === 402) setError("Chat needs Orbs or a connected OpenRouter key.");
+        if (result.status === 402) setError(path.includes("/chat") ? "Chat needs Orbs or a connected OpenRouter key." : "That needs more Orbs.");
         else if (result.status === 502) setError("OpenRouter could not answer that turn.");
         else setError("That does not work here.");
       }
       focusIndex = 0;
       focusedKey = "";
       await refresh();
+      announceOrbChange(beforeOrbs, result.ok);
     }
 
     async function runCommandText(commandText) {
@@ -1665,6 +1910,7 @@
         return;
       }
       setError("");
+      const beforeOrbs = economyOrbCount();
       const result = await post("/commands", withAccess({
         actor_id: actorId,
         command,
@@ -1676,6 +1922,36 @@
       focusIndex = 0;
       focusedKey = "";
       await refresh();
+      announceOrbChange(beforeOrbs, result.ok);
+    }
+
+    function economyOrbCount(view = state) {
+      const value = Number(view?.economy?.orbs);
+      return Number.isFinite(value) ? value : null;
+    }
+
+    function announceOrbChange(beforeOrbs, ok) {
+      if (!ok || beforeOrbs === null) return;
+      const afterOrbs = economyOrbCount();
+      if (afterOrbs === null || afterOrbs === beforeOrbs) return;
+      const delta = afterOrbs - beforeOrbs;
+      if (delta > 0) {
+        flashEconomy(`+${delta}`, "gain");
+      } else {
+        const spent = Math.abs(delta);
+        flashEconomy(`-${spent}`, "spend");
+      }
+    }
+
+    function flashEconomy(text, kind) {
+      economyFlash = { text, kind };
+      if (economyFlashTimer) window.clearTimeout(economyFlashTimer);
+      renderEconomy();
+      economyFlashTimer = window.setTimeout(() => {
+        economyFlash = null;
+        economyFlashTimer = null;
+        if (state) renderEconomy();
+      }, 2200);
     }
 
     function pushCommandOutput(command, output, ok) {
@@ -1786,7 +2062,9 @@
       }
       renderRoomCopy(location.id);
       $("route-map").innerHTML = routeMapHtml(state);
+      $("rpg-state").innerHTML = rpgStateHtml(state);
       $("presence").innerHTML = presenceHtml(state, me);
+      $("features").innerHTML = featureRowHtml(state);
       renderLog();
       renderCommands();
     }
@@ -1799,6 +2077,9 @@
       const signed = state?.access?.mode === "signed_ruby_high_wallet" && Boolean(walletSession);
       const parts = [`<strong>${orbs}</strong> orbs`];
       const compact = window.matchMedia("(max-width: 900px)").matches;
+      if (economyFlash) {
+        parts.push(`<span class="economy-flash ${escapeAttr(economyFlash.kind)}">${escapeHtml(economyFlash.text)}</span>`);
+      }
       if (!compact) {
         if (boxes) parts.push(`${boxes} ${boxes === 1 ? "box" : "boxes"}`);
         if (packs) parts.push(`${packs} ${packs === 1 ? "pack" : "packs"}`);
@@ -1855,6 +2136,46 @@
       return `<${tag} class="route-node${classes}${focused ? " focused" : ""}"${attrs}>${thumb}<span class="route-copy"><span class="route-kicker">${escapeHtml(kicker)}</span><span class="route-name">${escapeHtml(label)}</span></span></${tag}>`;
     }
 
+    function rpgStateHtml(view) {
+      const clocks = Array.isArray(view.clocks) ? view.clocks : [];
+      const tags = Array.isArray(view.tags) ? view.tags : [];
+      const jobs = Array.isArray(view.jobs) ? view.jobs : [];
+      const parts = [];
+      if (view.room_sheet) parts.push(roomSheetChipHtml(view.room_sheet));
+      for (const job of jobs) parts.push(jobChipHtml(job));
+      for (const clock of clocks) parts.push(clockChipHtml(clock));
+      for (const tag of tags) parts.push(tagChipHtml(tag));
+      return parts.join("");
+    }
+
+    function roomSheetChipHtml(sheet) {
+      const aspects = (sheet.aspects || []).slice(0, 2).join(" / ");
+      const safety = sheet.safety || "room";
+      return `<div class="sheet-chip" title="${escapeAttr(aspects || sheet.name || "room sheet")}"><div class="sheet-top"><span>room</span><span>${escapeHtml(safety)}</span></div><div class="sheet-label">${escapeHtml(aspects || sheet.name || "room sheet")}</div></div>`;
+    }
+
+    function jobChipHtml(job) {
+      const status = job.status || "active";
+      const premise = job.premise || "room job";
+      return `<div class="job-chip ${escapeAttr(status)}" title="${escapeAttr(job.stakes || premise)}"><div class="job-top"><span>job</span><span>${escapeHtml(status)}</span></div><div class="job-label">${escapeHtml(premise)}</div></div>`;
+    }
+
+    function clockChipHtml(clock) {
+      const segments = Math.max(1, Number(clock.segments || 0));
+      const filled = Math.max(0, Math.min(segments, Number(clock.filled || 0)));
+      const pct = Math.round((filled / segments) * 100);
+      const kind = String(clock.kind || "clock");
+      const label = String(clock.label || "Clock");
+      return `<div class="clock-chip ${escapeAttr(kind)}" title="${escapeAttr(`${label}: ${filled}/${segments}`)}"><div class="clock-top"><span>${escapeHtml(kind)}</span><span>${filled}/${segments}</span></div><div class="clock-label">${escapeHtml(label)}</div><div class="clock-track" aria-hidden="true"><div class="clock-fill" style="width:${pct}%"></div></div></div>`;
+    }
+
+    function tagChipHtml(tag) {
+      const kind = String(tag.kind || "tag");
+      const label = String(tag.label || "tag");
+      const scope = String(tag.scope || "");
+      return `<div class="tag-chip ${escapeAttr(kind)}" title="${escapeAttr(`${kind}: ${label}`)}"><div class="tag-top"><span>${escapeHtml(kind)}</span><span>${escapeHtml(scope)}</span></div><div class="tag-label">${escapeHtml(label)}</div></div>`;
+    }
+
     function presenceHtml(view, me) {
       const parts = [];
       let fullCardCount = 0;
@@ -1904,6 +2225,21 @@
         ? `<span class="chip-thumb ${escapeAttr(shape)}"${cardDataAttr(card)} style="background-image:url('${escapeAttr(image)}')"></span>`
         : `<span class="chip-thumb ${escapeAttr(shape)}">${fallback}</span>`;
       return `<span class="chip${classes}${compact ? " compact" : ""}${selectable ? " focusable" : ""}${focused ? " focused" : ""}"${attrs}>${thumb}<span>${escapeHtml(label)}</span></span>`;
+    }
+
+    function featureRowHtml(view) {
+      return (view.room_features || [])
+        .map((feature) => {
+          const key = `feature:${feature.key}`;
+          const index = actions.findIndex((action) => action.focusKey === key);
+          const selectable = index >= 0;
+          const focused = selectable && index === focusIndex && !state?.branch;
+          const attrs = selectable
+            ? ` type="button" data-focus-index="${index}" title="${escapeAttr(feature.search || feature.name)}" aria-label="${escapeAttr(`search ${feature.name}`)}"`
+            : ` type="button" disabled title="${escapeAttr(feature.name)}" aria-label="${escapeAttr(feature.name)}"`;
+          return `<button class="feature-pill${focused ? " focused" : ""}"${attrs}><span>${escapeHtml(feature.name)}</span></button>`;
+        })
+        .join("");
     }
 
     function renderLog() {
@@ -2077,6 +2413,14 @@
       if (event.type === "branch.resolved") return `settles a choice with ${event.target_actor_name}.`;
       if (event.type === "branch.expired") return `lets a choice with ${event.target_actor_name} fade.`;
       if (event.type === "ability_check.rolled") return listenEventText(event);
+      if (event.type === "clock.updated") {
+        const label = event.clock_label || "a room clock";
+        const filled = Number.isFinite(Number(event.clock_filled)) ? Number(event.clock_filled) : 0;
+        const segments = Number.isFinite(Number(event.clock_segments)) ? Number(event.clock_segments) : 0;
+        return `${label} advances to ${filled}/${segments}.`;
+      }
+      if (event.type === "tag.applied") return `gains ${event.tag_label || "a condition"}.`;
+      if (event.type === "tag.cleared") return `clears ${event.tag_label || "a condition"}.`;
       if (event.type === "combat.defend") return `raises a careful guard.`;
       if (event.type === "combat.attack.attempt") return `tests ${event.target_actor_name}'s guard: roll ${event.total} vs ac ${event.dc}.`;
       if (event.type === "combat.attack.hit") {
@@ -2598,6 +2942,12 @@
       const chip = event.target.closest("[data-focus-index]");
       if (!chip) return;
       focusAction(Number(chip.getAttribute("data-focus-index") || 0));
+    });
+
+    $("features").addEventListener("click", (event) => {
+      const feature = event.target.closest("[data-focus-index]");
+      if (!feature) return;
+      focusAction(Number(feature.getAttribute("data-focus-index") || 0));
     });
 
     $("route-map").addEventListener("click", (event) => {
