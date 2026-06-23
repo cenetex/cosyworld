@@ -585,6 +585,8 @@ struct SeedExitContent {
     from_location_id: u64,
     to_location_id: u64,
     #[serde(default)]
+    direction: Option<String>,
+    #[serde(default)]
     flags: u32,
 }
 
@@ -1084,6 +1086,7 @@ struct LocationView {
 struct ExitView {
     destination_location_id: u64,
     destination_location_name: String,
+    direction: Option<String>,
     locked: bool,
     accessible: bool,
     required_card_id: Option<String>,
@@ -2332,6 +2335,16 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
             return Err(format!(
                 "invalid or duplicate seed exit {} -> {}",
                 exit.from_location_id, exit.to_location_id
+            ));
+        }
+        if exit
+            .direction
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty() && canonical_direction(value).is_none())
+        {
+            return Err(format!(
+                "invalid seed exit direction {:?} for {} -> {}",
+                exit.direction, exit.from_location_id, exit.to_location_id
             ));
         }
     }
@@ -4910,14 +4923,15 @@ fn command_verb_and_rest(command: &str) -> (String, &str) {
 }
 
 fn canonical_command_verb(verb: &str) -> String {
+    if canonical_direction(verb).is_some() {
+        return "go".to_string();
+    }
     match verb {
         "l" | "look" | "examine" | "inspect" => "look",
         "search" | "find" => "search",
         "i" | "inv" | "inventory" => "inventory",
         "who" | "where" => "who",
-        "n" | "north" | "s" | "south" | "e" | "east" | "w" | "west" | "go" | "move" | "travel" => {
-            "go"
-        }
+        "go" | "move" | "travel" => "go",
         "get" | "take" | "pick" => "take",
         "give" | "gift" => "give",
         "use" | "drink" | "ring" => "use",
@@ -4942,6 +4956,24 @@ fn canonical_command_verb(verb: &str) -> String {
         other => other,
     }
     .to_string()
+}
+
+fn canonical_direction(value: &str) -> Option<&'static str> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "n" | "north" => Some("north"),
+        "s" | "south" => Some("south"),
+        "e" | "east" => Some("east"),
+        "w" | "west" => Some("west"),
+        "ne" | "northeast" | "north-east" => Some("northeast"),
+        "nw" | "northwest" | "north-west" => Some("northwest"),
+        "se" | "southeast" | "south-east" => Some("southeast"),
+        "sw" | "southwest" | "south-west" => Some("southwest"),
+        "u" | "up" => Some("up"),
+        "d" | "down" => Some("down"),
+        "in" | "inside" | "enter" => Some("in"),
+        "out" | "outside" | "exit" => Some("out"),
+        _ => None,
+    }
 }
 
 fn command_key(value: &str) -> String {
@@ -7319,6 +7351,18 @@ impl RuntimeWorld {
         }
     }
 
+    fn exit_direction(&self, from_location_id: u64, to_location_id: u64) -> Option<String> {
+        seed_content()
+            .exits
+            .iter()
+            .find(|exit| {
+                exit.from_location_id == from_location_id && exit.to_location_id == to_location_id
+            })
+            .and_then(|exit| exit.direction.as_deref())
+            .and_then(canonical_direction)
+            .map(ToString::to_string)
+    }
+
     fn exit_views(&self, location_id: u64, access: &AccessContext) -> Vec<ExitView> {
         self.world.exits[..self.world.exit_count]
             .iter()
@@ -7333,6 +7377,7 @@ impl RuntimeWorld {
                     destination_location_name: self
                         .location_name(exit.to_location_id)
                         .unwrap_or_else(|| format!("Location {}", exit.to_location_id)),
+                    direction: self.exit_direction(exit.from_location_id, exit.to_location_id),
                     locked: false,
                     accessible,
                     required_card_id: access_rule.required_card_id.map(ToString::to_string),
@@ -8828,6 +8873,7 @@ impl RuntimeWorld {
             return Err(command_error("", "", 400, "Try a command like look, who, inventory, go Rain-Soft Garden, take Story Button, or chat Rati."));
         }
         let (raw_verb, rest) = command_verb_and_rest(&command);
+        let direction_verb = canonical_direction(&raw_verb);
         let verb = if raw_verb == "revise"
             && rest.trim_start().strip_prefix("bond").is_some_and(|tail| {
                 tail.is_empty() || tail.chars().next().is_some_and(char::is_whitespace)
@@ -8835,6 +8881,11 @@ impl RuntimeWorld {
             "bond".to_string()
         } else {
             canonical_command_verb(&raw_verb)
+        };
+        let rest = if verb == "go" && rest.is_empty() {
+            direction_verb.unwrap_or(rest)
+        } else {
+            rest
         };
         let Some(actor) = self.actor_by_id(payload.actor_id) else {
             return Err(command_error(
@@ -9603,7 +9654,12 @@ impl RuntimeWorld {
             .exit_views(location_id, access)
             .into_iter()
             .filter(|exit| exit.accessible)
-            .map(|exit| exit.destination_location_name)
+            .map(|exit| {
+                exit.direction
+                    .as_deref()
+                    .map(|direction| format!("{direction}: {}", exit.destination_location_name))
+                    .unwrap_or(exit.destination_location_name)
+            })
             .collect::<Vec<_>>();
         let features = self
             .room_features(location_id)
@@ -9879,6 +9935,22 @@ impl RuntimeWorld {
         let query_key = command_key(query);
         if query_key.is_empty() {
             return Err("Name a room to go to.");
+        }
+        if let Some(direction) = canonical_direction(query) {
+            let direction_matches = exits
+                .into_iter()
+                .filter(|exit| {
+                    exit.direction
+                        .as_deref()
+                        .and_then(canonical_direction)
+                        .is_some_and(|candidate| candidate == direction)
+                })
+                .collect::<Vec<_>>();
+            return match direction_matches.as_slice() {
+                [] => Err("No accessible exit leads that direction."),
+                [exit] => Ok(exit.destination_location_id),
+                _ => Err("Multiple accessible exits lead that direction; name the room."),
+            };
         }
         exits
             .into_iter()
@@ -21273,6 +21345,7 @@ mod tests {
             CommandDispatch::Read { output } => {
                 assert!(output.contains("The Cosy Cottage"));
                 assert!(output.contains("Exits:"));
+                assert!(output.contains("east: Rain-Soft Garden"));
                 assert!(output.contains("Features:"));
                 assert!(output.contains("Scarf Basket"));
             }
@@ -21302,6 +21375,16 @@ mod tests {
                 destination_location_id,
             } => assert_eq!(destination_location_id, 2),
             other => panic!("go should map to movement, got {other:?}"),
+        }
+
+        let go_east = runtime
+            .resolve_command(&command_request(5000, "east"), &access)
+            .expect("direction command resolves");
+        match go_east.dispatch {
+            CommandDispatch::Move {
+                destination_location_id,
+            } => assert_eq!(destination_location_id, 2),
+            other => panic!("direction should map to movement, got {other:?}"),
         }
 
         let mut move_action = CwAction::default();

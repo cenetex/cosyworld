@@ -2,321 +2,385 @@
   {
     "from_location_id": 1,
     "to_location_id": 2,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 2,
     "to_location_id": 1,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 1,
     "to_location_id": 11,
-    "flags": 0
+    "flags": 0,
+    "direction": "south"
   },
   {
     "from_location_id": 11,
     "to_location_id": 1,
-    "flags": 0
+    "flags": 0,
+    "direction": "out"
   },
   {
     "from_location_id": 2,
     "to_location_id": 3,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 3,
     "to_location_id": 2,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 2,
     "to_location_id": 40,
-    "flags": 0
+    "flags": 0,
+    "direction": "north"
   },
   {
     "from_location_id": 40,
     "to_location_id": 2,
-    "flags": 0
+    "flags": 0,
+    "direction": "south"
   },
   {
     "from_location_id": 10,
     "to_location_id": 11,
-    "flags": 0
+    "flags": 0,
+    "direction": "south"
   },
   {
     "from_location_id": 11,
     "to_location_id": 10,
-    "flags": 0
+    "flags": 0,
+    "direction": "north"
   },
   {
     "from_location_id": 11,
     "to_location_id": 12,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 12,
     "to_location_id": 11,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 11,
     "to_location_id": 13,
-    "flags": 0
+    "flags": 0,
+    "direction": "south"
   },
   {
     "from_location_id": 13,
     "to_location_id": 11,
-    "flags": 0
+    "flags": 0,
+    "direction": "north"
   },
   {
     "from_location_id": 11,
     "to_location_id": 15,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 15,
     "to_location_id": 11,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 10,
     "to_location_id": 14,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 14,
     "to_location_id": 10,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 10,
     "to_location_id": 15,
-    "flags": 0
+    "flags": 0,
+    "direction": "southwest"
   },
   {
     "from_location_id": 15,
     "to_location_id": 10,
-    "flags": 0
+    "flags": 0,
+    "direction": "northeast"
   },
   {
     "from_location_id": 13,
     "to_location_id": 15,
-    "flags": 0
+    "flags": 0,
+    "direction": "northwest"
   },
   {
     "from_location_id": 15,
     "to_location_id": 13,
-    "flags": 0
+    "flags": 0,
+    "direction": "southeast"
   },
   {
     "from_location_id": 14,
     "to_location_id": 15,
-    "flags": 0
+    "flags": 0,
+    "direction": "south"
   },
   {
     "from_location_id": 15,
     "to_location_id": 14,
-    "flags": 0
+    "flags": 0,
+    "direction": "north"
   },
   {
     "from_location_id": 12,
     "to_location_id": 50,
-    "flags": 0
+    "flags": 0,
+    "direction": "down"
   },
   {
     "from_location_id": 50,
     "to_location_id": 12,
-    "flags": 0
+    "flags": 0,
+    "direction": "up"
   },
   {
     "from_location_id": 15,
     "to_location_id": 32,
-    "flags": 0
+    "flags": 0,
+    "direction": "up"
   },
   {
     "from_location_id": 32,
     "to_location_id": 15,
-    "flags": 0
+    "flags": 0,
+    "direction": "down"
   },
   {
     "from_location_id": 3,
     "to_location_id": 35,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 35,
     "to_location_id": 3,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 30,
     "to_location_id": 31,
-    "flags": 0
+    "flags": 0,
+    "direction": "up"
   },
   {
     "from_location_id": 31,
     "to_location_id": 30,
-    "flags": 0
+    "flags": 0,
+    "direction": "down"
   },
   {
     "from_location_id": 31,
     "to_location_id": 32,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 32,
     "to_location_id": 31,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 32,
     "to_location_id": 33,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 33,
     "to_location_id": 32,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 33,
     "to_location_id": 34,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 34,
     "to_location_id": 33,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 34,
     "to_location_id": 35,
-    "flags": 0
+    "flags": 0,
+    "direction": "up"
   },
   {
     "from_location_id": 35,
     "to_location_id": 34,
-    "flags": 0
+    "flags": 0,
+    "direction": "down"
   },
   {
     "from_location_id": 40,
     "to_location_id": 41,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 41,
     "to_location_id": 40,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 40,
     "to_location_id": 44,
-    "flags": 0
+    "flags": 0,
+    "direction": "northeast"
   },
   {
     "from_location_id": 44,
     "to_location_id": 40,
-    "flags": 0
+    "flags": 0,
+    "direction": "southwest"
   },
   {
     "from_location_id": 41,
     "to_location_id": 42,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 42,
     "to_location_id": 41,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 41,
     "to_location_id": 43,
-    "flags": 0
+    "flags": 0,
+    "direction": "north"
   },
   {
     "from_location_id": 43,
     "to_location_id": 41,
-    "flags": 0
+    "flags": 0,
+    "direction": "south"
   },
   {
     "from_location_id": 42,
     "to_location_id": 43,
-    "flags": 0
+    "flags": 0,
+    "direction": "south"
   },
   {
     "from_location_id": 43,
     "to_location_id": 42,
-    "flags": 0
+    "flags": 0,
+    "direction": "north"
   },
   {
     "from_location_id": 43,
     "to_location_id": 44,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 44,
     "to_location_id": 43,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 44,
     "to_location_id": 14,
-    "flags": 0
+    "flags": 0,
+    "direction": "south"
   },
   {
     "from_location_id": 14,
     "to_location_id": 44,
-    "flags": 0
+    "flags": 0,
+    "direction": "north"
   },
   {
     "from_location_id": 50,
     "to_location_id": 60,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 60,
     "to_location_id": 50,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 50,
     "to_location_id": 63,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 63,
     "to_location_id": 50,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 60,
     "to_location_id": 61,
-    "flags": 0
+    "flags": 0,
+    "direction": "south"
   },
   {
     "from_location_id": 61,
     "to_location_id": 60,
-    "flags": 0
+    "flags": 0,
+    "direction": "north"
   },
   {
     "from_location_id": 61,
     "to_location_id": 62,
-    "flags": 0
+    "flags": 0,
+    "direction": "east"
   },
   {
     "from_location_id": 62,
     "to_location_id": 61,
-    "flags": 0
+    "flags": 0,
+    "direction": "west"
   },
   {
     "from_location_id": 62,
     "to_location_id": 63,
-    "flags": 0
+    "flags": 0,
+    "direction": "north"
   },
   {
     "from_location_id": 63,
     "to_location_id": 62,
-    "flags": 0
+    "flags": 0,
+    "direction": "south"
   }
 ]
