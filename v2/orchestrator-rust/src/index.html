@@ -1307,6 +1307,7 @@
   <script>
     const avatarGateVersion = "2";
     const walletRequestTimeoutMs = 20000;
+    const presenceHeartbeatMs = 60000;
     const fullPresenceCardLimit = 3;
     const bootParams = new URLSearchParams(window.location.search);
     const wantsReset = ["1", "true", "yes"].includes(String(bootParams.get("reset") || "").toLowerCase());
@@ -1335,6 +1336,10 @@
     let lastRoomCopyLocationId = null;
     let economyFlash = null;
     let economyFlashTimer = null;
+    let commandHistory = [];
+    let commandHistoryIndex = 0;
+    let commandDraft = "";
+    let presenceHeartbeatTimer = null;
     let walletQrPollTimer = null;
     let walletQrResolve = null;
     let aiKeyResolve = null;
@@ -1403,6 +1408,7 @@
       if (actorId && state.primary_action?.kind === "create_avatar") {
         actorId = 0;
         clearLocalSession();
+        stopPresenceHeartbeat();
       }
       const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
       if (logEvents.length === 0 || locationChanged) {
@@ -1447,8 +1453,18 @@
       return `/state${qs ? `?${qs}` : ""}`;
     }
 
+    function latestSeenSeq() {
+      let latest = 0;
+      for (const seq of seenSeq) {
+        latest = Math.max(latest, Number(seq) || 0);
+      }
+      return latest;
+    }
+
     function streamPath() {
       const params = requestParams();
+      const after = latestSeenSeq();
+      if (after) params.set("after", String(after));
       const qs = params.toString();
       return `/stream${qs ? `?${qs}` : ""}`;
     }
@@ -1465,6 +1481,7 @@
 
     function leavePresence() {
       if (!actorId || !actorSession) return;
+      stopPresenceHeartbeat();
       const payload = JSON.stringify({ actor_id: actorId, actor_session: actorSession });
       if (navigator.sendBeacon) {
         const body = new Blob([payload], { type: "application/json" });
@@ -1477,6 +1494,29 @@
         body: payload,
         keepalive: true,
       }).catch(() => {});
+    }
+
+    function stopPresenceHeartbeat() {
+      if (presenceHeartbeatTimer) window.clearInterval(presenceHeartbeatTimer);
+      presenceHeartbeatTimer = null;
+    }
+
+    async function pingPresence() {
+      if (!actorId || !actorSession) return;
+      try {
+        const result = await post("/presence/ping", { actor_id: actorId, actor_session: actorSession });
+        pushEvents(result.events || []);
+        if (!result.ok && result.status === 403) stopPresenceHeartbeat();
+      } catch {
+        // EventSource retries cover live updates; presence heartbeat can wait for the next tick.
+      }
+    }
+
+    function startPresenceHeartbeat() {
+      stopPresenceHeartbeat();
+      if (!actorId || !actorSession) return;
+      pingPresence();
+      presenceHeartbeatTimer = window.setInterval(pingPresence, presenceHeartbeatMs);
     }
 
     function parseCardIds(value) {
@@ -1788,6 +1828,22 @@
           card: cardForActor(actorId) || cardForLocation(view.location?.id),
           shape: "avatar",
           run: () => connectOpenRouter(),
+        });
+      }
+      for (const actor of view.actors || []) {
+        if (actor.id === actorId) continue;
+        const reportName = String(actor.name || actorLabel(actor)).trim();
+        if (!reportName) continue;
+        const actorCard = cardForActor(actor.id);
+        built.push({
+          label: "report",
+          detail: actorLabel(actor),
+          command: `report ${reportName}:`,
+          focusKey: `report:${actor.id}`,
+          card: actorCard,
+          shape: "avatar",
+          priority: 95,
+          run: () => openCommandPalette(`report ${reportName}: `, true),
         });
       }
       built.sort(compareActions);
@@ -2176,7 +2232,7 @@
     }
 
     function eventIsHiddenContext(event) {
-      return event.type === "world.bootstrapped";
+      return event.type === "world.bootstrapped" || event.type === "actor.presence";
     }
 
     function eventMatchesCurrentLocation(event) {
@@ -2188,11 +2244,14 @@
     function eventShouldRefreshState(event) {
       if (!event) return false;
       return event.type === "world.reset"
+        || event.type === "actor.presence"
         || event.type === "actor.created"
         || event.type === "actor.entered_location"
         || event.type === "actor.moved"
+        || event.type === "message.created"
         || event.type === "move.blocked"
         || event.type === "item.picked_up"
+        || event.type === "item.dropped"
         || event.type === "item.used"
         || event.type === "item.given"
         || event.type === "avatar.evolved"
@@ -2243,6 +2302,7 @@
         if (eventShouldRefreshState(event)) queueRefresh();
       });
       stream.onerror = () => setError("Live connection is retrying.");
+      startPresenceHeartbeat();
     }
 
     function render() {
@@ -2665,6 +2725,7 @@
       if (event.type === "actor.moved") return `moves from ${event.location_name} to ${event.destination_location_name}.`;
       if (event.type === "move.blocked") return `cannot reach ${event.destination_location_name}.`;
       if (event.type === "item.picked_up") return `takes ${event.item_name}.`;
+      if (event.type === "item.dropped") return `drops ${event.item_name}.`;
       if (event.type === "item.used") {
         const target = event.target_actor_name ? ` on ${event.target_actor_name}` : "";
         const healed = event.damage < 0 ? ` restores ${Math.abs(event.damage)} hp.` : ".";
@@ -3030,18 +3091,43 @@
       $("secondary").style.display = choiceMode && actions[1] ? "flex" : "none";
     }
 
-    function openCommandPalette(seed = "") {
-      if (actionBusy) return;
+    function openCommandPalette(seed = "", force = false) {
+      if (actionBusy && !force) return;
       const palette = $("command-palette");
       const input = $("command-input");
       palette.hidden = false;
       input.value = seed;
-      window.setTimeout(() => input.focus(), 0);
+      commandHistoryIndex = commandHistory.length;
+      commandDraft = seed;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
     }
 
     function closeCommandPalette() {
+      const input = $("command-input");
       $("command-palette").hidden = true;
-      $("command-input").value = "";
+      input.value = "";
+      input.blur();
+      commandHistoryIndex = commandHistory.length;
+      commandDraft = "";
+    }
+
+    function rememberCommand(value) {
+      const command = String(value || "").trim();
+      if (!command) return;
+      if (commandHistory[commandHistory.length - 1] !== command) commandHistory.push(command);
+      commandHistory = commandHistory.slice(-24);
+      commandHistoryIndex = commandHistory.length;
+      commandDraft = "";
+    }
+
+    function stepCommandHistory(delta) {
+      const input = $("command-input");
+      if (!commandHistory.length || !input) return;
+      if (commandHistoryIndex === commandHistory.length) commandDraft = input.value;
+      commandHistoryIndex = Math.max(0, Math.min(commandHistory.length, commandHistoryIndex + delta));
+      input.value = commandHistoryIndex === commandHistory.length ? commandDraft : commandHistory[commandHistoryIndex];
+      input.setSelectionRange(input.value.length, input.value.length);
     }
 
     async function runAction(action) {
@@ -3380,6 +3466,7 @@
     $("command-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       const value = $("command-input").value;
+      rememberCommand(value);
       closeCommandPalette();
       actionBusy = true;
       pendingAction = { label: "...", detail: value, command: value };
@@ -3401,6 +3488,12 @@
         if (event.key === "Escape") {
           event.preventDefault();
           closeCommandPalette();
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          stepCommandHistory(-1);
+        } else if (event.key === "ArrowDown") {
+          event.preventDefault();
+          stepCommandHistory(1);
         }
         return;
       }
@@ -3425,9 +3518,16 @@
         }
         return;
       }
-      if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (event.target?.matches?.("input, textarea, [contenteditable='true']")) return;
+      const plainKey = !event.metaKey && !event.ctrlKey && !event.altKey;
+      if ((event.key === "/" || event.code === "Slash") && plainKey) {
         event.preventDefault();
         openCommandPalette();
+        return;
+      }
+      if ((event.key.toLowerCase() === "t" || event.code === "KeyT") && plainKey) {
+        event.preventDefault();
+        openCommandPalette("say ");
         return;
       }
       if (event.key === "Enter") {
@@ -3455,6 +3555,7 @@
     (async function boot() {
       try {
         await requestDevResetIfNeeded();
+        await pingPresence();
         await refresh();
         connectStream();
       } catch (error) {

@@ -1,4 +1,6 @@
 mod kernel;
+mod moderation;
+mod mud;
 
 use axum::{
     extract::{ConnectInfo, Path as AxumPath, Query, State},
@@ -16,6 +18,8 @@ use cosyworld_ai_model::{
 };
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use kernel::*;
+use moderation::*;
+use mud::*;
 use qrcode::{render::svg, QrCode};
 use rand::{rngs::OsRng, RngCore};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -63,6 +67,7 @@ struct AppState {
     actor_chat_locks: Arc<StdMutex<BTreeSet<u64>>>,
     avatar_chat_delay: Duration,
     moderation_token: Option<Arc<String>>,
+    moderation_report_retention: ModerationReportRetention,
     allow_unsigned_wallet_claims: bool,
 }
 
@@ -167,12 +172,16 @@ impl Drop for ActorChatGuard {
 }
 
 const AVATAR_CREATE_LIMIT: RateLimit = RateLimit {
-    max_hits: 8,
+    max_hits: 12,
     window: Duration::from_secs(10 * 60),
 };
 const CHAT_ACTION_LIMIT: RateLimit = RateLimit {
     max_hits: 45,
     window: Duration::from_secs(60),
+};
+const REPORT_ACTION_LIMIT: RateLimit = RateLimit {
+    max_hits: 12,
+    window: Duration::from_secs(10 * 60),
 };
 const GENERAL_ACTION_LIMIT: RateLimit = RateLimit {
     max_hits: 180,
@@ -190,7 +199,6 @@ const QR_WALLET_LOGIN_TTL: Duration = Duration::from_secs(5 * 60);
 const QR_WALLET_COMPLETE_GRACE: Duration = Duration::from_secs(60);
 
 const RATE_LIMITED_STATUS: u32 = 429;
-const CLIENT_SPEECH_DISABLED_STATUS: u32 = 410;
 const CHAT_IN_FLIGHT_STATUS: u32 = 409;
 const MAX_AVATAR_NAME_CHARS: usize = 28;
 const MAX_CALLING_STATEMENT_CHARS: usize = 96;
@@ -221,7 +229,6 @@ const MOONLIT_DANGER_CLOCK_ID: &str = "moonlit-trail.danger";
 const ATTACK_HIT_ORB_REWARD: i32 = 1;
 const KNOCKOUT_ORB_REWARD: i32 = 3;
 const FLEE_ORB_REWARD: i32 = 1;
-#[cfg(test)]
 const MAX_HUMAN_MESSAGE_CHARS: usize = 500;
 #[cfg(test)]
 const DIALOGUE_BRANCH_TTL_TICKS: u64 = 24;
@@ -861,6 +868,7 @@ struct MetaFeatureFlags {
 struct MetaPersistence {
     snapshot_enabled: bool,
     event_store_enabled: bool,
+    moderation_report_retention_days: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -990,6 +998,7 @@ struct ModerationActorResponse {
     suspended: bool,
     reason: Option<String>,
     suspended_at_unix: Option<u64>,
+    error: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1532,116 +1541,6 @@ struct ActionResponse {
 }
 
 #[derive(Debug, Serialize)]
-struct CommandResponse {
-    ok: bool,
-    status: u32,
-    command: String,
-    verb: String,
-    output: Option<String>,
-    action: Option<CommandActionView>,
-    events: Vec<EventView>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct CommandActionView {
-    kind: String,
-    label: String,
-    command: String,
-}
-
-#[derive(Clone, Debug)]
-struct ResolvedCommand {
-    command: String,
-    verb: String,
-    action: Option<CommandActionView>,
-    dispatch: CommandDispatch,
-}
-
-#[derive(Clone, Debug)]
-struct FeatureUseResult {
-    feature_name: String,
-    output: String,
-    matched: bool,
-}
-
-#[derive(Clone, Debug)]
-enum CommandDispatch {
-    Read {
-        output: String,
-    },
-    Disabled {
-        status: u32,
-        output: String,
-    },
-    Move {
-        destination_location_id: u64,
-    },
-    Flee {
-        destination_location_id: u64,
-    },
-    Check,
-    PickUp {
-        item_id: u64,
-    },
-    UseItem {
-        item_id: u64,
-        target_actor_id: u64,
-    },
-    UseFeature {
-        item_id: u64,
-        location_id: u64,
-        output: String,
-    },
-    GiveItem {
-        item_id: u64,
-        target_actor_id: u64,
-    },
-    Attack {
-        target_actor_id: u64,
-    },
-    Defend,
-    Prepare,
-    Work,
-    Help,
-    Rest,
-    BankLedger,
-    ReviseCalling {
-        statement: String,
-    },
-    CreateBond {
-        target_actor_id: u64,
-        statement: String,
-    },
-    ReviseBond {
-        target_actor_id: u64,
-        statement: String,
-    },
-    TrainSkill {
-        skill_id: String,
-    },
-    ResolveBond {
-        target_actor_id: u64,
-    },
-    Chat {
-        target_actor_id: u64,
-    },
-}
-
-#[derive(Debug)]
-struct CommandError {
-    command: String,
-    verb: String,
-    status: u32,
-    output: String,
-}
-
-#[derive(Clone, Copy, Debug)]
-enum CommandActorFilter {
-    Any,
-    ActiveNpc,
-}
-
-#[derive(Debug, Serialize)]
 struct AvatarResponse {
     ok: bool,
     status: u32,
@@ -1666,6 +1565,14 @@ struct ChatRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct SayRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    #[serde(alias = "message")]
+    content: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct OpenRouterVerifyRequest {
     api_key: String,
 }
@@ -1686,19 +1593,6 @@ struct MoveRequest {
     actor_id: u64,
     actor_session: Option<String>,
     destination_location_id: u64,
-    wallet_address: Option<String>,
-    wallet: Option<String>,
-    wallet_session: Option<String>,
-    owned_card_ids: Option<String>,
-    cards: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CommandRequest {
-    actor_id: u64,
-    actor_session: Option<String>,
-    command: String,
-    openrouter_api_key: Option<String>,
     wallet_address: Option<String>,
     wallet: Option<String>,
     wallet_session: Option<String>,
@@ -2327,6 +2221,7 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
     }
 
     let mut exit_keys = BTreeSet::new();
+    let mut exit_direction_keys = BTreeSet::new();
     for exit in &content.exits {
         if !location_ids.contains(&exit.from_location_id)
             || !location_ids.contains(&exit.to_location_id)
@@ -2337,15 +2232,19 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
                 exit.from_location_id, exit.to_location_id
             ));
         }
-        if exit
-            .direction
-            .as_deref()
-            .is_some_and(|value| !value.trim().is_empty() && canonical_direction(value).is_none())
-        {
-            return Err(format!(
-                "invalid seed exit direction {:?} for {} -> {}",
-                exit.direction, exit.from_location_id, exit.to_location_id
-            ));
+        if let Some(raw_direction) = exit.direction.as_deref() {
+            let Some(direction) = canonical_direction(raw_direction) else {
+                return Err(format!(
+                    "invalid seed exit direction {:?} for {} -> {}",
+                    exit.direction, exit.from_location_id, exit.to_location_id
+                ));
+            };
+            if !exit_direction_keys.insert((exit.from_location_id, direction)) {
+                return Err(format!(
+                    "duplicate seed exit direction {} from location {}",
+                    direction, exit.from_location_id
+                ));
+            }
         }
     }
 
@@ -3490,6 +3389,54 @@ fn actor_for_session(actor_sessions: &StdMutex<ActorSessions>, session_token: &s
     }
 }
 
+fn actor_session_active_for_actor(
+    actor_sessions: &StdMutex<ActorSessions>,
+    actor_id: u64,
+    session_token: &str,
+) -> Option<bool> {
+    let token = session_token.trim();
+    if token.is_empty() {
+        return None;
+    }
+    let now = Instant::now();
+    let Ok(mut sessions) = actor_sessions.lock() else {
+        return None;
+    };
+    sessions
+        .sessions
+        .retain(|_, session| session.expires_at > now);
+    let session = sessions.sessions.get(token)?;
+    if session.actor_id != actor_id {
+        return None;
+    }
+    Some(now.saturating_duration_since(session.last_seen_at) <= ACTIVE_ACTOR_WINDOW)
+}
+
+fn touch_actor_session_for_actor(
+    actor_sessions: &StdMutex<ActorSessions>,
+    actor_id: u64,
+    session_token: &str,
+) -> Option<bool> {
+    let token = session_token.trim();
+    if token.is_empty() {
+        return None;
+    }
+    let now = Instant::now();
+    let Ok(mut sessions) = actor_sessions.lock() else {
+        return None;
+    };
+    sessions
+        .sessions
+        .retain(|_, session| session.expires_at > now);
+    let session = sessions.sessions.get_mut(token)?;
+    if session.actor_id != actor_id {
+        return None;
+    }
+    let was_active = now.saturating_duration_since(session.last_seen_at) <= ACTIVE_ACTOR_WINDOW;
+    session.last_seen_at = now;
+    Some(was_active)
+}
+
 fn linked_actor_for_wallet(state: &AppState, wallet_address: &str) -> Option<u64> {
     let wallet = wallet_address.trim();
     if wallet.is_empty() {
@@ -3674,15 +3621,6 @@ fn action_rate_limited_response() -> Json<ActionResponse> {
     })
 }
 
-fn client_speech_disabled_response() -> Json<ActionResponse> {
-    Json(ActionResponse {
-        ok: false,
-        status: CLIENT_SPEECH_DISABLED_STATUS,
-        events: Vec::new(),
-    })
-}
-
-#[cfg(test)]
 fn normalize_human_message(content: &str) -> Option<String> {
     if content
         .chars()
@@ -4160,8 +4098,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState::bootstrap().await?;
     start_ambient_scheduler(state.clone());
     start_ownership_refresh_scheduler(state.clone());
+    start_moderation_retention_scheduler(state.clone());
     let app = Router::new()
         .route("/", get(index))
+        .route("/moderation", get(moderation_console))
         .route(
             "/assets/locations/cosy-cottage.png",
             get(cosy_cottage_asset),
@@ -4202,6 +4142,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/world", get(world_view))
         .route("/events", get(events_view))
         .route("/moderation/events", get(moderation_events_view))
+        .route("/moderation/reports", get(moderation_reports_view))
+        .route(
+            "/moderation/reports/{report_id}/resolve",
+            post(moderation_resolve_report),
+        )
+        .route(
+            "/moderation/reports/{report_id}/delete",
+            post(moderation_delete_report),
+        )
         .route("/moderation/economy", get(moderation_economy_view))
         .route(
             "/moderation/actors/{actor_id}/suspend",
@@ -4213,12 +4162,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .route("/dev/reset", post(dev_reset))
         .route("/avatar", post(create_avatar))
+        .route("/presence/ping", post(ping_presence))
         .route("/presence/leave", post(leave_presence))
         .route("/actions/chat", post(chat))
         .route("/actions/say", post(say))
+        .route("/actions/report", post(report_actor))
         .route("/actions/move", post(move_actor))
         .route("/actions/check", post(ability_check))
         .route("/actions/pick-up", post(pick_up_item))
+        .route("/actions/drop", post(drop_item))
         .route("/actions/use-item", post(use_item))
         .route("/actions/give-item", post(give_item))
         .route("/actions/attack", post(attack))
@@ -4297,6 +4249,15 @@ impl AppState {
             },
             None => load_snapshot_or_seed(snapshot_path.as_deref()),
         };
+        if let Some(path) = event_store_path.as_deref() {
+            if let Err(error) = advance_runtime_next_event_seq_from_store(&mut runtime, path) {
+                warn!(
+                    "failed to advance CosyWorld event sequence from {}: {}",
+                    path.display(),
+                    error
+                );
+            }
+        }
 
         let ownership_feed = OwnershipFeedConfig::from_env();
         let trust_client_card_ids = std::env::var("COSYWORLD_DEV_TRUST_CLIENT_CARD_IDS")
@@ -4314,6 +4275,7 @@ impl AppState {
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .map(Arc::new);
+        let moderation_report_retention = ModerationReportRetention::from_env()?;
         let ai_config = Arc::new(AiConfig::from_env());
         let ambient = AmbientConfig::from_env();
         let box_burn_verifier = BoxBurnVerifierConfig::from_env()?;
@@ -4371,6 +4333,15 @@ impl AppState {
                     path.display(),
                     error
                 ),
+            }
+            if let Err(error) =
+                purge_expired_moderation_reports_for_retention(path, moderation_report_retention)
+            {
+                warn!(
+                    "failed to purge expired CosyWorld moderation reports from {}: {}",
+                    path.display(),
+                    error
+                );
             }
         }
 
@@ -4440,6 +4411,7 @@ impl AppState {
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             avatar_chat_delay,
             moderation_token,
+            moderation_report_retention,
             allow_unsigned_wallet_claims,
         })
     }
@@ -4906,129 +4878,6 @@ impl RuntimeSnapshot {
     }
 }
 
-fn normalize_command_text(input: &str) -> String {
-    input
-        .trim()
-        .trim_start_matches('/')
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn command_verb_and_rest(command: &str) -> (String, &str) {
-    command
-        .split_once(' ')
-        .map(|(verb, rest)| (verb.to_lowercase(), rest.trim()))
-        .unwrap_or_else(|| (command.to_lowercase(), ""))
-}
-
-fn canonical_command_verb(verb: &str) -> String {
-    if canonical_direction(verb).is_some() {
-        return "go".to_string();
-    }
-    match verb {
-        "l" | "look" | "examine" | "inspect" => "look",
-        "search" | "find" => "search",
-        "i" | "inv" | "inventory" => "inventory",
-        "who" | "where" => "who",
-        "go" | "move" | "travel" => "go",
-        "get" | "take" | "pick" => "take",
-        "give" | "gift" => "give",
-        "use" | "drink" | "ring" => "use",
-        "talk" | "chat" | "speak" => "chat",
-        "listen" | "check" => "listen",
-        "prepare" | "ready" => "prepare",
-        "work" | "repair" | "study" => "work",
-        "assist" | "aid" => "assist",
-        "rest" | "breathe" | "catch" => "rest",
-        "bank" | "review" | "advance" => "bank",
-        "skill" | "train" | "practice" => "skill",
-        "bond" | "relationship" => "bond",
-        "calling" | "drive" | "revise" => "calling",
-        "resolve" | "settle" => "resolve",
-        "hit" | "attack" | "strike" => "attack",
-        "guard" | "defend" => "defend",
-        "run" | "flee" | "escape" => "flee",
-        "say" => "say",
-        "emote" | "me" => "emote",
-        "drop" => "drop",
-        "help" | "?" => "help",
-        other => other,
-    }
-    .to_string()
-}
-
-fn canonical_direction(value: &str) -> Option<&'static str> {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "n" | "north" => Some("north"),
-        "s" | "south" => Some("south"),
-        "e" | "east" => Some("east"),
-        "w" | "west" => Some("west"),
-        "ne" | "northeast" | "north-east" => Some("northeast"),
-        "nw" | "northwest" | "north-west" => Some("northwest"),
-        "se" | "southeast" | "south-east" => Some("southeast"),
-        "sw" | "southwest" | "south-west" => Some("southwest"),
-        "u" | "up" => Some("up"),
-        "d" | "down" => Some("down"),
-        "in" | "inside" | "enter" => Some("in"),
-        "out" | "outside" | "exit" => Some("out"),
-        _ => None,
-    }
-}
-
-fn command_key(value: &str) -> String {
-    value
-        .chars()
-        .filter(|ch| ch.is_ascii_alphanumeric())
-        .flat_map(|ch| ch.to_lowercase())
-        .collect()
-}
-
-fn command_match_score(candidate: &str, query_key: &str) -> Option<u8> {
-    let candidate_key = command_key(candidate);
-    if candidate_key.is_empty() || query_key.is_empty() {
-        None
-    } else if candidate_key == query_key {
-        Some(0)
-    } else if candidate_key.starts_with(query_key) {
-        Some(1)
-    } else if candidate_key.contains(query_key) {
-        Some(2)
-    } else {
-        None
-    }
-}
-
-fn trim_command_filler(value: &str) -> &str {
-    value
-        .trim()
-        .trim_start_matches("at ")
-        .trim_start_matches("to ")
-        .trim_start_matches("with ")
-        .trim_start_matches("the ")
-        .trim()
-}
-
-fn split_direct_indirect<'a>(value: &'a str, separator: &str) -> Option<(&'a str, &'a str)> {
-    let needle = format!(" {separator} ");
-    value
-        .split_once(&needle)
-        .map(|(direct, indirect)| (direct.trim(), indirect.trim()))
-        .filter(|(direct, indirect)| !direct.is_empty() && !indirect.is_empty())
-}
-
-fn command_list_or_none(values: &[String]) -> String {
-    if values.is_empty() {
-        "none".to_string()
-    } else {
-        values.join(", ")
-    }
-}
-
-fn clock_summary(clock: &ClockView) -> String {
-    format!("{} {}/{}", clock.label, clock.filled, clock.segments)
-}
-
 fn default_zone() -> String {
     ZONE_SANCTUARY.to_string()
 }
@@ -5037,28 +4886,6 @@ fn zone_for_safety(safety: &str) -> &'static str {
     match safety {
         "risky" | "dangerous" => ZONE_FRONTIER,
         _ => ZONE_SANCTUARY,
-    }
-}
-
-fn command_action(kind: &str, label: &str, command: &str) -> CommandActionView {
-    CommandActionView {
-        kind: kind.to_string(),
-        label: label.to_string(),
-        command: normalize_command_text(command),
-    }
-}
-
-fn command_error(
-    command: &str,
-    verb: &str,
-    status: u32,
-    output: impl Into<String>,
-) -> CommandError {
-    CommandError {
-        command: normalize_command_text(command),
-        verb: verb.to_string(),
-        status,
-        output: output.into(),
     }
 }
 
@@ -5362,6 +5189,53 @@ impl RuntimeWorld {
             destination_location_name: self.location_name(to_location_id),
             content_id: None,
             content: None,
+            item_id: None,
+            item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_actor_presence_event(&mut self, actor_id: u64, active: bool) -> EventView {
+        let location_id = self
+            .actor_by_id(actor_id)
+            .map(|actor| actor.location_id)
+            .unwrap_or(1);
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: "actor.presence".to_string(),
+            success: true,
+            reason: if active { 1 } else { 0 },
+            actor_id: Some(actor_id),
+            actor_name: self.actor_name(actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id: Some(location_id),
+            location_name: self.location_name(location_id),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(if active { "active" } else { "inactive" }.to_string()),
             item_id: None,
             item_name: None,
             raw_roll: None,
@@ -8863,1118 +8737,6 @@ impl RuntimeWorld {
                 })
     }
 
-    fn resolve_command(
-        &self,
-        payload: &CommandRequest,
-        access: &AccessContext,
-    ) -> Result<ResolvedCommand, CommandError> {
-        let command = normalize_command_text(&payload.command);
-        if command.is_empty() {
-            return Err(command_error("", "", 400, "Try a command like look, who, inventory, go Rain-Soft Garden, take Story Button, or chat Rati."));
-        }
-        let (raw_verb, rest) = command_verb_and_rest(&command);
-        let direction_verb = canonical_direction(&raw_verb);
-        let verb = if raw_verb == "revise"
-            && rest.trim_start().strip_prefix("bond").is_some_and(|tail| {
-                tail.is_empty() || tail.chars().next().is_some_and(char::is_whitespace)
-            }) {
-            "bond".to_string()
-        } else {
-            canonical_command_verb(&raw_verb)
-        };
-        let rest = if verb == "go" && rest.is_empty() {
-            direction_verb.unwrap_or(rest)
-        } else {
-            rest
-        };
-        let Some(actor) = self.actor_by_id(payload.actor_id) else {
-            return Err(command_error(
-                &command,
-                &verb,
-                404,
-                "That avatar is not in the world.",
-            ));
-        };
-        if actor.kind != CW_ACTOR_HUMAN || actor.status != CW_ACTOR_ACTIVE {
-            return Err(command_error(
-                &command,
-                &verb,
-                403,
-                "Only an active player avatar can use MUD commands.",
-            ));
-        }
-
-        match verb.as_str() {
-            "help" => Ok(ResolvedCommand {
-                command,
-                verb,
-                action: None,
-                dispatch: CommandDispatch::Read {
-                    output: "Commands: look, look <thing>, search <feature>, who, inventory, go <room>, take <item>, give <item> to <resident>, use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, bank ledger, skill <name>, calling <new drive>, bond <resident>: <relationship>, resolve bond <resident>, attack <target>, defend, flee <room>.".to_string(),
-                },
-            }),
-            "look" => Ok(ResolvedCommand {
-                command: command.clone(),
-                verb,
-                action: None,
-                dispatch: CommandDispatch::Read {
-                    output: self.look_command_output(actor, rest, access).map_err(|output| {
-                        command_error(&command, "look", 404, output)
-                    })?,
-                },
-            }),
-            "search" => Ok(ResolvedCommand {
-                command: command.clone(),
-                verb,
-                action: Some(command_action("search", "Search", &command)),
-                dispatch: CommandDispatch::Read {
-                    output: self
-                        .search_command_output(actor, rest)
-                        .map_err(|output| command_error(&command, "search", 404, output))?,
-                },
-            }),
-            "inventory" => Ok(ResolvedCommand {
-                command,
-                verb,
-                action: None,
-                dispatch: CommandDispatch::Read {
-                    output: self.inventory_command_output(actor.id),
-                },
-            }),
-            "who" => Ok(ResolvedCommand {
-                command,
-                verb,
-                action: None,
-                dispatch: CommandDispatch::Read {
-                    output: self.who_command_output(actor.location_id),
-                },
-            }),
-            "go" => {
-                let destination = self.resolve_exit_destination(actor, rest, access).map_err(|output| {
-                    command_error(&command, "go", 404, output)
-                })?;
-                Ok(ResolvedCommand {
-                    command: format!("go {}", self.location_name(destination).unwrap_or_else(|| destination.to_string())),
-                    verb,
-                    action: Some(command_action("move", "Travel", &format!("go {}", self.location_name(destination).unwrap_or_else(|| destination.to_string())))),
-                    dispatch: CommandDispatch::Move {
-                        destination_location_id: destination,
-                    },
-                })
-            }
-            "flee" => {
-                let destination = if rest.trim().is_empty() {
-                    self.first_accessible_exit(actor.location_id, access)
-                        .ok_or_else(|| command_error(&command, "flee", 404, "There is nowhere clear to flee."))?
-                } else {
-                    self.resolve_exit_destination(actor, rest, access).map_err(|output| {
-                        command_error(&command, "flee", 404, output)
-                    })?
-                };
-                Ok(ResolvedCommand {
-                    command: format!("flee {}", self.location_name(destination).unwrap_or_else(|| destination.to_string())),
-                    verb,
-                    action: Some(command_action("flee", "Flee", &format!("flee {}", self.location_name(destination).unwrap_or_else(|| destination.to_string())))),
-                    dispatch: CommandDispatch::Flee {
-                        destination_location_id: destination,
-                    },
-                })
-            }
-            "take" => {
-                let item = self
-                    .resolve_room_item(actor.location_id, rest)
-                    .map_err(|output| command_error(&command, "take", 404, output))?;
-                let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
-                Ok(ResolvedCommand {
-                    command: format!("take {item_name}"),
-                    verb,
-                    action: Some(command_action("pick_up", "Take", &format!("take {item_name}"))),
-                    dispatch: CommandDispatch::PickUp { item_id: item.id },
-                })
-            }
-            "give" => {
-                let (item_query, target_query) = split_direct_indirect(rest, "to")
-                    .ok_or_else(|| command_error(&command, "give", 400, "Use: give <item> to <resident>."))?;
-                let item = self
-                    .resolve_held_item(actor.id, item_query)
-                    .map_err(|output| command_error(&command, "give", 404, output))?;
-                let target = self
-                    .resolve_room_actor(actor, target_query, CommandActorFilter::ActiveNpc)
-                    .map_err(|output| command_error(&command, "give", 404, output))?;
-                let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
-                let target_name = self.actor_view(target).name;
-                Ok(ResolvedCommand {
-                    command: format!("give {item_name} to {target_name}"),
-                    verb,
-                    action: Some(command_action("give_item", "Give Item", &format!("give {item_name} to {target_name}"))),
-                    dispatch: CommandDispatch::GiveItem {
-                        item_id: item.id,
-                        target_actor_id: target.id,
-                    },
-                })
-            }
-            "use" => {
-                let (item_query, target_query) = split_direct_indirect(rest, "on")
-                    .or_else(|| split_direct_indirect(rest, "with"))
-                    .unwrap_or((rest, "self"));
-                let item = self
-                    .resolve_held_item(actor.id, item_query)
-                    .map_err(|output| command_error(&command, "use", 404, output))?;
-                let target = if target_query.trim().eq_ignore_ascii_case("self")
-                    || target_query.trim().is_empty()
-                {
-                    actor
-                } else if let Some(feature_use) =
-                    self.feature_use_result(actor.location_id, target_query, item.id)
-                {
-                    let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
-                    let feature_name = feature_use.feature_name;
-                    return Ok(ResolvedCommand {
-                        command: format!("use {item_name} on {feature_name}"),
-                        verb,
-                        action: Some(command_action(
-                            "use_feature",
-                            "Use",
-                            &format!("use {item_name} on {feature_name}"),
-                        )),
-                        dispatch: if feature_use.matched {
-                            CommandDispatch::UseFeature {
-                                item_id: item.id,
-                                location_id: actor.location_id,
-                                output: feature_use.output,
-                            }
-                        } else {
-                            CommandDispatch::Read {
-                                output: feature_use.output,
-                            }
-                        },
-                    });
-                } else {
-                    self.resolve_room_actor(actor, target_query, CommandActorFilter::Any)
-                        .map_err(|output| command_error(&command, "use", 404, output))?
-                };
-                let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
-                let target_name = self.actor_view(target).name;
-                Ok(ResolvedCommand {
-                    command: format!("use {item_name} on {target_name}"),
-                    verb,
-                    action: Some(command_action("use_item", "Use", &format!("use {item_name} on {target_name}"))),
-                    dispatch: CommandDispatch::UseItem {
-                        item_id: item.id,
-                        target_actor_id: target.id,
-                    },
-                })
-            }
-            "chat" => {
-                let target = self
-                    .resolve_room_actor(actor, rest, CommandActorFilter::ActiveNpc)
-                    .map_err(|output| command_error(&command, "chat", 404, output))?;
-                let target_name = self.actor_view(target).name;
-                Ok(ResolvedCommand {
-                    command: format!("chat {target_name}"),
-                    verb,
-                    action: Some(command_action("chat", "Chat", &format!("chat {target_name}"))),
-                    dispatch: CommandDispatch::Chat {
-                        target_actor_id: target.id,
-                    },
-                })
-            }
-            "listen" => {
-                let listen_cost = self.listen_cost_orbs(actor.id);
-                if listen_cost > 0 && self.orb_balance(actor.id) < listen_cost {
-                    return Ok(ResolvedCommand {
-                        command: "listen".to_string(),
-                        verb,
-                        action: Some(command_action("check", "Listen", "listen")),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 402,
-                            output: format!(
-                                "Listening again here costs {listen_cost} Orb. Search a feature, talk with someone, or earn more Orbs."
-                            ),
-                        },
-                    });
-                }
-                Ok(ResolvedCommand {
-                    command: "listen".to_string(),
-                    verb,
-                    action: Some(command_action("check", "Listen", "listen")),
-                    dispatch: CommandDispatch::Check,
-                })
-            }
-            "prepare" => {
-                if !self.prepare_available(actor.id) {
-                    return Ok(ResolvedCommand {
-                        command: "prepare".to_string(),
-                        verb,
-                        action: Some(command_action("prepare", "Prepare", "prepare")),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "There is nothing useful to prepare here right now.".to_string(),
-                        },
-                    });
-                }
-                Ok(ResolvedCommand {
-                    command: "prepare".to_string(),
-                    verb,
-                    action: Some(command_action("prepare", "Prepare", "prepare")),
-                    dispatch: CommandDispatch::Prepare,
-                })
-            }
-            "work" => {
-                if !self.work_available(actor.id) {
-                    return Ok(ResolvedCommand {
-                        command: "work".to_string(),
-                        verb,
-                        action: Some(command_action("work", "Work", "work")),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "There is no active room project to work on here.".to_string(),
-                        },
-                    });
-                }
-                Ok(ResolvedCommand {
-                    command: "work".to_string(),
-                    verb,
-                    action: Some(command_action("work", "Work", "work")),
-                    dispatch: CommandDispatch::Work,
-                })
-            }
-            "assist" => {
-                if !self.help_available(actor.id) {
-                    return Ok(ResolvedCommand {
-                        command: "assist".to_string(),
-                        verb,
-                        action: Some(command_action("help", "Help", "assist")),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "Nobody here can use that kind of help right now.".to_string(),
-                        },
-                    });
-                }
-                Ok(ResolvedCommand {
-                    command: "assist".to_string(),
-                    verb,
-                    action: Some(command_action("help", "Help", "assist")),
-                    dispatch: CommandDispatch::Help,
-                })
-            }
-            "rest" => {
-                if !self.rest_available(actor.id) {
-                    return Ok(ResolvedCommand {
-                        command: "rest".to_string(),
-                        verb,
-                        action: Some(command_action("rest", "Rest", "rest")),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "You are already steady enough to keep going.".to_string(),
-                        },
-                    });
-                }
-                Ok(ResolvedCommand {
-                    command: "rest".to_string(),
-                    verb,
-                    action: Some(command_action("rest", "Rest", "rest")),
-                    dispatch: CommandDispatch::Rest,
-                })
-            }
-            "bank" => {
-                let ledger = self.visit_ledger_view(actor.id);
-                if ledger.unbanked_count == 0 {
-                    return Ok(ResolvedCommand {
-                        command: "bank ledger".to_string(),
-                        verb,
-                        action: Some(command_action("bank_ledger", "Bank Ledger", "bank ledger")),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "Your Visit Ledger has nothing unbanked yet.".to_string(),
-                        },
-                    });
-                }
-                Ok(ResolvedCommand {
-                    command: "bank ledger".to_string(),
-                    verb,
-                    action: Some(command_action("bank_ledger", "Bank Ledger", "bank ledger")),
-                    dispatch: CommandDispatch::BankLedger,
-                })
-            }
-            "skill" => {
-                let skill_query = rest
-                    .strip_prefix("skill ")
-                    .or_else(|| rest.strip_prefix("train "))
-                    .or_else(|| rest.strip_prefix("practice "))
-                    .unwrap_or(rest)
-                    .trim();
-                let Some(skill_id) = normalize_skill_id(skill_query) else {
-                    return Ok(ResolvedCommand {
-                        command,
-                        verb,
-                        action: Some(command_action("train_skill", "Train Skill", &payload.command)),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 400,
-                            output:
-                                "Use: skill listening, lorecraft, nimble hands, lifting, steadiness, or kindness."
-                                    .to_string(),
-                        },
-                    });
-                };
-                let label = skill_label(skill_id).unwrap_or("Skill");
-                let current_rank = self
-                    .skills
-                    .get(&skill_state_id(actor.id, skill_id))
-                    .map(|skill| skill.rank)
-                    .unwrap_or(0);
-                if current_rank >= MAX_SKILL_RANK {
-                    return Ok(ResolvedCommand {
-                        command: format!("skill {skill_id}"),
-                        verb,
-                        action: Some(command_action(
-                            "train_skill",
-                            "Train Skill",
-                            &format!("skill {skill_id}"),
-                        )),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: format!("{label} is already master rank."),
-                        },
-                    });
-                }
-                if self.advancement_points_available(actor.id) < usize::from(SKILL_STEP_COST) {
-                    return Ok(ResolvedCommand {
-                        command: format!("skill {skill_id}"),
-                        verb,
-                        action: Some(command_action(
-                            "train_skill",
-                            "Train Skill",
-                            &format!("skill {skill_id}"),
-                        )),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "Bank Visit Ledger marks before training a skill.".to_string(),
-                        },
-                    });
-                }
-                Ok(ResolvedCommand {
-                    command: format!("skill {skill_id}"),
-                    verb,
-                    action: Some(command_action(
-                        "train_skill",
-                        "Train Skill",
-                        &format!("skill {skill_id}"),
-                    )),
-                    dispatch: CommandDispatch::TrainSkill {
-                        skill_id: skill_id.to_string(),
-                    },
-                })
-            }
-            "calling" => {
-                let statement = rest
-                    .strip_prefix("calling ")
-                    .unwrap_or(rest)
-                    .trim();
-                let Some(statement) = normalize_calling_statement(statement) else {
-                    return Ok(ResolvedCommand {
-                        command,
-                        verb,
-                        action: Some(command_action("revise_calling", "Revise Calling", &payload.command)),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 400,
-                            output: "Use: calling <a short cozy drive statement>.".to_string(),
-                        },
-                    });
-                };
-                if self.advancement_points_available(actor.id) < usize::from(CALLING_REVISION_COST)
-                {
-                    return Ok(ResolvedCommand {
-                        command,
-                        verb,
-                        action: Some(command_action("revise_calling", "Revise Calling", &payload.command)),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "Bank Visit Ledger marks before revising your Calling."
-                                .to_string(),
-                        },
-                    });
-                }
-                if self
-                    .callings
-                    .get(&actor.id)
-                    .map(|calling| calling.statement == statement)
-                    .unwrap_or(false)
-                {
-                    return Ok(ResolvedCommand {
-                        command,
-                        verb,
-                        action: Some(command_action("revise_calling", "Revise Calling", &payload.command)),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "That is already your Calling.".to_string(),
-                        },
-                    });
-                }
-                Ok(ResolvedCommand {
-                    command: format!("calling {statement}"),
-                    verb,
-                    action: Some(command_action(
-                        "revise_calling",
-                        "Revise Calling",
-                        &format!("calling {statement}"),
-                    )),
-                    dispatch: CommandDispatch::ReviseCalling { statement },
-                })
-            }
-            "bond" => {
-                let rest = rest
-                    .strip_prefix("bond with ")
-                    .or_else(|| rest.strip_prefix("bond "))
-                    .or_else(|| rest.strip_prefix("with "))
-                    .unwrap_or(rest)
-                    .trim();
-                let (target_query, statement) = rest.split_once(':').ok_or_else(|| {
-                    command_error(
-                        &command,
-                        "bond",
-                        400,
-                        "Use: bond <resident>: <short relationship statement>.",
-                    )
-                })?;
-                let Some(statement) = normalize_bond_statement(statement) else {
-                    return Ok(ResolvedCommand {
-                        command,
-                        verb,
-                        action: Some(command_action(
-                            "revise_bond",
-                            "Revise Bond",
-                            &payload.command,
-                        )),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 400,
-                            output: "Use: bond <resident>: <short cozy relationship statement>."
-                                .to_string(),
-                        },
-                    });
-                };
-                let target = self
-                    .resolve_room_actor(actor, target_query, CommandActorFilter::ActiveNpc)
-                    .map_err(|output| command_error(&command, "bond", 404, output))?;
-                let target_name = self.actor_view(target).name;
-                let Some(active_bond) = self.active_bond(actor.id, target.id) else {
-                    if self.advancement_points_available(actor.id) < usize::from(BOND_SLOT_COST) {
-                        return Ok(ResolvedCommand {
-                            command: format!("bond {target_name}: {statement}"),
-                            verb,
-                            action: Some(command_action(
-                                "create_bond",
-                                "Write Bond",
-                                &format!("bond {target_name}: {statement}"),
-                            )),
-                            dispatch: CommandDispatch::Disabled {
-                                status: 409,
-                                output: format!(
-                                    "Bank Visit Ledger marks before writing a new Bond with {target_name}."
-                                ),
-                            },
-                        });
-                    }
-                    return Ok(ResolvedCommand {
-                        command: format!("bond {target_name}: {statement}"),
-                        verb,
-                        action: Some(command_action(
-                            "create_bond",
-                            "Write Bond",
-                            &format!("bond {target_name}: {statement}"),
-                        )),
-                        dispatch: CommandDispatch::CreateBond {
-                            target_actor_id: target.id,
-                            statement,
-                        },
-                    });
-                };
-                if self.advancement_points_available(actor.id) < usize::from(BOND_REVISION_COST) {
-                    return Ok(ResolvedCommand {
-                        command: format!("bond {target_name}: {statement}"),
-                        verb,
-                        action: Some(command_action(
-                            "revise_bond",
-                            "Revise Bond",
-                            &format!("bond {target_name}: {statement}"),
-                        )),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "Bank Visit Ledger marks before revising a Bond.".to_string(),
-                        },
-                    });
-                }
-                if active_bond.statement == statement {
-                    return Ok(ResolvedCommand {
-                        command: format!("bond {target_name}: {statement}"),
-                        verb,
-                        action: Some(command_action(
-                            "revise_bond",
-                            "Revise Bond",
-                            &format!("bond {target_name}: {statement}"),
-                        )),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "That Bond already says that.".to_string(),
-                        },
-                    });
-                }
-                Ok(ResolvedCommand {
-                    command: format!("bond {target_name}: {statement}"),
-                    verb,
-                    action: Some(command_action(
-                        "revise_bond",
-                        "Revise Bond",
-                        &format!("bond {target_name}: {statement}"),
-                    )),
-                    dispatch: CommandDispatch::ReviseBond {
-                        target_actor_id: target.id,
-                        statement,
-                    },
-                })
-            }
-            "resolve" => {
-                let target_query = rest
-                    .strip_prefix("bond with ")
-                    .or_else(|| rest.strip_prefix("bond "))
-                    .unwrap_or(rest)
-                    .trim();
-                let target = self
-                    .resolve_room_actor(actor, target_query, CommandActorFilter::ActiveNpc)
-                    .map_err(|output| command_error(&command, "resolve", 404, output))?;
-                let target_name = self.actor_view(target).name;
-                if self.active_bond(actor.id, target.id).is_none() {
-                    return Ok(ResolvedCommand {
-                        command: format!("resolve bond {target_name}"),
-                        verb,
-                        action: Some(command_action(
-                            "resolve_bond",
-                            "Resolve Bond",
-                            &format!("resolve bond {target_name}"),
-                        )),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: format!("You do not have an active Bond with {target_name}."),
-                        },
-                    });
-                }
-                Ok(ResolvedCommand {
-                    command: format!("resolve bond {target_name}"),
-                    verb,
-                    action: Some(command_action(
-                        "resolve_bond",
-                        "Resolve Bond",
-                        &format!("resolve bond {target_name}"),
-                    )),
-                    dispatch: CommandDispatch::ResolveBond {
-                        target_actor_id: target.id,
-                    },
-                })
-            }
-            "attack" => {
-                let target = self
-                    .resolve_room_actor(actor, rest, CommandActorFilter::ActiveNpc)
-                    .map_err(|output| command_error(&command, "attack", 404, output))?;
-                let target_name = self.actor_view(target).name;
-                Ok(ResolvedCommand {
-                    command: format!("attack {target_name}"),
-                    verb,
-                    action: Some(command_action("attack", "Attack", &format!("attack {target_name}"))),
-                    dispatch: CommandDispatch::Attack {
-                        target_actor_id: target.id,
-                    },
-                })
-            }
-            "defend" => Ok(ResolvedCommand {
-                command: "defend".to_string(),
-                verb,
-                action: Some(command_action("defend", "Defend", "defend")),
-                dispatch: CommandDispatch::Defend,
-            }),
-            "say" | "emote" => Ok(ResolvedCommand {
-                command,
-                verb: verb.clone(),
-                action: Some(command_action(&verb, if verb == "say" { "Say" } else { "Emote" }, &payload.command)),
-                dispatch: CommandDispatch::Disabled {
-                    status: CLIENT_SPEECH_DISABLED_STATUS,
-                    output: "Player-authored speech commands are recognized, but disabled until moderation and room-presence rules are ready.".to_string(),
-                },
-            }),
-            "drop" => Ok(ResolvedCommand {
-                command,
-                verb,
-                action: Some(command_action("drop", "Drop", &payload.command)),
-                dispatch: CommandDispatch::Disabled {
-                    status: 501,
-                    output: "Drop is part of the command grammar, but the kernel does not support dropping items yet.".to_string(),
-                },
-            }),
-            _ => Err(command_error(
-                &command,
-                &verb,
-                404,
-                "I do not know that command yet. Try help, look, search, who, inventory, go, take, give, use, chat, listen, prepare, work, assist, rest, bank ledger, skill, calling, bond, resolve bond, attack, defend, or flee.",
-            )),
-        }
-    }
-
-    fn look_command_output(
-        &self,
-        actor: CwActor,
-        query: &str,
-        access: &AccessContext,
-    ) -> Result<String, &'static str> {
-        let query = trim_command_filler(query);
-        if query.is_empty()
-            || matches!(
-                command_key(query).as_str(),
-                "room" | "here" | "around" | "location"
-            )
-        {
-            return Ok(self.room_command_output(actor, access));
-        }
-        if let Some(feature) = self.resolve_room_feature(actor.location_id, query).ok() {
-            return Ok(format!("{} - {}", feature.name, feature.look));
-        }
-        if let Some(actor) = self
-            .resolve_room_actor(actor, query, CommandActorFilter::Any)
-            .ok()
-        {
-            let view = self.actor_view(actor);
-            let state = if actor.status == CW_ACTOR_ACTIVE {
-                "active"
-            } else {
-                "not active"
-            };
-            return Ok(format!(
-                "{} - {}\n{}\nStatus: {state}. HP: {}/{}.",
-                view.name, view.title, view.description, view.hp, view.stats.hp_base
-            ));
-        }
-        if let Some(item) = self
-            .resolve_room_item(actor.location_id, query)
-            .or_else(|_| self.resolve_held_item(actor.id, query))
-            .ok()
-        {
-            let view = self.item_view(item);
-            let where_text = if item.holder_actor_id == actor.id {
-                "You are carrying it."
-            } else {
-                "It is here."
-            };
-            return Ok(format!(
-                "{} - {}\n{where_text}",
-                view.name, view.description
-            ));
-        }
-        if let Some(destination) = self.resolve_exit_destination(actor, query, access).ok() {
-            let name = self
-                .location_name(destination)
-                .unwrap_or_else(|| format!("Location {destination}"));
-            let meta = self.location_meta_for(destination);
-            return Ok(format!("{name} - {}\n{}", meta.title, meta.description));
-        }
-        Err("Nothing nearby matches that look command.")
-    }
-
-    fn search_command_output(&self, actor: CwActor, query: &str) -> Result<String, &'static str> {
-        let query = trim_command_filler(query);
-        if query.is_empty()
-            || matches!(
-                command_key(query).as_str(),
-                "room" | "here" | "around" | "location"
-            )
-        {
-            let features = self
-                .room_features(actor.location_id)
-                .into_iter()
-                .map(|feature| feature.name.clone())
-                .collect::<Vec<_>>();
-            if features.is_empty() {
-                return Ok(
-                    "You search the room, but nothing asks for closer attention yet.".to_string(),
-                );
-            }
-            return Ok(format!(
-                "Searchable features: {}.",
-                command_list_or_none(&features)
-            ));
-        }
-        let feature = self.resolve_room_feature(actor.location_id, query)?;
-        Ok(format!("{} - {}", feature.name, feature.search))
-    }
-
-    fn feature_use_result(
-        &self,
-        location_id: u64,
-        query: &str,
-        item_id: u64,
-    ) -> Option<FeatureUseResult> {
-        let feature = self.resolve_room_feature(location_id, query).ok()?;
-        let item_name = self
-            .item_name(item_id)
-            .unwrap_or_else(|| item_id.to_string());
-        if let Some(use_case) = feature
-            .uses
-            .iter()
-            .find(|use_case| use_case.item_id == item_id)
-        {
-            return Some(FeatureUseResult {
-                feature_name: feature.name.clone(),
-                output: format!("{} - {}", feature.name, use_case.text),
-                matched: true,
-            });
-        }
-        Some(FeatureUseResult {
-            feature_name: feature.name.clone(),
-            output: format!(
-                "{} - The {item_name} does not wake anything in this feature yet.",
-                feature.name
-            ),
-            matched: false,
-        })
-    }
-
-    fn room_command_output(&self, actor: CwActor, access: &AccessContext) -> String {
-        let location_id = actor.location_id;
-        let location = self.location_view(location_id);
-        let actors = self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|actor| actor.location_id == location_id && actor.status == CW_ACTOR_ACTIVE)
-            .map(|actor| self.actor_view(actor).name)
-            .collect::<Vec<_>>();
-        let items = self.world.items[..self.world.item_count]
-            .iter()
-            .copied()
-            .filter(|item| item.location_id == location_id)
-            .map(|item| self.item_view(item).name)
-            .collect::<Vec<_>>();
-        let exits = self
-            .exit_views(location_id, access)
-            .into_iter()
-            .filter(|exit| exit.accessible)
-            .map(|exit| {
-                exit.direction
-                    .as_deref()
-                    .map(|direction| format!("{direction}: {}", exit.destination_location_name))
-                    .unwrap_or(exit.destination_location_name)
-            })
-            .collect::<Vec<_>>();
-        let features = self
-            .room_features(location_id)
-            .into_iter()
-            .map(|feature| feature.name.clone())
-            .collect::<Vec<_>>();
-        let mut lines = vec![
-            format!("{} - {}", location.name, location.title),
-            location.description,
-            format!("Here: {}.", command_list_or_none(&actors)),
-            format!("Items: {}.", command_list_or_none(&items)),
-            format!("Exits: {}.", command_list_or_none(&exits)),
-            format!("Features: {}.", command_list_or_none(&features)),
-        ];
-
-        if let Some(sheet) = self.room_sheet_view(location_id) {
-            let aspects = command_list_or_none(&sheet.aspects);
-            lines.push(format!("Room: {} zone. Aspects: {}.", sheet.zone, aspects));
-        }
-
-        let clocks = self.clock_views(location_id);
-        let jobs = self
-            .job_views(location_id)
-            .into_iter()
-            .filter(|job| job.status == "active")
-            .map(|job| {
-                let progress = clocks
-                    .iter()
-                    .find(|clock| clock.id == job.progress_clock_id)
-                    .map(clock_summary)
-                    .unwrap_or_else(|| job.progress_clock_id.clone());
-                let danger = clocks
-                    .iter()
-                    .find(|clock| clock.id == job.danger_clock_id)
-                    .map(clock_summary)
-                    .unwrap_or_else(|| job.danger_clock_id.clone());
-                format!(
-                    "{} Stakes: {} Progress: {progress}. Danger: {danger}",
-                    job.premise, job.stakes
-                )
-            })
-            .collect::<Vec<_>>();
-        if !jobs.is_empty() {
-            lines.push(format!("Jobs: {}.", jobs.join(" | ")));
-        }
-
-        if !clocks.is_empty() {
-            let clock_lines = clocks.iter().map(clock_summary).collect::<Vec<_>>();
-            lines.push(format!("Clocks: {}.", clock_lines.join(", ")));
-        }
-
-        let tags = self.tag_views(Some(actor.id), location_id);
-        if !tags.is_empty() {
-            let tag_lines = tags
-                .into_iter()
-                .map(|tag| format!("{} {}", tag.scope, tag.label))
-                .collect::<Vec<_>>();
-            lines.push(format!("Tags: {}.", tag_lines.join(", ")));
-        }
-
-        let ledger = self.visit_ledger_view(actor.id);
-        if ledger.unbanked_count > 0 || ledger.banked_count > 0 || ledger.advancement_points > 0 {
-            lines.push(format!(
-                "Ledger: {} unbanked, {} banked, {} advancement point{}.",
-                ledger.unbanked_count,
-                ledger.banked_count,
-                ledger.advancement_points,
-                if ledger.advancement_points == 1 {
-                    ""
-                } else {
-                    "s"
-                }
-            ));
-        }
-
-        lines.join("\n")
-    }
-
-    fn inventory_command_output(&self, actor_id: u64) -> String {
-        let items = self.world.items[..self.world.item_count]
-            .iter()
-            .copied()
-            .filter(|item| item.holder_actor_id == actor_id)
-            .map(|item| self.item_view(item).name)
-            .collect::<Vec<_>>();
-        if items.is_empty() {
-            "You are not carrying anything.".to_string()
-        } else {
-            format!("You are carrying: {}.", command_list_or_none(&items))
-        }
-    }
-
-    fn who_command_output(&self, location_id: u64) -> String {
-        let actors = self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|actor| actor.location_id == location_id && actor.status == CW_ACTOR_ACTIVE)
-            .map(|actor| {
-                let view = self.actor_view(actor);
-                format!("{} ({})", view.name, view.kind)
-            })
-            .collect::<Vec<_>>();
-        format!("Here: {}.", command_list_or_none(&actors))
-    }
-
-    fn room_feature_views(&self, location_id: u64) -> Vec<RoomFeatureView> {
-        self.room_features(location_id)
-            .into_iter()
-            .map(|feature| RoomFeatureView {
-                key: feature.key.clone(),
-                name: feature.name.clone(),
-                aliases: feature.aliases.clone(),
-                look: feature.look.clone(),
-                search: feature.search.clone(),
-                uses: feature
-                    .uses
-                    .iter()
-                    .map(|use_case| RoomFeatureUseView {
-                        item_id: use_case.item_id,
-                        text: use_case.text.clone(),
-                    })
-                    .collect(),
-            })
-            .collect()
-    }
-
-    fn room_features(&self, location_id: u64) -> Vec<&'static SeedRoomFeatureContent> {
-        seed_content()
-            .room_features
-            .iter()
-            .filter(|feature| feature.location_id == location_id)
-            .collect()
-    }
-
-    fn resolve_room_feature(
-        &self,
-        location_id: u64,
-        query: &str,
-    ) -> Result<&'static SeedRoomFeatureContent, &'static str> {
-        let candidates = self.room_features(location_id);
-        let query = trim_command_filler(query);
-        if query.is_empty() && candidates.len() == 1 {
-            return candidates
-                .first()
-                .copied()
-                .ok_or("No feature here matches that command.");
-        }
-        let query_key = command_key(query);
-        if query_key.is_empty() {
-            return Err("Name a feature to inspect or search.");
-        }
-        candidates
-            .into_iter()
-            .filter_map(|feature| {
-                command_match_score(&feature.name, &query_key)
-                    .or_else(|| command_match_score(&feature.key, &query_key))
-                    .or_else(|| {
-                        feature
-                            .aliases
-                            .iter()
-                            .filter_map(|alias| command_match_score(alias, &query_key))
-                            .min()
-                    })
-                    .map(|score| (score, feature.name.len(), feature))
-            })
-            .min_by_key(|(score, len, _)| (*score, *len))
-            .map(|(_, _, feature)| feature)
-            .ok_or("No feature here matches that command.")
-    }
-
-    fn resolve_room_actor(
-        &self,
-        actor: CwActor,
-        query: &str,
-        filter: CommandActorFilter,
-    ) -> Result<CwActor, &'static str> {
-        let candidates = self.world.actors[..self.world.actor_count]
-            .iter()
-            .copied()
-            .filter(|candidate| {
-                candidate.id != actor.id && candidate.location_id == actor.location_id
-            })
-            .filter(|candidate| match filter {
-                CommandActorFilter::Any => true,
-                CommandActorFilter::ActiveNpc => {
-                    candidate.kind == CW_ACTOR_NPC && candidate.status == CW_ACTOR_ACTIVE
-                }
-            })
-            .collect::<Vec<_>>();
-        self.best_actor_match(candidates, query)
-            .ok_or("No nearby actor matches that command.")
-    }
-
-    fn best_actor_match(&self, candidates: Vec<CwActor>, query: &str) -> Option<CwActor> {
-        let query = trim_command_filler(query);
-        if query.is_empty() && candidates.len() == 1 {
-            return candidates.first().copied();
-        }
-        let query_key = command_key(query);
-        if query_key.is_empty() {
-            return None;
-        }
-        candidates
-            .into_iter()
-            .filter_map(|actor| {
-                let view = self.actor_view(actor);
-                command_match_score(&view.name, &query_key)
-                    .or_else(|| command_match_score(&view.title, &query_key))
-                    .map(|score| (score, view.name.len(), actor))
-            })
-            .min_by_key(|(score, len, _)| (*score, *len))
-            .map(|(_, _, actor)| actor)
-    }
-
-    fn resolve_room_item(&self, location_id: u64, query: &str) -> Result<CwItem, &'static str> {
-        let candidates = self.world.items[..self.world.item_count]
-            .iter()
-            .copied()
-            .filter(|item| item.location_id == location_id)
-            .collect::<Vec<_>>();
-        self.best_item_match(candidates, query)
-            .ok_or("No item here matches that command.")
-    }
-
-    fn resolve_held_item(&self, actor_id: u64, query: &str) -> Result<CwItem, &'static str> {
-        let candidates = self.world.items[..self.world.item_count]
-            .iter()
-            .copied()
-            .filter(|item| item.holder_actor_id == actor_id)
-            .collect::<Vec<_>>();
-        self.best_item_match(candidates, query)
-            .ok_or("You are not carrying an item that matches that command.")
-    }
-
-    fn best_item_match(&self, candidates: Vec<CwItem>, query: &str) -> Option<CwItem> {
-        let query = trim_command_filler(query);
-        if query.is_empty() && candidates.len() == 1 {
-            return candidates.first().copied();
-        }
-        let query_key = command_key(query);
-        if query_key.is_empty() {
-            return None;
-        }
-        candidates
-            .into_iter()
-            .filter_map(|item| {
-                let view = self.item_view(item);
-                command_match_score(&view.name, &query_key)
-                    .or_else(|| command_match_score(&view.description, &query_key))
-                    .map(|score| (score, view.name.len(), item))
-            })
-            .min_by_key(|(score, len, _)| (*score, *len))
-            .map(|(_, _, item)| item)
-    }
-
-    fn resolve_exit_destination(
-        &self,
-        actor: CwActor,
-        query: &str,
-        access: &AccessContext,
-    ) -> Result<u64, &'static str> {
-        let exits = self
-            .exit_views(actor.location_id, access)
-            .into_iter()
-            .filter(|exit| exit.accessible)
-            .collect::<Vec<_>>();
-        if query.trim().is_empty() && exits.len() == 1 {
-            return exits
-                .first()
-                .map(|exit| exit.destination_location_id)
-                .ok_or("No accessible exit matches that command.");
-        }
-        let query_key = command_key(query);
-        if query_key.is_empty() {
-            return Err("Name a room to go to.");
-        }
-        if let Some(direction) = canonical_direction(query) {
-            let direction_matches = exits
-                .into_iter()
-                .filter(|exit| {
-                    exit.direction
-                        .as_deref()
-                        .and_then(canonical_direction)
-                        .is_some_and(|candidate| candidate == direction)
-                })
-                .collect::<Vec<_>>();
-            return match direction_matches.as_slice() {
-                [] => Err("No accessible exit leads that direction."),
-                [exit] => Ok(exit.destination_location_id),
-                _ => Err("Multiple accessible exits lead that direction; name the room."),
-            };
-        }
-        exits
-            .into_iter()
-            .filter_map(|exit| {
-                command_match_score(&exit.destination_location_name, &query_key).map(|score| {
-                    (
-                        score,
-                        exit.destination_location_name.len(),
-                        exit.destination_location_id,
-                    )
-                })
-            })
-            .min_by_key(|(score, len, _)| (*score, *len))
-            .map(|(_, _, id)| id)
-            .ok_or("No accessible exit matches that command.")
-    }
-
-    fn first_accessible_exit(&self, location_id: u64, access: &AccessContext) -> Option<u64> {
-        self.exit_views(location_id, access)
-            .into_iter()
-            .find(|exit| exit.accessible)
-            .map(|exit| exit.destination_location_id)
-    }
-
     fn apply_wallet_overlap_placements(&mut self, ownership: &OwnershipIndex, day_index: u64) {
         let _ = self.apply_wallet_overlap_placements_inner(ownership, day_index, false);
     }
@@ -11462,7 +10224,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         },
         features: MetaFeatureFlags {
             server_authored_chat: true,
-            client_authored_speech: false,
+            client_authored_speech: true,
             ai_enabled: state.ai_config.as_ref().is_some(),
             ambient_enabled: state.ambient.enabled,
             dev_reset_enabled: state.dev_reset_enabled,
@@ -11476,6 +10238,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         persistence: MetaPersistence {
             snapshot_enabled: state.snapshot_path.is_some(),
             event_store_enabled: state.event_store_path.is_some(),
+            moderation_report_retention_days: state.moderation_report_retention.days,
         },
         ownership_feed: MetaOwnershipFeed {
             inline_configured: ownership_feed.inline_feed.is_some(),
@@ -12819,6 +11582,181 @@ async fn moderation_economy_view(
     }
 }
 
+async fn moderation_reports_view(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Query(query): Query<ModerationReportsQuery>,
+) -> Json<ModerationReportsResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return Json(ModerationReportsResponse {
+            ok: false,
+            status: 403,
+            reports: Vec::new(),
+            error: Some("moderation bearer token required".to_string()),
+        });
+    }
+    let status_filter = match moderation_report_status_filter(query.status.as_deref()) {
+        Ok(filter) => filter,
+        Err(error) => {
+            return Json(ModerationReportsResponse {
+                ok: false,
+                status: 400,
+                reports: Vec::new(),
+                error: Some(error.to_string()),
+            });
+        }
+    };
+    let limit = event_replay_limit(query.limit);
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Json(ModerationReportsResponse {
+            ok: false,
+            status: 503,
+            reports: Vec::new(),
+            error: Some("event store is required for moderation reports".to_string()),
+        });
+    };
+    if limit == 0 {
+        return Json(ModerationReportsResponse {
+            ok: true,
+            status: 200,
+            reports: Vec::new(),
+            error: None,
+        });
+    }
+
+    match read_moderation_reports(path, query.after, limit, status_filter) {
+        Ok(mut response) => {
+            annotate_moderation_report_suspensions(&state, &mut response.reports);
+            Json(response)
+        }
+        Err(error) => {
+            warn!(
+                "failed to read CosyWorld v2 moderation reports store {}: {}",
+                path.display(),
+                error
+            );
+            Json(ModerationReportsResponse {
+                ok: false,
+                status: 500,
+                reports: Vec::new(),
+                error: Some(error.to_string()),
+            })
+        }
+    }
+}
+
+fn annotate_moderation_report_suspensions(state: &AppState, reports: &mut [ModerationReportView]) {
+    let Ok(suspensions) = state.actor_suspensions.lock() else {
+        return;
+    };
+    for report in reports {
+        report.reporter_suspended = suspensions.contains_key(&report.reporter_actor_id);
+        report.target_suspended = suspensions.contains_key(&report.target_actor_id);
+    }
+}
+
+async fn moderation_resolve_report(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath(report_id): AxumPath<u64>,
+    Json(payload): Json<ResolveReportRequest>,
+) -> Json<ReportResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return report_response(false, 403, None, "moderation bearer token required");
+    }
+    if report_id == 0 {
+        return report_response(false, 400, None, "Report id is required.");
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return report_response(
+            false,
+            503,
+            None,
+            "Report queue requires the event store to be enabled.",
+        );
+    };
+    let moderator = match normalize_moderator_label(payload.moderator.as_deref()) {
+        Some(label) => label,
+        None => {
+            return report_response(
+                false,
+                400,
+                None,
+                format!("Moderator label must be under {MAX_MODERATOR_LABEL_CHARS} characters."),
+            );
+        }
+    };
+    let note = match normalize_report_resolution_note(payload.note.as_deref()) {
+        Some(note) => note,
+        None => {
+            return report_response(
+                false,
+                400,
+                None,
+                format!(
+                    "Resolution note must be under {MAX_REPORT_RESOLUTION_NOTE_CHARS} characters."
+                ),
+            );
+        }
+    };
+
+    match resolve_moderation_report(path, report_id, &moderator, note.as_deref()) {
+        Ok(Some(report)) => report_response(true, 200, Some(report), ""),
+        Ok(None) => report_response(false, 404, None, "Report was not found."),
+        Err(error) => {
+            warn!(
+                "failed to resolve CosyWorld moderation report {} in {}: {}",
+                report_id,
+                path.display(),
+                error
+            );
+            report_response(false, 500, None, "Report could not be resolved.")
+        }
+    }
+}
+
+async fn moderation_delete_report(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath(report_id): AxumPath<u64>,
+) -> Json<ReportResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return report_response(false, 403, None, "moderation bearer token required");
+    }
+    if report_id == 0 {
+        return report_response(false, 400, None, "Report id is required.");
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return report_response(
+            false,
+            503,
+            None,
+            "Report queue requires the event store to be enabled.",
+        );
+    };
+
+    match delete_resolved_moderation_report(path, report_id) {
+        Ok(DeleteModerationReportOutcome::Deleted(report)) => {
+            report_response(true, 200, Some(report), "")
+        }
+        Ok(DeleteModerationReportOutcome::NotResolved(report)) => {
+            report_response(false, 409, Some(report), "Resolve report before deletion.")
+        }
+        Ok(DeleteModerationReportOutcome::NotFound) => {
+            report_response(false, 404, None, "Report was not found.")
+        }
+        Err(error) => {
+            warn!(
+                "failed to delete CosyWorld moderation report {} in {}: {}",
+                report_id,
+                path.display(),
+                error
+            );
+            report_response(false, 500, None, "Report could not be deleted.")
+        }
+    }
+}
+
 async fn moderation_suspend_actor(
     headers: HeaderMap,
     State(state): State<AppState>,
@@ -12826,7 +11764,15 @@ async fn moderation_suspend_actor(
     Json(payload): Json<ModerationSuspendRequest>,
 ) -> Json<ModerationActorResponse> {
     if !moderation_authorized(&state, &headers) {
-        return moderation_actor_response(false, 403, actor_id, false, None, None);
+        return moderation_actor_response(
+            false,
+            403,
+            actor_id,
+            false,
+            None,
+            None,
+            Some("moderation bearer token required".to_string()),
+        );
     }
     let runtime = state.inner.lock().await;
     let is_human = runtime
@@ -12835,9 +11781,18 @@ async fn moderation_suspend_actor(
         .unwrap_or(false);
     drop(runtime);
     if !is_human {
-        return moderation_actor_response(false, 404, actor_id, false, None, None);
+        return moderation_actor_response(
+            false,
+            404,
+            actor_id,
+            false,
+            None,
+            None,
+            Some("actor was not found or is not a human avatar".to_string()),
+        );
     }
 
+    let was_visible_in_presence = active_actor_ids_for_state(&state).contains(&actor_id);
     let reason = normalize_moderation_reason(payload.reason.as_deref());
     let created_at_unix = now_unix_secs();
     let suspension = ActorSuspension {
@@ -12862,6 +11817,9 @@ async fn moderation_suspend_actor(
             );
         }
     }
+    if was_visible_in_presence {
+        commit_presence_event(&state, actor_id, false).await;
+    }
     moderation_actor_response(
         true,
         200,
@@ -12869,6 +11827,7 @@ async fn moderation_suspend_actor(
         true,
         Some(reason),
         Some(created_at_unix),
+        None,
     )
 }
 
@@ -12878,7 +11837,15 @@ async fn moderation_unsuspend_actor(
     AxumPath(actor_id): AxumPath<u64>,
 ) -> Json<ModerationActorResponse> {
     if !moderation_authorized(&state, &headers) {
-        return moderation_actor_response(false, 403, actor_id, true, None, None);
+        return moderation_actor_response(
+            false,
+            403,
+            actor_id,
+            true,
+            None,
+            None,
+            Some("moderation bearer token required".to_string()),
+        );
     }
     let removed = state
         .actor_suspensions
@@ -12897,7 +11864,7 @@ async fn moderation_unsuspend_actor(
     let (reason, suspended_at_unix) = removed
         .map(|entry| (Some(entry.reason), Some(entry.created_at_unix)))
         .unwrap_or((None, None));
-    moderation_actor_response(true, 200, actor_id, false, reason, suspended_at_unix)
+    moderation_actor_response(true, 200, actor_id, false, reason, suspended_at_unix, None)
 }
 
 fn moderation_actor_response(
@@ -12907,6 +11874,7 @@ fn moderation_actor_response(
     suspended: bool,
     reason: Option<String>,
     suspended_at_unix: Option<u64>,
+    error: Option<String>,
 ) -> Json<ModerationActorResponse> {
     Json(ModerationActorResponse {
         ok,
@@ -12915,6 +11883,7 @@ fn moderation_actor_response(
         suspended,
         reason,
         suspended_at_unix,
+        error,
     })
 }
 
@@ -13152,23 +12121,78 @@ async fn create_avatar(
     })
 }
 
+async fn commit_presence_event(state: &AppState, actor_id: u64, active: bool) -> Vec<EventView> {
+    let mut runtime = state.inner.lock().await;
+    let event = runtime.append_actor_presence_event(actor_id, active);
+    persist_runtime(state, &runtime);
+    drop(runtime);
+
+    let events = vec![event];
+    state.mark_activity();
+    persist_events(state, &events);
+    broadcast_events(state, &events);
+    events
+}
+
+async fn ping_presence(
+    State(state): State<AppState>,
+    Json(payload): Json<ActorRequest>,
+) -> Json<ActionResponse> {
+    let Some(token) = payload.actor_session.as_deref() else {
+        return client_actor_rejected_response();
+    };
+    let can_submit = {
+        let runtime = state.inner.lock().await;
+        !actor_is_suspended(&state, payload.actor_id)
+            && runtime.client_actor_can_submit(payload.actor_id)
+    };
+    if !can_submit {
+        return client_actor_rejected_response();
+    }
+    let Some(was_active) =
+        touch_actor_session_for_actor(&state.actor_sessions, payload.actor_id, token)
+    else {
+        return client_actor_rejected_response();
+    };
+    let events = if was_active {
+        Vec::new()
+    } else {
+        commit_presence_event(&state, payload.actor_id, true).await
+    };
+    Json(ActionResponse {
+        ok: true,
+        status: CW_OK,
+        events,
+    })
+}
+
 async fn leave_presence(
     State(state): State<AppState>,
     Json(payload): Json<ActorRequest>,
 ) -> Json<ActionResponse> {
-    let mut ok = false;
-    if let Some(token) = payload.actor_session.as_deref() {
+    let Some(token) = payload.actor_session.as_deref() else {
+        return client_actor_rejected_response();
+    };
+    let can_submit = {
         let runtime = state.inner.lock().await;
-        ok = client_actor_authorized_for_state(&runtime, &state, payload.actor_id, Some(token));
-        drop(runtime);
-        if ok {
-            ok = mark_actor_session_inactive(&state.actor_sessions, payload.actor_id, token);
-        }
+        !actor_is_suspended(&state, payload.actor_id)
+            && runtime.client_actor_can_submit(payload.actor_id)
+    };
+    if !can_submit {
+        return client_actor_rejected_response();
     }
+    let was_active = actor_session_active_for_actor(&state.actor_sessions, payload.actor_id, token)
+        .unwrap_or(false);
+    let ok = mark_actor_session_inactive(&state.actor_sessions, payload.actor_id, token);
+    let events = if ok && was_active {
+        commit_presence_event(&state, payload.actor_id, false).await
+    } else {
+        Vec::new()
+    };
     Json(ActionResponse {
         ok,
         status: if ok { CW_OK } else { 403 },
-        events: Vec::new(),
+        events,
     })
 }
 
@@ -13413,11 +12437,162 @@ async fn chat(
 }
 
 async fn say(
-    ConnectInfo(_client_addr): ConnectInfo<SocketAddr>,
-    State(_state): State<AppState>,
-    Json(_payload): Json<serde_json::Value>,
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<SayRequest>,
 ) -> Json<ActionResponse> {
-    client_speech_disabled_response()
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "say-actor",
+        CHAT_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let Some(content) = normalize_human_message(&payload.content) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 400,
+            events: Vec::new(),
+        });
+    };
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let content_id = runtime.next_content_id_value();
+    let action = CwAction {
+        kind: CW_ACTION_SAY,
+        actor_id: payload.actor_id,
+        content_id,
+        ..CwAction::default()
+    };
+    let mut record = JournalRecord::new(action, runtime.next_seed_value());
+    record.content_upserts.insert(content_id, content);
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
+        events,
+    })
+}
+
+async fn report_actor(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ReportRequest>,
+) -> Json<ReportResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "report-actor",
+        REPORT_ACTION_LIMIT,
+    ) {
+        return report_response(
+            false,
+            RATE_LIMITED_STATUS as u16,
+            None,
+            "Too many reports. Try again in a moment.",
+        );
+    }
+    let Some(reason) = normalize_report_reason(&payload.reason) else {
+        return report_response(
+            false,
+            400,
+            None,
+            format!(
+                "Report reason must be non-empty and under {MAX_REPORT_REASON_CHARS} characters."
+            ),
+        );
+    };
+    let Some(path) = state.event_store_path.as_deref() else {
+        return report_response(
+            false,
+            503,
+            None,
+            "Report queue requires the event store to be enabled.",
+        );
+    };
+
+    let active_humans = active_actor_ids_for_state(&state);
+    let report = {
+        let runtime = state.inner.lock().await;
+        if !client_actor_authorized_for_state(
+            &runtime,
+            &state,
+            payload.actor_id,
+            payload.actor_session.as_deref(),
+        ) {
+            return report_response(
+                false,
+                403,
+                None,
+                "That report needs an active avatar session.",
+            );
+        }
+        let Some(reporter) = runtime.actor_by_id(payload.actor_id) else {
+            return report_response(false, 404, None, "Reporter avatar was not found.");
+        };
+        let Some(target) = runtime.actor_by_id(payload.target_actor_id) else {
+            return report_response(false, 404, None, "Reported actor was not found.");
+        };
+        if reporter.id == target.id
+            || reporter.location_id != target.location_id
+            || !runtime.actor_visible_in_projection(target, Some(reporter.id), Some(&active_humans))
+        {
+            return report_response(false, 404, None, "Reported actor must be nearby.");
+        }
+        ModerationReportView {
+            report_id: 0,
+            status: "open".to_string(),
+            reporter_actor_id: reporter.id,
+            reporter_actor_name: runtime.actor_view(reporter).name,
+            reporter_actor_kind: actor_kind(reporter.kind).to_string(),
+            reporter_suspended: false,
+            target_actor_id: target.id,
+            target_actor_name: runtime.actor_view(target).name,
+            target_actor_kind: actor_kind(target.kind).to_string(),
+            target_suspended: false,
+            location_id: reporter.location_id,
+            location_name: runtime
+                .location_name(reporter.location_id)
+                .unwrap_or_else(|| reporter.location_id.to_string()),
+            reason,
+            created_at_ms: now_millis(),
+            resolved_at_ms: None,
+            resolved_by: None,
+            resolution_note: None,
+        }
+    };
+
+    match persist_moderation_report(path, &report) {
+        Ok(report) => report_response(true, 200, Some(report), ""),
+        Err(error) => {
+            warn!(
+                "failed to persist CosyWorld moderation report to {}: {}",
+                path.display(),
+                error
+            );
+            report_response(false, 500, None, "Report could not be saved.")
+        }
+    }
 }
 
 async fn command(
@@ -13433,6 +12608,13 @@ async fn command(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
+    let was_active = payload
+        .actor_session
+        .as_deref()
+        .and_then(|token| {
+            actor_session_active_for_actor(&state.actor_sessions, payload.actor_id, token)
+        })
+        .unwrap_or(false);
     let resolved = {
         let runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
@@ -13451,7 +12633,14 @@ async fn command(
                 events: Vec::new(),
             });
         }
-        runtime.resolve_command(&payload, &access)
+        let active_humans = active_actor_ids_for_state(&state);
+        runtime.resolve_command_with_presence(&payload, &access, Some(&active_humans))
+    };
+
+    let presence_events = if was_active {
+        Vec::new()
+    } else {
+        commit_presence_event(&state, payload.actor_id, true).await
     };
 
     let resolved = match resolved {
@@ -13464,7 +12653,7 @@ async fn command(
                 verb: error.verb,
                 output: Some(error.output),
                 action: None,
-                events: Vec::new(),
+                events: presence_events,
             });
         }
     };
@@ -13477,7 +12666,7 @@ async fn command(
             verb: resolved.verb,
             output: Some(output),
             action: resolved.action,
-            events: Vec::new(),
+            events: presence_events,
         }),
         CommandDispatch::Disabled { status, output } => Json(CommandResponse {
             ok: false,
@@ -13486,7 +12675,7 @@ async fn command(
             verb: resolved.verb,
             output: Some(output),
             action: resolved.action,
-            events: Vec::new(),
+            events: presence_events,
         }),
         CommandDispatch::Move {
             destination_location_id,
@@ -13506,7 +12695,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Flee {
             destination_location_id,
@@ -13526,7 +12715,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Check => {
             let Json(response) = ability_check(
@@ -13540,7 +12729,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::PickUp { item_id } => {
             let Json(response) = pick_up_item(
@@ -13554,7 +12743,21 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::Drop { item_id } => {
+            let Json(response) = drop_item(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ItemRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    item_id,
+                    target_actor_id: None,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::UseItem {
             item_id,
@@ -13571,7 +12774,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::UseFeature {
             item_id,
@@ -13585,7 +12788,7 @@ async fn command(
                 "action-actor",
                 GENERAL_ACTION_LIMIT,
             ) {
-                return command_rate_limited_response(resolved);
+                return command_rate_limited_response_with_events(resolved, presence_events);
             }
             let mut runtime = state.inner.lock().await;
             if !client_actor_authorized_for_state(
@@ -13601,7 +12804,7 @@ async fn command(
                     verb: resolved.verb,
                     output: Some("That command needs an active avatar session.".to_string()),
                     action: resolved.action,
-                    events: Vec::new(),
+                    events: presence_events,
                 });
             }
             let feature_use_still_valid = runtime
@@ -13618,7 +12821,7 @@ async fn command(
                     verb: resolved.verb,
                     output: Some("That feature use is no longer available.".to_string()),
                     action: resolved.action,
-                    events: Vec::new(),
+                    events: presence_events,
                 });
             }
             let mut record = JournalRecord::new(
@@ -13645,7 +12848,7 @@ async fn command(
                     verb: resolved.verb,
                     output: Some("That command could not be committed.".to_string()),
                     action: resolved.action,
-                    events: Vec::new(),
+                    events: presence_events,
                 });
             };
             drop(runtime);
@@ -13655,7 +12858,12 @@ async fn command(
                 status: if events.is_empty() { 409 } else { status },
                 events,
             };
-            command_action_response_with_prefix(resolved, response, Some(output))
+            command_action_response_with_prefix_and_events(
+                resolved,
+                response,
+                Some(output),
+                presence_events,
+            )
         }
         CommandDispatch::GiveItem {
             item_id,
@@ -13672,7 +12880,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Attack { target_actor_id } => {
             let Json(response) = attack(
@@ -13685,7 +12893,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::ResolveBond { target_actor_id } => {
             let Json(response) = resolve_bond(
@@ -13698,7 +12906,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Defend => {
             let Json(response) = defend(
@@ -13710,7 +12918,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Prepare => {
             let Json(response) = prepare(
@@ -13722,7 +12930,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Work => {
             let Json(response) = work(
@@ -13734,7 +12942,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Help => {
             let Json(response) = help_room(
@@ -13746,7 +12954,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Rest => {
             let Json(response) = rest(
@@ -13758,7 +12966,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::BankLedger => {
             let Json(response) = bank_ledger(
@@ -13770,7 +12978,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::ReviseCalling { statement } => {
             let Json(response) = revise_calling(
@@ -13783,7 +12991,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::CreateBond {
             target_actor_id,
@@ -13800,7 +13008,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::ReviseBond {
             target_actor_id,
@@ -13817,7 +13025,7 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::TrainSkill { skill_id } => {
             let Json(response) = train_skill(
@@ -13830,7 +13038,70 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::Say { content } => {
+            let Json(response) = say(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(SayRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    content,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::Emote { content } => {
+            let Json(response) = say(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(SayRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    content,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::Report {
+            target_actor_id,
+            reason,
+        } => {
+            let Json(response) = report_actor(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ReportRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                    reason,
+                }),
+            )
+            .await;
+            let output = if response.ok {
+                Some(format!(
+                    "Report submitted for {}.",
+                    response
+                        .report
+                        .as_ref()
+                        .map(|report| report.target_actor_name.as_str())
+                        .unwrap_or("that actor")
+                ))
+            } else {
+                response.error.clone()
+            };
+            Json(CommandResponse {
+                ok: response.ok,
+                status: response.status as u32,
+                command: resolved.command,
+                verb: resolved.verb,
+                output,
+                action: resolved.action,
+                events: presence_events,
+            })
         }
         CommandDispatch::Chat { target_actor_id } => {
             let Json(response) = chat(
@@ -13844,249 +13115,9 @@ async fn command(
                 }),
             )
             .await;
-            command_action_response(resolved, response)
+            command_action_response_with_events(resolved, response, presence_events)
         }
     }
-}
-
-fn command_action_response(
-    resolved: ResolvedCommand,
-    response: ActionResponse,
-) -> Json<CommandResponse> {
-    command_action_response_with_prefix(resolved, response, None)
-}
-
-fn command_action_response_with_prefix(
-    resolved: ResolvedCommand,
-    response: ActionResponse,
-    prefix: Option<String>,
-) -> Json<CommandResponse> {
-    let output = command_response_output(prefix, &response.events);
-    Json(CommandResponse {
-        ok: response.ok,
-        status: response.status,
-        command: resolved.command,
-        verb: resolved.verb,
-        output,
-        action: resolved.action,
-        events: response.events,
-    })
-}
-
-fn command_rate_limited_response(resolved: ResolvedCommand) -> Json<CommandResponse> {
-    Json(CommandResponse {
-        ok: false,
-        status: 429,
-        command: resolved.command,
-        verb: resolved.verb,
-        output: Some("That command is moving too quickly. Try again in a moment.".to_string()),
-        action: resolved.action,
-        events: Vec::new(),
-    })
-}
-
-fn command_response_output(prefix: Option<String>, events: &[EventView]) -> Option<String> {
-    let mut lines = Vec::new();
-    if let Some(prefix) = prefix.map(|value| value.trim().to_string()) {
-        if !prefix.is_empty() {
-            lines.push(prefix);
-        }
-    }
-    for event in events {
-        let Some(line) = command_event_output(event) else {
-            continue;
-        };
-        if !lines.iter().any(|existing| existing == &line) {
-            lines.push(line);
-        }
-    }
-    (!lines.is_empty()).then(|| lines.join("\n"))
-}
-
-fn command_event_output(event: &EventView) -> Option<String> {
-    match event.type_name.as_str() {
-        "message.created" => event.content.clone(),
-        "actor.moved" => Some(format!(
-            "You move from {} to {}.",
-            event.location_name.as_deref().unwrap_or("here"),
-            event
-                .destination_location_name
-                .as_deref()
-                .unwrap_or("there")
-        )),
-        "combat.flee.success" => Some(format!(
-            "You flee to {}.",
-            event
-                .destination_location_name
-                .as_deref()
-                .unwrap_or("safety")
-        )),
-        "item.picked_up" => Some(format!(
-            "You take {}.",
-            event.item_name.as_deref().unwrap_or("the item")
-        )),
-        "item.used" => {
-            if let Some(content) = event
-                .content
-                .as_deref()
-                .map(strip_feature_use_reason)
-                .filter(|content| !content.is_empty())
-            {
-                return Some(content.to_string());
-            }
-            let target = event
-                .target_actor_name
-                .as_deref()
-                .map(|name| format!(" on {name}"))
-                .unwrap_or_default();
-            let healed = event
-                .damage
-                .filter(|damage| *damage < 0)
-                .map(|damage| format!(" Restores {} HP.", damage.abs()))
-                .unwrap_or_default();
-            Some(format!(
-                "You use {}{target}.{healed}",
-                event.item_name.as_deref().unwrap_or("the item")
-            ))
-        }
-        "item.given" => Some(format!(
-            "You give {} to {}.",
-            event.item_name.as_deref().unwrap_or("the item"),
-            event.target_actor_name.as_deref().unwrap_or("someone")
-        )),
-        "ability_check.rolled" => {
-            let total = event
-                .total
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "?".to_string());
-            let dc = event
-                .dc
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "?".to_string());
-            Some(format!(
-                "Listen check: {total} vs DC {dc} ({}).",
-                if event.success { "success" } else { "failure" }
-            ))
-        }
-        "clock.updated" => Some(format!(
-            "{} advances to {}/{}.",
-            event.clock_label.as_deref().unwrap_or("A room clock"),
-            event.clock_filled.unwrap_or(0),
-            event.clock_segments.unwrap_or(0)
-        )),
-        "tag.applied" => Some(format!(
-            "You gain {}.",
-            event.tag_label.as_deref().unwrap_or("a condition")
-        )),
-        "tag.cleared" => Some(format!(
-            "You clear {}.",
-            event.tag_label.as_deref().unwrap_or("a condition")
-        )),
-        "ledger.marked" => Some(format!(
-            "Visit Ledger marked: {}.",
-            event_content_part(event, 1).unwrap_or("visit")
-        )),
-        "ledger.banked" => {
-            let count = event_content_part(event, 0)
-                .and_then(|value| value.parse::<usize>().ok())
-                .unwrap_or(0);
-            Some(format!(
-                "Visit Ledger banked: {count} advancement point{}.",
-                if count == 1 { "" } else { "s" }
-            ))
-        }
-        "advancement.spent" => Some(format!(
-            "Advancement spent: {}.",
-            event_content_part(event, 2).unwrap_or("growth")
-        )),
-        "skill.stepped" => Some(format!(
-            "Skill stepped up: {}.",
-            event_content_part(event, 0).unwrap_or("skill")
-        )),
-        "calling.set" => Some(format!(
-            "Calling set: {}.",
-            event_calling_text(event).unwrap_or("a small truth")
-        )),
-        "calling.revised" => Some(format!(
-            "Calling revised: {}.",
-            event_calling_text(event).unwrap_or("a small truth")
-        )),
-        "bond.deepened" => Some(format!(
-            "Bond deepened with {}.",
-            event.target_actor_name.as_deref().unwrap_or("someone")
-        )),
-        "bond.created" => Some(format!(
-            "Bond written with {}.",
-            event.target_actor_name.as_deref().unwrap_or("someone")
-        )),
-        "bond.revised" => Some(format!(
-            "Bond revised with {}.",
-            event.target_actor_name.as_deref().unwrap_or("someone")
-        )),
-        "bond.resolved" => Some(format!(
-            "Bond resolved with {}.",
-            event.target_actor_name.as_deref().unwrap_or("someone")
-        )),
-        "job.updated" => Some(format!(
-            "Job updated: {}.",
-            event_content_part(event, 1).unwrap_or("changed")
-        )),
-        "combat.defend" => Some("You raise a careful guard.".to_string()),
-        "combat.attack.attempt" => Some(format!(
-            "Attack roll: {} vs AC {}.",
-            event
-                .total
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "?".to_string()),
-            event
-                .dc
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "?".to_string())
-        )),
-        "combat.attack.hit" => Some(format!(
-            "You hit {} for {} damage.",
-            event.target_actor_name.as_deref().unwrap_or("the target"),
-            event.damage.unwrap_or(0)
-        )),
-        "combat.attack.miss" => Some(format!(
-            "{} turns the strike aside.",
-            event.target_actor_name.as_deref().unwrap_or("The target")
-        )),
-        "combat.knockout" => Some(format!(
-            "{} is knocked out.",
-            event.target_actor_name.as_deref().unwrap_or("The target")
-        )),
-        "rule.rejected" => Some("That command was rejected by the world rules.".to_string()),
-        _ => None,
-    }
-}
-
-fn strip_feature_use_reason(content: &str) -> &str {
-    content.strip_suffix(":use_feature").unwrap_or(content)
-}
-
-fn event_content_part<'a>(event: &'a EventView, index: usize) -> Option<&'a str> {
-    event
-        .content
-        .as_deref()?
-        .split(':')
-        .nth(index)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-}
-
-fn event_calling_text(event: &EventView) -> Option<&str> {
-    event
-        .content
-        .as_deref()
-        .map(|content| {
-            content
-                .rsplit_once(':')
-                .map(|(text, _)| text)
-                .unwrap_or(content)
-        })
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
 }
 
 fn schedule_resident_reply(
@@ -14168,6 +13199,30 @@ async fn refresh_ownership_index_once(state: &AppState) -> io::Result<bool> {
         );
     }
     Ok(changed || !placement_events.is_empty())
+}
+
+fn start_moderation_retention_scheduler(state: AppState) {
+    if state.moderation_report_retention.days.is_none() {
+        return;
+    }
+    tokio::spawn(async move {
+        tokio::time::sleep(MODERATION_RETENTION_SWEEP_INTERVAL).await;
+        loop {
+            if let Some(path) = state.event_store_path.as_deref() {
+                if let Err(error) = purge_expired_moderation_reports_for_retention(
+                    path,
+                    state.moderation_report_retention,
+                ) {
+                    warn!(
+                        "failed to purge expired CosyWorld moderation reports from {}: {}",
+                        path.display(),
+                        error
+                    );
+                }
+            }
+            tokio::time::sleep(MODERATION_RETENTION_SWEEP_INTERVAL).await;
+        }
+    });
 }
 
 fn start_ambient_scheduler(state: AppState) {
@@ -14670,6 +13725,33 @@ async fn pick_up_item(
         state,
         CwAction {
             kind: CW_ACTION_PICK_UP_ITEM,
+            actor_id: payload.actor_id,
+            item_id: payload.item_id,
+            ..CwAction::default()
+        },
+        payload.actor_session.as_deref(),
+    )
+    .await
+}
+
+async fn drop_item(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ItemRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    apply_and_broadcast(
+        state,
+        CwAction {
+            kind: CW_ACTION_DROP_ITEM,
             actor_id: payload.actor_id,
             item_id: payload.item_id,
             ..CwAction::default()
@@ -15683,23 +14765,32 @@ async fn apply_and_broadcast(
     action: CwAction,
     actor_session: Option<&str>,
 ) -> Json<ActionResponse> {
+    let actor_id = action.actor_id;
+    let was_active = actor_session
+        .and_then(|token| actor_session_active_for_actor(&state.actor_sessions, actor_id, token))
+        .unwrap_or(false);
     let mut runtime = state.inner.lock().await;
-    if !client_actor_authorized_for_state(&runtime, &state, action.actor_id, actor_session) {
+    if !client_actor_authorized_for_state(&runtime, &state, actor_id, actor_session) {
         return client_actor_rejected_response();
     }
     let listen_cost = if action_is_listen_check(&action) {
-        runtime.listen_cost_orbs(action.actor_id)
+        runtime.listen_cost_orbs(actor_id)
     } else {
         0
     };
-    if listen_cost > 0 && runtime.orb_balance(action.actor_id) < listen_cost {
+    if listen_cost > 0 && runtime.orb_balance(actor_id) < listen_cost {
+        drop(runtime);
+        let events = if was_active {
+            Vec::new()
+        } else {
+            commit_presence_event(&state, actor_id, true).await
+        };
         return Json(ActionResponse {
             ok: false,
             status: 402,
-            events: Vec::new(),
+            events,
         });
     }
-    let actor_id = action.actor_id;
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
     if listen_cost > 0 {
         record.orb_deltas.push(OrbDelta {
@@ -15718,10 +14809,14 @@ async fn apply_and_broadcast(
     drop(runtime);
 
     broadcast_events(&state, &events);
+    let mut response_events = events;
+    if !was_active {
+        response_events.extend(commit_presence_event(&state, actor_id, true).await);
+    }
     Json(ActionResponse {
         ok: status == CW_OK,
         status,
-        events,
+        events: response_events,
     })
 }
 
@@ -15734,6 +14829,7 @@ fn client_actor_rejected_response() -> Json<ActionResponse> {
 }
 
 async fn stream(
+    headers: HeaderMap,
     State(state): State<AppState>,
     Query(query): Query<EventsQuery>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
@@ -15752,19 +14848,76 @@ async fn stream(
         });
         runtime.visible_event_locations(actor_id, &access)
     };
+    let replay_after = stream_replay_after(&headers, query.after);
+    let replay_limit = event_replay_limit(query.limit);
     let rx = state.tx.subscribe();
-    let stream = BroadcastStream::new(rx).filter_map(move |event| match event {
-        Ok(view) if event_visible_to_locations(&view, &visible_locations) => {
-            match Event::default().event("world").json_data(view) {
-                Ok(event) => Some(Ok(event)),
-                Err(_) => None,
-            }
-        }
+    let replay_events =
+        stream_replay_events(&state, replay_after, replay_limit, &visible_locations).await;
+    let replay_stream = tokio_stream::iter(replay_events.into_iter().filter_map(sse_world_event));
+    let live_stream = BroadcastStream::new(rx).filter_map(move |event| match event {
+        Ok(view) if event_visible_to_locations(&view, &visible_locations) => sse_world_event(view),
         Ok(_) => None,
         Err(_) => None,
     });
+    let stream = replay_stream.chain(live_stream);
 
     Sse::new(stream).keep_alive(KeepAlive::default())
+}
+
+fn stream_replay_after(headers: &HeaderMap, query_after: Option<u64>) -> Option<u64> {
+    let header_after = headers
+        .get("last-event-id")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.trim().parse::<u64>().ok());
+    query_after.into_iter().chain(header_after).max()
+}
+
+async fn stream_replay_events(
+    state: &AppState,
+    after: Option<u64>,
+    replay_limit: usize,
+    visible_locations: &BTreeSet<u64>,
+) -> Vec<EventView> {
+    if after.is_none() || replay_limit == 0 {
+        return Vec::new();
+    }
+    let events = if let Some(path) = state.event_store_path.as_deref() {
+        match read_event_store(path, after, event_store_scan_limit(after, replay_limit)) {
+            Ok(events) => events,
+            Err(error) => {
+                warn!(
+                    "failed to read CosyWorld v2 stream replay store {}: {}",
+                    path.display(),
+                    error
+                );
+                Vec::new()
+            }
+        }
+    } else {
+        let runtime = state.inner.lock().await;
+        runtime
+            .event_log
+            .iter()
+            .filter(|event| after.map(|seq| event.seq > seq).unwrap_or(true))
+            .cloned()
+            .collect()
+    };
+    tail_event_replay(
+        events
+            .into_iter()
+            .filter(|event| event_visible_to_locations(event, visible_locations))
+            .collect(),
+        replay_limit,
+    )
+}
+
+fn sse_world_event(view: EventView) -> Option<Result<Event, Infallible>> {
+    Event::default()
+        .event("world")
+        .id(view.seq.to_string())
+        .json_data(view)
+        .ok()
+        .map(Ok)
 }
 
 fn broadcast_events(state: &AppState, events: &[EventView]) {
@@ -15775,6 +14928,10 @@ fn broadcast_events(state: &AppState, events: &[EventView]) {
 
 async fn index() -> impl IntoResponse {
     (no_store_headers(), Html(INDEX_HTML))
+}
+
+async fn moderation_console() -> impl IntoResponse {
+    (no_store_headers(), Html(MODERATION_HTML))
 }
 
 fn event_visible_to_locations(event: &EventView, location_ids: &BTreeSet<u64>) -> bool {
@@ -16664,6 +15821,7 @@ fn persist_events(state: &AppState, events: &[EventView]) {
 }
 
 const INDEX_HTML: &str = include_str!("index.html");
+const MODERATION_HTML: &str = include_str!("moderation.html");
 
 fn snapshot_path_from_env() -> Option<PathBuf> {
     match std::env::var("COSYWORLD_V2_SNAPSHOT_PATH") {
@@ -16752,6 +15910,25 @@ fn init_event_store(path: &Path) -> io::Result<()> {
             created_at_unix INTEGER NOT NULL,
             updated_at_ms INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS moderation_reports (
+            report_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            status TEXT NOT NULL DEFAULT 'open',
+            reporter_actor_id INTEGER NOT NULL,
+            reporter_actor_name TEXT NOT NULL,
+            reporter_actor_kind TEXT NOT NULL DEFAULT 'human',
+            target_actor_id INTEGER NOT NULL,
+            target_actor_name TEXT NOT NULL,
+            target_actor_kind TEXT NOT NULL DEFAULT 'unknown',
+            location_id INTEGER NOT NULL,
+            location_name TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            created_at_ms INTEGER NOT NULL,
+            resolved_at_ms INTEGER,
+            resolved_by TEXT,
+            resolution_note TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_moderation_reports_target ON moderation_reports(target_actor_id);
+        CREATE INDEX IF NOT EXISTS idx_moderation_reports_created ON moderation_reports(created_at_ms);
         CREATE TABLE IF NOT EXISTS orb_ledger (
             idempotency_key TEXT PRIMARY KEY,
             actor_id INTEGER NOT NULL,
@@ -16806,6 +15983,67 @@ fn init_event_store(path: &Path) -> io::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_avatar_pack_openings_owner ON avatar_pack_openings(owner_wallet_address);",
     )
     .map_err(sqlite_error)?;
+    ensure_sqlite_column(
+        &conn,
+        "moderation_reports",
+        "reporter_actor_kind",
+        "ALTER TABLE moderation_reports ADD COLUMN reporter_actor_kind TEXT NOT NULL DEFAULT 'human'",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "moderation_reports",
+        "target_actor_kind",
+        "ALTER TABLE moderation_reports ADD COLUMN target_actor_kind TEXT NOT NULL DEFAULT 'unknown'",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "moderation_reports",
+        "status",
+        "ALTER TABLE moderation_reports ADD COLUMN status TEXT NOT NULL DEFAULT 'open'",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "moderation_reports",
+        "resolved_at_ms",
+        "ALTER TABLE moderation_reports ADD COLUMN resolved_at_ms INTEGER",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "moderation_reports",
+        "resolved_by",
+        "ALTER TABLE moderation_reports ADD COLUMN resolved_by TEXT",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "moderation_reports",
+        "resolution_note",
+        "ALTER TABLE moderation_reports ADD COLUMN resolution_note TEXT",
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_moderation_reports_status ON moderation_reports(status, report_id)",
+        [],
+    )
+    .map_err(sqlite_error)?;
+    Ok(())
+}
+
+fn ensure_sqlite_column(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    alter_sql: &str,
+) -> io::Result<()> {
+    let pragma = format!("PRAGMA table_info({table})");
+    let mut stmt = conn.prepare(&pragma).map_err(sqlite_error)?;
+    let rows = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(sqlite_error)?;
+    for row in rows {
+        if row.map_err(sqlite_error)? == column {
+            return Ok(());
+        }
+    }
+    conn.execute(alter_sql, []).map_err(sqlite_error)?;
     Ok(())
 }
 
@@ -17083,6 +16321,26 @@ fn append_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
         }
     }
     tx.commit().map_err(sqlite_error)?;
+    Ok(())
+}
+
+fn max_event_store_seq(path: &Path) -> io::Result<u64> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let max_seq: Option<i64> = conn
+        .query_row("SELECT MAX(seq) FROM world_events", [], |row| row.get(0))
+        .map_err(sqlite_error)?;
+    Ok(max_seq.unwrap_or(0).max(0) as u64)
+}
+
+fn advance_runtime_next_event_seq_from_store(
+    runtime: &mut RuntimeWorld,
+    path: &Path,
+) -> io::Result<()> {
+    let max_seq = max_event_store_seq(path)?;
+    if runtime.world.next_event_seq <= max_seq {
+        runtime.world.next_event_seq = max_seq.saturating_add(1);
+    }
     Ok(())
 }
 
@@ -17461,6 +16719,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
          DELETE FROM actor_sessions;
          DELETE FROM wallet_avatar_links;
          DELETE FROM actor_suspensions;
+         DELETE FROM moderation_reports;
          DELETE FROM orb_ledger;
          DELETE FROM ai_usage_ledger;
          DELETE FROM wooden_box_receipts;
@@ -17786,6 +17045,9 @@ mod tests {
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             avatar_chat_delay: Duration::ZERO,
             moderation_token: None,
+            moderation_report_retention: ModerationReportRetention {
+                days: Some(DEFAULT_MODERATION_REPORT_RETENTION_DAYS),
+            },
             allow_unsigned_wallet_claims: false,
         }
     }
@@ -18180,6 +17442,27 @@ mod tests {
     }
 
     #[test]
+    fn moderation_console_contract_exposes_report_queue_tools() {
+        assert!(MODERATION_HTML.contains("data-moderation-token"));
+        assert!(MODERATION_HTML.contains("data-status-filter=\"open\""));
+        assert!(MODERATION_HTML.contains("data-status-filter=\"resolved\""));
+        assert!(MODERATION_HTML.contains("data-report-list"));
+        assert!(MODERATION_HTML.contains("data-resolve-report"));
+        assert!(MODERATION_HTML.contains("data-delete-report"));
+        assert!(MODERATION_HTML.contains("data-suspend-reporter"));
+        assert!(MODERATION_HTML.contains("data-suspend-target"));
+        assert!(MODERATION_HTML.contains("data-unsuspend-reporter"));
+        assert!(MODERATION_HTML.contains("data-unsuspend-target"));
+        assert!(MODERATION_HTML.contains("target_actor_kind"));
+        assert!(MODERATION_HTML.contains("target_suspended"));
+        assert!(MODERATION_HTML.contains("/moderation/reports?"));
+        assert!(MODERATION_HTML.contains("/moderation/actors/"));
+        assert!(MODERATION_HTML.contains("/resolve"));
+        assert!(MODERATION_HTML.contains("/delete"));
+        assert!(MODERATION_HTML.contains("/suspend"));
+    }
+
+    #[test]
     fn event_store_appends_and_reads_after_seq() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-events-{}-{}.sqlite",
@@ -18472,6 +17755,119 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
+    #[tokio::test]
+    async fn moderation_suspend_broadcasts_presence_leave_and_blocks_session() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut record = JournalRecord::new(create, 17635);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Suspended Presence".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Moderation Tester".to_string(),
+                description: "A test avatar checking suspension fanout.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        let mut state = test_app_state(runtime, None);
+        state.moderation_token = Some(Arc::new("audit-secret".to_string()));
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        assert!(active_actor_ids_for_state(&state).contains(&5000));
+        let mut rx = state.tx.subscribe();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            "Bearer audit-secret".parse().unwrap(),
+        );
+
+        let denied_suspend = moderation_suspend_actor(
+            HeaderMap::new(),
+            State(state.clone()),
+            AxumPath(5000),
+            Json(ModerationSuspendRequest {
+                reason: Some("ignored".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(!denied_suspend.ok);
+        assert_eq!(denied_suspend.status, 403);
+        assert_eq!(
+            denied_suspend.error.as_deref(),
+            Some("moderation bearer token required")
+        );
+
+        let denied_unsuspend =
+            moderation_unsuspend_actor(HeaderMap::new(), State(state.clone()), AxumPath(5000))
+                .await
+                .0;
+        assert!(!denied_unsuspend.ok);
+        assert_eq!(denied_unsuspend.status, 403);
+        assert_eq!(
+            denied_unsuspend.error.as_deref(),
+            Some("moderation bearer token required")
+        );
+
+        let non_human_suspend = moderation_suspend_actor(
+            headers.clone(),
+            State(state.clone()),
+            AxumPath(1001),
+            Json(ModerationSuspendRequest {
+                reason: Some("not a player avatar".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(!non_human_suspend.ok);
+        assert_eq!(non_human_suspend.status, 404);
+        assert_eq!(
+            non_human_suspend.error.as_deref(),
+            Some("actor was not found or is not a human avatar")
+        );
+
+        let suspended = moderation_suspend_actor(
+            headers,
+            State(state.clone()),
+            AxumPath(5000),
+            Json(ModerationSuspendRequest {
+                reason: Some(" room safety ".to_string()),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(suspended.ok);
+        assert_eq!(suspended.status, 200);
+        assert!(suspended.suspended);
+        assert_eq!(suspended.reason.as_deref(), Some("room safety"));
+        assert!(suspended.error.is_none());
+        assert!(!active_actor_ids_for_state(&state).contains(&5000));
+        let broadcast = rx.try_recv().expect("suspension presence broadcast");
+        assert_eq!(broadcast.type_name, "actor.presence");
+        assert_eq!(broadcast.actor_id, Some(5000));
+        assert_eq!(broadcast.content.as_deref(), Some("inactive"));
+
+        let denied_speech = say(
+            ConnectInfo("127.0.0.1:0".parse().unwrap()),
+            State(state.clone()),
+            Json(SayRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                content: "still here?".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(!denied_speech.ok);
+        assert_eq!(denied_speech.status, 403);
+        assert!(denied_speech.events.is_empty());
+    }
+
     #[test]
     fn action_journal_replays_runtime_state() {
         let path = std::env::temp_dir().join(format!(
@@ -18525,6 +17921,56 @@ mod tests {
             .event_log
             .iter()
             .any(|event| event.type_name == "message.created" && event.content_id == Some(9001)));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn event_store_max_seq_advances_action_journal_replay() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-journal-event-seq-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut create_record = JournalRecord::new(create, 12355);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Sequence Replay".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Sequence Tester".to_string(),
+                description: "A journal replay sequence fixture.".to_string(),
+            },
+        );
+        append_action_journal(&path, &create_record).expect("append create");
+
+        let mut replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");
+        let replay_next_seq = replayed.world.next_event_seq;
+        append_event_store(
+            &path,
+            &[EventView {
+                seq: replay_next_seq + 7,
+                type_name: "actor.presence".to_string(),
+                success: true,
+                actor_id: Some(5000),
+                actor_name: Some("Sequence Replay".to_string()),
+                location_id: Some(1),
+                location_name: Some("The Cosy Cottage".to_string()),
+                content: Some("active".to_string()),
+                ..EventView::default()
+            }],
+        )
+        .expect("append presence event");
+
+        advance_runtime_next_event_seq_from_store(&mut replayed, &path)
+            .expect("advance runtime sequence");
+        assert_eq!(replayed.world.next_event_seq, replay_next_seq + 8);
 
         let _ = fs::remove_file(path);
     }
@@ -18615,6 +18061,234 @@ mod tests {
             Some(&session_token)
         ));
         assert!(active_actor_ids(&actor_sessions).contains(&5000));
+    }
+
+    #[tokio::test]
+    async fn presence_ping_and_leave_emit_room_refresh_events() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut record = JournalRecord::new(create, 17610);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Presence Beacon".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Presence Tester".to_string(),
+                description: "A test avatar checking live presence fanout.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        assert!(mark_actor_session_inactive(
+            &state.actor_sessions,
+            5000,
+            &actor_session
+        ));
+        let mut rx = state.tx.subscribe();
+
+        let ping = ping_presence(
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session.clone()),
+            }),
+        )
+        .await
+        .0;
+        assert!(ping.ok);
+        assert_eq!(ping.events.len(), 1);
+        assert_eq!(ping.events[0].type_name, "actor.presence");
+        assert_eq!(ping.events[0].content.as_deref(), Some("active"));
+        assert!(active_actor_ids(&state.actor_sessions).contains(&5000));
+        let broadcast = rx.try_recv().expect("presence ping broadcast");
+        assert_eq!(broadcast.type_name, "actor.presence");
+        assert_eq!(broadcast.content.as_deref(), Some("active"));
+
+        let leave = leave_presence(
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+            }),
+        )
+        .await
+        .0;
+        assert!(leave.ok);
+        assert_eq!(leave.events.len(), 1);
+        assert_eq!(leave.events[0].type_name, "actor.presence");
+        assert_eq!(leave.events[0].content.as_deref(), Some("inactive"));
+        assert!(!active_actor_ids(&state.actor_sessions).contains(&5000));
+        let broadcast = rx.try_recv().expect("presence leave broadcast");
+        assert_eq!(broadcast.type_name, "actor.presence");
+        assert_eq!(broadcast.content.as_deref(), Some("inactive"));
+    }
+
+    #[tokio::test]
+    async fn read_only_command_reactivates_stale_presence() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut record = JournalRecord::new(create, 17620);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Command Presence".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Presence Tester".to_string(),
+                description: "A test avatar checking command presence fanout.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        assert!(mark_actor_session_inactive(
+            &state.actor_sessions,
+            5000,
+            &actor_session
+        ));
+        let mut rx = state.tx.subscribe();
+        let mut payload = command_request(5000, "look");
+        payload.actor_session = Some(actor_session);
+
+        let response = command(
+            ConnectInfo("127.0.0.1:0".parse().unwrap()),
+            State(state.clone()),
+            Json(payload),
+        )
+        .await
+        .0;
+        assert!(response.ok);
+        assert_eq!(response.status, CW_OK);
+        assert!(response
+            .output
+            .as_deref()
+            .unwrap_or_default()
+            .contains("The Cosy Cottage"));
+        assert_eq!(response.events.len(), 1);
+        assert_eq!(response.events[0].type_name, "actor.presence");
+        assert_eq!(response.events[0].content.as_deref(), Some("active"));
+        assert!(active_actor_ids(&state.actor_sessions).contains(&5000));
+        let broadcast = rx.try_recv().expect("command presence broadcast");
+        assert_eq!(broadcast.type_name, "actor.presence");
+        assert_eq!(broadcast.content.as_deref(), Some("active"));
+    }
+
+    #[tokio::test]
+    async fn mutating_command_response_includes_stale_presence_refresh() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut record = JournalRecord::new(create, 17625);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Command Speaker".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Presence Tester".to_string(),
+                description: "A test avatar checking command speech presence.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        assert!(mark_actor_session_inactive(
+            &state.actor_sessions,
+            5000,
+            &actor_session
+        ));
+        let mut rx = state.tx.subscribe();
+        let mut payload = command_request(5000, "say hello room");
+        payload.actor_session = Some(actor_session);
+
+        let response = command(
+            ConnectInfo("127.0.0.1:0".parse().unwrap()),
+            State(state.clone()),
+            Json(payload),
+        )
+        .await
+        .0;
+        assert!(response.ok);
+        assert_eq!(response.status, CW_OK);
+        assert_eq!(response.events.len(), 2);
+        assert_eq!(response.events[0].type_name, "actor.presence");
+        assert_eq!(response.events[0].content.as_deref(), Some("active"));
+        assert_eq!(response.events[1].type_name, "message.created");
+        assert_eq!(response.events[1].content.as_deref(), Some("hello room"));
+        assert!(active_actor_ids(&state.actor_sessions).contains(&5000));
+        let presence_broadcast = rx.try_recv().expect("command presence broadcast");
+        assert_eq!(presence_broadcast.type_name, "actor.presence");
+        assert_eq!(presence_broadcast.content.as_deref(), Some("active"));
+        let message_broadcast = rx.try_recv().expect("command speech broadcast");
+        assert_eq!(message_broadcast.type_name, "message.created");
+        assert_eq!(message_broadcast.content.as_deref(), Some("hello room"));
+    }
+
+    #[tokio::test]
+    async fn direct_action_reactivates_stale_presence() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut record = JournalRecord::new(create, 17630);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Action Presence".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Presence Tester".to_string(),
+                description: "A test avatar checking action presence fanout.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        assert!(mark_actor_session_inactive(
+            &state.actor_sessions,
+            5000,
+            &actor_session
+        ));
+        let mut rx = state.tx.subscribe();
+
+        let response = ability_check(
+            ConnectInfo("127.0.0.1:0".parse().unwrap()),
+            State(state.clone()),
+            Json(CheckRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                ability: "wisdom".to_string(),
+                dc: Some(LISTEN_DC),
+            }),
+        )
+        .await
+        .0;
+        assert!(response.ok);
+        assert_eq!(response.status, CW_OK);
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "ability_check.rolled"));
+        assert!(response.events.iter().any(|event| {
+            event.type_name == "actor.presence" && event.content.as_deref() == Some("active")
+        }));
+        assert!(active_actor_ids(&state.actor_sessions).contains(&5000));
+        let check_broadcast = rx.try_recv().expect("direct action broadcast");
+        assert_eq!(check_broadcast.type_name, "ability_check.rolled");
+        let presence_broadcast = rx.try_recv().expect("direct action presence broadcast");
+        assert_eq!(presence_broadcast.type_name, "actor.presence");
+        assert_eq!(presence_broadcast.content.as_deref(), Some("active"));
     }
 
     #[test]
@@ -18826,6 +18500,47 @@ mod tests {
         assert!(state.actors.iter().any(|actor| actor.id == 5000));
         assert!(!state.actors.iter().any(|actor| actor.id == 5001));
         assert!(state.actors.iter().any(|actor| actor.name == "Whiskerwind"));
+
+        let who = runtime
+            .resolve_command_with_presence(
+                &command_request(5000, "who"),
+                &AccessContext::default(),
+                Some(&active_humans),
+            )
+            .expect("who resolves with live presence");
+        match who.dispatch {
+            CommandDispatch::Read { output } => {
+                assert!(output.contains("Active Guest"));
+                assert!(!output.contains("Gone Guest"));
+                assert!(output.contains("Whiskerwind"));
+            }
+            other => panic!("who should be read-only, got {other:?}"),
+        }
+
+        let look = runtime
+            .resolve_command_with_presence(
+                &command_request(5000, "look"),
+                &AccessContext::default(),
+                Some(&active_humans),
+            )
+            .expect("look resolves with live presence");
+        match look.dispatch {
+            CommandDispatch::Read { output } => {
+                assert!(output.contains("Active Guest"));
+                assert!(!output.contains("Gone Guest"));
+                assert!(output.contains("Whiskerwind"));
+            }
+            other => panic!("look should be read-only, got {other:?}"),
+        }
+
+        let stale_report = runtime
+            .resolve_command_with_presence(
+                &command_request(5000, "report Gone Guest: stale session"),
+                &AccessContext::default(),
+                Some(&active_humans),
+            )
+            .expect_err("stale humans are not visible report targets");
+        assert_eq!(stale_report.status, 404);
 
         let world = runtime.world_response_with_presence(
             Some(5000),
@@ -20705,6 +20420,29 @@ mod tests {
         assert_eq!(content.fallback_lines.len(), 10);
         assert_eq!(content.lifecycle_hooks.len(), 6);
         assert_eq!(content.evolution_tracks.len(), 3);
+        let mut exit_direction_keys = BTreeSet::new();
+        for exit in &content.exits {
+            let direction = exit
+                .direction
+                .as_deref()
+                .and_then(canonical_direction)
+                .expect("seed exit exposes a compass direction");
+            assert!(
+                exit_direction_keys.insert((exit.from_location_id, direction)),
+                "duplicate direction {direction} from location {}",
+                exit.from_location_id
+            );
+        }
+        assert!(content.exits.iter().any(|exit| {
+            exit.from_location_id == 1
+                && exit.to_location_id == 2
+                && exit.direction.as_deref().and_then(canonical_direction) == Some("east")
+        }));
+        assert!(content.exits.iter().any(|exit| {
+            exit.from_location_id == 11
+                && exit.to_location_id == 1
+                && exit.direction.as_deref().and_then(canonical_direction) == Some("out")
+        }));
         assert!(content
             .lifecycle_hooks
             .iter()
@@ -21337,6 +21075,9 @@ mod tests {
             .room_features
             .iter()
             .any(|feature| feature.uses.iter().any(|use_case| use_case.item_id == 2005)));
+        assert!(state.exits.iter().any(|exit| {
+            exit.destination_location_id == 2 && exit.direction.as_deref() == Some("east")
+        }));
 
         let look = runtime
             .resolve_command(&command_request(5000, "look"), &access)
@@ -21352,6 +21093,18 @@ mod tests {
             other => panic!("look should be read-only, got {other:?}"),
         }
 
+        let help = runtime
+            .resolve_command(&command_request(5000, "help"), &access)
+            .expect("help resolves");
+        match help.dispatch {
+            CommandDispatch::Read { output } => {
+                assert!(output.contains("emote <action>"));
+                assert!(output.contains("report <actor>: <reason>"));
+                assert!(output.contains("drop <item>"));
+            }
+            other => panic!("help should be read-only, got {other:?}"),
+        }
+
         let search = runtime
             .resolve_command(&command_request(5000, "search scarf"), &access)
             .expect("search resolves");
@@ -21361,6 +21114,17 @@ mod tests {
                 assert!(output.contains("round notch"));
             }
             other => panic!("search should be read-only, got {other:?}"),
+        }
+
+        let look_east = runtime
+            .resolve_command(&command_request(5000, "look east"), &access)
+            .expect("look direction resolves");
+        match look_east.dispatch {
+            CommandDispatch::Read { output } => {
+                assert!(output.contains("Rain-Soft Garden"));
+                assert!(output.contains("Garden Annex"));
+            }
+            other => panic!("look direction should be read-only, got {other:?}"),
         }
 
         let go = runtime
@@ -21385,6 +21149,16 @@ mod tests {
                 destination_location_id,
             } => assert_eq!(destination_location_id, 2),
             other => panic!("direction should map to movement, got {other:?}"),
+        }
+
+        let go_east_alias = runtime
+            .resolve_command(&command_request(5000, "go e"), &access)
+            .expect("direction alias resolves");
+        match go_east_alias.dispatch {
+            CommandDispatch::Move {
+                destination_location_id,
+            } => assert_eq!(destination_location_id, 2),
+            other => panic!("direction alias should map to movement, got {other:?}"),
         }
 
         let mut move_action = CwAction::default();
@@ -21426,10 +21200,59 @@ mod tests {
             other => panic!("inventory should be read-only, got {other:?}"),
         }
 
+        let drop = runtime
+            .resolve_command(&command_request(5000, "drop dewbright"), &access)
+            .expect("drop resolves");
+        match drop.dispatch {
+            CommandDispatch::Drop { item_id } => {
+                assert_eq!(item_id, 2002);
+                let mut drop_action = CwAction::default();
+                drop_action.kind = CW_ACTION_DROP_ITEM;
+                drop_action.actor_id = 5000;
+                drop_action.item_id = item_id;
+                let (status, drop_events) =
+                    runtime.apply_journal_record(&JournalRecord::new(drop_action, 7833));
+                assert_eq!(status, CW_OK);
+                assert_eq!(
+                    command_response_output(None, &drop_events).as_deref(),
+                    Some("You drop Dewbright Button.")
+                );
+                assert!(runtime.world.items[..runtime.world.item_count]
+                    .iter()
+                    .any(|item| {
+                        item.id == 2002 && item.location_id == 2 && item.holder_actor_id == 0
+                    }));
+            }
+            other => panic!("drop should map to item drop, got {other:?}"),
+        }
+
+        let inventory = runtime
+            .resolve_command(&command_request(5000, "inventory"), &access)
+            .expect("inventory resolves after drop");
+        match inventory.dispatch {
+            CommandDispatch::Read { output } => assert!(!output.contains("Dewbright Button")),
+            other => panic!("inventory should be read-only, got {other:?}"),
+        }
+
+        let take_again = runtime
+            .resolve_command(&command_request(5000, "take dewbright"), &access)
+            .expect("retake resolves");
+        match take_again.dispatch {
+            CommandDispatch::PickUp { item_id } => assert_eq!(item_id, 2002),
+            other => panic!("retake should map to pick-up, got {other:?}"),
+        }
+        pickup.item_id = 2002;
+        let (status, pickup_events) =
+            runtime.apply_journal_record(&JournalRecord::new(pickup, 7834));
+        assert_eq!(status, CW_OK);
+        assert!(pickup_events
+            .iter()
+            .any(|event| event.type_name == "item.picked_up" && event.item_id == Some(2002)));
+
         move_action.destination_location_id = 1;
         assert_eq!(
             runtime
-                .apply_journal_record(&JournalRecord::new(move_action, 7833))
+                .apply_journal_record(&JournalRecord::new(move_action, 7835))
                 .0,
             CW_OK
         );
@@ -21437,7 +21260,7 @@ mod tests {
         pickup.item_id = 2005;
         assert_eq!(
             runtime
-                .apply_journal_record(&JournalRecord::new(pickup, 7834))
+                .apply_journal_record(&JournalRecord::new(pickup, 7836))
                 .0,
             CW_OK
         );
@@ -21470,7 +21293,7 @@ mod tests {
                         actor_id: 5000,
                         ..CwAction::default()
                     },
-                    7835,
+                    7837,
                 );
                 feature_record
                     .projection_mutations
@@ -21520,15 +21343,117 @@ mod tests {
             other => panic!("talk should map to chat, got {other:?}"),
         }
 
+        let report = runtime
+            .resolve_command(
+                &command_request(5000, "report rati: repeated room spam"),
+                &access,
+            )
+            .expect("report resolves");
+        match report.dispatch {
+            CommandDispatch::Report {
+                target_actor_id,
+                reason,
+            } => {
+                assert_eq!(target_actor_id, 1001);
+                assert_eq!(reason, "repeated room spam");
+                assert_eq!(report.command, "report Rati: repeated room spam");
+            }
+            other => panic!("report should map to moderation report, got {other:?}"),
+        }
+
         let say = runtime
             .resolve_command(&command_request(5000, "say hello room"), &access)
-            .expect("say is recognized");
+            .expect("say resolves");
         match say.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, CLIENT_SPEECH_DISABLED_STATUS);
-                assert!(output.contains("recognized"));
+            CommandDispatch::Say { content } => {
+                assert_eq!(content, "hello room");
+                let content_id = 9101;
+                let mut record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_SAY,
+                        actor_id: 5000,
+                        content_id,
+                        ..CwAction::default()
+                    },
+                    7838,
+                );
+                record.content_upserts.insert(content_id, content);
+                let (status, events) = runtime.apply_journal_record(&record);
+                assert_eq!(status, CW_OK);
+                assert!(events.iter().any(|event| {
+                    event.type_name == "message.created"
+                        && event.actor_id == Some(5000)
+                        && event.location_id == Some(1)
+                        && event.content.as_deref() == Some("hello room")
+                }));
+                assert_eq!(
+                    command_response_output(None, &events).as_deref(),
+                    Some("hello room")
+                );
             }
-            other => panic!("say should be recognized but disabled, got {other:?}"),
+            other => panic!("say should map to room speech, got {other:?}"),
+        }
+
+        let emote = runtime
+            .resolve_command(&command_request(5000, "/me waves by the hearth"), &access)
+            .expect("emote resolves");
+        match emote.dispatch {
+            CommandDispatch::Emote { content } => {
+                assert_eq!(emote.command, "emote waves by the hearth.");
+                assert_eq!(content, "waves by the hearth.");
+                let content_id = 9102;
+                let mut record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_SAY,
+                        actor_id: 5000,
+                        content_id,
+                        ..CwAction::default()
+                    },
+                    7839,
+                );
+                record.content_upserts.insert(content_id, content);
+                let (status, events) = runtime.apply_journal_record(&record);
+                assert_eq!(status, CW_OK);
+                assert!(events.iter().any(|event| {
+                    event.type_name == "message.created"
+                        && event.actor_id == Some(5000)
+                        && event.location_id == Some(1)
+                        && event.content.as_deref() == Some("waves by the hearth.")
+                }));
+                assert_eq!(
+                    command_response_output(None, &events).as_deref(),
+                    Some("waves by the hearth.")
+                );
+            }
+            other => panic!("emote should map to room narration, got {other:?}"),
+        }
+
+        let unsafe_emote = runtime
+            .resolve_command(
+                &command_request(5000, "emote points toward https://spam.example"),
+                &access,
+            )
+            .expect("unsafe emote resolves to disabled output");
+        match unsafe_emote.dispatch {
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 400);
+                assert!(output.contains("Keep it cozy"));
+            }
+            other => panic!("unsafe emote should be rejected before commit, got {other:?}"),
+        }
+
+        let unsafe_say = runtime
+            .resolve_command(
+                &command_request(5000, "say visit https://spam.example now"),
+                &access,
+            )
+            .expect("unsafe say resolves to disabled output");
+        match unsafe_say.dispatch {
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 400);
+                assert!(output.contains("Keep it cozy"));
+            }
+            other => panic!("unsafe say should be rejected before commit, got {other:?}"),
         }
     }
 
@@ -22559,6 +22484,60 @@ mod tests {
     }
 
     #[test]
+    fn stream_replay_after_uses_query_and_last_event_id() {
+        let headers = HeaderMap::new();
+        assert_eq!(stream_replay_after(&headers, None), None);
+        assert_eq!(stream_replay_after(&headers, Some(7)), Some(7));
+
+        let mut headers = HeaderMap::new();
+        headers.insert("last-event-id", "12".parse().unwrap());
+        assert_eq!(stream_replay_after(&headers, None), Some(12));
+        assert_eq!(stream_replay_after(&headers, Some(7)), Some(12));
+        assert_eq!(stream_replay_after(&headers, Some(20)), Some(20));
+
+        headers.insert("last-event-id", "not-a-sequence".parse().unwrap());
+        assert_eq!(stream_replay_after(&headers, Some(7)), Some(7));
+    }
+
+    #[tokio::test]
+    async fn stream_replay_events_filters_visible_events_after_cursor() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.event_log = [1, 2, 3, 4]
+            .into_iter()
+            .map(|seq| EventView {
+                seq,
+                type_name: "message.created".to_string(),
+                success: true,
+                reason: 0,
+                actor_id: Some(5000),
+                actor_name: Some("Replay Tester".to_string()),
+                location_id: Some(if seq == 3 { 12 } else { 1 }),
+                location_name: Some(if seq == 3 {
+                    "Library".to_string()
+                } else {
+                    "The Cosy Cottage".to_string()
+                }),
+                content_id: Some(9000 + seq),
+                content: Some(format!("event {seq}")),
+                ..EventView::default()
+            })
+            .collect();
+        let state = test_app_state(runtime, None);
+        let visible_locations = BTreeSet::from([1]);
+
+        let replay = stream_replay_events(&state, Some(1), 10, &visible_locations).await;
+        let seqs: Vec<_> = replay.iter().map(|event| event.seq).collect();
+        assert_eq!(seqs, vec![2, 4]);
+
+        assert!(stream_replay_events(&state, None, 10, &visible_locations)
+            .await
+            .is_empty());
+        assert!(stream_replay_events(&state, Some(1), 0, &visible_locations)
+            .await
+            .is_empty());
+    }
+
+    #[test]
     fn free_world_locations_are_public_with_optional_card_ownership() {
         let runtime = RuntimeWorld::seeded();
         let no_wallet = AccessContext::default();
@@ -22714,6 +22693,325 @@ mod tests {
         headers.insert(header::AUTHORIZATION, "Bearer secret".parse().unwrap());
         assert!(moderation_authorized_token(Some("secret"), &headers));
         assert!(!moderation_authorized_token(None, &headers));
+    }
+
+    #[tokio::test]
+    async fn player_reports_require_session_and_feed_moderation_queue() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-report-audit-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+
+        let mut runtime = RuntimeWorld::seeded();
+        for (actor_id, name) in [(5000, "Report Tester"), (5001, "Closed Tab Guest")] {
+            let mut create = CwAction::default();
+            create.kind = CW_ACTION_CREATE_ACTOR;
+            create.actor_id = actor_id;
+            create.location_id = 1;
+            let mut record = JournalRecord::new(create, 7741 + actor_id);
+            record.actor_meta_upserts.insert(
+                actor_id,
+                ActorMeta {
+                    name: name.to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Moderation Tester".to_string(),
+                    description: "A test avatar checking player reports.".to_string(),
+                },
+            );
+            assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        }
+
+        let mut state = test_app_state(runtime, Some(path.clone()));
+        state.moderation_token = Some(Arc::new("audit-secret".to_string()));
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let client_addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
+
+        let denied = report_actor(
+            ConnectInfo(client_addr),
+            State(state.clone()),
+            Json(ReportRequest {
+                actor_id: 5000,
+                actor_session: None,
+                target_actor_id: 1001,
+                reason: "missing session".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(!denied.ok);
+        assert_eq!(denied.status, 403);
+
+        let stale_target = report_actor(
+            ConnectInfo(client_addr),
+            State(state.clone()),
+            Json(ReportRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session.clone()),
+                target_actor_id: 5001,
+                reason: "closed tab human".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(!stale_target.ok);
+        assert_eq!(stale_target.status, 404);
+        assert_eq!(
+            stale_target.error.as_deref(),
+            Some("Reported actor must be nearby.")
+        );
+
+        let submitted = report_actor(
+            ConnectInfo(client_addr),
+            State(state.clone()),
+            Json(ReportRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                target_actor_id: 1001,
+                reason: "  repeated   room spam  ".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(submitted.ok);
+        assert_eq!(submitted.status, 200);
+        let report = submitted.report.expect("report response");
+        assert!(report.report_id > 0);
+        assert_eq!(report.reporter_actor_id, 5000);
+        assert_eq!(report.reporter_actor_name, "Report Tester");
+        assert_eq!(report.reporter_actor_kind, "human");
+        assert!(!report.reporter_suspended);
+        assert_eq!(report.target_actor_id, 1001);
+        assert_eq!(report.target_actor_name, "Rati");
+        assert_eq!(report.target_actor_kind, "npc");
+        assert!(!report.target_suspended);
+        assert_eq!(report.location_name, "The Cosy Cottage");
+        assert_eq!(report.reason, "repeated room spam");
+        assert_eq!(report.status, "open");
+        assert_eq!(report.resolved_at_ms, None);
+        state.actor_suspensions.lock().unwrap().insert(
+            5000,
+            ActorSuspension {
+                reason: "queue annotation probe".to_string(),
+                created_at_unix: now_unix_secs(),
+            },
+        );
+
+        let denied_queue = moderation_reports_view(
+            HeaderMap::new(),
+            State(state.clone()),
+            Query(ModerationReportsQuery {
+                after: None,
+                limit: Some(10),
+                status: None,
+            }),
+        )
+        .await
+        .0;
+        assert!(!denied_queue.ok);
+        assert_eq!(denied_queue.status, 403);
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            "Bearer audit-secret".parse().unwrap(),
+        );
+        let queue = moderation_reports_view(
+            headers.clone(),
+            State(state.clone()),
+            Query(ModerationReportsQuery {
+                after: None,
+                limit: Some(10),
+                status: None,
+            }),
+        )
+        .await
+        .0;
+        assert!(queue.ok);
+        assert_eq!(queue.status, 200);
+        assert_eq!(queue.reports.len(), 1);
+        assert_eq!(queue.reports[0].reason, "repeated room spam");
+        assert!(queue.reports[0].reporter_suspended);
+        assert!(!queue.reports[0].target_suspended);
+
+        let denied_delete_open = moderation_delete_report(
+            headers.clone(),
+            State(state.clone()),
+            AxumPath(report.report_id),
+        )
+        .await
+        .0;
+        assert!(!denied_delete_open.ok);
+        assert_eq!(denied_delete_open.status, 409);
+        assert_eq!(
+            denied_delete_open
+                .report
+                .as_ref()
+                .map(|report| report.status.as_str()),
+            Some("open")
+        );
+
+        let denied_resolution = moderation_resolve_report(
+            HeaderMap::new(),
+            State(state.clone()),
+            AxumPath(report.report_id),
+            Json(ResolveReportRequest {
+                moderator: Some("Smoke Mod".to_string()),
+                note: Some("reviewed".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(!denied_resolution.ok);
+        assert_eq!(denied_resolution.status, 403);
+
+        let resolved = moderation_resolve_report(
+            headers.clone(),
+            State(state.clone()),
+            AxumPath(report.report_id),
+            Json(ResolveReportRequest {
+                moderator: Some(" Smoke   Mod ".to_string()),
+                note: Some(" handled after review ".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(resolved.ok);
+        assert_eq!(resolved.status, 200);
+        let resolved_report = resolved.report.expect("resolved report");
+        assert_eq!(resolved_report.report_id, report.report_id);
+        assert_eq!(resolved_report.status, "resolved");
+        assert_eq!(resolved_report.resolved_by.as_deref(), Some("Smoke Mod"));
+        assert_eq!(
+            resolved_report.resolution_note.as_deref(),
+            Some("handled after review")
+        );
+        assert!(resolved_report.resolved_at_ms.is_some());
+
+        let open_queue = moderation_reports_view(
+            headers.clone(),
+            State(state.clone()),
+            Query(ModerationReportsQuery {
+                after: None,
+                limit: Some(10),
+                status: None,
+            }),
+        )
+        .await
+        .0;
+        assert!(open_queue.ok);
+        assert!(open_queue.reports.is_empty());
+
+        let resolved_queue = moderation_reports_view(
+            headers.clone(),
+            State(state.clone()),
+            Query(ModerationReportsQuery {
+                after: None,
+                limit: Some(10),
+                status: Some("resolved".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(resolved_queue.ok);
+        assert_eq!(resolved_queue.reports.len(), 1);
+        assert_eq!(resolved_queue.reports[0].report_id, report.report_id);
+
+        let deleted = moderation_delete_report(
+            headers.clone(),
+            State(state.clone()),
+            AxumPath(report.report_id),
+        )
+        .await
+        .0;
+        assert!(deleted.ok);
+        assert_eq!(deleted.status, 200);
+        assert_eq!(
+            deleted.report.as_ref().map(|report| report.status.as_str()),
+            Some("resolved")
+        );
+
+        let all_queue = moderation_reports_view(
+            headers,
+            State(state),
+            Query(ModerationReportsQuery {
+                after: None,
+                limit: Some(10),
+                status: Some("all".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(all_queue.ok);
+        assert!(all_queue.reports.is_empty());
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn moderation_report_retention_only_purges_expired_resolved_reports() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-report-retention-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+
+        let report = |status: &str, reason: &str| ModerationReportView {
+            report_id: 0,
+            status: status.to_string(),
+            reporter_actor_id: 5000,
+            reporter_actor_name: "Reporter".to_string(),
+            reporter_actor_kind: "human".to_string(),
+            reporter_suspended: false,
+            target_actor_id: 1001,
+            target_actor_name: "Rati".to_string(),
+            target_actor_kind: "npc".to_string(),
+            target_suspended: false,
+            location_id: 1,
+            location_name: "The Cosy Cottage".to_string(),
+            reason: reason.to_string(),
+            created_at_ms: 100,
+            resolved_at_ms: None,
+            resolved_by: None,
+            resolution_note: None,
+        };
+
+        let open = persist_moderation_report(&path, &report("open", "open report"))
+            .expect("persist open report");
+        let old = persist_moderation_report(&path, &report("resolved", "expired resolved report"))
+            .expect("persist old resolved report");
+        let recent =
+            persist_moderation_report(&path, &report("resolved", "recent resolved report"))
+                .expect("persist recent resolved report");
+        let conn = open_event_store(&path).expect("open event store");
+        conn.execute(
+            "UPDATE moderation_reports SET resolved_at_ms = ?2, resolved_by = 'test' WHERE report_id = ?1",
+            params![old.report_id as i64, 1_000_i64],
+        )
+        .expect("mark old resolved");
+        conn.execute(
+            "UPDATE moderation_reports SET resolved_at_ms = ?2, resolved_by = 'test' WHERE report_id = ?1",
+            params![recent.report_id as i64, 9_000_i64],
+        )
+        .expect("mark recent resolved");
+
+        let purged = purge_resolved_moderation_reports_before(&path, 5_000).expect("purge reports");
+        assert_eq!(purged, 1);
+
+        let queue = read_moderation_reports(&path, None, 10, ModerationReportStatusFilter::All)
+            .expect("read reports");
+        let ids: BTreeSet<u64> = queue
+            .reports
+            .iter()
+            .map(|report| report.report_id)
+            .collect();
+        assert!(ids.contains(&open.report_id));
+        assert!(ids.contains(&recent.report_id));
+        assert!(!ids.contains(&old.report_id));
+
+        let _ = fs::remove_file(path);
     }
 
     #[tokio::test]
@@ -23576,6 +23874,9 @@ mod tests {
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             avatar_chat_delay: Duration::ZERO,
             moderation_token: None,
+            moderation_report_retention: ModerationReportRetention {
+                days: Some(DEFAULT_MODERATION_REPORT_RETENTION_DAYS),
+            },
             allow_unsigned_wallet_claims: false,
         };
         let mut rx = state.tx.subscribe();

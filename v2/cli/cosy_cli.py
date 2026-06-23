@@ -7,6 +7,7 @@ import argparse
 import json
 import random
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -23,6 +24,7 @@ except ImportError:  # pragma: no cover - non-posix fallback
 ABILITIES = ("strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma")
 AVATAR_PREFIXES = ("Moss", "Button", "Hearth", "Rain", "Moon", "Thimble", "Lantern", "Brindle")
 AVATAR_SUFFIXES = ("Wanderer", "Stitch", "Keeper", "Guest", "Scout", "Dreamer", "Walker", "Friend")
+PRESENCE_HEARTBEAT_SECS = 60
 
 
 class ButtonAction:
@@ -77,9 +79,12 @@ class Game:
         self.actor_id = actor_id
         self.actor_session = actor_session
         self.last_seq = 0
+        self._presence_stop = threading.Event()
+        self._presence_thread: threading.Thread | None = None
 
     def run(self) -> None:
         self.ensure_avatar()
+        self.start_presence_heartbeat()
         self.look()
         self.help(short=True)
         while True:
@@ -114,6 +119,7 @@ class Game:
             self.actor_id = None
 
         if self.actor_id is not None:
+            self.ping_presence()
             state = self.state()
             if state.get("primary_action", {}).get("kind") != "create_avatar":
                 return
@@ -144,33 +150,53 @@ class Game:
         if verb in {"help", "h", "?"}:
             self.help()
         elif verb in {"look", "l"}:
-            self.look()
+            if rest:
+                self.run_command(command)
+            else:
+                self.look()
         elif verb in {"act", "a"}:
             self.act()
         elif verb == "chat":
-            self.chat(rest)
+            if rest and not first_token_int(rest):
+                self.run_command(command)
+            else:
+                self.chat(rest)
         elif verb in {"say", "\""}:
-            print("Human-authored speech is disabled. Use chat or act.")
+            self.run_command(f"say {rest}" if verb == "\"" else command)
+        elif verb in {"emote", "me", "/me", "report", "drop", "give", "bond", "resolve", "skill", "calling", "bank", "listen", "prepare", "work", "assist", "rest", "search"}:
+            self.run_command(command)
         elif verb in {"move", "go"}:
-            self.move(rest)
+            if rest and not first_token_int(rest):
+                self.run_command(command)
+            else:
+                self.move(rest)
         elif verb in {"pickup", "pick", "take"}:
-            self.pick_up(rest)
+            if rest and not first_token_int(rest):
+                self.run_command(command)
+            else:
+                self.pick_up(rest)
         elif verb == "use":
-            self.use_item(rest)
+            if rest and not all(part.isdigit() for part in rest.split()):
+                self.run_command(command)
+            else:
+                self.use_item(rest)
         elif verb == "check":
             self.check(rest)
         elif verb == "attack":
-            self.attack(rest)
+            if rest and not first_token_int(rest):
+                self.run_command(command)
+            else:
+                self.attack(rest)
         elif verb == "defend":
             self.defend()
-        elif verb == "events":
+        elif verb in {"events", "watch"}:
             self.events(rest)
         elif verb == "who":
             self.who()
         elif verb == "inventory":
             self.inventory()
         else:
-            print("Unknown command. Type help.")
+            self.run_command(command)
         return False
 
     def state(self) -> dict[str, object]:
@@ -427,10 +453,34 @@ class Game:
 
     def events(self, rest: str) -> None:
         after = int(rest) if rest else self.last_seq
-        response = self.client.get("/events", {"after": after})
+        query: dict[str, object] = {"after": after}
+        if self.actor_id is not None:
+            query["actor_id"] = self.actor_id
+        if self.actor_session:
+            query["actor_session"] = self.actor_session
+        response = self.client.get("/events", query)
         if not isinstance(response, list):
             raise ClientError("events response was not a list")
+        if not response:
+            print("No new room events.")
+            return
         self.print_events(response)
+
+    def run_command(self, command: str) -> None:
+        if self.actor_id is None:
+            raise ClientError("command requires an avatar")
+        response = self.client.post(
+            "/commands",
+            self.with_actor_session({"actor_id": self.actor_id, "command": command}),
+        )
+        if not isinstance(response, dict):
+            raise ClientError("command response was not an object")
+        output = response.get("output")
+        if output:
+            print(str(output))
+        self.print_events(response.get("events") or [])
+        if not response.get("ok") and not output:
+            print(f"Command failed with status {response.get('status')}.")
 
     def post_action(self, path: str, payload: dict[str, object]) -> None:
         response = self.client.post(path, self.with_actor_session(payload))
@@ -490,6 +540,8 @@ class Game:
             return
         for event in events:
             self.last_seq = max(self.last_seq, int(event.get("seq") or 0))
+            if event_is_hidden_context(event):
+                continue
             print(self.format_event(event))
 
     def remember_events(self, events: list[dict[str, object]]) -> None:
@@ -507,6 +559,8 @@ class Game:
 
         if type_name == "message.created":
             return f"[{seq}] {actor}: {event.get('content', '')}"
+        if type_name == "world.reset":
+            return f"[{seq}] The world returns to its first page."
         if type_name == "actor.created":
             return f"[{seq}] {actor} enters the world at {location}."
         if type_name == "actor.entered_location":
@@ -517,6 +571,8 @@ class Game:
             return f"[{seq}] {actor} cannot move from {location} to {destination}."
         if type_name == "item.picked_up":
             return f"[{seq}] {actor} picks up {event.get('item_name') or 'an item'}."
+        if type_name == "item.dropped":
+            return f"[{seq}] {actor} drops {event.get('item_name') or 'an item'}."
         if type_name == "item.used":
             target = event.get("target_actor_name") or actor
             return f"[{seq}] {actor} uses {event.get('item_name') or 'an item'} on {target}."
@@ -541,6 +597,23 @@ class Game:
                 f"[{seq}] {actor} {outcome} a check at {event.get('total')} "
                 f"vs DC {event.get('dc')}."
             )
+        if type_name == "clock.updated":
+            return (
+                f"[{seq}] {event.get('clock_label') or 'A room clock'} advances to "
+                f"{event.get('clock_filled') or 0}/{event.get('clock_segments') or 0}."
+            )
+        if type_name == "tag.applied":
+            return f"[{seq}] {location} gains {event.get('tag_label') or 'a condition'}."
+        if type_name == "tag.cleared":
+            return f"[{seq}] {location} clears {event.get('tag_label') or 'a condition'}."
+        if type_name == "calling.set":
+            return f"[{seq}] {actor} sets a Calling: {event_label_tail(event)}."
+        if type_name == "calling.revised":
+            return f"[{seq}] {actor} revises their Calling: {event_label_tail(event)}."
+        if type_name == "ledger.marked":
+            return f"[{seq}] {actor} marks the Visit Ledger: {event_label_tail(event)}."
+        if type_name == "ledger.banked":
+            return f"[{seq}] {actor} banks the Visit Ledger: {event_label_tail(event)}."
         if type_name == "combat.defend":
             return f"[{seq}] {actor} defends."
         if type_name == "combat.attack.attempt":
@@ -573,19 +646,52 @@ class Game:
     def leave_presence(self) -> None:
         if self.actor_id is None or not self.actor_session:
             return
+        self.stop_presence_heartbeat()
         try:
             self.client.post("/presence/leave", self.with_actor_session({"actor_id": self.actor_id}))
         except ClientError:
             pass
 
+    def ping_presence(self) -> None:
+        if self.actor_id is None or not self.actor_session:
+            return
+        self.client.post("/presence/ping", self.with_actor_session({"actor_id": self.actor_id}))
+
+    def start_presence_heartbeat(self) -> None:
+        if self.actor_id is None or not self.actor_session or self._presence_thread:
+            return
+        try:
+            self.ping_presence()
+        except ClientError:
+            return
+        self._presence_stop.clear()
+
+        def heartbeat() -> None:
+            while not self._presence_stop.wait(PRESENCE_HEARTBEAT_SECS):
+                try:
+                    self.ping_presence()
+                except ClientError:
+                    return
+
+        self._presence_thread = threading.Thread(target=heartbeat, daemon=True)
+        self._presence_thread.start()
+
+    def stop_presence_heartbeat(self) -> None:
+        self._presence_stop.set()
+        thread = self._presence_thread
+        if thread and thread.is_alive() and threading.current_thread() is not thread:
+            thread.join(timeout=1)
+        self._presence_thread = None
+
     def help(self, short: bool = False) -> None:
         if short:
-            print("Type 'act' for the one-button menu, 'chat', 'look', or 'help'.")
+            print("Type 'act' for the one-button menu, 'say <message>', 'look', or 'help'.")
             return
         print(
-            "Commands: act, look, chat [actor_id], move <location_id>, pickup <item_id>, "
-            "use <item_id> [target_actor_id], check <ability> [dc], attack <actor_id>, "
-            "defend, inventory, events [after_seq], quit"
+            "Commands: act, look, who, inventory, say <message>, /me <action>, "
+            "chat <actor_id|name>, report <actor>: <reason>, go <location_id|direction>, "
+            "take/drop <item>, use <item> [target], check <ability> [dc], attack <actor>, "
+            "defend, events/watch [after_seq], quit"
         )
 
     @staticmethod
@@ -604,6 +710,7 @@ class ButtonGame(Game):
 
     def run(self) -> None:
         self.ensure_avatar()
+        self.start_presence_heartbeat()
         while True:
             try:
                 state = self.state()
@@ -639,6 +746,7 @@ class ButtonGame(Game):
             self.actor_id = None
 
         if self.actor_id is not None:
+            self.ping_presence()
             state = self.state()
             if state.get("primary_action", {}).get("kind") != "create_avatar":
                 return
@@ -843,6 +951,8 @@ class ButtonGame(Game):
             return
         for event in events:
             self.last_seq = max(self.last_seq, int(event.get("seq") or 0))
+            if event_is_hidden_context(event):
+                continue
             self.message_log.append(self.format_event(event))
         self.message_log = self.message_log[-20:]
 
@@ -853,6 +963,29 @@ def actor_label(actor_id: object) -> str:
 
 def location_label(location_id: object) -> str:
     return f"Location {location_id}" if location_id else "somewhere"
+
+
+def event_is_hidden_context(event: dict[str, object]) -> bool:
+    return event.get("type") in {"world.bootstrapped", "actor.presence"}
+
+
+def event_label_tail(event: dict[str, object]) -> str:
+    content = str(event.get("content") or "").strip()
+    if not content:
+        return "something changes"
+    parts = content.split(":")
+    return (parts[1] if len(parts) > 1 else parts[0]).strip() or content
+
+
+def first_token_int(value: str) -> int | None:
+    value = value.strip()
+    if not value:
+        return None
+    token = value.split()[0]
+    try:
+        return int(token)
+    except ValueError:
+        return None
 
 
 def generated_avatar_name() -> str:

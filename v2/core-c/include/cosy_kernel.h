@@ -82,7 +82,8 @@ typedef enum {
   CW_ACTION_ATTACK = 7,
   CW_ACTION_DEFEND = 8,
   CW_ACTION_GIVE_ITEM = 9,
-  CW_ACTION_FLEE = 10
+  CW_ACTION_FLEE = 10,
+  CW_ACTION_DROP_ITEM = 11
 } cw_action_kind;
 
 typedef enum {
@@ -104,7 +105,8 @@ typedef enum {
   CW_EVENT_ACTOR_MOVED = 15,
   CW_EVENT_ITEM_GIVEN = 16,
   CW_EVENT_AVATAR_EVOLVED = 17,
-  CW_EVENT_COMBAT_FLEE_SUCCESS = 18
+  CW_EVENT_COMBAT_FLEE_SUCCESS = 18,
+  CW_EVENT_ITEM_DROPPED = 19
 } cw_event_type;
 
 typedef enum {
@@ -117,7 +119,8 @@ typedef enum {
   CW_OFFER_ATTACK = 1u << 5,
   CW_OFFER_MOVE = 1u << 6,
   CW_OFFER_GIVE_ITEM = 1u << 7,
-  CW_OFFER_FLEE = 1u << 8
+  CW_OFFER_FLEE = 1u << 8,
+  CW_OFFER_DROP_ITEM = 1u << 9
 } cw_offer_flags;
 
 typedef struct {

@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CosyWorld Moderation</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1d2328;
+      --muted: #68717a;
+      --line: #d8dee4;
+      --panel: #ffffff;
+      --canvas: #f4f6f7;
+      --focus: #2f6f73;
+      --danger: #9a3b3b;
+      --ok: #2d6d4f;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--canvas);
+      color: var(--ink);
+    }
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+    .shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .auth {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    input,
+    select,
+    textarea {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 9px 10px;
+      min-height: 40px;
+    }
+    input:focus,
+    select:focus,
+    textarea:focus,
+    button:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+    button {
+      min-height: 40px;
+      border: 1px solid var(--ink);
+      border-radius: 6px;
+      background: var(--ink);
+      color: #fff;
+      padding: 9px 12px;
+      cursor: pointer;
+    }
+    button.secondary {
+      border-color: var(--line);
+      background: #fff;
+      color: var(--ink);
+    }
+    button.danger {
+      border-color: var(--danger);
+      background: var(--danger);
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+    .token-input {
+      width: min(420px, 100%);
+    }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tab {
+      border-color: var(--line);
+      background: #fff;
+      color: var(--ink);
+    }
+    .tab.active {
+      border-color: var(--focus);
+      background: var(--focus);
+      color: #fff;
+    }
+    .status {
+      min-height: 24px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .status.error { color: var(--danger); }
+    .status.ok { color: var(--ok); }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-width: 0;
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+    .list {
+      display: grid;
+      max-height: 68vh;
+      overflow: auto;
+    }
+    .report-row {
+      display: grid;
+      gap: 5px;
+      width: 100%;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      border-radius: 0;
+      background: #fff;
+      color: var(--ink);
+      text-align: left;
+      padding: 12px 14px;
+    }
+    .report-row.active {
+      background: #eef7f6;
+    }
+    .row-meta,
+    .detail-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 2px 8px;
+      color: var(--muted);
+      background: #fff;
+    }
+    .badge.open {
+      border-color: #b9d7d2;
+      color: var(--focus);
+      background: #eef7f6;
+    }
+    .badge.resolved {
+      border-color: #d8dee4;
+      color: #586069;
+      background: #f6f8fa;
+    }
+    .reason {
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+    .detail {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .detail h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+    .field {
+      display: grid;
+      gap: 5px;
+    }
+    .field label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .action-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+    }
+    .empty {
+      padding: 22px 14px;
+      color: var(--muted);
+    }
+    @media (max-width: 760px) {
+      .shell { padding: 16px; }
+      header { align-items: stretch; flex-direction: column; }
+      .auth { justify-content: stretch; }
+      .token-input { width: 100%; }
+      .grid { grid-template-columns: 1fr; }
+      .list { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>Moderation</h1>
+        <div class="subtitle">CosyWorld operator queue</div>
+      </div>
+      <form class="auth" id="auth-form">
+        <input class="token-input" id="token" data-moderation-token type="password" autocomplete="current-password" placeholder="Bearer token" aria-label="Bearer token" />
+        <button type="submit" data-load-reports>Load</button>
+      </form>
+    </header>
+
+    <div class="toolbar">
+      <div class="filters" role="tablist" aria-label="Report status">
+        <button class="tab active" type="button" data-status-filter="open">Open</button>
+        <button class="tab" type="button" data-status-filter="resolved">Resolved</button>
+        <button class="tab" type="button" data-status-filter="all">All</button>
+      </div>
+      <button class="secondary" type="button" id="refresh" data-refresh-reports>Refresh</button>
+    </div>
+    <div class="status" id="status" data-console-status></div>
+
+    <section class="grid" aria-label="Moderation reports">
+      <section class="panel" aria-label="Report queue">
+        <div class="panel-head"><span id="queue-title">Open reports</span><span id="queue-count">0</span></div>
+        <div class="list" id="report-list" data-report-list></div>
+      </section>
+      <section class="panel" aria-label="Report detail">
+        <div class="panel-head"><span>Detail</span><span id="detail-status"></span></div>
+        <div class="detail" id="report-detail" data-report-detail>
+          <div class="empty">Select a report.</div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const tokenInput = document.getElementById("token");
+    const authForm = document.getElementById("auth-form");
+    const statusNode = document.getElementById("status");
+    const reportList = document.getElementById("report-list");
+    const reportDetail = document.getElementById("report-detail");
+    const queueTitle = document.getElementById("queue-title");
+    const queueCount = document.getElementById("queue-count");
+    const detailStatus = document.getElementById("detail-status");
+    const refreshButton = document.getElementById("refresh");
+    const storageKey = "cosyworld.moderationToken";
+    let reports = [];
+    let selectedReportId = 0;
+    let statusFilter = "open";
+    let busy = false;
+
+    tokenInput.value = localStorage.getItem(storageKey) || "";
+
+    function setStatus(message, kind = "") {
+      statusNode.textContent = message;
+      statusNode.className = `status ${kind}`.trim();
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function authHeaders(extra = {}) {
+      const token = tokenInput.value.trim();
+      if (token) localStorage.setItem(storageKey, token);
+      return {
+        authorization: `Bearer ${token}`,
+        ...extra,
+      };
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, options);
+      const body = await response.json();
+      if (!body.ok) throw new Error(body.error || `Request failed with ${body.status || response.status}`);
+      return body;
+    }
+
+    function reportTitle(report) {
+      return `${report.reporter_actor_name || "Someone"} -> ${report.target_actor_name || "someone"}`;
+    }
+
+    function reportTime(ms) {
+      const value = Number(ms || 0);
+      if (!value) return "";
+      return new Date(value).toLocaleString();
+    }
+
+    function setBusy(nextBusy) {
+      busy = nextBusy;
+      refreshButton.disabled = busy;
+      authForm.querySelector("button").disabled = busy;
+      for (const button of document.querySelectorAll("[data-resolve-report]")) {
+        button.disabled = busy;
+      }
+      for (const button of document.querySelectorAll("[data-delete-report]")) {
+        button.disabled = busy;
+      }
+      for (const button of document.querySelectorAll("[data-suspend-reporter]")) {
+        button.disabled = busy;
+      }
+      for (const button of document.querySelectorAll("[data-suspend-target]")) {
+        button.disabled = busy;
+      }
+      for (const button of document.querySelectorAll("[data-unsuspend-reporter]")) {
+        button.disabled = busy;
+      }
+      for (const button of document.querySelectorAll("[data-unsuspend-target]")) {
+        button.disabled = busy;
+      }
+    }
+
+    async function loadReports() {
+      const token = tokenInput.value.trim();
+      if (!token) {
+        setStatus("Bearer token required.", "error");
+        return;
+      }
+      setBusy(true);
+      try {
+        const query = new URLSearchParams({ limit: "80", status: statusFilter });
+        const body = await api(`/moderation/reports?${query}`, {
+          headers: authHeaders(),
+        });
+        reports = body.reports || [];
+        if (!reports.some((report) => report.report_id === selectedReportId)) {
+          selectedReportId = reports[0]?.report_id || 0;
+        }
+        render();
+        setStatus("Loaded.", "ok");
+      } catch (error) {
+        reports = [];
+        selectedReportId = 0;
+        render();
+        setStatus(error.message || String(error), "error");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function resolveReport(reportId) {
+      const moderator = document.getElementById("moderator")?.value || "";
+      const note = document.getElementById("resolution-note")?.value || "";
+      setBusy(true);
+      try {
+        await api(`/moderation/reports/${encodeURIComponent(reportId)}/resolve`, {
+          method: "POST",
+          headers: authHeaders({ "content-type": "application/json" }),
+          body: JSON.stringify({ moderator, note }),
+        });
+        setStatus("Resolved.", "ok");
+        await loadReports();
+      } catch (error) {
+        setStatus(error.message || String(error), "error");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function deleteReport(reportId) {
+      setBusy(true);
+      try {
+        await api(`/moderation/reports/${encodeURIComponent(reportId)}/delete`, {
+          method: "POST",
+          headers: authHeaders({ "content-type": "application/json" }),
+          body: "{}",
+        });
+        setStatus("Deleted.", "ok");
+        await loadReports();
+      } catch (error) {
+        setStatus(error.message || String(error), "error");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function suspendReportActor(reportId, role) {
+      const report = reports.find((entry) => entry.report_id === reportId);
+      if (!report) return;
+      const actorId = role === "target" ? report.target_actor_id : report.reporter_actor_id;
+      const label = role === "target" ? "Target" : "Reporter";
+      const reason = `report #${report.report_id} ${role}: ${report.reason || "moderation report"}`;
+      const moderator = document.getElementById("moderator")?.value || "moderator";
+      setBusy(true);
+      try {
+        await api(`/moderation/actors/${encodeURIComponent(actorId)}/suspend`, {
+          method: "POST",
+          headers: authHeaders({ "content-type": "application/json" }),
+          body: JSON.stringify({ reason }),
+        });
+        await api(`/moderation/reports/${encodeURIComponent(reportId)}/resolve`, {
+          method: "POST",
+          headers: authHeaders({ "content-type": "application/json" }),
+          body: JSON.stringify({
+            moderator,
+            note: `${label} suspended from report #${report.report_id}.`,
+          }),
+        });
+        await loadReports();
+        setStatus(`${label} suspended and report resolved.`, "ok");
+      } catch (error) {
+        setStatus(error.message || String(error), "error");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function unsuspendReportActor(reportId, role) {
+      const report = reports.find((entry) => entry.report_id === reportId);
+      if (!report) return;
+      const actorId = role === "target" ? report.target_actor_id : report.reporter_actor_id;
+      const label = role === "target" ? "Target" : "Reporter";
+      setBusy(true);
+      try {
+        await api(`/moderation/actors/${encodeURIComponent(actorId)}/unsuspend`, {
+          method: "POST",
+          headers: authHeaders(),
+        });
+        await loadReports();
+        setStatus(`${label} unsuspended.`, "ok");
+      } catch (error) {
+        setStatus(error.message || String(error), "error");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function render() {
+      document.querySelectorAll("[data-status-filter]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.statusFilter === statusFilter);
+      });
+      queueTitle.textContent = `${statusFilter[0].toUpperCase()}${statusFilter.slice(1)} reports`;
+      queueCount.textContent = String(reports.length);
+      renderList();
+      renderDetail();
+    }
+
+    function renderList() {
+      if (!reports.length) {
+        reportList.innerHTML = `<div class="empty" data-empty-reports>No reports.</div>`;
+        return;
+      }
+      reportList.innerHTML = reports.map((report) => {
+        const active = report.report_id === selectedReportId;
+        const meta = [
+          `#${report.report_id}`,
+          report.location_name || "",
+          reportTime(report.created_at_ms),
+        ].filter(Boolean).join(" / ");
+        return `<button class="report-row${active ? " active" : ""}" type="button" data-report-id="${report.report_id}">
+          <span class="row-meta"><span class="badge ${escapeHtml(report.status)}">${escapeHtml(report.status)}</span><span>${escapeHtml(meta)}</span></span>
+          <strong>${escapeHtml(reportTitle(report))}</strong>
+          <span class="reason">${escapeHtml(report.reason)}</span>
+        </button>`;
+      }).join("");
+    }
+
+    function renderDetail() {
+      const report = reports.find((entry) => entry.report_id === selectedReportId);
+      detailStatus.textContent = report?.status || "";
+      if (!report) {
+        reportDetail.innerHTML = `<div class="empty">Select a report.</div>`;
+        return;
+      }
+      const resolvedMeta = report.resolved_at_ms
+        ? `<div class="detail-meta"><span>Resolved ${escapeHtml(reportTime(report.resolved_at_ms))}</span><span>${escapeHtml(report.resolved_by || "")}</span></div><div class="reason">${escapeHtml(report.resolution_note || "")}</div>`
+        : "";
+      const resolutionForm = report.status === "open"
+        ? `<div class="field"><label for="moderator">Moderator</label><input id="moderator" data-moderator-label value="moderator" /></div>
+           <div class="field"><label for="resolution-note">Resolution note</label><textarea id="resolution-note" data-resolution-note></textarea></div>
+           <button class="danger" type="button" data-resolve-report="${report.report_id}">Resolve</button>`
+        : "";
+      const deleteAction = report.status === "resolved"
+        ? `<button class="secondary" type="button" data-delete-report="${report.report_id}">Delete resolved report</button>`
+        : "";
+      const suspendAction = report.status === "open"
+        ? `<div class="action-row">
+             <button class="secondary" type="button" data-suspend-reporter="${report.report_id}">Suspend reporter</button>
+             ${report.target_actor_kind === "human" ? `<button class="secondary" type="button" data-suspend-target="${report.report_id}">Suspend target</button>` : ""}
+           </div>`
+        : "";
+      const unsuspendAction = report.reporter_suspended || report.target_suspended
+        ? `<div class="action-row">
+             ${report.reporter_suspended ? `<button class="secondary" type="button" data-unsuspend-reporter="${report.report_id}">Unsuspend reporter</button>` : ""}
+             ${report.target_suspended && report.target_actor_kind === "human" ? `<button class="secondary" type="button" data-unsuspend-target="${report.report_id}">Unsuspend target</button>` : ""}
+           </div>`
+        : "";
+      reportDetail.innerHTML = `<h2>${escapeHtml(reportTitle(report))}</h2>
+        <div class="detail-meta">
+          <span class="badge ${escapeHtml(report.status)}">${escapeHtml(report.status)}</span>
+          <span>#${report.report_id}</span>
+          <span>${escapeHtml(report.location_name || "")}</span>
+          <span>${escapeHtml(reportTime(report.created_at_ms))}</span>
+        </div>
+        <div class="field"><label>Reason</label><div class="reason" data-selected-reason>${escapeHtml(report.reason)}</div></div>
+        <div class="field"><label>Reporter</label><div>${escapeHtml(report.reporter_actor_name)} (${report.reporter_actor_id}) ${report.reporter_suspended ? '<span class="badge resolved">suspended</span>' : ""}</div></div>
+        <div class="field"><label>Target</label><div>${escapeHtml(report.target_actor_name)} (${report.target_actor_id}) ${report.target_suspended ? '<span class="badge resolved">suspended</span>' : ""}</div></div>
+        ${suspendAction}
+        ${unsuspendAction}
+        ${resolvedMeta}
+        ${resolutionForm}
+        ${deleteAction}`;
+    }
+
+    authForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      loadReports();
+    });
+    refreshButton.addEventListener("click", () => loadReports());
+    document.querySelector(".filters").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-status-filter]");
+      if (!button) return;
+      statusFilter = button.dataset.statusFilter || "open";
+      selectedReportId = 0;
+      loadReports();
+    });
+    reportList.addEventListener("click", (event) => {
+      const row = event.target.closest("[data-report-id]");
+      if (!row) return;
+      selectedReportId = Number(row.dataset.reportId || 0);
+      render();
+    });
+    reportDetail.addEventListener("click", (event) => {
+      const resolveButton = event.target.closest("[data-resolve-report]");
+      if (resolveButton) {
+        resolveReport(Number(resolveButton.dataset.resolveReport || 0));
+        return;
+      }
+      const deleteButton = event.target.closest("[data-delete-report]");
+      if (deleteButton) {
+        deleteReport(Number(deleteButton.dataset.deleteReport || 0));
+        return;
+      }
+      const suspendButton = event.target.closest("[data-suspend-reporter]");
+      if (suspendButton) {
+        suspendReportActor(Number(suspendButton.dataset.suspendReporter || 0), "reporter");
+        return;
+      }
+      const suspendTargetButton = event.target.closest("[data-suspend-target]");
+      if (suspendTargetButton) {
+        suspendReportActor(Number(suspendTargetButton.dataset.suspendTarget || 0), "target");
+        return;
+      }
+      const unsuspendButton = event.target.closest("[data-unsuspend-reporter]");
+      if (unsuspendButton) {
+        unsuspendReportActor(Number(unsuspendButton.dataset.unsuspendReporter || 0), "reporter");
+        return;
+      }
+      const unsuspendTargetButton = event.target.closest("[data-unsuspend-target]");
+      if (unsuspendTargetButton) {
+        unsuspendReportActor(Number(unsuspendTargetButton.dataset.unsuspendTarget || 0), "target");
+      }
+    });
+  </script>
+</body>
+</html>

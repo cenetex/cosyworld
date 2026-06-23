@@ -39,6 +39,7 @@ pub const CW_ACTION_ATTACK: u8 = 7;
 pub const CW_ACTION_DEFEND: u8 = 8;
 pub const CW_ACTION_GIVE_ITEM: u8 = 9;
 pub const CW_ACTION_FLEE: u8 = 10;
+pub const CW_ACTION_DROP_ITEM: u8 = 11;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ITEM_USED: u8 = 8;
@@ -55,6 +56,7 @@ pub const CW_OFFER_ATTACK: u32 = 1 << 5;
 pub const CW_OFFER_MOVE: u32 = 1 << 6;
 pub const CW_OFFER_GIVE_ITEM: u32 = 1 << 7;
 pub const CW_OFFER_FLEE: u32 = 1 << 8;
+pub const CW_OFFER_DROP_ITEM: u32 = 1 << 9;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]

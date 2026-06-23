@@ -14,7 +14,8 @@ For the OpenRouter player payer, Orb-paid Chat fallback, real AI media, combat r
 - `ai-model-rust/`: deterministic local AI generation model with native and WASM exports.
 - `orchestrator-rust/`: Rust HTTP/SSE host that compiles and calls the C kernel through FFI.
 - `orchestrator-rust/src/index.html`: one-button browser MUD shell served by the Rust host.
-- `orchestrator-rust/src/seed_content.json`: seed actor/item/location labels and level-2 evolution tracks consumed by the Rust host.
+- `orchestrator-rust/src/mud.rs`: typed command protocol, parser aliases, response formatting, fuzzy matching, and direction canonicalization.
+- `content/core/`: seed actors, items, locations, exits, room features, clocks, jobs, cards, and evolution tracks consumed by the Rust host.
 
 ## Current Capabilities
 
@@ -80,9 +81,9 @@ The Rust orchestrator currently owns:
 - Actor/item/location/content labels.
 - Native calls into the local Rust AI model for deterministic avatar identity, fallback chat, resident replies, and speech sanitizer behavior that can also run in WASM.
 - Card projections for visible actors, items, and locations.
-- Session-touched live human presence, so stale generated avatars do not crowd active rooms.
+- Session-touched and heartbeat-refreshed live human presence, so stale generated avatars do not crowd active rooms.
 - Generated human avatar flavor: name, title, description, and runtime avatar card.
-- Server-authored avatar chat from the `Chat` button; human operators do not type or choose dialogue lines.
+- Server-authored avatar chat from the `Chat` button, plus moderated human-authored `say` lines for shared room speech.
 - Optional OpenAI-compatible avatar and resident response generation, with deterministic local fallback.
 - Event projection.
 - Snapshot persistence.
@@ -111,7 +112,7 @@ That script builds the Rust orchestrator, starts it detached on `127.0.0.1:3102`
 ./v2/mvp.sh stop
 ```
 
-Use `./v2/mvp.sh check` as the local MVP gate. It runs the C kernel test, local AI model native tests plus WASM build, Rust format/tests/build, JavaScript and terminal-client syntax checks, starts a production-profile smoke against a protected local Ruby High-style ownership feed, restarts the detached browser server, runs the Playwright browser smoke, runs a non-typing terminal smoke, and leaves the verified server running.
+Use `./v2/mvp.sh check` as the local MVP gate. It runs the C kernel test, local AI model native tests plus WASM build, Rust format/tests/build, JavaScript and terminal-client syntax checks, starts a production-profile smoke against a protected local Ruby High-style ownership feed, restarts the detached browser server, runs the Playwright browser smoke, runs a non-typing terminal smoke plus a typed terminal command-mode speech smoke, and leaves the verified server running.
 
 The local AI model can be checked and built for browser use from the repository root:
 
@@ -186,7 +187,7 @@ Then from the repository root:
 node v2/scripts/smoke-browser.mjs
 ```
 
-The browser smoke uses Playwright from `v2` when available, or the sibling `../app-ruby-high` workspace in this development checkout. It verifies runtime metadata, signed wallet challenge/session access, signed wallet avatar recovery, avatar creation, actor-session continuity, walletless `connect wallet`, one-button normal play, zero-Orb earning-action priority, no-typing `listen`, server-authored avatar chat, reload continuity, contextual verb labels, mobile and desktop viewport fit, generated seed-card art, Ruby High card asset delivery, card-gated travel, the Moonlit Trail combat encounter including flee, item pickup, wrong-resident gift filtering, all three level 2 resident evolutions, protected resident/human action boundaries, and disabled client-authored speech.
+The browser smoke uses Playwright from `v2` when available, or the sibling `../app-ruby-high` workspace in this development checkout. It verifies runtime metadata, signed wallet challenge/session access, signed wallet avatar recovery, avatar creation, actor-session continuity, walletless `connect wallet`, one-button normal play, zero-Orb earning-action priority, no-typing `listen`, server-authored avatar chat, moderated client-authored room speech and `/me` emotes, player report queue submission/resolution/deletion plus protected moderation replay, the `/moderation` operator console, player-facing report command seeding, two-browser room fanout and presence leave refresh, compass/typed command behavior, typed item take/drop/retake behavior, reload continuity, contextual verb labels, mobile and desktop viewport fit, generated seed-card art, Ruby High card asset delivery, card-gated travel, the Moonlit Trail combat encounter including flee, item pickup, wrong-resident gift filtering, all three level 2 resident evolutions, and protected resident/human action boundaries.
 
 When the mobile and desktop visual shell checks pass, the smoke writes viewport screenshots plus JSON metadata and SHA-256 hashes to `v2/orchestrator-rust/.runtime/visual-smoke/`. It also compares those screenshots against the committed PNG baselines in `v2/tests/visual-baselines/` with a 3% max pixel mismatch ratio. Set `COSYWORLD_VISUAL_SNAPSHOT_DIR=/path/to/output` to collect runtime artifacts somewhere else, or run `COSYWORLD_UPDATE_VISUAL_BASELINES=1 node v2/scripts/smoke-browser.mjs` after an intentional UI change to refresh the baselines.
 
@@ -209,7 +210,7 @@ COSYWORLD_AI_BASE_URL=https://api.openai.com/v1
 COSYWORLD_AI_PROVIDER=openrouter
 ```
 
-When no AI key is configured, avatar chat and resident replies use deterministic local fallback text. In both modes pressing `Chat` asks the server to author one line for the player's avatar, commits that avatar line through the C kernel as `CW_ACTION_SAY`, schedules the resident reply afterward, validates the resident speech contract, and broadcasts both as shared world events. The human operator never submits dialogue text.
+When no AI key is configured, avatar chat and resident replies use deterministic local fallback text. In both modes pressing `Chat` asks the server to author one line for the player's avatar, commits that avatar line through the C kernel as `CW_ACTION_SAY`, schedules the resident reply afterward, validates the resident speech contract, and broadcasts both as shared world events. Human-authored room speech is a separate moderated `say` path.
 
 The MVP economy is enabled by default:
 
@@ -272,13 +273,13 @@ The default client is JRPG-style button mode:
 [Q]     quit
 ```
 
-The client offers actions from visible world state: nearby residents to chat with, visible items, matching evolution gifts, available exits, combat escape routes, and room rules. It does not ask the player to type chat text.
+The client offers actions from visible world state: nearby residents to chat with, visible items, matching evolution gifts, available exits, combat escape routes, and room rules. One-button play remains the normal path, while the command palette and `/commands` endpoint support typed MUD commands such as `look`, `look east`, `go e`, `say <message>`, `/me <action>`, `report <actor>: <reason>`, and `drop <item>`. `/` opens the command palette, `t` opens it prefilled for room speech, nearby actors add a low-priority Report action that prefills `report <actor>: ` for the player to finish, and Up/Down recall commands from the current browser session.
 
 Normal play keeps the main verb as `Chat`: resident-specific details live in the button detail and thumbnail, while contextual states can still become `Give Item`, `Travel`, `Flee`, `Use`, or `Wait`. Empty room transcripts render an opening beat for the current location instead of a debug placeholder.
 
 The current location tab participates in the same one-button surface: focusing it changes the command to `listen`, rolls a kernel-owned Wisdom check, and writes the auditable total/DC into the shared room transcript. Combat events use the same transcript style for attack rolls, AC, damage, HP remaining, knockouts, and fleeing instead of exposing a separate stat table.
 
-You can connect the CLI to an existing server, or use the typed debug shell explicitly:
+You can connect the CLI to an existing server, or use the typed command shell explicitly. Command mode sends player-authored MUD commands through the same `/commands` resolver as the browser palette, including `say`, `/me`, `report`, direction aliases, and item-name matching. `events` and `watch` replay room events with the active actor session attached, filtering hidden presence bookkeeping so terminal players see the same authenticated room transcript as browser players:
 
 ```sh
 python3 cli/cosy_cli.py --base-url http://127.0.0.1:3102
@@ -304,7 +305,7 @@ Returning players keep their local avatar id plus an opaque `actor_session` mint
 
 When `/avatar` receives a signed `wallet_session`, the server treats the command as recover-or-create. The first call creates the human actor, records a durable wallet-to-avatar link, and returns an actor session. Later calls with the same signed wallet session recover that same live human actor and issue a fresh actor session without emitting duplicate `actor.created` world events. Dev reset clears those links along with the reseeded world.
 
-Room presence is intentionally narrower than durable avatar existence. A human avatar persists in the world and can return with its actor session, but other players only see that human in room presence while the actor session has been touched recently by state/action/stream traffic. NPC residents stay visible according to world placement. This keeps shared rooms lively without filling them with closed-tab or old smoke-test avatars.
+Room presence is intentionally narrower than durable avatar existence. A human avatar persists in the world and can return with its actor session, but other players only see that human in room presence while the actor session has been touched recently by state/action/stream/presence traffic. Typed `look`, `who`, and actor-target commands use the same active-presence projection as `/state` and `/world`, so closed-tab humans do not linger in terminal room descriptions or target matching. If a stale but valid actor session runs a typed command or accepted direct action, the server emits the same hidden active-presence event as `/presence/ping` so co-located clients refresh, and command/action responses include that presence event when it was created for the request. The browser pings `/presence/ping` before boot refresh when it has a stored actor session, keeps a lightweight heartbeat while connected, and sends `/presence/leave` on page hide. The terminal client does the same on startup and while waiting at the prompt, then sends `/presence/leave` on quit. NPC residents stay visible according to world placement. This keeps shared rooms lively without filling them with closed-tab or old smoke-test avatars.
 
 Visible actors, items, and locations now resolve through `state.cards`:
 
@@ -421,7 +422,7 @@ Chat is server-authored avatar speech, not a human text box or branch picker:
 - The avatar line is committed through the C kernel as a normal `message.created` world event.
 - The chosen resident then replies as another normal world event, using the same shared one-to-many timeline as ambient and combat output.
 - A human avatar can have only one server-authored Chat turn in flight; overlapping Chat submissions for the same actor return `409` and emit no events.
-- Client-authored `/actions/say` is disabled; humans do not type, submit, or pick dialogue text in the normal product.
+- `say <message>`, `/me <action>`, and `POST /actions/say` commit moderated human-authored room text as normal `message.created` events; unsafe or overlong text is rejected before it reaches the journal.
 - Legacy branch records in old snapshots are ignored by `/state` and do not change the primary action.
 
 Items can now drive resident evolution through the C kernel:
@@ -435,7 +436,7 @@ Items can now drive resident evolution through the C kernel:
 - The C kernel rejects wrong-resident gifts before transfer. In the current seed, Rati needs `Moonwool Thread` plus `Story Button`; Whiskerwind needs `Dewbright Button` plus `Wolfprint Charm`; Skull needs `Hearthstone Tag` plus `Watch Bell`.
 - Evolved residents project into the same card system with `level`, `evolved`, evolved rarity, and updated title/blurb. The browser reflects this in compact room chips and action details instead of a stats table.
 
-The Rust host loads actor names, item descriptions, location labels, combat flags, and level-2 evolution tracks from `orchestrator-rust/src/seed_content.json`. Startup tests validate that this manifest has unique ids, references real item ids, matches seeded kernel entities, and keeps each evolution track at exactly two unique items. The C kernel still owns rule enforcement for movement, item transfer, and evolution.
+The Rust host loads actor names, item descriptions, location labels, directed exits, combat flags, room RPG state, and level-2 evolution tracks from the `content/core/` worldpack. Startup tests validate unique ids, valid references, canonical one-direction-per-room exits, seeded kernel parity, and exactly two unique items for each evolution track. The C kernel still owns rule enforcement for movement, speech event emission, item transfer, and evolution.
 
 Resident placement can be simulated with an aggregate ownership snapshot:
 
@@ -455,10 +456,11 @@ Locations are live channels:
 
 - `/state?actor_id=...` returns the actor's current location, visible presence, available actions, and room-scoped recent events.
 - `/world?actor_id=...&actor_session=...&wallet_session=...` returns the shared room map, gated/public status, accessible room contents, and locked-room summaries without exposing locked actor/item details.
-- `/stream?actor_id=...&actor_session=...&wallet_session=...` broadcasts accepted world events over SSE after filtering to public Cottage events plus rooms visible to that actor/wallet.
+- `/stream?actor_id=...&actor_session=...&wallet_session=...` broadcasts accepted world events over SSE after filtering to public Cottage events plus rooms visible to that actor/wallet. SSE messages include the world event sequence as their event id, and reconnects can replay missed visible events with `after=<seq>` or the native `Last-Event-ID` header.
 - `/events` uses the same visibility query parameters for replay; walletless requests only receive public Cottage-visible events. Replay defaults to the latest 80 visible events, accepts `limit=...`, and caps explicit requests at 500.
 - Human presence in `/state` and `/world` is filtered to the current actor plus recently touched actor sessions; durable old avatars are not treated as online occupants.
-- The browser appends matching live events to the current room transcript and refreshes presence/actions when movement, item, actor, or combat state changes.
+- `/presence/ping` and `/presence/leave` require the matching actor session and emit hidden `actor.presence` events only when the active-presence state changes.
+- The browser appends matching live events to the current room transcript and refreshes presence/actions when room speech, movement, item, actor, presence, or combat state changes.
 - Moving between locations swaps to that room's transcript instead of carrying the prior room log forward.
 
 This keeps AI output one-to-many: a resident reply is committed as a world event and broadcast to everyone present, not regenerated as a private response for each player.
@@ -474,38 +476,50 @@ This keeps AI output one-to-many: a resident reply is committed as a world event
 - `GET /world?actor_id=5000&actor_session=<session>&wallet_session=<wallet-session>`
 - `GET /events`
 - `GET /events?after=12&limit=80`
+- `GET /moderation`
 - `GET /moderation/events?after=12&limit=80` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
+- `GET /moderation/reports?after=12&limit=80` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
+- `POST /moderation/reports/{report_id}/resolve` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
+- `POST /moderation/reports/{report_id}/delete` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
 - `POST /moderation/actors/{actor_id}/suspend` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
 - `POST /moderation/actors/{actor_id}/unsuspend` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
 - `GET /stream`
 - `POST /dev/reset` when `COSYWORLD_ENABLE_DEV_RESET=1`
 - `POST /avatar`
+- `POST /presence/ping`
 - `POST /presence/leave`
 - `POST /actions/chat`
-- `POST /actions/say` returns `410` for disabled client-authored speech
+- `POST /actions/say`
+- `POST /actions/report`
 - `POST /actions/move`
 - `POST /actions/check`
 - `POST /actions/pick-up`
+- `POST /actions/drop`
 - `POST /actions/use-item`
 - `POST /actions/give-item`
 - `POST /actions/attack`
 - `POST /actions/defend`
 - `POST /actions/flee`
 
-`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, non-secret feature flags such as server-authored Chat and disabled client-authored speech, persistence mode, ownership-feed mode, and current world counters. `./v2/mvp.sh status` prints a one-line summary from it.
+`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, non-secret feature flags such as server-authored Chat and enabled client-authored speech, persistence mode, moderation report retention, ownership-feed mode, and current world counters. `./v2/mvp.sh status` prints a one-line summary from it.
 
-Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation/events` returns bounded all-room event replay. `/moderation/economy` returns bounded Orb ledger, AI usage ledger, Wooden Box receipt, and avatar pack opening rows without exposing player OpenRouter keys.
+Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, Wooden Box receipt, and avatar pack opening rows without exposing player OpenRouter keys.
 
-Public action endpoints accept active human actors only when the matching `actor_session` is present. The Rust orchestrator can still commit avatar and resident `SAY` events internally for Chat, AI replies, ambient beats, and placement, but browser-submitted actions cannot provide message content or act as Rati, Whiskerwind, Skull, other residents, or another human avatar by id alone.
+Public action endpoints accept active human actors only when the matching `actor_session` is present. The Rust orchestrator can still commit avatar and resident `SAY` events internally for Chat, AI replies, ambient beats, and placement. Browser-submitted `say` is limited to the caller's own human avatar, is normalized through the same cozy text hygiene used by other player-authored statements, and cannot act as Rati, Whiskerwind, Skull, other residents, or another human avatar by id alone.
+
+`POST /actions/say` accepts JSON `{ "actor_id": 5000, "actor_session": "...", "content": "hello room" }` or the alias field `message`. Success returns `200` plus a `message.created` event whose `location_id` is the speaker's current room. Missing or wrong actor sessions return `403`, rejected text returns `400`, rate limits return `429`, and no rejected speech emits a world event.
+
+`POST /actions/report` accepts JSON `{ "actor_id": 5000, "actor_session": "...", "target_actor_id": 1001, "reason": "..." }`. The reporter and target must both be in the same room, and human targets must be visible in active room presence. Success returns `200` plus a durable report id for moderator review; reports do not broadcast into the room timeline.
 
 Public mutation endpoints also pass through lightweight in-memory rate limits before they touch the world reducer:
 
-- Avatar creation: 8 attempts per client IP per 10 minutes.
+- Avatar creation: 12 attempts per client IP per 10 minutes.
 - Wallet challenge/session: 30 attempts per client IP per minute.
-- Chat actions: 45 attempts per actor per minute, with a broader shared IP mutation cap.
+- Chat and player room-message actions: 45 attempts per actor per minute, with a broader shared IP mutation cap.
+- Player reports: 12 attempts per actor per 10 minutes, with the broader shared IP mutation cap.
 - Movement, item, check, and combat actions: 180 attempts per actor per minute, with the same shared IP mutation cap.
 
-Client-submitted `/actions/say` no longer enters the action journal. The supported dialogue path is `/actions/chat`, where the server authors the avatar line and commits it through the same C `SAY` event shape used by resident replies.
+Client-submitted `/actions/say` and typed command emotes enter the action journal only after actor-session authorization and text moderation. They use the same C `SAY` event shape as server-authored Chat, resident replies, and ambient beats, so room speech, action narration, AI dialogue, replay, and SSE broadcast all share one event contract.
 
 The limits are intentionally generous for normal play and local smoke tests. They are MVP guardrails for the single shared public world, not a replacement for full moderation.
 
@@ -519,7 +533,15 @@ COSYWORLD_MODERATION_TOKEN=... cargo run
 
 `GET /moderation/events?limit=80` requires `Authorization: Bearer <token>` and returns a bounded chronological replay across all rooms, bypassing player room/card visibility filters for operator review. It uses the same default replay limit of 80 and hard cap of 500 as player `/events`.
 
-`POST /moderation/actors/{actor_id}/suspend` stores a durable actor suspension, clears the actor's active sessions, hides the avatar from active presence, and makes future player actions for that actor return `403`. `POST /moderation/actors/{actor_id}/unsuspend` removes that suspension. This is an operator API only; there is no player-facing moderation UI, report queue, deletion workflow, or retention automation yet.
+`GET /moderation/reports?limit=80` requires the same bearer token and returns bounded open player-submitted reports with reporter, target, actor kinds, current suspension flags, room, reason, status, creation timestamp, and optional resolution fields. `after=<report_id>` reads newer reports for incremental queue polling. `status=resolved` returns closed reports, and `status=all` includes both open and resolved rows.
+
+`POST /moderation/reports/{report_id}/resolve` accepts JSON `{ "moderator": "name", "note": "handled" }`, marks the report `resolved`, records `resolved_at_ms`, `resolved_by`, and `resolution_note`, and removes it from the default open queue.
+
+`POST /moderation/reports/{report_id}/delete` requires the report to already be `resolved`; open reports return `409` so operators cannot remove unreviewed reports by accident.
+
+Resolved reports are automatically purged after `COSYWORLD_MODERATION_REPORT_RETENTION_DAYS`, which defaults to `90`. Set it to `0`, `off`, `none`, or `disabled` to keep resolved reports until manual deletion. Retention runs once at boot and then daily; it only removes reports whose status is already `resolved`.
+
+`POST /moderation/actors/{actor_id}/suspend` stores a durable actor suspension, clears the actor's active sessions, emits an inactive `actor.presence` room refresh if the actor was visible, and makes future player actions for that actor return `403`. `POST /moderation/actors/{actor_id}/unsuspend` removes that suspension. Actor moderation responses include `error` on bearer-token and target-validation failures so the operator console can show a concrete failure reason.
 
 Example:
 
@@ -563,7 +585,7 @@ cargo test
 
 All meaningful world mutation must pass through the C kernel.
 
-Rust may store content, call AI, manage streams, schedule NPCs, persist events, and project state. Rust should not decide whether movement, item use, evolution, combat, or stat checks succeed.
+Rust may store content, call AI, manage streams, schedule NPCs, persist events, normalize/moderate text, and project state. Rust should not decide whether movement, speech event emission, item use, evolution, combat, or stat checks succeed.
 
 `GET /state?actor_id=...&actor_session=...` is room scoped: it follows that actor's current location, returns visible actors/items for the room, returns exits from that room, and includes the kernel-derived primary action options. Actor id without the matching session falls back to the public Cottage avatar gate.
 

@@ -444,6 +444,31 @@ static cw_status apply_pick_up_item(cw_world *world, const cw_action *action, cw
   return CW_OK;
 }
 
+static cw_status apply_drop_item(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  cw_actor *actor = 0;
+  cw_status status = require_active_actor(world, action, out_events, &actor);
+  if (status != CW_OK) return status;
+
+  cw_item *item = find_item(world, action->item_id);
+  if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
+  if (item->holder_actor_id != actor->id) {
+    return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+  }
+
+  item->holder_actor_id = 0;
+  item->location_id = actor->location_id;
+
+  append_event(world, out_events, CW_EVENT_ITEM_DROPPED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = actor->location_id;
+    event->item_id = item->id;
+  }
+  return CW_OK;
+}
+
 static cw_status apply_use_item(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
@@ -738,6 +763,8 @@ cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed
       return apply_ability_check(world, action, seed, out_events);
     case CW_ACTION_PICK_UP_ITEM:
       return apply_pick_up_item(world, action, out_events);
+    case CW_ACTION_DROP_ITEM:
+      return apply_drop_item(world, action, out_events);
     case CW_ACTION_USE_ITEM:
       return apply_use_item(world, action, out_events);
     case CW_ACTION_ATTACK:
@@ -800,6 +827,9 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
     if (item->holder_actor_id == actor->id && item->kind == CW_ITEM_POTION && item->charges > 0) {
       out_offers->option_flags |= CW_OFFER_USE_ITEM;
     }
+    if (item->holder_actor_id == actor->id) {
+      out_offers->option_flags |= CW_OFFER_DROP_ITEM;
+    }
     if (item->holder_actor_id == actor->id && item->kind == CW_ITEM_EVOLUTION) {
       for (size_t j = 0; j < world->actor_count; ++j) {
         const cw_actor *other = &world->actors[j];
@@ -834,6 +864,7 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_ITEM_GIVEN: return "item.given";
     case CW_EVENT_AVATAR_EVOLVED: return "avatar.evolved";
     case CW_EVENT_COMBAT_FLEE_SUCCESS: return "combat.flee.success";
+    case CW_EVENT_ITEM_DROPPED: return "item.dropped";
     default: return "unknown";
   }
 }

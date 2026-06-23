@@ -84,6 +84,27 @@ static void test_items_and_combat_gate(void) {
   assert(cw_world_apply(&world, &pickup, 55, &events) == CW_OK);
   assert(events.count == 1);
   assert(events.events[0].type == CW_EVENT_ITEM_PICKED_UP);
+  assert(world.items[0].holder_actor_id == 1001);
+  assert(world.items[0].location_id == 0);
+
+  cw_action drop = {0};
+  drop.kind = CW_ACTION_DROP_ITEM;
+  drop.actor_id = 1001;
+  drop.item_id = 2001;
+  assert(cw_world_apply(&world, &drop, 55, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_DROPPED);
+  assert(events.events[0].location_id == 1);
+  assert(world.items[0].holder_actor_id == 0);
+  assert(world.items[0].location_id == 1);
+
+  assert(cw_world_apply(&world, &drop, 55, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+
+  assert(cw_world_apply(&world, &pickup, 55, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_PICKED_UP);
 
   cw_action use = {0};
   use.kind = CW_ACTION_USE_ITEM;
