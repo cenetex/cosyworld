@@ -213,8 +213,10 @@ const LISTEN_DC: u16 = 12;
 const ZONE_SANCTUARY: &str = "sanctuary";
 const ZONE_FRONTIER: &str = "frontier";
 const MOONLIT_TRAIL_LOCATION_ID: u64 = 3;
+#[cfg(test)]
 const MOONLIT_JOB_ID: &str = "moonlit-trail:quiet-the-echo";
 const MOONLIT_PROGRESS_CLOCK_ID: &str = "moonlit-trail.progress";
+#[cfg(test)]
 const MOONLIT_DANGER_CLOCK_ID: &str = "moonlit-trail.danger";
 const ATTACK_HIT_ORB_REWARD: i32 = 1;
 const KNOCKOUT_ORB_REWARD: i32 = 3;
@@ -351,6 +353,12 @@ struct RoomSheetState {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum ProjectionMutation {
+    UseFeature {
+        item_id: u64,
+        location_id: u64,
+        content: String,
+        reason: String,
+    },
     AdvanceClock {
         clock_id: String,
         amount: u8,
@@ -478,6 +486,7 @@ const LONELY_FOREST_CHARACTER_ASSET_PREFIX: &str = "/assets/lonely-forest/charac
 
 #[derive(Debug)]
 struct SeedContent {
+    #[cfg_attr(not(test), allow(dead_code))]
     manifest: SeedWorldpackManifest,
     actors: Vec<SeedActorContent>,
     items: Vec<SeedItemContent>,
@@ -499,6 +508,7 @@ struct SeedWorldpackManifest {
     name: String,
     version: u32,
     #[serde(default)]
+    #[cfg_attr(not(test), allow(dead_code))]
     description: String,
     files: BTreeMap<String, String>,
 }
@@ -1545,6 +1555,13 @@ struct ResolvedCommand {
 }
 
 #[derive(Clone, Debug)]
+struct FeatureUseResult {
+    feature_name: String,
+    output: String,
+    matched: bool,
+}
+
+#[derive(Clone, Debug)]
 enum CommandDispatch {
     Read {
         output: String,
@@ -1566,6 +1583,11 @@ enum CommandDispatch {
     UseItem {
         item_id: u64,
         target_actor_id: u64,
+    },
+    UseFeature {
+        item_id: u64,
+        location_id: u64,
+        output: String,
     },
     GiveItem {
         item_id: u64,
@@ -4971,6 +4993,10 @@ fn command_list_or_none(values: &[String]) -> String {
     }
 }
 
+fn clock_summary(clock: &ClockView) -> String {
+    format!("{} {}/{}", clock.label, clock.filled, clock.segments)
+}
+
 fn default_zone() -> String {
     ZONE_SANCTUARY.to_string()
 }
@@ -5306,6 +5332,56 @@ impl RuntimeWorld {
             content: None,
             item_id: None,
             item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_feature_use_event(
+        &mut self,
+        actor_id: u64,
+        location_id: u64,
+        item_id: u64,
+        content: &str,
+        reason: &str,
+    ) -> EventView {
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: "item.used".to_string(),
+            success: true,
+            reason: 0,
+            actor_id: Some(actor_id),
+            actor_name: self.actor_name(actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id: Some(location_id),
+            location_name: self.location_name(location_id),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(format!("{content}:{reason}")),
+            item_id: Some(item_id),
+            item_name: self.item_name(item_id),
             raw_roll: None,
             modifier: None,
             total: None,
@@ -5968,6 +6044,18 @@ impl RuntimeWorld {
         let mut events = Vec::new();
         for mutation in mutations {
             match mutation {
+                ProjectionMutation::UseFeature {
+                    item_id,
+                    location_id,
+                    content,
+                    reason,
+                } => events.push(self.append_feature_use_event(
+                    action.actor_id,
+                    *location_id,
+                    *item_id,
+                    content,
+                    reason,
+                )),
                 ProjectionMutation::AdvanceClock {
                     clock_id,
                     amount,
@@ -8308,7 +8396,7 @@ impl RuntimeWorld {
             options.push(ActionOption {
                 kind: "help".to_string(),
                 label: "Help".to_string(),
-                command: "help".to_string(),
+                command: "assist".to_string(),
             });
         }
         if can_rest {
@@ -8885,12 +8973,11 @@ impl RuntimeWorld {
                     || target_query.trim().is_empty()
                 {
                     actor
-                } else if let Some(output) = self.feature_use_output(actor.location_id, target_query, item.id) {
+                } else if let Some(feature_use) =
+                    self.feature_use_result(actor.location_id, target_query, item.id)
+                {
                     let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
-                    let feature_name = self
-                        .resolve_room_feature(actor.location_id, target_query)
-                        .map(|feature| feature.name.clone())
-                        .unwrap_or_else(|_| trim_command_filler(target_query).to_string());
+                    let feature_name = feature_use.feature_name;
                     return Ok(ResolvedCommand {
                         command: format!("use {item_name} on {feature_name}"),
                         verb,
@@ -8899,7 +8986,17 @@ impl RuntimeWorld {
                             "Use",
                             &format!("use {item_name} on {feature_name}"),
                         )),
-                        dispatch: CommandDispatch::Read { output },
+                        dispatch: if feature_use.matched {
+                            CommandDispatch::UseFeature {
+                                item_id: item.id,
+                                location_id: actor.location_id,
+                                output: feature_use.output,
+                            }
+                        } else {
+                            CommandDispatch::Read {
+                                output: feature_use.output,
+                            }
+                        },
                     });
                 } else {
                     self.resolve_room_actor(actor, target_query, CommandActorFilter::Any)
@@ -9383,7 +9480,7 @@ impl RuntimeWorld {
                 "room" | "here" | "around" | "location"
             )
         {
-            return Ok(self.room_command_output(actor.location_id, access));
+            return Ok(self.room_command_output(actor, access));
         }
         if let Some(feature) = self.resolve_room_feature(actor.location_id, query).ok() {
             return Ok(format!("{} - {}", feature.name, feature.look));
@@ -9456,7 +9553,12 @@ impl RuntimeWorld {
         Ok(format!("{} - {}", feature.name, feature.search))
     }
 
-    fn feature_use_output(&self, location_id: u64, query: &str, item_id: u64) -> Option<String> {
+    fn feature_use_result(
+        &self,
+        location_id: u64,
+        query: &str,
+        item_id: u64,
+    ) -> Option<FeatureUseResult> {
         let feature = self.resolve_room_feature(location_id, query).ok()?;
         let item_name = self
             .item_name(item_id)
@@ -9466,15 +9568,24 @@ impl RuntimeWorld {
             .iter()
             .find(|use_case| use_case.item_id == item_id)
         {
-            return Some(format!("{} - {}", feature.name, use_case.text));
+            return Some(FeatureUseResult {
+                feature_name: feature.name.clone(),
+                output: format!("{} - {}", feature.name, use_case.text),
+                matched: true,
+            });
         }
-        Some(format!(
-            "{} - The {item_name} does not wake anything in this feature yet.",
-            feature.name
-        ))
+        Some(FeatureUseResult {
+            feature_name: feature.name.clone(),
+            output: format!(
+                "{} - The {item_name} does not wake anything in this feature yet.",
+                feature.name
+            ),
+            matched: false,
+        })
     }
 
-    fn room_command_output(&self, location_id: u64, access: &AccessContext) -> String {
+    fn room_command_output(&self, actor: CwActor, access: &AccessContext) -> String {
+        let location_id = actor.location_id;
         let location = self.location_view(location_id);
         let actors = self.world.actors[..self.world.actor_count]
             .iter()
@@ -9499,16 +9610,76 @@ impl RuntimeWorld {
             .into_iter()
             .map(|feature| feature.name.clone())
             .collect::<Vec<_>>();
-        format!(
-            "{} - {}\n{}\nHere: {}.\nItems: {}.\nExits: {}.\nFeatures: {}.",
-            location.name,
-            location.title,
+        let mut lines = vec![
+            format!("{} - {}", location.name, location.title),
             location.description,
-            command_list_or_none(&actors),
-            command_list_or_none(&items),
-            command_list_or_none(&exits),
-            command_list_or_none(&features)
-        )
+            format!("Here: {}.", command_list_or_none(&actors)),
+            format!("Items: {}.", command_list_or_none(&items)),
+            format!("Exits: {}.", command_list_or_none(&exits)),
+            format!("Features: {}.", command_list_or_none(&features)),
+        ];
+
+        if let Some(sheet) = self.room_sheet_view(location_id) {
+            let aspects = command_list_or_none(&sheet.aspects);
+            lines.push(format!("Room: {} zone. Aspects: {}.", sheet.zone, aspects));
+        }
+
+        let clocks = self.clock_views(location_id);
+        let jobs = self
+            .job_views(location_id)
+            .into_iter()
+            .filter(|job| job.status == "active")
+            .map(|job| {
+                let progress = clocks
+                    .iter()
+                    .find(|clock| clock.id == job.progress_clock_id)
+                    .map(clock_summary)
+                    .unwrap_or_else(|| job.progress_clock_id.clone());
+                let danger = clocks
+                    .iter()
+                    .find(|clock| clock.id == job.danger_clock_id)
+                    .map(clock_summary)
+                    .unwrap_or_else(|| job.danger_clock_id.clone());
+                format!(
+                    "{} Stakes: {} Progress: {progress}. Danger: {danger}",
+                    job.premise, job.stakes
+                )
+            })
+            .collect::<Vec<_>>();
+        if !jobs.is_empty() {
+            lines.push(format!("Jobs: {}.", jobs.join(" | ")));
+        }
+
+        if !clocks.is_empty() {
+            let clock_lines = clocks.iter().map(clock_summary).collect::<Vec<_>>();
+            lines.push(format!("Clocks: {}.", clock_lines.join(", ")));
+        }
+
+        let tags = self.tag_views(Some(actor.id), location_id);
+        if !tags.is_empty() {
+            let tag_lines = tags
+                .into_iter()
+                .map(|tag| format!("{} {}", tag.scope, tag.label))
+                .collect::<Vec<_>>();
+            lines.push(format!("Tags: {}.", tag_lines.join(", ")));
+        }
+
+        let ledger = self.visit_ledger_view(actor.id);
+        if ledger.unbanked_count > 0 || ledger.banked_count > 0 || ledger.advancement_points > 0 {
+            lines.push(format!(
+                "Ledger: {} unbanked, {} banked, {} advancement point{}.",
+                ledger.unbanked_count,
+                ledger.banked_count,
+                ledger.advancement_points,
+                if ledger.advancement_points == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            ));
+        }
+
+        lines.join("\n")
     }
 
     fn inventory_command_output(&self, actor_id: u64) -> String {
@@ -13330,6 +13501,90 @@ async fn command(
             .await;
             command_action_response(resolved, response)
         }
+        CommandDispatch::UseFeature {
+            item_id,
+            location_id,
+            output,
+        } => {
+            if !allow_actor_mutation(
+                &state,
+                client_addr,
+                payload.actor_id,
+                "action-actor",
+                GENERAL_ACTION_LIMIT,
+            ) {
+                return command_rate_limited_response(resolved);
+            }
+            let mut runtime = state.inner.lock().await;
+            if !client_actor_authorized_for_state(
+                &runtime,
+                &state,
+                payload.actor_id,
+                payload.actor_session.as_deref(),
+            ) {
+                return Json(CommandResponse {
+                    ok: false,
+                    status: 403,
+                    command: resolved.command,
+                    verb: resolved.verb,
+                    output: Some("That command needs an active avatar session.".to_string()),
+                    action: resolved.action,
+                    events: Vec::new(),
+                });
+            }
+            let feature_use_still_valid = runtime
+                .actor_by_id(payload.actor_id)
+                .is_some_and(|actor| actor.location_id == location_id)
+                && runtime.world.items[..runtime.world.item_count]
+                    .iter()
+                    .any(|item| item.id == item_id && item.holder_actor_id == payload.actor_id);
+            if !feature_use_still_valid {
+                return Json(CommandResponse {
+                    ok: false,
+                    status: 409,
+                    command: resolved.command,
+                    verb: resolved.verb,
+                    output: Some("That feature use is no longer available.".to_string()),
+                    action: resolved.action,
+                    events: Vec::new(),
+                });
+            }
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: payload.actor_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            );
+            record
+                .projection_mutations
+                .push(ProjectionMutation::UseFeature {
+                    item_id,
+                    location_id,
+                    content: output.clone(),
+                    reason: "use_feature".to_string(),
+                });
+            let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+                return Json(CommandResponse {
+                    ok: false,
+                    status: 500,
+                    command: resolved.command,
+                    verb: resolved.verb,
+                    output: Some("That command could not be committed.".to_string()),
+                    action: resolved.action,
+                    events: Vec::new(),
+                });
+            };
+            drop(runtime);
+            broadcast_events(&state, &events);
+            let response = ActionResponse {
+                ok: status == CW_OK && !events.is_empty(),
+                status: if events.is_empty() { 409 } else { status },
+                events,
+            };
+            command_action_response_with_prefix(resolved, response, Some(output))
+        }
         CommandDispatch::GiveItem {
             item_id,
             target_actor_id,
@@ -13526,15 +13781,240 @@ fn command_action_response(
     resolved: ResolvedCommand,
     response: ActionResponse,
 ) -> Json<CommandResponse> {
+    command_action_response_with_prefix(resolved, response, None)
+}
+
+fn command_action_response_with_prefix(
+    resolved: ResolvedCommand,
+    response: ActionResponse,
+    prefix: Option<String>,
+) -> Json<CommandResponse> {
+    let output = command_response_output(prefix, &response.events);
     Json(CommandResponse {
         ok: response.ok,
         status: response.status,
         command: resolved.command,
         verb: resolved.verb,
-        output: None,
+        output,
         action: resolved.action,
         events: response.events,
     })
+}
+
+fn command_rate_limited_response(resolved: ResolvedCommand) -> Json<CommandResponse> {
+    Json(CommandResponse {
+        ok: false,
+        status: 429,
+        command: resolved.command,
+        verb: resolved.verb,
+        output: Some("That command is moving too quickly. Try again in a moment.".to_string()),
+        action: resolved.action,
+        events: Vec::new(),
+    })
+}
+
+fn command_response_output(prefix: Option<String>, events: &[EventView]) -> Option<String> {
+    let mut lines = Vec::new();
+    if let Some(prefix) = prefix.map(|value| value.trim().to_string()) {
+        if !prefix.is_empty() {
+            lines.push(prefix);
+        }
+    }
+    for event in events {
+        let Some(line) = command_event_output(event) else {
+            continue;
+        };
+        if !lines.iter().any(|existing| existing == &line) {
+            lines.push(line);
+        }
+    }
+    (!lines.is_empty()).then(|| lines.join("\n"))
+}
+
+fn command_event_output(event: &EventView) -> Option<String> {
+    match event.type_name.as_str() {
+        "message.created" => event.content.clone(),
+        "actor.moved" => Some(format!(
+            "You move from {} to {}.",
+            event.location_name.as_deref().unwrap_or("here"),
+            event
+                .destination_location_name
+                .as_deref()
+                .unwrap_or("there")
+        )),
+        "combat.flee.success" => Some(format!(
+            "You flee to {}.",
+            event
+                .destination_location_name
+                .as_deref()
+                .unwrap_or("safety")
+        )),
+        "item.picked_up" => Some(format!(
+            "You take {}.",
+            event.item_name.as_deref().unwrap_or("the item")
+        )),
+        "item.used" => {
+            if let Some(content) = event
+                .content
+                .as_deref()
+                .map(strip_feature_use_reason)
+                .filter(|content| !content.is_empty())
+            {
+                return Some(content.to_string());
+            }
+            let target = event
+                .target_actor_name
+                .as_deref()
+                .map(|name| format!(" on {name}"))
+                .unwrap_or_default();
+            let healed = event
+                .damage
+                .filter(|damage| *damage < 0)
+                .map(|damage| format!(" Restores {} HP.", damage.abs()))
+                .unwrap_or_default();
+            Some(format!(
+                "You use {}{target}.{healed}",
+                event.item_name.as_deref().unwrap_or("the item")
+            ))
+        }
+        "item.given" => Some(format!(
+            "You give {} to {}.",
+            event.item_name.as_deref().unwrap_or("the item"),
+            event.target_actor_name.as_deref().unwrap_or("someone")
+        )),
+        "ability_check.rolled" => {
+            let total = event
+                .total
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "?".to_string());
+            let dc = event
+                .dc
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "?".to_string());
+            Some(format!(
+                "Listen check: {total} vs DC {dc} ({}).",
+                if event.success { "success" } else { "failure" }
+            ))
+        }
+        "clock.updated" => Some(format!(
+            "{} advances to {}/{}.",
+            event.clock_label.as_deref().unwrap_or("A room clock"),
+            event.clock_filled.unwrap_or(0),
+            event.clock_segments.unwrap_or(0)
+        )),
+        "tag.applied" => Some(format!(
+            "You gain {}.",
+            event.tag_label.as_deref().unwrap_or("a condition")
+        )),
+        "tag.cleared" => Some(format!(
+            "You clear {}.",
+            event.tag_label.as_deref().unwrap_or("a condition")
+        )),
+        "ledger.marked" => Some(format!(
+            "Visit Ledger marked: {}.",
+            event_content_part(event, 1).unwrap_or("visit")
+        )),
+        "ledger.banked" => {
+            let count = event_content_part(event, 0)
+                .and_then(|value| value.parse::<usize>().ok())
+                .unwrap_or(0);
+            Some(format!(
+                "Visit Ledger banked: {count} advancement point{}.",
+                if count == 1 { "" } else { "s" }
+            ))
+        }
+        "advancement.spent" => Some(format!(
+            "Advancement spent: {}.",
+            event_content_part(event, 2).unwrap_or("growth")
+        )),
+        "skill.stepped" => Some(format!(
+            "Skill stepped up: {}.",
+            event_content_part(event, 0).unwrap_or("skill")
+        )),
+        "calling.set" => Some(format!(
+            "Calling set: {}.",
+            event_calling_text(event).unwrap_or("a small truth")
+        )),
+        "calling.revised" => Some(format!(
+            "Calling revised: {}.",
+            event_calling_text(event).unwrap_or("a small truth")
+        )),
+        "bond.deepened" => Some(format!(
+            "Bond deepened with {}.",
+            event.target_actor_name.as_deref().unwrap_or("someone")
+        )),
+        "bond.created" => Some(format!(
+            "Bond written with {}.",
+            event.target_actor_name.as_deref().unwrap_or("someone")
+        )),
+        "bond.revised" => Some(format!(
+            "Bond revised with {}.",
+            event.target_actor_name.as_deref().unwrap_or("someone")
+        )),
+        "bond.resolved" => Some(format!(
+            "Bond resolved with {}.",
+            event.target_actor_name.as_deref().unwrap_or("someone")
+        )),
+        "job.updated" => Some(format!(
+            "Job updated: {}.",
+            event_content_part(event, 1).unwrap_or("changed")
+        )),
+        "combat.defend" => Some("You raise a careful guard.".to_string()),
+        "combat.attack.attempt" => Some(format!(
+            "Attack roll: {} vs AC {}.",
+            event
+                .total
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "?".to_string()),
+            event
+                .dc
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "?".to_string())
+        )),
+        "combat.attack.hit" => Some(format!(
+            "You hit {} for {} damage.",
+            event.target_actor_name.as_deref().unwrap_or("the target"),
+            event.damage.unwrap_or(0)
+        )),
+        "combat.attack.miss" => Some(format!(
+            "{} turns the strike aside.",
+            event.target_actor_name.as_deref().unwrap_or("The target")
+        )),
+        "combat.knockout" => Some(format!(
+            "{} is knocked out.",
+            event.target_actor_name.as_deref().unwrap_or("The target")
+        )),
+        "rule.rejected" => Some("That command was rejected by the world rules.".to_string()),
+        _ => None,
+    }
+}
+
+fn strip_feature_use_reason(content: &str) -> &str {
+    content.strip_suffix(":use_feature").unwrap_or(content)
+}
+
+fn event_content_part<'a>(event: &'a EventView, index: usize) -> Option<&'a str> {
+    event
+        .content
+        .as_deref()?
+        .split(':')
+        .nth(index)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn event_calling_text(event: &EventView) -> Option<&str> {
+    event
+        .content
+        .as_deref()
+        .map(|content| {
+            content
+                .rsplit_once(':')
+                .map(|(text, _)| text)
+                .unwrap_or(content)
+        })
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
 }
 
 fn schedule_resident_reply(
@@ -15670,10 +16150,12 @@ fn helped_room_tag_id(location_id: u64) -> String {
     format!("room:{location_id}:helped")
 }
 
+#[cfg(test)]
 fn quieted_moonlight_tag_id(location_id: u64) -> String {
     format!("room:{location_id}:quieted_moonlight")
 }
 
+#[cfg(test)]
 fn echo_fractured_tag_id(location_id: u64) -> String {
     format!("room:{location_id}:echo_fractured")
 }
@@ -17589,7 +18071,8 @@ mod tests {
         assert!(INDEX_HTML.contains("data-ai-key-input"));
         assert!(INDEX_HTML.contains("listenHintForLocation"));
         assert!(INDEX_HTML.contains("listen_attempted_here"));
-        assert!(INDEX_HTML.contains("!listenAttemptedHere"));
+        assert!(INDEX_HTML.contains("listen again"));
+        assert!(INDEX_HTML.contains("risk tired / -"));
         assert!(INDEX_HTML.contains("function isRollEvent"));
         assert!(INDEX_HTML.contains("function rollHtml"));
         assert!(INDEX_HTML.contains("class=\"roll-line\""));
@@ -20319,6 +20802,11 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "check" && option.command == "listen"));
+        assert!(state
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "help" && option.command == "assist"));
         let listen_offer = state
             .action_offers
             .iter()
@@ -20337,6 +20825,12 @@ mod tests {
             .action_offers
             .windows(2)
             .all(|pair| pair[0].rank <= pair[1].rank));
+        let help_offer = state
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "help")
+            .expect("help offer is exposed");
+        assert_eq!(help_offer.command, "assist");
 
         let inspector = state.inspector;
         assert_eq!(inspector.location_id, MOONLIT_TRAIL_LOCATION_ID);
@@ -20743,7 +21237,7 @@ mod tests {
     }
 
     #[test]
-    fn mud_commands_resolve_to_world_actions_and_readonly_output() {
+    fn mud_commands_resolve_to_world_actions_and_feature_use_events() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -20833,11 +21327,12 @@ mod tests {
         pickup.kind = CW_ACTION_PICK_UP_ITEM;
         pickup.actor_id = 5000;
         pickup.item_id = 2002;
+        let (status, pickup_events) =
+            runtime.apply_journal_record(&JournalRecord::new(pickup, 7832));
+        assert_eq!(status, CW_OK);
         assert_eq!(
-            runtime
-                .apply_journal_record(&JournalRecord::new(pickup, 7832))
-                .0,
-            CW_OK
+            command_response_output(None, &pickup_events).as_deref(),
+            Some("You take Dewbright Button.")
         );
 
         let inventory = runtime
@@ -20877,11 +21372,43 @@ mod tests {
             Some("use_feature")
         );
         match use_feature.dispatch {
-            CommandDispatch::Read { output } => {
+            CommandDispatch::UseFeature {
+                item_id,
+                location_id,
+                output,
+            } => {
+                assert_eq!(item_id, 2005);
+                assert_eq!(location_id, 1);
                 assert!(output.contains("Story Button"));
                 assert!(output.contains("first word"));
+                let mut feature_record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_NONE,
+                        actor_id: 5000,
+                        ..CwAction::default()
+                    },
+                    7835,
+                );
+                feature_record
+                    .projection_mutations
+                    .push(ProjectionMutation::UseFeature {
+                        item_id,
+                        location_id,
+                        content: output.clone(),
+                        reason: "use_feature".to_string(),
+                    });
+                let (status, events) = runtime.apply_journal_record(&feature_record);
+                assert_eq!(status, CW_OK);
+                assert!(events.iter().any(|event| {
+                    event.type_name == "item.used"
+                        && event.actor_id == Some(5000)
+                        && event.item_id == Some(2005)
+                }));
+                let output = command_response_output(Some(output.clone()), &events)
+                    .expect("feature use has command output");
+                assert!(output.contains("first word"));
             }
-            other => panic!("feature use should be read-only, got {other:?}"),
+            other => panic!("feature use should map to projected item use, got {other:?}"),
         }
 
         let give = runtime
@@ -20919,6 +21446,56 @@ mod tests {
                 assert!(output.contains("recognized"));
             }
             other => panic!("say should be recognized but disabled, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn mud_look_reports_rpg_room_state() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = 1;
+        let mut record = JournalRecord::new(create, 7836);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Look Tester".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "State Reader".to_string(),
+                description: "A test avatar checking typed room state.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        for (destination, seed) in [(2, 7837), (MOONLIT_TRAIL_LOCATION_ID, 7838)] {
+            let mut move_action = CwAction::default();
+            move_action.kind = CW_ACTION_MOVE;
+            move_action.actor_id = 5000;
+            move_action.destination_location_id = destination;
+            assert_eq!(
+                runtime
+                    .apply_journal_record(&JournalRecord::new(move_action, seed))
+                    .0,
+                CW_OK
+            );
+        }
+
+        let look = runtime
+            .resolve_command(&command_request(5000, "look"), &AccessContext::default())
+            .expect("look resolves");
+        match look.dispatch {
+            CommandDispatch::Read { output } => {
+                assert!(output.contains("Moonlit Trail"));
+                assert!(output.contains("Room: frontier zone"));
+                assert!(output.contains("Jobs:"));
+                assert!(output.contains("The Moonlit Trail is carrying too much echo"));
+                assert!(output.contains("Quiet the Moonlit Trail 0/4"));
+                assert!(output.contains("Echo Shatters the Trail 0/4"));
+                assert!(output.contains("Tags:"));
+                assert!(output.contains("moonlit threshold crossed"));
+            }
+            other => panic!("look should be read-only, got {other:?}"),
         }
     }
 

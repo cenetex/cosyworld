@@ -195,6 +195,92 @@
     .room.collapsed .room-copy {
       margin-top: 6px;
     }
+    .room-summary {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .room-summary:empty {
+      display: none;
+    }
+    .summary-card {
+      min-width: 0;
+      border: 1px solid rgba(129, 255, 167, 0.24);
+      background: rgba(8, 20, 12, 0.58);
+      border-radius: 4px;
+      padding: 8px 9px 9px;
+    }
+    .summary-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .summary-body {
+      min-width: 0;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .summary-meta {
+      color: var(--dim);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.35;
+      margin-top: 5px;
+      overflow-wrap: anywhere;
+    }
+    .summary-clocks {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .summary-clock {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .summary-clock-label {
+      min-width: 0;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 850;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .summary-clock-count {
+      color: var(--dim);
+      font-size: 12px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+    .clock-track {
+      grid-column: 1 / -1;
+      height: 8px;
+      border: 1px solid rgba(129, 255, 167, 0.2);
+      background: rgba(16, 25, 18, 0.88);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .clock-fill {
+      display: block;
+      height: 100%;
+      width: var(--fill, 0%);
+      background: var(--green);
+    }
+    .summary-clock.danger .clock-fill {
+      background: var(--red);
+    }
     .room-tags {
       display: flex;
       align-items: center;
@@ -653,6 +739,28 @@
       color: var(--text);
     }
     .account-empty { color: var(--dim); }
+    .account-section {
+      border-top: 1px solid var(--line);
+      margin-top: 10px;
+      padding-top: 9px;
+    }
+    .account-section-title {
+      color: var(--amber);
+      font-size: 12px;
+      font-weight: 900;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+    .account-list {
+      display: grid;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .account-list-item {
+      min-width: 0;
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
     .account-actions {
       display: flex;
       flex-wrap: wrap;
@@ -1142,6 +1250,7 @@
         </div>
         <div class="room-copy" id="location-copy"></div>
         <div class="route-map" id="route-map" aria-label="Room map"></div>
+        <div class="room-summary" id="room-summary"></div>
         <div class="presence" id="presence"></div>
         <div class="features" id="features" aria-label="Searchable room features"></div>
       </section>
@@ -1433,6 +1542,7 @@
       const roomFeatures = Array.isArray(view.room_features) ? view.room_features : [];
       const usableTargets = (view.actors || []).filter((actor) => actorNeedsHealing(actor));
       const residentTargets = (view.actors || []).filter((actor) => actor.id !== actorId && actor.kind === "npc" && actor.status === "active");
+      const offerFor = (kind) => (view.action_offers || []).find((offer) => offer.kind === kind) || null;
       const giveTargetIds = new Set();
       const attackTargetIds = new Set((view.actors || [])
         .filter((actor) => actor.id !== actorId && actor.kind === "npc" && actor.status === "active")
@@ -1473,7 +1583,7 @@
           .filter(Boolean);
         for (const item of matchingUses) {
           built.push({
-            label: "try",
+            label: "use",
             detail: `${item.name} on ${feature.name}`,
             command: `use ${item.name} on ${feature.name}`,
             focusKey: `use-feature:${feature.key}:${item.id}`,
@@ -1587,45 +1697,55 @@
         built.push({ label: "defend", detail: "Brace.", command: "defend", focusKey: "defend", card: cardForActor(actorId), shape: "avatar", run: () => action("/actions/defend", { actor_id: actorId }) });
       }
       if (options.has("prepare")) {
+        const offer = offerFor("prepare");
         built.push({
           label: "prepare",
-          detail: "set up",
+          detail: compactActionDetail(offer?.effect) || "set up",
           command: "prepare",
           focusKey: "prepare",
           card: cardForLocation(view.location?.id),
           shape: "location",
           priority: 56,
+          effect: offer?.effect,
+          risk: offer?.risk,
           run: () => action("/actions/prepare", { actor_id: actorId }),
         });
       }
       if (options.has("work")) {
         const job = (view.jobs || []).find((entry) => entry.status === "active");
+        const offer = offerFor("work");
         built.push({
           label: "work",
-          detail: job ? job.premise : "room project",
+          detail: job ? job.premise : (compactActionDetail(offer?.effect) || "room project"),
           command: "work",
           focusKey: "work",
           card: cardForLocation(view.location?.id),
           shape: "location",
           priority: 57,
+          effect: offer?.effect,
+          risk: offer?.risk,
           run: () => action("/actions/work", { actor_id: actorId }),
         });
       }
       if (options.has("rest")) {
         const tired = (view.tags || []).find((tag) => tag.label === "tired");
+        const offer = offerFor("rest");
         built.push({
           label: "rest",
-          detail: tired ? "clear tired" : "catch breath",
+          detail: offer?.risk ? "clear tired / danger +1" : (tired ? "clear tired" : "catch breath"),
           command: "rest",
           focusKey: "rest",
           card: cardForActor(actorId) || cardForLocation(view.location?.id),
           shape: "avatar",
           priority: 58,
+          effect: offer?.effect,
+          risk: offer?.risk,
           run: () => action("/actions/rest", { actor_id: actorId }),
         });
       }
       if (options.has("help")) {
         const target = residentTargets[0];
+        const offer = offerFor("help");
         built.push({
           label: "help",
           detail: target ? actorLabel(target) : "room",
@@ -1634,6 +1754,8 @@
           card: target ? cardForActor(target.id) : cardForLocation(view.location?.id),
           shape: target ? "avatar" : "location",
           priority: 59,
+          effect: offer?.effect,
+          risk: offer?.risk,
           run: () => action("/actions/help", { actor_id: actorId }),
         });
       }
@@ -1643,8 +1765,19 @@
         : (listenRewardClaimable ? 0 : 1);
       const listenAttemptedHere = economy.listen_attempted_here === true;
       const listenCanHelp = listenCost <= 0 || Number(economy.orbs || 0) >= listenCost;
-      if (options.has("check") && listenCanHelp && !listenAttemptedHere) {
-        built.push({ label: "listen", detail: "for clues", command: "listen", focusKey: "check", card: cardForLocation(view.location?.id), shape: "location", run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }) });
+      if (options.has("check") && listenCanHelp) {
+        const offer = offerFor("check");
+        built.push({
+          label: listenAttemptedHere ? "listen again" : "listen",
+          detail: listenAttemptedHere && listenCost > 0 ? `risk tired / -${listenCost} Orb` : "for clues",
+          command: "listen",
+          focusKey: "check",
+          card: cardForLocation(view.location?.id),
+          shape: "location",
+          effect: offer?.effect,
+          risk: offer?.risk,
+          run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 })
+        });
       }
       if (!canChat && options.has("chat") && !built.length) {
         built.push({
@@ -1673,7 +1806,6 @@
       const label = String(action.label || "").toLowerCase();
       const ranks = {
         "give item": 10,
-        "try": 15,
         "use": 20,
         "take": 30,
         "attack": 40,
@@ -1685,6 +1817,7 @@
         "rest": 58,
         "help": 59,
         "listen": 60,
+        "listen again": 60,
         "chat": 70,
         "travel": 80,
         "connect wallet": 85,
@@ -2043,21 +2176,7 @@
     }
 
     function eventIsHiddenContext(event) {
-      return event.type === "world.bootstrapped"
-        || event.type === "clock.updated"
-        || event.type === "tag.applied"
-        || event.type === "tag.cleared"
-        || event.type === "calling.set"
-        || event.type === "calling.revised"
-        || event.type === "ledger.marked"
-        || event.type === "ledger.banked"
-        || event.type === "advancement.spent"
-        || event.type === "skill.stepped"
-        || event.type === "bond.deepened"
-        || event.type === "bond.created"
-        || event.type === "bond.revised"
-        || event.type === "bond.resolved"
-        || event.type === "job.updated";
+      return event.type === "world.bootstrapped";
     }
 
     function eventMatchesCurrentLocation(event) {
@@ -2147,6 +2266,7 @@
       }
       renderRoomCopy(location.id);
       $("route-map").innerHTML = routeMapHtml(state);
+      $("room-summary").innerHTML = roomSummaryHtml(state);
       $("presence").innerHTML = presenceHtml(state, me);
       $("features").innerHTML = featureRowHtml(state);
       renderLog();
@@ -2314,24 +2434,48 @@
       for (const packId of packs.slice(0, 6)) {
         assets.push(accountPackCard(packId));
       }
-      const rows = [
+      const inventoryRows = [
         accountRow("boxes", boxes.length ? boxes.map(compactAssetId).join(", ") : "none"),
         accountRow("packs", packs.length ? packs.map(compactAssetId).join(", ") : "none"),
       ];
       for (const receipt of receipts.slice(0, 3)) {
-        rows.push(accountRow("burn", `${compactAssetId(receipt.box_asset_address)} -> ${compactAssetId(receipt.pack_id)} / ${receipt.verification_status || "receipt"}`));
+        inventoryRows.push(accountRow("burn", `${compactAssetId(receipt.box_asset_address)} -> ${compactAssetId(receipt.pack_id)} / ${receipt.verification_status || "receipt"}`));
       }
       for (const opening of openings.slice(0, 3)) {
         const cards = (opening.card_ids || []).map(cardDisplayName).join(", ");
-        rows.push(accountRow("reveal", `${compactAssetId(opening.pack_id)} -> ${cards || "cards"}`));
+        inventoryRows.push(accountRow("reveal", `${compactAssetId(opening.pack_id)} -> ${cards || "cards"}`));
       }
-      const actions = signed
-        ? `<button class="account-button secondary" type="button" data-account-open-pack="first"${packs.length ? "" : " disabled"}>open pack</button>`
-        : `<button class="account-button" type="button" data-account-connect>connect wallet</button>`;
+      const actions = [
+        signed
+          ? `<button class="account-button secondary" type="button" data-account-open-pack="first"${packs.length ? "" : " disabled"}>open pack</button>`
+          : `<button class="account-button" type="button" data-account-connect>connect wallet</button>`,
+      ];
+      const ledger = state?.ledger || {};
+      if (Number(ledger.unbanked_count || 0) > 0) {
+        actions.unshift(`<button class="account-button" type="button" data-character-bank>bank ledger</button>`);
+      }
       const inventory = assets.length
         ? `<div class="account-assets">${assets.join("")}</div>`
         : `<div class="account-empty">no Boxes or unopened packs</div>`;
-      return `<div class="account-panel" aria-label="Account inventory and provenance"><div class="account-title"><span>account inventory</span><span class="account-wallet">${escapeHtml(compactAssetId(wallet) || "walletless")}</span></div><div class="account-actions">${actions}</div>${inventory}${rows.join("")}</div>`;
+      return `<div class="account-panel" aria-label="Avatar sheet and account inventory"><div class="account-title"><span>avatar sheet</span><span class="account-wallet">${escapeHtml(compactAssetId(wallet) || "walletless")}</span></div><div class="account-actions">${actions.join("")}</div>${characterSheetHtml()}<div class="account-section"><div class="account-section-title">account inventory</div>${inventory}${inventoryRows.join("")}</div></div>`;
+    }
+
+    function characterSheetHtml() {
+      const ledger = state?.ledger || {};
+      const calling = String(state?.calling?.statement || "").trim() || "I listen for small truths and help where I can.";
+      const rows = [
+        accountRow("calling", calling),
+        accountRow("ledger", `${Number(ledger.unbanked_count || 0)} unbanked / ${Number(ledger.advancement_points || 0)} points`),
+      ];
+      const skills = Array.isArray(state?.skills) ? state.skills : [];
+      rows.push(accountRow("skills", skills.length ? skills.map((skill) => `${skill.label} ${skill.tier}`).join(", ") : "none"));
+      const bonds = Array.isArray(state?.bonds) ? state.bonds : [];
+      rows.push(accountRow("bonds", bonds.length ? bonds.map((bond) => `${bond.target_actor_name} ${bond.strength}`).join(", ") : "none"));
+      const marks = Array.isArray(ledger.unbanked_marks) ? ledger.unbanked_marks : [];
+      const markList = marks.length
+        ? `<div class="account-list">${marks.slice(0, 4).map((mark) => `<div class="account-list-item">${escapeHtml(mark.label || mark.category || "Visit mark")}</div>`).join("")}</div>`
+        : "";
+      return `<div class="account-section">${rows.join("")}${markList}</div>`;
     }
 
     function accountBoxCard(boxId, stateName) {
@@ -2366,12 +2510,18 @@
 
     function hasAccountPanelContent() {
       const account = state?.account || {};
+      const ledger = state?.ledger || {};
       return Boolean(
         account.wallet_address
           || (account.active_box_ids || []).length
           || (account.unopened_pack_ids || []).length
           || (account.recent_box_receipts || []).length
           || (account.recent_pack_openings || []).length
+          || state?.calling
+          || (state?.skills || []).length
+          || (state?.bonds || []).length
+          || Number(ledger.unbanked_count || 0) > 0
+          || Number(ledger.banked_count || 0) > 0
       );
     }
 
@@ -2777,6 +2927,14 @@
       return `${actor?.name || "Someone"}${level > 1 ? ` lv${level}` : ""}`;
     }
 
+    function compactActionDetail(value) {
+      return String(value || "")
+        .replace(/^advances progress clock\s+/i, "advance ")
+        .replace(/^marks you\s+/i, "")
+        .replace(/^helps a resident and\s+/i, "")
+        .trim();
+    }
+
     function actorNeedsHealing(actor) {
       const hp = Number(actor?.hp ?? 0);
       const maxHp = Number(actor?.stats?.hp_base ?? 0);
@@ -2842,6 +3000,9 @@
       else button.removeAttribute("aria-busy");
       if (action.command) button.dataset.command = action.command;
       else button.removeAttribute("data-command");
+      const title = [action.command, action.effect, action.risk].filter(Boolean).join(" / ");
+      if (title) button.title = title;
+      else button.removeAttribute("title");
       const count = id === "primary" && !state?.branch && actions.length > 1 ? ` ${focusIndex + 1}/${actions.length}` : "";
       const detail = `${action.detail || ""}${count}`.trim();
       button.innerHTML = `${thumbnailHtml(action)}<span class="cmd-copy"><span class="cmd-label">${escapeHtml(action.label.toLowerCase())}</span>${detail ? `<span class="detail">${escapeHtml(detail)}</span>` : ""}</span>`;
@@ -2918,6 +3079,54 @@
       }
       node.hidden = true;
       node.innerHTML = "";
+    }
+
+    function roomSummaryHtml(view) {
+      const rows = [];
+      const calling = String(view?.calling?.statement || "").trim();
+      if (calling) {
+        rows.push(summaryCardHtml("Calling", "Avatar", calling));
+      }
+      const activeJob = (view?.jobs || []).find((job) => job.status === "active");
+      if (activeJob) {
+        const clockHtml = roomClockSummaryHtml(view, activeJob);
+        rows.push(summaryCardHtml("Job", activeJob.status, activeJob.premise, `${escapeHtml(activeJob.stakes)}${clockHtml}`));
+      }
+      const sheet = view?.room_sheet || null;
+      const aspects = Array.isArray(sheet?.aspects) ? sheet.aspects.filter(Boolean) : [];
+      if (sheet && aspects.length) {
+        const tags = (view?.tags || []).filter((tag) => tag.scope === "room").map((tag) => tag.label).filter(Boolean);
+        const meta = [sheet.zone || sheet.safety || "", tags.length ? tags.join(" / ") : ""].filter(Boolean).join(" / ");
+        rows.push(summaryCardHtml("Room", meta, aspects.join(" / ")));
+      } else if ((view?.clocks || []).length) {
+        rows.push(summaryCardHtml("Clocks", "Room", "", roomClockSummaryHtml(view)));
+      }
+      return rows.join("");
+    }
+
+    function roomClockSummaryHtml(view, job = null) {
+      const clocks = (view?.clocks || []).filter((clock) => {
+        if (!job) return true;
+        return clock.id === job.progress_clock_id || clock.id === job.danger_clock_id;
+      });
+      if (!clocks.length) return "";
+      return `<div class="summary-clocks">${clocks.map(clockSummaryHtml).join("")}</div>`;
+    }
+
+    function clockSummaryHtml(clock) {
+      const filled = Math.max(0, Number(clock.filled) || 0);
+      const segments = Math.max(1, Number(clock.segments) || 1);
+      const percent = Math.max(0, Math.min(100, Math.round((filled / segments) * 100)));
+      const kind = String(clock.kind || "").toLowerCase();
+      return `<div class="summary-clock ${escapeAttr(kind)}"><span class="summary-clock-label">${escapeHtml(clock.label || "Room clock")}</span><span class="summary-clock-count">${filled}/${segments}</span><span class="clock-track" aria-hidden="true"><span class="clock-fill" style="--fill:${percent}%"></span></span></div>`;
+    }
+
+    function summaryCardHtml(label, meta, body, extraHtml = "") {
+      const aside = String(meta || "").trim();
+      const asideHtml = aside ? `<span>${escapeHtml(aside)}</span>` : "";
+      const bodyHtml = body ? `<div class="summary-body">${escapeHtml(body)}</div>` : "";
+      const extra = extraHtml ? `<div class="summary-meta">${extraHtml}</div>` : "";
+      return `<div class="summary-card"><div class="summary-head"><span>${escapeHtml(label)}</span>${asideHtml}</div>${bodyHtml}${extra}</div>`;
     }
 
     function roomTagsForLocation(id) {
@@ -3035,6 +3244,19 @@
           card: cardForActor(actorId) || cardForLocation(state?.location?.id),
           shape: "avatar",
           run: () => connectWallet(),
+        });
+        return;
+      }
+      const bank = event.target.closest("[data-character-bank]");
+      if (bank) {
+        event.preventDefault();
+        accountPanelPinned = true;
+        runAction({
+          label: "bank ledger",
+          detail: "Visit Ledger",
+          card: cardForActor(actorId) || cardForLocation(state?.location?.id),
+          shape: "avatar",
+          run: () => runCommandText("bank ledger"),
         });
         return;
       }

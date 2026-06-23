@@ -589,7 +589,7 @@ async function main() {
     await clickPrimary("listen");
     await page.waitForFunction(() => {
       const text = document.querySelector("#log")?.textContent || "";
-      return text.includes("listens:");
+      return text.includes("listens:") || text.includes("Listen check");
     });
     assert((await visibleCommandButtons()).length === 1, "listen should stay in one-button mode");
   }
@@ -724,6 +724,9 @@ async function main() {
         look: await run("look"),
         search: await run("search scarf"),
         who: await run("who"),
+        takeTonic: await run("take Hearth Tonic"),
+        useHearth: await run("use Hearth Tonic on hearth"),
+        inventory: await run("inventory"),
         say: await run("say hello room"),
         primaryCommand: document.querySelector("#primary")?.dataset.command || "",
       };
@@ -731,6 +734,14 @@ async function main() {
     assert(result.look.ok === true && result.look.output.includes("The Cosy Cottage"), `look command should describe the current room: ${JSON.stringify(result.look)}`);
     assert(result.look.output.includes("Features:") && result.search.ok === true && result.search.output.includes("Scarf Basket"), `search command should inspect room features: ${JSON.stringify(result)}`);
     assert(result.who.ok === true && result.who.output.includes("human"), `who command should list room occupants: ${JSON.stringify(result.who)}`);
+    assert(result.takeTonic.ok === true && result.takeTonic.output.includes("You take Hearth Tonic."), `take command should return terminal output: ${JSON.stringify(result.takeTonic)}`);
+    assert(
+      result.useHearth.ok === true
+        && result.useHearth.output.includes("Hearth Tonic warms")
+        && result.useHearth.events.some((event) => event.type === "item.used"),
+      `feature use command should commit an item.used event: ${JSON.stringify(result.useHearth)}`,
+    );
+    assert(result.inventory.ok === true && result.inventory.output.includes("Hearth Tonic"), `inventory should include command-taken item: ${JSON.stringify(result.inventory)}`);
     assert(result.say.ok === false && result.say.status === 410 && result.say.output.includes("recognized"), `say command should be recognized but disabled: ${JSON.stringify(result.say)}`);
     assert(result.primaryCommand.length > 0, `primary button should expose command metadata: ${JSON.stringify(result)}`);
     steps.push({ label: "mud command api", primaryCommand: result.primaryCommand });
