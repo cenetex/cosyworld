@@ -327,6 +327,15 @@ async function assertModerationConsole(browser, probeAvatar) {
     body: JSON.stringify({ name: "Reported Smoke Target" }),
   }).then((response) => response.json());
   assert(targetAvatar.ok && targetAvatar.actor?.id, `console target avatar create failed: ${JSON.stringify(targetAvatar)}`);
+  const targetPresence = await fetch(`${baseUrl}/presence/ping`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      actor_id: targetAvatar.actor.id,
+      actor_session: targetAvatar.actor_session,
+    }),
+  }).then((response) => response.json());
+  assert(targetPresence.ok === true, `console target avatar should become present: ${JSON.stringify(targetPresence)}`);
   const report = await createReportProbe(probeAvatar, "console report queue probe", targetAvatar.actor.id);
   assert(report.target_actor_kind === "human", `console target report should preserve human target kind: ${JSON.stringify(report)}`);
   const context = await browser.newContext({ viewport: { width: 980, height: 720 } });
@@ -478,6 +487,11 @@ async function main() {
     return (await page.locator("#primary").innerText()).replace(/\s+/g, " ").trim();
   }
 
+  async function assertPrimaryOmitsActionCounter(label) {
+    const text = await primaryText();
+    assert(!/\b\d+\s*\/\s*\d+\b/.test(text), `${label} should not show a visible action counter: ${text}`);
+  }
+
   async function visibleCommandButtons() {
     return page.locator("footer.prompt button:visible").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
@@ -485,11 +499,65 @@ async function main() {
     ));
   }
 
+  async function assertActionBarCapped(label, expectedCount = null) {
+    const buttons = await visibleCommandButtons();
+    if (expectedCount === null) {
+      assert(buttons.length >= 1 && buttons.length <= 3, `${label} should expose one to three actions: ${JSON.stringify(buttons)}`);
+    } else {
+      assert(buttons.length === expectedCount, `${label} should expose ${expectedCount} action${expectedCount === 1 ? "" : "s"}: ${JSON.stringify(buttons)}`);
+    }
+    return buttons;
+  }
+
+  async function waitForChatText(needle) {
+    await page.waitForFunction(
+      (text) => (document.querySelector("#log")?.textContent || "").includes(text),
+      needle,
+    );
+  }
+
+  async function waitForTimelineText(needle) {
+    await page.waitForFunction((text) => {
+      const chat = document.querySelector("#log")?.textContent || "";
+      const updates = document.querySelector("#updates")?.textContent || "";
+      const room = [
+        document.querySelector("#room-log-latest")?.textContent || "",
+        document.querySelector("#room-memory")?.textContent || "",
+      ].join("\n");
+      return `${chat}\n${updates}\n${room}`.includes(text);
+    }, needle);
+  }
+
+  async function waitForTimelineAll(needles) {
+    await page.waitForFunction((expected) => {
+      const chat = document.querySelector("#log")?.textContent || "";
+      const updates = document.querySelector("#updates")?.textContent || "";
+      const room = [
+        document.querySelector("#room-log-latest")?.textContent || "",
+        document.querySelector("#room-memory")?.textContent || "",
+      ].join("\n");
+      const text = `${chat}\n${updates}\n${room}`;
+      return expected.every((needle) => text.includes(needle));
+    }, needles);
+  }
+
+  async function waitForTimelineAny(needles) {
+    await page.waitForFunction((expected) => {
+      const chat = document.querySelector("#log")?.textContent || "";
+      const updates = document.querySelector("#updates")?.textContent || "";
+      const room = [
+        document.querySelector("#room-log-latest")?.textContent || "",
+        document.querySelector("#room-memory")?.textContent || "",
+      ].join("\n");
+      const text = `${chat}\n${updates}\n${room}`;
+      return expected.some((needle) => text.includes(needle));
+    }, needles);
+  }
+
   async function zeroOrbActionLabels(listenRewardClaimable) {
     return page.evaluate((claimable) => {
       const previousState = state;
       const previousActorId = actorId;
-      const previousOpenRouterApiKey = openrouterApiKey;
       const fakeState = {
         location: { id: 1, name: "The Cosy Cottage" },
         primary_action: {
@@ -525,30 +593,1645 @@ async function main() {
       };
       state = fakeState;
       actorId = 5000;
-      openrouterApiKey = "";
       try {
-        return buildActions(fakeState).map((action) => action.label);
+        return buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+        }));
       } finally {
         state = previousState;
         actorId = previousActorId;
-        openrouterApiKey = previousOpenRouterApiKey;
       }
     }, listenRewardClaimable);
   }
 
   async function assertZeroOrbModePrefersWorldEarningAction() {
-    const claimableLabels = await zeroOrbActionLabels(true);
-    assert(claimableLabels[0] === "listen", `zero-Orb mode should route to Listen before AI setup: ${JSON.stringify(claimableLabels)}`);
-    assert(!claimableLabels.includes("connect ai"), `zero-Orb mode with an earning action should not offer Connect AI as the command: ${JSON.stringify(claimableLabels)}`);
-    const exhaustedLabels = await zeroOrbActionLabels(false);
-    assert(!exhaustedLabels.includes("listen"), `spent Listen reward should not remain the zero-Orb recovery command: ${JSON.stringify(exhaustedLabels)}`);
-    assert(exhaustedLabels[0] === "connect ai", `zero-Orb mode without a local earning action should fall back to Connect AI: ${JSON.stringify(exhaustedLabels)}`);
+    const claimableActions = await zeroOrbActionLabels(true);
+    const claimableLabels = claimableActions.map((action) => action.label);
+    assert(claimableLabels[0] === "listen", `zero-Orb mode should route to Listen before AI setup: ${JSON.stringify(claimableActions)}`);
+    assert(!claimableLabels.includes("connect ai"), `zero-Orb mode with an earning action should not offer Connect AI as the command: ${JSON.stringify(claimableActions)}`);
+    const exhaustedActions = await zeroOrbActionLabels(false);
+    const exhaustedLabels = exhaustedActions.map((action) => action.label);
+    assert(!exhaustedLabels.includes("listen"), `spent Listen reward should not remain the zero-Orb recovery command: ${JSON.stringify(exhaustedActions)}`);
+    assert(exhaustedActions[0]?.label === "look", `zero-Orb mode without a local earning action should fall back to Look: ${JSON.stringify(exhaustedActions)}`);
+    const travelActions = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const fakeState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "move",
+          options: [{ kind: "chat" }, { kind: "move" }],
+        },
+        economy: {
+          orbs: 0,
+          can_chat_with_orbs: false,
+          listen_cost_orbs: 1,
+          listen_reward_claimable: false,
+          openrouter_connected: false,
+        },
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [
+          { destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false },
+        ],
+        cards: {
+          actors: {},
+          items: {},
+          locations: {
+            1: { display_name: "The Cosy Cottage", role: "location", aspect: "wide", image_url: "" },
+            2: { display_name: "Rain-Soft Garden", role: "location", aspect: "wide", image_url: "" },
+          },
+        },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      try {
+        return buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          focusKeys: action.focusKeys || [],
+        }));
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    const travelLabels = travelActions.map((action) => action.label);
+    assert(!travelLabels.includes("connect ai"), `zero-Orb mode should not offer client AI setup: ${JSON.stringify(travelActions)}`);
+    assert(travelLabels.includes("travel"), `zero-Orb chat setup should not remove valid travel: ${JSON.stringify(travelActions)}`);
+  }
+
+  async function assertEmptyActionSetFallsBackToLook() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const fakeState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: { kind: "wait", options: [] },
+        economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [],
+        room_features: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      try {
+        return buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          command: action.command,
+          focusKey: action.focusKey,
+        }));
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    assert(result.length === 1, `empty action set should keep one-button mode: ${JSON.stringify(result)}`);
+    assert(result[0]?.label === "look", `empty action set should fall back to a useful look command: ${JSON.stringify(result)}`);
+    assert(result[0]?.command === "look", `fallback should run the readable MUD command: ${JSON.stringify(result)}`);
+    assert(result[0]?.focusKey === "look", `fallback should be focusable as look, not inert wait: ${JSON.stringify(result)}`);
+    assert(!result.some((action) => action.label === "wait" || action.command === "wait"), `empty action set should not expose inert wait: ${JSON.stringify(result)}`);
+  }
+
+  async function assertLockedRoutesCollapseAndFooterVerbsFit() {
+    const previousViewport = page.viewportSize();
+    await page.setViewportSize({ width: 360, height: 860 });
+    await page.waitForTimeout(50);
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousActions = actions;
+      const previousFocusIndex = focusIndex;
+      const previousFocusedKey = focusedKey;
+      const fakeState = {
+        location: { id: 11, name: "Homeroom" },
+        primary_action: {
+          kind: "move",
+          options: [{ kind: "move" }, { kind: "check" }],
+        },
+        economy: {
+          orbs: 3,
+          can_chat_with_orbs: true,
+          listen_cost_orbs: 0,
+          listen_reward_claimable: true,
+          listen_attempted_here: false,
+        },
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        room_features: [],
+        exits: [
+          { destination_location_id: 1, destination_location_name: "The Cosy Cottage", accessible: true, locked: false },
+          { destination_location_id: 10, destination_location_name: "Science Class", accessible: true, locked: false },
+          { destination_location_id: 12, destination_location_name: "Library", accessible: "false", locked: false },
+          { destination_location_id: 13, destination_location_name: "Cafeteria", accessible: true, locked: false, access_reason: "card locked" },
+          { destination_location_id: 14, destination_location_name: "Greenhouse", accessible: true, locked: false, required_card_id: "location-greenhouse" },
+          { destination_location_id: 15, destination_location_name: "Courtyard", accessible: true, locked: "true" },
+        ],
+        cards: {
+          actors: {},
+          items: {},
+          locations: {
+            1: { display_name: "The Cosy Cottage", role: "location", aspect: "wide", image_url: "" },
+            10: { display_name: "Science Class", role: "location", aspect: "wide", image_url: "" },
+            11: { display_name: "Homeroom", role: "location", aspect: "wide", image_url: "" },
+            12: { display_name: "Library", role: "location", aspect: "wide", image_url: "" },
+            13: { display_name: "Cafeteria", role: "location", aspect: "wide", image_url: "" },
+            14: { display_name: "Greenhouse", role: "location", aspect: "wide", image_url: "", accessible: false },
+            15: { display_name: "Courtyard", role: "location", aspect: "wide", image_url: "" },
+          },
+        },
+        access: { locked_card_ids: ["location-greenhouse"], accessible_card_ids: ["location-homeroom", "location-science-lab"] },
+      };
+      state = fakeState;
+      actorId = 5000;
+      actions = buildActions(fakeState);
+      focusIndex = actions.findIndex((action) => action.label === "travel");
+      if (focusIndex < 0) focusIndex = 0;
+      focusedKey = actions[focusIndex]?.focusKey || "";
+      try {
+        for (const id of ["primary", "secondary", "tertiary"]) {
+          document.querySelector(`#${id}`).style.display = "flex";
+        }
+        renderButton("primary", {
+          label: "travel",
+          detail: "Science Class",
+          command: "go Science Class",
+          card: cardForLocation(10),
+          shape: "location",
+        });
+        renderButton("secondary", {
+          label: "listen",
+          detail: "Homeroom",
+          command: "listen",
+          card: cardForLocation(11),
+          shape: "location",
+        });
+        renderButton("tertiary", {
+          label: "chat",
+          detail: "Lantern Stitch",
+          command: "chat",
+          shape: "avatar",
+        });
+        const labels = [...document.querySelectorAll("footer.prompt .cmd-label")]
+          .map((node) => ({
+            text: node.textContent.trim(),
+            clientWidth: node.clientWidth,
+            scrollWidth: node.scrollWidth,
+          }));
+        const travelDetails = actions
+          .filter((action) => action.label === "travel")
+          .map((action) => action.detail || action.command || "");
+        return {
+          travelDetails,
+          legacyRouteChromeCount: document.querySelectorAll("#route-map,.route-node,[data-route-locked-summary]").length,
+          connectWalletActionCount: actions.filter((action) => action.label === "connect wallet").length,
+          economyText: document.querySelector("#economy")?.textContent || "",
+          labels,
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        actions = previousActions;
+        focusIndex = previousFocusIndex;
+        focusedKey = previousFocusedKey;
+        render();
+      }
+    });
+    if (previousViewport) await page.setViewportSize(previousViewport);
+    assert(result.legacyRouteChromeCount === 0, `route-list chrome should not render in the live shell: ${JSON.stringify(result)}`);
+    assert(result.travelDetails.length === 2, `only reachable destinations should become travel cards: ${JSON.stringify(result)}`);
+    assert(!result.travelDetails.some((text) => /Library|Cafeteria|Greenhouse|Courtyard/.test(text)), `locked rooms should not render as disabled travel cards: ${JSON.stringify(result)}`);
+    assert(result.connectWalletActionCount === 0, `locked room routes should not deal wallet cards: ${JSON.stringify(result)}`);
+    assert(!/connect wallet/i.test(result.economyText), `always-visible economy pill should not lead with wallet copy: ${JSON.stringify(result)}`);
+    for (const verb of ["travel", "listen"]) {
+      const label = result.labels.find((entry) => entry.text === verb);
+      assert(label, `${verb} should remain a full action label: ${JSON.stringify(result)}`);
+      assert(label.scrollWidth <= label.clientWidth + 1, `${verb} should fit without visual clipping: ${JSON.stringify(result)}`);
+    }
+  }
+
+  async function assertRepeatListenDoesNotHijackPrimary() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const baseState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "check",
+          options: [{ kind: "chat" }, { kind: "check" }, { kind: "move" }],
+        },
+        economy: {
+          orbs: 0,
+          can_chat_with_orbs: true,
+          listen_cost_orbs: 0,
+          listen_reward_claimable: true,
+          openrouter_connected: false,
+        },
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      const actionsFor = (attempted, economyPatch = {}) => {
+        const fakeState = {
+          ...baseState,
+          economy: { ...baseState.economy, listen_attempted_here: attempted, ...economyPatch },
+        };
+        state = fakeState;
+        actorId = 5000;
+        return buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          command: action.command,
+        }));
+      };
+      try {
+        return {
+          fresh: actionsFor(false),
+          repeat: actionsFor(true),
+          paidRepeat: actionsFor(true, { orbs: 1, listen_cost_orbs: 1, listen_reward_claimable: false }),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    assert(result.fresh[0]?.label === "listen", `fresh room clue should still lead the first action: ${JSON.stringify(result)}`);
+    assert(result.repeat[0]?.label === "chat", `repeat listen should not stay the default over chat: ${JSON.stringify(result)}`);
+    const repeatIndex = result.repeat.findIndex((action) => action.label === "listen again");
+    assert(repeatIndex === -1, `free no-op repeat listen should leave the one-button cycle after its clue is spent: ${JSON.stringify(result)}`);
+    const paidRepeat = result.paidRepeat.find((action) => action.label === "listen again");
+    assert(paidRepeat?.detail === "tired, -1 Orb", `paid repeat listen should show compact cost/risk copy: ${JSON.stringify(result)}`);
+    assert(!paidRepeat?.detail.includes("/"), `paid repeat listen should avoid slash shorthand: ${JSON.stringify(result)}`);
+  }
+
+  async function assertCalmRoomSearchDoesNotHijackPrimary() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const fakeState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "chat",
+          options: [{ kind: "chat" }, { kind: "check" }, { kind: "move" }],
+        },
+        economy: { orbs: 1, can_chat_with_orbs: true, listen_cost_orbs: 0, listen_reward_claimable: true },
+        room_features: [{ key: "hearth", name: "Hearth", searched: false, uses: [] }],
+        jobs: [],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      try {
+        return buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          focusKey: action.focusKey,
+        }));
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    const searchIndex = result.findIndex((action) => action.focusKey === "feature:hearth");
+    const travelIndex = result.findIndex((action) => action.label === "travel");
+    assert(result[0]?.label === "listen", `fresh Listen can still lead calm-room discovery: ${JSON.stringify(result)}`);
+    assert(result[1]?.label === "chat", `calm-room search should not outrank resident chat: ${JSON.stringify(result)}`);
+    assert(searchIndex > travelIndex, `calm-room feature search should stay behind travel unless focused: ${JSON.stringify(result)}`);
+  }
+
+  async function assertCalmRoomFeatureUseDoesNotHijackPrimary() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const fakeState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "chat",
+          options: [{ kind: "chat" }, { kind: "check" }, { kind: "move" }],
+        },
+        economy: {
+          orbs: 1,
+          can_chat_with_orbs: true,
+          listen_cost_orbs: 0,
+          listen_reward_claimable: true,
+          listen_attempted_here: true,
+        },
+        room_features: [{
+          key: "scarf_basket",
+          name: "Scarf Basket",
+          searched: true,
+          uses: [{ item_id: 2005, feature_key: "scarf_basket", used: false, effect: "Rati bond +1" }],
+        }],
+        jobs: [],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [{ id: 2005, name: "Story Button", kind: "evolution", holder_actor_id: 5000 }],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      try {
+        return buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          focusKey: action.focusKey,
+          command: action.command,
+        }));
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    const useIndex = result.findIndex((action) => action.focusKey === "use-feature:scarf_basket:2005");
+    const listenAgainIndex = result.findIndex((action) => action.label === "listen again");
+    const travelIndex = result.findIndex((action) => action.label === "travel");
+    assert(result[0]?.label === "chat", `optional feature use should not outrank resident chat: ${JSON.stringify(result)}`);
+    assert(listenAgainIndex === -1, `spent free listen should not sit between chat and optional feature use: ${JSON.stringify(result)}`);
+    assert(useIndex > travelIndex, `optional feature use should stay behind travel unless focused: ${JSON.stringify(result)}`);
+    assert(result[useIndex]?.command === "use Story Button on Scarf Basket", `feature use should remain focusable: ${JSON.stringify(result)}`);
+    assert(result[useIndex]?.detail === "Story Button, Rati bond +1", `bond feature use should preview compact effect: ${JSON.stringify(result)}`);
+  }
+
+  async function assertSpentFeatureActionsCollapse() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousActions = actions;
+      const previousFocusIndex = focusIndex;
+      const fakeState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "chat",
+          options: [{ kind: "chat" }, { kind: "check" }, { kind: "move" }],
+        },
+        economy: {
+          orbs: 1,
+          can_chat_with_orbs: true,
+          listen_cost_orbs: 0,
+          listen_reward_claimable: true,
+          listen_attempted_here: true,
+        },
+        room_features: [
+          { key: "spent_feature", name: "Spent Feature", searched: true, uses: [] },
+          { key: "fresh_feature", name: "Fresh Feature", searched: false, uses: [] },
+          {
+            key: "useful_feature",
+            name: "Useful Feature",
+            searched: true,
+            uses: [{ item_id: 2005, feature_key: "useful_feature", used: false, effect: "Rati bond +1" }],
+          },
+        ],
+        jobs: [],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [{ id: 2005, name: "Story Button", kind: "evolution", holder_actor_id: 5000 }],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      actions = buildActions(fakeState);
+      focusIndex = 0;
+      try {
+        return {
+          actions: actions.map((action) => ({
+            label: action.label,
+            detail: action.detail || "",
+            focusKey: action.focusKey,
+            command: action.command,
+          })),
+          featureChromeCount: document.querySelectorAll(".feature-pill,#features").length,
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        actions = previousActions;
+        focusIndex = previousFocusIndex;
+      }
+    });
+    assert(result.featureChromeCount === 0, `feature-list chrome should not render in the live shell: ${JSON.stringify(result)}`);
+    assert(!result.actions.some((action) => action.focusKey === "feature:spent_feature"), `spent searched feature should collapse: ${JSON.stringify(result)}`);
+    assert(result.actions.some((action) => action.focusKey === "feature:fresh_feature"), `unsearched feature should remain reachable as a search card: ${JSON.stringify(result)}`);
+    assert(result.actions.some((action) => action.focusKey === "use-feature:useful_feature:2005"), `useful feature should remain focusable as a card action: ${JSON.stringify(result)}`);
+  }
+
+  async function assertProjectFeatureUseSurfacesBeforePrepare() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousActions = actions;
+      const previousFocusIndex = focusIndex;
+      const fakeState = {
+        location: { id: 3, name: "Moonlit Trail" },
+        room_sheet: { zone: "frontier", safety: "dangerous" },
+        primary_action: {
+          kind: "prepare",
+          options: [{ kind: "prepare" }, { kind: "work" }, { kind: "move" }],
+        },
+        economy: {
+          orbs: 1,
+          can_chat_with_orbs: true,
+          listen_cost_orbs: 0,
+          listen_reward_claimable: true,
+          listen_attempted_here: true,
+        },
+        room_features: [{
+          key: "practice_circle",
+          name: "Practice Circle",
+          searched: true,
+          uses: [{ item_id: 2003, feature_key: "practice_circle", used: false, effect: "+1 progress" }],
+        }],
+        jobs: [{ id: "moonlit", status: "active", progress_clock_id: "moonlit-trail.progress" }],
+        clocks: [{ id: "moonlit-trail.progress", segments: 4, filled: 0 }],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [{ id: 2003, name: "Wolfprint Charm", kind: "evolution", holder_actor_id: 5000 }],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      actions = buildActions(fakeState);
+      focusIndex = 0;
+      try {
+        return {
+          actions: actions.map((action) => ({
+            label: action.label,
+            detail: action.detail || "",
+            focusKey: action.focusKey,
+            command: action.command,
+          })),
+          featureChromeCount: document.querySelectorAll(".feature-pill,#features").length,
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        actions = previousActions;
+        focusIndex = previousFocusIndex;
+      }
+    });
+    const useIndex = result.actions.findIndex((action) => action.focusKey === "use-feature:practice_circle:2003");
+    const prepareIndex = result.actions.findIndex((action) => action.label === "prepare");
+    assert(useIndex === 0, `project feature use should become the next concrete action: ${JSON.stringify(result)}`);
+    assert(prepareIndex > useIndex, `project feature use should surface before generic prepare: ${JSON.stringify(result)}`);
+    assert(result.actions[useIndex]?.command === "use Wolfprint Charm on Practice Circle", `project feature use should keep a clear command: ${JSON.stringify(result)}`);
+    assert(result.actions[useIndex]?.detail === "Wolfprint Charm, +1 progress", `project feature use should preview its progress payoff: ${JSON.stringify(result)}`);
+    assert(result.featureChromeCount === 0, `project feature use should rely on card actions, not feature pills: ${JSON.stringify(result)}`);
+  }
+
+  async function assertProjectFeatureUseRequiresServerEffect() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const fakeState = {
+        location: { id: 3, name: "Moonlit Trail" },
+        room_sheet: { zone: "frontier", safety: "dangerous" },
+        primary_action: {
+          kind: "prepare",
+          options: [{ kind: "prepare" }, { kind: "work" }, { kind: "move" }],
+        },
+        economy: {
+          orbs: 1,
+          can_chat_with_orbs: true,
+          listen_cost_orbs: 0,
+          listen_reward_claimable: true,
+          listen_attempted_here: true,
+        },
+        room_features: [{
+          key: "story_corner",
+          name: "Story Corner",
+          searched: true,
+          uses: [{ item_id: 2005, feature_key: "story_corner", used: false }],
+        }],
+        jobs: [{ id: "moonlit", status: "active", progress_clock_id: "moonlit-trail.progress" }],
+        clocks: [{ id: "moonlit-trail.progress", segments: 4, filled: 0 }],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [{ id: 2005, name: "Story Button", kind: "evolution", holder_actor_id: 5000 }],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      try {
+        return buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          focusKey: action.focusKey,
+          command: action.command,
+        }));
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    const useIndex = result.findIndex((action) => action.focusKey === "use-feature:story_corner:2005");
+    const prepareIndex = result.findIndex((action) => action.label === "prepare");
+    assert(prepareIndex >= 0, `project setup should remain available when an item use has no payoff: ${JSON.stringify(result)}`);
+    assert(useIndex === -1, `feature use without a server effect should stay out of the one-button cycle: ${JSON.stringify(result)}`);
+    assert(!result.some((action) => action.detail.includes("Story Button on Story Corner")), `effectless feature use should not surface as a suggested action: ${JSON.stringify(result)}`);
+  }
+
+  async function assertChatPrimaryUsesCompactActorDetail() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const baseState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "chat",
+          options: [{ kind: "chat" }],
+        },
+        action_offers: [{
+          kind: "chat",
+          target: { kind: "actor", id: 1003, label: "Skull" },
+          cost: { orbs: 1, reason: "server-authored avatar chat" },
+          effect: "first chat deepens Bond with Skull; adds a memory mark",
+        }],
+        chat_bond_claimed_target_ids: [],
+        economy: { orbs: 1, chat_cost_orbs: 1, can_chat_with_orbs: true, openrouter_connected: false },
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1003, name: "Skull", kind: "npc", status: "active", stats: { level: 2 } },
+        ],
+        items: [],
+        exits: [],
+        room_features: [],
+        cards: {
+          actors: {
+            1003: {
+              display_name: "Skull",
+              role: "resident",
+              aspect: "portrait",
+              title: "Hearthbound Sentinel",
+              image_url: "",
+            },
+          },
+          items: {},
+          locations: {},
+        },
+        access: {},
+      };
+      const chatActionsFor = (patch) => {
+        const fakeState = {
+          ...baseState,
+          ...patch,
+          economy: { ...baseState.economy, ...(patch.economy || {}) },
+        };
+        state = fakeState;
+        actorId = 5000;
+        return buildActions(fakeState)
+          .filter((entry) => entry.label === "chat")
+          .map((entry) => ({
+            detail: entry.detail || "",
+            command: entry.command || "",
+          }));
+      };
+      const chatActionFor = (patch, command) => {
+        const chatActions = chatActionsFor(patch);
+        return (command ? chatActions.find((entry) => entry.command === command) : chatActions[0]) || null;
+      };
+      const orderedActionsFor = (patch) => {
+        const fakeState = {
+          ...baseState,
+          ...patch,
+          primary_action: {
+            kind: "chat",
+            options: [{ kind: "chat" }, { kind: "move" }],
+          },
+          exits: [{
+            destination_location_id: 2,
+            destination_location_name: "Rain-Soft Garden",
+            accessible: true,
+            locked: false,
+          }],
+          economy: { ...baseState.economy, ...(patch.economy || {}) },
+        };
+        state = fakeState;
+        actorId = 5000;
+        return buildActions(fakeState).map((entry) => ({
+          label: entry.label,
+          detail: entry.detail || "",
+          command: entry.command || "",
+        }));
+      };
+      try {
+        return {
+          serverPaid: chatActionFor({}),
+          staleConnectedHint: chatActionFor({ economy: { openrouter_connected: true } }),
+          claimed: chatActionFor({ chat_bond_claimed_target_ids: [1003] }),
+          freshOrder: orderedActionsFor({ chat_bond_claimed_target_ids: [] }),
+          claimedOrder: orderedActionsFor({ chat_bond_claimed_target_ids: [1003] }),
+          nonDefaultUnclaimed: chatActionFor({
+            action_offers: [{
+              ...baseState.action_offers[0],
+              target: { kind: "actor", id: 1001, label: "Rati" },
+              effect: "first chat deepens Bond with Rati; adds a memory mark",
+            }],
+            chat_bond_claimed_target_ids: [1001],
+            actors: [
+              baseState.actors[0],
+              { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+              baseState.actors[1],
+            ],
+            cards: {
+              ...baseState.cards,
+              actors: {
+                ...baseState.cards.actors,
+                1001: {
+                  display_name: "Rati",
+                  role: "resident",
+                  aspect: "portrait",
+                  title: "Button-Keeper",
+                  image_url: "",
+                },
+              },
+            },
+          }, "chat Skull lv2"),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    assert(result.serverPaid?.detail === "Skull lv2, bond +1, -1 Orb", `server-paid chat should show compact bond payoff and Orb cost: ${JSON.stringify(result)}`);
+    assert(result.staleConnectedHint?.detail === "Skull lv2, bond +1, -1 Orb", `stale OpenRouter hints should still show server-paid Orb cost: ${JSON.stringify(result)}`);
+    assert(result.claimed?.detail === "Skull lv2, -1 Orb", `claimed chat bond payoff should disappear from compact detail: ${JSON.stringify(result)}`);
+    assert(result.freshOrder?.[0]?.label === "chat", `fresh first-chat payoff should stay ahead of travel: ${JSON.stringify(result)}`);
+    assert(result.claimedOrder?.[0]?.label === "travel", `claimed repeat chat should drop behind travel: ${JSON.stringify(result)}`);
+    assert(result.nonDefaultUnclaimed?.detail === "Skull lv2, bond +1, -1 Orb", `non-default unclaimed chat should still preview bond payoff: ${JSON.stringify(result)}`);
+    assert(!String(result.serverPaid?.detail || "").includes("/"), `chat detail should not include card title chrome: ${JSON.stringify(result)}`);
+    assert(!String(result.staleConnectedHint?.detail || "").includes("/"), `stale OpenRouter chat detail should not include card title chrome: ${JSON.stringify(result)}`);
+  }
+
+  async function assertGiftPrimaryUsesCompactVerb() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousActions = actions;
+      const fakeState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "give_item",
+          options: [{ kind: "give_item" }],
+        },
+        economy: { orbs: 1, can_chat_with_orbs: true },
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1002, name: "Whiskerwind", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [{ id: 2002, name: "Dewbright Button", kind: "evolution", holder_actor_id: 5000 }],
+        exits: [],
+        room_features: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      try {
+        actions = buildActions(fakeState);
+        const giftActions = actions.filter((action) => action.command === "give Dewbright Button to Whiskerwind");
+        return {
+          giftActions,
+          actorFocusIndex: actionIndexForKey("actor:1002"),
+          itemFocusIndex: actionIndexForKey("item:2002"),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        actions = previousActions;
+      }
+    });
+    assert(result.giftActions?.length === 1, `gift action should be generated once while supporting multiple focus anchors: ${JSON.stringify(result)}`);
+    assert(result.giftActions?.[0]?.label === "give", `gift action should use compact verb: ${JSON.stringify(result)}`);
+    assert(result.giftActions?.[0]?.detail === "Dewbright Button to Whiskerwind", `gift action should preserve item and target detail: ${JSON.stringify(result)}`);
+    assert(
+      result.giftActions?.[0]?.focusKeys?.includes("actor:1002") && result.giftActions?.[0]?.focusKeys?.includes("item:2002"),
+      `gift action should expose both actor and item focus keys: ${JSON.stringify(result)}`,
+    );
+    assert(result.actorFocusIndex === 0, `gift action should focus from the resident chip: ${JSON.stringify(result)}`);
+    assert(result.itemFocusIndex === 0, `gift action should focus from the held item chip: ${JSON.stringify(result)}`);
+  }
+
+  async function assertGiveTradeCanBeDrawnFromShuffledDeck() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousActions = actions;
+      const previousHandKeys = handKeys.slice();
+      const previousDiscardedHandKeys = discardedHandKeys.slice();
+      const previousFocusedKey = focusedKey;
+      const previousFocusIndex = focusIndex;
+      const previousHandDealNonce = handDealNonce;
+      const fakeState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "give_item",
+          options: [
+            { kind: "give_item" },
+            { kind: "trade_item" },
+            { kind: "check" },
+            { kind: "move" },
+          ],
+        },
+        economy: {
+          orbs: 1,
+          can_chat_with_orbs: true,
+          listen_cost_orbs: 0,
+          listen_reward_claimable: true,
+          openrouter_connected: false,
+        },
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          {
+            id: 1001,
+            name: "Rati",
+            kind: "npc",
+            status: "active",
+            stats: { level: 1 },
+            resident_economy: {
+              request: { item_id: 2005, holder_actor_id: 5000, reason: "Rati wants Story Button" },
+              trade_offer: {
+                offered_item_id: 2005,
+                requested_item_id: 2002,
+                willingness: "eager",
+                reason: "Rati wants Story Button",
+              },
+            },
+          },
+        ],
+        items: [
+          { id: 2005, name: "Story Button", kind: "evolution", holder_actor_id: 5000 },
+          { id: 2002, name: "Dewbright Button", kind: "evolution", holder_actor_id: 1001 },
+        ],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        room_features: [{ key: "hearth", name: "Hearth", searched: false, uses: [] }],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      actions = buildActions(fakeState);
+      handKeys = ["check", "exit:2", "feature:hearth"];
+      discardedHandKeys = [];
+      focusedKey = "";
+      focusIndex = 0;
+      handDealNonce = 1;
+      renderCommands();
+      try {
+        const visibleButtons = () => [...document.querySelectorAll("footer.prompt button")]
+            .filter((button) => getComputedStyle(button).display !== "none")
+            .map((button) => button.innerText.trim().replace(/\s+/g, " "))
+            .filter(Boolean);
+        const beforeShuffle = visibleButtons();
+        discardVisibleHand(false);
+        handDealNonce += 1;
+        reconcileHand();
+        renderCommands();
+        const afterShuffle = visibleButtons();
+        const seenExchangeLabels = new Set();
+        const snapshots = [];
+        for (let turn = 0; turn < 8; turn += 1) {
+          const labels = visibleButtons();
+          snapshots.push(labels);
+          for (const label of labels) {
+            if (label.startsWith("give ")) seenExchangeLabels.add("give");
+            if (label.startsWith("trade ")) seenExchangeLabels.add("trade");
+          }
+          if (seenExchangeLabels.has("give") && seenExchangeLabels.has("trade")) break;
+          discardVisibleHand(false);
+          handDealNonce += 1;
+          reconcileHand();
+          renderCommands();
+        }
+        return {
+          handKeys: handKeys.slice(),
+          discardedHandKeys: discardedHandKeys.slice(),
+          actionLabels: actions.map((action) => `${action.label} ${action.detail || ""}`.trim()),
+          beforeShuffle,
+          afterShuffle,
+          snapshots,
+          seenExchangeLabels: [...seenExchangeLabels],
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        actions = previousActions;
+        handKeys = previousHandKeys;
+        discardedHandKeys = previousDiscardedHandKeys;
+        focusedKey = previousFocusedKey;
+        focusIndex = previousFocusIndex;
+        handDealNonce = previousHandDealNonce;
+        render();
+      }
+    });
+    assert(result.actionLabels.some((label) => label.startsWith("give ")), `give action should be generated: ${JSON.stringify(result)}`);
+    assert(result.actionLabels.some((label) => label.startsWith("trade ")), `trade action should be generated: ${JSON.stringify(result)}`);
+    assert(
+      result.beforeShuffle.every((label) => !result.afterShuffle.includes(label) || label.startsWith("shuffle")),
+      `shuffle should discard the visible action cards before redealing: ${JSON.stringify(result)}`,
+    );
+    assert(result.seenExchangeLabels.includes("give"), `give should be drawable through the deck: ${JSON.stringify(result)}`);
+    assert(result.seenExchangeLabels.includes("trade"), `trade should be drawable through the deck: ${JSON.stringify(result)}`);
+  }
+
+  async function assertBankLedgerSurfacesAsCompactProgressAction() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousAccountPanelPinned = accountPanelPinned;
+      const fakeState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "travel",
+          options: [{ kind: "chat" }, { kind: "bank_ledger" }, { kind: "move" }],
+        },
+        action_offers: [{
+          kind: "bank_ledger",
+          effect: "turns 2 memory marks into 2 growth points",
+        }],
+        economy: { orbs: 1, can_chat_with_orbs: true, openrouter_connected: false },
+        ledger: { unbanked_count: 2, advancement_points: 0 },
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        room_features: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      try {
+        const built = buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          command: action.command,
+          focusKey: action.focusKey,
+          effect: action.effect || "",
+        }));
+        accountPanelPinned = true;
+        const panelHtml = accountPanelHtml();
+        return { built, panelHtml };
+      } finally {
+        accountPanelPinned = previousAccountPanelPinned;
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    const actions = result.built;
+    const panelHtml = result.panelHtml || "";
+    const bankIndex = actions.findIndex((action) => action.focusKey === "bank-ledger");
+    const chatIndex = actions.findIndex((action) => action.label === "chat");
+    const travelIndex = actions.findIndex((action) => action.label === "travel");
+    assert(bankIndex >= 0, `bank ledger action should surface after marks are earned: ${JSON.stringify(result)}`);
+    assert(chatIndex >= 0, `chat action should remain available while progress can be banked: ${JSON.stringify(result)}`);
+    assert(bankIndex < chatIndex, `bank ledger should interrupt chat once when progress is unbanked: ${JSON.stringify(result)}`);
+    assert(bankIndex < travelIndex, `bank ledger should appear before leaving with unbanked progress: ${JSON.stringify(result)}`);
+    assert(actions[bankIndex]?.label === "grow", `growth action should use a compact verb: ${JSON.stringify(result)}`);
+    assert(actions[bankIndex]?.detail === "2 memory marks, +2 growth points", `growth action should preview its payoff clearly: ${JSON.stringify(result)}`);
+    assert(actions[bankIndex]?.command === "bank ledger", `bank ledger should keep the mud command intact: ${JSON.stringify(result)}`);
+    assert(!actions.some((action) => String(action.detail || "").includes(" / ")), `bank ledger copy should avoid slash-heavy detail: ${JSON.stringify(result)}`);
+    assert(!panelHtml.includes("data-character-bank") && !panelHtml.includes(">bank ledger<"), `account panel should not duplicate the bank action: ${panelHtml}`);
+    assert(panelHtml.includes("2 marks, 0 growth"), `account panel should still summarize memory marks: ${panelHtml}`);
+  }
+
+  async function assertTrainSkillSurfacesAsCompactAdvancementAction() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const baseState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "train_skill",
+          options: [{ kind: "chat" }, { kind: "train_skill" }, { kind: "move" }],
+        },
+        action_offers: [{
+          kind: "train_skill",
+          effect: "steps Listening up; future Listening checks +1",
+        }],
+        economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
+        ledger: { unbanked_count: 0, advancement_points: 1 },
+        skills: [],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        room_features: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      const actionSnapshot = (fakeState) => {
+        state = fakeState;
+        actorId = 5000;
+        return buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          command: action.command,
+          focusKey: action.focusKey,
+          effect: action.effect || "",
+        }));
+      };
+      try {
+        return {
+          firstStep: actionSnapshot(baseState),
+          contextual: actionSnapshot({
+            ...baseState,
+            action_offers: [{
+              kind: "train_skill",
+              command: "skill steadiness",
+              effect: "steps Steadiness up; future Steadiness checks +1",
+            }],
+          }),
+          repeatWithBond: actionSnapshot({
+            ...baseState,
+            primary_action: {
+              kind: "create_bond",
+              options: [{ kind: "train_skill" }, { kind: "create_bond" }, { kind: "move" }],
+            },
+            action_offers: [
+              { kind: "train_skill", effect: "steps Listening up; future Listening checks +2" },
+              {
+                kind: "create_bond",
+                target: { kind: "actor", id: 1001, label: "Rati" },
+                effect: "starts a Bond with Rati; spends 1 growth point",
+              },
+            ],
+            skills: [{ skill_id: "listening", label: "Listening", rank: 1, tier: "trained", bonus: 1 }],
+            actors: [
+              { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+              { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+            ],
+          }),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    const trainIndex = result.firstStep.findIndex((action) => action.focusKey === "train-listening");
+    const travelIndex = result.firstStep.findIndex((action) => action.label === "travel");
+    assert(trainIndex >= 0, `train action should surface after points are banked: ${JSON.stringify(result)}`);
+    assert(trainIndex < travelIndex, `train action should appear before wandering away with spendable progress: ${JSON.stringify(result)}`);
+    assert(result.firstStep[trainIndex]?.label === "train", `train action should use a compact verb: ${JSON.stringify(result)}`);
+    assert(result.firstStep[trainIndex]?.detail === "Listening +1, -1 point", `train action should preview bonus and cost compactly: ${JSON.stringify(result)}`);
+    assert(result.firstStep[trainIndex]?.command === "skill listening", `train action should keep the mud command intact: ${JSON.stringify(result)}`);
+    const contextualIndex = result.contextual.findIndex((action) => action.focusKey === "train-steadiness");
+    assert(contextualIndex >= 0, `contextual train action should use the offered skill: ${JSON.stringify(result)}`);
+    assert(result.contextual[contextualIndex]?.detail === "Steadiness +1, -1 point", `contextual train should preview the selected skill: ${JSON.stringify(result)}`);
+    assert(result.contextual[contextualIndex]?.command === "skill steadiness", `contextual train should run the selected skill command: ${JSON.stringify(result)}`);
+    const repeatTrainIndex = result.repeatWithBond.findIndex((action) => action.focusKey === "train-listening");
+    const bondIndex = result.repeatWithBond.findIndex((action) => action.focusKey === "bond:1001");
+    assert(bondIndex >= 0 && repeatTrainIndex >= 0 && bondIndex < repeatTrainIndex, `bond should interrupt repeat training when both are available: ${JSON.stringify(result)}`);
+    assert(result.repeatWithBond[repeatTrainIndex]?.detail === "Listening +2, -1 point", `repeat train should preview the next bonus: ${JSON.stringify(result)}`);
+    assert(![...result.firstStep, ...result.contextual, ...result.repeatWithBond].some((action) => String(action.detail || "").includes(" / ")), `train copy should avoid slash-heavy detail: ${JSON.stringify(result)}`);
+  }
+
+  async function assertBondSurfacesAsCompactRelationshipAction() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const fakeState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "create_bond",
+          options: [{ kind: "create_bond" }, { kind: "move" }],
+        },
+        action_offers: [{
+          kind: "create_bond",
+          command: "bond Rati: I bring small kindnesses to Rati.",
+          target: { kind: "actor", id: 1001, label: "Rati" },
+          effect: "starts a Bond with Rati; spends 1 growth point",
+        }],
+        economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
+        ledger: { unbanked_count: 0, advancement_points: 1 },
+        skills: [],
+        bonds: [],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        room_features: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      try {
+        return buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          command: action.command,
+          focusKey: action.focusKey,
+          effect: action.effect || "",
+        }));
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    const bondIndex = result.findIndex((action) => action.focusKey === "bond:1001");
+    const travelIndex = result.findIndex((action) => action.label === "travel");
+    assert(bondIndex >= 0, `bond action should surface when a resident can become a Bond: ${JSON.stringify(result)}`);
+    assert(bondIndex < travelIndex, `bond action should appear before leaving with spendable relationship progress: ${JSON.stringify(result)}`);
+    assert(result[bondIndex]?.label === "bond", `bond action should use a compact verb: ${JSON.stringify(result)}`);
+    assert(result[bondIndex]?.detail === "Rati, -1 point", `bond action should preview target and cost compactly: ${JSON.stringify(result)}`);
+    assert(result[bondIndex]?.command === "bond Rati: I bring small kindnesses to Rati.", `bond action should carry a valid relationship command: ${JSON.stringify(result)}`);
+    assert(!result.some((action) => String(action.detail || "").includes(" / ")), `bond copy should avoid slash-heavy detail: ${JSON.stringify(result)}`);
+  }
+
+  async function assertMatureBondSurfacesAsCompactSettlementAction() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const baseState = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        primary_action: {
+          kind: "bank_ledger",
+          options: [{ kind: "bank_ledger" }, { kind: "resolve_bond" }, { kind: "move" }],
+        },
+        action_offers: [
+          {
+            kind: "bank_ledger",
+            effect: "turns 1 memory mark into 1 growth point",
+          },
+          {
+            kind: "resolve_bond",
+            target: { kind: "actor", id: 1001, label: "Rati" },
+            effect: "settles a Bond with Rati; adds a memory mark",
+          },
+        ],
+        economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
+        ledger: { unbanked_count: 1, advancement_points: 0 },
+        skills: [],
+        bonds: [{ id: "bond:5000:1001", actor_id: 5000, target_actor_id: 1001, target_actor_name: "Rati", strength: 2, status: "active" }],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        room_features: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      const snapshot = (fakeState) => {
+        state = fakeState;
+        actorId = 5000;
+        return buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          command: action.command,
+          focusKey: action.focusKey,
+          effect: action.effect || "",
+        }));
+      };
+      try {
+        return {
+          mature: snapshot(baseState),
+          fresh: snapshot({
+            ...baseState,
+            primary_action: {
+              kind: "travel",
+              options: [{ kind: "move" }],
+            },
+            action_offers: [],
+            ledger: { unbanked_count: 0, advancement_points: 0 },
+            bonds: [{ ...baseState.bonds[0], strength: 1 }],
+          }),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    const settleIndex = result.mature.findIndex((action) => action.focusKey === "settle-bond:1001");
+    const bankIndex = result.mature.findIndex((action) => action.focusKey === "bank-ledger");
+    const travelIndex = result.mature.findIndex((action) => action.label === "travel");
+    assert(settleIndex >= 0, `mature bond should surface a settlement action: ${JSON.stringify(result)}`);
+    assert(bankIndex >= 0 && bankIndex < settleIndex, `banked progress should stay ahead of settlement: ${JSON.stringify(result)}`);
+    assert(settleIndex < travelIndex, `settlement should appear before wandering away from a mature bond: ${JSON.stringify(result)}`);
+    assert(result.mature[settleIndex]?.label === "settle", `settlement should use a compact verb: ${JSON.stringify(result)}`);
+    assert(result.mature[settleIndex]?.detail === "Rati, +1 mark", `settlement should preview the ledger payoff compactly: ${JSON.stringify(result)}`);
+    assert(result.mature[settleIndex]?.command === "settle Rati", `settlement should keep readable command copy: ${JSON.stringify(result)}`);
+    assert(!result.fresh.some((action) => action.label === "settle"), `fresh strength-1 bonds should not settle immediately: ${JSON.stringify(result)}`);
+    assert(![...result.mature, ...result.fresh].some((action) => String(action.detail || "").includes(" / ")), `settlement copy should avoid slash-heavy detail: ${JSON.stringify(result)}`);
+  }
+
+  async function assertPreparedProgressLabelsAreRoomScoped() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const baseState = {
+        location: { id: 3, name: "Moonlit Trail" },
+        primary_action: {
+          kind: "work",
+          options: [{ kind: "work" }, { kind: "help" }],
+        },
+        economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
+        jobs: [{ id: "moonlit", status: "active", progress_clock_id: "moonlit-trail.progress" }],
+        clocks: [{ id: "moonlit-trail.progress", segments: 4, filled: 0 }],
+        room_features: [{ key: "practice_circle", name: "Practice Circle", searched: true, uses: [] }],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      const detailsFor = (tags, actionOffers = []) => {
+        const fakeState = { ...baseState, tags, action_offers: actionOffers };
+        state = fakeState;
+        actorId = 5000;
+        return Object.fromEntries(buildActions(fakeState).map((action) => [action.label, action.detail || ""]));
+      };
+      try {
+        return {
+          stale: detailsFor([{ id: "actor:5000:prepared:1", scope: "actor", scope_id: 5000, label: "prepared" }]),
+          current: detailsFor([{ id: "actor:5000:prepared:3", scope: "actor", scope_id: 5000, label: "prepared" }]),
+          social: Object.fromEntries(buildActions({
+            ...baseState,
+            action_offers: [{
+              kind: "help",
+              effect: "helps Moonlit Echo; advances progress clock moonlit-trail.progress by 1; first help deepens Bond with Moonlit Echo",
+            }],
+            tags: [],
+          }).map((action) => [action.label, action.detail || ""])),
+          repeatHelp: detailsFor(
+            [{ id: "room:3:helped", scope: "room", scope_id: 3, label: "helped" }],
+            [{ kind: "help", risk: "repeated help can leave you tired" }],
+          ),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    assert(result.stale.work === "+2 progress, tired", `stale prepared tag must not inflate work detail beyond the hard-push tradeoff: ${JSON.stringify(result)}`);
+    assert(result.stale.help === "+1 progress, safe", `stale prepared tag must keep help as the safer slower option: ${JSON.stringify(result)}`);
+    assert(result.current.work === "+3 progress", `current room prepared tag should show informed progress: ${JSON.stringify(result)}`);
+    assert(result.current.help === "+2 progress", `current room prepared tag should show help as slower than work: ${JSON.stringify(result)}`);
+    assert(result.social.help === "+1 progress, safe, bond +1", `social project help should preview its one-shot bond payoff compactly: ${JSON.stringify(result)}`);
+    assert(result.repeatHelp.help === "+1 progress, tired", `repeat unprepared help should preview its fatigue cost: ${JSON.stringify(result)}`);
+  }
+
+  async function assertMultiRoomPrepareCopyUsesServerProgress() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const baseState = {
+        location: { id: 36, name: "Solar Temple" },
+        primary_action: {
+          kind: "prepare",
+          options: [{ kind: "prepare" }, { kind: "work" }],
+        },
+        economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
+        action_offers: [
+          {
+            kind: "prepare",
+            effect: "uses partial project evidence; sets up +2 progress",
+          },
+          {
+            kind: "work",
+            effect: "advances progress clock solar-abyss.drowned-bell by 2",
+          },
+        ],
+        jobs: [{ id: "solar-abyss", status: "active", progress_clock_id: "solar-abyss.drowned-bell" }],
+        clocks: [{ id: "solar-abyss.drowned-bell", segments: 4, filled: 0 }],
+        room_features: [{ key: "sun_bell", name: "Missing Sun Bell", searched: true, uses: [] }],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      const detailsFor = (tags) => {
+        const fakeState = { ...baseState, tags };
+        state = fakeState;
+        actorId = 5000;
+        return Object.fromEntries(buildActions(fakeState).map((action) => [action.label, action.detail || ""]));
+      };
+      try {
+        return {
+          unprepared: detailsFor([]),
+          prepared: detailsFor([{ id: "actor:5000:prepared:36", scope: "actor", scope_id: 5000, label: "prepared" }]),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    assert(result.unprepared.prepare === "setup +2", `multi-room partial prepare should use server payoff copy: ${JSON.stringify(result)}`);
+    assert(result.prepared.work === "+2 progress", `multi-room partial work should use server payoff copy: ${JSON.stringify(result)}`);
+  }
+
+  async function assertSpentPreparationSurfacesProjectPush() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const fakeState = {
+        location: { id: 3, name: "Moonlit Trail" },
+        primary_action: {
+          kind: "attack",
+          options: [{ kind: "attack" }, { kind: "defend" }, { kind: "work" }, { kind: "help" }],
+        },
+        economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
+        jobs: [{ id: "moonlit", status: "active", progress_clock_id: "moonlit-trail.progress" }],
+        clocks: [{ id: "moonlit-trail.progress", segments: 4, filled: 3 }],
+        tags: [{
+          id: "actor:5000:prepared_spent:3:moonlit-trail.progress",
+          scope: "actor",
+          scope_id: 5000,
+          label: "spent preparation",
+        }],
+        room_features: [{ key: "practice_circle", name: "Practice Circle", searched: true, uses: [] }],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      try {
+        const actionSnapshot = (snapshot) => buildActions(snapshot).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          command: action.command,
+        }));
+        const preparedFinishState = {
+          ...fakeState,
+          primary_action: {
+            kind: "work",
+            options: [{ kind: "work" }, { kind: "help" }, { kind: "attack" }],
+          },
+          clocks: [{ id: "moonlit-trail.progress", segments: 4, filled: 1 }],
+          tags: [{
+            id: "actor:5000:prepared:3",
+            scope: "actor",
+            scope_id: 5000,
+            label: "prepared",
+          }],
+        };
+        const unpreparedFinishState = {
+          ...fakeState,
+          tags: [],
+        };
+        return {
+          spent: actionSnapshot(fakeState),
+          prepared: actionSnapshot(preparedFinishState),
+          unprepared: actionSnapshot(unpreparedFinishState),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    assert(result.spent[0]?.label === "finish", `spent preparation should promote the final project push above combat: ${JSON.stringify(result)}`);
+    assert(result.spent[0]?.detail === "tired", `final project push should show the fatigue tradeoff without slash shorthand: ${JSON.stringify(result)}`);
+    assert(!result.spent[0]?.detail.includes("/"), `final project push should avoid slash-heavy copy: ${JSON.stringify(result)}`);
+    assert(result.spent.some((action) => action.label === "attack"), `combat should remain reachable after project push promotion: ${JSON.stringify(result)}`);
+    assert(result.prepared[0]?.label === "finish", `prepared finish-ready work should use the finish verb: ${JSON.stringify(result)}`);
+    assert(result.prepared[0]?.detail === "+3 progress", `prepared finish should keep the progress payoff visible: ${JSON.stringify(result)}`);
+    assert(result.unprepared[0]?.label === "finish", `unprepared finish-ready work should still outrank attack: ${JSON.stringify(result)}`);
+    assert(result.unprepared[0]?.detail === "tired", `unprepared finish should preview fatigue compactly: ${JSON.stringify(result)}`);
+    assert(result.unprepared.find((action) => action.label === "help")?.detail === "finish, safe", `finish-ready help should name completion without losing its safe route: ${JSON.stringify(result)}`);
+  }
+
+  async function assertCombatPotionDoesNotDefaultToEnemyHealing() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const baseState = {
+        location: { id: 3, name: "Moonlit Trail" },
+        primary_action: {
+          kind: "attack",
+          options: [{ kind: "use_item" }, { kind: "attack" }, { kind: "defend" }],
+        },
+        economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", hp: 10, stats: { hp_base: 10, level: 1 } },
+          { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", hp: 2, stats: { hp_base: 6, level: 1 } },
+        ],
+        items: [{ id: 2001, name: "Hearth Tonic", kind: "potion", holder_actor_id: 5000, charges: 1 }],
+        exits: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      const commandsFor = (actorPatch, options = baseState.primary_action.options) => {
+        const fakeState = {
+          ...baseState,
+          primary_action: {
+            ...baseState.primary_action,
+            options,
+          },
+          actors: baseState.actors.map((actor) => actor.id === 5000 ? { ...actor, ...actorPatch } : actor),
+        };
+        state = fakeState;
+        actorId = 5000;
+        return buildActions(fakeState).map((action) => action.command);
+      };
+      try {
+        return {
+          enemyOnly: commandsFor({ hp: 10 }),
+          selfAndEnemy: commandsFor({ hp: 4 }),
+          quietedEnemy: commandsFor({ hp: 10 }, [{ kind: "use_item" }, { kind: "chat" }]),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    assert(!result.enemyOnly.some((command) => command === "use Hearth Tonic on Moonlit Echo"), `combat opponent healing should not be a default action: ${JSON.stringify(result)}`);
+    assert(result.enemyOnly.some((command) => command === "attack Moonlit Echo"), `combat actions should remain available after suppressing enemy healing: ${JSON.stringify(result)}`);
+    assert(result.selfAndEnemy.some((command) => command === "use Hearth Tonic on Lantern Stitch"), `self healing should still surface in combat: ${JSON.stringify(result)}`);
+    assert(result.quietedEnemy.some((command) => command === "use Hearth Tonic on Moonlit Echo"), `quieted wounded residents should become valid healing targets: ${JSON.stringify(result)}`);
+    assert(!result.quietedEnemy.some((command) => command === "attack Moonlit Echo"), `quieted healing state should not reintroduce attack affordances: ${JSON.stringify(result)}`);
+  }
+
+  async function assertCombatProjectActionsUseCompactTradeoffCopy() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const fakeState = {
+        location: { id: 3, name: "Moonlit Trail" },
+        primary_action: {
+          kind: "attack",
+          options: [{ kind: "attack" }, { kind: "defend" }],
+        },
+        action_offers: [
+          {
+            kind: "attack",
+            risk: "advances danger +1; can damage or knock out the target",
+          },
+          {
+            kind: "defend",
+            effect: "guards carefully and sets up +3 progress",
+          },
+        ],
+        economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
+        jobs: [{ id: "moonlit", status: "active", progress_clock_id: "moonlit-trail.progress" }],
+        clocks: [{ id: "moonlit-trail.progress", segments: 4, filled: 0 }],
+        room_features: [{ key: "practice_circle", name: "Practice Circle", searched: true, uses: [] }],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      state = fakeState;
+      actorId = 5000;
+      try {
+        return Object.fromEntries(buildActions(fakeState).map((action) => [action.label, action.detail || ""]));
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    assert(result.attack === "Moonlit Echo, danger +1", `attack should show compact danger tradeoff copy: ${JSON.stringify(result)}`);
+    assert(result.defend === "guard, setup +3", `defend should preview the project setup payoff: ${JSON.stringify(result)}`);
+    assert(!Object.values(result).some((detail) => detail.includes(" / ")), `combat tradeoff copy should avoid slash-heavy details: ${JSON.stringify(result)}`);
+  }
+
+  async function assertCompactMetaCopyAvoidsSlashes() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const probeButton = document.createElement("button");
+      probeButton.id = "compact-meta-probe";
+      document.body.appendChild(probeButton);
+      try {
+        const roll = rollMeta({
+          type: "ability_check.rolled",
+          actor_name: "Lantern Stitch",
+          location_name: "Moonlit Trail",
+          raw_roll: 9,
+          modifier: 3,
+          total: 12,
+          dc: 10,
+        });
+        renderButton("compact-meta-probe", {
+          label: "use",
+          command: "use Story Button",
+          effect: "Rati bond +1",
+          risk: "one-shot",
+          detail: "Story Button, Rati bond +1",
+        });
+        const simpleButtonTitle = probeButton.getAttribute("title") || "";
+        const simpleButtonAria = probeButton.getAttribute("aria-label") || "";
+        renderButton("compact-meta-probe", {
+          label: "help",
+          command: "assist",
+          effect: "helps Moonlit Echo; finishes progress clock moonlit-trail.progress by 1; first help deepens Bond with Moonlit Echo",
+          risk: "",
+          detail: "finish, safe, bond +1",
+        });
+        const finishButtonTitle = probeButton.getAttribute("title") || "";
+        renderButton("compact-meta-probe", {
+          label: "prepare",
+          command: "prepare",
+          effect: "uses complete project evidence; sets up +3 progress",
+          risk: "",
+          detail: "setup +3",
+        });
+        const setupButtonTitle = probeButton.getAttribute("title") || "";
+        state = {
+          ledger: { unbanked_count: 2, advancement_points: 1 },
+          calling: { statement: "I listen for small truths and help where I can." },
+          skills: [],
+          bonds: [],
+        };
+        return {
+          rollDetail: roll.detail,
+          buttonTitle: simpleButtonTitle,
+          finishButtonTitle,
+          setupButtonTitle,
+          buttonAria: simpleButtonAria,
+          finishDetail: compactActionDetail("finishes progress clock moonlit-trail.progress by 1"),
+          setupDetail: compactActionDetail("uses complete project evidence; sets up +3 progress"),
+          sheetHtml: characterSheetHtml(),
+        };
+      } finally {
+        probeButton.remove();
+        state = previousState;
+      }
+    });
+    assert(result.rollDetail === "Lantern Stitch, Moonlit Trail", `roll metadata should read as compact copy: ${JSON.stringify(result)}`);
+    assert(result.buttonTitle === "use Story Button; Rati bond +1; one-shot", `button tooltip should avoid slash-heavy meta copy: ${JSON.stringify(result)}`);
+    assert(result.finishButtonTitle === "assist; helps Moonlit Echo; finish moonlit-trail.progress by 1; first help deepens Bond with Moonlit Echo", `finish tooltip should compact progress-clock text: ${JSON.stringify(result)}`);
+    assert(result.setupButtonTitle === "prepare; uses complete project evidence; setup +3", `setup tooltip should compact setup effect copy: ${JSON.stringify(result)}`);
+    assert(result.buttonAria === "use, Story Button, Rati bond +1", `button aria copy should stay compact and readable: ${JSON.stringify(result)}`);
+    assert(result.finishDetail === "finish moonlit-trail.progress by 1", `finish effect copy should compact progress-clock text: ${JSON.stringify(result)}`);
+    assert(result.setupDetail === "uses complete project evidence; setup +3", `setup effect copy should compact prepared payoff text: ${JSON.stringify(result)}`);
+    assert(result.sheetHtml.includes("2 marks, 1 growth"), `memory row should use compact comma-separated copy: ${JSON.stringify(result)}`);
+    assert(!Object.values(result).some((value) => String(value).includes(" / ")), `compact meta copy should avoid slash-heavy separators: ${JSON.stringify(result)}`);
+  }
+
+  async function assertTiredRestPriorityFollowsRoomDanger() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const baseState = {
+        economy: { orbs: 0, can_chat_with_orbs: true, openrouter_connected: false },
+        tags: [{ id: "actor:5000:tired", scope: "actor", scope_id: 5000, label: "tired" }],
+        actors: [
+          { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
+          { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
+        ],
+        items: [],
+        exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden", accessible: true, locked: false }],
+        room_features: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+      };
+      const actionsFor = (patch) => {
+        const fakeState = { ...baseState, ...patch };
+        state = fakeState;
+        actorId = 5000;
+        return buildActions(fakeState).map((action) => ({
+          label: action.label,
+          detail: action.detail || "",
+          command: action.command,
+        }));
+      };
+      try {
+        return {
+          frontier: actionsFor({
+            location: { id: 3, name: "Moonlit Trail" },
+            room_sheet: { zone: "frontier", safety: "dangerous" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "attack" }, { kind: "rest" }, { kind: "flee" }],
+            },
+            actors: [
+              ...baseState.actors,
+              { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 1 } },
+            ],
+          }),
+          frontierWithLedger: actionsFor({
+            location: { id: 3, name: "Moonlit Trail" },
+            room_sheet: { zone: "frontier", safety: "dangerous" },
+            primary_action: {
+              kind: "bank_ledger",
+              options: [{ kind: "bank_ledger" }, { kind: "rest" }, { kind: "flee" }],
+            },
+            action_offers: [
+              {
+                kind: "bank_ledger",
+                effect: "turns 2 memory marks into 2 growth points",
+              },
+              {
+                kind: "rest",
+                risk: "resting on the frontier advances the danger clock",
+                effect: "clears tired; may advance danger in frontier rooms",
+              },
+            ],
+            ledger: { unbanked_count: 2, advancement_points: 0 },
+            actors: [
+              ...baseState.actors,
+              { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 1 } },
+            ],
+          }),
+          warmedFrontier: actionsFor({
+            location: { id: 3, name: "Moonlit Trail" },
+            room_sheet: { zone: "frontier", safety: "dangerous" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "attack" }, { kind: "rest" }, { kind: "flee" }],
+            },
+            action_offers: [{
+              kind: "rest",
+              effect: "clears tired and spends hearth tonic warmth; danger does not advance",
+            }],
+            actors: [
+              ...baseState.actors,
+              { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 1 } },
+            ],
+          }),
+          sanctuary: actionsFor({
+            location: { id: 1, name: "The Cosy Cottage" },
+            room_sheet: { zone: "sanctuary", safety: "safe" },
+            primary_action: {
+              kind: "rest",
+              options: [{ kind: "pick_up" }, { kind: "chat" }, { kind: "rest" }, { kind: "move" }],
+            },
+            items: [{ id: 2001, name: "Hearth Tonic", kind: "potion", location_id: 1, charges: 1 }],
+          }),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    assert(result.frontier[0]?.label === "rest", `frontier fatigue should keep rest urgent: ${JSON.stringify(result)}`);
+    assert(result.frontierWithLedger[0]?.label === "grow", `unclaimed frontier growth should interrupt rest once: ${JSON.stringify(result)}`);
+    assert(result.frontierWithLedger[0]?.detail === "2 memory marks, +2 growth points", `frontier growth should preview clear payoff before rest: ${JSON.stringify(result)}`);
+    assert(result.frontierWithLedger[1]?.label === "rest", `frontier rest should remain immediately available after bank: ${JSON.stringify(result)}`);
+    assert(result.warmedFrontier[0]?.detail === "clear tired, spend warmth", `warmed frontier rest should show compact warmth copy: ${JSON.stringify(result)}`);
+    assert(!result.warmedFrontier[0]?.detail.includes("danger"), `warmed frontier rest should not preview danger: ${JSON.stringify(result)}`);
+    assert(result.sanctuary[0]?.label === "take", `sanctuary fatigue should not outrank concrete room actions: ${JSON.stringify(result)}`);
+    const sanctuaryRestIndex = result.sanctuary.findIndex((action) => action.label === "rest");
+    const sanctuaryTravelIndex = result.sanctuary.findIndex((action) => action.label === "travel");
+    assert(sanctuaryRestIndex > sanctuaryTravelIndex, `sanctuary rest should stay available without hijacking travel: ${JSON.stringify(result)}`);
+    assert(result.sanctuary[sanctuaryRestIndex]?.detail === "clear tired", `sanctuary rest should name the concrete payoff, not idle copy: ${JSON.stringify(result)}`);
   }
 
   async function assertNoComposerOrDebugChrome() {
     const offenders = await page.evaluate(() => {
       const selector = [
-        "input:not([type='hidden']):not([data-ai-key-input])",
+        "input:not([type='hidden'])",
         "textarea",
         "[contenteditable='true']",
         "table",
@@ -589,29 +2272,18 @@ async function main() {
         copyVisible: visible(copy),
         avatarVisible: visible(avatar),
         more: more?.textContent,
+        summaryHtml: document.querySelector("#room-summary")?.innerHTML || "",
+        summaryVisible: visible(document.querySelector("#room-summary")),
+        summaryCards: document.querySelectorAll(".summary-card").length,
         tags: [...document.querySelectorAll(".room-tag")].map((tag) => tag.textContent),
       };
     });
     assert(collapsed.roomCollapsed, `room header should default to collapsed: ${JSON.stringify(collapsed)}`);
     assert(!collapsed.copyVisible && !collapsed.avatarVisible, `collapsed room header should hide prose and subtitle: ${JSON.stringify(collapsed)}`);
+    assert(!collapsed.summaryVisible && collapsed.summaryHtml === "", `calm rooms should not render summary chrome by default: ${JSON.stringify(collapsed)}`);
+    assert(collapsed.summaryCards === 0, `room summary should not use card styling: ${JSON.stringify(collapsed)}`);
     assert(collapsed.tags.length === 0, `collapsed room header should not show tag clutter: ${JSON.stringify(collapsed)}`);
-    assert(collapsed.more === "...", `room title should expose ellipsis expansion: ${JSON.stringify(collapsed)}`);
-
-    await page.locator(".room-title-main [data-room-more]").click();
-    await page.waitForFunction(() => {
-      const node = document.querySelector("#location-copy");
-      return node && !node.hidden && node.classList.contains("expanded");
-    });
-    const expanded = await page.evaluate(() => ({
-      text: document.querySelector("#location-copy")?.innerText || "",
-      roomCollapsed: document.querySelector(".room")?.classList.contains("collapsed") || false,
-      more: document.querySelector(".room-title-main [data-room-more]")?.textContent,
-    }));
-    assert(!expanded.roomCollapsed, `expanded room header should clear collapsed state: ${JSON.stringify(expanded)}`);
-    assert(expanded.more === "less", `expanded room title should expose less control: ${JSON.stringify(expanded)}`);
-    assert(expanded.text.includes("firelight"), `expanded room copy should show the full description: ${JSON.stringify(expanded)}`);
-    await page.locator(".room-title-main [data-room-more]").click();
-    await page.waitForFunction(() => document.querySelector("#location-copy")?.hidden === true);
+    assert(!collapsed.more, `room title should not expose ellipsis expansion: ${JSON.stringify(collapsed)}`);
 
     await page.locator("#location-image[data-card-key]").click();
     await page.waitForSelector("#card-modal:not([hidden])");
@@ -620,12 +2292,118 @@ async function main() {
     steps.push({ label: "location card modal", card: locationCardName });
     await closeCardModal();
 
-    await page.locator(".chip-thumb[data-card-key]").first().click();
+    await page.locator(".room-avatar-pfp[data-card-key]").first().click();
     await page.waitForSelector("#card-modal:not([hidden])");
     const actorCardName = await page.locator("#card-modal-name").innerText();
     assert(actorCardName.length > 0, `avatar image should open a card modal: ${actorCardName}`);
     steps.push({ label: "avatar card modal", card: actorCardName });
     await closeCardModal();
+  }
+
+  async function assertRoomSummaryStaysFlatAndMechanical() {
+    const result = await page.evaluate(() => {
+      const safeRoom = {
+        location: { id: 1, name: "The Cosy Cottage" },
+        room_sheet: {
+          zone: "sanctuary",
+          safety: "safe",
+          aspects: ["warm threshold", "careful host"],
+        },
+        tags: [],
+        jobs: [],
+        clocks: [],
+      };
+      const projectRoom = {
+        location: { id: 3, name: "Moonlit Trail" },
+        primary_action: {
+          kind: "prepare",
+          options: [{ kind: "prepare" }, { kind: "work" }, { kind: "help" }],
+        },
+        room_sheet: {
+          zone: "frontier",
+          safety: "dangerous",
+          aspects: ["silver hush", "practice circle"],
+        },
+        tags: [{ scope: "room", label: "quiet clue" }],
+        items: [],
+        room_features: [{ key: "practice_circle", name: "Practice Circle", searched: false, uses: [] }],
+        jobs: [{
+          id: "moonlit",
+          status: "active",
+          premise: "The Moonlit Trail is carrying too much echo.",
+          stakes: "If nobody steadies the trail, every rest makes its danger louder.",
+          progress_clock_id: "moonlit-trail.progress",
+          danger_clock_id: "moonlit-trail.danger",
+          reward: "quieted moonlight",
+          consequence: "echo-fractured trail",
+        }],
+        clocks: [
+          { id: "moonlit-trail.progress", kind: "progress", label: "Quiet the Moonlit Trail", segments: 4, filled: 1 },
+          { id: "moonlit-trail.danger", kind: "danger", label: "Echo Shatters the Trail", segments: 4, filled: 0 },
+        ],
+      };
+      const tradeoffRoom = {
+        ...projectRoom,
+        primary_action: {
+          kind: "work",
+          options: [{ kind: "work" }, { kind: "help" }],
+        },
+        action_offers: [
+          { kind: "work", risk: "unprepared effort can leave you tired" },
+          {
+            kind: "help",
+            effect: "helps Moonlit Echo; advances progress clock moonlit-trail.progress by 1; first help deepens Bond with Moonlit Echo",
+          },
+        ],
+        tags: [],
+        room_features: [{ key: "practice_circle", name: "Practice Circle", searched: true, uses: [] }],
+      };
+      const finishRoom = {
+        ...tradeoffRoom,
+        action_offers: [
+          {
+            kind: "work",
+            effect: "advances progress clock moonlit-trail.progress by 2",
+            risk: "unprepared effort can leave you tired",
+          },
+          {
+            kind: "help",
+            effect: "helps Moonlit Echo; advances progress clock moonlit-trail.progress by 1; first help deepens Bond with Moonlit Echo",
+          },
+        ],
+        clocks: [
+          { id: "moonlit-trail.progress", kind: "progress", label: "Quiet the Moonlit Trail", segments: 4, filled: 2 },
+          { id: "moonlit-trail.danger", kind: "danger", label: "Echo Shatters the Trail", segments: 4, filled: 0 },
+        ],
+      };
+      const helpFinishRoom = {
+        ...finishRoom,
+        clocks: [
+          { id: "moonlit-trail.progress", kind: "progress", label: "Quiet the Moonlit Trail", segments: 4, filled: 3 },
+          { id: "moonlit-trail.danger", kind: "danger", label: "Echo Shatters the Trail", segments: 4, filled: 0 },
+        ],
+      };
+      return {
+        safe: roomSummaryHtml(safeRoom),
+        project: roomSummaryHtml(projectRoom),
+        tradeoff: roomSummaryHtml(tradeoffRoom),
+        finish: roomSummaryHtml(finishRoom),
+        helpFinish: roomSummaryHtml(helpFinishRoom),
+      };
+    });
+    assert(result.safe === "", `safe rooms should keep the play surface uncluttered: ${JSON.stringify(result)}`);
+    assert(result.project.includes("summary-strip"), `project summary should render as a flat strip: ${JSON.stringify(result)}`);
+    assert(!result.project.includes("summary-card"), `project summary should not render as a card: ${JSON.stringify(result)}`);
+    assert(!result.project.includes(" / "), `project summary should avoid slash-separated meta copy: ${JSON.stringify(result)}`);
+    assert(!result.project.includes("active ·"), `active project summary should not repeat redundant status chrome: ${JSON.stringify(result)}`);
+    assert(result.project.includes("Project") && result.project.includes("scout clue"), `project summary should show a compact mechanical phase: ${JSON.stringify(result)}`);
+    assert(result.project.includes("Reward: quieted moonlight; Risk: echo-fractured trail"), `project summary should show compact outcome stakes: ${JSON.stringify(result)}`);
+    assert(!result.project.includes("The Moonlit Trail is carrying too much echo."), `project summary should not repeat prose-heavy premise copy: ${JSON.stringify(result)}`);
+    assert(!result.project.includes("If nobody steadies the trail"), `project summary should not repeat prose-heavy stakes copy: ${JSON.stringify(result)}`);
+    assert(result.project.includes("Quiet the Moonlit Trail") && result.project.includes("Echo Shatters the Trail"), `project summary should preserve clock context: ${JSON.stringify(result)}`);
+    assert(result.tradeoff.includes("hard push or bond help"), `project summary should name work/help tradeoffs from server offers: ${JSON.stringify(result)}`);
+    assert(result.finish.includes("hard finish or bond help"), `project summary should name finish-ready work/help tradeoffs: ${JSON.stringify(result)}`);
+    assert(result.helpFinish.includes("hard finish or bond finish"), `project summary should name finish-ready help tradeoffs: ${JSON.stringify(result)}`);
   }
 
   async function assertTimelineAccessibilityBase() {
@@ -641,41 +2419,82 @@ async function main() {
     assert((attrs.label || "").toLowerCase().includes("shared room"), `timeline should have a useful label: ${JSON.stringify(attrs)}`);
   }
 
+  async function assertMechanicalUpdatesStayOutOfChat() {
+    const result = await page.evaluate(() => {
+      const previousLogEvents = logEvents.slice();
+      const previousSeen = new Set(seenSeq);
+      try {
+        logEvents = [];
+        seenSeq.clear();
+        const skillEvents = [
+          {
+            seq: 990000,
+            type: "actor.moved",
+            actor_id: actorId,
+            actor_name: "Thimble Guest",
+            location_name: "Alpine Forest",
+            destination_location_name: "Summit Trail",
+          },
+          {
+            seq: 990001,
+            type: "advancement.spent",
+            actor_id: actorId,
+            actor_name: "Thimble Guest",
+            content: "skill_step:1:Lorecraft skill step",
+          },
+          {
+            seq: 990002,
+            type: "skill.stepped",
+            actor_id: actorId,
+            actor_name: "Thimble Guest",
+            content: "lorecraft:3",
+          },
+        ];
+        pushEvents(skillEvents);
+        pushCommandOutput(
+          "skill lorecraft",
+          "Growth spent: Lorecraft skill step.\nSkill stepped up: lorecraft.",
+          true,
+          skillEvents,
+        );
+        renderTimelines();
+        return {
+          log: document.querySelector("#log")?.textContent || "",
+          updatesHidden: document.querySelector("#updates")?.hidden === true,
+          eventRows: [...document.querySelectorAll("#log .line.event")]
+            .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
+          chatRows: [...document.querySelectorAll("#log .line.chat")]
+            .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
+          eventAriaLabels: [...document.querySelectorAll("#log .line.event")]
+            .map((node) => node.getAttribute("aria-label") || ""),
+          eventCount: document.querySelectorAll("#log .line.event").length,
+          roomLatest: document.querySelector("#room-log-latest")?.textContent?.trim().replace(/\s+/g, " ") || "",
+        };
+      } finally {
+        logEvents = previousLogEvents;
+        seenSeq.clear();
+        for (const seq of previousSeen) seenSeq.add(seq);
+        renderTimelines();
+      }
+    });
+    assert(result.updatesHidden, `mechanical events should not reopen a separate updates panel: ${JSON.stringify(result)}`);
+    assert(result.eventCount === 0, `mechanical events should not render as lower-feed event rows: ${JSON.stringify(result)}`);
+    assert(result.roomLatest.includes("day's learning settles into memory"), `mechanical events should update the room header as atmosphere: ${JSON.stringify(result)}`);
+    assert(!result.log.includes("Alpine Forest -> Summit Trail"), `movement should stay out of the lower chat feed: ${JSON.stringify(result)}`);
+    assert(!result.log.includes("Lorecraft skill step"), `advancement spend should stay out of the lower chat feed: ${JSON.stringify(result)}`);
+    assert(!result.log.includes("lorecraft to master"), `skill step should stay out of the lower chat feed: ${JSON.stringify(result)}`);
+    assert(!result.log.includes("you:"), `event rows should not include you-prefix copy: ${JSON.stringify(result)}`);
+    assert(result.chatRows.length === 0, `mechanical events should not render as avatar chat rows: ${JSON.stringify(result)}`);
+    assert(!result.log.includes("Growth spent"), `command status output should not echo into chat: ${JSON.stringify(result)}`);
+    assert(!result.log.includes("Skill stepped up"), `skill command output should not echo into chat: ${JSON.stringify(result)}`);
+  }
+
   async function assertWhiskerwindEmojiAriaLabel() {
     const label = await page.locator(".line.npc[aria-label*='Whiskerwind'][aria-label*='emoji-only']").last().getAttribute("aria-label");
     assert(label && label.includes("weather symbols"), `Whiskerwind emoji line should have descriptive aria-label: ${label}`);
     assert(/teapot|rain cloud|sparkles|symbols/.test(label), `Whiskerwind aria-label should translate symbols: ${label}`);
-  }
-
-  async function focusBySelector(selector, text) {
-    await page.waitForFunction(({ selector, needle }) => (
-      [...document.querySelectorAll(selector)]
-        .some((chip) => {
-          const label = chip.getAttribute("aria-label") || chip.getAttribute("title") || chip.textContent || "";
-          return label.includes(needle);
-        })
-    ), { selector, needle: text });
-    const clicked = await page.evaluate(({ selector, needle }) => {
-      const chip = [...document.querySelectorAll(selector)]
-        .find((candidate) => {
-          const label = candidate.getAttribute("aria-label") || candidate.getAttribute("title") || candidate.textContent || "";
-          return label.includes(needle);
-        });
-      chip?.click();
-      return Boolean(chip);
-    }, { selector, needle: text });
-    assert(clicked, `focusable control ${text} was not clickable`);
-    await page.waitForTimeout(75);
-    await assertNoVisibleOverflow();
-    return primaryText();
-  }
-
-  async function focusChip(text) {
-    return focusBySelector(".chip.focusable", text);
-  }
-
-  async function focusRoute(text) {
-    return focusBySelector(".route-node.destination[data-focus-index]", text);
+    const pfpCount = await page.locator(".line.npc[aria-label*='Whiskerwind'] .chat-pfp").count();
+    assert(pfpCount > 0, "resident chat rows should render character pfps");
   }
 
   async function focusPrimaryMatching(label, predicate, attempts = 24) {
@@ -686,6 +2505,79 @@ async function main() {
       await page.waitForTimeout(75);
     }
     throw new Error(`${label} was not reachable; primary was ${await primaryText()}`);
+  }
+
+  async function focusPrimaryMatchingAcrossShuffles(label, predicate, shuffles = 8) {
+    let lastError = null;
+    for (let deal = 0; deal <= shuffles; deal += 1) {
+      try {
+        return await focusPrimaryMatching(label, predicate, 64);
+      } catch (error) {
+        lastError = error;
+      }
+      if (deal >= shuffles) break;
+      const shuffleVisible = await page.locator("#shuffle:visible").count();
+      assert(shuffleVisible > 0, `${label} was not in the current hand and shuffle was unavailable; primary was ${await primaryText()}`);
+      await page.locator("#shuffle").click();
+      await page.waitForTimeout(250);
+    }
+    throw lastError || new Error(`${label} was not reachable after shuffling`);
+  }
+
+  async function drawPrimaryMatching(label, needles) {
+    const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
+    const result = await page.evaluate((terms) => {
+      const actionText = (action) => [
+        action?.label,
+        action?.detail,
+        action?.command,
+        action?.cost,
+        action?.risk,
+        action?.effect,
+        action?.card?.display_name,
+        action?.card?.title,
+        action?.card?.blurb,
+      ].filter(Boolean).join(" ").toLowerCase();
+      const index = actions.findIndex((action) => terms.every((term) => actionText(action).includes(term)));
+      if (index < 0) {
+        return {
+          ok: false,
+          actions: actions.slice(0, 16).map((action) => actionText(action)),
+        };
+      }
+      promoteActionToHand(index);
+      focusIndex = index;
+      focusedKey = actionHandKey(actions[index]);
+      render();
+      return {
+        ok: true,
+        primary: document.querySelector("#primary")?.innerText?.replace(/\s+/g, " ").trim() || "",
+      };
+    }, normalizedNeedles);
+    assert(result.ok, `${label} card was not drawable from actions: ${JSON.stringify(result)}`);
+    await page.waitForTimeout(75);
+    await assertNoVisibleOverflow();
+    const text = await primaryText();
+    assert(normalizedNeedles.every((term) => text.toLowerCase().includes(term)), `${label} card draw selected ${text}`);
+    return text;
+  }
+
+  async function focusChip(text) {
+    const needle = text.toLowerCase();
+    const primary = await focusPrimaryMatching(`focus ${text}`, (candidate) => candidate.includes(needle), 64);
+    await assertNoVisibleOverflow();
+    return primary;
+  }
+
+  async function focusRoute(text) {
+    const needle = text.toLowerCase();
+    const primary = await focusPrimaryMatching(
+      `route ${text}`,
+      (candidate) => candidate.includes(needle) && (candidate.includes("travel") || candidate.includes("flee")),
+      64,
+    );
+    await assertNoVisibleOverflow();
+    return primary;
   }
 
   async function focusAccountInventory() {
@@ -715,6 +2607,19 @@ async function main() {
     return page.locator("#location-name").innerText();
   }
 
+  async function fetchCurrentState() {
+    return page.evaluate(async () => {
+      const actorId = localStorage.getItem("cosyworld.actorId");
+      const actorSession = localStorage.getItem("cosyworld.actorSession");
+      const params = new URLSearchParams({
+        actor_id: actorId,
+        actor_session: actorSession,
+        wallet_address: "dev-wallet",
+      });
+      return fetch(`/state?${params}`).then((response) => response.json());
+    });
+  }
+
   async function waitForLocation(name) {
     await page.waitForFunction((expected) => document.querySelector("#location-name")?.textContent === expected, name);
   }
@@ -731,10 +2636,6 @@ async function main() {
     assert((await primaryText()).toLowerCase().includes("flee"), `${name} focus should flee from combat`);
     await clickPrimary(`flee ${name}`);
     await waitForLocation(name);
-    await page.waitForFunction(() => {
-      const text = document.querySelector("#log")?.textContent || "";
-      return text.includes("flees to");
-    });
   }
 
   async function leaveTrailTo(name) {
@@ -743,18 +2644,28 @@ async function main() {
     assert(action.includes("flee") || action.includes("travel"), `${name} focus should leave Moonlit Trail`);
     await clickPrimary(`${action.includes("flee") ? "flee" : "travel"} ${name}`);
     await waitForLocation(name);
-    await page.waitForFunction((destination) => {
-      const text = document.querySelector("#log")?.textContent || "";
-      return text.includes(`flees to ${destination}`) || text.includes(`to ${destination}.`);
-    }, name);
   }
 
   async function takeItem(name) {
-    steps.push({ label: `focus ${name}`, primary: await focusChip(name) });
+    const nameLower = name.toLowerCase();
+    steps.push({
+      label: `focus ${name}`,
+      primary: await focusPrimaryMatching(
+        `take ${name}`,
+        (text) => text.includes("take") && text.includes(nameLower),
+        32,
+      ),
+    });
     assert((await primaryText()).toLowerCase().includes("take"), `${name} focus should take item`);
     await clickPrimary(`take ${name}`);
     await page.waitForFunction(
-      (itemName) => [...document.querySelectorAll(".chip")].some((chip) => chip.textContent.includes(`${itemName} (held)`)),
+      (itemName) => {
+        const currentActorId = Number(actorId || 0);
+        return (state?.items || []).some((item) => (
+          item.name === itemName
+          && Number(item.holder_actor_id || 0) === currentActorId
+        ));
+      },
       name,
     );
   }
@@ -765,35 +2676,72 @@ async function main() {
     await assertNoVisibleOverflow();
     assert((await primaryText()).toLowerCase().includes("listen"), "location tab focus should offer listen");
     await clickPrimary("listen");
-    await page.waitForFunction(() => {
-      const text = document.querySelector("#log")?.textContent || "";
-      return text.includes("listens:") || text.includes("Listen check");
-    });
-    assert((await visibleCommandButtons()).length === 1, "listen should stay in one-button mode");
+    await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
+    await assertActionBarCapped("listen action bar");
   }
 
   async function attackTarget(name) {
-    steps.push({ label: `focus ${name} combat`, primary: await focusChip(name) });
+    const nameLower = name.toLowerCase();
+    steps.push({
+      label: `focus ${name} combat`,
+      primary: await focusPrimaryMatching(
+        `${name} attack`,
+        (text) => text.includes("attack") && text.includes(nameLower),
+        64,
+      ),
+    });
     assert((await primaryText()).toLowerCase().includes("attack"), `${name} focus should attack in a combat location`);
     await clickPrimary(`attack ${name}`);
-    await page.waitForFunction(() => {
-      const text = document.querySelector("#log")?.textContent || "";
-      return text.includes("roll") && text.includes("ac");
-    });
-    assert((await visibleCommandButtons()).length === 1, "combat attack should stay in one-button mode");
+    await waitForTimelineAll(["roll", "ac"]);
+    await assertActionBarCapped("combat attack action bar");
   }
 
   async function evolveResident(name) {
-    steps.push({ label: `focus ${name} gift`, primary: await focusChip(name) });
-    assert((await primaryText()).toLowerCase().includes("give item"), `${name} should accept a matching evolution item`);
+    const nameLower = name.toLowerCase();
+    steps.push({
+      label: `focus ${name} gift`,
+      primary: await focusPrimaryMatching(
+        `${name} gift`,
+        (text) => text.startsWith("give ") && text.includes(nameLower),
+        64,
+      ),
+    });
+    assert((await primaryText()).toLowerCase().startsWith("give "), `${name} should accept a matching evolution item`);
+    assert(!(await primaryText()).toLowerCase().includes("give item"), `${name} gift action should use compact wording`);
     await clickPrimary(`give ${name} first item`);
-    assert((await visibleCommandButtons()).length === 1, "giving an item should stay in one-button mode");
-    assert((await primaryText()).toLowerCase().includes("give item"), `${name} should still need a second item`);
+    await assertActionBarCapped("giving an item action bar");
+    steps.push({
+      label: `focus ${name} second gift`,
+      primary: await focusPrimaryMatching(
+        `${name} second gift`,
+        (text) => text.startsWith("give ") && text.includes(nameLower),
+        64,
+      ),
+    });
+    assert((await primaryText()).toLowerCase().startsWith("give "), `${name} should still need a second item`);
+    assert(!(await primaryText()).toLowerCase().includes("give item"), `${name} second gift action should use compact wording`);
     await clickPrimary(`give ${name} second item`);
-    await page.waitForFunction(
-      (residentName) => [...document.querySelectorAll(".chip")].some((chip) => chip.textContent.includes(`${residentName} lv2`)),
-      name,
-    );
+    try {
+      await page.waitForFunction(
+        (residentName) => (state?.actors || []).some((actor) => (
+          actor.name === residentName
+          && Number(actor.stats?.level || 1) >= 2
+        )),
+        name,
+      );
+    } catch (error) {
+      const snapshot = await fetchCurrentState();
+      const resident = (snapshot.actors || []).find((actor) => actor.name === name) || null;
+      const items = (snapshot.items || [])
+        .filter((item) => [2002, 2003, 2004, 2005, 2006, 2007].includes(Number(item.id || 0)))
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          holder_actor_id: item.holder_actor_id,
+          location_id: item.location_id,
+        }));
+      throw new Error(`${name} did not evolve after second gift; resident=${JSON.stringify(resident)} items=${JSON.stringify(items)} primary=${await primaryText()}`);
+    }
   }
 
   async function assertSeedArtAvailable() {
@@ -826,8 +2774,11 @@ async function main() {
     });
     assert(seedArt.urls.length === 4, `expected visible seed art URLs, got ${JSON.stringify(seedArt)}`);
     assert(seedArt.accessMode === "unsigned_dev_wallet", `expected smoke to use explicit unsigned_dev_wallet mode, got ${seedArt.accessMode}`);
-    assert(seedArt.assetStatuses.every((status) => status === "seed_art"), `expected seed_art statuses, got ${JSON.stringify(seedArt.assetStatuses)}`);
-    assert(seedArt.statuses.every((status) => status.ok && status.contentType.includes("image/svg+xml")), `seed art fetch failed: ${JSON.stringify(seedArt.statuses)}`);
+    assert(
+      seedArt.assetStatuses.every((status) => status === "seed_art" || status === "generated_art"),
+      `expected fetchable seed/generated art statuses, got ${JSON.stringify(seedArt.assetStatuses)}`,
+    );
+    assert(seedArt.statuses.every((status) => status.ok && status.contentType.startsWith("image/")), `seed art fetch failed: ${JSON.stringify(seedArt.statuses)}`);
   }
 
   async function assertFirstBellCatalogAssetsAvailable() {
@@ -876,8 +2827,8 @@ async function main() {
       JSON.stringify(cottageExits) === JSON.stringify(["Homeroom", "Rain-Soft Garden"]),
       `Cottage should expose the curated map entry points only: ${JSON.stringify(cottageExits)}`,
     );
-    assert(science?.accessible === true, "Science Class should be public in world projection");
-    assert(library?.accessible === true && library.card?.owned === false, "Library should be public without requiring its NFT");
+    assert(science?.accessible === true && science.card?.owned === true, "Science Class should be unlocked by dev-wallet in world projection");
+    assert(!library, "Library should stay hidden without its matching location card");
     assert(trail?.actors.some((actor) => actor.name === "Moonlit Echo"), "Moonlit Trail projection should include the sparring target");
   }
 
@@ -898,10 +2849,18 @@ async function main() {
         });
         return response.json();
       };
+      const search = await run("search scarf");
+      const repeatSearch = await run("search scarf");
+      const searchedState = await fetch(`/state?actor_id=${actorId}&actor_session=${actorSession}&wallet_address=dev-wallet`).then((response) => response.json());
+      const searchedActionKeys = buildActions(searchedState).map((action) => action.focusKey);
       return {
         look: await run("look"),
         lookEast: await run("look east"),
-        search: await run("search scarf"),
+        shuffle: await run("shuffle"),
+        search,
+        repeatSearch,
+        searchedFeature: (searchedState.room_features || []).find((feature) => feature.key === "scarf_basket") || null,
+        searchedActionKeys,
         who: await run("who"),
         takeTonic: await run("take Hearth Tonic"),
         useHearth: await run("use Hearth Tonic on hearth"),
@@ -915,13 +2874,31 @@ async function main() {
     });
     assert(result.look.ok === true && result.look.output.includes("The Cosy Cottage"), `look command should describe the current room: ${JSON.stringify(result.look)}`);
     assert(result.look.output.includes("east: Rain-Soft Garden") && result.lookEast.ok === true && result.lookEast.output.includes("Rain-Soft Garden"), `directional look should inspect a compass exit: ${JSON.stringify(result)}`);
-    assert(result.look.output.includes("Features:") && result.search.ok === true && result.search.output.includes("Scarf Basket"), `search command should inspect room features: ${JSON.stringify(result)}`);
+    assert(
+      result.shuffle.ok === true
+        && result.shuffle.output.includes("New cards are drawn locally")
+        && result.shuffle.output.includes("Nothing in the room changes")
+        && result.shuffle.events.length === 0,
+      `shuffle command should be a free local hand hint, not a world event: ${JSON.stringify(result.shuffle)}`,
+    );
+    assert(
+      result.look.output.includes("Features:")
+        && result.search.ok === true
+        && result.search.output.includes("Scarf Basket")
+        && result.search.events.some((event) => event.type === "feature.searched")
+        && result.searchedFeature?.searched === true
+        && !result.searchedActionKeys.includes("feature:scarf_basket")
+        && result.repeatSearch.ok === false
+        && result.repeatSearch.status === 409,
+      `search command should mark room features once: ${JSON.stringify(result)}`,
+    );
     assert(result.who.ok === true && result.who.output.includes("human"), `who command should list room occupants: ${JSON.stringify(result.who)}`);
     assert(result.takeTonic.ok === true && result.takeTonic.output.includes("You take Hearth Tonic."), `take command should return terminal output: ${JSON.stringify(result.takeTonic)}`);
     assert(
       result.useHearth.ok === true
         && result.useHearth.output.includes("Hearth Tonic warms")
-        && result.useHearth.events.some((event) => event.type === "item.used"),
+        && result.useHearth.events.some((event) => event.type === "item.used")
+        && result.useHearth.events.some((event) => event.type === "tag.applied" && event.tag_label === "hearth tonic warmth"),
       `feature use command should commit an item.used event: ${JSON.stringify(result.useHearth)}`,
     );
     assert(result.inventory.ok === true && result.inventory.output.includes("Hearth Tonic"), `inventory should include command-taken item: ${JSON.stringify(result.inventory)}`);
@@ -971,10 +2948,7 @@ async function main() {
     await page.locator("#command-input").fill("look");
     await page.keyboard.press("Enter");
     await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
-    await page.waitForFunction(() => {
-      const text = document.querySelector("#log")?.textContent || "";
-      return text.includes("The Cosy Cottage") && text.includes("Exits:");
-    });
+    await waitForTimelineAll(["The Cosy Cottage", "Exits:"]);
     await openCommandPaletteShortcut();
     await page.keyboard.press("ArrowUp");
     assert(await page.locator("#command-input").inputValue() === "look", "command palette should recall the previous command");
@@ -985,31 +2959,28 @@ async function main() {
     await page.locator("#command-input").type("palette hello");
     await page.keyboard.press("Enter");
     await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
-    await page.waitForFunction(() => {
-      const text = document.querySelector("#log")?.textContent || "";
-      return text.includes("palette hello");
-    });
+    await waitForChatText("palette hello");
     await openCommandPaletteShortcut();
     await page.locator("#command-input").fill("/me tests the hearth");
     await page.keyboard.press("Enter");
     await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
-    await page.waitForFunction(() => {
-      const text = document.querySelector("#log")?.textContent || "";
-      return text.includes("tests the hearth.");
-    });
+    await waitForChatText("tests the hearth.");
     await assertNoComposerOrDebugChrome();
     steps.push({ label: "mud command palette", command: "say palette hello / /me tests the hearth" });
   }
 
-  async function assertReportActionOpensCommandPalette() {
-    steps.push({ label: "focus report affordance", primary: await focusPrimaryMatching("report action", (text) => text.includes("report")) });
-    await page.locator("#primary").click();
-    await page.waitForSelector("#command-palette:not([hidden]) #command-input");
-    const seed = await page.locator("#command-input").inputValue();
-    assert(/^report .+: $/.test(seed), `report action should prefill a report command: ${seed}`);
-    await page.keyboard.press("Escape");
+  async function assertReportCommandPaletteAvailable() {
+    const reportActions = await page.evaluate(() => (
+      buildActions(state).filter((action) => action.label === "report").map((action) => action.command)
+    ));
+    assert(reportActions.length === 0, `report should stay out of the primary action cycle: ${JSON.stringify(reportActions)}`);
+    await openCommandPaletteShortcut();
+    await page.locator("#command-input").fill("report Skull: smoke command palette report");
+    await page.keyboard.press("Enter");
     await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
+    await waitForTimelineText("Report submitted for Skull.");
     await assertNoComposerOrDebugChrome();
+    steps.push({ label: "report command palette", command: "report Skull" });
   }
 
   async function assertRoomMultiplayerBroadcast() {
@@ -1026,6 +2997,11 @@ async function main() {
       assert(firstCommand.includes("generate avatar"), `second player should start at avatar gate: ${firstCommand}`);
       await other.locator("#primary").click();
       await other.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
+      await other.waitForFunction(() => (
+        presenceHeartbeatTimer !== null
+          && (state?.actors || []).some((actor) => actor.id === actorId)
+          && !document.querySelector("#primary")?.disabled
+      ));
       const otherIdentity = await other.evaluate(() => ({
         actorId,
         actorName: (state?.actors || []).find((actor) => actor.id === actorId)?.name || "",
@@ -1083,10 +3059,7 @@ async function main() {
           && said.events.some((event) => event.type === "message.created" && event.content === line),
         `second player speech should commit a room event: ${JSON.stringify(said)}`,
       );
-      await page.waitForFunction(
-        (content) => (document.querySelector("#log")?.textContent || "").includes(content),
-        line,
-      );
+      await waitForChatText(line);
       await page.waitForFunction(
         (otherActorId) => (state?.actors || []).some((actor) => actor.id === otherActorId),
         otherIdentity.actorId,
@@ -1123,7 +3096,7 @@ async function main() {
     }
   }
 
-  async function assertReloadContinuity(expectedLocation, expectedLogText) {
+  async function assertReloadContinuity(expectedLocation) {
     const before = await page.evaluate(() => ({
       actorId: localStorage.getItem("cosyworld.actorId"),
       actorSession: localStorage.getItem("cosyworld.actorSession"),
@@ -1141,11 +3114,8 @@ async function main() {
       before,
     );
     await waitForLocation(expectedLocation);
-    await page.waitForFunction(
-      (text) => document.querySelector("#log")?.textContent.includes(text),
-      expectedLogText,
-    );
-    assert((await visibleCommandButtons()).length === 1, "reload should return to one-button mode");
+    await page.waitForFunction(() => (document.querySelector("#primary")?.innerText || "").trim().length > 0);
+    await assertActionBarCapped("reload action bar");
     await assertNoComposerOrDebugChrome();
     await assertNoVisibleOverflow();
     steps.push({ label: "reload continuity", primary: await primaryText(), location: await currentLocation() });
@@ -1155,7 +3125,7 @@ async function main() {
     const overflow = await page.evaluate(() => {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
-      const selector = ".shell,.topbar,.terminal,.room,.route-map,.route-node,.route-destinations,.presence,.chip,.log,.line,.speaker,.text,.prompt,.cmd,.location-pill";
+      const selector = ".shell,.topbar,.terminal,.room,.room-log-toggle,.room-memory,.memory-entry,.room-avatar-pfp,.chat-pfp,.updates,.update-pill,.log,.line,.speaker,.text,.status,.prompt,.cmd,.thumb,.location-pill";
       return [...document.querySelectorAll(selector)]
         .filter((node) => {
           const style = getComputedStyle(node);
@@ -1184,6 +3154,103 @@ async function main() {
     assert(!overflow, `visible UI overflowed the viewport: ${JSON.stringify(overflow)}`);
   }
 
+  async function assertStatusBarDoesNotOverlayTranscript(label) {
+    const layout = await page.evaluate(() => {
+      const status = document.querySelector("#error");
+      const originalText = status?.textContent || "";
+      const originalOk = status?.classList.contains("ok") || false;
+      if (status) {
+        status.textContent = "STATUS Broad Leaves - The Dewbright Button warmed the party. This intentionally long line must stay in its own bar.";
+        status.classList.remove("ok");
+      }
+      const rectFor = (selector) => {
+        const node = document.querySelector(selector);
+        if (!node) return null;
+        const rect = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return {
+          display: style.display,
+          position: style.position,
+          text: node.textContent.trim().replace(/\s+/g, " "),
+          top: rect.top,
+          bottom: rect.bottom,
+          left: rect.left,
+          right: rect.right,
+          width: rect.width,
+          height: rect.height,
+        };
+      };
+      const result = {
+        shellRows: getComputedStyle(document.querySelector(".shell")).gridTemplateRows,
+        log: rectFor("#log"),
+        status: rectFor("#error"),
+        prompt: rectFor("footer.prompt"),
+      };
+      result.overlapsLog = Boolean(result.status && result.log && result.status.display !== "none" && result.log.bottom > result.status.top + 0.5);
+      result.overlapsPrompt = Boolean(result.status && result.prompt && result.status.display !== "none" && result.status.bottom > result.prompt.top + 0.5);
+      if (status) {
+        status.textContent = originalText;
+        status.classList.toggle("ok", originalOk);
+      }
+      return result;
+    });
+    assert(layout.status?.display !== "none", `${label}: injected status should be visible: ${JSON.stringify(layout)}`);
+    assert(layout.status?.position === "static", `${label}: status should be an in-flow shell row, not an overlay: ${JSON.stringify(layout)}`);
+    assert(!layout.overlapsLog, `${label}: status row should not overlap the transcript: ${JSON.stringify(layout)}`);
+    assert(!layout.overlapsPrompt, `${label}: status row should not overlap the action bar: ${JSON.stringify(layout)}`);
+    assert(layout.log.bottom <= layout.status.top + 0.5, `${label}: transcript should end before status begins: ${JSON.stringify(layout)}`);
+    assert(layout.status.bottom <= layout.prompt.top + 0.5, `${label}: status should end before prompt begins: ${JSON.stringify(layout)}`);
+  }
+
+  async function assertRoomMemoryContextPanel(label) {
+    const collapsed = await page.evaluate(() => {
+      const visible = (node) => {
+        if (!node) return false;
+        const style = getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+      };
+      return {
+        latest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
+        expanded: document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") || "",
+        memoryVisible: visible(document.querySelector("#room-memory")),
+        transcriptVisible: visible(document.querySelector("#log")),
+        chatRows: document.querySelectorAll("#log .line.chat").length,
+        mechanicalRows: document.querySelectorAll("#log .line:not(.chat)").length,
+      };
+    });
+    assert(collapsed.latest.length > 8, `${label}: collapsed room log should show the latest entry: ${JSON.stringify(collapsed)}`);
+    assert(collapsed.expanded === "false", `${label}: room memory should start collapsed: ${JSON.stringify(collapsed)}`);
+    assert(!collapsed.memoryVisible, `${label}: memory panel should be hidden while collapsed: ${JSON.stringify(collapsed)}`);
+    assert(collapsed.mechanicalRows === 0, `${label}: normal feed should keep mechanical log rows out of chat: ${JSON.stringify(collapsed)}`);
+    assert(!collapsed.transcriptVisible || collapsed.chatRows > 0, `${label}: visible normal feed should be chat-only: ${JSON.stringify(collapsed)}`);
+
+    await page.locator("#room-log-toggle").click();
+    const expanded = await page.evaluate(() => {
+      const entries = [...document.querySelectorAll("#room-memory .memory-entry")]
+        .map((node) => node.textContent.trim().replace(/\s+/g, " "));
+      const summary = document.querySelector("#room-memory .memory-summary")?.textContent?.trim().replace(/\s+/g, " ") || "";
+      const rectFor = (selector) => {
+        const node = document.querySelector(selector);
+        if (!node) return null;
+        const rect = node.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom, height: rect.height };
+      };
+      return {
+        expanded: document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") || "",
+        summary,
+        entries,
+        memory: rectFor("#room-memory"),
+        prompt: rectFor("footer.prompt"),
+      };
+    });
+    assert(expanded.expanded === "true", `${label}: room memory should expand from the location bar: ${JSON.stringify(expanded)}`);
+    assert(expanded.summary.includes("shared memory") || expanded.summary.length > 24, `${label}: expanded memory should include a shared summary: ${JSON.stringify(expanded)}`);
+    assert(expanded.entries.length >= 1 && expanded.entries.length <= 8, `${label}: expanded memory should show a small recent tail: ${JSON.stringify(expanded)}`);
+    assert(expanded.memory && expanded.prompt && expanded.memory.bottom <= expanded.prompt.top + 0.5, `${label}: memory panel should not overlap actions: ${JSON.stringify(expanded)}`);
+    await page.locator("#room-log-toggle").click();
+  }
+
   async function assertMudShellVisualContract(label) {
     await assertNoVisibleOverflow();
     await assertNoComposerOrDebugChrome();
@@ -1203,9 +3270,19 @@ async function main() {
       const locationImage = document.querySelector("#location-image");
       const avatarSubtitle = document.querySelector("#avatar");
       const roomCopy = document.querySelector("#location-copy");
+      const roomLogToggle = document.querySelector("#room-log-toggle");
+      const transcript = document.querySelector("#log");
       const buttons = [...document.querySelectorAll("footer.prompt button")]
         .filter(visible)
-        .map((button) => button.innerText.trim().replace(/\s+/g, " "));
+        .map((button) => {
+          const thumb = button.querySelector(".thumb");
+          return {
+            text: button.innerText.trim().replace(/\s+/g, " "),
+            ariaLabel: button.getAttribute("aria-label") || "",
+            hasMiniCard: Boolean(thumb?.classList.contains("action-mini-card")),
+            hasImage: Boolean(thumb && getComputedStyle(thumb).backgroundImage !== "none"),
+          };
+        });
       return {
         viewport: `${window.innerWidth}x${window.innerHeight}`,
         locationName: document.querySelector("#location-name")?.textContent?.trim() || "",
@@ -1214,10 +3291,15 @@ async function main() {
         roomCopyVisible: visible(roomCopy),
         logRole: document.querySelector("#log")?.getAttribute("role") || "",
         lineCount: document.querySelectorAll("#log .line").length,
-        chipThumbCount: document.querySelectorAll(".chip-thumb").length,
-        fullChipCount: document.querySelectorAll(".chip:not(.compact)").length,
-        compactChipCount: document.querySelectorAll(".chip.compact").length,
-        routeLabels: [...document.querySelectorAll(".route-node")].map((node) => node.textContent.trim().replace(/\s+/g, " ")),
+        chatLineCount: document.querySelectorAll("#log .line.chat").length,
+        mechanicalLineCount: document.querySelectorAll("#log .line:not(.chat)").length,
+        legacyListChromeCount: document.querySelectorAll("#route-map,#presence,#features,.route-node,.chip,.feature-pill").length,
+        avatarRailCount: document.querySelectorAll(".room-avatar-pfp").length,
+        handThumbCount: document.querySelectorAll("footer.prompt .thumb").length,
+        roomLogVisible: visible(roomLogToggle),
+        roomLogLatest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
+        memoryVisible: visible(document.querySelector("#room-memory")),
+        transcriptVisible: visible(transcript),
         buttons,
         topbar: rectFor(".topbar"),
         terminal: rectFor(".terminal"),
@@ -1234,15 +3316,17 @@ async function main() {
     });
     assert(shell.locationName, `${label}: location name should be visible`);
     assert(shell.logRole === "log", `${label}: transcript should be a semantic log`);
-    assert(shell.lineCount > 0, `${label}: transcript should render at least one line`);
-    assert(shell.chipThumbCount > 0, `${label}: presence/action context should render card thumbnails`);
-    assert(shell.routeLabels.some((route) => route.includes("Rain-Soft Garden")), `${label}: route map should label the garden path: ${JSON.stringify(shell.routeLabels)}`);
-    assert(shell.routeLabels.some((route) => route.includes("Homeroom")), `${label}: route map should label the school path: ${JSON.stringify(shell.routeLabels)}`);
-    assert(shell.fullChipCount <= 3, `${label}: presence strip should show at most three full cards: ${JSON.stringify(shell)}`);
-    assert(shell.compactChipCount > 0, `${label}: overflow presence cards should collapse to thumbnails: ${JSON.stringify(shell)}`);
+    assert(shell.lineCount === shell.chatLineCount, `${label}: normal feed should render chat rows only: ${JSON.stringify(shell)}`);
+    assert(shell.mechanicalLineCount === 0, `${label}: normal feed should not show mechanical log rows: ${JSON.stringify(shell)}`);
+    assert(shell.legacyListChromeCount === 0, `${label}: inline item/location/avatar lists should be absent: ${JSON.stringify(shell)}`);
+    assert(shell.avatarRailCount > 0, `${label}: room hero should still show avatar card art: ${JSON.stringify(shell)}`);
+    assert(shell.handThumbCount > 0, `${label}: action hand should still show card thumbnails: ${JSON.stringify(shell)}`);
+    assert(shell.roomLogVisible && shell.roomLogLatest.length > 8, `${label}: room header should show latest log context: ${JSON.stringify(shell)}`);
+    assert(!shell.memoryVisible, `${label}: normal shell should keep expanded memory collapsed: ${JSON.stringify(shell)}`);
     assert(shell.roomCollapsed, `${label}: room header should default to collapsed: ${JSON.stringify(shell)}`);
     assert(!shell.avatarSubtitleVisible && !shell.roomCopyVisible, `${label}: collapsed room should hide subtitle and prose: ${JSON.stringify(shell)}`);
-    assert(shell.buttons.length === 1, `${label}: normal shell should expose exactly one visible command button`);
+    assert(shell.buttons.length >= 1 && shell.buttons.length <= 3, `${label}: shell should expose a capped action bar: ${JSON.stringify(shell.buttons)}`);
+    assert(shell.buttons.every((button) => button.hasMiniCard && button.hasImage && button.text.length === 0), `${label}: action hand should use mini images instead of visible emoji/text labels: ${JSON.stringify(shell.buttons)}`);
     assert(shell.topbar && shell.terminal && shell.prompt && shell.primary, `${label}: shell regions should be visible: ${JSON.stringify(shell)}`);
     assert(shell.locationImage.visible && shell.locationImage.complete, `${label}: location image should be rendered: ${JSON.stringify(shell.locationImage)}`);
     assert(shell.locationImage.width >= 36 && shell.locationImage.height >= 24, `${label}: location image should have stable dimensions: ${JSON.stringify(shell.locationImage)}`);
@@ -1378,12 +3462,12 @@ async function main() {
   async function assertWalletConnectWithoutWallet() {
     await page.goto(withoutWalletUrl(targetUrl), { waitUntil: "domcontentloaded", timeout: 10_000 });
     await page.waitForSelector("#primary");
-    assert((await visibleCommandButtons()).length === 1, "walletless avatar gate must show one command button");
-    assert((await primaryText()).toLowerCase().includes("generate avatar"), "walletless first command should generate an avatar");
-    await clickPrimary("walletless generate avatar");
+    await assertActionBarCapped("guest avatar gate", 1);
+    assert((await primaryText()).toLowerCase().includes("generate avatar"), "guest first command should generate an avatar");
+    await clickPrimary("guest generate avatar");
     await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
-    steps.push({ label: "open walletless account inventory", primary: await focusAccountInventory() });
-    assert((await visibleCommandButtons()).length === 1, "walletless account inventory must keep one command button");
+    steps.push({ label: "open guest account inventory", primary: await focusAccountInventory() });
+    await assertActionBarCapped("guest account inventory");
     await page.waitForSelector(".account-panel [data-account-connect]");
     await page.evaluate(() => {
       window.cosySmokeProvider = window.solana;
@@ -1421,6 +3505,10 @@ async function main() {
         && Boolean(localStorage.getItem("cosyworld.walletSession")),
       signedSmokeWalletAddress,
     );
+    await page.waitForFunction(() => (
+      state?.access?.mode === "signed_ruby_high_wallet"
+        && !document.querySelector("#primary")?.disabled
+    ));
     steps.push({ label: "focus signed Homeroom", primary: await focusRoute("Homeroom") });
     assert((await primaryText()).toLowerCase().includes("travel"), "signed wallet should make Homeroom travelable");
     await clickPrimary("travel signed Homeroom");
@@ -1460,8 +3548,8 @@ async function main() {
     });
     assert((beforeBoxOpen.access?.owned_box_ids || []).includes("box-smoke-1"), `signed wallet should have Box before opening: ${JSON.stringify(beforeBoxOpen.access)}`);
     steps.push({ label: "focus signed Wooden Box", primary: await focusAccountInventory() });
-    assert((await visibleCommandButtons()).length === 1, "account inventory focus must stay one-button");
-    await page.waitForSelector(".account-panel [data-account-open-box]");
+    await assertActionBarCapped("account inventory focus");
+    await page.waitForSelector(".account-panel [data-account-open-box='box-smoke-1']");
     const accountBeforeText = await page.locator(".account-panel").innerText();
     assert(
       accountBeforeText.includes("box-smoke-1") && accountBeforeText.toLowerCase().includes("intricately carved wooden box"),
@@ -1481,7 +3569,7 @@ async function main() {
     });
     assert(boxArtProbe.src.includes("/assets/generated/boxes/closed/box-smoke-1.svg"), `Box art should use the generated closed route: ${JSON.stringify(boxArtProbe)}`);
     assert(boxArtProbe.ok && boxArtProbe.contentType.includes("image/svg+xml") && boxArtProbe.svgPrefix.includes("<svg") && boxArtProbe.hasBoxState, `Box SVG should be fetchable: ${JSON.stringify(boxArtProbe)}`);
-    await page.locator("[data-account-open-box]").click();
+    await page.locator(".account-panel [data-account-open-box='box-smoke-1']").click();
     await page.waitForFunction(() => {
       const status = document.querySelector("#error");
       return status?.classList.contains("ok") && status.textContent.includes("Opened pack");
@@ -1757,7 +3845,7 @@ async function main() {
       { actorId: before.actorId, beforeCount: before.avatarMessages },
     );
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
-    assert((await visibleCommandButtons()).length === 1, "chat should stay in one-button mode");
+    await assertActionBarCapped("chat action bar");
     assert(!(await page.locator("#primary").isDisabled()), "chat button should re-enable after the server-authored line lands");
     assert(await page.locator("footer.prompt").evaluate((node) => !node.classList.contains("choice-mode")), "chat must not open branch choice mode");
     await assertNoComposerOrDebugChrome();
@@ -1770,22 +3858,57 @@ async function main() {
   await page.waitForFunction(() => (document.querySelector("#primary")?.innerText || "").trim().length > 0);
   await assertNoVisibleOverflow();
   await assertNoComposerOrDebugChrome();
-  assert((await visibleCommandButtons()).length === 1, "avatar gate must show one command button");
+  await assertActionBarCapped("avatar gate", 1);
   assert((await primaryText()).toLowerCase().includes("generate avatar"), "first command should generate avatar");
 
   await clickPrimary("generate avatar");
   await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
-  assert((await visibleCommandButtons()).length === 1, "normal play must show one command button");
+  await assertActionBarCapped("normal play", 3);
   await assertNoComposerOrDebugChrome();
-  assert((await primaryText()).toLowerCase().includes("take"), "normal play should surface a collectible before chat");
+  steps.push({
+    label: "focus collectible card",
+    primary: await focusPrimaryMatching("collectible card", (text) => text.includes("take"), 64),
+  });
+  assert((await primaryText()).toLowerCase().includes("take"), "normal play should keep a collectible drawable before chat");
+  await assertPrimaryOmitsActionCounter("normal play collectible");
   assert(!(await primaryText()).toLowerCase().includes("orb chat"), "chat command should not show an Orb cost suffix");
-  assert(await page.locator(".feature-pill").count() >= 3, "room features should render as clickable search targets");
-  steps.push({ label: "focus Hearth feature", primary: await focusBySelector(".feature-pill[data-focus-index]", "Hearth") });
+  const legacyListChrome = await page.locator("#route-map,#presence,#features,.route-node,.chip,.feature-pill").count();
+  assert(legacyListChrome === 0, `inline item/location/avatar lists should not render: ${legacyListChrome}`);
+  steps.push({
+    label: "focus Hearth feature",
+    primary: await focusPrimaryMatching("Hearth feature search", (text) => text.includes("search") && text.includes("hearth"), 64),
+  });
   assert((await primaryText()).toLowerCase().includes("search"), "feature focus should offer a Search verb");
   await assertZeroOrbModePrefersWorldEarningAction();
+  await assertEmptyActionSetFallsBackToLook();
+  await assertLockedRoutesCollapseAndFooterVerbsFit();
+  await assertRepeatListenDoesNotHijackPrimary();
+  await assertCalmRoomSearchDoesNotHijackPrimary();
+  await assertCalmRoomFeatureUseDoesNotHijackPrimary();
+  await assertSpentFeatureActionsCollapse();
+  await assertProjectFeatureUseSurfacesBeforePrepare();
+  await assertProjectFeatureUseRequiresServerEffect();
+  await assertChatPrimaryUsesCompactActorDetail();
+  await assertGiftPrimaryUsesCompactVerb();
+  await assertGiveTradeCanBeDrawnFromShuffledDeck();
+  await assertBankLedgerSurfacesAsCompactProgressAction();
+  await assertTrainSkillSurfacesAsCompactAdvancementAction();
+  await assertBondSurfacesAsCompactRelationshipAction();
+  await assertMatureBondSurfacesAsCompactSettlementAction();
+  await assertPreparedProgressLabelsAreRoomScoped();
+  await assertMultiRoomPrepareCopyUsesServerProgress();
+  await assertSpentPreparationSurfacesProjectPush();
+  await assertCombatPotionDoesNotDefaultToEnemyHealing();
+  await assertCombatProjectActionsUseCompactTradeoffCopy();
+  await assertCompactMetaCopyAvoidsSlashes();
+  await assertTiredRestPriorityFollowsRoomDanger();
   await assertCompactDescriptionAndCardModal();
+  await assertRoomSummaryStaysFlatAndMechanical();
+  await assertStatusBarDoesNotOverlayTranscript("mobile status row");
+  await assertRoomMemoryContextPanel("mobile room memory");
   await assertMudShellVisualContract("mobile visual shell");
   await assertTimelineAccessibilityBase();
+  await assertMechanicalUpdatesStayOutOfChat();
   await assertHumanActionRequiresActorSession();
   await assertClientAuthoredSpeechModerated();
   await assertSeedArtAvailable();
@@ -1793,7 +3916,7 @@ async function main() {
   await assertWorldProjectionAvailable();
   await assertMudCommandApiAvailable();
   await assertMudCommandPaletteAvailable();
-  await assertReportActionOpensCommandPalette();
+  await assertReportCommandPaletteAvailable();
   await assertRoomMultiplayerBroadcast();
   await listenAtCurrentLocation();
   await assertBoundedEventReplay();
@@ -1807,21 +3930,90 @@ async function main() {
   await assertReloadContinuity("The Cosy Cottage", "takes Story Button.");
   await travelTo("Rain-Soft Garden");
   await takeItem("Dewbright Button");
-  await travelTo("Moonlit Trail");
-  await attackTarget("Moonlit Echo");
-  await takeItem("Wolfprint Charm");
-  await leaveTrailTo("Rain-Soft Garden");
   await travelTo("The Cosy Cottage");
-
-  steps.push({ label: "focus wrong resident", primary: await focusChip("Skull") });
+  steps.push({
+    label: "focus wrong resident",
+    primary: await focusPrimaryMatching("wrong resident chat", (text) => text.includes("chat") && text.includes("skull"), 64),
+  });
   assert((await primaryText()).toLowerCase().includes("chat"), "wrong resident should stay chat, not offer an invalid gift");
   assert(!(await primaryText()).toLowerCase().includes("give"), "wrong resident should not accept another resident's evolution items");
+  await travelTo("Rain-Soft Garden");
+  await travelTo("Moonlit Trail");
+  await takeItem("Hearthstone Tag");
+  await takeItem("Wolfprint Charm");
+  const projectCluePrimary = await primaryText();
+  steps.push({ label: "project clue default", primary: projectCluePrimary });
+  assert(projectCluePrimary.toLowerCase().includes("search"), `Moonlit Trail project should surface a one-shot room clue before prepare; primary was ${projectCluePrimary}`);
+  await clickPrimary("search project clue");
+  await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
+  let progressPrimer = "feature use";
+  try {
+    const projectUsePrimary = await drawPrimaryMatching(
+      "project feature use",
+      ["use", "wolfprint charm"],
+    );
+    assert(projectUsePrimary.includes("+1 progress"), "project feature use should preview its progress payoff");
+    await clickPrimary("use project feature item");
+  } catch (error) {
+    progressPrimer = "safe help";
+    steps.push({ label: "project feature use unavailable", error: String(error.message || error).slice(0, 240) });
+    const projectHelpPrimary = await drawPrimaryMatching(
+      "project safe help",
+      ["help", "+1 progress"],
+    );
+    assert(projectHelpPrimary.toLowerCase().includes("safe"), "fallback project help should be safe");
+    await clickPrimary("help project safely");
+  }
+  await page.waitForFunction(() => {
+    const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
+    return progress?.filled === 1;
+  });
+  const primedProjectState = await fetchCurrentState();
+  const primedMoonlitProgress = (primedProjectState.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
+  assert(primedMoonlitProgress?.filled === 1, `${progressPrimer} should advance progress to 1/4: ${JSON.stringify(primedMoonlitProgress)}`);
+  const projectPreparePrimary = await drawPrimaryMatching(
+    "project prepare",
+    ["prepare", "setup +3"],
+  );
+  assert(projectPreparePrimary.includes("+3"), "used project feature should preview a +3 setup payoff");
+  assert(!projectPreparePrimary.toLowerCase().includes("next project action"), "prepared setup should not expose rules jargon in the primary button");
+  await clickPrimary("prepare informed project");
+  const projectFinishPrimary = await drawPrimaryMatching(
+    "project finish",
+    ["finish", "+3"],
+  );
+  await clickPrimary("finish informed project");
+  await page.waitForFunction(() => {
+    const progress = (state?.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
+    const job = (state?.jobs || []).find((entry) => entry.id === "moonlit-trail:quiet-the-echo");
+    return progress?.filled === 4
+      && job?.status === "completed"
+      && (state?.tags || []).some((tag) => tag.label === "quieted moonlight");
+  });
+  const completedProjectState = await fetchCurrentState();
+  const completedMoonlitProgress = (completedProjectState.clocks || []).find((clock) => clock.id === "moonlit-trail.progress");
+  const completedMoonlitJob = (completedProjectState.jobs || []).find((job) => job.id === "moonlit-trail:quiet-the-echo");
+  assert(completedMoonlitProgress?.filled === 4, `resolving the project should fill the progress clock: ${JSON.stringify(completedMoonlitProgress)}`);
+  assert(completedMoonlitJob?.status === "completed", `resolving the project should complete the room job: ${JSON.stringify(completedMoonlitJob)}`);
+  assert((completedProjectState.tags || []).some((tag) => tag.label === "quieted moonlight"), `resolving the project should apply its reward tag: ${JSON.stringify(completedProjectState.tags)}`);
+  assert(!(completedProjectState.tags || []).some((tag) => tag.label === "tired"), `feature clue plus preparation should avoid the fatigue cost: ${JSON.stringify(completedProjectState.tags)}`);
+  assert(!(completedProjectState.tags || []).some((tag) => tag.label === "spent preparation"), `resolved projects should clear spent-preparation helper tags: ${JSON.stringify(completedProjectState.tags)}`);
+  assert(!(completedProjectState.primary_action?.options || []).some((option) => ["prepare", "work", "help"].includes(option.kind)), `completed project should stop surfacing stale project actions: ${JSON.stringify(completedProjectState.primary_action)}`);
+  const quietedEchoFocus = await focusPrimaryMatching(
+    "quieted Moonlit Echo chat",
+    (text) => text.includes("chat") && text.includes("moonlit echo"),
+    64,
+  );
+  steps.push({ label: "focus quieted Moonlit Echo", primary: quietedEchoFocus });
+  assert(!quietedEchoFocus.toLowerCase().includes("attack"), `completed project should calm Moonlit Echo combat: ${quietedEchoFocus}`);
+  assert(quietedEchoFocus.toLowerCase().includes("chat"), `quieted Moonlit Echo should become a chat target: ${quietedEchoFocus}`);
+  await leaveTrailTo("Rain-Soft Garden");
+  await travelTo("The Cosy Cottage");
 
   await evolveResident("Whiskerwind");
   await travelTo("Rain-Soft Garden");
   await takeItem("Watch Bell");
   await travelTo("Moonlit Trail");
-  await takeItem("Hearthstone Tag");
   await leaveTrailTo("Rain-Soft Garden");
   await travelTo("The Cosy Cottage");
   await evolveResident("Skull");
@@ -1833,7 +4025,10 @@ async function main() {
   await travelTo("Homeroom");
   await travelTo("The Cosy Cottage");
 
-  steps.push({ label: "focus evolved resident", primary: await focusChip("Whiskerwind") });
+  steps.push({
+    label: "focus evolved resident",
+    primary: await focusPrimaryMatching("evolved Whiskerwind chat", (text) => text.includes("chat") && text.includes("whiskerwind"), 64),
+  });
   await chatWithFocusedResident("avatar chat with Whiskerwind");
   await assertWhiskerwindEmojiAriaLabel();
 
@@ -1891,10 +4086,12 @@ async function main() {
   assert(finalState.avatarMessages.length >= 2, "Chat should emit server-authored avatar messages");
   assert(finalState.branchEvents.length === 0, `Chat should not emit branch lifecycle events: ${JSON.stringify(finalState.branchEvents)}`);
   assert(finalState.trailExitEvents.includes("Rain-Soft Garden"), "leaving Moonlit Trail should record a trail exit event");
-  assert(finalState.buttons.length === 1, "chat should finish in one-button mode");
+  assert(finalState.buttons.length >= 1 && finalState.buttons.length <= 3, `chat should finish with a capped action bar: ${JSON.stringify(finalState.buttons)}`);
   await assertNoComposerOrDebugChrome();
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.waitForTimeout(150);
+  await assertStatusBarDoesNotOverlayTranscript("desktop status row");
+  await assertRoomMemoryContextPanel("desktop room memory");
   await assertMudShellVisualContract("desktop visual shell");
   await assertSignedWalletBoxAccountFlow();
 

@@ -4,7 +4,7 @@
 
 CosyWorld should use AI as a world actor, not as a private chatbot.
 
-The human still never types. Pressing `Chat` asks the server to author one in-character line for the player's avatar, commit it as a shared room event, then optionally commit one resident reply. The payer for that AI turn can be either:
+The `Chat` verb specifically never types for the human — pressing `Chat` asks the server to author one in-character line for the player's avatar, commit it as a shared room event, then optionally commit one resident reply. (This document originally said "the human still never types" as a blanket claim; that stopped being true once `POST /actions/say` shipped as a separate, moderated, player-typed room-speech path. `say` bypasses AI generation entirely — the player's literal text is broadcast, subject to sanitization — while `Chat` remains the AI-authored path described below.) The payer for a `Chat` AI turn can be either:
 
 - the player's connected OpenRouter account, which costs no Orbs inside CosyWorld;
 - the CosyWorld server key, which costs Orbs.
@@ -23,6 +23,7 @@ Relevant implementation points:
 - `AiConfig` reads `COSYWORLD_AI_API_KEY`, `OPENROUTER_API_KEY`, or `OPENAI_API_KEY`.
 - OpenRouter defaults to `https://openrouter.ai/api/v1` and `openai/gpt-4.1-mini`.
 - `POST /actions/chat` validates the actor session, builds an `AvatarChatPlan`, generates one player-avatar line, commits it through `CW_ACTION_SAY`, then schedules one resident reply.
+- `POST /actions/say` is a separate, non-AI route: it takes player-typed `content` directly, moderates/sanitizes it, and commits it as a `message.created` room event with no LLM call involved. This is the human-typed room-speech path that `Chat` intentionally does not provide.
 - Resident replies are already one-to-many world events.
 - Server-paid player-avatar Chat spends one Orb only after a committed message event, and the spend is projected into `orb_ledger`.
 - Player OpenRouter Chat stores no key server-side and records only non-secret usage metadata in `ai_usage_ledger`.

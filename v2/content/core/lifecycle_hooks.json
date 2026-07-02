@@ -48,6 +48,82 @@
     ]
   },
   {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "2003",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "moonlit-trail.progress",
+        "amount": 1,
+        "reason": "wolfprint_practice"
+      }
+    ]
+  },
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "36",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "solar-abyss.drowned-bell",
+        "amount": 1,
+        "reason": "listen_solar_bell_absence"
+      }
+    ]
+  },
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "64",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "solar-abyss.drowned-bell",
+        "amount": 1,
+        "reason": "listen_abyssal_bell_song"
+      }
+    ]
+  },
+  {
+    "hook": "on_enter",
+    "target_kind": "room",
+    "target_id": "36",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:36:solar_temple_witnessed",
+        "scope": "room",
+        "scope_id": 36,
+        "label": "solar witness",
+        "kind": "memory",
+        "reason": "enter_solar_temple"
+      }
+    ]
+  },
+  {
+    "hook": "on_enter",
+    "target_kind": "room",
+    "target_id": "64",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:64:abyssal_pressure_felt",
+        "scope": "room",
+        "scope_id": 64,
+        "label": "abyssal pressure",
+        "kind": "memory",
+        "reason": "enter_darkest_ocean"
+      }
+    ]
+  },
+  {
     "hook": "on_give",
     "target_kind": "actor",
     "target_id": "1001",
@@ -107,6 +183,52 @@
         "job_id": "moonlit-trail:quiet-the-echo",
         "status": "failed",
         "reason": "moonlit_danger_filled"
+      }
+    ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "solar-abyss.drowned-bell",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "faction:solar_abyss:bell_accord",
+        "scope": "room",
+        "scope_id": 36,
+        "label": "two-toned bell accord",
+        "kind": "aspect",
+        "reason": "drowned_bell_progress_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "solar-abyss:drowned-bell",
+        "status": "completed",
+        "reason": "drowned_bell_progress_filled"
+      }
+    ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "solar-abyss.schism",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "faction:solar_abyss:schism",
+        "scope": "room",
+        "scope_id": 64,
+        "label": "solar-abyssal schism",
+        "kind": "aspect",
+        "reason": "drowned_bell_danger_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "solar-abyss:drowned-bell",
+        "status": "failed",
+        "reason": "drowned_bell_danger_filled"
       }
     ]
   }

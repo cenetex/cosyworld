@@ -10,11 +10,14 @@ extern "C" {
 
 #define CW_KERNEL_VERSION 1u
 
-#define CW_MAX_ACTORS 64u
-#define CW_MAX_ITEMS 128u
-#define CW_MAX_LOCATIONS 64u
-#define CW_MAX_EXITS 64u
-#define CW_MAX_EVENTS 32u
+#define CW_MAX_ACTORS 512u
+#define CW_MAX_ITEMS 1024u
+#define CW_MAX_LOCATIONS 256u
+#define CW_MAX_EXITS 1024u
+#define CW_MAX_EVENTS 128u
+#define CW_MAX_EVOLUTION_TRACKS 128u
+#define CW_EVOLUTION_TRACK_ITEM_COUNT 2u
+#define CW_INVENTORY_BASE_SLOTS 3u
 
 typedef uint64_t cw_id;
 
@@ -52,7 +55,8 @@ typedef enum {
 typedef enum {
   CW_ITEM_NONE = 0,
   CW_ITEM_POTION = 1,
-  CW_ITEM_EVOLUTION = 2
+  CW_ITEM_EVOLUTION = 2,
+  CW_ITEM_KEEPSAKE = 3
 } cw_item_kind;
 
 typedef enum {
@@ -83,7 +87,8 @@ typedef enum {
   CW_ACTION_DEFEND = 8,
   CW_ACTION_GIVE_ITEM = 9,
   CW_ACTION_FLEE = 10,
-  CW_ACTION_DROP_ITEM = 11
+  CW_ACTION_DROP_ITEM = 11,
+  CW_ACTION_TRADE_ITEM = 12
 } cw_action_kind;
 
 typedef enum {
@@ -106,7 +111,8 @@ typedef enum {
   CW_EVENT_ITEM_GIVEN = 16,
   CW_EVENT_AVATAR_EVOLVED = 17,
   CW_EVENT_COMBAT_FLEE_SUCCESS = 18,
-  CW_EVENT_ITEM_DROPPED = 19
+  CW_EVENT_ITEM_DROPPED = 19,
+  CW_EVENT_ITEM_TRADED = 20
 } cw_event_type;
 
 typedef enum {
@@ -120,7 +126,8 @@ typedef enum {
   CW_OFFER_MOVE = 1u << 6,
   CW_OFFER_GIVE_ITEM = 1u << 7,
   CW_OFFER_FLEE = 1u << 8,
-  CW_OFFER_DROP_ITEM = 1u << 9
+  CW_OFFER_DROP_ITEM = 1u << 9,
+  CW_OFFER_TRADE_ITEM = 1u << 10
 } cw_offer_flags;
 
 typedef struct {
@@ -163,6 +170,7 @@ typedef struct {
   uint16_t reserved;
   cw_id location_id;
   cw_id holder_actor_id;
+  uint64_t held_since_tick;
   uint64_t recharge_at_tick;
 } cw_item;
 
@@ -176,6 +184,7 @@ typedef struct {
   cw_id destination_location_id;
   cw_id content_id;
   cw_id item_id;
+  cw_id target_item_id;
   int16_t modifier;
 } cw_action;
 
@@ -190,6 +199,7 @@ typedef struct {
   cw_id destination_location_id;
   cw_id content_id;
   cw_id item_id;
+  cw_id target_item_id;
   int16_t raw_roll;
   int16_t modifier;
   int16_t total;
@@ -208,6 +218,11 @@ typedef struct {
 } cw_action_offers;
 
 typedef struct {
+  cw_id actor_id;
+  cw_id item_ids[CW_EVOLUTION_TRACK_ITEM_COUNT];
+} cw_evolution_track;
+
+typedef struct {
   uint32_t version;
   uint64_t tick;
   uint64_t next_event_seq;
@@ -215,14 +230,17 @@ typedef struct {
   size_t item_count;
   size_t location_count;
   size_t exit_count;
+  size_t evolution_track_count;
   cw_actor actors[CW_MAX_ACTORS];
   cw_item items[CW_MAX_ITEMS];
   cw_location locations[CW_MAX_LOCATIONS];
   cw_exit exits[CW_MAX_EXITS];
+  cw_evolution_track evolution_tracks[CW_MAX_EVOLUTION_TRACKS];
 } cw_world;
 
 void cw_world_init(cw_world *world);
 cw_status cw_seed_cosy_cottage(cw_world *world, cw_event_buffer *out_events);
+cw_status cw_world_set_evolution_track(cw_world *world, cw_id actor_id, const cw_id *item_ids, size_t item_count);
 cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events);
 cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_offers *out_offers);
 const char *cw_event_type_name(uint8_t type);

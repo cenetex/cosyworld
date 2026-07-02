@@ -378,7 +378,10 @@ Current status: implemented for trusted feed projection.
 - Returned exact trusted Box/pack asset ids in the access payload.
 - Added a minimal top-economy account focus in the browser shell; normal room play remains transcript plus one contextual command.
 - Added a compact terminal account panel for active Boxes, unopened packs, recent burn receipts, and recent pack reveals.
-- Still missing: rich Box/card gallery views, pack art, and support-grade provenance inspection.
+- Current account surfaces show active Boxes, unopened packs, recent burn
+  receipts, recent pack reveals, and open actions without polluting the room
+  transcript. Support-grade provenance inspection can build on the same durable
+  receipt/opening rows.
 
 ### Stage 5: Box Burn And Pack Creation
 
@@ -390,7 +393,11 @@ Current status: implemented as a signed-wallet route flow, with production confi
 - Production mode requires `COSYWORLD_BOX_BURN_SOLANA_RPC_URL` and `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; `burn-confirm` verifies a confirmed Metaplex Core burn transaction for the Box asset, connected owner, and configured collection before recording the receipt.
 - Records the burn receipt idempotently by Box asset and burn signature.
 - Creates an unopened avatar pack receipt and projects it back into wallet access.
-- Still missing: production burn transaction building in `burn-prepare`, external burn/import reconciliation, and richer account/provenance inspection.
+- `burn-prepare` is intentionally the server challenge/eligibility boundary;
+  wallet-specific transaction construction belongs in the client/wallet adapter.
+  Confirmed receipts reconcile back into ownership through the durable receipt
+  store. External import/reconciliation beyond locally recorded receipts remains
+  a production operations workflow.
 
 ### Stage 6: Pack Reveal And Card Grants
 
@@ -402,7 +409,10 @@ Current status: implemented as deterministic local reveal provenance.
 - Merges durable Box/pack receipts back into ownership refreshes so locally opened packs remain effective after wallet-feed polling.
 - Projects recent wallet-scoped pack reveals into the focused account panel.
 - Duplicate opens return the same card ids.
-- Still missing: rich account/card UI, transcript event polish, and production pack catalog policy.
+- The focused account/card panel is live for packs, reveals, and recent
+  provenance. Transcript polish and production pack catalog policy are tracked
+  as content/operations follow-up, not blockers for the signed-wallet route
+  contract.
 
 ### Stage 7: Production Chain Hardening
 

@@ -1,8 +1,11 @@
-# CosyWorld V2 Kernel Prototype
+# CosyWorld V2 Runtime
 
-This folder is the first implementation slice of the C-kernel/Rust-orchestrated CosyWorld MMO design.
+This folder contains the canonical CosyWorld runtime: a deterministic C rules
+kernel, a Rust HTTP/SSE orchestrator, a browser MUD shell, content worldpack
+data, and the local smoke/deployment gates.
 
-It intentionally lives outside the current Node service so the new runtime can prove its contracts without disturbing the existing app.
+The older Node service remains in the repository as a legacy companion for
+integrations and migration work. Gameplay truth lives here.
 
 For the Orbs, Intricately Carved Wooden Boxes, Ruby High pack/burn adapter, and legacy migration plan, see `../ECONOMY.md`.
 
@@ -13,13 +16,27 @@ For the OpenRouter player payer, Orb-paid Chat fallback, real AI media, combat r
 - `core-c/`: deterministic C rules kernel.
 - `ai-model-rust/`: deterministic local AI generation model with native and WASM exports.
 - `orchestrator-rust/`: Rust HTTP/SSE host that compiles and calls the C kernel through FFI.
+- `orchestrator-rust/src/routes.rs`: HTTP route table extracted from the runtime bootstrap.
 - `orchestrator-rust/src/index.html`: one-button browser MUD shell served by the Rust host.
 - `orchestrator-rust/src/mud.rs`: typed command protocol, parser aliases, response formatting, fuzzy matching, and direction canonicalization.
-- `content/core/`: seed actors, items, locations, exits, room features, clocks, jobs, cards, and evolution tracks consumed by the Rust host.
+- `content/core/`: seed actors, items, locations, exits, room features, clocks, jobs, fronts, cards, and evolution tracks consumed by the Rust host.
 
 ## Current Capabilities
 
-The prototype boots one shard with a tiny connected map:
+The runtime boots one shard per orchestrator process:
+
+- The process owns one authoritative world, one SQLite action/event store, one
+  ownership projection, and one SSE stream.
+- `COSYWORLD_V2_SHARD_ID` names the process in `/meta`; it defaults to `local`
+  for local profile and `public-1` for production profile.
+- The C kernel is built with fixed in-process capacities of 512 actors, 1024
+  items, 256 locations, 1024 exits, 128 emitted events per kernel call, and 128
+  evolution tracks. `/meta` exposes the live counters and these compiled caps.
+- Horizontal scale is a process/deployment boundary: run separate shard
+  processes with isolated stores and route players to the right shard.
+  Cross-shard routing is intentionally outside the MVP.
+
+Seed world content:
 
 - Location `1`: The Cosy Cottage.
 - Location `2`: Rain-Soft Garden.
@@ -72,7 +89,7 @@ The C kernel currently resolves:
 - Defend, attack, and flee primitives.
 - Combat rejection in safe locations; The Cosy Cottage remains non-combat.
 - A reachable Moonlit Trail sparring encounter for one-button attack/defend/flee smoke coverage.
-- Primary action offer flags.
+- Ranked primary action offers with typed category, target, cost, risk, effect, claim-key, source, disabled-state, and inspector metadata.
 
 The Rust orchestrator currently owns:
 
@@ -112,7 +129,7 @@ That script builds the Rust orchestrator, starts it detached on `127.0.0.1:3102`
 ./v2/mvp.sh stop
 ```
 
-Use `./v2/mvp.sh check` as the local MVP gate. It runs the C kernel test, local AI model native tests plus WASM build, Rust format/tests/build, JavaScript and terminal-client syntax checks, starts a production-profile smoke against a protected local Ruby High-style ownership feed, restarts the detached browser server, runs the Playwright browser smoke, runs a non-typing terminal smoke plus a typed terminal command-mode speech smoke, and leaves the verified server running.
+Use `./v2/mvp.sh check` as the local MVP gate. It runs the content worldpack check, the C kernel test, local AI model native tests plus WASM build, Rust format/tests/build, JavaScript and terminal-client syntax checks, starts a production-profile smoke against a protected local Ruby High-style ownership feed, restarts the detached browser server, runs the Playwright browser smoke, runs a non-typing terminal smoke plus a typed terminal command-mode speech smoke, and leaves the verified server running.
 
 The local AI model can be checked and built for browser use from the repository root:
 
@@ -138,6 +155,7 @@ The repository root `Dockerfile` builds the V2 release binary and runs `cosyworl
 The production Fly profile expects the protected Ruby High ownership feed, moderation token, and event store to be configured before boot:
 
 ```sh
+fly secrets set COSYWORLD_V2_SHARD_ID=public-1
 fly secrets set COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER=...
 fly secrets set COSYWORLD_MODERATION_TOKEN=...
 fly deploy
@@ -172,12 +190,12 @@ http://127.0.0.1:3102/?reset=1
 
 `reset=1` clears the browser's remembered avatar, calls the dev-gated `/dev/reset` endpoint when enabled, removes the reset flag from the URL, reseeds the world, clears the SQLite action journal/event feed, and returns the player to the explicit `Create Avatar` gate. Without `COSYWORLD_ENABLE_DEV_RESET=1`, the query still clears only the local browser avatar so a tester can start a new human without resetting the shared server.
 
-For the current browser MVP smoke, run the shard with a dev wallet that can reach the Garden, Trail, and Science. `./v2/mvp.sh check` also seeds a deterministic throwaway signed smoke wallet with `location-library` so the smoke can verify the production-style wallet challenge/session path:
+For the current browser MVP smoke, run the shard with a dev wallet that can reach the Garden, Trail, Homeroom, and Science. `./v2/mvp.sh check` also seeds a deterministic throwaway signed smoke wallet with `location-library` so the smoke can verify the production-style wallet challenge/session path:
 
 ```sh
 COSYWORLD_ENABLE_DEV_RESET=1 \
 COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET=1 \
-COSYWORLD_RUBY_HIGH_WALLET_CARDS='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-science-lab|rati-wallet:rati,location-science-lab|DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES:location-library' \
+COSYWORLD_RUBY_HIGH_WALLET_CARDS='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab|DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES:location-homeroom,location-library' \
 cargo run
 ```
 
@@ -210,6 +228,24 @@ COSYWORLD_AI_BASE_URL=https://api.openai.com/v1
 COSYWORLD_AI_PROVIDER=openrouter
 ```
 
+Generate Avatar can also draw a full avatar card through Replicate. The server
+downloads the returned image immediately and stores the full bytes plus content
+type locally, so temporary Replicate URLs can expire safely:
+
+```sh
+REPLICATE_API_TOKEN=...
+COSYWORLD_REPLICATE_AVATAR_MODEL=owner/model
+COSYWORLD_REPLICATE_AVATAR_LORA=https://.../mirquo-lora.safetensors
+COSYWORLD_GENERATED_ASSET_DIR=/data/generated
+```
+
+Optional Replicate overrides include `COSYWORLD_REPLICATE_AVATAR_VERSION` for a
+pinned prediction version, `COSYWORLD_REPLICATE_AVATAR_LORA_INPUT` and
+`COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT` for model-specific LoRA parameter
+names, `COSYWORLD_REPLICATE_AVATAR_LORA_SCALE`,
+`COSYWORLD_REPLICATE_AVATAR_OUTPUT_FORMAT`, and
+`COSYWORLD_REPLICATE_AVATAR_INPUT_JSON` for additional input fields.
+
 When no AI key is configured, avatar chat and resident replies use deterministic local fallback text. In both modes pressing `Chat` asks the server to author one line for the player's avatar, commits that avatar line through the C kernel as `CW_ACTION_SAY`, schedules the resident reply afterward, validates the resident speech contract, and broadcasts both as shared world events. Human-authored room speech is a separate moderated `say` path.
 
 The MVP economy is enabled by default:
@@ -221,17 +257,9 @@ The MVP economy is enabled by default:
 - If Chat is unaffordable, the browser prefers in-world earning actions such as `Listen` over AI setup only while that action can still claim a reward; a verified player OpenRouter key still makes explicit `Chat` actions cost zero Orbs while the result remains a public shared-room event.
 - Orb mutations and player-avatar Chat AI usage are persisted to SQLite ledger tables when the event store is enabled.
 - Trusted ownership feeds may include active Wooden Boxes and unopened avatar packs; the main room UI keeps those out of the normal transcript, while the top economy chip can focus account inventory/provenance and change the one contextual command to `Open Box` or `Open Pack`.
-- `/nft/boxes/burn-prepare`, `/nft/boxes/burn-confirm`, and `/nft/packs/open` exist as signed-wallet endpoints. Local mode can still create staging receipts for fast development. Production profile requires a configured Solana/Core verifier; `burn-confirm` checks the submitted transaction signature for a confirmed Metaplex Core burn of the Box asset from the connected wallet and configured Box collection before creating a receipt. Production burn transaction building, reconciliation, and a richer account/card gallery UI are still missing.
+- `/nft/boxes/burn-prepare`, `/nft/boxes/burn-confirm`, and `/nft/packs/open` exist as signed-wallet endpoints. Local mode can still create staging receipts for fast development. Production profile requires a configured Solana/Core verifier; `burn-confirm` checks the submitted transaction signature for a confirmed Metaplex Core burn of the Box asset from the connected wallet and configured Box collection before creating a receipt. Receipts and pack openings are durable, idempotent, merged back into the ownership projection, and shown in account state. Wallet-specific burn transaction construction remains a client/wallet adapter concern; the server boundary is prepare, verify, receipt, reconcile, and expose account/card state.
 
-Ambient room beats are enabled by default but sparse:
-
-```sh
-COSYWORLD_AMBIENT_ENABLED=1
-COSYWORLD_AMBIENT_QUIET_SECS=75
-COSYWORLD_AMBIENT_POLL_SECS=15
-```
-
-The scheduler only emits after the room has been quiet and only when a human avatar shares a room with an active resident. Ambient resident lines are committed through the same C `SAY` reducer. On occasional ticks, the resident instead performs a kernel-owned Wisdom check, producing an auditable `ability_check.rolled` event in the shared room timeline. Legacy branch records do not suppress ambient behavior.
+CosyWorld time is player-powered. There is no real-time ambient scheduler: the world does not commit resident speech, checks, danger ticks, or placement changes simply because wall-clock seconds passed. Confirmed player actions can still fan out into resident replies, lifecycle hooks, frontier danger/progress clocks, and player-turn encounter resets, all through the normal audited journal path. `COSYWORLD_AMBIENT_QUIET_SECS` remains only as a local test threshold for ambient helper coverage; `/meta.features.ambient_enabled` reports `false` in the running service.
 
 By default, runtime state persists to:
 
@@ -275,7 +303,7 @@ The default client is JRPG-style button mode:
 
 The client offers actions from visible world state: nearby residents to chat with, visible items, matching evolution gifts, available exits, combat escape routes, and room rules. One-button play remains the normal path, while the command palette and `/commands` endpoint support typed MUD commands such as `look`, `look east`, `go e`, `say <message>`, `/me <action>`, `report <actor>: <reason>`, and `drop <item>`. `/` opens the command palette, `t` opens it prefilled for room speech, nearby actors add a low-priority Report action that prefills `report <actor>: ` for the player to finish, and Up/Down recall commands from the current browser session.
 
-Normal play keeps the main verb as `Chat`: resident-specific details live in the button detail and thumbnail, while contextual states can still become `Give Item`, `Travel`, `Flee`, `Use`, or `Wait`. Empty room transcripts render an opening beat for the current location instead of a debug placeholder.
+Normal play prefers concrete room verbs such as `Take`, `Use`, `Listen`, `Prepare`, `Work`, `Assist`, `Travel`, `Flee`, or `Chat` from the ranked action-offer list. Each offer carries typed metadata for UI/tooling: category, target, cost, risk, effect, claim key, source, zone, rank, and disabled-state. Empty room transcripts render an opening beat for the current location instead of a debug placeholder.
 
 The current location tab participates in the same one-button surface: focusing it changes the command to `listen`, rolls a kernel-owned Wisdom check, and writes the auditable total/DC into the shared room transcript. Combat events use the same transcript style for attack rolls, AC, damage, HP remaining, knockouts, and fleeing instead of exposing a separate stat table.
 
@@ -313,14 +341,14 @@ Visible actors, items, and locations now resolve through `state.cards`:
 - items use square card art;
 - locations use wide card art in the top tab and travel controls;
 - Ruby High cards carry First Bell catalog/on-chain metadata;
-- CosyWorld seed cards use the same shape with `seed_art` served from `/assets/generated/cards/{card_id}.svg` until the card pipeline adds full NFT records.
+- CosyWorld seed cards use the same shape with generated mini art served from `/assets/generated/cards/{card_id}.webp` until the card pipeline adds full NFT records.
 
 The Rust orchestrator mirrors the 24 live Ruby High: First Bell card profiles from `../app-ruby-high`, covering students, teachers, special cards, items, and locations. Exposed First Bell cards use `/assets/cards/{card_id}.png`, backed by `../app-ruby-high/assets/nft/cards`, and project the matching set number, profile id, subject, rarity, aspect, and Arweave image URI into `state.cards`.
 
 For the current dev slice, the server owns wallet/card access through an ownership snapshot:
 
 ```sh
-COSYWORLD_RUBY_HIGH_WALLET_CARDS='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-science-lab|rati-wallet:rati,location-science-lab' cargo run
+COSYWORLD_RUBY_HIGH_WALLET_CARDS='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab' cargo run
 ```
 
 By default, a browser can only claim a wallet after signing a Solana wallet challenge:
@@ -335,7 +363,7 @@ For local smoke/demo only, enable unsigned wallet hints explicitly, then open `h
 
 ```sh
 COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET=1 \
-COSYWORLD_RUBY_HIGH_WALLET_CARDS='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-science-lab|rati-wallet:rati,location-science-lab' \
+COSYWORLD_RUBY_HIGH_WALLET_CARDS='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab' \
 cargo run
 ```
 
@@ -436,7 +464,9 @@ Items can now drive resident evolution through the C kernel:
 - The C kernel rejects wrong-resident gifts before transfer. In the current seed, Rati needs `Moonwool Thread` plus `Story Button`; Whiskerwind needs `Dewbright Button` plus `Wolfprint Charm`; Skull needs `Hearthstone Tag` plus `Watch Bell`.
 - Evolved residents project into the same card system with `level`, `evolved`, evolved rarity, and updated title/blurb. The browser reflects this in compact room chips and action details instead of a stats table.
 
-The Rust host loads actor names, item descriptions, location labels, directed exits, combat flags, room RPG state, and level-2 evolution tracks from the `content/core/` worldpack. Startup tests validate unique ids, valid references, canonical one-direction-per-room exits, seeded kernel parity, and exactly two unique items for each evolution track. The C kernel still owns rule enforcement for movement, speech event emission, item transfer, and evolution.
+The Rust host loads seed actor placement/stats, faction definitions, item descriptions/placement/kinds, location labels, directed exits, combat flags, access gates, complete room RPG sheets, jobs/fronts, lifecycle/effect descriptors, and level-2 evolution tracks from the `content/core/` worldpack. Startup tests and `npm run v2:worldpack` validate unique ids, valid references, canonical one-direction-per-room exits, every location having a complete room sheet, seeded kernel parity, faction opposition links, frontier-only front links to jobs and danger clocks, lifecycle hook and clock-fill effect descriptors with reasons, and exactly two unique items for each evolution track. The C kernel still owns rule enforcement for movement, speech event emission, item transfer, and evolution, with its evolution track table configured from the worldpack at boot.
+
+Factions are content-backed opposing forces rather than hard-coded teams. `content/core/factions.json` defines each faction's axis, mirrored opposition, protected truth, shadow failure mode, verbs, motifs, home locations, and member actors. `/state` and `/world` expose the global faction list, and location/actor views include compact faction refs so clients can render allegiance without inferring it from names. The first mythic axis is live in content: Solar Temple and Vowbright Angel mirror the Darkest Ocean and Pearl-Deep Listener through the shared `solar-abyss:drowned-bell` project.
 
 Resident placement can be simulated with an aggregate ownership snapshot:
 
@@ -444,22 +474,25 @@ Resident placement can be simulated with an aggregate ownership snapshot:
 COSYWORLD_RUBY_HIGH_WALLET_CARDS='w1:rati,location-science-lab|w2:rati,cosy-rain-soft-garden' cargo run
 ```
 
-Each wallet holding a resident avatar card contributes the unique location cards in that wallet. The resident appears in the highest-scoring shared location, with daily deterministic rotation across ties. With no overlap, residents default to The Cosy Cottage. Placement is recomputed from the server-owned ownership index on boot, reset, and ownership refresh, so stale snapshots cannot strand a resident in a gated room after ownership changes.
+Each wallet holding a resident avatar card contributes the unique location cards in that wallet. The resident appears in the highest-scoring shared location, with deterministic tie rotation based on world-tick placement seasons rather than wall-clock days. With no overlap, residents default to The Cosy Cottage. Placement is recomputed from the server-owned ownership index on boot, reset, and ownership refresh, so stale snapshots cannot strand a resident in a gated room after ownership changes.
 
 Access and gravity are separate: The Cosy Cottage is public even without a card, but a `cosy-cottage` card can still count as a placement vote when a wallet also holds a resident avatar card.
 
 Live refreshes and dev resets emit normal `actor.moved` events when placement moves a resident, then persist and broadcast those events through the shared room timeline. Boot-time placement stays quiet so process restarts do not replay movement noise.
 
+Resolved frontier encounters can reopen on later player turns. The Moonlit Trail reset path waits for a player-powered season gap, then a committed player action in that frontier clears the spent progress/danger clocks, clears resolved-state tags such as `quieted moonlight`, revives the encounter participant, emits `encounter.reset`, and makes combat/project actions available again for late arrivals.
+
 ## Shared Live Rooms
 
 Locations are live channels:
 
-- `/state?actor_id=...` returns the actor's current location, visible presence, available actions, and room-scoped recent events.
+- `/state?actor_id=...` returns the actor's current location, visible presence, available actions, active-human room turn state, and room-scoped recent events.
 - `/world?actor_id=...&actor_session=...&wallet_session=...` returns the shared room map, gated/public status, accessible room contents, and locked-room summaries without exposing locked actor/item details.
 - `/stream?actor_id=...&actor_session=...&wallet_session=...` broadcasts accepted world events over SSE after filtering to public Cottage events plus rooms visible to that actor/wallet. SSE messages include the world event sequence as their event id, and reconnects can replay missed visible events with `after=<seq>` or the native `Last-Event-ID` header.
 - `/events` uses the same visibility query parameters for replay; walletless requests only receive public Cottage-visible events. Replay defaults to the latest 80 visible events, accepts `limit=...`, and caps explicit requests at 500.
 - Human presence in `/state` and `/world` is filtered to the current actor plus recently touched actor sessions; durable old avatars are not treated as online occupants.
 - `/presence/ping` and `/presence/leave` require the matching actor session and emit hidden `actor.presence` events only when the active-presence state changes.
+- When two or more active human avatars share a room, `/state.turn` names the human whose card play is live. Other active humans see a timeout card instead of a playable hand; timeout requests emit `turn.timeout_requested`, and when every waiting human has asked, the current turn passes with `turn.timeout_passed`.
 - The browser appends matching live events to the current room transcript and refreshes presence/actions when room speech, movement, item, actor, presence, or combat state changes.
 - Moving between locations swaps to that room's transcript instead of carrying the prior room log forward.
 
@@ -477,6 +510,7 @@ This keeps AI output one-to-many: a resident reply is committed as a world event
 - `GET /events`
 - `GET /events?after=12&limit=80`
 - `GET /moderation`
+- `GET /moderation/activation?limit=80` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
 - `GET /moderation/events?after=12&limit=80` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
 - `GET /moderation/reports?after=12&limit=80` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
 - `POST /moderation/reports/{report_id}/resolve` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
@@ -501,15 +535,17 @@ This keeps AI output one-to-many: a resident reply is committed as a world event
 - `POST /actions/defend`
 - `POST /actions/flee`
 
-`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, non-secret feature flags such as server-authored Chat and enabled client-authored speech, persistence mode, moderation report retention, ownership-feed mode, and current world counters. `./v2/mvp.sh status` prints a one-line summary from it.
+`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, shard id/model, non-secret feature flags such as server-authored Chat and enabled client-authored speech, persistence mode, moderation report retention, ownership-feed mode, current world counters, and compiled kernel capacities. `./v2/mvp.sh status` prints a one-line summary from it.
 
-Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, Wooden Box receipt, and avatar pack opening rows without exposing player OpenRouter keys.
+Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, `/moderation/activation` returns first-session and day-seven retention evidence from the activation event table, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, Wooden Box receipt, and avatar pack opening rows without exposing player OpenRouter keys.
 
-Public action endpoints accept active human actors only when the matching `actor_session` is present. The Rust orchestrator can still commit avatar and resident `SAY` events internally for Chat, AI replies, ambient beats, and placement. Browser-submitted `say` is limited to the caller's own human avatar, is normalized through the same cozy text hygiene used by other player-authored statements, and cannot act as Rati, Whiskerwind, Skull, other residents, or another human avatar by id alone.
+Public action endpoints accept active human actors only when the matching `actor_session` is present. The Rust orchestrator can still commit avatar and resident `SAY` events internally for Chat, AI replies, player-triggered resident beats, and audited placement changes. Browser-submitted `say` is limited to the caller's own human avatar, is normalized through the same cozy text hygiene used by other player-authored statements, and cannot act as Rati, Whiskerwind, Skull, other residents, or another human avatar by id alone.
 
 `POST /actions/say` accepts JSON `{ "actor_id": 5000, "actor_session": "...", "content": "hello room" }` or the alias field `message`. Success returns `200` plus a `message.created` event whose `location_id` is the speaker's current room. Missing or wrong actor sessions return `403`, rejected text returns `400`, rate limits return `429`, and no rejected speech emits a world event.
 
 `POST /actions/report` accepts JSON `{ "actor_id": 5000, "actor_session": "...", "target_actor_id": 1001, "reason": "..." }`. The reporter and target must both be in the same room, and human targets must be visible in active room presence. Success returns `200` plus a durable report id for moderator review; reports do not broadcast into the room timeline.
+
+`POST /actions/timeout` accepts JSON `{ "actor_id": 5000, "actor_session": "..." }`. It is only useful for an active human who is waiting on another active human's room turn; it sends a timeout nudge to the current player and passes that turn once all waiting humans in the room have asked.
 
 Public mutation endpoints also pass through lightweight in-memory rate limits before they touch the world reducer:
 
@@ -519,9 +555,11 @@ Public mutation endpoints also pass through lightweight in-memory rate limits be
 - Player reports: 12 attempts per actor per 10 minutes, with the broader shared IP mutation cap.
 - Movement, item, check, and combat actions: 180 attempts per actor per minute, with the same shared IP mutation cap.
 
-Client-submitted `/actions/say` and typed command emotes enter the action journal only after actor-session authorization and text moderation. They use the same C `SAY` event shape as server-authored Chat, resident replies, and ambient beats, so room speech, action narration, AI dialogue, replay, and SSE broadcast all share one event contract.
+Client-submitted `/actions/say` and typed command emotes enter the action journal only after actor-session authorization and text moderation. They use the same C `SAY` event shape as server-authored Chat and resident replies, so room speech, action narration, AI dialogue, replay, and SSE broadcast all share one event contract.
 
-The limits are intentionally generous for normal play and local smoke tests. They are MVP guardrails for the single shared public world, not a replacement for full moderation.
+Rate limits are intentionally generous for normal play and local smoke tests.
+They are abuse guardrails for one shard process, not a replacement for full
+moderation or cross-shard routing.
 
 ## Moderation
 
@@ -532,6 +570,8 @@ COSYWORLD_MODERATION_TOKEN=... cargo run
 ```
 
 `GET /moderation/events?limit=80` requires `Authorization: Bearer <token>` and returns a bounded chronological replay across all rooms, bypassing player room/card visibility filters for operator review. It uses the same default replay limit of 80 and hard cap of 500 as player `/events`.
+
+`GET /moderation/activation?limit=80` requires the same bearer token and returns avatar creation count, actors who committed a first card turn, actors who reached their first banked Visit Ledger mark, day-one/day-seven return counts and rates, median time from avatar creation to first card turn and first ledger banking, and recent activation events. Events are idempotent per actor/key, so repeat state polling, timeout nudges, and repeat ledger banking do not inflate the metrics.
 
 `GET /moderation/reports?limit=80` requires the same bearer token and returns bounded open player-submitted reports with reporter, target, actor kinds, current suspension flags, room, reason, status, creation timestamp, and optional resolution fields. `after=<report_id>` reads newer reports for incremental queue polling. `status=resolved` returns closed reports, and `status=all` includes both open and resolved rows.
 
@@ -568,12 +608,13 @@ curl -s -X POST http://127.0.0.1:3102/actions/move \
 From the repository root:
 
 ```sh
-cc -std=c11 -Wall -Wextra -Werror \
-  -I v2/core-c/include \
-  v2/core-c/src/cosy_kernel.c \
-  v2/core-c/tests/test_kernel.c \
-  -o /tmp/cosy_kernel_test && /tmp/cosy_kernel_test
+npm run v2:worldpack
+npm run v2:worldpack:inspect
+npm run v2:kernel
+npm run v2:rust:test
 ```
+
+`npm run v2:worldpack` is the terse pass/fail content gate. `npm run v2:worldpack:inspect` runs the same validation first, then prints a builder report with room gates, exits, actors, items, features, clocks, jobs, lifecycle hooks, and evolution tracks. Use `node v2/scripts/check-worldpack.mjs --report-json` when another tool needs the same report as structured JSON.
 
 From `v2/orchestrator-rust`:
 
@@ -587,7 +628,7 @@ All meaningful world mutation must pass through the C kernel.
 
 Rust may store content, call AI, manage streams, schedule NPCs, persist events, normalize/moderate text, and project state. Rust should not decide whether movement, speech event emission, item use, evolution, combat, or stat checks succeed.
 
-`GET /state?actor_id=...&actor_session=...` is room scoped: it follows that actor's current location, returns visible actors/items for the room, returns exits from that room, and includes the kernel-derived primary action options. Actor id without the matching session falls back to the public Cottage avatar gate.
+`GET /state?actor_id=...&actor_session=...` is room scoped: it follows that actor's current location, returns visible actors/items for the room, returns exits from that room, includes the kernel-derived primary action options, and includes `turn` when active human card play is ordered in a shared room. Actor id without the matching session falls back to the public Cottage avatar gate.
 
 The SQLite database stores three different layers:
 

@@ -1,511 +1,106 @@
 # CosyWorld
 
-**A shared, cozy AI MUD where players enter a living room, become an avatar, and act through one clear world command.**
+CosyWorld is a shared AI MUD: players enter one living world, become an avatar,
+and act through a small card-driven browser surface backed by a deterministic
+C rules kernel and a Rust HTTP/SSE orchestrator.
 
----
+CosyWorld V2 is the canonical product. The older Node service still exists in
+this repository as a companion for legacy integrations and experiments, but new
+gameplay work should target `v2/`.
 
-## Current Product Direction
+## Start Here
 
-CosyWorld 2.0 is the canonical product path. It lives in [v2/](./v2/README.md) and runs as a C rules kernel with a Rust HTTP/SSE orchestrator. The Node service remains useful for admin surfaces, integrations, AI providers, auth, migration work, and legacy experiments, but gameplay truth should converge on the V2 runtime.
+Run the current browser game:
 
-For the current browser MVP:
-
-```bash
+```sh
 npm run dev
 ```
 
-For the local V2 gate:
+Run the local V2 gate:
 
-```bash
+```sh
 npm run check:local
 ```
 
-The legacy Node service still runs with `npm run dev:node`.
+Run only the legacy Node companion:
 
-For production, the V2 runtime is built by the root [Dockerfile](./Dockerfile) and [fly.toml](./fly.toml). If the Node companion service is exposed, set `COSYWORLD_V2_PUBLIC_URL` so its launch bridge can point users at the deployed shard.
-
-The older multi-platform community-management material below describes inherited capabilities and integration surface area. New gameplay work should preserve the one-button shared-world loop described in [PRD.md](./PRD.md).
-
-## What is CosyWorld?
-
-CosyWorld is a comprehensive platform for managing modern online communities across multiple social platforms simultaneously. It combines traditional community management tools with AI-powered agents that can autonomously interact, moderate, engage, and create content across Discord, X, Telegram, and more.
-
-### The Problem CosyWorld Solves
-
-Modern communities are fragmented across multiple platforms:
-- **Discord** for real-time chat and community building
-- **X (Twitter)** for announcements and broader reach
-- **Telegram** for group discussions and notifications
-- **Forums** for long-form discussions
-
-Managing presence across all these platforms requires:
-- ❌ Multiple tools and dashboards
-- ❌ Constant manual posting and cross-posting
-- ❌ Different moderation systems
-- ❌ Inconsistent community experience
-- ❌ High operational overhead
-
-### The CosyWorld Solution
-
-CosyWorld provides a **unified interface** to manage your entire community ecosystem:
-- ✅ **Single Dashboard** - Control all platforms from one place
-- ✅ **AI Agents** - Autonomous entities that engage naturally across platforms
-- ✅ **Cross-Platform Posting** - Post once, publish everywhere
-- ✅ **Unified Moderation** - Consistent rules across all channels
-- ✅ **Intelligent Automation** - AI handles routine tasks while maintaining authenticity
-- ✅ **Analytics & Insights** - Understand your community across all platforms
-
----
-
-## 🎯 Core Use Cases
-
-### 1. **Multi-Platform Community Management**
-Manage Discord servers, X accounts, Telegram channels, and more from a single interface. Schedule posts, monitor engagement, and respond to community members across all platforms without switching tools.
-
-### 2. **AI-Powered Community Engagement**
-Deploy AI agents that:
-- Respond to common questions automatically
-- Welcome new members with personalized messages
-- Generate engaging content and announcements
-- Moderate conversations and flag issues
-- Initiate conversations to boost engagement
-
-### 3. **Content Distribution & Amplification**
-Create content once and intelligently distribute it:
-- Automatically adapt content for each platform's format
-- Schedule strategic cross-posting
-- Generate platform-specific variations (threads, images, videos)
-- Track performance and engagement metrics
-
-### 4. **Decentralized Community Operations**
-Run community operations with:
-- AI agents that act autonomously but stay on-brand
-- Persistent "personalities" that community members recognize
-- Multi-agent coordination for complex scenarios
-- NFT-based agent ownership and customization
-
-### 5. **Community Analytics & Growth**
-Understand your community with:
-- Cross-platform engagement tracking
-- Member activity and sentiment analysis
-- Content performance metrics
-- Growth trend analysis and forecasting
-
----
-
-## 🚀 Key Features
-
-### 🤖 AI Agent System
-- **Persistent AI Personalities**: Create unique AI agents with distinct personalities, knowledge bases, and communication styles
-- **Multi-Platform Presence**: Each agent can operate across Discord, X, Telegram simultaneously
-- **Autonomous Engagement**: Agents respond to mentions, participate in conversations, and initiate discussions
-- **Learning & Memory**: Agents remember past interactions and evolve based on community feedback
-- **Custom Abilities**: Define specific tools and actions for each agent (moderation, welcoming, FAQ, etc.)
-
-### 🌐 Platform Integration
-
-#### Discord Integration
-- Full bot integration with channels, threads, and DMs
-- Role-based permissions and moderation
-- Slash commands and reactions
-- Webhook support for rich message formatting
-- Channel activity monitoring and analytics
-
-#### X (Twitter) Integration
-- OAuth authentication for secure posting
-- Automated tweet scheduling and posting
-- Media upload (images, videos)
-- Thread creation and management
-- Engagement tracking (likes, retweets, replies)
-
-#### Telegram Integration
-- Global bot configuration
-- Channel and group management
-- Media posting with AI-generated captions
-- Rate limiting and spam prevention
-
-### 📊 Unified Dashboard
-- **Web Interface**: Modern, responsive UI built with Tailwind CSS
-- **Real-time Monitoring**: Track activity across all platforms in real-time
-- **Content Calendar**: Schedule and manage posts across platforms
-- **Analytics Dashboard**: Visualize engagement metrics and growth trends
-- **Agent Management**: Configure and monitor AI agent behavior
-- **Guild Settings**: Platform-specific configuration per community
-
-### 🛡️ Moderation & Security
-- **Cross-Platform Moderation**: Unified rules and actions across all platforms
-- **AI-Powered Detection**: Automatic spam, toxicity, and threat detection
-- **Risk Assessment**: User risk profiling and behavioral analysis
-- **Rate Limiting**: Prevent spam and abuse with intelligent rate limits
-- **Content Filtering**: Block specific keywords, patterns, or media types
-
-### 🎨 Content Creation
-- **AI-Generated Media**:
-  - 🖼️ Images via Replicate, Google Imagen
-  - 🎥 Videos via Google Veo 3.1 (with audio!)
-  - 📝 Text content with multiple AI models
-- **Platform Optimization**: Automatically format content for each platform
-- **Media Storage**: S3-compatible storage with CloudFront CDN
-- **Caption Generation**: AI-powered descriptions and hashtags
-
-### � Advanced AI Capabilities
-- **Multi-Model Support**: OpenRouter (300+ models), Google AI (Gemini), Ollama (local models)
-- **Model Tiers**: Legendary, Rare, Uncommon, Common - choose the right AI for each task
-- **Context-Aware**: Agents understand conversation history and community dynamics
-- **Tool Calling**: Agents can execute actions (post, moderate, create content) when needed
-- **Memory Systems**: Short-term context, long-term storage, knowledge graphs
-
----
-
-## 💼 Who Should Use CosyWorld?
-
-### Community Managers
-Managing multiple Discord servers, social media accounts, and communication channels? CosyWorld consolidates everything into one platform with AI assistance.
-
-### DAOs & Web3 Projects
-Maintain consistent presence across Discord, X, and Telegram while using NFTs to represent AI agents and governance roles.
-
-### Content Creators & Influencers
-Amplify your reach by automating cross-posting, engagement, and community management while maintaining authentic interactions.
-
-### Gaming Communities
-Coordinate tournaments, announcements, and player engagement across multiple platforms with AI moderators and assistants.
-
-### Developer Communities
-Manage technical communities with AI agents that can answer FAQs, share documentation, and moderate discussions.
-
-### Marketing Teams
-Execute multi-platform campaigns, track engagement, and respond to community feedback from a single dashboard.
-
----
-
-## 🛠️ Technical Architecture
-
-### Service-Oriented Design
-```
-├── Core Services
-│   ├── DatabaseService (SQLite default)
-│   ├── ConfigService (Environment + Secrets)
-│   ├── LoggingService (Winston)
-│   └── SchedulingService (Periodic tasks)
-│
-├── AI & Intelligence
-│   ├── AIService (OpenRouter integration)
-│   ├── UnifiedAIService (Multi-provider adapter)
-│   ├── GoogleAIService (Gemini models)
-│   ├── MemoryService (Vector storage)
-│   └── KnowledgeService (Knowledge graphs)
-│
-├── Platform Integrations
-│   ├── DiscordService (Bot + API)
-│   ├── XService (Twitter OAuth + posting)
-│   ├── TelegramService (Bot + messaging)
-│   └── WebService (Express + REST API)
-│
-├── Community Management
-│   ├── AvatarService (AI agent management)
-│   ├── ModerationService (Content filtering)
-│   ├── ResponseCoordinator (Conversation orchestration)
-│   └── PresenceService (Activity tracking)
-│
-└── Content & Media
-    ├── VeoService (Video generation)
-    ├── ImageProcessingService (Media analysis)
-    ├── S3Service (Cloud storage)
-    └── GlobalBotService (Cross-platform personas)
+```sh
+npm run dev:node
 ```
 
-### Technology Stack
-- **Runtime**: Node.js 18+ with ES modules
-- **Database**: SQLite by default with a V2 store-oriented data layer
-- **AI**: OpenRouter, Google AI, Replicate, Ollama
-- **Frontend**: Vanilla JS + Tailwind CSS
-- **APIs**: Discord.js, Telegraf, Twitter API v2
-- **Storage**: S3-compatible (AWS S3, Cloudflare R2, MinIO)
-- **Deployment**: Docker-ready, Kubernetes-compatible
+## Repository Map
 
----
+- `v2/`: canonical CosyWorld runtime, content, smoke tests, and deployment docs.
+- `v2/core-c/`: deterministic C kernel for world rules and event emission.
+- `v2/orchestrator-rust/`: Rust host, browser shell, HTTP routes, SSE, wallets,
+  ownership feeds, AI calls, persistence, moderation, and NFT pack flow.
+- `v2/content/core/`: seed worldpack data for rooms, actors, items, cards,
+  factions, fronts, clocks, jobs, and access gates.
+- `src/`: legacy Node companion service and inherited social/community tooling.
+- `docs/`, `AI.md`, `ECONOMY.md`, `PRD.md`: product and system notes.
 
-## 🚀 Quick Start
+## Current Product Shape
 
-### Prerequisites
-- Node.js 18 or higher
-- Discord Bot Token
-- API keys for desired platforms (X, Telegram, AI services)
+The V2 runtime serves a single shard per orchestrator process. That process owns
+the authoritative world state, SQLite event/action persistence, browser state
+views, and SSE event replay. Horizontal scale is intended to happen by running
+multiple shard processes with isolated state stores and routing players to the
+correct shard. Set `COSYWORLD_V2_SHARD_ID` to name each process in `/meta`;
+cross-shard routing is not part of the current MVP.
 
-### Installation
+The current public world includes CosyWorld Core rooms plus Ruby High expansion
+rooms gated by official location cards. Players can create avatars, chat through
+server-authored avatar lines, use moderated room speech, move, collect and trade
+items, earn and spend Orbs, report players, and unlock avatar cards through the
+Wooden Box and pack flow.
 
-```bash
-# Clone the repository
-git clone https://github.com/cenetex/cosyworld.git
-cd cosyworld
+## Production Runtime
 
-# Install dependencies
-npm install
+The root `Dockerfile` builds the V2 Rust orchestrator. `fly.toml` runs it on the
+production profile with `/data` mounted for generated assets and SQLite state.
 
-# Start the application
-npm start
+Production profile rejects dev shortcuts. It requires:
+
+- Remote trusted ownership feed URL and bearer token.
+- SQLite event store.
+- Moderation token.
+- `COSYWORLD_V2_SHARD_ID` per deployed shard process.
+- Signed wallet sessions for account-sensitive endpoints.
+- Solana/Core Box burn verifier before production Box burns can create receipts.
+
+The server verifies submitted burn signatures and creates durable receipts and
+pack openings. Wallet-specific transaction construction remains a client/wallet
+adapter concern; the server boundary is prepare, verify, receipt, reconcile into
+ownership, and expose account/card state.
+
+## Legacy Node Companion
+
+The Node service was the original multi-platform community/agent tool. It still
+contains Discord, X, Telegram, AI-provider, media, admin, and migration code that
+may remain useful as companion infrastructure. It is not the source of truth for
+the CosyWorld V2 game loop.
+
+Use `npm run dev:node` when working on that companion surface. Keep new gameplay
+rules, world content, browser MUD behavior, and production deployment changes in
+the V2 runtime unless a task explicitly targets legacy integrations.
+
+## Useful Commands
+
+```sh
+npm run v2:start
+npm run v2:status
+npm run v2:smoke
+npm run v2:check
+npm run v2:stop
+npm run v2:worldpack
+npm run v2:kernel
+npm run v2:rust:test
+npm run v2:syntax
 ```
 
-### First-Time Setup
-
-1. **Visit the Setup Wizard**
-   ```
-   http://localhost:3000/admin/setup
-   ```
-
-2. **Configure Core Services**
-   - SQLite data storage path
-   - Encryption keys (auto-generated)
-   - Discord bot token
-
-3. **Add Platform Integrations** (optional)
-   - X (Twitter) API credentials
-   - Telegram bot token
-   - AI service API keys
-
-4. **Create Your First AI Agent**
-   - Define personality and behavior
-   - Choose AI model tier
-   - Enable platforms (Discord, X, Telegram)
-   - Configure tools and abilities
-
-### Configuration
-
-The wizard handles most configuration, but you can also use environment variables:
-
-```bash
-# Core
-NODE_ENV=production
-DATA_BACKEND=sqlite
-SQLITE_DB_PATH=./data/cosyworld.sqlite
-ENCRYPTION_KEY=auto-generated-by-wizard
-
-# Discord
-DISCORD_BOT_TOKEN=your_bot_token
-
-# X (Twitter)
-X_API_KEY=your_api_key
-X_API_SECRET=your_api_secret
-
-# Telegram
-TELEGRAM_GLOBAL_BOT_TOKEN=your_bot_token
-TELEGRAM_GLOBAL_CHANNEL_ID=@your_channel
-
-# AI Services
-OPENROUTER_API_TOKEN=your_token
-GOOGLE_AI_API_KEY=your_key
-
-# Storage
-S3_API_ENDPOINT=your_endpoint
-S3_API_KEY=your_key
-S3_API_SECRET=your_secret
-```
-
----
-
-## � Documentation
-
-- **[Configuration Guide](docs/CONFIGURATION_WIZARD.md)** - Complete setup instructions
-- **[Quick Start](docs/QUICKSTART_WIZARD.md)** - Get started in 5 minutes
-- **[Platform Integration](docs/services/)** - Discord, X, Telegram guides
-- **[AI Agent Guide](docs/systems/)** - Creating and managing AI agents
-- **[API Reference](http://localhost:3000/api-docs.html)** - REST API documentation
-- **[Architecture](ARCHITECTURE.md)** - System design and patterns
-
----
-
-## 🎮 Example Use Cases
-
-### Web3 DAO Community
-```
-✅ Discord server for governance discussions
-✅ X account for announcements
-✅ Telegram for quick updates
-✅ AI moderators handling spam and questions
-✅ Automated meeting reminders across all platforms
-✅ Voting results posted simultaneously everywhere
-```
-
-### Gaming Clan
-```
-✅ Discord for voice chat and coordination
-✅ X for tournament announcements
-✅ Telegram for mobile notifications
-✅ AI assistants tracking player stats
-✅ Automated match schedules and results
-✅ Cross-platform recruitment campaigns
-```
-
-### Developer Community
-```
-✅ Discord for support and discussions
-✅ X for sharing updates and tips
-✅ Telegram for quick questions
-✅ AI bots answering common FAQs
-✅ Automated documentation links
-✅ Code snippet sharing across platforms
-```
-
----
-
-## 🔮 Roadmap
-
-### Current (v0.0.11 - Beta)
-- ✅ Discord, X, Telegram integration
-- ✅ AI agent system with multiple models
-- ✅ Web-based configuration wizard
-- ✅ Cross-platform content posting
-- ✅ Unified moderation system
-
-### Coming Soon (v0.1.0)
-- 🔄 WhatsApp Business integration
-- 🔄 Farcaster protocol support
-- 🔄 Advanced analytics dashboard
-- 🔄 Campaign management tools
-- 🔄 A/B testing for content
-
-### Future (v0.2.0+)
-- 📋 Reddit integration
-- 📋 LinkedIn for professional communities
-- 📋 Custom integration SDK
-- 📋 Mobile companion app
-- 📋 Marketplace for AI agent templates
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! CosyWorld is open-source and community-driven.
-
-### Ways to Contribute
-- 🐛 Report bugs and issues
-- 💡 Suggest features and improvements
-- 📝 Improve documentation
-- 🔧 Submit pull requests
-- 🧪 Test new features and provide feedback
-
-### Development Setup
-```bash
-# Clone and install
-git clone https://github.com/cenetex/cosyworld.git
-cd cosyworld
-npm install
-
-# Run in development mode
-NODE_ENV=development npm start
-
-# Run tests
-npm test
-
-# Lint code
-npm run lint
-```
-
----
-
-## 📊 System Requirements
-
-### Minimum
-- **CPU**: 2 cores
-- **RAM**: 4GB
-- **Storage**: 20GB
-- **OS**: Linux, macOS, or Windows with WSL2
-
-### Recommended
-- **CPU**: 4+ cores
-- **RAM**: 8GB+
-- **Storage**: 50GB SSD
-- **OS**: Linux (Ubuntu 22.04+) or macOS
-
-### For Production
-- **CPU**: 8+ cores
-- **RAM**: 16GB+
-- **Storage**: 100GB SSD
-- **Network**: High bandwidth for media processing
-- **Monitoring**: Prometheus, Grafana recommended
-
----
-
-## � Security & Privacy
-
-- **Encrypted Storage**: All API keys and secrets encrypted with AES-256-GCM
-- **Rate Limiting**: Built-in protection against spam and abuse
-- **Content Moderation**: AI-powered detection of harmful content
-- **Audit Logs**: Track all actions and changes
-- **GDPR Compliant**: User data handling and deletion tools
-- **Open Source**: Full transparency and community review
-
----
-
-## Token
-
-The on-chain token for CosyWorld Swarm Orchestrator lives on Solana:
-
-- **Mint address:** `Ci6Y1UX8bY4jxn6YiogJmdCxFEu2jmZhCcG65PStpump`
-- **Network:** Solana (SPL)
-- **Launch date:** 14 October 2024 (first publication of the Swarm Orchestrator)
-
----
-
-## License
-
-CosyWorld Swarm Orchestrator is licensed under the **MIT License** by the **RATi Open Software Foundation / Fondation RATi pour les logiciels libres**. See [LICENSE](LICENSE) for the full text.
-
-Copyright © 2024–2026 RATi Open Software Foundation.
-
-### Canadian Copyright Registration
-
-The work is registered with the Canadian Intellectual Property Office (CIPO) under the *Copyright Act* (R.S.C., 1985, c. C-42), sections 49 and 53:
-
-| Field | Value |
-| --- | --- |
-| Registration number | **1244510** |
-| Title | COSYWORLD SWARM ORCHESTRATOR |
-| Category | Literary |
-| Author | Jonathan Beckwith |
-| Owner | RATi Open Software Foundation / Fondation RATi pour les logiciels libres |
-| First publication | 14 October 2024, Vancouver, British Columbia, Canada |
-| Date of registration / issuance | 17 April 2026 |
-
----
-
-## 🙏 Acknowledgments
-
-Built with:
-- [Discord.js](https://discord.js.org/) - Discord API library
-- [Telegraf](https://telegraf.js.org/) - Telegram bot framework
-- [OpenRouter](https://openrouter.ai/) - Unified AI model access
-- [Google AI](https://ai.google.dev/) - Gemini models and Veo video generation
-- [SQLite](https://sqlite.org/) - Self-contained database
-- [Express](https://expressjs.com/) - Web framework
-
-Special thanks to our community contributors and testers!
-
----
-
-## 📞 Support & Community
-
-- **Documentation**: [docs/](docs/)
-- **GitHub Issues**: [Report bugs](https://github.com/cenetex/cosyworld/issues)
-- **Farcaster**: [@immanence](https://farcaster.xyz/immanence)
-- **Discord**: Join our community server (coming soon)
-
----
-
-## ⚠️ Status
-
-**Current Version**: 0.0.11 (Beta)
-
-CosyWorld is actively developed and suitable for testing and production use with appropriate monitoring. While core features are stable, expect continued improvements and new features.
-
-**Production Readiness**:
-- ✅ Core platform integrations stable
-- ✅ AI agent system battle-tested
-- ✅ Security features in place
-- ⚠️ Scale testing ongoing
-- ⚠️ Advanced analytics in development
-
----
-
-*CosyWorld - Building the future of AI-powered community management* 🌟
+## More Detail
+
+- V2 runtime guide: `v2/README.md`
+- Product requirements: `PRD.md`
+- Economy and NFT model: `ECONOMY.md`
+- AI model/provider notes: `AI.md`

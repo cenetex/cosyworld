@@ -33,7 +33,7 @@
     "blurb": "A wind-bright resident who speaks only in symbols.",
     "aspect": "tall",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "art": {
       "label": "Whiskerwind",
       "role": "resident",
@@ -42,7 +42,8 @@
       "ink": "#d8f7dc",
       "accent": "#75e5d6",
       "glyph": "WW"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-whiskerwind.webp"
   },
   {
     "subject_kind": "actor",
@@ -55,7 +56,7 @@
     "blurb": "A watchful wolf whose silence is part of the room.",
     "aspect": "tall",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "art": {
       "label": "Skull",
       "role": "resident",
@@ -64,7 +65,8 @@
       "ink": "#d8f7dc",
       "accent": "#efc96b",
       "glyph": "SK"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-skull.webp"
   },
   {
     "subject_kind": "actor",
@@ -77,7 +79,7 @@
     "blurb": "A soft practice shape on the trail, bright enough to test courage.",
     "aspect": "tall",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "art": {
       "label": "Moonlit Echo",
       "role": "encounter",
@@ -86,22 +88,23 @@
       "ink": "#d8f7dc",
       "accent": "#91b9ff",
       "glyph": "ME"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-moonlit-echo.webp"
   },
   {
     "subject_kind": "actor",
     "subject_id": 1005,
     "card_id": "cosy-old-oak",
-    "display_name": "Old Oak Tree",
+    "display_name": "Fourvoice Oak",
     "role": "stranger",
     "rarity": "free",
-    "title": "Four-Voice Elder",
-    "blurb": "A rooted stranger whose leaves, rings, roots, and hollow remember different truths.",
+    "title": "Elder of Root, Ring, Leaf, and Hollow",
+    "blurb": "A rooted elder who answers in four small voices: Root remembers paths, Ring remembers years, Leaf notices today, and Hollow keeps whatever you whisper into it.",
     "aspect": "tall",
     "source": "lonely_forest",
     "asset_status": "source_art",
     "art": {
-      "label": "Old Oak Tree",
+      "label": "Fourvoice Oak",
       "role": "stranger",
       "aspect": "tall",
       "bg": "#2d2b18",
@@ -115,11 +118,11 @@
     "subject_kind": "actor",
     "subject_id": 1040,
     "card_id": "lf-shadow-wolf",
-    "display_name": "Shadow Wolf",
+    "display_name": "Emberwatch Wolf",
     "role": "encounter",
     "rarity": "free",
-    "title": "Red-Eyed Night Watch",
-    "blurb": "A dark wolf who keeps the Haunted Mansion threshold warm by watching every unlit path.",
+    "title": "Red-Eyed Night Warden",
+    "blurb": "A dark wolf who keeps the Haunted Mansion threshold warm by watching every unlit path, counting each safe arrival like a coal laid on a fire.",
     "aspect": "tall",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -129,11 +132,11 @@
     "subject_kind": "actor",
     "subject_id": 1041,
     "card_id": "lf-forest-dryad",
-    "display_name": "Forest Dryad",
+    "display_name": "Fernwhisper Dryad",
     "role": "resident",
     "rarity": "free",
-    "title": "Green-Breath Dreamer",
-    "blurb": "A leaf-haired spirit who remembers the first promise made under the Flower Meadow boughs.",
+    "title": "Keeper of the First Promise",
+    "blurb": "A leaf-haired spirit who remembers the first promise made under the Flower Meadow boughs and hums it softly near anyone about to break one.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -143,11 +146,11 @@
     "subject_kind": "actor",
     "subject_id": 1042,
     "card_id": "lf-woodland-bear",
-    "display_name": "Woodland Bear",
+    "display_name": "Mossmantle Bear",
     "role": "resident",
     "rarity": "free",
     "title": "Keeper of the Moss Path",
-    "blurb": "A broad-shouldered forest neighbor who knows which roots trip travelers and which ones hold doors open.",
+    "blurb": "A broad-shouldered forest neighbor with moss on one shoulder from standing still so long, helping travelers past the roots that trip and toward the ones that hold doors open.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -157,11 +160,11 @@
     "subject_kind": "actor",
     "subject_id": 1043,
     "card_id": "lf-golden-squirrel",
-    "display_name": "Golden Squirrel",
+    "display_name": "Sunfleck Squirrel",
     "role": "resident",
     "rarity": "free",
-    "title": "Acorn-Bright Messenger",
-    "blurb": "A quick meadow courier with a sunlit tail and a talent for overhearing useful gossip.",
+    "title": "Acorn-Bright Courier",
+    "blurb": "A quick meadow courier with a sunlit tail who delivers messages slightly faster than she can keep their secrets.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -171,11 +174,11 @@
     "subject_kind": "actor",
     "subject_id": 1044,
     "card_id": "lf-blue-squirrel",
-    "display_name": "Blue Squirrel",
+    "display_name": "Inkdusk Squirrel",
     "role": "resident",
     "rarity": "free",
     "title": "Dusk Nut Archivist",
-    "blurb": "A blue-furred collector who hides tiny records in the Lost Woods where only moonlight can find them.",
+    "blurb": "A blue-furred archivist who hides tiny records in the Lost Woods where only moonlight can read them, filing every dusk under a different name.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -185,11 +188,11 @@
     "subject_kind": "actor",
     "subject_id": 1045,
     "card_id": "lf-badger-cub",
-    "display_name": "Badger Cub",
+    "display_name": "Paintpaw Badger",
     "role": "resident",
     "rarity": "free",
     "title": "Brave Little Burrower",
-    "blurb": "A young badger with paint on their paws and more courage than their worried elders prefer.",
+    "blurb": "A young badger with paint on their paws and more courage than their worried elders prefer, who signs every new tunnel like a masterpiece.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -199,11 +202,11 @@
     "subject_kind": "actor",
     "subject_id": 1046,
     "card_id": "lf-llama-scholar",
-    "display_name": "Llama Scholar",
+    "display_name": "Inkwool Llama",
     "role": "resident",
     "rarity": "free",
     "title": "Abbey Bookkeeper",
-    "blurb": "A bespectacled scholar balancing old folios, warm tea, and a private theory about talking trees.",
+    "blurb": "A bespectacled scholar balancing old folios, warm tea, and a private theory about talking trees that she is almost brave enough to publish.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -213,11 +216,11 @@
     "subject_kind": "actor",
     "subject_id": 1047,
     "card_id": "lf-cloaked-mouse-reader",
-    "display_name": "Cloaked Mouse Reader",
+    "display_name": "Lanternpage Mouse",
     "role": "resident",
     "rarity": "free",
     "title": "Orange-Cloak Listener",
-    "blurb": "A small reader who carries a book like a lantern and notices the page everyone else skipped.",
+    "blurb": "A small reader who carries a book like a lantern and always notices the page everyone else skipped.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -227,11 +230,11 @@
     "subject_kind": "actor",
     "subject_id": 1048,
     "card_id": "lf-rabbit-scribe",
-    "display_name": "Rabbit Scribe",
+    "display_name": "Fernmargin Rabbit",
     "role": "resident",
     "rarity": "free",
     "title": "Fernside Copyist",
-    "blurb": "A careful rabbit who copies forest laws into margins full of corrections and wildflower sketches.",
+    "blurb": "A careful rabbit who copies forest laws into margins full of corrections and wildflower sketches, quietly convinced the sketches are the real law.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -241,11 +244,11 @@
     "subject_kind": "actor",
     "subject_id": 1049,
     "card_id": "lf-mouse-wanderer",
-    "display_name": "Mouse Wanderer",
+    "display_name": "Wrongturn Mouse",
     "role": "resident",
     "rarity": "free",
     "title": "Red-Cloak Wayfarer",
-    "blurb": "A staff-carrying mouse who walks the Lost Woods as if every wrong turn has something kind to teach.",
+    "blurb": "A staff-carrying mouse who walks the Lost Woods as if every wrong turn has something kind to teach, and keeps a fond list of his favorite mistakes.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -255,11 +258,11 @@
     "subject_kind": "actor",
     "subject_id": 1050,
     "card_id": "lf-garden-rabbit",
-    "display_name": "Garden Rabbit",
+    "display_name": "Keyclover Rabbit",
     "role": "resident",
     "rarity": "free",
     "title": "Keyhole Gardener",
-    "blurb": "A rabbit in the deep garden who tends locked gates, stubborn reeds, and secret vegetable beds.",
+    "blurb": "A rabbit in the deep garden who tends locked gates, stubborn reeds, and secret vegetable beds, certain that every lock is a flower that has not decided to open yet.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -269,11 +272,11 @@
     "subject_kind": "actor",
     "subject_id": 1051,
     "card_id": "lf-veiled-forest-ghost",
-    "display_name": "Veiled Forest Ghost",
+    "display_name": "Halfsong Ghost",
     "role": "encounter",
     "rarity": "free",
     "title": "Green Veil Remnant",
-    "blurb": "A moss-veiled presence who drifts through the Haunted Mansion carrying the shape of an unfinished song.",
+    "blurb": "A moss-veiled presence who drifts through the Haunted Mansion carrying the shape of an unfinished song, waiting for someone brave enough to hum the other half.",
     "aspect": "tall",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -283,11 +286,11 @@
     "subject_kind": "actor",
     "subject_id": 1052,
     "card_id": "lf-wolf-pup",
-    "display_name": "Wolf Pup",
+    "display_name": "Softgrowl Pup",
     "role": "resident",
     "rarity": "free",
     "title": "Grey Paw Apprentice",
-    "blurb": "A small wolf pup learning which shadows are dangerous and which are only embarrassed to be seen.",
+    "blurb": "A small wolf pup learning which shadows are dangerous and which are only embarrassed to be seen, practicing his growl on the polite ones first.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -297,11 +300,11 @@
     "subject_kind": "actor",
     "subject_id": 1053,
     "card_id": "lf-white-ferret-noble",
-    "display_name": "White Ferret Noble",
+    "display_name": "Pearlcoat Ferret",
     "role": "stranger",
     "rarity": "free",
-    "title": "Pearl-Coat Envoy",
-    "blurb": "A soft-spoken noble with bright eyes, careful manners, and a surprisingly practical map of the roots.",
+    "title": "Soft-Spoken Envoy",
+    "blurb": "A soft-spoken noble with bright eyes, careful manners, and a surprisingly practical map of the roots folded inside one glove.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -311,11 +314,11 @@
     "subject_kind": "actor",
     "subject_id": 1054,
     "card_id": "lf-blue-shadow-man",
-    "display_name": "Blue Shadow Man",
+    "display_name": "Mirrorwing Stranger",
     "role": "stranger",
     "rarity": "free",
     "title": "Indigo Rift Walker",
-    "blurb": "A luminous stranger whose wings look less like feathers than weather seen through a cracked mirror.",
+    "blurb": "A luminous stranger whose wings look less like feathers than weather seen through a cracked mirror, and who apologizes to doorways before stepping through.",
     "aspect": "tall",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -325,11 +328,11 @@
     "subject_kind": "actor",
     "subject_id": 1055,
     "card_id": "lf-golden-winged-boy",
-    "display_name": "Golden Winged Boy",
+    "display_name": "Sunletter Herald",
     "role": "stranger",
     "rarity": "free",
-    "title": "Sun-Marked Herald",
-    "blurb": "A golden-winged visitor from the high weather who treats every omen like a letter addressed by name.",
+    "title": "Reader of Addressed Omens",
+    "blurb": "A golden-winged visitor from the high weather who treats every omen like a letter addressed by name and takes it personally when one goes unopened.",
     "aspect": "tall",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -339,11 +342,11 @@
     "subject_kind": "actor",
     "subject_id": 1056,
     "card_id": "lf-grey-winged-boy",
-    "display_name": "Grey Winged Boy",
+    "display_name": "Stormfeather Pilgrim",
     "role": "stranger",
     "rarity": "free",
     "title": "Cloud-Quiet Pilgrim",
-    "blurb": "A grey-winged pilgrim resting above the tree line with storm-light still caught in his feathers.",
+    "blurb": "A grey-winged pilgrim resting above the tree line with storm-light still caught in his feathers, saving one thunderclap for a true emergency.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -353,11 +356,11 @@
     "subject_kind": "actor",
     "subject_id": 1057,
     "card_id": "lf-sunlit-winged-boy",
-    "display_name": "Sunlit Winged Boy",
+    "display_name": "Noonwing Witness",
     "role": "stranger",
     "rarity": "free",
-    "title": "Noon-Feather Witness",
-    "blurb": "A bright-winged witness who sees paths from above and never quite remembers to land quietly.",
+    "title": "Loud-Landing Lookout",
+    "blurb": "A bright-winged witness who sees every path from above and has never once remembered to land quietly.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -367,11 +370,11 @@
     "subject_kind": "actor",
     "subject_id": 1058,
     "card_id": "lf-tavern-blond-boy",
-    "display_name": "Tavern Blond Boy",
+    "display_name": "Sparecup Host",
     "role": "resident",
     "rarity": "free",
     "title": "Hearthside Cupbearer",
-    "blurb": "A warm tavern helper who can turn a spare cup, a tired smile, and a rumor into hospitality.",
+    "blurb": "A warm tavern helper who can turn a spare cup, a tired smile, and one overheard rumor into hospitality before the kettle finishes singing.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -381,11 +384,11 @@
     "subject_kind": "actor",
     "subject_id": 1059,
     "card_id": "lf-armored-winged-hero",
-    "display_name": "Armored Winged Hero",
+    "display_name": "Moonvow Guardian",
     "role": "encounter",
     "rarity": "free",
     "title": "Moon-Circle Guardian",
-    "blurb": "A gold-armored guardian with wings like vows and a habit of standing between fear and the door.",
+    "blurb": "A gold-armored guardian with wings like vows and a habit of standing between fear and the door, who polishes his armor only where the moon can see it.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -395,11 +398,11 @@
     "subject_kind": "actor",
     "subject_id": 1060,
     "card_id": "lf-neon-tiger",
-    "display_name": "Neon Tiger",
+    "display_name": "Glitchstripe Tiger",
     "role": "stranger",
     "rarity": "free",
     "title": "Bright-Stripe Glitchcat",
-    "blurb": "A color-slashed tiger from the Digital Realm, all teeth, swagger, and improbable kindness.",
+    "blurb": "A color-slashed tiger from the Digital Realm, all teeth, swagger, and improbable kindness, whose purr runs at a frequency that fixes small machines.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -409,11 +412,11 @@
     "subject_kind": "actor",
     "subject_id": 1061,
     "card_id": "lf-steampunk-mouse",
-    "display_name": "Steampunk Mouse",
+    "display_name": "Cogwhisker Mouse",
     "role": "resident",
     "rarity": "free",
     "title": "Brass-Key Tinker",
-    "blurb": "A goggle-wearing mouse whose pockets click with tiny inventions, borrowed keys, and half-finished plans.",
+    "blurb": "A goggle-wearing mouse whose pockets click with tiny inventions, borrowed keys, and half-finished plans, every one of them labeled almost.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -423,11 +426,11 @@
     "subject_kind": "actor",
     "subject_id": 1062,
     "card_id": "lf-red-shadow-figure",
-    "display_name": "Red Shadow Figure",
+    "display_name": "Cinderhush Omen",
     "role": "encounter",
     "rarity": "free",
-    "title": "Ash-Cloak Omen",
-    "blurb": "A red-black figure who appears where the forest has swallowed a warning and left only heat behind.",
+    "title": "Ash-Cloak Watcher",
+    "blurb": "A red-black figure who appears where the forest has swallowed a warning and left only heat behind, gathering up the hush that follows.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
@@ -437,15 +440,61 @@
     "subject_kind": "actor",
     "subject_id": 1063,
     "card_id": "lf-beetle-armor",
-    "display_name": "Beetle Armor",
+    "display_name": "Grudgeshell Beetle",
     "role": "encounter",
     "rarity": "free",
     "title": "Chitinous Black Knight",
-    "blurb": "A towering beetle-armored creature whose shell reflects violet light and old swamp grudges.",
+    "blurb": "A towering beetle-armored creature whose violet shell reflects old swamp grudges, and who forgets exactly one grudge every time someone is polite.",
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
     "image_url": "/assets/lonely-forest/characters/38-beetle-armor.png"
+  },
+  {
+    "subject_kind": "actor",
+    "subject_id": 1064,
+    "card_id": "cosy-vowbright-angel",
+    "display_name": "Vowbright Angel",
+    "role": "resident",
+    "rarity": "free",
+    "title": "Solar Witness",
+    "blurb": "A gold-winged temple angel whose bell-voice reveals what was hidden and tests whether mercy survives the light.",
+    "aspect": "tall",
+    "source": "cosyworld_seed",
+    "asset_status": "generated_art",
+    "art": {
+      "label": "Vowbright Angel",
+      "role": "resident",
+      "aspect": "tall",
+      "bg": "#2f2a18",
+      "ink": "#fff4c7",
+      "accent": "#efc96b",
+      "glyph": "VA"
+    },
+    "image_url": "/assets/generated/cards/cosy-vowbright-angel.webp"
+  },
+  {
+    "subject_kind": "actor",
+    "subject_id": 1065,
+    "card_id": "cosy-pearl-deep-resident",
+    "display_name": "Pearl-Deep Listener",
+    "role": "resident",
+    "rarity": "free",
+    "title": "Keeper of Pressured Memories",
+    "blurb": "A lantern-eyed resident of the deepest trench who keeps memories under pressure until they are strong enough to surface.",
+    "aspect": "tall",
+    "source": "cosyworld_seed",
+    "asset_status": "generated_art",
+    "art": {
+      "label": "Pearl-Deep Listener",
+      "role": "resident",
+      "aspect": "tall",
+      "bg": "#071824",
+      "ink": "#d8f7dc",
+      "accent": "#75e5d6",
+      "glyph": "PD"
+    },
+    "image_url": "/assets/generated/cards/cosy-pearl-deep-resident.webp"
   },
   {
     "subject_kind": "item",
@@ -458,7 +507,7 @@
     "blurb": "A warm, soulbound potion with one gentle charge.",
     "aspect": "square",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "art": {
       "label": "Hearth Tonic",
       "role": "item",
@@ -467,7 +516,8 @@
       "ink": "#f5e6b8",
       "accent": "#efc96b",
       "glyph": "HT"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-hearth-tonic.webp"
   },
   {
     "subject_kind": "item",
@@ -480,7 +530,7 @@
     "blurb": "A tiny pearled button that hums with first-step magic.",
     "aspect": "square",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "art": {
       "label": "Dewbright Button",
       "role": "item",
@@ -489,7 +539,8 @@
       "ink": "#d8f7dc",
       "accent": "#75e5d6",
       "glyph": "DB"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-dewbright-button.webp"
   },
   {
     "subject_kind": "item",
@@ -502,7 +553,7 @@
     "blurb": "A cool iron charm marked with a careful pawprint.",
     "aspect": "square",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "art": {
       "label": "Wolfprint Charm",
       "role": "item",
@@ -511,7 +562,8 @@
       "ink": "#d8f7dc",
       "accent": "#8bb7ff",
       "glyph": "WC"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-wolfprint-charm.webp"
   },
   {
     "subject_kind": "item",
@@ -524,7 +576,7 @@
     "blurb": "A silvery strand that remembers stories told after rain.",
     "aspect": "square",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "art": {
       "label": "Moonwool Thread",
       "role": "item",
@@ -533,7 +585,8 @@
       "ink": "#f1edff",
       "accent": "#bca1ff",
       "glyph": "MT"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-moonwool-thread.webp"
   },
   {
     "subject_kind": "item",
@@ -546,7 +599,7 @@
     "blurb": "A warm wooden button with a tiny tale tucked under its rim.",
     "aspect": "square",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "art": {
       "label": "Story Button",
       "role": "item",
@@ -555,7 +608,8 @@
       "ink": "#f6e5c4",
       "accent": "#efc96b",
       "glyph": "SB"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-story-button.webp"
   },
   {
     "subject_kind": "item",
@@ -568,7 +622,7 @@
     "blurb": "A smooth tag cut from warm stone and quiet promises.",
     "aspect": "square",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "art": {
       "label": "Hearthstone Tag",
       "role": "item",
@@ -577,7 +631,8 @@
       "ink": "#f6dfca",
       "accent": "#f29c9c",
       "glyph": "HT"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-hearthstone-tag.webp"
   },
   {
     "subject_kind": "item",
@@ -590,7 +645,7 @@
     "blurb": "A mute little bell that rings only for those keeping watch.",
     "aspect": "square",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "art": {
       "label": "Watch Bell",
       "role": "item",
@@ -599,7 +654,77 @@
       "ink": "#d8f7dc",
       "accent": "#65e68a",
       "glyph": "WB"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-watch-bell.webp"
+  },
+  {
+    "subject_kind": "item",
+    "subject_id": 2008,
+    "card_id": "cosy-threadbare-map-scrap",
+    "display_name": "Threadbare Map Scrap",
+    "role": "item",
+    "rarity": "seed",
+    "title": "Threadbare Map Scrap",
+    "blurb": "A soft scrap of map-cloth with one path mended in red thread.",
+    "aspect": "square",
+    "source": "cosyworld_seed",
+    "asset_status": "generated_art",
+    "art": {
+      "label": "Threadbare Map Scrap",
+      "role": "item",
+      "aspect": "square",
+      "bg": "#28342a",
+      "ink": "#f2e8c9",
+      "accent": "#d96b6b",
+      "glyph": "MS"
+    },
+    "image_url": "/assets/generated/cards/cosy-threadbare-map-scrap.webp"
+  },
+  {
+    "subject_kind": "item",
+    "subject_id": 2009,
+    "card_id": "cosy-abbey-bookmark",
+    "display_name": "Abbey Bookmark",
+    "role": "item",
+    "rarity": "seed",
+    "title": "Abbey Bookmark",
+    "blurb": "A pressed fern bookmark that remembers where a difficult sentence became kind.",
+    "aspect": "square",
+    "source": "cosyworld_seed",
+    "asset_status": "generated_art",
+    "art": {
+      "label": "Abbey Bookmark",
+      "role": "item",
+      "aspect": "square",
+      "bg": "#26332e",
+      "ink": "#edf7df",
+      "accent": "#9bcf84",
+      "glyph": "AB"
+    },
+    "image_url": "/assets/generated/cards/cosy-abbey-bookmark.webp"
+  },
+  {
+    "subject_kind": "item",
+    "subject_id": 2010,
+    "card_id": "cosy-mossglass-bead",
+    "display_name": "Mossglass Bead",
+    "role": "item",
+    "rarity": "seed",
+    "title": "Mossglass Bead",
+    "blurb": "A green bead that catches meadow light and keeps it cool enough to trade.",
+    "aspect": "square",
+    "source": "cosyworld_seed",
+    "asset_status": "generated_art",
+    "art": {
+      "label": "Mossglass Bead",
+      "role": "item",
+      "aspect": "square",
+      "bg": "#20352e",
+      "ink": "#e5f9e8",
+      "accent": "#7de099",
+      "glyph": "MB"
+    },
+    "image_url": "/assets/generated/cards/cosy-mossglass-bead.webp"
   },
   {
     "subject_kind": "location",
@@ -633,10 +758,10 @@
     "role": "location",
     "rarity": "seed",
     "title": "Garden Annex",
-    "blurb": "Rain beads on broad leaves. Something small and pearled waits in the grass.",
+    "blurb": "Rain beads on broad leaves. Round marks in the grass remember small pearled discoveries.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Garden Annex",
     "art": {
       "label": "Rain-Soft Garden",
@@ -646,7 +771,8 @@
       "ink": "#d8f7dc",
       "accent": "#65e68a",
       "glyph": "RG"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-rain-soft-garden.webp"
   },
   {
     "subject_kind": "location",
@@ -659,7 +785,7 @@
     "blurb": "The path shines under cold moonlight. The air permits sharper choices.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Moonlit Route",
     "art": {
       "label": "Moonlit Trail",
@@ -669,7 +795,8 @@
       "ink": "#d8f7dc",
       "accent": "#8bb7ff",
       "glyph": "MT"
-    }
+    },
+    "image_url": "/assets/generated/cards/cosy-moonlit-trail.webp"
   },
   {
     "subject_kind": "location",
@@ -772,7 +899,7 @@
     "blurb": "A high bright threshold where cloud paths gather above the mountain.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Forbidden Mountain",
     "art": {
       "label": "The Heavens",
@@ -782,7 +909,8 @@
       "ink": "#d8f7dc",
       "accent": "#8bb7ff",
       "glyph": "TH"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-the-heavens.webp"
   },
   {
     "subject_kind": "location",
@@ -795,7 +923,7 @@
     "blurb": "Thin air, ringing stone, and a summit wind that listens back.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Forbidden Mountain",
     "art": {
       "label": "Lofty Peak",
@@ -805,7 +933,8 @@
       "ink": "#d8f7dc",
       "accent": "#efc96b",
       "glyph": "LP"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-lofty-peak.webp"
   },
   {
     "subject_kind": "location",
@@ -818,7 +947,7 @@
     "blurb": "A switchback path between cold scree and stubborn lantern light.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Forbidden Mountain",
     "art": {
       "label": "Summit Trail",
@@ -828,7 +957,8 @@
       "ink": "#d8f7dc",
       "accent": "#efc96b",
       "glyph": "ST"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-summit-trail.webp"
   },
   {
     "subject_kind": "location",
@@ -841,7 +971,7 @@
     "blurb": "Pines lean over snowmelt tracks and old mountain signs.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Forbidden Mountain",
     "art": {
       "label": "Alpine Forest",
@@ -851,7 +981,8 @@
       "ink": "#d8f7dc",
       "accent": "#65e68a",
       "glyph": "AF"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-alpine-forest.webp"
   },
   {
     "subject_kind": "location",
@@ -864,7 +995,7 @@
     "blurb": "A low cave mouth full of echoes, loose coins, and sharper choices.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Forbidden Mountain",
     "art": {
       "label": "Goblin Cave",
@@ -874,7 +1005,8 @@
       "ink": "#d8f7dc",
       "accent": "#efc96b",
       "glyph": "GC"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-goblin-cave.webp"
   },
   {
     "subject_kind": "location",
@@ -887,7 +1019,7 @@
     "blurb": "Silver stones mark a quiet circle where night keeps perfect time.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Forbidden Mountain",
     "art": {
       "label": "Circle of the Moon",
@@ -897,7 +1029,32 @@
       "ink": "#f1edff",
       "accent": "#bca1ff",
       "glyph": "CM"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-circle-of-the-moon.webp"
+  },
+  {
+    "subject_kind": "location",
+    "subject_id": 36,
+    "card_id": "location-solar-temple",
+    "display_name": "Solar Temple",
+    "role": "location",
+    "rarity": "free",
+    "title": "Solar Temple",
+    "blurb": "White stone terraces hold noon-bright bells, gold wings, and vows sharp enough to cast shadows.",
+    "aspect": "wide",
+    "source": "cosyworld_seed",
+    "asset_status": "generated_art",
+    "subject": "Solar Temple",
+    "art": {
+      "label": "Solar Temple",
+      "role": "location",
+      "aspect": "wide",
+      "bg": "#2f2a18",
+      "ink": "#fff4c7",
+      "accent": "#efc96b",
+      "glyph": "ST"
+    },
+    "image_url": "/assets/generated/cards/location-solar-temple.webp"
   },
   {
     "subject_kind": "location",
@@ -910,7 +1067,7 @@
     "blurb": "A vast oak with roots like roads and leaves that remember names.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Lonely Forest",
     "art": {
       "label": "Old Oak Tree",
@@ -920,7 +1077,8 @@
       "ink": "#d8f7dc",
       "accent": "#65e68a",
       "glyph": "OO"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-old-oak-tree.webp"
   },
   {
     "subject_kind": "location",
@@ -933,7 +1091,7 @@
     "blurb": "Soft moss, repeating paths, and birdsong that refuses to point north.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Lonely Forest",
     "art": {
       "label": "Lost Woods",
@@ -943,7 +1101,8 @@
       "ink": "#d8f7dc",
       "accent": "#8bb7ff",
       "glyph": "LW"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-lost-woods.webp"
   },
   {
     "subject_kind": "location",
@@ -956,7 +1115,7 @@
     "blurb": "A leaning house with lit windows, patient dust, and doors that sigh.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Lonely Forest",
     "art": {
       "label": "Haunted Mansion",
@@ -966,7 +1125,8 @@
       "ink": "#f1edff",
       "accent": "#efc96b",
       "glyph": "HM"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-haunted-mansion.webp"
   },
   {
     "subject_kind": "location",
@@ -979,7 +1139,7 @@
     "blurb": "Stone arches hold a hush deep enough to hear small vows.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Lonely Forest",
     "art": {
       "label": "Quiet Abbey",
@@ -989,7 +1149,8 @@
       "ink": "#d8f7dc",
       "accent": "#8bb7ff",
       "glyph": "QA"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-quiet-abbey.webp"
   },
   {
     "subject_kind": "location",
@@ -1002,7 +1163,7 @@
     "blurb": "A clear meadow of small flowers, warm bees, and open sky.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Lonely Forest",
     "art": {
       "label": "Flower Meadow",
@@ -1012,7 +1173,8 @@
       "ink": "#d8f7dc",
       "accent": "#f29c9c",
       "glyph": "FM"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-flower-meadow.webp"
   },
   {
     "subject_kind": "location",
@@ -1025,7 +1187,7 @@
     "blurb": "Endless shelves, brass ladders, and marginalia from travelers before you.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "The World",
     "art": {
       "label": "Great Library",
@@ -1035,7 +1197,8 @@
       "ink": "#f5e6b8",
       "accent": "#efc96b",
       "glyph": "GL"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-great-library.webp"
   },
   {
     "subject_kind": "location",
@@ -1048,7 +1211,7 @@
     "blurb": "Black water shifts under reeds while bubbles spell unfinished warnings.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Farthest Mists",
     "art": {
       "label": "Turgid Swamp",
@@ -1058,7 +1221,8 @@
       "ink": "#d8f7dc",
       "accent": "#65e68a",
       "glyph": "TS"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-turgid-swamp.webp"
   },
   {
     "subject_kind": "location",
@@ -1071,7 +1235,7 @@
     "blurb": "Heavy leaves droop over hot paths where every vine seems tired.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Farthest Mists",
     "art": {
       "label": "Wilting Jungle",
@@ -1081,7 +1245,8 @@
       "ink": "#f5e6b8",
       "accent": "#efc96b",
       "glyph": "WJ"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-wilting-jungle.webp"
   },
   {
     "subject_kind": "location",
@@ -1094,7 +1259,7 @@
     "blurb": "A blue horizon with no visible shore and songs under the waves.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Farthest Mists",
     "art": {
       "label": "Endless Ocean",
@@ -1104,7 +1269,8 @@
       "ink": "#d8f7dc",
       "accent": "#75e5d6",
       "glyph": "EO"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-endless-ocean.webp"
   },
   {
     "subject_kind": "location",
@@ -1117,7 +1283,7 @@
     "blurb": "Green cursors blink across a world made of doors, echoes, and code.",
     "aspect": "wide",
     "source": "cosyworld_seed",
-    "asset_status": "pending_art",
+    "asset_status": "generated_art",
     "subject": "Farthest Mists",
     "art": {
       "label": "Digital Realm",
@@ -1127,6 +1293,31 @@
       "ink": "#d8f7dc",
       "accent": "#65e68a",
       "glyph": "DR"
-    }
+    },
+    "image_url": "/assets/generated/cards/location-digital-realm.webp"
+  },
+  {
+    "subject_kind": "location",
+    "subject_id": 64,
+    "card_id": "location-darkest-ocean",
+    "display_name": "Darkest Ocean",
+    "role": "location",
+    "rarity": "free",
+    "title": "Abyssal Deep",
+    "blurb": "A trench below the final tide glows with pearl lamps, drowned bells, and residents adapted to pressure.",
+    "aspect": "wide",
+    "source": "cosyworld_seed",
+    "asset_status": "generated_art",
+    "subject": "Farthest Mists",
+    "art": {
+      "label": "Darkest Ocean",
+      "role": "location",
+      "aspect": "wide",
+      "bg": "#071824",
+      "ink": "#d8f7dc",
+      "accent": "#75e5d6",
+      "glyph": "DO"
+    },
+    "image_url": "/assets/generated/cards/location-darkest-ocean.webp"
   }
 ]

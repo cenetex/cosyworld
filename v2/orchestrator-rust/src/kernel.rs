@@ -6,11 +6,14 @@ use std::os::raw::c_char;
 
 use serde::{Deserialize, Serialize};
 
-pub const CW_MAX_ACTORS: usize = 64;
-pub const CW_MAX_ITEMS: usize = 128;
-pub const CW_MAX_LOCATIONS: usize = 64;
-pub const CW_MAX_EXITS: usize = 64;
-pub const CW_MAX_EVENTS: usize = 32;
+pub const CW_MAX_ACTORS: usize = 512;
+pub const CW_MAX_ITEMS: usize = 1024;
+pub const CW_MAX_LOCATIONS: usize = 256;
+pub const CW_MAX_EXITS: usize = 1024;
+pub const CW_MAX_EVENTS: usize = 128;
+pub const CW_MAX_EVOLUTION_TRACKS: usize = 128;
+pub const CW_EVOLUTION_TRACK_ITEM_COUNT: usize = 2;
+pub const CW_INVENTORY_BASE_SLOTS: usize = 3;
 
 pub const CW_OK: u32 = 0;
 
@@ -27,6 +30,7 @@ pub const CW_EXIT_LOCKED: u32 = 1 << 0;
 
 pub const CW_ITEM_POTION: u8 = 1;
 pub const CW_ITEM_EVOLUTION: u8 = 2;
+pub const CW_ITEM_KEEPSAKE: u8 = 3;
 
 pub const CW_ACTION_NONE: u8 = 0;
 pub const CW_ACTION_CREATE_ACTOR: u8 = 1;
@@ -40,12 +44,18 @@ pub const CW_ACTION_DEFEND: u8 = 8;
 pub const CW_ACTION_GIVE_ITEM: u8 = 9;
 pub const CW_ACTION_FLEE: u8 = 10;
 pub const CW_ACTION_DROP_ITEM: u8 = 11;
+pub const CW_ACTION_TRADE_ITEM: u8 = 12;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
+pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;
 pub const CW_EVENT_ITEM_USED: u8 = 8;
 pub const CW_EVENT_COMBAT_ATTACK_HIT: u8 = 11;
 pub const CW_EVENT_COMBAT_KNOCKOUT: u8 = 13;
+pub const CW_EVENT_ACTOR_MOVED: u8 = 15;
+pub const CW_EVENT_ITEM_GIVEN: u8 = 16;
 pub const CW_EVENT_AVATAR_EVOLVED: u8 = 17;
+pub const CW_EVENT_ITEM_DROPPED: u8 = 19;
+pub const CW_EVENT_ITEM_TRADED: u8 = 20;
 
 pub const CW_OFFER_CHAT: u32 = 1 << 0;
 pub const CW_OFFER_CHECK: u32 = 1 << 1;
@@ -57,6 +67,7 @@ pub const CW_OFFER_MOVE: u32 = 1 << 6;
 pub const CW_OFFER_GIVE_ITEM: u32 = 1 << 7;
 pub const CW_OFFER_FLEE: u32 = 1 << 8;
 pub const CW_OFFER_DROP_ITEM: u32 = 1 << 9;
+pub const CW_OFFER_TRADE_ITEM: u32 = 1 << 10;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
@@ -108,6 +119,8 @@ pub struct CwItem {
     pub reserved: u16,
     pub location_id: u64,
     pub holder_actor_id: u64,
+    #[serde(default)]
+    pub held_since_tick: u64,
     pub recharge_at_tick: u64,
 }
 
@@ -123,6 +136,8 @@ pub struct CwAction {
     pub destination_location_id: u64,
     pub content_id: u64,
     pub item_id: u64,
+    #[serde(default)]
+    pub target_item_id: u64,
     #[serde(default)]
     pub modifier: i16,
 }
@@ -140,6 +155,7 @@ pub struct CwEvent {
     pub destination_location_id: u64,
     pub content_id: u64,
     pub item_id: u64,
+    pub target_item_id: u64,
     pub raw_roll: i16,
     pub modifier: i16,
     pub total: i16,
@@ -149,7 +165,7 @@ pub struct CwEvent {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug)]
 pub struct CwEventBuffer {
     pub count: usize,
     pub events: [CwEvent; CW_MAX_EVENTS],
@@ -171,6 +187,13 @@ pub struct CwActionOffers {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+pub struct CwEvolutionTrack {
+    pub actor_id: u64,
+    pub item_ids: [u64; CW_EVOLUTION_TRACK_ITEM_COUNT],
+}
+
+#[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct CwWorld {
     pub version: u32,
@@ -180,10 +203,12 @@ pub struct CwWorld {
     pub item_count: usize,
     pub location_count: usize,
     pub exit_count: usize,
+    pub evolution_track_count: usize,
     pub actors: [CwActor; CW_MAX_ACTORS],
     pub items: [CwItem; CW_MAX_ITEMS],
     pub locations: [CwLocation; CW_MAX_LOCATIONS],
     pub exits: [CwExit; CW_MAX_EXITS],
+    pub evolution_tracks: [CwEvolutionTrack; CW_MAX_EVOLUTION_TRACKS],
 }
 
 impl Default for CwWorld {
@@ -196,10 +221,12 @@ impl Default for CwWorld {
             item_count: 0,
             location_count: 0,
             exit_count: 0,
+            evolution_track_count: 0,
             actors: [CwActor::default(); CW_MAX_ACTORS],
             items: [CwItem::default(); CW_MAX_ITEMS],
             locations: [CwLocation::default(); CW_MAX_LOCATIONS],
             exits: [CwExit::default(); CW_MAX_EXITS],
+            evolution_tracks: [CwEvolutionTrack::default(); CW_MAX_EVOLUTION_TRACKS],
         }
     }
 }
@@ -207,6 +234,12 @@ impl Default for CwWorld {
 extern "C" {
     pub fn cw_world_init(world: *mut CwWorld);
     pub fn cw_seed_cosy_cottage(world: *mut CwWorld, out_events: *mut CwEventBuffer) -> u32;
+    pub fn cw_world_set_evolution_track(
+        world: *mut CwWorld,
+        actor_id: u64,
+        item_ids: *const u64,
+        item_count: usize,
+    ) -> u32;
     pub fn cw_world_apply(
         world: *mut CwWorld,
         action: *const CwAction,

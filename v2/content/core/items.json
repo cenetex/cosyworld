@@ -2,36 +2,81 @@
   {
     "id": 2001,
     "name": "Hearth Tonic",
-    "description": "A warm, soulbound potion with one gentle charge."
+    "description": "A warm, soulbound potion with one gentle charge.",
+    "kind": "potion",
+    "charges": 1,
+    "location_id": 1
   },
   {
     "id": 2002,
     "name": "Dewbright Button",
-    "description": "A tiny pearled button that hums with first-step magic."
+    "description": "A tiny pearled button that hums with first-step magic.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 2
   },
   {
     "id": 2003,
     "name": "Wolfprint Charm",
-    "description": "A cool iron charm marked with a careful pawprint."
+    "description": "A cool iron charm marked with a careful pawprint.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 3
   },
   {
     "id": 2004,
     "name": "Moonwool Thread",
-    "description": "A silvery strand that remembers stories told after rain."
+    "description": "A silvery strand that remembers stories told after rain.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 10
   },
   {
     "id": 2005,
     "name": "Story Button",
-    "description": "A warm wooden button with a tiny tale tucked under its rim."
+    "description": "A warm wooden button with a tiny tale tucked under its rim.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 1
   },
   {
     "id": 2006,
     "name": "Hearthstone Tag",
-    "description": "A smooth tag cut from warm stone and quiet promises."
+    "description": "A smooth tag cut from warm stone and quiet promises.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 3
   },
   {
     "id": 2007,
     "name": "Watch Bell",
-    "description": "A mute little bell that rings only for those keeping watch."
+    "description": "A mute little bell that rings only for those keeping watch.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 2
+  },
+  {
+    "id": 2008,
+    "name": "Threadbare Map Scrap",
+    "description": "A soft scrap of map-cloth with one path mended in red thread.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 41
+  },
+  {
+    "id": 2009,
+    "name": "Abbey Bookmark",
+    "description": "A pressed fern bookmark that remembers where a difficult sentence became kind.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 43
+  },
+  {
+    "id": 2010,
+    "name": "Mossglass Bead",
+    "description": "A green bead that catches meadow light and keeps it cool enough to trade.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 44
   }
 ]

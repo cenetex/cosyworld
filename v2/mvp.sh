@@ -2,12 +2,29 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$ROOT/.." && pwd)"
+
+load_env_file() {
+  local env_file="$1"
+  if [ -f "$env_file" ]; then
+    set +u
+    set -a
+    # shellcheck disable=SC1090
+    source "$env_file"
+    set +a
+    set -u
+  fi
+}
+
+load_env_file "$PROJECT_ROOT/.env"
+load_env_file "$PROJECT_ROOT/.env.local"
+
 HOST="${COSYWORLD_V2_HOST:-127.0.0.1}"
 PORT="${COSYWORLD_V2_PORT:-3102}"
 BASE_URL="${COSYWORLD_V2_BASE_URL:-http://${HOST}:${PORT}}"
 WALLET="${COSYWORLD_MVP_WALLET:-dev-wallet}"
 SIGNED_SMOKE_WALLET="${COSYWORLD_SIGNED_SMOKE_WALLET:-DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES}"
-DEFAULT_CARDS="{\"wallets\":[{\"walletAddress\":\"${WALLET}\",\"cardIds\":[\"cosy-rain-soft-garden\",\"cosy-moonlit-trail\",\"location-science-lab\"]},{\"walletAddress\":\"rati-wallet\",\"cardIds\":[\"rati\",\"location-science-lab\"]},{\"walletAddress\":\"library-wallet\",\"cardIds\":[\"location-library\"]},{\"walletAddress\":\"${SIGNED_SMOKE_WALLET}\",\"cardIds\":[\"location-library\"],\"boxes\":[\"box-smoke-1\"]}]}"
+DEFAULT_CARDS="{\"wallets\":[{\"walletAddress\":\"${WALLET}\",\"cardIds\":[\"cosy-rain-soft-garden\",\"cosy-moonlit-trail\",\"location-homeroom\",\"location-science-lab\"]},{\"walletAddress\":\"rati-wallet\",\"cardIds\":[\"rati\",\"location-science-lab\"]},{\"walletAddress\":\"library-wallet\",\"cardIds\":[\"location-library\"]},{\"walletAddress\":\"${SIGNED_SMOKE_WALLET}\",\"cardIds\":[\"location-homeroom\",\"location-library\"],\"boxes\":[\"box-smoke-1\"]}]}"
 CARDS="${COSYWORLD_RUBY_HIGH_WALLET_CARDS:-$DEFAULT_CARDS}"
 SESSION="${COSYWORLD_V2_SCREEN_SESSION:-cosyworld-v2}"
 LOG="${COSYWORLD_V2_LOG:-/tmp/cosyworld-v2-web.log}"
@@ -32,6 +49,7 @@ Environment:
   COSYWORLD_MVP_WALLET
   COSYWORLD_SIGNED_SMOKE_WALLET
   COSYWORLD_RUBY_HIGH_WALLET_CARDS
+  OPENROUTER_API_KEY / OPENROUTER_CHAT_MODEL
   COSYWORLD_BOX_BURN_SOLANA_RPC_URL
   COSYWORLD_BOX_CORE_COLLECTION_ADDRESS
 EOF
@@ -139,12 +157,11 @@ status() {
 }
 
 run_kernel_check() {
-  cc -std=c11 -Wall -Wextra \
-    -I "$ROOT/core-c/include" \
-    "$ROOT/core-c/src/cosy_kernel.c" \
-    "$ROOT/core-c/tests/test_kernel.c" \
-    -o /tmp/cosy_kernel_test
-  /tmp/cosy_kernel_test
+  bash "$ROOT/scripts/check-kernel.sh"
+}
+
+run_worldpack_check() {
+  node "$ROOT/scripts/check-worldpack.mjs"
 }
 
 run_ai_model_checks() {
@@ -157,12 +174,7 @@ run_ai_model_checks() {
 }
 
 run_rust_checks() {
-  (
-    cd "$ROOT/orchestrator-rust"
-    cargo fmt --check
-    cargo test
-    cargo build
-  )
+  bash "$ROOT/scripts/check-rust.sh" all
 }
 
 run_js_checks() {
@@ -258,6 +270,7 @@ PY
 }
 
 check_all() {
+  run_worldpack_check
   run_kernel_check
   run_ai_model_checks
   run_rust_checks

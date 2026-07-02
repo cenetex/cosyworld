@@ -2,6 +2,8 @@
 
 Welcome to the CosyWorld documentation. This comprehensive guide covers all aspects of the CosyWorld platform.
 
+> **This index documents the legacy Node/Discord/X/Telegram service (`src/`).** As of the current runtime, gameplay truth lives in `v2/` — see the root [`readme.md`](../readme.md) for the repository map, [`v2/README.md`](../v2/README.md) for the runtime guide, [`PRD.md`](../PRD.md) and [`docs/systems/09-cosyworld-rpg-system.md`](systems/09-cosyworld-rpg-system.md) for product vision and RPG design, and [`ECONOMY.md`](../ECONOMY.md) for the Orbs/NFT model. The sections below remain accurate for the legacy companion service, not for V2.
+
 ## 🚀 Quick Start
 
 - **New to CosyWorld?** Start with the [Executive Summary](EXECUTIVE_SUMMARY.md)

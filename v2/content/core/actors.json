@@ -4,36 +4,128 @@
     "name": "Rati",
     "speech_mode": "prose",
     "title": "Knitter of Blue Stories",
-    "description": "A warm mouse who collects small noticed things into stories."
+    "description": "A warm mouse who collects small noticed things into stories.",
+    "location_id": 1,
+    "desires": [
+      {
+        "item_id": 2005,
+        "reason": "a wooden tale-button would give the blue scarf one true story to fasten"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2001,
+        "reason": "the first warm cup is how the cottage learned to welcome frightened guests"
+      }
+    ],
+    "stats": {
+      "strength": 8,
+      "dexterity": 14,
+      "constitution": 11,
+      "intelligence": 13,
+      "wisdom": 15,
+      "charisma": 16,
+      "hp_base": 10,
+      "level": 1
+    }
   },
   {
     "id": 1002,
     "name": "Whiskerwind",
     "speech_mode": "emoji_only",
     "title": "Emoji Weather Tongue",
-    "description": "A wind-bright resident who speaks only in symbols."
+    "description": "A wind-bright resident who speaks only in symbols.",
+    "location_id": 1,
+    "desires": [
+      {
+        "item_id": 2002,
+        "reason": "a pearled weather mark lets rain say hello before it arrives"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2003,
+        "reason": "the pawprint charm tells the wind which friend left the trail safely"
+      }
+    ],
+    "stats": {
+      "strength": 8,
+      "dexterity": 16,
+      "constitution": 10,
+      "intelligence": 12,
+      "wisdom": 14,
+      "charisma": 12,
+      "hp_base": 10,
+      "level": 1
+    }
   },
   {
     "id": 1003,
     "name": "Skull",
     "speech_mode": "emote_only",
     "title": "Silent Hearth Wolf",
-    "description": "A watchful wolf whose silence is part of the room."
+    "description": "A watchful wolf whose silence is part of the room.",
+    "location_id": 1,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "the mute bell gives the doorway a warning he can answer without words"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2006,
+        "reason": "the warm tag remembers who belongs by the hearth after dark"
+      }
+    ],
+    "stats": {
+      "strength": 14,
+      "dexterity": 13,
+      "constitution": 13,
+      "intelligence": 8,
+      "wisdom": 12,
+      "charisma": 9,
+      "hp_base": 11,
+      "level": 1
+    }
   },
   {
     "id": 1004,
     "name": "Moonlit Echo",
     "speech_mode": "silent",
     "title": "Sparring Reflection",
-    "description": "A soft practice shape on the trail, bright enough to test courage."
+    "description": "A soft practice shape on the trail, bright enough to test courage.",
+    "location_id": 3,
+    "stats": {
+      "strength": 10,
+      "dexterity": 12,
+      "constitution": 10,
+      "intelligence": 8,
+      "wisdom": 10,
+      "charisma": 8,
+      "hp_base": 6,
+      "level": 1
+    }
   },
   {
     "id": 1005,
-    "name": "Old Oak Tree",
+    "name": "Fourvoice Oak",
     "speech_mode": "prose",
-    "title": "Four-Voice Elder",
-    "description": "A rooted stranger whose leaves, rings, roots, and hollow remember different truths.",
+    "title": "Elder of Root, Ring, Leaf, and Hollow",
+    "description": "A rooted elder who answers in four small voices: Root remembers paths, Ring remembers years, Leaf notices today, and Hollow keeps whatever you whisper into it.",
     "location_id": 40,
+    "desires": [
+      {
+        "item_id": 2006,
+        "reason": "a warm stone tag could weigh down a promise before the wind edits it"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2005,
+        "reason": "a wooden tale-button can hold a season of remembered voices"
+      }
+    ],
     "stats": {
       "strength": 16,
       "dexterity": 6,
@@ -47,11 +139,17 @@
   },
   {
     "id": 1040,
-    "name": "Shadow Wolf",
+    "name": "Emberwatch Wolf",
     "speech_mode": "emote_only",
-    "title": "Red-Eyed Night Watch",
-    "description": "A dark wolf who keeps the Haunted Mansion threshold warm by watching every unlit path.",
+    "title": "Red-Eyed Night Warden",
+    "description": "A dark wolf who keeps the Haunted Mansion threshold warm by watching every unlit path, counting each safe arrival like a coal laid on a fire.",
     "location_id": 42,
+    "attachments": [
+      {
+        "item_id": 2007,
+        "reason": "the mute bell suits a threshold watcher who dislikes wasted howls"
+      }
+    ],
     "stats": {
       "strength": 17,
       "dexterity": 14,
@@ -65,11 +163,17 @@
   },
   {
     "id": 1041,
-    "name": "Forest Dryad",
+    "name": "Fernwhisper Dryad",
     "speech_mode": "prose",
-    "title": "Green-Breath Dreamer",
-    "description": "A leaf-haired spirit who remembers the first promise made under the Flower Meadow boughs.",
+    "title": "Keeper of the First Promise",
+    "description": "A leaf-haired spirit who remembers the first promise made under the Flower Meadow boughs and hums it softly near anyone about to break one.",
     "location_id": 44,
+    "desires": [
+      {
+        "item_id": 2004,
+        "reason": "moonwool can tie a promise to a branch without bruising the bark"
+      }
+    ],
     "stats": {
       "strength": 8,
       "dexterity": 13,
@@ -83,11 +187,17 @@
   },
   {
     "id": 1042,
-    "name": "Woodland Bear",
+    "name": "Mossmantle Bear",
     "speech_mode": "prose",
     "title": "Keeper of the Moss Path",
-    "description": "A broad-shouldered forest neighbor who knows which roots trip travelers and which ones hold doors open.",
+    "description": "A broad-shouldered forest neighbor with moss on one shoulder from standing still so long, helping travelers past the roots that trip and toward the ones that hold doors open.",
     "location_id": 40,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "the moss path needs a quiet warning before small travelers meet the tricky roots"
+      }
+    ],
     "stats": {
       "strength": 17,
       "dexterity": 8,
@@ -101,11 +211,17 @@
   },
   {
     "id": 1043,
-    "name": "Golden Squirrel",
+    "name": "Sunfleck Squirrel",
     "speech_mode": "prose",
-    "title": "Acorn-Bright Messenger",
-    "description": "A quick meadow courier with a sunlit tail and a talent for overhearing useful gossip.",
+    "title": "Acorn-Bright Courier",
+    "description": "A quick meadow courier with a sunlit tail who delivers messages slightly faster than she can keep their secrets.",
     "location_id": 44,
+    "desires": [
+      {
+        "item_id": 2002,
+        "reason": "a pearled rain button would seal a message against sudden weather"
+      }
+    ],
     "stats": {
       "strength": 6,
       "dexterity": 18,
@@ -119,11 +235,21 @@
   },
   {
     "id": 1044,
-    "name": "Blue Squirrel",
+    "name": "Inkdusk Squirrel",
     "speech_mode": "prose",
     "title": "Dusk Nut Archivist",
-    "description": "A blue-furred collector who hides tiny records in the Lost Woods where only moonlight can find them.",
+    "description": "A blue-furred archivist who hides tiny records in the Lost Woods where only moonlight can read them, filing every dusk under a different name.",
     "location_id": 41,
+    "attachments": [
+      {
+        "item_id": 2005,
+        "reason": "the wooden rim is just wide enough to hide a dusk record"
+      },
+      {
+        "item_id": 2008,
+        "reason": "the mended cloth remembers the dusk path Inkdusk Squirrel promised not to sell"
+      }
+    ],
     "stats": {
       "strength": 5,
       "dexterity": 17,
@@ -137,11 +263,17 @@
   },
   {
     "id": 1045,
-    "name": "Badger Cub",
+    "name": "Paintpaw Badger",
     "speech_mode": "prose",
     "title": "Brave Little Burrower",
-    "description": "A young badger with paint on their paws and more courage than their worried elders prefer.",
+    "description": "A young badger with paint on their paws and more courage than their worried elders prefer, who signs every new tunnel like a masterpiece.",
     "location_id": 41,
+    "desires": [
+      {
+        "item_id": 2006,
+        "reason": "a warm stone tag feels like a burrow-name small enough to carry"
+      }
+    ],
     "stats": {
       "strength": 8,
       "dexterity": 10,
@@ -155,11 +287,17 @@
   },
   {
     "id": 1046,
-    "name": "Llama Scholar",
+    "name": "Inkwool Llama",
     "speech_mode": "prose",
     "title": "Abbey Bookkeeper",
-    "description": "A bespectacled scholar balancing old folios, warm tea, and a private theory about talking trees.",
+    "description": "A bespectacled scholar balancing old folios, warm tea, and a private theory about talking trees that she is almost brave enough to publish.",
     "location_id": 43,
+    "desires": [
+      {
+        "item_id": 2004,
+        "reason": "moonwool would bind a margin note without silencing the page"
+      }
+    ],
     "stats": {
       "strength": 7,
       "dexterity": 8,
@@ -173,11 +311,21 @@
   },
   {
     "id": 1047,
-    "name": "Cloaked Mouse Reader",
+    "name": "Lanternpage Mouse",
     "speech_mode": "prose",
     "title": "Orange-Cloak Listener",
-    "description": "A small reader who carries a book like a lantern and notices the page everyone else skipped.",
+    "description": "A small reader who carries a book like a lantern and always notices the page everyone else skipped.",
     "location_id": 43,
+    "desires": [
+      {
+        "item_id": 2005,
+        "reason": "a hidden tale-button would mark the page everyone else skipped"
+      },
+      {
+        "item_id": 2009,
+        "reason": "the pressed fern keeps the skipped page from closing on its own"
+      }
+    ],
     "stats": {
       "strength": 5,
       "dexterity": 13,
@@ -191,11 +339,23 @@
   },
   {
     "id": 1048,
-    "name": "Rabbit Scribe",
+    "name": "Fernmargin Rabbit",
     "speech_mode": "prose",
     "title": "Fernside Copyist",
-    "description": "A careful rabbit who copies forest laws into margins full of corrections and wildflower sketches.",
+    "description": "A careful rabbit who copies forest laws into margins full of corrections and wildflower sketches, quietly convinced the sketches are the real law.",
     "location_id": 43,
+    "desires": [
+      {
+        "item_id": 2009,
+        "reason": "a fern bookmark would hold the next correction without pinning it down"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2004,
+        "reason": "moonwool holds revisions gently when ink gets nervous"
+      }
+    ],
     "stats": {
       "strength": 6,
       "dexterity": 15,
@@ -209,11 +369,21 @@
   },
   {
     "id": 1049,
-    "name": "Mouse Wanderer",
+    "name": "Wrongturn Mouse",
     "speech_mode": "prose",
     "title": "Red-Cloak Wayfarer",
-    "description": "A staff-carrying mouse who walks the Lost Woods as if every wrong turn has something kind to teach.",
+    "description": "A staff-carrying mouse who walks the Lost Woods as if every wrong turn has something kind to teach, and keeps a fond list of his favorite mistakes.",
     "location_id": 41,
+    "desires": [
+      {
+        "item_id": 2003,
+        "reason": "a pawprint charm helps wrong turns become maps instead of traps"
+      },
+      {
+        "item_id": 2008,
+        "reason": "a mended map scrap would prove at least one wrong turn came back kinder"
+      }
+    ],
     "stats": {
       "strength": 5,
       "dexterity": 14,
@@ -227,11 +397,23 @@
   },
   {
     "id": 1050,
-    "name": "Garden Rabbit",
+    "name": "Keyclover Rabbit",
     "speech_mode": "prose",
     "title": "Keyhole Gardener",
-    "description": "A rabbit in the deep garden who tends locked gates, stubborn reeds, and secret vegetable beds.",
+    "description": "A rabbit in the deep garden who tends locked gates, stubborn reeds, and secret vegetable beds, certain that every lock is a flower that has not decided to open yet.",
     "location_id": 44,
+    "desires": [
+      {
+        "item_id": 2010,
+        "reason": "mossglass would hold meadow light for gates that open only to gentleness"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2002,
+        "reason": "the pearled button fits the keyhole where rain keeps secrets"
+      }
+    ],
     "stats": {
       "strength": 6,
       "dexterity": 16,
@@ -245,11 +427,17 @@
   },
   {
     "id": 1051,
-    "name": "Veiled Forest Ghost",
+    "name": "Halfsong Ghost",
     "speech_mode": "silent",
     "title": "Green Veil Remnant",
-    "description": "A moss-veiled presence who drifts through the Haunted Mansion carrying the shape of an unfinished song.",
+    "description": "A moss-veiled presence who drifts through the Haunted Mansion carrying the shape of an unfinished song, waiting for someone brave enough to hum the other half.",
     "location_id": 42,
+    "attachments": [
+      {
+        "item_id": 2005,
+        "reason": "the tucked tale keeps an unfinished song from fading"
+      }
+    ],
     "stats": {
       "strength": 5,
       "dexterity": 14,
@@ -263,11 +451,17 @@
   },
   {
     "id": 1052,
-    "name": "Wolf Pup",
+    "name": "Softgrowl Pup",
     "speech_mode": "prose",
     "title": "Grey Paw Apprentice",
-    "description": "A small wolf pup learning which shadows are dangerous and which are only embarrassed to be seen.",
+    "description": "A small wolf pup learning which shadows are dangerous and which are only embarrassed to be seen, practicing his growl on the polite ones first.",
     "location_id": 41,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "the silent bell is a practice warning for shadows that only pretend"
+      }
+    ],
     "stats": {
       "strength": 9,
       "dexterity": 15,
@@ -281,11 +475,17 @@
   },
   {
     "id": 1053,
-    "name": "White Ferret Noble",
+    "name": "Pearlcoat Ferret",
     "speech_mode": "prose",
-    "title": "Pearl-Coat Envoy",
-    "description": "A soft-spoken noble with bright eyes, careful manners, and a surprisingly practical map of the roots.",
+    "title": "Soft-Spoken Envoy",
+    "description": "A soft-spoken noble with bright eyes, careful manners, and a surprisingly practical map of the roots folded inside one glove.",
     "location_id": 40,
+    "desires": [
+      {
+        "item_id": 2006,
+        "reason": "a hearthstone seal would make root-road promises harder to misplace"
+      }
+    ],
     "stats": {
       "strength": 6,
       "dexterity": 14,
@@ -299,11 +499,17 @@
   },
   {
     "id": 1054,
-    "name": "Blue Shadow Man",
+    "name": "Mirrorwing Stranger",
     "speech_mode": "prose",
     "title": "Indigo Rift Walker",
-    "description": "A luminous stranger whose wings look less like feathers than weather seen through a cracked mirror.",
+    "description": "A luminous stranger whose wings look less like feathers than weather seen through a cracked mirror, and who apologizes to doorways before stepping through.",
     "location_id": 42,
+    "desires": [
+      {
+        "item_id": 2003,
+        "reason": "the pawprint charm anchors rift-light to a real path"
+      }
+    ],
     "stats": {
       "strength": 14,
       "dexterity": 15,
@@ -317,11 +523,17 @@
   },
   {
     "id": 1055,
-    "name": "Golden Winged Boy",
+    "name": "Sunletter Herald",
     "speech_mode": "prose",
-    "title": "Sun-Marked Herald",
-    "description": "A golden-winged visitor from the high weather who treats every omen like a letter addressed by name.",
+    "title": "Reader of Addressed Omens",
+    "description": "A golden-winged visitor from the high weather who treats every omen like a letter addressed by name and takes it personally when one goes unopened.",
     "location_id": 30,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "a mute bell can carry an omen without startling the clouds"
+      }
+    ],
     "stats": {
       "strength": 13,
       "dexterity": 15,
@@ -335,11 +547,17 @@
   },
   {
     "id": 1056,
-    "name": "Grey Winged Boy",
+    "name": "Stormfeather Pilgrim",
     "speech_mode": "prose",
     "title": "Cloud-Quiet Pilgrim",
-    "description": "A grey-winged pilgrim resting above the tree line with storm-light still caught in his feathers.",
+    "description": "A grey-winged pilgrim resting above the tree line with storm-light still caught in his feathers, saving one thunderclap for a true emergency.",
     "location_id": 31,
+    "attachments": [
+      {
+        "item_id": 2001,
+        "reason": "warm tonic reminds the peak that rest is part of pilgrimage"
+      }
+    ],
     "stats": {
       "strength": 12,
       "dexterity": 14,
@@ -353,11 +571,17 @@
   },
   {
     "id": 1057,
-    "name": "Sunlit Winged Boy",
+    "name": "Noonwing Witness",
     "speech_mode": "prose",
-    "title": "Noon-Feather Witness",
-    "description": "A bright-winged witness who sees paths from above and never quite remembers to land quietly.",
+    "title": "Loud-Landing Lookout",
+    "description": "A bright-winged witness who sees every path from above and has never once remembered to land quietly.",
     "location_id": 30,
+    "desires": [
+      {
+        "item_id": 2002,
+        "reason": "dewlight on pearl makes a bright witness easier to believe"
+      }
+    ],
     "stats": {
       "strength": 10,
       "dexterity": 15,
@@ -371,11 +595,17 @@
   },
   {
     "id": 1058,
-    "name": "Tavern Blond Boy",
+    "name": "Sparecup Host",
     "speech_mode": "prose",
     "title": "Hearthside Cupbearer",
-    "description": "A warm tavern helper who can turn a spare cup, a tired smile, and a rumor into hospitality.",
+    "description": "A warm tavern helper who can turn a spare cup, a tired smile, and one overheard rumor into hospitality before the kettle finishes singing.",
     "location_id": 40,
+    "desires": [
+      {
+        "item_id": 2005,
+        "reason": "a tucked-away tale would give the next lonely guest something warm to carry"
+      }
+    ],
     "stats": {
       "strength": 8,
       "dexterity": 13,
@@ -389,11 +619,17 @@
   },
   {
     "id": 1059,
-    "name": "Armored Winged Hero",
+    "name": "Moonvow Guardian",
     "speech_mode": "prose",
     "title": "Moon-Circle Guardian",
-    "description": "A gold-armored guardian with wings like vows and a habit of standing between fear and the door.",
+    "description": "A gold-armored guardian with wings like vows and a habit of standing between fear and the door, who polishes his armor only where the moon can see it.",
     "location_id": 35,
+    "attachments": [
+      {
+        "item_id": 2006,
+        "reason": "the warm tag reads like a vow small enough to defend"
+      }
+    ],
     "stats": {
       "strength": 18,
       "dexterity": 13,
@@ -407,11 +643,17 @@
   },
   {
     "id": 1060,
-    "name": "Neon Tiger",
+    "name": "Glitchstripe Tiger",
     "speech_mode": "prose",
     "title": "Bright-Stripe Glitchcat",
-    "description": "A color-slashed tiger from the Digital Realm, all teeth, swagger, and improbable kindness.",
+    "description": "A color-slashed tiger from the Digital Realm, all teeth, swagger, and improbable kindness, whose purr runs at a frequency that fixes small machines.",
     "location_id": 63,
+    "desires": [
+      {
+        "item_id": 2002,
+        "reason": "the pearled hum sounds like a clean glitch waiting for color"
+      }
+    ],
     "stats": {
       "strength": 16,
       "dexterity": 18,
@@ -425,11 +667,17 @@
   },
   {
     "id": 1061,
-    "name": "Steampunk Mouse",
+    "name": "Cogwhisker Mouse",
     "speech_mode": "prose",
     "title": "Brass-Key Tinker",
-    "description": "A goggle-wearing mouse whose pockets click with tiny inventions, borrowed keys, and half-finished plans.",
+    "description": "A goggle-wearing mouse whose pockets click with tiny inventions, borrowed keys, and half-finished plans, every one of them labeled almost.",
     "location_id": 40,
+    "desires": [
+      {
+        "item_id": 2002,
+        "reason": "its pearled hum belongs in a tiny rain engine that has never quite started"
+      }
+    ],
     "stats": {
       "strength": 6,
       "dexterity": 15,
@@ -443,11 +691,17 @@
   },
   {
     "id": 1062,
-    "name": "Red Shadow Figure",
+    "name": "Cinderhush Omen",
     "speech_mode": "emote_only",
-    "title": "Ash-Cloak Omen",
-    "description": "A red-black figure who appears where the forest has swallowed a warning and left only heat behind.",
+    "title": "Ash-Cloak Watcher",
+    "description": "A red-black figure who appears where the forest has swallowed a warning and left only heat behind, gathering up the hush that follows.",
     "location_id": 42,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "the silent bell can warn without feeding the ash"
+      }
+    ],
     "stats": {
       "strength": 15,
       "dexterity": 14,
@@ -461,11 +715,17 @@
   },
   {
     "id": 1063,
-    "name": "Beetle Armor",
+    "name": "Grudgeshell Beetle",
     "speech_mode": "emote_only",
     "title": "Chitinous Black Knight",
-    "description": "A towering beetle-armored creature whose shell reflects violet light and old swamp grudges.",
+    "description": "A towering beetle-armored creature whose violet shell reflects old swamp grudges, and who forgets exactly one grudge every time someone is polite.",
     "location_id": 60,
+    "attachments": [
+      {
+        "item_id": 2006,
+        "reason": "warm stone steadies chitin where swamp grudges knock"
+      }
+    ],
     "stats": {
       "strength": 18,
       "dexterity": 8,
@@ -474,6 +734,54 @@
       "wisdom": 10,
       "charisma": 7,
       "hp_base": 22,
+      "level": 1
+    }
+  },
+  {
+    "id": 1064,
+    "name": "Vowbright Angel",
+    "speech_mode": "prose",
+    "title": "Solar Witness",
+    "description": "A gold-winged temple angel whose bell-voice reveals what was hidden and tests whether mercy survives the light.",
+    "location_id": 36,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "a silent bell would let the temple warn without frightening the wounded"
+      }
+    ],
+    "stats": {
+      "strength": 14,
+      "dexterity": 13,
+      "constitution": 13,
+      "intelligence": 12,
+      "wisdom": 18,
+      "charisma": 17,
+      "hp_base": 18,
+      "level": 1
+    }
+  },
+  {
+    "id": 1065,
+    "name": "Pearl-Deep Listener",
+    "speech_mode": "prose",
+    "title": "Keeper of Pressured Memories",
+    "description": "A lantern-eyed resident of the deepest trench who keeps memories under pressure until they are strong enough to surface.",
+    "location_id": 64,
+    "attachments": [
+      {
+        "item_id": 2004,
+        "reason": "moonwool keeps a memory from unraveling when the pressure changes"
+      }
+    ],
+    "stats": {
+      "strength": 12,
+      "dexterity": 12,
+      "constitution": 18,
+      "intelligence": 14,
+      "wisdom": 18,
+      "charisma": 13,
+      "hp_base": 20,
       "level": 1
     }
   }

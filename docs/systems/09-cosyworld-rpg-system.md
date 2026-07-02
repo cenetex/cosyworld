@@ -90,14 +90,14 @@ Bonds are the cozy game's true progression: relationships you own inside a world
 
 A world with pressure is engaging but not relaxing; a world that waits for you is relaxing but inert. CosyWorld refuses to choose globally and **divides space** instead.
 
-- **Sanctuary** (safe rooms: cottages, the covenant home, public cozy core). Time is gentle. Clocks here are *opt-in* — long projects you choose to advance, never danger that advances on its own. Nothing decays. No combat. No offscreen threat reaches in. This is where coziness lives, and it is the default place a player exists.
-- **Frontier** (risky and dangerous rooms, accepted jobs, fronts). Time has teeth. Danger clocks can advance, including offscreen, and unresolved hooks can grow worse. This is where stakes, discovery, and the Wanderer fantasy live.
+- **Sanctuary** (safe rooms: cottages, the covenant home, public cozy core). Time is gentle. Clocks here are *opt-in* — long projects you choose to advance, never danger that advances on its own. Nothing decays. No combat. No autonomous threat reaches in. This is where coziness lives, and it is the default place a player exists.
+- **Frontier** (risky and dangerous rooms, accepted jobs, fronts). Time has teeth. Danger clocks advance when players spend turns there, and unresolved hooks can grow worse through committed play. This is where stakes, discovery, and the Wanderer fantasy live.
 
 The rule is simple and load-bearing:
 
-> **Pressure only exists where the player chose to go.** Offscreen and seasonal danger movement happens only on the frontier and only against goals the player opted into. A player who never leaves the sanctuary never logs back in to find things worse — only, perhaps, quieter.
+> **Pressure only exists where the player chose to go.** Seasonal danger movement happens only on committed player turns, only on the frontier, and only against goals the player opted into. A player who never leaves the sanctuary never logs back in to find things worse — only, perhaps, quieter.
 
-Stardew lets your farm sit; CosyWorld lets your home sit. The player who *wants* pressure finds it by walking out, accepting a job, or engaging a front — and for them, the world keeps moving between visits.
+Stardew lets your farm sit; CosyWorld lets your home sit. The player who *wants* pressure finds it by walking out, accepting a job, or engaging a front — and for them, the world keeps moving because players keep spending turns.
 
 ## Covenants: Shared Ownership
 
@@ -223,7 +223,7 @@ Clocks are first-class state, not only narration.
 - `id`
 - `scope`: room, actor, resident, faction, covenant, quest, season, or shard
 - `kind`: progress, danger, relationship, project, exploration, or faction
-- `zone`: sanctuary or frontier (gates offscreen movement)
+- `zone`: sanctuary or frontier (gates player-turn pressure)
 - `label`, `segments`, `filled`
 - `visible_to_players`
 - `created_by_event_id`, `resolved_by_event_id`
@@ -257,7 +257,7 @@ A season-scale frontier threat or opportunity.
 
 - `id`, `premise`, `cast`
 - `stakes_questions`: open questions the front will answer through play
-- `portent_clock`: the impending-doom track that advances offscreen on the frontier
+- `portent_clock`: the impending-doom track that advances through frontier player turns
 - `spawns`: jobs the front creates as it advances
 - `resolution`: what completing or averting it does
 
@@ -587,7 +587,7 @@ The current quest schema only supports item-at-location and item-owned checks. V
 
 ### Fronts
 
-A front is a season-scale frontier threat or opportunity — the engine that keeps the wanderer's world alive between visits. A front has a premise, a cast, open **stakes questions** the world will answer through play, and a **portent clock** that advances offscreen on the frontier toward an impending outcome. As it advances it **spawns jobs**; resolving or averting it changes covenants, rooms, and seasons.
+A front is a season-scale frontier threat or opportunity — the engine that keeps the wanderer's world alive through play. A front has a premise, a cast, open **stakes questions** the world will answer through play, and a **portent clock** that advances on frontier player turns toward an impending outcome. As it advances it **spawns jobs**; resolving or averting it changes covenants, rooms, and seasons.
 
 Fronts only touch the frontier, and only against goals players opted into — the sanctuary never feels their pressure. Covenant hooks and unresolved job consequences are the usual seeds of new fronts.
 
@@ -639,9 +639,9 @@ Default Callings, first-class resident-gift Bonds, player-authored resident Bond
 
 Prepare, Rest, Work, and Help exist as projection actions for the Moonlit job loop. Follow-ups: risk/effect integration, bond effects, covenant clocks, and moving any verb into the C kernel only when it needs hard authority.
 
-### Phase 4: Jobs And Fronts (job seed landed; fronts target)
+### Phase 4: Jobs And Fronts (job seed landed; front seed first slice landed)
 
-Seed job schema/projection and Moonlit job resolution are landed. Follow-ups: migrate generated quests into jobs, let Use/Give/combat move job clocks, add rewards/consequences/completion memory, and add fronts with offscreen portent movement on the frontier only.
+Seed job schema/projection, Moonlit job resolution, player-turn Moonlit encounter reset, and the first content-backed frontier Front records are landed. Follow-ups: migrate generated quests into jobs, let Use/Give/combat move job clocks, add rewards/consequences/completion memory, and add player-turn portent movement on the frontier only.
 
 ### Phase 5: Covenants And Sheets
 
@@ -677,7 +677,7 @@ The smallest useful implementation, building on what is already landed:
 5. Make repeat Listen pressure frontier-only: Moonlit Trail repeats can cost Orbs and add `tired`; Cottage repeats stay free and calm (done).
 6. Add Rest to clear a `tired` tag and tick the Moonlit danger clock; danger ticks are zone-gated to frontier clocks (done).
 7. Expose clocks, tags, jobs, room sheets, Calling, and unbanked ledger progress in `/state` (done).
-8. Smoke coverage proving clocks are public, persisted, event-backed (done), and that sanctuary clocks do not move offscreen once offscreen movement exists.
+8. Smoke coverage proving clocks are public, persisted, event-backed (done), and that sanctuary clocks do not move without a committed player turn once player-turn frontier movement expands.
 
 This slice tests the whole philosophy — motivation, sanctuary/frontier, honest world — without a kernel rewrite.
 
@@ -700,7 +700,7 @@ CosyWorld's mechanics are original writing, but their shapes were studied from a
 ### Blades in the Dark and Charge
 
 - **License:** Blades CC-BY 3.0 (`sources/blades-in-the-dark-srd-content`); Charge CC-BY 4.0 (`raw/charge-srd.md`).
-- **Taken:** clocks as first-class state; position/effect framing (risk/effect on every action); the **crew as a shared, advancing unit** (→ Covenants); **XP triggers** that reward expressing your beliefs and daring (→ the Visit Ledger and Callings); reputation and offscreen faction pressure (→ Fronts).
+- **Taken:** clocks as first-class state; position/effect framing (risk/effect on every action); the **crew as a shared, advancing unit** (→ Covenants); **XP triggers** that reward expressing your beliefs and daring (→ the Visit Ledger and Callings); reputation and faction pressure that advances through play (→ Fronts).
 - **Left:** the full heist/downtime structure; trauma/vice as a tonal fit; every action as a player-vs-GM negotiation.
 
 ### Dungeon World

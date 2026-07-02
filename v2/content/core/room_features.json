@@ -127,6 +127,34 @@
     ]
   },
   {
+    "location_id": 36,
+    "key": "sun_bell",
+    "name": "Missing Sun Bell",
+    "aliases": [
+      "bell",
+      "drowned bell",
+      "sun bell",
+      "temple bell"
+    ],
+    "look": "A clean arch waits where a noon bell should hang. Sunlight outlines the absence in gold.",
+    "search": "The empty bracket hums downward, as if the bell fell through sky, sea, and certainty.",
+    "uses": []
+  },
+  {
+    "location_id": 64,
+    "key": "drowned_bell",
+    "name": "Drowned Bell",
+    "aliases": [
+      "bell",
+      "sun bell",
+      "abyssal bell",
+      "pearl bell"
+    ],
+    "look": "A white-gold bell rests in black water, its rim crusted with pearls and patient songs.",
+    "search": "The bell has not gone silent. It has learned a lower note the Solar Temple never wrote down.",
+    "uses": []
+  },
+  {
     "location_id": 10,
     "key": "lab_bench",
     "name": "Lab Bench",
@@ -182,6 +210,12 @@
       "secrets"
     ],
     "look": "A dark hollow opens in the trunk, quiet enough to make questions lower their voices.",
-    "search": "Hollow remembers what nobody has asked yet. It is waiting for a better question."
+    "search": "Hollow remembers what nobody has asked yet. It is waiting for a better question.",
+    "uses": [
+      {
+        "item_id": 2005,
+        "text": "The Story Button clicks inside the hollow. Old Oak answers with a story it had kept for a kinder listener."
+      }
+    ]
   }
 ]

@@ -20,7 +20,6 @@ pub(crate) struct CommandRequest {
     pub(crate) actor_id: u64,
     pub(crate) actor_session: Option<String>,
     pub(crate) command: String,
-    pub(crate) openrouter_api_key: Option<String>,
     pub(crate) wallet_address: Option<String>,
     pub(crate) wallet: Option<String>,
     pub(crate) wallet_session: Option<String>,
@@ -69,14 +68,26 @@ pub(crate) enum CommandDispatch {
         item_id: u64,
         target_actor_id: u64,
     },
+    SearchFeature {
+        location_id: u64,
+        feature_key: String,
+        feature_name: String,
+        output: String,
+    },
     UseFeature {
         item_id: u64,
         location_id: u64,
+        feature_key: String,
         output: String,
     },
     GiveItem {
         item_id: u64,
         target_actor_id: u64,
+    },
+    TradeItem {
+        item_id: u64,
+        target_actor_id: u64,
+        target_item_id: u64,
     },
     Attack {
         target_actor_id: u64,
@@ -173,6 +184,7 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "go" | "move" | "travel" => "go",
         "get" | "take" | "pick" => "take",
         "give" | "gift" => "give",
+        "trade" | "swap" | "barter" => "trade",
         "use" | "drink" | "ring" => "use",
         "talk" | "chat" | "speak" => "chat",
         "listen" | "check" => "listen",
@@ -180,6 +192,7 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "work" | "repair" | "study" => "work",
         "assist" | "aid" => "assist",
         "rest" | "breathe" | "catch" => "rest",
+        "shuffle" | "deal" | "redraw" => "shuffle",
         "bank" | "review" | "advance" => "bank",
         "skill" | "train" | "practice" => "skill",
         "bond" | "relationship" => "bond",
@@ -249,6 +262,15 @@ pub(crate) fn trim_command_filler(value: &str) -> &str {
         .trim()
 }
 
+fn search_query_is_room(query: &str) -> bool {
+    let query = trim_command_filler(query);
+    query.is_empty()
+        || matches!(
+            command_key(query).as_str(),
+            "room" | "here" | "around" | "location"
+        )
+}
+
 pub(crate) fn split_direct_indirect<'a>(
     value: &'a str,
     separator: &str,
@@ -309,7 +331,9 @@ pub(crate) fn command_action_response_with_prefix_and_events(
         events.extend(response.events);
         response.events = events;
     }
-    let output = command_response_output(prefix, &response.events);
+    let output = command_response_output(prefix, &response.events).or_else(|| {
+        (!response.ok).then(|| command_action_failure_output(&resolved, response.status))
+    });
     Json(CommandResponse {
         ok: response.ok,
         status: response.status,
@@ -319,6 +343,50 @@ pub(crate) fn command_action_response_with_prefix_and_events(
         action: resolved.action,
         events: response.events,
     })
+}
+
+pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: u32) -> String {
+    if status == RATE_LIMITED_STATUS {
+        return "That command is moving too quickly. Try again in a moment.".to_string();
+    }
+    if status == 403 {
+        return "That command needs an active avatar session.".to_string();
+    }
+    if status >= 500 {
+        return "That command could not be committed.".to_string();
+    }
+    match &resolved.dispatch {
+        CommandDispatch::Move { .. } => "You cannot travel there right now.",
+        CommandDispatch::Flee { .. } => "The room has calmed; flee is not needed.",
+        CommandDispatch::Check => "Listening did not land. Try again from the current room.",
+        CommandDispatch::PickUp { .. } => "That item is not loose here anymore.",
+        CommandDispatch::Drop { .. } => "That item is not in your pack anymore.",
+        CommandDispatch::UseItem { .. } => "That item cannot be used on that target right now.",
+        CommandDispatch::GiveItem { .. } => "That gift changed. Check your pack and who is here.",
+        CommandDispatch::TradeItem { .. } => "That trade changed. Check your pack and who is here.",
+        CommandDispatch::Attack { .. } => "The room has calmed; attack is not available.",
+        CommandDispatch::ResolveBond { .. } => "That Bond cannot be settled right now.",
+        CommandDispatch::Defend => "The room has calmed; defend is not needed.",
+        CommandDispatch::Prepare => "Prepare is not available here right now.",
+        CommandDispatch::Work => "Work is not available here right now.",
+        CommandDispatch::Help => "Assist is not available here right now.",
+        CommandDispatch::Rest => "Rest is not available right now.",
+        CommandDispatch::BankLedger => "You need memory marks before claiming growth.",
+        CommandDispatch::ReviseCalling { .. } => "That Calling change could not be saved.",
+        CommandDispatch::CreateBond { .. } => "That Bond cannot be written right now.",
+        CommandDispatch::ReviseBond { .. } => "That Bond cannot be revised right now.",
+        CommandDispatch::TrainSkill { .. } => "You need a growth point before training that skill.",
+        CommandDispatch::Say { .. } | CommandDispatch::Emote { .. } => {
+            "That message could not be sent."
+        }
+        CommandDispatch::Report { .. } => "That report could not be saved.",
+        CommandDispatch::Chat { .. } => "That resident cannot answer right now.",
+        CommandDispatch::Read { .. }
+        | CommandDispatch::Disabled { .. }
+        | CommandDispatch::SearchFeature { .. }
+        | CommandDispatch::UseFeature { .. } => "That command could not finish.",
+    }
+    .to_string()
 }
 
 pub(crate) fn command_rate_limited_response_with_events(
@@ -360,6 +428,11 @@ pub(crate) fn command_response_output(
 pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
     match event.type_name.as_str() {
         "message.created" => event.content.clone(),
+        "hand.shuffled" => Some("You draw a new hand.".to_string()),
+        "feature.searched" => Some(format!(
+            "You search {}.",
+            event_content_part(event, 0).unwrap_or("a room feature")
+        )),
         "actor.moved" => Some(format!(
             "You move from {} to {}.",
             event.location_name.as_deref().unwrap_or("here"),
@@ -412,6 +485,12 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             event.item_name.as_deref().unwrap_or("the item"),
             event.target_actor_name.as_deref().unwrap_or("someone")
         )),
+        "item.traded" => Some(format!(
+            "You trade {} to {} for {}.",
+            event.item_name.as_deref().unwrap_or("the item"),
+            event.target_actor_name.as_deref().unwrap_or("someone"),
+            event.target_item_name.as_deref().unwrap_or("another item")
+        )),
         "ability_check.rolled" => {
             let total = event
                 .total
@@ -441,7 +520,7 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             event.tag_label.as_deref().unwrap_or("a condition")
         )),
         "ledger.marked" => Some(format!(
-            "Visit Ledger marked: {}.",
+            "Memory mark added: {}.",
             event_content_part(event, 1).unwrap_or("visit")
         )),
         "ledger.banked" => {
@@ -449,12 +528,12 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
                 .and_then(|value| value.parse::<usize>().ok())
                 .unwrap_or(0);
             Some(format!(
-                "Visit Ledger banked: {count} advancement point{}.",
+                "Growth claimed: {count} growth point{}.",
                 if count == 1 { "" } else { "s" }
             ))
         }
         "advancement.spent" => Some(format!(
-            "Advancement spent: {}.",
+            "Growth spent: {}.",
             event_content_part(event, 2).unwrap_or("growth")
         )),
         "skill.stepped" => Some(format!(
@@ -482,7 +561,7 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             event.target_actor_name.as_deref().unwrap_or("someone")
         )),
         "bond.resolved" => Some(format!(
-            "Bond resolved with {}.",
+            "Bond settled with {}.",
             event.target_actor_name.as_deref().unwrap_or("someone")
         )),
         "job.updated" => Some(format!(
@@ -549,6 +628,7 @@ fn event_calling_text(event: &EventView) -> Option<&str> {
 
 #[derive(Clone, Debug)]
 struct FeatureUseResult {
+    feature_key: String,
     feature_name: String,
     output: String,
     matched: bool,
@@ -616,7 +696,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                    output: "Commands: look, look <thing>, search <feature>, who, inventory, go <room|direction>, say <message>, emote <action>, report <actor>: <reason>, take <item>, drop <item>, give <item> to <resident>, use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, bank ledger, skill <name>, calling <new drive>, bond <resident>: <relationship>, resolve bond <resident>, attack <target>, defend, flee <room|direction>.".to_string(),
+                    output: "Commands: look, look <thing>, search <feature>, who, inventory, go <room|direction>, say <message>, emote <action>, report <actor>: <reason>, take <item>, drop <item>, give <item> to <resident>, trade <item> with <resident> for <item>, use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, shuffle, bank ledger, skill <name>, calling <new drive>, bond <resident>: <relationship>, settle <resident>, attack <target>, defend, flee <room|direction>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -629,16 +709,34 @@ impl RuntimeWorld {
                         .map_err(|output| command_error(&command, "look", 404, output))?,
                 },
             }),
-            "search" => Ok(ResolvedCommand {
-                command: command.clone(),
-                verb,
-                action: Some(command_action("search", "Search", &command)),
-                dispatch: CommandDispatch::Read {
-                    output: self
-                        .search_command_output(actor, rest)
-                        .map_err(|output| command_error(&command, "search", 404, output))?,
-                },
-            }),
+            "search" => {
+                if search_query_is_room(rest) {
+                    return Ok(ResolvedCommand {
+                        command: command.clone(),
+                        verb,
+                        action: Some(command_action("search", "Search", &command)),
+                        dispatch: CommandDispatch::Read {
+                            output: self.search_command_output(actor, rest).map_err(|output| {
+                                command_error(&command, "search", 404, output)
+                            })?,
+                        },
+                    });
+                }
+                let feature = self
+                    .resolve_room_feature(actor.location_id, rest)
+                    .map_err(|output| command_error(&command, "search", 404, output))?;
+                Ok(ResolvedCommand {
+                    command: command.clone(),
+                    verb,
+                    action: Some(command_action("search", "Search", &command)),
+                    dispatch: CommandDispatch::SearchFeature {
+                        location_id: actor.location_id,
+                        feature_key: feature.key.clone(),
+                        feature_name: feature.name.clone(),
+                        output: format!("{} - {}", feature.name, feature.search),
+                    },
+                })
+            }
             "inventory" => Ok(ResolvedCommand {
                 command,
                 verb,
@@ -673,6 +771,17 @@ impl RuntimeWorld {
                 })
             }
             "flee" => {
+                if !self.location_has_unresolved_combat(actor.location_id) {
+                    return Ok(ResolvedCommand {
+                        command: "flee".to_string(),
+                        verb,
+                        action: Some(command_action("flee", "Flee", "flee")),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "There is nothing to flee from here.".to_string(),
+                        },
+                    });
+                }
                 let destination = if rest.trim().is_empty() {
                     self.first_accessible_exit(actor.location_id, access)
                         .ok_or_else(|| command_error(&command, "flee", 404, "There is nowhere clear to flee."))?
@@ -727,7 +836,19 @@ impl RuntimeWorld {
                         CommandActorFilter::ActiveNpc,
                         active_human_actor_ids,
                     )
-                    .map_err(|output| command_error(&command, "give", 404, output))?;
+                    .map_err(|_| {
+                        command_error(
+                            &command,
+                            "give",
+                            404,
+                            self.actor_not_nearby_output(
+                                actor,
+                                target_query,
+                                CommandActorFilter::ActiveNpc,
+                                active_human_actor_ids,
+                            ),
+                        )
+                    })?;
                 let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
                 let target_name = self.actor_view(target).name;
                 Ok(ResolvedCommand {
@@ -737,6 +858,63 @@ impl RuntimeWorld {
                     dispatch: CommandDispatch::GiveItem {
                         item_id: item.id,
                         target_actor_id: target.id,
+                    },
+                })
+            }
+            "trade" => {
+                let (item_query, trade_tail) = split_direct_indirect(rest, "with")
+                    .ok_or_else(|| command_error(&command, "trade", 400, "Use: trade <item> with <resident> for <item>."))?;
+                let (target_query, target_item_query) = split_direct_indirect(trade_tail, "for")
+                    .ok_or_else(|| command_error(&command, "trade", 400, "Use: trade <item> with <resident> for <item>."))?;
+                let item = self
+                    .resolve_held_item(actor.id, item_query)
+                    .map_err(|output| command_error(&command, "trade", 404, output))?;
+                let target = self
+                    .resolve_room_actor(
+                        actor,
+                        target_query,
+                        CommandActorFilter::ActiveNpc,
+                        active_human_actor_ids,
+                    )
+                    .map_err(|_| {
+                        command_error(
+                            &command,
+                            "trade",
+                            404,
+                            self.actor_not_nearby_output(
+                                actor,
+                                target_query,
+                                CommandActorFilter::ActiveNpc,
+                                active_human_actor_ids,
+                            ),
+                        )
+                    })?;
+                let target_item = self
+                    .resolve_actor_held_item(
+                        target.id,
+                        target_item_query,
+                        "That resident is not holding an item that matches that command.",
+                    )
+                    .map_err(|output| command_error(&command, "trade", 404, output))?;
+                self.resident_trade_is_willing(actor.id, target.id, item.id, target_item.id)
+                    .map_err(|output| command_error(&command, "trade", 409, output))?;
+                let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
+                let target_name = self.actor_view(target).name;
+                let target_item_name = self
+                    .item_name(target_item.id)
+                    .unwrap_or_else(|| target_item.id.to_string());
+                Ok(ResolvedCommand {
+                    command: format!("trade {item_name} with {target_name} for {target_item_name}"),
+                    verb,
+                    action: Some(command_action(
+                        "trade_item",
+                        "Trade",
+                        &format!("trade {item_name} with {target_name} for {target_item_name}"),
+                    )),
+                    dispatch: CommandDispatch::TradeItem {
+                        item_id: item.id,
+                        target_actor_id: target.id,
+                        target_item_id: target_item.id,
                     },
                 })
             }
@@ -755,7 +933,7 @@ impl RuntimeWorld {
                     self.feature_use_result(actor.location_id, target_query, item.id)
                 {
                     let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
-                    let feature_name = feature_use.feature_name;
+                    let feature_name = feature_use.feature_name.clone();
                     return Ok(ResolvedCommand {
                         command: format!("use {item_name} on {feature_name}"),
                         verb,
@@ -768,6 +946,7 @@ impl RuntimeWorld {
                             CommandDispatch::UseFeature {
                                 item_id: item.id,
                                 location_id: actor.location_id,
+                                feature_key: feature_use.feature_key,
                                 output: feature_use.output,
                             }
                         } else {
@@ -914,23 +1093,31 @@ impl RuntimeWorld {
                     dispatch: CommandDispatch::Rest,
                 })
             }
+            "shuffle" => Ok(ResolvedCommand {
+                command: "shuffle".to_string(),
+                verb,
+                action: Some(command_action("shuffle_hand", "Shuffle", "shuffle")),
+                dispatch: CommandDispatch::Read {
+                    output: "New cards are drawn locally. Nothing in the room changes.".to_string(),
+                },
+            }),
             "bank" => {
                 let ledger = self.visit_ledger_view(actor.id);
                 if ledger.unbanked_count == 0 {
                     return Ok(ResolvedCommand {
                         command: "bank ledger".to_string(),
                         verb,
-                        action: Some(command_action("bank_ledger", "Bank Ledger", "bank ledger")),
+                        action: Some(command_action("bank_ledger", "Claim Growth", "bank ledger")),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Your Visit Ledger has nothing unbanked yet.".to_string(),
+                            output: "You have no memory marks ready to claim yet.".to_string(),
                         },
                     });
                 }
                 Ok(ResolvedCommand {
                     command: "bank ledger".to_string(),
                     verb,
-                    action: Some(command_action("bank_ledger", "Bank Ledger", "bank ledger")),
+                    action: Some(command_action("bank_ledger", "Claim Growth", "bank ledger")),
                     dispatch: CommandDispatch::BankLedger,
                 })
             }
@@ -986,7 +1173,7 @@ impl RuntimeWorld {
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Bank Visit Ledger marks before training a skill.".to_string(),
+                            output: "Claim growth from memory marks before training a skill.".to_string(),
                         },
                     });
                 }
@@ -1027,7 +1214,7 @@ impl RuntimeWorld {
                         action: Some(command_action("revise_calling", "Revise Calling", &payload.command)),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Bank Visit Ledger marks before revising your Calling."
+                            output: "Claim growth from memory marks before revising your Calling."
                                 .to_string(),
                         },
                     });
@@ -1112,7 +1299,7 @@ impl RuntimeWorld {
                             dispatch: CommandDispatch::Disabled {
                                 status: 409,
                                 output: format!(
-                                    "Bank Visit Ledger marks before writing a new Bond with {target_name}."
+                                    "Claim growth from memory marks before writing a new Bond with {target_name}."
                                 ),
                             },
                         });
@@ -1142,7 +1329,7 @@ impl RuntimeWorld {
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Bank Visit Ledger marks before revising a Bond.".to_string(),
+                            output: "Claim growth from memory marks before revising a Bond.".to_string(),
                         },
                     });
                 }
@@ -1190,28 +1377,43 @@ impl RuntimeWorld {
                     )
                     .map_err(|output| command_error(&command, "resolve", 404, output))?;
                 let target_name = self.actor_view(target).name;
-                if self.active_bond(actor.id, target.id).is_none() {
+                let Some(active_bond) = self.active_bond(actor.id, target.id) else {
                     return Ok(ResolvedCommand {
-                        command: format!("resolve bond {target_name}"),
+                        command: format!("settle {target_name}"),
                         verb,
                         action: Some(command_action(
                             "resolve_bond",
-                            "Resolve Bond",
-                            &format!("resolve bond {target_name}"),
+                            "Settle",
+                            &format!("settle {target_name}"),
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
                             output: format!("You do not have an active Bond with {target_name}."),
                         },
                     });
+                };
+                if active_bond.strength < BOND_SETTLE_MIN_STRENGTH {
+                    return Ok(ResolvedCommand {
+                        command: format!("settle {target_name}"),
+                        verb,
+                        action: Some(command_action(
+                            "resolve_bond",
+                            "Settle",
+                            &format!("settle {target_name}"),
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: format!("Deepen your Bond with {target_name} before settling it."),
+                        },
+                    });
                 }
                 Ok(ResolvedCommand {
-                    command: format!("resolve bond {target_name}"),
+                    command: format!("settle {target_name}"),
                     verb,
                     action: Some(command_action(
                         "resolve_bond",
-                        "Resolve Bond",
-                        &format!("resolve bond {target_name}"),
+                        "Settle",
+                        &format!("settle {target_name}"),
                     )),
                     dispatch: CommandDispatch::ResolveBond {
                         target_actor_id: target.id,
@@ -1219,6 +1421,17 @@ impl RuntimeWorld {
                 })
             }
             "attack" => {
+                if !self.location_has_unresolved_combat(actor.location_id) {
+                    return Ok(ResolvedCommand {
+                        command: command.clone(),
+                        verb,
+                        action: Some(command_action("attack", "Attack", &command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "The room has calmed; attack is not available.".to_string(),
+                        },
+                    });
+                }
                 let target = self
                     .resolve_room_actor(
                         actor,
@@ -1237,12 +1450,25 @@ impl RuntimeWorld {
                     },
                 })
             }
-            "defend" => Ok(ResolvedCommand {
-                command: "defend".to_string(),
-                verb,
-                action: Some(command_action("defend", "Defend", "defend")),
-                dispatch: CommandDispatch::Defend,
-            }),
+            "defend" => {
+                if !self.location_has_unresolved_combat(actor.location_id) {
+                    return Ok(ResolvedCommand {
+                        command: "defend".to_string(),
+                        verb,
+                        action: Some(command_action("defend", "Defend", "defend")),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "The room has calmed; defend is not needed.".to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: "defend".to_string(),
+                    verb,
+                    action: Some(command_action("defend", "Defend", "defend")),
+                    dispatch: CommandDispatch::Defend,
+                })
+            }
             "say" => {
                 let Some(content) = normalize_human_message(rest) else {
                     return Ok(ResolvedCommand {
@@ -1333,7 +1559,7 @@ impl RuntimeWorld {
                 &command,
                 &verb,
                 404,
-                "I do not know that command yet. Try help, look, search, who, inventory, go, say, emote, report, take, drop, give, use, chat, listen, prepare, work, assist, rest, bank ledger, skill, calling, bond, resolve bond, attack, defend, or flee.",
+                "I do not know that command yet. Try help, look, search, who, inventory, go, say, emote, report, take, drop, give, trade, use, chat, listen, prepare, work, assist, rest, bank ledger, skill, calling, bond, settle, attack, defend, or flee.",
             )),
         }
     }
@@ -1405,12 +1631,7 @@ impl RuntimeWorld {
 
     fn search_command_output(&self, actor: CwActor, query: &str) -> Result<String, &'static str> {
         let query = trim_command_filler(query);
-        if query.is_empty()
-            || matches!(
-                command_key(query).as_str(),
-                "room" | "here" | "around" | "location"
-            )
-        {
+        if search_query_is_room(query) {
             let features = self
                 .room_features(actor.location_id)
                 .into_iter()
@@ -1446,12 +1667,14 @@ impl RuntimeWorld {
             .find(|use_case| use_case.item_id == item_id)
         {
             return Some(FeatureUseResult {
+                feature_key: feature.key.clone(),
                 feature_name: feature.name.clone(),
                 output: format!("{} - {}", feature.name, use_case.text),
                 matched: true,
             });
         }
         Some(FeatureUseResult {
+            feature_key: feature.key.clone(),
             feature_name: feature.name.clone(),
             output: format!(
                 "{} - The {item_name} does not wake anything in this feature yet.",
@@ -1561,8 +1784,9 @@ impl RuntimeWorld {
         let ledger = self.visit_ledger_view(actor.id);
         if ledger.unbanked_count > 0 || ledger.banked_count > 0 || ledger.advancement_points > 0 {
             lines.push(format!(
-                "Ledger: {} unbanked, {} banked, {} advancement point{}.",
+                "Memory: {} ready mark{}, {} claimed, {} growth point{}.",
                 ledger.unbanked_count,
+                if ledger.unbanked_count == 1 { "" } else { "s" },
                 ledger.banked_count,
                 ledger.advancement_points,
                 if ledger.advancement_points == 1 {
@@ -1583,10 +1807,15 @@ impl RuntimeWorld {
             .filter(|item| item.holder_actor_id == actor_id)
             .map(|item| self.item_view(item).name)
             .collect::<Vec<_>>();
+        let capacity = self.actor_inventory_capacity(actor_id).unwrap_or(0);
+        let count = items.len();
         if items.is_empty() {
-            "You are not carrying anything.".to_string()
+            format!("You are not carrying anything ({count}/{capacity} slots).")
         } else {
-            format!("You are carrying: {}.", command_list_or_none(&items))
+            format!(
+                "You are carrying ({count}/{capacity} slots): {}.",
+                command_list_or_none(&items)
+            )
         }
     }
 
@@ -1609,35 +1838,6 @@ impl RuntimeWorld {
             })
             .collect::<Vec<_>>();
         format!("Here: {}.", command_list_or_none(&actors))
-    }
-
-    pub(crate) fn room_feature_views(&self, location_id: u64) -> Vec<RoomFeatureView> {
-        self.room_features(location_id)
-            .into_iter()
-            .map(|feature| RoomFeatureView {
-                key: feature.key.clone(),
-                name: feature.name.clone(),
-                aliases: feature.aliases.clone(),
-                look: feature.look.clone(),
-                search: feature.search.clone(),
-                uses: feature
-                    .uses
-                    .iter()
-                    .map(|use_case| RoomFeatureUseView {
-                        item_id: use_case.item_id,
-                        text: use_case.text.clone(),
-                    })
-                    .collect(),
-            })
-            .collect()
-    }
-
-    pub(crate) fn room_features(&self, location_id: u64) -> Vec<&'static SeedRoomFeatureContent> {
-        seed_content()
-            .room_features
-            .iter()
-            .filter(|feature| feature.location_id == location_id)
-            .collect()
     }
 
     fn resolve_room_feature(
@@ -1703,6 +1903,44 @@ impl RuntimeWorld {
             .ok_or("No nearby actor matches that command.")
     }
 
+    fn actor_not_nearby_output(
+        &self,
+        actor: CwActor,
+        query: &str,
+        filter: CommandActorFilter,
+        active_human_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> String {
+        let candidates = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|candidate| candidate.id != actor.id)
+            .filter(|candidate| {
+                self.actor_visible_in_projection(*candidate, Some(actor.id), active_human_actor_ids)
+            })
+            .filter(|candidate| match filter {
+                CommandActorFilter::Any => true,
+                CommandActorFilter::ActiveNpc => {
+                    candidate.kind == CW_ACTOR_NPC && candidate.status == CW_ACTOR_ACTIVE
+                }
+            })
+            .collect::<Vec<_>>();
+        if let Some(found) = self.best_actor_match(candidates, query) {
+            let found_name = self.actor_view(found).name;
+            let current_room = self
+                .location_name(actor.location_id)
+                .unwrap_or_else(|| "this room".to_string());
+            let found_room = self
+                .location_name(found.location_id)
+                .unwrap_or_else(|| "another room".to_string());
+            if found.location_id != actor.location_id {
+                return format!(
+                    "{found_name} is in {found_room}, not {current_room}. Travel there first."
+                );
+            }
+        }
+        "No nearby actor matches that command.".to_string()
+    }
+
     fn best_actor_match(&self, candidates: Vec<CwActor>, query: &str) -> Option<CwActor> {
         let query = trim_command_filler(query);
         if query.is_empty() && candidates.len() == 1 {
@@ -1735,13 +1973,26 @@ impl RuntimeWorld {
     }
 
     fn resolve_held_item(&self, actor_id: u64, query: &str) -> Result<CwItem, &'static str> {
+        self.resolve_actor_held_item(
+            actor_id,
+            query,
+            "You are not carrying an item that matches that command.",
+        )
+    }
+
+    fn resolve_actor_held_item(
+        &self,
+        actor_id: u64,
+        query: &str,
+        missing_message: &'static str,
+    ) -> Result<CwItem, &'static str> {
         let candidates = self.world.items[..self.world.item_count]
             .iter()
             .copied()
             .filter(|item| item.holder_actor_id == actor_id)
             .collect::<Vec<_>>();
         self.best_item_match(candidates, query)
-            .ok_or("You are not carrying an item that matches that command.")
+            .ok_or(missing_message)
     }
 
     fn best_item_match(&self, candidates: Vec<CwItem>, query: &str) -> Option<CwItem> {

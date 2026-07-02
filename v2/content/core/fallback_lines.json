@@ -12,7 +12,25 @@
   {
     "kind": "resident_reply",
     "actor_id": 1003,
+    "location_id": 1,
     "text": "*Skull lowers his head beside the hearth, listening past the rain.*"
+  },
+  {
+    "kind": "resident_reply",
+    "actor_id": 1003,
+    "location_id": 3,
+    "text": "*Skull lowers his head to the silver trail, listening for what changed.*"
+  },
+  {
+    "kind": "resident_reply",
+    "actor_id": 1003,
+    "location_id": 35,
+    "text": "*Skull stands among the moonlit stones, ears lifted to the quiet circle.*"
+  },
+  {
+    "kind": "resident_reply",
+    "actor_id": 1003,
+    "text": "*Skull lifts his head, silent and watchful in this place.*"
   },
   {
     "kind": "resident_reply",
@@ -37,7 +55,25 @@
   {
     "kind": "avatar_chat",
     "target_actor_id": 1003,
+    "location_id": 1,
     "text": "I sit quietly with {target_actor_name} and keep watch beside the hearth."
+  },
+  {
+    "kind": "avatar_chat",
+    "target_actor_id": 1003,
+    "location_id": 3,
+    "text": "I crouch beside {target_actor_name} on the silver trail and listen for what changed."
+  },
+  {
+    "kind": "avatar_chat",
+    "target_actor_id": 1003,
+    "location_id": 35,
+    "text": "I stand with {target_actor_name} among the moonlit stones and keep quiet watch."
+  },
+  {
+    "kind": "avatar_chat",
+    "target_actor_id": 1003,
+    "text": "I stay close to {target_actor_name} and keep watch in this place."
   },
   {
     "kind": "avatar_chat",

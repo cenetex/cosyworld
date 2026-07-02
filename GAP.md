@@ -1,11 +1,15 @@
 # CosyWorld 2.0 Code Gap Analysis
 
+## Status Note
+
+This gap analysis was written for the original one-room, `Chat`-only MVP. The runtime has since grown a full RPG layer (Callings, Bonds, Clocks, Jobs, Fronts) and a typed `say` room-speech action. `docs/systems/09-cosyworld-rpg-system.md` (the RPG Bible) now tracks implementation phase status for that layer and is the more current source for it; this file has been updated below to correct claims that are now factually wrong (notably the `/actions/say` status) and to add top-level status entries for the RPG systems, but has not been re-audited line-by-line against every RPG Bible phase.
+
 ## Scope
 
 This compares the current `v2/` implementation against `PRD.md`, `ENG.md`, and the current product direction:
 
 - humans generate an avatar before play;
-- humans do not type or choose dialogue text;
+- the `Chat` verb specifically is server-authored, not client-typed — but the separate `say` action does allow moderated, player-typed room speech (see [Server-Authored Chat](#server-authored-chat) below);
 - `Chat` asks the server to author one in-character player-avatar line;
 - locations are shared channels;
 - cards/NFT ownership unlocks shared locations rather than private rooms;
@@ -22,7 +26,7 @@ The legacy Node/Discord app remains useful reference material. The current MVP i
 
 ## Executive Summary
 
-CosyWorld v2 has crossed from sketch to playable local MVP. It now has a deterministic C rules kernel, Rust HTTP/SSE orchestrator, one-button browser MUD UI, terminal client, avatar gate, server-authored Chat, Ruby High card projection, wallet-gated shared locations, item pickup/gifting, level 2 resident evolution, combat primitives, room-scoped event replay, persistence, actor sessions, presence filtering, and a full local smoke gate.
+CosyWorld v2 has crossed from sketch to playable local MVP, and has grown well past the original single-room slice. It now has a deterministic C rules kernel, Rust HTTP/SSE orchestrator, a 27-location worldpack (CosyWorld Core plus Ruby High: First Bell), one-button browser MUD UI with a typed command palette (`say`, `look`, `go`, `/me`, `report`, `drop`, etc.), terminal client, avatar gate, server-authored Chat plus moderated human-typed `say`, Ruby High card projection, wallet-gated shared locations, item pickup/gifting/trading, level 2 resident evolution, combat primitives, a first-slice RPG layer (Callings, Bonds, Clocks, Jobs, Fronts, Work/Rest/Prepare/Help), Orb banking and skill training, room-scoped event replay, persistence, actor sessions, presence filtering, and a full local smoke gate.
 
 The biggest remaining gaps are production hardening and product polish rather than missing core loop:
 
@@ -139,13 +143,13 @@ Status: `Proven`.
 Evidence:
 
 - `POST /actions/chat`.
-- `POST /actions/say` returns `410`.
+- `POST /actions/say` is live and verified working (manually confirmed 2026-07-01: creates a `message.created` event broadcast to the room). This corrects an earlier version of this doc, which incorrectly claimed `/actions/say` returns `410`; that status apparently described an intermediate build, not current `main`.
 - Rust tests cover avatar chat planning/commit.
-- Browser smoke asserts no branch events, disabled client-authored speech, and duplicate Chat rejection.
+- Browser smoke asserts no branch events, disabled client-authored speech through the `Chat` verb, and duplicate Chat rejection.
 
 Implemented:
 
-- Humans do not submit text.
+- Humans do not submit text through the `Chat` verb specifically; `Chat` always asks the server to author the line. Separately, `say` lets a human submit free-text room speech directly (subject to moderation/sanitization), broadcast the same way as any other room event.
 - `Chat` validates actor session, target resident, rate limit, and shared location.
 - Server authors one player-avatar line using configured AI or deterministic fallback.
 - Avatar line commits through the C `SAY` event path.
@@ -371,6 +375,34 @@ Gap:
 - No initiative order or full encounter lifecycle.
 - No challenge/hide commands.
 - No condition duration UI beyond the current simple rules.
+
+### RPG Layer: Callings, Bonds, Clocks, Jobs, Fronts
+
+Status: `Partial`. This section summarizes status at a glance; `docs/systems/09-cosyworld-rpg-system.md` tracks per-phase detail and is the more current source when the two disagree.
+
+Evidence:
+
+- `v2/content/core/clocks.json`, `jobs.json`, `factions.json`, `fronts.json`, `access_gates.json`, `lifecycle_hooks.json`, `room_sheets.json`.
+- Live routes: `/actions/prepare`, `/actions/rest`, `/actions/work`, `/actions/help`, `/actions/bank-ledger`, `/actions/revise-calling`, `/actions/create-bond`, `/actions/revise-bond`, `/actions/train-skill`, `/actions/resolve-bond`.
+- RPG Bible "Runtime status" note (Phases 1-4 landed in some form, Phase 3/4 described as "first slice landed").
+
+Implemented (per the RPG Bible's own tracking):
+
+- Clock/tag projection state, sanctuary/frontier zoning, Moonlit Trail progress/danger clocks.
+- Default Callings, first-class resident-gift Bonds, player-authored Bond slots, Bond revision/resolution.
+- Visit Ledger accrual and banking into advancement points; Calling revision; six starter skill steps as spendable choices.
+- Prepare/Rest/Work/Help as projection verbs for the Moonlit job loop.
+- Seed job schema/projection and the first content-backed frontier Front records.
+
+Gap (per the RPG Bible's own tracking):
+
+- Covenant contribution as a banked-advancement spend, and additional banked-advancement choices beyond skill/bond/calling.
+- Migrating generated quests into the new job schema; letting Use/Give/combat move job clocks; job rewards/consequences/completion memory.
+- Offscreen portent-clock movement on the frontier (Fronts currently seed content, not yet a live offscreen-advancing system).
+- Covenant sheets (boons/hooks/resources/reputation/loyalty), room-owning covenants, and covenant-spawned jobs (RPG Bible Phase 5, not started).
+- Objective clocks in danger rooms, durability-absorbs-harm, and the skill step-up ladder beyond the six starter steps (RPG Bible Phase 6, not started).
+
+This RPG layer is not mentioned anywhere in `PRD.md`'s original P0/P1/P2 requirements or in this file's original Scope section — it is a genuine product expansion beyond the documented MVP, not a gap-filling of previously-scoped work.
 
 ### CLI
 

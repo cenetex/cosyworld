@@ -107,6 +107,20 @@ static cw_item *find_item(cw_world *world, cw_id item_id) {
   return 0;
 }
 
+static cw_evolution_track *find_evolution_track(cw_world *world, cw_id actor_id) {
+  for (size_t i = 0; i < world->evolution_track_count; ++i) {
+    if (world->evolution_tracks[i].actor_id == actor_id) return &world->evolution_tracks[i];
+  }
+  return 0;
+}
+
+static const cw_evolution_track *find_evolution_track_const(const cw_world *world, cw_id actor_id) {
+  for (size_t i = 0; i < world->evolution_track_count; ++i) {
+    if (world->evolution_tracks[i].actor_id == actor_id) return &world->evolution_tracks[i];
+  }
+  return 0;
+}
+
 static int append_event(cw_world *world, cw_event_buffer *buffer, uint8_t type) {
   if (!buffer || buffer->count >= CW_MAX_EVENTS) return 0;
   cw_event *event = &buffer->events[buffer->count++];
@@ -188,6 +202,37 @@ static int actor_is_active(const cw_actor *actor) {
   return actor && actor->status == CW_ACTOR_ACTIVE;
 }
 
+static size_t actor_inventory_capacity(const cw_actor *actor) {
+  if (!actor) return CW_INVENTORY_BASE_SLOTS;
+  return CW_INVENTORY_BASE_SLOTS + (size_t)actor->stats.level;
+}
+
+static size_t actor_held_item_count(const cw_world *world, cw_id actor_id) {
+  size_t count = 0;
+  for (size_t i = 0; i < world->item_count; ++i) {
+    if (world->items[i].holder_actor_id == actor_id) {
+      count++;
+    }
+  }
+  return count;
+}
+
+static cw_item *oldest_held_item(cw_world *world, cw_id actor_id) {
+  cw_item *oldest = 0;
+  for (size_t i = 0; i < world->item_count; ++i) {
+    cw_item *item = &world->items[i];
+    if (item->holder_actor_id != actor_id) continue;
+    if (!oldest
+        || item->held_since_tick < oldest->held_since_tick
+        || (item->held_since_tick == oldest->held_since_tick && item->id < oldest->id)) {
+      oldest = item;
+    }
+  }
+  return oldest;
+}
+
+static void maybe_evolve_actor_after_item_gain(cw_world *world, cw_actor *target, cw_id source_actor_id, cw_id item_id, cw_event_buffer *out_events);
+
 int16_t cw_actor_current_hp(const cw_actor *actor) {
   if (!actor) return 0;
   int16_t hp = (int16_t)(actor->stats.hp_base - actor->damage);
@@ -200,6 +245,25 @@ void cw_world_init(cw_world *world) {
   world->version = CW_KERNEL_VERSION;
   world->tick = 1;
   world->next_event_seq = 1;
+}
+
+cw_status cw_world_set_evolution_track(cw_world *world, cw_id actor_id, const cw_id *item_ids, size_t item_count) {
+  if (!world || !actor_id || !item_ids || item_count != CW_EVOLUTION_TRACK_ITEM_COUNT) return CW_ERR_INVALID;
+  for (size_t i = 0; i < item_count; ++i) {
+    if (!item_ids[i]) return CW_ERR_INVALID;
+  }
+
+  cw_evolution_track *track = find_evolution_track(world, actor_id);
+  if (!track) {
+    if (world->evolution_track_count >= CW_MAX_EVOLUTION_TRACKS) return CW_ERR_FULL;
+    track = &world->evolution_tracks[world->evolution_track_count++];
+    memset(track, 0, sizeof(*track));
+    track->actor_id = actor_id;
+  }
+  for (size_t i = 0; i < CW_EVOLUTION_TRACK_ITEM_COUNT; ++i) {
+    track->item_ids[i] = item_ids[i];
+  }
+  return CW_OK;
 }
 
 cw_status cw_seed_cosy_cottage(cw_world *world, cw_event_buffer *out_events) {
@@ -259,6 +323,16 @@ cw_status cw_seed_cosy_cottage(cw_world *world, cw_event_buffer *out_events) {
   add_item(world, 2005, CW_ITEM_EVOLUTION, 1, 1);
   add_item(world, 2006, CW_ITEM_EVOLUTION, 3, 1);
   add_item(world, 2007, CW_ITEM_EVOLUTION, 2, 1);
+
+  const cw_id rati_items[CW_EVOLUTION_TRACK_ITEM_COUNT] = {2004, 2005};
+  const cw_id whiskerwind_items[CW_EVOLUTION_TRACK_ITEM_COUNT] = {2002, 2003};
+  const cw_id skull_items[CW_EVOLUTION_TRACK_ITEM_COUNT] = {2006, 2007};
+  status = cw_world_set_evolution_track(world, 1001, rati_items, CW_EVOLUTION_TRACK_ITEM_COUNT);
+  if (status != CW_OK) return status;
+  status = cw_world_set_evolution_track(world, 1002, whiskerwind_items, CW_EVOLUTION_TRACK_ITEM_COUNT);
+  if (status != CW_OK) return status;
+  status = cw_world_set_evolution_track(world, 1003, skull_items, CW_EVOLUTION_TRACK_ITEM_COUNT);
+  if (status != CW_OK) return status;
 
   append_event(world, out_events, CW_EVENT_WORLD_BOOTSTRAPPED);
   if (out_events && out_events->count > 0) {
@@ -430,8 +504,27 @@ static cw_status apply_pick_up_item(cw_world *world, const cw_action *action, cw
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
 
+  if (actor_held_item_count(world, actor->id) >= actor_inventory_capacity(actor)) {
+    cw_item *evicted = oldest_held_item(world, actor->id);
+    if (evicted) {
+      evicted->holder_actor_id = 0;
+      evicted->location_id = actor->location_id;
+      evicted->held_since_tick = 0;
+
+      append_event(world, out_events, CW_EVENT_ITEM_DROPPED);
+      if (out_events && out_events->count > 0) {
+        cw_event *event = &out_events->events[out_events->count - 1];
+        event->success = 1;
+        event->actor_id = actor->id;
+        event->location_id = actor->location_id;
+        event->item_id = evicted->id;
+      }
+    }
+  }
+
   item->holder_actor_id = actor->id;
   item->location_id = 0;
+  item->held_since_tick = world->tick;
 
   append_event(world, out_events, CW_EVENT_ITEM_PICKED_UP);
   if (out_events && out_events->count > 0) {
@@ -441,6 +534,7 @@ static cw_status apply_pick_up_item(cw_world *world, const cw_action *action, cw
     event->location_id = actor->location_id;
     event->item_id = item->id;
   }
+  maybe_evolve_actor_after_item_gain(world, actor, actor->id, item->id, out_events);
   return CW_OK;
 }
 
@@ -457,6 +551,7 @@ static cw_status apply_drop_item(cw_world *world, const cw_action *action, cw_ev
 
   item->holder_actor_id = 0;
   item->location_id = actor->location_id;
+  item->held_since_tick = 0;
 
   append_event(world, out_events, CW_EVENT_ITEM_DROPPED);
   if (out_events && out_events->count > 0) {
@@ -515,28 +610,26 @@ static cw_status apply_use_item(cw_world *world, const cw_action *action, cw_eve
   return CW_OK;
 }
 
-static int evolution_item_matches_actor(cw_id actor_id, cw_id item_id) {
-  switch (actor_id) {
-    case 1001:
-      return item_id == 2004 || item_id == 2005;
-    case 1002:
-      return item_id == 2002 || item_id == 2003;
-    case 1003:
-      return item_id == 2006 || item_id == 2007;
-    default:
-      return 0;
+static int evolution_item_matches_actor(const cw_world *world, cw_id actor_id, cw_id item_id) {
+  const cw_evolution_track *track = find_evolution_track_const(world, actor_id);
+  if (!track) return 0;
+  for (size_t i = 0; i < CW_EVOLUTION_TRACK_ITEM_COUNT; ++i) {
+    if (track->item_ids[i] == item_id) {
+      return 1;
+    }
   }
+  return 0;
 }
 
 static uint8_t unique_evolution_item_count_for_actor(const cw_world *world, cw_id actor_id) {
   cw_id seen[CW_MAX_ITEMS];
-  uint8_t seen_count = 0;
+  size_t seen_count = 0;
   for (size_t i = 0; i < world->item_count; ++i) {
     const cw_item *item = &world->items[i];
     if (item->kind != CW_ITEM_EVOLUTION || item->holder_actor_id != actor_id) continue;
-    if (!evolution_item_matches_actor(actor_id, item->id)) continue;
+    if (!evolution_item_matches_actor(world, actor_id, item->id)) continue;
     int duplicate = 0;
-    for (uint8_t j = 0; j < seen_count; ++j) {
+    for (size_t j = 0; j < seen_count; ++j) {
       if (seen[j] == item->id) {
         duplicate = 1;
         break;
@@ -546,14 +639,35 @@ static uint8_t unique_evolution_item_count_for_actor(const cw_world *world, cw_i
       seen[seen_count++] = item->id;
     }
   }
-  return seen_count;
+  return (uint8_t)seen_count;
+}
+
+static void maybe_evolve_actor_after_item_gain(cw_world *world, cw_actor *target, cw_id source_actor_id, cw_id item_id, cw_event_buffer *out_events) {
+  if (!target || target->kind != CW_ACTOR_NPC || target->stats.level >= 2) return;
+  if (unique_evolution_item_count_for_actor(world, target->id) < 2) return;
+
+  target->stats.level = 2;
+  target->stats.hp_base = (int16_t)(target->stats.hp_base + 2);
+  append_event(world, out_events, CW_EVENT_AVATAR_EVOLVED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = source_actor_id;
+    event->target_actor_id = target->id;
+    event->location_id = target->location_id;
+    event->item_id = item_id;
+    event->total = target->stats.level;
+    event->current_hp = cw_actor_current_hp(target);
+  }
 }
 
 static cw_status apply_give_item(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
   if (status != CW_OK) return status;
-  if (actor->kind != CW_ACTOR_HUMAN) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  if (actor->kind != CW_ACTOR_HUMAN && actor->kind != CW_ACTOR_NPC) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
 
   cw_actor *target = find_actor(world, action->target_actor_id);
   if (!target) return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
@@ -564,11 +678,10 @@ static cw_status apply_give_item(cw_world *world, const cw_action *action, cw_ev
   cw_item *item = find_item(world, action->item_id);
   if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
   if (item->holder_actor_id != actor->id) return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
-  if (item->kind != CW_ITEM_EVOLUTION) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
-  if (!evolution_item_matches_actor(target->id, item->id)) return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
 
   item->holder_actor_id = target->id;
   item->location_id = 0;
+  item->held_since_tick = world->tick;
 
   append_event(world, out_events, CW_EVENT_ITEM_GIVEN);
   if (out_events && out_events->count > 0) {
@@ -580,22 +693,54 @@ static cw_status apply_give_item(cw_world *world, const cw_action *action, cw_ev
     event->item_id = item->id;
   }
 
-  if (target->stats.level < 2 && unique_evolution_item_count_for_actor(world, target->id) >= 2) {
-    target->stats.level = 2;
-    target->stats.hp_base = (int16_t)(target->stats.hp_base + 2);
-    append_event(world, out_events, CW_EVENT_AVATAR_EVOLVED);
-    if (out_events && out_events->count > 0) {
-      cw_event *event = &out_events->events[out_events->count - 1];
-      event->success = 1;
-      event->actor_id = actor->id;
-      event->target_actor_id = target->id;
-      event->location_id = target->location_id;
-      event->item_id = item->id;
-      event->total = target->stats.level;
-      event->current_hp = cw_actor_current_hp(target);
-    }
+  maybe_evolve_actor_after_item_gain(world, target, actor->id, item->id, out_events);
+  return CW_OK;
+}
+
+static cw_status apply_trade_item(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  cw_actor *actor = 0;
+  cw_status status = require_active_actor(world, action, out_events, &actor);
+  if (status != CW_OK) return status;
+  if (actor->kind != CW_ACTOR_HUMAN && actor->kind != CW_ACTOR_NPC) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
+  if (!action->item_id || !action->target_item_id || action->item_id == action->target_item_id) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
   }
 
+  cw_actor *target = find_actor(world, action->target_actor_id);
+  if (!target) return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
+  if (!actor_is_active(target)) return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
+  if (target->kind != CW_ACTOR_NPC) return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
+  if (target->id == actor->id) return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
+  if (target->location_id != actor->location_id) return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
+
+  cw_item *offered = find_item(world, action->item_id);
+  cw_item *requested = find_item(world, action->target_item_id);
+  if (!offered || !requested) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
+  if (offered->holder_actor_id != actor->id || requested->holder_actor_id != target->id) {
+    return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+  }
+
+  offered->holder_actor_id = target->id;
+  offered->location_id = 0;
+  offered->held_since_tick = world->tick;
+  requested->holder_actor_id = actor->id;
+  requested->location_id = 0;
+  requested->held_since_tick = world->tick;
+
+  append_event(world, out_events, CW_EVENT_ITEM_TRADED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->target_actor_id = target->id;
+    event->location_id = actor->location_id;
+    event->item_id = offered->id;
+    event->target_item_id = requested->id;
+  }
+  maybe_evolve_actor_after_item_gain(world, target, actor->id, offered->id, out_events);
+  maybe_evolve_actor_after_item_gain(world, actor, target->id, requested->id, out_events);
   return CW_OK;
 }
 
@@ -773,6 +918,8 @@ cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed
       return apply_defend(world, action, out_events);
     case CW_ACTION_GIVE_ITEM:
       return apply_give_item(world, action, out_events);
+    case CW_ACTION_TRADE_ITEM:
+      return apply_trade_item(world, action, out_events);
     case CW_ACTION_FLEE:
       return apply_flee(world, action, out_events);
     default:
@@ -819,6 +966,16 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
     }
   }
 
+  int actor_has_held_item = 0;
+  int room_npc_has_held_item = 0;
+  int room_has_active_npc = 0;
+  for (size_t i = 0; i < world->actor_count; ++i) {
+    const cw_actor *other = &world->actors[i];
+    if (other->id != actor->id && other->kind == CW_ACTOR_NPC && actor_is_active(other) && other->location_id == actor->location_id) {
+      room_has_active_npc = 1;
+      break;
+    }
+  }
   for (size_t i = 0; i < world->item_count; ++i) {
     const cw_item *item = &world->items[i];
     if (!item->holder_actor_id && item->location_id == actor->location_id) {
@@ -828,17 +985,23 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
       out_offers->option_flags |= CW_OFFER_USE_ITEM;
     }
     if (item->holder_actor_id == actor->id) {
+      actor_has_held_item = 1;
       out_offers->option_flags |= CW_OFFER_DROP_ITEM;
     }
-    if (item->holder_actor_id == actor->id && item->kind == CW_ITEM_EVOLUTION) {
-      for (size_t j = 0; j < world->actor_count; ++j) {
-        const cw_actor *other = &world->actors[j];
-        if (other->kind == CW_ACTOR_NPC && actor_is_active(other) && other->location_id == actor->location_id) {
-          out_offers->option_flags |= CW_OFFER_GIVE_ITEM;
-          break;
-        }
+    if (item->holder_actor_id && item->holder_actor_id != actor->id) {
+      const cw_actor *holder = find_actor_const(world, item->holder_actor_id);
+      if (holder && holder->kind == CW_ACTOR_NPC && actor_is_active(holder) && holder->location_id == actor->location_id) {
+        room_npc_has_held_item = 1;
       }
     }
+  }
+  if (actor_has_held_item && room_has_active_npc) {
+    out_offers->option_flags |= CW_OFFER_GIVE_ITEM;
+  }
+  if ((actor->kind == CW_ACTOR_HUMAN || actor->kind == CW_ACTOR_NPC)
+      && actor_has_held_item
+      && room_npc_has_held_item) {
+    out_offers->option_flags |= CW_OFFER_TRADE_ITEM;
   }
 
   return CW_OK;
@@ -865,6 +1028,7 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_AVATAR_EVOLVED: return "avatar.evolved";
     case CW_EVENT_COMBAT_FLEE_SUCCESS: return "combat.flee.success";
     case CW_EVENT_ITEM_DROPPED: return "item.dropped";
+    case CW_EVENT_ITEM_TRADED: return "item.traded";
     default: return "unknown";
   }
 }

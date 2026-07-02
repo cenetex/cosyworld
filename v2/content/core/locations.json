@@ -16,7 +16,7 @@
     "id": 2,
     "name": "Rain-Soft Garden",
     "title": "Garden Annex",
-    "description": "Rain beads on broad leaves. Something small and pearled waits in the grass.",
+    "description": "Rain beads on broad leaves. Round marks in the grass remember small pearled discoveries.",
     "persona": "The garden answers in damp patience, leaf-taps, and tiny useful discoveries.",
     "memory": [
       "A dewbright button once caught the first gray light.",
@@ -181,6 +181,18 @@
     "allow_combat": false
   },
   {
+    "id": 36,
+    "name": "Solar Temple",
+    "title": "Solar Temple",
+    "description": "White stone terraces hold noon-bright bells, gold wings, and vows sharp enough to cast shadows.",
+    "persona": "The Solar Temple is radiant, exacting, and careful not to confuse witness with mercy.",
+    "memory": [
+      "The Heavens open upward into its white terraces.",
+      "A drowned bell below the Darkest Ocean still remembers the noon rite."
+    ],
+    "allow_combat": false
+  },
+  {
     "id": 40,
     "name": "Old Oak Tree",
     "title": "Lonely Forest",
@@ -299,6 +311,18 @@
     "memory": [
       "Great Library indexes cannot decide whether this place is a room or a language.",
       "Endless Ocean reflects in its black glass."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 64,
+    "name": "Darkest Ocean",
+    "title": "Abyssal Deep",
+    "description": "A trench below the final tide glows with pearl lamps, drowned bells, and residents adapted to pressure.",
+    "persona": "The Darkest Ocean remembers without hurrying and mistrusts every truth that cannot survive depth.",
+    "memory": [
+      "Endless Ocean is only its surface.",
+      "The Solar Temple hears one of its bells singing from below."
     ],
     "allow_combat": false
   }

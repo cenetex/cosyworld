@@ -240,6 +240,18 @@
     "direction": "down"
   },
   {
+    "from_location_id": 30,
+    "to_location_id": 36,
+    "flags": 0,
+    "direction": "east"
+  },
+  {
+    "from_location_id": 36,
+    "to_location_id": 30,
+    "flags": 0,
+    "direction": "west"
+  },
+  {
     "from_location_id": 40,
     "to_location_id": 41,
     "flags": 0,
@@ -382,5 +394,17 @@
     "to_location_id": 62,
     "flags": 0,
     "direction": "south"
+  },
+  {
+    "from_location_id": 62,
+    "to_location_id": 64,
+    "flags": 0,
+    "direction": "down"
+  },
+  {
+    "from_location_id": 64,
+    "to_location_id": 62,
+    "flags": 0,
+    "direction": "up"
   }
 ]

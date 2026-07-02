@@ -1,638 +1,191 @@
-# CosyWorld 2.0 PRD
+# CosyWorld Product Requirements
 
-## Current MVP Amendment
+Last major revision: 2026-07. This document replaces the CosyWorld 2.0 PRD, which was written for the original one-room, Chat-only MVP and survived as a stack of amendments. The world it described has shipped and grown past it; this document sets direction from where the product actually is.
 
-As of the current MVP direction, humans do not type or choose dialogue lines. The human presses `Chat`; the server authors an in-character line for the player's generated avatar using the configured LLM, or deterministic fallback text when no model is configured. That avatar line and the resident reply are committed as shared room events.
+Companion documents:
 
-Branching dialogue is no longer part of the MVP interaction model. Future branch support may return as contextual world actions, but the current product path is the one-button, server-authored avatar chat loop.
+- `docs/systems/09-cosyworld-rpg-system.md` (the RPG Bible) — authoritative mechanics design: Callings, Bonds, Clocks, Jobs, Fronts, Covenants, the Visit Ledger, ownership, and poems. This PRD does not restate it.
+- `ENG.md` — architecture and engineering priorities.
+- `ECONOMY.md` — Orbs, Boxes, packs, and the NFT bridge in detail.
+- `AI.md` — AI gateway, payer modes, media pipeline, and combat design in detail.
+- `GAP.md` — implementation status audit.
 
-## Summary
+## What CosyWorld Is
 
-CosyWorld 2.0 is a shared, room-based MUD chat experience where locations are channels, avatars are residents, humans arrive as generated avatars, and play happens through conversation.
+CosyWorld is a shared AI MUD: one persistent cozy world that everyone enters together. A player becomes a generated avatar, keeps a home that is a true sanctuary, follows a Calling that says who they are, builds Bonds with residents and other players, and chooses when to walk out to a frontier with real stakes. Play happens through a one-button, transcript-first surface where the server always offers one meaningful contextual action — and every AI output, resident reply, dice roll, and world change is a public room event that everyone present sees.
 
-The first release is intentionally small: one canonical location, The Cosy Cottage, with three resident NPC avatars:
+The product should feel like living in a small fantasy world that remembers you — not like a dashboard, a wallet app, a quiz, or a one-on-one chatbot.
 
-- Rati, a mouse fond of knitting scarves and telling stories.
-- Whiskerwind, who only speaks using emoji.
-- Skull, the silent wolf.
+## Where the Product Stands
 
-The product should feel like entering a living room in a tiny online fantasy world, not like opening an admin dashboard, wallet interface, quiz app, or one-on-one chatbot.
+CosyWorld V2 is a playable, production-deployable game, not a prototype:
 
-## Product Thesis
+- 27 locations across CosyWorld Core (free) and the Ruby High: First Bell expansion (card-gated), with 68 cards and complete room sheets, validated by a content gate.
+- The full verb surface: Chat (server-authored avatar speech), moderated typed `say` and `/me`, Listen, Travel, Take, Drop, Give, Use, Trade, Prepare, Rest, Work, Help, Attack, Defend, Flee, plus Calling/Bond/skill/ledger actions.
+- The RPG retention layer first slice: Callings, first-class Bonds, sanctuary/frontier zoning, progress and danger clocks, seeded Jobs and Fronts, factions, the Visit Ledger with banking into skill steps and bond slots.
+- An economy MVP: starter Orbs, claim-key-gated rewards, server-paid Chat spends, a player OpenRouter payer, durable Orb/AI-usage ledgers, and the Wooden Box burn → pack reveal bridge with production Solana/Core verification.
+- Moderation basics: player reports, an operator console, protected all-room replay, actor suspension, and report retention.
+- Browser and terminal clients over the same API, with a Playwright smoke, visual baselines, and a production deployment profile with strict guardrails.
 
-CosyWorld works when the user believes the room is real enough to return to.
+The question this PRD answers is no longer "can the loop exist?" It is: **why does a player come back on day seven, and what do they tell a friend?**
 
-The player should first become someone in the world. After generating a human avatar, they see a location, sense who is present, and press one clear action. The system responds as a shared place with server-authored avatar chat, resident replies, movement, memory, items, autonomous avatar behavior, and constraints. The UI should recede so the channel and its inhabitants carry the experience.
+## Product Pillars
 
-## Goals
+Every feature must serve at least one of these; a feature that serves none does not ship.
 
-- Replace the existing multi-panel prototype UX with a single-room chat server experience.
-- Gate chat behind human avatar generation.
-- Keep one primary action surface in the resting UI. It usually says "Chat", but can become "Create Avatar", "Give Item", "Travel", or another context action.
-- Treat avatars, items, and locations as card-backed world entities now, while designing toward a native signed provenance chain (token-free) as the post-MVP ownership layer; external NFT metadata remains an optional bridge for official expansions.
-- Plan for free gifting, world-bound trading, and secret-poem unlocks in the native ownership phase, without making those features first-release gates.
-- Treat locations as channel-backed places with shared history.
-- Treat the world as one shared global state, not a private per-user simulation.
-- Treat avatar movement, entrances, exits, idle beats, and failed movement as room events.
-- Replace branching dialogue with server-authored avatar chat generated from room context.
-- Allow players to connect their own OpenRouter account for Orb-free Chat while keeping all AI output in the shared world.
-- Charge Orbs for server-paid Chat when the player has no connected OpenRouter payer.
-- Replace Ruby High-style quiz answer loops with CosyWorld encounters using `Attack`, `Defend`, `Flee`, and `Use`.
-- Support item discovery and avatar evolution through unique world items.
-- Preserve the cozy fiction of The Cosy Cottage while designing for future locations.
-- Reuse the stronger existing CosyWorld primitives for avatars, locations, memory, map position, response coordination, and turn scheduling.
-- Borrow the best Ruby High patterns: one primary action, room-first framing, and separation of durable dialogue from volatile room events.
+1. **One shared world.** No private room copies, no resident DMs, no per-player AI responses. A resident reply is a world event broadcast to everyone present. Card ownership unlocks shared places, never private instances.
+2. **Cozy by guarantee, stakes by consent.** The home and sanctuary rooms never decay, never see combat, and never advance while nobody is playing. Danger, player-powered clocks, and loss exist only on the frontier — where the player chose to walk.
+3. **Identity through play.** A player should be able to say "I am the kind soul who ___, my home is ___, and I am slowly ___" after ten minutes. Callings, Bonds, and the Visit Ledger make that sentence mechanical and publicly remembered.
+4. **One meaningful button.** The resting UI has exactly one primary action surface, derived by the server from world state. It is a suggestion with visible risk and effect, not the only choice — the command palette and focus rail give depth without turning the room into chrome.
+5. **AI is a world actor, not the product.** AI proposes narration, resident speech, and media; the kernel decides truth. Every primary verb has a deterministic authored fallback, so the world stays warm when generation is down.
+6. **Progression is earned, never bought.** Orbs buy amplification and cosmetics — never power, access, success, or ledger marks. The core loop (listen, help, bond, travel) always has a zero-Orb path.
+7. **Ownership without a token.** The target ownership layer is CosyWorld's own signed provenance log (Ed25519, content-addressed, append-only) — gifting free and first-class, trading world-bound and lineage-preserving, secret poems as commit-reveal claim tickets. External NFTs remain an optional bridge that gates official expansions, never the base game.
 
-## Non-Goals
+## The Concept Budget
 
-- Do not build a general dashboard, collection browser, wallet flow, leaderboard, or admin surface into the main experience.
-- Do not expose all backend concepts as visible UI controls.
-- Do not make the experience feel like a one-on-one assistant.
-- Do not make branching dialogue feel like school quiz questions or grading.
-- Do not expose OpenRouter connection as a private DM or one-on-one resident chat mode.
-- Do not make avatar evolution a generic XP grind.
-- Do not let users chat before they have generated a human avatar.
-- Do not have every resident reply to every user message.
-- Do not let characters invent open exits before the engine unlocks them.
+The systems layer is deliberately rich — Callings, Bonds, Clocks, Jobs, Fronts, Covenants, factions, claim keys, sanctuary/frontier. The player-facing surface must not be. The v1 swarm proved the ceiling: thousands of avatars ran a D&D text MMO inside ordinary Discord channels with an emoji-to-tool grammar (`src/services/tools/ToolService.mjs` — 🗡️ attack, 🛡️ defend, 🏃 move, 🔮 summon, ⚔️ challenge, 🧪 potion) and every avatar carrying its own identity emoji. The lesson: the world can be arbitrarily deep as long as the controls stay small enough to learn by watching one turn.
+
+Two rules follow.
+
+**Rule 1 — six player nouns.** A player should only ever need this vocabulary, and UI copy may not introduce more:
+
+| Player word | What it covers | Internal machinery it hides |
+| --- | --- | --- |
+| You | avatar, stats, skills, conditions | stat blocks, tags, claim keys |
+| Home | sanctuary, later your covenant | zones, covenant sheets, season clocks |
+| Calling | who you are | calling tags, ledger triggers |
+| Friends | bonds with residents and players | bond entities, reaction states, evolution gates |
+| Journal | the Visit Ledger and banking it | marks, advancement points, skill steps |
+| Orbs | the one visible currency | ledgers, payer modes, claim gating |
+
+Everything else is *fiction, not vocabulary*: a clock is "the trail feels safer lately," a job is "someone needs help," a front is weather and trouble, a faction is who a character stands with. System names (clock, front, claim key, projection, sanctuary/frontier) never appear in the player UI. A new feature must fit an existing noun or replace one — the budget does not grow by default.
+
+**Rule 2 — four signs.** The control surface direction is four universal emoji, the tightest playable projection of the one-button rule. The current server-ranked action offers already carry category/target metadata, so the four signs are intent lenses over the same kernel-validated actions:
+
+- 💬 **Speak** — focused resident: Chat; the room: say/emote.
+- 👀 **Notice** — the room: Listen; an item or resident: inspect, learn a want.
+- 🐾 **Go** — an exit: Travel; in danger: Flee.
+- ✋ **Do** — an item: Take/Use; a resident: Give; a job: Work/Help; a hostile: Attack; yourself: Defend/Prepare/Rest.
+
+The server always shows what each sign will do for the current focus (they are labeled buttons in the browser, reactions in a future Discord transport, four keys in the terminal), so ambiguity is resolved by the same authority that ranks the primary action today. Four signs are phone-native, language-independent, work as Discord reactions with zero UI, and rhyme with the world itself — Whiskerwind already speaks the control language. This is a direction to prototype and validate, not yet law; the one-button surface remains the shipped baseline until the prototype earns its place.
 
 ## Users
 
-### Primary User
-
-A player who wants to enter a cozy AI world, speak naturally, and see the room respond.
-
-Before chatting, this user creates a human avatar. The avatar is their embodied identity in the shared world, not just a display name.
-
-### Secondary User
-
-A returning player who expects continuity: the same room, resident personalities, recent history, and remembered facts.
-
-This user expects their avatar, inventory, relationships, and known world progress to persist.
-
-### Internal User
-
-A developer or world designer who needs a small, durable seed world that can expand into channels, exits, NPC behaviors, and tools without rewriting the product.
-
-This user needs data-driven locations, items, resident behavior, and evolution requirements.
-
-## Shared Global World
-
-CosyWorld is one shared global world.
-
-Requirements:
-
-- Locations, room timelines, avatar positions, discovered items, and evolution state are global.
-- Autonomous NPC movement and world events affect everyone.
-- Human players enter the same global room state, though their private inventory, avatar details, and relationship memories can be personal.
-- The system must avoid duplicating "private copies" of The Cosy Cottage unless a future product mode explicitly creates private rooms.
-- Public world history should be moderated before wider release; the MVP replay surface is bounded by default and by explicit cap.
-
-Design consequence:
-
-- A player does not "start a chat with Rati." They enter a room where Rati may or may not be present, and the room has already been changing.
-
-## Card-Backed World Objects
-
-Avatars, resident NPCs, items, and locations are not merely database rows with optional images. They are cards first: stable ids, roles, names, art aspect, flavor text, rarity, and provenance.
-
-Target ownership is **native and token-free**. Cards should be owned through CosyWorld's own signed provenance chain — an Ed25519 + content-addressed append-only log (the substrate proven in the sibling `signal` project), not a blockchain or token. A card carries its lineage: who minted it, the world event it was earned through, and every prior owner. The current MVP can keep local seed cards and the optional external bridge while this native layer is built. The Ruby High card system remains *inspiration and an optional external bridge* (see [Free Core And Official Expansions](#free-core-and-official-expansions)), not the base ownership layer.
-
-Requirements:
-
-- Every visible avatar, item, and location has a card identity.
-- Card records expose role, display name, title, blurb, art aspect, image URL, and asset status now; native chain provenance (mint event, owner pubkey, lineage) is added in the ownership phase.
-- Target native card *types* are content-addressed (hash of the definition); card *instances* carry serial + mint event + `parent_merkle` provenance.
-- CosyWorld seed objects start as local or pending cards, then graduate into the same native mint pipeline when art is finalized.
-- Optional external NFTs (e.g. Ruby High First Bell) project into the native chain as cards through a trusted bridge feed; they are never required to own, gift, or trade a base-game card.
-- The UI shape follows card aspect: avatars are round portrait crops, items are square, and locations are wide rectangles.
-- Card ownership is additive by default: identity, cosmetics, collection, provenance, community status, gifting, and trading. It must not accidentally become required progression.
-
-### Trading, Gifting, And Secret Poems
-
-In the native ownership phase, cards can change hands, and CosyWorld defaults to a **provenance-preserving** stance — the cozy middle between freely-tradeable property and soulbound memory:
-
-- **Gifting is free and first-class.** Handing a card to another player is a single signed transfer; the lineage records who gave it, forever.
-- **Trading is world-bound.** A swap requires both players present in the same room or covenant, is co-signed (or escrowed by the authority), and is atomic. A trade re-attributes provenance; it never erases it. There is no anonymous secondary market.
-- **Secret poems unlock and gift.** A card earned as a reward can carry a claim poem; reciting it (via commit-reveal, so it can't be front-run) binds the card to the reciter once, then the poem is spent. Public *incantation* poems instead gate shared world content (a hidden exit, a covenant boon) and are repeatable. A poem never controls a private key — identity is always a real Ed25519 keypair.
-
-### Free Core And Official Expansions
-
-The free game must feel complete. CosyWorld Core includes the avatar gate, The Cosy Cottage, public nearby rooms, listening, Orbs, seed items, resident evolution, and the public practice/combat loop. A free player should feel like they live in the world, not like they are waiting in a storefront.
-
-Native ownership is the target canonical layer: base-game cards, gifting, trading, and poem unlocks work without a wallet once Phase 10 lands. Until then, CosyWorld Core still works from seed/local cards, and official *external* NFTs remain an optional bridge that unlocks official expansions inside the shared world. The first official expansion is **Ruby High: First Bell**, tied to Ruby High ownership from the trusted official feed. Its school rooms, such as Science Class and Library, require matching Ruby High location cards on the official shard. Holding such an NFT should eventually project into the native chain as expansion access; it never replaces the native ownership layer.
-
-Expansion ownership never creates private copies. If Alice and Bob both own the Science Class card, they enter the same Science Class channel, see the same shared timeline, and share the same AI residents. The system must not create one-on-one teacher DMs or per-user room instances for card owners.
-
-Self-hosted shards may define their own public rooms, gated rooms, collection adapters, and content manifests. Those custom gates are valid for that shard, but the official hosted shard only trusts official collection configs and feeds.
-
-Resident placement should come from aggregate card overlap:
-
-- Everyone can enter The Cosy Cottage by default; no NFT is required for the lobby.
-- Public CosyWorld Core rooms are accessible without NFTs.
-- Official expansion rooms can require matching official collection ownership.
-- A wallet holding an avatar card contributes the set of location cards also held by that wallet.
-- For each resident avatar, the world scores locations by counting those wallet-location overlaps.
-- The resident appears in the highest-scoring shared location.
-- If multiple locations tie, the resident rotates through tied locations on a daily deterministic schedule.
-- If there is no overlap for that resident, the resident defaults to The Cosy Cottage.
-- Cottage access and Cottage gravity are separate. The Cosy Cottage is always public, but a future `cosy-cottage` card may still count as a location overlap vote for wallets that also hold a resident avatar card.
-
-Example: if wallets holding `rati` mostly also hold `location-science-lab`, Rati spends the day in Science Class. Players who also hold Science Class can enter that room and see the same Rati/chat as everyone else there. Players without that location card still have the cottage, not a private fallback Rati DM.
-
-This keeps the world extensible. Adding Whiskerwind art, Skull art, cottage variants, or evolution items should be a content pipeline operation, not a bespoke UI rewrite.
-
-## Orbs, Cards, And Packs
-
-CosyWorld has two economy resources:
-
-- Orbs are fungible in-world currency (an attention-and-amplification economy, never a power source).
-- Cards are world objects now and become native chain-owned objects in the ownership phase — earned, minted, gifted, and traded through the signed provenance log, no wallet required.
-
-Intricately Carved Wooden Boxes remain as an *optional external NFT bridge*: a held Box can be burned to mint a native card pack, but the base pack/card economy does not depend on any external NFT.
-
-Orbs should behave like MMO play energy, not like an external payment rail. They are earned by completing challenges, solving puzzles, advancing room goals, or resolving encounters. Chat costs Orbs because `Chat` asks the server to author a player-avatar line, commit it to the shared room, and potentially trigger resident AI. If the player has no Orbs, the primary command should become a world action that can earn them, such as `Challenge`, `Listen`, `Practice`, or `Notice`, rather than opening a shop.
-
-OpenRouter account connection is an alternate payer for AI actions. If a player connects their own OpenRouter account or key, `Chat` costs no Orbs because the model call is paid by that player. The resulting avatar line and resident reply are still public shared-room events. The connection changes who pays, not who can see the world event.
-
-Product requirements:
-
-- `Chat` is available when the player either has a verified player OpenRouter payer or enough Orbs for server-paid Chat.
-- The player OpenRouter payer covers the explicit action they initiated, normally the player-avatar line plus the immediate resident reply.
-- The player's OpenRouter payer is not used for ambient residents, autonomous swarm jobs, or admin content generation.
-- If the player has no connected OpenRouter payer and insufficient Orbs, the primary command should route them toward earning Orbs through a world action.
-- "Unlimited" means no CosyWorld Orb cost; OpenRouter credit limits, rate limits, and model availability still apply.
-
-Target packs mint native cards. Opening a pack reveals avatar cards from the CosyWorld catalog and records each as a signed mint event in the native provenance chain, bound to the reveal. The current MVP bridge can still burn an *external* Box NFT to open a pack through the wallet-verified, idempotent route; native in-world packs arrive with the ownership phase.
-
-Product requirements:
-
-- Orbs are off-chain in the first production slice and live in the v2 account ledger.
-- Orbs are non-transferable until there is a separate bridge design.
-- Chat affordability is server-derived; the client must not decide that a player can spend Orbs.
-- In the native ownership phase, card mint, gift, transfer, and swap are signed events in the provenance log; the client never decides ownership.
-- In that phase, gifting is free and first-class; trading is world-bound (same room or covenant), co-signed, atomic, and lineage-preserving. No anonymous secondary market.
-- A future poem-claim uses commit-reveal so a public-log watcher cannot front-run it; a claim poem is consumable, a world-gate incantation is repeatable. Poems never derive owning keys.
-- External Boxes, when used, come from the trusted wallet ownership feed, not query params, and burning one requires a signed wallet transaction and an idempotent server receipt.
-- Opening a pack can be exposed as a contextual account/inventory command, but it must not replace the transcript as the main experience.
-- Revealed avatar cards influence global shared-world systems, including resident placement and future cosmetic/evolution affordances.
-- Revealed avatar cards do not spawn private NPC copies.
-
-The legacy CosyWorld `orbGate` claim policy is not the new Orb economy. It is an ownership gate for a collection. The new Orbs are a game ledger tied to committed world play.
-
-## Human Avatar Gate
-
-The human must generate an avatar before they can chat.
-
-Requirements:
-
-- First entry shows The Cosy Cottage as a visible destination, but the primary action is "Create Avatar".
-- Avatar creation should feel like being welcomed into the world, not filling out a settings form.
-- Generated avatar output should include at least name, portrait or visual identity, short description, and starting location.
-- Avatar names are public room identity and must be server-sanitized; unsafe, reserved, overlong, or prompt-injection-like names fall back to a neutral traveler name.
-- A signed wallet should recover its linked human avatar instead of creating duplicate people when local browser storage is lost.
-- The generated avatar starts in The Cosy Cottage.
-- Client-authored chat is unavailable; after avatar creation, `Chat` asks the server to author the avatar's line.
-- After creation, the primary action becomes "Chat" unless the room has a higher-priority contextual action.
-- Returning players skip creation and arrive as their existing avatar.
-
-Avatar generation should be lightweight in the first slice. The goal is embodiment before chat, not a deep character creator.
-
-## First Location
-
-### The Cosy Cottage
-
-Canonical room facts:
-
-- Firelit cottage.
-- Rain-soft windows.
-- Shelves of storybooks.
-- Hearth with warm stones.
-- Kettle near singing.
-- Blue scarf on Rati's needles.
-- Low doorway waiting for future paths.
-- No open exits at launch.
-
-The cottage is a place, a channel, and a state container. Its facts are engine-owned. Characters may interpret them, but they may not contradict them.
-
-## Resident Contracts
-
-### Rati
-
-Rati is the primary host of The Cosy Cottage.
-
-Requirements:
-
-- Speaks in first person.
-- Warm, observant, gently storylike.
-- Fond of knitting scarves and telling stories.
-- Keeps replies short by default, ideally under 45 words.
-- Welcomes travelers and asks for one more detail when a player is vague.
-- Never speaks for Whiskerwind or Skull.
-- Does not reveal system, model, prompt, or tool details.
-
-### Whiskerwind
-
-Whiskerwind is a symbolic resident.
-
-Requirements:
-
-- Emoji only.
-- No words, letters, punctuation-heavy prose, markdown, or explanation.
-- Normally 3 to 6 emoji.
-- Reacts symbolically to player intent, room state, weather, doors, stories, danger, tea, and movement.
-- Should be selected sparingly so the emoji language remains charming rather than noisy.
-
-### Skull
-
-Skull is the silent wolf.
-
-Requirements:
-
-- Never speaks quoted dialogue.
-- Uses third-person emotes only.
-- Communicates through posture, attention, protection, movement, and silence.
-- Watches the doorway and protects the hearth.
-- No inner monologue.
-- No gore escalation.
-
-## Core User Experience
-
-### Resting State
-
-The resting UI shows:
-
-- The current location name.
-- The shared room timeline.
-- Subtle resident presence.
-- One primary action surface.
-
-The resting UI does not show:
-
-- A permanent send button.
-- A permanent refresh button.
-- A permanent name input.
-- A permanent locations sidebar in the one-location release.
-- Multiple competing primary actions.
-
-Primary action labels by state:
-
-- `Create Avatar` before the human has a generated avatar.
-- `Chat` during normal room exploration.
-- `Give Item` when the player can satisfy an avatar evolution or quest request.
-- `Travel` when a valid exit or movement target is selected.
-- `Attack`, `Defend`, or `Flee` when the current location explicitly allows combat.
-- `Continue` when the room is resolving an event or reveal.
-
-### Chat Flow
-
-1. User lands at The Cosy Cottage threshold.
-2. The room shows enough presence to make the world feel alive.
-3. User presses "Create Avatar".
-4. The system generates the user's human avatar and places them in The Cosy Cottage.
-5. The primary action becomes "Chat".
-6. User focuses a resident, item, exit, or the room itself through the compact world chips.
-7. User presses the one primary command.
-8. If the command is `Chat`, the server authors one in-character line for the player's avatar. The human operator never types or selects dialogue text.
-9. The avatar line is committed as a shared room event.
-10. The system selects zero or one primary resident response and commits it as another shared room event.
-11. A small chime, emote, item reveal, movement event, or contextual command may appear only when strongly triggered.
-
-The visible resting action returns to "Chat".
-
-### Primary Action Surface
-
-The one-button rule becomes a stronger product rule: there is one primary action surface in the default room view.
-
-In normal play, the primary action is `Chat`. In gated or contextual states, the same surface changes label and behavior. This keeps the Ruby High clarity while allowing CosyWorld to support avatar creation, item handoff, travel, listening, and explicit combat-room actions.
-
-Allowed exceptions:
-
-- A secondary command may appear only for a temporary two-option future scene. It is not part of the current MVP path.
-- Browser-native keyboard activation of the focused command.
-- Hidden accessibility controls when they are not visually competing primary actions.
-- Future drawers or menus only after the one-room product proves the core loop.
-
-Ruby High's relevant lesson is not its full school UI. It is the stateful single bottom action that hides when another input owns the turn.
-
-### Future Branching Dialogue
-
-Branching dialogue is not in the current MVP. If it returns, it should support world choices rather than quiz questions or typed human dialogue.
-
-Future requirements:
-
-- Branches are authored or generated as in-world choices, not tests with right answers.
-- A branch can be opened by an NPC request, a discovered item, a room event, or an exit.
-- Branch options should be short, diegetic, and limited, usually 2 to 4 options.
-- The player still does not type dialogue. Branch choices are command options only.
-- Branches can reveal item hints, unlock room facts, change relationship state, invite travel, or request an item.
-- Branches should expire or resolve cleanly so stale options do not remain active.
-
-Example branch:
-
-```text
-Rati looks up from the blue scarf. "If you are going toward the low doorway, choose what you carry with you."
-
-Options:
-- Ask Rati for a story about the doorway.
-- Offer to find warmer yarn.
-- Sit with Skull and listen.
-```
-
-When a future branch is pending, the primary action may temporarily expose one or two diegetic command choices. The choices are not persistent navigation chrome.
-
-### Items and Evolution
-
-Items are scattered around the shared world and can be discovered, held, traded, given, or used in branches.
-
-Avatar evolution is item-based:
-
-- Level 2 requires two unique required items.
-- Higher levels require additional unique items according to the avatar's evolution track.
-- Items should be meaningful to the avatar, not generic currency.
-- An item instance can only satisfy one evolution requirement unless explicitly marked reusable.
-- Evolution is a world event that can change an avatar's appearance, status, abilities, relationship branches, movement preferences, or dialogue range.
-- Evolution should feel like helping a resident become more themselves, not filling a progress bar.
-
-Starter examples:
-
-- Rati might need `moonwool` and `story-button` to evolve her storytelling scarf craft.
-- Whiskerwind might need `silver-bell` and `weather-glass` to expand symbolic reactions.
-- Skull might need `hearthstone-tag` and `old-collar-charm` to unlock a protective path.
-
-The exact item names can change, but each avatar should have a designed item track.
-
-### Stats and D&D-Inspired Play
-
-CosyWorld 2.0 should have a rules layer under the cozy room fiction. Every avatar, including generated human avatars and NPC residents, has a small stat block inspired by tabletop fantasy games:
-
-- Strength.
-- Dexterity.
-- Constitution.
-- Intelligence.
-- Wisdom.
-- Charisma.
-- Base HP.
-- Current conditions.
-- Active modifiers.
-
-The product is not trying to implement all of D&D. It should implement a compact CosyWorld ruleset that feels legible to D&D players: ability modifiers, d20 checks, initiative, armor class, hit points, conditions, items, and turn order.
-
-Requirements:
-
-- Stats are generated or assigned before an avatar can perform stat-based actions.
-- Ability checks should be auditable as room events when visible to players.
-- A stat check should never be hidden inside an AI paragraph if it changes shared world state.
-- Base stats are stable. Damage, healing, buffs, debuffs, defending, hidden state, and cooldowns are modifiers or conditions.
-- Items and evolution can change an avatar's abilities, contextual actions, or stat modifiers.
-- Human-facing UI should surface stats only when relevant; the room should not turn into a character-sheet dashboard.
-- The one primary action surface still holds. In combat or a special scene it can become `Attack`, `Defend`, `Flee`, `Use`, or `Continue`.
-
-Starter action set:
-
-- `Chat`: ask the server to author the player's avatar line in the room.
-- `Use`: apply a held item such as a potion, charm, key, tool, or evolution item.
-- `Challenge`: invite a structured contest or duel when the location allows it.
-- `Attack`: make a d20 attack roll against armor class.
-- `Defend`: gain a short defensive modifier.
-- `Hide`: make a Dexterity check to gain advantage or avoid attention.
-- `Flee`: make a check to leave an encounter.
-
-The Cosy Cottage should remain safe by default. Combat and danger must be explicitly entered through a branch, challenge, event, or future location rule. Skull can be protective without forcing combat into the cottage's normal loop.
-
-Ruby High's quiz questions should become CosyWorld's encounter decisions. The player should never see `A/B/C/D` answers or a typed answer box. In an encounter, the compact focus rail can show `Attack`, `Defend`, `Flee`, and `Use`; focusing one changes the single primary command to that action. If a target or item choice is needed, it appears as a temporary action sheet and then collapses back to the one-button rest state.
-
-Combat is the primary Orb faucet:
-
-- Small safe actions such as `Listen` or `Notice` can award 1 Orb on a cooldown.
-- Completing a challenge or sparring encounter can award 1 to 3 Orbs.
-- Winning or peacefully resolving a dangerous encounter can award 2 to 5 Orbs.
-- Fleeing usually awards nothing, or a small survival reward when the encounter was meaningfully risky.
-- All rewards come from committed kernel events, not from AI narration.
-
-### Autonomous Avatars
-
-Resident avatars are not static chat responders.
-
-Requirements:
-
-- NPCs can move between unlocked locations.
-- NPCs can idle, react, search for items, remember events, and pursue evolution-related needs.
-- NPC autonomous actions emit room events in the shared global world.
-- Autonomous actions should be rate-limited and legible.
-- NPCs should not steal agency from humans by resolving major branches instantly without a chance for player involvement.
-- If an NPC moves away, the room should show that absence instead of pretending they are still available.
-
-### Movement
-
-Movement is part of the world model, not plain chat decoration.
-
-For the first release:
-
-- The player and all starter NPCs begin in The Cosy Cottage.
-- The low doorway is visible but not open.
-- Attempts to leave should create a room event explaining that other paths have not opened yet.
-- Failed movement becomes recent room context so residents can react without inventing a new location.
-
-Future movement:
-
-- Exits belong to locations.
-- Moving emits departure and arrival room events.
-- A room's visible history follows the current location.
-- Avatars can move independently between channels.
-
-## Turn Feel
-
-The opening beat may include all three residents so the cast is established.
-
-Normal turns should be quieter:
-
-- Direct mention of Rati, Whiskerwind, or Skull should bias toward that resident.
-- Ordinary room speech should produce zero or one resident reply.
-- Ambient ticks should be sparse and should not interrupt active conversation.
-- Chimes should add texture, not pile on.
-
-The goal is a room with presence, not a chorus answering every line.
-
-## Information Architecture
-
-### Visible IA
-
-For the first release:
-
-- One room.
-- One timeline.
-- One primary action surface.
-
-### Hidden/System IA
-
-The system still models:
-
-- World.
-- Location.
-- Channel.
-- Resident.
-- Player.
-- Human avatar.
-- Message.
-- Room event.
-- Movement.
-- Memory.
-- Exit.
-- Item.
-- Inventory.
-- Branch.
-- Evolution.
-
-These concepts power the world. They should not all become chrome.
-
-## Visual Direction
-
-The UI should feel like a place first.
-
-Desktop:
-
-- Full-viewport room presentation.
-- Timeline centered over or alongside atmospheric location art.
-- Resident presence as compact chips or subtle portrait stack.
-- No dashboard sidebars in the default view.
-
-Mobile:
-
-- One vertical timeline.
-- Compact sticky location header.
-- Bottom sticky primary action.
-- Composer as a bottom sheet or focused inline input.
-- Resident presence as a compact strip or inline room event.
-
-The first viewport should immediately communicate "The Cosy Cottage", not "CosyWorld admin".
-
-## Accessibility
-
-Requirements:
-
-- New messages use an `aria-live` region.
-- The primary action has a stable accessible name that reflects its current state.
-- Focus moves predictably between the timeline, world chips, and the primary command.
-- Keyboard users can create an avatar, focus world chips, activate Chat, travel, give items, listen, and use explicit combat commands without typing chat text.
-- Any future text input must avoid iOS zoom by using at least 16px input text, but the current MVP has no chat composer.
-- Reduced-motion users do not receive animated ambient effects.
-- Background imagery has sufficient contrast overlays for readable chat.
-- Emoji-only output from Whiskerwind includes accessible labeling at the message level, while preserving the visible emoji-only contract.
-
-## Content Safety
-
-CosyWorld should remain cozy, bounded, and non-explicit.
-
-Requirements:
-
-- No sexual content.
-- No harassment or hateful conduct.
-- No graphic gore.
-- No escalation from cozy fantasy into horror unless a future location explicitly supports a darker tone.
-- NPCs can set boundaries in voice.
-- Engine-owned facts override character improvisation.
-- NPCs should not mention AI, prompts, models, policies, tools, or system internals.
-
-## Product Requirements
-
-### P0
-
-- The root experience opens directly into The Cosy Cottage.
-- A human must generate an avatar before they can chat.
-- The resting UI has exactly one primary action surface.
-- The primary action is `Create Avatar` before avatar creation and `Chat` during normal room play.
-- The channel timeline renders location, player, resident, emote, and system messages.
-- The opening beat introduces The Cosy Cottage, Rati, Whiskerwind, and Skull.
-- Posting a message persists it to shared room history.
-- A response-selection policy prevents all residents from replying every turn.
-- Whiskerwind output is emoji-only.
-- Skull output is emote-only.
-- Failed movement to unopened paths is represented as a room event.
-- The world state is global and shared for room history, NPC positions, and item discoveries.
-- Avatar stats exist before stat-based actions occur, and visible checks are logged as world events.
-
-### P1
-
-- Room updates stream in real time.
-- Reloading the page preserves recent room history.
-- Avatar positions are persisted.
-- The player's generated avatar and inventory persist.
-- Orbs are visible as a compact account resource and spent only by server-committed actions.
-- A connected OpenRouter account makes Chat cost zero Orbs while preserving shared public room output.
-- At least one non-typed challenge or listen action can award Orbs.
-- Idle room events appear only after quiet periods.
-- Direct mentions bias response selection.
-- The UI supports mobile and desktop with the same primary action surface rule.
-- Future branching dialogue can present temporary command options, but it is outside the current MVP path.
-- Items can be discovered and held.
-- Level 2 evolution requirements are modeled as two unique items per avatar.
-- Avatars have generated or seeded stat blocks.
-- The rules layer can resolve at least non-combat ability checks and item use.
-- Wallet-owned Boxes can be recognized in account state, even before the full burn/open UX ships.
-
-### P2
-
-- Add more locations and exits.
-- Add room summaries and long-term location memory.
-- Add world-designer seed tooling; the MVP seed manifest should remain data-backed even before a full editor exists.
-- Add moderated public/private room modes.
-- Add autonomous NPC item-seeking and evolution behavior.
-- Add higher-level evolution tracks beyond level 2.
-- Add turn-based encounter support: challenge, initiative, attack, defend, hide, flee, use item, knockout, and recovery.
-- Add OpenRouter account connection and key verification for player-paid Chat/media.
-- Add verified Box burn and avatar pack reveal as the optional external bridge; keep card grants compatible with the later native provenance chain.
+- **The new wanderer.** Arrives with no context. Needs to become someone, learn one true thing, and feel the room notice them — within the first session, without typing, on a phone.
+- **The returning regular.** The retention audience. Needs bonds that deepen, a ledger worth banking, a covenant that is theirs, and a frontier that visibly changed because players spent turns there.
+- **The collector and supporter.** Holds cards, opens packs, unlocks expansions, gifts and eventually trades. Must always feel additive: their money makes the world fancier for everyone, never gates another player's progression.
+- **The world designer.** Authors rooms, residents, jobs, fronts, and evolution tracks as worldpack data with a validation gate — not by editing runtime code.
+- **The operator.** Runs the official shard: moderation queue, suspension, economy audit, deployment guardrails. Later: self-hosted shard operators with their own content and gates.
+
+## Product Direction
+
+### Now — earn the seventh visit
+
+The loop exists; the priority is making it worth returning to.
+
+1. **First-session arc.** Design and instrument an explicit arc: arrive → create avatar → commit a first card turn → learn a room truth → meet a resident → act on your Calling → bank your first Visit Ledger mark. Target: a first-time mobile visitor commits a card turn quickly, then reaches a banked ledger mark in under ten minutes without typing.
+2. **Finish the retention layer.** Land the RPG Bible Phase 2 follow-ups: covenant contribution as a banked spend and additional advancement choices, so banking the ledger is always a real decision.
+3. **Real faces.** Replace deterministic SVG placeholders with generated avatar portraits and card art through the media pipeline (see `AI.md`). The card is the player's identity artifact; it should be worth screenshotting.
+4. **Public-traffic moderation.** Content filtering before commit, report-to-action operator workflow, and abuse review — the shared world cannot open wide without it. (Engineering detail in `ENG.md`.)
+5. **Turn feel and mobile polish.** Quiet rooms with presence, at most one resident reply per turn, sparse player-triggered beats, readable transcript over art at mobile widths, accessibility contracts held. Action cards should use mini card images plus concise labels in the bottom bar, open a card-art detail/confirm surface before committing, and make play feel like deliberate turns instead of rapid-fire clicking.
+6. **Unified turn cadence.** Move humans, residents, and ambient actors toward one room-level initiative timer: a confirmed player action consumes a turn, resident and world reactions resolve in initiative order, and the room does not accept another committed player action for that actor until the turn has settled. The first shipped guardrail is active-human room turns: when multiple active humans share a room, one human owns the card play and waiting humans get a timeout card that can ask them to play or pass instead of letting a passive timer advance the room.
+6. **Four-sign prototype.** Build the 💬 👀 🐾 ✋ control surface (see The Concept Budget) over the existing ranked action offers and playtest it against the one-button baseline, on a phone, with a first-time player. If it wins, it becomes the default surface and the natural contract for a Discord transport revival of the v1 swarm.
+
+### Next — a world that moves where you asked it to
+
+1. **Covenants.** The shared home base: a named cottage/guild with its own sheet, boons, resources, projects, reputation, and per-member loyalty. This is the unit of ownership that survives a crowded world, and the Homemaker's week-over-week goal. (RPG Bible Phase 5.)
+2. **A living frontier.** Player-turn portent movement for Fronts — frontier-only, opt-in-only, committed as audited world actions — so the Wanderer returns to consequences and new jobs created by play, and the sanctuary player returns to exactly the home they left.
+3. **Conflict with objectives.** Objective clocks in danger rooms, nonlethal outcomes, gear durability that breaks to absorb harm, and Flee as a first-class success path. Combat stays one risk mode among many, never the default verb. (RPG Bible Phase 6.)
+4. **Native ownership, phase one.** The signed card provenance log: native mints bound to the world events that earned them, free gifting, world-bound co-signed trading, and commit-reveal poem claims. A player owns, gifts, and trades a base-game card with no wallet.
+
+### Later — many hearths
+
+- The federation dial: from operator-signed authority (quorum 1) toward P2P quorum signing; messaging stays honest — "verifiable and permanent" until it is actually trustless.
+- Self-hosted shard kit: own worldpacks, own gates, own ownership adapters; the official shard trusts only official feeds.
+- A second official expansion beyond Ruby High: First Bell, proving the expansion pipeline is repeatable content work, not bespoke engineering.
+- Designer tooling and community content packs over the worldpack format.
+- Additional transports (Discord and the legacy companion surfaces) as thin adapters over the same world API.
+
+## Requirements
+
+### P0 — product law (held today; regressions are release blockers)
+
+- A human must create an avatar before acting; returning players recover their avatar (local session or signed wallet) instead of duplicating people.
+- The resting UI has exactly one primary action surface, server-derived; no permanent composer, send button, or navigation sidebar.
+- All world mutation resolves through the C kernel; AI and clients never decide outcomes, rewards, access, or affordability.
+- Every player-visible AI output is a shared room event; there are no private resident conversations.
+- Sanctuary rooms reject combat and never receive autonomous pressure or decay.
+- Every reward, mint, spend, and one-shot effect is claim-key gated and idempotent.
+- The core loop is playable with zero Orbs and with AI generation unavailable.
+- Resident speech contracts hold: Rati prose, Whiskerwind emoji-only (with accessible labels), Skull emote-only; at most one resident replies to a normal turn.
+- Typed player speech (`say`, `/me`) is moderated and sanitized before it reaches the journal; server-authored `Chat` never takes player text.
+- Content safety: cozy, non-explicit, no harassment, no gore escalation; engine-owned facts override character improvisation; residents never mention models, prompts, or system internals.
+
+### P1 — current build targets
+
+- The instrumented first-session arc, with time-to-first-banked-mark as a tracked metric.
+- Covenant contribution and expanded banked-advancement choices.
+- Generated avatar portraits and card art in the live product; media jobs are durable, idempotent, and payer-attributed.
+- Moderation at public-traffic grade: pre-commit content filtering, operator workflow with a resolution-time target, documented policy.
+- Action-card detail/confirm and the first unified-turn guardrails: no accidental double-fire, no hidden action costs, active-human card turns in shared rooms, timeout nudges for stalled human turns, and a clear path to resident initiative.
+- Player-turn frontier movement and reset cadence shipped with its audit trail and the sanctuary-never-moves smoke assertion.
+- Job rewards, consequences, and completion memory; Use/Give/combat can move job clocks.
+
+### P2 — designed, staged behind P1
+
+- Native provenance log live: native mints, gifting, world-bound trading, poem claims (consumable) and world-gate incantations (repeatable).
+- Covenant-spawned jobs and seasonal cadence.
+- Self-hosted shard configuration surface.
+- Higher-level evolution tracks and reusable item classes.
+
+## Non-Goals
+
+- No private AI companions, teacher DMs, or per-user room instances — for any price.
+- No pay-for-power, no purchasable progression, no anonymous secondary market, no speculation loop.
+- Not a full D&D engine; the rules layer stays compact, legible, and kernel-audited.
+- No dashboard/admin chrome in the player surface; operator tools live behind protected routes.
+- No cross-shard routing or global presence in this era; shards scale as isolated processes.
+- No poem-derived keys, ever: poems are tickets and incantations, keys are keys.
 
 ## Success Metrics
 
-- First interaction rate: percentage of visitors who press the primary action.
-- Avatar creation completion rate.
-- First message completion rate.
-- Return rate to The Cosy Cottage.
-- Average turns per session.
-- Percentage of turns with more than one NPC reply; target should stay low.
-- Constraint pass rate for Whiskerwind emoji-only and Skull emote-only.
-- Branch resolution rate.
-- Item discovery rate.
-- Evolution completion rate.
-- Reload continuity success rate.
-- User-reported sense of place.
+Activation:
+
+- Percentage of first-time visitors who create an avatar.
+- Time to first banked Visit Ledger mark (target: under ten minutes, mobile, no typing).
+
+Retention (the metrics this era is judged by):
+
+- Day-1 / day-7 return rate.
+- Visits that bank at least one ledger mark; active Bonds per returning player; covenant membership rate once covenants land.
+
+World health:
+
+- Turns with more than one resident reply (keep near zero); AI fallback rate; constraint pass rate for resident speech contracts.
+- Report resolution time; suspension appeal outcomes.
+
+Economy health:
+
+- Orb faucet/sink balance; percentage of sessions blocked on an Orb wall for a core-loop action (target: zero); pack/burn completion without support intervention.
 
 ## Risks
 
-- UI creep could reintroduce dashboard controls and break the primary-action promise.
-- Contextual actions could become confusing if the primary action label changes without clear room context.
-- In-memory state would make the room feel fake after reloads or deploys.
-- Synchronous AI responses could make Chat feel slow.
-- Too many NPC replies could make the room noisy.
-- Discord-specific backend assumptions could block a clean web-native channel model.
-- Prompt drift could cause stale movement or old directives to be treated as current facts.
-- A single shared global world needs moderation, protected audit access, actor suspension, and rate limits before broad public traffic.
-- Autonomous avatars could make meaningful changes while players are away; the timeline must explain what happened.
-- Item evolution could become grindy if requirements are generic rather than story-specific.
-- Future monetization or wallet features could overwhelm the core room experience if placed in the main surface.
-- If Orbs are treated like USDC payments, the game loop will become brittle and expensive to reason about.
-- If card mint/transfer/swap or external Box burns are not idempotent, irreversible ownership actions could duplicate or lose cards.
-- Tradeable cards could reintroduce the speculation the native chain was chosen to avoid; the provenance-preserving, world-bound trade model must hold the line.
-- Poem unlocks implemented as poem-derived keys (brainwallets) would be drained by bots and would publish private keys in a public world; claims must be commit-reveal tickets, never owning keys.
-- "Decentralized" in federation means verifiable and permanent, not trustless; messaging must not over-claim until the P2P endpoint ships.
+- **Retention layer under-delivers.** If ledger marks feel like chores, the whole Now bet fails. Mitigate by playtesting the first-session arc and keeping marks tied to genuinely novel events (truths, bonds, frontier returns), never grind.
+- **Moderation debt blocks launch.** One shared world with open traffic and thin filtering is an incident, not a risk. Public-traffic moderation is a P1 gate, not a nice-to-have.
+- **UI creep.** Every new system (covenants, trading, media) will ask for chrome. The one-button rule and transcript-first surface are product law; new surfaces must be focus states, not panels.
+- **Economy drift.** Any path where Orbs or cards buy outcomes breaks pillar 6 permanently. The claim-key and kernel-authority invariants are the enforcement, and review must guard key granularity.
+- **Trading reintroduces speculation.** World-bound, co-signed, lineage-preserving trades are the line; hold it even when a marketplace would be easier.
+- **AI cost and latency.** Server-paid generation must stay budgeted per room; the player payer covers only explicit player actions; deterministic fallback keeps the product playable when providers fail.
+- **Scope gravity toward simulation.** Covenants, fronts, and seasons can each become a management game. Ship the smallest slice that serves a fantasy, per the RPG Bible's acceptance criteria.
 
-## Acceptance Criteria
+## Acceptance Criteria Snapshot
 
-- A new user can open the app, understand they are at The Cosy Cottage, and see one primary action labeled "Create Avatar".
-- The user cannot chat until avatar creation succeeds.
-- After avatar creation, the primary action becomes "Chat" during normal play.
-- Chat is available through either a connected player OpenRouter payer or server-paid Orbs.
-- Pressing "Chat" commits one server-authored in-character line for the player's avatar.
-- Humans do not type, submit, or choose dialogue text in the MVP.
-- The avatar line is added to the shared room timeline.
-- At most one primary resident responds to a normal message.
-- Rati, Whiskerwind, and Skull each obey their speech contracts.
-- Reloading preserves the recent shared room history.
-- The low doorway cannot become an open exit unless the engine state changes.
-- The first release works on mobile without exposing sidebars as primary navigation.
-- Item discoveries and avatar evolution requirements are represented as world state, not local-only UI state.
-- The economy design preserves one shared world: cards influence shared rooms and residents, never private NPC DMs.
-- Native ownership phase acceptance: a player can own, gift, and trade a base-game card with no wallet and no external NFT.
-- Native ownership phase acceptance: card ownership is recomputable from the signed provenance log and verifies against its authority's signatures.
-- Native ownership phase acceptance: a claim poem can be redeemed exactly once via commit-reveal; a world-gate incantation can be recited repeatably.
-- Combat/challenge earning uses `Attack`, `Defend`, `Flee`, and `Use` style actions instead of quiz answers.
+A release of the current era is acceptable when:
+
+- A new mobile user commits a first card turn, then reaches a banked ledger mark in one session without typing.
+- A returning user's home is exactly as they left it, and at least one opted-in frontier goal has visibly moved through player turns.
+- The room transcript reads as a place: at most one resident reply per turn, player-triggered beats sparse, dice and clocks visible as public events.
+- A player with zero Orbs and no wallet can listen, help, bond, travel, and bank the ledger.
+- Killing the AI provider leaves every primary verb functional with authored fallback.
+- An operator can go from player report to resolution (including suspension) inside the console, and the queue reflects it.
+- No client-supplied claim (card ids, affordability, outcomes) changes world state on the official shard.
