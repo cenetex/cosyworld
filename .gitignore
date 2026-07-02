@@ -45,6 +45,11 @@ infra/terraform/terraform.tfvars.json
 infra/terraform/build/*.zip
 infra/terraform/*.auto.tfvars
 infra/terraform/*.auto.tfvars.json
+infra/aws-lonely-forest/.terraform/
+infra/aws-lonely-forest/terraform.tfstate
+infra/aws-lonely-forest/terraform.tfstate.backup
+infra/aws-lonely-forest/*.tfstate
+infra/aws-lonely-forest/*.tfstate.*
 
 # AWS
 .aws/
