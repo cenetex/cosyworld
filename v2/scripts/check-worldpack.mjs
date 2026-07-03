@@ -25,6 +25,7 @@ const expectedFiles = {
   fallback_lines: "fallback_lines.json",
   lifecycle_hooks: "lifecycle_hooks.json",
   evolution_tracks: "evolution_tracks.json",
+  recipes: "recipes.json",
 };
 
 const failures = [];
@@ -84,6 +85,37 @@ function validateRequiredStrings(label, row, fields) {
   }
 }
 
+function jobRewardLabel(reward) {
+  if (isNonEmptyString(reward)) {
+    return reward;
+  }
+  if (isObject(reward) && isNonEmptyString(reward.label)) {
+    return reward.label;
+  }
+  return "";
+}
+
+function jobRewardOrbs(reward) {
+  if (isObject(reward) && Number.isInteger(reward.orbs)) {
+    return reward.orbs;
+  }
+  return 0;
+}
+
+function validateJobReward(job) {
+  if (!jobRewardLabel(job.reward)) {
+    fail(`job ${job.id} is missing reward`);
+    return;
+  }
+  if (isObject(job.reward) && job.reward.orbs !== undefined && (!Number.isInteger(job.reward.orbs) || job.reward.orbs < 0)) {
+    fail(`job ${job.id} has invalid reward orbs`);
+  }
+}
+
+function placementTargetKind(kind) {
+  return kind === "actor_hand" || kind === "location_floor" ? kind : null;
+}
+
 const manifest = readJson("worldpack.json");
 if (!isObject(manifest)) {
   throw new Error("worldpack.json could not be parsed");
@@ -123,6 +155,7 @@ const cards = content.cards;
 const fallbackLines = content.fallback_lines;
 const lifecycleHooks = content.lifecycle_hooks;
 const evolutionTracks = content.evolution_tracks;
+const recipes = content.recipes;
 
 const actorIds = idSet("actors", actors, (actor) => actor.id);
 const itemIds = idSet("items", items, (item) => item.id);
@@ -289,7 +322,8 @@ for (const clock of clocks) {
 }
 
 for (const job of jobs) {
-  validateRequiredStrings("job", job, ["id", "premise", "stakes", "progress_clock_id", "danger_clock_id", "reward", "consequence"]);
+  validateRequiredStrings("job", job, ["id", "premise", "stakes", "progress_clock_id", "danger_clock_id", "consequence"]);
+  validateJobReward(job);
   if (!has(clockIds, job.progress_clock_id) || !has(clockIds, job.danger_clock_id)) {
     fail(`job ${job.id} references missing clock`);
   }
@@ -493,23 +527,100 @@ for (const hook of lifecycleHooks) {
   }
 }
 
+const allItemIds = new Set(itemIds);
+const recipeOutputById = new Map();
+const recipeIds = new Set();
+for (const recipe of recipes) {
+  if (!Number.isInteger(recipe.id) || recipe.id <= 0 || recipeIds.has(recipe.id)) {
+    fail(`invalid or duplicate recipe ${recipe.id}`);
+    continue;
+  }
+  recipeIds.add(recipe.id);
+  validateRequiredStrings("recipe", recipe, ["key", "name", "description"]);
+  if (!Array.isArray(recipe.input_item_ids) || recipe.input_item_ids.length !== 2 || recipe.input_item_ids[0] === recipe.input_item_ids[1]) {
+    fail(`recipe ${recipe.id} must declare exactly two distinct input_item_ids`);
+  }
+  for (const itemId of recipe.input_item_ids ?? []) {
+    if (!has(itemIds, itemId)) {
+      fail(`recipe ${recipe.id} references missing input item ${itemId}`);
+    }
+  }
+  if (!isObject(recipe.balance)) {
+    fail(`recipe ${recipe.id} is missing balance declaration`);
+  } else {
+    if (!["location", "avatar", "resident", "covenant", "evolution"].includes(recipe.balance.kind)) {
+      fail(`recipe ${recipe.id} has invalid balance kind ${recipe.balance.kind}`);
+    }
+    if (!isNonEmptyString(recipe.balance.reason)) {
+      fail(`recipe ${recipe.id} balance is missing reason`);
+    }
+    const targetKind = placementTargetKind(recipe.balance.target_kind);
+    if (!targetKind) {
+      fail(`recipe ${recipe.id} balance has invalid target kind ${recipe.balance.target_kind}`);
+    } else if (targetKind === "actor_hand" && !has(actorIds, recipe.balance.target_id)) {
+      fail(`recipe ${recipe.id} balance references missing actor ${recipe.balance.target_id}`);
+    } else if (targetKind === "location_floor" && !has(locationIds, recipe.balance.target_id)) {
+      fail(`recipe ${recipe.id} balance references missing location ${recipe.balance.target_id}`);
+    }
+  }
+  if (recipe.output !== undefined && recipe.output !== null) {
+    if (!isObject(recipe.output)) {
+      fail(`recipe ${recipe.id} output must be an object`);
+      continue;
+    }
+    validateRequiredStrings(`recipe ${recipe.id} output`, recipe.output, ["name", "description", "kind", "target_kind"]);
+    if (!Number.isInteger(recipe.output.item_id) || recipe.output.item_id <= 0 || has(itemIds, recipe.output.item_id) || allItemIds.has(recipe.output.item_id)) {
+      fail(`recipe ${recipe.id} has invalid or duplicate output item ${recipe.output.item_id}`);
+    } else {
+      allItemIds.add(recipe.output.item_id);
+      recipeOutputById.set(recipe.output.item_id, recipe.output);
+    }
+    if (!["potion", "evolution", "keepsake"].includes(recipe.output.kind)) {
+      fail(`recipe ${recipe.id} output has invalid item kind ${recipe.output.kind}`);
+    }
+    if (!Number.isInteger(recipe.output.charges) || recipe.output.charges <= 0) {
+      fail(`recipe ${recipe.id} output has invalid charges`);
+    }
+    const outputTargetKind = placementTargetKind(recipe.output.target_kind);
+    if (!outputTargetKind) {
+      fail(`recipe ${recipe.id} output has invalid target kind ${recipe.output.target_kind}`);
+    } else if (outputTargetKind === "actor_hand" && !has(actorIds, recipe.output.target_id)) {
+      fail(`recipe ${recipe.id} output references missing actor ${recipe.output.target_id}`);
+    } else if (outputTargetKind === "location_floor" && !has(locationIds, recipe.output.target_id)) {
+      fail(`recipe ${recipe.id} output references missing location ${recipe.output.target_id}`);
+    }
+    if (isObject(recipe.balance) && (recipe.output.target_kind !== recipe.balance.target_kind || recipe.output.target_id !== recipe.balance.target_id)) {
+      fail(`recipe ${recipe.id} output slot must match its balance declaration`);
+    }
+  }
+}
+
 const evolutionActors = new Set();
 for (const track of evolutionTracks) {
   if (!has(actorIds, track.actor_id) || evolutionActors.has(track.actor_id)) {
     fail(`invalid or duplicate evolution track actor ${track.actor_id}`);
   }
   evolutionActors.add(track.actor_id);
-  if (!Array.isArray(track.item_ids) || track.item_ids.length !== 2) {
-    fail(`evolution track ${track.actor_id} must contain exactly two items`);
+  if (!Array.isArray(track.requirements) || track.requirements.length === 0 || track.requirements.length > 4) {
+    fail(`evolution track ${track.actor_id} has invalid requirement count`);
   }
   const trackItemIds = new Set();
-  for (const itemId of track.item_ids ?? []) {
-    if (trackItemIds.has(itemId) || !has(itemIds, itemId)) {
-      fail(`evolution track ${track.actor_id} references missing item ${itemId}`);
+  for (const requirement of track.requirements ?? []) {
+    if (!isObject(requirement)) {
+      fail(`evolution track ${track.actor_id} has invalid requirement`);
+      continue;
     }
-    trackItemIds.add(itemId);
-    if (itemById.get(itemId)?.kind !== "evolution") {
-      fail(`evolution track ${track.actor_id} references non-evolution item ${itemId}`);
+    if (trackItemIds.has(requirement.item_id) || !has(allItemIds, requirement.item_id)) {
+      fail(`evolution track ${track.actor_id} references missing item ${requirement.item_id}`);
+    }
+    trackItemIds.add(requirement.item_id);
+    const targetKind = placementTargetKind(requirement.target_kind);
+    if (!targetKind) {
+      fail(`evolution track ${track.actor_id} has invalid target kind ${requirement.target_kind}`);
+    } else if (targetKind === "actor_hand" && !has(actorIds, requirement.target_id)) {
+      fail(`evolution track ${track.actor_id} references missing actor target ${requirement.target_id}`);
+    } else if (targetKind === "location_floor" && !has(locationIds, requirement.target_id)) {
+      fail(`evolution track ${track.actor_id} references missing location target ${requirement.target_id}`);
     }
   }
 }
@@ -685,6 +796,7 @@ function buildWorldpackReport() {
       cards: cards.length,
       lifecycle_hooks: lifecycleHooks.length,
       evolution_tracks: evolutionTracks.length,
+      recipes: recipes.length,
     },
     locations: locationReports,
     jobs: sorted(jobs, (a, b) => a.id.localeCompare(b.id)).map((job) => ({
@@ -694,7 +806,8 @@ function buildWorldpackReport() {
       participants: job.participant_ids,
       progress_clock_id: job.progress_clock_id,
       danger_clock_id: job.danger_clock_id,
-      reward: job.reward,
+      reward: jobRewardLabel(job.reward),
+      reward_orbs: jobRewardOrbs(job.reward),
       consequence: job.consequence,
     })),
     fronts: sorted(fronts, (a, b) => a.id.localeCompare(b.id)).map((front) => ({
@@ -714,11 +827,23 @@ function buildWorldpackReport() {
       claim_scope: hook.claim_scope,
       effects: effectSummaries(hook.effects),
     })),
+    recipes: recipes.map((recipe) => ({
+      id: recipe.id,
+      key: recipe.key,
+      input_item_ids: recipe.input_item_ids,
+      input_item_names: (recipe.input_item_ids ?? []).map((itemId) => itemById.get(itemId)?.name ?? null),
+      output_item_id: recipe.output?.item_id ?? null,
+      output_item_name: recipe.output?.name ?? null,
+      balance: recipe.balance ? `${recipe.balance.kind}:${recipe.balance.target_kind}:${recipe.balance.target_id}` : null,
+    })),
     evolution_tracks: evolutionTracks.map((track) => ({
       actor_id: track.actor_id,
       actor_name: actors.find((actor) => actor.id === track.actor_id)?.name ?? null,
-      item_ids: track.item_ids,
-      item_names: (track.item_ids ?? []).map((itemId) => itemById.get(itemId)?.name ?? null),
+      requirements: (track.requirements ?? []).map((requirement) => ({
+        item_id: requirement.item_id,
+        item_name: itemById.get(requirement.item_id)?.name ?? recipeOutputById.get(requirement.item_id)?.name ?? null,
+        target: `${requirement.target_kind}:${requirement.target_id}`,
+      })),
     })),
   };
 }
@@ -727,7 +852,7 @@ function printWorldpackReport(report) {
   console.log(`worldpack ok: ${report.counts.locations} locations, ${report.counts.room_sheets} room sheets, ${report.counts.cards} cards`);
   console.log(`manifest: ${report.manifest.id} v${report.manifest.version} (${report.manifest.content_root})`);
   console.log(
-    `counts: actors=${report.counts.actors} items=${report.counts.items} factions=${report.counts.factions} gates=${report.counts.access_gates} jobs=${report.counts.jobs} fronts=${report.counts.fronts} hooks=${report.counts.lifecycle_hooks}`
+    `counts: actors=${report.counts.actors} items=${report.counts.items} factions=${report.counts.factions} gates=${report.counts.access_gates} jobs=${report.counts.jobs} fronts=${report.counts.fronts} hooks=${report.counts.lifecycle_hooks} recipes=${report.counts.recipes}`
   );
   console.log("locations:");
   for (const location of report.locations) {
@@ -755,7 +880,13 @@ function printWorldpackReport(report) {
   if (report.evolution_tracks.length) {
     console.log("evolution tracks:");
     for (const track of report.evolution_tracks) {
-      console.log(`- ${track.actor_id} ${track.actor_name}: ${track.item_names.join(", ")}`);
+      console.log(`- ${track.actor_id} ${track.actor_name}: ${track.requirements.map((requirement) => `${requirement.item_name ?? requirement.item_id}@${requirement.target}`).join(", ")}`);
+    }
+  }
+  if (report.recipes.length) {
+    console.log("recipes:");
+    for (const recipe of report.recipes) {
+      console.log(`- ${recipe.id} ${recipe.key}: ${recipe.input_item_names.join(" + ")} -> ${recipe.output_item_name ?? "event"} (${recipe.balance})`);
     }
   }
 }

@@ -83,6 +83,7 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/use-item", post(use_item))
         .route("/actions/give-item", post(give_item))
         .route("/actions/trade-item", post(trade_item))
+        .route("/actions/craft", post(craft))
         .route("/actions/attack", post(attack))
         .route("/actions/defend", post(defend))
         .route("/actions/prepare", post(prepare))

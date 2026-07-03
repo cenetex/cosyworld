@@ -32,8 +32,13 @@ static void test_seed_and_chat(void) {
   assert(world.item_count == 7);
   assert(world.evolution_track_count == 3);
   assert(world.evolution_tracks[0].actor_id == 1001);
-  assert(world.evolution_tracks[0].item_ids[0] == 2004);
-  assert(world.evolution_tracks[0].item_ids[1] == 2005);
+  assert(world.evolution_tracks[0].requirement_count == 2);
+  assert(world.evolution_tracks[0].requirements[0].item_id == 2004);
+  assert(world.evolution_tracks[0].requirements[0].target_kind == CW_PLACEMENT_ACTOR_HAND);
+  assert(world.evolution_tracks[0].requirements[0].target_id == 1001);
+  assert(world.evolution_tracks[0].requirements[1].item_id == 2005);
+  assert(world.evolution_tracks[0].requirements[1].target_kind == CW_PLACEMENT_LOCATION_FLOOR);
+  assert(world.evolution_tracks[0].requirements[1].target_id == 1);
   assert(events.count == 1);
   assert(events.events[0].type == CW_EVENT_WORLD_BOOTSTRAPPED);
 
@@ -235,38 +240,15 @@ static void test_give_items_and_evolution(void) {
   assert(cw_world_apply(&world, &pickup, 44, &events) == CW_OK);
   assert(events.events[0].type == CW_EVENT_ITEM_PICKED_UP);
 
-  move.destination_location_id = 3;
-  assert(cw_world_apply(&world, &move, 45, &events) == CW_OK);
-  pickup.item_id = 2003;
-  assert(cw_world_apply(&world, &pickup, 46, &events) == CW_OK);
-
-  move.destination_location_id = 2;
-  assert(cw_world_apply(&world, &move, 47, &events) == CW_OK);
-  pickup.item_id = 2007;
-  assert(cw_world_apply(&world, &pickup, 48, &events) == CW_OK);
   move.destination_location_id = 1;
-  assert(cw_world_apply(&world, &move, 49, &events) == CW_OK);
+  assert(cw_world_apply(&world, &move, 45, &events) == CW_OK);
 
   cw_action give = {0};
   give.kind = CW_ACTION_GIVE_ITEM;
   give.actor_id = 5001;
-  give.target_actor_id = 1001;
-  give.item_id = 2007;
-  assert(cw_world_apply(&world, &give, 50, &events) == CW_OK);
-  assert(events.count == 1);
-  assert(events.events[0].type == CW_EVENT_ITEM_GIVEN);
-  assert(test_find_item(&world, 2007)->holder_actor_id == 1001);
-  assert(world.actors[0].stats.level == 1);
-
   give.target_actor_id = 1002;
   give.item_id = 2002;
-  assert(cw_world_apply(&world, &give, 51, &events) == CW_OK);
-  assert(events.count == 1);
-  assert(events.events[0].type == CW_EVENT_ITEM_GIVEN);
-  assert(world.actors[1].stats.level == 1);
-
-  give.item_id = 2003;
-  assert(cw_world_apply(&world, &give, 52, &events) == CW_OK);
+  assert(cw_world_apply(&world, &give, 46, &events) == CW_OK);
   assert(events.count == 2);
   assert(events.events[0].type == CW_EVENT_ITEM_GIVEN);
   assert(events.events[1].type == CW_EVENT_AVATAR_EVOLVED);
@@ -274,27 +256,8 @@ static void test_give_items_and_evolution(void) {
   assert(events.events[1].total == 2);
   assert(world.actors[1].stats.level == 2);
   assert(test_find_item(&world, 2002)->holder_actor_id == 1002);
-  assert(test_find_item(&world, 2003)->holder_actor_id == 1002);
-
-  pickup.item_id = 2005;
-  assert(cw_world_apply(&world, &pickup, 53, &events) == CW_OK);
-  cw_action_offers offers = {0};
-  assert(cw_get_action_offers(&world, 5001, &offers) == CW_OK);
-  assert(offers.option_flags & CW_OFFER_TRADE_ITEM);
-
-  cw_action trade = {0};
-  trade.kind = CW_ACTION_TRADE_ITEM;
-  trade.actor_id = 5001;
-  trade.target_actor_id = 1002;
-  trade.item_id = 2005;
-  trade.target_item_id = 2002;
-  assert(cw_world_apply(&world, &trade, 52, &events) == CW_OK);
-  assert(events.count == 1);
-  assert(events.events[0].type == CW_EVENT_ITEM_TRADED);
-  assert(events.events[0].item_id == 2005);
-  assert(events.events[0].target_item_id == 2002);
-  assert(test_find_item(&world, 2005)->holder_actor_id == 1002);
-  assert(test_find_item(&world, 2002)->holder_actor_id == 5001);
+  assert(test_find_item(&world, 2003)->holder_actor_id == 0);
+  assert(test_find_item(&world, 2003)->location_id == 3);
 }
 
 static void test_npc_trade_items(void) {
@@ -318,6 +281,9 @@ static void test_npc_trade_items(void) {
   story->holder_actor_id = 1002;
   story->location_id = 0;
   story->held_since_tick = 11;
+  moonlit->holder_actor_id = 0;
+  moonlit->location_id = 3;
+  moonlit->held_since_tick = 0;
 
   cw_action_offers offers = {0};
   assert(cw_get_action_offers(&world, 1001, &offers) == CW_OK);
@@ -342,7 +308,8 @@ static void test_npc_trade_items(void) {
   assert(events.events[1].item_id == 2002);
   assert(events.events[1].total == 2);
   assert(dewbright->holder_actor_id == 1002);
-  assert(moonlit->holder_actor_id == 1002);
+  assert(moonlit->holder_actor_id == 0);
+  assert(moonlit->location_id == 3);
   assert(story->holder_actor_id == 1001);
   assert(world.actors[1].stats.level == 2);
 }
@@ -360,9 +327,9 @@ static void test_npc_give_items(void) {
   dewbright->holder_actor_id = 1001;
   dewbright->location_id = 0;
   dewbright->held_since_tick = 10;
-  moonlit->holder_actor_id = 1002;
-  moonlit->location_id = 0;
-  moonlit->held_since_tick = 9;
+  moonlit->holder_actor_id = 0;
+  moonlit->location_id = 3;
+  moonlit->held_since_tick = 0;
 
   cw_action give = {0};
   give.kind = CW_ACTION_GIVE_ITEM;
@@ -379,7 +346,8 @@ static void test_npc_give_items(void) {
   assert(events.events[1].target_actor_id == 1002);
   assert(events.events[1].item_id == 2002);
   assert(dewbright->holder_actor_id == 1002);
-  assert(moonlit->holder_actor_id == 1002);
+  assert(moonlit->holder_actor_id == 0);
+  assert(moonlit->location_id == 3);
   assert(world.actors[1].stats.level == 2);
 }
 
@@ -389,33 +357,35 @@ static void test_npc_pickup_can_evolve_self(void) {
   cw_world_init(&world);
   assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
 
-  cw_item *moonwool = test_find_item(&world, 2004);
-  cw_item *story = test_find_item(&world, 2005);
-  assert(moonwool);
-  assert(story);
-  moonwool->holder_actor_id = 1001;
-  moonwool->location_id = 0;
-  moonwool->held_since_tick = 10;
-  story->holder_actor_id = 0;
-  story->location_id = 1;
-  story->held_since_tick = 0;
+  cw_item *dewbright = test_find_item(&world, 2002);
+  cw_item *moonlit = test_find_item(&world, 2003);
+  assert(dewbright);
+  assert(moonlit);
+  world.actors[1].location_id = 2;
+  dewbright->holder_actor_id = 0;
+  dewbright->location_id = 2;
+  dewbright->held_since_tick = 0;
+  moonlit->holder_actor_id = 0;
+  moonlit->location_id = 3;
+  moonlit->held_since_tick = 0;
 
   cw_action pickup = {0};
   pickup.kind = CW_ACTION_PICK_UP_ITEM;
-  pickup.actor_id = 1001;
-  pickup.item_id = 2005;
+  pickup.actor_id = 1002;
+  pickup.item_id = 2002;
   assert(cw_world_apply(&world, &pickup, 54, &events) == CW_OK);
   assert(events.count == 2);
   assert(events.events[0].type == CW_EVENT_ITEM_PICKED_UP);
-  assert(events.events[0].actor_id == 1001);
-  assert(events.events[0].item_id == 2005);
+  assert(events.events[0].actor_id == 1002);
+  assert(events.events[0].item_id == 2002);
   assert(events.events[1].type == CW_EVENT_AVATAR_EVOLVED);
-  assert(events.events[1].actor_id == 1001);
-  assert(events.events[1].target_actor_id == 1001);
-  assert(events.events[1].item_id == 2005);
+  assert(events.events[1].actor_id == 1002);
+  assert(events.events[1].target_actor_id == 1002);
+  assert(events.events[1].item_id == 2002);
   assert(events.events[1].total == 2);
-  assert(story->holder_actor_id == 1001);
-  assert(world.actors[0].stats.level == 2);
+  assert(dewbright->holder_actor_id == 1002);
+  assert(moonlit->location_id == 3);
+  assert(world.actors[1].stats.level == 2);
 }
 
 static void test_inventory_capacity_evicts_oldest_item(void) {
@@ -431,24 +401,12 @@ static void test_inventory_capacity_evicts_oldest_item(void) {
   assert(cw_world_apply(&world, &create, 60, &events) == CW_OK);
 
   cw_item *held_a = test_find_item(&world, 2001);
-  cw_item *held_b = test_find_item(&world, 2002);
-  cw_item *held_c = test_find_item(&world, 2003);
-  cw_item *held_d = test_find_item(&world, 2004);
   cw_item *new_item = test_find_item(&world, 2005);
-  assert(held_a && held_b && held_c && held_d && new_item);
+  assert(held_a && new_item);
 
   held_a->holder_actor_id = 5001;
   held_a->location_id = 0;
   held_a->held_since_tick = 10;
-  held_b->holder_actor_id = 5001;
-  held_b->location_id = 0;
-  held_b->held_since_tick = 20;
-  held_c->holder_actor_id = 5001;
-  held_c->location_id = 0;
-  held_c->held_since_tick = 30;
-  held_d->holder_actor_id = 5001;
-  held_d->location_id = 0;
-  held_d->held_since_tick = 40;
   new_item->holder_actor_id = 0;
   new_item->location_id = 1;
   new_item->held_since_tick = 0;
@@ -468,7 +426,68 @@ static void test_inventory_capacity_evicts_oldest_item(void) {
   assert(held_a->location_id == 1);
   assert(new_item->holder_actor_id == 5001);
   assert(new_item->location_id == 0);
-  assert(new_item->held_since_tick > held_d->held_since_tick);
+  assert(new_item->held_since_tick > held_a->held_since_tick);
+}
+
+static void test_search_and_craft_create_without_consuming_inputs(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action create = {0};
+  create.kind = CW_ACTION_CREATE_ACTOR;
+  create.actor_id = 5001;
+  create.location_id = 1;
+  assert(cw_world_apply(&world, &create, 70, &events) == CW_OK);
+
+  cw_action search = {0};
+  search.kind = CW_ACTION_SEARCH;
+  search.actor_id = 5001;
+  search.location_id = 1;
+  search.content_id = 9001;
+  search.item_id = 2005;
+  assert(cw_world_apply(&world, &search, 71, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+
+  cw_action pickup = {0};
+  pickup.kind = CW_ACTION_PICK_UP_ITEM;
+  pickup.actor_id = 5001;
+  pickup.item_id = 2001;
+  assert(cw_world_apply(&world, &pickup, 72, &events) == CW_OK);
+
+  assert(cw_world_apply(&world, &search, 73, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_FOUND);
+  assert(events.events[0].item_id == 2005);
+  assert(test_find_item(&world, 2005)->location_id == 1);
+
+  cw_action craft = {0};
+  craft.kind = CW_ACTION_CRAFT;
+  craft.actor_id = 5001;
+  craft.content_id = 3001;
+  craft.item_id = 2001;
+  craft.target_item_id = 2005;
+  craft.output_item_id = 2011;
+  craft.output_target_kind = CW_PLACEMENT_LOCATION_FLOOR;
+  craft.output_target_id = 11;
+  craft.output_item_kind = CW_ITEM_KEEPSAKE;
+  craft.output_item_charges = 1;
+  assert(cw_world_apply(&world, &craft, 74, &events) == CW_OK);
+  assert(events.count == 2);
+  assert(events.events[0].type == CW_EVENT_ITEM_CRAFTED);
+  assert(events.events[0].item_id == 2001);
+  assert(events.events[0].target_item_id == 2005);
+  assert(events.events[1].type == CW_EVENT_ITEM_CREATED);
+  assert(events.events[1].item_id == 2011);
+  assert(test_find_item(&world, 2001)->holder_actor_id == 5001);
+  assert(test_find_item(&world, 2005)->location_id == 1);
+  assert(test_find_item(&world, 2011)->location_id == 11);
+
+  assert(cw_world_apply(&world, &craft, 75, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
 }
 
 static void apply_replay_sequence(cw_world *world, cw_event *events, size_t *event_count) {
@@ -536,6 +555,7 @@ int main(void) {
   test_npc_give_items();
   test_npc_pickup_can_evolve_self();
   test_inventory_capacity_evicts_oldest_item();
+  test_search_and_craft_create_without_consuming_inputs();
   test_deterministic_replay();
   puts("cosy kernel tests passed");
   return 0;
