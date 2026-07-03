@@ -26742,6 +26742,9 @@ mod tests {
         assert!(INDEX_HTML.contains("turnPingRemainingLabel"));
         assert!(INDEX_HTML.contains("resident_feature_use|resident_autonomy_intent"));
         assert!(!INDEX_HTML.contains("data-event-row title="));
+        assert!(!INDEX_HTML.contains(".line.event:hover .text"));
+        assert!(!INDEX_HTML.contains(".line.event.expanded .text"));
+        assert!(!INDEX_HTML.contains("classList.toggle(\"expanded\")"));
         assert!(INDEX_HTML.contains("action-mini-card"));
         assert!(INDEX_HTML
             .contains("const thumb = thumbnailHtml(action, false, \"action-mini-card\");"));

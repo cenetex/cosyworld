@@ -669,7 +669,6 @@
       padding: 2px 0 2px 9px;
       align-items: start;
       color: var(--dim);
-      cursor: pointer;
       line-height: 1.28;
     }
     .line.event .event-label {
@@ -699,14 +698,6 @@
     .line.event.skill .text,
     .line.event.trade .text {
       color: var(--text);
-    }
-    .line.event.expanded .text,
-    .line.event:focus-within .text,
-    .line.event:hover .text {
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      display: block;
-      -webkit-line-clamp: unset;
     }
     .line.system {
       display: block;
@@ -5482,12 +5473,6 @@
           run: () => openPack(packId),
         });
       }
-    });
-
-    $("log").addEventListener("click", (event) => {
-      const row = event.target.closest("[data-event-row]");
-      if (!row) return;
-      row.classList.toggle("expanded");
     });
 
     $("room-log-toggle").addEventListener("click", () => {
