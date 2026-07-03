@@ -1199,6 +1199,8 @@ struct JournalRecord {
     version: u32,
     action: CwAction,
     seed: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    initial_calling: Option<String>,
     #[serde(default)]
     actor_meta_upserts: BTreeMap<u64, ActorMeta>,
     #[serde(default)]
@@ -1219,6 +1221,7 @@ impl JournalRecord {
             version: 1,
             action,
             seed,
+            initial_calling: None,
             actor_meta_upserts: BTreeMap::new(),
             content_upserts: BTreeMap::new(),
             branch_upserts: BTreeMap::new(),
@@ -2221,6 +2224,7 @@ struct AvatarResponse {
 #[derive(Debug, Deserialize)]
 struct CreateAvatarRequest {
     name: Option<String>,
+    calling: Option<String>,
     wallet_session: Option<String>,
 }
 
@@ -7426,7 +7430,11 @@ impl RuntimeWorld {
                     events.push(self.append_branch_lifecycle_event("branch.resolved", &branch));
                 }
             }
-            events.extend(self.apply_actor_creation_rpg_projection(&action, &events));
+            events.extend(self.apply_actor_creation_rpg_projection(
+                &action,
+                &events,
+                record.initial_calling.as_deref(),
+            ));
             events.extend(self.expire_stale_branches());
             events.extend(self.apply_projection_mutations(&action, &record.projection_mutations));
             let committed_events = events.clone();
@@ -7815,6 +7823,7 @@ impl RuntimeWorld {
         &mut self,
         action: &CwAction,
         events: &[EventView],
+        initial_calling: Option<&str>,
     ) -> Vec<EventView> {
         if action.kind != CW_ACTION_CREATE_ACTOR || self.callings.contains_key(&action.actor_id) {
             return Vec::new();
@@ -7831,11 +7840,17 @@ impl RuntimeWorld {
             .map(|event| event.seq);
         let calling = CallingState {
             actor_id: action.actor_id,
-            statement: default_calling_statement().to_string(),
+            statement: initial_calling
+                .and_then(authored_calling_statement)
+                .unwrap_or_else(|| default_calling_statement().to_string()),
             source_event_seq,
         };
         self.callings.insert(action.actor_id, calling.clone());
-        vec![self.append_calling_event("calling.set", &calling, "avatar_created")]
+        let reason = initial_calling
+            .and_then(authored_calling_statement)
+            .map(|_| "chosen_calling")
+            .unwrap_or("avatar_created");
+        vec![self.append_calling_event("calling.set", &calling, reason)]
     }
 
     fn apply_defend_project_preparation(
@@ -8848,6 +8863,7 @@ impl RuntimeWorld {
         let current_rank = self.skills.get(&id).map(|skill| skill.rank).unwrap_or(0);
         if cost == 0
             || current_rank >= MAX_SKILL_RANK
+            || self.trained_since_rest_tag_active(actor_id)
             || self.advancement_points_available(actor_id) < usize::from(cost)
         {
             return Vec::new();
@@ -8878,6 +8894,19 @@ impl RuntimeWorld {
         };
         self.skills.insert(id, skill.clone());
         events.push(self.append_skill_event("skill.stepped", &skill, reason));
+        let tag = RpgTagState {
+            id: trained_since_rest_tag_id(actor_id),
+            scope: "actor".to_string(),
+            scope_id: actor_id,
+            label: "trained".to_string(),
+            kind: "condition".to_string(),
+            active: true,
+            source_event_seq: Some(self.world.next_event_seq),
+            expires: Some("after_rest".to_string()),
+        };
+        if let Some(event) = self.set_rpg_tag(tag, actor_id, reason) {
+            events.push(event);
+        }
         events
     }
 
@@ -12263,12 +12292,19 @@ impl RuntimeWorld {
     }
 
     fn rest_available(&self, actor_id: u64) -> bool {
-        self.tired_tag_active(actor_id)
+        self.tired_tag_active(actor_id) || self.trained_since_rest_tag_active(actor_id)
     }
 
     fn tired_tag_active(&self, actor_id: u64) -> bool {
         self.tags
             .get(&tired_tag_id(actor_id))
+            .map(|tag| tag.active)
+            .unwrap_or(false)
+    }
+
+    fn trained_since_rest_tag_active(&self, actor_id: u64) -> bool {
+        self.tags
+            .get(&trained_since_rest_tag_id(actor_id))
             .map(|tag| tag.active)
             .unwrap_or(false)
     }
@@ -13338,7 +13374,9 @@ impl RuntimeWorld {
     }
 
     fn default_trainable_skill(&self, actor_id: u64) -> Option<&'static str> {
-        if self.advancement_points_available(actor_id) < usize::from(SKILL_STEP_COST) {
+        if self.trained_since_rest_tag_active(actor_id)
+            || self.advancement_points_available(actor_id) < usize::from(SKILL_STEP_COST)
+        {
             return None;
         }
 
@@ -14168,7 +14206,7 @@ impl RuntimeWorld {
         {
             return 82;
         }
-        if kind == "chat" && self.unclaimed_chat_bond_target(actor_id).is_none() {
+        if kind == "chat" {
             return 83;
         }
         if kind == "rest"
@@ -14237,7 +14275,7 @@ impl RuntimeWorld {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
             "chat" => self
-                .default_chat_offer_target(actor_id)
+                .default_chat_target(actor_id)
                 .map(|target| ActionTargetView {
                     kind: "actor".to_string(),
                     id: Some(target.id),
@@ -14385,14 +14423,10 @@ impl RuntimeWorld {
     fn action_offer_effect(&self, kind: &str, actor_id: u64) -> Option<String> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
-            "chat" => self.default_chat_offer_target(actor_id).and_then(|target| {
-                let claim_key = chat_bond_claim_key(actor_id, target.id);
-                if self.rpg_claims.contains(&claim_key) {
-                    return None;
-                }
-                self.actor_name(target.id)
-                    .map(|name| format!("first chat deepens Bond with {name}; adds a memory mark"))
-            }),
+            "chat" => self
+                .default_chat_target(actor_id)
+                .and_then(|target| self.actor_name(target.id))
+                .map(|name| format!("authors a line and gives {name} a reply hook")),
             "check" => {
                 let unbanked = self.unbanked_visit_ledger_count(actor_id);
                 if unbanked > 0 {
@@ -14465,6 +14499,11 @@ impl RuntimeWorld {
                         format!("helps a resident and {progress_effect}")
                     }
                 }),
+            "rest"
+                if self.trained_since_rest_tag_active(actor_id) && !self.tired_tag_active(actor_id) =>
+            {
+                Some("lets training settle; you can train again afterward".to_string())
+            }
             "rest"
                 if self
                     .active_danger_clock_id_for_location(actor.location_id)
@@ -14568,10 +14607,7 @@ impl RuntimeWorld {
     fn action_offer_claim_key(&self, kind: &str, actor_id: u64) -> Option<String> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
-            "chat" => self.default_chat_offer_target(actor_id).and_then(|target| {
-                let claim_key = chat_bond_claim_key(actor_id, target.id);
-                (!self.rpg_claims.contains(&claim_key)).then_some(claim_key)
-            }),
+            "chat" => None,
             "check" => Some(ability_check_success_claim_key(
                 actor_id,
                 actor.location_id,
@@ -14624,21 +14660,6 @@ impl RuntimeWorld {
 
     fn default_chat_target(&self, actor_id: u64) -> Option<CwActor> {
         self.active_chat_targets(actor_id).into_iter().next()
-    }
-
-    fn unclaimed_chat_bond_target(&self, actor_id: u64) -> Option<CwActor> {
-        self.active_chat_targets(actor_id)
-            .into_iter()
-            .find(|target| {
-                !self
-                    .rpg_claims
-                    .contains(&chat_bond_claim_key(actor_id, target.id))
-            })
-    }
-
-    fn default_chat_offer_target(&self, actor_id: u64) -> Option<CwActor> {
-        self.unclaimed_chat_bond_target(actor_id)
-            .or_else(|| self.default_chat_target(actor_id))
     }
 
     fn has_active_chat_target(&self, actor_id: u64) -> bool {
@@ -19344,6 +19365,11 @@ async fn create_avatar(
         title: identity.title.clone(),
         description: identity.description.clone(),
     };
+    let initial_calling = payload
+        .calling
+        .as_deref()
+        .and_then(authored_calling_statement)
+        .unwrap_or_else(|| default_calling_statement().to_string());
     let mut runtime = state.inner.lock().await;
     let action = CwAction {
         kind: CW_ACTION_CREATE_ACTOR,
@@ -19352,6 +19378,7 @@ async fn create_avatar(
         ..CwAction::default()
     };
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
+    record.initial_calling = Some(initial_calling);
     record.actor_meta_upserts.insert(actor_id, actor_meta);
     let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(AvatarResponse {
@@ -19628,14 +19655,6 @@ async fn chat(
     };
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
     record.content_upserts.insert(content_id, content.clone());
-    record
-        .projection_mutations
-        .push(ProjectionMutation::DeepenBond {
-            target_actor_id: payload.target_actor_id,
-            claim_key: chat_bond_claim_key(payload.actor_id, payload.target_actor_id),
-            event_reason: "resident_chat".to_string(),
-            ledger_reason: format!("chat:{}:{}:bond", payload.actor_id, payload.target_actor_id),
-        });
     record.orb_deltas.push(OrbDelta {
         actor_id: payload.actor_id,
         delta: -CHAT_ORB_COST,
@@ -19660,7 +19679,7 @@ async fn chat(
             events: Vec::new(),
         });
     };
-    let reply_plan = if status == CW_OK {
+    let mut reply_plan = if status == CW_OK {
         runtime.resident_reply_plan_for_target(payload.actor_id, payload.target_actor_id, &content)
     } else {
         record_ai_usage(
@@ -19699,6 +19718,16 @@ async fn chat(
         status,
         &mut events,
     );
+    if state.ai_config.as_ref().as_ref().is_none() {
+        if let Some(plan) = reply_plan.take() {
+            let proposal = ResidentIntentProposal::fallback(&plan);
+            if let Some(mut reply_events) =
+                commit_resident_reply_record(&state, &mut runtime, &plan, proposal)
+            {
+                events.append(&mut reply_events);
+            }
+        }
+    }
     drop(runtime);
 
     broadcast_events(&state, &events);
@@ -20632,45 +20661,54 @@ fn schedule_resident_reply(
         let ai_config = ai_override.or_else(|| state.ai_config.as_ref().clone());
         let proposal = resident_reply_intent(ai_config.as_ref(), &plan).await;
         let mut runtime = state.inner.lock().await;
-        let Some(npc) = runtime.actor_by_id(plan.npc_actor_id) else {
-            return;
-        };
-        if npc.kind != CW_ACTOR_NPC || npc.status != CW_ACTOR_ACTIVE {
-            return;
-        }
-        if runtime.resident_reply_repeats_recent_event(
-            plan.npc_actor_id,
-            npc.location_id,
-            &proposal.speech,
-        ) {
-            return;
-        }
-        let content_id = runtime.next_content_id_value();
-        let action = CwAction {
-            kind: CW_ACTION_SAY,
-            actor_id: plan.npc_actor_id,
-            content_id,
-            ..CwAction::default()
-        };
-        let mut record = JournalRecord::new(action, runtime.next_seed_value());
-        record
-            .content_upserts
-            .insert(content_id, proposal.speech.clone());
-        record
-            .projection_mutations
-            .push(ProjectionMutation::UpdateResidentContinuity {
-                resident_id: plan.npc_actor_id,
-                proposal,
-                reason: "resident_intent".to_string(),
-            });
-        let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        let Some(events) = commit_resident_reply_record(&state, &mut runtime, &plan, proposal)
+        else {
             return;
         };
         drop(runtime);
-        if status == CW_OK {
-            broadcast_events(&state, &events);
-        }
+        broadcast_events(&state, &events);
     });
+}
+
+fn commit_resident_reply_record(
+    state: &AppState,
+    runtime: &mut RuntimeWorld,
+    plan: &ResidentReplyPlan,
+    proposal: ResidentIntentProposal,
+) -> Option<Vec<EventView>> {
+    let npc = runtime.actor_by_id(plan.npc_actor_id)?;
+    if npc.kind != CW_ACTOR_NPC || npc.status != CW_ACTOR_ACTIVE {
+        return None;
+    }
+    if runtime.resident_reply_repeats_recent_event(
+        plan.npc_actor_id,
+        npc.location_id,
+        &proposal.speech,
+    ) {
+        return None;
+    }
+    let content_id = runtime.next_content_id_value();
+    let action = CwAction {
+        kind: CW_ACTION_SAY,
+        actor_id: plan.npc_actor_id,
+        content_id,
+        ..CwAction::default()
+    };
+    let mut record = JournalRecord::new(action, runtime.next_seed_value());
+    record
+        .content_upserts
+        .insert(content_id, proposal.speech.clone());
+    record
+        .projection_mutations
+        .push(ProjectionMutation::UpdateResidentContinuity {
+            resident_id: plan.npc_actor_id,
+            proposal,
+            reason: "resident_intent".to_string(),
+        });
+    let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
+        return None;
+    };
+    (status == CW_OK).then_some(events)
 }
 
 fn advance_turn_and_maybe_emit_resident_ripple(
@@ -21942,7 +21980,7 @@ async fn request_ai_avatar_identity(
     let user = format!(
         "Create one new CosyWorld player avatar for The Cosy Cottage.\n\
          Tone: cozy, specific, storybook-MUD, a little strange, safe for all ages.\n\
-         Avoid existing resident names: Rati, Whiskerwind, Skull, Moonlit Echo.\n\
+         Avoid existing resident names: Rati, Whiskerwind, Skull, Coach Moonshadow.\n\
          Output exactly this shape: {{\"name\":\"Two words, 28 chars max, ASCII letters/spaces/hyphen/apostrophe only\",\"title\":\"short card title, 48 chars max\",\"description\":\"one third-person persona sentence, 220 chars max\",\"visual_prompt\":\"image-generation prompt for a full-body cozy fantasy avatar portrait, 360 chars max\"}}\n\
          If unsure, use this fallback as inspiration but do not copy it exactly: {name} / {title} / {description}",
         name = fallback.name,
@@ -22592,6 +22630,9 @@ fn resident_system_prompt(plan: &ResidentReplyPlan) -> String {
         ),
         1005 => format!(
             "You are Fourvoice Oak, the rooted elder who is the Old Oak Tree in the Lonely Forest. The speech field may answer through four short voices: Root remembers paths, Ring remembers years, Leaf notices the present, Hollow keeps secrets. Keep speech under 65 words. {base}"
+        ),
+        1051 => format!(
+            "You are Madame Euphemie, a moss-veiled mansion ghost. The speech field should be brief, spectral, and may use short authentic Haitian Creole fragments; do not invent parody dialect or fake broken Creole. Keep speech under 45 words. {base}"
         ),
         _ => format!(
             "You are {} in CosyWorld. Keep the speech field concise. {base}",
@@ -23654,6 +23695,12 @@ async fn rest(
             tag_id: tired_tag_id(payload.actor_id),
             reason: "rest".to_string(),
         });
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ClearTag {
+            tag_id: trained_since_rest_tag_id(payload.actor_id),
+            reason: "rest".to_string(),
+        });
     if let Some(clock_id) = runtime
         .active_danger_clock_id_for_location(location_id)
         .filter(|clock_id| runtime.clock_is_frontier(clock_id))
@@ -23929,6 +23976,7 @@ async fn train_skill(
         .map(|skill| skill.rank)
         .unwrap_or(0);
     if current_rank >= MAX_SKILL_RANK
+        || runtime.trained_since_rest_tag_active(payload.actor_id)
         || runtime.advancement_points_available(payload.actor_id) < usize::from(SKILL_STEP_COST)
     {
         return Json(ActionResponse {
@@ -25146,6 +25194,10 @@ fn tired_tag_id(actor_id: u64) -> String {
     format!("actor:{actor_id}:tired")
 }
 
+fn trained_since_rest_tag_id(actor_id: u64) -> String {
+    format!("actor:{actor_id}:trained_since_rest")
+}
+
 fn prepared_tag_id(actor_id: u64, location_id: u64) -> String {
     format!("actor:{actor_id}:prepared:{location_id}")
 }
@@ -25219,8 +25271,25 @@ fn default_bond_statement(target_name: &str) -> String {
     format!("I bring small kindnesses to {target_name}.")
 }
 
+const AUTHORED_CALLING_STATEMENTS: [&str; 6] = [
+    "I listen for small truths and help where I can.",
+    "I listen for what lost things still need.",
+    "I listen for what shy rooms are trying to say.",
+    "I listen for the weather behind every warning.",
+    "I listen for kindness hiding in strange errands.",
+    "I listen for the safer road no one has named yet.",
+];
+
 fn default_calling_statement() -> &'static str {
-    "I listen for small truths and help where I can."
+    AUTHORED_CALLING_STATEMENTS[0]
+}
+
+fn authored_calling_statement(statement: &str) -> Option<String> {
+    let normalized = normalize_calling_statement(statement)?;
+    AUTHORED_CALLING_STATEMENTS
+        .iter()
+        .find(|choice| **choice == normalized)
+        .map(|choice| (*choice).to_string())
 }
 
 fn normalize_skill_id(value: &str) -> Option<&'static str> {
@@ -27145,9 +27214,13 @@ mod tests {
     #[test]
     fn action_backed_command_failures_include_visible_output() {
         let resolved = ResolvedCommand {
-            command: "attack Moonlit Echo".to_string(),
+            command: "attack Coach Moonshadow".to_string(),
             verb: "attack".to_string(),
-            action: Some(command_action("attack", "Attack", "attack Moonlit Echo")),
+            action: Some(command_action(
+                "attack",
+                "Attack",
+                "attack Coach Moonshadow",
+            )),
             dispatch: CommandDispatch::Attack {
                 target_actor_id: 1004,
             },
@@ -27196,7 +27269,7 @@ mod tests {
 
         assert_eq!(
             command_response_output_for_actor(None, &events, None).as_deref(),
-            Some("Listen check: 17 vs DC 12 (success).")
+            Some("Listen: 17 against 12 (success).")
         );
     }
 
@@ -27837,7 +27910,10 @@ mod tests {
         assert!(INDEX_HTML.contains("id=\"wallet-modal\""));
         assert!(INDEX_HTML.contains("/wallet/qr/start"));
         assert!(INDEX_HTML.contains("Scan this with your phone"));
-        assert!(INDEX_HTML.contains("generate avatar"));
+        assert!(INDEX_HTML.contains("authoredCallingChoices"));
+        assert!(INDEX_HTML.contains("small truths"));
+        assert!(INDEX_HTML.contains("lost things"));
+        assert!(INDEX_HTML.contains("shy rooms"));
         assert!(INDEX_HTML.contains("arrive as"));
         assert!(INDEX_HTML.contains("Your Calling:"));
         assert!(!INDEX_HTML.contains("id=\"ai-key-modal\""));
@@ -30206,7 +30282,7 @@ mod tests {
     }
 
     #[test]
-    fn banked_advancement_points_train_listening_skill_bonus() {
+    fn banked_advancement_points_train_once_per_rest_and_skill_bonus() {
         let mut runtime = RuntimeWorld::seeded();
         assert_eq!(normalize_skill_id("nimble_hands"), Some("nimble_hands"));
         assert_eq!(normalize_skill_id("nimble-hands"), Some("nimble_hands"));
@@ -30322,6 +30398,12 @@ mod tests {
                     .as_deref()
                     .is_some_and(|content| content.starts_with("listening:1:"))
         }));
+        let trained_tag = trained_since_rest_tag_id(5000);
+        assert!(events.iter().any(|event| {
+            event.type_name == "tag.applied"
+                && event.tag_id.as_deref() == Some(trained_tag.as_str())
+                && event.tag_label.as_deref() == Some("trained")
+        }));
 
         let trained_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert_eq!(trained_state.skills.len(), 1);
@@ -30331,20 +30413,49 @@ mod tests {
         assert_eq!(trained_state.ledger.banked_count, 2);
         assert_eq!(trained_state.ledger.spent_count, 1);
         assert_eq!(trained_state.ledger.advancement_points, 1);
-        let repeat_train_offer = trained_state
+        assert!(trained_state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "train_skill")
-            .expect("repeat train offer remains available with a spare point");
+            .all(|offer| offer.kind != "train_skill"));
+        let rest_offer = trained_state
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "rest")
+            .expect("rest offer is exposed after training");
+        assert!(rest_offer
+            .effect
+            .as_deref()
+            .is_some_and(|effect| effect.contains("train again")));
         let bond_offer = trained_state
             .action_offers
             .iter()
             .find(|offer| offer.kind == "create_bond")
             .expect("bond offer is available after the first skill step");
-        assert!(
-            bond_offer.rank < repeat_train_offer.rank,
-            "bond should outrank repeat training after the first Listening step"
+        assert!(bond_offer.rank < rest_offer.rank);
+        assert!(runtime
+            .train_skill(5000, "nimble_hands", SKILL_STEP_COST, "advancement")
+            .is_empty());
+
+        let blocked_command = runtime
+            .resolve_command(
+                &command_request(5000, "skill dexterity"),
+                &AccessContext::default(),
+            )
+            .expect("dexterity skill command resolves while trained");
+        assert_eq!(
+            blocked_command
+                .action
+                .as_ref()
+                .map(|action| action.kind.as_str()),
+            Some("train_skill")
         );
+        match blocked_command.dispatch {
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 409);
+                assert!(output.contains("Rest before training"));
+            }
+            other => panic!("duplicate train should be disabled, got {other:?}"),
+        }
 
         if let Some(actor) = runtime
             .world
@@ -30369,6 +30480,30 @@ mod tests {
         assert_eq!(roll.modifier, Some(1));
         assert_eq!(roll.total, roll.raw_roll.map(|raw| raw + 1));
 
+        let mut rest_action = CwAction::default();
+        rest_action.kind = CW_ACTION_NONE;
+        rest_action.actor_id = 5000;
+        let mut rest_record = JournalRecord::new(rest_action, 7097);
+        rest_record
+            .projection_mutations
+            .push(ProjectionMutation::ClearTag {
+                tag_id: trained_tag.clone(),
+                reason: "rest".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&rest_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "tag.cleared"
+                && event.tag_id.as_deref() == Some(trained_tag.as_str())
+        }));
+        let rested_state = runtime.state_response(Some(5000), &AccessContext::default());
+        let repeat_train_offer = rested_state
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "train_skill")
+            .expect("train offer returns after resting");
+        assert_eq!(repeat_train_offer.rank, 78);
+
         let command = runtime
             .resolve_command(
                 &command_request(5000, "skill dexterity"),
@@ -30388,7 +30523,7 @@ mod tests {
         let mut train_action = CwAction::default();
         train_action.kind = CW_ACTION_NONE;
         train_action.actor_id = 5000;
-        let mut train_record = JournalRecord::new(train_action, 7097);
+        let mut train_record = JournalRecord::new(train_action, 7098);
         train_record
             .projection_mutations
             .push(ProjectionMutation::TrainSkill {
@@ -30435,7 +30570,7 @@ mod tests {
         dexterity_check.ability = ability_from_string("dexterity");
         dexterity_check.dc = 99;
         let (status, events) =
-            runtime.apply_journal_record(&JournalRecord::new(dexterity_check, 7098));
+            runtime.apply_journal_record(&JournalRecord::new(dexterity_check, 7099));
         assert_eq!(status, CW_OK);
         let roll = events
             .iter()
@@ -32312,7 +32447,7 @@ mod tests {
         runtime.world.actors[..actor_count]
             .iter_mut()
             .find(|actor| actor.id == 1004)
-            .expect("Moonlit Echo exists")
+            .expect("Coach Moonshadow exists")
             .damage = 3;
         let wounded_quieted = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(wounded_quieted
@@ -32321,7 +32456,7 @@ mod tests {
             .iter()
             .any(|option| option.kind == "use_item"));
 
-        for command in ["attack Moonlit Echo", "defend", "flee"] {
+        for command in ["attack Coach Moonshadow", "defend", "flee"] {
             let resolved = runtime
                 .resolve_command(&command_request(5000, command), &AccessContext::default())
                 .expect("combat command still resolves to a disabled action");
@@ -32477,7 +32612,7 @@ mod tests {
             .iter()
             .take(runtime.world.actor_count)
             .find(|actor| actor.id == MOONLIT_ECHO_ACTOR_ID)
-            .expect("Moonlit Echo exists");
+            .expect("Coach Moonshadow exists");
         assert_eq!(echo.status, CW_ACTOR_ACTIVE);
         assert_eq!(echo.damage, 0);
 
@@ -32816,15 +32951,18 @@ mod tests {
         .0;
         assert!(response.ok);
         assert_eq!(response.status, CW_OK);
-        assert!(response.events.iter().any(|event| {
-            event.type_name == "bond.deepened"
-                && event.actor_id == Some(5000)
-                && event.target_actor_id == Some(1001)
-        }));
         assert!(response
             .events
             .iter()
-            .any(|event| event.type_name == "ledger.marked"));
+            .any(|event| event.type_name == "message.created" && event.actor_id == Some(5000)));
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "message.created" && event.actor_id == Some(1001)));
+        assert!(!response
+            .events
+            .iter()
+            .any(|event| event.type_name == "bond.deepened"));
 
         let conn = open_event_store(&path).expect("open event store");
         let row = conn
@@ -32877,12 +33015,9 @@ mod tests {
         {
             let runtime = state.inner.lock().await;
             let chat_state = runtime.state_response(Some(5000), &AccessContext::default());
-            assert_eq!(chat_state.bonds.len(), 1);
-            assert_eq!(chat_state.bonds[0].target_actor_id, 1001);
-            assert_eq!(chat_state.bonds[0].strength, 1);
-            assert_eq!(chat_state.chat_bond_claimed_target_ids, vec![1001]);
-            assert_eq!(chat_state.ledger.unbanked_count, 2);
-            assert!(chat_state
+            assert!(chat_state.bonds.is_empty());
+            assert!(chat_state.chat_bond_claimed_target_ids.is_empty());
+            assert!(!chat_state
                 .ledger
                 .unbanked_marks
                 .iter()
@@ -32897,12 +33032,12 @@ mod tests {
                 .iter()
                 .find(|offer| offer.kind == "chat")
                 .expect("chat offer remains available after first chat");
-            assert_ne!(
+            assert_eq!(
                 chat_offer.target.as_ref().and_then(|target| target.id),
                 Some(1001)
             );
             assert!(chat_offer.effect.is_some());
-            assert!(chat_offer.claim_key.is_some());
+            assert!(chat_offer.claim_key.is_none());
         }
 
         tokio::time::sleep(Duration::from_millis(20)).await;
@@ -33016,7 +33151,7 @@ mod tests {
             Some("/assets/generated/cards/cosy-skull.webp")
         );
 
-        let echo = card_for_actor(1004, "Moonlit Echo", "Sparring Reflection", "", 1);
+        let echo = card_for_actor(1004, "Coach Moonshadow", "Sparring Reflection", "", 1);
         assert_eq!(echo.asset_status, "generated_art");
         assert_eq!(
             echo.image_url.as_deref(),
@@ -33677,11 +33812,8 @@ mod tests {
         assert!(chat_offer
             .effect
             .as_deref()
-            .is_some_and(|effect| effect.contains("first chat deepens Bond")));
-        assert!(chat_offer
-            .claim_key
-            .as_deref()
-            .is_some_and(|claim_key| claim_key.starts_with("bond_chat:5000:")));
+            .is_some_and(|effect| effect.contains("reply hook")));
+        assert!(chat_offer.claim_key.is_none());
         let move_offer = state
             .action_offers
             .iter()
@@ -33689,27 +33821,9 @@ mod tests {
             .expect("move offer is exposed");
         assert_eq!(move_offer.category, "travel");
         assert!(
-            chat_offer.rank < move_offer.rank,
-            "fresh chat payoff should stay ahead of travel"
+            move_offer.rank < chat_offer.rank,
+            "chat should not outrank concrete room travel without a bond payoff"
         );
-        let actor_location = runtime
-            .actor_by_id(5000)
-            .map(|actor| actor.location_id)
-            .expect("test actor exists");
-        let active_targets: Vec<u64> = runtime.world.actors[..runtime.world.actor_count]
-            .iter()
-            .filter(|target| {
-                target.kind == CW_ACTOR_NPC
-                    && target.status == CW_ACTOR_ACTIVE
-                    && target.location_id == actor_location
-            })
-            .map(|target| target.id)
-            .collect();
-        for target_id in active_targets {
-            runtime
-                .rpg_claims
-                .insert(chat_bond_claim_key(5000, target_id));
-        }
         let spent_chat_state = runtime.state_response(Some(5000), &AccessContext::default());
         let spent_chat_offer = spent_chat_state
             .action_offers
@@ -33723,9 +33837,9 @@ mod tests {
             .expect("move remains available after first-chat payoffs are spent");
         assert!(
             spent_move_offer.rank < spent_chat_offer.rank,
-            "claimed repeat chat should fall behind travel"
+            "chat should stay behind travel without a bond payoff"
         );
-        assert!(spent_chat_offer.effect.is_none());
+        assert!(spent_chat_offer.effect.is_some());
         assert!(spent_chat_offer.claim_key.is_none());
 
         let inspector = state.inspector;
@@ -33933,7 +34047,7 @@ mod tests {
         assert!(trail
             .actors
             .iter()
-            .any(|actor| actor.id == 1004 && actor.name == "Moonlit Echo"));
+            .any(|actor| actor.id == 1004 && actor.name == "Coach Moonshadow"));
         assert_eq!(trail.cards.actors[&1004].role, "encounter");
         assert!(trail
             .primary_action
@@ -33960,7 +34074,7 @@ mod tests {
         runtime.world.actors[..actor_count]
             .iter_mut()
             .find(|actor| actor.id == 1004)
-            .expect("Moonlit Echo exists")
+            .expect("Coach Moonshadow exists")
             .damage = 6;
         let trail_with_wounded_echo = runtime.state_response(Some(5000), &access);
         assert!(!trail_with_wounded_echo
@@ -34130,7 +34244,7 @@ mod tests {
             .actors
             .iter_mut()
             .find(|actor| actor.id == 1004)
-            .expect("Moonlit Echo exists");
+            .expect("Coach Moonshadow exists");
         echo.status = CW_ACTOR_KNOCKED_OUT;
         echo.damage = echo.stats.hp_base;
 
@@ -34507,7 +34621,7 @@ mod tests {
         }
         runtime
             .prepare_resident_local_memories(MOUSE_WANDERER_ACTOR_ID)
-            .expect("Wrongturn Mouse observes the arranged keepsake trade");
+            .expect("Septimus Wrongturn observes the arranged keepsake trade");
 
         let map_scrap = runtime
             .item_by_id(THREADBARE_MAP_SCRAP_ITEM_ID)
@@ -34522,7 +34636,7 @@ mod tests {
             .actors
             .iter()
             .find(|actor| actor.id == MOUSE_WANDERER_ACTOR_ID)
-            .expect("Wrongturn Mouse is visible");
+            .expect("Septimus Wrongturn is visible");
         let economy = mouse
             .resident_economy
             .as_ref()
@@ -34539,7 +34653,7 @@ mod tests {
         assert_eq!(sought_map.holder_actor_id, Some(5000));
         assert!(sought_map
             .reason
-            .contains("Wrongturn Mouse wants Threadbare Map Scrap"));
+            .contains("Septimus Wrongturn wants Threadbare Map Scrap"));
         assert!(sought_map.reason.contains("wrong turn"));
         let stance = economy
             .trade_stance
@@ -34581,7 +34695,7 @@ mod tests {
             .find(|event| event.type_name == "item.traded")
             .and_then(|event| event.content.as_deref())
             .expect("keepsake trade event");
-        assert!(trade_content.contains("Wrongturn Mouse wanted Threadbare Map Scrap"));
+        assert!(trade_content.contains("Septimus Wrongturn wanted Threadbare Map Scrap"));
         assert!(runtime.world.items[..runtime.world.item_count]
             .iter()
             .any(|item| {
@@ -34624,7 +34738,7 @@ mod tests {
 
         let mouse = runtime
             .actor_by_id(STEAMPUNK_MOUSE_ACTOR_ID)
-            .expect("Cogwhisker Mouse exists");
+            .expect("Doctor Cogwhisker exists");
         assert!(runtime
             .resident_desired_item_ids(mouse)
             .contains(&DEWBRIGHT_BUTTON_ITEM_ID));
@@ -34642,7 +34756,7 @@ mod tests {
 
         let mouse = runtime
             .prepare_resident_local_memories(STEAMPUNK_MOUSE_ACTOR_ID)
-            .expect("Cogwhisker Mouse observes the courier");
+            .expect("Doctor Cogwhisker observes the courier");
         let economy = runtime
             .resident_economy_view(mouse, Some(5000))
             .expect("resident economy view");
@@ -34703,13 +34817,13 @@ mod tests {
 
         runtime
             .prepare_resident_local_memories(STEAMPUNK_MOUSE_ACTOR_ID)
-            .expect("Cogwhisker Mouse observes the trade item");
+            .expect("Doctor Cogwhisker observes the trade item");
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         let mouse = state
             .actors
             .iter()
             .find(|actor| actor.id == STEAMPUNK_MOUSE_ACTOR_ID)
-            .expect("Cogwhisker Mouse is visible");
+            .expect("Doctor Cogwhisker is visible");
         let trade_offer = mouse
             .resident_economy
             .as_ref()
@@ -34727,7 +34841,7 @@ mod tests {
             .is_some_and(|effect| effect.contains("tiny rain engine")));
         let mouse_actor = runtime
             .actor_by_id(STEAMPUNK_MOUSE_ACTOR_ID)
-            .expect("Cogwhisker Mouse exists");
+            .expect("Doctor Cogwhisker exists");
         let economy_note = runtime.resident_economy_prompt_note(mouse_actor, Some(5000));
         assert!(economy_note.contains("trade: eager"));
         assert!(economy_note.contains("Button Trader offers Dewbright Button for Story Button"));
@@ -36840,7 +36954,7 @@ mod tests {
             })
             .expect("keepsake pickup event");
         let pickup_content = pickup.content.as_deref().expect("keepsake pickup content");
-        assert!(pickup_content.contains("Inkdusk Squirrel wants Threadbare Map Scrap back"));
+        assert!(pickup_content.contains("Professor Inkdusk wants Threadbare Map Scrap back"));
         assert!(pickup_content.contains("mended cloth"));
     }
 
@@ -38955,7 +39069,7 @@ mod tests {
             .contains(&STORY_BUTTON_ITEM_ID));
         let bear = runtime
             .prepare_resident_local_memories(WOODLAND_BEAR_ACTOR_ID)
-            .expect("Mossmantle Bear observes Fourvoice Oak's want");
+            .expect("Hob Mossmantle observes Fourvoice Oak's want");
         let desire = runtime
             .resident_actor_wants_item_memory(
                 WOODLAND_BEAR_ACTOR_ID,
@@ -38998,7 +39112,7 @@ mod tests {
         assert_eq!(
             gift_event.content.as_deref(),
             Some(
-                "Mossmantle Bear gave Story Button to Fourvoice Oak; Fourvoice Oak could use Story Button with Hollow Voice."
+                "Hob Mossmantle gave Story Button to Fourvoice Oak; Fourvoice Oak could use Story Button with Hollow Voice."
             )
         );
         assert!(runtime.world.items[..runtime.world.item_count]
@@ -39027,7 +39141,7 @@ mod tests {
             .actors
             .iter_mut()
             .find(|actor| actor.id == WOODLAND_BEAR_ACTOR_ID)
-            .expect("Mossmantle Bear exists")
+            .expect("Hob Mossmantle exists")
             .location_id = COSY_COTTAGE_LOCATION_ID;
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == HEARTH_TONIC_ITEM_ID {
@@ -39092,7 +39206,7 @@ mod tests {
             .actors
             .iter_mut()
             .find(|actor| actor.id == WOODLAND_BEAR_ACTOR_ID)
-            .expect("Mossmantle Bear exists")
+            .expect("Hob Mossmantle exists")
             .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == HEARTH_TONIC_ITEM_ID {
@@ -39123,7 +39237,7 @@ mod tests {
 
         let bear = runtime
             .actor_by_id(WOODLAND_BEAR_ACTOR_ID)
-            .expect("Mossmantle Bear exists");
+            .expect("Hob Mossmantle exists");
         let delivery = runtime
             .resident_delivery_candidate(bear)
             .expect("Bear can carry Hearth Tonic back toward Rati");
@@ -39164,7 +39278,7 @@ mod tests {
             .actors
             .iter_mut()
             .find(|actor| actor.id == WOODLAND_BEAR_ACTOR_ID)
-            .expect("Mossmantle Bear exists")
+            .expect("Hob Mossmantle exists")
             .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
@@ -39194,7 +39308,7 @@ mod tests {
 
         let bear = runtime
             .actor_by_id(WOODLAND_BEAR_ACTOR_ID)
-            .expect("Mossmantle Bear exists");
+            .expect("Hob Mossmantle exists");
         let delivery = runtime
             .resident_delivery_candidate(bear)
             .expect("Bear can carry Story Button toward Old Oak");
@@ -39212,7 +39326,7 @@ mod tests {
 
         let bear = runtime
             .actor_by_id(WOODLAND_BEAR_ACTOR_ID)
-            .expect("Mossmantle Bear arrives");
+            .expect("Hob Mossmantle arrives");
         let gift = runtime
             .resident_economy_autonomy_action(bear)
             .expect("resident gives after reaching remembered non-track want");

@@ -91,10 +91,10 @@
   },
   {
     "id": 1004,
-    "name": "Moonlit Echo",
+    "name": "Coach Moonshadow",
     "speech_mode": "silent",
     "title": "Sparring Reflection",
-    "description": "A soft practice shape on the trail, bright enough to test courage.",
+    "description": "A moonlit practice-double who treats every dodge like homework and every bruise like a tiny silver trophy.",
     "location_id": 3,
     "stats": {
       "strength": 10,
@@ -139,10 +139,10 @@
   },
   {
     "id": 1040,
-    "name": "Emberwatch Wolf",
+    "name": "Sir Coalbite",
     "speech_mode": "emote_only",
     "title": "Red-Eyed Night Warden",
-    "description": "A dark wolf who keeps the Haunted Mansion threshold warm by watching every unlit path, counting each safe arrival like a coal laid on a fire.",
+    "description": "A coal-eyed mansion warden who counts safe arrivals under his breath and saves every growl for the path that truly deserves it.",
     "location_id": 42,
     "attachments": [
       {
@@ -163,10 +163,10 @@
   },
   {
     "id": 1041,
-    "name": "Fernwhisper Dryad",
+    "name": "Ophelia Fernwhisper",
     "speech_mode": "prose",
     "title": "Keeper of the First Promise",
-    "description": "A leaf-haired spirit who remembers the first promise made under the Flower Meadow boughs and hums it softly near anyone about to break one.",
+    "description": "A leaf-haired vow-keeper who remembers the first promise made under the meadow boughs and hums beside anyone about to break one.",
     "location_id": 44,
     "desires": [
       {
@@ -187,10 +187,10 @@
   },
   {
     "id": 1042,
-    "name": "Mossmantle Bear",
+    "name": "Hob Mossmantle",
     "speech_mode": "prose",
-    "title": "Keeper of the Moss Path",
-    "description": "A broad-shouldered forest neighbor with moss on one shoulder from standing still so long, helping travelers past the roots that trip and toward the ones that hold doors open.",
+    "title": "Gentle Giant of the Root-Road",
+    "description": "A broad-shouldered forest neighbor with moss on one shoulder and an unnerving talent for knowing which roots are doors.",
     "location_id": 40,
     "desires": [
       {
@@ -211,10 +211,10 @@
   },
   {
     "id": 1043,
-    "name": "Sunfleck Squirrel",
+    "name": "Dottie Sunfleck",
     "speech_mode": "prose",
     "title": "Acorn-Bright Courier",
-    "description": "A quick meadow courier with a sunlit tail who delivers messages slightly faster than she can keep their secrets.",
+    "description": "A sun-tailed courier who delivers messages faster than she can keep their secrets and apologizes to every acorn she startles.",
     "location_id": 44,
     "desires": [
       {
@@ -235,10 +235,10 @@
   },
   {
     "id": 1044,
-    "name": "Inkdusk Squirrel",
+    "name": "Professor Inkdusk",
     "speech_mode": "prose",
     "title": "Dusk Nut Archivist",
-    "description": "A blue-furred archivist who hides tiny records in the Lost Woods where only moonlight can read them, filing every dusk under a different name.",
+    "description": "A blue-furred archivist who files moonlit secrets inside hollow acorns and insists every dusk has a different legal name.",
     "location_id": 41,
     "attachments": [
       {
@@ -247,7 +247,7 @@
       },
       {
         "item_id": 2008,
-        "reason": "the mended cloth remembers the dusk path Inkdusk Squirrel promised not to sell"
+        "reason": "the mended cloth remembers the dusk path Professor Inkdusk promised not to sell"
       }
     ],
     "stats": {
@@ -263,10 +263,10 @@
   },
   {
     "id": 1045,
-    "name": "Paintpaw Badger",
+    "name": "Pippa Paintpaw",
     "speech_mode": "prose",
     "title": "Brave Little Burrower",
-    "description": "A young badger with paint on their paws and more courage than their worried elders prefer, who signs every new tunnel like a masterpiece.",
+    "description": "A young badger with painty paws, terrible tunnel etiquette, and enough courage to sign every new cave wall like a masterpiece.",
     "location_id": 41,
     "desires": [
       {
@@ -287,10 +287,10 @@
   },
   {
     "id": 1046,
-    "name": "Inkwool Llama",
+    "name": "Dame Theodora Inkwool",
     "speech_mode": "prose",
     "title": "Abbey Bookkeeper",
-    "description": "A bespectacled scholar balancing old folios, warm tea, and a private theory about talking trees that she is almost brave enough to publish.",
+    "description": "A bespectacled abbey scholar balancing old folios, warm tea, and a theory about talking trees she is almost brave enough to publish.",
     "location_id": 43,
     "desires": [
       {
@@ -311,10 +311,10 @@
   },
   {
     "id": 1047,
-    "name": "Lanternpage Mouse",
+    "name": "Peregrine Lanternpage",
     "speech_mode": "prose",
     "title": "Orange-Cloak Listener",
-    "description": "A small reader who carries a book like a lantern and always notices the page everyone else skipped.",
+    "description": "A small cloaked reader who carries a book like a lantern and always notices the page everyone else skipped.",
     "location_id": 43,
     "desires": [
       {
@@ -339,10 +339,10 @@
   },
   {
     "id": 1048,
-    "name": "Fernmargin Rabbit",
+    "name": "Marginalia Fern",
     "speech_mode": "prose",
     "title": "Fernside Copyist",
-    "description": "A careful rabbit who copies forest laws into margins full of corrections and wildflower sketches, quietly convinced the sketches are the real law.",
+    "description": "A careful rabbit who copies forest laws into margins crowded with corrections and wildflower sketches, then quietly follows the sketches.",
     "location_id": 43,
     "desires": [
       {
@@ -369,10 +369,10 @@
   },
   {
     "id": 1049,
-    "name": "Wrongturn Mouse",
+    "name": "Septimus Wrongturn",
     "speech_mode": "prose",
     "title": "Red-Cloak Wayfarer",
-    "description": "A staff-carrying mouse who walks the Lost Woods as if every wrong turn has something kind to teach, and keeps a fond list of his favorite mistakes.",
+    "description": "A staff-carrying mouse who treats wrong turns as unpaid tutors and keeps a fond, alphabetized list of his favorite mistakes.",
     "location_id": 41,
     "desires": [
       {
@@ -397,10 +397,10 @@
   },
   {
     "id": 1050,
-    "name": "Keyclover Rabbit",
+    "name": "Basil Keyclover",
     "speech_mode": "prose",
     "title": "Keyhole Gardener",
-    "description": "A rabbit in the deep garden who tends locked gates, stubborn reeds, and secret vegetable beds, certain that every lock is a flower that has not decided to open yet.",
+    "description": "A garden locksmith who tends stubborn reeds, secret vegetables, and locks he believes are flowers that have not decided to open.",
     "location_id": 44,
     "desires": [
       {
@@ -427,15 +427,15 @@
   },
   {
     "id": 1051,
-    "name": "Halfsong Ghost",
-    "speech_mode": "silent",
-    "title": "Green Veil Remnant",
-    "description": "A moss-veiled presence who drifts through the Haunted Mansion carrying the shape of an unfinished song, waiting for someone brave enough to hum the other half.",
+    "name": "Madame Euphemie",
+    "speech_mode": "prose",
+    "title": "Green Veil Creole Oracle",
+    "description": "A moss-veiled mansion ghost who speaks only in fragmentary Haitian Creole and old French lullabies, turning every answer into a half-remembered warning.",
     "location_id": 42,
     "attachments": [
       {
         "item_id": 2005,
-        "reason": "the tucked tale keeps an unfinished song from fading"
+        "reason": "the tucked tale keeps Madame Euphemie's half-song from fading"
       }
     ],
     "stats": {
@@ -451,15 +451,15 @@
   },
   {
     "id": 1052,
-    "name": "Softgrowl Pup",
+    "name": "Nightmare",
     "speech_mode": "prose",
-    "title": "Grey Paw Apprentice",
-    "description": "A small wolf pup learning which shadows are dangerous and which are only embarrassed to be seen, practicing his growl on the polite ones first.",
+    "title": "Grey Paw Bad Dream",
+    "description": "A small grey shadow with bright puppy eyes who practices being terrifying, then gets embarrassed when anyone compliments the effort.",
     "location_id": 41,
     "desires": [
       {
         "item_id": 2007,
-        "reason": "the silent bell is a practice warning for shadows that only pretend"
+        "reason": "the silent bell is a practice warning for a small nightmare still learning which shadows are real"
       }
     ],
     "stats": {
@@ -475,10 +475,10 @@
   },
   {
     "id": 1053,
-    "name": "Pearlcoat Ferret",
+    "name": "Eliza Whiskers",
     "speech_mode": "prose",
-    "title": "Soft-Spoken Envoy",
-    "description": "A soft-spoken noble with bright eyes, careful manners, and a surprisingly practical map of the roots folded inside one glove.",
+    "title": "Victorian Art Critic Weasel",
+    "description": "A sharp-eyed Victorian weasel critic with pearl manners, poisonous taste, and a pocket map of the roots she pretends not to admire.",
     "location_id": 40,
     "desires": [
       {
@@ -499,10 +499,10 @@
   },
   {
     "id": 1054,
-    "name": "Mirrorwing Stranger",
+    "name": "Aster Mirrorwing",
     "speech_mode": "prose",
-    "title": "Indigo Rift Walker",
-    "description": "A luminous stranger whose wings look less like feathers than weather seen through a cracked mirror, and who apologizes to doorways before stepping through.",
+    "title": "Indigo Rift Gentleman",
+    "description": "A luminous stranger whose wings look like cracked weather-glass and who apologizes to every doorway before making it impossible.",
     "location_id": 42,
     "desires": [
       {
@@ -523,10 +523,10 @@
   },
   {
     "id": 1055,
-    "name": "Sunletter Herald",
+    "name": "Jophiel",
     "speech_mode": "prose",
-    "title": "Reader of Addressed Omens",
-    "description": "A golden-winged visitor from the high weather who treats every omen like a letter addressed by name and takes it personally when one goes unopened.",
+    "title": "The Jock Angel",
+    "description": "A golden-winged athlete of the high weather who treats omens like locker-room challenges and takes it personally when one goes unopened.",
     "location_id": 30,
     "desires": [
       {
@@ -547,10 +547,10 @@
   },
   {
     "id": 1056,
-    "name": "Stormfeather Pilgrim",
+    "name": "Chamuel",
     "speech_mode": "prose",
-    "title": "Cloud-Quiet Pilgrim",
-    "description": "A grey-winged pilgrim resting above the tree line with storm-light still caught in his feathers, saving one thunderclap for a true emergency.",
+    "title": "Nerdy Angel Page of Lord Samael",
+    "description": "A slender, bookish young-adult angel with storm-light in his feathers, serving Lord Samael with footnotes, anxious loyalty, and one saved thunderclap.",
     "location_id": 31,
     "attachments": [
       {
@@ -571,10 +571,10 @@
   },
   {
     "id": 1057,
-    "name": "Noonwing Witness",
+    "name": "Cassiel Clatterwing",
     "speech_mode": "prose",
     "title": "Loud-Landing Lookout",
-    "description": "A bright-winged witness who sees every path from above and has never once remembered to land quietly.",
+    "description": "A bright-winged lookout who sees every path from above and has never once remembered to land quietly, despite owning several apology bells.",
     "location_id": 30,
     "desires": [
       {
@@ -595,10 +595,10 @@
   },
   {
     "id": 1058,
-    "name": "Sparecup Host",
+    "name": "Bastian Sparecup",
     "speech_mode": "prose",
     "title": "Hearthside Cupbearer",
-    "description": "A warm tavern helper who can turn a spare cup, a tired smile, and one overheard rumor into hospitality before the kettle finishes singing.",
+    "description": "A tavern-hearted host who can turn a spare cup, a tired smile, and one overheard rumor into hospitality before the kettle finishes singing.",
     "location_id": 40,
     "desires": [
       {
@@ -619,15 +619,15 @@
   },
   {
     "id": 1059,
-    "name": "Moonvow Guardian",
+    "name": "Lord Samael",
     "speech_mode": "prose",
-    "title": "Moon-Circle Guardian",
-    "description": "A gold-armored guardian with wings like vows and a habit of standing between fear and the door, who polishes his armor only where the moon can see it.",
-    "location_id": 35,
+    "title": "First Angel of the Solar Temple",
+    "description": "A gold-armored angel-lord with wings like law, first of the Solar Temple host, who stands between fear and the door as if judgment were a courtesy.",
+    "location_id": 36,
     "attachments": [
       {
         "item_id": 2006,
-        "reason": "the warm tag reads like a vow small enough to defend"
+        "reason": "the warm tag reads like a vow small enough for Lord Samael to defend"
       }
     ],
     "stats": {
@@ -643,10 +643,10 @@
   },
   {
     "id": 1060,
-    "name": "Glitchstripe Tiger",
+    "name": "Moxie Glitchstripe",
     "speech_mode": "prose",
     "title": "Bright-Stripe Glitchcat",
-    "description": "A color-slashed tiger from the Digital Realm, all teeth, swagger, and improbable kindness, whose purr runs at a frequency that fixes small machines.",
+    "description": "A color-slashed showoff from the Digital Realm, all teeth, swagger, and improbable kindness, whose purr runs at a frequency that fixes small machines.",
     "location_id": 63,
     "desires": [
       {
@@ -667,10 +667,10 @@
   },
   {
     "id": 1061,
-    "name": "Cogwhisker Mouse",
+    "name": "Doctor Cogwhisker",
     "speech_mode": "prose",
     "title": "Brass-Key Tinker",
-    "description": "A goggle-wearing mouse whose pockets click with tiny inventions, borrowed keys, and half-finished plans, every one of them labeled almost.",
+    "description": "A goggle-wearing inventor whose pockets click with tiny engines, borrowed keys, and half-finished plans, every one of them labeled almost.",
     "location_id": 40,
     "desires": [
       {
@@ -691,15 +691,15 @@
   },
   {
     "id": 1062,
-    "name": "Cinderhush Omen",
-    "speech_mode": "emote_only",
-    "title": "Ash-Cloak Watcher",
-    "description": "A red-black figure who appears where the forest has swallowed a warning and left only heat behind, gathering up the hush that follows.",
+    "name": "Raziel",
+    "speech_mode": "prose",
+    "title": "Angel of Lust",
+    "description": "A red-winged angel of appetite and dangerous tenderness, gathering every forbidden want into a smile sharp enough to light the dark.",
     "location_id": 42,
     "desires": [
       {
         "item_id": 2007,
-        "reason": "the silent bell can warn without feeding the ash"
+        "reason": "the silent bell can ring desire without waking the whole dark"
       }
     ],
     "stats": {
@@ -715,10 +715,10 @@
   },
   {
     "id": 1063,
-    "name": "Grudgeshell Beetle",
+    "name": "Sir Grudge-Shell",
     "speech_mode": "emote_only",
-    "title": "Chitinous Black Knight",
-    "description": "A towering beetle-armored creature whose violet shell reflects old swamp grudges, and who forgets exactly one grudge every time someone is polite.",
+    "title": "Black Knight of Old Grudges",
+    "description": "A towering beetle-armored knight whose violet shell reflects old swamp grudges and who forgets exactly one slight whenever someone is polite.",
     "location_id": 60,
     "attachments": [
       {
@@ -739,10 +739,10 @@
   },
   {
     "id": 1064,
-    "name": "Vowbright Angel",
+    "name": "Seraphina Vowbright",
     "speech_mode": "prose",
-    "title": "Solar Witness",
-    "description": "A gold-winged temple angel whose bell-voice reveals what was hidden and tests whether mercy survives the light.",
+    "title": "Bell-Voice of Mercy",
+    "description": "A gold-winged temple seraph whose bell-voice reveals what was hidden and tests whether mercy can survive full daylight.",
     "location_id": 36,
     "desires": [
       {
@@ -763,10 +763,10 @@
   },
   {
     "id": 1065,
-    "name": "Pearl-Deep Listener",
+    "name": "Nerissa Pearl-Deep",
     "speech_mode": "prose",
     "title": "Keeper of Pressured Memories",
-    "description": "A lantern-eyed resident of the deepest trench who keeps memories under pressure until they are strong enough to surface.",
+    "description": "A lantern-eyed deep-sea archivist who keeps memories under pressure until they grow strong enough to surface.",
     "location_id": 64,
     "attachments": [
       {

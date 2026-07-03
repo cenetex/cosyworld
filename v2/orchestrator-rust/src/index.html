@@ -1835,6 +1835,23 @@
     const avatarGateVersion = "2";
     const walletRequestTimeoutMs = 20000;
     const presenceHeartbeatMs = 60000;
+    const authoredCallingChoices = [
+      {
+        label: "small truths",
+        detail: "help where I can",
+        statement: "I listen for small truths and help where I can.",
+      },
+      {
+        label: "lost things",
+        detail: "what they need",
+        statement: "I listen for what lost things still need.",
+      },
+      {
+        label: "shy rooms",
+        detail: "what they say",
+        statement: "I listen for what shy rooms are trying to say.",
+      },
+    ];
     const actionCardTypes = [
       "travel",
       "chat",
@@ -1925,8 +1942,8 @@
       });
     }
 
-    async function createAvatar() {
-      const avatar = await post("/avatar", withAccess({}));
+    async function createAvatar(calling = authoredCallingChoices[0].statement) {
+      const avatar = await post("/avatar", withAccess({ calling }));
       if (!avatar.ok || !avatar.actor?.id || !avatar.actor_session) {
         throw new Error(avatarFailureMessage(avatar));
       }
@@ -2152,15 +2169,15 @@
 
     function buildActions(view) {
       if (view.primary_action?.kind === "create_avatar") {
-        return [{
-          label: "generate avatar",
-          detail: "",
+        return authoredCallingChoices.map((choice, index) => ({
+          label: choice.label,
+          detail: choice.detail,
           command: "create avatar",
-          focusKey: "create-avatar",
+          focusKey: `create-avatar:${index}`,
           card: cardForLocation(view.location?.id),
           shape: "location",
-          run: () => createAvatar(),
-        }];
+          run: () => createAvatar(choice.statement),
+        }));
       }
 
       const turn = view.turn || {};
@@ -2200,10 +2217,6 @@
       const roomFeatures = Array.isArray(view.room_features) ? view.room_features : [];
       const bonds = Array.isArray(view.bonds) ? view.bonds : [];
       const activeBondTargetIds = new Set(bonds.map((bond) => Number(bond.target_actor_id || 0)));
-      const chatBondClaimedTargetIds = new Set(
-        (Array.isArray(view.chat_bond_claimed_target_ids) ? view.chat_bond_claimed_target_ids : [])
-          .map((targetId) => Number(targetId || 0))
-      );
       const attackTargetIds = new Set(options.has("attack") ? (view.actors || [])
         .filter((actor) => actor.id !== actorId && actor.kind === "npc" && actor.status === "active")
         .map((actor) => actor.id) : []);
@@ -2371,10 +2384,8 @@
           ? Number(chatOffer.cost.orbs)
           : Number(economy.chat_cost_orbs || 0);
         const chatUsesOrbs = chatCostValue > 0;
-        const chatShowsBond = !chatBondClaimedTargetIds.has(Number(actor.id));
         const chatDetail = [
           actorLabel(actor),
-          chatShowsBond ? "bond +1" : "",
           chatUsesOrbs ? `-${chatCostValue} Orb${chatCostValue === 1 ? "" : "s"}` : "",
         ].filter(Boolean).join(", ");
         built.push({
@@ -2384,7 +2395,7 @@
           focusKey: giveTargetIds.has(actor.id) || options.has("attack") ? `talk:${actor.id}` : `actor:${actor.id}`,
           card: actorCard,
           shape: "avatar",
-          priority: chatShowsBond ? 70 : 83,
+          priority: 83,
           run: () => chatWith(actor.id),
         });
       }
@@ -3976,7 +3987,7 @@
       const dc = finiteNumber(event.dc);
       const title = event.type === "combat.attack.attempt"
         ? `Attack roll${event.target_actor_name ? ` vs ${event.target_actor_name}` : ""}`
-        : "Listen check";
+        : "Listen";
       const detailParts = [];
       if (event.actor_name) detailParts.push(event.actor_name);
       if (event.location_name) detailParts.push(event.location_name);
@@ -4581,10 +4592,10 @@
 
     function compactActionLabel(action) {
       const label = String(action?.label || "").trim().toLowerCase();
+      if (String(action?.command || "").trim().toLowerCase() === "create avatar") return "begin";
       if (label === "grow" || label === "bank") return "grow";
       if (label === "travel") return "go";
       if (label === "listen again") return "listen";
-      if (label === "generate avatar") return "begin";
       if (label === "ping") return "ping";
       if (label === "pong") return "pong";
       return label || "act";

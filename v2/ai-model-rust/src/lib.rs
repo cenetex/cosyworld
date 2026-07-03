@@ -123,6 +123,8 @@ pub fn generate_resident_reply(input: &ResidentReplyModelInput) -> String {
         1002 => "🌧️🫖✨🧶".to_string(),
         1003 => "*Skull lifts his head toward the low doorway.*".to_string(),
         1005 => "Root: I remember your footstep before you named it. Leaf: Ask softly.".to_string(),
+        1051 => "Madame Euphemie lowers her green veil. \"Pa prese. Chemen an sonje ou.\""
+            .to_string(),
         _ => "They listen carefully.".to_string(),
     }
 }

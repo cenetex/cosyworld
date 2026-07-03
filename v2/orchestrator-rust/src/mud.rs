@@ -552,7 +552,7 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "?".to_string());
             Some(format!(
-                "Listen check: {total} vs DC {dc} ({}).",
+                "Listen: {total} against {dc} ({}).",
                 if event.success { "success" } else { "failure" }
             ))
         }
@@ -1271,6 +1271,21 @@ impl RuntimeWorld {
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
                             output: format!("{label} is already master rank."),
+                        },
+                    });
+                }
+                if self.trained_since_rest_tag_active(actor.id) {
+                    return Ok(ResolvedCommand {
+                        command: format!("skill {skill_id}"),
+                        verb,
+                        action: Some(command_action(
+                            "train_skill",
+                            "Train Skill",
+                            &format!("skill {skill_id}"),
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "Rest before training another skill.".to_string(),
                         },
                     });
                 }
