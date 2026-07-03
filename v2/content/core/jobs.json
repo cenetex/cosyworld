@@ -12,7 +12,10 @@
     "progress_clock_id": "moonlit-trail.progress",
     "danger_clock_id": "moonlit-trail.danger",
     "status": "active",
-    "reward": "quieted moonlight",
+    "reward": {
+      "label": "quieted moonlight",
+      "orbs": 2
+    },
     "consequence": "echo-fractured trail",
     "memory_summary": ""
   },
@@ -31,7 +34,10 @@
     "progress_clock_id": "solar-abyss.drowned-bell",
     "danger_clock_id": "solar-abyss.schism",
     "status": "active",
-    "reward": "two-toned bell accord",
+    "reward": {
+      "label": "two-toned bell accord",
+      "orbs": 2
+    },
     "consequence": "solar-abyssal schism",
     "memory_summary": "The same bell rings differently in noon light and abyssal pressure."
   }
