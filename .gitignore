@@ -26,6 +26,7 @@ discordService.log
 # Media files
 images/*
 *.webp
+!v2/content/core/assets/generated/cards/*.webp
 attached_assets/*
 
 # Generated files
