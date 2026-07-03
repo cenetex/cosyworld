@@ -3457,10 +3457,11 @@
     function roomMemoryModel() {
       const serverMemory = state?.room_memory;
       const serverRecent = Array.isArray(serverMemory?.recent)
-        ? serverMemory.recent.map(normalizeRoomMemoryEntry).filter(Boolean)
+        ? serverMemory.recent.map(normalizeRoomMemoryEntry).filter((entry) => entry && entry.kind !== "chat")
         : [];
-      const serverLatest = normalizeRoomMemoryEntry(serverMemory?.latest) || serverRecent[serverRecent.length - 1];
-      const localEntries = logEvents.map(roomMemoryEntryForEvent).filter(Boolean);
+      const normalizedServerLatest = normalizeRoomMemoryEntry(serverMemory?.latest);
+      const serverLatest = serverRecent[serverRecent.length - 1] || (normalizedServerLatest?.kind === "chat" ? null : normalizedServerLatest);
+      const localEntries = logEvents.map(roomMemoryEntryForEvent).filter((entry) => entry && entry.kind !== "chat");
       const serverLatestSeq = Number(serverMemory?.latest_seq || serverLatest?.seq || 0);
       const newerLocalEntries = serverLatestSeq
         ? localEntries.filter((entry) => {
@@ -3509,13 +3510,7 @@
     function roomMemoryEntryForEvent(event) {
       if (!event) return null;
       if (event.type === "message.created") {
-        const speaker = event.actor_name || "CosyWorld";
-        return {
-          seq: event.seq,
-          kind: "chat",
-          label: speaker,
-          text: cleanStatusText(eventText(event)),
-        };
+        return null;
       }
       if (isRollEvent(event)) {
         const meta = rollMeta(event);
@@ -3744,7 +3739,7 @@
     function renderLog() {
       const log = $("log");
       const accountPanel = accountPanelHtml();
-      const visibleEvents = logEvents.filter((event) => !eventIsLowSignalStatus(event));
+      const visibleEvents = logEvents.filter(eventIsChatTranscriptEvent);
       log.classList.toggle("account-mode", Boolean(accountPanel));
       log.classList.toggle("chat-mode", !accountPanel && visibleEvents.length > 0);
       if (accountPanel) {
@@ -3760,6 +3755,10 @@
       }
       log.innerHTML = visibleEvents.map(timelineEventHtml).join("");
       log.scrollTop = log.scrollHeight;
+    }
+
+    function eventIsChatTranscriptEvent(event) {
+      return event?.type === "message.created";
     }
 
     function accountPanelHtml() {

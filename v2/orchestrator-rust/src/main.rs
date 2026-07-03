@@ -20889,86 +20889,171 @@ fn room_memory_view_for_state(
     events: &[EventView],
 ) -> RoomMemoryView {
     let mut view = fallback_room_memory_view(location, events);
-    let latest_seq = view.latest_seq.unwrap_or(0);
-    if latest_seq == 0 {
-        return view;
-    }
     let day_index = current_room_memory_day_index();
     let prior_chapters = load_room_memory_prior_chapters_for_state(state, location.id, day_index);
-    if let Ok(cache) = state.room_memory_cache.lock() {
-        if let Some(cached) = cache.get(&location.id) {
-            if cached.latest_seq == latest_seq && cached.day_index == day_index {
-                view.summary = cached.summary.clone();
-                view.source = cached.source.clone();
-                if cached.source != "llm" {
-                    schedule_room_memory_summary(
-                        state,
-                        location.clone(),
-                        day_index,
-                        latest_seq,
-                        cached.prior_chapters.clone(),
-                        view.recent.clone(),
-                    );
-                }
-                return view;
-            }
-        }
+    let current_chapter = load_current_room_memory_chapter_for_state(state, location.id, day_index);
+    if let Some(chapter) = current_chapter.as_ref() {
+        view.summary = chapter.summary.clone();
+        view.source = chapter.source.clone();
+    } else {
+        view.summary = room_atmosphere_sentence(location);
+        view.source = "fallback".to_string();
     }
 
-    if let Some(path) = state.event_store_path.as_deref() {
-        match load_room_memory_chapter(path, location.id, day_index) {
-            Ok(Some(chapter)) if chapter.latest_seq == latest_seq => {
-                view.summary = chapter.summary;
-                view.source = chapter.source;
-                cache_room_memory_summary(
+    let Some(latest_listen_seq) = latest_room_memory_listen_seq(events, location.id) else {
+        return view;
+    };
+    if current_chapter
+        .as_ref()
+        .is_some_and(|chapter| chapter.latest_seq > latest_listen_seq)
+    {
+        return view;
+    }
+
+    let (summary_after_seq, prompt_chapters) =
+        room_memory_prompt_chapters(prior_chapters, current_chapter.as_ref(), latest_listen_seq);
+    let summary_entries = room_memory_summary_entries_since(
+        state,
+        location.id,
+        events,
+        summary_after_seq,
+        latest_listen_seq,
+    );
+
+    if let Some(chapter) = current_chapter.as_ref() {
+        if chapter.latest_seq == latest_listen_seq {
+            if chapter.source != "llm" {
+                schedule_room_memory_summary(
                     state,
-                    location.id,
+                    location.clone(),
                     day_index,
-                    latest_seq,
-                    &view.summary,
-                    &view.source,
-                    prior_chapters.clone(),
+                    latest_listen_seq,
+                    prompt_chapters,
+                    summary_entries,
                 );
-                if view.source != "llm" {
-                    schedule_room_memory_summary(
-                        state,
-                        location.clone(),
-                        day_index,
-                        latest_seq,
-                        prior_chapters,
-                        view.recent.clone(),
-                    );
-                }
-                return view;
             }
-            Ok(_) => {}
-            Err(error) => warn!(
-                "failed to load current room memory chapter for location {} day {}: {}",
-                location.id, day_index, error
-            ),
+            return view;
         }
     }
 
-    view.summary = fallback_room_memory_summary(location, &view.recent, &prior_chapters);
+    view.summary = fallback_room_memory_summary(location, &summary_entries, &prompt_chapters);
     view.source = "fallback".to_string();
     cache_room_memory_summary(
         state,
         location.id,
         day_index,
-        latest_seq,
+        latest_listen_seq,
         &view.summary,
         "fallback",
-        prior_chapters.clone(),
+        prompt_chapters.clone(),
     );
     schedule_room_memory_summary(
         state,
         location.clone(),
         day_index,
-        latest_seq,
-        prior_chapters,
-        view.recent.clone(),
+        latest_listen_seq,
+        prompt_chapters,
+        summary_entries,
     );
     view
+}
+
+fn load_current_room_memory_chapter_for_state(
+    state: &AppState,
+    location_id: u64,
+    day_index: u64,
+) -> Option<RoomMemoryChapter> {
+    if let Ok(cache) = state.room_memory_cache.lock() {
+        if let Some(cached) = cache.get(&location_id) {
+            if cached.day_index == day_index {
+                return Some(RoomMemoryChapter {
+                    location_id,
+                    day_index,
+                    latest_seq: cached.latest_seq,
+                    summary: cached.summary.clone(),
+                    source: cached.source.clone(),
+                });
+            }
+        }
+    }
+    let path = state.event_store_path.as_deref()?;
+    match load_room_memory_chapter(path, location_id, day_index) {
+        Ok(chapter) => chapter,
+        Err(error) => {
+            warn!(
+                "failed to load current room memory chapter for location {} day {}: {}",
+                location_id, day_index, error
+            );
+            None
+        }
+    }
+}
+
+fn room_memory_prompt_chapters(
+    prior_chapters: Vec<RoomMemoryChapter>,
+    current_chapter: Option<&RoomMemoryChapter>,
+    latest_listen_seq: u64,
+) -> (u64, Vec<RoomMemoryChapter>) {
+    let mut chapters = prior_chapters;
+    if let Some(chapter) = current_chapter {
+        if chapter.latest_seq > 0 && chapter.latest_seq < latest_listen_seq {
+            chapters.push(chapter.clone());
+        }
+    }
+    let after_seq = chapters
+        .last()
+        .map(|chapter| chapter.latest_seq)
+        .unwrap_or(0);
+    (after_seq, chapters)
+}
+
+fn room_memory_summary_entries_since(
+    state: &AppState,
+    location_id: u64,
+    fallback_events: &[EventView],
+    after_seq: u64,
+    through_seq: u64,
+) -> Vec<RoomMemoryEntryView> {
+    if through_seq <= after_seq {
+        return Vec::new();
+    }
+    let mut events = if let Some(path) = state.event_store_path.as_deref() {
+        match read_event_store_between(path, after_seq, through_seq, MAX_EVENT_STORE_SCAN) {
+            Ok(mut events) => {
+                events.reverse();
+                events
+            }
+            Err(error) => {
+                warn!(
+                    "failed to read room memory context for location {} through event {}: {}",
+                    location_id, through_seq, error
+                );
+                fallback_events.to_vec()
+            }
+        }
+    } else {
+        fallback_events.to_vec()
+    };
+    events.retain(|event| {
+        event.seq > after_seq
+            && event.seq <= through_seq
+            && event_visible_in_location(event, location_id)
+    });
+    room_memory_summary_entries(&events)
+}
+
+fn latest_room_memory_listen_seq(events: &[EventView], location_id: u64) -> Option<u64> {
+    events
+        .iter()
+        .filter(|event| {
+            event_visible_in_location(event, location_id) && event_is_room_memory_listen(event)
+        })
+        .map(|event| event.seq)
+        .max()
+}
+
+fn event_is_room_memory_listen(event: &EventView) -> bool {
+    event.type_name == "ability_check.rolled" && event.dc == Some(LISTEN_DC as i16)
 }
 
 fn schedule_room_memory_summary(
@@ -21138,11 +21223,7 @@ fn fallback_room_memory_view(location: &LocationView, events: &[EventView]) -> R
 }
 
 fn room_memory_entries(events: &[EventView]) -> Vec<RoomMemoryEntryView> {
-    let entries = events
-        .iter()
-        .rev()
-        .filter_map(room_memory_entry_for_event)
-        .collect::<Vec<_>>();
+    let entries = room_memory_entries_chronological(events);
     if entries.len() <= 8 {
         return entries;
     }
@@ -21174,23 +21255,29 @@ fn room_memory_entries(events: &[EventView]) -> Vec<RoomMemoryEntryView> {
     mixed
 }
 
+fn room_memory_summary_entries(events: &[EventView]) -> Vec<RoomMemoryEntryView> {
+    let mut entries = room_memory_entries_chronological(events);
+    if entries.len() > 24 {
+        let excess = entries.len() - 24;
+        entries.drain(0..excess);
+    }
+    entries
+}
+
+fn room_memory_entries_chronological(events: &[EventView]) -> Vec<RoomMemoryEntryView> {
+    events
+        .iter()
+        .rev()
+        .filter_map(room_memory_entry_for_event)
+        .collect::<Vec<_>>()
+}
+
 fn room_memory_entry_for_event(event: &EventView) -> Option<RoomMemoryEntryView> {
     if matches!(
         event.type_name.as_str(),
-        "world.reset" | "world.bootstrapped" | "actor.presence"
+        "world.reset" | "world.bootstrapped" | "actor.presence" | "message.created"
     ) {
         return None;
-    }
-    if event.type_name == "message.created" {
-        return room_memory_text(event.content.as_deref()).map(|text| RoomMemoryEntryView {
-            seq: event.seq,
-            kind: "chat".to_string(),
-            label: event
-                .actor_name
-                .clone()
-                .unwrap_or_else(|| "chat".to_string()),
-            text,
-        });
     }
     let label = room_memory_label(event);
     let text = room_memory_log_text(event)?;
@@ -26703,6 +26790,45 @@ fn read_event_store(path: &Path, after: Option<u64>, limit: usize) -> io::Result
     Ok(events)
 }
 
+fn read_event_store_between(
+    path: &Path,
+    after_seq: u64,
+    through_seq: u64,
+    limit: usize,
+) -> io::Result<Vec<EventView>> {
+    if through_seq <= after_seq || limit == 0 {
+        return Ok(Vec::new());
+    }
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let limit = limit.min(MAX_EVENT_STORE_SCAN) as i64;
+    let mut stmt = conn
+        .prepare(
+            "SELECT payload_json FROM (
+                 SELECT seq, payload_json FROM world_events
+                 WHERE seq > ?1 AND seq <= ?2
+                 ORDER BY seq DESC
+                 LIMIT ?3
+             )
+             ORDER BY seq ASC",
+        )
+        .map_err(sqlite_error)?;
+    let rows = stmt
+        .query_map(
+            params![after_seq as i64, through_seq as i64, limit],
+            |row| row.get::<_, String>(0),
+        )
+        .map_err(sqlite_error)?;
+    let mut events = Vec::new();
+    for row in rows {
+        let payload = row.map_err(sqlite_error)?;
+        let event = serde_json::from_str(&payload)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        events.push(event);
+    }
+    Ok(events)
+}
+
 fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomyResponse> {
     init_event_store(path)?;
     let conn = open_event_store(path)?;
@@ -27422,6 +27548,157 @@ mod tests {
         assert!(!lowered.contains("roll"));
         assert!(!lowered.contains("advancement"));
         assert!(!lowered.contains("summary"));
+    }
+
+    #[test]
+    fn room_memory_log_entries_exclude_chat_messages() {
+        let entries = room_memory_entries(&[
+            EventView {
+                seq: 2,
+                type_name: "item.picked_up".to_string(),
+                success: true,
+                actor_name: Some("Moss Lantern".to_string()),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                item_name: Some("Dewbright Button".to_string()),
+                ..EventView::default()
+            },
+            EventView {
+                seq: 1,
+                type_name: "message.created".to_string(),
+                success: true,
+                actor_name: Some("Moss Lantern".to_string()),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                content: Some("I can look for Moonwool Thread.".to_string()),
+                ..EventView::default()
+            },
+        ]);
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].kind, "item");
+        assert!(entries[0].text.contains("Dewbright Button"));
+    }
+
+    #[test]
+    fn room_memory_summary_advances_only_when_room_is_listened_to() {
+        let runtime = RuntimeWorld::seeded();
+        let location = runtime.location_view(COSY_COTTAGE_LOCATION_ID);
+        let state = test_app_state(runtime, None);
+        let item_before_listen = EventView {
+            seq: 10,
+            type_name: "item.picked_up".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_name: Some("Dewbright Button".to_string()),
+            ..EventView::default()
+        };
+        let listen = EventView {
+            seq: 11,
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            total: Some(16),
+            dc: Some(LISTEN_DC as i16),
+            ..EventView::default()
+        };
+        let item_after_listen = EventView {
+            seq: 12,
+            type_name: "item.picked_up".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_name: Some("Moonwool Thread".to_string()),
+            ..EventView::default()
+        };
+
+        let quiet_view =
+            room_memory_view_for_state(&state, &location, &[item_before_listen.clone()]);
+        assert_eq!(quiet_view.summary, room_atmosphere_sentence(&location));
+
+        let listened_view =
+            room_memory_view_for_state(&state, &location, &[listen.clone(), item_before_listen]);
+        assert!(listened_view
+            .summary
+            .contains("Moss Lantern listens into the hush"));
+
+        let after_item_view =
+            room_memory_view_for_state(&state, &location, &[item_after_listen, listen]);
+        assert_eq!(after_item_view.summary, listened_view.summary);
+        assert!(after_item_view
+            .latest
+            .as_ref()
+            .is_some_and(|entry| entry.text.contains("Moonwool Thread")));
+    }
+
+    #[test]
+    fn room_memory_listen_uses_event_store_log_since_previous_summary() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-room-memory-since-summary-{}-{}.sqlite",
+            std::process::id(),
+            now_millis()
+        ));
+        let runtime = RuntimeWorld::seeded();
+        let location = runtime.location_view(COSY_COTTAGE_LOCATION_ID);
+        let state = test_app_state(runtime, Some(path.clone()));
+        let day_index = current_room_memory_day_index();
+        let old_item = EventView {
+            seq: 1,
+            type_name: "item.picked_up".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_name: Some("Old Button".to_string()),
+            ..EventView::default()
+        };
+        let previous_listen = EventView {
+            seq: 2,
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            total: Some(14),
+            dc: Some(LISTEN_DC as i16),
+            ..EventView::default()
+        };
+        let new_item = EventView {
+            seq: 3,
+            type_name: "item.picked_up".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_name: Some("New Charm".to_string()),
+            ..EventView::default()
+        };
+        let latest_listen = EventView {
+            seq: 4,
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            total: Some(18),
+            dc: Some(LISTEN_DC as i16),
+            ..EventView::default()
+        };
+        append_event_store(
+            &path,
+            &[old_item, previous_listen, new_item, latest_listen.clone()],
+        )
+        .expect("append room memory events");
+        upsert_room_memory_chapter(
+            &path,
+            COSY_COTTAGE_LOCATION_ID,
+            day_index,
+            2,
+            "Earlier firelight remembered the old button.",
+            "llm",
+        )
+        .expect("persist previous room memory chapter");
+
+        let view = room_memory_view_for_state(&state, &location, &[latest_listen]);
+        assert!(view.summary.contains("New Charm"));
+        assert!(!view.summary.contains("Old Button"));
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]
