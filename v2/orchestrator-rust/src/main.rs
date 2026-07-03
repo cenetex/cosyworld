@@ -6335,7 +6335,7 @@ impl RuntimeWorld {
         location_id: u64,
         item_id: u64,
         content: &str,
-        reason: &str,
+        _reason: &str,
     ) -> EventView {
         let event = EventView {
             seq: self.world.next_event_seq,
@@ -6351,7 +6351,7 @@ impl RuntimeWorld {
             destination_location_id: None,
             destination_location_name: None,
             content_id: None,
-            content: Some(format!("{content}:{reason}")),
+            content: Some(content.to_string()),
             item_id: Some(item_id),
             item_name: self.item_name(item_id),
             target_item_id: None,
@@ -26740,6 +26740,8 @@ mod tests {
         assert!(INDEX_HTML.contains("id=\"turn-ping-pill\""));
         assert!(INDEX_HTML.contains("you've been pinged - act or pass before skip"));
         assert!(INDEX_HTML.contains("turnPingRemainingLabel"));
+        assert!(INDEX_HTML.contains("resident_feature_use|resident_autonomy_intent"));
+        assert!(!INDEX_HTML.contains("data-event-row title="));
         assert!(INDEX_HTML.contains("action-mini-card"));
         assert!(INDEX_HTML
             .contains("const thumb = thumbnailHtml(action, false, \"action-mini-card\");"));
@@ -34141,6 +34143,23 @@ mod tests {
             });
         let (status, events) = runtime.apply_journal_record(&record);
         assert_eq!(status, CW_OK);
+        let feature_use_event = events
+            .iter()
+            .find(|event| {
+                event.type_name == "item.used"
+                    && event.actor_id == Some(RATI_ACTOR_ID)
+                    && event.item_id == Some(WATCH_BELL_ITEM_ID)
+            })
+            .expect("feature-use item event");
+        assert_eq!(
+            feature_use_event.content.as_deref(),
+            Some("The Watch Bell gave the doorway a remembered chime.")
+        );
+        assert!(!feature_use_event
+            .content
+            .as_deref()
+            .unwrap_or_default()
+            .contains("resident_feature_use"));
         assert!(events.iter().any(|event| {
             event.type_name == "item.used"
                 && event.actor_id == Some(RATI_ACTOR_ID)

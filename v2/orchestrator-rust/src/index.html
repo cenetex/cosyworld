@@ -3743,6 +3743,7 @@
     function cleanStatusText(value) {
       const text = String(value || "").trim();
       return text
+        .replace(/:{1,2}(resident_feature_use|resident_autonomy_intent)\b/g, "")
         .replace(/^you:\s*/i, "")
         .replace(/^You\s+/, "")
         .replace(/\s+/g, " ")
@@ -3963,7 +3964,7 @@
       const label = String(meta.label || "event").trim() || "event";
       const text = cleanStatusText(meta.text);
       const aria = `${label}: ${text}`;
-      return `<div class="line event ${escapeAttr(meta.kind)}" data-event-row title="${escapeAttr(text)}" aria-label="${escapeAttr(aria)}"><span class="event-label">${escapeHtml(label)}</span><span class="text">${escapeHtml(text)}</span></div>`;
+      return `<div class="line event ${escapeAttr(meta.kind)}" data-event-row aria-label="${escapeAttr(aria)}"><span class="event-label">${escapeHtml(label)}</span><span class="text">${escapeHtml(text)}</span></div>`;
     }
 
     function isRollEvent(event) {
