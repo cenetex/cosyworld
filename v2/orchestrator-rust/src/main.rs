@@ -468,6 +468,34 @@ struct RpgTagState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+enum JobReward {
+    Label(String),
+    Details {
+        #[serde(default)]
+        label: String,
+        #[serde(default)]
+        orbs: i32,
+    },
+}
+
+impl JobReward {
+    fn label(&self) -> &str {
+        match self {
+            JobReward::Label(label) => label,
+            JobReward::Details { label, .. } => label,
+        }
+    }
+
+    fn orbs(&self) -> i32 {
+        match self {
+            JobReward::Label(_) => 0,
+            JobReward::Details { orbs, .. } => *orbs,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct JobState {
     id: String,
     premise: String,
@@ -478,7 +506,7 @@ struct JobState {
     danger_clock_id: String,
     #[serde(default)]
     status: String,
-    reward: String,
+    reward: JobReward,
     consequence: String,
     #[serde(default)]
     memory_summary: String,
@@ -778,6 +806,7 @@ const SEED_CARDS_JSON: &str = include_str!("../../content/core/cards.json");
 const SEED_FALLBACK_LINES_JSON: &str = include_str!("../../content/core/fallback_lines.json");
 const SEED_LIFECYCLE_HOOKS_JSON: &str = include_str!("../../content/core/lifecycle_hooks.json");
 const SEED_EVOLUTION_TRACKS_JSON: &str = include_str!("../../content/core/evolution_tracks.json");
+const SEED_RECIPES_JSON: &str = include_str!("../../content/core/recipes.json");
 const LONELY_FOREST_CHARACTER_MANIFEST_JSON: &str =
     include_str!("../../content/lonely-forest/assets/characters/manifest.json");
 const LONELY_FOREST_CHARACTER_ASSET_PREFIX: &str = "/assets/lonely-forest/characters/";
@@ -801,6 +830,7 @@ struct SeedContent {
     fallback_lines: Vec<SeedFallbackLineContent>,
     lifecycle_hooks: Vec<SeedLifecycleHookContent>,
     evolution_tracks: Vec<SeedEvolutionTrack>,
+    recipes: Vec<SeedRecipeContent>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1019,7 +1049,44 @@ struct SeedFrontContent {
 #[derive(Debug, Deserialize)]
 struct SeedEvolutionTrack {
     actor_id: u64,
-    item_ids: Vec<u64>,
+    requirements: Vec<SeedEvolutionRequirementContent>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SeedEvolutionRequirementContent {
+    item_id: u64,
+    target_kind: String,
+    target_id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct SeedRecipeContent {
+    id: u64,
+    key: String,
+    name: String,
+    description: String,
+    input_item_ids: Vec<u64>,
+    output: Option<SeedRecipeOutputContent>,
+    balance: SeedRecipeBalanceContent,
+}
+
+#[derive(Debug, Deserialize)]
+struct SeedRecipeOutputContent {
+    item_id: u64,
+    name: String,
+    description: String,
+    kind: String,
+    charges: u8,
+    target_kind: String,
+    target_id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct SeedRecipeBalanceContent {
+    kind: String,
+    target_kind: String,
+    target_id: u64,
+    reason: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2335,6 +2402,13 @@ struct ItemRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct CraftRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    recipe_id: u64,
+}
+
+#[derive(Debug, Deserialize)]
 struct AttackRequest {
     actor_id: u64,
     actor_session: Option<String>,
@@ -2690,6 +2764,7 @@ fn parse_seed_content(manifest_json: &str) -> Result<SeedContent, String> {
         fallback_lines: parse_seed_json("fallback_lines.json", SEED_FALLBACK_LINES_JSON)?,
         lifecycle_hooks: parse_seed_json("lifecycle_hooks.json", SEED_LIFECYCLE_HOOKS_JSON)?,
         evolution_tracks: parse_seed_json("evolution_tracks.json", SEED_EVOLUTION_TRACKS_JSON)?,
+        recipes: parse_seed_json("recipes.json", SEED_RECIPES_JSON)?,
     };
     validate_seed_content(&content)?;
     Ok(content)
@@ -2762,6 +2837,7 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
         ("fallback_lines", "fallback_lines.json"),
         ("lifecycle_hooks", "lifecycle_hooks.json"),
         ("evolution_tracks", "evolution_tracks.json"),
+        ("recipes", "recipes.json"),
     ] {
         match manifest.files.get(key).map(String::as_str) {
             Some(actual) if actual == expected_file => {}
@@ -3042,6 +3118,8 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
         if job.id.trim().is_empty()
             || job.premise.trim().is_empty()
             || job.stakes.trim().is_empty()
+            || job.reward.label().trim().is_empty()
+            || job.reward.orbs() < 0
             || !job_ids.insert(job.id.clone())
             || !clock_ids.contains(&job.progress_clock_id)
             || !clock_ids.contains(&job.danger_clock_id)
@@ -3306,6 +3384,108 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
         )?;
     }
 
+    let mut all_item_ids = item_ids.clone();
+    let mut recipe_ids = BTreeSet::new();
+    for recipe in &content.recipes {
+        if recipe.id == 0
+            || !recipe_ids.insert(recipe.id)
+            || recipe.key.trim().is_empty()
+            || recipe.name.trim().is_empty()
+            || recipe.description.trim().is_empty()
+            || recipe.input_item_ids.len() != 2
+            || recipe.input_item_ids[0] == recipe.input_item_ids[1]
+            || recipe
+                .input_item_ids
+                .iter()
+                .any(|item_id| !item_ids.contains(item_id))
+            || recipe.balance.kind.trim().is_empty()
+            || recipe.balance.reason.trim().is_empty()
+        {
+            return Err(format!("invalid seed recipe {}", recipe.id));
+        }
+        if !matches!(
+            recipe.balance.kind.as_str(),
+            "location" | "avatar" | "resident" | "covenant" | "evolution"
+        ) {
+            return Err(format!(
+                "recipe {} has invalid balance kind {}",
+                recipe.id, recipe.balance.kind
+            ));
+        }
+        let Some(balance_target_kind) = placement_target_kind_from_str(&recipe.balance.target_kind)
+        else {
+            return Err(format!(
+                "recipe {} has invalid balance target kind {}",
+                recipe.id, recipe.balance.target_kind
+            ));
+        };
+        match balance_target_kind {
+            CW_PLACEMENT_ACTOR_HAND => {
+                if !actor_ids.contains(&recipe.balance.target_id) {
+                    return Err(format!(
+                        "recipe {} balance references missing actor {}",
+                        recipe.id, recipe.balance.target_id
+                    ));
+                }
+            }
+            CW_PLACEMENT_LOCATION_FLOOR => {
+                if !location_ids.contains(&recipe.balance.target_id) {
+                    return Err(format!(
+                        "recipe {} balance references missing location {}",
+                        recipe.id, recipe.balance.target_id
+                    ));
+                }
+            }
+            _ => {}
+        }
+        if let Some(output) = recipe.output.as_ref() {
+            let Some(output_target_kind) = placement_target_kind_from_str(&output.target_kind)
+            else {
+                return Err(format!(
+                    "recipe {} output has invalid target kind {}",
+                    recipe.id, output.target_kind
+                ));
+            };
+            if output.item_id == 0
+                || item_ids.contains(&output.item_id)
+                || !all_item_ids.insert(output.item_id)
+                || output.name.trim().is_empty()
+                || output.description.trim().is_empty()
+                || seed_item_kind_from_str(&output.kind).is_none()
+                || output.charges == 0
+            {
+                return Err(format!("recipe {} has invalid output item", recipe.id));
+            }
+            match output_target_kind {
+                CW_PLACEMENT_ACTOR_HAND => {
+                    if !actor_ids.contains(&output.target_id) {
+                        return Err(format!(
+                            "recipe {} output references missing actor {}",
+                            recipe.id, output.target_id
+                        ));
+                    }
+                }
+                CW_PLACEMENT_LOCATION_FLOOR => {
+                    if !location_ids.contains(&output.target_id) {
+                        return Err(format!(
+                            "recipe {} output references missing location {}",
+                            recipe.id, output.target_id
+                        ));
+                    }
+                }
+                _ => {}
+            }
+            if output.target_kind != recipe.balance.target_kind
+                || output.target_id != recipe.balance.target_id
+            {
+                return Err(format!(
+                    "recipe {} output slot must match its balance declaration",
+                    recipe.id
+                ));
+            }
+        }
+    }
+
     let mut tracked_actors = BTreeSet::new();
     for track in &content.evolution_tracks {
         if !actor_ids.contains(&track.actor_id) || !tracked_actors.insert(track.actor_id) {
@@ -3314,29 +3494,47 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
                 track.actor_id
             ));
         }
-        if track.item_ids.len() != 2 {
+        if track.requirements.is_empty() || track.requirements.len() > CW_MAX_EVOLUTION_REQUIREMENTS
+        {
             return Err(format!(
-                "evolution track for actor {} must contain exactly two items",
+                "evolution track for actor {} has invalid requirement count",
                 track.actor_id
             ));
         }
         let mut track_item_ids = BTreeSet::new();
-        for item_id in &track.item_ids {
-            if !track_item_ids.insert(*item_id) || !item_ids.contains(item_id) {
-                return Err(format!(
-                    "evolution track for actor {} references missing item {}",
-                    track.actor_id, item_id
-                ));
-            }
-            if !content
-                .items
-                .iter()
-                .any(|item| item.id == *item_id && seed_item_kind(item) == Some(CW_ITEM_EVOLUTION))
+        for requirement in &track.requirements {
+            if !track_item_ids.insert(requirement.item_id)
+                || !all_item_ids.contains(&requirement.item_id)
             {
                 return Err(format!(
-                    "evolution track for actor {} references non-evolution item {}",
-                    track.actor_id, item_id
+                    "evolution track for actor {} references missing item {}",
+                    track.actor_id, requirement.item_id
                 ));
+            }
+            let Some(target_kind) = placement_target_kind_from_str(&requirement.target_kind) else {
+                return Err(format!(
+                    "evolution track for actor {} has invalid target kind {}",
+                    track.actor_id, requirement.target_kind
+                ));
+            };
+            match target_kind {
+                CW_PLACEMENT_ACTOR_HAND => {
+                    if !actor_ids.contains(&requirement.target_id) {
+                        return Err(format!(
+                            "evolution track for actor {} references missing actor target {}",
+                            track.actor_id, requirement.target_id
+                        ));
+                    }
+                }
+                CW_PLACEMENT_LOCATION_FLOOR => {
+                    if !location_ids.contains(&requirement.target_id) {
+                        return Err(format!(
+                            "evolution track for actor {} references missing location target {}",
+                            track.actor_id, requirement.target_id
+                        ));
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -3553,7 +3751,7 @@ fn seed_stat_block(stats: SeedStatBlockContent) -> CwStatBlock {
 }
 
 fn seed_item_meta() -> BTreeMap<u64, ItemMeta> {
-    seed_content()
+    let mut items: BTreeMap<u64, ItemMeta> = seed_content()
         .items
         .iter()
         .map(|item| {
@@ -3565,14 +3763,35 @@ fn seed_item_meta() -> BTreeMap<u64, ItemMeta> {
                 },
             )
         })
-        .collect()
+        .collect();
+    for recipe in &seed_content().recipes {
+        if let Some(output) = recipe.output.as_ref() {
+            items.entry(output.item_id).or_insert_with(|| ItemMeta {
+                name: output.name.clone(),
+                description: output.description.clone(),
+            });
+        }
+    }
+    items
 }
 
 fn seed_item_kind(item: &SeedItemContent) -> Option<u8> {
-    match item.kind.as_str() {
+    seed_item_kind_from_str(&item.kind)
+}
+
+fn seed_item_kind_from_str(kind: &str) -> Option<u8> {
+    match kind {
         "potion" => Some(CW_ITEM_POTION),
         "evolution" => Some(CW_ITEM_EVOLUTION),
         "keepsake" => Some(CW_ITEM_KEEPSAKE),
+        _ => None,
+    }
+}
+
+fn placement_target_kind_from_str(kind: &str) -> Option<u8> {
+    match kind {
+        "actor_hand" => Some(CW_PLACEMENT_ACTOR_HAND),
+        "location_floor" => Some(CW_PLACEMENT_LOCATION_FLOOR),
         _ => None,
     }
 }
@@ -6003,20 +6222,36 @@ impl RuntimeWorld {
             };
             self.ensure_item(item.id, kind, item.location_id, item.charges);
         }
+        self.enforce_one_loose_item_per_room();
     }
 
     fn ensure_seed_evolution_tracks(&mut self) {
         for track in &seed_content().evolution_tracks {
-            if track.item_ids.len() != CW_EVOLUTION_TRACK_ITEM_COUNT {
+            if track.requirements.is_empty()
+                || track.requirements.len() > CW_MAX_EVOLUTION_REQUIREMENTS
+            {
                 continue;
             }
-            let item_ids = [track.item_ids[0], track.item_ids[1]];
+            let mut requirements =
+                [CwEvolutionRequirement::default(); CW_MAX_EVOLUTION_REQUIREMENTS];
+            for (index, requirement) in track.requirements.iter().enumerate() {
+                let Some(target_kind) = placement_target_kind_from_str(&requirement.target_kind)
+                else {
+                    continue;
+                };
+                requirements[index] = CwEvolutionRequirement {
+                    item_id: requirement.item_id,
+                    target_kind,
+                    target_id: requirement.target_id,
+                    ..CwEvolutionRequirement::default()
+                };
+            }
             let status = unsafe {
                 cw_world_set_evolution_track(
                     &mut self.world,
                     track.actor_id,
-                    item_ids.as_ptr(),
-                    item_ids.len(),
+                    requirements.as_ptr(),
+                    track.requirements.len(),
                 )
             };
             debug_assert_eq!(status, CW_OK);
@@ -6086,6 +6321,23 @@ impl RuntimeWorld {
             ..CwItem::default()
         };
         self.world.item_count += 1;
+    }
+
+    fn enforce_one_loose_item_per_room(&mut self) {
+        let mut occupied_locations = BTreeSet::new();
+        let mut loose_items = self.world.items[..self.world.item_count]
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| item.holder_actor_id == 0 && item.location_id != 0)
+            .map(|(index, item)| (item.location_id, item.id, index))
+            .collect::<Vec<_>>();
+        loose_items.sort_by_key(|(location_id, item_id, _)| (*location_id, *item_id));
+        for (location_id, _, index) in loose_items {
+            if !occupied_locations.insert(location_id) {
+                self.world.items[index].location_id = 0;
+                self.world.items[index].held_since_tick = 0;
+            }
+        }
     }
 
     fn ensure_exit(&mut self, from_location_id: u64, to_location_id: u64, flags: u32) {
@@ -7187,6 +7439,7 @@ impl RuntimeWorld {
             events.extend(self.apply_frontier_return_ledger_projection(&action, &events));
             events.extend(self.apply_gift_bond_projection(&events));
             events.extend(self.apply_resident_feature_bond_projection(&events));
+            events.extend(self.apply_resident_witness_ledger_projection(&events));
             self.record_listen_attempt(&action, &events);
             events.extend(self.apply_listen_rpg_projection(&action, &events, was_repeat_listen));
             let committed_events = events.clone();
@@ -7230,6 +7483,8 @@ impl RuntimeWorld {
                     content,
                     reason,
                 } => {
+                    let already_searched =
+                        self.feature_search_claimed(action.actor_id, *location_id, feature_key);
                     let event = self.append_feature_search_event(
                         action.actor_id,
                         *location_id,
@@ -7248,17 +7503,21 @@ impl RuntimeWorld {
                         source_event_seq: Some(event.seq),
                         expires: None,
                     };
-                    if let Some(tag_event) = self.set_rpg_tag(tag, action.actor_id, reason) {
-                        events.push(tag_event);
+                    if !already_searched {
+                        if let Some(tag_event) = self.set_rpg_tag(tag, action.actor_id, reason) {
+                            events.push(tag_event);
+                        }
                     }
-                    if let Some(ledger_event) = self.mark_visit_ledger(
-                        action.actor_id,
-                        "feature",
-                        "You learned a room clue.",
-                        event.seq,
-                        &format!("feature_search:{location_id}:{feature_key}"),
-                    ) {
-                        events.push(ledger_event);
+                    if !already_searched {
+                        if let Some(ledger_event) = self.mark_visit_ledger(
+                            action.actor_id,
+                            "feature",
+                            "You learned a room clue.",
+                            event.seq,
+                            &format!("feature_search:{location_id}:{feature_key}"),
+                        ) {
+                            events.push(ledger_event);
+                        }
                     }
                 }
                 ProjectionMutation::UseFeature {
@@ -7833,6 +8092,118 @@ impl RuntimeWorld {
         projected
     }
 
+    fn apply_resident_witness_ledger_projection(&mut self, events: &[EventView]) -> Vec<EventView> {
+        let evolved_item_pairs = events
+            .iter()
+            .filter(|event| event.type_name == "avatar.evolved" && event.success)
+            .filter_map(|event| Some((event.target_actor_id?, event.item_id.unwrap_or(0))))
+            .collect::<BTreeSet<_>>();
+        let mut projected = Vec::new();
+        for event in events {
+            let Some((location_id, label, reason)) =
+                self.resident_witness_ledger_context(event, &evolved_item_pairs)
+            else {
+                continue;
+            };
+            let witness_actor_ids: Vec<u64> = self.world.actors[..self.world.actor_count]
+                .iter()
+                .filter(|actor| {
+                    actor.kind == CW_ACTOR_HUMAN
+                        && actor.status == CW_ACTOR_ACTIVE
+                        && actor.location_id == location_id
+                })
+                .map(|actor| actor.id)
+                .collect();
+            for actor_id in witness_actor_ids {
+                if let Some(event) =
+                    self.mark_visit_ledger(actor_id, "witness", &label, event.seq, &reason)
+                {
+                    projected.push(event);
+                }
+            }
+        }
+        projected
+    }
+
+    fn resident_witness_ledger_context(
+        &self,
+        event: &EventView,
+        evolved_item_pairs: &BTreeSet<(u64, u64)>,
+    ) -> Option<(u64, String, String)> {
+        match event.type_name.as_str() {
+            "item.picked_up" => {
+                let resident_id = event.actor_id?;
+                let resident = self.actor_by_id(resident_id)?;
+                if resident.kind != CW_ACTOR_NPC {
+                    return None;
+                }
+                let item_id = event.item_id?;
+                if evolved_item_pairs.contains(&(resident_id, item_id))
+                    || !self.resident_item_claim_is_witnessable(resident, item_id)
+                {
+                    return None;
+                }
+                let location_id = event.location_id.or(Some(resident.location_id))?;
+                let resident_name = self
+                    .actor_name(resident_id)
+                    .unwrap_or_else(|| format!("Resident {resident_id}"));
+                let item_name = self
+                    .item_name(item_id)
+                    .unwrap_or_else(|| format!("Item {item_id}"));
+                Some((
+                    location_id,
+                    format!("You saw {resident_name} claim {item_name}."),
+                    format!(
+                        "witness:resident_item_claimed:{resident_id}:{item_id}:{}",
+                        event.seq
+                    ),
+                ))
+            }
+            "avatar.evolved" => {
+                let source_actor_id = event.actor_id?;
+                let source = self.actor_by_id(source_actor_id)?;
+                if source.kind != CW_ACTOR_NPC {
+                    return None;
+                }
+                let resident_id = event.target_actor_id?;
+                let resident = self.actor_by_id(resident_id)?;
+                if resident.kind != CW_ACTOR_NPC {
+                    return None;
+                }
+                let location_id = event.location_id.or(Some(resident.location_id))?;
+                let resident_name = self
+                    .actor_name(resident_id)
+                    .unwrap_or_else(|| format!("Resident {resident_id}"));
+                Some((
+                    location_id,
+                    format!("You saw {resident_name} evolve."),
+                    format!(
+                        "witness:resident_evolved:{resident_id}:{}:{}",
+                        event.item_id.unwrap_or(0),
+                        event.seq
+                    ),
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    fn resident_item_claim_is_witnessable(&self, resident: CwActor, item_id: u64) -> bool {
+        evolution_item_matches_resident(item_id, resident.id)
+            || self
+                .resident_personal_desire_for_item(resident.id, item_id)
+                .is_some()
+            || self
+                .resident_personal_attachment_for_item(resident.id, item_id)
+                .is_some()
+            || self
+                .resident_feature_use_match_for_item(resident, item_id)
+                .is_some()
+            || self.item_by_id(item_id).is_some_and(|item| {
+                item.kind == CW_ITEM_POTION && self.resident_healing_target(resident).is_some()
+            })
+    }
+
     fn apply_listen_rpg_projection(
         &mut self,
         action: &CwAction,
@@ -7852,6 +8223,9 @@ impl RuntimeWorld {
         };
 
         let mut projected = Vec::new();
+        if let Some(event) = self.bank_visit_ledger(action.actor_id, "listen") {
+            projected.push(event);
+        }
         let listen_succeeded = listen_event.success
             && listen_event
                 .total
@@ -8579,7 +8953,7 @@ impl RuntimeWorld {
     }
 
     fn apply_automatic_orb_rewards(&mut self, action: &CwAction, events: &[EventView]) {
-        if let Some(reward) = automatic_orb_reward_for_action(action, events) {
+        for reward in automatic_orb_rewards_for_action(action, events) {
             if self.orb_reward_claims.insert(reward.claim_key) {
                 self.apply_orb_delta(reward.delta.actor_id, reward.delta.delta);
             }
@@ -8628,10 +9002,46 @@ impl RuntimeWorld {
                 CW_EVENT_ITEM_USED => return self.use_event_context(event),
                 CW_EVENT_ITEM_GIVEN => return self.give_event_context(event),
                 CW_EVENT_ACTOR_MOVED => return self.move_event_context(event),
+                CW_EVENT_ITEM_FOUND => return self.search_found_event_context(event),
+                CW_EVENT_ITEM_CRAFTED => return self.craft_event_context(event),
+                CW_EVENT_ITEM_CREATED => return self.item_created_event_context(event),
                 _ => {}
             }
         }
         self.content.get(&event.content_id).cloned()
+    }
+
+    fn recipe_name(&self, recipe_id: u64) -> Option<String> {
+        self.recipe_by_id(recipe_id)
+            .map(|recipe| recipe.name.clone())
+    }
+
+    fn search_found_event_context(&self, event: &CwEvent) -> Option<String> {
+        let item_name = self.item_name(event.item_id)?;
+        let location_name = self.location_name(event.location_id)?;
+        Some(format!("{item_name} turned up in {location_name}."))
+    }
+
+    fn craft_event_context(&self, event: &CwEvent) -> Option<String> {
+        let recipe_name = self
+            .recipe_name(event.content_id)
+            .unwrap_or_else(|| "Craft".to_string());
+        let held_name = self.item_name(event.item_id)?;
+        let floor_name = self.item_name(event.target_item_id)?;
+        Some(format!("{recipe_name}: {held_name} met {floor_name}."))
+    }
+
+    fn item_created_event_context(&self, event: &CwEvent) -> Option<String> {
+        let item_name = self.item_name(event.item_id)?;
+        if let Some(location_name) = self.location_name(event.location_id) {
+            Some(format!("{item_name} now waits in {location_name}."))
+        } else if let Some(actor_name) = self.actor_name(event.target_actor_id) {
+            Some(format!(
+                "{item_name} now belongs in {actor_name}'s keeping."
+            ))
+        } else {
+            Some(format!("{item_name} joined the world."))
+        }
     }
 
     fn trade_event_context(&self, event: &CwEvent) -> Option<String> {
@@ -8975,9 +9385,164 @@ impl RuntimeWorld {
         items
     }
 
+    fn loose_items_at_location(&self, location_id: u64) -> Vec<CwItem> {
+        let mut items = self.world.items[..self.world.item_count]
+            .iter()
+            .copied()
+            .filter(|item| item.holder_actor_id == 0 && item.location_id == location_id)
+            .collect::<Vec<_>>();
+        items.sort_by_key(|item| item.id);
+        items
+    }
+
+    fn room_floor_empty(&self, location_id: u64) -> bool {
+        self.loose_items_at_location(location_id).is_empty()
+    }
+
+    fn hidden_search_item_for_location(&self, location_id: u64) -> Option<u64> {
+        let mut hidden = self.world.items[..self.world.item_count]
+            .iter()
+            .copied()
+            .filter(|item| item.holder_actor_id == 0 && item.location_id == 0 && item.charges > 0)
+            .collect::<Vec<_>>();
+        hidden.sort_by_key(|item| {
+            let home_rank = seed_content()
+                .items
+                .iter()
+                .find(|seed_item| seed_item.id == item.id)
+                .map(|seed_item| {
+                    if seed_item.location_id == location_id {
+                        0
+                    } else {
+                        1
+                    }
+                })
+                .unwrap_or(2);
+            (home_rank, item.id)
+        });
+        hidden.first().map(|item| item.id)
+    }
+
+    fn default_search_feature(&self, actor_id: u64) -> Option<&'static SeedRoomFeatureContent> {
+        let actor = self.actor_by_id(actor_id)?;
+        if !self.room_floor_empty(actor.location_id)
+            || self
+                .hidden_search_item_for_location(actor.location_id)
+                .is_none()
+        {
+            return None;
+        }
+        seed_content()
+            .room_features
+            .iter()
+            .find(|feature| feature.location_id == actor.location_id)
+    }
+
+    fn recipe_by_id(&self, recipe_id: u64) -> Option<&'static SeedRecipeContent> {
+        seed_content()
+            .recipes
+            .iter()
+            .find(|recipe| recipe.id == recipe_id)
+    }
+
+    fn craft_action_for_recipe(&self, actor_id: u64, recipe_id: u64) -> Option<CwAction> {
+        let actor = self.actor_by_id(actor_id)?;
+        if actor.status != CW_ACTOR_ACTIVE {
+            return None;
+        }
+        let recipe = self.recipe_by_id(recipe_id)?;
+        let held_items = self.actor_held_items(actor_id);
+        let floor_items = self.loose_items_at_location(actor.location_id);
+        let held = held_items
+            .iter()
+            .copied()
+            .find(|item| recipe.input_item_ids.contains(&item.id))?;
+        let floor = floor_items
+            .iter()
+            .copied()
+            .find(|item| item.id != held.id && recipe.input_item_ids.contains(&item.id))?;
+        if recipe
+            .input_item_ids
+            .iter()
+            .any(|item_id| *item_id != held.id && *item_id != floor.id)
+        {
+            return None;
+        }
+        let mut action = CwAction {
+            kind: CW_ACTION_CRAFT,
+            actor_id,
+            content_id: recipe.id,
+            item_id: held.id,
+            target_item_id: floor.id,
+            ..CwAction::default()
+        };
+        if let Some(output) = recipe.output.as_ref() {
+            if self.item_by_id(output.item_id).is_some() {
+                return None;
+            }
+            action.output_item_id = output.item_id;
+            action.output_target_id = output.target_id;
+            action.output_target_kind = placement_target_kind_from_str(&output.target_kind)?;
+            action.output_item_kind = seed_item_kind_from_str(&output.kind)?;
+            action.output_item_charges = output.charges;
+            match action.output_target_kind {
+                CW_PLACEMENT_ACTOR_HAND => {
+                    let target = self.actor_by_id(output.target_id)?;
+                    if target.status != CW_ACTOR_ACTIVE {
+                        return None;
+                    }
+                    if self.actor_inventory_count(output.target_id) != 0 {
+                        return None;
+                    }
+                }
+                CW_PLACEMENT_LOCATION_FLOOR => {
+                    if !self.room_floor_empty(output.target_id) {
+                        return None;
+                    }
+                }
+                _ => return None,
+            }
+        }
+        Some(action)
+    }
+
+    fn default_craft_recipe(&self, actor_id: u64) -> Option<&'static SeedRecipeContent> {
+        seed_content()
+            .recipes
+            .iter()
+            .find(|recipe| self.craft_action_for_recipe(actor_id, recipe.id).is_some())
+    }
+
+    fn hide_loose_items_at_location(&mut self, location_id: u64) {
+        for item in &mut self.world.items[..self.world.item_count] {
+            if item.holder_actor_id == 0 && item.location_id == location_id {
+                item.location_id = 0;
+                item.held_since_tick = 0;
+            }
+        }
+    }
+
     fn resident_evolution_item_ids(&self, actor_id: u64) -> Vec<u64> {
-        evolution_track_item_ids(actor_id)
-            .map(|items| items.to_vec())
+        evolution_track_item_ids(actor_id).unwrap_or_default()
+    }
+
+    fn resident_evolution_item_ids_for_target_kind(
+        &self,
+        actor_id: u64,
+        target_kind: &str,
+    ) -> Vec<u64> {
+        seed_content()
+            .evolution_tracks
+            .iter()
+            .find(|track| track.actor_id == actor_id)
+            .map(|track| {
+                track
+                    .requirements
+                    .iter()
+                    .filter(|requirement| requirement.target_kind == target_kind)
+                    .map(|requirement| requirement.item_id)
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -8986,6 +9551,13 @@ impl RuntimeWorld {
             return Vec::new();
         }
         self.resident_evolution_item_ids(resident.id)
+    }
+
+    fn resident_calling_sought_item_ids(&self, resident: CwActor) -> Vec<u64> {
+        if resident.kind != CW_ACTOR_NPC || resident.stats.level >= 2 {
+            return Vec::new();
+        }
+        self.resident_evolution_item_ids_for_target_kind(resident.id, "actor_hand")
     }
 
     fn resident_personal_desires(&self, resident_id: u64) -> Vec<SeedResidentDesireContent> {
@@ -9217,15 +9789,19 @@ impl RuntimeWorld {
     }
 
     fn resident_item_is_sought(&self, resident: CwActor, item_id: u64) -> bool {
-        if self
-            .resident_desired_item_ids(resident)
+        let wants_item = self
+            .resident_calling_sought_item_ids(resident)
             .into_iter()
             .any(|desired_item_id| desired_item_id == item_id)
-            && !self
-                .actor_held_items(resident.id)
+            || self
+                .resident_personal_desires(resident.id)
                 .into_iter()
-                .any(|item| item.id == item_id)
-        {
+                .any(|desire| desire.item_id == item_id);
+        let already_held = self
+            .actor_held_items(resident.id)
+            .into_iter()
+            .any(|item| item.id == item_id);
+        if wants_item && !already_held {
             return true;
         }
         if self
@@ -9299,8 +9875,13 @@ impl RuntimeWorld {
             }
         }
 
-        for item_id in self
-            .resident_desired_item_ids(resident)
+        let mut desired_seekable_item_ids = self.resident_calling_sought_item_ids(resident);
+        for desire in self.resident_personal_desires(resident.id) {
+            if !desired_seekable_item_ids.contains(&desire.item_id) {
+                desired_seekable_item_ids.push(desire.item_id);
+            }
+        }
+        for item_id in desired_seekable_item_ids
             .into_iter()
             .filter(|item_id| !held_item_ids.contains(item_id))
         {
@@ -11429,6 +12010,10 @@ impl RuntimeWorld {
             .unwrap_or(false)
     }
 
+    fn actor_can_receive_item(&self, target: CwActor, _offered_item_id: u64) -> bool {
+        !self.actor_inventory_full(target.id)
+    }
+
     fn exit_direction(&self, from_location_id: u64, to_location_id: u64) -> Option<String> {
         seed_content()
             .exits
@@ -11646,6 +12231,9 @@ impl RuntimeWorld {
     }
 
     fn listen_cost_orbs(&self, actor_id: u64) -> i32 {
+        if self.unbanked_visit_ledger_count(actor_id) > 0 {
+            return 0;
+        }
         let Some(actor) = self.actor_by_id(actor_id) else {
             return 0;
         };
@@ -11667,6 +12255,9 @@ impl RuntimeWorld {
     }
 
     fn listen_offerable(&self, actor_id: u64) -> bool {
+        if self.unbanked_visit_ledger_count(actor_id) > 0 {
+            return true;
+        }
         self.listen_affordable(actor_id)
             && (!self.listen_attempted_here(actor_id) || self.listen_cost_orbs(actor_id) > 0)
     }
@@ -12025,7 +12616,7 @@ impl RuntimeWorld {
             }
             if tag.scope == "room"
                 && job.location_ids.contains(&tag.scope_id)
-                && (tag.label == job.reward || tag.label == job.consequence)
+                && (tag.label == job.reward.label() || tag.label == job.consequence)
             {
                 tag_ids.insert(tag.id.clone());
             }
@@ -12130,9 +12721,7 @@ impl RuntimeWorld {
         self.room_features(location_id)
             .into_iter()
             .map(|feature| {
-                let searched = actor_id
-                    .map(|id| self.feature_search_claimed(id, location_id, &feature.key))
-                    .unwrap_or(false);
+                let searched = !self.room_floor_empty(location_id);
                 let uses = feature
                     .uses
                     .iter()
@@ -12418,7 +13007,7 @@ impl RuntimeWorld {
                 status: self.job_status(job),
                 progress_clock_id: job.progress_clock_id.clone(),
                 danger_clock_id: job.danger_clock_id.clone(),
-                reward: job.reward.clone(),
+                reward: job.reward.label().to_string(),
                 consequence: job.consequence.clone(),
             })
             .collect()
@@ -12599,7 +13188,7 @@ impl RuntimeWorld {
                     participants,
                     progress_clock_id: job.progress_clock_id.clone(),
                     danger_clock_id: job.danger_clock_id.clone(),
-                    reward: job.reward.clone(),
+                    reward: job.reward.label().to_string(),
                     consequence: job.consequence.clone(),
                 }
             })
@@ -13229,10 +13818,11 @@ impl RuntimeWorld {
         let can_work = self.work_available(actor_id);
         let can_help = self.help_available(actor_id);
         let can_rest = self.rest_available(actor_id);
-        let can_bank_ledger = self.unbanked_visit_ledger_count(actor_id) > 0;
         let can_train_skill = self.default_trainable_skill(actor_id).is_some();
         let can_create_bond = self.default_bondable_resident(actor_id).is_some();
         let can_resolve_bond = self.default_resolvable_bond(actor_id).is_some();
+        let default_search_feature = self.default_search_feature(actor_id);
+        let default_craft_recipe = self.default_craft_recipe(actor_id);
 
         let mut options = Vec::new();
         if offers.option_flags & CW_OFFER_CHAT != 0 && has_chat_target {
@@ -13279,6 +13869,24 @@ impl RuntimeWorld {
                 label: "Use".to_string(),
                 command: "use".to_string(),
             });
+        }
+        if offers.option_flags & CW_OFFER_SEARCH != 0 {
+            if let Some(feature) = default_search_feature {
+                options.push(ActionOption {
+                    kind: "search".to_string(),
+                    label: "Search".to_string(),
+                    command: format!("search {}", feature.name),
+                });
+            }
+        }
+        if offers.option_flags & CW_OFFER_CRAFT != 0 {
+            if let Some(recipe) = default_craft_recipe {
+                options.push(ActionOption {
+                    kind: "craft".to_string(),
+                    label: "Craft".to_string(),
+                    command: format!("craft {}", recipe.name),
+                });
+            }
         }
         if offers.option_flags & CW_OFFER_GIVE_ITEM != 0 && has_resident_gift {
             options.push(ActionOption {
@@ -13339,13 +13947,6 @@ impl RuntimeWorld {
                 kind: "rest".to_string(),
                 label: "Rest".to_string(),
                 command: "rest".to_string(),
-            });
-        }
-        if can_bank_ledger {
-            options.push(ActionOption {
-                kind: "bank_ledger".to_string(),
-                label: "Claim Growth".to_string(),
-                command: "bank ledger".to_string(),
             });
         }
         if can_train_skill {
@@ -13553,6 +14154,13 @@ impl RuntimeWorld {
                 _ => {}
             }
         }
+        if kind == "check" && self.unbanked_visit_ledger_count(actor_id) > 0 {
+            return if self.rest_available(actor_id) {
+                24
+            } else {
+                34
+            };
+        }
         if kind == "check"
             && self
                 .actor_by_id(actor_id)
@@ -13569,13 +14177,6 @@ impl RuntimeWorld {
                 .is_some_and(|actor| !self.location_is_frontier(actor.location_id))
         {
             return 84;
-        }
-        if kind == "bank_ledger" && self.unbanked_visit_ledger_count(actor_id) > 0 {
-            return if self.rest_available(actor_id) {
-                24
-            } else {
-                68
-            };
         }
         if kind == "train_skill"
             && self.default_bondable_resident(actor_id).is_some()
@@ -13689,6 +14290,20 @@ impl RuntimeWorld {
                             .unwrap_or_else(|| format!("Resident {}", target.id))
                     )),
                 }),
+            "search" => self
+                .default_search_feature(actor_id)
+                .map(|feature| ActionTargetView {
+                    kind: "feature".to_string(),
+                    id: Some(feature.location_id),
+                    label: Some(feature.name.clone()),
+                }),
+            "craft" => self
+                .default_craft_recipe(actor_id)
+                .map(|recipe| ActionTargetView {
+                    kind: "recipe".to_string(),
+                    id: Some(recipe.id),
+                    label: Some(recipe.name.clone()),
+                }),
             "move" | "flee" => self
                 .exit_views(actor.location_id, access)
                 .into_iter()
@@ -13779,6 +14394,14 @@ impl RuntimeWorld {
                     .map(|name| format!("first chat deepens Bond with {name}; adds a memory mark"))
             }),
             "check" => {
+                let unbanked = self.unbanked_visit_ledger_count(actor_id);
+                if unbanked > 0 {
+                    let mark_label = if unbanked == 1 { "mark" } else { "marks" };
+                    let point_label = if unbanked == 1 { "point" } else { "points" };
+                    return Some(format!(
+                        "settles {unbanked} memory {mark_label} into {unbanked} growth {point_label}"
+                    ));
+                }
                 if self.listen_attempt_claimed_at(actor_id, actor.location_id) {
                     return Some(
                         "relistens to the room; the first useful clue here is already claimed"
@@ -13856,6 +14479,22 @@ impl RuntimeWorld {
             "rest" => Some("clears tired; may advance danger in frontier rooms".to_string()),
             "move" => Some("moves to an accessible adjacent room".to_string()),
             "flee" => Some("returns from a frontier room and can add a memory mark".to_string()),
+            "search" => self.default_search_feature(actor_id).map(|feature| {
+                format!(
+                    "searches {}; can reveal one hidden item because the floor is empty",
+                    feature.name
+                )
+            }),
+            "craft" => self.default_craft_recipe(actor_id).map(|recipe| {
+                let output = recipe
+                    .output
+                    .as_ref()
+                    .map(|output| output.name.as_str())
+                    .unwrap_or("a provenance event");
+                format!(
+                    "creates {output} from present items without consuming the inputs"
+                )
+            }),
             "bank_ledger" => {
                 let count = self.unbanked_visit_ledger_count(actor_id);
                 (count > 0).then(|| {
@@ -13916,16 +14555,10 @@ impl RuntimeWorld {
                 }),
             "use_item" => Some("uses a held item on a valid room or actor target".to_string()),
             "pick_up" => {
-                let count = self.actor_inventory_count(actor_id);
-                let capacity = actor_inventory_capacity(actor);
                 if self.actor_inventory_full(actor_id) {
-                    Some(format!(
-                        "takes an available item; drops oldest held item first ({count}/{capacity} slots)"
-                    ))
+                    Some("takes the floor item and places your held item here".to_string())
                 } else {
-                    Some(format!(
-                        "takes an available item into inventory ({count}/{capacity} slots)"
-                    ))
+                    Some("takes the floor item into your hand".to_string())
                 }
             }
             _ => None,
@@ -14074,6 +14707,9 @@ impl RuntimeWorld {
             else {
                 continue;
             };
+            if !self.actor_can_receive_item(target, offered_item.id) {
+                continue;
+            }
             candidates.push(ResidentPlayerGiftCandidate {
                 offered_item,
                 target,
@@ -14138,6 +14774,14 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| format!("Item {}", offered_item.id));
             return Err(format!(
                 "{target_name} is not seeking {item_name} right now."
+            ));
+        }
+        if !self.actor_can_receive_item(target, item_id) {
+            let target_name = self
+                .actor_name(target.id)
+                .unwrap_or_else(|| format!("Resident {}", target.id));
+            return Err(format!(
+                "{target_name} is already carrying something. Trade instead."
             ));
         }
         Ok(())
@@ -14341,6 +14985,9 @@ impl RuntimeWorld {
                 continue;
             }
             for target in &targets {
+                if !self.actor_can_receive_item(*target, actor_item.id) {
+                    continue;
+                }
                 if let Some(desire_memory) =
                     self.resident_actor_wants_item_memory(actor.id, target.id, actor_item.id)
                 {
@@ -14705,15 +15352,34 @@ impl RuntimeWorld {
     }
 
     fn first_missing_evolution_item_name(&self, actor_id: u64) -> Option<String> {
-        for item_id in evolution_track_item_ids(actor_id)? {
-            let held_by_actor = self.world.items[..self.world.item_count]
-                .iter()
-                .any(|item| item.id == item_id && item.holder_actor_id == actor_id);
-            if !held_by_actor {
-                return self.item_name(item_id);
+        let track = seed_content()
+            .evolution_tracks
+            .iter()
+            .find(|track| track.actor_id == actor_id)?;
+        for requirement in &track.requirements {
+            if !self.evolution_requirement_satisfied(requirement) {
+                return self.item_name(requirement.item_id);
             }
         }
         None
+    }
+
+    fn evolution_requirement_satisfied(
+        &self,
+        requirement: &SeedEvolutionRequirementContent,
+    ) -> bool {
+        let Some(item) = self.item_by_id(requirement.item_id) else {
+            return false;
+        };
+        match placement_target_kind_from_str(&requirement.target_kind) {
+            Some(CW_PLACEMENT_ACTOR_HAND) => {
+                item.holder_actor_id == requirement.target_id && item.location_id == 0
+            }
+            Some(CW_PLACEMENT_LOCATION_FLOOR) => {
+                item.holder_actor_id == 0 && item.location_id == requirement.target_id
+            }
+            _ => false,
+        }
     }
 
     fn room_cast_names(&self, location_id: u64) -> Vec<String> {
@@ -15055,20 +15721,9 @@ impl RuntimeWorld {
                     memory.subject_id,
                     actor.location_id,
                 ) {
-                    if self.actor_inventory_full(actor.id) {
-                        if let Some(drop_item) = self.resident_expendable_item_for_pickup(actor) {
-                            if let Some(action) = self.fresh_resident_autonomy_action(
-                                actor,
-                                CwAction {
-                                    kind: CW_ACTION_DROP_ITEM,
-                                    actor_id: actor.id,
-                                    item_id: drop_item.id,
-                                    ..CwAction::default()
-                                },
-                            ) {
-                                return Some(action);
-                            }
-                        }
+                    if self.actor_inventory_full(actor.id)
+                        && self.resident_expendable_item_for_pickup(actor).is_none()
+                    {
                         return None;
                     }
                     if let Some(action) = self.fresh_resident_autonomy_action(
@@ -15787,12 +16442,18 @@ fn location_access_allowed(location_id: u64, access: &AccessContext) -> bool {
         .unwrap_or(true)
 }
 
-fn evolution_track_item_ids(actor_id: u64) -> Option<[u64; 2]> {
+fn evolution_track_item_ids(actor_id: u64) -> Option<Vec<u64>> {
     seed_content()
         .evolution_tracks
         .iter()
         .find(|track| track.actor_id == actor_id)
-        .map(|track| [track.item_ids[0], track.item_ids[1]])
+        .map(|track| {
+            track
+                .requirements
+                .iter()
+                .map(|requirement| requirement.item_id)
+                .collect()
+        })
 }
 
 fn evolution_item_matches_resident(item_id: u64, actor_id: u64) -> bool {
@@ -18772,10 +19433,15 @@ fn release_inactive_human_inventory_locked(
     let drops = runtime.world.items[..runtime.world.item_count]
         .iter()
         .filter(|item| inactive_human_actor_ids.contains(&item.holder_actor_id))
-        .map(|item| (item.holder_actor_id, item.id))
+        .filter_map(|item| {
+            runtime
+                .actor_by_id(item.holder_actor_id)
+                .map(|actor| (item.holder_actor_id, actor.location_id, item.id))
+        })
         .collect::<Vec<_>>();
     let mut released_events = Vec::new();
-    for (actor_id, item_id) in drops {
+    for (actor_id, location_id, item_id) in drops {
+        runtime.hide_loose_items_at_location(location_id);
         let action = CwAction {
             kind: CW_ACTION_DROP_ITEM,
             actor_id,
@@ -19474,26 +20140,47 @@ async fn command(
             let feature_search_still_valid = runtime
                 .actor_by_id(payload.actor_id)
                 .is_some_and(|actor| actor.location_id == location_id)
-                && !runtime.feature_search_claimed(payload.actor_id, location_id, &feature_key);
+                && runtime.room_floor_empty(location_id);
             if !feature_search_still_valid {
                 return Json(CommandResponse {
                     ok: false,
                     status: 409,
                     command: resolved.command,
                     verb: resolved.verb,
-                    output: Some("You already searched that feature.".to_string()),
+                    output: Some(
+                        "There is already an item here. Take it, use it, or move it before searching."
+                            .to_string(),
+                    ),
                     action: resolved.action,
                     events: presence_events,
                 });
             }
+            let Some(found_item_id) = runtime.hidden_search_item_for_location(location_id) else {
+                return Json(CommandResponse {
+                    ok: false,
+                    status: 404,
+                    command: resolved.command,
+                    verb: resolved.verb,
+                    output: Some("Nothing else turns up here right now.".to_string()),
+                    action: resolved.action,
+                    events: presence_events,
+                });
+            };
+            let content_id = runtime.next_content_id_value();
             let mut record = JournalRecord::new(
                 CwAction {
-                    kind: CW_ACTION_NONE,
+                    kind: CW_ACTION_SEARCH,
                     actor_id: payload.actor_id,
+                    location_id,
+                    content_id,
+                    item_id: found_item_id,
                     ..CwAction::default()
                 },
                 runtime.next_seed_value(),
             );
+            record
+                .content_upserts
+                .insert(content_id, format!("{feature_name}: {}", output.clone()));
             record
                 .projection_mutations
                 .push(ProjectionMutation::SearchFeature {
@@ -19681,6 +20368,19 @@ async fn command(
                     item_id,
                     target_item_id: Some(target_item_id),
                     target_actor_id: Some(target_actor_id),
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::Craft { recipe_id } => {
+            let Json(response) = craft(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(CraftRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    recipe_id,
                 }),
             )
             .await;
@@ -20519,7 +21219,8 @@ fn room_memory_label(event: &EventView) -> String {
         "clock.updated" => "clock",
         "tag.applied" | "tag.cleared" => "tag",
         "job.updated" => "job",
-        "item.picked_up" | "item.dropped" | "item.used" | "item.given" | "item.traded" => "item",
+        "item.picked_up" | "item.dropped" | "item.used" | "item.given" | "item.traded"
+        | "item.found" | "item.crafted" | "item.created" => "item",
         type_name if type_name.starts_with("combat.") => "combat",
         _ => "event",
     }
@@ -20600,11 +21301,19 @@ fn room_memory_log_text(event: &EventView) -> Option<String> {
         "ledger.marked" => {
             command_event_output(event).unwrap_or_else(|| "a visit mark was learned".to_string())
         }
-        "ledger.banked" => format!(
-            "{} growth point{} claimed",
-            event.total.unwrap_or(0),
-            if event.total == Some(1) { "" } else { "s" }
-        ),
+        "ledger.banked" => command_event_output(event).unwrap_or_else(|| {
+            let count = event
+                .content
+                .as_deref()
+                .and_then(|content| content.split(':').next())
+                .and_then(|value| value.parse::<usize>().ok())
+                .unwrap_or(0);
+            format!(
+                "GROWTH: {count} mark{} become {count} point{}.",
+                if count == 1 { "" } else { "s" },
+                if count == 1 { "" } else { "s" }
+            )
+        }),
         "advancement.spent" | "skill.stepped" | "calling.set" | "calling.revised" => {
             command_event_output(event).unwrap_or_else(|| "the character sheet changed".to_string())
         }
@@ -22227,6 +22936,43 @@ async fn trade_item(
         None,
     )
     .await
+}
+
+async fn craft(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<CraftRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let action = {
+        let runtime = state.inner.lock().await;
+        if !client_actor_authorized_for_state(
+            &runtime,
+            &state,
+            payload.actor_id,
+            payload.actor_session.as_deref(),
+        ) {
+            return client_actor_rejected_response();
+        }
+        let Some(action) = runtime.craft_action_for_recipe(payload.actor_id, payload.recipe_id)
+        else {
+            return Json(ActionResponse {
+                ok: false,
+                status: 409,
+                events: Vec::new(),
+            });
+        };
+        action
+    };
+    apply_and_broadcast(state, action, payload.actor_session.as_deref()).await
 }
 
 async fn attack(
@@ -24082,6 +24828,17 @@ fn escape_xml(value: &str) -> String {
         .replace('\'', "&apos;")
 }
 
+fn automatic_orb_rewards_for_action(
+    action: &CwAction,
+    events: &[EventView],
+) -> Vec<AutomaticOrbReward> {
+    let mut rewards = automatic_orb_reward_for_action(action, events)
+        .into_iter()
+        .collect::<Vec<_>>();
+    rewards.extend(job_completion_orb_rewards(events));
+    rewards
+}
+
 fn automatic_orb_reward_for_action(
     action: &CwAction,
     events: &[EventView],
@@ -24197,6 +24954,36 @@ fn automatic_orb_reward_for_action(
         _ => None,
     }
     .filter(|reward| reward.delta.delta != 0)
+}
+
+fn job_completion_orb_rewards(events: &[EventView]) -> Vec<AutomaticOrbReward> {
+    events
+        .iter()
+        .filter(|event| event.type_name == "job.updated" && event.success)
+        .filter_map(|event| {
+            let actor_id = event.actor_id?;
+            let job_id = completed_job_id_from_event(event)?;
+            let job = seed_content().jobs.iter().find(|job| job.id == job_id)?;
+            let orbs = job.reward.orbs();
+            (orbs > 0).then(|| AutomaticOrbReward {
+                claim_key: format!("job_completed:{actor_id}:{job_id}:{}", event.seq),
+                delta: OrbDelta {
+                    actor_id,
+                    delta: orbs,
+                    reason: "job_completed".to_string(),
+                },
+            })
+        })
+        .collect()
+}
+
+fn completed_job_id_from_event(event: &EventView) -> Option<String> {
+    let content = event.content.as_deref()?;
+    let mut parts = content.rsplitn(3, ':');
+    let _reason = parts.next()?;
+    let status = parts.next()?;
+    let job_id = parts.next()?.trim();
+    (status == "completed" && !job_id.is_empty()).then(|| job_id.to_string())
 }
 
 fn ability_check_success_claim_key(
@@ -24391,7 +25178,7 @@ fn default_skill_for_ledger_category(category: &str) -> Option<&'static str> {
         "bond" => Some("kindness"),
         "feature" | "helped" => Some("lorecraft"),
         "frontier_return" => Some("steadiness"),
-        "learned_truth" | "calling" => Some("listening"),
+        "learned_truth" | "calling" | "witness" => Some("listening"),
         _ => None,
     }
 }
@@ -24505,12 +25292,14 @@ fn action_offer_rank(kind: &str) -> u16 {
         "use_item" => 20,
         "rest" => 25,
         "pick_up" => 30,
+        "craft" => 31,
         "prepare" => 32,
         "attack" => 40,
         "defend" => 45,
         "work" => 48,
         "help" => 49,
         "flee" => 50,
+        "search" => 58,
         "check" => 60,
         "chat" => 70,
         "trade_item" => 74,
@@ -24529,8 +25318,9 @@ fn action_offer_category(kind: &str) -> &'static str {
         "move" | "flee" => "travel",
         "attack" | "defend" => "danger",
         "pick_up" | "use_item" | "give_item" | "trade_item" => "inventory",
+        "craft" => "craft",
         "chat" | "help" | "create_bond" | "resolve_bond" => "social",
-        "check" => "discovery",
+        "check" | "search" => "discovery",
         "prepare" | "work" => "project",
         "rest" => "recovery",
         "bank_ledger" | "train_skill" | "revise_calling" | "revise_bond" => "growth",
@@ -24584,10 +25374,11 @@ fn committed_orb_deltas(
     events: &[EventView],
     pre_orb_reward_claims: &BTreeSet<String>,
 ) -> Vec<OrbDelta> {
-    let mut deltas = match automatic_orb_reward_for_action(&record.action, events) {
-        Some(reward) if !pre_orb_reward_claims.contains(&reward.claim_key) => vec![reward.delta],
-        _ => Vec::new(),
-    };
+    let mut deltas = automatic_orb_rewards_for_action(&record.action, events)
+        .into_iter()
+        .filter(|reward| !pre_orb_reward_claims.contains(&reward.claim_key))
+        .map(|reward| reward.delta)
+        .collect::<Vec<_>>();
     deltas.extend(record.orb_deltas.iter().cloned());
     deltas
         .into_iter()
@@ -24606,6 +25397,7 @@ fn source_event_for_orb_delta<'a>(
         "combat_knockout" => Some("combat.knockout"),
         "combat_hit" => Some("combat.attack.hit"),
         "combat_flee" => Some("combat.flee.success"),
+        "job_completed" => Some("job.updated"),
         "chat" => Some("message.created"),
         "listen" => Some("ability_check.rolled"),
         _ => None,
@@ -26107,7 +26899,8 @@ fn item_kind(kind: u8) -> &'static str {
 }
 
 fn actor_inventory_capacity(actor: CwActor) -> usize {
-    CW_INVENTORY_BASE_SLOTS + usize::from(actor.stats.level)
+    let _ = actor;
+    CW_INVENTORY_BASE_SLOTS
 }
 
 fn opt_id(value: u64) -> Option<u64> {
@@ -27657,6 +28450,7 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
@@ -27940,25 +28734,37 @@ mod tests {
         assert!(response.events.iter().any(|event| {
             event.type_name == "feature.searched" && event.actor_id == Some(5000)
         }));
-        let resident_move = response
+        let resident_action = response
             .events
             .iter()
             .find(|event| {
-                event.type_name == "actor.moved"
-                    && [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
-                        .contains(&event.actor_id.unwrap_or_default())
+                [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
+                    .contains(&event.actor_id.unwrap_or_default())
+                    && matches!(
+                        event.type_name.as_str(),
+                        "actor.moved"
+                            | "item.picked_up"
+                            | "item.dropped"
+                            | "item.given"
+                            | "item.traded"
+                            | "item.used"
+                    )
             })
             .expect("a real player turn should let one resident ripple through the world");
-        assert_eq!(
-            resident_move.destination_location_id,
-            Some(RAIN_SOFT_GARDEN_LOCATION_ID)
-        );
 
         let runtime = state.inner.lock().await;
-        let moved_actor = runtime
-            .actor_by_id(resident_move.actor_id.unwrap())
+        let ripple_actor = runtime
+            .actor_by_id(resident_action.actor_id.unwrap())
             .expect("ripple resident remains in world");
-        assert_eq!(moved_actor.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
+        if resident_action.type_name == "actor.moved" {
+            assert_eq!(
+                resident_action.destination_location_id,
+                Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+            );
+            assert_eq!(ripple_actor.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
+        } else {
+            assert_eq!(ripple_actor.location_id, COSY_COTTAGE_LOCATION_ID);
+        }
     }
 
     #[tokio::test]
@@ -28574,6 +29380,89 @@ mod tests {
     }
 
     #[test]
+    fn job_completion_orb_reward_records_to_durable_ledger() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-job-orb-reward-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
+        let mut create_record = JournalRecord::new(create, 7064);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Job Reward Tester".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Moonlit Worker".to_string(),
+                description: "A test avatar checking job Orb payouts.".to_string(),
+            },
+        );
+        assert_eq!(
+            commit_journal_record(&state, &mut runtime, create_record)
+                .expect("commit create")
+                .0,
+            CW_OK
+        );
+
+        let mut complete_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            7065,
+        );
+        complete_record
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
+                amount: 4,
+                reason: "help".to_string(),
+            });
+        assert_eq!(
+            commit_journal_record(&state, &mut runtime, complete_record)
+                .expect("commit completion")
+                .0,
+            CW_OK
+        );
+        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS + 2);
+
+        let conn = open_event_store(&path).expect("open event store");
+        let rows = {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT reason, delta, balance_after
+                     FROM orb_ledger
+                     WHERE reason = 'job_completed'",
+                )
+                .expect("prepare job reward query");
+            stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            })
+            .expect("query job reward")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("collect job reward rows")
+        };
+        assert_eq!(
+            rows,
+            vec![("job_completed".to_string(), 2, (STARTING_ORBS + 2) as i64)]
+        );
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
     fn sanctuary_listen_repeat_stays_free_and_calm() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
@@ -28808,24 +29697,14 @@ mod tests {
             .unwrap_or(false));
         let tired_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(tired_state.tags.iter().any(|tag| tag.label == "tired"));
-        assert_eq!(tired_state.ledger.unbanked_count, 2);
-        assert_eq!(tired_state.primary_action.kind, "bank_ledger");
+        assert_eq!(tired_state.ledger.unbanked_count, 0);
+        assert_eq!(tired_state.ledger.banked_count, 2);
+        assert_eq!(tired_state.primary_action.kind, "rest");
         assert!(tired_state
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "rest"));
-        let tired_bank_offer = tired_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "bank_ledger")
-            .expect("bank offer stays visible while tired");
-        let tired_rest_offer = tired_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "rest")
-            .expect("rest offer stays visible while tired");
-        assert!(tired_bank_offer.rank < tired_rest_offer.rank);
 
         let mut rest_action = CwAction::default();
         rest_action.kind = CW_ACTION_NONE;
@@ -28895,7 +29774,8 @@ mod tests {
                 .map(|calling| calling.statement.as_str()),
             Some(default_calling_statement())
         );
-        assert_eq!(restored_state.ledger.unbanked_count, 2);
+        assert_eq!(restored_state.ledger.unbanked_count, 0);
+        assert_eq!(restored_state.ledger.banked_count, 2);
     }
 
     #[test]
@@ -28941,24 +29821,19 @@ mod tests {
         assert_eq!(earned_state.ledger.unbanked_count, 2);
         assert_eq!(earned_state.ledger.banked_count, 0);
         assert_eq!(earned_state.ledger.advancement_points, 0);
-        assert!(earned_state.primary_action.options.iter().any(|option| {
-            option.kind == "bank_ledger"
-                && option.label == "Claim Growth"
-                && option.command == "bank ledger"
-        }));
-        let bank_offer = earned_state
+        let listen_offer = earned_state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "bank_ledger")
-            .expect("bank ledger offer is exposed once marks are unbanked");
-        assert_eq!(bank_offer.rank, 68);
+            .find(|offer| offer.kind == "check")
+            .expect("listen offer is exposed once marks are unbanked");
+        assert_eq!(listen_offer.rank, 34);
         let chat_offer = earned_state
             .action_offers
             .iter()
             .find(|offer| offer.kind == "chat")
             .expect("chat offer remains available while marks are unbanked");
-        assert!(bank_offer.rank < chat_offer.rank);
-        assert!(bank_offer
+        assert!(listen_offer.rank < chat_offer.rank);
+        assert!(listen_offer
             .effect
             .as_deref()
             .is_some_and(|effect| effect.contains("2 growth points")));
@@ -29000,10 +29875,6 @@ mod tests {
         assert!(banked_state.ledger.unbanked_marks.is_empty());
         assert_eq!(banked_state.ledger.banked_count, 2);
         assert_eq!(banked_state.ledger.advancement_points, 2);
-        assert!(banked_state
-            .room_memory
-            .summary
-            .contains("the day's growth settles into memory"));
         let lowered_memory = banked_state.room_memory.summary.to_lowercase();
         assert!(!lowered_memory.contains("ledger"));
         assert!(!lowered_memory.contains("advancement"));
@@ -29608,14 +30479,14 @@ mod tests {
             .effect
             .as_deref()
             .is_some_and(|effect| effect.contains("settles a Bond with Rati")));
-        let bank_offer = mature_state
+        let listen_offer = mature_state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "bank_ledger")
-            .expect("deepening a bond leaves a mark to bank first");
+            .find(|offer| offer.kind == "check")
+            .expect("deepening a bond leaves a mark for listen to settle");
         assert!(
-            bank_offer.rank < settle_offer.rank,
-            "unbanked marks should still be banked before settling mature bonds"
+            listen_offer.rank < settle_offer.rank,
+            "unbanked marks should still be settled by listen before mature bonds"
         );
 
         let mut settle_action = CwAction::default();
@@ -29985,6 +30856,7 @@ mod tests {
             .iter()
             .any(|tag| tag.label == "quieted moonlight"));
         assert_eq!(completed.ledger.unbanked_count, 1);
+        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS + 2);
 
         let mut repeat_record = JournalRecord::new(help_action, 7093);
         repeat_record
@@ -29999,6 +30871,7 @@ mod tests {
         assert!(!repeat_events
             .iter()
             .any(|event| event.type_name == "job.updated"));
+        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS + 2);
 
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
@@ -30700,7 +31573,7 @@ mod tests {
         {
             let runtime = state.inner.lock().await;
             let tired_state = runtime.state_response(Some(5000), &AccessContext::default());
-            assert_eq!(tired_state.primary_action.kind, "bank_ledger");
+            assert_eq!(tired_state.primary_action.kind, "check");
             assert!(tired_state
                 .primary_action
                 .options
@@ -31330,6 +32203,33 @@ mod tests {
             .expect("Moonlit Echo exists");
         assert_eq!(echo.status, CW_ACTOR_ACTIVE);
         assert_eq!(echo.damage, 0);
+
+        let before_second_completion = runtime.orb_balance(5000);
+        let mut complete_again = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            7190,
+        );
+        complete_again
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
+                amount: 4,
+                reason: "test_complete_after_reset".to_string(),
+            });
+        let (status, second_completion_events) = runtime.apply_journal_record(&complete_again);
+        assert_eq!(status, CW_OK);
+        assert!(second_completion_events.iter().any(|event| {
+            event.type_name == "job.updated"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("completed"))
+        }));
+        assert_eq!(runtime.orb_balance(5000), before_second_completion + 2);
     }
 
     #[test]
@@ -31704,7 +32604,17 @@ mod tests {
             assert_eq!(chat_state.bonds[0].target_actor_id, 1001);
             assert_eq!(chat_state.bonds[0].strength, 1);
             assert_eq!(chat_state.chat_bond_claimed_target_ids, vec![1001]);
-            assert_eq!(chat_state.ledger.unbanked_count, 1);
+            assert_eq!(chat_state.ledger.unbanked_count, 2);
+            assert!(chat_state
+                .ledger
+                .unbanked_marks
+                .iter()
+                .any(|mark| mark.category == "bond"));
+            assert!(chat_state
+                .ledger
+                .unbanked_marks
+                .iter()
+                .any(|mark| mark.category == "witness"));
             let chat_offer = chat_state
                 .action_offers
                 .iter()
@@ -31916,11 +32826,16 @@ mod tests {
         assert_eq!(content.room_sheets.len(), 27);
         assert_eq!(content.clocks.len(), 4);
         assert_eq!(content.jobs.len(), 2);
+        assert!(content
+            .jobs
+            .iter()
+            .all(|job| job.reward.orbs() == 2 && !job.reward.label().is_empty()));
         assert_eq!(content.fronts.len(), 2);
         assert_eq!(content.cards.len(), 68);
         assert_eq!(content.fallback_lines.len(), 16);
         assert_eq!(content.lifecycle_hooks.len(), 13);
         assert_eq!(content.evolution_tracks.len(), 3);
+        assert_eq!(content.recipes.len(), 1);
         let mut exit_direction_keys = BTreeSet::new();
         for exit in &content.exits {
             let direction = exit
@@ -32075,7 +32990,18 @@ mod tests {
                 seed_item_kind(item).expect("seed item kind")
             );
             assert_eq!(world_item.charges, item.charges);
-            assert_eq!(world_item.location_id, item.location_id);
+            let first_seed_item_at_location = content
+                .items
+                .iter()
+                .filter(|candidate| candidate.location_id == item.location_id)
+                .map(|candidate| candidate.id)
+                .min();
+            let expected_location_id = if Some(item.id) == first_seed_item_at_location {
+                item.location_id
+            } else {
+                0
+            };
+            assert_eq!(world_item.location_id, expected_location_id);
             assert_eq!(world_item.holder_actor_id, 0);
         }
         for location in &content.locations {
@@ -32104,9 +33030,9 @@ mod tests {
             .room_features
             .iter()
             .any(|feature| feature.location_id == 1 && feature.key == "scarf_basket"));
-        assert_eq!(evolution_track_item_ids(1001), Some([2004, 2005]));
-        assert_eq!(evolution_track_item_ids(1002), Some([2002, 2003]));
-        assert_eq!(evolution_track_item_ids(1003), Some([2006, 2007]));
+        assert_eq!(evolution_track_item_ids(1001), Some(vec![2004, 2005]));
+        assert_eq!(evolution_track_item_ids(1002), Some(vec![2002, 2003]));
+        assert_eq!(evolution_track_item_ids(1003), Some(vec![2007, 2006]));
         assert_eq!(evolution_track_item_ids(1004), None);
         assert_eq!(evolution_track_item_ids(1005), None);
         assert_eq!(
@@ -32118,7 +33044,17 @@ mod tests {
                 .iter()
                 .find(|world_track| world_track.actor_id == track.actor_id)
                 .expect("seed evolution track is configured in kernel world");
-            assert_eq!(world_track.item_ids, [track.item_ids[0], track.item_ids[1]]);
+            assert_eq!(world_track.requirement_count, track.requirements.len());
+            for (index, requirement) in track.requirements.iter().enumerate() {
+                let world_requirement = world_track.requirements[index];
+                assert_eq!(world_requirement.item_id, requirement.item_id);
+                assert_eq!(
+                    world_requirement.target_kind,
+                    placement_target_kind_from_str(&requirement.target_kind)
+                        .expect("seed requirement target kind")
+                );
+                assert_eq!(world_requirement.target_id, requirement.target_id);
+            }
         }
     }
 
@@ -32868,7 +33804,7 @@ mod tests {
         let mut pickup = CwAction::default();
         pickup.kind = CW_ACTION_PICK_UP_ITEM;
         pickup.actor_id = 5000;
-        pickup.item_id = 2007;
+        pickup.item_id = DEWBRIGHT_BUTTON_ITEM_ID;
         assert_eq!(
             runtime
                 .apply_journal_record(&JournalRecord::new(pickup, 7822))
@@ -33205,7 +34141,7 @@ mod tests {
             Some(RESIDENT_OBSERVED_MEMORY_CONFIDENCE)
         );
         assert_eq!(economy.inventory_count, 1);
-        assert_eq!(economy.inventory_capacity, 4);
+        assert_eq!(economy.inventory_capacity, 1);
         assert!(economy.held_item_ids.contains(&DEWBRIGHT_BUTTON_ITEM_ID));
         let held_dewbright = economy
             .held_items
@@ -33301,7 +34237,7 @@ mod tests {
             .expect("map scrap exists");
         assert_eq!(item_kind(map_scrap.kind), "keepsake");
         assert!(!evolution_track_item_ids(MOUSE_WANDERER_ACTOR_ID)
-            .unwrap_or([0; 2])
+            .unwrap_or_default()
             .contains(&THREADBARE_MAP_SCRAP_ITEM_ID));
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
@@ -34299,7 +35235,7 @@ mod tests {
     }
 
     #[test]
-    fn pickup_at_inventory_capacity_evicts_oldest_held_item() {
+    fn pickup_with_full_hand_swaps_held_item_to_floor() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -34319,21 +35255,6 @@ mod tests {
                     item.holder_actor_id = 5000;
                     item.held_since_tick = 10;
                 }
-                2002 => {
-                    item.location_id = 0;
-                    item.holder_actor_id = 5000;
-                    item.held_since_tick = 20;
-                }
-                2003 => {
-                    item.location_id = 0;
-                    item.holder_actor_id = 5000;
-                    item.held_since_tick = 30;
-                }
-                2004 => {
-                    item.location_id = 0;
-                    item.holder_actor_id = 5000;
-                    item.held_since_tick = 40;
-                }
                 STORY_BUTTON_ITEM_ID => {
                     item.location_id = COSY_COTTAGE_LOCATION_ID;
                     item.holder_actor_id = 0;
@@ -34350,7 +35271,7 @@ mod tests {
             .iter()
             .find(|offer| offer.kind == "pick_up")
             .and_then(|offer| offer.effect.as_deref())
-            .is_some_and(|effect| effect.contains("drops oldest held item first")));
+            .is_some_and(|effect| effect.contains("places your held item here")));
 
         let pickup = CwAction {
             kind: CW_ACTION_PICK_UP_ITEM,
@@ -34383,7 +35304,7 @@ mod tests {
             .expect("inventory resolves");
         match inventory.dispatch {
             CommandDispatch::Read { output } => {
-                assert!(output.contains("(4/4 slots)"));
+                assert!(output.contains("(1/1)"));
                 assert!(output.contains("Story Button"));
                 assert!(!output.contains("Hearth Tonic"));
             }
@@ -34464,6 +35385,7 @@ mod tests {
             other => panic!("shuffle should be a free hand redeal hint, got {other:?}"),
         }
 
+        runtime.hide_loose_items_at_location(1);
         let search = runtime
             .resolve_command(&command_request(5000, "search scarf"), &access)
             .expect("search resolves");
@@ -34479,10 +35401,20 @@ mod tests {
                 assert_eq!(feature_name, "Scarf Basket");
                 assert!(output.contains("Scarf Basket"));
                 assert!(output.contains("round notch"));
+                let found_item_id = STORY_BUTTON_ITEM_ID;
+                assert!(runtime.world.items[..runtime.world.item_count]
+                    .iter()
+                    .any(|item| {
+                        item.id == found_item_id
+                            && item.location_id == 0
+                            && item.holder_actor_id == 0
+                    }));
                 let mut search_record = JournalRecord::new(
                     CwAction {
-                        kind: CW_ACTION_NONE,
+                        kind: CW_ACTION_SEARCH,
                         actor_id: 5000,
+                        location_id,
+                        item_id: found_item_id,
                         ..CwAction::default()
                     },
                     7829,
@@ -34770,6 +35702,21 @@ mod tests {
             }
             other => panic!("feature use should map to projected item use, got {other:?}"),
         }
+
+        let take_dewbright = runtime
+            .resolve_command(&command_request(5000, "take dewbright"), &access)
+            .expect("take dewbright resolves after the one-hand swap");
+        match take_dewbright.dispatch {
+            CommandDispatch::PickUp { item_id } => assert_eq!(item_id, 2002),
+            other => panic!("take dewbright should map to pick-up, got {other:?}"),
+        }
+        pickup.item_id = 2002;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(pickup, 7838))
+                .0,
+            CW_OK
+        );
 
         let give = runtime
             .resolve_command(&command_request(5000, "give dewbright to whisker"), &access)
@@ -35522,6 +36469,19 @@ mod tests {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
         runtime.resident_memories.clear();
+        for item in &mut runtime.world.items[..runtime.world.item_count] {
+            match item.id {
+                HEARTH_TONIC_ITEM_ID => {
+                    item.location_id = 0;
+                    item.holder_actor_id = 0;
+                }
+                STORY_BUTTON_ITEM_ID => {
+                    item.location_id = COSY_COTTAGE_LOCATION_ID;
+                    item.holder_actor_id = 0;
+                }
+                _ => {}
+            }
+        }
 
         let action = runtime
             .ambient_autonomy_action()
@@ -35795,10 +36755,23 @@ mod tests {
         let item_name = runtime
             .item_name(sought_item_id)
             .expect("sought item has name");
-        assert_eq!(
-            pickup_event.content.as_deref(),
-            Some(format!("{actor_name} wanted {item_name}.").as_str())
+        let pickup_content = pickup_event.content.as_deref().unwrap_or_default();
+        assert!(
+            pickup_content.starts_with(&format!("{actor_name} wanted {item_name}")),
+            "{pickup_content}"
         );
+        assert!(events.iter().any(|event| {
+            event.type_name == "ledger.marked"
+                && event.actor_id == Some(5000)
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("witness:You saw"))
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("claim"))
+        }));
     }
 
     #[test]
@@ -35846,7 +36819,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_resident_pickup_can_complete_evolution() {
+    fn ambient_autonomy_resident_pickup_swaps_instead_of_self_evolving() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -35885,51 +36858,31 @@ mod tests {
             Some(RATI_ACTOR_ID),
         );
 
-        let action = runtime
-            .ambient_autonomy_action()
-            .expect("resident takes final desired item");
-        assert_eq!(action.kind, CW_ACTION_PICK_UP_ITEM);
-        assert_eq!(action.actor_id, RATI_ACTOR_ID);
-        assert_eq!(action.item_id, STORY_BUTTON_ITEM_ID);
-
-        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(action, 70611));
-        assert_eq!(status, CW_OK);
-        assert!(events.iter().any(|event| {
-            event.type_name == "item.picked_up"
-                && event.actor_id == Some(RATI_ACTOR_ID)
-                && event.item_id == Some(STORY_BUTTON_ITEM_ID)
-        }));
-        let evolved = events
-            .iter()
-            .find(|event| {
-                event.type_name == "avatar.evolved"
-                    && event.actor_id == Some(RATI_ACTOR_ID)
-                    && event.target_actor_id == Some(RATI_ACTOR_ID)
-                    && event.item_id == Some(STORY_BUTTON_ITEM_ID)
-            })
-            .expect("resident evolves after completing their own set");
-        assert_eq!(evolved.total, Some(2));
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
-        assert_eq!(rati.stats.level, 2);
+        assert!(
+            runtime.resident_economy_autonomy_action(rati).is_none(),
+            "floor placement requirements should not make residents pick up the placed item"
+        );
+        let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        assert_eq!(rati.stats.level, 1);
+        assert!(runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .any(|item| item.id == 2004 && item.holder_actor_id == RATI_ACTOR_ID));
+        assert!(runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .any(|item| {
+                item.id == STORY_BUTTON_ITEM_ID
+                    && item.location_id == COSY_COTTAGE_LOCATION_ID
+                    && item.holder_actor_id == 0
+            }));
         let economy = runtime
             .resident_economy_view(rati, Some(5000))
             .expect("resident economy view");
-        assert!(
-            economy.desired_item_ids.contains(&STORY_BUTTON_ITEM_ID),
-            "personal motives remain visible after mechanical evolution"
-        );
-        assert!(!economy.sought_item_ids.contains(&STORY_BUTTON_ITEM_ID));
-        assert!(economy.sought_item_ids.contains(&HEARTH_TONIC_ITEM_ID));
-        let tonic = economy
-            .sought_items
-            .iter()
-            .find(|item| item.item_id == HEARTH_TONIC_ITEM_ID)
-            .expect("Rati still seeks a personal attachment after evolution");
-        assert_eq!(tonic.source, "attachment");
+        assert!(economy.desired_item_ids.contains(&STORY_BUTTON_ITEM_ID));
     }
 
     #[test]
-    fn ambient_autonomy_residents_drop_expendable_item_before_pickup_at_capacity() {
+    fn ambient_autonomy_residents_swap_expendable_item_on_pickup_at_capacity() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -35959,28 +36912,18 @@ mod tests {
 
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
-                2001 => {
-                    item.location_id = 0;
-                    item.holder_actor_id = RATI_ACTOR_ID;
-                    item.held_since_tick = 28;
-                }
                 DEWBRIGHT_BUTTON_ITEM_ID => {
                     item.location_id = 0;
                     item.holder_actor_id = RATI_ACTOR_ID;
                     item.held_since_tick = 20;
                 }
-                2003 => {
-                    item.location_id = 0;
-                    item.holder_actor_id = RATI_ACTOR_ID;
-                    item.held_since_tick = 29;
-                }
                 2004 => {
-                    item.location_id = 0;
-                    item.holder_actor_id = RATI_ACTOR_ID;
-                    item.held_since_tick = 1;
-                }
-                STORY_BUTTON_ITEM_ID => {
                     item.location_id = COSY_COTTAGE_LOCATION_ID;
+                    item.holder_actor_id = 0;
+                    item.held_since_tick = 0;
+                }
+                2001 | 2003 | STORY_BUTTON_ITEM_ID => {
+                    item.location_id = 0;
                     item.holder_actor_id = 0;
                     item.held_since_tick = 0;
                 }
@@ -35998,7 +36941,7 @@ mod tests {
         runtime.remember_resident_memory(
             RATI_ACTOR_ID,
             RESIDENT_MEMORY_KIND_ITEM_LOCATION,
-            STORY_BUTTON_ITEM_ID,
+            2004,
             COSY_COTTAGE_LOCATION_ID,
             RESIDENT_OBSERVED_MEMORY_CONFIDENCE,
             RESIDENT_OBSERVED_MEMORY_SALIENCE,
@@ -36007,10 +36950,10 @@ mod tests {
 
         let action = runtime
             .ambient_autonomy_action()
-            .expect("resident makes room before taking a wanted item");
-        assert_eq!(action.kind, CW_ACTION_DROP_ITEM);
+            .expect("resident swaps before taking a wanted item");
+        assert_eq!(action.kind, CW_ACTION_PICK_UP_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
-        assert_eq!(action.item_id, DEWBRIGHT_BUTTON_ITEM_ID);
+        assert_eq!(action.item_id, 2004);
 
         let (status, events) = runtime.apply_journal_record(&JournalRecord::new(action, 7071));
         assert_eq!(status, CW_OK);
@@ -36021,20 +36964,25 @@ mod tests {
                     && event.actor_id == Some(RATI_ACTOR_ID)
                     && event.item_id == Some(DEWBRIGHT_BUTTON_ITEM_ID)
             })
-            .expect("resident drop event");
+            .expect("resident swap drop event");
         assert_eq!(
             drop_event.content.as_deref(),
-            Some("Rati made room for Story Button by letting go of Dewbright Button.")
+            Some("Rati made room by letting go of Dewbright Button.")
         );
         let reply_plan = runtime
             .resident_economy_action_reply_plan(&action)
-            .expect("resident drop gets a reply plan");
+            .expect("resident pickup gets a reply plan");
         assert!(reply_plan
             .user_text
-            .contains("Rati let go of Dewbright Button to make room for Story Button."));
+            .contains("Rati picked up Moonwool Thread."));
         assert!(runtime.world.items[..runtime.world.item_count]
             .iter()
             .any(|item| item.id == 2004 && item.holder_actor_id == RATI_ACTOR_ID));
+        assert!(runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .any(|item| item.id == DEWBRIGHT_BUTTON_ITEM_ID
+                && item.location_id == COSY_COTTAGE_LOCATION_ID
+                && item.holder_actor_id == 0));
     }
 
     #[test]
@@ -36313,7 +37261,7 @@ mod tests {
             .expect("Rati exists")
             .damage = 5;
 
-        let rati_desired_items = evolution_track_item_ids(RATI_ACTOR_ID).unwrap_or([0; 2]);
+        let rati_desired_items = evolution_track_item_ids(RATI_ACTOR_ID).unwrap_or_default();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == 2001 {
                 item.location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
@@ -36421,7 +37369,7 @@ mod tests {
         assert!(economy.motive.contains("remembers"));
 
         let action = runtime
-            .ambient_autonomy_action()
+            .resident_economy_autonomy_action(actor)
             .expect("resident moves toward a nearby sought item");
         assert_eq!(action.kind, CW_ACTION_MOVE);
         assert_eq!(action.actor_id, actor.id);
@@ -37010,7 +37958,7 @@ mod tests {
         runtime.world.tick = 10;
         runtime.resident_memories.clear();
 
-        let rati_desired_items = evolution_track_item_ids(RATI_ACTOR_ID).unwrap_or([0; 2]);
+        let rati_desired_items = evolution_track_item_ids(RATI_ACTOR_ID).unwrap_or_default();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == STORY_BUTTON_ITEM_ID {
                 item.location_id = 0;
@@ -37469,7 +38417,7 @@ mod tests {
         assert!(reply_plan.user_text.contains("weather mark"));
         assert!(reply_plan
             .economy_note
-            .contains("inventory: 1/4 slots used"));
+            .contains("inventory: 1/1 slots used"));
         assert!(reply_plan.economy_note.contains("carrying:"));
     }
 
@@ -38823,7 +39771,7 @@ mod tests {
     }
 
     #[test]
-    fn give_two_unique_evolution_items_evolves_resident() {
+    fn giving_hand_requirement_completes_placed_evolution_without_consuming_items() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -38841,73 +39789,48 @@ mod tests {
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
 
-        for (seed, destination) in [(7202, 2), (7205, 3), (7208, 2), (7209, 1)] {
-            let mut action = CwAction::default();
-            action.kind = CW_ACTION_MOVE;
-            action.actor_id = 5000;
-            action.destination_location_id = destination;
-            assert_eq!(
-                runtime
-                    .apply_journal_record(&JournalRecord::new(action, seed))
-                    .0,
-                CW_OK
-            );
-            if destination == 2 {
-                let access = AccessContext::default();
-                let state = runtime.state_response(Some(5000), &access);
-                if state
-                    .items
-                    .iter()
-                    .any(|item| item.id == 2002 && item.location_id == Some(2))
-                {
-                    let mut pickup = CwAction::default();
-                    pickup.kind = CW_ACTION_PICK_UP_ITEM;
-                    pickup.actor_id = 5000;
-                    pickup.item_id = 2002;
-                    assert_eq!(
-                        runtime
-                            .apply_journal_record(&JournalRecord::new(pickup, seed + 1))
-                            .0,
-                        CW_OK
-                    );
-                }
-            }
-            if destination == 3 {
-                let mut pickup = CwAction::default();
-                pickup.kind = CW_ACTION_PICK_UP_ITEM;
-                pickup.actor_id = 5000;
-                pickup.item_id = 2003;
-                assert_eq!(
-                    runtime
-                        .apply_journal_record(&JournalRecord::new(pickup, seed + 1))
-                        .0,
-                    CW_OK
-                );
-            }
-        }
-
         let access = AccessContext::default();
+        let mut move_action = CwAction {
+            kind: CW_ACTION_MOVE,
+            actor_id: 5000,
+            destination_location_id: 2,
+            ..CwAction::default()
+        };
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(move_action, 7202))
+                .0,
+            CW_OK
+        );
+        let pickup = CwAction {
+            kind: CW_ACTION_PICK_UP_ITEM,
+            actor_id: 5000,
+            item_id: 2002,
+            ..CwAction::default()
+        };
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(pickup, 7203))
+                .0,
+            CW_OK
+        );
+        move_action.destination_location_id = 1;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(move_action, 7204))
+                .0,
+            CW_OK
+        );
         let state = runtime.state_response(Some(5000), &access);
         assert!(state
             .primary_action
             .options
             .iter()
             .any(|option| option.kind == "give_item"));
-        assert!(state
-            .items
-            .iter()
-            .any(|item| item.id == 2002 && item.kind == "evolution"));
 
         let mut give = CwAction::default();
         give.kind = CW_ACTION_GIVE_ITEM;
         give.actor_id = 5000;
-        let unwilling = runtime
-            .resident_gift_is_willing(5000, 1001, 2002)
-            .expect_err("Rati should not willingly accept Dewbright Button");
-        assert!(
-            unwilling.contains("not asking") || unwilling.contains("not seeking"),
-            "{unwilling}"
-        );
         assert_eq!(runtime.actor_by_id(1001).unwrap().stats.level, 1);
 
         give.target_actor_id = 1002;
@@ -38915,6 +39838,11 @@ mod tests {
         let (status, events) = runtime.apply_journal_record(&JournalRecord::new(give, 7211));
         assert_eq!(status, CW_OK);
         assert_eq!(events[0].type_name, "item.given");
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "avatar.evolved"
+                && event.target_actor_id == Some(1002)
+                && event.total == Some(2)));
         assert!(events.iter().any(|event| event.type_name == "bond.deepened"
             && event.actor_id == Some(5000)
             && event.target_actor_id == Some(1002)));
@@ -38924,7 +39852,13 @@ mod tests {
                 .as_deref()
                 .map(|content| content.starts_with("bond:"))
                 .unwrap_or(false)));
-        assert_eq!(runtime.actor_by_id(1002).unwrap().stats.level, 1);
+        assert_eq!(runtime.actor_by_id(1002).unwrap().stats.level, 2);
+        assert!(runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .any(|item| item.id == 2002 && item.holder_actor_id == 1002));
+        assert!(runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .any(|item| item.id == 2003 && item.location_id == 3 && item.holder_actor_id == 0));
         let state = runtime.state_response(Some(5000), &access);
         assert_eq!(state.bonds.len(), 1);
         assert_eq!(state.bonds[0].target_actor_id, 1002);
@@ -38940,26 +39874,10 @@ mod tests {
             .iter()
             .any(|mark| mark.category == "bond"));
 
-        give.item_id = 2003;
-        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(give, 7212));
-        assert_eq!(status, CW_OK);
-        assert!(events
-            .iter()
-            .any(|event| event.type_name == "avatar.evolved"
-                && event.target_actor_id == Some(1002)
-                && event.total == Some(2)));
-        assert!(
-            events
-                .iter()
-                .any(|event| event.type_name == "bond.deepened"
-                    && event.target_actor_id == Some(1002))
-        );
-        assert_eq!(runtime.actor_by_id(1002).unwrap().stats.level, 2);
-
         let state = runtime.state_response(Some(5000), &access);
         assert_eq!(state.bonds.len(), 1);
-        assert_eq!(state.bonds[0].strength, 2);
-        assert_eq!(state.ledger.unbanked_count, 2);
+        assert_eq!(state.bonds[0].strength, 1);
+        assert_eq!(state.ledger.unbanked_count, 1);
         let whiskerwind = state
             .actors
             .iter()
@@ -38978,7 +39896,7 @@ mod tests {
         let restored_state = restored.state_response(Some(5000), &access);
         assert_eq!(restored_state.bonds.len(), 1);
         assert_eq!(restored_state.bonds[0].target_actor_id, 1002);
-        assert_eq!(restored_state.bonds[0].strength, 2);
+        assert_eq!(restored_state.bonds[0].strength, 1);
 
         let revised_statement = "Whiskerwind trusts me with thunder tea.";
         let blocked_revision = runtime
@@ -39056,9 +39974,9 @@ mod tests {
         let revised_state = runtime.state_response(Some(5000), &access);
         assert_eq!(revised_state.bonds.len(), 1);
         assert_eq!(revised_state.bonds[0].statement, revised_statement);
-        assert_eq!(revised_state.ledger.banked_count, 2);
+        assert_eq!(revised_state.ledger.banked_count, 1);
         assert_eq!(revised_state.ledger.spent_count, 1);
-        assert_eq!(revised_state.ledger.advancement_points, 1);
+        assert_eq!(revised_state.ledger.advancement_points, 0);
 
         let repeat_revision = runtime
             .resolve_command(
@@ -39069,113 +39987,21 @@ mod tests {
         match repeat_revision.dispatch {
             CommandDispatch::Disabled { status, output } => {
                 assert_eq!(status, 409);
-                assert!(output.contains("already"));
+                assert!(output.contains("growth"));
             }
             other => panic!("same bond revision should be disabled, got {other:?}"),
         }
 
         let settle_command = runtime
             .resolve_command(&command_request(5000, "settle whisker"), &access)
-            .expect("active bond settles as a compact command");
-        assert_eq!(settle_command.command, "settle Whiskerwind");
-        assert_eq!(
-            settle_command
-                .action
-                .as_ref()
-                .map(|action| action.label.as_str()),
-            Some("Settle")
-        );
-        assert_eq!(
-            settle_command
-                .action
-                .as_ref()
-                .map(|action| action.command.as_str()),
-            Some("settle Whiskerwind")
-        );
+            .expect("bond settlement remains recognized");
         match settle_command.dispatch {
-            CommandDispatch::ResolveBond { target_actor_id } => {
-                assert_eq!(target_actor_id, 1002);
-            }
-            other => panic!("active bond should dispatch settlement, got {other:?}"),
-        }
-
-        let mut resolve_action = CwAction::default();
-        resolve_action.kind = CW_ACTION_NONE;
-        resolve_action.actor_id = 5000;
-        let mut resolve_record = JournalRecord::new(resolve_action, 7215);
-        resolve_record
-            .projection_mutations
-            .push(ProjectionMutation::ResolveBond {
-                target_actor_id: 1002,
-                reason: "bond_resolved".to_string(),
-            });
-        let (status, events) = runtime.apply_journal_record(&resolve_record);
-        assert_eq!(status, CW_OK);
-        assert!(events.iter().any(|event| {
-            event.type_name == "bond.resolved"
-                && event.actor_id == Some(5000)
-                && event.target_actor_id == Some(1002)
-        }));
-        assert!(events.iter().any(|event| {
-            event.type_name == "ledger.marked"
-                && event
-                    .content
-                    .as_deref()
-                    .map(|content| content.contains("bond_resolved"))
-                    .unwrap_or(false)
-        }));
-        let resolved_state = runtime.state_response(Some(5000), &access);
-        assert!(resolved_state.bonds.is_empty());
-        assert_eq!(resolved_state.ledger.unbanked_count, 1);
-        assert_eq!(
-            runtime
-                .bonds
-                .get(&bond_id(5000, 1002))
-                .map(|bond| bond.status.as_str()),
-            Some("resolved")
-        );
-
-        let repeat_command = runtime
-            .resolve_command(&command_request(5000, "settle whisker"), &access)
-            .expect("settled bond command remains recognized");
-        match repeat_command.dispatch {
             CommandDispatch::Disabled { status, output } => {
                 assert_eq!(status, 409);
-                assert!(output.contains("active Bond"));
+                assert!(output.contains("Deepen your Bond"));
             }
-            other => panic!("resolved bond should be disabled, got {other:?}"),
+            other => panic!("strength-1 bond should not settle yet, got {other:?}"),
         }
-
-        let mut repeat_action = CwAction::default();
-        repeat_action.kind = CW_ACTION_NONE;
-        repeat_action.actor_id = 5000;
-        let mut repeat_record = JournalRecord::new(repeat_action, 7216);
-        repeat_record
-            .projection_mutations
-            .push(ProjectionMutation::ResolveBond {
-                target_actor_id: 1002,
-                reason: "bond_resolved".to_string(),
-            });
-        let (status, repeat_events) = runtime.apply_journal_record(&repeat_record);
-        assert_eq!(status, CW_OK);
-        assert!(repeat_events.is_empty());
-        let repeat_state = runtime.state_response(Some(5000), &access);
-        assert_eq!(repeat_state.ledger.unbanked_count, 1);
-
-        let restored_resolved = RuntimeSnapshot::from_runtime(&runtime)
-            .into_runtime()
-            .expect("snapshot restores resolved bond");
-        let restored_resolved_state = restored_resolved.state_response(Some(5000), &access);
-        assert!(restored_resolved_state.bonds.is_empty());
-        assert_eq!(
-            restored_resolved
-                .bonds
-                .get(&bond_id(5000, 1002))
-                .map(|bond| bond.status.as_str()),
-            Some("resolved")
-        );
-        assert_eq!(restored_resolved_state.ledger.spent_count, 1);
-        assert_eq!(restored_resolved_state.ledger.advancement_points, 1);
     }
 
     #[test]

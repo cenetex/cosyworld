@@ -89,6 +89,9 @@ pub(crate) enum CommandDispatch {
         target_actor_id: u64,
         target_item_id: u64,
     },
+    Craft {
+        recipe_id: u64,
+    },
     Attack {
         target_actor_id: u64,
     },
@@ -185,6 +188,7 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "get" | "take" | "pick" => "take",
         "give" | "gift" => "give",
         "trade" | "swap" | "barter" => "trade",
+        "craft" | "make" | "combine" => "craft",
         "use" | "drink" | "ring" => "use",
         "talk" | "chat" | "speak" => "chat",
         "listen" | "check" => "listen",
@@ -364,6 +368,9 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::UseItem { .. } => "That item cannot be used on that target right now.",
         CommandDispatch::GiveItem { .. } => "That gift changed. Check your pack and who is here.",
         CommandDispatch::TradeItem { .. } => "That trade changed. Check your pack and who is here.",
+        CommandDispatch::Craft { .. } => {
+            "That craft changed. Check your hand, the floor, and the recipe."
+        }
         CommandDispatch::Attack { .. } => "The room has calmed; attack is not available.",
         CommandDispatch::ResolveBond { .. } => "That Bond cannot be settled right now.",
         CommandDispatch::Defend => "The room has calmed; defend is not needed.",
@@ -464,6 +471,10 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             "You search {}.",
             event_content_part(event, 0).unwrap_or("a room feature")
         )),
+        "item.found" => Some(format!(
+            "You find {}.",
+            event.item_name.as_deref().unwrap_or("an item")
+        )),
         "actor.moved" => Some(format!(
             "You move from {} to {}.",
             event.location_name.as_deref().unwrap_or("here"),
@@ -522,6 +533,15 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             event.target_actor_name.as_deref().unwrap_or("someone"),
             event.target_item_name.as_deref().unwrap_or("another item")
         )),
+        "item.crafted" => Some(format!(
+            "You craft with {} and {}.",
+            event.item_name.as_deref().unwrap_or("one item"),
+            event.target_item_name.as_deref().unwrap_or("another item")
+        )),
+        "item.created" => Some(format!(
+            "{} joins the world.",
+            event.item_name.as_deref().unwrap_or("Something new")
+        )),
         "ability_check.rolled" => {
             let total = event
                 .total
@@ -559,7 +579,8 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
                 .and_then(|value| value.parse::<usize>().ok())
                 .unwrap_or(0);
             Some(format!(
-                "Growth claimed: {count} growth point{}.",
+                "GROWTH: {count} mark{} become {count} point{}.",
+                if count == 1 { "" } else { "s" },
                 if count == 1 { "" } else { "s" }
             ))
         }
@@ -727,7 +748,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                    output: "Commands: look, look <thing>, search <feature>, who, inventory, go <room|direction>, say <message>, emote <action>, report <actor>: <reason>, take <item>, drop <item>, give <item> to <resident>, trade <item> with <resident> for <item>, use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, shuffle, bank ledger, skill <name>, calling <new drive>, bond <resident>: <relationship>, settle <resident>, attack <target>, defend, flee <room|direction>.".to_string(),
+                            output: "Commands: look, look <thing>, search <feature>, who, inventory, go <room|direction>, say <message>, emote <action>, report <actor>: <reason>, take <item>, drop <item>, give <item> to <resident>, trade <item> with <resident> for <item>, craft [recipe], use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, shuffle, skill <name>, calling <new drive>, bond <resident>: <relationship>, settle <resident>, attack <target>, defend, flee <room|direction>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -741,6 +762,19 @@ impl RuntimeWorld {
                 },
             }),
             "search" => {
+                if !self.room_floor_empty(actor.location_id) {
+                    return Ok(ResolvedCommand {
+                        command: command.clone(),
+                        verb,
+                        action: Some(command_action("search", "Search", &command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output:
+                                "There is already an item here. Take it, use it, or move it before searching."
+                                    .to_string(),
+                        },
+                    });
+                }
                 if search_query_is_room(rest) {
                     return Ok(ResolvedCommand {
                         command: command.clone(),
@@ -946,6 +980,53 @@ impl RuntimeWorld {
                         item_id: item.id,
                         target_actor_id: target.id,
                         target_item_id: target_item.id,
+                    },
+                })
+            }
+            "craft" => {
+                let recipe = if rest.trim().is_empty() {
+                    self.default_craft_recipe(actor.id)
+                } else {
+                    let query_key = command_key(rest);
+                    seed_content().recipes.iter().find(|recipe| {
+                        recipe.id.to_string() == query_key
+                            || command_key(&recipe.key) == query_key
+                            || command_key(&recipe.name) == query_key
+                    })
+                }
+                .ok_or_else(|| {
+                    command_error(
+                        &command,
+                        "craft",
+                        404,
+                        "No recipe matches your current hand and floor.",
+                    )
+                })?;
+                if self.craft_action_for_recipe(actor.id, recipe.id).is_none() {
+                    return Ok(ResolvedCommand {
+                        command: format!("craft {}", recipe.name),
+                        verb,
+                        action: Some(command_action(
+                            "craft",
+                            "Craft",
+                            &format!("craft {}", recipe.name),
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "That recipe needs one input in your hand and the other on the floor, with its output slot empty.".to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: format!("craft {}", recipe.name),
+                    verb,
+                    action: Some(command_action(
+                        "craft",
+                        "Craft",
+                        &format!("craft {}", recipe.name),
+                    )),
+                    dispatch: CommandDispatch::Craft {
+                        recipe_id: recipe.id,
                     },
                 })
             }
@@ -1590,7 +1671,7 @@ impl RuntimeWorld {
                 &command,
                 &verb,
                 404,
-                "I do not know that command yet. Try help, look, search, who, inventory, go, say, emote, report, take, drop, give, trade, use, chat, listen, prepare, work, assist, rest, bank ledger, skill, calling, bond, settle, attack, defend, or flee.",
+                "I do not know that command yet. Try help, look, search, who, inventory, go, say, emote, report, take, drop, give, trade, use, chat, listen, prepare, work, assist, rest, skill, calling, bond, settle, attack, defend, or flee.",
             )),
         }
     }
@@ -1674,7 +1755,7 @@ impl RuntimeWorld {
                 );
             }
             return Ok(format!(
-                "Searchable features: {}.",
+                "The floor is empty. Searchable features: {}.",
                 command_list_or_none(&features)
             ));
         }
@@ -1841,10 +1922,10 @@ impl RuntimeWorld {
         let capacity = self.actor_inventory_capacity(actor_id).unwrap_or(0);
         let count = items.len();
         if items.is_empty() {
-            format!("You are not carrying anything ({count}/{capacity} slots).")
+            "Your hand is empty.".to_string()
         } else {
             format!(
-                "You are carrying ({count}/{capacity} slots): {}.",
+                "You carry {} in your hand ({count}/{capacity}).",
                 command_list_or_none(&items)
             )
         }

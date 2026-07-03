@@ -18,6 +18,7 @@
     "cards": "cards.json",
     "fallback_lines": "fallback_lines.json",
     "lifecycle_hooks": "lifecycle_hooks.json",
-    "evolution_tracks": "evolution_tracks.json"
+    "evolution_tracks": "evolution_tracks.json",
+    "recipes": "recipes.json"
   }
 }

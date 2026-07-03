@@ -12,8 +12,8 @@ pub const CW_MAX_LOCATIONS: usize = 256;
 pub const CW_MAX_EXITS: usize = 1024;
 pub const CW_MAX_EVENTS: usize = 128;
 pub const CW_MAX_EVOLUTION_TRACKS: usize = 128;
-pub const CW_EVOLUTION_TRACK_ITEM_COUNT: usize = 2;
-pub const CW_INVENTORY_BASE_SLOTS: usize = 3;
+pub const CW_MAX_EVOLUTION_REQUIREMENTS: usize = 4;
+pub const CW_INVENTORY_BASE_SLOTS: usize = 1;
 
 pub const CW_OK: u32 = 0;
 
@@ -27,6 +27,9 @@ pub const CW_ACTOR_DEAD: u8 = 3;
 pub const CW_LOCATION_ALLOW_COMBAT: u32 = 1 << 0;
 
 pub const CW_EXIT_LOCKED: u32 = 1 << 0;
+
+pub const CW_PLACEMENT_ACTOR_HAND: u8 = 1;
+pub const CW_PLACEMENT_LOCATION_FLOOR: u8 = 2;
 
 pub const CW_ITEM_POTION: u8 = 1;
 pub const CW_ITEM_EVOLUTION: u8 = 2;
@@ -45,6 +48,8 @@ pub const CW_ACTION_GIVE_ITEM: u8 = 9;
 pub const CW_ACTION_FLEE: u8 = 10;
 pub const CW_ACTION_DROP_ITEM: u8 = 11;
 pub const CW_ACTION_TRADE_ITEM: u8 = 12;
+pub const CW_ACTION_SEARCH: u8 = 13;
+pub const CW_ACTION_CRAFT: u8 = 14;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;
@@ -56,6 +61,9 @@ pub const CW_EVENT_ITEM_GIVEN: u8 = 16;
 pub const CW_EVENT_AVATAR_EVOLVED: u8 = 17;
 pub const CW_EVENT_ITEM_DROPPED: u8 = 19;
 pub const CW_EVENT_ITEM_TRADED: u8 = 20;
+pub const CW_EVENT_ITEM_FOUND: u8 = 21;
+pub const CW_EVENT_ITEM_CRAFTED: u8 = 22;
+pub const CW_EVENT_ITEM_CREATED: u8 = 23;
 
 pub const CW_OFFER_CHAT: u32 = 1 << 0;
 pub const CW_OFFER_CHECK: u32 = 1 << 1;
@@ -68,6 +76,8 @@ pub const CW_OFFER_GIVE_ITEM: u32 = 1 << 7;
 pub const CW_OFFER_FLEE: u32 = 1 << 8;
 pub const CW_OFFER_DROP_ITEM: u32 = 1 << 9;
 pub const CW_OFFER_TRADE_ITEM: u32 = 1 << 10;
+pub const CW_OFFER_SEARCH: u32 = 1 << 11;
+pub const CW_OFFER_CRAFT: u32 = 1 << 12;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
@@ -139,7 +149,19 @@ pub struct CwAction {
     #[serde(default)]
     pub target_item_id: u64,
     #[serde(default)]
+    pub output_item_id: u64,
+    #[serde(default)]
+    pub output_target_id: u64,
+    #[serde(default)]
     pub modifier: i16,
+    #[serde(default)]
+    pub output_target_kind: u8,
+    #[serde(default)]
+    pub output_item_kind: u8,
+    #[serde(default)]
+    pub output_item_charges: u8,
+    #[serde(default)]
+    pub reserved: u8,
 }
 
 #[repr(C)]
@@ -188,9 +210,19 @@ pub struct CwActionOffers {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+pub struct CwEvolutionRequirement {
+    pub item_id: u64,
+    pub target_kind: u8,
+    pub reserved: [u8; 7],
+    pub target_id: u64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct CwEvolutionTrack {
     pub actor_id: u64,
-    pub item_ids: [u64; CW_EVOLUTION_TRACK_ITEM_COUNT],
+    pub requirement_count: usize,
+    pub requirements: [CwEvolutionRequirement; CW_MAX_EVOLUTION_REQUIREMENTS],
 }
 
 #[repr(C)]
@@ -237,8 +269,8 @@ extern "C" {
     pub fn cw_world_set_evolution_track(
         world: *mut CwWorld,
         actor_id: u64,
-        item_ids: *const u64,
-        item_count: usize,
+        requirements: *const CwEvolutionRequirement,
+        requirement_count: usize,
     ) -> u32;
     pub fn cw_world_apply(
         world: *mut CwWorld,
