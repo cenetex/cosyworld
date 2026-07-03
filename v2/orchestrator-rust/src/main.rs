@@ -6486,6 +6486,16 @@ impl RuntimeWorld {
         event
     }
 
+    fn latest_actor_presence_state(&self, actor_id: u64) -> Option<bool> {
+        self.event_log.iter().rev().find_map(|event| {
+            if event.type_name == "actor.presence" && event.actor_id == Some(actor_id) {
+                Some(event.content.as_deref() == Some("active") || event.reason == 1)
+            } else {
+                None
+            }
+        })
+    }
+
     fn append_hand_shuffled_event(&mut self, actor_id: u64, reason: &str) -> EventView {
         let location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
         let event = EventView {
@@ -10235,9 +10245,31 @@ impl RuntimeWorld {
             CW_ACTION_DROP_ITEM => {
                 format!("{name} lets the item rest nearby. \"Something else matters more.\"")
             }
-            CW_ACTION_MOVE => format!("{name} steps to the next room and listens for change."),
+            CW_ACTION_MOVE => self.resident_move_fallback_text(actor, action),
             _ => self.resident_fallback_for_target(actor.id),
         }
+    }
+
+    fn resident_move_fallback_text(&self, actor: CwActor, action: &CwAction) -> String {
+        let name = self
+            .actor_name(actor.id)
+            .unwrap_or_else(|| format!("Resident {}", actor.id));
+        let destination = self
+            .location_name(action.destination_location_id)
+            .unwrap_or_else(|| "the next room".to_string());
+        let variants = [
+            format!("{name} heads toward {destination}. \"I'll listen for what changed.\""),
+            format!("{name} slips toward {destination}. \"The room is tugging me onward.\""),
+            format!("{name} follows the path to {destination}. \"Something shifted there.\""),
+            format!("{name} moves toward {destination}. \"I'll bring back what I notice.\""),
+        ];
+        let index = (self
+            .world
+            .tick
+            .wrapping_add(actor.id)
+            .wrapping_add(action.destination_location_id) as usize)
+            % variants.len();
+        variants[index].clone()
     }
 
     fn resident_memory_prompt_notes(&self, resident_id: u64) -> Vec<String> {
@@ -17875,13 +17907,14 @@ async fn state_view(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let runtime = state.inner.lock().await;
+    let mut runtime = state.inner.lock().await;
     let actor_id = query.actor_id.filter(|id| {
         client_actor_authorized_for_state(&runtime, &state, *id, query.actor_session.as_deref())
     });
     if let Some(actor_id) = actor_id {
         record_daily_visit(&state, actor_id);
     }
+    let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
     let active_humans = active_actor_ids_for_state(&state);
     let mut response = runtime.state_response_with_presence(
         actor_id,
@@ -17898,6 +17931,9 @@ async fn state_view(
         &turn_humans,
     );
     drop(runtime);
+    if !released_events.is_empty() {
+        broadcast_events(&state, &released_events);
+    }
     if let Some(path) = state.event_store_path.as_deref() {
         match load_account_activity_view(path, &access, 6) {
             Ok(account) => response.account = account,
@@ -17925,10 +17961,11 @@ async fn inspect_view(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let runtime = state.inner.lock().await;
+    let mut runtime = state.inner.lock().await;
     let actor_id = query.actor_id.filter(|id| {
         client_actor_authorized_for_state(&runtime, &state, *id, query.actor_session.as_deref())
     });
+    let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
     let active_humans = active_actor_ids_for_state(&state);
     let response = runtime.state_response_with_presence(
         actor_id,
@@ -17936,6 +17973,10 @@ async fn inspect_view(
         Some(&active_humans),
         query_openrouter_connected(query.openrouter_connected.as_deref()),
     );
+    drop(runtime);
+    if !released_events.is_empty() {
+        broadcast_events(&state, &released_events);
+    }
     Json(response.inspector)
 }
 
@@ -17951,12 +17992,18 @@ async fn world_view(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let runtime = state.inner.lock().await;
+    let mut runtime = state.inner.lock().await;
     let actor_id = query.actor_id.filter(|id| {
         client_actor_authorized_for_state(&runtime, &state, *id, query.actor_session.as_deref())
     });
+    let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
     let active_humans = active_actor_ids_for_state(&state);
-    Json(runtime.world_response_with_presence(actor_id, &access, Some(&active_humans)))
+    let response = runtime.world_response_with_presence(actor_id, &access, Some(&active_humans));
+    drop(runtime);
+    if !released_events.is_empty() {
+        broadcast_events(&state, &released_events);
+    }
+    Json(response)
 }
 
 async fn events_view(
@@ -18683,6 +18730,9 @@ async fn create_avatar(
 
 async fn commit_presence_event(state: &AppState, actor_id: u64, active: bool) -> Vec<EventView> {
     let mut runtime = state.inner.lock().await;
+    if runtime.latest_actor_presence_state(actor_id) == Some(active) {
+        return Vec::new();
+    }
     let event = runtime.append_actor_presence_event(actor_id, active);
     if active {
         let action = CwAction {
@@ -18700,6 +18750,49 @@ async fn commit_presence_event(state: &AppState, actor_id: u64, active: bool) ->
     persist_events(state, &events);
     broadcast_events(state, &events);
     events
+}
+
+fn release_inactive_human_inventory_locked(
+    state: &AppState,
+    runtime: &mut RuntimeWorld,
+) -> Vec<EventView> {
+    let active_actor_ids = active_actor_ids_for_state(state);
+    let inactive_human_actor_ids = runtime.world.actors[..runtime.world.actor_count]
+        .iter()
+        .filter(|actor| {
+            actor.kind == CW_ACTOR_HUMAN
+                && actor.status == CW_ACTOR_ACTIVE
+                && !active_actor_ids.contains(&actor.id)
+        })
+        .map(|actor| actor.id)
+        .collect::<BTreeSet<_>>();
+    if inactive_human_actor_ids.is_empty() {
+        return Vec::new();
+    }
+    let drops = runtime.world.items[..runtime.world.item_count]
+        .iter()
+        .filter(|item| inactive_human_actor_ids.contains(&item.holder_actor_id))
+        .map(|item| (item.holder_actor_id, item.id))
+        .collect::<Vec<_>>();
+    let mut released_events = Vec::new();
+    for (actor_id, item_id) in drops {
+        let action = CwAction {
+            kind: CW_ACTION_DROP_ITEM,
+            actor_id,
+            item_id,
+            ..CwAction::default()
+        };
+        let record = JournalRecord::new(action, runtime.next_seed_value());
+        match commit_journal_record(state, runtime, record) {
+            Ok((CW_OK, mut events)) => released_events.append(&mut events),
+            Ok((_status, _events)) => {}
+            Err(error) => warn!(
+                "failed to release inactive actor {} item {}: {}",
+                actor_id, item_id, error
+            ),
+        }
+    }
+    released_events
 }
 
 async fn ping_presence(
@@ -23460,8 +23553,13 @@ async fn apply_and_broadcast_with_resident_reply(
     if !client_actor_authorized_for_state(&runtime, &state, actor_id, actor_session) {
         return client_actor_rejected_response();
     }
+    let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
     let turn_location_id = runtime.actor_by_id(actor_id).map(|actor| actor.location_id);
     if let Some(response) = actor_turn_rejection(&state, &runtime, actor_id) {
+        drop(runtime);
+        if !released_events.is_empty() {
+            broadcast_events(&state, &released_events);
+        }
         return response;
     }
     let listen_cost = if action_is_listen_check(&action) {
@@ -23471,6 +23569,9 @@ async fn apply_and_broadcast_with_resident_reply(
     };
     if listen_cost > 0 && runtime.orb_balance(actor_id) < listen_cost {
         drop(runtime);
+        if !released_events.is_empty() {
+            broadcast_events(&state, &released_events);
+        }
         let events = if was_active {
             Vec::new()
         } else {
@@ -23491,6 +23592,10 @@ async fn apply_and_broadcast_with_resident_reply(
         });
     }
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
+        drop(runtime);
+        if !released_events.is_empty() {
+            broadcast_events(&state, &released_events);
+        }
         return Json(ActionResponse {
             ok: false,
             status: 500,
@@ -23516,6 +23621,9 @@ async fn apply_and_broadcast_with_resident_reply(
     );
     drop(runtime);
 
+    if !released_events.is_empty() {
+        broadcast_events(&state, &released_events);
+    }
     broadcast_events(&state, &events);
     if let Some(plan) = reply_plan {
         schedule_resident_reply(state.clone(), plan, ai_override);
@@ -26143,6 +26251,36 @@ mod tests {
         );
     }
 
+    #[test]
+    fn command_output_prefers_primary_actor_before_resident_ripple() {
+        let events = vec![
+            EventView {
+                seq: 1,
+                type_name: "ability_check.rolled".to_string(),
+                success: true,
+                actor_id: Some(5000),
+                total: Some(17),
+                dc: Some(LISTEN_DC as i16),
+                ..EventView::default()
+            },
+            EventView {
+                seq: 2,
+                type_name: "actor.moved".to_string(),
+                success: true,
+                actor_id: Some(RATI_ACTOR_ID),
+                actor_name: Some("Rati".to_string()),
+                location_name: Some("Library".to_string()),
+                destination_location_name: Some("Homeroom".to_string()),
+                ..EventView::default()
+            },
+        ];
+
+        assert_eq!(
+            command_response_output_for_actor(None, &events, None).as_deref(),
+            Some("Listen check: 17 vs DC 12 (success).")
+        );
+    }
+
     fn hide_seed_items(runtime: &mut RuntimeWorld) {
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if (2001..=2010).contains(&item.id) {
@@ -26599,6 +26737,9 @@ mod tests {
         assert!(INDEX_HTML.contains("room-title-main"));
         assert!(INDEX_HTML.contains("room-avatar-rail"));
         assert!(INDEX_HTML.contains("id=\"shuffle\""));
+        assert!(INDEX_HTML.contains("id=\"turn-ping-pill\""));
+        assert!(INDEX_HTML.contains("you've been pinged - act or pass before skip"));
+        assert!(INDEX_HTML.contains("turnPingRemainingLabel"));
         assert!(INDEX_HTML.contains("action-mini-card"));
         assert!(INDEX_HTML
             .contains("const thumb = thumbnailHtml(action, false, \"action-mini-card\");"));
@@ -27360,6 +27501,53 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn inactive_human_inventory_releases_to_current_room() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let mut record = JournalRecord::new(create, 17605);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Gone Collector".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Inventory Tester".to_string(),
+                description: "A test avatar holding a unique item while inactive.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        let held_since_tick = runtime.world.tick;
+        let story = runtime
+            .world
+            .items
+            .iter_mut()
+            .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+            .expect("Story Button exists");
+        story.holder_actor_id = 5000;
+        story.location_id = 0;
+        story.held_since_tick = held_since_tick;
+
+        let state = test_app_state(runtime, None);
+        let mut runtime = state.inner.lock().await;
+        let events = release_inactive_human_inventory_locked(&state, &mut runtime);
+
+        assert!(events.iter().any(|event| {
+            event.type_name == "item.dropped"
+                && event.actor_id == Some(5000)
+                && event.item_id == Some(STORY_BUTTON_ITEM_ID)
+        }));
+        assert!(runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .any(|item| {
+                item.id == STORY_BUTTON_ITEM_ID
+                    && item.holder_actor_id == 0
+                    && item.location_id == COSY_COTTAGE_LOCATION_ID
+            }));
+    }
+
     #[test]
     fn explicit_leave_marks_actor_session_inactive_until_reused() {
         let mut runtime = RuntimeWorld::seeded();
@@ -27411,6 +27599,39 @@ mod tests {
             Some(&session_token)
         ));
         assert!(active_actor_ids(&actor_sessions).contains(&5000));
+    }
+
+    #[tokio::test]
+    async fn presence_events_emit_only_on_state_changes() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let mut record = JournalRecord::new(create, 17606);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Presence Edge".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Presence Tester".to_string(),
+                description: "A test avatar checking emit-on-change presence.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        let state = test_app_state(runtime, None);
+
+        let first_inactive = commit_presence_event(&state, 5000, false).await;
+        let second_inactive = commit_presence_event(&state, 5000, false).await;
+        let active = commit_presence_event(&state, 5000, true).await;
+        let second_active = commit_presence_event(&state, 5000, true).await;
+
+        assert_eq!(first_inactive.len(), 1);
+        assert_eq!(first_inactive[0].content.as_deref(), Some("inactive"));
+        assert!(second_inactive.is_empty());
+        assert_eq!(active.len(), 1);
+        assert_eq!(active[0].content.as_deref(), Some("active"));
+        assert!(second_active.is_empty());
     }
 
     #[tokio::test]
@@ -34995,6 +35216,28 @@ mod tests {
             .expect("stored branch")
             .expires_at_tick = runtime.world.tick.saturating_sub(1);
         assert!(runtime.ambient_line().is_some());
+    }
+
+    #[test]
+    fn resident_move_fallback_rotates_lines() {
+        let mut runtime = RuntimeWorld::seeded();
+        let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        let action = CwAction {
+            kind: CW_ACTION_MOVE,
+            actor_id: RATI_ACTOR_ID,
+            destination_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+            ..CwAction::default()
+        };
+
+        let first = runtime.resident_economy_action_fallback_text(rati, &action);
+        runtime.world.tick = runtime.world.tick.saturating_add(1);
+        let second = runtime.resident_economy_action_fallback_text(rati, &action);
+
+        assert_ne!(first, second);
+        assert!(!first.contains("steps to the next room and listens for change"));
+        assert!(!second.contains("steps to the next room and listens for change"));
+        assert!(first.contains("Rain-Soft Garden"));
+        assert!(second.contains("Rain-Soft Garden"));
     }
 
     #[test]

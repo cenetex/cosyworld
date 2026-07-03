@@ -981,6 +981,44 @@
       border-top: 1px solid var(--line);
       background: rgba(5, 8, 6, 0.98);
     }
+    .turn-ping-pill {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 34px;
+      border: 1px solid rgba(255, 213, 122, 0.5);
+      border-radius: 4px;
+      background: rgba(255, 213, 122, 0.12);
+      color: var(--amber);
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.15;
+      overflow: hidden;
+    }
+    .turn-ping-pill[hidden] { display: none; }
+    .turn-ping-pill.urgent {
+      border-color: rgba(255, 141, 141, 0.58);
+      background: rgba(255, 141, 141, 0.14);
+      color: var(--red);
+    }
+    .turn-ping-pill .turn-ping-copy {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .turn-ping-pill .turn-ping-time {
+      flex: 0 0 auto;
+      min-width: 44px;
+      text-align: center;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      padding: 3px 7px;
+      font-variant-numeric: tabular-nums;
+    }
     .prompt.choice-mode {
       grid-template-columns: auto repeat(3, minmax(0, 1fr)) minmax(86px, 0.58fr);
     }
@@ -1757,6 +1795,7 @@
     </main>
     <div class="status" id="error"></div>
     <footer class="prompt">
+      <div class="turn-ping-pill" id="turn-ping-pill" aria-live="assertive" hidden></div>
       <div class="caret">&gt;</div>
       <button class="cmd primary" id="primary"></button>
       <button class="cmd secondary" id="secondary"></button>
@@ -2650,6 +2689,30 @@
         });
       }
       return built;
+    }
+
+    function turnPingPillHtml(turn = state?.turn) {
+      if (!turn?.ping_active) return "";
+      const countdown = turnPingRemainingLabel(turn);
+      const currentName = turn.current_actor_name || "the current player";
+      const responders = (turn.ping_responder_ids || []).length;
+      const alreadyPonged = (turn.ping_responder_ids || []).map(Number).includes(Number(actorId));
+      const copy = turn.is_current_actor
+        ? "you've been pinged - act or pass before skip"
+        : alreadyPonged
+          ? `${currentName} was pinged - you ponged`
+          : `${currentName} was pinged - pong to stay in the skip order`;
+      const suffix = !turn.is_current_actor && responders > 0 ? ` · ${responders} ponged` : "";
+      return `<span class="turn-ping-copy">${escapeHtml(copy + suffix)}</span><span class="turn-ping-time">${escapeHtml(countdown)}</span>`;
+    }
+
+    function renderTurnPingPill() {
+      const pill = $("turn-ping-pill");
+      if (!pill) return;
+      const html = turnPingPillHtml();
+      pill.hidden = !html;
+      pill.classList.toggle("urgent", Boolean(state?.turn?.ping_active && state?.turn?.is_current_actor));
+      pill.innerHTML = html;
     }
 
     function compareActions(left, right) {
@@ -5000,6 +5063,7 @@
     function renderCommands() {
       const prompt = document.querySelector(".prompt");
       const buttonIds = ["primary", "secondary", "tertiary"];
+      renderTurnPingPill();
       if (actionBusy) {
         prompt.classList.remove("choice-mode");
         const detail = pendingAction?.detail || pendingAction?.label || "working";

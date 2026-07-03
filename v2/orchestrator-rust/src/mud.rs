@@ -331,7 +331,7 @@ pub(crate) fn command_action_response_with_prefix_and_events(
         events.extend(response.events);
         response.events = events;
     }
-    let output = command_response_output(prefix, &response.events).or_else(|| {
+    let output = command_response_output_for_actor(prefix, &response.events, None).or_else(|| {
         (!response.ok).then(|| command_action_failure_output(&resolved, response.status))
     });
     Json(CommandResponse {
@@ -404,9 +404,18 @@ pub(crate) fn command_rate_limited_response_with_events(
     })
 }
 
+#[cfg(test)]
 pub(crate) fn command_response_output(
     prefix: Option<String>,
     events: &[EventView],
+) -> Option<String> {
+    command_response_output_for_actor(prefix, events, None)
+}
+
+pub(crate) fn command_response_output_for_actor(
+    prefix: Option<String>,
+    events: &[EventView],
+    actor_id: Option<u64>,
 ) -> Option<String> {
     let mut lines = Vec::new();
     if let Some(prefix) = prefix.map(|value| value.trim().to_string()) {
@@ -414,7 +423,29 @@ pub(crate) fn command_response_output(
             lines.push(prefix);
         }
     }
-    for event in events {
+    let scoped_actor_id = actor_id.or_else(|| {
+        events
+            .iter()
+            .find(|event| command_event_output(event).is_some())
+            .and_then(|event| event.actor_id)
+    });
+    let actor_events = scoped_actor_id
+        .map(|id| {
+            events
+                .iter()
+                .filter(|event| event.actor_id == Some(id))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let output_events: Vec<&EventView> = if actor_events
+        .iter()
+        .any(|event| command_event_output(event).is_some())
+    {
+        actor_events
+    } else {
+        events.iter().collect()
+    };
+    for event in output_events {
         let Some(line) = command_event_output(event) else {
             continue;
         };
