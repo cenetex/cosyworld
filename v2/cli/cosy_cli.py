@@ -25,6 +25,7 @@ ABILITIES = ("strength", "dexterity", "constitution", "intelligence", "wisdom", 
 AVATAR_PREFIXES = ("Moss", "Button", "Hearth", "Rain", "Moon", "Thimble", "Lantern", "Brindle")
 AVATAR_SUFFIXES = ("Wanderer", "Stitch", "Keeper", "Guest", "Scout", "Dreamer", "Walker", "Friend")
 PRESENCE_HEARTBEAT_SECS = 60
+HTTP_TIMEOUT_SECS = 25
 
 
 class ButtonAction:
@@ -63,8 +64,10 @@ class CosyClient:
             method=method,
         )
         try:
-            with urllib.request.urlopen(request, timeout=5) as response:
+            with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECS) as response:
                 raw = response.read().decode("utf-8")
+        except TimeoutError as error:
+            raise ClientError(f"request to {self.base_url} timed out after {HTTP_TIMEOUT_SECS}s") from error
         except urllib.error.URLError as error:
             raise ClientError(f"cannot reach {self.base_url}: {error}") from error
         try:
@@ -614,6 +617,18 @@ class Game:
             return f"[{seq}] {actor} marks the Visit Ledger: {event_label_tail(event)}."
         if type_name == "ledger.banked":
             return f"[{seq}] {actor} banks the Visit Ledger: {event_label_tail(event)}."
+        if type_name == "bond.created":
+            target = event.get("target_actor_name") or "someone"
+            return f"[{seq}] {actor} writes a Bond with {target}."
+        if type_name == "bond.revised":
+            target = event.get("target_actor_name") or "someone"
+            return f"[{seq}] {actor} revises a Bond with {target}."
+        if type_name == "bond.deepened":
+            target = event.get("target_actor_name") or "someone"
+            return f"[{seq}] {actor} deepens a Bond with {target}."
+        if type_name == "bond.resolved":
+            target = event.get("target_actor_name") or "someone"
+            return f"[{seq}] {actor} settles a Bond with {target}."
         if type_name == "combat.defend":
             return f"[{seq}] {actor} defends."
         if type_name == "combat.attack.attempt":

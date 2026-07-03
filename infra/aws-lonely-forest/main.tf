@@ -589,6 +589,8 @@ locals {
   secret_arns = compact([
     var.ruby_high_wallet_cards_bearer_secret_arn,
     var.moderation_token_secret_arn,
+    var.openrouter_api_key_secret_arn,
+    var.replicate_api_token_secret_arn,
     var.box_burn_solana_rpc_url_secret_arn,
     var.box_core_collection_address_secret_arn,
   ])
@@ -617,7 +619,7 @@ resource "aws_iam_role_policy" "ecs_secret_read" {
 }
 
 locals {
-  app_environment = [
+  app_environment = concat([
     { name = "COSYWORLD_DEPLOY_PROFILE", value = var.deploy_profile },
     { name = "COSYWORLD_V2_ADDR", value = "0.0.0.0:3000" },
     { name = "COSYWORLD_V2_SHARD_ID", value = var.shard_id },
@@ -626,11 +628,21 @@ locals {
     { name = "COSYWORLD_GENERATED_ASSET_DIR", value = "/data/generated" },
     { name = "COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL", value = var.ruby_high_wallet_cards_url },
     { name = "RUST_LOG", value = "cosyworld_orchestrator=info,tower_http=warn" },
-  ]
+    ],
+    var.openrouter_api_key_secret_arn != "" ? [
+      { name = "COSYWORLD_AI_PROVIDER", value = "openrouter" },
+      { name = "OPENROUTER_CHAT_MODEL", value = var.openrouter_chat_model },
+    ] : [],
+  )
 
   app_secrets = concat(
     var.ruby_high_wallet_cards_bearer_secret_arn != "" ? [{ name = "COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER", valueFrom = var.ruby_high_wallet_cards_bearer_secret_arn }] : [],
     var.moderation_token_secret_arn != "" ? [{ name = "COSYWORLD_MODERATION_TOKEN", valueFrom = var.moderation_token_secret_arn }] : [],
+    var.openrouter_api_key_secret_arn != "" ? [{ name = "OPENROUTER_API_KEY", valueFrom = var.openrouter_api_key_secret_arn }] : [],
+    var.replicate_api_token_secret_arn != "" ? [
+      { name = "COSYWORLD_REPLICATE_API_TOKEN", valueFrom = var.replicate_api_token_secret_arn },
+      { name = "REPLICATE_API_TOKEN", valueFrom = var.replicate_api_token_secret_arn },
+    ] : [],
     var.box_burn_solana_rpc_url_secret_arn != "" ? [{ name = "COSYWORLD_BOX_BURN_SOLANA_RPC_URL", valueFrom = var.box_burn_solana_rpc_url_secret_arn }] : [],
     var.box_core_collection_address_secret_arn != "" ? [{ name = "COSYWORLD_BOX_CORE_COLLECTION_ADDRESS", valueFrom = var.box_core_collection_address_secret_arn }] : [],
   )

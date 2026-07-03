@@ -132,6 +132,24 @@ variable "moderation_token_secret_arn" {
   description = "Secrets Manager ARN containing COSYWORLD_MODERATION_TOKEN."
 }
 
+variable "openrouter_api_key_secret_arn" {
+  type        = string
+  default     = ""
+  description = "Optional Secrets Manager ARN containing OPENROUTER_API_KEY for resident AI."
+}
+
+variable "openrouter_chat_model" {
+  type        = string
+  default     = "openai/gpt-4.1-mini"
+  description = "OPENROUTER_CHAT_MODEL to use when openrouter_api_key_secret_arn is set."
+}
+
+variable "replicate_api_token_secret_arn" {
+  type        = string
+  default     = ""
+  description = "Optional Secrets Manager ARN containing REPLICATE_API_TOKEN for generated avatar/media art."
+}
+
 variable "box_burn_solana_rpc_url_secret_arn" {
   type        = string
   default     = ""

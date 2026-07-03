@@ -44,9 +44,11 @@ Secrets Manager entries and setting their ARN variables.
 
    - `COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER`
    - `COSYWORLD_MODERATION_TOKEN`
+   - `OPENROUTER_API_KEY`
 
-   Optional Box burn secrets:
+   Optional media and Box burn secrets:
 
+   - `REPLICATE_API_TOKEN`
    - `COSYWORLD_BOX_BURN_SOLANA_RPC_URL`
    - `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`
 
@@ -58,6 +60,8 @@ From the repo root:
 AWS_PROFILE=default \
 TF_VAR_ruby_high_wallet_cards_bearer_secret_arn=arn:aws:secretsmanager:us-east-1:ACCOUNT:secret:... \
 TF_VAR_moderation_token_secret_arn=arn:aws:secretsmanager:us-east-1:ACCOUNT:secret:... \
+TF_VAR_openrouter_api_key_secret_arn=arn:aws:secretsmanager:us-east-1:ACCOUNT:secret:... \
+TF_VAR_replicate_api_token_secret_arn=arn:aws:secretsmanager:us-east-1:ACCOUNT:secret:... \
 ./scripts/deploy-lonely-forest-aws.sh
 ```
 
