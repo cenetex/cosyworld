@@ -51,6 +51,17 @@ variable "subnet_ids" {
   description = "Public subnet IDs for the ALB, ECS tasks, and EFS mount targets. Leave empty to use default VPC subnets."
 }
 
+variable "default_subnet_limit" {
+  type        = number
+  default     = 2
+  description = "Maximum number of default VPC subnets to use when subnet_ids is empty."
+
+  validation {
+    condition     = var.default_subnet_limit >= 2
+    error_message = "default_subnet_limit must be at least 2 because the public ALB requires two subnets."
+  }
+}
+
 variable "image_tag" {
   type        = string
   default     = "latest"

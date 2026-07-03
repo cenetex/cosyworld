@@ -28,7 +28,9 @@ data "aws_subnets" "default" {
 }
 
 locals {
-  subnet_ids = length(var.subnet_ids) > 0 ? var.subnet_ids : data.aws_subnets.default[0].ids
+  default_subnet_ids          = length(var.subnet_ids) == 0 ? sort(data.aws_subnets.default[0].ids) : []
+  selected_default_subnet_ids = slice(local.default_subnet_ids, 0, min(var.default_subnet_limit, length(local.default_subnet_ids)))
+  subnet_ids                  = length(var.subnet_ids) > 0 ? var.subnet_ids : local.selected_default_subnet_ids
 }
 
 data "aws_subnet" "selected" {
