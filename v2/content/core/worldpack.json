@@ -10,6 +10,7 @@
     "items": "items.json",
     "locations": "locations.json",
     "exits": "exits.json",
+    "hidden_exits": "hidden_exits.json",
     "room_features": "room_features.json",
     "room_sheets": "room_sheets.json",
     "clocks": "clocks.json",

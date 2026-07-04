@@ -1,7 +1,7 @@
 [
   {
     "id": "moonlit-trail:echo-front",
-    "premise": "The Coach Moonshadow keeps gathering stray sounds into a shape that can answer back.",
+    "premise": "Coach keeps gathering stray sounds into a shape that can answer back.",
     "zone": "frontier",
     "status": "active",
     "location_ids": [3],
@@ -19,8 +19,8 @@
     "premise": "The solar and abyssal bell songs are close enough to harmonize and proud enough to split.",
     "zone": "frontier",
     "status": "active",
-    "location_ids": [36, 64],
-    "participant_ids": [1064, 1065],
+    "location_ids": [36, 64, 65],
+    "participant_ids": [1064, 1065, 1066, 1067],
     "stakes_questions": [
       "Can height and depth hear each other before doctrine hardens?",
       "Which covenant will claim the drowned bell if nobody answers both songs?"

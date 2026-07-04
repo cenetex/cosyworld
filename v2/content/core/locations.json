@@ -7,7 +7,7 @@
     "persona": "The cottage is a careful host: warm, observant, and protective of small beginnings.",
     "memory": [
       "Rati's blue scarf began here.",
-      "Whiskerwind's weather symbols gather near the hearth.",
+      "Gust's weather symbols gather near the hearth.",
       "Skull keeps watch by the low doorway."
     ],
     "allow_combat": false
@@ -31,7 +31,7 @@
     "description": "The path shines under cold moonlight. The air permits sharper choices.",
     "persona": "The trail is a silver test: honest, spare, and just dangerous enough to reveal courage.",
     "memory": [
-      "Coach Moonshadow waits here as a practice shape.",
+      "Coach waits here as a practice shape.",
       "Wolfprint Charm and Watch Bell stories tend to pass this way."
     ],
     "allow_combat": true
@@ -323,6 +323,19 @@
     "memory": [
       "Endless Ocean is only its surface.",
       "The Solar Temple hears one of its bells singing from below."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 65,
+    "name": "Dark Abyss",
+    "title": "Deepest Ocean",
+    "description": "A black-water chamber beneath the drowned bell, set with an impossible banquet, a cold anvil, and pressure deep enough to make language buckle.",
+    "persona": "The Dark Abyss is theatrical, hungry, and formal about its horrors, as if etiquette were the last rope back to the surface.",
+    "memory": [
+      "Darkest Ocean hides the entrance under the drowned bell's lowest note.",
+      "Azazoth keeps a feast here for guests who have mostly had the sense not to arrive.",
+      "Zadkiel's anvil rings whenever dread needs better manners."
     ],
     "allow_combat": false
   }

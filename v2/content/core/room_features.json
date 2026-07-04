@@ -80,7 +80,7 @@
     "uses": [
       {
         "item_id": 2002,
-        "text": "The Dewbright Button matches the leaf's shine and hums toward Whiskerwind."
+        "text": "The Dewbright Button matches the leaf's shine and hums toward Gust."
       }
     ]
   },
@@ -117,7 +117,7 @@
       "sparring circle",
       "clearing"
     ],
-    "look": "Moonlight makes a pale circle where Coach Moonshadow waits.",
+    "look": "Moonlight makes a pale circle where Coach waits.",
     "search": "The dust shows careful footwork and no blood. This place is meant for practice, not cruelty.",
     "uses": [
       {
@@ -152,6 +152,19 @@
     ],
     "look": "A white-gold bell rests in black water, its rim crusted with pearls and patient songs.",
     "search": "The bell has not gone silent. It has learned a lower note the Solar Temple never wrote down.",
+    "uses": []
+  },
+  {
+    "location_id": 65,
+    "key": "abyssal_anvil",
+    "name": "Abyssal Anvil",
+    "aliases": [
+      "anvil",
+      "forge",
+      "dark anvil"
+    ],
+    "look": "A cold anvil waits beside the impossible feast, polished by pronouncements and bad timing.",
+    "search": "The anvil rings without being struck, as if every route here expects a witness before it becomes real.",
     "uses": []
   },
   {

@@ -16,6 +16,7 @@ const expectedFiles = {
   items: "items.json",
   locations: "locations.json",
   exits: "exits.json",
+  hidden_exits: "hidden_exits.json",
   room_features: "room_features.json",
   room_sheets: "room_sheets.json",
   clocks: "clocks.json",
@@ -146,6 +147,7 @@ const factions = content.factions;
 const items = content.items;
 const locations = content.locations;
 const exits = content.exits;
+const hiddenExits = content.hidden_exits;
 const roomFeatures = content.room_features;
 const roomSheets = content.room_sheets;
 const clocks = content.clocks;
@@ -259,6 +261,36 @@ for (const feature of roomFeatures) {
     if (!has(itemIds, use.item_id) || !isNonEmptyString(use.text)) {
       fail(`feature ${feature.key} has invalid use for item ${use.item_id}`);
     }
+  }
+}
+
+const hiddenExitIds = new Set();
+for (const hiddenExit of hiddenExits) {
+  validateRequiredStrings("hidden exit", hiddenExit, ["id", "feature_key", "direction", "return_direction", "source", "discovery_text"]);
+  if (hiddenExitIds.has(hiddenExit.id)) {
+    fail(`duplicate hidden exit ${hiddenExit.id}`);
+  }
+  hiddenExitIds.add(hiddenExit.id);
+  if (!has(locationIds, hiddenExit.from_location_id) || !has(locationIds, hiddenExit.to_location_id)) {
+    fail(`hidden exit ${hiddenExit.id} references missing location`);
+  }
+  if (hiddenExit.from_location_id === hiddenExit.to_location_id) {
+    fail(`hidden exit ${hiddenExit.id} cannot return to the same location`);
+  }
+  if (!Number.isInteger(hiddenExit.reveal_chance_percent) || hiddenExit.reveal_chance_percent < 1 || hiddenExit.reveal_chance_percent > 100) {
+    fail(`hidden exit ${hiddenExit.id} has invalid reveal chance`);
+  }
+  const featureKey = `${hiddenExit.from_location_id}:${hiddenExit.feature_key}`;
+  if (!featureKeys.has(featureKey)) {
+    fail(`hidden exit ${hiddenExit.id} references missing feature ${featureKey}`);
+  }
+  const outboundDirection = `${hiddenExit.from_location_id}:${String(hiddenExit.direction || "").trim().toLowerCase()}`;
+  if (exitDirections.has(outboundDirection)) {
+    fail(`hidden exit ${hiddenExit.id} duplicates visible direction ${hiddenExit.direction} from location ${hiddenExit.from_location_id}`);
+  }
+  const returnDirection = `${hiddenExit.to_location_id}:${String(hiddenExit.return_direction || "").trim().toLowerCase()}`;
+  if (exitDirections.has(returnDirection)) {
+    fail(`hidden exit ${hiddenExit.id} duplicates visible direction ${hiddenExit.return_direction} from location ${hiddenExit.to_location_id}`);
   }
 }
 

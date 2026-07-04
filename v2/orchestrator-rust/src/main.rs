@@ -28,6 +28,7 @@ use rand::{rngs::OsRng, RngCore};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
+    cmp::Reverse,
     collections::{BTreeMap, BTreeSet, VecDeque},
     convert::Infallible,
     ffi::CStr,
@@ -132,6 +133,7 @@ struct ResidentReplyPlan {
     speech_mode: String,
     resident_continuity: ResidentContinuityState,
     economy_note: String,
+    goals: Vec<String>,
     location_name: String,
     location_title: String,
     location_description: String,
@@ -152,6 +154,7 @@ struct AvatarChatPlan {
     target_title: String,
     target_continuity: ResidentContinuityState,
     target_economy_note: String,
+    goals: Vec<String>,
     location_name: String,
     location_title: String,
     location_description: String,
@@ -286,6 +289,10 @@ const ZONE_SANCTUARY: &str = "sanctuary";
 const ZONE_FRONTIER: &str = "frontier";
 const COSY_COTTAGE_LOCATION_ID: u64 = 1;
 const RAIN_SOFT_GARDEN_LOCATION_ID: u64 = 2;
+#[cfg(test)]
+const DARKEST_OCEAN_LOCATION_ID: u64 = 64;
+#[cfg(test)]
+const DARK_ABYSS_LOCATION_ID: u64 = 65;
 const RATI_ACTOR_ID: u64 = 1001;
 const WHISKERWIND_ACTOR_ID: u64 = 1002;
 const SKULL_ACTOR_ID: u64 = 1003;
@@ -301,6 +308,8 @@ const WOODLAND_BEAR_ACTOR_ID: u64 = 1042;
 const MOUSE_WANDERER_ACTOR_ID: u64 = 1049;
 #[cfg(test)]
 const STEAMPUNK_MOUSE_ACTOR_ID: u64 = 1061;
+#[cfg(test)]
+const AZAZOTH_ACTOR_ID: u64 = 1066;
 #[cfg(test)]
 const HEARTH_TONIC_ITEM_ID: u64 = 2001;
 const DEWBRIGHT_BUTTON_ITEM_ID: u64 = 2002;
@@ -328,6 +337,16 @@ const RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE: u8 = 80;
 const RESIDENT_MEMORY_TIME_DECAY_INTERVAL_TICKS: u64 = 12;
 const RESIDENT_MEMORY_TIME_CONFIDENCE_DECAY: u8 = 6;
 const RESIDENT_MEMORY_TIME_SALIENCE_DECAY: u8 = 8;
+const SEARCH_MEMORY_KIND_SEED_EXIT: &str = "seed_exit";
+const SEARCH_MEMORY_KIND_HIDDEN_EXIT: &str = "hidden_exit";
+const SEARCH_MEMORY_KIND_AVATAR: &str = "avatar";
+const SEARCH_MEMORY_KIND_ITEM: &str = "item";
+const SEARCH_MEMORY_CONFIDENCE: u8 = 240;
+const SEARCH_MEMORY_SALIENCE: u8 = 220;
+const SEARCH_MEMORY_MIN_CONFIDENCE: u8 = 80;
+const SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS: u64 = 18;
+const SEARCH_MEMORY_TIME_CONFIDENCE_DECAY: u8 = 6;
+const SEARCH_MEMORY_TIME_SALIENCE_DECAY: u8 = 8;
 const RESIDENT_AUTONOMY_REPEAT_EVENT_WINDOW: u64 = 96;
 const RESIDENT_REPLY_REPEAT_EVENT_WINDOW: u64 = 96;
 const RESIDENT_PLACEMENT_ROTATION_TICKS: u64 = 96;
@@ -377,6 +396,9 @@ const MAX_HUMAN_MESSAGE_CHARS: usize = 500;
 const DIALOGUE_BRANCH_TTL_TICKS: u64 = 24;
 const ACTIVE_ACTOR_WINDOW: Duration = Duration::from_secs(15 * 60);
 const TURN_ACTOR_WINDOW: Duration = Duration::from_secs(2 * 60);
+const NARRATIVE_MOVE_SIGNATURE_TTL: Duration = Duration::from_secs(5 * 60);
+const NARRATIVE_MOVE_SIGNATURE_FUTURE_SKEW_SECS: u64 = 60;
+const NARRATIVE_MOVE_DELEGATION_MAX_TTL: Duration = Duration::from_secs(12 * 60 * 60);
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ActorMeta {
@@ -547,6 +569,25 @@ enum ProjectionMutation {
         content: String,
         reason: String,
     },
+    DiscoverSeedExit {
+        from_location_id: u64,
+        to_location_id: u64,
+        reason: String,
+    },
+    DiscoverHiddenExit {
+        hidden_exit_id: String,
+        reason: String,
+    },
+    DiscoverAvatar {
+        actor_id: u64,
+        location_id: u64,
+        reason: String,
+    },
+    RememberSearchItem {
+        item_id: u64,
+        location_id: u64,
+        reason: String,
+    },
     UseFeature {
         item_id: u64,
         location_id: u64,
@@ -683,6 +724,23 @@ struct ResidentMemoryState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+struct SearchMemoryState {
+    id: String,
+    actor_id: u64,
+    kind: String,
+    location_id: u64,
+    subject_id: u64,
+    subject_key: String,
+    confidence: u8,
+    salience: u8,
+    found_tick: u64,
+    #[serde(default)]
+    last_used_tick: u64,
+    #[serde(default)]
+    use_count: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct ResidentContinuityState {
     resident_id: u64,
     stable_identity: String,
@@ -797,6 +855,7 @@ const SEED_FACTIONS_JSON: &str = include_str!("../../content/core/factions.json"
 const SEED_ITEMS_JSON: &str = include_str!("../../content/core/items.json");
 const SEED_LOCATIONS_JSON: &str = include_str!("../../content/core/locations.json");
 const SEED_EXITS_JSON: &str = include_str!("../../content/core/exits.json");
+const SEED_HIDDEN_EXITS_JSON: &str = include_str!("../../content/core/hidden_exits.json");
 const SEED_ROOM_FEATURES_JSON: &str = include_str!("../../content/core/room_features.json");
 const SEED_ROOM_SHEETS_JSON: &str = include_str!("../../content/core/room_sheets.json");
 const SEED_CLOCKS_JSON: &str = include_str!("../../content/core/clocks.json");
@@ -822,6 +881,7 @@ struct SeedContent {
     locations: Vec<SeedLocationContent>,
     room_features: Vec<SeedRoomFeatureContent>,
     exits: Vec<SeedExitContent>,
+    hidden_exits: Vec<SeedHiddenExitContent>,
     room_sheets: Vec<RoomSheetState>,
     clocks: Vec<ClockState>,
     jobs: Vec<JobState>,
@@ -965,6 +1025,67 @@ struct SeedExitContent {
     direction: Option<String>,
     #[serde(default)]
     flags: u32,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedHiddenExitContent {
+    id: String,
+    from_location_id: u64,
+    to_location_id: u64,
+    feature_key: String,
+    direction: String,
+    return_direction: String,
+    reveal_chance_percent: u8,
+    source: String,
+    discovery_text: String,
+}
+
+#[derive(Clone, Debug)]
+struct RoomSearchTarget {
+    location_id: u64,
+    key: String,
+    name: String,
+    output: String,
+}
+
+impl RoomSearchTarget {
+    fn from_feature(feature: &SeedRoomFeatureContent) -> Self {
+        Self {
+            location_id: feature.location_id,
+            key: feature.key.clone(),
+            name: feature.name.clone(),
+            output: format!("{} - {}", feature.name, feature.search),
+        }
+    }
+
+    fn virtual_room(location_id: u64, location_name: String) -> Self {
+        Self {
+            location_id,
+            key: "room".to_string(),
+            name: "Room".to_string(),
+            output: format!(
+                "Room - You search the edges of {location_name} for anything still hidden."
+            ),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum SearchRevealCandidate {
+    SeedExit {
+        from_location_id: u64,
+        to_location_id: u64,
+    },
+    HiddenExit {
+        hidden_exit_id: String,
+    },
+    Avatar {
+        actor_id: u64,
+        location_id: u64,
+    },
+    Item {
+        item_id: u64,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1118,6 +1239,7 @@ struct RuntimeWorld {
     advancement_spends: BTreeMap<String, AdvancementSpendState>,
     bonds: BTreeMap<String, BondState>,
     resident_memories: BTreeMap<String, ResidentMemoryState>,
+    search_memories: BTreeMap<String, SearchMemoryState>,
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     rpg_claims: BTreeSet<String>,
     orb_balances: BTreeMap<u64, i32>,
@@ -1170,6 +1292,8 @@ struct RuntimeSnapshot {
     bonds: BTreeMap<String, BondState>,
     #[serde(default)]
     resident_memories: BTreeMap<String, ResidentMemoryState>,
+    #[serde(default)]
+    search_memories: BTreeMap<String, SearchMemoryState>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     #[serde(default)]
@@ -2256,6 +2380,41 @@ struct MoveRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct NarrativeMoveRequest {
+    #[serde(alias = "wallet_session")]
+    session_id: String,
+    #[serde(alias = "actor_id")]
+    character_id: u64,
+    signed_response: SignedNarrativeMove,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SignedNarrativeMove {
+    wallet_address: String,
+    command: String,
+    nonce: String,
+    issued_at_unix: u64,
+    signature: WalletSignatureInput,
+    #[serde(default)]
+    delegation: Option<NarrativeMoveDelegation>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct NarrativeMoveDelegation {
+    delegate_address: String,
+    issued_at_unix: u64,
+    expires_at_unix: u64,
+    signature: WalletSignatureInput,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+enum WalletSignatureInput {
+    Bytes(Vec<u8>),
+    Base58(String),
+}
+
+#[derive(Debug, Deserialize)]
 struct WalletChallengeQuery {
     wallet_address: String,
 }
@@ -2496,6 +2655,7 @@ struct WalletSession {
 struct WalletSessions {
     challenges: BTreeMap<String, WalletChallenge>,
     sessions: BTreeMap<String, WalletSession>,
+    narrative_move_nonces: BTreeMap<String, Instant>,
 }
 
 #[derive(Clone, Debug)]
@@ -2759,6 +2919,7 @@ fn parse_seed_content(manifest_json: &str) -> Result<SeedContent, String> {
         items: parse_seed_json("items.json", SEED_ITEMS_JSON)?,
         locations: parse_seed_json("locations.json", SEED_LOCATIONS_JSON)?,
         exits: parse_seed_json("exits.json", SEED_EXITS_JSON)?,
+        hidden_exits: parse_seed_json("hidden_exits.json", SEED_HIDDEN_EXITS_JSON)?,
         room_features: parse_seed_json("room_features.json", SEED_ROOM_FEATURES_JSON)?,
         room_sheets: parse_seed_json("room_sheets.json", SEED_ROOM_SHEETS_JSON)?,
         clocks: parse_seed_json("clocks.json", SEED_CLOCKS_JSON)?,
@@ -2832,6 +2993,7 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
         ("items", "items.json"),
         ("locations", "locations.json"),
         ("exits", "exits.json"),
+        ("hidden_exits", "hidden_exits.json"),
         ("room_features", "room_features.json"),
         ("room_sheets", "room_sheets.json"),
         ("clocks", "clocks.json"),
@@ -3067,6 +3229,55 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
                     feature.key, use_case.item_id
                 ));
             }
+        }
+    }
+    let mut hidden_exit_ids = BTreeSet::new();
+    for hidden_exit in &content.hidden_exits {
+        if hidden_exit.id.trim().is_empty()
+            || hidden_exit.feature_key.trim().is_empty()
+            || hidden_exit.source.trim().is_empty()
+            || hidden_exit.discovery_text.trim().is_empty()
+            || hidden_exit.reveal_chance_percent == 0
+            || hidden_exit.reveal_chance_percent > 100
+            || hidden_exit.from_location_id == hidden_exit.to_location_id
+            || !hidden_exit_ids.insert(hidden_exit.id.clone())
+            || !location_ids.contains(&hidden_exit.from_location_id)
+            || !location_ids.contains(&hidden_exit.to_location_id)
+        {
+            return Err(format!("invalid hidden exit {}", hidden_exit.id));
+        }
+        if !content.room_features.iter().any(|feature| {
+            feature.location_id == hidden_exit.from_location_id
+                && feature.key == hidden_exit.feature_key
+        }) {
+            return Err(format!(
+                "hidden exit {} references missing feature {} in location {}",
+                hidden_exit.id, hidden_exit.feature_key, hidden_exit.from_location_id
+            ));
+        }
+        let Some(direction) = canonical_direction(&hidden_exit.direction) else {
+            return Err(format!(
+                "hidden exit {} has invalid direction {}",
+                hidden_exit.id, hidden_exit.direction
+            ));
+        };
+        if !exit_direction_keys.insert((hidden_exit.from_location_id, direction)) {
+            return Err(format!(
+                "hidden exit {} duplicates direction {} from location {}",
+                hidden_exit.id, direction, hidden_exit.from_location_id
+            ));
+        }
+        let Some(return_direction) = canonical_direction(&hidden_exit.return_direction) else {
+            return Err(format!(
+                "hidden exit {} has invalid return direction {}",
+                hidden_exit.id, hidden_exit.return_direction
+            ));
+        };
+        if !exit_direction_keys.insert((hidden_exit.to_location_id, return_direction)) {
+            return Err(format!(
+                "hidden exit {} duplicates return direction {} from location {}",
+                hidden_exit.id, return_direction, hidden_exit.to_location_id
+            ));
         }
     }
 
@@ -4497,6 +4708,60 @@ fn wallet_for_session(
         .map(|session| session.wallet_address.clone())
 }
 
+fn narrative_move_signature_is_fresh(issued_at_unix: u64) -> bool {
+    let now = now_unix_secs();
+    issued_at_unix <= now.saturating_add(NARRATIVE_MOVE_SIGNATURE_FUTURE_SKEW_SECS)
+        && now <= issued_at_unix.saturating_add(NARRATIVE_MOVE_SIGNATURE_TTL.as_secs())
+}
+
+fn narrative_move_delegation_is_valid_window(issued_at_unix: u64, expires_at_unix: u64) -> bool {
+    let now = now_unix_secs();
+    issued_at_unix <= now.saturating_add(NARRATIVE_MOVE_SIGNATURE_FUTURE_SKEW_SECS)
+        && now <= expires_at_unix
+        && expires_at_unix > issued_at_unix
+        && expires_at_unix
+            <= issued_at_unix.saturating_add(NARRATIVE_MOVE_DELEGATION_MAX_TTL.as_secs())
+}
+
+fn narrative_move_nonce_valid(nonce: &str) -> bool {
+    !nonce.is_empty()
+        && nonce.chars().count() <= 128
+        && !nonce
+            .chars()
+            .any(|ch| ch.is_control() || ch.is_whitespace())
+}
+
+fn narrative_move_nonce_key(
+    wallet_address: &str,
+    session_id: &str,
+    character_id: u64,
+    nonce: &str,
+) -> String {
+    format!("{wallet_address}:{session_id}:{character_id}:{nonce}")
+}
+
+fn claim_narrative_move_nonce(
+    wallet_sessions: &StdMutex<WalletSessions>,
+    key: String,
+    _issued_at_unix: u64,
+) -> bool {
+    let now = Instant::now();
+    let expires_at = now
+        + NARRATIVE_MOVE_SIGNATURE_TTL
+        + Duration::from_secs(NARRATIVE_MOVE_SIGNATURE_FUTURE_SKEW_SECS);
+    let Ok(mut sessions) = wallet_sessions.lock() else {
+        return false;
+    };
+    sessions
+        .narrative_move_nonces
+        .retain(|_, expires_at| *expires_at > now);
+    if sessions.narrative_move_nonces.contains_key(&key) {
+        return false;
+    }
+    sessions.narrative_move_nonces.insert(key, expires_at);
+    true
+}
+
 fn create_actor_session(
     actor_sessions: &StdMutex<ActorSessions>,
     actor_id: u64,
@@ -4558,6 +4823,23 @@ fn actor_for_session(actor_sessions: &StdMutex<ActorSessions>, session_token: &s
     } else {
         None
     }
+}
+
+fn reusable_actor_session_for_actor(
+    actor_sessions: &StdMutex<ActorSessions>,
+    actor_id: u64,
+) -> Option<String> {
+    let now = Instant::now();
+    let Ok(mut sessions) = actor_sessions.lock() else {
+        return None;
+    };
+    sessions
+        .sessions
+        .retain(|_, session| session.expires_at > now);
+    sessions
+        .sessions
+        .iter()
+        .find_map(|(token, session)| (session.actor_id == actor_id).then(|| token.clone()))
 }
 
 fn actor_session_active_for_actor(
@@ -4702,6 +4984,33 @@ fn client_actor_authorized_for_state(
 ) -> bool {
     !actor_is_suspended(state, actor_id)
         && client_actor_authorized(runtime, &state.actor_sessions, actor_id, actor_session)
+}
+
+fn wallet_session_authorizes_actor_read(
+    runtime: &RuntimeWorld,
+    state: &AppState,
+    actor_id: u64,
+    access: &AccessContext,
+) -> bool {
+    !actor_is_suspended(state, actor_id)
+        && runtime.client_actor_can_submit(actor_id)
+        && access.signed_wallet_session
+        && access
+            .owner_wallet_address
+            .as_deref()
+            .and_then(|wallet| linked_actor_for_wallet(state, wallet))
+            == Some(actor_id)
+}
+
+fn client_actor_read_authorized_for_state(
+    runtime: &RuntimeWorld,
+    state: &AppState,
+    actor_id: u64,
+    actor_session: Option<&str>,
+    access: &AccessContext,
+) -> bool {
+    client_actor_authorized_for_state(runtime, state, actor_id, actor_session)
+        || wallet_session_authorizes_actor_read(runtime, state, actor_id, access)
 }
 
 fn clear_actor_sessions_for_actor(
@@ -4936,7 +5245,16 @@ fn normalize_bond_statement(statement: &str) -> Option<String> {
 fn avatar_name_is_reserved(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
-        "rati" | "whiskerwind" | "skull" | "moonlit echo" | "cosyworld" | "system"
+        "rati"
+            | "gust"
+            | "whiskerwind"
+            | "skull"
+            | "coach"
+            | "badger"
+            | "toad"
+            | "moonlit echo"
+            | "cosyworld"
+            | "system"
     )
 }
 
@@ -5081,6 +5399,55 @@ fn wallet_challenge_message(wallet_address: &str, nonce: &str, issued_at_unix: u
     format!(
         "CosyWorld wallet access\nWallet: {wallet_address}\nNonce: {nonce}\nIssued: {issued_at_unix}\nPurpose: unlock shared Ruby High locations"
     )
+}
+
+fn narrative_move_signature_message(
+    wallet_address: &str,
+    session_id: &str,
+    character_id: u64,
+    command: &str,
+    nonce: &str,
+    issued_at_unix: u64,
+) -> String {
+    format!(
+        "CosyWorld narrative move\nWallet: {wallet_address}\nSession: {session_id}\nCharacter: {character_id}\nCommand: {command}\nNonce: {nonce}\nIssued: {issued_at_unix}"
+    )
+}
+
+fn narrative_move_delegation_message(
+    wallet_address: &str,
+    delegate_address: &str,
+    session_id: &str,
+    character_id: u64,
+    issued_at_unix: u64,
+    expires_at_unix: u64,
+) -> String {
+    format!(
+        "CosyWorld narrative move delegation\nWallet: {wallet_address}\nDelegate: {delegate_address}\nSession: {session_id}\nCharacter: {character_id}\nIssued: {issued_at_unix}\nExpires: {expires_at_unix}"
+    )
+}
+
+fn delegated_narrative_move_signature_message(
+    wallet_address: &str,
+    delegate_address: &str,
+    session_id: &str,
+    character_id: u64,
+    command: &str,
+    nonce: &str,
+    issued_at_unix: u64,
+) -> String {
+    format!(
+        "CosyWorld delegated narrative move\nWallet: {wallet_address}\nDelegate: {delegate_address}\nSession: {session_id}\nCharacter: {character_id}\nCommand: {command}\nNonce: {nonce}\nIssued: {issued_at_unix}"
+    )
+}
+
+impl WalletSignatureInput {
+    fn bytes(&self) -> Option<Vec<u8>> {
+        match self {
+            Self::Bytes(bytes) => Some(bytes.clone()),
+            Self::Base58(value) => bs58::decode(value.trim()).into_vec().ok(),
+        }
+    }
 }
 
 fn verify_solana_wallet_signature(wallet_address: &str, message: &str, signature: &[u8]) -> bool {
@@ -5930,6 +6297,7 @@ impl RuntimeSnapshot {
             advancement_spends: runtime.advancement_spends.clone(),
             bonds: runtime.bonds.clone(),
             resident_memories: runtime.resident_memories.clone(),
+            search_memories: runtime.search_memories.clone(),
             resident_continuities: BTreeMap::new(),
             rpg_claims: runtime.rpg_claims.clone(),
             orb_balances: runtime.orb_balances.clone(),
@@ -6031,6 +6399,7 @@ impl RuntimeSnapshot {
             advancement_spends: self.advancement_spends,
             bonds: self.bonds,
             resident_memories: self.resident_memories,
+            search_memories: self.search_memories,
             resident_continuities: self.resident_continuities,
             rpg_claims: self.rpg_claims,
             orb_balances: self.orb_balances,
@@ -6113,6 +6482,7 @@ impl RuntimeWorld {
             advancement_spends: BTreeMap::new(),
             bonds: BTreeMap::new(),
             resident_memories: BTreeMap::new(),
+            search_memories: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
             rpg_claims: BTreeSet::new(),
             orb_balances: BTreeMap::new(),
@@ -6153,6 +6523,7 @@ impl RuntimeWorld {
         for exit in &seed_content().exits {
             self.ensure_exit(exit.from_location_id, exit.to_location_id, exit.flags);
         }
+        self.ensure_discovered_hidden_exits();
         self.ensure_seed_residents();
         self.ensure_seed_items();
         self.ensure_seed_evolution_tracks();
@@ -6371,6 +6742,16 @@ impl RuntimeWorld {
             flags,
         };
         self.world.exit_count += 1;
+    }
+
+    fn ensure_discovered_hidden_exits(&mut self) {
+        for hidden_exit in &seed_content().hidden_exits {
+            if !self.hidden_exit_discovered(hidden_exit) {
+                continue;
+            }
+            self.ensure_exit(hidden_exit.from_location_id, hidden_exit.to_location_id, 0);
+            self.ensure_exit(hidden_exit.to_location_id, hidden_exit.from_location_id, 0);
+        }
     }
 
     fn backfill_generated_avatar_flavor(&mut self) {
@@ -6660,6 +7041,108 @@ impl RuntimeWorld {
             destination_location_name: None,
             content_id: None,
             content: Some(format!("{feature_name}:{content}:{reason}")),
+            item_id: None,
+            item_name: None,
+            target_item_id: None,
+            target_item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_exit_discovered_event(
+        &mut self,
+        actor_id: u64,
+        from_location_id: u64,
+        to_location_id: u64,
+        content: String,
+    ) -> EventView {
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: "exit.discovered".to_string(),
+            success: true,
+            reason: 0,
+            actor_id: Some(actor_id),
+            actor_name: self.actor_name(actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id: Some(from_location_id),
+            location_name: self.location_name(from_location_id),
+            destination_location_id: Some(to_location_id),
+            destination_location_name: self.location_name(to_location_id),
+            content_id: None,
+            content: Some(content),
+            item_id: None,
+            item_name: None,
+            target_item_id: None,
+            target_item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_avatar_discovered_event(
+        &mut self,
+        actor_id: u64,
+        target_actor_id: u64,
+        location_id: u64,
+        content: String,
+    ) -> EventView {
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: "avatar.discovered".to_string(),
+            success: true,
+            reason: 0,
+            actor_id: Some(actor_id),
+            actor_name: self.actor_name(actor_id),
+            target_actor_id: Some(target_actor_id),
+            target_actor_name: self.actor_name(target_actor_id),
+            location_id: Some(location_id),
+            location_name: self.location_name(location_id),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(content),
             item_id: None,
             item_name: None,
             target_item_id: None,
@@ -7415,6 +7898,7 @@ impl RuntimeWorld {
                 self.apply_action_with_seed(action, record.seed)
             };
         if status == CW_OK {
+            self.decay_search_memories();
             let listen_context = self.listen_context_for_action(&action, &events);
             let was_repeat_listen = listen_context
                 .map(|(actor_id, location_id)| {
@@ -7437,6 +7921,7 @@ impl RuntimeWorld {
             ));
             events.extend(self.expire_stale_branches());
             events.extend(self.apply_projection_mutations(&action, &record.projection_mutations));
+            self.reinforce_search_memories_from_events(&events);
             let committed_events = events.clone();
             events.extend(self.apply_event_lifecycle_hooks(&action, &committed_events));
             let committed_events = events.clone();
@@ -7445,6 +7930,7 @@ impl RuntimeWorld {
             events.extend(self.apply_attack_project_danger(&action, &committed_events));
             events.extend(self.apply_progress_contribution_ledger_projection(&events));
             events.extend(self.apply_frontier_return_ledger_projection(&action, &events));
+            events.extend(self.apply_frontier_travel_since_rest_projection(&events));
             events.extend(self.apply_gift_bond_projection(&events));
             events.extend(self.apply_resident_feature_bond_projection(&events));
             events.extend(self.apply_resident_witness_ledger_projection(&events));
@@ -7526,6 +8012,210 @@ impl RuntimeWorld {
                         ) {
                             events.push(ledger_event);
                         }
+                    }
+                    if !self.room_feature_search_claimed(*location_id, feature_key) {
+                        let room_tag = RpgTagState {
+                            id: room_feature_search_tag_id(*location_id, feature_key),
+                            scope: "room".to_string(),
+                            scope_id: *location_id,
+                            label: format!("searched {feature_name}"),
+                            kind: "discovery".to_string(),
+                            active: true,
+                            source_event_seq: Some(event.seq),
+                            expires: None,
+                        };
+                        if let Some(tag_event) = self.set_rpg_tag(room_tag, action.actor_id, reason)
+                        {
+                            events.push(tag_event);
+                        }
+                    }
+                }
+                ProjectionMutation::DiscoverSeedExit {
+                    from_location_id,
+                    to_location_id,
+                    reason,
+                } => {
+                    let Some(exit) = self
+                        .seed_exit_by_locations(*from_location_id, *to_location_id)
+                        .cloned()
+                    else {
+                        continue;
+                    };
+                    if self.seed_exit_discovered(*from_location_id, *to_location_id) {
+                        continue;
+                    }
+                    self.ensure_exit(exit.from_location_id, exit.to_location_id, exit.flags);
+                    let reverse_exit = self
+                        .seed_exit_by_locations(*to_location_id, *from_location_id)
+                        .cloned();
+                    if let Some(reverse) = reverse_exit.as_ref() {
+                        self.ensure_exit(
+                            reverse.from_location_id,
+                            reverse.to_location_id,
+                            reverse.flags,
+                        );
+                    }
+                    let destination = self
+                        .location_name(*to_location_id)
+                        .unwrap_or_else(|| format!("Location {}", to_location_id));
+                    let content = format!("A way to {destination} becomes clear.");
+                    let event = self.append_exit_discovered_event(
+                        action.actor_id,
+                        *from_location_id,
+                        *to_location_id,
+                        content,
+                    );
+                    events.push(event.clone());
+
+                    let mut discovered_exits = vec![exit];
+                    if let Some(reverse) = reverse_exit {
+                        discovered_exits.push(reverse);
+                    }
+                    let witness_actor_ids = self.search_witness_actor_ids(*from_location_id);
+                    for discovered_exit in discovered_exits {
+                        let tag_destination = self
+                            .location_name(discovered_exit.to_location_id)
+                            .unwrap_or_else(|| {
+                                format!("Location {}", discovered_exit.to_location_id)
+                            });
+                        self.remember_search_discovery_for_actor_ids(
+                            &witness_actor_ids,
+                            discovered_exit.from_location_id,
+                            SEARCH_MEMORY_KIND_SEED_EXIT,
+                            discovered_exit.to_location_id,
+                            &seed_exit_search_memory_subject_key(
+                                discovered_exit.from_location_id,
+                                discovered_exit.to_location_id,
+                            ),
+                        );
+                        let tag = RpgTagState {
+                            id: seed_exit_discovered_tag_id(
+                                discovered_exit.from_location_id,
+                                discovered_exit.to_location_id,
+                            ),
+                            scope: "room".to_string(),
+                            scope_id: discovered_exit.from_location_id,
+                            label: format!("path to {tag_destination}"),
+                            kind: "discovery".to_string(),
+                            active: true,
+                            source_event_seq: Some(event.seq),
+                            expires: None,
+                        };
+                        if let Some(tag_event) = self.set_rpg_tag(tag, action.actor_id, reason) {
+                            events.push(tag_event);
+                        }
+                    }
+                }
+                ProjectionMutation::DiscoverHiddenExit {
+                    hidden_exit_id,
+                    reason,
+                } => {
+                    let Some(hidden_exit) = self.hidden_exit_by_id(hidden_exit_id) else {
+                        continue;
+                    };
+                    if self.hidden_exit_discovered(hidden_exit) {
+                        continue;
+                    }
+                    self.ensure_exit(hidden_exit.from_location_id, hidden_exit.to_location_id, 0);
+                    self.ensure_exit(hidden_exit.to_location_id, hidden_exit.from_location_id, 0);
+                    let event = self.append_exit_discovered_event(
+                        action.actor_id,
+                        hidden_exit.from_location_id,
+                        hidden_exit.to_location_id,
+                        hidden_exit.discovery_text.clone(),
+                    );
+                    events.push(event.clone());
+                    self.remember_search_discovery_for_witnesses(
+                        hidden_exit.from_location_id,
+                        SEARCH_MEMORY_KIND_HIDDEN_EXIT,
+                        hidden_exit.to_location_id,
+                        hidden_exit.id.clone(),
+                    );
+                    let destination = self
+                        .location_name(hidden_exit.to_location_id)
+                        .unwrap_or_else(|| format!("Location {}", hidden_exit.to_location_id));
+                    let tag = RpgTagState {
+                        id: hidden_exit_discovered_tag_id(&hidden_exit.id),
+                        scope: "room".to_string(),
+                        scope_id: hidden_exit.from_location_id,
+                        label: format!("entrance to {destination}"),
+                        kind: "discovery".to_string(),
+                        active: true,
+                        source_event_seq: Some(event.seq),
+                        expires: None,
+                    };
+                    if let Some(tag_event) = self.set_rpg_tag(tag, action.actor_id, reason) {
+                        events.push(tag_event);
+                    }
+                }
+                ProjectionMutation::DiscoverAvatar {
+                    actor_id,
+                    location_id,
+                    reason,
+                } => {
+                    let Some(target) = self.actor_by_id(*actor_id) else {
+                        continue;
+                    };
+                    if target.location_id != *location_id || self.avatar_discovered(*actor_id) {
+                        continue;
+                    }
+                    let target_name = self
+                        .actor_name(*actor_id)
+                        .unwrap_or_else(|| format!("Avatar {}", actor_id));
+                    let content = format!("{target_name} steps out of the room's hidden edge.");
+                    let event = self.append_avatar_discovered_event(
+                        action.actor_id,
+                        *actor_id,
+                        *location_id,
+                        content,
+                    );
+                    events.push(event.clone());
+                    self.remember_search_discovery_for_witnesses(
+                        *location_id,
+                        SEARCH_MEMORY_KIND_AVATAR,
+                        *actor_id,
+                        actor_id.to_string(),
+                    );
+                    let tag = RpgTagState {
+                        id: avatar_discovered_tag_id(*actor_id),
+                        scope: "actor".to_string(),
+                        scope_id: *actor_id,
+                        label: format!("discovered {target_name}"),
+                        kind: "discovery".to_string(),
+                        active: true,
+                        source_event_seq: Some(event.seq),
+                        expires: None,
+                    };
+                    if let Some(tag_event) = self.set_rpg_tag(tag, action.actor_id, reason) {
+                        events.push(tag_event);
+                    }
+                }
+                ProjectionMutation::RememberSearchItem {
+                    item_id,
+                    location_id,
+                    reason,
+                } => {
+                    let Some(item_name) = self.item_name(*item_id) else {
+                        continue;
+                    };
+                    self.remember_search_discovery_for_witnesses(
+                        *location_id,
+                        SEARCH_MEMORY_KIND_ITEM,
+                        *item_id,
+                        item_id.to_string(),
+                    );
+                    let tag = RpgTagState {
+                        id: search_item_found_tag_id(*item_id),
+                        scope: "item".to_string(),
+                        scope_id: *item_id,
+                        label: format!("found {item_name}"),
+                        kind: "discovery".to_string(),
+                        active: true,
+                        source_event_seq: events.last().map(|event| event.seq),
+                        expires: None,
+                    };
+                    if let Some(tag_event) = self.set_rpg_tag(tag, action.actor_id, reason) {
+                        events.push(tag_event);
                     }
                 }
                 ProjectionMutation::UseFeature {
@@ -7992,6 +8682,48 @@ impl RuntimeWorld {
                 event.seq,
                 &format!("flee:{from_location_id}:{to_location_id}:frontier_return"),
             ) {
+                projected.push(event);
+            }
+        }
+        projected
+    }
+
+    fn apply_frontier_travel_since_rest_projection(
+        &mut self,
+        events: &[EventView],
+    ) -> Vec<EventView> {
+        let mut projected = Vec::new();
+        for event in events {
+            if event.type_name != "actor.moved" || !event.success {
+                continue;
+            }
+            let Some(actor_id) = event.actor_id else {
+                continue;
+            };
+            let Some(actor) = self.actor_by_id(actor_id) else {
+                continue;
+            };
+            if actor.kind != CW_ACTOR_HUMAN {
+                continue;
+            }
+            let from_location_id = event.location_id.unwrap_or(0);
+            let to_location_id = event.destination_location_id.unwrap_or(0);
+            if !self.location_is_frontier(from_location_id)
+                && !self.location_is_frontier(to_location_id)
+            {
+                continue;
+            }
+            let tag = RpgTagState {
+                id: frontier_travel_since_rest_tag_id(actor_id, event.seq),
+                scope: "actor".to_string(),
+                scope_id: actor_id,
+                label: "frontier travel".to_string(),
+                kind: "memory".to_string(),
+                active: true,
+                source_event_seq: Some(event.seq),
+                expires: Some("after_rest".to_string()),
+            };
+            if let Some(event) = self.set_rpg_tag(tag, actor_id, "frontier_travel") {
                 projected.push(event);
             }
         }
@@ -8907,6 +9639,19 @@ impl RuntimeWorld {
         if let Some(event) = self.set_rpg_tag(tag, actor_id, reason) {
             events.push(event);
         }
+        let tag = RpgTagState {
+            id: tired_tag_id(actor_id),
+            scope: "actor".to_string(),
+            scope_id: actor_id,
+            label: "tired".to_string(),
+            kind: "condition".to_string(),
+            active: true,
+            source_event_seq: Some(self.world.next_event_seq),
+            expires: Some("after_rest".to_string()),
+        };
+        if let Some(event) = self.set_rpg_tag(tag, actor_id, reason) {
+            events.push(event);
+        }
         events
     }
 
@@ -9343,15 +10088,18 @@ impl RuntimeWorld {
         client_actor_id: Option<u64>,
         active_human_actor_ids: Option<&BTreeSet<u64>>,
     ) -> bool {
-        if actor.kind != CW_ACTOR_HUMAN {
-            return true;
+        if actor.kind == CW_ACTOR_HUMAN {
+            if Some(actor.id) == client_actor_id {
+                return true;
+            }
+            return active_human_actor_ids
+                .map(|ids| ids.contains(&actor.id))
+                .unwrap_or(true);
         }
-        if Some(actor.id) == client_actor_id {
-            return true;
+        if self.avatar_hidden_until_discovered(actor) {
+            return self.avatar_discovered(actor.id);
         }
-        active_human_actor_ids
-            .map(|ids| ids.contains(&actor.id))
-            .unwrap_or(true)
+        true
     }
 
     fn actor_view(&self, actor: CwActor) -> ActorView {
@@ -9418,7 +10166,11 @@ impl RuntimeWorld {
         let mut items = self.world.items[..self.world.item_count]
             .iter()
             .copied()
-            .filter(|item| item.holder_actor_id == 0 && item.location_id == location_id)
+            .filter(|item| {
+                item.holder_actor_id == 0
+                    && item.location_id == location_id
+                    && !self.forgotten_search_item_at_location(*item, location_id)
+            })
             .collect::<Vec<_>>();
         items.sort_by_key(|item| item.id);
         items
@@ -9428,11 +10180,55 @@ impl RuntimeWorld {
         self.loose_items_at_location(location_id).is_empty()
     }
 
+    fn seed_exit_by_locations(
+        &self,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) -> Option<&'static SeedExitContent> {
+        seed_content().exits.iter().find(|exit| {
+            exit.from_location_id == from_location_id && exit.to_location_id == to_location_id
+        })
+    }
+
+    fn seed_exit_discovered(&self, from_location_id: u64, to_location_id: u64) -> bool {
+        self.search_discovery_remembered(
+            SEARCH_MEMORY_KIND_SEED_EXIT,
+            from_location_id,
+            to_location_id,
+            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
+        )
+    }
+
+    fn seed_exit_candidate_for_search(&self, location_id: u64) -> Option<&'static SeedExitContent> {
+        let mut candidates = seed_content()
+            .exits
+            .iter()
+            .filter(|exit| exit.from_location_id == location_id)
+            .filter(|exit| !self.seed_exit_discovered(exit.from_location_id, exit.to_location_id))
+            .collect::<Vec<_>>();
+        candidates.sort_by_key(|exit| {
+            (
+                Reverse(search_reveal_chance_percent_for_subject(
+                    "location",
+                    exit.to_location_id,
+                )),
+                exit.to_location_id,
+            )
+        });
+        candidates.first().copied()
+    }
+
     fn hidden_search_item_for_location(&self, location_id: u64) -> Option<u64> {
         let mut hidden = self.world.items[..self.world.item_count]
             .iter()
             .copied()
-            .filter(|item| item.holder_actor_id == 0 && item.location_id == 0 && item.charges > 0)
+            .filter(|item| {
+                item.holder_actor_id == 0
+                    && item.charges > 0
+                    && (item.location_id == 0
+                        || self.forgotten_search_item_at_location(*item, location_id))
+                    && !self.search_item_remembered(item.id)
+            })
             .collect::<Vec<_>>();
         hidden.sort_by_key(|item| {
             let home_rank = seed_content()
@@ -9447,24 +10243,621 @@ impl RuntimeWorld {
                     }
                 })
                 .unwrap_or(2);
-            (home_rank, item.id)
+            (
+                home_rank,
+                Reverse(search_reveal_chance_percent_for_subject("item", item.id)),
+                item.id,
+            )
         });
         hidden.first().map(|item| item.id)
     }
 
-    fn default_search_feature(&self, actor_id: u64) -> Option<&'static SeedRoomFeatureContent> {
-        let actor = self.actor_by_id(actor_id)?;
-        if !self.room_floor_empty(actor.location_id)
-            || self
-                .hidden_search_item_for_location(actor.location_id)
-                .is_none()
+    fn hidden_exit_by_id(&self, hidden_exit_id: &str) -> Option<&'static SeedHiddenExitContent> {
+        seed_content()
+            .hidden_exits
+            .iter()
+            .find(|hidden_exit| hidden_exit.id == hidden_exit_id)
+    }
+
+    fn hidden_exit_discovered(&self, hidden_exit: &SeedHiddenExitContent) -> bool {
+        self.search_discovery_remembered(
+            SEARCH_MEMORY_KIND_HIDDEN_EXIT,
+            hidden_exit.from_location_id,
+            hidden_exit.to_location_id,
+            &hidden_exit.id,
+        )
+    }
+
+    fn hidden_exit_between(
+        &self,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) -> Option<&'static SeedHiddenExitContent> {
+        seed_content().hidden_exits.iter().find(|hidden_exit| {
+            (hidden_exit.from_location_id == from_location_id
+                && hidden_exit.to_location_id == to_location_id)
+                || (hidden_exit.from_location_id == to_location_id
+                    && hidden_exit.to_location_id == from_location_id)
+        })
+    }
+
+    fn location_discovered_by_search(&self, location_id: u64) -> bool {
+        seed_content().exits.iter().any(|exit| {
+            (exit.from_location_id == location_id || exit.to_location_id == location_id)
+                && self.seed_exit_discovered(exit.from_location_id, exit.to_location_id)
+        }) || seed_content().hidden_exits.iter().any(|hidden_exit| {
+            (hidden_exit.from_location_id == location_id
+                || hidden_exit.to_location_id == location_id)
+                && self.hidden_exit_discovered(hidden_exit)
+        })
+    }
+
+    fn exit_discovered_for_projection(&self, from_location_id: u64, to_location_id: u64) -> bool {
+        if self
+            .seed_exit_by_locations(from_location_id, to_location_id)
+            .is_some()
         {
+            return self.seed_exit_discovered(from_location_id, to_location_id);
+        }
+        if let Some(hidden_exit) = self.hidden_exit_between(from_location_id, to_location_id) {
+            return self.hidden_exit_discovered(hidden_exit);
+        }
+        true
+    }
+
+    fn hidden_exit_candidate_for_search(
+        &self,
+        location_id: u64,
+        feature_key: &str,
+    ) -> Option<&'static SeedHiddenExitContent> {
+        seed_content().hidden_exits.iter().find(|hidden_exit| {
+            hidden_exit.from_location_id == location_id
+                && hidden_exit.feature_key == feature_key
+                && !self.hidden_exit_discovered(hidden_exit)
+        })
+    }
+
+    fn default_hidden_exit_candidate(
+        &self,
+        location_id: u64,
+    ) -> Option<&'static SeedHiddenExitContent> {
+        seed_content().hidden_exits.iter().find(|hidden_exit| {
+            hidden_exit.from_location_id == location_id && !self.hidden_exit_discovered(hidden_exit)
+        })
+    }
+
+    fn hidden_exit_reveal_chance_percent(&self, hidden_exit: &SeedHiddenExitContent) -> u8 {
+        hidden_exit
+            .reveal_chance_percent
+            .min(search_reveal_chance_percent_for_subject(
+                "location",
+                hidden_exit.to_location_id,
+            ))
+    }
+
+    #[cfg(test)]
+    fn hidden_exit_search_succeeds(
+        &self,
+        seed: u64,
+        actor_id: u64,
+        hidden_exit: &SeedHiddenExitContent,
+    ) -> bool {
+        let candidate = SearchRevealCandidate::HiddenExit {
+            hidden_exit_id: hidden_exit.id.clone(),
+        };
+        self.search_candidate_succeeds(seed, actor_id, &candidate)
+    }
+
+    fn avatar_discovered(&self, actor_id: u64) -> bool {
+        self.search_memories.values().any(|memory| {
+            memory.kind == SEARCH_MEMORY_KIND_AVATAR
+                && memory.subject_id == actor_id
+                && self.search_memory_active(memory)
+        })
+    }
+
+    fn search_memory_active(&self, memory: &SearchMemoryState) -> bool {
+        self.actor_by_id(memory.actor_id)
+            .is_some_and(|actor| actor.status == CW_ACTOR_ACTIVE)
+            && self
+                .search_memory_effective_values(memory)
+                .is_some_and(|(confidence, salience)| {
+                    confidence >= SEARCH_MEMORY_MIN_CONFIDENCE && salience > 0
+                })
+    }
+
+    fn search_memory_effective_values(&self, memory: &SearchMemoryState) -> Option<(u8, u8)> {
+        let baseline = memory.last_used_tick.max(memory.found_tick);
+        if baseline == 0 {
+            return Some((memory.confidence, memory.salience));
+        }
+        let now = self.world.tick;
+        let steps = now.saturating_sub(baseline) / SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS;
+        let confidence_loss = steps
+            .saturating_mul(SEARCH_MEMORY_TIME_CONFIDENCE_DECAY as u64)
+            .min(u8::MAX as u64) as u8;
+        let salience_loss = steps
+            .saturating_mul(SEARCH_MEMORY_TIME_SALIENCE_DECAY as u64)
+            .min(u8::MAX as u64) as u8;
+        let confidence = memory.confidence.saturating_sub(confidence_loss);
+        let salience = memory.salience.saturating_sub(salience_loss);
+        (confidence > 0 && salience > 0).then_some((confidence, salience))
+    }
+
+    fn search_discovery_remembered(
+        &self,
+        kind: &str,
+        location_id: u64,
+        subject_id: u64,
+        subject_key: &str,
+    ) -> bool {
+        self.search_memories.values().any(|memory| {
+            memory.kind == kind
+                && memory.location_id == location_id
+                && memory.subject_id == subject_id
+                && memory.subject_key == subject_key
+                && self.search_memory_active(memory)
+        })
+    }
+
+    fn search_item_remembered(&self, item_id: u64) -> bool {
+        self.search_memories.values().any(|memory| {
+            memory.kind == SEARCH_MEMORY_KIND_ITEM
+                && memory.subject_id == item_id
+                && self.search_memory_active(memory)
+        })
+    }
+
+    fn search_item_found(&self, item_id: u64) -> bool {
+        self.tags
+            .get(&search_item_found_tag_id(item_id))
+            .map(|tag| tag.active)
+            .unwrap_or(false)
+    }
+
+    fn forgotten_search_item_at_location(&self, item: CwItem, location_id: u64) -> bool {
+        item.holder_actor_id == 0
+            && item.location_id == location_id
+            && self.search_item_found(item.id)
+            && !self.search_item_remembered(item.id)
+    }
+
+    fn search_memory_id(actor_id: u64, kind: &str, location_id: u64, subject_key: &str) -> String {
+        format!("search_memory:{actor_id}:{kind}:{location_id}:{subject_key}")
+    }
+
+    fn search_witness_actor_ids(&self, location_id: u64) -> Vec<u64> {
+        let mut actor_ids = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|actor| {
+                actor.location_id == location_id
+                    && actor.status == CW_ACTOR_ACTIVE
+                    && (actor.kind == CW_ACTOR_HUMAN || actor.kind == CW_ACTOR_NPC)
+            })
+            .map(|actor| actor.id)
+            .collect::<Vec<_>>();
+        actor_ids.sort_unstable();
+        actor_ids.dedup();
+        actor_ids
+    }
+
+    fn remember_search_discovery_for_witnesses(
+        &mut self,
+        location_id: u64,
+        kind: &str,
+        subject_id: u64,
+        subject_key: String,
+    ) {
+        let actor_ids = self.search_witness_actor_ids(location_id);
+        self.remember_search_discovery_for_actor_ids(
+            &actor_ids,
+            location_id,
+            kind,
+            subject_id,
+            &subject_key,
+        );
+    }
+
+    fn remember_search_discovery_for_actor_ids(
+        &mut self,
+        actor_ids: &[u64],
+        location_id: u64,
+        kind: &str,
+        subject_id: u64,
+        subject_key: &str,
+    ) {
+        for actor_id in actor_ids.iter().copied() {
+            self.remember_search_discovery(actor_id, location_id, kind, subject_id, &subject_key);
+        }
+    }
+
+    fn remember_search_discovery(
+        &mut self,
+        actor_id: u64,
+        location_id: u64,
+        kind: &str,
+        subject_id: u64,
+        subject_key: &str,
+    ) {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return;
+        };
+        if actor.status != CW_ACTOR_ACTIVE
+            || (actor.kind != CW_ACTOR_HUMAN && actor.kind != CW_ACTOR_NPC)
+        {
+            return;
+        }
+        let id = Self::search_memory_id(actor_id, kind, location_id, subject_key);
+        let now = self.world.tick;
+        match self.search_memories.get_mut(&id) {
+            Some(memory) => {
+                memory.confidence = memory.confidence.max(SEARCH_MEMORY_CONFIDENCE);
+                memory.salience = memory.salience.max(SEARCH_MEMORY_SALIENCE);
+                memory.last_used_tick = now;
+                memory.use_count = memory.use_count.saturating_add(1);
+            }
+            None => {
+                self.search_memories.insert(
+                    id.clone(),
+                    SearchMemoryState {
+                        id,
+                        actor_id,
+                        kind: kind.to_string(),
+                        location_id,
+                        subject_id,
+                        subject_key: subject_key.to_string(),
+                        confidence: SEARCH_MEMORY_CONFIDENCE,
+                        salience: SEARCH_MEMORY_SALIENCE,
+                        found_tick: now,
+                        last_used_tick: now,
+                        use_count: 1,
+                    },
+                );
+            }
+        }
+    }
+
+    fn decay_search_memories(&mut self) {
+        let now = self.world.tick;
+        let mut expired = Vec::new();
+        for memory in self.search_memories.values_mut() {
+            let baseline = memory.last_used_tick.max(memory.found_tick);
+            if baseline == 0 {
+                memory.last_used_tick = now;
+                continue;
+            }
+            if now <= baseline {
+                continue;
+            }
+            let steps = (now - baseline) / SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS;
+            if steps == 0 {
+                continue;
+            }
+            let confidence_loss = steps
+                .saturating_mul(SEARCH_MEMORY_TIME_CONFIDENCE_DECAY as u64)
+                .min(u8::MAX as u64) as u8;
+            let salience_loss = steps
+                .saturating_mul(SEARCH_MEMORY_TIME_SALIENCE_DECAY as u64)
+                .min(u8::MAX as u64) as u8;
+            memory.confidence = memory.confidence.saturating_sub(confidence_loss);
+            memory.salience = memory.salience.saturating_sub(salience_loss);
+            memory.last_used_tick = now;
+            if memory.confidence == 0 || memory.salience == 0 {
+                expired.push(memory.id.clone());
+            }
+        }
+        for memory_id in expired {
+            self.search_memories.remove(&memory_id);
+        }
+        self.return_forgotten_search_items_to_pool();
+    }
+
+    fn reinforce_search_memories_from_events(&mut self, events: &[EventView]) {
+        for event in events.iter().filter(|event| event.success) {
+            match event.type_name.as_str() {
+                "actor.moved" => {
+                    let (Some(actor_id), Some(from_location_id), Some(to_location_id)) = (
+                        event.actor_id,
+                        event.location_id,
+                        event.destination_location_id,
+                    ) else {
+                        continue;
+                    };
+                    if self
+                        .seed_exit_by_locations(from_location_id, to_location_id)
+                        .is_some()
+                    {
+                        self.remember_search_discovery(
+                            actor_id,
+                            from_location_id,
+                            SEARCH_MEMORY_KIND_SEED_EXIT,
+                            to_location_id,
+                            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
+                        );
+                        if self
+                            .seed_exit_by_locations(to_location_id, from_location_id)
+                            .is_some()
+                        {
+                            self.remember_search_discovery(
+                                actor_id,
+                                to_location_id,
+                                SEARCH_MEMORY_KIND_SEED_EXIT,
+                                from_location_id,
+                                &seed_exit_search_memory_subject_key(
+                                    to_location_id,
+                                    from_location_id,
+                                ),
+                            );
+                        }
+                    }
+                    if let Some(hidden_exit) =
+                        self.hidden_exit_between(from_location_id, to_location_id)
+                    {
+                        self.remember_search_discovery(
+                            actor_id,
+                            hidden_exit.from_location_id,
+                            SEARCH_MEMORY_KIND_HIDDEN_EXIT,
+                            hidden_exit.to_location_id,
+                            &hidden_exit.id,
+                        );
+                    }
+                }
+                "item.found" | "item.picked_up" | "item.dropped" | "item.used" | "item.given"
+                | "item.traded" => {
+                    let Some(item_id) = event.item_id else {
+                        continue;
+                    };
+                    if !self.search_item_found(item_id) && event.type_name != "item.found" {
+                        continue;
+                    }
+                    let location_id = event
+                        .location_id
+                        .or_else(|| {
+                            event
+                                .actor_id
+                                .and_then(|actor_id| self.actor_by_id(actor_id))
+                                .map(|actor| actor.location_id)
+                        })
+                        .unwrap_or(0);
+                    if location_id == 0 {
+                        continue;
+                    }
+                    self.remember_search_discovery_for_witnesses(
+                        location_id,
+                        SEARCH_MEMORY_KIND_ITEM,
+                        item_id,
+                        item_id.to_string(),
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn return_forgotten_search_items_to_pool(&mut self) {
+        let forgotten_item_ids = self.world.items[..self.world.item_count]
+            .iter()
+            .copied()
+            .filter(|item| {
+                item.holder_actor_id == 0
+                    && item.location_id != 0
+                    && self.search_item_found(item.id)
+                    && !self.search_item_remembered(item.id)
+            })
+            .map(|item| item.id)
+            .collect::<BTreeSet<_>>();
+        if forgotten_item_ids.is_empty() {
+            return;
+        }
+        for item in &mut self.world.items[..self.world.item_count] {
+            if forgotten_item_ids.contains(&item.id) {
+                item.location_id = 0;
+                item.holder_actor_id = 0;
+                item.held_since_tick = 0;
+            }
+        }
+    }
+
+    fn avatar_hidden_until_discovered(&self, actor: CwActor) -> bool {
+        if actor.kind != CW_ACTOR_NPC
+            || !seed_content()
+                .actors
+                .iter()
+                .any(|seed_actor| seed_actor.id == actor.id)
+        {
+            return false;
+        }
+        let hidden_location = seed_content()
+            .hidden_exits
+            .iter()
+            .any(|hidden_exit| hidden_exit.to_location_id == actor.location_id);
+        let hidden_rarity = seed_card_rarity_for_subject("actor", actor.id)
+            .map(|rarity| search_reveal_chance_percent_for_rarity(rarity) <= 35)
+            .unwrap_or(false);
+        hidden_location || hidden_rarity
+    }
+
+    fn hidden_avatar_candidate_for_search(&self, location_id: u64) -> Option<CwActor> {
+        let mut candidates = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|actor| actor.kind == CW_ACTOR_NPC)
+            .filter(|actor| actor.status == CW_ACTOR_ACTIVE)
+            .filter(|actor| actor.location_id == location_id)
+            .filter(|actor| self.avatar_hidden_until_discovered(*actor))
+            .filter(|actor| !self.avatar_discovered(actor.id))
+            .collect::<Vec<_>>();
+        candidates.sort_by_key(|actor| {
+            (
+                Reverse(search_reveal_chance_percent_for_subject("actor", actor.id)),
+                actor.id,
+            )
+        });
+        candidates.first().copied()
+    }
+
+    fn search_reveal_candidates_for_feature(
+        &self,
+        location_id: u64,
+        feature_key: &str,
+    ) -> Vec<SearchRevealCandidate> {
+        let mut candidates = Vec::new();
+        if let Some(exit) = self.seed_exit_candidate_for_search(location_id) {
+            candidates.push(SearchRevealCandidate::SeedExit {
+                from_location_id: exit.from_location_id,
+                to_location_id: exit.to_location_id,
+            });
+        }
+        if let Some(hidden_exit) = self.hidden_exit_candidate_for_search(location_id, feature_key) {
+            candidates.push(SearchRevealCandidate::HiddenExit {
+                hidden_exit_id: hidden_exit.id.clone(),
+            });
+        }
+        if let Some(actor) = self.hidden_avatar_candidate_for_search(location_id) {
+            candidates.push(SearchRevealCandidate::Avatar {
+                actor_id: actor.id,
+                location_id,
+            });
+        }
+        if self.room_floor_empty(location_id) {
+            if let Some(item_id) = self.hidden_search_item_for_location(location_id) {
+                candidates.push(SearchRevealCandidate::Item { item_id });
+            }
+        }
+        candidates.sort_by_key(|candidate| self.search_candidate_sort_key(candidate));
+        candidates
+    }
+
+    fn search_candidate_sort_key(
+        &self,
+        candidate: &SearchRevealCandidate,
+    ) -> (u8, Reverse<u8>, u64, u64) {
+        match candidate {
+            SearchRevealCandidate::SeedExit {
+                from_location_id,
+                to_location_id,
+            } => (
+                0,
+                Reverse(self.search_candidate_reveal_chance_percent(candidate)),
+                *from_location_id,
+                *to_location_id,
+            ),
+            SearchRevealCandidate::HiddenExit { hidden_exit_id } => (
+                1,
+                Reverse(self.search_candidate_reveal_chance_percent(candidate)),
+                stable_hash_u64(&["hidden-exit", hidden_exit_id]),
+                0,
+            ),
+            SearchRevealCandidate::Avatar {
+                actor_id,
+                location_id,
+            } => (
+                2,
+                Reverse(self.search_candidate_reveal_chance_percent(candidate)),
+                *location_id,
+                *actor_id,
+            ),
+            SearchRevealCandidate::Item { item_id } => (
+                3,
+                Reverse(self.search_candidate_reveal_chance_percent(candidate)),
+                *item_id,
+                0,
+            ),
+        }
+    }
+
+    fn search_candidate_reveal_chance_percent(&self, candidate: &SearchRevealCandidate) -> u8 {
+        match candidate {
+            SearchRevealCandidate::SeedExit { to_location_id, .. } => {
+                search_reveal_chance_percent_for_subject("location", *to_location_id)
+            }
+            SearchRevealCandidate::HiddenExit { hidden_exit_id } => self
+                .hidden_exit_by_id(hidden_exit_id)
+                .map(|hidden_exit| self.hidden_exit_reveal_chance_percent(hidden_exit))
+                .unwrap_or(0),
+            SearchRevealCandidate::Avatar { actor_id, .. } => {
+                search_reveal_chance_percent_for_subject("actor", *actor_id)
+            }
+            SearchRevealCandidate::Item { item_id } => {
+                search_reveal_chance_percent_for_subject("item", *item_id)
+            }
+        }
+    }
+
+    fn search_candidate_stable_key(&self, candidate: &SearchRevealCandidate) -> String {
+        match candidate {
+            SearchRevealCandidate::SeedExit {
+                from_location_id,
+                to_location_id,
+            } => format!("exit:{from_location_id}:{to_location_id}"),
+            SearchRevealCandidate::HiddenExit { hidden_exit_id } => {
+                format!("hidden_exit:{hidden_exit_id}")
+            }
+            SearchRevealCandidate::Avatar {
+                actor_id,
+                location_id,
+            } => format!("avatar:{location_id}:{actor_id}"),
+            SearchRevealCandidate::Item { item_id } => format!("item:{item_id}"),
+        }
+    }
+
+    fn search_candidate_succeeds(
+        &self,
+        seed: u64,
+        actor_id: u64,
+        candidate: &SearchRevealCandidate,
+    ) -> bool {
+        let chance = self.search_candidate_reveal_chance_percent(candidate);
+        if chance == 0 {
+            return false;
+        }
+        let actor_id = actor_id.to_string();
+        let seed = seed.to_string();
+        let candidate_key = self.search_candidate_stable_key(candidate);
+        let roll = stable_hash_u64(&["search-reveal", &candidate_key, &actor_id, &seed]) % 100;
+        roll < u64::from(chance)
+    }
+
+    fn default_search_target(&self, actor_id: u64) -> Option<RoomSearchTarget> {
+        let actor = self.actor_by_id(actor_id)?;
+        let hidden_exit = self.default_hidden_exit_candidate(actor.location_id);
+        let has_candidate = hidden_exit.is_some()
+            || self
+                .seed_exit_candidate_for_search(actor.location_id)
+                .is_some()
+            || self
+                .hidden_avatar_candidate_for_search(actor.location_id)
+                .is_some()
+            || (self.room_floor_empty(actor.location_id)
+                && self
+                    .hidden_search_item_for_location(actor.location_id)
+                    .is_some());
+        if !has_candidate {
             return None;
         }
-        seed_content()
+        if let Some(hidden_exit) = hidden_exit {
+            if let Some(feature) = seed_content().room_features.iter().find(|feature| {
+                feature.location_id == hidden_exit.from_location_id
+                    && feature.key == hidden_exit.feature_key
+            }) {
+                return Some(RoomSearchTarget::from_feature(feature));
+            }
+        }
+        if let Some(feature) = seed_content()
             .room_features
             .iter()
             .find(|feature| feature.location_id == actor.location_id)
+        {
+            return Some(RoomSearchTarget::from_feature(feature));
+        }
+        let location_name = self
+            .location_name(actor.location_id)
+            .unwrap_or_else(|| format!("Location {}", actor.location_id));
+        Some(RoomSearchTarget::virtual_room(
+            actor.location_id,
+            location_name,
+        ))
     }
 
     fn recipe_by_id(&self, recipe_id: u64) -> Option<&'static SeedRecipeContent> {
@@ -10714,6 +12107,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| "prose".to_string()),
             resident_continuity: self.resident_continuity_for(actor),
             economy_note: self.resident_economy_prompt_note(actor, None),
+            goals: self.narrative_goal_lines(None, actor.location_id),
             location_name: self
                 .location_name(actor.location_id)
                 .unwrap_or_else(|| "Unknown Location".to_string()),
@@ -11513,7 +12907,8 @@ impl RuntimeWorld {
             return false;
         };
         if item.holder_actor_id == 0 {
-            return item.location_id == location_id;
+            return item.location_id == location_id
+                && !self.forgotten_search_item_at_location(item, location_id);
         }
         self.actor_by_id(item.holder_actor_id)
             .is_some_and(|holder| {
@@ -11644,7 +13039,11 @@ impl RuntimeWorld {
 
         let loose_item_ids: Vec<u64> = self.world.items[..self.world.item_count]
             .iter()
-            .filter(|item| item.holder_actor_id == 0 && item.location_id == location_id)
+            .filter(|item| {
+                item.holder_actor_id == 0
+                    && item.location_id == location_id
+                    && !self.forgotten_search_item_at_location(**item, location_id)
+            })
             .map(|item| item.id)
             .collect();
         for item_id in loose_item_ids {
@@ -12044,7 +13443,7 @@ impl RuntimeWorld {
     }
 
     fn exit_direction(&self, from_location_id: u64, to_location_id: u64) -> Option<String> {
-        seed_content()
+        if let Some(direction) = seed_content()
             .exits
             .iter()
             .find(|exit| {
@@ -12052,6 +13451,26 @@ impl RuntimeWorld {
             })
             .and_then(|exit| exit.direction.as_deref())
             .and_then(canonical_direction)
+        {
+            return Some(direction.to_string());
+        }
+        seed_content()
+            .hidden_exits
+            .iter()
+            .filter(|hidden_exit| self.hidden_exit_discovered(hidden_exit))
+            .find_map(|hidden_exit| {
+                if hidden_exit.from_location_id == from_location_id
+                    && hidden_exit.to_location_id == to_location_id
+                {
+                    canonical_direction(&hidden_exit.direction)
+                } else if hidden_exit.to_location_id == from_location_id
+                    && hidden_exit.from_location_id == to_location_id
+                {
+                    canonical_direction(&hidden_exit.return_direction)
+                } else {
+                    None
+                }
+            })
             .map(ToString::to_string)
     }
 
@@ -12092,6 +13511,9 @@ impl RuntimeWorld {
             .iter()
             .copied()
             .filter(|exit| exit.from_location_id == location_id)
+            .filter(|exit| {
+                self.exit_discovered_for_projection(exit.from_location_id, exit.to_location_id)
+            })
             .filter(|exit| exit.flags & CW_EXIT_LOCKED == 0)
             .map(|exit| {
                 let access_rule = location_access_rule(exit.to_location_id);
@@ -12147,7 +13569,8 @@ impl RuntimeWorld {
             .iter()
             .copied()
             .filter(|item| {
-                item.location_id == location_id
+                (item.location_id == location_id
+                    && !self.forgotten_search_item_at_location(*item, location_id))
                     || (item.holder_actor_id != 0
                         && visible_actor_ids.contains(&item.holder_actor_id))
                     || client_actor_id
@@ -12292,7 +13715,45 @@ impl RuntimeWorld {
     }
 
     fn rest_available(&self, actor_id: u64) -> bool {
-        self.tired_tag_active(actor_id) || self.trained_since_rest_tag_active(actor_id)
+        self.tired_tag_active(actor_id)
+            && self.frontier_travel_since_rest_count(actor_id)
+                >= self.frontier_travel_since_rest_required(actor_id)
+    }
+
+    fn frontier_travel_since_rest_required(&self, actor_id: u64) -> usize {
+        self.actor_by_id(actor_id)
+            .map(|actor| usize::from(actor.stats.level.clamp(1, 4)))
+            .unwrap_or(1)
+    }
+
+    fn frontier_travel_since_rest_count(&self, actor_id: u64) -> usize {
+        let prefix = frontier_travel_since_rest_tag_prefix(actor_id);
+        self.tags
+            .values()
+            .filter(|tag| {
+                tag.active
+                    && tag.scope == "actor"
+                    && tag.scope_id == actor_id
+                    && tag.id.starts_with(&prefix)
+            })
+            .count()
+    }
+
+    fn frontier_travel_since_rest_tag_ids(&self, actor_id: u64) -> Vec<String> {
+        let prefix = frontier_travel_since_rest_tag_prefix(actor_id);
+        let mut tag_ids: Vec<_> = self
+            .tags
+            .values()
+            .filter(|tag| {
+                tag.active
+                    && tag.scope == "actor"
+                    && tag.scope_id == actor_id
+                    && tag.id.starts_with(&prefix)
+            })
+            .map(|tag| tag.id.clone())
+            .collect();
+        tag_ids.sort();
+        tag_ids
     }
 
     fn tired_tag_active(&self, actor_id: u64) -> bool {
@@ -12372,6 +13833,7 @@ impl RuntimeWorld {
                         && other.kind == CW_ACTOR_NPC
                         && other.status == CW_ACTOR_ACTIVE
                         && other.location_id == actor.location_id
+                        && self.actor_visible_in_projection(*other, Some(actor_id), None)
                 })
     }
 
@@ -12757,7 +14219,19 @@ impl RuntimeWorld {
         self.room_features(location_id)
             .into_iter()
             .map(|feature| {
-                let searched = !self.room_floor_empty(location_id);
+                let hidden_exit_pending = self
+                    .hidden_exit_candidate_for_search(location_id, &feature.key)
+                    .is_some();
+                let search_reveal_pending = !self
+                    .search_reveal_candidates_for_feature(location_id, &feature.key)
+                    .is_empty();
+                let searched = !hidden_exit_pending
+                    && !search_reveal_pending
+                    && (!self.room_floor_empty(location_id)
+                        || self.room_feature_search_claimed(location_id, &feature.key)
+                        || actor_id
+                            .map(|id| self.feature_search_claimed(id, location_id, &feature.key))
+                            .unwrap_or(false));
                 let uses = feature
                     .uses
                     .iter()
@@ -12872,6 +14346,13 @@ impl RuntimeWorld {
     fn feature_search_claimed(&self, actor_id: u64, location_id: u64, feature_key: &str) -> bool {
         self.tags
             .get(&feature_search_tag_id(actor_id, location_id, feature_key))
+            .map(|tag| tag.active)
+            .unwrap_or(false)
+    }
+
+    fn room_feature_search_claimed(&self, location_id: u64, feature_key: &str) -> bool {
+        self.tags
+            .get(&room_feature_search_tag_id(location_id, feature_key))
             .map(|tag| tag.active)
             .unwrap_or(false)
     }
@@ -13430,6 +14911,7 @@ impl RuntimeWorld {
                     && target.kind == CW_ACTOR_NPC
                     && target.status == CW_ACTOR_ACTIVE
                     && target.location_id == actor.location_id
+                    && self.actor_visible_in_projection(*target, Some(actor_id), None)
                     && self.active_bond(actor_id, target.id).is_none()
             })
     }
@@ -13592,7 +15074,10 @@ impl RuntimeWorld {
             .iter()
             .filter_map(|location| {
                 let is_current = current_location_id == Some(location.id);
-                (is_current || location_access_allowed(location.id, access)).then_some(location.id)
+                let default_start =
+                    current_location_id.is_none() && location.id == COSY_COTTAGE_LOCATION_ID;
+                let discovered = self.location_discovered_by_search(location.id);
+                (is_current || default_start || discovered).then_some(location.id)
             })
             .collect();
 
@@ -13640,7 +15125,10 @@ impl RuntimeWorld {
                 let items_in_location: Vec<CwItem> = self.world.items[..self.world.item_count]
                     .iter()
                     .copied()
-                    .filter(|item| item.location_id == location.id)
+                    .filter(|item| {
+                        item.location_id == location.id
+                            && !self.forgotten_search_item_at_location(*item, location.id)
+                    })
                     .collect();
                 let human_count = visible_actors_in_location
                     .iter()
@@ -13859,7 +15347,7 @@ impl RuntimeWorld {
         let can_train_skill = self.default_trainable_skill(actor_id).is_some();
         let can_create_bond = self.default_bondable_resident(actor_id).is_some();
         let can_resolve_bond = self.default_resolvable_bond(actor_id).is_some();
-        let default_search_feature = self.default_search_feature(actor_id);
+        let default_search_target = self.default_search_target(actor_id);
         let default_craft_recipe = self.default_craft_recipe(actor_id);
 
         let mut options = Vec::new();
@@ -13908,14 +15396,12 @@ impl RuntimeWorld {
                 command: "use".to_string(),
             });
         }
-        if offers.option_flags & CW_OFFER_SEARCH != 0 {
-            if let Some(feature) = default_search_feature {
-                options.push(ActionOption {
-                    kind: "search".to_string(),
-                    label: "Search".to_string(),
-                    command: format!("search {}", feature.name),
-                });
-            }
+        if let Some(target) = &default_search_target {
+            options.push(ActionOption {
+                kind: "search".to_string(),
+                label: "Search".to_string(),
+                command: format!("search {}", target.name),
+            });
         }
         if offers.option_flags & CW_OFFER_CRAFT != 0 {
             if let Some(recipe) = default_craft_recipe {
@@ -14329,11 +15815,11 @@ impl RuntimeWorld {
                     )),
                 }),
             "search" => self
-                .default_search_feature(actor_id)
-                .map(|feature| ActionTargetView {
+                .default_search_target(actor_id)
+                .map(|target| ActionTargetView {
                     kind: "feature".to_string(),
-                    id: Some(feature.location_id),
-                    label: Some(feature.name.clone()),
+                    id: Some(target.location_id),
+                    label: Some(target.name),
                 }),
             "craft" => self
                 .default_craft_recipe(actor_id)
@@ -14500,11 +15986,6 @@ impl RuntimeWorld {
                     }
                 }),
             "rest"
-                if self.trained_since_rest_tag_active(actor_id) && !self.tired_tag_active(actor_id) =>
-            {
-                Some("lets training settle; you can train again afterward".to_string())
-            }
-            "rest"
                 if self
                     .active_danger_clock_id_for_location(actor.location_id)
                     .is_some_and(|clock_id| self.clock_is_frontier(&clock_id))
@@ -14515,14 +15996,32 @@ impl RuntimeWorld {
                         .to_string(),
                 )
             }
+            "rest" if self.trained_since_rest_tag_active(actor_id) => {
+                Some("clears tired; training settles for another skill step".to_string())
+            }
             "rest" => Some("clears tired; may advance danger in frontier rooms".to_string()),
             "move" => Some("moves to an accessible adjacent room".to_string()),
             "flee" => Some("returns from a frontier room and can add a memory mark".to_string()),
-            "search" => self.default_search_feature(actor_id).map(|feature| {
-                format!(
-                    "searches {}; can reveal one hidden item because the floor is empty",
-                    feature.name
-                )
+            "search" => self.default_search_target(actor_id).map(|target| {
+                let candidates =
+                    self.search_reveal_candidates_for_feature(actor.location_id, &target.key);
+                let Some(candidate) = candidates.first() else {
+                    return format!("searches {}", target.name);
+                };
+                match candidate {
+                    SearchRevealCandidate::SeedExit { .. } => {
+                        format!("searches {}; can reveal a new path", target.name)
+                    }
+                    SearchRevealCandidate::HiddenExit { .. } => {
+                        format!("searches {}; low chance to reveal a hidden entrance", target.name)
+                    }
+                    SearchRevealCandidate::Avatar { .. } => {
+                        format!("searches {}; can reveal a hidden avatar", target.name)
+                    }
+                    SearchRevealCandidate::Item { .. } => {
+                        format!("searches {}; can reveal a hidden item", target.name)
+                    }
+                }
             }),
             "craft" => self.default_craft_recipe(actor_id).map(|recipe| {
                 let output = recipe
@@ -14633,13 +16132,9 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return false;
         };
-        self.world.exits[..self.world.exit_count]
-            .iter()
-            .any(|exit| {
-                exit.from_location_id == actor.location_id
-                    && exit.flags & CW_EXIT_LOCKED == 0
-                    && location_access_allowed(exit.to_location_id, access)
-            })
+        self.exit_views(actor.location_id, access)
+            .into_iter()
+            .any(|exit| exit.accessible && !exit.locked)
     }
 
     fn active_chat_targets(&self, actor_id: u64) -> Vec<CwActor> {
@@ -14654,6 +16149,7 @@ impl RuntimeWorld {
                     && target.kind == CW_ACTOR_NPC
                     && target.status == CW_ACTOR_ACTIVE
                     && target.location_id == actor.location_id
+                    && self.actor_visible_in_projection(*target, Some(actor_id), None)
             })
             .collect()
     }
@@ -14678,6 +16174,7 @@ impl RuntimeWorld {
                         && target.kind == CW_ACTOR_NPC
                         && target.status == CW_ACTOR_ACTIVE
                         && target.location_id == actor.location_id
+                        && self.actor_visible_in_projection(*target, Some(actor_id), None)
                 })
     }
 
@@ -15307,15 +16804,15 @@ impl RuntimeWorld {
                             id: "need".to_string(),
                             label: if evolved { "ask weather" } else { "ask need" }.to_string(),
                             content: if let Some(item_name) = missing_need.as_deref() {
-                                format!("Whiskerwind, do you need {item_name}?")
+                                format!("Gust, do you need {item_name}?")
                             } else {
-                                "Whiskerwind, how does the weather feel?".to_string()
+                                "Gust, how does the weather feel?".to_string()
                             },
                         },
                         DialogueOption {
                             id: "tea".to_string(),
                             label: "offer tea".to_string(),
-                            content: "Whiskerwind, would tea help the rain?".to_string(),
+                            content: "Gust, would tea help the rain?".to_string(),
                         },
                     ],
                 )
@@ -15437,6 +16934,84 @@ impl RuntimeWorld {
         recent_lines
     }
 
+    fn narrative_goal_lines(&self, actor_id: Option<u64>, location_id: u64) -> Vec<String> {
+        let mut goals = Vec::new();
+        if let Some(job) = self.active_job_for_location(location_id) {
+            let progress = self
+                .clocks
+                .get(&job.progress_clock_id)
+                .map(|clock| format!("progress {}/{}", clock.filled, clock.segments));
+            let danger = self
+                .clocks
+                .get(&job.danger_clock_id)
+                .map(|clock| format!("danger {}/{}", clock.filled, clock.segments));
+            let clocks = [progress, danger].into_iter().flatten().collect::<Vec<_>>();
+            let clock_note = if clocks.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", clocks.join(", "))
+            };
+            goals.push(format!(
+                "Project goal: {} Stakes: {}{}",
+                job.premise, job.stakes, clock_note
+            ));
+            if let Some(question) = seed_content()
+                .fronts
+                .iter()
+                .find(|front| {
+                    front.job_ids.iter().any(|id| id == &job.id)
+                        || front.location_ids.contains(&location_id)
+                })
+                .and_then(|front| front.stakes_questions.first())
+            {
+                goals.push(format!("Open story question: {question}"));
+            }
+        } else if let Some(front) = seed_content()
+            .fronts
+            .iter()
+            .find(|front| front.status == "active" && front.location_ids.contains(&location_id))
+        {
+            goals.push(format!(
+                "Local tension: {}; looming outcome: {}",
+                front.premise, front.impending_outcome
+            ));
+        }
+
+        if let Some(actor_id) = actor_id {
+            let ledger = self.visit_ledger_view(actor_id);
+            if ledger.unbanked_count > 0 {
+                let unit = if ledger.unbanked_count == 1 {
+                    "memory mark"
+                } else {
+                    "memory marks"
+                };
+                goals.push(format!(
+                    "Growth goal: bank {} {} into growth points.",
+                    ledger.unbanked_count, unit
+                ));
+            } else if ledger.advancement_points > 0 {
+                let unit = if ledger.advancement_points == 1 {
+                    "growth point"
+                } else {
+                    "growth points"
+                };
+                goals.push(format!(
+                    "Growth goal: spend {} {} on a skill, bond, or calling.",
+                    ledger.advancement_points, unit
+                ));
+            }
+            if self.tired_tag_active(actor_id) {
+                goals.push(
+                    "Pacing goal: the avatar is tired and should recover before more exertion."
+                        .to_string(),
+                );
+            }
+        }
+
+        goals.truncate(4);
+        goals
+    }
+
     fn avatar_chat_plan_for(&self, actor_id: u64, target_actor_id: u64) -> Option<AvatarChatPlan> {
         let actor = self.actor_by_id(actor_id)?;
         let target = self.actor_by_id(target_actor_id)?;
@@ -15485,6 +17060,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| "resident".to_string()),
             target_continuity: self.resident_continuity_for(target),
             target_economy_note,
+            goals: self.narrative_goal_lines(Some(actor_id), actor.location_id),
             location_name: self
                 .location_name(actor.location_id)
                 .unwrap_or_else(|| "Unknown Location".to_string()),
@@ -15563,6 +17139,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| "prose".to_string()),
             resident_continuity: self.resident_continuity_for(npc),
             economy_note,
+            goals: self.narrative_goal_lines(Some(speaker_actor_id), npc.location_id),
             location_name: self
                 .location_name(npc.location_id)
                 .unwrap_or_else(|| "Unknown Location".to_string()),
@@ -15619,6 +17196,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| "prose".to_string()),
             resident_continuity: self.resident_continuity_for(npc),
             economy_note,
+            goals: self.narrative_goal_lines(None, npc.location_id),
             location_name: self
                 .location_name(npc.location_id)
                 .unwrap_or_else(|| "Unknown Location".to_string()),
@@ -16910,8 +18488,7 @@ fn apply_actor_evolution_card(mut card: CardView, actor_id: u64, level: u8) -> C
         }
         1002 => {
             card.title = "Storm-Symbol Speaker".to_string();
-            card.blurb =
-                "Whiskerwind's symbols brighten into a wider weather language.".to_string();
+            card.blurb = "Gust's symbols brighten into a wider weather language.".to_string();
         }
         1003 => {
             card.title = "Hearthbound Sentinel".to_string();
@@ -16961,6 +18538,33 @@ fn seed_card_for_subject(subject_kind: &str, subject_id: u64) -> Option<CardView
         .iter()
         .find(|card| card.subject_kind == subject_kind && card.subject_id == subject_id)
         .map(card_from_seed_content)
+}
+
+fn seed_card_rarity_for_subject(subject_kind: &str, subject_id: u64) -> Option<&'static str> {
+    seed_content()
+        .cards
+        .iter()
+        .find(|card| card.subject_kind == subject_kind && card.subject_id == subject_id)
+        .map(|card| card.rarity.as_str())
+}
+
+fn search_reveal_chance_percent_for_subject(subject_kind: &str, subject_id: u64) -> u8 {
+    seed_card_rarity_for_subject(subject_kind, subject_id)
+        .map(search_reveal_chance_percent_for_rarity)
+        .unwrap_or(55)
+}
+
+fn search_reveal_chance_percent_for_rarity(rarity: &str) -> u8 {
+    match rarity.trim().to_ascii_lowercase().as_str() {
+        "free" | "seed" | "common" => 85,
+        "uncommon" => 65,
+        "generated" | "mystery" | "pack" => 55,
+        "rare" => 35,
+        "super-rare" | "super_rare" | "superrare" => 20,
+        "ultra-rare" | "ultra_rare" | "ultrarare" => 10,
+        "mythic" | "legendary" => 6,
+        _ => 55,
+    }
 }
 
 fn card_from_seed_content(card: &SeedCardContent) -> CardView {
@@ -18591,7 +20195,13 @@ async fn state_view(
     );
     let mut runtime = state.inner.lock().await;
     let actor_id = query.actor_id.filter(|id| {
-        client_actor_authorized_for_state(&runtime, &state, *id, query.actor_session.as_deref())
+        client_actor_read_authorized_for_state(
+            &runtime,
+            &state,
+            *id,
+            query.actor_session.as_deref(),
+            &access,
+        )
     });
     if let Some(actor_id) = actor_id {
         record_daily_visit(&state, actor_id);
@@ -18645,7 +20255,13 @@ async fn inspect_view(
     );
     let mut runtime = state.inner.lock().await;
     let actor_id = query.actor_id.filter(|id| {
-        client_actor_authorized_for_state(&runtime, &state, *id, query.actor_session.as_deref())
+        client_actor_read_authorized_for_state(
+            &runtime,
+            &state,
+            *id,
+            query.actor_session.as_deref(),
+            &access,
+        )
     });
     let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
     let active_humans = active_actor_ids_for_state(&state);
@@ -18676,7 +20292,13 @@ async fn world_view(
     );
     let mut runtime = state.inner.lock().await;
     let actor_id = query.actor_id.filter(|id| {
-        client_actor_authorized_for_state(&runtime, &state, *id, query.actor_session.as_deref())
+        client_actor_read_authorized_for_state(
+            &runtime,
+            &state,
+            *id,
+            query.actor_session.as_deref(),
+            &access,
+        )
     });
     let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
     let active_humans = active_actor_ids_for_state(&state);
@@ -18706,7 +20328,13 @@ async fn events_view(
     );
     let runtime = state.inner.lock().await;
     let actor_id = query.actor_id.filter(|id| {
-        client_actor_authorized_for_state(&runtime, &state, *id, query.actor_session.as_deref())
+        client_actor_read_authorized_for_state(
+            &runtime,
+            &state,
+            *id,
+            query.actor_session.as_deref(),
+            &access,
+        )
     });
     if let Some(path) = state.event_store_path.as_deref() {
         match read_event_store(
@@ -19903,6 +21531,191 @@ async fn report_actor(
     }
 }
 
+fn narrative_move_rejected_response(
+    status: u32,
+    command: impl Into<String>,
+    output: impl Into<String>,
+) -> Json<CommandResponse> {
+    Json(CommandResponse {
+        ok: false,
+        status,
+        command: command.into(),
+        verb: String::new(),
+        output: Some(output.into()),
+        action: None,
+        events: Vec::new(),
+    })
+}
+
+async fn submit_narrative_move(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<NarrativeMoveRequest>,
+) -> Json<CommandResponse> {
+    let session_id = payload.session_id.trim().to_string();
+    if session_id.is_empty() {
+        return narrative_move_rejected_response(400, "", "Narrative move needs a wallet session.");
+    }
+
+    let Some(wallet_address) = normalize_wallet_address(&payload.signed_response.wallet_address)
+    else {
+        return narrative_move_rejected_response(400, "", "Narrative move wallet is invalid.");
+    };
+    let Some(session_wallet) = wallet_for_session(&state.wallet_sessions, &session_id) else {
+        return narrative_move_rejected_response(401, "", "Narrative move wallet session expired.");
+    };
+    if session_wallet != wallet_address {
+        return narrative_move_rejected_response(
+            403,
+            "",
+            "Narrative move wallet does not match the session.",
+        );
+    }
+    if linked_actor_for_wallet(&state, &wallet_address) != Some(payload.character_id) {
+        return narrative_move_rejected_response(
+            403,
+            "",
+            "Narrative move wallet does not control that character.",
+        );
+    }
+
+    let command_text = normalize_command_text(&payload.signed_response.command);
+    if command_text.is_empty() {
+        return narrative_move_rejected_response(400, "", "Narrative move command is empty.");
+    }
+    let nonce = payload.signed_response.nonce.trim().to_string();
+    if !narrative_move_nonce_valid(&nonce) {
+        return narrative_move_rejected_response(
+            400,
+            command_text.as_str(),
+            "Narrative move nonce is invalid.",
+        );
+    }
+    if !narrative_move_signature_is_fresh(payload.signed_response.issued_at_unix) {
+        return narrative_move_rejected_response(
+            401,
+            command_text.as_str(),
+            "Narrative move signature expired.",
+        );
+    }
+    let Some(signature) = payload.signed_response.signature.bytes() else {
+        return narrative_move_rejected_response(
+            400,
+            command_text.as_str(),
+            "Narrative move signature is invalid.",
+        );
+    };
+    if let Some(delegation) = payload.signed_response.delegation.as_ref() {
+        let Some(delegate_address) = normalize_wallet_address(&delegation.delegate_address) else {
+            return narrative_move_rejected_response(
+                400,
+                command_text.as_str(),
+                "Narrative move delegation key is invalid.",
+            );
+        };
+        if !narrative_move_delegation_is_valid_window(
+            delegation.issued_at_unix,
+            delegation.expires_at_unix,
+        ) {
+            return narrative_move_rejected_response(
+                401,
+                command_text.as_str(),
+                "Narrative move delegation expired.",
+            );
+        }
+        let Some(delegation_signature) = delegation.signature.bytes() else {
+            return narrative_move_rejected_response(
+                400,
+                command_text.as_str(),
+                "Narrative move delegation signature is invalid.",
+            );
+        };
+        let delegation_message = narrative_move_delegation_message(
+            &wallet_address,
+            &delegate_address,
+            &session_id,
+            payload.character_id,
+            delegation.issued_at_unix,
+            delegation.expires_at_unix,
+        );
+        if !verify_solana_wallet_signature(
+            &wallet_address,
+            &delegation_message,
+            &delegation_signature,
+        ) {
+            return narrative_move_rejected_response(
+                401,
+                command_text.as_str(),
+                "Narrative move delegation rejected.",
+            );
+        }
+        let expected_message = delegated_narrative_move_signature_message(
+            &wallet_address,
+            &delegate_address,
+            &session_id,
+            payload.character_id,
+            command_text.as_str(),
+            &nonce,
+            payload.signed_response.issued_at_unix,
+        );
+        if !verify_solana_wallet_signature(&delegate_address, &expected_message, &signature) {
+            return narrative_move_rejected_response(
+                401,
+                command_text.as_str(),
+                "Delegated narrative move signature rejected.",
+            );
+        }
+    } else {
+        let expected_message = narrative_move_signature_message(
+            &wallet_address,
+            &session_id,
+            payload.character_id,
+            command_text.as_str(),
+            &nonce,
+            payload.signed_response.issued_at_unix,
+        );
+        if !verify_solana_wallet_signature(&wallet_address, &expected_message, &signature) {
+            return narrative_move_rejected_response(
+                401,
+                command_text.as_str(),
+                "Narrative move signature rejected.",
+            );
+        }
+    }
+    let nonce_key =
+        narrative_move_nonce_key(&wallet_address, &session_id, payload.character_id, &nonce);
+    if !claim_narrative_move_nonce(
+        &state.wallet_sessions,
+        nonce_key,
+        payload.signed_response.issued_at_unix,
+    ) {
+        return narrative_move_rejected_response(
+            409,
+            command_text.as_str(),
+            "Narrative move has already been submitted.",
+        );
+    }
+
+    let actor_session =
+        reusable_actor_session_for_actor(&state.actor_sessions, payload.character_id)
+            .unwrap_or_else(|| create_actor_session(&state.actor_sessions, payload.character_id).0);
+    command(
+        ConnectInfo(client_addr),
+        State(state),
+        Json(CommandRequest {
+            actor_id: payload.character_id,
+            actor_session: Some(actor_session),
+            command: command_text,
+            wallet_address: Some(wallet_address),
+            wallet: None,
+            wallet_session: Some(session_id),
+            owned_card_ids: None,
+            cards: None,
+        }),
+    )
+    .await
+}
+
 async fn command(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -20166,50 +21979,78 @@ async fn command(
                     events: presence_events,
                 });
             }
-            let feature_search_still_valid = runtime
+            let actor_still_here = runtime
                 .actor_by_id(payload.actor_id)
-                .is_some_and(|actor| actor.location_id == location_id)
-                && runtime.room_floor_empty(location_id);
-            if !feature_search_still_valid {
+                .is_some_and(|actor| actor.location_id == location_id);
+            if !actor_still_here {
                 return Json(CommandResponse {
                     ok: false,
                     status: 409,
                     command: resolved.command,
                     verb: resolved.verb,
-                    output: Some(
-                        "There is already an item here. Take it, use it, or move it before searching."
-                            .to_string(),
-                    ),
+                    output: Some("You are no longer in that room.".to_string()),
                     action: resolved.action,
                     events: presence_events,
                 });
             }
-            let Some(found_item_id) = runtime.hidden_search_item_for_location(location_id) else {
+            runtime.decay_search_memories();
+            let candidates =
+                runtime.search_reveal_candidates_for_feature(location_id, &feature_key);
+            if candidates.is_empty() {
+                let status = if runtime.room_floor_empty(location_id) {
+                    404
+                } else {
+                    409
+                };
+                let output = if status == 409 {
+                    "There is already an item here. Take it, use it, or move it before searching for hidden items."
+                } else {
+                    "Nothing else turns up here right now."
+                };
                 return Json(CommandResponse {
                     ok: false,
-                    status: 404,
+                    status,
                     command: resolved.command,
                     verb: resolved.verb,
-                    output: Some("Nothing else turns up here right now.".to_string()),
+                    output: Some(output.to_string()),
                     action: resolved.action,
                     events: presence_events,
                 });
+            }
+            let seed = runtime.next_seed_value();
+            let revealed_candidate = candidates
+                .first()
+                .filter(|candidate| {
+                    runtime.search_candidate_succeeds(seed, payload.actor_id, candidate)
+                })
+                .cloned();
+            let found_item_id = match revealed_candidate.as_ref() {
+                Some(SearchRevealCandidate::Item { item_id }) => Some(*item_id),
+                _ => None,
             };
-            let content_id = runtime.next_content_id_value();
+            let content_id = found_item_id
+                .map(|_| runtime.next_content_id_value())
+                .unwrap_or(0);
             let mut record = JournalRecord::new(
                 CwAction {
-                    kind: CW_ACTION_SEARCH,
+                    kind: if found_item_id.is_some() {
+                        CW_ACTION_SEARCH
+                    } else {
+                        CW_ACTION_NONE
+                    },
                     actor_id: payload.actor_id,
                     location_id,
                     content_id,
-                    item_id: found_item_id,
+                    item_id: found_item_id.unwrap_or(0),
                     ..CwAction::default()
                 },
-                runtime.next_seed_value(),
+                seed,
             );
-            record
-                .content_upserts
-                .insert(content_id, format!("{feature_name}: {}", output.clone()));
+            if found_item_id.is_some() {
+                record
+                    .content_upserts
+                    .insert(content_id, format!("{feature_name}: {}", output.clone()));
+            }
             record
                 .projection_mutations
                 .push(ProjectionMutation::SearchFeature {
@@ -20219,6 +22060,52 @@ async fn command(
                     content: output.clone(),
                     reason: "search_feature".to_string(),
                 });
+            if let Some(item_id) = found_item_id {
+                record
+                    .projection_mutations
+                    .push(ProjectionMutation::RememberSearchItem {
+                        item_id,
+                        location_id,
+                        reason: "search_feature".to_string(),
+                    });
+            }
+            if let Some(candidate) = revealed_candidate {
+                match candidate {
+                    SearchRevealCandidate::SeedExit {
+                        from_location_id,
+                        to_location_id,
+                    } => {
+                        record
+                            .projection_mutations
+                            .push(ProjectionMutation::DiscoverSeedExit {
+                                from_location_id,
+                                to_location_id,
+                                reason: "search_feature".to_string(),
+                            });
+                    }
+                    SearchRevealCandidate::HiddenExit { hidden_exit_id } => {
+                        record
+                            .projection_mutations
+                            .push(ProjectionMutation::DiscoverHiddenExit {
+                                hidden_exit_id,
+                                reason: "search_feature".to_string(),
+                            });
+                    }
+                    SearchRevealCandidate::Avatar {
+                        actor_id,
+                        location_id,
+                    } => {
+                        record
+                            .projection_mutations
+                            .push(ProjectionMutation::DiscoverAvatar {
+                                actor_id,
+                                location_id,
+                                reason: "search_feature".to_string(),
+                            });
+                    }
+                    SearchRevealCandidate::Item { .. } => {}
+                }
+            }
             let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record)
             else {
                 return Json(CommandResponse {
@@ -21333,7 +23220,7 @@ fn room_memory_label(event: &EventView) -> String {
         "actor.created" | "actor.entered_location" => "join",
         "move.blocked" => "locked",
         "hand.shuffled" => "hand",
-        "feature.searched" => "search",
+        "feature.searched" | "exit.discovered" => "search",
         "ability_check.rolled" | "combat.attack.attempt" => "roll",
         "ledger.marked" => "ledger",
         "ledger.banked" => "bank",
@@ -21360,6 +23247,7 @@ fn room_memory_kind(event: &EventView) -> String {
         type_name if type_name.starts_with("combat.") => "combat",
         "actor.moved" | "actor.created" | "actor.entered_location" | "move.blocked" => "move",
         "clock.updated" | "tag.applied" | "tag.cleared" | "job.updated" => "world",
+        "exit.discovered" => "event",
         "bond.deepened" | "bond.created" | "bond.revised" | "bond.resolved" => "bond",
         "ledger.marked" | "ledger.banked" | "advancement.spent" | "skill.stepped" => "ledger",
         _ => "event",
@@ -21392,6 +23280,16 @@ fn room_memory_log_text(event: &EventView) -> Option<String> {
             format!(
                 "{} searched the room",
                 event.actor_name.as_deref().unwrap_or("someone")
+            )
+        }),
+        "exit.discovered" => command_event_output(event).unwrap_or_else(|| {
+            format!(
+                "{} discovered a way to {}",
+                event.actor_name.as_deref().unwrap_or("someone"),
+                event
+                    .destination_location_name
+                    .as_deref()
+                    .unwrap_or("somewhere new")
             )
         }),
         "ability_check.rolled" => {
@@ -21750,7 +23648,7 @@ async fn request_ai_room_memory_summary(
             .collect::<Vec<_>>()
             .join("\n")
     };
-    let system = "You write today's shared room memory as atmospheric fiction for humans in a cozy multiplayer MUD. Treat prior chapters as private room memory and recent mixed chat/log entries as today's raw material. Write only today's visible room feeling, not an archive. Use sensory room prose: wind, candlelight, rain, dust, warmth, echoes, cave-dark, school hush, or whatever fits the location. Fold concrete changes, relationships, items, movement, and voices into the weather of the room. Do not use technical words like log, event, roll, ledger, tag, advancement, summary, chapter, prompt, AI, model, UI, RAG, or system. Do not write labels, bullets, semicolons, colon-separated phrases, slash-separated fragments, or list-like note clusters. Output 1-2 vivid story-like sentences under 65 words.";
+    let system = "You write today's shared room memory as a fond, wry recap of a day in a shared house for humans in a cozy multiplayer MUD. Treat prior chapters as private room memory and recent mixed chat/log entries as today's raw material. Write only today's visible room story, not an archive. Lead with concrete mishaps, props, appetites, and near-misses: who tracked in mud, what got knocked over, who is not speaking to whom and why it involves a teapot. Warm, cheeky, physical; no mysticism, no atmosphere for its own sake. Do not use technical words like log, event, roll, ledger, tag, advancement, summary, chapter, prompt, AI, model, UI, RAG, or system. Do not write labels, bullets, semicolons, colon-separated phrases, slash-separated fragments, or list-like note clusters. Output 1-2 vivid story-like sentences under 65 words.";
     let user = format!(
         "Location: {name}\nLocation title: {title}\nPrior room memory, oldest to newest:\n{chapter_memory}\nToday's mixed chat and log entries, oldest to newest:\n{context}\nWrite today's current room story.",
         name = location.name,
@@ -21908,6 +23806,7 @@ async fn request_ai_avatar_chat(
         plan.recent_lines.join("\n")
     };
     let location_memory = format_location_memory(&plan.location_memory);
+    let goals = format_goal_lines(&plan.goals);
     let target_continuity = format_resident_continuity(&plan.target_continuity);
     let need = plan
         .missing_need
@@ -21916,7 +23815,7 @@ async fn request_ai_avatar_chat(
         .unwrap_or_else(|| "No current resident item need is known.".to_string());
     let system = "You write one in-character line for the player avatar after the human presses Chat. Make the line feel intentionally authored: use one concrete detail from the room, recent dialogue, or the target resident's continuity/current need, and give the resident an easy hook to answer. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Keep it under 34 words.";
     let user = format!(
-        "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nTarget resident: {target} / {target_title}\nTarget continuity:\n{target_continuity}\nTarget economy:\n{target_economy}\nCast present: {cast}\n{need}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
+        "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nTarget resident: {target} / {target_title}\nTarget continuity:\n{target_continuity}\nTarget economy:\n{target_economy}\nCast present: {cast}\n{need}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
         name = plan.actor_name,
         title = plan.actor_title,
         description = plan.actor_description,
@@ -21925,6 +23824,7 @@ async fn request_ai_avatar_chat(
         location_description = plan.location_description,
         location_persona = plan.location_persona,
         location_memory = location_memory,
+        goals = goals,
         target = plan.target_actor_name,
         target_title = plan.target_title,
         target_continuity = target_continuity,
@@ -21979,8 +23879,8 @@ async fn request_ai_avatar_identity(
     let system = "You generate compact JSON for a player avatar in a cozy shared MUD. Output valid JSON only. Do not mention AI, prompts, models, policies, tools, wallets, NFTs, or UI.";
     let user = format!(
         "Create one new CosyWorld player avatar for The Cosy Cottage.\n\
-         Tone: cozy, specific, storybook-MUD, a little strange, safe for all ages.\n\
-         Avoid existing resident names: Rati, Whiskerwind, Skull, Coach Moonshadow.\n\
+         Tone: grounded, physical, cheeky storybook comedy - a character with an appetite, a grudge, and at least one bad plan; safe for all ages.\n\
+         Avoid existing resident names: Rati, Gust, Skull, Coach, Badger, Toad.\n\
          Output exactly this shape: {{\"name\":\"Two words, 28 chars max, ASCII letters/spaces/hyphen/apostrophe only\",\"title\":\"short card title, 48 chars max\",\"description\":\"one third-person persona sentence, 220 chars max\",\"visual_prompt\":\"image-generation prompt for a full-body cozy fantasy avatar portrait, 360 chars max\"}}\n\
          If unsure, use this fallback as inspiration but do not copy it exactly: {name} / {title} / {description}",
         name = fallback.name,
@@ -22337,14 +24237,16 @@ async fn request_ai_resident_intent(
         plan.recent_lines.join("\n")
     };
     let location_memory = format_location_memory(&plan.location_memory);
+    let goals = format_goal_lines(&plan.goals);
     let resident_continuity = format_resident_continuity(&plan.resident_continuity);
     let user = format!(
-        "Location: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nResident continuity:\n{resident_continuity}\nResident economy:\n{economy_note}\nCast present: {cast}\nRecent room lines:\n{recent}\nHuman line to respond to:\n{line}\nReturn valid JSON only with this shape:\n{{\"speech\":\"one visible reply from {name}\",\"intent\":\"what {name} is trying next, or null\",\"belief\":\"what {name} now believes, or null\",\"desire\":\"what {name} wants, or null\",\"promise\":\"what {name} commits to, or null\",\"refusal\":\"what {name} refuses, or null\",\"proposed_action\":{{\"kind\":\"wait|speak|move|pick_up|drop|give|trade|use|search|refuse\",\"target_actor_id\":null,\"item_id\":null,\"destination_location_id\":null,\"reason\":\"why this action follows\"}}}}\nUse null for unknown optional fields. The kernel has not accepted proposed_action yet, so do not claim it already happened.",
+        "Location: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nResident continuity:\n{resident_continuity}\nResident economy:\n{economy_note}\nCast present: {cast}\nRecent room lines:\n{recent}\nHuman line to respond to:\n{line}\nReturn valid JSON only with this shape:\n{{\"speech\":\"one visible reply from {name}\",\"intent\":\"what {name} is trying next, or null\",\"belief\":\"what {name} now believes, or null\",\"desire\":\"what {name} wants, or null\",\"promise\":\"what {name} commits to, or null\",\"refusal\":\"what {name} refuses, or null\",\"proposed_action\":{{\"kind\":\"wait|speak|move|pick_up|drop|give|trade|use|search|refuse\",\"target_actor_id\":null,\"item_id\":null,\"destination_location_id\":null,\"reason\":\"why this action follows\"}}}}\nUse null for unknown optional fields. The kernel has not accepted proposed_action yet, so do not claim it already happened.",
         location = plan.location_name,
         location_title = plan.location_title,
         location_description = plan.location_description,
         location_persona = plan.location_persona,
         location_memory = location_memory,
+        goals = goals,
         resident_continuity = resident_continuity,
         economy_note = plan.economy_note,
         cast = plan.cast.join(", "),
@@ -22396,6 +24298,20 @@ fn format_location_memory(memory: &[String]) -> String {
         .filter_map(|line| {
             let line = line.trim();
             (!line.is_empty()).then(|| format!("- {line}"))
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn format_goal_lines(goals: &[String]) -> String {
+    if goals.is_empty() {
+        return "No active player-facing goal is currently highlighted.".to_string();
+    }
+    goals
+        .iter()
+        .filter_map(|goal| {
+            let goal = goal.trim();
+            (!goal.is_empty()).then(|| format!("- {goal}"))
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -22617,25 +24533,40 @@ fn sanitize_avatar_chat(text: &str) -> Option<String> {
 }
 
 fn resident_system_prompt(plan: &ResidentReplyPlan) -> String {
-    let base = "Return valid JSON only. Never mention AI, models, prompts, policies, tools, or system instructions. Do not speak for other residents. Treat resident continuity as this resident's durable perspective, while the room/kernel facts remain authoritative. The speech field is the only visible room line. Typed intent fields update continuity only after the kernel accepts the speech event.";
+    let base = "Return valid JSON only. Never mention AI, models, prompts, policies, tools, or system instructions. Do not speak for other residents. Treat resident continuity as this resident's durable perspective, while the room/kernel facts remain authoritative. The speech field is the only visible room line. Typed intent fields update continuity only after the kernel accepts the speech event. Comedy rules: ground every line in one physical action, prop, or bodily complaint from the room. Punchlines over poetry. Cheeky teasing and light flirting are welcome; keep it playful, never cruel or explicit. Never use the words whisper, eternal, void, abyss, veil, hush, sacred, vow, moonlit, or objects that remember things. If in doubt, be funnier and more specific.";
     match plan.npc_actor_id {
         1001 => format!(
-            "You are Rati, a mouse who knits scarves and tells stories. The speech field must be first person, warm and observant, under 45 words. Include one concrete room image or implication when it fits. {base}"
+            "You are Rati, the cottage's brisk landlady mouse. The speech field must be first person: bossy, mothering, armed with knitting needles and opinions about boots. One concrete room prop per line. Under 40 words. {base}"
         ),
         1002 => format!(
-            "You are Whiskerwind. The speech field must contain only 3 to 6 emoji: no letters, no words, no markdown, no explanation. {base}"
+            "You are Gust, a weather gremlin. The speech field must contain only 3 to 6 emoji used as a punchline or heckle reacting to what just happened: no letters, no words, no markdown, no explanation. {base}"
         ),
         1003 => format!(
-            "You are Skull, the silent wolf. The speech field must be exactly one third-person emote wrapped in asterisks: no quoted speech, no inner monologue, no gore. {base}"
+            "You are Skull, the deadpan wolf and the room's straight man. The speech field must be exactly one third-person emote wrapped in asterisks: minimal reaction to maximum chaos, no quoted speech, no inner monologue, no gore. {base}"
         ),
         1005 => format!(
-            "You are Fourvoice Oak, the rooted elder who is the Old Oak Tree in the Lonely Forest. The speech field may answer through four short voices: Root remembers paths, Ring remembers years, Leaf notices the present, Hollow keeps secrets. Keep speech under 65 words. {base}"
+            "You are Oak, the Old Oak Tree in the Lonely Forest. The speech field answers through four short voices that bicker like a family radio show: Root is stubborn, Ring cites ancient precedent, Leaf is distractible, Hollow repeats secrets it should not. Keep speech under 60 words. {base}"
         ),
         1051 => format!(
-            "You are Madame Euphemie, a moss-veiled mansion ghost. The speech field should be brief, spectral, and may use short authentic Haitian Creole fragments; do not invent parody dialect or fake broken Creole. Keep speech under 45 words. {base}"
+            "You are Euphemie, a mansion ghost mostly annoyed that nobody dusts. The speech field should be brief and practical; her warnings are about stairs and drafts, not fate. Short authentic Haitian Creole fragments welcome; never invent parody dialect or fake broken Creole. Under 40 words. {base}"
+        ),
+        1056 => format!(
+            "You are Chamuel, Lord Samael's fussy, immaculate page. The speech field must be first person: precise, accidentally flirty, correcting people mid-crisis and defending your filing system with your life. Under 45 words. {base}"
+        ),
+        1066 => format!(
+            "You are Azazoth, a many-tentacled deep-sea god who hosts a feast nobody attends and takes the leftovers personally. The speech field must be first person: grand appetites, wounded pride, at least one tentacle doing something undignified. Under 45 words. {base}"
+        ),
+        1067 => format!(
+            "You are Zadkiel, a dark angel of tremendous formality forging dramatic pronouncements nobody asked for. The speech field must be first person: formal delivery constantly undercut by anvil logistics and whether anyone was watching. Under 45 words. {base}"
+        ),
+        1068 => format!(
+            "You are Badger, grumpy landlord of the lower burrow. The speech field must be first person: gruff, economical, complaining about the immediate physical mess, helping anyway and furious about it. Under 40 words. {base}"
+        ),
+        1069 => format!(
+            "You are Toad, a reckless stunt toad with zero completed jumps. The speech field must be first person: breathless, already mid-jump, announcing stunts nobody asked for and treating applause as medical care. Under 40 words. {base}"
         ),
         _ => format!(
-            "You are {} in CosyWorld. Keep the speech field concise. {base}",
+            "You are {} in CosyWorld, a grounded physical-comedy village. Keep the speech field concise, concrete, and cheeky. {base}",
             plan.npc_name
         ),
     }
@@ -23701,6 +25632,14 @@ async fn rest(
             tag_id: trained_since_rest_tag_id(payload.actor_id),
             reason: "rest".to_string(),
         });
+    for tag_id in runtime.frontier_travel_since_rest_tag_ids(payload.actor_id) {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ClearTag {
+                tag_id,
+                reason: "rest".to_string(),
+            });
+    }
     if let Some(clock_id) = runtime
         .active_danger_clock_id_for_location(location_id)
         .filter(|clock_id| runtime.clock_is_frontier(clock_id))
@@ -24547,7 +26486,13 @@ async fn stream(
     let visible_locations = {
         let runtime = state.inner.lock().await;
         let actor_id = query.actor_id.filter(|id| {
-            client_actor_authorized_for_state(&runtime, &state, *id, query.actor_session.as_deref())
+            client_actor_read_authorized_for_state(
+                &runtime,
+                &state,
+                *id,
+                query.actor_session.as_deref(),
+                &access,
+            )
         });
         runtime.visible_event_locations(actor_id, &access)
     };
@@ -25216,6 +27161,38 @@ fn feature_use_tag_id(actor_id: u64, location_id: u64, feature_key: &str, item_i
 
 fn feature_search_tag_id(actor_id: u64, location_id: u64, feature_key: &str) -> String {
     format!("actor:{actor_id}:feature_search:{location_id}:{feature_key}")
+}
+
+fn room_feature_search_tag_id(location_id: u64, feature_key: &str) -> String {
+    format!("room:{location_id}:feature_search:{feature_key}")
+}
+
+fn seed_exit_discovered_tag_id(from_location_id: u64, to_location_id: u64) -> String {
+    format!("seed_exit:{from_location_id}:{to_location_id}:discovered")
+}
+
+fn seed_exit_search_memory_subject_key(from_location_id: u64, to_location_id: u64) -> String {
+    format!("{from_location_id}:{to_location_id}")
+}
+
+fn hidden_exit_discovered_tag_id(hidden_exit_id: &str) -> String {
+    format!("hidden_exit:{hidden_exit_id}:discovered")
+}
+
+fn avatar_discovered_tag_id(actor_id: u64) -> String {
+    format!("avatar:{actor_id}:discovered")
+}
+
+fn search_item_found_tag_id(item_id: u64) -> String {
+    format!("item:{item_id}:search_found")
+}
+
+fn frontier_travel_since_rest_tag_id(actor_id: u64, event_seq: u64) -> String {
+    format!("actor:{actor_id}:frontier_travel_since_rest:{event_seq}")
+}
+
+fn frontier_travel_since_rest_tag_prefix(actor_id: u64) -> String {
+    format!("actor:{actor_id}:frontier_travel_since_rest:")
 }
 
 #[cfg(test)]
@@ -27211,16 +29188,197 @@ mod tests {
         }
     }
 
+    fn create_test_human(runtime: &mut RuntimeWorld, actor_id: u64, location_id: u64, name: &str) {
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = actor_id;
+        create.location_id = location_id;
+        let mut record = JournalRecord::new(create, 70_000 + actor_id);
+        record.actor_meta_upserts.insert(
+            actor_id,
+            ActorMeta {
+                name: name.to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Relay Test Avatar".to_string(),
+                description: "A test avatar controlled through the narrative move relay."
+                    .to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    }
+
+    fn discover_seed_exit_for_test(
+        runtime: &mut RuntimeWorld,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) {
+        let destination = runtime
+            .location_name(to_location_id)
+            .unwrap_or_else(|| format!("Location {to_location_id}"));
+        let id = seed_exit_discovered_tag_id(from_location_id, to_location_id);
+        runtime.tags.insert(
+            id.clone(),
+            RpgTagState {
+                id,
+                scope: "room".to_string(),
+                scope_id: from_location_id,
+                label: format!("path to {destination}"),
+                kind: "discovery".to_string(),
+                active: true,
+                source_event_seq: None,
+                expires: None,
+            },
+        );
+        runtime.remember_search_discovery(
+            RATI_ACTOR_ID,
+            from_location_id,
+            SEARCH_MEMORY_KIND_SEED_EXIT,
+            to_location_id,
+            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
+        );
+    }
+
+    fn discover_seed_exit_pair_for_test(
+        runtime: &mut RuntimeWorld,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) {
+        discover_seed_exit_for_test(runtime, from_location_id, to_location_id);
+        discover_seed_exit_for_test(runtime, to_location_id, from_location_id);
+    }
+
+    fn discover_all_seed_exits_for_test(runtime: &mut RuntimeWorld) {
+        for exit in &seed_content().exits {
+            discover_seed_exit_for_test(runtime, exit.from_location_id, exit.to_location_id);
+        }
+    }
+
+    fn move_test_actor(
+        runtime: &mut RuntimeWorld,
+        actor_id: u64,
+        destination_location_id: u64,
+        seed: u64,
+    ) {
+        let mut action = CwAction::default();
+        action.kind = CW_ACTION_MOVE;
+        action.actor_id = actor_id;
+        action.destination_location_id = destination_location_id;
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(action, seed))
+                .0,
+            CW_OK
+        );
+    }
+
+    fn signed_narrative_move(
+        signing_key: &ed25519_dalek::SigningKey,
+        wallet_address: &str,
+        session_id: &str,
+        character_id: u64,
+        command: &str,
+        nonce: &str,
+        issued_at_unix: u64,
+    ) -> SignedNarrativeMove {
+        use ed25519_dalek::Signer;
+
+        let command = normalize_command_text(command);
+        let message = narrative_move_signature_message(
+            wallet_address,
+            session_id,
+            character_id,
+            &command,
+            nonce,
+            issued_at_unix,
+        );
+        SignedNarrativeMove {
+            wallet_address: wallet_address.to_string(),
+            command,
+            nonce: nonce.to_string(),
+            issued_at_unix,
+            signature: WalletSignatureInput::Bytes(
+                signing_key.sign(message.as_bytes()).to_bytes().to_vec(),
+            ),
+            delegation: None,
+        }
+    }
+
+    fn signed_narrative_move_delegation(
+        owner_signing_key: &ed25519_dalek::SigningKey,
+        wallet_address: &str,
+        delegate_address: &str,
+        session_id: &str,
+        character_id: u64,
+        issued_at_unix: u64,
+        expires_at_unix: u64,
+    ) -> NarrativeMoveDelegation {
+        use ed25519_dalek::Signer;
+
+        let message = narrative_move_delegation_message(
+            wallet_address,
+            delegate_address,
+            session_id,
+            character_id,
+            issued_at_unix,
+            expires_at_unix,
+        );
+        NarrativeMoveDelegation {
+            delegate_address: delegate_address.to_string(),
+            issued_at_unix,
+            expires_at_unix,
+            signature: WalletSignatureInput::Bytes(
+                owner_signing_key
+                    .sign(message.as_bytes())
+                    .to_bytes()
+                    .to_vec(),
+            ),
+        }
+    }
+
+    fn delegated_narrative_move(
+        delegate_signing_key: &ed25519_dalek::SigningKey,
+        wallet_address: &str,
+        delegate_address: &str,
+        session_id: &str,
+        character_id: u64,
+        command: &str,
+        nonce: &str,
+        issued_at_unix: u64,
+        delegation: NarrativeMoveDelegation,
+    ) -> SignedNarrativeMove {
+        use ed25519_dalek::Signer;
+
+        let command = normalize_command_text(command);
+        let message = delegated_narrative_move_signature_message(
+            wallet_address,
+            delegate_address,
+            session_id,
+            character_id,
+            &command,
+            nonce,
+            issued_at_unix,
+        );
+        SignedNarrativeMove {
+            wallet_address: wallet_address.to_string(),
+            command,
+            nonce: nonce.to_string(),
+            issued_at_unix,
+            signature: WalletSignatureInput::Bytes(
+                delegate_signing_key
+                    .sign(message.as_bytes())
+                    .to_bytes()
+                    .to_vec(),
+            ),
+            delegation: Some(delegation),
+        }
+    }
+
     #[test]
     fn action_backed_command_failures_include_visible_output() {
         let resolved = ResolvedCommand {
-            command: "attack Coach Moonshadow".to_string(),
+            command: "attack Coach".to_string(),
             verb: "attack".to_string(),
-            action: Some(command_action(
-                "attack",
-                "Attack",
-                "attack Coach Moonshadow",
-            )),
+            action: Some(command_action("attack", "Attack", "attack Coach")),
             dispatch: CommandDispatch::Attack {
                 target_actor_id: 1004,
             },
@@ -27296,6 +29454,472 @@ mod tests {
                     expires_at: Instant::now() + Duration::from_secs(3600),
                 },
             );
+    }
+
+    #[tokio::test]
+    async fn signed_narrative_move_relay_submits_command_for_linked_wallet_actor() {
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(&[11_u8; 32]);
+        let wallet_address = bs58::encode(signing_key.verifying_key().to_bytes()).into_string();
+        let wallet_session = "relay-wallet-session";
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Relay Walker",
+        );
+        let state = test_app_state(runtime, None);
+        insert_wallet_session(&state, wallet_session, &wallet_address);
+        link_wallet_actor(&state, &wallet_address, actor_id);
+
+        let response = submit_narrative_move(
+            ConnectInfo("127.0.0.1:44100".parse().expect("client address")),
+            State(state.clone()),
+            Json(NarrativeMoveRequest {
+                session_id: wallet_session.to_string(),
+                character_id: actor_id,
+                signed_response: signed_narrative_move(
+                    &signing_key,
+                    &wallet_address,
+                    wallet_session,
+                    actor_id,
+                    "say the relay is awake",
+                    "relay-nonce-1",
+                    now_unix_secs(),
+                ),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok, "{response:?}");
+        assert_eq!(response.status, CW_OK);
+        assert_eq!(response.command, "say the relay is awake");
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "message.created"
+                && event.actor_id == Some(actor_id)
+                && event.content.as_deref() == Some("the relay is awake")));
+        assert!(active_actor_ids_for_state(&state).contains(&actor_id));
+    }
+
+    #[tokio::test]
+    async fn delegated_narrative_move_relay_accepts_owner_delegated_autosign_key() {
+        let owner_signing_key = ed25519_dalek::SigningKey::from_bytes(&[21_u8; 32]);
+        let delegate_signing_key = ed25519_dalek::SigningKey::from_bytes(&[22_u8; 32]);
+        let wallet_address =
+            bs58::encode(owner_signing_key.verifying_key().to_bytes()).into_string();
+        let delegate_address =
+            bs58::encode(delegate_signing_key.verifying_key().to_bytes()).into_string();
+        let wallet_session = "relay-wallet-session-delegated";
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Delegated Relay",
+        );
+        let state = test_app_state(runtime, None);
+        insert_wallet_session(&state, wallet_session, &wallet_address);
+        link_wallet_actor(&state, &wallet_address, actor_id);
+        let now = now_unix_secs();
+        let delegation = signed_narrative_move_delegation(
+            &owner_signing_key,
+            &wallet_address,
+            &delegate_address,
+            wallet_session,
+            actor_id,
+            now,
+            now + 600,
+        );
+
+        let response = submit_narrative_move(
+            ConnectInfo("127.0.0.1:44104".parse().expect("client address")),
+            State(state.clone()),
+            Json(NarrativeMoveRequest {
+                session_id: wallet_session.to_string(),
+                character_id: actor_id,
+                signed_response: delegated_narrative_move(
+                    &delegate_signing_key,
+                    &wallet_address,
+                    &delegate_address,
+                    wallet_session,
+                    actor_id,
+                    "say delegated relay is awake",
+                    "relay-delegated-nonce-1",
+                    now,
+                    delegation,
+                ),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok, "{response:?}");
+        assert_eq!(response.status, CW_OK);
+        assert_eq!(response.command, "say delegated relay is awake");
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "message.created"
+                && event.actor_id == Some(actor_id)
+                && event.content.as_deref() == Some("delegated relay is awake")));
+        assert!(active_actor_ids_for_state(&state).contains(&actor_id));
+    }
+
+    #[tokio::test]
+    async fn ai_agent_can_observe_with_wallet_session_and_act_with_delegated_relay() {
+        let owner_signing_key = ed25519_dalek::SigningKey::from_bytes(&[26_u8; 32]);
+        let delegate_signing_key = ed25519_dalek::SigningKey::from_bytes(&[27_u8; 32]);
+        let wallet_address =
+            bs58::encode(owner_signing_key.verifying_key().to_bytes()).into_string();
+        let delegate_address =
+            bs58::encode(delegate_signing_key.verifying_key().to_bytes()).into_string();
+        let wallet_session = "agent-play-wallet-session";
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Agent Playtester",
+        );
+        let state = test_app_state(runtime, None);
+        insert_wallet_session(&state, wallet_session, &wallet_address);
+        link_wallet_actor(&state, &wallet_address, actor_id);
+
+        let gated = state_view(
+            State(state.clone()),
+            Query(StateQuery {
+                actor_id: Some(actor_id),
+                actor_session: None,
+                wallet_address: None,
+                wallet: None,
+                wallet_session: None,
+                owned_card_ids: None,
+                cards: None,
+                openrouter_connected: None,
+            }),
+        )
+        .await
+        .0;
+        assert_eq!(gated.primary_action.kind, "create_avatar");
+
+        let observed = state_view(
+            State(state.clone()),
+            Query(StateQuery {
+                actor_id: Some(actor_id),
+                actor_session: None,
+                wallet_address: None,
+                wallet: None,
+                wallet_session: Some(wallet_session.to_string()),
+                owned_card_ids: None,
+                cards: None,
+                openrouter_connected: None,
+            }),
+        )
+        .await
+        .0;
+        assert_eq!(observed.location.id, COSY_COTTAGE_LOCATION_ID);
+        assert!(observed.actors.iter().any(|actor| actor.id == actor_id));
+        assert_ne!(observed.primary_action.kind, "create_avatar");
+        assert!(
+            !observed.action_offers.is_empty(),
+            "agent observation should include playable command offers"
+        );
+
+        let now = now_unix_secs();
+        let delegation = signed_narrative_move_delegation(
+            &owner_signing_key,
+            &wallet_address,
+            &delegate_address,
+            wallet_session,
+            actor_id,
+            now,
+            now + 600,
+        );
+        let moved = submit_narrative_move(
+            ConnectInfo("127.0.0.1:44107".parse().expect("client address")),
+            State(state.clone()),
+            Json(NarrativeMoveRequest {
+                session_id: wallet_session.to_string(),
+                character_id: actor_id,
+                signed_response: delegated_narrative_move(
+                    &delegate_signing_key,
+                    &wallet_address,
+                    &delegate_address,
+                    wallet_session,
+                    actor_id,
+                    "say agent loop is playable",
+                    "agent-play-nonce-1",
+                    now,
+                    delegation,
+                ),
+            }),
+        )
+        .await
+        .0;
+        assert!(moved.ok, "{moved:?}");
+
+        let events = events_view(
+            State(state),
+            Query(EventsQuery {
+                after: None,
+                limit: Some(40),
+                actor_id: Some(actor_id),
+                actor_session: None,
+                wallet_address: None,
+                wallet: None,
+                wallet_session: Some(wallet_session.to_string()),
+                owned_card_ids: None,
+                cards: None,
+            }),
+        )
+        .await
+        .0;
+        assert!(events.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.actor_id == Some(actor_id)
+                && event.content.as_deref() == Some("agent loop is playable")
+        }));
+    }
+
+    #[tokio::test]
+    async fn signed_narrative_move_relay_rejects_unlinked_character() {
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(&[12_u8; 32]);
+        let wallet_address = bs58::encode(signing_key.verifying_key().to_bytes()).into_string();
+        let wallet_session = "relay-wallet-session-wrong-actor";
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Linked Relay");
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Unlinked Relay",
+        );
+        let state = test_app_state(runtime, None);
+        insert_wallet_session(&state, wallet_session, &wallet_address);
+        link_wallet_actor(&state, &wallet_address, 5000);
+
+        let response = submit_narrative_move(
+            ConnectInfo("127.0.0.1:44101".parse().expect("client address")),
+            State(state),
+            Json(NarrativeMoveRequest {
+                session_id: wallet_session.to_string(),
+                character_id: 5001,
+                signed_response: signed_narrative_move(
+                    &signing_key,
+                    &wallet_address,
+                    wallet_session,
+                    5001,
+                    "look",
+                    "relay-nonce-2",
+                    now_unix_secs(),
+                ),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(!response.ok);
+        assert_eq!(response.status, 403);
+        assert_eq!(
+            response.output.as_deref(),
+            Some("Narrative move wallet does not control that character.")
+        );
+    }
+
+    #[tokio::test]
+    async fn signed_narrative_move_relay_rejects_replay_and_stale_signatures() {
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(&[13_u8; 32]);
+        let wallet_address = bs58::encode(signing_key.verifying_key().to_bytes()).into_string();
+        let wallet_session = "relay-wallet-session-replay";
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Replay Relay",
+        );
+        let state = test_app_state(runtime, None);
+        insert_wallet_session(&state, wallet_session, &wallet_address);
+        link_wallet_actor(&state, &wallet_address, actor_id);
+        let issued_at_unix = now_unix_secs();
+        let signed_response = signed_narrative_move(
+            &signing_key,
+            &wallet_address,
+            wallet_session,
+            actor_id,
+            "look",
+            "relay-nonce-3",
+            issued_at_unix,
+        );
+
+        let first = submit_narrative_move(
+            ConnectInfo("127.0.0.1:44102".parse().expect("client address")),
+            State(state.clone()),
+            Json(NarrativeMoveRequest {
+                session_id: wallet_session.to_string(),
+                character_id: actor_id,
+                signed_response: signed_response.clone(),
+            }),
+        )
+        .await
+        .0;
+        assert!(first.ok, "{first:?}");
+
+        let replay = submit_narrative_move(
+            ConnectInfo("127.0.0.1:44102".parse().expect("client address")),
+            State(state.clone()),
+            Json(NarrativeMoveRequest {
+                session_id: wallet_session.to_string(),
+                character_id: actor_id,
+                signed_response,
+            }),
+        )
+        .await
+        .0;
+        assert!(!replay.ok);
+        assert_eq!(replay.status, 409);
+        assert_eq!(
+            replay.output.as_deref(),
+            Some("Narrative move has already been submitted.")
+        );
+
+        let stale_issued_at = now_unix_secs()
+            .saturating_sub(NARRATIVE_MOVE_SIGNATURE_TTL.as_secs())
+            .saturating_sub(1);
+        let stale = submit_narrative_move(
+            ConnectInfo("127.0.0.1:44103".parse().expect("client address")),
+            State(state),
+            Json(NarrativeMoveRequest {
+                session_id: wallet_session.to_string(),
+                character_id: actor_id,
+                signed_response: signed_narrative_move(
+                    &signing_key,
+                    &wallet_address,
+                    wallet_session,
+                    actor_id,
+                    "look",
+                    "relay-nonce-stale",
+                    stale_issued_at,
+                ),
+            }),
+        )
+        .await
+        .0;
+        assert!(!stale.ok);
+        assert_eq!(stale.status, 401);
+        assert_eq!(
+            stale.output.as_deref(),
+            Some("Narrative move signature expired.")
+        );
+    }
+
+    #[tokio::test]
+    async fn delegated_narrative_move_relay_rejects_expired_delegation_and_wrong_delegate_signature(
+    ) {
+        let owner_signing_key = ed25519_dalek::SigningKey::from_bytes(&[23_u8; 32]);
+        let delegate_signing_key = ed25519_dalek::SigningKey::from_bytes(&[24_u8; 32]);
+        let wrong_signing_key = ed25519_dalek::SigningKey::from_bytes(&[25_u8; 32]);
+        let wallet_address =
+            bs58::encode(owner_signing_key.verifying_key().to_bytes()).into_string();
+        let delegate_address =
+            bs58::encode(delegate_signing_key.verifying_key().to_bytes()).into_string();
+        let wallet_session = "relay-wallet-session-delegated-rejections";
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Rejected Delegate Relay",
+        );
+        let state = test_app_state(runtime, None);
+        insert_wallet_session(&state, wallet_session, &wallet_address);
+        link_wallet_actor(&state, &wallet_address, actor_id);
+        let now = now_unix_secs();
+
+        let expired_issued = now
+            .saturating_sub(NARRATIVE_MOVE_SIGNATURE_TTL.as_secs())
+            .saturating_sub(120);
+        let expired_delegation = signed_narrative_move_delegation(
+            &owner_signing_key,
+            &wallet_address,
+            &delegate_address,
+            wallet_session,
+            actor_id,
+            expired_issued,
+            now.saturating_sub(1),
+        );
+        let expired = submit_narrative_move(
+            ConnectInfo("127.0.0.1:44105".parse().expect("client address")),
+            State(state.clone()),
+            Json(NarrativeMoveRequest {
+                session_id: wallet_session.to_string(),
+                character_id: actor_id,
+                signed_response: delegated_narrative_move(
+                    &delegate_signing_key,
+                    &wallet_address,
+                    &delegate_address,
+                    wallet_session,
+                    actor_id,
+                    "look",
+                    "relay-delegated-expired",
+                    now,
+                    expired_delegation,
+                ),
+            }),
+        )
+        .await
+        .0;
+        assert!(!expired.ok);
+        assert_eq!(expired.status, 401);
+        assert_eq!(
+            expired.output.as_deref(),
+            Some("Narrative move delegation expired.")
+        );
+
+        let valid_delegation = signed_narrative_move_delegation(
+            &owner_signing_key,
+            &wallet_address,
+            &delegate_address,
+            wallet_session,
+            actor_id,
+            now,
+            now + 600,
+        );
+        let wrong_signature = submit_narrative_move(
+            ConnectInfo("127.0.0.1:44106".parse().expect("client address")),
+            State(state),
+            Json(NarrativeMoveRequest {
+                session_id: wallet_session.to_string(),
+                character_id: actor_id,
+                signed_response: delegated_narrative_move(
+                    &wrong_signing_key,
+                    &wallet_address,
+                    &delegate_address,
+                    wallet_session,
+                    actor_id,
+                    "look",
+                    "relay-delegated-wrong-signer",
+                    now,
+                    valid_delegation,
+                ),
+            }),
+        )
+        .await
+        .0;
+        assert!(!wrong_signature.ok);
+        assert_eq!(wrong_signature.status, 401);
+        assert_eq!(
+            wrong_signature.output.as_deref(),
+            Some("Delegated narrative move signature rejected.")
+        );
     }
 
     fn table_count(path: &Path, table: &str) -> i64 {
@@ -27797,8 +30421,8 @@ mod tests {
             Some("I mend small broken things.")
         );
         assert_eq!(
-            normalize_bond_statement("  Whiskerwind   trusts me with tea.  ").as_deref(),
-            Some("Whiskerwind trusts me with tea.")
+            normalize_bond_statement("  Gust   trusts me with tea.  ").as_deref(),
+            Some("Gust trusts me with tea.")
         );
         assert!(normalize_calling_statement("").is_none());
         assert!(normalize_bond_statement("").is_none());
@@ -29245,7 +31869,7 @@ mod tests {
             .iter()
             .map(|exit| exit.destination_location_id)
             .collect();
-        assert_eq!(cottage_exits, BTreeSet::from([2, 11]));
+        assert_eq!(cottage_exits, BTreeSet::new());
     }
 
     #[test]
@@ -29334,6 +31958,8 @@ mod tests {
         );
 
         let access = AccessContext::default();
+        discover_seed_exit_pair_for_test(&mut runtime, 1, 2);
+        discover_seed_exit_pair_for_test(&mut runtime, 2, 3);
         let state = runtime.state_response(Some(5000), &access);
         assert_eq!(state.location.id, 2);
         assert_eq!(state.location.name, "Rain-Soft Garden");
@@ -29385,7 +32011,7 @@ mod tests {
         );
         assert!(state.actors.iter().any(|actor| actor.id == 5000));
         assert!(!state.actors.iter().any(|actor| actor.id == 5001));
-        assert!(state.actors.iter().any(|actor| actor.name == "Whiskerwind"));
+        assert!(state.actors.iter().any(|actor| actor.name == "Gust"));
 
         let who = runtime
             .resolve_command_with_presence(
@@ -29398,7 +32024,7 @@ mod tests {
             CommandDispatch::Read { output } => {
                 assert!(output.contains("Active Guest"));
                 assert!(!output.contains("Gone Guest"));
-                assert!(output.contains("Whiskerwind"));
+                assert!(output.contains("Gust"));
             }
             other => panic!("who should be read-only, got {other:?}"),
         }
@@ -29414,7 +32040,7 @@ mod tests {
             CommandDispatch::Read { output } => {
                 assert!(output.contains("Active Guest"));
                 assert!(!output.contains("Gone Guest"));
-                assert!(output.contains("Whiskerwind"));
+                assert!(output.contains("Gust"));
             }
             other => panic!("look should be read-only, got {other:?}"),
         }
@@ -30052,8 +32678,19 @@ mod tests {
         assert!(tired_state.tags.iter().any(|tag| tag.label == "tired"));
         assert_eq!(tired_state.ledger.unbanked_count, 0);
         assert_eq!(tired_state.ledger.banked_count, 2);
-        assert_eq!(tired_state.primary_action.kind, "rest");
-        assert!(tired_state
+        assert!(!runtime.rest_available(5000));
+        assert_ne!(tired_state.primary_action.kind, "rest");
+        assert!(!tired_state
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "rest"));
+
+        move_test_actor(&mut runtime, 5000, 2, 70861);
+        move_test_actor(&mut runtime, 5000, MOONLIT_TRAIL_LOCATION_ID, 70862);
+        assert!(runtime.rest_available(5000));
+        let ready_to_rest_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(ready_to_rest_state
             .primary_action
             .options
             .iter()
@@ -30069,6 +32706,14 @@ mod tests {
                 tag_id: tired_tag.clone(),
                 reason: "rest".to_string(),
             });
+        for tag_id in runtime.frontier_travel_since_rest_tag_ids(5000) {
+            rest_record
+                .projection_mutations
+                .push(ProjectionMutation::ClearTag {
+                    tag_id,
+                    reason: "rest".to_string(),
+                });
+        }
         rest_record
             .projection_mutations
             .push(ProjectionMutation::AdvanceClock {
@@ -30088,6 +32733,11 @@ mod tests {
         }));
         let rested_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(!rested_state.tags.iter().any(|tag| tag.label == "tired"));
+        assert!(!rested_state
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "rest"));
         assert_eq!(
             rested_state
                 .clocks
@@ -30399,10 +33049,16 @@ mod tests {
                     .is_some_and(|content| content.starts_with("listening:1:"))
         }));
         let trained_tag = trained_since_rest_tag_id(5000);
+        let tired_tag = tired_tag_id(5000);
         assert!(events.iter().any(|event| {
             event.type_name == "tag.applied"
                 && event.tag_id.as_deref() == Some(trained_tag.as_str())
                 && event.tag_label.as_deref() == Some("trained")
+        }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "tag.applied"
+                && event.tag_id.as_deref() == Some(tired_tag.as_str())
+                && event.tag_label.as_deref() == Some("tired")
         }));
 
         let trained_state = runtime.state_response(Some(5000), &AccessContext::default());
@@ -30417,21 +33073,18 @@ mod tests {
             .action_offers
             .iter()
             .all(|offer| offer.kind != "train_skill"));
-        let rest_offer = trained_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "rest")
-            .expect("rest offer is exposed after training");
-        assert!(rest_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("train again")));
+        assert!(trained_state.tags.iter().any(|tag| tag.label == "tired"));
         let bond_offer = trained_state
             .action_offers
             .iter()
             .find(|offer| offer.kind == "create_bond")
             .expect("bond offer is available after the first skill step");
-        assert!(bond_offer.rank < rest_offer.rank);
+        assert!(bond_offer.rank > 0);
+        assert!(!trained_state
+            .action_offers
+            .iter()
+            .any(|offer| offer.kind == "rest"));
+        assert!(!runtime.rest_available(5000));
         assert!(runtime
             .train_skill(5000, "nimble_hands", SKILL_STEP_COST, "advancement")
             .is_empty());
@@ -30480,6 +33133,19 @@ mod tests {
         assert_eq!(roll.modifier, Some(1));
         assert_eq!(roll.total, roll.raw_roll.map(|raw| raw + 1));
 
+        move_test_actor(&mut runtime, 5000, 2, 70961);
+        move_test_actor(&mut runtime, 5000, MOONLIT_TRAIL_LOCATION_ID, 70962);
+        let ready_to_rest_state = runtime.state_response(Some(5000), &AccessContext::default());
+        let rest_offer = ready_to_rest_state
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "rest")
+            .expect("rest offer is exposed after frontier travel");
+        assert!(rest_offer
+            .effect
+            .as_deref()
+            .is_some_and(|effect| effect.contains("training settles")));
+
         let mut rest_action = CwAction::default();
         rest_action.kind = CW_ACTION_NONE;
         rest_action.actor_id = 5000;
@@ -30490,13 +33156,35 @@ mod tests {
                 tag_id: trained_tag.clone(),
                 reason: "rest".to_string(),
             });
+        rest_record
+            .projection_mutations
+            .push(ProjectionMutation::ClearTag {
+                tag_id: tired_tag.clone(),
+                reason: "rest".to_string(),
+            });
+        for tag_id in runtime.frontier_travel_since_rest_tag_ids(5000) {
+            rest_record
+                .projection_mutations
+                .push(ProjectionMutation::ClearTag {
+                    tag_id,
+                    reason: "rest".to_string(),
+                });
+        }
         let (status, events) = runtime.apply_journal_record(&rest_record);
         assert_eq!(status, CW_OK);
         assert!(events.iter().any(|event| {
             event.type_name == "tag.cleared"
                 && event.tag_id.as_deref() == Some(trained_tag.as_str())
         }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "tag.cleared" && event.tag_id.as_deref() == Some(tired_tag.as_str())
+        }));
         let rested_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(!rested_state
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "rest"));
         let repeat_train_offer = rested_state
             .action_offers
             .iter()
@@ -31375,6 +34063,7 @@ mod tests {
             runtime.project_progress_amount(5000, MOONLIT_TRAIL_LOCATION_ID),
             3
         );
+        discover_all_seed_exits_for_test(&mut runtime);
         let ready = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(ready
             .room_features
@@ -31666,7 +34355,7 @@ mod tests {
 
         runtime
             .listen_attempt_claims
-            .insert(listen_attempt_claim_key(5000, 64));
+            .insert(listen_attempt_claim_key(5000, DARKEST_OCEAN_LOCATION_ID));
         assert_eq!(
             runtime.project_location_evidence_count(
                 5000,
@@ -31675,6 +34364,19 @@ mod tests {
                     .expect("solar job remains active")
             ),
             2
+        );
+        assert_eq!(runtime.prepared_project_progress_amount(5000, 36), 2);
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(5000, DARK_ABYSS_LOCATION_ID));
+        assert_eq!(
+            runtime.project_location_evidence_count(
+                5000,
+                runtime
+                    .active_job_for_location(36)
+                    .expect("solar job remains active")
+            ),
+            3
         );
         assert_eq!(runtime.prepared_project_progress_amount(5000, 36), 3);
         let complete_state = runtime.state_response(Some(5000), &AccessContext::default());
@@ -31985,8 +34687,9 @@ mod tests {
         {
             let runtime = state.inner.lock().await;
             let tired_state = runtime.state_response(Some(5000), &AccessContext::default());
-            assert_eq!(tired_state.primary_action.kind, "check");
-            assert!(tired_state
+            assert_ne!(tired_state.primary_action.kind, "rest");
+            assert!(!runtime.rest_available(5000));
+            assert!(!tired_state
                 .primary_action
                 .options
                 .iter()
@@ -32051,6 +34754,19 @@ mod tests {
             );
         }
 
+        {
+            let mut runtime = state.inner.lock().await;
+            move_test_actor(&mut runtime, 5000, 2, 71501);
+            move_test_actor(&mut runtime, 5000, MOONLIT_TRAIL_LOCATION_ID, 71502);
+            assert!(runtime.rest_available(5000));
+            let ready_state = runtime.state_response(Some(5000), &AccessContext::default());
+            assert!(ready_state
+                .primary_action
+                .options
+                .iter()
+                .any(|option| option.kind == "rest"));
+        }
+
         let rest_response = rest(
             ConnectInfo("127.0.0.1:43109".parse().expect("client address")),
             State(state.clone()),
@@ -32071,6 +34787,16 @@ mod tests {
                 && event.clock_id.as_deref() == Some(MOONLIT_DANGER_CLOCK_ID)
                 && event.clock_delta == Some(1)
         }));
+
+        {
+            let runtime = state.inner.lock().await;
+            let rested_state = runtime.state_response(Some(5000), &AccessContext::default());
+            assert!(!rested_state
+                .primary_action
+                .options
+                .iter()
+                .any(|option| option.kind == "rest"));
+        }
 
         let prepare_response = prepare(
             ConnectInfo("127.0.0.1:43110".parse().expect("client address")),
@@ -32148,6 +34874,8 @@ mod tests {
             });
         assert_eq!(runtime.apply_journal_record(&warm_record).0, CW_OK);
 
+        move_test_actor(&mut runtime, 5000, 2, 71531);
+        move_test_actor(&mut runtime, 5000, MOONLIT_TRAIL_LOCATION_ID, 71532);
         let warm_state = runtime.state_response(Some(5000), &AccessContext::default());
         let rest_offer = warm_state
             .action_offers
@@ -32382,6 +35110,7 @@ mod tests {
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
 
+        discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
         let active = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(active
             .primary_action
@@ -32447,7 +35176,7 @@ mod tests {
         runtime.world.actors[..actor_count]
             .iter_mut()
             .find(|actor| actor.id == 1004)
-            .expect("Coach Moonshadow exists")
+            .expect("Coach exists")
             .damage = 3;
         let wounded_quieted = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(wounded_quieted
@@ -32456,7 +35185,7 @@ mod tests {
             .iter()
             .any(|option| option.kind == "use_item"));
 
-        for command in ["attack Coach Moonshadow", "defend", "flee"] {
+        for command in ["attack Coach", "defend", "flee"] {
             let resolved = runtime
                 .resolve_command(&command_request(5000, command), &AccessContext::default())
                 .expect("combat command still resolves to a disabled action");
@@ -32612,7 +35341,7 @@ mod tests {
             .iter()
             .take(runtime.world.actor_count)
             .find(|actor| actor.id == MOONLIT_ECHO_ACTOR_ID)
-            .expect("Coach Moonshadow exists");
+            .expect("Coach exists");
         assert_eq!(echo.status, CW_ACTOR_ACTIVE);
         assert_eq!(echo.damage, 0);
 
@@ -33132,7 +35861,8 @@ mod tests {
 
     #[test]
     fn cosy_seed_cards_have_generated_art_urls() {
-        let runtime = RuntimeWorld::seeded();
+        let mut runtime = RuntimeWorld::seeded();
+        discover_seed_exit_pair_for_test(&mut runtime, 1, 2);
         let ownership = OwnershipIndex::parse("wallet-1:cosy-rain-soft-garden");
         let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
         let state = runtime.state_response(None, &access);
@@ -33151,7 +35881,7 @@ mod tests {
             Some("/assets/generated/cards/cosy-skull.webp")
         );
 
-        let echo = card_for_actor(1004, "Coach Moonshadow", "Sparring Reflection", "", 1);
+        let echo = card_for_actor(1004, "Coach", "Sparring Reflection", "", 1);
         assert_eq!(echo.asset_status, "generated_art");
         assert_eq!(
             echo.image_url.as_deref(),
@@ -33228,14 +35958,15 @@ mod tests {
         assert_eq!(content.manifest.id, "cosyworld.core");
         assert_eq!(content.manifest.version, 1);
         assert!(content.manifest.description.contains("seed worldpack"));
-        assert_eq!(content.actors.len(), 31);
+        assert_eq!(content.actors.len(), 35);
         assert_eq!(content.access_gates.len(), 6);
         assert_eq!(content.factions.len(), 12);
         assert_eq!(content.items.len(), 10);
-        assert_eq!(content.locations.len(), 27);
+        assert_eq!(content.locations.len(), 28);
         assert_eq!(content.exits.len(), 68);
-        assert_eq!(content.room_features.len(), 15);
-        assert_eq!(content.room_sheets.len(), 27);
+        assert_eq!(content.hidden_exits.len(), 1);
+        assert_eq!(content.room_features.len(), 16);
+        assert_eq!(content.room_sheets.len(), 28);
         assert_eq!(content.clocks.len(), 4);
         assert_eq!(content.jobs.len(), 2);
         assert!(content
@@ -33243,8 +35974,8 @@ mod tests {
             .iter()
             .all(|job| job.reward.orbs() == 2 && !job.reward.label().is_empty()));
         assert_eq!(content.fronts.len(), 2);
-        assert_eq!(content.cards.len(), 68);
-        assert_eq!(content.fallback_lines.len(), 16);
+        assert_eq!(content.cards.len(), 71);
+        assert_eq!(content.fallback_lines.len(), 18);
         assert_eq!(content.lifecycle_hooks.len(), 13);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 1);
@@ -33488,13 +36219,32 @@ mod tests {
         assert_eq!(solar.axis, "Height vs Depth");
         assert_eq!(abyssal.axis, "Height vs Depth");
         assert!(solar.home_location_ids.contains(&36));
-        assert!(abyssal.home_location_ids.contains(&64));
+        assert!(abyssal
+            .home_location_ids
+            .contains(&DARKEST_OCEAN_LOCATION_ID));
+        assert!(abyssal.home_location_ids.contains(&DARK_ABYSS_LOCATION_ID));
         assert!(solar.member_actor_ids.contains(&1064));
         assert!(abyssal.member_actor_ids.contains(&1065));
+        assert!(abyssal.member_actor_ids.contains(&1066));
+        assert!(abyssal.member_actor_ids.contains(&1067));
+        let hidden_exit = content
+            .hidden_exits
+            .iter()
+            .find(|hidden_exit| hidden_exit.id == "darkest-ocean:dark-abyss")
+            .expect("Dark Abyss hidden exit is seeded");
+        assert_eq!(hidden_exit.from_location_id, DARKEST_OCEAN_LOCATION_ID);
+        assert_eq!(hidden_exit.to_location_id, DARK_ABYSS_LOCATION_ID);
+        assert_eq!(hidden_exit.feature_key, "drowned_bell");
+        assert_eq!(hidden_exit.reveal_chance_percent, 10);
 
         let mut runtime = RuntimeWorld::seeded();
+        discover_all_seed_exits_for_test(&mut runtime);
         let access = AccessContext::default();
         let world = runtime.world_response(None, &access);
+        assert!(!world
+            .locations
+            .iter()
+            .any(|location| location.id == DARK_ABYSS_LOCATION_ID));
         assert!(world
             .factions
             .iter()
@@ -33529,7 +36279,7 @@ mod tests {
         let abyssal_room = world
             .locations
             .iter()
-            .find(|location| location.id == 64)
+            .find(|location| location.id == DARKEST_OCEAN_LOCATION_ID)
             .expect("Darkest Ocean is in world response");
         assert!(abyssal_room
             .factions
@@ -33540,11 +36290,17 @@ mod tests {
                 .factions
                 .iter()
                 .any(|faction| faction.id == "abyssal_residents")));
+        assert!(!abyssal_room.actors.iter().any(|actor| actor.id == 1066));
+        assert!(!abyssal_room.actors.iter().any(|actor| actor.id == 1067));
         assert!(abyssal_room
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == 62
                 && exit.direction.as_deref() == Some("up")));
+        assert!(!abyssal_room
+            .exits
+            .iter()
+            .any(|exit| exit.destination_location_id == DARK_ABYSS_LOCATION_ID));
 
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -33600,7 +36356,7 @@ mod tests {
             .take(runtime.world.actor_count)
             .find(|actor| actor.id == 5000)
         {
-            actor.location_id = 64;
+            actor.location_id = DARKEST_OCEAN_LOCATION_ID;
         }
         let abyss_state = runtime.state_response(Some(5000), &access);
         assert!(abyss_state
@@ -33616,9 +36372,300 @@ mod tests {
             .iter()
             .any(|clock| clock.id == "solar-abyss.schism"));
         assert_eq!(
-            runtime.active_progress_clock_id_for_location(64).as_deref(),
+            runtime
+                .active_progress_clock_id_for_location(DARKEST_OCEAN_LOCATION_ID)
+                .as_deref(),
             Some("solar-abyss.drowned-bell")
         );
+        assert_eq!(
+            runtime
+                .active_progress_clock_id_for_location(DARK_ABYSS_LOCATION_ID)
+                .as_deref(),
+            Some("solar-abyss.drowned-bell")
+        );
+        assert!(!abyss_state
+            .exits
+            .iter()
+            .any(|exit| exit.destination_location_id == DARK_ABYSS_LOCATION_ID));
+        assert!(runtime
+            .hidden_exit_candidate_for_search(DARKEST_OCEAN_LOCATION_ID, "drowned_bell")
+            .is_some());
+
+        let hidden_exit = runtime
+            .hidden_exit_candidate_for_search(DARKEST_OCEAN_LOCATION_ID, "drowned_bell")
+            .expect("Dark Abyss entrance is undiscovered");
+        let success_seed = (1..10_000)
+            .find(|seed| runtime.hidden_exit_search_succeeds(*seed, 5000, hidden_exit))
+            .expect("search success seed");
+        let feature = runtime
+            .room_features(DARKEST_OCEAN_LOCATION_ID)
+            .into_iter()
+            .find(|feature| feature.key == "drowned_bell")
+            .expect("Drowned Bell feature");
+        let mut search_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: DARKEST_OCEAN_LOCATION_ID,
+                ..CwAction::default()
+            },
+            success_seed,
+        );
+        search_record
+            .projection_mutations
+            .push(ProjectionMutation::SearchFeature {
+                location_id: DARKEST_OCEAN_LOCATION_ID,
+                feature_key: feature.key.clone(),
+                feature_name: feature.name.clone(),
+                content: feature.search.clone(),
+                reason: "search_feature".to_string(),
+            });
+        search_record
+            .projection_mutations
+            .push(ProjectionMutation::DiscoverHiddenExit {
+                hidden_exit_id: hidden_exit.id.clone(),
+                reason: "search_feature".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&search_record);
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "exit.discovered"
+                && event.destination_location_id == Some(DARK_ABYSS_LOCATION_ID)));
+        let discovered_state = runtime.state_response(Some(5000), &access);
+        assert!(discovered_state.exits.iter().any(|exit| {
+            exit.destination_location_id == DARK_ABYSS_LOCATION_ID
+                && exit.direction.as_deref() == Some("down")
+        }));
+        let discovered_world = runtime.world_response(Some(5000), &access);
+        let dark_abyss_room = discovered_world
+            .locations
+            .iter()
+            .find(|location| location.id == DARK_ABYSS_LOCATION_ID)
+            .expect("Dark Abyss is visible after discovery");
+        assert!(!dark_abyss_room.actors.iter().any(|actor| actor.id == 1066));
+        assert!(!dark_abyss_room.actors.iter().any(|actor| actor.id == 1067));
+
+        let mut avatar_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: DARK_ABYSS_LOCATION_ID,
+                ..CwAction::default()
+            },
+            success_seed + 1,
+        );
+        avatar_record
+            .projection_mutations
+            .push(ProjectionMutation::DiscoverAvatar {
+                actor_id: 1066,
+                location_id: DARK_ABYSS_LOCATION_ID,
+                reason: "search_feature".to_string(),
+            });
+        avatar_record
+            .projection_mutations
+            .push(ProjectionMutation::DiscoverAvatar {
+                actor_id: 1067,
+                location_id: DARK_ABYSS_LOCATION_ID,
+                reason: "search_feature".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&avatar_record).0, CW_OK);
+        let avatar_world = runtime.world_response(Some(5000), &access);
+        let dark_abyss_room = avatar_world
+            .locations
+            .iter()
+            .find(|location| location.id == DARK_ABYSS_LOCATION_ID)
+            .expect("Dark Abyss remains visible after avatar discovery");
+        assert!(dark_abyss_room.actors.iter().any(|actor| actor.id == 1066
+            && actor
+                .factions
+                .iter()
+                .any(|faction| faction.id == "abyssal_residents")));
+        assert!(dark_abyss_room.actors.iter().any(|actor| actor.id == 1067
+            && actor
+                .factions
+                .iter()
+                .any(|faction| faction.id == "abyssal_residents")));
+    }
+
+    #[test]
+    fn search_discovered_paths_return_to_pool_when_forgotten() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Forgetful Finder",
+        );
+        let access = AccessContext::default();
+
+        assert!(runtime
+            .seed_exit_candidate_for_search(COSY_COTTAGE_LOCATION_ID)
+            .is_some_and(|exit| exit.to_location_id == RAIN_SOFT_GARDEN_LOCATION_ID));
+
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                ..CwAction::default()
+            },
+            91_001,
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::DiscoverSeedExit {
+                from_location_id: COSY_COTTAGE_LOCATION_ID,
+                to_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                reason: "search_feature".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        assert!(
+            runtime.seed_exit_discovered(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+        );
+        assert!(runtime
+            .state_response(Some(5000), &access)
+            .exits
+            .iter()
+            .any(|exit| exit.destination_location_id == RAIN_SOFT_GARDEN_LOCATION_ID));
+
+        runtime.world.tick = runtime
+            .world
+            .tick
+            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
+        runtime.decay_search_memories();
+
+        assert!(
+            !runtime.seed_exit_discovered(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+        );
+        assert!(!runtime
+            .state_response(Some(5000), &access)
+            .exits
+            .iter()
+            .any(|exit| exit.destination_location_id == RAIN_SOFT_GARDEN_LOCATION_ID));
+        assert!(runtime
+            .seed_exit_candidate_for_search(COSY_COTTAGE_LOCATION_ID)
+            .is_some_and(|exit| exit.to_location_id == RAIN_SOFT_GARDEN_LOCATION_ID));
+    }
+
+    #[test]
+    fn search_revealed_avatars_return_to_pool_when_forgotten() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, DARK_ABYSS_LOCATION_ID, "Abyss Witness");
+
+        assert!(runtime
+            .hidden_avatar_candidate_for_search(DARK_ABYSS_LOCATION_ID)
+            .is_some_and(|actor| actor.id == AZAZOTH_ACTOR_ID));
+
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: DARK_ABYSS_LOCATION_ID,
+                ..CwAction::default()
+            },
+            91_002,
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::DiscoverAvatar {
+                actor_id: AZAZOTH_ACTOR_ID,
+                location_id: DARK_ABYSS_LOCATION_ID,
+                reason: "search_feature".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        assert!(runtime.avatar_discovered(AZAZOTH_ACTOR_ID));
+
+        runtime.world.tick = runtime
+            .world
+            .tick
+            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
+        runtime.decay_search_memories();
+
+        assert!(!runtime.avatar_discovered(AZAZOTH_ACTOR_ID));
+        assert!(runtime
+            .hidden_avatar_candidate_for_search(DARK_ABYSS_LOCATION_ID)
+            .is_some_and(|actor| actor.id == AZAZOTH_ACTOR_ID));
+    }
+
+    #[test]
+    fn search_found_items_return_to_hidden_pool_when_forgotten() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Pocket Finder",
+        );
+        for item in &mut runtime.world.items[..runtime.world.item_count] {
+            if item.id == HEARTH_TONIC_ITEM_ID {
+                item.location_id = 0;
+                item.holder_actor_id = 5000;
+            }
+        }
+        assert!(runtime.room_floor_empty(COSY_COTTAGE_LOCATION_ID));
+        assert_eq!(
+            runtime.hidden_search_item_for_location(COSY_COTTAGE_LOCATION_ID),
+            Some(STORY_BUTTON_ITEM_ID)
+        );
+
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SEARCH,
+                actor_id: 5000,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                content_id: 91_003,
+                item_id: STORY_BUTTON_ITEM_ID,
+                ..CwAction::default()
+            },
+            91_003,
+        );
+        record.content_upserts.insert(
+            91_003,
+            "Scarf Basket: a warm wooden button turns up.".to_string(),
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::RememberSearchItem {
+                item_id: STORY_BUTTON_ITEM_ID,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                reason: "search_feature".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "item.found"
+                && event.item_id == Some(STORY_BUTTON_ITEM_ID)));
+        assert!(runtime.search_item_remembered(STORY_BUTTON_ITEM_ID));
+        assert!(runtime
+            .state_response(Some(5000), &AccessContext::default())
+            .items
+            .iter()
+            .any(|item| item.id == STORY_BUTTON_ITEM_ID));
+
+        runtime.world.tick = runtime
+            .world
+            .tick
+            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
+        runtime.decay_search_memories();
+
+        assert!(!runtime.search_item_remembered(STORY_BUTTON_ITEM_ID));
+        assert_eq!(
+            runtime
+                .item_by_id(STORY_BUTTON_ITEM_ID)
+                .map(|item| item.location_id),
+            Some(0)
+        );
+        assert_eq!(
+            runtime.hidden_search_item_for_location(COSY_COTTAGE_LOCATION_ID),
+            Some(STORY_BUTTON_ITEM_ID)
+        );
+        assert!(!runtime
+            .state_response(Some(5000), &AccessContext::default())
+            .items
+            .iter()
+            .any(|item| item.id == STORY_BUTTON_ITEM_ID));
     }
 
     #[tokio::test]
@@ -33631,7 +36678,7 @@ mod tests {
             .iter()
             .filter(|actor| actor.location_id.is_some())
             .collect();
-        assert_eq!(placed_seed_actors.len(), 31);
+        assert_eq!(placed_seed_actors.len(), 35);
         for actor in placed_seed_actors {
             let world_actor = runtime.actor_by_id(actor.id).expect("placed seed actor");
             assert_eq!(world_actor.location_id, actor.location_id.unwrap());
@@ -33736,6 +36783,7 @@ mod tests {
             );
         }
 
+        discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         assert_eq!(state.primary_action.kind, "pick_up");
         assert_eq!(state.primary_action.label, "Take");
@@ -34042,12 +37090,13 @@ mod tests {
             assert_eq!(status, CW_OK);
         }
 
+        discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
         let trail = runtime.state_response(Some(5000), &access);
         assert_eq!(trail.location.name, "Moonlit Trail");
         assert!(trail
             .actors
             .iter()
-            .any(|actor| actor.id == 1004 && actor.name == "Coach Moonshadow"));
+            .any(|actor| actor.id == 1004 && actor.name == "Coach"));
         assert_eq!(trail.cards.actors[&1004].role, "encounter");
         assert!(trail
             .primary_action
@@ -34074,7 +37123,7 @@ mod tests {
         runtime.world.actors[..actor_count]
             .iter_mut()
             .find(|actor| actor.id == 1004)
-            .expect("Coach Moonshadow exists")
+            .expect("Coach exists")
             .damage = 6;
         let trail_with_wounded_echo = runtime.state_response(Some(5000), &access);
         assert!(!trail_with_wounded_echo
@@ -34210,6 +37259,7 @@ mod tests {
                 .0,
             CW_OK
         );
+        discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
         let trail = runtime.state_response(Some(5000), &access);
         assert_eq!(trail.location.name, "Moonlit Trail");
         assert_eq!(trail.primary_action.kind, "pick_up");
@@ -34244,7 +37294,7 @@ mod tests {
             .actors
             .iter_mut()
             .find(|actor| actor.id == 1004)
-            .expect("Coach Moonshadow exists");
+            .expect("Coach exists");
         echo.status = CW_ACTOR_KNOCKED_OUT;
         echo.damage = echo.stats.hp_base;
 
@@ -34621,7 +37671,7 @@ mod tests {
         }
         runtime
             .prepare_resident_local_memories(MOUSE_WANDERER_ACTOR_ID)
-            .expect("Septimus Wrongturn observes the arranged keepsake trade");
+            .expect("Septimus observes the arranged keepsake trade");
 
         let map_scrap = runtime
             .item_by_id(THREADBARE_MAP_SCRAP_ITEM_ID)
@@ -34636,7 +37686,7 @@ mod tests {
             .actors
             .iter()
             .find(|actor| actor.id == MOUSE_WANDERER_ACTOR_ID)
-            .expect("Septimus Wrongturn is visible");
+            .expect("Septimus is visible");
         let economy = mouse
             .resident_economy
             .as_ref()
@@ -34653,7 +37703,7 @@ mod tests {
         assert_eq!(sought_map.holder_actor_id, Some(5000));
         assert!(sought_map
             .reason
-            .contains("Septimus Wrongturn wants Threadbare Map Scrap"));
+            .contains("Septimus wants Threadbare Map Scrap"));
         assert!(sought_map.reason.contains("wrong turn"));
         let stance = economy
             .trade_stance
@@ -34695,7 +37745,7 @@ mod tests {
             .find(|event| event.type_name == "item.traded")
             .and_then(|event| event.content.as_deref())
             .expect("keepsake trade event");
-        assert!(trade_content.contains("Septimus Wrongturn wanted Threadbare Map Scrap"));
+        assert!(trade_content.contains("Septimus wanted Threadbare Map Scrap"));
         assert!(runtime.world.items[..runtime.world.item_count]
             .iter()
             .any(|item| {
@@ -35020,7 +38070,7 @@ mod tests {
             .actors
             .iter_mut()
             .find(|actor| actor.id == WHISKERWIND_ACTOR_ID)
-            .expect("Whiskerwind exists")
+            .expect("Gust exists")
             .damage = 4;
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == 2001 {
@@ -35046,10 +38096,10 @@ mod tests {
             .expect("Rati asks for player-held medicine for a companion");
         assert_eq!(request.item_id, 2001);
         assert_eq!(request.holder_actor_id, 5000);
-        assert_eq!(request.reason, "Rati wants Hearth Tonic for Whiskerwind.");
+        assert_eq!(request.reason, "Rati wants Hearth Tonic for Gust.");
         assert_eq!(
             economy.motive,
-            "Rati wants Hearth Tonic for Whiskerwind from Care Guest."
+            "Rati wants Hearth Tonic for Gust from Care Guest."
         );
     }
 
@@ -35566,7 +38616,7 @@ mod tests {
             .expect("Old Oak pickup event");
         assert_eq!(
             pickup_event.content.as_deref(),
-            Some("Fourvoice Oak could use Story Button with Hollow Voice.")
+            Some("Oak could use Story Button with Hollow Voice.")
         );
 
         let old_oak = runtime
@@ -35722,6 +38772,8 @@ mod tests {
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
 
+        discover_seed_exit_pair_for_test(&mut runtime, 1, 2);
+        discover_seed_exit_pair_for_test(&mut runtime, 1, 11);
         let access = AccessContext::default();
         let state = runtime.state_response(Some(5000), &access);
         assert!(state
@@ -35931,10 +38983,10 @@ mod tests {
         }
 
         let off_room_give = runtime
-            .resolve_command(&command_request(5000, "give dewbright to whisker"), &access)
+            .resolve_command(&command_request(5000, "give dewbright to gust"), &access)
             .expect_err("off-room give explains where the resident is");
         assert_eq!(off_room_give.status, 404);
-        assert!(off_room_give.output.contains("Whiskerwind"));
+        assert!(off_room_give.output.contains("Gust"));
         assert!(off_room_give.output.contains("The Cosy Cottage"));
         assert!(off_room_give.output.contains("Rain-Soft Garden"));
 
@@ -36110,11 +39162,11 @@ mod tests {
         );
 
         let give = runtime
-            .resolve_command(&command_request(5000, "give dewbright to whisker"), &access)
+            .resolve_command(&command_request(5000, "give dewbright to gust"), &access)
             .expect("give resolves");
         assert_eq!(
             give.action.as_ref().map(|action| action.command.as_str()),
-            Some("give Dewbright Button to Whiskerwind")
+            Some("give Dewbright Button to Gust")
         );
         match give.dispatch {
             CommandDispatch::GiveItem {
@@ -36332,17 +39384,13 @@ mod tests {
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "move" && option.command == "go"));
-        let homeroom = state
-            .exits
+            .any(|option| option.kind == "search" && option.command.starts_with("search ")));
+        assert!(!state
+            .primary_action
+            .options
             .iter()
-            .find(|exit| exit.destination_location_id == 11)
-            .expect("Ruby High: First Bell school doorway is visible");
-        assert!(!homeroom.accessible);
-        assert_eq!(
-            homeroom.required_card_id.as_deref(),
-            Some("location-homeroom")
-        );
+            .any(|option| option.kind == "move"));
+        assert!(state.exits.is_empty());
         assert!(!state
             .exits
             .iter()
@@ -36374,7 +39422,7 @@ mod tests {
         assert_eq!(runtime.apply_journal_record(&tired_record).0, CW_OK);
         let tired_cottage = runtime.state_response(Some(5000), &access);
         assert_eq!(tired_cottage.primary_action.kind, "pick_up");
-        assert!(tired_cottage
+        assert!(!tired_cottage
             .primary_action
             .options
             .iter()
@@ -36384,15 +39432,16 @@ mod tests {
             .iter()
             .find(|offer| offer.kind == "pick_up")
             .expect("take offer remains visible while tired in the cottage");
-        let rest_offer = tired_cottage
+        assert!(take_offer.rank > 0);
+        assert!(!tired_cottage
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "rest")
-            .expect("rest offer remains visible while tired in the cottage");
-        assert!(take_offer.rank < rest_offer.rank);
+            .any(|offer| offer.kind == "rest"));
 
         let ownership = OwnershipIndex::parse("wallet-1:location-homeroom,location-science-lab");
         let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
+        discover_seed_exit_pair_for_test(&mut runtime, 1, 11);
+        discover_seed_exit_pair_for_test(&mut runtime, 11, 10);
         let state = runtime.state_response(Some(5000), &access);
         assert_eq!(state.primary_action.kind, "pick_up");
         assert!(state
@@ -36425,26 +39474,10 @@ mod tests {
         assert_eq!(gate.location.id, 1);
         assert_eq!(gate.location.name, "The Cosy Cottage");
         assert_eq!(gate.primary_action.kind, "create_avatar");
-        assert!(gate
-            .exits
-            .iter()
-            .any(|exit| exit.destination_location_id == 2));
-        let homeroom = gate
-            .exits
-            .iter()
-            .find(|exit| exit.destination_location_id == 11)
-            .expect("Ruby High school doorway is visible from the Cottage");
-        assert!(!homeroom.accessible);
-        assert_eq!(
-            homeroom.required_card_id.as_deref(),
-            Some("location-homeroom")
-        );
-        assert!(gate
-            .access
-            .locked_card_ids
-            .contains(&"location-homeroom".to_string()));
-        assert!(gate.cards.locations.contains_key(&2));
-        assert!(gate.cards.locations.contains_key(&11));
+        assert!(gate.exits.is_empty());
+        assert!(gate.access.locked_card_ids.is_empty());
+        assert!(!gate.cards.locations.contains_key(&2));
+        assert!(!gate.cards.locations.contains_key(&11));
         assert!(!gate.cards.locations.contains_key(&10));
 
         let mut create = CwAction::default();
@@ -36954,7 +39987,7 @@ mod tests {
             })
             .expect("keepsake pickup event");
         let pickup_content = pickup.content.as_deref().expect("keepsake pickup content");
-        assert!(pickup_content.contains("Professor Inkdusk wants Threadbare Map Scrap back"));
+        assert!(pickup_content.contains("Professor wants Threadbare Map Scrap back"));
         assert!(pickup_content.contains("mended cloth"));
     }
 
@@ -37297,7 +40330,7 @@ mod tests {
             .actors
             .iter_mut()
             .find(|actor| actor.id == WHISKERWIND_ACTOR_ID)
-            .expect("Whiskerwind exists")
+            .expect("Gust exists")
             .stats
             .level = 2;
 
@@ -37517,7 +40550,7 @@ mod tests {
             .actors
             .iter_mut()
             .find(|actor| actor.id == WHISKERWIND_ACTOR_ID)
-            .expect("Whiskerwind exists")
+            .expect("Gust exists")
             .damage = 6;
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             if item.id == 2001 {
@@ -37550,7 +40583,7 @@ mod tests {
         assert_eq!(use_event.damage, Some(-6));
         assert_eq!(
             use_event.content.as_deref(),
-            Some("Rati used Hearth Tonic to help Whiskerwind.")
+            Some("Rati used Hearth Tonic to help Gust.")
         );
     }
 
@@ -37881,7 +40914,7 @@ mod tests {
 
         let whiskerwind = runtime
             .actor_by_id(WHISKERWIND_ACTOR_ID)
-            .expect("Whiskerwind exists");
+            .expect("Gust exists");
         let economy = runtime
             .resident_economy_view(whiskerwind, Some(5000))
             .expect("resident economy view");
@@ -37919,7 +40952,7 @@ mod tests {
         assert!(continuity
             .memory_atoms
             .iter()
-            .any(|atom| atom.text.contains("Whiskerwind near Rain-Soft Garden")));
+            .any(|atom| atom.text.contains("Gust near Rain-Soft Garden")));
         assert!(format_resident_continuity(continuity).contains("memory atoms:"));
 
         let snapshot = RuntimeSnapshot::from_runtime(&runtime);
@@ -37934,7 +40967,7 @@ mod tests {
         assert!(restored_continuity
             .memory_atoms
             .iter()
-            .any(|atom| atom.text.contains("Whiskerwind near Rain-Soft Garden")));
+            .any(|atom| atom.text.contains("Gust near Rain-Soft Garden")));
     }
 
     #[test]
@@ -38248,7 +41281,7 @@ mod tests {
                     DEWBRIGHT_BUTTON_ITEM_ID,
                 )
                 .is_none(),
-            "the local witness learns Whiskerwind no longer wants the received item"
+            "the local witness learns Gust no longer wants the received item"
         );
         assert!(
             runtime
@@ -38581,7 +41614,7 @@ mod tests {
             .actors
             .iter_mut()
             .find(|actor| actor.id == WHISKERWIND_ACTOR_ID)
-            .expect("Whiskerwind exists")
+            .expect("Gust exists")
             .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
 
         let mut player_move = CwAction::default();
@@ -38763,7 +41796,7 @@ mod tests {
             .expect("resident trade content");
         assert!(trade_content.contains("Rati wanted Story Button"));
         assert!(trade_content.contains("blue scarf"));
-        assert!(trade_content.contains("Whiskerwind wanted Dewbright Button"));
+        assert!(trade_content.contains("Gust wanted Dewbright Button"));
         assert!(trade_content.contains("weather mark"));
         assert!(runtime.world.items[..runtime.world.item_count]
             .iter()
@@ -38782,7 +41815,7 @@ mod tests {
         };
         let whiskerwind = runtime
             .actor_by_id(WHISKERWIND_ACTOR_ID)
-            .expect("Whiskerwind exists after trade");
+            .expect("Gust exists after trade");
         assert!(
             runtime.resident_autonomy_action_repeats_recent_event(whiskerwind, &reverse_trade),
             "reciprocal item trades should stay on cooldown instead of bouncing forever"
@@ -38799,12 +41832,10 @@ mod tests {
         assert_eq!(reply_plan.npc_actor_id, RATI_ACTOR_ID);
         assert!(reply_plan
             .user_text
-            .contains("Rati traded Dewbright Button to Whiskerwind for Story Button"));
+            .contains("Rati traded Dewbright Button to Gust for Story Button"));
         assert!(reply_plan.user_text.contains("Rati wants Story Button"));
         assert!(reply_plan.user_text.contains("blue scarf"));
-        assert!(reply_plan
-            .user_text
-            .contains("Whiskerwind wants Dewbright Button"));
+        assert!(reply_plan.user_text.contains("Gust wants Dewbright Button"));
         assert!(reply_plan.user_text.contains("weather mark"));
         assert!(reply_plan
             .economy_note
@@ -38965,8 +41996,8 @@ mod tests {
             .content
             .as_deref()
             .expect("resident gift content");
-        assert!(gift_content.contains("Rati gave Dewbright Button to Whiskerwind"));
-        assert!(gift_content.contains("Whiskerwind wanted Dewbright Button"));
+        assert!(gift_content.contains("Rati gave Dewbright Button to Gust"));
+        assert!(gift_content.contains("Gust wanted Dewbright Button"));
         assert!(gift_content.contains("weather mark"));
         assert!(runtime.world.items[..runtime.world.item_count]
             .iter()
@@ -39003,7 +42034,7 @@ mod tests {
 
         let whiskerwind = runtime
             .actor_by_id(WHISKERWIND_ACTOR_ID)
-            .expect("Whiskerwind exists");
+            .expect("Gust exists");
         let reverse_gift = CwAction {
             kind: CW_ACTION_GIVE_ITEM,
             actor_id: WHISKERWIND_ACTOR_ID,
@@ -39111,9 +42142,7 @@ mod tests {
             .expect("non-track room-feature gift event");
         assert_eq!(
             gift_event.content.as_deref(),
-            Some(
-                "Hob Mossmantle gave Story Button to Fourvoice Oak; Fourvoice Oak could use Story Button with Hollow Voice."
-            )
+            Some("Bear gave Story Button to Oak; Oak could use Story Button with Hollow Voice.")
         );
         assert!(runtime.world.items[..runtime.world.item_count]
             .iter()
@@ -39346,7 +42375,7 @@ mod tests {
             .actors
             .iter_mut()
             .find(|actor| actor.id == WHISKERWIND_ACTOR_ID)
-            .expect("Whiskerwind exists")
+            .expect("Gust exists")
             .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
@@ -39403,7 +42432,7 @@ mod tests {
             .expect("resident economy view");
         assert!(economy
             .motive
-            .contains("carrying Dewbright Button toward Whiskerwind"));
+            .contains("carrying Dewbright Button toward Gust"));
 
         let action = runtime
             .resident_economy_autonomy_action(rati)
@@ -39416,7 +42445,7 @@ mod tests {
 
         let rati = runtime
             .prepare_resident_local_memories(RATI_ACTOR_ID)
-            .expect("Rati observes Whiskerwind after arriving");
+            .expect("Rati observes Gust after arriving");
         let gift = runtime
             .resident_economy_autonomy_action(rati)
             .expect("resident gives after reaching the remembered recipient");
@@ -39436,7 +42465,7 @@ mod tests {
             .actors
             .iter_mut()
             .find(|actor| actor.id == WHISKERWIND_ACTOR_ID)
-            .expect("Whiskerwind exists")
+            .expect("Gust exists")
             .location_id = MOONLIT_TRAIL_LOCATION_ID;
         for item in &mut runtime.world.items[..runtime.world.item_count] {
             match item.id {
@@ -39481,7 +42510,7 @@ mod tests {
         assert_eq!(
             runtime
                 .actor_by_id(WHISKERWIND_ACTOR_ID)
-                .expect("Whiskerwind exists")
+                .expect("Gust exists")
                 .location_id,
             MOONLIT_TRAIL_LOCATION_ID
         );
@@ -39517,7 +42546,7 @@ mod tests {
         assert_eq!(
             runtime
                 .actor_by_id(WHISKERWIND_ACTOR_ID)
-                .expect("Whiskerwind exists")
+                .expect("Gust exists")
                 .location_id,
             COSY_COTTAGE_LOCATION_ID
         );
@@ -39595,6 +42624,7 @@ mod tests {
                 format!("{npc_name} / Test Resident / speech:{speech_mode} / A test resident."),
             ),
             economy_note: "Resident economy: open to useful gifts and trades.".to_string(),
+            goals: Vec::new(),
             location_name: "The Cosy Cottage".to_string(),
             location_title: "Rainlit Hearth".to_string(),
             location_description: "A warm room of firelight.".to_string(),
@@ -39609,7 +42639,7 @@ mod tests {
 
     #[test]
     fn resident_reply_sanitizer_preserves_speech_contracts() {
-        let mut plan = resident_reply_test_plan(1002, "Whiskerwind", "emoji_only");
+        let mut plan = resident_reply_test_plan(1002, "Gust", "emoji_only");
         assert_eq!(
             sanitize_resident_reply(&plan, "🌧️ 🫖 ✨").as_deref(),
             Some("🌧️🫖✨")
@@ -39643,7 +42673,7 @@ mod tests {
     fn resident_fallback_lines_follow_current_location() {
         let mut runtime = RuntimeWorld::seeded();
         let cottage_line = runtime.resident_fallback_for_target(SKULL_ACTOR_ID);
-        assert!(cottage_line.contains("hearth"));
+        assert!(cottage_line.contains("boots"));
         assert!(cottage_line.starts_with('*') && cottage_line.ends_with('*'));
 
         runtime
@@ -39654,7 +42684,7 @@ mod tests {
             .expect("Skull exists")
             .location_id = CIRCLE_OF_MOON_LOCATION_ID;
         let circle_line = runtime.resident_fallback_for_target(SKULL_ACTOR_ID);
-        assert!(circle_line.contains("moonlit stones"), "{circle_line}");
+        assert!(circle_line.contains("standing stones"), "{circle_line}");
         assert!(!circle_line.contains("hearth"), "{circle_line}");
         assert!(!circle_line.contains("rain"), "{circle_line}");
         assert!(!circle_line.contains("doorway"), "{circle_line}");
@@ -39668,7 +42698,7 @@ mod tests {
             .expect("Skull exists")
             .location_id = LOFTY_PEAK_LOCATION_ID;
         let mountain_line = runtime.resident_fallback_for_target(SKULL_ACTOR_ID);
-        assert!(mountain_line.contains("this place"), "{mountain_line}");
+        assert!(mountain_line.contains("one ear"), "{mountain_line}");
         assert!(!mountain_line.contains("hearth"), "{mountain_line}");
         assert!(!mountain_line.contains("rain"), "{mountain_line}");
         assert!(!mountain_line.contains("doorway"), "{mountain_line}");
@@ -39713,7 +42743,7 @@ mod tests {
             .avatar_chat_plan_for(5000, SKULL_ACTOR_ID)
             .expect("Skull chat plan available at the moon circle");
         assert!(
-            circle.fallback_text.contains("moonlit stones"),
+            circle.fallback_text.contains("among the stones"),
             "{}",
             circle.fallback_text
         );
@@ -39742,7 +42772,7 @@ mod tests {
             .avatar_chat_plan_for(5000, SKULL_ACTOR_ID)
             .expect("Skull chat plan available on the mountain");
         assert!(
-            mountain.fallback_text.contains("this place"),
+            mountain.fallback_text.contains("done this before"),
             "{}",
             mountain.fallback_text
         );
@@ -40043,13 +43073,13 @@ mod tests {
             .target_continuity
             .memory_atoms
             .iter()
-            .any(|atom| atom.text.contains("Whiskerwind near Rain-Soft Garden")));
+            .any(|atom| atom.text.contains("Gust near Rain-Soft Garden")));
         assert_eq!(plan.missing_need.as_deref(), Some("Moonwool Thread"));
         assert!(plan.target_economy_note.contains("motive: Rati"));
         assert!(plan.target_economy_note.contains("carried memories:"));
         assert!(plan
             .target_economy_note
-            .contains("heard Whiskerwind near Rain-Soft Garden"));
+            .contains("heard Gust near Rain-Soft Garden"));
         assert!(plan.target_economy_note.contains("Moonwool Thread"));
         assert!(plan.target_economy_note.contains("seeks:"));
         assert!(plan.fallback_text.contains("Moonwool Thread"));
@@ -40062,12 +43092,12 @@ mod tests {
             .resident_continuity
             .memory_atoms
             .iter()
-            .any(|atom| atom.text.contains("Whiskerwind near Rain-Soft Garden")));
+            .any(|atom| atom.text.contains("Gust near Rain-Soft Garden")));
         assert!(reply_plan.economy_note.contains("motive: Rati"));
         assert!(reply_plan.economy_note.contains("carried memories:"));
         assert!(reply_plan
             .economy_note
-            .contains("heard Whiskerwind near Rain-Soft Garden"));
+            .contains("heard Gust near Rain-Soft Garden"));
         assert!(reply_plan.economy_note.contains("Moonwool Thread"));
         assert!(reply_plan.economy_note.contains("seeks:"));
 
@@ -40103,7 +43133,7 @@ mod tests {
 
         let plan = runtime
             .avatar_chat_plan_for(5000, 1002)
-            .expect("Whiskerwind chat plan available");
+            .expect("Gust chat plan available");
         let line = plan.fallback_text.clone();
         let mut say = CwAction::default();
         say.kind = CW_ACTION_SAY;
@@ -40253,11 +43283,8 @@ mod tests {
         let state = runtime.state_response(Some(5000), &access);
         assert_eq!(state.bonds.len(), 1);
         assert_eq!(state.bonds[0].target_actor_id, 1002);
-        assert_eq!(
-            state.bonds[0].target_actor_name.as_deref(),
-            Some("Whiskerwind")
-        );
-        assert!(state.bonds[0].statement.contains("Whiskerwind"));
+        assert_eq!(state.bonds[0].target_actor_name.as_deref(), Some("Gust"));
+        assert!(state.bonds[0].statement.contains("Gust"));
         assert_eq!(state.bonds[0].strength, 1);
         assert!(state
             .ledger
@@ -40273,7 +43300,7 @@ mod tests {
             .actors
             .iter()
             .find(|actor| actor.id == 1002)
-            .expect("Whiskerwind remains visible after evolution");
+            .expect("Gust remains visible after evolution");
         assert_eq!(whiskerwind.stats.level, 2);
         let whiskerwind_card = &state.cards.actors[&1002];
         assert!(whiskerwind_card.evolved);
@@ -40289,10 +43316,10 @@ mod tests {
         assert_eq!(restored_state.bonds[0].target_actor_id, 1002);
         assert_eq!(restored_state.bonds[0].strength, 1);
 
-        let revised_statement = "Whiskerwind trusts me with thunder tea.";
+        let revised_statement = "Gust trusts me with thunder tea.";
         let blocked_revision = runtime
             .resolve_command(
-                &command_request(5000, &format!("bond whisker: {revised_statement}")),
+                &command_request(5000, &format!("bond gust: {revised_statement}")),
                 &access,
             )
             .expect("bond revision command remains recognized before banking");
@@ -40321,7 +43348,7 @@ mod tests {
 
         let revise_command = runtime
             .resolve_command(
-                &command_request(5000, &format!("revise bond whisker: {revised_statement}")),
+                &command_request(5000, &format!("revise bond gust: {revised_statement}")),
                 &access,
             )
             .expect("banked bond revision resolves as a command");
@@ -40371,7 +43398,7 @@ mod tests {
 
         let repeat_revision = runtime
             .resolve_command(
-                &command_request(5000, &format!("bond whisker: {revised_statement}")),
+                &command_request(5000, &format!("bond gust: {revised_statement}")),
                 &access,
             )
             .expect("same bond revision remains recognized");
@@ -40384,7 +43411,7 @@ mod tests {
         }
 
         let settle_command = runtime
-            .resolve_command(&command_request(5000, "settle whisker"), &access)
+            .resolve_command(&command_request(5000, "settle gust"), &access)
             .expect("bond settlement remains recognized");
         match settle_command.dispatch {
             CommandDispatch::Disabled { status, output } => {
@@ -40486,6 +43513,7 @@ mod tests {
         assert!(public.locations.iter().all(|location| location.id != 12));
         assert!(public.access.locked_card_ids.is_empty());
 
+        discover_seed_exit_pair_for_test(&mut runtime, 12, 11);
         let ownership = OwnershipIndex::parse("wallet-1:location-library");
         let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
         let with_library = runtime.world_response(Some(5000), &access);
@@ -40693,7 +43721,10 @@ mod tests {
 
     #[test]
     fn free_world_locations_are_public_with_optional_card_ownership() {
-        let runtime = RuntimeWorld::seeded();
+        let mut runtime = RuntimeWorld::seeded();
+        discover_seed_exit_pair_for_test(&mut runtime, 1, 2);
+        discover_seed_exit_pair_for_test(&mut runtime, 1, 11);
+        discover_all_seed_exits_for_test(&mut runtime);
         let no_wallet = AccessContext::default();
         let state = runtime.state_response(None, &no_wallet);
         let cottage_exits: BTreeSet<u64> = state
@@ -40736,14 +43767,14 @@ mod tests {
             (14, "location-greenhouse"),
             (15, "location-courtyard"),
         ] {
-            assert!(
-                world
-                    .locations
-                    .iter()
-                    .all(|location| location.id != location_id),
-                "Ruby High location {location_id} should stay hidden from the public world map"
-            );
-            assert!(!world.access.locked_card_ids.contains(&card_id.to_string()));
+            let location = world
+                .locations
+                .iter()
+                .find(|location| location.id == location_id)
+                .expect("discovered Ruby High location exists");
+            assert!(!location.accessible);
+            assert!(!location.card.accessible);
+            assert!(world.access.locked_card_ids.contains(&card_id.to_string()));
         }
 
         let ownership = OwnershipIndex::parse(
@@ -40771,10 +43802,13 @@ mod tests {
             .expect("Greenhouse location exists");
         assert!(greenhouse.card.accessible);
         assert!(greenhouse.card.owned);
-        assert!(
-            world.locations.iter().all(|location| location.id != 10),
-            "Science Class should stay hidden without its matching location card"
-        );
+        let science = world
+            .locations
+            .iter()
+            .find(|location| location.id == 10)
+            .expect("discovered Science Class exists");
+        assert!(!science.accessible);
+        assert!(!science.card.accessible);
         assert_eq!(library.card.set_number.as_deref(), Some("FB-021"));
         assert_eq!(
             greenhouse.card.profile_id.as_deref(),
@@ -42053,8 +45087,9 @@ mod tests {
         assert!(ownership
             .cards_for_wallet("wallet-1")
             .contains("location-science-lab"));
-        let runtime = state.inner.lock().await;
+        let mut runtime = state.inner.lock().await;
         assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 10);
+        discover_seed_exit_pair_for_test(&mut runtime, 10, 11);
         let access = AccessContext::from_parts(Some("wallet-1"), [None], &ownership);
         let world_view = runtime.world_response(None, &access);
         let science = world_view

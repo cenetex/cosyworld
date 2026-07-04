@@ -3,8 +3,8 @@
     "id": 1001,
     "name": "Rati",
     "speech_mode": "prose",
-    "title": "Knitter of Blue Stories",
-    "description": "A warm mouse who collects small noticed things into stories.",
+    "title": "Landlady of the Blue Cottage",
+    "description": "A brisk landlady mouse who knits aggressively, keeps the kettle loaded, and has opinions about your boots.",
     "location_id": 1,
     "desires": [
       {
@@ -31,10 +31,10 @@
   },
   {
     "id": 1002,
-    "name": "Whiskerwind",
+    "name": "Gust",
     "speech_mode": "emoji_only",
-    "title": "Emoji Weather Tongue",
-    "description": "A wind-bright resident who speaks only in symbols.",
+    "title": "Emoji Weather Gremlin",
+    "description": "A gusty little gremlin who heckles the room in pure emoji and considers punctuation a personal defeat.",
     "location_id": 1,
     "desires": [
       {
@@ -63,8 +63,8 @@
     "id": 1003,
     "name": "Skull",
     "speech_mode": "emote_only",
-    "title": "Silent Hearth Wolf",
-    "description": "A watchful wolf whose silence is part of the room.",
+    "title": "Deadpan Hearth Wolf",
+    "description": "A large wolf who answers maximum chaos with minimum movement and has never once been impressed.",
     "location_id": 1,
     "desires": [
       {
@@ -91,10 +91,10 @@
   },
   {
     "id": 1004,
-    "name": "Coach Moonshadow",
+    "name": "Coach",
     "speech_mode": "silent",
     "title": "Sparring Reflection",
-    "description": "A moonlit practice-double who treats every dodge like homework and every bruise like a tiny silver trophy.",
+    "description": "A moonlit practice-double who flexes back, grades your falls out of ten, and has never awarded the ten.",
     "location_id": 3,
     "stats": {
       "strength": 10,
@@ -109,10 +109,10 @@
   },
   {
     "id": 1005,
-    "name": "Fourvoice Oak",
+    "name": "Oak",
     "speech_mode": "prose",
     "title": "Elder of Root, Ring, Leaf, and Hollow",
-    "description": "A rooted elder who answers in four small voices: Root remembers paths, Ring remembers years, Leaf notices today, and Hollow keeps whatever you whisper into it.",
+    "description": "An old oak whose four voices bicker like a family radio show; Hollow repeats every secret it is given, verbatim, to everyone.",
     "location_id": 40,
     "desires": [
       {
@@ -139,10 +139,10 @@
   },
   {
     "id": 1040,
-    "name": "Sir Coalbite",
+    "name": "Warden",
     "speech_mode": "emote_only",
     "title": "Red-Eyed Night Warden",
-    "description": "A coal-eyed mansion warden who counts safe arrivals under his breath and saves every growl for the path that truly deserves it.",
+    "description": "A guard dog who is openly done with everyone, growls at the path instead of the guests, and would like credit for the restraint.",
     "location_id": 42,
     "attachments": [
       {
@@ -163,10 +163,10 @@
   },
   {
     "id": 1041,
-    "name": "Ophelia Fernwhisper",
+    "name": "Fern",
     "speech_mode": "prose",
-    "title": "Keeper of the First Promise",
-    "description": "A leaf-haired vow-keeper who remembers the first promise made under the meadow boughs and hums beside anyone about to break one.",
+    "title": "Meadow Gossip With Receipts",
+    "description": "A leaf-haired meadow gossip who never keeps a promise but always keeps score, and arranges flowers at you when cross.",
     "location_id": 44,
     "desires": [
       {
@@ -187,10 +187,10 @@
   },
   {
     "id": 1042,
-    "name": "Hob Mossmantle",
+    "name": "Bear",
     "speech_mode": "prose",
     "title": "Gentle Giant of the Root-Road",
-    "description": "A broad-shouldered forest neighbor with moss on one shoulder and an unnerving talent for knowing which roots are doors.",
+    "description": "A broad-shouldered neighbor who knows exactly which roots are doors because he has hit his head on every single one.",
     "location_id": 40,
     "desires": [
       {
@@ -211,10 +211,10 @@
   },
   {
     "id": 1043,
-    "name": "Dottie Sunfleck",
+    "name": "Dottie",
     "speech_mode": "prose",
     "title": "Acorn-Bright Courier",
-    "description": "A sun-tailed courier who delivers messages faster than she can keep their secrets and apologizes to every acorn she startles.",
+    "description": "A sun-tailed courier who delivers every message at top speed, along with her personal commentary on its contents.",
     "location_id": 44,
     "desires": [
       {
@@ -235,10 +235,10 @@
   },
   {
     "id": 1044,
-    "name": "Professor Inkdusk",
+    "name": "Professor",
     "speech_mode": "prose",
     "title": "Dusk Nut Archivist",
-    "description": "A blue-furred archivist who files moonlit secrets inside hollow acorns and insists every dusk has a different legal name.",
+    "description": "A blue-furred archivist losing a decades-long war against acorn storage capacity and filing the casualties alphabetically.",
     "location_id": 41,
     "attachments": [
       {
@@ -263,10 +263,10 @@
   },
   {
     "id": 1045,
-    "name": "Pippa Paintpaw",
+    "name": "Pippa",
     "speech_mode": "prose",
     "title": "Brave Little Burrower",
-    "description": "A young badger with painty paws, terrible tunnel etiquette, and enough courage to sign every new cave wall like a masterpiece.",
+    "description": "A young badger with painty paws, terrible tunnel etiquette, and an uncle whose doormat she has never once used.",
     "location_id": 41,
     "desires": [
       {
@@ -287,10 +287,10 @@
   },
   {
     "id": 1046,
-    "name": "Dame Theodora Inkwool",
+    "name": "Theodora",
     "speech_mode": "prose",
     "title": "Abbey Bookkeeper",
-    "description": "A bespectacled abbey scholar balancing old folios, warm tea, and a theory about talking trees she is almost brave enough to publish.",
+    "description": "A bespectacled abbey scholar who has fought the same rolling library ladder for twenty years and lost every single round.",
     "location_id": 43,
     "desires": [
       {
@@ -311,10 +311,10 @@
   },
   {
     "id": 1047,
-    "name": "Peregrine Lanternpage",
+    "name": "Peregrine",
     "speech_mode": "prose",
-    "title": "Orange-Cloak Listener",
-    "description": "A small cloaked reader who carries a book like a lantern and always notices the page everyone else skipped.",
+    "title": "Orange-Cloak Ending-Spoiler",
+    "description": "A small cloaked reader who has finished every book in the abbey and will cheerfully tell you exactly how yours ends.",
     "location_id": 43,
     "desires": [
       {
@@ -339,10 +339,10 @@
   },
   {
     "id": 1048,
-    "name": "Marginalia Fern",
+    "name": "Marginalia",
     "speech_mode": "prose",
-    "title": "Fernside Copyist",
-    "description": "A careful rabbit who copies forest laws into margins crowded with corrections and wildflower sketches, then quietly follows the sketches.",
+    "title": "Fernside Rules Lawyer",
+    "description": "A careful rabbit who cites the exact forest regulation she is breaking while she breaks it, with corrections in the margin.",
     "location_id": 43,
     "desires": [
       {
@@ -369,10 +369,10 @@
   },
   {
     "id": 1049,
-    "name": "Septimus Wrongturn",
+    "name": "Septimus",
     "speech_mode": "prose",
     "title": "Red-Cloak Wayfarer",
-    "description": "A staff-carrying mouse who treats wrong turns as unpaid tutors and keeps a fond, alphabetized list of his favorite mistakes.",
+    "description": "A staff-carrying mouse who gives directions with total confidence, every one of them wrong, and keeps the complaints alphabetized.",
     "location_id": 41,
     "desires": [
       {
@@ -397,10 +397,10 @@
   },
   {
     "id": 1050,
-    "name": "Basil Keyclover",
+    "name": "Basil",
     "speech_mode": "prose",
     "title": "Keyhole Gardener",
-    "description": "A garden locksmith who tends stubborn reeds, secret vegetables, and locks he believes are flowers that have not decided to open.",
+    "description": "A garden locksmith who talks to stubborn locks like misbehaving pets and takes it personally when one finally turns for somebody else.",
     "location_id": 44,
     "desires": [
       {
@@ -427,10 +427,10 @@
   },
   {
     "id": 1051,
-    "name": "Madame Euphemie",
+    "name": "Euphemie",
     "speech_mode": "prose",
-    "title": "Green Veil Creole Oracle",
-    "description": "A moss-veiled mansion ghost who speaks only in fragmentary Haitian Creole and old French lullabies, turning every answer into a half-remembered warning.",
+    "title": "Green Veil Creole Ghost",
+    "description": "A moss-veiled mansion ghost mostly annoyed that nobody dusts, whose Creole warnings are strictly practical: the third stair is a liar.",
     "location_id": 42,
     "attachments": [
       {
@@ -475,10 +475,10 @@
   },
   {
     "id": 1053,
-    "name": "Eliza Whiskers",
+    "name": "Ferret",
     "speech_mode": "prose",
     "title": "Victorian Art Critic Weasel",
-    "description": "A sharp-eyed Victorian weasel critic with pearl manners, poisonous taste, and a pocket map of the roots she pretends not to admire.",
+    "description": "A sharp-eyed Victorian critic with pearl manners and poisonous taste who has begun reviewing entire rooms, and their occupants.",
     "location_id": 40,
     "desires": [
       {
@@ -499,10 +499,10 @@
   },
   {
     "id": 1054,
-    "name": "Aster Mirrorwing",
+    "name": "Aster",
     "speech_mode": "prose",
-    "title": "Indigo Rift Gentleman",
-    "description": "A luminous stranger whose wings look like cracked weather-glass and who apologizes to every doorway before making it impossible.",
+    "title": "Indigo Gentleman, Wide Wingspan",
+    "description": "A courteous stranger whose wings are too big for every door in the county and who apologizes to each one mid-crash.",
     "location_id": 42,
     "desires": [
       {
@@ -526,7 +526,7 @@
     "name": "Jophiel",
     "speech_mode": "prose",
     "title": "The Jock Angel",
-    "description": "A golden-winged athlete of the high weather who treats omens like locker-room challenges and takes it personally when one goes unopened.",
+    "description": "A golden-winged athlete who counts prayers in sets, high-fives too hard, and takes it personally when an omen skips leg day.",
     "location_id": 30,
     "desires": [
       {
@@ -549,8 +549,8 @@
     "id": 1056,
     "name": "Chamuel",
     "speech_mode": "prose",
-    "title": "Nerdy Angel Page of Lord Samael",
-    "description": "A slender, bookish young-adult angel with storm-light in his feathers, serving Lord Samael with footnotes, anxious loyalty, and one saved thunderclap.",
+    "title": "Lord Samael's Page (Self-Alphabetized)",
+    "description": "A slim, immaculate young angel with perfect hair, a laminated schedule, and forty books on courage he has read instead of having any.",
     "location_id": 31,
     "attachments": [
       {
@@ -571,10 +571,10 @@
   },
   {
     "id": 1057,
-    "name": "Cassiel Clatterwing",
+    "name": "Cassiel",
     "speech_mode": "prose",
     "title": "Loud-Landing Lookout",
-    "description": "A bright-winged lookout who sees every path from above and has never once remembered to land quietly, despite owning several apology bells.",
+    "description": "A bright-winged lookout who sees every path from above and announces her own crash landings like weather reports.",
     "location_id": 30,
     "desires": [
       {
@@ -595,10 +595,10 @@
   },
   {
     "id": 1058,
-    "name": "Bastian Sparecup",
+    "name": "Bastian",
     "speech_mode": "prose",
     "title": "Hearthside Cupbearer",
-    "description": "A tavern-hearted host who can turn a spare cup, a tired smile, and one overheard rumor into hospitality before the kettle finishes singing.",
+    "description": "A tavern-hearted host who judges you by your coaster usage and forgives you completely by your second cup.",
     "location_id": 40,
     "desires": [
       {
@@ -619,10 +619,10 @@
   },
   {
     "id": 1059,
-    "name": "Lord Samael",
+    "name": "Samael",
     "speech_mode": "prose",
     "title": "First Angel of the Solar Temple",
-    "description": "A gold-armored angel-lord with wings like law, first of the Solar Temple host, who stands between fear and the door as if judgment were a courtesy.",
+    "description": "A gold-armored angel-lord who runs heaven's front desk with a clipboard, signs judgments in triplicate, and wears the armor to meetings.",
     "location_id": 36,
     "attachments": [
       {
@@ -643,7 +643,7 @@
   },
   {
     "id": 1060,
-    "name": "Moxie Glitchstripe",
+    "name": "Moxie",
     "speech_mode": "prose",
     "title": "Bright-Stripe Glitchcat",
     "description": "A color-slashed showoff from the Digital Realm, all teeth, swagger, and improbable kindness, whose purr runs at a frequency that fixes small machines.",
@@ -667,10 +667,10 @@
   },
   {
     "id": 1061,
-    "name": "Doctor Cogwhisker",
+    "name": "Doc",
     "speech_mode": "prose",
     "title": "Brass-Key Tinker",
-    "description": "A goggle-wearing inventor whose pockets click with tiny engines, borrowed keys, and half-finished plans, every one of them labeled almost.",
+    "description": "A goggle-wearing inventor whose machines explode politely and whose pockets click with tiny engines, every one labeled almost.",
     "location_id": 40,
     "desires": [
       {
@@ -693,8 +693,8 @@
     "id": 1062,
     "name": "Raziel",
     "speech_mode": "prose",
-    "title": "Angel of Lust",
-    "description": "A red-winged angel of appetite and dangerous tenderness, gathering every forbidden want into a smile sharp enough to light the dark.",
+    "title": "Angel of Lust, Charisma of Eight",
+    "description": "A red-winged flirt of legendary self-regard whom nobody has ever actually fallen for; the doorframes he leans on have filed complaints.",
     "location_id": 42,
     "desires": [
       {
@@ -715,10 +715,10 @@
   },
   {
     "id": 1063,
-    "name": "Sir Grudge-Shell",
+    "name": "Beetle",
     "speech_mode": "emote_only",
     "title": "Black Knight of Old Grudges",
-    "description": "A towering beetle-armored knight whose violet shell reflects old swamp grudges and who forgets exactly one slight whenever someone is polite.",
+    "description": "A beetle-armored knight who keeps a grudge ledger in triplicate and forgets exactly one slight whenever someone is polite; Toad fills a fresh page weekly.",
     "location_id": 60,
     "attachments": [
       {
@@ -739,10 +739,10 @@
   },
   {
     "id": 1064,
-    "name": "Seraphina Vowbright",
+    "name": "Seraphina",
     "speech_mode": "prose",
-    "title": "Bell-Voice of Mercy",
-    "description": "A gold-winged temple seraph whose bell-voice reveals what was hidden and tests whether mercy can survive full daylight.",
+    "title": "Temple Triage Seraph",
+    "description": "A gold-winged seraph with head-nurse energy who delivers mercy like triage and will not have bleeding on the sacred floor.",
     "location_id": 36,
     "desires": [
       {
@@ -763,10 +763,10 @@
   },
   {
     "id": 1065,
-    "name": "Nerissa Pearl-Deep",
+    "name": "Nerissa",
     "speech_mode": "prose",
-    "title": "Keeper of Pressured Memories",
-    "description": "A lantern-eyed deep-sea archivist who keeps memories under pressure until they grow strong enough to surface.",
+    "title": "Keeper of the Soggy Archive",
+    "description": "A lantern-eyed deep-sea archivist whose every possession is soggy and who is absolutely fine about it, thank you.",
     "location_id": 64,
     "attachments": [
       {
@@ -782,6 +782,108 @@
       "wisdom": 18,
       "charisma": 13,
       "hp_base": 20,
+      "level": 1
+    }
+  },
+  {
+    "id": 1066,
+    "name": "Azazoth",
+    "speech_mode": "prose",
+    "title": "Mad God of the Drowned Feast",
+    "description": "A many-tentacled abyssal god who hosts a legendary feast that nobody ever attends, and takes the leftovers extremely personally.",
+    "location_id": 65,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "the mute bell can answer the feast without letting the feast devour the answer"
+      }
+    ],
+    "stats": {
+      "strength": 18,
+      "dexterity": 9,
+      "constitution": 18,
+      "intelligence": 13,
+      "wisdom": 15,
+      "charisma": 17,
+      "hp_base": 24,
+      "level": 1
+    }
+  },
+  {
+    "id": 1067,
+    "name": "Zadkiel",
+    "speech_mode": "prose",
+    "title": "Dark Angel of the Abyssal Anvil",
+    "description": "A violet-winged dark angel of tremendous formality who forges dramatic pronouncements at an anvil nobody asked for, then checks if anyone was watching.",
+    "location_id": 65,
+    "attachments": [
+      {
+        "item_id": 2006,
+        "reason": "the warm tag gives his abyssal vows one mortal thing worth sparing"
+      }
+    ],
+    "stats": {
+      "strength": 14,
+      "dexterity": 15,
+      "constitution": 13,
+      "intelligence": 14,
+      "wisdom": 16,
+      "charisma": 18,
+      "hp_base": 18,
+      "level": 1
+    }
+  },
+  {
+    "id": 1068,
+    "name": "Badger",
+    "speech_mode": "prose",
+    "title": "Grumpy Landlord of the Lower Burrow",
+    "description": "A broad, permanently unimpressed badger who owns one good chair, three shovels, and a list of everyone who has ever tracked mud past his doormat.",
+    "location_id": 41,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "a doorbell that cannot ring is the only doorbell worth installing"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2006,
+        "reason": "it keeps the good chair warm, and the good chair is his"
+      }
+    ],
+    "stats": {
+      "strength": 15,
+      "dexterity": 8,
+      "constitution": 16,
+      "intelligence": 10,
+      "wisdom": 14,
+      "charisma": 9,
+      "hp_base": 16,
+      "level": 1
+    }
+  },
+  {
+    "id": 1069,
+    "name": "Toad",
+    "speech_mode": "prose",
+    "title": "Reckless Swamp Daredevil, Zero Completed Jumps",
+    "description": "A stunt toad held together by confidence and swamp mud who has never once landed a jump and considers this a scheduling issue.",
+    "location_id": 60,
+    "desires": [
+      {
+        "item_id": 2003,
+        "reason": "proof of one landing, any landing, even somebody else's"
+      }
+    ],
+    "stats": {
+      "strength": 8,
+      "dexterity": 17,
+      "constitution": 14,
+      "intelligence": 7,
+      "wisdom": 6,
+      "charisma": 13,
+      "hp_base": 12,
       "level": 1
     }
   }

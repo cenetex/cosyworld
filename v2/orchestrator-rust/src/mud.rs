@@ -471,6 +471,15 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             "You search {}.",
             event_content_part(event, 0).unwrap_or("a room feature")
         )),
+        "exit.discovered" => Some(event.content.clone().unwrap_or_else(|| {
+            format!(
+                "You discover a way to {}.",
+                event
+                    .destination_location_name
+                    .as_deref()
+                    .unwrap_or("somewhere new")
+            )
+        })),
         "item.found" => Some(format!(
             "You find {}.",
             event.item_name.as_deref().unwrap_or("an item")
@@ -762,20 +771,20 @@ impl RuntimeWorld {
                 },
             }),
             "search" => {
-                if !self.room_floor_empty(actor.location_id) {
-                    return Ok(ResolvedCommand {
-                        command: command.clone(),
-                        verb,
-                        action: Some(command_action("search", "Search", &command)),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output:
-                                "There is already an item here. Take it, use it, or move it before searching."
-                                    .to_string(),
-                        },
-                    });
-                }
                 if search_query_is_room(rest) {
+                    if let Some(target) = self.default_search_target(actor.id) {
+                        return Ok(ResolvedCommand {
+                            command: command.clone(),
+                            verb,
+                            action: Some(command_action("search", "Search", &command)),
+                            dispatch: CommandDispatch::SearchFeature {
+                                location_id: target.location_id,
+                                feature_key: target.key,
+                                feature_name: target.name,
+                                output: target.output,
+                            },
+                        });
+                    }
                     return Ok(ResolvedCommand {
                         command: command.clone(),
                         verb,
@@ -790,6 +799,28 @@ impl RuntimeWorld {
                 let feature = self
                     .resolve_room_feature(actor.location_id, rest)
                     .map_err(|output| command_error(&command, "search", 404, output))?;
+                let candidates =
+                    self.search_reveal_candidates_for_feature(actor.location_id, &feature.key);
+                if candidates.is_empty() {
+                    let output = if self.room_floor_empty(actor.location_id) {
+                        "Nothing else turns up here right now."
+                    } else {
+                        "There is already an item here. Take it, use it, or move it before searching for hidden items."
+                    };
+                    return Ok(ResolvedCommand {
+                        command: command.clone(),
+                        verb,
+                        action: Some(command_action("search", "Search", &command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: if self.room_floor_empty(actor.location_id) {
+                                404
+                            } else {
+                                409
+                            },
+                            output: output.to_string(),
+                        },
+                    });
+                }
                 Ok(ResolvedCommand {
                     command: command.clone(),
                     verb,

@@ -47,6 +47,24 @@
       --type-shuffle-rgb: 157, 179, 199;
       --type-utility: #aab7a4;
       --type-utility-rgb: 170, 183, 164;
+      --rarity-free: #9db3c7;
+      --rarity-free-rgb: 157, 179, 199;
+      --rarity-seed: #65e68a;
+      --rarity-seed-rgb: 101, 230, 138;
+      --rarity-common: #f2df9b;
+      --rarity-common-rgb: 242, 223, 155;
+      --rarity-uncommon: #79c7ff;
+      --rarity-uncommon-rgb: 121, 199, 255;
+      --rarity-generated: #82e6c2;
+      --rarity-generated-rgb: 130, 230, 194;
+      --rarity-rare: #b89cff;
+      --rarity-rare-rgb: 184, 156, 255;
+      --rarity-super-rare: #f2a65a;
+      --rarity-super-rare-rgb: 242, 166, 90;
+      --rarity-ultra-rare: #c65cff;
+      --rarity-ultra-rare-rgb: 198, 92, 255;
+      --rarity-mythic: #ffd36a;
+      --rarity-mythic-rgb: 255, 211, 106;
       --safe-bot: env(safe-area-inset-bottom, 0px);
     }
     * { box-sizing: border-box; }
@@ -608,10 +626,11 @@
       border-top: 1px solid rgba(129, 255, 167, 0.18);
       background: rgba(5, 12, 7, 0.52);
     }
-    .log:not(.account-mode):not(.chat-mode) {
+    .log:not(.account-mode):not(.chat-mode):not(.room-mode) {
       display: none;
     }
-    .log.chat-mode {
+    .log.chat-mode,
+    .log.room-mode {
       display: flex;
       max-height: none;
     }
@@ -1072,6 +1091,18 @@
     .cmd.type-danger { --cmd-accent: var(--type-danger); --cmd-accent-rgb: var(--type-danger-rgb); }
     .cmd.type-shuffle { --cmd-accent: var(--type-shuffle); --cmd-accent-rgb: var(--type-shuffle-rgb); }
     .cmd.type-utility { --cmd-accent: var(--type-utility); --cmd-accent-rgb: var(--type-utility-rgb); }
+    .cmd.rarity-free { --cmd-accent: var(--rarity-free); --cmd-accent-rgb: var(--rarity-free-rgb); }
+    .cmd.rarity-seed { --cmd-accent: var(--rarity-seed); --cmd-accent-rgb: var(--rarity-seed-rgb); }
+    .cmd.rarity-common { --cmd-accent: var(--rarity-common); --cmd-accent-rgb: var(--rarity-common-rgb); }
+    .cmd.rarity-uncommon { --cmd-accent: var(--rarity-uncommon); --cmd-accent-rgb: var(--rarity-uncommon-rgb); }
+    .cmd.rarity-generated,
+    .cmd.rarity-mystery,
+    .cmd.rarity-pack { --cmd-accent: var(--rarity-generated); --cmd-accent-rgb: var(--rarity-generated-rgb); }
+    .cmd.rarity-rare { --cmd-accent: var(--rarity-rare); --cmd-accent-rgb: var(--rarity-rare-rgb); }
+    .cmd.rarity-super-rare { --cmd-accent: var(--rarity-super-rare); --cmd-accent-rgb: var(--rarity-super-rare-rgb); }
+    .cmd.rarity-ultra-rare { --cmd-accent: var(--rarity-ultra-rare); --cmd-accent-rgb: var(--rarity-ultra-rare-rgb); }
+    .cmd.rarity-mythic,
+    .cmd.rarity-legendary { --cmd-accent: var(--rarity-mythic); --cmd-accent-rgb: var(--rarity-mythic-rgb); }
     .cmd::before {
       content: "";
       position: absolute;
@@ -1371,6 +1402,48 @@
     }
     .action-row.risk .action-row-value {
       color: var(--red);
+    }
+    .action-choice-list {
+      display: grid;
+      gap: 7px;
+    }
+    .action-choice-list[hidden] {
+      display: none;
+    }
+    .action-choice {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr);
+      gap: 9px;
+      align-items: start;
+      padding: 9px;
+      border: 1px solid rgba(216, 247, 220, 0.14);
+      border-radius: 4px;
+      background: rgba(216, 247, 220, 0.04);
+      cursor: pointer;
+    }
+    .action-choice.active {
+      border-color: rgba(101, 230, 138, 0.58);
+      background: rgba(101, 230, 138, 0.11);
+    }
+    .action-choice input {
+      margin: 2px 0 0;
+      accent-color: var(--green);
+    }
+    .action-choice-text {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+    .action-choice-label {
+      color: var(--text);
+      font-weight: 900;
+      line-height: 1.2;
+    }
+    .action-choice-detail {
+      color: var(--dim);
+      font-size: 12px;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
     }
     .action-confirm {
       min-height: 42px;
@@ -1818,6 +1891,7 @@
       <div class="action-title" id="action-modal-title"></div>
       <div class="action-summary" id="action-modal-summary"></div>
       <div class="action-meta" id="action-modal-meta"></div>
+      <div class="action-choice-list" id="action-modal-choices" hidden></div>
       <button class="action-confirm" id="action-modal-confirm" type="button">confirm</button>
     </section>
   </div>
@@ -1869,6 +1943,22 @@
       "utility",
     ];
     const actionCardTypeClasses = actionCardTypes.map((type) => `type-${type}`);
+    const actionCardRarities = [
+      "free",
+      "seed",
+      "common",
+      "uncommon",
+      "generated",
+      "mystery",
+      "pack",
+      "rare",
+      "super-rare",
+      "ultra-rare",
+      "mythic",
+      "legendary",
+    ];
+    const actionCardRarityClasses = actionCardRarities.map((rarity) => `rarity-${rarity}`);
+    const actionCardAccentClasses = [...actionCardTypeClasses, ...actionCardRarityClasses];
     const bootParams = new URLSearchParams(window.location.search);
     const wantsReset = ["1", "true", "yes"].includes(String(bootParams.get("reset") || "").toLowerCase());
     if (wantsReset) clearLocalSession();
@@ -2169,15 +2259,25 @@
 
     function buildActions(view) {
       if (view.primary_action?.kind === "create_avatar") {
-        return authoredCallingChoices.map((choice, index) => ({
-          label: choice.label,
-          detail: choice.detail,
+        const action = {
+          label: "begin",
+          detail: "choose calling",
           command: "create avatar",
-          focusKey: `create-avatar:${index}`,
+          focusKey: "create-avatar",
           card: cardForLocation(view.location?.id),
           shape: "location",
-          run: () => createAvatar(choice.statement),
-        }));
+          modalTitle: "choose a calling",
+          modalSummary: "Select the first promise your avatar carries into CosyWorld.",
+          effect: "creates a new avatar at the cottage threshold",
+          choices: authoredCallingChoices.map((choice) => ({
+            label: choice.label,
+            detail: choice.detail,
+            value: choice.statement,
+          })),
+          selectedChoice: authoredCallingChoices[0].statement,
+        };
+        action.run = () => createAvatar(action.selectedChoice || authoredCallingChoices[0].statement);
+        return [action];
       }
 
       const turn = view.turn || {};
@@ -2520,8 +2620,11 @@
           run: () => action("/actions/work", { actor_id: actorId }),
         });
       }
-      if (options.has("rest")) {
-        const tired = (view.tags || []).find((tag) => tag.label === "tired");
+      const actorTired = (view.tags || []).some((tag) => (
+        tag.label === "tired"
+        && (!tag.scope_id || Number(tag.scope_id) === Number(actorId))
+      ));
+      if (options.has("rest") && actorTired) {
         const offer = offerFor("rest");
         const warmedRest = String(offer?.effect || "").includes("hearth tonic warmth");
         const restPriority = frontierRoom ? 25 : 84;
@@ -2757,6 +2860,11 @@
       return actionCardTypes.includes(normalized) ? normalized : "";
     }
 
+    function normalizeActionCardRarity(rarity) {
+      const normalized = String(rarity || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      return actionCardRarities.includes(normalized) ? normalized : "generated";
+    }
+
     function actionCardType(action) {
       const explicit = normalizeActionCardType(action?.cardType || action?.type);
       if (explicit) return explicit;
@@ -2781,6 +2889,13 @@
       if (label === "prepare" || label === "work" || label === "help" || label === "finish") return "project";
       if (label === "rest") return "utility";
       return "utility";
+    }
+
+    function actionCardAccentClass(action) {
+      const cardType = actionCardType(action);
+      if (cardType === "combat") return { cardType, rarity: "", className: "type-combat" };
+      const rarity = normalizeActionCardRarity(action?.card?.rarity || action?.rarity || action?.target?.rarity);
+      return { cardType, rarity, className: `rarity-${rarity}` };
     }
 
     function setWalletQrStatus(message, kind = "ok") {
@@ -3253,6 +3368,7 @@
         || event.type === "message.created"
         || event.type === "move.blocked"
         || event.type === "feature.searched"
+        || event.type === "exit.discovered"
         || event.type === "item.picked_up"
         || event.type === "item.dropped"
         || event.type === "item.used"
@@ -3694,6 +3810,9 @@
       if (event.type === "feature.searched") {
         return { kind: "search", label: "search", text: cleanStatusText(featureSearchEventText(event)) };
       }
+      if (event.type === "exit.discovered") {
+        return { kind: "search", label: "entrance", text: cleanStatusText(eventText(event)) };
+      }
       if (event.type === "ability_check.rolled") {
         return { kind: "roll", label: "roll", text: cleanStatusText(listenEventText(event)) };
       }
@@ -3717,6 +3836,7 @@
       const type = String(event?.type || "");
       if (type.startsWith("item.")) return "item";
       if (type.startsWith("combat.")) return "combat";
+      if (type === "exit.discovered") return "search";
       if (type === "encounter.reset") return "combat";
       if (type === "hand.shuffled") return "hand";
       if (type.startsWith("turn.")) return "hand";
@@ -3728,6 +3848,7 @@
       const type = String(event?.type || "");
       if (type.startsWith("item.")) return "item";
       if (type.startsWith("combat.")) return "combat";
+      if (type === "exit.discovered") return "entrance";
       if (type === "encounter.reset") return "frontier";
       if (type === "hand.shuffled") return "hand";
       if (type.startsWith("turn.")) return "turn";
@@ -3753,6 +3874,7 @@
       const visibleEvents = logEvents.filter(eventIsChatTranscriptEvent);
       log.classList.toggle("account-mode", Boolean(accountPanel));
       log.classList.toggle("chat-mode", !accountPanel && visibleEvents.length > 0);
+      log.classList.toggle("room-mode", !accountPanel && visibleEvents.length === 0);
       if (accountPanel) {
         log.innerHTML = `${accountPanel}${visibleEvents.map(timelineEventHtml).join("")}`;
         log.scrollTop = 0;
@@ -3920,8 +4042,8 @@
         const pieces = ["Firelight warms The Cosy Cottage; rain taps the windows and the low doorway waits."];
         if (names.has("Rati")) pieces.push("Rati knits a blue scarf near the hearth.");
         else pieces.push("Rati's blue scarf basket marks the chair where she often sits.");
-        if (names.has("Whiskerwind")) pieces.push("Whiskerwind gathers weather into bright little symbols.");
-        if (names.has("Skull")) pieces.push("Skull keeps silent watch by the door.");
+        if (names.has("Gust")) pieces.push("Gust heckles the weather in bright little symbols.");
+        if (names.has("Skull")) pieces.push("Skull watches the door like it owes him money.");
         return pieces.join(" ");
       }
       if (locationId === 2) return gardenOpeningBeat(view);
@@ -4071,6 +4193,9 @@
       if (event.type === "command.output") return event.content || "";
       if (event.type === "message.created") return event.content || "";
       if (event.type === "feature.searched") return featureSearchEventText(event);
+      if (event.type === "exit.discovered") {
+        return event.content || `discovers a way to ${event.destination_location_name || "somewhere new"}.`;
+      }
       if (event.type === "world.reset") return "the world returns to its first page.";
       if (event.type === "actor.created") return `${event.actor_name || "Someone"} enters ${event.location_name}.`;
       if (event.type === "actor.entered_location") return `arrives in ${event.location_name}.`;
@@ -4641,6 +4766,7 @@
     }
 
     function actionSummary(action) {
+      if (action?.modalSummary) return String(action.modalSummary);
       if (String(action?.label || "").toLowerCase() === "ping") {
         return "Start a short room ping. When the countdown ends, the stuck turn skips to a player who ponged.";
       }
@@ -4663,6 +4789,7 @@
 
     function actionConfirmLabel(action) {
       const label = String(action?.label || "").toLowerCase();
+      if (String(action?.command || "").trim().toLowerCase() === "create avatar") return "begin";
       if (label === "grow" || label === "bank") return "claim growth";
       if (label === "travel") return "go";
       if (label === "listen" || label === "listen again") return "listen";
@@ -4678,7 +4805,7 @@
     function openActionModal(action) {
       if (!action || actionBusy) return;
       actionConfirmAction = action;
-      const label = actionTitle(action);
+      const label = action.modalTitle || actionTitle(action);
       $("action-modal-image").src = actionImage(action);
       $("action-modal-image").alt = action.card?.display_name || action.detail || label;
       $("action-modal-title").textContent = label;
@@ -4687,15 +4814,45 @@
         const rowClass = key === "Watch for" ? " risk" : "";
         return `<div class="action-row${rowClass}"><span class="action-row-key">${escapeHtml(key)}</span><span class="action-row-value">${escapeHtml(value)}</span></div>`;
       }).join("");
+      renderActionChoices(action);
       $("action-modal-confirm").textContent = actionConfirmLabel(action);
       $("action-modal").hidden = false;
       $("action-modal-confirm").focus();
+    }
+
+    function renderActionChoices(action) {
+      const list = $("action-modal-choices");
+      const choices = Array.isArray(action?.choices) ? action.choices : [];
+      if (!choices.length) {
+        list.hidden = true;
+        list.innerHTML = "";
+        return;
+      }
+      const selected = action.selectedChoice || choices[0]?.value || "";
+      action.selectedChoice = selected;
+      list.hidden = false;
+      list.innerHTML = choices.map((choice, index) => {
+        const value = String(choice.value || "");
+        const active = value === selected;
+        return `<label class="action-choice${active ? " active" : ""}" data-action-choice-index="${index}"><input type="radio" name="action-choice" value="${escapeAttr(value)}"${active ? " checked" : ""} /><span class="action-choice-text"><span class="action-choice-label">${escapeHtml(choice.label || value)}</span><span class="action-choice-detail">${escapeHtml(choice.detail || value)}</span></span></label>`;
+      }).join("");
+    }
+
+    function chooseActionModalChoice(index) {
+      const action = actionConfirmAction;
+      const choices = Array.isArray(action?.choices) ? action.choices : [];
+      const choice = choices[index];
+      if (!choice) return;
+      action.selectedChoice = choice.value;
+      renderActionChoices(action);
     }
 
     function closeActionModal() {
       $("action-modal").hidden = true;
       $("action-modal-image").removeAttribute("src");
       $("action-modal-meta").innerHTML = "";
+      $("action-modal-choices").hidden = true;
+      $("action-modal-choices").innerHTML = "";
       actionConfirmAction = null;
     }
 
@@ -4960,7 +5117,8 @@
         button.removeAttribute("data-action-index");
         button.removeAttribute("data-hand-key");
         button.removeAttribute("data-card-type");
-        button.classList.remove(...actionCardTypeClasses);
+        button.removeAttribute("data-card-rarity");
+        button.classList.remove(...actionCardAccentClasses);
         button.classList.remove("dealt");
         button.setAttribute("aria-label", "wait");
         button.classList.remove("has-copy");
@@ -4972,10 +5130,12 @@
       else button.removeAttribute("aria-busy");
       if (action.command) button.dataset.command = action.command;
       else button.removeAttribute("data-command");
-      button.classList.remove(...actionCardTypeClasses);
-      const cardType = actionCardType(action);
+      button.classList.remove(...actionCardAccentClasses);
+      const { cardType, rarity, className } = actionCardAccentClass(action);
       button.dataset.cardType = cardType;
-      button.classList.add(`type-${cardType}`);
+      if (rarity) button.dataset.cardRarity = rarity;
+      else button.removeAttribute("data-card-rarity");
+      button.classList.add(className);
       if (Number.isInteger(action.actionIndex)) button.dataset.actionIndex = String(action.actionIndex);
       else button.removeAttribute("data-action-index");
       const handKey = action.handKey || actionHandKey(action);
@@ -5193,12 +5353,33 @@
       const activeJob = (view?.jobs || []).find((job) => job.status === "active");
       const sheet = view?.room_sheet || null;
       const aspects = Array.isArray(sheet?.aspects) ? sheet.aspects.filter(Boolean) : [];
-      const tags = (view?.tags || []).filter((tag) => tag.scope === "room").map((tag) => tag.label).filter(Boolean);
+      const roomTags = (view?.tags || []).filter((tag) => tag.scope === "room");
+      const tags = roomTags.map((tag) => tag.label).filter(Boolean);
+      const discoveries = roomTags
+        .filter((tag) => tag.kind === "discovery")
+        .map((tag) => tag.label)
+        .filter(Boolean);
+      const strips = [];
       if (activeJob) {
         const clockHtml = roomClockSummaryHtml(view, activeJob);
         const meta = summaryText([projectPhaseText(view, activeJob), tags[0]]);
-        return summaryStripHtml("Project", meta, projectOutcomeText(activeJob), clockHtml);
+        strips.push(summaryStripHtml("Project", meta, projectGoalText(view, activeJob), clockHtml));
+      } else {
+        const front = currentFront(view, null);
+        if (front) {
+          strips.push(summaryStripHtml("Story", front.zone || "front", frontGoalText(front)));
+        }
       }
+      if (discoveries.length) {
+        strips.push(summaryStripHtml("Discovery", "Search", summaryText(discoveries.slice(0, 2))));
+      }
+      const recovery = recoveryGoalText(view);
+      if (recovery) strips.push(summaryStripHtml("Recovery", recovery.meta, recovery.body));
+      const need = residentNeedGoal(view);
+      if (need) strips.push(summaryStripHtml("Need", need.meta, need.body));
+      const growth = growthGoalText(view);
+      if (growth) strips.push(summaryStripHtml("Growth", growth.meta, growth.body));
+      if (strips.length) return strips.join("");
       if ((view?.clocks || []).length) {
         return summaryStripHtml("Clocks", "Room", "", roomClockSummaryHtml(view));
       }
@@ -5208,6 +5389,87 @@
         return summaryStripHtml("Room", "", atmosphericRoomSheetText(view, aspects, tags, zone));
       }
       return "";
+    }
+
+    function recoveryGoalText(view) {
+      const currentActorId = Number(actorId || 0);
+      const tags = view?.tags || [];
+      const tired = tags.some((tag) => (
+        tag.label === "tired"
+        && (!tag.scope_id || Number(tag.scope_id) === currentActorId)
+      ));
+      if (!tired) return null;
+      const optionKinds = new Set((view?.primary_action?.options || []).map((option) => option.kind));
+      if (optionKinds.has("rest")) return null;
+      return {
+        meta: "Travel",
+        body: "Travel through more frontier rooms before resting.",
+      };
+    }
+
+    function projectGoalText(view, job) {
+      const question = currentFront(view, job)?.stakes_questions?.find(Boolean);
+      return summaryText([
+        projectOutcomeText(job),
+        question ? `Question: ${question}` : "",
+      ]);
+    }
+
+    function currentFront(view, job) {
+      const fronts = Array.isArray(view?.fronts) ? view.fronts : [];
+      const locationId = Number(view?.location?.id || 0);
+      if (job) {
+        return fronts.find((front) => (
+          (front.job_ids || []).includes(job.id)
+          || (front.location_ids || []).map(Number).includes(locationId)
+        )) || null;
+      }
+      return fronts.find((front) => String(front.status || "active") === "active") || fronts[0] || null;
+    }
+
+    function frontGoalText(front) {
+      const question = (front?.stakes_questions || []).find(Boolean);
+      return question || front?.impending_outcome || front?.premise || "";
+    }
+
+    function residentNeedGoal(view) {
+      const residents = (view?.actors || []).filter((actor) => (
+        actor.id !== actorId
+        && actor.kind === "npc"
+        && actor.status === "active"
+        && actor.resident_economy?.request
+      ));
+      for (const resident of residents) {
+        const request = resident.resident_economy.request;
+        const itemId = Number(request.item_id || 0);
+        if (!itemId) continue;
+        const ready = Number(request.holder_actor_id || 0) === Number(actorId || 0);
+        const reason = String(request.reason || "").trim();
+        return {
+          meta: ready ? "ready" : "find item",
+          body: `${actorLabel(resident)} wants ${itemNameForId(itemId)}${reason ? `: ${reason}` : ""}`,
+        };
+      }
+      return null;
+    }
+
+    function growthGoalText(view) {
+      const ledger = view?.ledger || {};
+      const unbanked = Number(ledger.unbanked_count || 0);
+      if (unbanked > 0) {
+        return {
+          meta: "claim",
+          body: `${unbanked} memory ${unbanked === 1 ? "mark is" : "marks are"} ready to become growth.`,
+        };
+      }
+      const points = Number(ledger.advancement_points || 0);
+      if (points > 0) {
+        return {
+          meta: "spend",
+          body: `${points} growth ${points === 1 ? "point" : "points"} can shape a skill, bond, or calling.`,
+        };
+      }
+      return null;
     }
 
     function atmosphericRoomSheetText(view, aspects = [], tags = [], zone = "") {
@@ -5267,6 +5529,7 @@
       const helpFinishes = optionKinds.has("help") && helpProgress > 0 && helpProgress >= progressRemaining;
       if (progressRemaining <= 0) return "ready";
       if (optionKinds.has("rest") && tired) return "recover";
+      if (tired) return "travel before rest";
 
       const heldItemIds = new Set((view?.items || [])
         .filter((item) => Number(item.holder_actor_id || 0) === currentActorId)
@@ -5502,6 +5765,14 @@
         event.preventDefault();
         closeActionModal();
       }
+    });
+
+    $("action-modal").addEventListener("change", (event) => {
+      const input = event.target.closest("input[name='action-choice']");
+      if (!input) return;
+      const choice = input.closest("[data-action-choice-index]");
+      if (!choice) return;
+      chooseActionModalChoice(Number(choice.dataset.actionChoiceIndex || 0));
     });
 
     $("action-modal-confirm").addEventListener("click", (event) => {

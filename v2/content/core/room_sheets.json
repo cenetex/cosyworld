@@ -598,5 +598,29 @@
     "projects": [
       "solar-abyss:drowned-bell"
     ]
+  },
+  {
+    "id": "room:65",
+    "location_id": 65,
+    "name": "Dark Abyss",
+    "safety": "risky",
+    "zone": "frontier",
+    "aspects": [
+      "black banquet",
+      "abyssal anvil"
+    ],
+    "boons": [
+      "what survives this pressure can name the fear beneath the bell"
+    ],
+    "hooks": [
+      "the feast and the anvil both want witnesses"
+    ],
+    "resources": {
+      "pressure": 4,
+      "omens": 2
+    },
+    "projects": [
+      "solar-abyss:drowned-bell"
+    ]
   }
 ]

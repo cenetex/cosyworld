@@ -25,11 +25,14 @@
     "stakes": "If nobody hears both sides, height and depth will mistake each other for desecration.",
     "location_ids": [
       36,
-      64
+      64,
+      65
     ],
     "participant_ids": [
       1064,
-      1065
+      1065,
+      1066,
+      1067
     ],
     "progress_clock_id": "solar-abyss.drowned-bell",
     "danger_clock_id": "solar-abyss.schism",

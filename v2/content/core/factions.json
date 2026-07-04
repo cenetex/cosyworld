@@ -152,7 +152,7 @@
     "doctrine": "Descend slowly, listen under pressure, and surface only what can survive air.",
     "verbs": ["descend", "listen", "remember", "surface", "withstand"],
     "motif": ["black water", "pearls", "trench lanterns", "drowned bells"],
-    "home_location_ids": [64],
-    "member_actor_ids": [1065]
+    "home_location_ids": [64, 65],
+    "member_actor_ids": [1065, 1066, 1067]
   }
 ]
