@@ -36653,13 +36653,12 @@ mod tests {
         }));
         assert!(content.actors.iter().any(|actor| {
             actor.id == OLD_OAK_TREE_ACTOR_ID
-                && actor
-                    .desires
-                    .iter()
-                    .any(|desire| desire.item_id == 2006 && desire.reason.contains("promise"))
+                && actor.desires.iter().any(|desire| {
+                    desire.item_id == 2006 && desire.reason.contains("argumentative branch")
+                })
                 && actor.attachments.iter().any(|attachment| {
                     attachment.item_id == STORY_BUTTON_ITEM_ID
-                        && attachment.reason.contains("remembered voices")
+                        && attachment.reason.contains("Hollow")
                 })
         }));
         for item in &content.items {

@@ -1321,7 +1321,7 @@ async function main() {
         economy: { orbs: 1, can_chat_with_orbs: true },
         actors: [
           { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
-          { id: 1002, name: "Whiskerwind", kind: "npc", status: "active", stats: { level: 1 } },
+          { id: 1002, name: "Gust", kind: "npc", status: "active", stats: { level: 1 } },
         ],
         items: [{ id: 2002, name: "Dewbright Button", kind: "evolution", holder_actor_id: 5000 }],
         exits: [],
@@ -1333,7 +1333,7 @@ async function main() {
       actorId = 5000;
       try {
         actions = buildActions(fakeState);
-        const giftActions = actions.filter((action) => action.command === "give Dewbright Button to Whiskerwind");
+        const giftActions = actions.filter((action) => action.command === "give Dewbright Button to Gust");
         return {
           giftActions,
           actorFocusIndex: actionIndexForKey("actor:1002"),
@@ -1347,7 +1347,7 @@ async function main() {
     });
     assert(result.giftActions?.length === 1, `gift action should be generated once while supporting multiple focus anchors: ${JSON.stringify(result)}`);
     assert(result.giftActions?.[0]?.label === "give", `gift action should use compact verb: ${JSON.stringify(result)}`);
-    assert(result.giftActions?.[0]?.detail === "Dewbright Button to Whiskerwind", `gift action should preserve item and target detail: ${JSON.stringify(result)}`);
+    assert(result.giftActions?.[0]?.detail === "Dewbright Button to Gust", `gift action should preserve item and target detail: ${JSON.stringify(result)}`);
     assert(
       result.giftActions?.[0]?.focusKeys?.includes("actor:1002") && result.giftActions?.[0]?.focusKeys?.includes("item:2002"),
       `gift action should expose both actor and item focus keys: ${JSON.stringify(result)}`,
@@ -2495,11 +2495,11 @@ async function main() {
     assert(!result.log.includes("Skill stepped up"), `skill command output should not echo into chat: ${JSON.stringify(result)}`);
   }
 
-  async function assertWhiskerwindEmojiAriaLabel() {
-    const label = await page.locator(".line.npc[aria-label*='Whiskerwind'][aria-label*='emoji-only']").last().getAttribute("aria-label");
-    assert(label && label.includes("weather symbols"), `Whiskerwind emoji line should have descriptive aria-label: ${label}`);
-    assert(/teapot|rain cloud|sparkles|symbols/.test(label), `Whiskerwind aria-label should translate symbols: ${label}`);
-    const pfpCount = await page.locator(".line.npc[aria-label*='Whiskerwind'] .chat-pfp").count();
+  async function assertGustEmojiAriaLabel() {
+    const label = await page.locator(".line.npc[aria-label*='Gust'][aria-label*='emoji-only']").last().getAttribute("aria-label");
+    assert(label && label.includes("weather symbols"), `Gust emoji line should have descriptive aria-label: ${label}`);
+    assert(/teapot|rain cloud|sparkles|symbols/.test(label), `Gust aria-label should translate symbols: ${label}`);
+    const pfpCount = await page.locator(".line.npc[aria-label*='Gust'] .chat-pfp").count();
     assert(pfpCount > 0, "resident chat rows should render character pfps");
   }
 
@@ -4073,7 +4073,7 @@ async function main() {
   await leaveTrailTo("Rain-Soft Garden");
   await travelTo("The Cosy Cottage");
 
-  await evolveResident("Whiskerwind");
+  await evolveResident("Gust");
   await travelTo("Rain-Soft Garden");
   await takeItem("Watch Bell");
   await travelTo("Moonlit Trail");
@@ -4090,10 +4090,10 @@ async function main() {
 
   steps.push({
     label: "focus evolved resident",
-    primary: await focusPrimaryMatching("evolved Whiskerwind chat", (text) => text.includes("chat") && text.includes("whiskerwind"), 64),
+    primary: await focusPrimaryMatching("evolved Gust chat", (text) => text.includes("chat") && text.includes("whiskerwind"), 64),
   });
-  await chatWithFocusedResident("avatar chat with Whiskerwind");
-  await assertWhiskerwindEmojiAriaLabel();
+  await chatWithFocusedResident("avatar chat with Gust");
+  await assertGustEmojiAriaLabel();
 
   const finalState = await page.evaluate(async () => {
     const actorId = localStorage.getItem("cosyworld.actorId");
@@ -4105,7 +4105,7 @@ async function main() {
       limit: "200",
     });
     const state = await fetch(`/state?${params}`).then((response) => response.json());
-    const whiskerwind = state.actors.find((actor) => actor.name === "Whiskerwind");
+    const whiskerwind = state.actors.find((actor) => actor.name === "Gust");
     const skull = state.actors.find((actor) => actor.name === "Skull");
     const events = await fetch(`/events?${params}`).then((response) => response.json());
     const evolved = events
@@ -4141,9 +4141,9 @@ async function main() {
         .map((button) => button.innerText.trim().replace(/\s+/g, " ")),
     };
   });
-  assert(finalState.whiskerwindLevel === 2, "Whiskerwind should reach level 2");
+  assert(finalState.whiskerwindLevel === 2, "Gust should reach level 2");
   assert(finalState.skullLevel === 2, "Skull should reach level 2");
-  for (const resident of ["Rati", "Whiskerwind", "Skull"]) {
+  for (const resident of ["Rati", "Gust", "Skull"]) {
     assert(finalState.evolved.includes(resident), `${resident} should emit an evolution event`);
   }
   assert(finalState.avatarMessages.length >= 2, "Chat should emit server-authored avatar messages");

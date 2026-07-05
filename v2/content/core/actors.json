@@ -9,7 +9,7 @@
     "desires": [
       {
         "item_id": 2005,
-        "reason": "a wooden tale-button would give the blue scarf one true story to fasten"
+        "reason": "a wooden button would finally stop the blue scarf escaping"
       }
     ],
     "attachments": [
@@ -39,13 +39,13 @@
     "desires": [
       {
         "item_id": 2002,
-        "reason": "a pearled weather mark lets rain say hello before it arrives"
+        "reason": "a pearled weather mark makes an excellent target for dramatic raindrops"
       }
     ],
     "attachments": [
       {
         "item_id": 2003,
-        "reason": "the pawprint charm tells the wind which friend left the trail safely"
+        "reason": "the pawprint charm proves someone made it home without being blown into the hedge"
       }
     ],
     "stats": {
@@ -75,7 +75,7 @@
     "attachments": [
       {
         "item_id": 2006,
-        "reason": "the warm tag remembers who belongs by the hearth after dark"
+        "reason": "the warm tag marks the hearth spot he has silently claimed"
       }
     ],
     "stats": {
@@ -94,7 +94,7 @@
     "name": "Coach",
     "speech_mode": "silent",
     "title": "Sparring Reflection",
-    "description": "A moonlit practice-double who flexes back, grades your falls out of ten, and has never awarded the ten.",
+    "description": "A practice-double who flexes back, grades your falls out of ten, and has never awarded the ten.",
     "location_id": 3,
     "stats": {
       "strength": 10,
@@ -117,13 +117,13 @@
     "desires": [
       {
         "item_id": 2006,
-        "reason": "a warm stone tag could weigh down a promise before the wind edits it"
+        "reason": "a warm stone tag could pin one sensible note to a very argumentative branch"
       }
     ],
     "attachments": [
       {
         "item_id": 2005,
-        "reason": "a wooden tale-button can hold a season of remembered voices"
+        "reason": "a wooden tale-button gives Hollow one less excuse to repeat everyone"
       }
     ],
     "stats": {
@@ -171,7 +171,7 @@
     "desires": [
       {
         "item_id": 2004,
-        "reason": "moonwool can tie a promise to a branch without bruising the bark"
+        "reason": "moonwool can tie a flower bundle tight enough to survive Fern's lecture"
       }
     ],
     "stats": {
@@ -247,7 +247,7 @@
       },
       {
         "item_id": 2008,
-        "reason": "the mended cloth remembers the dusk path Professor Inkdusk promised not to sell"
+        "reason": "the mended cloth marks the dusk path Professor swears is filed correctly"
       }
     ],
     "stats": {
@@ -353,7 +353,7 @@
     "attachments": [
       {
         "item_id": 2004,
-        "reason": "moonwool holds revisions gently when ink gets nervous"
+        "reason": "moonwool keeps margin notes from escaping when the ink gets nervous"
       }
     ],
     "stats": {
@@ -411,7 +411,7 @@
     "attachments": [
       {
         "item_id": 2002,
-        "reason": "the pearled button fits the keyhole where rain keeps secrets"
+        "reason": "the pearled button fits the keyhole that jams whenever the path gets damp"
       }
     ],
     "stats": {
@@ -429,13 +429,13 @@
     "id": 1051,
     "name": "Euphemie",
     "speech_mode": "prose",
-    "title": "Green Veil Creole Ghost",
-    "description": "A moss-veiled mansion ghost mostly annoyed that nobody dusts, whose Creole warnings are strictly practical: the third stair is a liar.",
+    "title": "Dusty Creole Ghost",
+    "description": "A moss-draped mansion ghost mostly annoyed that nobody dusts, whose Creole warnings are strictly practical: the third stair is a liar.",
     "location_id": 42,
     "attachments": [
       {
         "item_id": 2005,
-        "reason": "the tucked tale keeps Madame Euphemie's half-song from fading"
+        "reason": "the tucked tale is the one thing in the mansion Euphemie considers properly stored"
       }
     ],
     "stats": {
@@ -555,7 +555,7 @@
     "attachments": [
       {
         "item_id": 2001,
-        "reason": "warm tonic reminds the peak that rest is part of pilgrimage"
+        "reason": "warm tonic gives Chamuel something official to prescribe after overthinking"
       }
     ],
     "stats": {
@@ -627,7 +627,7 @@
     "attachments": [
       {
         "item_id": 2006,
-        "reason": "the warm tag reads like a vow small enough for Lord Samael to defend"
+        "reason": "the warm tag is the only paperwork Samael has ever enjoyed filing"
       }
     ],
     "stats": {
@@ -742,7 +742,7 @@
     "name": "Seraphina",
     "speech_mode": "prose",
     "title": "Temple Triage Seraph",
-    "description": "A gold-winged seraph with head-nurse energy who delivers mercy like triage and will not have bleeding on the sacred floor.",
+    "description": "A gold-winged seraph with head-nurse energy who delivers mercy like triage and will not have bleeding on the polished floor.",
     "location_id": 36,
     "desires": [
       {
@@ -771,7 +771,7 @@
     "attachments": [
       {
         "item_id": 2004,
-        "reason": "moonwool keeps a memory from unraveling when the pressure changes"
+        "reason": "moonwool keeps soggy labels from peeling off when the pressure changes"
       }
     ],
     "stats": {
@@ -795,7 +795,7 @@
     "desires": [
       {
         "item_id": 2007,
-        "reason": "the mute bell can answer the feast without letting the feast devour the answer"
+        "reason": "the mute bell can call dinner without waking the soup"
       }
     ],
     "stats": {
@@ -819,7 +819,7 @@
     "attachments": [
       {
         "item_id": 2006,
-        "reason": "the warm tag gives his abyssal vows one mortal thing worth sparing"
+        "reason": "the warm tag gives Zadkiel something official to stamp after speeches"
       }
     ],
     "stats": {

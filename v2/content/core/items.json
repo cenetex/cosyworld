@@ -2,7 +2,7 @@
   {
     "id": 2001,
     "name": "Hearth Tonic",
-    "description": "A warm, soulbound potion with one gentle charge.",
+    "description": "A warm tonic that gets one person back on their feet, probably complaining.",
     "kind": "potion",
     "charges": 1,
     "location_id": 1
@@ -10,7 +10,7 @@
   {
     "id": 2002,
     "name": "Dewbright Button",
-    "description": "A tiny pearled button that hums with first-step magic.",
+    "description": "A tiny pearled button that makes wet weather look more deliberate.",
     "kind": "evolution",
     "charges": 1,
     "location_id": 2
@@ -26,7 +26,7 @@
   {
     "id": 2004,
     "name": "Moonwool Thread",
-    "description": "A silvery strand that remembers stories told after rain.",
+    "description": "A silvery strand that tangles at the first hint of rain.",
     "kind": "evolution",
     "charges": 1,
     "location_id": 10
@@ -42,7 +42,7 @@
   {
     "id": 2006,
     "name": "Hearthstone Tag",
-    "description": "A smooth tag cut from warm stone and quiet promises.",
+    "description": "A smooth tag cut from warm stone, excellent for labeling chairs and terrible ideas.",
     "kind": "evolution",
     "charges": 1,
     "location_id": 3
@@ -66,7 +66,7 @@
   {
     "id": 2009,
     "name": "Abbey Bookmark",
-    "description": "A pressed fern bookmark that remembers where a difficult sentence became kind.",
+    "description": "A pressed fern bookmark that keeps sliding out at the dramatic sentence.",
     "kind": "keepsake",
     "charges": 1,
     "location_id": 43
