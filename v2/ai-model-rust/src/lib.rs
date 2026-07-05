@@ -83,49 +83,54 @@ pub fn generate_avatar_chat(input: &AvatarChatModelInput) -> String {
     {
         return match input.target_actor_id {
             1001 => format!(
-                "{}, what story should I follow toward {item_name}?",
+                "{}, point me at {item_name} before you make me sit down for tea.",
                 input.target_actor_name
             ),
             1002 => format!(
-                "{}, does the weather point toward {item_name}?",
+                "{}, one forecast please: where is {item_name} hiding?",
                 input.target_actor_name
             ),
             1003 => format!(
-                "{}, should I listen for {item_name} beyond the door?",
+                "{}, blink once if {item_name} is behind the door.",
                 input.target_actor_name
             ),
             1005 => format!(
-                "{}, which of your four voices remembers {item_name}?",
+                "{}, settle the argument: which of your voices knows where {item_name} is?",
                 input.target_actor_name
             ),
             _ => format!(
-                "{}, what should I notice about {item_name}?",
+                "{}, what should I know about {item_name}?",
                 input.target_actor_name
             ),
         };
     }
 
     match input.target_actor_id {
-        1001 => "Rati, what story is hiding in the cottage tonight?".to_string(),
-        1002 => "Whiskerwind, what weather is passing through this room?".to_string(),
-        1003 => "Skull, what should I listen for by the door?".to_string(),
-        1005 => "Old Oak, which voice should I follow through the forest?".to_string(),
-        _ => format!("{}, what should we notice next?", input.target_actor_name),
+        1001 => "Rati, what needs doing before the kettle finds out?".to_string(),
+        1002 => "Gust, what is the weather about to do to my plans?".to_string(),
+        1003 => "Skull, what am I not hearing by the door?".to_string(),
+        1005 => "Oak, which of your four voices is actually right about this path?".to_string(),
+        _ => format!("{}, what did I just walk into?", input.target_actor_name),
     }
 }
 
 pub fn generate_resident_reply(input: &ResidentReplyModelInput) -> String {
     match input.npc_actor_id {
         1001 => {
-            "Rati tucks another stitch into the blue scarf. \"Tell me one small thing you noticed on your way in.\""
+            "Rati points a knitting needle at the good chair. \"Sit. Tea first, catastrophe after.\""
                 .to_string()
         }
-        1002 => "🌧️🫖✨🧶".to_string(),
-        1003 => "*Skull lifts his head toward the low doorway.*".to_string(),
-        1005 => "Root: I remember your footstep before you named it. Leaf: Ask softly.".to_string(),
-        1051 => "Madame Euphemie lowers her green veil. \"Pa prese. Chemen an sonje ou.\""
+        1002 => "🌧️🫖💥🧶".to_string(),
+        1003 => "*Skull looks at the mud, then at your boots, then at you.*".to_string(),
+        1005 => "Root: Left. Ring: Left worked in 1893. Leaf: There's a wasp. Hollow: I'm telling everyone what you just said."
             .to_string(),
-        _ => "They listen carefully.".to_string(),
+        1051 => "Euphemie dusts a shelf nobody living can reach. \"Pa prese. Chemen an sonje ou.\""
+            .to_string(),
+        1068 => "Badger looks at your boots for a long, long time. \"The mat. Use the mat.\""
+            .to_string(),
+        1069 => "Toad limps in wearing half a lilypad. \"You should see the other pond.\""
+            .to_string(),
+        _ => "They look up mid-snack and wave you on.".to_string(),
     }
 }
 
@@ -242,20 +247,20 @@ fn normalize_avatar_name(name: Option<&str>, actor_id: u64) -> String {
 
 fn generated_avatar_flavor(actor_id: u64, name: &str) -> (String, String) {
     const TITLES: [&str; 6] = [
-        "Hearth-Touched Traveler",
-        "Rain-Window Listener",
-        "Button-Seeking Guest",
-        "Moonlit Errand-Bearer",
-        "Quiet Doorway Scout",
-        "Story-Spark Wanderer",
+        "Second-Breakfast Scout",
+        "Kettle Watcher",
+        "Doormat Skeptic",
+        "Puddle Cartographer",
+        "Snack Negotiator",
+        "Good-Chair Claimant",
     ];
     const TRAITS: [&str; 6] = [
-        "arrived with a pocket full of warm lint and unanswered questions",
-        "notices small sounds before anyone names them",
-        "keeps one hand near the hearth and one eye on the low door",
-        "carries the look of someone who remembers rain from another place",
-        "has the careful posture of a guest learning the room's rules",
-        "seems ready to trade a found thing for a better story",
+        "arrived hungry and stayed for the argument about the good chair",
+        "has already knocked over one thing and is standing near a second",
+        "claims to have wiped their feet; the floor disagrees",
+        "measures every room by its distance to the biscuit tin",
+        "sits down like someone with three plans and no permits",
+        "will trade almost anything for the seat nearest the fire",
     ];
     let index = (actor_id as usize) % TITLES.len();
     (
@@ -302,7 +307,16 @@ fn human_message_is_cozy_safe(message: &str) -> bool {
 fn avatar_name_is_reserved(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
-        "rati" | "whiskerwind" | "skull" | "moonlit echo" | "cosyworld" | "system"
+        "rati"
+            | "gust"
+            | "whiskerwind"
+            | "skull"
+            | "coach"
+            | "badger"
+            | "toad"
+            | "moonlit echo"
+            | "cosyworld"
+            | "system"
     )
 }
 
@@ -387,7 +401,7 @@ mod tests {
     fn generated_avatar_identity_is_deterministic() {
         let identity = generate_avatar_identity(5000, None);
         assert_eq!(identity.name, "Moss Stitch");
-        assert_eq!(identity.title, "Button-Seeking Guest");
+        assert_eq!(identity.title, "Doormat Skeptic");
         assert!(identity.description.contains("Moss Stitch"));
     }
 
@@ -412,12 +426,12 @@ mod tests {
         let text = generate_avatar_chat(&AvatarChatModelInput {
             actor_id: 5000,
             target_actor_id: 1002,
-            target_actor_name: "Whiskerwind".to_string(),
+            target_actor_name: "Gust".to_string(),
             missing_need: Some("Dewbright Button".to_string()),
         });
         assert_eq!(
             text,
-            "Whiskerwind, does the weather point toward Dewbright Button?"
+            "Gust, one forecast please: where is Dewbright Button hiding?"
         );
     }
 
@@ -425,7 +439,7 @@ mod tests {
     fn resident_sanitizer_preserves_speech_contracts() {
         let mut input = ResidentReplyModelInput {
             npc_actor_id: 1002,
-            npc_name: "Whiskerwind".to_string(),
+            npc_name: "Gust".to_string(),
             speech_mode: "emoji_only".to_string(),
             user_text: "weather?".to_string(),
         };

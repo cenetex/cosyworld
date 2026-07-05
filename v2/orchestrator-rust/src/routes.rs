@@ -73,6 +73,7 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/presence/ping", post(ping_presence))
         .route("/presence/leave", post(leave_presence))
         .route("/actions/timeout", post(request_turn_timeout))
+        .route("/actions/narrative-move", post(submit_narrative_move))
         .route("/actions/chat", post(chat))
         .route("/actions/say", post(say))
         .route("/actions/report", post(report_actor))

@@ -1324,6 +1324,8 @@ struct JournalRecord {
     action: CwAction,
     seed: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    ripple_source: Option<RippleSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     initial_calling: Option<String>,
     #[serde(default)]
     actor_meta_upserts: BTreeMap<u64, ActorMeta>,
@@ -1345,6 +1347,7 @@ impl JournalRecord {
             version: 1,
             action,
             seed,
+            ripple_source: None,
             initial_calling: None,
             actor_meta_upserts: BTreeMap::new(),
             content_upserts: BTreeMap::new(),
@@ -1352,6 +1355,84 @@ impl JournalRecord {
             branch_resolutions: Vec::new(),
             projection_mutations: Vec::new(),
             orb_deltas: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct RippleSource {
+    source_actor_id: u64,
+    source_action_kind: u8,
+    source_event_seqs: Vec<u64>,
+    source_location_id: Option<u64>,
+    affected_location_ids: Vec<u64>,
+    zone: String,
+    resident_action_budget: u8,
+    allow_wander: bool,
+    allow_movement: bool,
+}
+
+#[derive(Clone, Debug)]
+struct RippleContext {
+    source_actor_id: u64,
+    source_action_kind: u8,
+    source_event_seqs: Vec<u64>,
+    source_location_id: Option<u64>,
+    affected_location_ids: BTreeSet<u64>,
+    zone: String,
+    budget: RippleBudget,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct RippleBudget {
+    resident_actions: u8,
+    allow_wander: bool,
+    allow_movement: bool,
+}
+
+impl RippleBudget {
+    fn for_zone_and_action(zone: &str, source_action_kind: u8) -> Self {
+        if matches!(source_action_kind, CW_ACTION_NONE | CW_ACTION_CREATE_ACTOR) {
+            return Self {
+                resident_actions: 0,
+                allow_wander: false,
+                allow_movement: false,
+            };
+        }
+        if source_action_kind == CW_ACTION_SAY {
+            return Self {
+                resident_actions: 1,
+                allow_wander: false,
+                allow_movement: false,
+            };
+        }
+        match zone {
+            ZONE_FRONTIER => Self {
+                resident_actions: 1,
+                allow_wander: true,
+                allow_movement: true,
+            },
+            _ => Self {
+                resident_actions: 1,
+                allow_wander: true,
+                allow_movement: true,
+            },
+        }
+    }
+}
+
+impl RippleContext {
+    fn to_source(&self) -> RippleSource {
+        RippleSource {
+            source_actor_id: self.source_actor_id,
+            source_action_kind: self.source_action_kind,
+            source_event_seqs: self.source_event_seqs.clone(),
+            source_location_id: self.source_location_id,
+            affected_location_ids: self.affected_location_ids.iter().copied().collect(),
+            zone: self.zone.clone(),
+            resident_action_budget: self.budget.resident_actions,
+            allow_wander: self.budget.allow_wander,
+            allow_movement: self.budget.allow_movement,
         }
     }
 }
@@ -17154,6 +17235,103 @@ impl RuntimeWorld {
         })
     }
 
+    fn ripple_context_for_player_turn(
+        &self,
+        source_actor_id: u64,
+        source_action_kind: u8,
+        events: &[EventView],
+    ) -> Option<RippleContext> {
+        let source_actor = self.actor_by_id(source_actor_id)?;
+        if source_actor.kind != CW_ACTOR_HUMAN || source_actor.status != CW_ACTOR_ACTIVE {
+            return None;
+        }
+
+        let source_event_seqs = events
+            .iter()
+            .filter(|event| event.success && event.actor_id == Some(source_actor_id))
+            .map(|event| event.seq)
+            .collect::<Vec<_>>();
+        if source_event_seqs.is_empty() {
+            return None;
+        }
+
+        let mut affected_location_ids = BTreeSet::new();
+        for event in events.iter().filter(|event| event.success) {
+            if event.actor_id != Some(source_actor_id)
+                && event.target_actor_id != Some(source_actor_id)
+                && !matches!(
+                    event.type_name.as_str(),
+                    "clock.updated" | "tag.applied" | "tag.cleared" | "job.updated"
+                )
+            {
+                continue;
+            }
+            if let Some(location_id) = event.location_id {
+                affected_location_ids.insert(location_id);
+            }
+            if let Some(location_id) = event.destination_location_id {
+                affected_location_ids.insert(location_id);
+            }
+            if event.clock_scope.as_deref() == Some("room") {
+                if let Some(location_id) = event.clock_scope_id {
+                    affected_location_ids.insert(location_id);
+                }
+            }
+            if event.tag_scope.as_deref() == Some("room") {
+                if let Some(location_id) = event.tag_scope_id {
+                    affected_location_ids.insert(location_id);
+                }
+            }
+        }
+        affected_location_ids.insert(source_actor.location_id);
+        if affected_location_ids.is_empty() {
+            return None;
+        }
+
+        let source_location_id = events
+            .iter()
+            .find(|event| event.success && event.actor_id == Some(source_actor_id))
+            .and_then(|event| event.location_id)
+            .or_else(|| affected_location_ids.iter().next().copied());
+        let zone = if affected_location_ids
+            .iter()
+            .any(|location_id| self.location_is_frontier(*location_id))
+        {
+            ZONE_FRONTIER.to_string()
+        } else {
+            ZONE_SANCTUARY.to_string()
+        };
+        let budget = RippleBudget::for_zone_and_action(&zone, source_action_kind);
+
+        Some(RippleContext {
+            source_actor_id,
+            source_action_kind,
+            source_event_seqs,
+            source_location_id,
+            affected_location_ids,
+            zone,
+            budget,
+        })
+    }
+
+    fn resident_ripple_actor(&self, context: &RippleContext) -> Option<CwActor> {
+        let candidates: Vec<CwActor> = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|actor| {
+                actor.kind == CW_ACTOR_NPC
+                    && actor.status == CW_ACTOR_ACTIVE
+                    && context.affected_location_ids.contains(&actor.location_id)
+            })
+            .collect();
+        if candidates.is_empty() {
+            return None;
+        }
+
+        Some(candidates[(self.world.tick as usize) % candidates.len()])
+    }
+
+    #[cfg(test)]
     fn ambient_actor(&self) -> Option<CwActor> {
         let human_locations: BTreeSet<u64> = self.world.actors[..self.world.actor_count]
             .iter()
@@ -17792,11 +17970,31 @@ impl RuntimeWorld {
         self.actor_by_id(actor_id)
     }
 
+    #[cfg(test)]
     fn resident_economy_autonomy_candidate_ids(&self) -> Vec<u64> {
         let candidates: Vec<CwActor> = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
             .filter(|actor| actor.kind == CW_ACTOR_NPC && actor.status == CW_ACTOR_ACTIVE)
+            .collect();
+        if candidates.is_empty() {
+            return Vec::new();
+        }
+        let start = (self.world.tick as usize) % candidates.len();
+        (0..candidates.len())
+            .map(|offset| candidates[(start + offset) % candidates.len()].id)
+            .collect()
+    }
+
+    fn resident_ripple_candidate_ids(&self, context: &RippleContext) -> Vec<u64> {
+        let candidates: Vec<CwActor> = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|actor| {
+                actor.kind == CW_ACTOR_NPC
+                    && actor.status == CW_ACTOR_ACTIVE
+                    && context.affected_location_ids.contains(&actor.location_id)
+            })
             .collect();
         if candidates.is_empty() {
             return Vec::new();
@@ -17882,6 +18080,7 @@ impl RuntimeWorld {
         });
     }
 
+    #[cfg(test)]
     fn best_resident_economy_autonomy_candidate(
         &mut self,
         seed: u64,
@@ -17912,9 +18111,51 @@ impl RuntimeWorld {
         candidates.into_iter().next()
     }
 
+    fn best_resident_ripple_candidate(
+        &mut self,
+        context: &RippleContext,
+        seed: u64,
+    ) -> Option<ResidentAutonomyCandidate> {
+        let actor_ids = self.resident_ripple_candidate_ids(context);
+        if actor_ids.is_empty() {
+            return None;
+        }
+        self.refresh_resident_local_memories_for_ids(&actor_ids);
+
+        let mut candidates = Vec::new();
+        for actor_id in actor_ids {
+            let Some(actor) = self.actor_by_id(actor_id) else {
+                continue;
+            };
+            let Some(record) = self.resident_economy_autonomy_record(actor, seed) else {
+                continue;
+            };
+            let (rank, score) = self.resident_autonomy_record_priority(actor, &record);
+            candidates.push(ResidentAutonomyCandidate {
+                actor_id,
+                rank,
+                score,
+                record,
+            });
+        }
+        Self::sort_resident_autonomy_candidates(&mut candidates);
+        candidates.into_iter().next()
+    }
+
+    #[cfg(test)]
     fn resident_economy_autonomy_record_for_seed(&mut self, seed: u64) -> Option<JournalRecord> {
         self.best_resident_economy_autonomy_candidate(seed)
             .map(|candidate| candidate.record)
+    }
+
+    fn resident_ripple_record_for_seed(
+        &mut self,
+        context: &RippleContext,
+        seed: u64,
+    ) -> Option<JournalRecord> {
+        self.best_resident_ripple_candidate(context, seed)
+            .map(|candidate| candidate.record)
+            .filter(|record| context.budget.allow_movement || record.action.kind != CW_ACTION_MOVE)
     }
 
     #[cfg(test)]
@@ -18000,6 +18241,7 @@ impl RuntimeWorld {
         None
     }
 
+    #[cfg(test)]
     fn ambient_autonomy_record(&mut self, seed: u64) -> Option<JournalRecord> {
         self.refresh_resident_memories_for_autonomy();
         if let Some(record) = self.resident_economy_autonomy_record_for_seed(seed) {
@@ -18008,6 +18250,29 @@ impl RuntimeWorld {
         let actor = self.ambient_actor()?;
         if let Some(record) = self.resident_wander_record(actor, seed) {
             return Some(record);
+        }
+        None
+    }
+
+    fn ripple_record_for_player_turn(
+        &mut self,
+        context: &RippleContext,
+        seed: u64,
+    ) -> Option<JournalRecord> {
+        if context.budget.resident_actions == 0 {
+            return None;
+        }
+        self.refresh_resident_memories_for_autonomy();
+        if let Some(mut record) = self.resident_ripple_record_for_seed(context, seed) {
+            record.ripple_source = Some(context.to_source());
+            return Some(record);
+        }
+        if context.budget.allow_wander {
+            let actor = self.resident_ripple_actor(context)?;
+            if let Some(mut record) = self.resident_wander_record(actor, seed) {
+                record.ripple_source = Some(context.to_source());
+                return Some(record);
+            }
         }
         None
     }
@@ -22618,7 +22883,13 @@ fn advance_turn_and_maybe_emit_resident_ripple(
     }
 
     let seed = runtime.next_seed_value();
-    let Some(record) = runtime.ambient_autonomy_record(seed) else {
+    let source_action_kind = ripple_action_kind_from_events(actor_id, events);
+    let Some(context) =
+        runtime.ripple_context_for_player_turn(actor_id, source_action_kind, events)
+    else {
+        return None;
+    };
+    let Some(record) = runtime.ripple_record_for_player_turn(&context, seed) else {
         return None;
     };
     let action = record.action;
@@ -22632,6 +22903,31 @@ fn advance_turn_and_maybe_emit_resident_ripple(
     let reply_plan = runtime.resident_economy_action_reply_plan(&action);
     events.extend(ripple_events);
     reply_plan
+}
+
+fn ripple_action_kind_from_events(actor_id: u64, events: &[EventView]) -> u8 {
+    events
+        .iter()
+        .find(|event| event.success && event.actor_id == Some(actor_id))
+        .map(|event| match event.type_name.as_str() {
+            "message.created" => CW_ACTION_SAY,
+            "actor.moved" => CW_ACTION_MOVE,
+            "ability_check.rolled" => CW_ACTION_ABILITY_CHECK,
+            "item.picked_up" => CW_ACTION_PICK_UP_ITEM,
+            "item.used" => CW_ACTION_USE_ITEM,
+            "combat.attack.attempt" | "combat.attack.hit" | "combat.attack.miss" => {
+                CW_ACTION_ATTACK
+            }
+            "combat.defend" => CW_ACTION_DEFEND,
+            "item.given" => CW_ACTION_GIVE_ITEM,
+            "combat.flee.success" => CW_ACTION_FLEE,
+            "item.dropped" => CW_ACTION_DROP_ITEM,
+            "item.traded" => CW_ACTION_TRADE_ITEM,
+            "feature.searched" | "exit.discovered" | "avatar.discovered" => CW_ACTION_SEARCH,
+            "item.crafted" => CW_ACTION_CRAFT,
+            _ => CW_ACTION_NONE,
+        })
+        .unwrap_or(CW_ACTION_NONE)
 }
 
 fn start_ownership_refresh_scheduler(state: AppState) {
@@ -31742,6 +32038,94 @@ mod tests {
         } else {
             assert_eq!(ripple_actor.location_id, COSY_COTTAGE_LOCATION_ID);
         }
+    }
+
+    #[test]
+    fn player_ripple_context_scopes_resident_candidates_to_touched_rooms() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.world.tick = 0;
+        runtime.resident_memories.clear();
+
+        for item in &mut runtime.world.items[..runtime.world.item_count] {
+            match item.id {
+                STORY_BUTTON_ITEM_ID => {
+                    item.location_id = 0;
+                    item.holder_actor_id = RATI_ACTOR_ID;
+                    item.held_since_tick = 1;
+                }
+                THREADBARE_MAP_SCRAP_ITEM_ID => {
+                    item.location_id = 41;
+                    item.holder_actor_id = 0;
+                    item.held_since_tick = 0;
+                }
+                _ if (2001..=2010).contains(&item.id) => {
+                    item.location_id = 0;
+                    item.holder_actor_id = 0;
+                    item.held_since_tick = 0;
+                }
+                _ => {}
+            }
+        }
+
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let mut create_record = JournalRecord::new(create, 17629);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Scoped Ripple".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Ripple Tester".to_string(),
+                description: "A test avatar whose turn should only disturb nearby residents."
+                    .to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+
+        let mut search_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            17630,
+        );
+        search_record
+            .projection_mutations
+            .push(ProjectionMutation::SearchFeature {
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                feature_key: SCARF_BASKET_FEATURE_KEY.to_string(),
+                feature_name: "Scarf Basket".to_string(),
+                content: "The scarf basket gives the room a concrete clue.".to_string(),
+                reason: "test_search".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&search_record);
+        assert_eq!(status, CW_OK);
+
+        let context = runtime
+            .ripple_context_for_player_turn(5000, CW_ACTION_SEARCH, &events)
+            .expect("player event creates ripple context");
+        assert!(context
+            .affected_location_ids
+            .contains(&COSY_COTTAGE_LOCATION_ID));
+        assert!(!context.affected_location_ids.contains(&41));
+
+        let ripple_record = runtime
+            .ripple_record_for_player_turn(&context, 17631)
+            .expect("local resident can answer the ripple");
+        assert_eq!(ripple_record.action.actor_id, RATI_ACTOR_ID);
+        assert_ne!(ripple_record.action.actor_id, BLUE_SQUIRREL_ACTOR_ID);
+
+        let source = ripple_record
+            .ripple_source
+            .as_ref()
+            .expect("ripple records its player source");
+        assert_eq!(source.source_actor_id, 5000);
+        assert_eq!(source.source_action_kind, CW_ACTION_SEARCH);
+        assert_eq!(source.affected_location_ids, vec![COSY_COTTAGE_LOCATION_ID]);
+        assert_eq!(source.zone, ZONE_SANCTUARY);
     }
 
     #[tokio::test]

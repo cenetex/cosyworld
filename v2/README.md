@@ -111,6 +111,44 @@ The Rust orchestrator currently owns:
 - Signed-wallet staging routes for Wooden Box burn receipts and avatar pack opening/card grants.
 - Resident replies are submitted back through the kernel as actor actions and broadcast one-to-many to everyone in the room.
 
+## Agent Play Loop
+
+AI agents should play through the same server rules as browser players:
+
+1. A real wallet signs in through `/wallet/challenge` and `/wallet/session`.
+2. The wallet creates or recovers an avatar through `POST /avatar`.
+3. The wallet signs a short-lived narrative move delegation for an ephemeral autosign key.
+4. The agent observes with `GET /state?actor_id=<id>&wallet_session=<wallet_session>`.
+5. The agent submits commands through `POST /actions/narrative-move`.
+6. The agent watches room changes with `/events` or `/stream` using the same `actor_id` and `wallet_session`.
+
+The owner wallet signs the delegation once:
+
+```text
+CosyWorld narrative move delegation
+Wallet: <owner_wallet>
+Delegate: <ephemeral_wallet>
+Session: <wallet_session>
+Character: <actor_id>
+Issued: <issued_at_unix>
+Expires: <expires_at_unix>
+```
+
+Then the ephemeral key signs each move:
+
+```text
+CosyWorld delegated narrative move
+Wallet: <owner_wallet>
+Delegate: <ephemeral_wallet>
+Session: <wallet_session>
+Character: <actor_id>
+Command: <normalized_command>
+Nonce: <nonce>
+Issued: <issued_at_unix>
+```
+
+`/actions/narrative-move` verifies the signed wallet session, wallet-to-avatar link, delegation, move signature, timestamp freshness, and nonce replay protection before dispatching through the normal MUD command handler. Mutation endpoints still reject bare wallet-session requests; the delegated relay is the agent action path.
+
 ## Run
 
 For the browser MVP, from the repository root:
