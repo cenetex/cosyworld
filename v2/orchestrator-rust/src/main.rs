@@ -569,6 +569,11 @@ enum ProjectionMutation {
         content: String,
         reason: String,
     },
+    SearchLocation {
+        location_id: u64,
+        content: String,
+        reason: String,
+    },
     DiscoverSeedExit {
         from_location_id: u64,
         to_location_id: u64,
@@ -1049,23 +1054,12 @@ struct RoomSearchTarget {
 }
 
 impl RoomSearchTarget {
-    fn from_feature(feature: &SeedRoomFeatureContent) -> Self {
-        Self {
-            location_id: feature.location_id,
-            key: feature.key.clone(),
-            name: feature.name.clone(),
-            output: format!("{} - {}", feature.name, feature.search),
-        }
-    }
-
     fn virtual_room(location_id: u64, location_name: String) -> Self {
         Self {
             location_id,
             key: "room".to_string(),
-            name: "Room".to_string(),
-            output: format!(
-                "Room - You search the edges of {location_name} for anything still hidden."
-            ),
+            name: location_name.clone(),
+            output: format!("Search observes the {location_name} card."),
         }
     }
 }
@@ -1661,6 +1655,7 @@ struct StateResponse {
     items: Vec<ItemView>,
     factions: Vec<FactionView>,
     room_features: Vec<RoomFeatureView>,
+    search_available: bool,
     clocks: Vec<ClockView>,
     tags: Vec<TagView>,
     jobs: Vec<JobView>,
@@ -1672,6 +1667,7 @@ struct StateResponse {
     bonds: Vec<BondView>,
     chat_bond_claimed_target_ids: Vec<u64>,
     cards: CardRegistryView,
+    card_transactions: Vec<CardTransactionView>,
     access: AccessView,
     account: AccountView,
     economy: EconomyView,
@@ -2112,6 +2108,24 @@ struct CardRegistryView {
     actors: BTreeMap<u64, CardView>,
     items: BTreeMap<u64, CardView>,
     locations: BTreeMap<u64, CardView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CardRefView {
+    card_id: String,
+    kind: String,
+    subject_id: u64,
+    display_name: String,
+}
+
+#[derive(Debug, Serialize)]
+struct CardTransactionView {
+    subject: CardRefView,
+    predicate: String,
+    object: CardRefView,
+    location_id: Option<u64>,
+    observed: bool,
+    source_event_seq: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -7151,6 +7165,57 @@ impl RuntimeWorld {
         event
     }
 
+    fn append_location_search_event(
+        &mut self,
+        actor_id: u64,
+        location_id: u64,
+        content: &str,
+        reason: &str,
+    ) -> EventView {
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: "location.searched".to_string(),
+            success: true,
+            reason: 0,
+            actor_id: Some(actor_id),
+            actor_name: self.actor_name(actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id: Some(location_id),
+            location_name: self.location_name(location_id),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(format!("location:{location_id}:{content}:{reason}")),
+            item_id: None,
+            item_name: None,
+            target_item_id: None,
+            target_item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
     fn append_exit_discovered_event(
         &mut self,
         actor_id: u64,
@@ -8087,7 +8152,7 @@ impl RuntimeWorld {
                         if let Some(ledger_event) = self.mark_visit_ledger(
                             action.actor_id,
                             "feature",
-                            "You learned a room clue.",
+                            "You recorded a card observation.",
                             event.seq,
                             &format!("feature_search:{location_id}:{feature_key}"),
                         ) {
@@ -8100,6 +8165,63 @@ impl RuntimeWorld {
                             scope: "room".to_string(),
                             scope_id: *location_id,
                             label: format!("searched {feature_name}"),
+                            kind: "discovery".to_string(),
+                            active: true,
+                            source_event_seq: Some(event.seq),
+                            expires: None,
+                        };
+                        if let Some(tag_event) = self.set_rpg_tag(room_tag, action.actor_id, reason)
+                        {
+                            events.push(tag_event);
+                        }
+                    }
+                }
+                ProjectionMutation::SearchLocation {
+                    location_id,
+                    content,
+                    reason,
+                } => {
+                    let already_searched =
+                        self.location_search_claimed(action.actor_id, *location_id);
+                    let event = self.append_location_search_event(
+                        action.actor_id,
+                        *location_id,
+                        content,
+                        reason,
+                    );
+                    events.push(event.clone());
+                    let tag = RpgTagState {
+                        id: location_search_tag_id(action.actor_id, *location_id),
+                        scope: "actor".to_string(),
+                        scope_id: action.actor_id,
+                        label: "searched location".to_string(),
+                        kind: "memory".to_string(),
+                        active: true,
+                        source_event_seq: Some(event.seq),
+                        expires: None,
+                    };
+                    if !already_searched {
+                        if let Some(tag_event) = self.set_rpg_tag(tag, action.actor_id, reason) {
+                            events.push(tag_event);
+                        }
+                    }
+                    if !already_searched {
+                        if let Some(ledger_event) = self.mark_visit_ledger(
+                            action.actor_id,
+                            "location",
+                            "You observed the location card.",
+                            event.seq,
+                            &format!("location_search:{location_id}"),
+                        ) {
+                            events.push(ledger_event);
+                        }
+                    }
+                    if !self.room_location_search_claimed(*location_id) {
+                        let room_tag = RpgTagState {
+                            id: room_location_search_tag_id(*location_id),
+                            scope: "room".to_string(),
+                            scope_id: *location_id,
+                            label: "searched location".to_string(),
                             kind: "discovery".to_string(),
                             active: true,
                             source_event_seq: Some(event.seq),
@@ -10781,7 +10903,14 @@ impl RuntimeWorld {
     fn search_reveal_candidates_for_feature(
         &self,
         location_id: u64,
-        feature_key: &str,
+        _feature_key: &str,
+    ) -> Vec<SearchRevealCandidate> {
+        self.search_reveal_candidates_for_location(location_id)
+    }
+
+    fn search_reveal_candidates_for_location(
+        &self,
+        location_id: u64,
     ) -> Vec<SearchRevealCandidate> {
         let mut candidates = Vec::new();
         if let Some(exit) = self.seed_exit_candidate_for_search(location_id) {
@@ -10790,7 +10919,7 @@ impl RuntimeWorld {
                 to_location_id: exit.to_location_id,
             });
         }
-        if let Some(hidden_exit) = self.hidden_exit_candidate_for_search(location_id, feature_key) {
+        if let Some(hidden_exit) = self.default_hidden_exit_candidate(location_id) {
             candidates.push(SearchRevealCandidate::HiddenExit {
                 hidden_exit_id: hidden_exit.id.clone(),
             });
@@ -10902,35 +11031,11 @@ impl RuntimeWorld {
 
     fn default_search_target(&self, actor_id: u64) -> Option<RoomSearchTarget> {
         let actor = self.actor_by_id(actor_id)?;
-        let hidden_exit = self.default_hidden_exit_candidate(actor.location_id);
-        let has_candidate = hidden_exit.is_some()
-            || self
-                .seed_exit_candidate_for_search(actor.location_id)
-                .is_some()
-            || self
-                .hidden_avatar_candidate_for_search(actor.location_id)
-                .is_some()
-            || (self.room_floor_empty(actor.location_id)
-                && self
-                    .hidden_search_item_for_location(actor.location_id)
-                    .is_some());
-        if !has_candidate {
-            return None;
-        }
-        if let Some(hidden_exit) = hidden_exit {
-            if let Some(feature) = seed_content().room_features.iter().find(|feature| {
-                feature.location_id == hidden_exit.from_location_id
-                    && feature.key == hidden_exit.feature_key
-            }) {
-                return Some(RoomSearchTarget::from_feature(feature));
-            }
-        }
-        if let Some(feature) = seed_content()
-            .room_features
-            .iter()
-            .find(|feature| feature.location_id == actor.location_id)
+        if self
+            .search_reveal_candidates_for_location(actor.location_id)
+            .is_empty()
         {
-            return Some(RoomSearchTarget::from_feature(feature));
+            return None;
         }
         let location_name = self
             .location_name(actor.location_id)
@@ -11186,90 +11291,17 @@ impl RuntimeWorld {
 
     fn resident_feature_use_match_for_item(
         &self,
-        resident: CwActor,
-        item_id: u64,
+        _resident: CwActor,
+        _item_id: u64,
     ) -> Option<ResidentFeatureUseCandidate> {
-        if resident.kind != CW_ACTOR_NPC || resident.status != CW_ACTOR_ACTIVE {
-            return None;
-        }
-        if self
-            .item_by_id(item_id)
-            .is_some_and(|item| item.kind == CW_ITEM_POTION)
-        {
-            return None;
-        }
-
-        self.room_features(resident.location_id)
-            .into_iter()
-            .filter_map(|feature| {
-                let use_case = feature
-                    .uses
-                    .iter()
-                    .find(|use_case| use_case.item_id == item_id)?;
-                if self.feature_use_claimed(
-                    resident.id,
-                    resident.location_id,
-                    &feature.key,
-                    item_id,
-                ) {
-                    return None;
-                }
-                Some(ResidentFeatureUseCandidate {
-                    actor_id: resident.id,
-                    location_id: resident.location_id,
-                    feature_key: feature.key.clone(),
-                    feature_name: feature.name.clone(),
-                    item_id,
-                    content: use_case.text.clone(),
-                })
-            })
-            .min_by_key(|candidate| {
-                (
-                    candidate.feature_key.clone(),
-                    candidate.item_id,
-                    candidate.location_id,
-                )
-            })
+        None
     }
 
     fn resident_local_feature_item_ids(&self, resident: CwActor) -> Vec<u64> {
         if resident.kind != CW_ACTOR_NPC || resident.status != CW_ACTOR_ACTIVE {
             return Vec::new();
         }
-        let held_item_ids: BTreeSet<u64> = self
-            .actor_held_items(resident.id)
-            .into_iter()
-            .map(|item| item.id)
-            .collect();
-        let remembered_item_ids: BTreeSet<u64> = self
-            .resident_memories
-            .values()
-            .filter(|memory| {
-                memory.carrier_actor_id == resident.id
-                    && memory.kind == RESIDENT_MEMORY_KIND_ITEM_LOCATION
-                    && memory.confidence >= RESIDENT_MEMORY_MIN_SEEK_CONFIDENCE
-            })
-            .map(|memory| memory.subject_id)
-            .collect();
-        let mut item_ids = Vec::new();
-        for feature in self.room_features(resident.location_id) {
-            for use_case in &feature.uses {
-                if held_item_ids.contains(&use_case.item_id)
-                    || !remembered_item_ids.contains(&use_case.item_id)
-                    || item_ids.contains(&use_case.item_id)
-                    || self
-                        .item_by_id(use_case.item_id)
-                        .is_some_and(|item| item.kind == CW_ITEM_POTION)
-                    || self
-                        .resident_feature_use_match_for_item(resident, use_case.item_id)
-                        .is_none()
-                {
-                    continue;
-                }
-                item_ids.push(use_case.item_id);
-            }
-        }
-        item_ids
+        Vec::new()
     }
 
     fn resident_feature_use_candidate(
@@ -13663,6 +13695,8 @@ impl RuntimeWorld {
 
         let exits = self.exit_views(location_id, access);
         let cards = self.card_registry_for(&location, &actors, &items, &exits, access);
+        let card_transactions =
+            self.card_transaction_views(location_id, &actors, &items, &exits, &cards);
         let access_view = access_view(access, &cards.locations);
         let orbs = client_actor_id.map(|id| self.orb_balance(id)).unwrap_or(0);
         let listen_reward_claimable = client_actor_id
@@ -13695,7 +13729,10 @@ impl RuntimeWorld {
             actors,
             items,
             factions: faction_views(),
-            room_features: self.room_feature_views(location_id, client_actor_id),
+            room_features: Vec::new(),
+            search_available: client_actor_id
+                .map(|id| self.default_search_target(id).is_some())
+                .unwrap_or(false),
             clocks: self.clock_views(location_id),
             tags: self.tag_views(client_actor_id, location_id),
             jobs: self.job_views(location_id),
@@ -13713,6 +13750,7 @@ impl RuntimeWorld {
                 .unwrap_or_default(),
             chat_bond_claimed_target_ids,
             cards,
+            card_transactions,
             access: access_view,
             account: account_view(access),
             economy: EconomyView {
@@ -14296,6 +14334,7 @@ impl RuntimeWorld {
             .collect()
     }
 
+    #[allow(dead_code)]
     fn room_feature_views(&self, location_id: u64, actor_id: Option<u64>) -> Vec<RoomFeatureView> {
         self.room_features(location_id)
             .into_iter()
@@ -14351,6 +14390,7 @@ impl RuntimeWorld {
             .collect()
     }
 
+    #[allow(dead_code)]
     fn room_feature_use_effect(
         &self,
         actor_id: Option<u64>,
@@ -14377,6 +14417,7 @@ impl RuntimeWorld {
         (!parts.is_empty()).then(|| parts.join(", "))
     }
 
+    #[allow(dead_code)]
     fn room_feature_project_progress_effect(
         &self,
         actor_id: Option<u64>,
@@ -14438,11 +14479,31 @@ impl RuntimeWorld {
             .unwrap_or(false)
     }
 
+    fn location_search_claimed(&self, actor_id: u64, location_id: u64) -> bool {
+        self.tags
+            .get(&location_search_tag_id(actor_id, location_id))
+            .map(|tag| tag.active)
+            .unwrap_or(false)
+    }
+
+    fn room_location_search_claimed(&self, location_id: u64) -> bool {
+        self.tags
+            .get(&room_location_search_tag_id(location_id))
+            .map(|tag| tag.active)
+            .unwrap_or(false)
+    }
+
     fn searched_room_feature_count(&self, actor_id: u64, location_id: u64) -> usize {
-        self.room_features(location_id)
+        let feature_searches = self
+            .room_features(location_id)
             .into_iter()
             .filter(|feature| self.feature_search_claimed(actor_id, location_id, &feature.key))
-            .count()
+            .count();
+        if self.location_search_claimed(actor_id, location_id) {
+            feature_searches.max(1)
+        } else {
+            feature_searches
+        }
     }
 
     fn project_location_evidence_count(&self, actor_id: u64, job: &JobState) -> usize {
@@ -15380,6 +15441,75 @@ impl RuntimeWorld {
         }
     }
 
+    fn card_transaction_views(
+        &self,
+        location_id: u64,
+        actors: &[ActorView],
+        items: &[ItemView],
+        exits: &[ExitView],
+        cards: &CardRegistryView,
+    ) -> Vec<CardTransactionView> {
+        let mut transactions = Vec::new();
+        let Some(location_card) = cards.locations.get(&location_id) else {
+            return transactions;
+        };
+        let location_ref = card_ref_view("location", location_id, location_card);
+
+        for exit in exits.iter().filter(|exit| exit.accessible && !exit.locked) {
+            if let Some(destination_card) = cards.locations.get(&exit.destination_location_id) {
+                transactions.push(card_transaction_view(
+                    location_ref.clone(),
+                    "connected_to",
+                    card_ref_view("location", exit.destination_location_id, destination_card),
+                    Some(location_id),
+                ));
+            }
+        }
+
+        for actor in actors
+            .iter()
+            .filter(|actor| actor.location_id == location_id)
+        {
+            if let Some(actor_card) = cards.actors.get(&actor.id) {
+                transactions.push(card_transaction_view(
+                    card_ref_view("actor", actor.id, actor_card),
+                    "in",
+                    location_ref.clone(),
+                    Some(location_id),
+                ));
+            }
+        }
+
+        for item in items {
+            if item.location_id == Some(location_id) {
+                if let Some(item_card) = cards.items.get(&item.id) {
+                    transactions.push(card_transaction_view(
+                        card_ref_view("item", item.id, item_card),
+                        "in",
+                        location_ref.clone(),
+                        Some(location_id),
+                    ));
+                }
+            }
+            let Some(holder_actor_id) = item.holder_actor_id else {
+                continue;
+            };
+            if let (Some(actor_card), Some(item_card)) = (
+                cards.actors.get(&holder_actor_id),
+                cards.items.get(&item.id),
+            ) {
+                transactions.push(card_transaction_view(
+                    card_ref_view("actor", holder_actor_id, actor_card),
+                    "holds",
+                    card_ref_view("item", item.id, item_card),
+                    Some(location_id),
+                ));
+            }
+        }
+
+        transactions
+    }
+
     fn branch_is_active(&self, branch: &DialogueBranch) -> bool {
         self.world.tick <= branch.expires_at_tick
     }
@@ -16005,7 +16135,7 @@ impl RuntimeWorld {
                 }
                 if self.listen_attempt_claimed_at(actor_id, actor.location_id) {
                     return Some(
-                        "relistens to the room; the first useful clue here is already claimed"
+                        "relistens to the room; the first useful signal here is already claimed"
                             .to_string(),
                     );
                 }
@@ -18795,6 +18925,31 @@ fn card_for_location(location_id: u64, name: &str) -> CardView {
         return card;
     }
     unknown_location_card(location_id, name)
+}
+
+fn card_ref_view(kind: &str, subject_id: u64, card: &CardView) -> CardRefView {
+    CardRefView {
+        card_id: card.card_id.clone(),
+        kind: kind.to_string(),
+        subject_id,
+        display_name: card.display_name.clone(),
+    }
+}
+
+fn card_transaction_view(
+    subject: CardRefView,
+    predicate: &str,
+    object: CardRefView,
+    location_id: Option<u64>,
+) -> CardTransactionView {
+    CardTransactionView {
+        subject,
+        predicate: predicate.to_string(),
+        object,
+        location_id,
+        observed: true,
+        source_event_seq: None,
+    }
 }
 
 fn seed_card_for_subject(subject_kind: &str, subject_id: u64) -> Option<CardView> {
@@ -22214,8 +22369,8 @@ async fn command(
         }
         CommandDispatch::SearchFeature {
             location_id,
-            feature_key,
-            feature_name,
+            feature_key: _feature_key,
+            feature_name: _feature_name,
             output,
         } => {
             if !allow_actor_mutation(
@@ -22259,8 +22414,7 @@ async fn command(
                 });
             }
             runtime.decay_search_memories();
-            let candidates =
-                runtime.search_reveal_candidates_for_feature(location_id, &feature_key);
+            let candidates = runtime.search_reveal_candidates_for_location(location_id);
             if candidates.is_empty() {
                 let status = if runtime.room_floor_empty(location_id) {
                     404
@@ -22312,18 +22466,14 @@ async fn command(
                 seed,
             );
             if found_item_id.is_some() {
-                record
-                    .content_upserts
-                    .insert(content_id, format!("{feature_name}: {}", output.clone()));
+                record.content_upserts.insert(content_id, output.clone());
             }
             record
                 .projection_mutations
-                .push(ProjectionMutation::SearchFeature {
+                .push(ProjectionMutation::SearchLocation {
                     location_id,
-                    feature_key,
-                    feature_name,
                     content: output.clone(),
-                    reason: "search_feature".to_string(),
+                    reason: "search_location".to_string(),
                 });
             if let Some(item_id) = found_item_id {
                 record
@@ -22331,7 +22481,7 @@ async fn command(
                     .push(ProjectionMutation::RememberSearchItem {
                         item_id,
                         location_id,
-                        reason: "search_feature".to_string(),
+                        reason: "search_location".to_string(),
                     });
             }
             if let Some(candidate) = revealed_candidate {
@@ -22345,7 +22495,7 @@ async fn command(
                             .push(ProjectionMutation::DiscoverSeedExit {
                                 from_location_id,
                                 to_location_id,
-                                reason: "search_feature".to_string(),
+                                reason: "search_location".to_string(),
                             });
                     }
                     SearchRevealCandidate::HiddenExit { hidden_exit_id } => {
@@ -22353,7 +22503,7 @@ async fn command(
                             .projection_mutations
                             .push(ProjectionMutation::DiscoverHiddenExit {
                                 hidden_exit_id,
-                                reason: "search_feature".to_string(),
+                                reason: "search_location".to_string(),
                             });
                     }
                     SearchRevealCandidate::Avatar {
@@ -22365,7 +22515,7 @@ async fn command(
                             .push(ProjectionMutation::DiscoverAvatar {
                                 actor_id,
                                 location_id,
-                                reason: "search_feature".to_string(),
+                                reason: "search_location".to_string(),
                             });
                     }
                     SearchRevealCandidate::Item { .. } => {}
@@ -22923,7 +23073,9 @@ fn ripple_action_kind_from_events(actor_id: u64, events: &[EventView]) -> u8 {
             "combat.flee.success" => CW_ACTION_FLEE,
             "item.dropped" => CW_ACTION_DROP_ITEM,
             "item.traded" => CW_ACTION_TRADE_ITEM,
-            "feature.searched" | "exit.discovered" | "avatar.discovered" => CW_ACTION_SEARCH,
+            "feature.searched" | "location.searched" | "exit.discovered" | "avatar.discovered" => {
+                CW_ACTION_SEARCH
+            }
             "item.crafted" => CW_ACTION_CRAFT,
             _ => CW_ACTION_NONE,
         })
@@ -23516,7 +23668,7 @@ fn room_memory_label(event: &EventView) -> String {
         "actor.created" | "actor.entered_location" => "join",
         "move.blocked" => "locked",
         "hand.shuffled" => "hand",
-        "feature.searched" | "exit.discovered" => "search",
+        "feature.searched" | "location.searched" | "exit.discovered" => "search",
         "ability_check.rolled" | "combat.attack.attempt" => "roll",
         "ledger.marked" => "ledger",
         "ledger.banked" => "bank",
@@ -23543,7 +23695,7 @@ fn room_memory_kind(event: &EventView) -> String {
         type_name if type_name.starts_with("combat.") => "combat",
         "actor.moved" | "actor.created" | "actor.entered_location" | "move.blocked" => "move",
         "clock.updated" | "tag.applied" | "tag.cleared" | "job.updated" => "world",
-        "exit.discovered" => "event",
+        "location.searched" | "exit.discovered" => "event",
         "bond.deepened" | "bond.created" | "bond.revised" | "bond.resolved" => "bond",
         "ledger.marked" | "ledger.banked" | "advancement.spent" | "skill.stepped" => "ledger",
         _ => "event",
@@ -23572,12 +23724,14 @@ fn room_memory_log_text(event: &EventView) -> Option<String> {
                 .as_deref()
                 .unwrap_or("somewhere")
         ),
-        "feature.searched" => command_event_output(event).unwrap_or_else(|| {
-            format!(
-                "{} searched the room",
-                event.actor_name.as_deref().unwrap_or("someone")
-            )
-        }),
+        "feature.searched" | "location.searched" => {
+            command_event_output(event).unwrap_or_else(|| {
+                format!(
+                    "{} searched the room",
+                    event.actor_name.as_deref().unwrap_or("someone")
+                )
+            })
+        }
         "exit.discovered" => command_event_output(event).unwrap_or_else(|| {
             format!(
                 "{} discovered a way to {}",
@@ -23829,7 +23983,7 @@ fn atmospheric_search_beat(text: &str) -> String {
         .strip_prefix("search ")
         .and_then(|_| text.get(7..))
     {
-        return format!("the {} gives up a quiet clue", rest.trim());
+        return format!("the {} gives up a quiet signal", rest.trim());
     }
     text.to_string()
 }
@@ -27461,6 +27615,14 @@ fn feature_search_tag_id(actor_id: u64, location_id: u64, feature_key: &str) -> 
 
 fn room_feature_search_tag_id(location_id: u64, feature_key: &str) -> String {
     format!("room:{location_id}:feature_search:{feature_key}")
+}
+
+fn location_search_tag_id(actor_id: u64, location_id: u64) -> String {
+    format!("actor:{actor_id}:location_search:{location_id}")
+}
+
+fn room_location_search_tag_id(location_id: u64) -> String {
+    format!("room:{location_id}:location_search")
 }
 
 fn seed_exit_discovered_tag_id(from_location_id: u64, to_location_id: u64) -> String {
@@ -39135,6 +39297,92 @@ mod tests {
             }
             other => panic!("inventory should be read-only, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn state_projects_card_transactions_and_location_search() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let mut record = JournalRecord::new(create, 18620);
+        record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Card Tester".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Transaction Reader".to_string(),
+                description: "A test avatar reading the world as card transactions.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
+        runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
+
+        let access = AccessContext::default();
+        let state = runtime.state_response(Some(5000), &access);
+        assert!(state.room_features.is_empty());
+        assert!(state.search_available);
+        assert!(state.card_transactions.iter().any(|transaction| {
+            transaction.subject.display_name == "The Cosy Cottage"
+                && transaction.predicate == "connected_to"
+                && transaction.object.display_name == "Rain-Soft Garden"
+        }));
+        assert!(state.card_transactions.iter().any(|transaction| {
+            transaction.subject.display_name == "Card Tester"
+                && transaction.predicate == "in"
+                && transaction.object.display_name == "The Cosy Cottage"
+        }));
+
+        let search = runtime
+            .resolve_command(&command_request(5000, "search"), &access)
+            .expect("location search resolves");
+        match search.dispatch {
+            CommandDispatch::SearchFeature {
+                location_id,
+                feature_key,
+                feature_name,
+                output,
+            } => {
+                assert_eq!(location_id, COSY_COTTAGE_LOCATION_ID);
+                assert_eq!(feature_key, "room");
+                assert_eq!(feature_name, "The Cosy Cottage");
+                assert!(output.contains("Cosy Cottage card"));
+            }
+            other => panic!("search should target the location card, got {other:?}"),
+        }
+
+        let mut search_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                ..CwAction::default()
+            },
+            18621,
+        );
+        search_record
+            .projection_mutations
+            .push(ProjectionMutation::SearchLocation {
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                content: "Search observes the The Cosy Cottage card.".to_string(),
+                reason: "search_location".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&search_record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "location.searched" && event.actor_id == Some(5000)
+        }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "tag.applied"
+                && event.tag_id.as_deref()
+                    == Some(location_search_tag_id(5000, COSY_COTTAGE_LOCATION_ID).as_str())
+        }));
     }
 
     #[test]

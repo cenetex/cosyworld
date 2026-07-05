@@ -471,6 +471,10 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             "You search {}.",
             event_content_part(event, 0).unwrap_or("a room feature")
         )),
+        "location.searched" => Some(format!(
+            "You search {}.",
+            event.location_name.as_deref().unwrap_or("the location")
+        )),
         "exit.discovered" => Some(event.content.clone().unwrap_or_else(|| {
             format!(
                 "You discover a way to {}.",
@@ -757,7 +761,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Commands: look, look <thing>, search <feature>, who, inventory, go <room|direction>, say <message>, emote <action>, report <actor>: <reason>, take <item>, drop <item>, give <item> to <resident>, trade <item> with <resident> for <item>, craft [recipe], use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, shuffle, skill <name>, calling <new drive>, bond <resident>: <relationship>, settle <resident>, attack <target>, defend, flee <room|direction>.".to_string(),
+                            output: "Commands: look, look <thing>, search, who, inventory, go <room|direction>, say <message>, emote <action>, report <actor>: <reason>, take <item>, drop <item>, give <item> to <resident>, trade <item> with <resident> for <item>, craft [recipe], use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, shuffle, skill <name>, calling <new drive>, bond <resident>: <relationship>, settle <resident>, attack <target>, defend, flee <room|direction>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -771,20 +775,7 @@ impl RuntimeWorld {
                 },
             }),
             "search" => {
-                if search_query_is_room(rest) {
-                    if let Some(target) = self.default_search_target(actor.id) {
-                        return Ok(ResolvedCommand {
-                            command: command.clone(),
-                            verb,
-                            action: Some(command_action("search", "Search", &command)),
-                            dispatch: CommandDispatch::SearchFeature {
-                                location_id: target.location_id,
-                                feature_key: target.key,
-                                feature_name: target.name,
-                                output: target.output,
-                            },
-                        });
-                    }
+                let Some(target) = self.default_search_target(actor.id) else {
                     return Ok(ResolvedCommand {
                         command: command.clone(),
                         verb,
@@ -795,12 +786,8 @@ impl RuntimeWorld {
                             })?,
                         },
                     });
-                }
-                let feature = self
-                    .resolve_room_feature(actor.location_id, rest)
-                    .map_err(|output| command_error(&command, "search", 404, output))?;
-                let candidates =
-                    self.search_reveal_candidates_for_feature(actor.location_id, &feature.key);
+                };
+                let candidates = self.search_reveal_candidates_for_location(actor.location_id);
                 if candidates.is_empty() {
                     let output = if self.room_floor_empty(actor.location_id) {
                         "Nothing else turns up here right now."
@@ -826,10 +813,10 @@ impl RuntimeWorld {
                     verb,
                     action: Some(command_action("search", "Search", &command)),
                     dispatch: CommandDispatch::SearchFeature {
-                        location_id: actor.location_id,
-                        feature_key: feature.key.clone(),
-                        feature_name: feature.name.clone(),
-                        output: format!("{} - {}", feature.name, feature.search),
+                        location_id: target.location_id,
+                        feature_key: target.key,
+                        feature_name: target.name,
+                        output: target.output,
                     },
                 })
             }
@@ -1787,59 +1774,24 @@ impl RuntimeWorld {
         Err("Nothing nearby matches that look command.")
     }
 
-    fn search_command_output(&self, actor: CwActor, query: &str) -> Result<String, &'static str> {
+    fn search_command_output(&self, _actor: CwActor, query: &str) -> Result<String, &'static str> {
         let query = trim_command_filler(query);
         if search_query_is_room(query) {
-            let features = self
-                .room_features(actor.location_id)
-                .into_iter()
-                .map(|feature| feature.name.clone())
-                .collect::<Vec<_>>();
-            if features.is_empty() {
-                return Ok(
-                    "You search the room, but nothing asks for closer attention yet.".to_string(),
-                );
-            }
-            return Ok(format!(
-                "The floor is empty. Searchable features: {}.",
-                command_list_or_none(&features)
-            ));
+            return Ok(
+                "You search the location card, but no new card transaction turns up yet."
+                    .to_string(),
+            );
         }
-        let feature = self.resolve_room_feature(actor.location_id, query)?;
-        Ok(format!("{} - {}", feature.name, feature.search))
+        Ok("Search is location-wide here. Try: search".to_string())
     }
 
     fn feature_use_result(
         &self,
-        location_id: u64,
-        query: &str,
-        item_id: u64,
+        _location_id: u64,
+        _query: &str,
+        _item_id: u64,
     ) -> Option<FeatureUseResult> {
-        let feature = self.resolve_room_feature(location_id, query).ok()?;
-        let item_name = self
-            .item_name(item_id)
-            .unwrap_or_else(|| item_id.to_string());
-        if let Some(use_case) = feature
-            .uses
-            .iter()
-            .find(|use_case| use_case.item_id == item_id)
-        {
-            return Some(FeatureUseResult {
-                feature_key: feature.key.clone(),
-                feature_name: feature.name.clone(),
-                output: format!("{} - {}", feature.name, use_case.text),
-                matched: true,
-            });
-        }
-        Some(FeatureUseResult {
-            feature_key: feature.key.clone(),
-            feature_name: feature.name.clone(),
-            output: format!(
-                "{} - The {item_name} does not wake anything in this feature yet.",
-                feature.name
-            ),
-            matched: false,
-        })
+        None
     }
 
     fn room_command_output(
@@ -1880,18 +1832,12 @@ impl RuntimeWorld {
                     .unwrap_or(exit.destination_location_name)
             })
             .collect::<Vec<_>>();
-        let features = self
-            .room_features(location_id)
-            .into_iter()
-            .map(|feature| feature.name.clone())
-            .collect::<Vec<_>>();
         let mut lines = vec![
             format!("{} - {}", location.name, location.title),
             location.description,
             format!("Here: {}.", command_list_or_none(&actors)),
             format!("Items: {}.", command_list_or_none(&items)),
             format!("Exits: {}.", command_list_or_none(&exits)),
-            format!("Features: {}.", command_list_or_none(&features)),
         ];
 
         if let Some(sheet) = self.room_sheet_view(location_id) {

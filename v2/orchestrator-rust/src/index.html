@@ -2314,7 +2314,6 @@
       const actingActor = (view.actors || []).find((actor) => actor.id === actorId);
       const inventoryCapacity = 3 + Math.max(0, Number(actingActor?.stats?.level || 1));
       const inventoryFull = heldItems.length >= inventoryCapacity;
-      const roomFeatures = Array.isArray(view.room_features) ? view.room_features : [];
       const bonds = Array.isArray(view.bonds) ? view.bonds : [];
       const activeBondTargetIds = new Set(bonds.map((bond) => Number(bond.target_actor_id || 0)));
       const attackTargetIds = new Set(options.has("attack") ? (view.actors || [])
@@ -2353,16 +2352,19 @@
         && tag.label === "spent preparation"
         && String(tag.id || "") === `actor:${actorId}:prepared_spent:${currentLocationId}:${activeProgressClock.id}`
       ));
-      const searchedRoomFeatureCount = roomFeatures.filter((feature) => feature.searched).length;
-      const preparedProgressPreview = progressAmountFromOffer(offerFor("prepare"), searchedRoomFeatureCount > 0 ? 3 : 2);
+      const locationSearchObserved = currentLocationId > 0 && (view.tags || []).some((tag) => (
+        tag.scope === "actor"
+        && String(tag.id || "") === `actor:${actorId}:location_search:${currentLocationId}`
+      ));
+      const preparedProgressPreview = progressAmountFromOffer(offerFor("prepare"), locationSearchObserved ? 3 : 2);
       const workProgressPreview = progressAmountFromOffer(offerFor("work"), preparedForRoom ? preparedProgressPreview : 2);
       const helpProgressPreview = progressAmountFromOffer(offerFor("help"), preparedForRoom ? Math.max(1, preparedProgressPreview - 1) : 1);
       const projectWorkFinishes = activeRoomProject && activeProgressRemaining > 0 && activeProgressRemaining <= workProgressPreview;
       const projectHelpFinishes = activeRoomProject && activeProgressRemaining > 0 && activeProgressRemaining <= helpProgressPreview;
       const finalProjectPush = preparationSpentForProject && projectWorkFinishes;
       const unpreparedWorkDetail = projectWorkFinishes ? "tired" : `+${workProgressPreview} progress, tired`;
-      const projectSearchPriority = activeRoomProject && !preparedForRoom && searchedRoomFeatureCount === 0 ? 29 : 86;
-      const projectPreparePriority = activeRoomProject && !preparedForRoom && searchedRoomFeatureCount > 0 ? 29 : 32;
+      const projectSearchPriority = activeRoomProject && !preparedForRoom && !locationSearchObserved ? 29 : 86;
+      const projectPreparePriority = activeRoomProject && !preparedForRoom && locationSearchObserved ? 29 : 32;
       const giveTargetIds = new Set();
       if (options.has("give_item")) {
         const giveOffer = offerFor("give_item");
@@ -2440,38 +2442,17 @@
           });
         }
       }
-      for (const feature of roomFeatures) {
-        if (!feature.searched) continue;
-        const matchingUses = (feature.uses || [])
-          .filter((useCase) => !useCase.used)
-          .map((useCase) => ({ useCase, item: heldItems.find((item) => item.id === useCase.item_id) }))
-          .filter((match) => Boolean(match.item) && String(match.useCase.effect || "").trim().length > 0);
-        for (const { useCase, item } of matchingUses) {
-          const useEffect = String(useCase.effect || "");
-          const progressFeatureUse = /\+\d+\s+progress/i.test(useEffect);
-          built.push({
-            label: "use",
-            detail: useEffect ? `${item.name}, ${useEffect}` : `${item.name} on ${feature.name}`,
-            command: `use ${item.name} on ${feature.name}`,
-            focusKey: `use-feature:${feature.key}:${item.id}`,
-            card: cardForItem(item.id) || cardForLocation(view.location?.id),
-            shape: "item",
-            priority: progressFeatureUse ? 20 : 88,
-            effect: useEffect ? `uses ${item.name} on ${feature.name}; ${useEffect}` : undefined,
-            run: () => runCommandText(`use ${item.name} on ${feature.name}`),
-          });
-        }
-      }
-      for (const feature of roomFeatures.filter((feature) => !feature.searched)) {
+      if (view.search_available === true || options.has("search")) {
         built.push({
           label: "search",
-          detail: feature.name,
-          command: `search ${feature.name}`,
-          focusKey: `feature:${feature.key}`,
+          detail: view.location?.name || "location",
+          command: "search",
+          focusKey: `location:${view.location?.id || "current"}:search`,
           card: cardForLocation(view.location?.id),
           shape: "location",
           priority: projectSearchPriority,
-          run: () => runCommandText(`search ${feature.name}`),
+          effect: offerFor("search")?.effect || "observes the location card for new transactions",
+          run: () => runCommandText("search"),
         });
       }
       for (const actor of view.actors || []) {
@@ -2676,7 +2657,7 @@
         const repeatListenDetail = listenCost > 0 ? `tired, -${listenCost} Orb` : "already heard";
         built.push({
           label: listenAttemptedHere ? "listen again" : "listen",
-          detail: listenAttemptedHere ? repeatListenDetail : "for clues",
+          detail: listenAttemptedHere ? repeatListenDetail : "for signals",
           command: "listen",
           focusKey: "check",
           card: cardForLocation(view.location?.id),
@@ -2880,12 +2861,12 @@
       if (label === "travel" || command.startsWith("go ")) return "travel";
       if (label === "chat" || command.startsWith("chat ")) return "chat";
       if (label === "bond" || label === "settle" || focusKey.includes("bond")) return "bond";
-      if (label === "listen" || label === "listen again" || label === "search" || label === "look" || command.startsWith("search ")) return "listen";
+      if (label === "listen" || label === "listen again" || label === "search" || label === "look" || command === "search" || command.startsWith("search ")) return "listen";
       if (label === "train" || command.startsWith("skill ")) return "train";
       if (label === "grow" || label === "bank") return "bank";
       if (label === "trade" || label === "give") return "trade";
       if (label === "take") return "item";
-      if (label === "use") return focusKey.startsWith("use-feature:") || detail.includes("progress") ? "craft" : "item";
+      if (label === "use") return detail.includes("progress") ? "craft" : "item";
       if (label === "prepare" || label === "work" || label === "help" || label === "finish") return "project";
       if (label === "rest") return "utility";
       return "utility";
@@ -3368,6 +3349,7 @@
         || event.type === "message.created"
         || event.type === "move.blocked"
         || event.type === "feature.searched"
+        || event.type === "location.searched"
         || event.type === "exit.discovered"
         || event.type === "item.picked_up"
         || event.type === "item.dropped"
@@ -3807,8 +3789,8 @@
         const target = event.target_actor_name || "the current player";
         return { kind: "hand", label: "passed", text: `${target} passed${repeatSuffix}` };
       }
-      if (event.type === "feature.searched") {
-        return { kind: "search", label: "search", text: cleanStatusText(featureSearchEventText(event)) };
+      if (event.type === "feature.searched" || event.type === "location.searched") {
+        return { kind: "search", label: "search", text: cleanStatusText(searchEventText(event)) };
       }
       if (event.type === "exit.discovered") {
         return { kind: "search", label: "entrance", text: cleanStatusText(eventText(event)) };
@@ -4192,7 +4174,7 @@
     function eventText(event) {
       if (event.type === "command.output") return event.content || "";
       if (event.type === "message.created") return event.content || "";
-      if (event.type === "feature.searched") return featureSearchEventText(event);
+      if (event.type === "feature.searched" || event.type === "location.searched") return searchEventText(event);
       if (event.type === "exit.discovered") {
         return event.content || `discovers a way to ${event.destination_location_name || "somewhere new"}.`;
       }
@@ -4269,13 +4251,17 @@
       return event.type;
     }
 
-    function featureSearchEventText(event) {
+    function searchEventText(event) {
+      if (event.type === "location.searched") {
+        const actor = event.actor_name || "Someone";
+        return `${actor} searches ${event.location_name || "the location"} card`;
+      }
       const parts = String(event.content || "").split(":");
       const feature = parts.shift() || "a room feature";
       const reason = parts.length > 1 ? parts.pop() : "";
-      const clue = parts.join(":").trim();
+      const observation = parts.join(":").trim();
       const actor = event.actor_name || "Someone";
-      if (clue) return `${actor} searches ${feature}: ${clue}`;
+      if (observation) return `${actor} searches ${feature}: ${observation}`;
       return `${actor} searches ${feature}${reason ? `: ${reason}` : ""}`;
     }
 
@@ -5373,6 +5359,14 @@
       if (discoveries.length) {
         strips.push(summaryStripHtml("Discovery", "Search", summaryText(discoveries.slice(0, 2))));
       }
+      const transactions = Array.isArray(view?.card_transactions) ? view.card_transactions : [];
+      if (transactions.length) {
+        strips.push(summaryStripHtml(
+          "Cards",
+          `${transactions.length} transaction${transactions.length === 1 ? "" : "s"}`,
+          summaryText(transactions.slice(0, 3).map(cardTransactionText))
+        ));
+      }
       const recovery = recoveryGoalText(view);
       if (recovery) strips.push(summaryStripHtml("Recovery", recovery.meta, recovery.body));
       const need = residentNeedGoal(view);
@@ -5389,6 +5383,13 @@
         return summaryStripHtml("Room", "", atmosphericRoomSheetText(view, aspects, tags, zone));
       }
       return "";
+    }
+
+    function cardTransactionText(transaction) {
+      const subject = transaction?.subject?.display_name || transaction?.subject?.card_id || "Card";
+      const predicate = transaction?.predicate || "relates_to";
+      const object = transaction?.object?.display_name || transaction?.object?.card_id || "Card";
+      return `${subject} ${predicate} ${object}`;
     }
 
     function recoveryGoalText(view) {
@@ -5531,17 +5532,11 @@
       if (optionKinds.has("rest") && tired) return "recover";
       if (tired) return "travel before rest";
 
-      const heldItemIds = new Set((view?.items || [])
-        .filter((item) => Number(item.holder_actor_id || 0) === currentActorId)
-        .map((item) => Number(item.id || 0)));
-      const roomFeatures = Array.isArray(view?.room_features) ? view.room_features : [];
-      const progressFeatureReady = roomFeatures.some((feature) => (feature.uses || []).some((useCase) => (
-        !useCase.used
-        && heldItemIds.has(Number(useCase.item_id || 0))
-        && /\+\d+\s+progress/i.test(String(useCase.effect || ""))
-      )));
-      if (progressFeatureReady) return "use clue";
-      if (optionKinds.has("prepare") && !prepared && roomFeatures.some((feature) => !feature.searched)) return "scout clue";
+      const locationSearchObserved = locationId > 0 && tags.some((tag) => (
+        tag.scope === "actor"
+        && String(tag.id || "") === `actor:${currentActorId}:location_search:${locationId}`
+      ));
+      if (optionKinds.has("search") && !locationSearchObserved) return "observe card";
       if (workFinishes && prepared) return "prepared finish";
       if (prepared) return "prepared push";
       if (optionKinds.has("prepare")) return "prepare";
