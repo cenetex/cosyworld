@@ -14727,11 +14727,7 @@ impl RuntimeWorld {
         let zone = room_sheet
             .map(|sheet| room_sheet_zone(sheet).to_string())
             .unwrap_or_else(|| default_zone_for_scope("room", location_id).to_string());
-        let features = self
-            .room_features(location_id)
-            .into_iter()
-            .map(|feature| feature.key.clone())
-            .collect();
+        let features = Vec::new();
         let listen_offer = action_offers.iter().find(|offer| offer.kind == "check");
         let listen_reason = listen_offer
             .map(|offer| {
