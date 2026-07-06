@@ -217,6 +217,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
       "ecr:GetDownloadUrlForLayer",
       "ecr:InitiateLayerUpload",
       "ecr:ListImages",
+      "ecr:ListTagsForResource",
       "ecr:PutImage",
       "ecr:UploadLayerPart",
     ]
@@ -256,6 +257,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
       "elasticloadbalancing:DescribeTargetGroupAttributes",
       "elasticloadbalancing:DescribeTargetGroups",
       "logs:DescribeLogGroups",
+      "logs:ListTagsForResource",
     ]
     resources = ["*"]
   }
