@@ -1743,12 +1743,233 @@
         align-self: stretch;
       }
     }
+
+    /* Private house visual refresh */
+    :root {
+      --bg: #11100d;
+      --terminal: #191611;
+      --terminal-2: #211c15;
+      --line: rgba(244, 239, 227, 0.16);
+      --line-strong: rgba(222, 194, 141, 0.34);
+      --text: #f4efe3;
+      --dim: #a89c86;
+      --green: #d7ad61;
+      --amber: #dec28d;
+      --blue: #9ab0bd;
+      --red: #d98f77;
+      --type-travel: #9faf88;
+      --type-travel-rgb: 159, 175, 136;
+      --type-chat: #dec28d;
+      --type-chat-rgb: 222, 194, 141;
+      --type-bond: #d8b067;
+      --type-bond-rgb: 216, 176, 103;
+      --type-listen: #91a9b2;
+      --type-listen-rgb: 145, 169, 178;
+      --type-train: #b29b8d;
+      --type-train-rgb: 178, 155, 141;
+      --type-trade: #c89a62;
+      --type-trade-rgb: 200, 154, 98;
+      --type-bank: #91b7a4;
+      --type-bank-rgb: 145, 183, 164;
+      --type-craft: #84b1aa;
+      --type-craft-rgb: 132, 177, 170;
+      --type-project: #a7b57f;
+      --type-project-rgb: 167, 181, 127;
+      --type-item: #dec28d;
+      --type-item-rgb: 222, 194, 141;
+      --type-combat: #d98f77;
+      --type-combat-rgb: 217, 143, 119;
+      --type-danger: #d98f77;
+      --type-danger-rgb: 217, 143, 119;
+      --type-shuffle: #a89c86;
+      --type-shuffle-rgb: 168, 156, 134;
+      --type-utility: #b9ad96;
+      --type-utility-rgb: 185, 173, 150;
+    }
+
+    * {
+      letter-spacing: 0 !important;
+    }
+
+    html,
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.48 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body::before {
+      display: none;
+    }
+
+    .shell {
+      background: var(--bg);
+    }
+
+    .topbar {
+      border-bottom-color: var(--line);
+      background: rgba(17, 16, 13, 0.98);
+    }
+
+    .brand {
+      color: var(--text);
+      font-weight: 760;
+    }
+
+    .brand::before {
+      content: "CosyWorld / ";
+      color: var(--dim);
+    }
+
+    .economy strong,
+    .location-pill,
+    .room-title,
+    .cmd-label,
+    .roll-token b,
+    .card-name {
+      color: var(--amber);
+    }
+
+    .location-pill img,
+    .room-log-toggle,
+    .update-pill,
+    .roll-card,
+    .account-button,
+    .wallet-panel,
+    .wallet-close,
+    .action-dialog,
+    .action-close,
+    .action-confirm,
+    .card-dialog,
+    .card-close,
+    .command-input {
+      border-radius: 4px;
+    }
+
+    .terminal {
+      border-color: var(--line);
+      background: rgba(25, 22, 17, 0.96);
+      box-shadow: none;
+    }
+
+    .room {
+      border-bottom-color: var(--line);
+      background: #191611;
+    }
+
+    .room-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 19px;
+      font-weight: 500;
+    }
+
+    .room-log-toggle,
+    .account-button,
+    .turn-ping-pill,
+    .command-input {
+      border-color: var(--line-strong);
+      background: rgba(25, 22, 17, 0.86);
+      color: var(--text);
+    }
+
+    .room-log-toggle::after,
+    .caret {
+      color: var(--amber);
+    }
+
+    .room-hero::after {
+      background: linear-gradient(180deg, rgba(17, 16, 13, 0.06), rgba(17, 16, 13, 0.22) 44%, rgba(17, 16, 13, 0.84));
+    }
+
+    .log,
+    .log.chat-mode,
+    .log.room-mode {
+      background: #11100d;
+    }
+
+    .log.chat-mode::before {
+      background: none;
+    }
+
+    .line,
+    .room-copy,
+    .room-full,
+    .card-blurb,
+    .card-title {
+      color: var(--text);
+    }
+
+    .line.dim,
+    .room-memory,
+    .cmd-cost,
+    .cmd-hint,
+    .card-meta,
+    .card-economy-key {
+      color: var(--dim);
+    }
+
+    .prompt,
+    .command-input {
+      background: rgba(17, 16, 13, 0.98);
+    }
+
+    .cmd {
+      border-color: rgba(var(--cmd-accent-rgb), 0.34);
+      background: var(--terminal-2);
+      box-shadow: inset 2px 0 0 rgba(var(--cmd-accent-rgb), 0.42);
+      font-weight: 760;
+    }
+
+    .cmd.primary,
+    .cmd:not(:disabled):hover {
+      background: #282117;
+    }
+
+    .cmd::before {
+      display: none;
+    }
+
+    .cmd::after {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      box-shadow: none;
+    }
+
+    .cmd .thumb,
+    .cmd .thumb.location,
+    .cmd .thumb.item,
+    .cmd .thumb.action-mini-card,
+    .card-art,
+    .card-art img {
+      border-radius: 3px;
+    }
+
+    .thumb {
+      box-shadow: none;
+    }
+
+    .card-modal {
+      background: rgba(8, 7, 5, 0.74);
+    }
+
+    .card-dialog,
+    .action-dialog,
+    .wallet-panel {
+      border-color: var(--line);
+      background: #191611;
+      box-shadow: none;
+    }
+
+    .turn-ping-pill .turn-ping-time {
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
   <div class="shell">
     <header class="topbar">
-      <div class="brand" id="brand">cosyworld</div>
+      <div class="brand" id="brand">private room</div>
       <div class="economy" id="economy" role="button" tabindex="0" aria-label="Focus account inventory"></div>
       <div class="location-pill" role="button" tabindex="0" aria-label="Focus current location">
         <img id="location-image" alt="" />
@@ -1785,7 +2006,7 @@
   <div class="command-palette" id="command-palette" hidden>
     <form class="command-form" id="command-form">
       <span class="command-caret">&gt;</span>
-      <input class="command-input" id="command-input" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="MUD command" placeholder="try: look, listen, go garden, take button" />
+      <input class="command-input" id="command-input" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="World command" placeholder="Command" />
     </form>
   </div>
   <div class="card-modal" id="card-modal" hidden>

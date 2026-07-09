@@ -13,8 +13,8 @@
     :root {
       color-scheme: dark;
       --ink: #0b1212;
-      --panel: rgba(13, 24, 24, 0.88);
-      --panel-strong: rgba(16, 34, 32, 0.94);
+      --panel: rgba(13, 21, 19, 0.9);
+      --panel-strong: rgba(12, 18, 17, 0.96);
       --line: rgba(235, 216, 179, 0.18);
       --line-strong: rgba(235, 216, 179, 0.34);
       --text: #f7efe1;
@@ -25,7 +25,7 @@
       --teal: #6ec8bd;
       --rosewood: #8f5141;
       --danger: #ef8a74;
-      --shadow: rgba(0, 0, 0, 0.38);
+      --shadow: rgba(0, 0, 0, 0.28);
     }
 
     * {
@@ -105,13 +105,10 @@
       flex: 0 0 auto;
       place-items: center;
       border: 1px solid var(--line-strong);
-      border-radius: 8px;
-      background:
-        linear-gradient(135deg, rgba(230, 168, 93, 0.9), rgba(127, 177, 116, 0.75)),
-        #182321;
+      border-radius: 4px;
+      background: #d7ad61;
       color: #17201d;
       font-weight: 900;
-      box-shadow: 0 12px 34px var(--shadow);
     }
 
     .brand-copy {
@@ -163,10 +160,9 @@
     .residents-panel {
       min-height: 0;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 4px;
       background: var(--panel);
-      box-shadow: 0 18px 60px var(--shadow);
-      backdrop-filter: blur(16px);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02);
     }
 
     .sidebar,
@@ -182,7 +178,7 @@
       color: var(--soft);
       font-size: 12px;
       font-weight: 800;
-      letter-spacing: 0.08em;
+      letter-spacing: 0;
       text-transform: uppercase;
     }
 
@@ -198,7 +194,7 @@
       align-items: center;
       gap: 10px;
       border: 1px solid transparent;
-      border-radius: 8px;
+      border-radius: 4px;
       padding: 11px 10px;
       background: rgba(255, 255, 255, 0.03);
       color: var(--muted);
@@ -288,7 +284,7 @@
       align-items: center;
       min-height: 28px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 3px;
       padding: 0 9px;
       background: rgba(8, 14, 14, 0.5);
       color: var(--muted);
@@ -322,7 +318,7 @@
       margin: 14px 0;
       padding: 10px 12px;
       border: 1px solid rgba(230, 168, 93, 0.22);
-      border-radius: 8px;
+      border-radius: 4px;
       background: rgba(230, 168, 93, 0.08);
       color: var(--muted);
       font-size: 13px;
@@ -346,7 +342,7 @@
     .message.player .avatar {
       grid-column: 2;
       grid-row: 1;
-      background: linear-gradient(135deg, var(--rosewood), var(--ember));
+      background: var(--rosewood);
     }
 
     .message-body {
@@ -381,7 +377,7 @@
       display: inline-block;
       max-width: 100%;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 4px;
       padding: 11px 12px;
       background: rgba(255, 255, 255, 0.055);
       color: var(--text);
@@ -419,7 +415,7 @@
     .message-input {
       width: 100%;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 4px;
       background: rgba(255, 255, 255, 0.06);
       color: var(--text);
       outline: none;
@@ -448,8 +444,8 @@
     .icon-button {
       min-height: 44px;
       border: 1px solid rgba(230, 168, 93, 0.46);
-      border-radius: 8px;
-      background: linear-gradient(180deg, rgba(230, 168, 93, 0.95), rgba(176, 103, 63, 0.95));
+      border-radius: 4px;
+      background: #d7ad61;
       color: #1c1510;
       font-weight: 900;
     }
@@ -483,7 +479,7 @@
       gap: 11px;
       align-items: center;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 4px;
       padding: 10px;
       background: rgba(255, 255, 255, 0.04);
     }
@@ -559,7 +555,7 @@
       display: none;
       margin: 0 14px 12px;
       border: 1px solid rgba(239, 138, 116, 0.5);
-      border-radius: 8px;
+      border-radius: 4px;
       padding: 10px 12px;
       background: rgba(239, 138, 116, 0.12);
       color: #ffd0c7;
@@ -658,7 +654,7 @@
         <div class="brand-mark">CW</div>
         <div class="brand-copy">
           <h1>CosyWorld</h1>
-          <p>Locations as channels. Avatars as residents.</p>
+          <p>Private rooms. Resident intelligences.</p>
         </div>
       </div>
       <div class="server-state">
@@ -710,7 +706,7 @@
         <section class="legend" aria-label="Room state">
           <p class="legend-row"><strong>Active channel</strong><span id="active-channel">#cosy-cottage</span></p>
           <p class="legend-row"><strong>Open exits</strong><span id="exit-count">0</span></p>
-          <p class="legend-row"><strong>Mode</strong><span>MUD chat</span></p>
+          <p class="legend-row"><strong>Mode</strong><span>Private room</span></p>
         </section>
       </aside>
     </div>

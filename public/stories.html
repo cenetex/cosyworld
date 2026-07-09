@@ -575,7 +575,7 @@
     }
 
     .panel-location::before {
-      content: '📍 ';
+      content: 'Location: ';
     }
 
     .navigation {
@@ -724,13 +724,437 @@
         order: -1;
       }
     }
+
+    /* Private archive visual system */
+    :root {
+      --cw-canvas: #17140f;
+      --cw-paper: #f4efe3;
+      --cw-paper-2: #e9deca;
+      --cw-ink: #201b15;
+      --cw-muted: #746959;
+      --cw-soft: #a29580;
+      --cw-line: rgba(74, 61, 43, 0.22);
+      --cw-line-strong: rgba(74, 61, 43, 0.44);
+      --cw-gold: #b98b45;
+      --cw-green: #687c55;
+      --cw-danger: #9d4f3f;
+      --cw-radius: 4px;
+    }
+
+    body {
+      display: block;
+      min-height: 100vh;
+      padding: clamp(14px, 2.4vw, 34px);
+      background:
+        linear-gradient(180deg, rgba(23, 20, 15, 0.98), rgba(23, 20, 15, 0.9)),
+        #17140f;
+      color: var(--cw-ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    .book-container {
+      max-width: 1320px;
+      margin: 0 auto;
+      border: 1px solid rgba(233, 222, 202, 0.2);
+      border-radius: var(--cw-radius);
+      background: var(--cw-paper);
+      box-shadow: none;
+    }
+
+    .book-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 22px;
+      align-items: end;
+      border-bottom: 1px solid var(--cw-line);
+      background: var(--cw-paper-2);
+      color: var(--cw-ink);
+      padding: clamp(22px, 4vw, 44px);
+      text-align: left;
+    }
+
+    .book-title {
+      min-width: 0;
+    }
+
+    .book-header h1 {
+      margin: 0;
+      color: var(--cw-ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(36px, 5.4vw, 74px);
+      font-weight: 500;
+      line-height: 0.96;
+      text-shadow: none;
+      letter-spacing: 0;
+    }
+
+    .book-header .subtitle {
+      margin-top: 10px;
+      color: var(--cw-muted);
+      font-size: 15px;
+      font-style: normal;
+    }
+
+    .view-toggle {
+      justify-content: flex-end;
+      gap: 0;
+      margin-top: 0;
+      border: 1px solid var(--cw-line-strong);
+      border-radius: var(--cw-radius);
+      overflow: hidden;
+      background: transparent;
+      justify-self: end;
+      width: max-content;
+    }
+
+    .view-toggle button {
+      min-height: 40px;
+      border: 0;
+      border-right: 1px solid var(--cw-line-strong);
+      border-radius: 0;
+      padding: 0 15px;
+      background: transparent;
+      color: var(--cw-muted);
+      font-size: 13px;
+      font-weight: 760;
+      letter-spacing: 0;
+      transition: background-color 160ms ease, color 160ms ease;
+    }
+
+    .view-toggle button:last-child {
+      border-right: 0;
+    }
+
+    .view-toggle button:hover,
+    .view-toggle button.active {
+      background: var(--cw-ink);
+      color: var(--cw-paper);
+    }
+
+    .archive-grid {
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1px;
+      padding: 0;
+      background: var(--cw-line);
+    }
+
+    .archive-card {
+      border: 0;
+      border-radius: 0;
+      background: var(--cw-paper);
+      box-shadow: none;
+      transition: background-color 160ms ease;
+    }
+
+    .archive-card:hover {
+      transform: none;
+      border-color: transparent;
+      box-shadow: none;
+      background: #fbf6ea;
+    }
+
+    .archive-card.title-card-archive {
+      border: 0;
+      background: #fbf6ea;
+    }
+
+    .archive-thumbnail {
+      height: 238px;
+      background: #d9cfbc;
+    }
+
+    .archive-thumbnail .title-overlay {
+      background: linear-gradient(180deg, rgba(18, 14, 10, 0.04), rgba(18, 14, 10, 0.82));
+      padding: 18px;
+    }
+
+    .archive-thumbnail .title-overlay .title-badge,
+    .title-badge {
+      color: #e4c889;
+      font-size: 11px;
+      font-weight: 760;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .archive-thumbnail .title-overlay .title-text {
+      color: #fff8ea;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 24px;
+      font-weight: 500;
+      line-height: 1.08;
+    }
+
+    .archive-card-content {
+      padding: 18px;
+    }
+
+    .archive-card-header {
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .archive-chapter-title {
+      color: var(--cw-ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 24px;
+      font-weight: 500;
+      line-height: 1.1;
+    }
+
+    .title-badge-pill {
+      border: 1px solid var(--cw-line-strong);
+      border-radius: var(--cw-radius);
+      background: transparent;
+      color: var(--cw-muted);
+      font-size: 11px;
+      letter-spacing: 0;
+      text-transform: capitalize;
+    }
+
+    .archive-arc-title,
+    .archive-date,
+    .character-count,
+    .generating-status {
+      color: var(--cw-muted);
+    }
+
+    .archive-summary {
+      color: #4f4538;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .character-avatar,
+    .character-count {
+      border-color: var(--cw-paper);
+      transition: none;
+    }
+
+    .character-avatar:hover {
+      transform: none;
+    }
+
+    .loading,
+    .error,
+    .no-story {
+      color: var(--cw-muted);
+      font-size: 16px;
+    }
+
+    .error {
+      color: var(--cw-danger);
+    }
+
+    .story-page {
+      padding: clamp(20px, 4vw, 52px);
+      min-height: 640px;
+    }
+
+    .chapter-title {
+      justify-content: space-between;
+      border-bottom: 1px solid var(--cw-line);
+      color: var(--cw-ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(24px, 3.4vw, 42px);
+      font-weight: 500;
+      letter-spacing: 0;
+      text-align: left;
+    }
+
+    .animate-chapter-btn,
+    .animate-btn-small,
+    .download-video-link,
+    .download-video-link-small,
+    .nav-button {
+      min-height: 40px;
+      border: 1px solid var(--cw-line-strong);
+      border-radius: var(--cw-radius);
+      background: transparent;
+      color: var(--cw-ink);
+      box-shadow: none;
+      font-size: 13px;
+      font-weight: 760;
+      letter-spacing: 0;
+      transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+    }
+
+    .animate-chapter-btn:hover:not(:disabled),
+    .animate-btn-small:hover:not(:disabled),
+    .download-video-link:hover,
+    .download-video-link-small:hover,
+    .nav-button:hover:not(:disabled) {
+      transform: none;
+      border-color: var(--cw-gold);
+      background: var(--cw-ink);
+      box-shadow: none;
+      color: var(--cw-paper);
+    }
+
+    .animate-chapter-btn.has-video,
+    .animate-btn-small.has-video,
+    .download-video-link,
+    .download-video-link-small {
+      background: #efe4cf;
+      color: var(--cw-ink);
+    }
+
+    .animate-chapter-btn:disabled,
+    .animate-btn-small:disabled,
+    .nav-button:disabled {
+      background: transparent;
+      color: var(--cw-soft);
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
+    .archive-card-actions {
+      border-top: 1px solid var(--cw-line);
+    }
+
+    .inline-video-container {
+      border: 1px solid var(--cw-line);
+      border-radius: var(--cw-radius);
+      background: #191510;
+      box-shadow: none;
+    }
+
+    .inline-video-label {
+      color: #d7c29b;
+      letter-spacing: 0;
+    }
+
+    .inline-video {
+      border-radius: var(--cw-radius);
+    }
+
+    .comic-panel,
+    .comic-panel:nth-child(even) {
+      grid-template-columns: minmax(260px, 0.82fr) minmax(0, 1fr);
+      gap: clamp(20px, 3vw, 42px);
+      margin-bottom: 1px;
+      border: 0;
+      border-radius: 0;
+      border-top: 1px solid var(--cw-line);
+      background: var(--cw-paper);
+      padding: clamp(18px, 3vw, 34px);
+    }
+
+    .comic-panel.title-card {
+      border: 1px solid var(--cw-line);
+      border-radius: var(--cw-radius);
+      background: #efe4cf;
+      text-align: left;
+    }
+
+    .comic-panel.title-card .panel-number {
+      color: var(--cw-ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(30px, 4.6vw, 56px);
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .comic-panel.title-card .panel-caption {
+      color: #4a4032;
+      font-size: 17px;
+      font-weight: 400;
+    }
+
+    .panel-image img {
+      border-radius: var(--cw-radius);
+      box-shadow: none;
+      max-height: 360px;
+    }
+
+    .panel-image.loading {
+      border: 1px solid var(--cw-line);
+      border-radius: var(--cw-radius);
+      background: #e7dcc9;
+      animation: none;
+    }
+
+    .panel-text {
+      padding: 0;
+    }
+
+    .panel-number {
+      color: var(--cw-ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    .panel-caption {
+      color: #3d352b;
+      font-size: 18px;
+      font-style: normal;
+      font-weight: 400;
+    }
+
+    .panel-description {
+      color: #3d352b;
+      font-size: 16px;
+      line-height: 1.72;
+    }
+
+    .panel-location {
+      border-top: 1px solid var(--cw-line);
+      color: var(--cw-muted);
+      font-size: 12px;
+    }
+
+    .panel-location::before {
+      content: "Location: ";
+      color: var(--cw-soft);
+    }
+
+    .navigation {
+      border-top: 1px solid var(--cw-line);
+      background: var(--cw-paper-2);
+    }
+
+    .page-indicator {
+      color: var(--cw-muted);
+      font-size: 13px;
+    }
+
+    .no-story h2,
+    .no-story p {
+      color: var(--cw-muted);
+    }
+
+    @media (max-width: 768px) {
+      .book-header {
+        grid-template-columns: 1fr;
+      }
+
+      .view-toggle {
+        justify-content: stretch;
+        justify-self: stretch;
+        width: 100%;
+      }
+
+      .view-toggle button {
+        flex: 1;
+      }
+
+      .comic-panel,
+      .comic-panel:nth-child(even) {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="book-container">
     <div class="book-header">
-      <h1 id="storyTitle">📖 CosyWorld Story</h1>
-      <div class="subtitle" id="storySubtitle">Loading...</div>
+      <div class="book-title">
+        <h1 id="storyTitle">CosyWorld Story</h1>
+        <div class="subtitle" id="storySubtitle">Loading...</div>
+      </div>
       <div class="view-toggle">
         <button id="currentViewBtn" class="active" onclick="switchView('current')">Current Story</button>
         <button id="archiveViewBtn" onclick="switchView('archive')">Archive</button>
@@ -750,7 +1174,6 @@
 
     <div id="navigation" class="navigation" style="display: none;">
       <button id="prevButton" class="nav-button">
-        <span>←</span>
         <span>Previous</span>
       </button>
       
@@ -760,7 +1183,6 @@
       
       <button id="nextButton" class="nav-button">
         <span>Next</span>
-        <span>→</span>
       </button>
     </div>
   </div>
@@ -843,13 +1265,13 @@
                 <img src="${escapeHtml(arc.thumbnail)}" alt="${escapeHtml(arc.title)}">
               ` : `
                 <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f0f0f0; color: #999;">
-                  📖
+                  Archive
                 </div>
               `}
               <div class="title-overlay">
                 <div>
                   <div class="title-badge">${escapeHtml(arc.theme)} • ${escapeHtml(arc.emotionalTone)}</div>
-                  <div class="title-text">${escapeHtml(arc.title)} ${hasEpisodeVideos ? '🎥' : ''}</div>
+                  <div class="title-text">${escapeHtml(arc.title)} ${hasEpisodeVideos ? 'Video' : ''}</div>
                 </div>
               </div>
             </div>
@@ -871,7 +1293,7 @@
                 <div class="archive-card-actions" onclick="event.stopPropagation()" id="episode-controls-${arc.id}">
                   ${hasEpisodeVideos ? `
                     <a href="#" onclick="downloadEpisodeVideos('${arc.id}'); return false;" class="download-video-link-small">
-                      📥 Download Episode Videos
+                      Download Episode Videos
                     </a>
                   ` : `
                     <button 
@@ -879,7 +1301,7 @@
                       onclick="animateEpisode('${arc.id}')"
                       id="animate-episode-${arc.id}"
                     >
-                      🎬 Generate Episode Videos
+                      Generate Episode Videos
                     </button>
                   `}
                 </div>
@@ -983,7 +1405,7 @@
           const clipCount = data.videoUrls.length;
           controlsDiv.innerHTML = `
             <a href="#" onclick="downloadChapterVideos('${arcId}', ${chapterNumber}); return false;" class="download-video-link">
-              📥 Download Videos (${clipCount})
+              Download Videos (${clipCount})
             </a>
           `;
           
@@ -991,8 +1413,8 @@
           const chapterTitle = controlsDiv.closest('.chapter-title');
           if (chapterTitle) {
             const titleSpan = chapterTitle.querySelector('span');
-            if (titleSpan && !titleSpan.textContent.includes('🎥')) {
-              titleSpan.textContent = titleSpan.textContent.trim() + ' 🎥';
+            if (titleSpan && !titleSpan.textContent.includes('Video')) {
+              titleSpan.textContent = titleSpan.textContent.trim() + ' Video';
             }
           }
         }
@@ -1013,7 +1435,7 @@
           const clipCount = data.videoUrls.length;
           controlsDiv.innerHTML = `
             <a href="#" onclick="downloadEpisodeVideos('${arcId}'); return false;" class="download-video-link-small">
-              📥 Download Episode Videos (${clipCount})
+              Download Episode Videos (${clipCount})
             </a>
           `;
         }
@@ -1033,12 +1455,12 @@
       
       let html = `
         <div class="chapter-title">
-          <span>Chapter ${chapter.chapterNumber} ${hasVideos ? '🎥' : ''}</span>
+          <span>Chapter ${chapter.chapterNumber} ${hasVideos ? 'Video' : ''}</span>
           ${allBeatsHaveImages ? `
             <div id="chapter-video-controls-${chapter.chapterNumber}" class="chapter-video-controls">
               ${hasVideos ? `
                 <a href="#" onclick="downloadChapterVideos('${chapter.arcId}', ${chapter.chapterNumber}); return false;" class="download-video-link">
-                  📥 Download Videos
+                  Download Videos
                 </a>
               ` : `
                 <button 
@@ -1046,7 +1468,7 @@
                   onclick="animateChapterFromArchive('${chapter.arcId}', ${chapter.chapterNumber})"
                   id="animate-chapter-archive-${chapter.chapterNumber}"
                 >
-                  🎬 Generate Videos
+                  Generate Videos
                 </button>
               `}
             </div>
@@ -1165,7 +1587,7 @@
                 onclick="animateChapter(${index})"
                 id="animate-btn-${index}"
               >
-                🎬 Generate Videos
+                Generate Videos
               </button>
             </div>
           ` : ''}
@@ -1251,7 +1673,7 @@
           videoContainer.className = 'inline-video-container';
           videoContainer.id = videoId;
           videoContainer.innerHTML = `
-            <div class="inline-video-label">🎬 Transition: Beat ${clip.fromBeat + 1} → ${clip.toBeat + 1}</div>
+            <div class="inline-video-label">Transition: Beat ${clip.fromBeat + 1} to ${clip.toBeat + 1}</div>
             <video controls preload="metadata" class="inline-video">
               <source src="${escapeHtml(clip.url)}" type="video/mp4">
               Your browser does not support the video tag.
@@ -1276,7 +1698,7 @@
           const clipCount = data.videoUrls.length;
           controlsDiv.innerHTML = `
             <a href="#" onclick="downloadChapterVideos('${arcId}', ${chapterNumber}); return false;" class="download-video-link">
-              📥 Download Videos (${clipCount})
+              Download Videos (${clipCount})
             </a>
           `;
           
@@ -1284,8 +1706,8 @@
           const chapterTitle = controlsDiv.closest('.chapter-title');
           if (chapterTitle) {
             const titleSpan = chapterTitle.querySelector('span');
-            if (titleSpan && !titleSpan.textContent.includes('🎥')) {
-              titleSpan.textContent = titleSpan.textContent.trim() + ' 🎥';
+            if (titleSpan && !titleSpan.textContent.includes('Video')) {
+              titleSpan.textContent = titleSpan.textContent.trim() + ' Video';
             }
           }
           
@@ -1508,11 +1930,11 @@
           
           // Replace with download link after brief delay
           setTimeout(() => {
-            controlsDiv.innerHTML = `<a href="#" onclick="downloadChapterVideos('${arcId}', ${chapterNumber}); return false;" class="download-video-link">📥 Download Videos (${clipCount})</a>`;
+            controlsDiv.innerHTML = `<a href="#" onclick="downloadChapterVideos('${arcId}', ${chapterNumber}); return false;" class="download-video-link">Download Videos (${clipCount})</a>`;
             // Add video icon to chapter title
             const chapterTitle = document.getElementById(`chapter-title-main-${chapterIndex}`);
-            if (chapterTitle && !chapterTitle.textContent.includes('🎥')) {
-              chapterTitle.textContent = '🎥 ' + chapterTitle.textContent.trim();
+            if (chapterTitle && !chapterTitle.textContent.includes('Video')) {
+              chapterTitle.textContent = chapterTitle.textContent.trim() + ' Video';
             }
             
             // Inject inline videos if videoClips data is available
@@ -1531,7 +1953,7 @@
         
         // Reset button after 3 seconds
         setTimeout(() => {
-          controlsDiv.innerHTML = '<button onclick="animateChapter(' + chapterIndex + ')" class="btn btn-primary">🎬 Generate Videos</button>';
+          controlsDiv.innerHTML = '<button onclick="animateChapter(' + chapterIndex + ')" class="btn btn-primary">Generate Videos</button>';
         }, 3000);
       }
     }
@@ -1568,7 +1990,7 @@
           setTimeout(() => {
             controlsDiv.innerHTML = `
               <a href="#" onclick="downloadChapterVideos('${arcId}', ${chapterNumber}); return false;" class="download-video-link">
-                📥 Download Videos (${clipCount})
+                Download Videos (${clipCount})
               </a>
             `;
           }, 2000);
@@ -1589,7 +2011,7 @@
               onclick="animateChapterFromArchive('${arcId}', ${chapterNumber})"
               id="animate-chapter-archive-${chapterNumber}"
             >
-              🎬 Generate Videos
+              Generate Videos
             </button>
           `;
         }, 3000);
@@ -1630,7 +2052,7 @@
           setTimeout(() => {
             controlsDiv.innerHTML = `
               <a href="#" onclick="downloadEpisodeVideos('${arcId}'); return false;" class="download-video-link-small">
-                📥 Download Episode Videos (${clipCount})
+                Download Episode Videos (${clipCount})
               </a>
             `;
             
@@ -1654,7 +2076,7 @@
               onclick="animateEpisode('${arcId}')"
               id="animate-episode-${arcId}"
             >
-              🎬 Generate Episode Videos
+              Generate Episode Videos
             </button>
           `;
         }, 3000);

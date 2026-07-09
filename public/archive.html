@@ -21,6 +21,192 @@
         .beat-panel.expanded {
             max-height: 2000px;
         }
+
+        :root {
+            --cw-canvas: #17140f;
+            --cw-paper: #f4efe3;
+            --cw-paper-2: #e9deca;
+            --cw-ink: #201b15;
+            --cw-muted: #746959;
+            --cw-line: rgba(74, 61, 43, 0.24);
+            --cw-line-strong: rgba(74, 61, 43, 0.44);
+            --cw-gold: #b98b45;
+            --cw-green: #687c55;
+            --cw-radius: 4px;
+        }
+
+        body {
+            background: var(--cw-canvas) !important;
+            color: var(--cw-paper) !important;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+            letter-spacing: 0 !important;
+        }
+
+        .container {
+            max-width: 1320px !important;
+            padding-top: clamp(24px, 4vw, 56px) !important;
+            padding-bottom: clamp(24px, 4vw, 56px) !important;
+        }
+
+        header {
+            margin-bottom: 28px !important;
+            border-bottom: 1px solid rgba(244, 239, 227, 0.18);
+            padding-bottom: 24px;
+            text-align: left !important;
+        }
+
+        header h1 {
+            margin-bottom: 8px !important;
+            background: none !important;
+            color: var(--cw-paper) !important;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(44px, 6vw, 82px) !important;
+            font-weight: 500 !important;
+            line-height: 0.96 !important;
+            letter-spacing: 0 !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+
+        header p,
+        .text-gray-400,
+        .text-gray-500,
+        .text-gray-300 {
+            color: #b9ad96 !important;
+        }
+
+        #stats {
+            gap: 1px !important;
+            border: 1px solid rgba(244, 239, 227, 0.16);
+            background: rgba(244, 239, 227, 0.16);
+        }
+
+        #stats > div {
+            border-radius: 0 !important;
+            background: #211c15 !important;
+            color: var(--cw-paper) !important;
+            box-shadow: none !important;
+        }
+
+        #stats .text-3xl,
+        #stats .text-purple-400,
+        #stats .text-blue-400,
+        #stats .text-green-400,
+        #stats .text-pink-400 {
+            color: #dec28d !important;
+            font-family: Georgia, "Times New Roman", serif;
+            font-weight: 500 !important;
+        }
+
+        #latestBtn,
+        #archiveBtn,
+        #charactersBtn,
+        #pagination button,
+        .beat-panel button,
+        button {
+            border: 1px solid rgba(244, 239, 227, 0.28) !important;
+            border-radius: var(--cw-radius) !important;
+            background: transparent !important;
+            color: var(--cw-paper) !important;
+            box-shadow: none !important;
+            font-weight: 760 !important;
+            letter-spacing: 0 !important;
+            transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease !important;
+        }
+
+        #latestBtn.bg-purple-600,
+        #archiveBtn.bg-purple-600,
+        #charactersBtn.bg-purple-600,
+        #pagination .bg-purple-600 {
+            border-color: rgba(222, 194, 141, 0.62) !important;
+            background: #dec28d !important;
+            color: #1c160f !important;
+        }
+
+        #latestBtn:hover,
+        #archiveBtn:hover,
+        #charactersBtn:hover,
+        #pagination button:hover,
+        .beat-panel button:hover {
+            border-color: #dec28d !important;
+            background: rgba(222, 194, 141, 0.12) !important;
+        }
+
+        .view h2 {
+            color: var(--cw-paper) !important;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(28px, 3.4vw, 44px) !important;
+            font-weight: 500 !important;
+            letter-spacing: 0 !important;
+        }
+
+        .chapter-card,
+        #latestChapters > div,
+        #archiveArcs > div,
+        #coreCharacters > div {
+            border: 1px solid rgba(244, 239, 227, 0.16);
+            border-radius: var(--cw-radius) !important;
+            background: #211c15 !important;
+            box-shadow: none !important;
+            transition: border-color 160ms ease, background-color 160ms ease !important;
+        }
+
+        .chapter-card:hover {
+            transform: none !important;
+            border-color: rgba(222, 194, 141, 0.52);
+            box-shadow: none !important;
+            background: #282117 !important;
+        }
+
+        .chapter-card img,
+        #latestChapters img,
+        #archiveArcs img {
+            border-radius: 0 !important;
+        }
+
+        .bg-gray-800,
+        .bg-gray-900,
+        .bg-gray-700 {
+            background-color: #211c15 !important;
+        }
+
+        .border-gray-700 {
+            border-color: rgba(244, 239, 227, 0.16) !important;
+        }
+
+        .rounded-lg,
+        .rounded,
+        .rounded-full {
+            border-radius: var(--cw-radius) !important;
+        }
+
+        .text-purple-300,
+        .text-purple-400,
+        .text-blue-400 {
+            color: #dec28d !important;
+        }
+
+        .chapter-card h2,
+        .chapter-card h3,
+        #latestChapters h2,
+        #latestChapters h3,
+        #archiveArcs h3 {
+            color: var(--cw-paper) !important;
+            font-family: Georgia, "Times New Roman", serif;
+            font-weight: 500 !important;
+            letter-spacing: 0 !important;
+        }
+
+        .absolute.inset-0 {
+            background: linear-gradient(180deg, rgba(18, 14, 10, 0.04), rgba(18, 14, 10, 0.84)) !important;
+        }
+
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans">
@@ -284,7 +470,7 @@
                                             </div>
                                             <p class="text-sm text-gray-300">${escapeHtml(beat.description)}</p>
                                             ${beat.location ? `
-                                                <p class="text-xs text-gray-500 mt-2">📍 ${escapeHtml(beat.location)}</p>
+                                                <p class="text-xs text-gray-500 mt-2">Location: ${escapeHtml(beat.location)}</p>
                                             ` : ''}
                                         </div>
                                     </div>
@@ -314,7 +500,7 @@
                             </div>
                         ` : `
                             <div class="w-full h-48 bg-gray-700 flex items-center justify-center">
-                                <span class="text-4xl text-gray-500">📖</span>
+                                <span class="text-sm text-gray-500">Archive</span>
                             </div>
                         `}
                         <div class="p-4">
@@ -325,9 +511,9 @@
                             <p class="text-sm text-gray-400 mb-2">${escapeHtml(arc.theme)} • ${escapeHtml(arc.emotionalTone)}</p>
                             <p class="text-sm text-gray-300 line-clamp-3 mb-3">${escapeHtml(arc.summary)}</p>
                             <div class="text-xs text-gray-400 flex items-center gap-3">
-                                <span>📚 ${arc.chaptersCount} chapter${arc.chaptersCount !== 1 ? 's' : ''}</span>
+                                <span>${arc.chaptersCount} chapter${arc.chaptersCount !== 1 ? 's' : ''}</span>
                                 <span>•</span>
-                                <span>🧩 ${arc.beatsCount} beat${arc.beatsCount !== 1 ? 's' : ''}</span>
+                                <span>${arc.beatsCount} beat${arc.beatsCount !== 1 ? 's' : ''}</span>
                             </div>
                             <p class="text-xs text-gray-500 mt-2">Updated ${arc.lastUpdated ? new Date(arc.lastUpdated).toLocaleDateString() : ''}</p>
                         </div>
