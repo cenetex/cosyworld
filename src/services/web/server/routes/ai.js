@@ -9,6 +9,8 @@
 import express from 'express';
 import { requirePayment } from '../middleware/x402.js';
 
+const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.5';
+
 /**
  * Create AI routes with x402 payment protection
  * @param {Object} services - Service container
@@ -32,11 +34,18 @@ export default function createAIRoutes(services) {
     logger.error('[AI Routes] x402Service not available');
   }
 
+  const openrouterConfig = services.configService?.config?.ai?.openrouter || {};
+  const configuredOpenRouterModel =
+    process.env.OPENROUTER_CHAT_MODEL
+    || openrouterConfig.chatModel
+    || process.env.OPENROUTER_MODEL
+    || openrouterConfig.model
+    || DEFAULT_OPENROUTER_MODEL;
+
   /**
    * POST /api/ai/chat
    * AI chat endpoint with dynamic pricing based on model
-   * Free tier: Gemini 2.0 Flash and other :free models
-   * Paid tier: GPT-4o, Claude, etc.
+   * Defaults to the configured OpenRouter model; :free models are still allowed.
    */
   router.post('/chat', async (req, res) => {
     try {
@@ -46,8 +55,7 @@ export default function createAIRoutes(services) {
         return res.status(400).json({ error: 'messages array is required' });
       }
 
-      // Default to free tier model if not specified
-      const requestedModel = model || 'google/gemini-2.0-flash-exp:free';
+      const requestedModel = model || configuredOpenRouterModel;
 
       // Check if model is free tier
       const isFree = pricingService?.isFreeTier(requestedModel) || requestedModel.includes(':free');
@@ -197,7 +205,7 @@ export default function createAIRoutes(services) {
     }),
     async (req, res) => {
       try {
-        const { prompt, model = 'openai/gpt-4o', maxTokens = 1500 } = req.body;
+        const { prompt, model = configuredOpenRouterModel, maxTokens = 1500 } = req.body;
 
         if (!prompt) {
           return res.status(400).json({ error: 'prompt is required' });
@@ -284,7 +292,7 @@ export default function createAIRoutes(services) {
         }
 
         const aiResponse = await aiService.createChatCompletion(messages, {
-          model: 'google/gemini-2.0-flash-exp:free', // Use free model for items
+          model: configuredOpenRouterModel,
           maxTokens: 500,
         });
 
@@ -346,7 +354,7 @@ export default function createAIRoutes(services) {
         }
 
         const aiResponse = await aiService.createChatCompletion(messages, {
-          model: 'google/gemini-2.0-flash-exp:free', // Use free model
+          model: configuredOpenRouterModel,
           maxTokens: 400,
         });
 
@@ -380,6 +388,7 @@ export default function createAIRoutes(services) {
 
       const tiers = pricingService.getPricingTiers();
       const exampleModels = [
+        { model: 'x-ai/grok-4.5', tokens: { input: 1000, output: 500 } },
         { model: 'openai/gpt-4o', tokens: { input: 1000, output: 500 } },
         { model: 'anthropic/claude-3.5-sonnet', tokens: { input: 1000, output: 500 } },
         { model: 'google/gemini-2.0-flash-exp:free', tokens: { input: 1000, output: 500 } },

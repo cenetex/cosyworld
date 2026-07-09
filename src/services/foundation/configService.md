@@ -29,7 +29,7 @@ export class ConfigService extends BasicService {
       ai: {
         openrouter: {
           apiKey: process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_TOKEN,
-          model: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.2-3b-instruct',
+          model: process.env.OPENROUTER_MODEL || 'x-ai/grok-4.5',
           // Additional AI configuration...
         },
         // More AI service configurations...

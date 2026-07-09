@@ -67,6 +67,20 @@ describe('PricingService', () => {
       expect(price.totalCostUSDC).toBe(8250); // 0.00825 USDC in 6 decimals
     });
 
+    it('should calculate Grok 4.5 pricing correctly', () => {
+      const price = pricingService.calculateAIPrice({
+        model: 'x-ai/grok-4.5',
+        inputTokens: 1000,
+        outputTokens: 500,
+      });
+
+      // Grok 4.5: $2.00/1M input, $6.00/1M output.
+      // Cost: (1000 * 2 / 1e6) + (500 * 6 / 1e6) = 0.002 + 0.003 = 0.005
+      // With 10% markup: 0.005 * 1.1 = 0.0055
+      expect(price.totalCostUSD).toBeCloseTo(0.0055, 5);
+      expect(price.totalCostUSDC).toBe(5500);
+    });
+
     it('should return zero cost for free tier models', () => {
       const price = pricingService.calculateAIPrice({
         model: 'google/gemini-2.0-flash-exp:free',

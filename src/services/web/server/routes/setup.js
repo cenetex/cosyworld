@@ -12,6 +12,7 @@ const DEFAULT_DATA_BACKEND = 'sqlite';
 const DEFAULT_SQLITE_DB_PATH = process.env.NODE_ENV === 'production' ? '/data/cosyworld.sqlite' : 'data/cosyworld.sqlite';
 const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017';
 const DEFAULT_MONGO_DB_NAME = 'cosyworld8';
+const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.5';
 
 /**
  * Setup routes for first-time application configuration
@@ -77,7 +78,7 @@ export default function createSetupRouter(services) {
           service: process.env.AI_SERVICE || 'openrouter',
           openrouter: {
             apiKey: process.env.OPENROUTER_API_KEY ? maskSecret(process.env.OPENROUTER_API_KEY) : null,
-            model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro', // Not a secret
+            model: process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL, // Not a secret
             chatModel: process.env.OPENROUTER_CHAT_MODEL || process.env.OPENROUTER_MODEL || null,
             visionModel: process.env.OPENROUTER_VISION_MODEL || process.env.OPENROUTER_MODEL || null,
             structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || process.env.OPENROUTER_MODEL || null,
@@ -375,10 +376,10 @@ async function saveConfiguration(config, secretsService, logger) {
     // OpenRouter
     ...(((config.ai?.openrouter?.apiKey && config.ai.openrouter.apiKey !== 'KEEP_EXISTING') || (config.ai?.openrouter?.apiKey === 'KEEP_EXISTING' && process.env.OPENROUTER_API_KEY) || process.env.OPENROUTER_API_KEY) && {
       OPENROUTER_API_KEY: config.ai?.openrouter?.apiKey === 'KEEP_EXISTING' ? process.env.OPENROUTER_API_KEY : (config.ai?.openrouter?.apiKey || process.env.OPENROUTER_API_KEY),
-      OPENROUTER_MODEL: config.ai?.openrouter?.model || process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
-      OPENROUTER_CHAT_MODEL: config.ai?.openrouter?.chatModel || config.ai?.openrouter?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
-      OPENROUTER_VISION_MODEL: config.ai?.openrouter?.visionModel || config.ai?.openrouter?.model || process.env.OPENROUTER_VISION_MODEL || process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro',
-      OPENROUTER_STRUCTURED_MODEL: config.ai?.openrouter?.structuredModel || config.ai?.openrouter?.model || process.env.OPENROUTER_STRUCTURED_MODEL || process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro'
+      OPENROUTER_MODEL: config.ai?.openrouter?.model || process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL,
+      OPENROUTER_CHAT_MODEL: config.ai?.openrouter?.chatModel || config.ai?.openrouter?.model || process.env.OPENROUTER_CHAT_MODEL || process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL,
+      OPENROUTER_VISION_MODEL: config.ai?.openrouter?.visionModel || config.ai?.openrouter?.model || process.env.OPENROUTER_VISION_MODEL || process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL,
+      OPENROUTER_STRUCTURED_MODEL: config.ai?.openrouter?.structuredModel || config.ai?.openrouter?.model || process.env.OPENROUTER_STRUCTURED_MODEL || process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL
     }),
     
     // Google AI

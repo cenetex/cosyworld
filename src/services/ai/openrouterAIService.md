@@ -64,7 +64,7 @@ The service provides default configurations for different types of completions:
 ### Chat Defaults
 ```javascript
 this.defaultChatOptions = {
-  model: 'meta-llama/llama-3.2-1b-instruct',
+  model: 'x-ai/grok-4.5',
   temperature: 0.7,
   max_tokens: 1000,
   top_p: 1.0,
@@ -87,7 +87,7 @@ this.defaultCompletionOptions = {
 ### Vision Defaults
 ```javascript
 this.defaultVisionOptions = {
-  model: 'x-ai/grok-2-vision-1212',
+  model: 'x-ai/grok-4.5',
   temperature: 0.5,
   max_tokens: 200,
 };

@@ -5,6 +5,7 @@
 let currentStep = 1;
 const totalSteps = 7;
 const DEFAULT_SQLITE_DB_PATH = '/data/cosyworld.sqlite';
+const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.5';
 let configData = {
   encryption: {},
   storage: {},
@@ -39,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         service: existingConfig.ai?.service || 'openrouter',
         openrouter: {
           apiKey: '',
-          model: existingConfig.ai?.openrouter?.model || 'google/gemini-2.5-pro'
+          model: existingConfig.ai?.openrouter?.model || DEFAULT_OPENROUTER_MODEL
         },
         google: {
           apiKey: '',

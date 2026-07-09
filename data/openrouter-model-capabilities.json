@@ -1,6 +1,9 @@
 {
   "generatedAt": "2026-06-15T16:24:50.435Z",
   "capabilities": {
+    "x-ai/grok-4.5": {
+      "supportsResponseFormat": true
+    },
     "moonshotai/kimi-k2.7-code": {
       "supportsResponseFormat": true
     },

@@ -21,6 +21,7 @@ const __dirname = path.dirname(__filename);
 const CONFIG_DIR = path.resolve(__dirname, '../config');
 const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017';
 const DEFAULT_MONGO_DB_NAME = 'cosyworld8';
+const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.5';
 
 export class ConfigService {
   constructor({ logger, secretsService } = {}) {
@@ -99,11 +100,11 @@ export class ConfigService {
         },
         openrouter: {
           apiKey: this.secrets?.get('OPENROUTER_API_KEY') || this.secrets?.get('OPENROUTER_API_TOKEN') || process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_TOKEN,
-          model: process.env.STRUCTURED_MODEL || 'meta-llama/llama-3.2-3b-instruct',
+          model: process.env.OPENROUTER_MODEL || process.env.STRUCTURED_MODEL || DEFAULT_OPENROUTER_MODEL,
           decisionMakerModel: process.env.GOOGLE_AI_DECISION_MAKER_MODEL || 'google/gemma-3-4b-it:free',
-          structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || 'google/gemini-2.0-flash-exp:free',
-          chatModel: process.env.OPENROUTER_CHAT_MODEL || 'meta-llama/llama-3.2-1b-instruct',
-          visionModel: process.env.OPENROUTER_VISION_MODEL || '"x-ai/grok-2-vision-1212"',
+          structuredModel: process.env.OPENROUTER_STRUCTURED_MODEL || DEFAULT_OPENROUTER_MODEL,
+          chatModel: process.env.OPENROUTER_CHAT_MODEL || DEFAULT_OPENROUTER_MODEL,
+          visionModel: process.env.OPENROUTER_VISION_MODEL || DEFAULT_OPENROUTER_MODEL,
           temperature: 0.8,
           maxTokens: 1000,
           topP: 1.0

@@ -1458,7 +1458,7 @@ export class AvatarService {
         || this.aiService?.defaultCompletionOptions?.model
         || process.env.OPENROUTER_CHAT_MODEL
         || process.env.GOOGLE_AI_CHAT_MODEL
-        || 'meta-llama/llama-3.2-1b-instruct';
+        || 'x-ai/grok-4.5';
     }
 
     return selectedModel;

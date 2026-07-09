@@ -21,7 +21,7 @@ Relevant implementation points:
 
 - `v2/orchestrator-rust/src/main.rs` already supports OpenAI-compatible text generation through `AiConfig`.
 - `AiConfig` reads `COSYWORLD_AI_API_KEY`, `OPENROUTER_API_KEY`, or `OPENAI_API_KEY`.
-- OpenRouter defaults to `https://openrouter.ai/api/v1` and `openai/gpt-4.1-mini`.
+- OpenRouter defaults to `https://openrouter.ai/api/v1` and `x-ai/grok-4.5`.
 - `POST /actions/chat` validates the actor session, builds an `AvatarChatPlan`, generates one player-avatar line, commits it through `CW_ACTION_SAY`, then schedules one resident reply.
 - `POST /actions/say` is a separate, non-AI route: it takes player-typed `content` directly, moderates/sanitizes it, and commits it as a `message.created` room event with no LLM call involved. This is the human-typed room-speech path that `Chat` intentionally does not provide.
 - Resident replies are already one-to-many world events.

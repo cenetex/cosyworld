@@ -492,7 +492,7 @@
 
           <div class="form-group">
             <label for="openrouterModel">Default Model</label>
-            <input type="text" id="openrouterModel" value="google/gemini-2.0-flash-exp:free" placeholder="google/gemini-2.0-flash-exp:free">
+            <input type="text" id="openrouterModel" value="x-ai/grok-4.5" placeholder="x-ai/grok-4.5">
             <small>Model ID from OpenRouter catalog</small>
           </div>
         </div>
@@ -865,7 +865,7 @@
       if (aiService === 'openrouter') {
         config.ai.openrouter = {
           apiKey: getFieldValue('openrouterApiKey'),
-          model: document.getElementById('openrouterModel').value || 'google/gemini-2.0-flash-exp:free'
+          model: document.getElementById('openrouterModel').value || 'x-ai/grok-4.5'
         };
       } else {
         config.ai.google = {

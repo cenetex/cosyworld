@@ -63,6 +63,7 @@ export class PricingService {
       'anthropic/claude-3.5-sonnet': { input: 3, output: 15 },
       'anthropic/claude-3.7-sonnet': { input: 3, output: 15 },
       'google/gemini-2.5-pro': { input: 1.25, output: 5 },
+      'x-ai/grok-4.5': { input: 2, output: 6 },
       'x-ai/grok-3': { input: 2, output: 10 },
       'cohere/command-r-plus': { input: 2.5, output: 10 },
       
@@ -113,7 +114,8 @@ export class PricingService {
    * @returns {number} Amount in USDC (6 decimals)
    */
   toUSDC(usdAmount) {
-    return Math.ceil(usdAmount * 1e6);
+    if (!usdAmount) return 0;
+    return Math.max(0, Math.ceil((usdAmount * 1e6) - 1e-9));
   }
 
   /**

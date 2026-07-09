@@ -1,5 +1,9 @@
 export default [
   {
+    "model": "x-ai/grok-4.5",
+    "rarity": "legendary"
+  },
+  {
     "model": "openai/o1-pro",
     "rarity": "legendary"
   },

@@ -256,7 +256,7 @@ COSYWORLD_AI_API_KEY=... COSYWORLD_AI_MODEL=gpt-4.1-mini cargo run
 OpenRouter works too:
 
 ```sh
-OPENROUTER_API_KEY=... OPENROUTER_CHAT_MODEL=openai/gpt-4.1-mini cargo run
+OPENROUTER_API_KEY=... OPENROUTER_CHAT_MODEL=x-ai/grok-4.5 cargo run
 ```
 
 Optional overrides:

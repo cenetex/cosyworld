@@ -94,7 +94,7 @@
  *   'https://example.com/image.jpg',
  *   null,
  *   'Describe this image in detail',
- *   { model: 'x-ai/grok-2-vision-1212' }
+ *   { model: 'x-ai/grok-4.5' }
  * );
  * 
  * @see {@link https://openrouter.ai/docs} OpenRouter API Documentation
@@ -106,6 +106,8 @@
 import OpenAI from 'openai';
 import models from '../../models.openrouter.config.mjs';
 import { parseFirstJson, parseWithRetries } from '../../utils/jsonParse.mjs';
+
+const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.5';
 
 /**
  * Normalize an OpenRouter/OpenAI style error object into a structured diagnostic form.
@@ -294,7 +296,7 @@ function parseProviderError(err) {
  *   imageUrl,
  *   null,
  *   'Describe this avatar in detail',
- *   { model: 'x-ai/grok-2-vision-1212' }
+ *   { model: 'x-ai/grok-4.5' }
  * );
  * 
  * @example
@@ -351,8 +353,8 @@ export class OpenRouterAIService {
 
     // Resolve defaults from ConfigService (note: align with keys defined in ConfigService)
     const orCfg = this.configService?.config?.ai?.openrouter || {};
-    this.model = orCfg.model || 'openai/gpt-4o-mini';
-    this.structured_model = orCfg.structuredModel || 'google/gemini-2.0-flash-exp:free';
+    this.model = orCfg.model || DEFAULT_OPENROUTER_MODEL;
+    this.structured_model = orCfg.structuredModel || DEFAULT_OPENROUTER_MODEL;
     this.apiKey = this.configService.config.ai.openrouter.apiKey;
     this.baseURL = 'https://openrouter.ai/api/v1';
     this.defaultHeaders = {
@@ -392,7 +394,7 @@ export class OpenRouterAIService {
     // Note: Chat defaults differ from completions. They can be adjusted as needed.
     this.defaultChatOptions = {
       // Prefer configured chat model; fall back to a lightweight default
-      model: orCfg.chatModel || 'meta-llama/llama-3.2-1b-instruct',
+      model: orCfg.chatModel || DEFAULT_OPENROUTER_MODEL,
       // Creativity knobs
       temperature: 0.9,
       top_p: 0.95,
@@ -401,7 +403,7 @@ export class OpenRouterAIService {
     };
 
     this.defaultVisionOptions = {
-      model: orCfg.visionModel || 'x-ai/grok-2-vision-1212',
+      model: orCfg.visionModel || DEFAULT_OPENROUTER_MODEL,
       temperature: 0.5
     };
   }

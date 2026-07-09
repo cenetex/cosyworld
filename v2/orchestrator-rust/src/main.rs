@@ -90,6 +90,9 @@ struct AiConfig {
     model: String,
 }
 
+const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "x-ai/grok-4.5";
+const DEFAULT_OPENAI_CHAT_MODEL: &str = "gpt-4.1-mini";
+
 #[derive(Clone, Debug)]
 struct RoomMemoryCacheEntry {
     day_index: u64,
@@ -6126,9 +6129,9 @@ impl AiConfig {
             .or_else(|| std::env::var("OPENAI_MODEL").ok())
             .unwrap_or_else(|| {
                 if using_openrouter {
-                    "openai/gpt-4.1-mini".to_string()
+                    DEFAULT_OPENROUTER_CHAT_MODEL.to_string()
                 } else {
-                    "gpt-4.1-mini".to_string()
+                    DEFAULT_OPENAI_CHAT_MODEL.to_string()
                 }
             });
 

@@ -15,6 +15,7 @@ const DEFAULT_DATA_BACKEND = 'sqlite';
 const DEFAULT_SQLITE_DB_PATH = process.env.NODE_ENV === 'production' ? '/data/cosyworld.sqlite' : 'data/cosyworld.sqlite';
 const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017';
 const DEFAULT_MONGO_DB_NAME = 'cosyworld8';
+const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.5';
 
 /**
  * ConfigWizardService
@@ -132,7 +133,7 @@ export class ConfigWizardService {
             service: process.env.AI_SERVICE || 'openrouter',
             openrouter: {
               apiKey: process.env.OPENROUTER_API_KEY ? this._maskValue(process.env.OPENROUTER_API_KEY) : null,
-              model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-pro'
+              model: process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL
             },
             google: {
               apiKey: process.env.GOOGLE_API_KEY ? this._maskValue(process.env.GOOGLE_API_KEY) : null,
@@ -441,10 +442,10 @@ export class ConfigWizardService {
       // OpenRouter
       ...(((config.ai.openrouter?.apiKey && config.ai.openrouter.apiKey !== 'KEEP_EXISTING') || (config.ai.openrouter?.apiKey === 'KEEP_EXISTING' && process.env.OPENROUTER_API_KEY)) && {
         OPENROUTER_API_KEY: config.ai.openrouter.apiKey === 'KEEP_EXISTING' ? process.env.OPENROUTER_API_KEY : config.ai.openrouter.apiKey,
-        OPENROUTER_MODEL: config.ai.openrouter.model || 'google/gemini-2.5-pro',
-        OPENROUTER_CHAT_MODEL: config.ai.openrouter.chatModel || config.ai.openrouter.model || 'google/gemini-2.5-pro',
-        OPENROUTER_VISION_MODEL: config.ai.openrouter.visionModel || config.ai.openrouter.model || 'google/gemini-2.5-pro',
-        OPENROUTER_STRUCTURED_MODEL: config.ai.openrouter.structuredModel || config.ai.openrouter.model || 'google/gemini-2.5-pro'
+        OPENROUTER_MODEL: config.ai.openrouter.model || DEFAULT_OPENROUTER_MODEL,
+        OPENROUTER_CHAT_MODEL: config.ai.openrouter.chatModel || config.ai.openrouter.model || DEFAULT_OPENROUTER_MODEL,
+        OPENROUTER_VISION_MODEL: config.ai.openrouter.visionModel || config.ai.openrouter.model || DEFAULT_OPENROUTER_MODEL,
+        OPENROUTER_STRUCTURED_MODEL: config.ai.openrouter.structuredModel || config.ai.openrouter.model || DEFAULT_OPENROUTER_MODEL
       }),
       
       // Google AI
