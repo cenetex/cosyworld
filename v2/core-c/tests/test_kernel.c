@@ -351,6 +351,44 @@ static void test_npc_give_items(void) {
   assert(world.actors[1].stats.level == 2);
 }
 
+static void test_give_can_return_an_expendable_item_to_make_room(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action create = {0};
+  create.kind = CW_ACTION_CREATE_ACTOR;
+  create.actor_id = 5001;
+  create.location_id = 1;
+  assert(cw_world_apply(&world, &create, 61, &events) == CW_OK);
+
+  cw_item *offered = test_find_item(&world, 2002);
+  cw_item *returned = test_find_item(&world, 2005);
+  assert(offered);
+  assert(returned);
+  offered->holder_actor_id = 5001;
+  offered->location_id = 0;
+  returned->holder_actor_id = 1001;
+  returned->location_id = 0;
+
+  cw_action give = {0};
+  give.kind = CW_ACTION_GIVE_ITEM;
+  give.actor_id = 5001;
+  give.target_actor_id = 1001;
+  give.item_id = 2002;
+  assert(cw_world_apply(&world, &give, 62, &events) == CW_ERR_RULE);
+
+  give.target_item_id = 2005;
+  assert(cw_world_apply(&world, &give, 63, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_GIVEN);
+  assert(events.events[0].item_id == 2002);
+  assert(events.events[0].target_item_id == 2005);
+  assert(offered->holder_actor_id == 1001);
+  assert(returned->holder_actor_id == 5001);
+}
+
 static void test_npc_pickup_can_evolve_self(void) {
   cw_world world;
   cw_event_buffer events;
@@ -553,6 +591,7 @@ int main(void) {
   test_give_items_and_evolution();
   test_npc_trade_items();
   test_npc_give_items();
+  test_give_can_return_an_expendable_item_to_make_room();
   test_npc_pickup_can_evolve_self();
   test_inventory_capacity_evicts_oldest_item();
   test_search_and_craft_create_without_consuming_inputs();

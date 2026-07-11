@@ -188,6 +188,9 @@ run_cli_checks() {
 
 run_smoke() {
   COSYWORLD_SMOKE_URL="${BASE_URL}/?wallet=${WALLET}&reset=1" node "$ROOT/scripts/smoke-browser.mjs"
+  COSYWORLD_SMOKE_URL="${BASE_URL}/?wallet=${WALLET}&reset=1" \
+    COSYWORLD_SMOKE_LIVING_WORLD_STRESS=1 \
+    node "$ROOT/scripts/smoke-browser.mjs"
 }
 
 run_production_profile_smoke() {

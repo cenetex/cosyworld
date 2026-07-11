@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use super::*;
 
-pub(super) const TURN_PING_COUNTDOWN: Duration = Duration::from_secs(15);
+pub(super) const TURN_PING_COUNTDOWN: Duration = Duration::from_secs(8);
 const PONG_INITIATIVE_BOOST: i16 = 1000;
 
 #[derive(Clone, Debug)]
@@ -118,6 +118,14 @@ impl RoomTurns {
             return RoomTurnView::idle(room_id);
         }
         self.ensure_current_actor(room_id, actors);
+        if self
+            .rooms
+            .get(&room_id)
+            .and_then(|state| state.current_actor_id)
+            != Some(actor_id)
+        {
+            return self.view_from_state(room_id, actors, Some(actor_id));
+        }
         let next_actor_id = self.next_actor_id_after(room_id, actors, actor_id);
         let state = self.rooms.entry(room_id).or_default();
         state.current_actor_id = next_actor_id;
@@ -495,6 +503,21 @@ pub(super) fn actor_turn_rejection(
     (view.enabled && !view.is_current_actor).then(|| actor_not_current_turn_response(view))
 }
 
+pub(super) fn actor_action_turn_rejection(
+    state: &AppState,
+    runtime: &RuntimeWorld,
+    action: &CwAction,
+) -> Option<Json<ActionResponse>> {
+    if action_is_welcoming_listen(runtime, action) {
+        return None;
+    }
+    actor_turn_rejection(state, runtime, action.actor_id)
+}
+
+fn action_is_welcoming_listen(runtime: &RuntimeWorld, action: &CwAction) -> bool {
+    action_is_listen_check(action) && !runtime.listen_attempted_here(action.actor_id)
+}
+
 pub(super) fn command_dispatch_consumes_room_turn(dispatch: &CommandDispatch) -> bool {
     !matches!(
         dispatch,
@@ -503,6 +526,8 @@ pub(super) fn command_dispatch_consumes_room_turn(dispatch: &CommandDispatch) ->
             | CommandDispatch::Say { .. }
             | CommandDispatch::Emote { .. }
             | CommandDispatch::Report { .. }
+            | CommandDispatch::BankLedger
+            | CommandDispatch::TrainSkill { .. }
     )
 }
 
@@ -510,7 +535,11 @@ pub(super) fn command_actor_turn_rejection(
     state: &AppState,
     runtime: &RuntimeWorld,
     actor_id: u64,
+    dispatch: &CommandDispatch,
 ) -> Option<RoomTurnView> {
+    if matches!(dispatch, CommandDispatch::Check) && !runtime.listen_attempted_here(actor_id) {
+        return None;
+    }
     let mut active_humans = active_turn_actor_ids_for_state(state);
     active_humans.insert(actor_id);
     let view = actor_room_turn_view(state, runtime, actor_id, &active_humans)?;
@@ -542,7 +571,7 @@ pub(super) fn command_turn_rejected_response(
         command: resolved.command,
         verb: resolved.verb,
         output: Some(format!(
-            "{current} is choosing a card. Send ping to start a short countdown."
+            "{current} has the room. Send a gentle nudge if they seem away."
         )),
         action: resolved.action,
         events,
@@ -861,6 +890,65 @@ mod tests {
 
         let next = turns.view(1, &actors, Some(30));
         assert!(next.is_current_actor);
+    }
+
+    #[test]
+    fn welcoming_action_does_not_steal_or_advance_another_players_turn() {
+        let actors = vec![actor(10, 3), actor(20, 2), actor(30, 1)];
+        let mut turns = RoomTurns::default();
+
+        assert_eq!(turns.view(1, &actors, Some(20)).current_actor_id, Some(10));
+        let after_welcome = turns.advance_after_action(1, &actors, 20);
+
+        assert_eq!(after_welcome.current_actor_id, Some(10));
+        assert!(!after_welcome.is_current_actor);
+        assert_eq!(after_welcome.round, 1);
+    }
+
+    #[test]
+    fn only_a_players_first_listen_in_the_room_is_welcoming() {
+        let mut runtime = RuntimeWorld::seeded();
+        let create = CwAction {
+            kind: CW_ACTION_CREATE_ACTOR,
+            actor_id: 5000,
+            location_id: 1,
+            ..CwAction::default()
+        };
+        let record = JournalRecord::new(create, 81001);
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        let listen = CwAction {
+            kind: CW_ACTION_ABILITY_CHECK,
+            actor_id: 5000,
+            ability: LISTEN_ABILITY,
+            dc: LISTEN_DC,
+            ..CwAction::default()
+        };
+
+        assert!(action_is_welcoming_listen(&runtime, &listen));
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(5000, 1));
+        assert!(!action_is_welcoming_listen(&runtime, &listen));
+
+        let search = CwAction {
+            kind: CW_ACTION_SEARCH,
+            actor_id: 5000,
+            ..CwAction::default()
+        };
+        assert!(!action_is_welcoming_listen(&runtime, &search));
+    }
+
+    #[test]
+    fn personal_growth_commands_do_not_consume_the_room_turn() {
+        assert!(!command_dispatch_consumes_room_turn(
+            &CommandDispatch::BankLedger
+        ));
+        assert!(!command_dispatch_consumes_room_turn(
+            &CommandDispatch::TrainSkill {
+                skill_id: "listening".to_string(),
+            }
+        ));
+        assert!(command_dispatch_consumes_room_turn(&CommandDispatch::Check));
     }
 
     #[test]

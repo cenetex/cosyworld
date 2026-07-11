@@ -196,12 +196,12 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "work" | "repair" | "study" => "work",
         "assist" | "aid" => "assist",
         "rest" | "breathe" | "catch" => "rest",
-        "shuffle" | "deal" | "redraw" => "shuffle",
-        "bank" | "review" | "advance" => "bank",
+        "shuffle" | "deal" | "more" | "redraw" => "shuffle",
+        "grow" | "bank" | "review" | "advance" => "bank",
         "skill" | "train" | "practice" => "skill",
-        "bond" | "relationship" => "bond",
-        "calling" | "drive" | "revise" => "calling",
-        "resolve" | "settle" => "resolve",
+        "bond" | "relationship" | "friendship" => "bond",
+        "calling" | "drive" | "purpose" | "revise" => "calling",
+        "remember" | "resolve" | "settle" => "resolve",
         "hit" | "attack" | "strike" => "attack",
         "guard" | "defend" => "defend",
         "run" | "flee" | "escape" => "flee",
@@ -351,47 +351,56 @@ pub(crate) fn command_action_response_with_prefix_and_events(
 
 pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: u32) -> String {
     if status == RATE_LIMITED_STATUS {
-        return "That command is moving too quickly. Try again in a moment.".to_string();
+        return "The room needs a breath. Try again in a moment.".to_string();
     }
     if status == 403 {
-        return "That command needs an active avatar session.".to_string();
+        return "Your avatar slipped out of reach. Begin again or reconnect your account."
+            .to_string();
     }
     if status >= 500 {
-        return "That command could not be committed.".to_string();
+        return "That choice got lost before the room could answer. Try once more.".to_string();
     }
     match &resolved.dispatch {
-        CommandDispatch::Move { .. } => "You cannot travel there right now.",
+        CommandDispatch::Move { .. } => "That path is not open from here right now.",
         CommandDispatch::Flee { .. } => "The room has calmed; flee is not needed.",
-        CommandDispatch::Check => "Listening did not land. Try again from the current room.",
-        CommandDispatch::PickUp { .. } => "That item is not loose here anymore.",
-        CommandDispatch::Drop { .. } => "That item is not in your pack anymore.",
-        CommandDispatch::UseItem { .. } => "That item cannot be used on that target right now.",
-        CommandDispatch::GiveItem { .. } => "That gift changed. Check your pack and who is here.",
-        CommandDispatch::TradeItem { .. } => "That trade changed. Check your pack and who is here.",
+        CommandDispatch::Check => "The room did not catch that Listen. Try once more.",
+        CommandDispatch::PickUp { .. } => "Someone moved that item. Look around once more.",
+        CommandDispatch::Drop { .. } => "You are not carrying that anymore.",
+        CommandDispatch::UseItem { .. } => "That item cannot help there right now.",
+        CommandDispatch::GiveItem { .. } => {
+            "That gift changed while you were choosing. Check what you carry and who is here."
+        }
+        CommandDispatch::TradeItem { .. } => {
+            "That trade changed while you were choosing. Check what you carry and who is here."
+        }
         CommandDispatch::Craft { .. } => {
-            "That craft changed. Check your hand, the floor, and the recipe."
+            "That recipe changed. Check what you carry and what is nearby."
         }
-        CommandDispatch::Attack { .. } => "The room has calmed; attack is not available.",
-        CommandDispatch::ResolveBond { .. } => "That Bond cannot be settled right now.",
-        CommandDispatch::Defend => "The room has calmed; defend is not needed.",
-        CommandDispatch::Prepare => "Prepare is not available here right now.",
-        CommandDispatch::Work => "Work is not available here right now.",
-        CommandDispatch::Help => "Assist is not available here right now.",
-        CommandDispatch::Rest => "Rest is not available right now.",
-        CommandDispatch::BankLedger => "You need memory marks before claiming growth.",
-        CommandDispatch::ReviseCalling { .. } => "That Calling change could not be saved.",
-        CommandDispatch::CreateBond { .. } => "That Bond cannot be written right now.",
-        CommandDispatch::ReviseBond { .. } => "That Bond cannot be revised right now.",
-        CommandDispatch::TrainSkill { .. } => "You need a growth point before training that skill.",
+        CommandDispatch::Attack { .. } => "There is no need to fight here now.",
+        CommandDispatch::ResolveBond { .. } => "There is not a friendship ready to remember yet.",
+        CommandDispatch::Defend => "There is no need to guard here now.",
+        CommandDispatch::Prepare => "There is nothing here to prepare for right now.",
+        CommandDispatch::Work => "That work is not ready for you right now.",
+        CommandDispatch::Help => "No one needs that kind of help here right now.",
+        CommandDispatch::Rest => "You are already fresh enough to keep going.",
+        CommandDispatch::BankLedger => "You have not found anything to grow from yet.",
+        CommandDispatch::ReviseCalling { .. } => "That purpose cannot change just now.",
+        CommandDispatch::CreateBond { .. } => "There is not a friendship ready to grow just now.",
+        CommandDispatch::ReviseBond { .. } => "That friendship cannot change right now.",
+        CommandDispatch::TrainSkill { .. } => {
+            "Keep a memory, Grow from it, then you can practice that knack."
+        }
         CommandDispatch::Say { .. } | CommandDispatch::Emote { .. } => {
-            "That message could not be sent."
+            "The room did not hear that. Try once more."
         }
-        CommandDispatch::Report { .. } => "That report could not be saved.",
-        CommandDispatch::Chat { .. } => "That resident cannot answer right now.",
+        CommandDispatch::Report { .. } => "That report did not reach us. Try once more.",
+        CommandDispatch::Chat { .. } => "They cannot answer just now.",
         CommandDispatch::Read { .. }
         | CommandDispatch::Disabled { .. }
         | CommandDispatch::SearchFeature { .. }
-        | CommandDispatch::UseFeature { .. } => "That command could not finish.",
+        | CommandDispatch::UseFeature { .. } => {
+            "Nothing happened. Look around and try another choice."
+        }
     }
     .to_string()
 }
@@ -405,7 +414,7 @@ pub(crate) fn command_rate_limited_response_with_events(
         status: crate::RATE_LIMITED_STATUS,
         command: resolved.command,
         verb: resolved.verb,
-        output: Some("That command is moving too quickly. Try again in a moment.".to_string()),
+        output: Some("The room needs a breath. Try again in a moment.".to_string()),
         action: resolved.action,
         events,
     })
@@ -525,21 +534,33 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
                 .as_deref()
                 .map(|name| format!(" on {name}"))
                 .unwrap_or_default();
-            let healed = event
+            let recovery = event
                 .damage
                 .filter(|damage| *damage < 0)
-                .map(|damage| format!(" Restores {} HP.", damage.abs()))
+                .map(|_| {
+                    format!(
+                        " {} looks steadier.",
+                        event.target_actor_name.as_deref().unwrap_or("Someone")
+                    )
+                })
                 .unwrap_or_default();
             Some(format!(
-                "You use {}{target}.{healed}",
+                "You use {}{target}.{recovery}",
                 event.item_name.as_deref().unwrap_or("the item")
             ))
         }
-        "item.given" => Some(format!(
-            "You give {} to {}.",
-            event.item_name.as_deref().unwrap_or("the item"),
-            event.target_actor_name.as_deref().unwrap_or("someone")
-        )),
+        "item.given" => {
+            let returned = event
+                .target_item_name
+                .as_deref()
+                .map(|item| format!(", who hands you {item} to make room"))
+                .unwrap_or_default();
+            Some(format!(
+                "You give {} to {}{returned}.",
+                event.item_name.as_deref().unwrap_or("the item"),
+                event.target_actor_name.as_deref().unwrap_or("someone")
+            ))
+        }
         "item.traded" => Some(format!(
             "You trade {} to {} for {}.",
             event.item_name.as_deref().unwrap_or("the item"),
@@ -555,110 +576,98 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             "{} joins the world.",
             event.item_name.as_deref().unwrap_or("Something new")
         )),
-        "ability_check.rolled" => {
-            let total = event
-                .total
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "?".to_string());
-            let dc = event
-                .dc
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "?".to_string());
-            Some(format!(
-                "Listen: {total} against {dc} ({}).",
-                if event.success { "success" } else { "failure" }
-            ))
-        }
+        "ability_check.rolled" => Some(if event.success {
+            "You listen closely, and the room answers.".to_string()
+        } else {
+            "You listen closely, but the room keeps its secret.".to_string()
+        }),
         "clock.updated" => Some(format!(
-            "{} advances to {}/{}.",
-            event.clock_label.as_deref().unwrap_or("A room clock"),
-            event.clock_filled.unwrap_or(0),
-            event.clock_segments.unwrap_or(0)
+            "{} {}.",
+            event
+                .clock_label
+                .as_deref()
+                .unwrap_or("Something in the room"),
+            if event.clock_filled.unwrap_or(0) >= event.clock_segments.unwrap_or(1) {
+                "comes due"
+            } else {
+                "draws closer"
+            }
         )),
         "tag.applied" => Some(format!(
-            "You gain {}.",
-            event.tag_label.as_deref().unwrap_or("a condition")
+            "You are now {}.",
+            event.tag_label.as_deref().unwrap_or("changed")
         )),
         "tag.cleared" => Some(format!(
-            "You clear {}.",
-            event.tag_label.as_deref().unwrap_or("a condition")
+            "You shake off {}.",
+            event.tag_label.as_deref().unwrap_or("what was lingering")
         )),
         "ledger.marked" => Some(format!(
-            "Memory mark added: {}.",
-            event_content_part(event, 1).unwrap_or("visit")
+            "A moment stays with you: {}.",
+            event_content_part(event, 1).unwrap_or("this visit")
         )),
-        "ledger.banked" => {
-            let count = event_content_part(event, 0)
-                .and_then(|value| value.parse::<usize>().ok())
-                .unwrap_or(0);
-            Some(format!(
-                "GROWTH: {count} mark{} become {count} point{}.",
-                if count == 1 { "" } else { "s" },
-                if count == 1 { "" } else { "s" }
-            ))
+        "ledger.banked" => Some("You let what happened shape what comes next.".to_string()),
+        "advancement.spent" => None,
+        "skill.stepped" => {
+            let skill = event_content_part(event, 0).unwrap_or("A knack");
+            let rank = event_content_part(event, 1)
+                .and_then(|value| value.parse::<u8>().ok())
+                .unwrap_or(1);
+            Some(if rank >= 3 {
+                format!("{skill} feels second nature.")
+            } else if rank == 2 {
+                format!("{skill} grows stronger.")
+            } else {
+                format!("{skill} grows a little stronger.")
+            })
         }
-        "advancement.spent" => Some(format!(
-            "Growth spent: {}.",
-            event_content_part(event, 2).unwrap_or("growth")
-        )),
-        "skill.stepped" => Some(format!(
-            "Skill stepped up: {}.",
-            event_content_part(event, 0).unwrap_or("skill")
-        )),
         "calling.set" => Some(format!(
-            "Calling set: {}.",
+            "You choose what calls you: {}.",
             event_calling_text(event).unwrap_or("a small truth")
         )),
         "calling.revised" => Some(format!(
-            "Calling revised: {}.",
+            "What calls you changes: {}.",
             event_calling_text(event).unwrap_or("a small truth")
         )),
         "bond.deepened" => Some(format!(
-            "Bond deepened with {}.",
+            "You grow closer to {}.",
             event.target_actor_name.as_deref().unwrap_or("someone")
         )),
         "bond.created" => Some(format!(
-            "Bond written with {}.",
+            "You become friends with {}.",
             event.target_actor_name.as_deref().unwrap_or("someone")
         )),
         "bond.revised" => Some(format!(
-            "Bond revised with {}.",
+            "What {} means to you changes.",
             event.target_actor_name.as_deref().unwrap_or("someone")
         )),
         "bond.resolved" => Some(format!(
-            "Bond settled with {}.",
+            "You keep what mattered with {}.",
             event.target_actor_name.as_deref().unwrap_or("someone")
         )),
-        "job.updated" => Some(format!(
-            "Job updated: {}.",
-            event_content_part(event, 1).unwrap_or("changed")
-        )),
+        "job.updated" => Some(
+            match event_content_part(event, 1).unwrap_or("changed") {
+                "complete" | "completed" => "The work is done.",
+                "active" => "The work begins.",
+                "failed" => "The work falls quiet for now.",
+                _ => "The work changes.",
+            }
+            .to_string(),
+        ),
         "combat.defend" => Some("You raise a careful guard.".to_string()),
-        "combat.attack.attempt" => Some(format!(
-            "Attack roll: {} vs AC {}.",
-            event
-                .total
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "?".to_string()),
-            event
-                .dc
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "?".to_string())
-        )),
+        "combat.attack.attempt" => None,
         "combat.attack.hit" => Some(format!(
-            "You hit {} for {} damage.",
-            event.target_actor_name.as_deref().unwrap_or("the target"),
-            event.damage.unwrap_or(0)
+            "You break through {}'s guard.",
+            event.target_actor_name.as_deref().unwrap_or("the target")
         )),
         "combat.attack.miss" => Some(format!(
             "{} turns the strike aside.",
             event.target_actor_name.as_deref().unwrap_or("The target")
         )),
         "combat.knockout" => Some(format!(
-            "{} is knocked out.",
+            "{}'s light falls quiet for now.",
             event.target_actor_name.as_deref().unwrap_or("The target")
         )),
-        "rule.rejected" => Some("That command was rejected by the world rules.".to_string()),
+        "rule.rejected" => Some("The room will not let that happen just now.".to_string()),
         _ => None,
     }
 }
@@ -700,7 +709,60 @@ struct FeatureUseResult {
 }
 
 fn clock_summary(clock: &ClockView) -> String {
-    format!("{} {}/{}", clock.label, clock.filled, clock.segments)
+    let feeling = if clock.segments > 0 && clock.filled >= clock.segments {
+        "comes due"
+    } else if clock.filled == 0 {
+        "is only just beginning"
+    } else if clock.filled.saturating_mul(2) >= clock.segments {
+        "draws close"
+    } else {
+        "is taking shape"
+    };
+    format!("{} — {feeling}", clock.label)
+}
+
+fn room_zone_feeling(zone: &str) -> &'static str {
+    match zone {
+        ZONE_SANCTUARY => "safe and welcoming",
+        ZONE_FRONTIER => "a little wild around the edges",
+        _ => "full of its own small character",
+    }
+}
+
+fn journal_memory_summary(ledger: &VisitLedgerView) -> Option<&'static str> {
+    match (
+        ledger.unbanked_count > 0,
+        ledger.advancement_points > 0,
+        ledger.banked_count > 0,
+    ) {
+        (true, true, _) => Some(
+            "Your journal holds something new, and a kept memory is ready to shape what comes next.",
+        ),
+        (true, false, _) => {
+            Some("Your journal holds something new. Grow when you are ready to keep it.")
+        }
+        (false, true, _) => {
+            Some("A kept memory is ready to shape a knack or friendship.")
+        }
+        (false, false, true) => {
+            Some("Your journal carries the memories that have already shaped you.")
+        }
+        (false, false, false) => None,
+    }
+}
+
+fn tag_belongs_in_room_description(tag: &TagView) -> bool {
+    !matches!(
+        tag.label.trim().to_ascii_lowercase().as_str(),
+        "searched location"
+            | "frontier travel"
+            | "prepared"
+            | "spent preparation"
+            | "helped"
+            | "trained"
+            | "purpose changed"
+            | "friendship changed"
+    )
 }
 
 impl RuntimeWorld {
@@ -721,7 +783,12 @@ impl RuntimeWorld {
     ) -> Result<ResolvedCommand, CommandError> {
         let command = normalize_command_text(&payload.command);
         if command.is_empty() {
-            return Err(command_error("", "", 400, "Try a command like look, who, inventory, go Rain-Soft Garden, take Story Button, or chat Rati."));
+            return Err(command_error(
+                "",
+                "",
+                400,
+                "Try look, search, who, go Rain-Soft Garden, take Story Button, or chat Rati.",
+            ));
         }
         let (raw_verb, rest) = command_verb_and_rest(&command);
         let direction_verb = canonical_direction(&raw_verb);
@@ -751,7 +818,7 @@ impl RuntimeWorld {
                 &command,
                 &verb,
                 403,
-                "Only an active player avatar can use MUD commands.",
+                "Only your active avatar can act here.",
             ));
         }
 
@@ -761,7 +828,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Commands: look, look <thing>, search, who, inventory, go <room|direction>, say <message>, emote <action>, report <actor>: <reason>, take <item>, drop <item>, give <item> to <resident>, trade <item> with <resident> for <item>, craft [recipe], use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, shuffle, skill <name>, calling <new drive>, bond <resident>: <relationship>, settle <resident>, attack <target>, defend, flee <room|direction>.".to_string(),
+                            output: "Try: look, search, who, inventory, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <resident>, trade <item> with <resident> for <item>, use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, more, grow, practice <knack>, purpose <what draws you in>, friendship <resident>: <why they matter>, remember <resident>, attack <target>, defend, flee <place>, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -787,12 +854,13 @@ impl RuntimeWorld {
                         },
                     });
                 };
-                let candidates = self.search_reveal_candidates_for_location(actor.location_id);
-                if candidates.is_empty() {
+                let candidates =
+                    self.search_reveal_candidates_for_feature(actor.location_id, &target.key);
+                if candidates.is_empty() && target.key == "room" {
                     let output = if self.room_floor_empty(actor.location_id) {
-                        "Nothing else turns up here right now."
+                        "This room has shared everything it is ready to share."
                     } else {
-                        "There is already an item here. Take it, use it, or move it before searching for hidden items."
+                        "Something is already waiting here. Pick it up, use it, or pass it on before looking for another keepsake."
                     };
                     return Ok(ResolvedCommand {
                         command: command.clone(),
@@ -1017,7 +1085,7 @@ impl RuntimeWorld {
                         &command,
                         "craft",
                         404,
-                        "No recipe matches your current hand and floor.",
+                        "No recipe matches what you carry and what is nearby.",
                     )
                 })?;
                 if self.craft_action_for_recipe(actor.id, recipe.id).is_none() {
@@ -1031,7 +1099,7 @@ impl RuntimeWorld {
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "That recipe needs one input in your hand and the other on the floor, with its output slot empty.".to_string(),
+                            output: "Keep one ingredient with you and leave the other nearby; there also needs to be room for what you make.".to_string(),
                         },
                     });
                 }
@@ -1174,7 +1242,7 @@ impl RuntimeWorld {
                         action: Some(command_action("work", "Work", "work")),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "There is no active room project to work on here.".to_string(),
+                            output: "There is no unfinished work to take on here.".to_string(),
                         },
                     });
                 }
@@ -1228,7 +1296,7 @@ impl RuntimeWorld {
                 verb,
                 action: Some(command_action("shuffle_hand", "Shuffle", "shuffle")),
                 dispatch: CommandDispatch::Read {
-                    output: "New cards are drawn locally. Nothing in the room changes.".to_string(),
+                    output: "A fresh hand appears. Nothing in the room changes.".to_string(),
                 },
             }),
             "bank" => {
@@ -1237,17 +1305,17 @@ impl RuntimeWorld {
                     return Ok(ResolvedCommand {
                         command: "bank ledger".to_string(),
                         verb,
-                        action: Some(command_action("bank_ledger", "Claim Growth", "bank ledger")),
+                        action: Some(command_action("bank_ledger", "Grow", "bank ledger")),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "You have no memory marks ready to claim yet.".to_string(),
+                            output: "You have not found anything to grow from yet.".to_string(),
                         },
                     });
                 }
                 Ok(ResolvedCommand {
                     command: "bank ledger".to_string(),
                     verb,
-                    action: Some(command_action("bank_ledger", "Claim Growth", "bank ledger")),
+                    action: Some(command_action("bank_ledger", "Grow", "bank ledger")),
                     dispatch: CommandDispatch::BankLedger,
                 })
             }
@@ -1262,11 +1330,11 @@ impl RuntimeWorld {
                     return Ok(ResolvedCommand {
                         command,
                         verb,
-                        action: Some(command_action("train_skill", "Train Skill", &payload.command)),
+                        action: Some(command_action("train_skill", "Practice", &payload.command)),
                         dispatch: CommandDispatch::Disabled {
                             status: 400,
                             output:
-                                "Use: skill listening, lorecraft, nimble hands, lifting, steadiness, or kindness."
+                                "Try: practice listening, lorecraft, nimble hands, lifting, steadiness, or kindness."
                                     .to_string(),
                         },
                     });
@@ -1283,12 +1351,12 @@ impl RuntimeWorld {
                         verb,
                         action: Some(command_action(
                             "train_skill",
-                            "Train Skill",
+                            "Practice",
                             &format!("skill {skill_id}"),
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: format!("{label} is already master rank."),
+                            output: format!("{label} already feels second nature."),
                         },
                     });
                 }
@@ -1298,12 +1366,12 @@ impl RuntimeWorld {
                         verb,
                         action: Some(command_action(
                             "train_skill",
-                            "Train Skill",
+                            "Practice",
                             &format!("skill {skill_id}"),
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Rest before training another skill.".to_string(),
+                            output: "Rest before practicing another knack.".to_string(),
                         },
                     });
                 }
@@ -1313,12 +1381,12 @@ impl RuntimeWorld {
                         verb,
                         action: Some(command_action(
                             "train_skill",
-                            "Train Skill",
+                            "Practice",
                             &format!("skill {skill_id}"),
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Claim growth from memory marks before training a skill.".to_string(),
+                            output: "Grow from a memory first, then practice a knack.".to_string(),
                         },
                     });
                 }
@@ -1327,7 +1395,7 @@ impl RuntimeWorld {
                     verb,
                     action: Some(command_action(
                         "train_skill",
-                        "Train Skill",
+                        "Practice",
                         &format!("skill {skill_id}"),
                     )),
                     dispatch: CommandDispatch::TrainSkill {
@@ -1344,10 +1412,10 @@ impl RuntimeWorld {
                     return Ok(ResolvedCommand {
                         command,
                         verb,
-                        action: Some(command_action("revise_calling", "Revise Calling", &payload.command)),
+                        action: Some(command_action("revise_calling", "Change Purpose", &payload.command)),
                         dispatch: CommandDispatch::Disabled {
                             status: 400,
-                            output: "Use: calling <a short cozy drive statement>.".to_string(),
+                            output: "Try: purpose I listen for odd jobs.".to_string(),
                         },
                     });
                 };
@@ -1356,10 +1424,10 @@ impl RuntimeWorld {
                     return Ok(ResolvedCommand {
                         command,
                         verb,
-                        action: Some(command_action("revise_calling", "Revise Calling", &payload.command)),
+                        action: Some(command_action("revise_calling", "Change Purpose", &payload.command)),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Claim growth from memory marks before revising your Calling."
+                            output: "Grow first, then you can choose a new purpose."
                                 .to_string(),
                         },
                     });
@@ -1373,10 +1441,10 @@ impl RuntimeWorld {
                     return Ok(ResolvedCommand {
                         command,
                         verb,
-                        action: Some(command_action("revise_calling", "Revise Calling", &payload.command)),
+                        action: Some(command_action("revise_calling", "Change Purpose", &payload.command)),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "That is already your Calling.".to_string(),
+                            output: "That is already what draws you in.".to_string(),
                         },
                     });
                 }
@@ -1385,7 +1453,7 @@ impl RuntimeWorld {
                     verb,
                     action: Some(command_action(
                         "revise_calling",
-                        "Revise Calling",
+                        "Change Purpose",
                         &format!("calling {statement}"),
                     )),
                     dispatch: CommandDispatch::ReviseCalling { statement },
@@ -1403,7 +1471,7 @@ impl RuntimeWorld {
                         &command,
                         "bond",
                         400,
-                        "Use: bond <resident>: <short relationship statement>.",
+                        "Try: friendship Rati: I bring small kindnesses to Rati.",
                     )
                 })?;
                 let Some(statement) = normalize_bond_statement(statement) else {
@@ -1412,12 +1480,12 @@ impl RuntimeWorld {
                         verb,
                         action: Some(command_action(
                             "revise_bond",
-                            "Revise Bond",
+                            "See Differently",
                             &payload.command,
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 400,
-                            output: "Use: bond <resident>: <short cozy relationship statement>."
+                            output: "Try: friendship Rati: I bring small kindnesses to Rati."
                                 .to_string(),
                         },
                     });
@@ -1438,13 +1506,13 @@ impl RuntimeWorld {
                             verb,
                             action: Some(command_action(
                                 "create_bond",
-                                "Write Bond",
+                                "Grow Closer",
                                 &format!("bond {target_name}: {statement}"),
                             )),
                             dispatch: CommandDispatch::Disabled {
                                 status: 409,
                                 output: format!(
-                                    "Claim growth from memory marks before writing a new Bond with {target_name}."
+                                    "Grow first, then you can grow closer to {target_name}."
                                 ),
                             },
                         });
@@ -1454,7 +1522,7 @@ impl RuntimeWorld {
                         verb,
                         action: Some(command_action(
                             "create_bond",
-                            "Write Bond",
+                            "Grow Closer",
                             &format!("bond {target_name}: {statement}"),
                         )),
                         dispatch: CommandDispatch::CreateBond {
@@ -1469,12 +1537,13 @@ impl RuntimeWorld {
                         verb,
                         action: Some(command_action(
                             "revise_bond",
-                            "Revise Bond",
+                            "See Differently",
                             &format!("bond {target_name}: {statement}"),
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Claim growth from memory marks before revising a Bond.".to_string(),
+                            output: "Grow first, then you can see this friendship differently."
+                                .to_string(),
                         },
                     });
                 }
@@ -1484,12 +1553,12 @@ impl RuntimeWorld {
                         verb,
                         action: Some(command_action(
                             "revise_bond",
-                            "Revise Bond",
+                            "See Differently",
                             &format!("bond {target_name}: {statement}"),
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "That Bond already says that.".to_string(),
+                            output: "Those words already describe this friendship.".to_string(),
                         },
                     });
                 }
@@ -1498,7 +1567,7 @@ impl RuntimeWorld {
                     verb,
                     action: Some(command_action(
                         "revise_bond",
-                        "Revise Bond",
+                        "See Differently",
                         &format!("bond {target_name}: {statement}"),
                     )),
                     dispatch: CommandDispatch::ReviseBond {
@@ -1524,41 +1593,41 @@ impl RuntimeWorld {
                 let target_name = self.actor_view(target).name;
                 let Some(active_bond) = self.active_bond(actor.id, target.id) else {
                     return Ok(ResolvedCommand {
-                        command: format!("settle {target_name}"),
+                        command: format!("remember {target_name}"),
                         verb,
                         action: Some(command_action(
                             "resolve_bond",
-                            "Settle",
-                            &format!("settle {target_name}"),
+                            "Remember",
+                            &format!("remember {target_name}"),
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: format!("You do not have an active Bond with {target_name}."),
+                            output: format!("You have not grown close to {target_name} yet."),
                         },
                     });
                 };
                 if active_bond.strength < BOND_SETTLE_MIN_STRENGTH {
                     return Ok(ResolvedCommand {
-                        command: format!("settle {target_name}"),
+                        command: format!("remember {target_name}"),
                         verb,
                         action: Some(command_action(
                             "resolve_bond",
-                            "Settle",
-                            &format!("settle {target_name}"),
+                            "Remember",
+                            &format!("remember {target_name}"),
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: format!("Deepen your Bond with {target_name} before settling it."),
+                            output: format!("Spend a little more time with {target_name} before keeping this memory."),
                         },
                     });
                 }
                 Ok(ResolvedCommand {
-                    command: format!("settle {target_name}"),
+                    command: format!("remember {target_name}"),
                     verb,
                     action: Some(command_action(
                         "resolve_bond",
-                        "Settle",
-                        &format!("settle {target_name}"),
+                        "Remember",
+                        &format!("remember {target_name}"),
                     )),
                     dispatch: CommandDispatch::ResolveBond {
                         target_actor_id: target.id,
@@ -1573,7 +1642,7 @@ impl RuntimeWorld {
                         action: Some(command_action("attack", "Attack", &command)),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "The room has calmed; attack is not available.".to_string(),
+                            output: "There is no need to fight here now.".to_string(),
                         },
                     });
                 }
@@ -1603,7 +1672,7 @@ impl RuntimeWorld {
                         action: Some(command_action("defend", "Defend", "defend")),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "The room has calmed; defend is not needed.".to_string(),
+                            output: "There is no need to guard here now.".to_string(),
                         },
                     });
                 }
@@ -1704,7 +1773,7 @@ impl RuntimeWorld {
                 &command,
                 &verb,
                 404,
-                "I do not know that command yet. Try help, look, search, who, inventory, go, say, emote, report, take, drop, give, trade, use, chat, listen, prepare, work, assist, rest, skill, calling, bond, settle, attack, defend, or flee.",
+                "I do not know that one yet. Try help, look, search, who, go, say, take, give, chat, listen, grow, practice, purpose, friendship, remember, rest, or more.",
             )),
         }
     }
@@ -1738,14 +1807,18 @@ impl RuntimeWorld {
             .ok()
         {
             let view = self.actor_view(actor);
-            let state = if actor.status == CW_ACTOR_ACTIVE {
-                "active"
+            let condition = if actor.status != CW_ACTOR_ACTIVE {
+                "quiet for now"
+            } else if view.hp >= view.stats.hp_base {
+                "steady"
+            } else if view.hp.saturating_mul(2) <= view.stats.hp_base {
+                "hurting"
             } else {
-                "not active"
+                "a little worn"
             };
             return Ok(format!(
-                "{} - {}\n{}\nStatus: {state}. HP: {}/{}.",
-                view.name, view.title, view.description, view.hp, view.stats.hp_base
+                "{} - {}\n{}\nHow they seem: {condition}.",
+                view.name, view.title, view.description
             ));
         }
         if let Some(item) = self
@@ -1778,20 +1851,40 @@ impl RuntimeWorld {
         let query = trim_command_filler(query);
         if search_query_is_room(query) {
             return Ok(
-                "You search the location card, but no new card transaction turns up yet."
+                "You look closely. This room has shared everything it is ready to share."
                     .to_string(),
             );
         }
-        Ok("Search is location-wide here. Try: search".to_string())
+        Ok("Search the whole room at once. Try: search".to_string())
     }
 
     fn feature_use_result(
         &self,
-        _location_id: u64,
-        _query: &str,
-        _item_id: u64,
+        location_id: u64,
+        query: &str,
+        item_id: u64,
     ) -> Option<FeatureUseResult> {
-        None
+        let feature = self.resolve_room_feature(location_id, query).ok()?;
+        let matching_use = feature
+            .uses
+            .iter()
+            .find(|use_case| use_case.item_id == item_id);
+        let item_name = self
+            .item_name(item_id)
+            .unwrap_or_else(|| format!("Item {item_id}"));
+        Some(FeatureUseResult {
+            feature_key: feature.key.clone(),
+            feature_name: feature.name.clone(),
+            output: matching_use
+                .map(|use_case| use_case.text.clone())
+                .unwrap_or_else(|| {
+                    format!(
+                        "The {item_name} does not seem to belong with {}.",
+                        feature.name
+                    )
+                }),
+            matched: matching_use.is_some(),
+        })
     }
 
     fn room_command_output(
@@ -1836,13 +1929,17 @@ impl RuntimeWorld {
             format!("{} - {}", location.name, location.title),
             location.description,
             format!("Here: {}.", command_list_or_none(&actors)),
-            format!("Items: {}.", command_list_or_none(&items)),
-            format!("Exits: {}.", command_list_or_none(&exits)),
+            format!("You notice: {}.", command_list_or_none(&items)),
+            format!("Ways onward: {}.", command_list_or_none(&exits)),
         ];
 
         if let Some(sheet) = self.room_sheet_view(location_id) {
             let aspects = command_list_or_none(&sheet.aspects);
-            lines.push(format!("Room: {} zone. Aspects: {}.", sheet.zone, aspects));
+            lines.push(format!(
+                "This place feels {}. You notice: {}.",
+                room_zone_feeling(&sheet.zone),
+                aspects
+            ));
         }
 
         let clocks = self.clock_views(location_id);
@@ -1862,43 +1959,33 @@ impl RuntimeWorld {
                     .map(clock_summary)
                     .unwrap_or_else(|| job.danger_clock_id.clone());
                 format!(
-                    "{} Stakes: {} Progress: {progress}. Danger: {danger}",
+                    "{} Stakes: {} Work: {progress}. Trouble: {danger}",
                     job.premise, job.stakes
                 )
             })
             .collect::<Vec<_>>();
         if !jobs.is_empty() {
-            lines.push(format!("Jobs: {}.", jobs.join(" | ")));
+            lines.push(format!("Work here: {}.", jobs.join(" | ")));
         }
 
-        if !clocks.is_empty() {
+        if jobs.is_empty() && !clocks.is_empty() {
             let clock_lines = clocks.iter().map(clock_summary).collect::<Vec<_>>();
-            lines.push(format!("Clocks: {}.", clock_lines.join(", ")));
+            lines.push(format!("Things unfolding: {}.", clock_lines.join(", ")));
         }
 
-        let tags = self.tag_views(Some(actor.id), location_id);
+        let tags = self
+            .tag_views(Some(actor.id), location_id)
+            .into_iter()
+            .filter(tag_belongs_in_room_description)
+            .collect::<Vec<_>>();
         if !tags.is_empty() {
-            let tag_lines = tags
-                .into_iter()
-                .map(|tag| format!("{} {}", tag.scope, tag.label))
-                .collect::<Vec<_>>();
-            lines.push(format!("Tags: {}.", tag_lines.join(", ")));
+            let tag_lines = tags.into_iter().map(|tag| tag.label).collect::<Vec<_>>();
+            lines.push(format!("What lingers: {}.", tag_lines.join(", ")));
         }
 
         let ledger = self.visit_ledger_view(actor.id);
-        if ledger.unbanked_count > 0 || ledger.banked_count > 0 || ledger.advancement_points > 0 {
-            lines.push(format!(
-                "Memory: {} ready mark{}, {} claimed, {} growth point{}.",
-                ledger.unbanked_count,
-                if ledger.unbanked_count == 1 { "" } else { "s" },
-                ledger.banked_count,
-                ledger.advancement_points,
-                if ledger.advancement_points == 1 {
-                    ""
-                } else {
-                    "s"
-                }
-            ));
+        if let Some(summary) = journal_memory_summary(&ledger) {
+            lines.push(summary.to_string());
         }
 
         lines.join("\n")
@@ -1911,15 +1998,25 @@ impl RuntimeWorld {
             .filter(|item| item.holder_actor_id == actor_id)
             .map(|item| self.item_view(item).name)
             .collect::<Vec<_>>();
-        let capacity = self.actor_inventory_capacity(actor_id).unwrap_or(0);
-        let count = items.len();
         if items.is_empty() {
-            "Your hand is empty.".to_string()
+            "Your hands are free.".to_string()
         } else {
-            format!(
-                "You carry {} in your hand ({count}/{capacity}).",
-                command_list_or_none(&items)
-            )
+            let capacity = self.actor_inventory_capacity(actor_id).unwrap_or(0);
+            let count = items.len();
+            let carried = command_list_or_none(&items);
+            if capacity > 0 && count >= capacity {
+                if count == 1 {
+                    format!(
+                        "You carry {carried}. Taking something else will leave it here in exchange."
+                    )
+                } else {
+                    format!(
+                        "You carry {carried}. Your hands are full; taking something else will leave one here in exchange."
+                    )
+                }
+            } else {
+                format!("You carry {carried}, with room for something else.")
+            }
         }
     }
 
@@ -1938,7 +2035,11 @@ impl RuntimeWorld {
             })
             .map(|actor| {
                 let view = self.actor_view(actor);
-                format!("{} ({})", view.name, view.kind)
+                if client_actor_id == Some(actor.id) {
+                    format!("{} (you)", view.name)
+                } else {
+                    view.name
+                }
             })
             .collect::<Vec<_>>();
         format!("Here: {}.", command_list_or_none(&actors))

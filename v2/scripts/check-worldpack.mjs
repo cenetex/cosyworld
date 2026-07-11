@@ -487,7 +487,7 @@ for (const fallback of fallbackLines) {
 }
 
 const validHooks = new Set(["on_enter", "on_listen", "on_use", "on_give", "on_clock_fill"]);
-const validClaimScopes = new Set(["", "event_once", "actor_target_once"]);
+const validClaimScopes = new Set(["", "event_once", "actor_target_once", "world_target_once"]);
 const validTagScopes = new Set(["actor", "room", "resident", "faction", "job", "season", "shard"]);
 const validTagKinds = new Set(["aspect", "condition", "memory", "bond", "boon", "hook"]);
 

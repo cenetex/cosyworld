@@ -27,12 +27,14 @@
     "from_location_id": 2,
     "to_location_id": 3,
     "flags": 0,
+    "distance": 3,
     "direction": "east"
   },
   {
     "from_location_id": 3,
     "to_location_id": 2,
     "flags": 0,
+    "distance": 3,
     "direction": "west"
   },
   {
@@ -147,24 +149,28 @@
     "from_location_id": 12,
     "to_location_id": 50,
     "flags": 0,
+    "distance": 3,
     "direction": "down"
   },
   {
     "from_location_id": 50,
     "to_location_id": 12,
     "flags": 0,
+    "distance": 3,
     "direction": "up"
   },
   {
     "from_location_id": 15,
     "to_location_id": 32,
     "flags": 0,
+    "distance": 4,
     "direction": "up"
   },
   {
     "from_location_id": 32,
     "to_location_id": 15,
     "flags": 0,
+    "distance": 4,
     "direction": "down"
   },
   {
