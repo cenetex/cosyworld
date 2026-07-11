@@ -723,13 +723,24 @@ static cw_status apply_give_item(cw_world *world, const cw_action *action, cw_ev
   cw_item *item = find_item(world, action->item_id);
   if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
   if (item->holder_actor_id != actor->id) return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+
+  cw_item *returned_item = 0;
   if (!actor_hand_empty(world, target->id)) {
-    return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+    if (!action->target_item_id) return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+    returned_item = find_item(world, action->target_item_id);
+    if (!returned_item || returned_item->holder_actor_id != target->id) {
+      return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+    }
   }
 
   item->holder_actor_id = target->id;
   item->location_id = 0;
   item->held_since_tick = world->tick;
+  if (returned_item) {
+    returned_item->holder_actor_id = actor->id;
+    returned_item->location_id = 0;
+    returned_item->held_since_tick = world->tick;
+  }
 
   append_event(world, out_events, CW_EVENT_ITEM_GIVEN);
   if (out_events && out_events->count > 0) {
@@ -739,6 +750,7 @@ static cw_status apply_give_item(cw_world *world, const cw_action *action, cw_ev
     event->target_actor_id = target->id;
     event->location_id = actor->location_id;
     event->item_id = item->id;
+    event->target_item_id = returned_item ? returned_item->id : 0;
   }
 
   maybe_evolve_after_placement(world, actor->id, item->id, out_events);

@@ -18,6 +18,8 @@
     "title": "Garden Annex",
     "description": "Rain beads on broad leaves. Round marks in the grass remember small pearled discoveries.",
     "persona": "The garden answers in damp patience, leaf-taps, and tiny useful discoveries.",
+    "biome": "rain garden",
+    "terrain": ["wet grass", "broad leaves", "soft garden soil"],
     "memory": [
       "A dewbright button once caught the first gray light.",
       "The path from the cottage arrives smelling of tea and wet wool."
@@ -30,6 +32,8 @@
     "title": "Moonlit Route",
     "description": "The path shines under cold moonlight. The air permits sharper choices.",
     "persona": "The trail is a silver test: honest, spare, and just dangerous enough to reveal courage.",
+    "biome": "moonlit woodland",
+    "terrain": ["silver pine", "cold earth", "wolf-worn trail"],
     "memory": [
       "Coach waits here as a practice shape.",
       "Wolfprint Charm and Watch Bell stories tend to pass this way."
@@ -102,6 +106,8 @@
     "title": "Central Grounds",
     "description": "Open paths cross under sky, sending every hallway back toward someone.",
     "persona": "The Courtyard is public, breezy, and good at making accidental meetings feel arranged.",
+    "biome": "school grounds",
+    "terrain": ["courtyard stone", "open lawn", "windy steps"],
     "memory": [
       "Summit Trail begins at the far edge when the air turns thin.",
       "Students cut through here when they need a new route."
@@ -138,6 +144,8 @@
     "title": "Forbidden Mountain",
     "description": "A switchback path between cold scree and stubborn lantern light.",
     "persona": "Summit Trail encourages one more step and remembers every almost-turnaround.",
+    "biome": "alpine mountain",
+    "terrain": ["cold scree", "switchback stone", "thin grass"],
     "memory": [
       "The Courtyard is warmer than it looks from here.",
       "Alpine Forest waits where the stone gives way to trees."

@@ -51,7 +51,7 @@
     "hook": "on_use",
     "target_kind": "item",
     "target_id": "2003",
-    "claim_scope": "actor_target_once",
+    "claim_scope": "world_target_once",
     "effects": [
       {
         "op": "advance_clock",

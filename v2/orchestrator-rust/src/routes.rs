@@ -24,6 +24,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             get(generated_seed_card_asset),
         )
         .route(
+            "/assets/generated/pathways/{asset_file}",
+            get(generated_pathway_asset),
+        )
+        .route(
             "/assets/generated/avatars/{avatar_file}",
             get(generated_avatar_asset),
         )
@@ -78,6 +82,7 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/say", post(say))
         .route("/actions/report", post(report_actor))
         .route("/actions/move", post(move_actor))
+        .route("/actions/explore-path", post(explore_pathway))
         .route("/actions/check", post(ability_check))
         .route("/actions/pick-up", post(pick_up_item))
         .route("/actions/drop", post(drop_item))

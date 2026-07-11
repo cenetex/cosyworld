@@ -37,6 +37,22 @@ pub struct ResidentReplyModelInput {
     pub user_text: String,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ResidentReactionKind {
+    Arrival,
+    Discovery,
+    Keepsake,
+    Growth,
+    Purpose,
+    Practice,
+    Friendship,
+    Work,
+    Rest,
+    Danger,
+    Prepare,
+    Other,
+}
+
 #[derive(Debug, Serialize)]
 struct ModelManifest {
     id: &'static str,
@@ -115,22 +131,292 @@ pub fn generate_avatar_chat(input: &AvatarChatModelInput) -> String {
 }
 
 pub fn generate_resident_reply(input: &ResidentReplyModelInput) -> String {
+    let reaction = resident_reaction_kind(&input.user_text);
     match input.npc_actor_id {
-        1001 => {
-            "Rati points a knitting needle at the good chair. \"Sit. Tea first, catastrophe after.\""
+        1001 => rati_reaction(reaction).to_string(),
+        1002 => emoji_reaction(reaction).to_string(),
+        1003 => skull_reaction(reaction).to_string(),
+        1005 => old_oak_reaction(reaction).to_string(),
+        1051 if reaction == ResidentReactionKind::Other => {
+            "Euphemie dusts a shelf nobody living can reach. \"Pa prese. Chemen an sonje ou.\""
                 .to_string()
         }
-        1002 => "🌧️🫖💥🧶".to_string(),
-        1003 => "*Skull looks at the mud, then at your boots, then at you.*".to_string(),
-        1005 => "Root: Left. Ring: Left worked in 1893. Leaf: There's a wasp. Hollow: I'm telling everyone what you just said."
-            .to_string(),
-        1051 => "Euphemie dusts a shelf nobody living can reach. \"Pa prese. Chemen an sonje ou.\""
-            .to_string(),
-        1068 => "Badger looks at your boots for a long, long time. \"The mat. Use the mat.\""
-            .to_string(),
-        1069 => "Toad limps in wearing half a lilypad. \"You should see the other pond.\""
-            .to_string(),
-        _ => "They look up mid-snack and wave you on.".to_string(),
+        1068 if reaction == ResidentReactionKind::Other => {
+            "Badger looks at your boots for a long, long time. \"The mat. Use the mat.\""
+                .to_string()
+        }
+        1069 if reaction == ResidentReactionKind::Other => {
+            "Toad limps in wearing half a lilypad. \"You should see the other pond.\"".to_string()
+        }
+        _ => generic_resident_reaction(input, reaction),
+    }
+}
+
+fn resident_reaction_kind(user_text: &str) -> ResidentReactionKind {
+    let text = user_text.to_lowercase();
+    if text.trim().is_empty() {
+        return ResidentReactionKind::Other;
+    }
+    if text.contains("friendship")
+        || text.contains("keep you close")
+        || text.contains("keep what mattered between us")
+    {
+        return ResidentReactionKind::Friendship;
+    }
+    if text.contains("grew from what") || text.contains("let a clue change") {
+        return ResidentReactionKind::Growth;
+    }
+    if text.contains("new hope to follow")
+        || text.contains("new purpose")
+        || text.contains("what draws")
+    {
+        return ResidentReactionKind::Purpose;
+    }
+    if text.contains("practiced") || text.contains("knack") || text.contains("learned") {
+        return ResidentReactionKind::Practice;
+    }
+    if text.contains("proper breath")
+        || text.contains("catch your breath")
+        || text.contains("rested")
+    {
+        return ResidentReactionKind::Rest;
+    }
+    if text.contains("brave move")
+        || text.contains("scuffle")
+        || text.contains("stood their ground")
+        || text.contains("danger")
+        || text.contains("fled")
+    {
+        return ResidentReactionKind::Danger;
+    }
+    if text.contains("next try count") || text.contains("prepared") {
+        return ResidentReactionKind::Prepare;
+    }
+    if text.contains("shared work")
+        || text.contains("helped")
+        || text.contains("turning point")
+        || text.contains("work along")
+    {
+        return ResidentReactionKind::Work;
+    }
+    if text.contains("gave")
+        || text.contains("gift")
+        || text.contains("traded")
+        || text.contains("trade")
+        || text.contains("picked up")
+        || (text.contains("set ") && text.contains(" down"))
+        || text.contains("keepsake")
+        || text.contains("used ")
+    {
+        return ResidentReactionKind::Keepsake;
+    }
+    if text.contains("listened")
+        || text.contains("searched")
+        || text.contains("hidden to light")
+        || text.contains("discovered")
+        || text.contains("clue")
+    {
+        return ResidentReactionKind::Discovery;
+    }
+    if text.contains("arrived") || text.contains("came in") || text.contains("walked in") {
+        return ResidentReactionKind::Arrival;
+    }
+    ResidentReactionKind::Other
+}
+
+fn rati_reaction(kind: ResidentReactionKind) -> &'static str {
+    match kind {
+        ResidentReactionKind::Arrival => {
+            "Rati pats the good chair. \"You made it. Sit before the kettle starts worrying.\""
+        }
+        ResidentReactionKind::Discovery => {
+            "Rati follows your glance. \"Good catch. Keep hold of that little clue.\""
+        }
+        ResidentReactionKind::Keepsake => {
+            "Rati turns the keepsake over gently. \"Things go where they're needed. That's the trick.\""
+        }
+        ResidentReactionKind::Growth => {
+            "Rati's needles pause. \"There. The clue changed you a little. That's what clues are for.\""
+        }
+        ResidentReactionKind::Purpose => {
+            "Rati tucks the loose thread away. \"A good purpose should tug gently at your sleeve.\""
+        }
+        ResidentReactionKind::Practice => {
+            "Rati nods once. \"Again—but be kinder to yourself this time.\""
+        }
+        ResidentReactionKind::Friendship => {
+            "Rati loops a blue thread around your wrist. \"You're in my scarf-circle now. No refunds.\""
+        }
+        ResidentReactionKind::Work => {
+            "Rati adds one neat stitch. \"You're helping more than you think.\""
+        }
+        ResidentReactionKind::Rest => {
+            "Rati passes you the warm mug. \"Even brave plans need a lap blanket.\""
+        }
+        ResidentReactionKind::Danger => {
+            "Rati lifts both knitting needles. \"Stay hearth-side of me. We'll sort this together.\""
+        }
+        ResidentReactionKind::Prepare => {
+            "Rati studies the plan. \"That might actually survive meeting the room.\""
+        }
+        ResidentReactionKind::Other => {
+            "Rati points a knitting needle at the good chair. \"Sit. Tea first, catastrophe after.\""
+        }
+    }
+}
+
+fn emoji_reaction(kind: ResidentReactionKind) -> &'static str {
+    match kind {
+        ResidentReactionKind::Arrival => "🚪🌧️👋✨",
+        ResidentReactionKind::Discovery => "👂🔎✨👉",
+        ResidentReactionKind::Keepsake => "🎁👉🏡✨",
+        ResidentReactionKind::Growth => "🌱💛✨🌧️",
+        ResidentReactionKind::Purpose => "🧭💛✨👉",
+        ResidentReactionKind::Practice => "🔁🧶✨💪",
+        ResidentReactionKind::Friendship => "🌧️🤝💛✨",
+        ResidentReactionKind::Work => "🧰🤝✨🌤️",
+        ResidentReactionKind::Rest => "🫖🌙😴✨",
+        ResidentReactionKind::Danger => "🛡️🌧️⚡✨",
+        ResidentReactionKind::Prepare => "👀🧰✨👍",
+        ResidentReactionKind::Other => "🌧️🫖💥🧶",
+    }
+}
+
+fn skull_reaction(kind: ResidentReactionKind) -> &'static str {
+    match kind {
+        ResidentReactionKind::Arrival => "*Skull shifts just enough to make room beside the fire.*",
+        ResidentReactionKind::Discovery => {
+            "*Skull glances toward the clue, then gives you one approving nod.*"
+        }
+        ResidentReactionKind::Keepsake => {
+            "*Skull inspects the keepsake and quietly approves of its new home.*"
+        }
+        ResidentReactionKind::Growth => {
+            "*Skull notices the change in you and pretends not to look pleased.*"
+        }
+        ResidentReactionKind::Purpose => {
+            "*Skull considers your new purpose and decides to take it seriously.*"
+        }
+        ResidentReactionKind::Practice => {
+            "*Skull watches the attempt, then nudges the useful tool closer.*"
+        }
+        ResidentReactionKind::Friendship => {
+            "*Skull leans against your shoulder for exactly one second.*"
+        }
+        ResidentReactionKind::Work => {
+            "*Skull puts one paw against the work and helps without comment.*"
+        }
+        ResidentReactionKind::Rest => "*Skull guards the quiet while you catch your breath.*",
+        ResidentReactionKind::Danger => {
+            "*Skull plants himself beside you and watches the danger blink first.*"
+        }
+        ResidentReactionKind::Prepare => "*Skull checks your plan, then gives one slow nod.*",
+        ResidentReactionKind::Other => "*Skull looks at the mud, then at your boots, then at you.*",
+    }
+}
+
+fn old_oak_reaction(kind: ResidentReactionKind) -> &'static str {
+    match kind {
+        ResidentReactionKind::Arrival => {
+            "Root: Welcome. Ring: You have arrived before. Leaf: A beetle came too. Hollow: I saved your spot."
+        }
+        ResidentReactionKind::Discovery => {
+            "Root: Keep the clue. Ring: Clues become paths. Leaf: Or beetles. Hollow: Tell me first next time."
+        }
+        ResidentReactionKind::Keepsake => {
+            "Root: A good home. Ring: Things remember their keepers. Leaf: Can it hold a beetle? Hollow: I called it charming first."
+        }
+        ResidentReactionKind::Growth => {
+            "Root: You changed. Ring: As all living rings do. Leaf: Barely! Hollow: I noticed before everyone."
+        }
+        ResidentReactionKind::Purpose => {
+            "Root: Follow it. Ring: A purpose becomes a path. Leaf: Take snacks. Hollow: I knew your purpose first."
+        }
+        ResidentReactionKind::Practice => {
+            "Root: Try again. Ring: Repetition makes a path. Leaf: Wobble differently. Hollow: I was already excellent."
+        }
+        ResidentReactionKind::Friendship => {
+            "Root: Stay close. Ring: We will remember this. Leaf: Bring snacks. Hollow: I already told everyone we're friends."
+        }
+        ResidentReactionKind::Work => {
+            "Root: Good work. Ring: Small hands shape long years. Leaf: I supervised. Hollow: I did the difficult bit."
+        }
+        ResidentReactionKind::Rest => {
+            "Root: Be still. Ring: Rest belongs in every season. Leaf: Snore softly. Hollow: I will guard the good dreams."
+        }
+        ResidentReactionKind::Danger => {
+            "Root: Hold fast. Ring: Storms pass. Leaf: Bite it! Hollow: Nobody frightens my favourite visitor."
+        }
+        ResidentReactionKind::Prepare => {
+            "Root: Ready. Ring: A careful beginning bends the ending. Leaf: Needs more beetles. Hollow: Perfect, because I helped."
+        }
+        ResidentReactionKind::Other => {
+            "Root: Left. Ring: Left worked in 1893. Leaf: There's a wasp. Hollow: I'm telling everyone what you just said."
+        }
+    }
+}
+
+fn generic_resident_reaction(
+    input: &ResidentReplyModelInput,
+    kind: ResidentReactionKind,
+) -> String {
+    if input.speech_mode == "emoji_only" {
+        return emoji_reaction(kind).to_string();
+    }
+    if input.speech_mode == "emote_only" {
+        let name = input.npc_name.trim();
+        return match kind {
+            ResidentReactionKind::Arrival => format!("*{name} makes room for you.*"),
+            ResidentReactionKind::Discovery => {
+                format!("*{name} follows the clue with a bright nod.*")
+            }
+            ResidentReactionKind::Keepsake => {
+                format!("*{name} admires where the keepsake found its place.*")
+            }
+            ResidentReactionKind::Growth => format!("*{name} notices the small change in you.*"),
+            ResidentReactionKind::Purpose => format!("*{name} nods at the path you chose.*"),
+            ResidentReactionKind::Practice => format!("*{name} encourages one more gentle try.*"),
+            ResidentReactionKind::Friendship => {
+                format!("*{name} stays a little closer than before.*")
+            }
+            ResidentReactionKind::Work => format!("*{name} quietly lends a hand.*"),
+            ResidentReactionKind::Rest => format!("*{name} keeps watch while you rest.*"),
+            ResidentReactionKind::Danger => format!("*{name} stands beside you.*"),
+            ResidentReactionKind::Prepare => format!("*{name} gives the plan an approving nod.*"),
+            ResidentReactionKind::Other => format!("*{name} looks up mid-snack and waves you on.*"),
+        };
+    }
+    match kind {
+        ResidentReactionKind::Arrival => "They scoot over. \"There you are.\"".to_string(),
+        ResidentReactionKind::Discovery => {
+            "They lean toward the clue. \"That feels worth remembering.\"".to_string()
+        }
+        ResidentReactionKind::Keepsake => {
+            "They smile at the keepsake's new place. \"That suits it.\"".to_string()
+        }
+        ResidentReactionKind::Growth => {
+            "They notice the change. \"You carried that lesson well.\"".to_string()
+        }
+        ResidentReactionKind::Purpose => {
+            "They smile. \"That sounds like a path worth following.\"".to_string()
+        }
+        ResidentReactionKind::Practice => {
+            "They nod. \"One more try and it'll feel like yours.\"".to_string()
+        }
+        ResidentReactionKind::Friendship => {
+            "They stay close. \"I'm glad this matters to us.\"".to_string()
+        }
+        ResidentReactionKind::Work => "They lend a hand. \"That moved things along.\"".to_string(),
+        ResidentReactionKind::Rest => {
+            "They lower their voice. \"Take all the quiet you need.\"".to_string()
+        }
+        ResidentReactionKind::Danger => {
+            "They step beside you. \"You don't have to face that alone.\"".to_string()
+        }
+        ResidentReactionKind::Prepare => {
+            "They study the plan. \"Good. Now the room can surprise us properly.\"".to_string()
+        }
+        ResidentReactionKind::Other => "They look up mid-snack and wave you on.".to_string(),
     }
 }
 
@@ -249,18 +535,18 @@ fn generated_avatar_flavor(actor_id: u64, name: &str) -> (String, String) {
     const TITLES: [&str; 6] = [
         "Second-Breakfast Scout",
         "Kettle Watcher",
-        "Doormat Skeptic",
+        "Doormat Inspector",
         "Puddle Cartographer",
         "Snack Negotiator",
-        "Good-Chair Claimant",
+        "Good-Chair Finder",
     ];
     const TRAITS: [&str; 6] = [
-        "arrived hungry and stayed for the argument about the good chair",
-        "has already knocked over one thing and is standing near a second",
-        "claims to have wiped their feet; the floor disagrees",
-        "measures every room by its distance to the biscuit tin",
-        "sits down like someone with three plans and no permits",
-        "will trade almost anything for the seat nearest the fire",
+        "arrived with a biscuit wrapped in a handkerchief and offered to share",
+        "has already straightened one crooked picture and is eyeing a second",
+        "wipes their feet twice whenever the rain sounds serious",
+        "measures every room by its comfiest chair and nearest biscuit tin",
+        "keeps three tiny plans folded inside one pocket",
+        "will trade a good story for the seat nearest the fire",
     ];
     let index = (actor_id as usize) % TITLES.len();
     (
@@ -401,7 +687,7 @@ mod tests {
     fn generated_avatar_identity_is_deterministic() {
         let identity = generate_avatar_identity(5000, None);
         assert_eq!(identity.name, "Moss Stitch");
-        assert_eq!(identity.title, "Doormat Skeptic");
+        assert_eq!(identity.title, "Doormat Inspector");
         assert!(identity.description.contains("Moss Stitch"));
     }
 
@@ -466,6 +752,88 @@ mod tests {
             sanitize_resident_reply(&input, "\"Tell me one noticed thing.\"").as_deref(),
             Some("Tell me one noticed thing.")
         );
+    }
+
+    #[test]
+    fn resident_replies_follow_the_card_while_preserving_voice() {
+        let card_kinds = [
+            (
+                "Moss just arrived in the cottage.",
+                ResidentReactionKind::Arrival,
+            ),
+            (
+                "Moss listened carefully to the room.",
+                ResidentReactionKind::Discovery,
+            ),
+            (
+                "Moss set Story Button down for the room to find.",
+                ResidentReactionKind::Keepsake,
+            ),
+            (
+                "Moss grew from what just happened.",
+                ResidentReactionKind::Growth,
+            ),
+            (
+                "Moss chose a new hope to follow.",
+                ResidentReactionKind::Purpose,
+            ),
+            (
+                "Moss practiced something they learned.",
+                ResidentReactionKind::Practice,
+            ),
+            (
+                "Moss let a friendship change shape.",
+                ResidentReactionKind::Friendship,
+            ),
+            (
+                "Moss helped the shared work along.",
+                ResidentReactionKind::Work,
+            ),
+            ("Moss took a proper breath.", ResidentReactionKind::Rest),
+            (
+                "Moss made a brave move in the scuffle.",
+                ResidentReactionKind::Danger,
+            ),
+            (
+                "Moss made the next try count.",
+                ResidentReactionKind::Prepare,
+            ),
+        ];
+        for (text, expected) in card_kinds {
+            assert_eq!(resident_reaction_kind(text), expected, "{text}");
+        }
+
+        let mut input = ResidentReplyModelInput {
+            npc_actor_id: 1003,
+            npc_name: "Skull".to_string(),
+            speech_mode: "emote_only".to_string(),
+            user_text: "Moss grew from what just happened.".to_string(),
+        };
+        let skull = generate_resident_reply(&input);
+        assert!(skull.contains("change in you"), "{skull}");
+        assert!(!skull.contains("mud"), "{skull}");
+        assert_eq!(
+            sanitize_resident_reply(&input, &skull).as_deref(),
+            Some(skull.as_str())
+        );
+
+        input.npc_actor_id = 1002;
+        input.npc_name = "Gust".to_string();
+        input.speech_mode = "emoji_only".to_string();
+        input.user_text = "Moss let a friendship change shape.".to_string();
+        let gust = generate_resident_reply(&input);
+        assert_eq!(gust, "🌧️🤝💛✨");
+        assert_eq!(
+            sanitize_resident_reply(&input, &gust).as_deref(),
+            Some(gust.as_str())
+        );
+
+        input.npc_actor_id = 1001;
+        input.npc_name = "Rati".to_string();
+        input.speech_mode = "prose".to_string();
+        input.user_text = "Moss listened carefully to the room.".to_string();
+        let rati = generate_resident_reply(&input);
+        assert!(rati.contains("little clue"), "{rati}");
     }
 
     #[test]
