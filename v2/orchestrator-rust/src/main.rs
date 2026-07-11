@@ -26003,15 +26003,10 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
                     .unwrap_or("somewhere new")
             )
         }),
-        "journey.started"
-        | "journey.progressed"
-        | "journey.narrated"
-        | "journey.completed"
-        | "pathway.discovered" => {
-            event.content.clone().unwrap_or_else(|| {
-                format!("{actor_name} carries the path a little farther into the world")
-            })
-        }
+        "journey.started" | "journey.progressed" | "journey.narrated" | "journey.completed"
+        | "pathway.discovered" => event.content.clone().unwrap_or_else(|| {
+            format!("{actor_name} carries the path a little farther into the world")
+        }),
         "ability_check.rolled" => {
             format!(
                 "{} listened, and the room {}",
@@ -34342,7 +34337,8 @@ mod tests {
             .expect("first segment travel planning succeeds")
             .expect("the active pathway handles adjacent travel");
         assert_eq!(first_travel.kind, CW_ACTION_MOVE);
-        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut first_travel_mutation {
+        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut first_travel_mutation
+        {
             *narration = travel_narration_fallback(&first_travel_narration);
         }
         let mut first_travel_record = JournalRecord::new(first_travel, 900_002);
@@ -34353,13 +34349,17 @@ mod tests {
         assert!(first_travel_events
             .iter()
             .any(|event| event.type_name == "journey.progressed"));
-        assert_eq!(runtime.actor_by_id(5000).unwrap().location_id, first_waypoint_id);
+        assert_eq!(
+            runtime.actor_by_id(5000).unwrap().location_id,
+            first_waypoint_id
+        );
 
         let (second_search, mut second_search_mutation, second_search_narration) = runtime
             .plan_pathway_search(5000)
             .expect("Search reveals the next adjacent segment");
         assert_eq!(second_search.kind, CW_ACTION_NONE);
-        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut second_search_mutation {
+        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut second_search_mutation
+        {
             *narration = travel_narration_fallback(&second_search_narration);
         }
         assert_eq!(
@@ -34394,7 +34394,8 @@ mod tests {
             .plan_journey_move(5000, second_waypoint_id)
             .expect("second segment travel planning succeeds")
             .expect("the second adjacent Travel is handled");
-        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut second_travel_mutation {
+        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut second_travel_mutation
+        {
             *narration = travel_narration_fallback(&second_travel_narration);
         }
         let mut second_travel_record = JournalRecord::new(second_travel, 900_004);
@@ -34402,12 +34403,16 @@ mod tests {
             .projection_mutations
             .push(second_travel_mutation);
         assert_eq!(runtime.apply_journal_record(&second_travel_record).0, CW_OK);
-        assert_eq!(runtime.actor_by_id(5000).unwrap().location_id, second_waypoint_id);
+        assert_eq!(
+            runtime.actor_by_id(5000).unwrap().location_id,
+            second_waypoint_id
+        );
 
         let (final_search, mut final_search_mutation, final_search_narration) = runtime
             .plan_pathway_search(5000)
             .expect("the final Search reveals the destination edge");
-        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut final_search_mutation {
+        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut final_search_mutation
+        {
             *narration = travel_narration_fallback(&final_search_narration);
         }
         let mut final_search_record = JournalRecord::new(final_search, 900_005);
@@ -34418,13 +34423,17 @@ mod tests {
         assert!(final_search_events
             .iter()
             .any(|event| event.type_name == "pathway.discovered"));
-        assert_eq!(runtime.actor_by_id(5000).unwrap().location_id, second_waypoint_id);
+        assert_eq!(
+            runtime.actor_by_id(5000).unwrap().location_id,
+            second_waypoint_id
+        );
 
         let (final_travel, mut final_travel_mutation, final_travel_narration) = runtime
             .plan_journey_move(5000, MOONLIT_TRAIL_LOCATION_ID)
             .expect("final segment travel planning succeeds")
             .expect("the final adjacent Travel is handled");
-        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut final_travel_mutation {
+        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut final_travel_mutation
+        {
             *narration = travel_narration_fallback(&final_travel_narration);
         }
         let mut final_travel_record = JournalRecord::new(final_travel, 900_006);
@@ -34471,7 +34480,12 @@ mod tests {
         let ProjectionMutation::JourneyTransition { journey, .. } = mutation else {
             panic!("expected journey transition");
         };
-        assert_eq!(journey.expect("known route starts at its anchor").current_step, 0);
+        assert_eq!(
+            journey
+                .expect("known route starts at its anchor")
+                .current_step,
+            0
+        );
 
         create_test_human(
             &mut runtime,
@@ -34490,7 +34504,10 @@ mod tests {
         reverse_search_record
             .projection_mutations
             .push(reverse_mutation);
-        assert_eq!(runtime.apply_journal_record(&reverse_search_record).0, CW_OK);
+        assert_eq!(
+            runtime.apply_journal_record(&reverse_search_record).0,
+            CW_OK
+        );
         let reverse_start = runtime.state_response(Some(5002), &AccessContext::default());
         assert_eq!(reverse_start.location.name, "Moonlit Trail");
         assert_eq!(
@@ -34502,14 +34519,19 @@ mod tests {
             .plan_journey_move(5002, reverse_waypoint_id)
             .expect("reverse adjacent Travel planning succeeds")
             .expect("reverse route uses the same Travel mechanic");
-        if let ProjectionMutation::JourneyTransition { narration, .. } = &mut reverse_travel_mutation {
+        if let ProjectionMutation::JourneyTransition { narration, .. } =
+            &mut reverse_travel_mutation
+        {
             *narration = travel_narration_fallback(&reverse_travel_plan);
         }
         let mut reverse_travel_record = JournalRecord::new(reverse_travel, 900_011);
         reverse_travel_record
             .projection_mutations
             .push(reverse_travel_mutation);
-        assert_eq!(runtime.apply_journal_record(&reverse_travel_record).0, CW_OK);
+        assert_eq!(
+            runtime.apply_journal_record(&reverse_travel_record).0,
+            CW_OK
+        );
         let reverse_state = runtime.state_response(Some(5002), &AccessContext::default());
         assert_eq!(
             reverse_state.location.name,
@@ -34573,7 +34595,7 @@ mod tests {
         assert!(INDEX_HTML.contains("listen for one little clue."));
         assert!(INDEX_HTML.contains("ledger.banked_count"));
         assert!(INDEX_HTML.contains("choose a friendship to grow."));
-        assert!(INDEX_HTML.contains("choose a knack to practice."));
+        assert!(INDEX_HTML.contains("choose how your knack evolves."));
         assert!(!INDEX_HTML.contains("listen to the room — it may have a clue just for you."));
         assert!(INDEX_HTML.contains("white-space: normal;"));
         assert!(INDEX_HTML.contains(
@@ -34720,6 +34742,11 @@ mod tests {
         assert!(INDEX_HTML.contains("bond.resolved"));
         assert!(INDEX_HTML.contains("/actions/bank-ledger"));
         assert!(INDEX_HTML.contains("/actions/train-skill"));
+        assert!(INDEX_HTML.contains("const buildEvolveAction = () =>"));
+        assert!(INDEX_HTML.contains("label: \"evolve\""));
+        assert!(INDEX_HTML.contains("cardType: \"evolve\""));
+        assert!(INDEX_HTML.contains("choose how to evolve"));
+        assert!(INDEX_HTML.contains("action.evolveModes?.includes(\"practice\")"));
         assert!(INDEX_HTML.contains("/actions/create-bond"));
         assert!(INDEX_HTML.contains("label: \"grow closer\""));
         assert!(INDEX_HTML.contains("choose someone to grow closer to"));

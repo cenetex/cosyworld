@@ -29,6 +29,8 @@
       --type-listen-rgb: 121, 199, 255;
       --type-train: #b89cff;
       --type-train-rgb: 184, 156, 255;
+      --type-evolve: #a8bdf0;
+      --type-evolve-rgb: 168, 189, 240;
       --type-trade: #f2a65a;
       --type-trade-rgb: 242, 166, 90;
       --type-bank: #82e6c2;
@@ -1298,6 +1300,7 @@
     .cmd.type-bond { --cmd-accent: var(--type-bond); --cmd-accent-rgb: var(--type-bond-rgb); }
     .cmd.type-listen { --cmd-accent: var(--type-listen); --cmd-accent-rgb: var(--type-listen-rgb); }
     .cmd.type-train { --cmd-accent: var(--type-train); --cmd-accent-rgb: var(--type-train-rgb); }
+    .cmd.type-evolve { --cmd-accent: var(--type-evolve); --cmd-accent-rgb: var(--type-evolve-rgb); }
     .cmd.type-trade { --cmd-accent: var(--type-trade); --cmd-accent-rgb: var(--type-trade-rgb); }
     .cmd.type-bank { --cmd-accent: var(--type-bank); --cmd-accent-rgb: var(--type-bank-rgb); }
     .cmd.type-craft { --cmd-accent: var(--type-craft); --cmd-accent-rgb: var(--type-craft-rgb); }
@@ -2196,6 +2199,8 @@
       --type-listen-rgb: 145, 169, 178;
       --type-train: #b29b8d;
       --type-train-rgb: 178, 155, 141;
+      --type-evolve: #a9a3a2;
+      --type-evolve-rgb: 169, 163, 162;
       --type-trade: #c89a62;
       --type-trade-rgb: 200, 154, 98;
       --type-bank: #91b7a4;
@@ -2513,6 +2518,7 @@
       "bond",
       "listen",
       "train",
+      "evolve",
       "trade",
       "bank",
       "craft",
@@ -3032,7 +3038,76 @@
           skill_id: String(practiceAction.selectedChoice || firstKnack.id),
         });
         practiceAction.run = () => action("/actions/train-skill", practiceAction.selectedPayload());
+        practiceAction.knackCandidates = knackCandidates;
         return practiceAction;
+      };
+      const buildEvolveAction = () => {
+        const growAction = buildGrowAction();
+        const practiceAction = buildTrainAction();
+        if (!growAction && !practiceAction) return null;
+
+        const evolutionChoices = [];
+        if (growAction) {
+          evolutionChoices.push({
+            label: "grow",
+            detail: "keep what mattered from this visit",
+            value: "grow",
+            card: growAction.card,
+          });
+        }
+        for (const knack of practiceAction?.knackCandidates || []) {
+          evolutionChoices.push({
+            label: `practice ${knack.label}`,
+            detail: knack.detail || "use what you learned",
+            value: `practice:${knack.id}`,
+            card: practiceAction.card,
+          });
+        }
+
+        const oneChoice = evolutionChoices.length === 1;
+        const selectedChoice = evolutionChoices[0]?.value || "grow";
+        const evolveAction = {
+          label: "evolve",
+          detail: growAction && practiceAction
+            ? "choose how you change"
+            : (growAction ? "from what you learned" : "choose a knack to practice"),
+          command: "evolve",
+          focusKey: growAction?.focusKey || practiceAction?.focusKey || "evolve",
+          focusKeys: [...new Set([
+            ...(growAction?.focusKeys || []),
+            ...(practiceAction?.focusKeys || []),
+            growAction?.focusKey,
+            practiceAction?.focusKey,
+          ].filter(Boolean))],
+          card: growAction?.card || practiceAction?.card,
+          shape: "avatar",
+          cardType: "evolve",
+          priority: Math.min(
+            Number(growAction?.priority ?? 100),
+            Number(practiceAction?.priority ?? 100),
+          ),
+          memoryCount: growAction?.memoryCount,
+          growthCount: growAction?.growthCount,
+          evolveModes: [growAction ? "grow" : "", practiceAction ? "practice" : ""].filter(Boolean),
+          modalTitle: oneChoice ? "evolve" : "choose how to evolve",
+          modalSummary: oneChoice
+            ? (growAction
+              ? "Keep what mattered and let it shape what comes next."
+              : `Put what you learned into ${(practiceAction?.knackCandidates || [])[0]?.label || "a knack"} and make it a little stronger.`)
+            : "Keep what happened as part of you, or put it into a knack you want to strengthen.",
+          effect: oneChoice
+            ? (growAction?.effect || practiceAction?.effect)
+            : "the way you choose changes what your avatar carries forward",
+          selectedChoice,
+          ...(oneChoice ? {} : { choices: evolutionChoices }),
+        };
+        evolveAction.run = () => {
+          const selected = String(evolveAction.selectedChoice || selectedChoice);
+          if (selected === "grow") return growAction.run();
+          const skillId = selected.replace(/^practice:/, "");
+          return action("/actions/train-skill", { actor_id: actorId, skill_id: skillId });
+        };
+        return evolveAction;
       };
       if (turn.enabled && !turn.is_current_actor) {
         const currentName = turn.current_actor_name || "another avatar";
@@ -3069,7 +3144,7 @@
             : `gives ${currentName} a moment, then passes the choice if they're away`,
           run: () => action("/actions/timeout", { actor_id: actorId }),
         };
-        return [buildGrowAction(), buildTrainAction(), waitingAction].filter(Boolean);
+        return [buildEvolveAction(), waitingAction].filter(Boolean);
       }
 
       const journey = view.journey || null;
@@ -3896,10 +3971,8 @@
           run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 })
         });
       }
-      const growAction = buildGrowAction();
-      if (growAction) built.push(growAction);
-      const trainAction = buildTrainAction();
-      if (trainAction) built.push(trainAction);
+      const evolveAction = buildEvolveAction();
+      if (evolveAction) built.push(evolveAction);
       if (options.has("create_bond") && Number(ledger.advancement_points || 0) > 0) {
         const offer = offerFor("create_bond");
         const targetId = Number(offer?.target?.id || 0);
@@ -4173,6 +4246,7 @@
         "trade": 74,
         "bank": 75,
         "train": 76,
+        "evolve": 76,
         "bond": 77,
         "remember": 79,
         "travel": 80,
@@ -4214,6 +4288,7 @@
       if (label === "chat" || command.startsWith("chat ")) return "chat";
       if (label === "grow closer" || label === "bond" || label === "remember" || focusKey.includes("bond")) return "bond";
       if (label === "listen" || label === "listen again" || label === "search" || label === "look" || command === "search" || command.startsWith("search ")) return "listen";
+      if (label === "evolve" || command === "evolve") return "evolve";
       if (label === "practice" || label === "train" || command.startsWith("skill ")) return "train";
       if (label === "grow" || label === "bank") return "bank";
       if (label === "trade" || label === "give") return "trade";
@@ -5223,9 +5298,13 @@
       if (hook) {
         return makeThread(null, `${hook.charAt(0).toUpperCase()}${hook.slice(1)}`, "room");
       }
-      const practice = findAction("practice");
-      if (practice) {
-        return makeThread(practice, "A knack is ready for a little practice", "practice");
+      const evolve = availableActions.find((action) => (
+        String(action?.label || "").toLowerCase() === "evolve"
+          && Array.isArray(action?.evolveModes)
+          && action.evolveModes.includes("practice")
+      )) || findAction("practice");
+      if (evolve) {
+        return makeThread(evolve, "Something you learned is ready to become part of you", "evolve");
       }
       return null;
     }
@@ -5842,7 +5921,7 @@
       const growthReady = Number(ledger.advancement_points || 0);
       const growthSummary = [
         memoriesReady ? "something you noticed is ready to keep" : "",
-        growthReady ? "you can grow closer or practice a knack" : "",
+        growthReady ? "you can strengthen a friendship or evolve a knack" : "",
       ].filter(Boolean).join(" · ") || "your first little moment is waiting";
       const rows = [
         accountRow("purpose", purpose),
@@ -6831,7 +6910,7 @@
     function actionEmoji(action) {
       const byType = {
         travel: "🥾", chat: "💬", bond: "💞", listen: "👂", train: "🎯", trade: "🤝",
-        bank: "✨", craft: "🛠️", project: "🧩", item: "🎒", combat: "⚔️", danger: "⚠️",
+        evolve: "🌱", bank: "✨", craft: "🛠️", project: "🧩", item: "🎒", combat: "⚔️", danger: "⚠️",
         shuffle: "🔄", utility: "🪄",
       };
       return byType[actionCardType(action)] || cardEmoji(action?.card, action?.shape);
@@ -6909,7 +6988,7 @@
         summary: "Keep what mattered and let it shape what comes next.",
         rows: [
           ["What stays", "the little things you noticed this visit"],
-          ["What opens", "new ways to grow closer or practice a knack"],
+          ["What opens", "new ways to strengthen a friendship or knack"],
         ],
       };
     }
@@ -6938,6 +7017,7 @@
       if (action?.modalTitle) return String(action.modalTitle);
       const label = String(action?.label || action?.command || "action").toLowerCase();
       if (label === "grow" || label === "bank") return "grow";
+      if (label === "evolve") return action?.choices?.length ? "choose how to evolve" : "evolve";
       if (label === "nudge" || label === "ping") {
         const currentName = String(state?.turn?.current_actor_name || action?.detail || "them")
           .replace(/\s+is (?:choosing|thinking)$/i, "");
@@ -6970,6 +7050,7 @@
       if (action?.busy && action?.busyLabel) return String(action.busyLabel).trim().toLowerCase();
       if (String(action?.command || "").trim().toLowerCase() === "create avatar") return "begin";
       if (label === "grow" || label === "bank") return "grow";
+      if (label === "evolve") return "evolve";
       if (label === "travel") return "go";
       if (label === "listen again") return "listen again";
       if (label === "nudge" || label === "ping") return "nudge";
@@ -7095,6 +7176,20 @@
           ["Then", "it grows a little stronger"],
         ];
       }
+      if (String(action?.label || "").toLowerCase() === "evolve") {
+        if (action?.choices?.length) {
+          return [
+            ["Choose", "keep what happened, or strengthen a knack"],
+            ["Then", "your choice becomes part of who you are"],
+          ];
+        }
+        if (Array.isArray(action?.evolveModes) && action.evolveModes.includes("grow")) {
+          return bankLedgerPlan(action)?.rows || [];
+        }
+        return [
+          ["What changes", friendlyActionText(action?.effect) || "a knack grows a little stronger"],
+        ];
+      }
       if (String(action?.label || "").toLowerCase() === "rest") {
         const warmed = String(action?.effect || "").includes("hearth tonic warmth")
           || String(action?.detail || "").includes("use the warmth");
@@ -7168,6 +7263,7 @@
       const label = String(action?.label || "").toLowerCase();
       if (String(action?.command || "").trim().toLowerCase() === "create avatar") return "begin";
       if (label === "grow" || label === "bank") return "grow";
+      if (label === "evolve") return "evolve";
       if (label === "travel") return "go";
       if (label === "listen") return "listen";
       if (label === "listen again") return "listen again";
@@ -7421,7 +7517,11 @@
       }
 
       if (unbankedListenMemory) {
-        const grow = findAction((action) => action.focusKey === "bank-ledger" || action.label === "grow");
+        const grow = findAction((action) => (
+          action.focusKey === "bank-ledger"
+            || action.label === "grow"
+            || (action.label === "evolve" && action.evolveModes?.includes("grow"))
+        ));
         return {
           stage: 2,
           total: 3,
@@ -7433,7 +7533,10 @@
       if (banked > 0) {
         if (spent > 0 || growth <= 0) return null;
         const bond = findAction((action) => ["grow closer", "bond"].includes(action.label));
-        const train = findAction((action) => ["practice", "train"].includes(action.label));
+        const train = findAction((action) => (
+          ["practice", "train"].includes(action.label)
+            || (action.label === "evolve" && action.evolveModes?.includes("practice"))
+        ));
         const next = bond || train;
         const identityActionKeys = [bond, train]
           .filter(Boolean)
@@ -7449,8 +7552,8 @@
             : bond
             ? "choose a friendship to grow."
             : train
-              ? "choose a knack to practice."
-              : "grow a friendship or practice a knack.",
+              ? "choose how your knack evolves."
+              : "strengthen a friendship or evolve a knack.",
         };
       }
 
