@@ -277,7 +277,9 @@ mod tests {
         assert_eq!(ruby.entitlement_authorities.len(), 1);
         assert_eq!(ruby.entitlement_authorities[0].kind, "asset_feed");
         assert_eq!(
-            ruby.distribution.as_ref().map(|value| value.permanence.as_str()),
+            ruby.distribution
+                .as_ref()
+                .map(|value| value.permanence.as_str()),
             Some("content-addressed")
         );
 
