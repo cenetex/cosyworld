@@ -48,6 +48,16 @@ fly secrets set COSYWORLD_BOX_CORE_COLLECTION_ADDRESS=...
 
 The Fly config runs with `COSYWORLD_DEPLOY_PROFILE=production`, persistent `/data` storage, the SQLite event journal, and the protected Ruby High ownership feed.
 
+Passkey authentication also requires an exact WebAuthn relying-party configuration. The RP ID is the deployment hostname without a scheme; the origin is the public HTTPS origin:
+
+```bash
+COSYWORLD_WEBAUTHN_RP_ID=play.example.com
+COSYWORLD_WEBAUTHN_ORIGIN=https://play.example.com
+COSYWORLD_WEBAUTHN_EXTRA_ORIGINS=https://www.play.example.com
+```
+
+Passkeys are domain-scoped. Deployments on unrelated hostnames do not share passkeys even if they share application code.
+
 ### Node Companion + V2 Game Deployment
 
 Use this when the Node admin/integration service is also public. Deploy V2 as the game service, then set the Node service to discover it:
@@ -72,6 +82,7 @@ Create a `.env` file with:
 - **Discord:** `DISCORD_BOT_TOKEN`
 - **Performance:** `MEMORY_CACHE_SIZE`, `MAX_CONCURRENT_REQUESTS`
 - **V2 Production:** `COSYWORLD_DEPLOY_PROFILE=production`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER`, `COSYWORLD_MODERATION_TOKEN`
+- **V2 Passkeys:** `COSYWORLD_WEBAUTHN_RP_ID`, `COSYWORLD_WEBAUTHN_ORIGIN`, and optional comma-separated `COSYWORLD_WEBAUTHN_EXTRA_ORIGINS`. Production refuses to boot without the RP ID and origin.
 - **V2 Box Burns:** `COSYWORLD_BOX_BURN_SOLANA_RPC_URL`, `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; until these are configured, production Box burn endpoints stay closed.
 
 ---

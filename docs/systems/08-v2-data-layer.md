@@ -212,6 +212,7 @@ class IdentityStore {
 The clean model separates these concepts:
 
 - **User**: an app account. A user can have many wallets and external identities.
+- **Passkey**: a WebAuthn public-key credential used for ordinary account sign-in. A user can register multiple passkeys for device loss and recovery.
 - **Wallet**: a blockchain address on a chain. Address comparison uses a normalized address, but display preserves original casing/format.
 - **External identity**: Discord, X, Telegram, or another provider account identity.
 - **Session**: a revocable app login session. Cookies should carry a session ID, not a wallet-address-as-user.
@@ -575,6 +576,17 @@ CREATE TABLE wallets (
   UNIQUE(chain, normalized_address)
 );
 
+CREATE TABLE passkey_credentials (
+  credential_id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  passkey_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_used_at TEXT
+);
+
+CREATE INDEX passkey_credentials_user ON passkey_credentials(user_id);
+
 CREATE TABLE user_wallets (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   wallet_id TEXT NOT NULL REFERENCES wallets(id) ON DELETE CASCADE,
@@ -861,6 +873,8 @@ Acceptance:
 
 - Admin login and wallet auth work on both backends through `IdentityStore`.
 - Login uses `auth_challenges`, `users`, `wallets`, `user_wallets`, and `auth_sessions`.
+- Browser login uses WebAuthn passkeys; wallet signatures remain proof for wallet linking and chain-specific actions.
+- Users can register multiple passkeys and link multiple wallets, while a normalized wallet belongs to at most one user account.
 - Cookies carry an opaque session ID, not wallet/admin claims.
 - Discord wallet linking imports into `external_identities`, `wallets`, and `user_wallets`.
 - X and Telegram auth import into `provider_credentials` and `oauth_states`; `SocialStore` no longer stores provider tokens.

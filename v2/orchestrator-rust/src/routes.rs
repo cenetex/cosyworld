@@ -43,6 +43,23 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/assets/rati.png", get(legacy_rati_asset))
         .route("/health", get(health))
         .route("/meta", get(meta))
+        .route("/content-packs", get(content_packs_view))
+        .route("/auth/account", get(account_identity))
+        .route("/auth/logout", post(account_logout))
+        .route(
+            "/auth/passkey/register/start",
+            post(passkey_registration_start),
+        )
+        .route(
+            "/auth/passkey/register/finish",
+            post(passkey_registration_finish),
+        )
+        .route("/auth/passkey/login/start", post(passkey_login_start))
+        .route("/auth/passkey/login/finish", post(passkey_login_finish))
+        .route("/auth/wallets/link/start", post(wallet_link_start))
+        .route("/auth/wallets/link/finish", post(wallet_link_finish))
+        .route("/auth/wallets/select", post(wallet_select))
+        .route("/auth/wallets/unlink", post(wallet_unlink))
         .route("/wallet/challenge", get(wallet_challenge))
         .route("/wallet/session", post(wallet_session))
         .route("/wallet/qr/start", post(wallet_qr_start))

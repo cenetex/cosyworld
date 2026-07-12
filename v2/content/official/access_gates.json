@@ -1,32 +1,44 @@
 [
   {
     "location_id": 10,
+    "required_grant_id": "ruby-high.first-bell:location-science-lab",
     "required_card_id": "location-science-lab",
-    "reason": "Ruby High: First Bell location card required."
+    "reason": "Ruby High: First Bell location card required.",
+    "pack_id": "cosyworld.core"
   },
   {
     "location_id": 11,
+    "required_grant_id": "ruby-high.first-bell:location-homeroom",
     "required_card_id": "location-homeroom",
-    "reason": "Ruby High: First Bell location card required."
+    "reason": "Ruby High: First Bell location card required.",
+    "pack_id": "cosyworld.core"
   },
   {
     "location_id": 12,
+    "required_grant_id": "ruby-high.first-bell:location-library",
     "required_card_id": "location-library",
-    "reason": "Ruby High: First Bell location card required."
+    "reason": "Ruby High: First Bell location card required.",
+    "pack_id": "cosyworld.core"
   },
   {
     "location_id": 13,
+    "required_grant_id": "ruby-high.first-bell:location-cafeteria",
     "required_card_id": "location-cafeteria",
-    "reason": "Ruby High: First Bell location card required."
+    "reason": "Ruby High: First Bell location card required.",
+    "pack_id": "cosyworld.core"
   },
   {
     "location_id": 14,
+    "required_grant_id": "ruby-high.first-bell:location-greenhouse",
     "required_card_id": "location-greenhouse",
-    "reason": "Ruby High: First Bell location card required."
+    "reason": "Ruby High: First Bell location card required.",
+    "pack_id": "cosyworld.core"
   },
   {
     "location_id": 15,
+    "required_grant_id": "ruby-high.first-bell:location-courtyard",
     "required_card_id": "location-courtyard",
-    "reason": "Ruby High: First Bell location card required."
+    "reason": "Ruby High: First Bell location card required.",
+    "pack_id": "cosyworld.core"
   }
 ]

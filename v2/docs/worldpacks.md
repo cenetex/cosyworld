@@ -89,6 +89,92 @@ The compiler gives every official bundle a SHA-256 identity derived from the wor
 
 The current kernel ABI still uses numeric actor, item, and location IDs. The validator therefore treats those IDs as bundle-global and rejects collisions. A later schema can compile namespaced authoring IDs into a stable numeric ID map without changing the kernel ABI.
 
+## Runtime discovery and access
+
+`GET /content-packs` exposes the installed bundle as a player-facing catalogue.
+It accepts the same wallet and development-card query fields as `/state`, and
+returns each visible pack's metadata, resource counts, entry location, access
+state, required grants/cards, entitlement authorities, distribution metadata,
+and accessible location summaries. The current access
+states are `public`, `included`, `locked`, `partial`, and `entitled`.
+
+The compiler stamps `pack_id` onto every compiled resource and external card.
+Runtime actor, item, location, and card projections retain that provenance.
+This records who authored a resource without making the authoring pack the
+authorization boundary: a location may be authored in Core while its access is
+delegated to a card catalog such as Ruby High: First Bell.
+
+All packs in this endpoint are already installed by the shard's locked world
+composition. The endpoint does not dynamically install packs or interpret a
+payment rail. Packs declare content and access surfaces; verified claims
+determine the current player's entitlement projection.
+
+### Entitlement authorities and named grants
+
+Resources depend on stable grant ids, never directly on wallet, chain, or
+payment code. A pack declares the authority that can issue each grant:
+
+```json
+{
+  "entitlements": {
+    "schema_version": 1,
+    "authorities": [
+      {
+        "id": "cards",
+        "type": "solana_collection",
+        "network": "mainnet-beta",
+        "standard": "metaplex_core",
+        "collection_address": "..."
+      }
+    ],
+    "grants": [
+      {
+        "id": "example.pack:library",
+        "authority_id": "cards",
+        "match": { "asset_id": "location-library" }
+      }
+    ]
+  }
+}
+```
+
+An access gate then names `required_grant_id`. `required_card_id` remains an
+optional compatibility/display hint and must match the grant's `asset_id`.
+The Rust host resolves verified assets to grants before movement; the C kernel
+continues to receive only an allowed/denied action.
+
+Authority type `asset_feed` accepts claims from the shard's protected ownership
+adapter. This is how the current Ruby High bridge works while its collection
+address remains owned by the upstream deployment. `solana_collection` pins a
+specific collection address in the permanent pack. `signed_set` pins an Ed25519
+issuer public key for off-chain private sets; the protected adapter verifies the
+assertion against that key before emitting claims. Protected feeds may return
+`grantIds` for a wallet; unknown or undeclared grants are discarded.
+
+### Permanent distribution
+
+A pack can declare:
+
+```json
+{
+  "distribution": {
+    "media_type": "application/vnd.cosyworld.pack+json",
+    "canonicalization": "jcs",
+    "permanence": "arweave",
+    "permanent_uri": "ar://<43-character-transaction-id>"
+  }
+}
+```
+
+Before upload, use `permanence: "content-addressed"` and omit
+`permanent_uri`. The lockfile records the SHA-256 integrity of the complete
+declared pack. Publishing uploads that exact canonical release to Arweave; a
+new immutable pack version can then replace the distribution block with the
+transaction URI and refresh the lock. NFT collection metadata may point back
+to the same URI. Pack identity remains the content hash, while a collection or
+signed issuer remains an entitlement authority that may serve multiple pack
+versions.
+
 ## SRD packs
 
 `cosyworld.rules-srd-5.1` and `cosyworld.rules-srd-5.2.1` are separate,

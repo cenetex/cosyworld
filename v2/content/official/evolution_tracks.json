@@ -12,7 +12,8 @@
         "target_kind": "location_floor",
         "target_id": 1
       }
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "actor_id": 1002,
@@ -27,7 +28,8 @@
         "target_kind": "location_floor",
         "target_id": 3
       }
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "actor_id": 1003,
@@ -42,6 +44,7 @@
         "target_kind": "location_floor",
         "target_id": 1
       }
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   }
 ]

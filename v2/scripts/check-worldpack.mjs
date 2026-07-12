@@ -28,6 +28,7 @@ const expectedFiles = {
   recipes: "recipes.json",
 };
 const allowedPackKinds = new Set(["world", "campaign", "catalog", "assets", "rules"]);
+const allowedEntitlementAuthorityTypes = new Set(["asset_feed", "solana_collection", "signed_set"]);
 const supportedRuleResources = new Set(["conditions", "monster_seeds"]);
 
 const failures = [];
@@ -138,8 +139,9 @@ if (!isNonEmptyString(manifest.bundle_hash) || !/^sha256:[0-9a-f]{64}$/.test(man
 }
 const packs = asArray("worldpack manifest packs", manifest.packs);
 const packIds = idSet("worldpack manifest packs", packs, (pack) => pack.id);
+const entitlementGrants = new Map();
 for (const pack of packs) {
-  validateRequiredStrings("worldpack pack", pack, ["name", "version", "kind", "license", "integrity"]);
+  validateRequiredStrings("worldpack pack", pack, ["name", "description", "version", "kind", "license", "integrity"]);
   if (!allowedPackKinds.has(pack.kind)) {
     fail(`worldpack pack ${pack.id} has unsupported kind ${pack.kind}`);
   }
@@ -153,6 +155,44 @@ for (const pack of packs) {
   }
   if (!/^sha256:[0-9a-f]{64}$/.test(pack.integrity ?? "")) {
     fail(`worldpack pack ${pack.id} has an invalid integrity hash`);
+  }
+  if (!Array.isArray(pack.dependencies) || !isObject(pack.resource_counts)) {
+    fail(`worldpack pack ${pack.id} is missing dependencies or resource_counts`);
+  }
+  if (pack.distribution) {
+    if (
+      pack.distribution.media_type !== "application/vnd.cosyworld.pack+json"
+      || pack.distribution.canonicalization !== "jcs"
+      || !["content-addressed", "arweave"].includes(pack.distribution.permanence)
+    ) {
+      fail(`worldpack pack ${pack.id} has invalid distribution metadata`);
+    }
+    if (pack.distribution.permanent_uri !== undefined && !/^ar:\/\/[A-Za-z0-9_-]{43}$/.test(pack.distribution.permanent_uri)) {
+      fail(`worldpack pack ${pack.id} has invalid Arweave permanent_uri`);
+    }
+  }
+  if (pack.entitlements) {
+    const authorities = asArray(`pack ${pack.id} entitlement authorities`, pack.entitlements.authorities);
+    const grants = asArray(`pack ${pack.id} entitlement grants`, pack.entitlements.grants);
+    const authorityIds = idSet(`pack ${pack.id} entitlement authorities`, authorities, (authority) => authority.id);
+    if (pack.entitlements.schema_version !== 1) fail(`pack ${pack.id} entitlements schema_version must be 1`);
+    for (const authority of authorities) {
+      if (!allowedEntitlementAuthorityTypes.has(authority.type)) fail(`pack ${pack.id} authority ${authority.id} has invalid type`);
+      if (authority.type === "solana_collection" && (!isNonEmptyString(authority.collection_address) || !isNonEmptyString(authority.network) || !isNonEmptyString(authority.standard))) {
+        fail(`pack ${pack.id} authority ${authority.id} has incomplete Solana collection metadata`);
+      }
+      if (authority.type === "signed_set" && (authority.algorithm !== "ed25519" || !isNonEmptyString(authority.public_key))) {
+        fail(`pack ${pack.id} authority ${authority.id} has invalid signed-set metadata`);
+      }
+    }
+    for (const grant of grants) {
+      if (!isNonEmptyString(grant.id) || !grant.id.startsWith(`${pack.id}:`) || entitlementGrants.has(grant.id)) {
+        fail(`pack ${pack.id} has invalid or duplicate grant ${grant.id}`);
+        continue;
+      }
+      if (!has(authorityIds, grant.authority_id)) fail(`pack ${pack.id} grant ${grant.id} references unknown authority`);
+      entitlementGrants.set(grant.id, { ...grant, pack_id: pack.id });
+    }
   }
 }
 if (!isObject(manifest.files)) {
@@ -177,11 +217,25 @@ for (const [key, fileName] of Object.entries(expectedFiles)) {
 const content = {};
 for (const [key, fileName] of Object.entries(expectedFiles)) {
   content[key] = asArray(fileName, readJson(fileName));
+  for (const row of content[key]) {
+    if (!isNonEmptyString(row.pack_id) || !has(packIds, row.pack_id)) {
+      fail(`${fileName} row ${String(row.id ?? row.card_id ?? row.location_id ?? "")} has invalid pack_id`);
+    }
+  }
+  for (const pack of packs) {
+    const actual = content[key].filter((row) => row.pack_id === pack.id).length;
+    if (pack.resource_counts?.[key] !== actual) {
+      fail(`worldpack pack ${pack.id} resource_counts.${key} is ${pack.resource_counts?.[key]}, expected ${actual}`);
+    }
+  }
 }
 
 const externalCards = asArray("external_cards.json", readJson("external_cards.json"));
 idSet("external cards", externalCards, (card) => card.card_id);
 for (const card of externalCards) {
+  if (!isNonEmptyString(card.pack_id) || !has(packIds, card.pack_id)) {
+    fail(`external card ${card.card_id} has invalid pack_id`);
+  }
   validateRequiredStrings("external card", card, [
     "display_name",
     "role",
@@ -195,6 +249,12 @@ for (const card of externalCards) {
     "image_url",
     "chain_image_uri",
   ]);
+}
+for (const pack of packs) {
+  const actual = externalCards.filter((card) => card.pack_id === pack.id).length;
+  if (pack.resource_counts?.external_cards !== actual) {
+    fail(`worldpack pack ${pack.id} resource_counts.external_cards is ${pack.resource_counts?.external_cards}, expected ${actual}`);
+  }
 }
 const assetMounts = asArray("assets.json", readJson("assets.json"));
 idSet("asset mounts", assetMounts, (mount) => `${mount.pack_id}:${mount.mount}`);
@@ -722,15 +782,25 @@ for (const card of cards) {
 }
 
 for (const gate of accessGates) {
-  if (!has(locationIds, gate.location_id) || !isNonEmptyString(gate.required_card_id) || !isNonEmptyString(gate.reason)) {
+  if (!has(locationIds, gate.location_id) || !isNonEmptyString(gate.required_grant_id) || !isNonEmptyString(gate.reason)) {
     fail(`invalid access gate for location ${gate.location_id}`);
     continue;
   }
-  const card = cards.find((candidate) => candidate.card_id === gate.required_card_id || candidate.external_card_id === gate.required_card_id);
+  const grant = entitlementGrants.get(gate.required_grant_id);
+  if (!grant) {
+    fail(`access gate for location ${gate.location_id} references missing grant ${gate.required_grant_id}`);
+    continue;
+  }
+  const requiredAssetId = grant.match?.asset_id;
+  if (gate.required_card_id !== undefined && gate.required_card_id !== requiredAssetId) {
+    fail(`access gate for location ${gate.location_id} card compatibility id does not match grant ${gate.required_grant_id}`);
+  }
+  if (!requiredAssetId) continue;
+  const card = cards.find((candidate) => candidate.card_id === requiredAssetId || candidate.external_card_id === requiredAssetId);
   if (!card) {
-    fail(`access gate for location ${gate.location_id} references missing card ${gate.required_card_id}`);
+    fail(`access gate for location ${gate.location_id} references missing card ${requiredAssetId}`);
   } else if (card.subject_kind !== "location" || card.subject_id !== gate.location_id) {
-    fail(`access gate for location ${gate.location_id} references non-matching card ${gate.required_card_id}`);
+    fail(`access gate for location ${gate.location_id} references non-matching card ${requiredAssetId}`);
   }
 }
 
@@ -1028,7 +1098,7 @@ function buildWorldpackReport() {
       zone: sheet?.zone ?? "unknown",
       safety: sheet?.safety ?? "unknown",
       public: !gate,
-      gate: gate ? { required_card_id: gate.required_card_id, reason: gate.reason } : null,
+      gate: gate ? { required_grant_id: gate.required_grant_id, required_card_id: gate.required_card_id ?? null, reason: gate.reason } : null,
       allow_combat: location.allow_combat,
       factions: (factionsByLocation.get(location.id) ?? []).map((faction) => faction.id),
       exits: sorted(exitsByLocation.get(location.id) ?? [], (a, b) => String(a.direction ?? "").localeCompare(String(b.direction ?? "")))

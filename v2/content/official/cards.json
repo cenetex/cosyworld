@@ -20,7 +20,8 @@
       "ink": "#d8f7dc",
       "accent": "#efc96b",
       "glyph": "RA"
-    }
+    },
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -43,7 +44,8 @@
       "accent": "#75e5d6",
       "glyph": "GU"
     },
-    "image_url": "/assets/generated/cards/cosy-whiskerwind.webp"
+    "image_url": "/assets/generated/cards/cosy-whiskerwind.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -66,7 +68,8 @@
       "accent": "#efc96b",
       "glyph": "SK"
     },
-    "image_url": "/assets/generated/cards/cosy-skull.webp"
+    "image_url": "/assets/generated/cards/cosy-skull.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -89,7 +92,8 @@
       "accent": "#91b9ff",
       "glyph": "CO"
     },
-    "image_url": "/assets/generated/cards/cosy-moonlit-echo.webp"
+    "image_url": "/assets/generated/cards/cosy-moonlit-echo.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -112,7 +116,8 @@
       "accent": "#65e68a",
       "glyph": "OA"
     },
-    "image_url": "/assets/lonely-forest/characters/09-old-oak-sunny.png"
+    "image_url": "/assets/lonely-forest/characters/09-old-oak-sunny.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -126,7 +131,8 @@
     "aspect": "tall",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/01-shadow-wolf.png"
+    "image_url": "/assets/lonely-forest/characters/01-shadow-wolf.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -140,7 +146,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/02-forest-dryad.png"
+    "image_url": "/assets/lonely-forest/characters/02-forest-dryad.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -154,7 +161,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/10-woodland-bear.png"
+    "image_url": "/assets/lonely-forest/characters/10-woodland-bear.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -168,7 +176,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/11-golden-squirrel.png"
+    "image_url": "/assets/lonely-forest/characters/11-golden-squirrel.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -182,7 +191,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/12-blue-squirrel.png"
+    "image_url": "/assets/lonely-forest/characters/12-blue-squirrel.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -196,7 +206,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/13-badger-cub.png"
+    "image_url": "/assets/lonely-forest/characters/13-badger-cub.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -210,7 +221,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/14-llama-scholar.png"
+    "image_url": "/assets/lonely-forest/characters/14-llama-scholar.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -224,7 +236,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/15-cloaked-mouse-reader.png"
+    "image_url": "/assets/lonely-forest/characters/15-cloaked-mouse-reader.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -238,7 +251,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/16-rabbit-scribe.png"
+    "image_url": "/assets/lonely-forest/characters/16-rabbit-scribe.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -252,7 +266,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/17-mouse-wanderer.png"
+    "image_url": "/assets/lonely-forest/characters/17-mouse-wanderer.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -266,7 +281,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/20-garden-rabbit.png"
+    "image_url": "/assets/lonely-forest/characters/20-garden-rabbit.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -280,7 +296,8 @@
     "aspect": "tall",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/21-veiled-forest-ghost.png"
+    "image_url": "/assets/lonely-forest/characters/21-veiled-forest-ghost.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -294,7 +311,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/22-wolf-pup.png"
+    "image_url": "/assets/lonely-forest/characters/22-wolf-pup.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -308,7 +326,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/25-white-ferret-noble.png"
+    "image_url": "/assets/lonely-forest/characters/25-white-ferret-noble.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -322,7 +341,8 @@
     "aspect": "tall",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/27-blue-shadow-man.png"
+    "image_url": "/assets/lonely-forest/characters/27-blue-shadow-man.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -336,7 +356,8 @@
     "aspect": "tall",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/28-golden-winged-boy.png"
+    "image_url": "/assets/lonely-forest/characters/28-golden-winged-boy.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -350,7 +371,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/29-grey-winged-boy.png"
+    "image_url": "/assets/lonely-forest/characters/29-grey-winged-boy.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -364,7 +386,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/30-sunlit-winged-boy.png"
+    "image_url": "/assets/lonely-forest/characters/30-sunlit-winged-boy.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -378,7 +401,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/32-tavern-blond-boy.png"
+    "image_url": "/assets/lonely-forest/characters/32-tavern-blond-boy.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -392,7 +416,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/34-armored-winged-hero.png"
+    "image_url": "/assets/lonely-forest/characters/34-armored-winged-hero.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -406,7 +431,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/35-neon-tiger.png"
+    "image_url": "/assets/lonely-forest/characters/35-neon-tiger.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -420,7 +446,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/36-steampunk-mouse.png"
+    "image_url": "/assets/lonely-forest/characters/36-steampunk-mouse.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -434,7 +461,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/37-red-shadow-figure.png"
+    "image_url": "/assets/lonely-forest/characters/37-red-shadow-figure.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -448,7 +476,8 @@
     "aspect": "square",
     "source": "lonely_forest",
     "asset_status": "source_art",
-    "image_url": "/assets/lonely-forest/characters/38-beetle-armor.png"
+    "image_url": "/assets/lonely-forest/characters/38-beetle-armor.png",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -471,7 +500,8 @@
       "accent": "#efc96b",
       "glyph": "SE"
     },
-    "image_url": "/assets/generated/cards/cosy-vowbright-angel.webp"
+    "image_url": "/assets/generated/cards/cosy-vowbright-angel.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -494,7 +524,8 @@
       "accent": "#75e5d6",
       "glyph": "NE"
     },
-    "image_url": "/assets/generated/cards/cosy-pearl-deep-resident.webp"
+    "image_url": "/assets/generated/cards/cosy-pearl-deep-resident.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -517,7 +548,8 @@
       "accent": "#c65cff",
       "glyph": "AZ"
     },
-    "image_url": "/assets/generated/cards/cosy-azazoth.svg"
+    "image_url": "/assets/generated/cards/cosy-azazoth.svg",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "actor",
@@ -540,7 +572,8 @@
       "accent": "#8bb7ff",
       "glyph": "ZA"
     },
-    "image_url": "/assets/generated/cards/cosy-zadkiel-dark-angel.svg"
+    "image_url": "/assets/generated/cards/cosy-zadkiel-dark-angel.svg",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "item",
@@ -563,7 +596,8 @@
       "accent": "#efc96b",
       "glyph": "HT"
     },
-    "image_url": "/assets/generated/cards/cosy-hearth-tonic.webp"
+    "image_url": "/assets/generated/cards/cosy-hearth-tonic.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "item",
@@ -586,7 +620,8 @@
       "accent": "#75e5d6",
       "glyph": "DB"
     },
-    "image_url": "/assets/generated/cards/cosy-dewbright-button.webp"
+    "image_url": "/assets/generated/cards/cosy-dewbright-button.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "item",
@@ -609,7 +644,8 @@
       "accent": "#8bb7ff",
       "glyph": "WC"
     },
-    "image_url": "/assets/generated/cards/cosy-wolfprint-charm.webp"
+    "image_url": "/assets/generated/cards/cosy-wolfprint-charm.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "item",
@@ -632,7 +668,8 @@
       "accent": "#bca1ff",
       "glyph": "MT"
     },
-    "image_url": "/assets/generated/cards/cosy-moonwool-thread.webp"
+    "image_url": "/assets/generated/cards/cosy-moonwool-thread.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "item",
@@ -655,7 +692,8 @@
       "accent": "#efc96b",
       "glyph": "SB"
     },
-    "image_url": "/assets/generated/cards/cosy-story-button.webp"
+    "image_url": "/assets/generated/cards/cosy-story-button.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "item",
@@ -678,7 +716,8 @@
       "accent": "#f29c9c",
       "glyph": "HT"
     },
-    "image_url": "/assets/generated/cards/cosy-hearthstone-tag.webp"
+    "image_url": "/assets/generated/cards/cosy-hearthstone-tag.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "item",
@@ -701,7 +740,8 @@
       "accent": "#65e68a",
       "glyph": "WB"
     },
-    "image_url": "/assets/generated/cards/cosy-watch-bell.webp"
+    "image_url": "/assets/generated/cards/cosy-watch-bell.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "item",
@@ -724,7 +764,8 @@
       "accent": "#d96b6b",
       "glyph": "MS"
     },
-    "image_url": "/assets/generated/cards/cosy-threadbare-map-scrap.webp"
+    "image_url": "/assets/generated/cards/cosy-threadbare-map-scrap.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "item",
@@ -747,7 +788,8 @@
       "accent": "#9bcf84",
       "glyph": "AB"
     },
-    "image_url": "/assets/generated/cards/cosy-abbey-bookmark.webp"
+    "image_url": "/assets/generated/cards/cosy-abbey-bookmark.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "item",
@@ -770,7 +812,8 @@
       "accent": "#7de099",
       "glyph": "MB"
     },
-    "image_url": "/assets/generated/cards/cosy-mossglass-bead.webp"
+    "image_url": "/assets/generated/cards/cosy-mossglass-bead.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -794,7 +837,8 @@
       "ink": "#f5e6b8",
       "accent": "#efc96b",
       "glyph": "CC"
-    }
+    },
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -818,7 +862,8 @@
       "accent": "#65e68a",
       "glyph": "RG"
     },
-    "image_url": "/assets/generated/cards/cosy-rain-soft-garden.webp"
+    "image_url": "/assets/generated/cards/cosy-rain-soft-garden.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -842,7 +887,8 @@
       "accent": "#8bb7ff",
       "glyph": "MT"
     },
-    "image_url": "/assets/generated/cards/cosy-moonlit-trail.webp"
+    "image_url": "/assets/generated/cards/cosy-moonlit-trail.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -857,7 +903,8 @@
     "source": "ruby_high_first_bell",
     "asset_status": "on_chain",
     "external_card_id": "location-science-lab",
-    "subject": "STEM Wing"
+    "subject": "STEM Wing",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -872,7 +919,8 @@
     "source": "ruby_high_first_bell",
     "asset_status": "on_chain",
     "external_card_id": "location-homeroom",
-    "subject": "Front Door"
+    "subject": "Front Door",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -887,7 +935,8 @@
     "source": "ruby_high_first_bell",
     "asset_status": "on_chain",
     "external_card_id": "location-library",
-    "subject": "Quiet Wing"
+    "subject": "Quiet Wing",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -902,7 +951,8 @@
     "source": "ruby_high_first_bell",
     "asset_status": "on_chain",
     "external_card_id": "location-cafeteria",
-    "subject": "Commons"
+    "subject": "Commons",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -917,7 +967,8 @@
     "source": "ruby_high_first_bell",
     "asset_status": "on_chain",
     "external_card_id": "location-greenhouse",
-    "subject": "Garden Annex"
+    "subject": "Garden Annex",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -932,7 +983,8 @@
     "source": "ruby_high_first_bell",
     "asset_status": "on_chain",
     "external_card_id": "location-courtyard",
-    "subject": "Central Grounds"
+    "subject": "Central Grounds",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -956,7 +1008,8 @@
       "accent": "#8bb7ff",
       "glyph": "TH"
     },
-    "image_url": "/assets/generated/cards/location-the-heavens.webp"
+    "image_url": "/assets/generated/cards/location-the-heavens.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -980,7 +1033,8 @@
       "accent": "#efc96b",
       "glyph": "LP"
     },
-    "image_url": "/assets/generated/cards/location-lofty-peak.webp"
+    "image_url": "/assets/generated/cards/location-lofty-peak.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1004,7 +1058,8 @@
       "accent": "#efc96b",
       "glyph": "ST"
     },
-    "image_url": "/assets/generated/cards/location-summit-trail.webp"
+    "image_url": "/assets/generated/cards/location-summit-trail.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1028,7 +1083,8 @@
       "accent": "#65e68a",
       "glyph": "AF"
     },
-    "image_url": "/assets/generated/cards/location-alpine-forest.webp"
+    "image_url": "/assets/generated/cards/location-alpine-forest.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1052,7 +1108,8 @@
       "accent": "#efc96b",
       "glyph": "GC"
     },
-    "image_url": "/assets/generated/cards/location-goblin-cave.webp"
+    "image_url": "/assets/generated/cards/location-goblin-cave.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1076,7 +1133,8 @@
       "accent": "#bca1ff",
       "glyph": "CM"
     },
-    "image_url": "/assets/generated/cards/location-circle-of-the-moon.webp"
+    "image_url": "/assets/generated/cards/location-circle-of-the-moon.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1100,7 +1158,8 @@
       "accent": "#efc96b",
       "glyph": "ST"
     },
-    "image_url": "/assets/generated/cards/location-solar-temple.webp"
+    "image_url": "/assets/generated/cards/location-solar-temple.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1124,7 +1183,8 @@
       "accent": "#65e68a",
       "glyph": "OO"
     },
-    "image_url": "/assets/generated/cards/location-old-oak-tree.webp"
+    "image_url": "/assets/generated/cards/location-old-oak-tree.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1148,7 +1208,8 @@
       "accent": "#8bb7ff",
       "glyph": "LW"
     },
-    "image_url": "/assets/generated/cards/location-lost-woods.webp"
+    "image_url": "/assets/generated/cards/location-lost-woods.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1172,7 +1233,8 @@
       "accent": "#efc96b",
       "glyph": "HM"
     },
-    "image_url": "/assets/generated/cards/location-haunted-mansion.webp"
+    "image_url": "/assets/generated/cards/location-haunted-mansion.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1196,7 +1258,8 @@
       "accent": "#8bb7ff",
       "glyph": "QA"
     },
-    "image_url": "/assets/generated/cards/location-quiet-abbey.webp"
+    "image_url": "/assets/generated/cards/location-quiet-abbey.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1220,7 +1283,8 @@
       "accent": "#f29c9c",
       "glyph": "FM"
     },
-    "image_url": "/assets/generated/cards/location-flower-meadow.webp"
+    "image_url": "/assets/generated/cards/location-flower-meadow.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1244,7 +1308,8 @@
       "accent": "#efc96b",
       "glyph": "GL"
     },
-    "image_url": "/assets/generated/cards/location-great-library.webp"
+    "image_url": "/assets/generated/cards/location-great-library.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1268,7 +1333,8 @@
       "accent": "#65e68a",
       "glyph": "TS"
     },
-    "image_url": "/assets/generated/cards/location-turgid-swamp.webp"
+    "image_url": "/assets/generated/cards/location-turgid-swamp.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1292,7 +1358,8 @@
       "accent": "#efc96b",
       "glyph": "WJ"
     },
-    "image_url": "/assets/generated/cards/location-wilting-jungle.webp"
+    "image_url": "/assets/generated/cards/location-wilting-jungle.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1316,7 +1383,8 @@
       "accent": "#75e5d6",
       "glyph": "EO"
     },
-    "image_url": "/assets/generated/cards/location-endless-ocean.webp"
+    "image_url": "/assets/generated/cards/location-endless-ocean.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1340,7 +1408,8 @@
       "accent": "#65e68a",
       "glyph": "DR"
     },
-    "image_url": "/assets/generated/cards/location-digital-realm.webp"
+    "image_url": "/assets/generated/cards/location-digital-realm.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1364,7 +1433,8 @@
       "accent": "#75e5d6",
       "glyph": "DO"
     },
-    "image_url": "/assets/generated/cards/location-darkest-ocean.webp"
+    "image_url": "/assets/generated/cards/location-darkest-ocean.webp",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1388,7 +1458,8 @@
       "accent": "#c65cff",
       "glyph": "DA"
     },
-    "image_url": "/assets/generated/cards/location-dark-abyss.svg"
+    "image_url": "/assets/generated/cards/location-dark-abyss.svg",
+    "pack_id": "cosyworld.core"
   },
   {
     "subject_kind": "location",
@@ -1401,7 +1472,8 @@
     "blurb": "Begin The Lantern Keeper beneath the road's final burning lamp.",
     "aspect": "wide",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "location",
@@ -1414,7 +1486,8 @@
     "blurb": "Follow cold lamps and keeper tracks through a forest of white moths.",
     "aspect": "wide",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "location",
@@ -1427,7 +1500,8 @@
     "blurb": "Learn the old keeper vow and recover the key hidden from noon.",
     "aspect": "wide",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "location",
@@ -1440,7 +1514,8 @@
     "blurb": "Cross black water where an empty knight still guards the tower road.",
     "aspect": "wide",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "location",
@@ -1453,7 +1528,8 @@
     "blurb": "Find Rowan Vale inside the shadow and decide what the beacon will become.",
     "aspect": "wide",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "actor",
@@ -1466,7 +1542,8 @@
     "blurb": "She knows every lamp on the road and exactly when each one failed.",
     "aspect": "tall",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "actor",
@@ -1479,7 +1556,8 @@
     "blurb": "A soot-winged guide with a pin sword and no patience for tall people.",
     "aspect": "tall",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "actor",
@@ -1492,7 +1570,8 @@
     "blurb": "Empty armor packed with moths bars the only dry crossing.",
     "aspect": "tall",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "actor",
@@ -1505,7 +1584,8 @@
     "blurb": "The missing keeper still holds an ember inside a coat of moving shadow.",
     "aspect": "tall",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "item",
@@ -1518,7 +1598,8 @@
     "blurb": "Warm on one side, cold on the other, and cut for a lock inside the tower.",
     "aspect": "square",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "item",
@@ -1531,7 +1612,8 @@
     "blurb": "It shows the faint outline of whatever last carried a nearby light.",
     "aspect": "square",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "item",
@@ -1544,7 +1626,8 @@
     "blurb": "A healing oil that draws bright boundaries around living things.",
     "aspect": "square",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "item",
@@ -1557,7 +1640,8 @@
     "blurb": "A stubborn fragment of beacon flame waiting for the great lens.",
     "aspect": "square",
     "source": "the_lantern_keeper",
-    "asset_status": "pending_art"
+    "asset_status": "pending_art",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "subject_kind": "actor",
@@ -1571,7 +1655,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-simon-peter.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-simon-peter.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1585,7 +1670,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-andrew.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-andrew.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1599,7 +1685,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-james-zebedee.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-james-zebedee.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1613,7 +1700,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-john-zebedee.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-john-zebedee.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1627,7 +1715,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-philip.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-philip.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1641,7 +1730,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-bartholomew.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-bartholomew.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1655,7 +1745,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-matthew.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-matthew.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1669,7 +1760,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-thomas.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-thomas.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1683,7 +1775,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-james-alphaeus.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-james-alphaeus.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1697,7 +1790,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-thaddaeus.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-thaddaeus.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1711,7 +1805,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-simon-zealot.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-simon-zealot.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1725,7 +1820,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-judas-iscariot.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-judas-iscariot.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1739,7 +1835,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-supplicant-lake.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-supplicant-lake.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1753,7 +1850,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-supplicant-well.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-supplicant-well.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1767,7 +1865,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-supplicant-jericho.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-supplicant-jericho.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "actor",
@@ -1781,7 +1880,8 @@
     "aspect": "tall",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-supplicant-emmaus.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-supplicant-emmaus.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1795,7 +1895,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-bethlehem.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-bethlehem.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1809,7 +1910,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-nazareth.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-nazareth.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1823,7 +1925,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-jordan-river.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-jordan-river.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1837,7 +1940,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-cana.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-cana.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1851,7 +1955,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-capernaum.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-capernaum.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1865,7 +1970,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-sea-of-galilee.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-sea-of-galilee.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1879,7 +1985,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-hillside.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-hillside.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1893,7 +2000,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-bethsaida.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-bethsaida.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1907,7 +2015,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-caesarea-philippi.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-caesarea-philippi.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1921,7 +2030,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-sychar-well.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-sychar-well.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1935,7 +2045,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-jericho.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-jericho.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1949,7 +2060,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-bethany.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-bethany.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1963,7 +2075,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-jerusalem.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-jerusalem.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1977,7 +2090,8 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-gethsemane.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-gethsemane.webp",
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "subject_kind": "location",
@@ -1991,6 +2105,7 @@
     "aspect": "wide",
     "source": "holy_land",
     "asset_status": "generated_art",
-    "image_url": "/assets/the-holy-land/cards/holy-land-emmaus-road.webp"
+    "image_url": "/assets/the-holy-land/cards/holy-land-emmaus-road.webp",
+    "pack_id": "cosyworld.the-holy-land"
   }
 ]

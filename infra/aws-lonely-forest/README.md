@@ -8,6 +8,7 @@ archive/library site at `lonelyforestlibrary.com`.
 - ECR repository for the root `Dockerfile` image.
 - ECS Fargate service behind an HTTPS Application Load Balancer.
 - EFS access point mounted at `/data` for SQLite snapshots, event store, and generated assets.
+- WebAuthn/passkey relying-party configuration for the application domain and optional `www` origin.
 - ACM certificate for `lonelyforest.com`, `www.lonelyforest.com`,
   `lonelyforestlibrary.com`, and `www.lonelyforestlibrary.com`.
 - Route 53 alias records for both domains.

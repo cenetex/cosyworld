@@ -18,7 +18,8 @@
     "job_ids": [
       "moonlit-trail:quiet-the-echo"
     ],
-    "impending_outcome": "The trail becomes echo-fractured and every crossing carries a cost."
+    "impending_outcome": "The trail becomes echo-fractured and every crossing carries a cost.",
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "solar-abyss:bell-front",
@@ -44,7 +45,8 @@
     "job_ids": [
       "solar-abyss:drowned-bell"
     ],
-    "impending_outcome": "The bell schism hardens and the two paths mistake harmony for betrayal."
+    "impending_outcome": "The bell schism hardens and the two paths mistake harmony for betrayal.",
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "lantern-keeper:hollow-light",
@@ -70,6 +72,7 @@
     "job_ids": [
       "lantern-keeper:rekindle-the-beacon"
     ],
-    "impending_outcome": "Every lamp on the road burns black and invites travelers toward the tower instead of home."
+    "impending_outcome": "Every lamp on the road burns black and invites travelers toward the tower instead of home.",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   }
 ]

@@ -69,7 +69,12 @@ Seed world content:
 
 CosyWorld Core is free and should feel complete: players can create an avatar, chat, listen, earn and spend Orbs, collect seed items, travel through public rooms, and resolve the public practice/combat loop without holding an NFT.
 
-Official NFTs unlock official expansions, not the base game. The first expansion is **Ruby High: First Bell**. On the official shard, Ruby High rooms use the trusted ownership feed and require their matching Ruby High location card:
+Official NFTs unlock official expansions, not the base game. Pack resources
+name grants rather than chains: the pack maps verified NFT assets or private
+set claims to those grants, and movement checks the resulting grant. The first
+expansion is **Ruby High: First Bell**. On the official shard, Ruby High rooms
+use the trusted ownership feed and require their matching Ruby High location
+card grants:
 
 - `location-science-lab` unlocks Science Class.
 - `location-homeroom` unlocks Homeroom.

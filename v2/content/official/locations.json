@@ -10,7 +10,8 @@
       "Gust's weather symbols gather near the hearth.",
       "Skull keeps watch by the low doorway."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 2,
@@ -28,7 +29,8 @@
       "A dewbright button once caught the first gray light.",
       "The path from the cottage arrives smelling of tea and wet wool."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 3,
@@ -46,7 +48,8 @@
       "Coach waits here as a practice shape.",
       "Wolfprint Charm and Watch Bell stories tend to pass this way."
     ],
-    "allow_combat": true
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 10,
@@ -58,7 +61,8 @@
       "The lab remembers every surprising result.",
       "Rati sometimes follows signal-study questions here."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 11,
@@ -70,7 +74,8 @@
       "The cottage door opens here when the school day calls.",
       "Most Ruby High paths can find their way back to this room."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 12,
@@ -82,7 +87,8 @@
       "The Great Library can be reached through its deeper stacks.",
       "Every returned book leaves one sentence behind."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 13,
@@ -94,7 +100,8 @@
       "Half the school day happens between bites.",
       "The courtyard breeze carries rumors through the serving line."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 14,
@@ -106,7 +113,8 @@
       "The Flower Meadow trades pollen-bright news with this room.",
       "Some lessons only answer after watering."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 15,
@@ -124,7 +132,8 @@
       "Summit Trail begins at the far edge when the air turns thin.",
       "Students cut through here when they need a new route."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 30,
@@ -136,7 +145,8 @@
       "Lofty Peak is the last stone before the sky changes its mind.",
       "Clouds remember footsteps differently than dirt does."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 31,
@@ -148,7 +158,8 @@
       "The Heavens lean close above it.",
       "Summit Trail keeps a lantern below for the return."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 32,
@@ -166,7 +177,8 @@
       "The Courtyard is warmer than it looks from here.",
       "Alpine Forest waits where the stone gives way to trees."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 33,
@@ -178,7 +190,8 @@
       "Summit Trail brings cold travelers through the pines.",
       "Goblin Cave echoes from below after dusk."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 34,
@@ -190,7 +203,8 @@
       "Alpine Forest muffles the cave mouth.",
       "Circle of the Moon can silver even this dark."
     ],
-    "allow_combat": true
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 35,
@@ -202,7 +216,8 @@
       "Moonlit Trail knows the older path here.",
       "Goblin Cave sounds softer under the moon."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 36,
@@ -214,7 +229,8 @@
       "The Heavens open upward into its white terraces.",
       "A drowned bell below the Darkest Ocean still remembers the noon rite."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 40,
@@ -228,7 +244,8 @@
       "Leaf remembers what changed today.",
       "Hollow remembers what nobody has asked yet."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 41,
@@ -240,7 +257,8 @@
       "The Old Oak marks one path that does not move.",
       "Haunted Mansion and Quiet Abbey both borrow this silence."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 42,
@@ -252,7 +270,8 @@
       "Lost Woods keeps leading visitors to its porch.",
       "Quiet Abbey hears the windows sigh at night."
     ],
-    "allow_combat": true
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 43,
@@ -264,7 +283,8 @@
       "Haunted Mansion leaves candle smoke in its prayers.",
       "Flower Meadow brightens the path beyond the arch."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 44,
@@ -276,7 +296,8 @@
       "The Old Oak drops leaves here in autumn.",
       "The Greenhouse recognizes half these flowers by cousin-name."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 50,
@@ -288,7 +309,8 @@
       "The school Library opens into this larger silence.",
       "The Farthest Mists have misfiled several maps here."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 60,
@@ -300,7 +322,8 @@
       "Great Library maps become damp here.",
       "Wilting Jungle leans over its far bank."
     ],
-    "allow_combat": true
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 61,
@@ -312,7 +335,8 @@
       "Turgid Swamp feeds its roots with dark water.",
       "Endless Ocean can be heard before it is seen."
     ],
-    "allow_combat": true
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 62,
@@ -324,7 +348,8 @@
       "Wilting Jungle drops seeds into its tide.",
       "Digital Realm blinks green at the far horizon."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 63,
@@ -336,7 +361,8 @@
       "Great Library indexes cannot decide whether this place is a room or a language.",
       "Endless Ocean reflects in its black glass."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 64,
@@ -348,7 +374,8 @@
       "Endless Ocean is only its surface.",
       "The Solar Temple hears one of its bells singing from below."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 65,
@@ -361,7 +388,8 @@
       "Azazoth keeps a feast here for guests who have mostly had the sense not to arrive.",
       "Zadkiel's anvil rings whenever dread needs better manners."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
   },
   {
     "id": 800,
@@ -379,7 +407,8 @@
       "Rowan Vale left before dawn with the tower key.",
       "Every road lamp north of the inn went dark in order."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "id": 801,
@@ -397,7 +426,8 @@
       "The first lamp failed without broken glass.",
       "Tiny bare footprints circle one post and then vanish."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "id": 802,
@@ -415,7 +445,8 @@
       "Keepers once swore to light the road, not rule it.",
       "A brass key was hidden where noon never reaches."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "id": 803,
@@ -433,7 +464,8 @@
       "Rowan spilled dawn oil here while running uphill.",
       "Something armored learned to walk without breathing."
     ],
-    "allow_combat": true
+    "allow_combat": true,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "id": 804,
@@ -451,7 +483,8 @@
       "The beacon was built to guide travelers and expose things wearing stolen shapes.",
       "Rowan locked the flame away from the inside."
     ],
-    "allow_combat": true
+    "allow_combat": true,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "id": 700,
@@ -469,7 +502,8 @@
       "Christian tradition remembers this town as the birthplace of Jesus.",
       "Pilgrims arrive quietly before continuing toward Jerusalem."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 701,
@@ -487,7 +521,8 @@
       "The Gospel traditions remember Nazareth as the home where Jesus was raised.",
       "The road toward Cana begins beyond the village fields."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 702,
@@ -505,7 +540,8 @@
       "The Gospel narratives begin Jesus' public ministry with baptism in the Jordan region.",
       "Travelers follow the valley south toward Jericho."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 703,
@@ -523,7 +559,8 @@
       "The Gospel of John associates Cana with a wedding and the beginning of Jesus' signs.",
       "Cana's exact ancient location remains a matter of scholarly discussion."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 704,
@@ -541,7 +578,8 @@
       "The Gospel narratives place much of Jesus' Galilean ministry in and around Capernaum.",
       "Fishing roads connect the town with Bethsaida and the lakeshore."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 705,
@@ -559,7 +597,8 @@
       "The Gospels repeatedly place Jesus and his disciples beside and upon this lake.",
       "Storms can rise quickly above the fishing water."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 706,
@@ -577,7 +616,8 @@
       "This is a narrative evocation of the Galilean settings associated with Jesus' public teaching.",
       "The precise sites of individual teachings are not always recoverable."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 707,
@@ -595,7 +635,8 @@
       "The Gospel traditions associate Bethsaida with Philip, Andrew, and Peter.",
       "The identification of the ancient site remains debated."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 708,
@@ -613,7 +654,8 @@
       "The Synoptic Gospels set Peter's confession in the district of Caesarea Philippi.",
       "The long road back toward the lake crosses changing country."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 709,
@@ -631,7 +673,8 @@
       "The Gospel of John places Jesus' conversation with a Samaritan woman near Sychar at Jacob's well.",
       "This central route links Galilee and Judea through Samaria."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 710,
@@ -649,7 +692,8 @@
       "The Gospel journey toward Jerusalem includes encounters in and around Jericho.",
       "The road west climbs sharply into the Judean hills."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 711,
@@ -667,7 +711,8 @@
       "The Gospel traditions associate Bethany with Mary, Martha, and Lazarus.",
       "Jerusalem lies just beyond the ridge."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 712,
@@ -685,7 +730,8 @@
       "The Gospel narratives culminate in Jerusalem during Passover.",
       "The city is sacred to several living faiths and should be approached with care."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 713,
@@ -703,7 +749,8 @@
       "The Gospel accounts place Jesus' night of prayer and arrest in Gethsemane.",
       "Jerusalem's lamps remain visible across the valley."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": 714,
@@ -721,6 +768,7 @@
       "The Gospel of Luke tells of two disciples meeting the risen Jesus on the road to Emmaus.",
       "The exact location of ancient Emmaus is disputed."
     ],
-    "allow_combat": false
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
   }
 ]

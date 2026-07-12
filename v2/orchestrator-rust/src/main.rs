@@ -1,6 +1,8 @@
+mod account_auth;
 mod activation;
 mod ai_gateway;
 mod avatar_identity;
+mod content_packs;
 mod content_policy;
 mod kernel;
 mod moderation;
@@ -9,6 +11,7 @@ mod rate_limit;
 mod routes;
 mod turns;
 
+use account_auth::*;
 use activation::*;
 use ai_gateway::*;
 use avatar_identity::*;
@@ -22,6 +25,7 @@ use axum::{
     Json,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use content_packs::*;
 use content_policy::*;
 use cosyworld_ai_model::ResidentReplyModelInput;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
@@ -61,6 +65,7 @@ struct AppState {
     snapshot_path: Option<Arc<PathBuf>>,
     resident_continuity_path: Option<Arc<PathBuf>>,
     event_store_path: Option<Arc<PathBuf>>,
+    account_auth: Arc<AccountAuth>,
     ownership_index: Arc<RwLock<OwnershipIndex>>,
     trust_client_card_ids: bool,
     dev_reset_enabled: bool,
@@ -967,14 +972,81 @@ struct SeedWorldpackManifest {
 struct SeedWorldpackPack {
     id: String,
     name: String,
+    #[serde(default)]
+    description: String,
     version: String,
     kind: String,
     license: String,
     integrity: String,
+    #[serde(default)]
+    dependencies: Vec<String>,
+    #[serde(default)]
+    resource_counts: BTreeMap<String, usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    distribution: Option<SeedPackDistribution>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    entitlements: Option<SeedPackEntitlements>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rules_adapter: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rules_namespace: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedPackDistribution {
+    media_type: String,
+    canonicalization: String,
+    permanence: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    permanent_uri: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedPackEntitlements {
+    schema_version: u32,
+    #[serde(default)]
+    authorities: Vec<SeedEntitlementAuthority>,
+    #[serde(default)]
+    grants: Vec<SeedEntitlementGrant>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedEntitlementAuthority {
+    id: String,
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    asset_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    issuer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    chain: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    network: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    standard: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    collection_address: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    collection_binding: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    algorithm: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    public_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedEntitlementGrant {
+    id: String,
+    authority_id: String,
+    #[serde(default, rename = "match", skip_serializing_if = "Option::is_none")]
+    match_rule: Option<SeedEntitlementMatch>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedEntitlementMatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    asset_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1093,7 +1165,9 @@ struct SeedAssetMount {
 #[derive(Clone, Debug, Deserialize)]
 struct SeedAccessGateContent {
     location_id: u64,
-    required_card_id: String,
+    required_grant_id: String,
+    #[serde(default)]
+    required_card_id: Option<String>,
     reason: String,
 }
 
@@ -1119,6 +1193,8 @@ struct SeedFactionContent {
 
 #[derive(Debug, Deserialize)]
 struct SeedActorContent {
+    #[serde(default)]
+    pack_id: String,
     id: u64,
     name: String,
     speech_mode: String,
@@ -1162,6 +1238,8 @@ struct SeedStatBlockContent {
 
 #[derive(Debug, Deserialize)]
 struct SeedItemContent {
+    #[serde(default)]
+    pack_id: String,
     id: u64,
     name: String,
     description: String,
@@ -1172,6 +1250,8 @@ struct SeedItemContent {
 
 #[derive(Debug, Deserialize)]
 struct SeedLocationContent {
+    #[serde(default)]
+    pack_id: String,
     id: u64,
     name: String,
     #[serde(default)]
@@ -1282,6 +1362,8 @@ enum SearchRevealCandidate {
 
 #[derive(Clone, Debug, Deserialize)]
 struct SeedCardContent {
+    #[serde(default)]
+    pack_id: String,
     subject_kind: String,
     subject_id: u64,
     card_id: String,
@@ -2034,6 +2116,7 @@ struct WorldResponse {
 #[derive(Debug, Serialize)]
 struct WorldLocationView {
     id: u64,
+    pack_id: Option<String>,
     name: String,
     title: String,
     description: String,
@@ -2042,6 +2125,7 @@ struct WorldLocationView {
     factions: Vec<FactionRefView>,
     public: bool,
     accessible: bool,
+    required_grant_id: Option<String>,
     required_card_id: Option<String>,
     access_reason: Option<String>,
     card: CardView,
@@ -2057,6 +2141,7 @@ struct WorldLocationView {
 #[derive(Clone, Debug, Serialize)]
 struct LocationView {
     id: u64,
+    pack_id: Option<String>,
     name: String,
     title: String,
     description: String,
@@ -2095,6 +2180,7 @@ struct ExitView {
     distance: u8,
     locked: bool,
     accessible: bool,
+    required_grant_id: Option<String>,
     required_card_id: Option<String>,
     access_reason: Option<String>,
 }
@@ -2102,6 +2188,7 @@ struct ExitView {
 #[derive(Debug, Serialize)]
 struct ActorView {
     id: u64,
+    pack_id: Option<String>,
     name: String,
     title: String,
     description: String,
@@ -2279,6 +2366,7 @@ struct StatView {
 #[derive(Debug, Serialize)]
 struct ItemView {
     id: u64,
+    pack_id: Option<String>,
     name: String,
     description: String,
     kind: String,
@@ -2442,6 +2530,7 @@ struct CardTransactionView {
 
 #[derive(Clone, Debug, Serialize)]
 struct CardView {
+    pack_id: Option<String>,
     card_id: String,
     display_name: String,
     role: String,
@@ -2474,6 +2563,7 @@ struct AccessView {
     owned_card_ids: Vec<String>,
     owned_box_ids: Vec<String>,
     unopened_pack_ids: Vec<String>,
+    granted_entitlement_ids: Vec<String>,
     accessible_card_ids: Vec<String>,
     locked_card_ids: Vec<String>,
 }
@@ -3035,6 +3125,7 @@ struct TrainSkillRequest {
 struct AccessContext {
     owner_wallet_address: Option<String>,
     owned_card_ids: BTreeSet<String>,
+    granted_entitlement_ids: BTreeSet<String>,
     owned_box_ids: BTreeSet<String>,
     unopened_pack_ids: BTreeSet<String>,
     signed_wallet_session: bool,
@@ -3050,6 +3141,7 @@ struct OwnershipIndex {
 struct WalletCardSet {
     wallet_address: String,
     card_ids: BTreeSet<String>,
+    grant_ids: BTreeSet<String>,
     box_ids: BTreeSet<String>,
     pack_ids: BTreeSet<String>,
 }
@@ -3097,6 +3189,7 @@ struct WalletChallenge {
 #[derive(Clone, Debug)]
 struct WalletSession {
     wallet_address: String,
+    linked_wallet_addresses: Vec<String>,
     expires_at: Instant,
 }
 
@@ -3656,6 +3749,83 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
         .iter()
         .map(|pack| (pack.id.as_str(), pack))
         .collect::<BTreeMap<_, _>>();
+    let mut entitlement_grant_ids = BTreeSet::new();
+    for pack in &content.manifest.packs {
+        if let Some(distribution) = pack.distribution.as_ref() {
+            if distribution.media_type != "application/vnd.cosyworld.pack+json"
+                || distribution.canonicalization != "jcs"
+                || !matches!(
+                    distribution.permanence.as_str(),
+                    "content-addressed" | "arweave"
+                )
+                || distribution
+                    .permanent_uri
+                    .as_deref()
+                    .is_some_and(|uri| !uri.starts_with("ar://"))
+            {
+                return Err(format!(
+                    "invalid distribution metadata for pack {}",
+                    pack.id
+                ));
+            }
+        }
+        let Some(entitlements) = pack.entitlements.as_ref() else {
+            continue;
+        };
+        if entitlements.schema_version != 1 {
+            return Err(format!("invalid entitlement schema for pack {}", pack.id));
+        }
+        let mut authority_ids = BTreeSet::new();
+        for authority in &entitlements.authorities {
+            if authority.id.trim().is_empty()
+                || !matches!(
+                    authority.kind.as_str(),
+                    "asset_feed" | "solana_collection" | "signed_set"
+                )
+                || !authority_ids.insert(authority.id.as_str())
+            {
+                return Err(format!(
+                    "invalid entitlement authority for pack {}",
+                    pack.id
+                ));
+            }
+            if authority.kind == "solana_collection"
+                && (authority.network.as_deref().unwrap_or_default().is_empty()
+                    || authority.standard.as_deref().unwrap_or_default().is_empty()
+                    || authority
+                        .collection_address
+                        .as_deref()
+                        .unwrap_or_default()
+                        .is_empty())
+            {
+                return Err(format!("incomplete Solana authority {}", authority.id));
+            }
+            if authority.kind == "signed_set"
+                && (authority.algorithm.as_deref() != Some("ed25519")
+                    || authority
+                        .public_key
+                        .as_deref()
+                        .unwrap_or_default()
+                        .is_empty())
+            {
+                return Err(format!("invalid signed-set authority {}", authority.id));
+            }
+            let _ = (
+                &authority.asset_kind,
+                &authority.issuer,
+                &authority.chain,
+                &authority.collection_binding,
+            );
+        }
+        for grant in &entitlements.grants {
+            if !grant.id.starts_with(&format!("{}:", pack.id))
+                || !authority_ids.contains(grant.authority_id.as_str())
+                || !entitlement_grant_ids.insert(grant.id.as_str())
+            {
+                return Err(format!("invalid entitlement grant {}", grant.id));
+            }
+        }
+    }
     let mut rules_pack_ids = BTreeSet::new();
     let mut rules_namespaces = BTreeSet::new();
     for bundle in &content.rules {
@@ -4358,7 +4528,8 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
     let mut access_gate_locations = BTreeSet::new();
     for gate in &content.access_gates {
         if !location_ids.contains(&gate.location_id)
-            || gate.required_card_id.trim().is_empty()
+            || gate.required_grant_id.trim().is_empty()
+            || !entitlement_grant_ids.contains(gate.required_grant_id.as_str())
             || gate.reason.trim().is_empty()
             || !access_gate_locations.insert(gate.location_id)
         {
@@ -4367,19 +4538,33 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
                 gate.location_id
             ));
         }
+        let grant = content
+            .manifest
+            .packs
+            .iter()
+            .filter_map(|pack| pack.entitlements.as_ref())
+            .flat_map(|entitlements| entitlements.grants.iter())
+            .find(|grant| grant.id == gate.required_grant_id);
+        let Some(required_card_id) = gate.required_card_id.as_deref().or_else(|| {
+            grant
+                .and_then(|grant| grant.match_rule.as_ref())
+                .and_then(|rule| rule.asset_id.as_deref())
+        }) else {
+            continue;
+        };
         let Some(card) = content.cards.iter().find(|card| {
-            card.card_id == gate.required_card_id
-                || card.external_card_id.as_deref() == Some(gate.required_card_id.as_str())
+            card.card_id == required_card_id
+                || card.external_card_id.as_deref() == Some(required_card_id)
         }) else {
             return Err(format!(
                 "access gate for location {} references missing card {}",
-                gate.location_id, gate.required_card_id
+                gate.location_id, required_card_id
             ));
         };
         if card.subject_kind != "location" || card.subject_id != gate.location_id {
             return Err(format!(
                 "access gate for location {} references non-matching card {}",
-                gate.location_id, gate.required_card_id
+                gate.location_id, required_card_id
             ));
         }
     }
@@ -4981,6 +5166,7 @@ impl OwnershipIndex {
                 Some(WalletCardSet {
                     wallet_address: wallet_address.to_ascii_lowercase(),
                     card_ids: parse_card_ids(cards).into_iter().collect(),
+                    grant_ids: BTreeSet::new(),
                     box_ids: BTreeSet::new(),
                     pack_ids: BTreeSet::new(),
                 })
@@ -5059,7 +5245,12 @@ impl OwnershipIndex {
                             "id",
                         ],
                     );
-                    index.add_wallet_assets(wallet.as_deref(), cards, boxes, packs);
+                    let grants = first_json_assets(
+                        &map,
+                        &["grantIds", "grant_ids", "entitlements", "grants"],
+                        &["grantId", "grant_id", "id"],
+                    );
+                    index.add_wallet_assets(wallet.as_deref(), cards, grants, boxes, packs);
                 }
             }
             serde_json::Value::Object(map) => {
@@ -5123,11 +5314,16 @@ impl OwnershipIndex {
                                 "id",
                             ],
                         );
-                        index.add_wallet_assets(wallet.as_deref(), cards, boxes, packs);
+                        let grants = first_json_assets(
+                            map,
+                            &["grantIds", "grant_ids", "entitlements", "grants"],
+                            &["grantId", "grant_id", "id"],
+                        );
+                        index.add_wallet_assets(wallet.as_deref(), cards, grants, boxes, packs);
                     }
                 } else {
                     for (wallet, value) in map {
-                        let (cards, boxes, packs) = match value {
+                        let (cards, grants, boxes, packs) = match value {
                             serde_json::Value::Object(map) => (
                                 first_json_cards(
                                     &map,
@@ -5138,6 +5334,11 @@ impl OwnershipIndex {
                                         "ownedCardIds",
                                         "hallPassCards",
                                     ],
+                                ),
+                                first_json_assets(
+                                    &map,
+                                    &["grantIds", "grant_ids", "entitlements", "grants"],
+                                    &["grantId", "grant_id", "id"],
                                 ),
                                 first_json_assets(
                                     &map,
@@ -5176,9 +5377,14 @@ impl OwnershipIndex {
                                     ],
                                 ),
                             ),
-                            other => (json_card_ids(&other), BTreeSet::new(), BTreeSet::new()),
+                            other => (
+                                json_card_ids(&other),
+                                BTreeSet::new(),
+                                BTreeSet::new(),
+                                BTreeSet::new(),
+                            ),
                         };
-                        index.add_wallet_assets(Some(wallet.as_str()), cards, boxes, packs);
+                        index.add_wallet_assets(Some(wallet.as_str()), cards, grants, boxes, packs);
                     }
                 }
             }
@@ -5198,6 +5404,7 @@ impl OwnershipIndex {
                 continue;
             };
             existing.card_ids.extend(wallet.card_ids);
+            existing.grant_ids.extend(wallet.grant_ids);
             existing.box_ids.extend(wallet.box_ids);
             existing.pack_ids.extend(wallet.pack_ids);
         }
@@ -5207,6 +5414,7 @@ impl OwnershipIndex {
         &mut self,
         wallet_address: Option<&str>,
         card_ids: BTreeSet<String>,
+        grant_ids: BTreeSet<String>,
         box_ids: BTreeSet<String>,
         pack_ids: BTreeSet<String>,
     ) {
@@ -5216,7 +5424,8 @@ impl OwnershipIndex {
         else {
             return;
         };
-        if card_ids.is_empty() && box_ids.is_empty() && pack_ids.is_empty() {
+        if card_ids.is_empty() && grant_ids.is_empty() && box_ids.is_empty() && pack_ids.is_empty()
+        {
             return;
         }
         let normalized = wallet_address.to_ascii_lowercase();
@@ -5228,12 +5437,14 @@ impl OwnershipIndex {
             self.wallets.push(WalletCardSet {
                 wallet_address: normalized,
                 card_ids,
+                grant_ids,
                 box_ids,
                 pack_ids,
             });
             return;
         };
         existing.card_ids.extend(card_ids);
+        existing.grant_ids.extend(grant_ids);
         existing.box_ids.extend(box_ids);
         existing.pack_ids.extend(pack_ids);
     }
@@ -5261,6 +5472,19 @@ impl OwnershipIndex {
             .iter()
             .filter(|wallet| wallet.wallet_address == normalized)
             .flat_map(|wallet| wallet.box_ids.iter().cloned())
+            .collect()
+    }
+
+    fn grants_for_wallet(&self, wallet_address: &str) -> BTreeSet<String> {
+        let normalized = wallet_address.trim().to_ascii_lowercase();
+        if normalized.is_empty() {
+            return BTreeSet::new();
+        }
+
+        self.wallets
+            .iter()
+            .filter(|wallet| wallet.wallet_address == normalized)
+            .flat_map(|wallet| wallet.grant_ids.iter().cloned())
             .collect()
     }
 
@@ -5296,6 +5520,7 @@ impl OwnershipIndex {
             self.wallets.push(WalletCardSet {
                 wallet_address: normalized,
                 card_ids: BTreeSet::new(),
+                grant_ids: BTreeSet::new(),
                 box_ids: BTreeSet::new(),
                 pack_ids: [pack_id.to_string()].into_iter().collect(),
             });
@@ -5318,6 +5543,7 @@ impl OwnershipIndex {
             self.wallets.push(WalletCardSet {
                 wallet_address: normalized,
                 card_ids: card_ids.iter().cloned().collect(),
+                grant_ids: BTreeSet::new(),
                 box_ids: BTreeSet::new(),
                 pack_ids: BTreeSet::new(),
             });
@@ -5443,8 +5669,10 @@ impl AccessContext {
         wallet_sessions: &StdMutex<WalletSessions>,
         allow_unsigned_wallet_claims: bool,
     ) -> Self {
-        let signed_wallet =
-            wallet_session.and_then(|token| wallet_for_session(wallet_sessions, token));
+        let signed_wallets = wallet_session
+            .and_then(|token| wallets_for_session(wallet_sessions, token))
+            .unwrap_or_default();
+        let signed_wallet = signed_wallets.first().cloned();
         let unsigned_wallet = signed_wallet
             .is_none()
             .then(|| {
@@ -5461,14 +5689,28 @@ impl AccessContext {
         });
         let mut owned_card_ids = BTreeSet::new();
 
-        if let Some(wallet) = owner_wallet_address.as_deref() {
+        for wallet in &signed_wallets {
             owned_card_ids.extend(ownership.cards_for_wallet(wallet));
+        }
+        if signed_wallets.is_empty() {
+            if let Some(wallet) = owner_wallet_address.as_deref() {
+                owned_card_ids.extend(ownership.cards_for_wallet(wallet));
+            }
         }
         let mut owned_box_ids = BTreeSet::new();
         let mut unopened_pack_ids = BTreeSet::new();
-        if let Some(wallet) = owner_wallet_address.as_deref() {
+        let mut granted_entitlement_ids = BTreeSet::new();
+        for wallet in &signed_wallets {
             owned_box_ids.extend(ownership.boxes_for_wallet(wallet));
             unopened_pack_ids.extend(ownership.packs_for_wallet(wallet));
+            granted_entitlement_ids.extend(ownership.grants_for_wallet(wallet));
+        }
+        if signed_wallets.is_empty() {
+            if let Some(wallet) = owner_wallet_address.as_deref() {
+                owned_box_ids.extend(ownership.boxes_for_wallet(wallet));
+                unopened_pack_ids.extend(ownership.packs_for_wallet(wallet));
+                granted_entitlement_ids.extend(ownership.grants_for_wallet(wallet));
+            }
         }
 
         for source in owned_sources.into_iter().flatten() {
@@ -5476,10 +5718,13 @@ impl AccessContext {
                 owned_card_ids.insert(card_id);
             }
         }
+        granted_entitlement_ids.retain(|grant_id| seed_entitlement_grant(grant_id).is_some());
+        granted_entitlement_ids.extend(entitlement_grants_for_assets(&owned_card_ids));
 
         Self {
             owner_wallet_address,
             owned_card_ids,
+            granted_entitlement_ids,
             owned_box_ids,
             unopened_pack_ids,
             signed_wallet_session: signed_wallet.is_some(),
@@ -5506,9 +5751,11 @@ impl AccessContext {
         }
         let mut owned_box_ids = BTreeSet::new();
         let mut unopened_pack_ids = BTreeSet::new();
+        let mut granted_entitlement_ids = BTreeSet::new();
         if let Some(wallet) = owner_wallet_address.as_deref() {
             owned_box_ids.extend(ownership.boxes_for_wallet(wallet));
             unopened_pack_ids.extend(ownership.packs_for_wallet(wallet));
+            granted_entitlement_ids.extend(ownership.grants_for_wallet(wallet));
         }
 
         for source in owned_sources.into_iter().flatten() {
@@ -5516,10 +5763,13 @@ impl AccessContext {
                 owned_card_ids.insert(card_id);
             }
         }
+        granted_entitlement_ids.retain(|grant_id| seed_entitlement_grant(grant_id).is_some());
+        granted_entitlement_ids.extend(entitlement_grants_for_assets(&owned_card_ids));
 
         Self {
             owner_wallet_address,
             owned_card_ids,
+            granted_entitlement_ids,
             owned_box_ids,
             unopened_pack_ids,
             signed_wallet_session: false,
@@ -5529,6 +5779,10 @@ impl AccessContext {
 
     fn owns_card(&self, card_id: &str) -> bool {
         self.owned_card_ids.contains(card_id)
+    }
+
+    fn has_grant(&self, grant_id: &str) -> bool {
+        self.granted_entitlement_ids.contains(grant_id)
     }
 }
 
@@ -5559,6 +5813,34 @@ fn wallet_for_session(
         .sessions
         .get(token)
         .map(|session| session.wallet_address.clone())
+}
+
+fn wallets_for_session(
+    wallet_sessions: &StdMutex<WalletSessions>,
+    session_token: &str,
+) -> Option<Vec<String>> {
+    let token = session_token.trim();
+    if token.is_empty() {
+        return None;
+    }
+    let now = Instant::now();
+    let Ok(mut sessions) = wallet_sessions.lock() else {
+        return None;
+    };
+    sessions
+        .sessions
+        .retain(|_, session| session.expires_at > now);
+    sessions.sessions.get(token).map(|session| {
+        let mut wallets = vec![session.wallet_address.clone()];
+        wallets.extend(
+            session
+                .linked_wallet_addresses
+                .iter()
+                .filter(|wallet| *wallet != &session.wallet_address)
+                .cloned(),
+        );
+        wallets
+    })
 }
 
 fn narrative_move_signature_is_fresh(issued_at_unix: u64) -> bool {
@@ -6698,6 +6980,10 @@ impl AppState {
                 }
             })
             .unwrap_or_default();
+        let account_auth = Arc::new(AccountAuth::from_env(
+            event_store_path.clone(),
+            deployment.profile.is_production(),
+        )?);
 
         Ok(Self {
             inner: Arc::new(Mutex::new(runtime)),
@@ -6706,6 +6992,7 @@ impl AppState {
             snapshot_path,
             resident_continuity_path,
             event_store_path,
+            account_auth,
             ownership_index,
             trust_client_card_ids,
             dev_reset_enabled,
@@ -11325,6 +11612,7 @@ impl RuntimeWorld {
         let meta = self.location_meta_for(location_id);
         LocationView {
             id: location_id,
+            pack_id: seed_pack_id_for_location(location_id),
             name,
             title: meta.title,
             description: meta.description,
@@ -11938,6 +12226,7 @@ impl RuntimeWorld {
         let meta = self.actors.get(&actor.id);
         ActorView {
             id: actor.id,
+            pack_id: seed_pack_id_for_actor(actor.id),
             name: meta
                 .map(|m| m.name.clone())
                 .unwrap_or_else(|| format!("Actor {}", actor.id)),
@@ -11970,6 +12259,7 @@ impl RuntimeWorld {
         let meta = self.items.get(&item.id);
         ItemView {
             id: item.id,
+            pack_id: seed_pack_id_for_item(item.id),
             name: meta
                 .map(|m| m.name.clone())
                 .unwrap_or_else(|| format!("Item {}", item.id)),
@@ -15345,6 +15635,7 @@ impl RuntimeWorld {
                     distance: self.pathway_distance(exit.from_location_id, exit.to_location_id),
                     locked: false,
                     accessible,
+                    required_grant_id: access_rule.required_grant_id.map(ToString::to_string),
                     required_card_id: access_rule.required_card_id.map(ToString::to_string),
                     access_reason: if accessible {
                         None
@@ -17142,14 +17433,17 @@ impl RuntimeWorld {
 
                 WorldLocationView {
                     id: location.id,
+                    pack_id: seed_pack_id_for_location(location.id),
                     name,
                     title: meta.title,
                     description: meta.description,
                     persona: meta.persona,
                     memory: meta.memory,
                     factions: faction_refs_for_location(location.id),
-                    public: access_rule.required_card_id.is_none(),
+                    public: access_rule.required_grant_id.is_none()
+                        && access_rule.required_card_id.is_none(),
                     accessible,
+                    required_grant_id: access_rule.required_grant_id.map(ToString::to_string),
                     required_card_id: access_rule.required_card_id.map(ToString::to_string),
                     access_reason: if accessible {
                         None
@@ -20158,9 +20452,8 @@ impl RuntimeWorld {
             .filter(|exit| exit.from_location_id == actor.location_id)
             .filter(|exit| exit.flags & CW_EXIT_LOCKED == 0)
             .filter(|exit| {
-                location_access_rule(exit.to_location_id)
-                    .required_card_id
-                    .is_none()
+                let rule = location_access_rule(exit.to_location_id);
+                rule.required_grant_id.is_none() && rule.required_card_id.is_none()
             })
             .filter(|exit| self.location_name(exit.to_location_id).is_some())
             .collect::<Vec<_>>();
@@ -20680,8 +20973,73 @@ impl RuntimeWorld {
 
 #[derive(Clone, Copy)]
 struct LocationAccessRule {
+    required_grant_id: Option<&'static str>,
     required_card_id: Option<&'static str>,
     reason: Option<&'static str>,
+}
+
+fn seed_entitlement_grant(grant_id: &str) -> Option<&'static SeedEntitlementGrant> {
+    seed_content()
+        .manifest
+        .packs
+        .iter()
+        .filter_map(|pack| pack.entitlements.as_ref())
+        .flat_map(|entitlements| entitlements.grants.iter())
+        .find(|grant| grant.id == grant_id)
+}
+
+fn entitlement_grant_asset_id(grant_id: &str) -> Option<&'static str> {
+    seed_entitlement_grant(grant_id)?
+        .match_rule
+        .as_ref()?
+        .asset_id
+        .as_deref()
+}
+
+fn entitlement_grants_for_assets(asset_ids: &BTreeSet<String>) -> BTreeSet<String> {
+    seed_content()
+        .manifest
+        .packs
+        .iter()
+        .filter_map(|pack| pack.entitlements.as_ref())
+        .flat_map(|entitlements| entitlements.grants.iter())
+        .filter(|grant| {
+            grant
+                .match_rule
+                .as_ref()
+                .and_then(|rule| rule.asset_id.as_ref())
+                .is_some_and(|asset_id| asset_ids.contains(asset_id))
+        })
+        .map(|grant| grant.id.clone())
+        .collect()
+}
+
+fn non_empty_pack_id(pack_id: &str) -> Option<String> {
+    (!pack_id.trim().is_empty()).then(|| pack_id.to_string())
+}
+
+fn seed_pack_id_for_actor(actor_id: u64) -> Option<String> {
+    seed_content()
+        .actors
+        .iter()
+        .find(|actor| actor.id == actor_id)
+        .and_then(|actor| non_empty_pack_id(&actor.pack_id))
+}
+
+fn seed_pack_id_for_item(item_id: u64) -> Option<String> {
+    seed_content()
+        .items
+        .iter()
+        .find(|item| item.id == item_id)
+        .and_then(|item| non_empty_pack_id(&item.pack_id))
+}
+
+fn seed_pack_id_for_location(location_id: u64) -> Option<String> {
+    seed_content()
+        .locations
+        .iter()
+        .find(|location| location.id == location_id)
+        .and_then(|location| non_empty_pack_id(&location.pack_id))
 }
 
 fn location_access_rule(location_id: u64) -> LocationAccessRule {
@@ -20689,20 +21047,33 @@ fn location_access_rule(location_id: u64) -> LocationAccessRule {
         .access_gates
         .iter()
         .find(|gate| gate.location_id == location_id)
-        .map(|gate| LocationAccessRule {
-            required_card_id: Some(gate.required_card_id.as_str()),
-            reason: Some(gate.reason.as_str()),
+        .map(|gate| {
+            let required_grant_id = (!gate.required_grant_id.trim().is_empty())
+                .then_some(gate.required_grant_id.as_str());
+            LocationAccessRule {
+                required_grant_id,
+                required_card_id: gate
+                    .required_card_id
+                    .as_deref()
+                    .or_else(|| required_grant_id.and_then(entitlement_grant_asset_id)),
+                reason: Some(gate.reason.as_str()),
+            }
         })
         .unwrap_or(LocationAccessRule {
+            required_grant_id: None,
             required_card_id: None,
             reason: None,
         })
 }
 
 fn location_access_allowed(location_id: u64, access: &AccessContext) -> bool {
-    location_access_rule(location_id)
-        .required_card_id
-        .map(|card_id| access.owns_card(card_id))
+    let rule = location_access_rule(location_id);
+    rule.required_grant_id
+        .map(|grant_id| access.has_grant(grant_id))
+        .or_else(|| {
+            rule.required_card_id
+                .map(|card_id| access.owns_card(card_id))
+        })
         .unwrap_or(true)
 }
 
@@ -20954,15 +21325,16 @@ fn apply_location_access(mut card: CardView, location_id: u64, access: &AccessCo
     let rule = location_access_rule(location_id);
     let owned = access.owns_card(&card.card_id)
         || rule
-            .required_card_id
-            .map(|card_id| access.owns_card(card_id))
+            .required_grant_id
+            .map(|grant_id| access.has_grant(grant_id))
+            .or_else(|| {
+                rule.required_card_id
+                    .map(|card_id| access.owns_card(card_id))
+            })
             .unwrap_or(false);
-    card.requires_ownership = rule.required_card_id.is_some();
+    card.requires_ownership = rule.required_grant_id.is_some() || rule.required_card_id.is_some();
     card.owned = owned;
-    card.accessible = rule
-        .required_card_id
-        .map(|card_id| access.owns_card(card_id))
-        .unwrap_or(true);
+    card.accessible = location_access_allowed(location_id, access);
     card.access_reason = if card.accessible {
         None
     } else {
@@ -20996,6 +21368,7 @@ fn access_view(access: &AccessContext, location_cards: &BTreeMap<u64, CardView>)
         owned_card_ids: access.owned_card_ids.iter().cloned().collect(),
         owned_box_ids: access.owned_box_ids.iter().cloned().collect(),
         unopened_pack_ids: access.unopened_pack_ids.iter().cloned().collect(),
+        granted_entitlement_ids: access.granted_entitlement_ids.iter().cloned().collect(),
         accessible_card_ids,
         locked_card_ids,
     }
@@ -21238,7 +21611,7 @@ fn card_for_item(item_id: u64, name: &str, description: &str) -> CardView {
         return card;
     }
 
-    seed_card(SeedCardSpec {
+    let mut card = seed_card(SeedCardSpec {
         card_id: "cosy-item",
         display_name: name,
         role: "item",
@@ -21249,12 +21622,17 @@ fn card_for_item(item_id: u64, name: &str, description: &str) -> CardView {
         source: "cosyworld_runtime",
         asset_status: "pending_art",
         image_url: None,
-    })
+    });
+    card.pack_id = seed_pack_id_for_item(item_id);
+    card
 }
 
 fn card_for_location(location_id: u64, name: &str, meta: Option<&LocationMeta>) -> CardView {
     let mut card = seed_card_for_subject("location", location_id)
         .unwrap_or_else(|| unknown_location_card(location_id, name, meta));
+    if card.pack_id.is_none() {
+        card.pack_id = seed_pack_id_for_location(location_id);
+    }
     if let Some(meta) = meta {
         card.biome = (!meta.biome.trim().is_empty()).then(|| meta.biome.clone());
         card.terrain = meta.terrain.clone();
@@ -21347,6 +21725,7 @@ fn card_from_seed_content(card: &SeedCardContent) -> CardView {
         card.asset_status.clone()
     };
     CardView {
+        pack_id: non_empty_pack_id(&card.pack_id),
         card_id: card.card_id.clone(),
         display_name: card.display_name.clone(),
         role: card.role.clone(),
@@ -21393,6 +21772,8 @@ fn unknown_location_card(location_id: u64, name: &str, meta: Option<&LocationMet
 
 #[derive(Clone, Debug, Deserialize)]
 struct RubyHighCardSpec {
+    #[serde(default)]
+    pack_id: String,
     card_id: String,
     display_name: String,
     role: String,
@@ -21429,6 +21810,7 @@ fn ruby_high_card_spec(card_id: &str) -> Option<&'static RubyHighCardSpec> {
 
 fn ruby_high_card(spec: &RubyHighCardSpec) -> CardView {
     CardView {
+        pack_id: non_empty_pack_id(&spec.pack_id),
         card_id: spec.card_id.clone(),
         display_name: spec.display_name.clone(),
         role: spec.role.clone(),
@@ -21478,6 +21860,7 @@ fn seed_card(spec: SeedCardSpec<'_>) -> CardView {
     };
 
     CardView {
+        pack_id: None,
         card_id: spec.card_id.to_string(),
         display_name: spec.display_name.to_string(),
         role: spec.role.to_string(),
@@ -22174,6 +22557,7 @@ async fn wallet_session(
             session_token.clone(),
             WalletSession {
                 wallet_address: wallet_address.clone(),
+                linked_wallet_addresses: Vec::new(),
                 expires_at: now + Duration::from_secs(12 * 60 * 60),
             },
         );
@@ -32633,6 +33017,7 @@ fn load_receipt_ownership_index(path: &Path) -> io::Result<OwnershipIndex> {
                 Some(wallet.as_str()),
                 BTreeSet::new(),
                 BTreeSet::new(),
+                BTreeSet::new(),
                 [pack_id.clone()].into_iter().collect(),
             );
             index.apply_box_burn_receipt(&wallet, &box_id, &pack_id);
@@ -33342,7 +33727,8 @@ mod tests {
             deployment: DeploymentConfig::local(),
             snapshot_path: None,
             resident_continuity_path: None,
-            event_store_path: event_store_path.map(Arc::new),
+            event_store_path: event_store_path.clone().map(Arc::new),
+            account_auth: AccountAuth::for_test(event_store_path.map(Arc::new)),
             ownership_index: Arc::new(RwLock::new(OwnershipIndex::default())),
             trust_client_card_ids: false,
             dev_reset_enabled: false,
@@ -33671,6 +34057,7 @@ mod tests {
                 token.to_string(),
                 WalletSession {
                     wallet_address: wallet_address.to_string(),
+                    linked_wallet_addresses: Vec::new(),
                     expires_at: Instant::now() + Duration::from_secs(3600),
                 },
             );
@@ -35793,7 +36180,10 @@ mod tests {
         assert!(INDEX_HTML.contains("params: { message: transaction.message }"));
         assert!(INDEX_HTML.contains("parts.push(accountPanelPinned ? \"close\" : \"account\")"));
         assert!(!INDEX_HTML.contains("parts.push(signed ? \"wallet\" : \"connect wallet\")"));
-        assert!(INDEX_HTML.contains("const accountName = signed"));
+        assert!(INDEX_HTML.contains("const accountName = identity?.authenticated"));
+        assert!(INDEX_HTML.contains("data-passkey-login"));
+        assert!(INDEX_HTML.contains("data-passkey-create"));
+        assert!(INDEX_HTML.contains("data-wallet-link"));
         assert!(INDEX_HTML.contains(": \"local tale\""));
         assert!(!INDEX_HTML.contains("walletless"));
         assert!(INDEX_HTML.contains("id=\"card-modal\""));
@@ -52201,6 +52591,7 @@ mod tests {
             snapshot_path: None,
             resident_continuity_path: None,
             event_store_path: None,
+            account_auth: AccountAuth::for_test(None),
             ownership_index: Arc::new(RwLock::new(initial)),
             trust_client_card_ids: false,
             dev_reset_enabled: false,

@@ -31,6 +31,7 @@ const resourceFiles = {
   recipes: "recipes.json",
 };
 const allowedPackKinds = new Set(["world", "campaign", "catalog", "assets", "rules"]);
+const allowedEntitlementAuthorityTypes = new Set(["asset_feed", "solana_collection", "signed_set"]);
 const rulesAdapter = "cosyworld.rules/1";
 const supportedRuleResources = new Set(["conditions", "monster_seeds"]);
 
@@ -98,6 +99,50 @@ function packIntegrity(packRoot, manifest) {
   return sha256(parts);
 }
 
+function validateDistribution(packId, distribution) {
+  if (!distribution) return;
+  assert(distribution.media_type === "application/vnd.cosyworld.pack+json", `pack ${packId} has unsupported distribution media_type`);
+  assert(distribution.canonicalization === "jcs", `pack ${packId} distribution must use jcs canonicalization`);
+  assert(["content-addressed", "arweave"].includes(distribution.permanence), `pack ${packId} has unsupported distribution permanence`);
+  if (distribution.permanent_uri !== undefined) {
+    assert(/^ar:\/\/[A-Za-z0-9_-]{43}$/.test(distribution.permanent_uri), `pack ${packId} has invalid Arweave permanent_uri`);
+  }
+}
+
+function validateEntitlements(packId, entitlements) {
+  if (!entitlements) return;
+  assert(entitlements.schema_version === 1, `pack ${packId} entitlements schema_version must be 1`);
+  assert(Array.isArray(entitlements.authorities), `pack ${packId} entitlements authorities must be an array`);
+  assert(Array.isArray(entitlements.grants), `pack ${packId} entitlements grants must be an array`);
+  const authorityIds = new Set();
+  for (const authority of entitlements.authorities) {
+    assert(typeof authority.id === "string" && /^[a-z0-9][a-z0-9.-]*$/.test(authority.id), `pack ${packId} has invalid entitlement authority id`);
+    assert(!authorityIds.has(authority.id), `pack ${packId} has duplicate entitlement authority ${authority.id}`);
+    assert(allowedEntitlementAuthorityTypes.has(authority.type), `pack ${packId} authority ${authority.id} has unsupported type ${authority.type}`);
+    if (authority.type === "solana_collection") {
+      assert(authority.network === "mainnet-beta" || authority.network === "devnet", `pack ${packId} authority ${authority.id} has invalid Solana network`);
+      assert(authority.standard === "metaplex_core" || authority.standard === "metaplex_token_metadata", `pack ${packId} authority ${authority.id} has invalid Solana standard`);
+      assert(typeof authority.collection_address === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(authority.collection_address), `pack ${packId} authority ${authority.id} has invalid collection_address`);
+    }
+    if (authority.type === "signed_set") {
+      assert(authority.algorithm === "ed25519", `pack ${packId} authority ${authority.id} must use ed25519`);
+      assert(typeof authority.public_key === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(authority.public_key), `pack ${packId} authority ${authority.id} has invalid public_key`);
+    }
+    authorityIds.add(authority.id);
+  }
+  const grantIds = new Set();
+  for (const grant of entitlements.grants) {
+    assert(typeof grant.id === "string" && grant.id.startsWith(`${packId}:`) && /^[a-z0-9][a-z0-9.:-]*$/.test(grant.id), `pack ${packId} has invalid entitlement grant id ${grant.id}`);
+    assert(!grantIds.has(grant.id), `pack ${packId} has duplicate entitlement grant ${grant.id}`);
+    assert(authorityIds.has(grant.authority_id), `pack ${packId} grant ${grant.id} references unknown authority ${grant.authority_id}`);
+    const authority = entitlements.authorities.find((candidate) => candidate.id === grant.authority_id);
+    if (authority.type !== "signed_set") {
+      assert(typeof grant.match?.asset_id === "string" && grant.match.asset_id.trim(), `pack ${packId} asset grant ${grant.id} requires match.asset_id`);
+    }
+    grantIds.add(grant.id);
+  }
+}
+
 const world = readJson(path.join(worldDir, "world.json"));
 const lockPath = path.join(worldDir, "world.lock.json");
 const lock = readJson(lockPath);
@@ -122,6 +167,8 @@ for (const packId of world.packs) {
   assert(manifest.id === packId, `pack path for ${packId} contains ${manifest.id}`);
   assert(manifest.version === locked.version, `pack ${packId} version does not match lockfile`);
   assert(allowedPackKinds.has(manifest.kind), `pack ${packId} has unsupported kind ${manifest.kind}`);
+  validateDistribution(packId, manifest.distribution);
+  validateEntitlements(packId, manifest.entitlements);
   if (manifest.kind === "rules") {
     assert(manifest.rules_adapter === rulesAdapter, `rules pack ${packId} must use ${rulesAdapter}`);
     assert(
@@ -172,12 +219,24 @@ const assets = [];
 const ruleBundles = [];
 const attributions = [];
 const characterCreationBundles = [];
+const resourceCountsByPack = new Map();
 for (const pack of packs) {
+  const resourceCounts = Object.fromEntries(Object.keys(resourceFiles).map((key) => [key, 0]));
+  resourceCounts.external_cards = 0;
+  resourceCounts.assets = 0;
+  resourceCounts.rules = 0;
+  resourceCounts.character_creation = 0;
+  resourceCountsByPack.set(pack.manifest.id, resourceCounts);
   for (const [resource, relativePath] of Object.entries(pack.manifest.resources ?? {})) {
     assert(resource in resources, `pack ${pack.manifest.id} declares unknown resource ${resource}`);
     const rows = readJson(path.join(pack.packRoot, relativePath));
     assert(Array.isArray(rows), `pack ${pack.manifest.id} resource ${resource} must be an array`);
-    resources[resource].push(...rows);
+    for (const row of rows) {
+      assert(row && typeof row === "object" && !Array.isArray(row), `pack ${pack.manifest.id} resource ${resource} contains a non-object row`);
+      assert(!row.pack_id || row.pack_id === pack.manifest.id, `pack ${pack.manifest.id} resource ${resource} contains conflicting pack_id ${row.pack_id}`);
+      resources[resource].push({ ...row, pack_id: pack.manifest.id });
+    }
+    resourceCounts[resource] += rows.length;
   }
   if (pack.manifest.rules) {
     const ruleResources = {};
@@ -193,6 +252,7 @@ for (const pack of packs) {
       namespace: pack.manifest.rules_namespace,
       resources: ruleResources,
     });
+    resourceCounts.rules = Object.values(ruleResources).reduce((count, rows) => count + rows.length, 0);
   }
   if (pack.manifest.attribution) {
     const attributionText = fs.readFileSync(
@@ -215,11 +275,13 @@ for (const pack of packs) {
       pack_version: pack.manifest.version,
       profiles,
     });
+    resourceCounts.character_creation = profiles.length;
   }
   if (pack.manifest.external_cards) {
     const rows = readJson(path.join(pack.packRoot, pack.manifest.external_cards));
     assert(Array.isArray(rows), `pack ${pack.manifest.id} external_cards must be an array`);
-    externalCards.push(...rows);
+    externalCards.push(...rows.map((row) => ({ ...row, pack_id: pack.manifest.id })));
+    resourceCounts.external_cards = rows.length;
   }
   const relativeRoot = path.relative(contentRoot, pack.packRoot).split(path.sep).join("/");
   assert(!relativeRoot.startsWith(".."), `pack ${pack.manifest.id} must be materialized below v2/content`);
@@ -235,15 +297,21 @@ for (const pack of packs) {
       optional: Boolean(mount.optional),
       fallback: mount.fallback ?? null,
     });
+    resourceCounts.assets += 1;
   }
 }
 
 const packSummary = packs.map(({ locked, manifest, integrity }) => ({
   id: manifest.id,
   name: manifest.name,
+  description: manifest.description,
   version: manifest.version,
   kind: manifest.kind,
   license: manifest.license,
+  dependencies: manifest.dependencies ?? [],
+  resource_counts: resourceCountsByPack.get(manifest.id),
+  ...(manifest.distribution ? { distribution: manifest.distribution } : {}),
+  ...(manifest.entitlements ? { entitlements: manifest.entitlements } : {}),
   ...(manifest.rules_adapter ? { rules_adapter: manifest.rules_adapter } : {}),
   ...(manifest.rules_namespace ? { rules_namespace: manifest.rules_namespace } : {}),
   source: locked.source,

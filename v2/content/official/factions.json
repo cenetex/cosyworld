@@ -29,7 +29,8 @@
       1001,
       1002,
       1003
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "haunted_remnants",
@@ -61,7 +62,8 @@
       1051,
       1054,
       1062
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "ruby_high",
@@ -95,7 +97,8 @@
     ],
     "member_actor_ids": [
       1001
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "lonely_forest_court",
@@ -137,7 +140,8 @@
       1053,
       1058,
       1061
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "quiet_abbey",
@@ -168,7 +172,8 @@
       1046,
       1047,
       1048
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "farthest_mists",
@@ -199,7 +204,8 @@
     ],
     "member_actor_ids": [
       1063
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "great_library",
@@ -226,7 +232,8 @@
     "home_location_ids": [
       50
     ],
-    "member_actor_ids": []
+    "member_actor_ids": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "digital_strays",
@@ -255,7 +262,8 @@
     ],
     "member_actor_ids": [
       1060
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "moon_circle",
@@ -286,7 +294,8 @@
     "member_actor_ids": [
       1004,
       1059
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "goblin_market",
@@ -313,7 +322,8 @@
     "home_location_ids": [
       34
     ],
-    "member_actor_ids": []
+    "member_actor_ids": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "solar_temple",
@@ -344,7 +354,8 @@
     ],
     "member_actor_ids": [
       1064
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "abyssal_residents",
@@ -377,6 +388,7 @@
       1065,
       1066,
       1067
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   }
 ]

@@ -22,6 +22,7 @@
       "target_kind": "location_floor",
       "target_id": 11,
       "reason": "The crafted lantern anchors a new floor slot in the Rain-Soft Garden route instead of adding an orphan item."
-    }
+    },
+    "pack_id": "cosyworld.core"
   }
 ]

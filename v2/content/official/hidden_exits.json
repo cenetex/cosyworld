@@ -8,6 +8,7 @@
     "return_direction": "up",
     "reveal_chance_percent": 10,
     "source": "authored",
-    "discovery_text": "The drowned bell answers with a lower seam of black water. An entrance to the Dark Abyss opens below."
+    "discovery_text": "The drowned bell answers with a lower seam of black water. An entrance to the Dark Abyss opens below.",
+    "pack_id": "cosyworld.core"
   }
 ]

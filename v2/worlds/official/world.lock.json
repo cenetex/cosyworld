@@ -9,7 +9,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:47f7266060594ad6ee3786104be4e74b22227805d795448e6d33e33211490051"
+      "integrity": "sha256:6602bb60f078c37bf1ef148a263936c215958c3567f2c63f400286948e995515"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -63,7 +63,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:ca2be4bb82017b5bb20ae826c43f5bbc533c298297c2c4ad21497f73b09d2e8d"
+      "integrity": "sha256:6c9e3961eefc89ab32ce41c258755b01d81d69af38ae331c4c7f201f24a333fe"
     }
   ]
 }

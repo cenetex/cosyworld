@@ -11,7 +11,8 @@
     "profile_id": "lyra-color-coded-spare",
     "subject": "Homeroom",
     "image_url": "/assets/cards/lyra.png",
-    "chain_image_uri": "https://gateway.irys.xyz/7BGwmo5bhDKDhhKVcoUaKfNcaWcVU5ifHQfPqQNVyYrP"
+    "chain_image_uri": "https://gateway.irys.xyz/7BGwmo5bhDKDhhKVcoUaKfNcaWcVU5ifHQfPqQNVyYrP",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "sami",
@@ -25,7 +26,8 @@
     "profile_id": "sami-side-door-whatever",
     "subject": "Homeroom",
     "image_url": "/assets/cards/sami.png",
-    "chain_image_uri": "https://gateway.irys.xyz/Fmhr5NjuA3ZLpWJPzRcPeAT7wfaXepxSemWBCLj4eDT3"
+    "chain_image_uri": "https://gateway.irys.xyz/Fmhr5NjuA3ZLpWJPzRcPeAT7wfaXepxSemWBCLj4eDT3",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "ravi",
@@ -39,7 +41,8 @@
     "profile_id": "ravi-field-trip-fact-slip",
     "subject": "Field Trip",
     "image_url": "/assets/cards/ravi.png",
-    "chain_image_uri": "https://gateway.irys.xyz/9gsNxRKPyeZ4AyB8Vi31VoPgxYNFapMFhkQN7TbU17AK"
+    "chain_image_uri": "https://gateway.irys.xyz/9gsNxRKPyeZ4AyB8Vi31VoPgxYNFapMFhkQN7TbU17AK",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "indra",
@@ -53,7 +56,8 @@
     "profile_id": "indra-quiet-perfect-exit",
     "subject": "Strategy",
     "image_url": "/assets/cards/indra.png",
-    "chain_image_uri": "https://gateway.irys.xyz/6S94Fzxaos9mpWeRhjfaJ9ce8c6HHCSdNuBVRHie5LFy"
+    "chain_image_uri": "https://gateway.irys.xyz/6S94Fzxaos9mpWeRhjfaJ9ce8c6HHCSdNuBVRHie5LFy",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "mika",
@@ -67,7 +71,8 @@
     "profile_id": "mika-locker-room-shortcut",
     "subject": "Social",
     "image_url": "/assets/cards/mika.png",
-    "chain_image_uri": "https://gateway.irys.xyz/8AZLNaZdJDYx1jbdqFCKpS8JM12PGQD5b2U16P2pjAy5"
+    "chain_image_uri": "https://gateway.irys.xyz/8AZLNaZdJDYx1jbdqFCKpS8JM12PGQD5b2U16P2pjAy5",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "noor",
@@ -81,7 +86,8 @@
     "profile_id": "noor-deadpan-detour",
     "subject": "Literature",
     "image_url": "/assets/cards/noor.png",
-    "chain_image_uri": "https://gateway.irys.xyz/3Mt6b11iNvuBHXKoqRTmDQcouwxpmzaSimWyDM6EYUAH"
+    "chain_image_uri": "https://gateway.irys.xyz/3Mt6b11iNvuBHXKoqRTmDQcouwxpmzaSimWyDM6EYUAH",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "ruby",
@@ -95,7 +101,8 @@
     "profile_id": "ruby-homeroom-card",
     "subject": "Homeroom",
     "image_url": "/assets/cards/ruby.png",
-    "chain_image_uri": "https://gateway.irys.xyz/3N7c6M2wjZa456uHysFisgmRwnV9MshJFLzgDrLY8xYB"
+    "chain_image_uri": "https://gateway.irys.xyz/3N7c6M2wjZa456uHysFisgmRwnV9MshJFLzgDrLY8xYB",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "sally-science",
@@ -109,7 +116,8 @@
     "profile_id": "sally-lab-sink-shortcut",
     "subject": "Science",
     "image_url": "/assets/cards/sally-science.png",
-    "chain_image_uri": "https://gateway.irys.xyz/9EEyhSHwH3k4Mm4TyAhJNSSren9ZYF7XZE8RhJ9SfGX"
+    "chain_image_uri": "https://gateway.irys.xyz/9EEyhSHwH3k4Mm4TyAhJNSSren9ZYF7XZE8RhJ9SfGX",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "professor-edward",
@@ -123,7 +131,8 @@
     "profile_id": "professor-edward-library-corridor",
     "subject": "Literature",
     "image_url": "/assets/cards/professor-edward.png",
-    "chain_image_uri": "https://gateway.irys.xyz/63VTMvTDzdPbK8T4y1naQBwk5by43kYbpRn6wtiVyXPe"
+    "chain_image_uri": "https://gateway.irys.xyz/63VTMvTDzdPbK8T4y1naQBwk5by43kYbpRn6wtiVyXPe",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "eliza",
@@ -137,7 +146,8 @@
     "profile_id": "eliza-systems-lab-override",
     "subject": "Systems",
     "image_url": "/assets/cards/eliza.png",
-    "chain_image_uri": "https://gateway.irys.xyz/G4mYFb2JgHjsCYdWLtYrhYQL1GGYUPvqaeUi4xao9cpL"
+    "chain_image_uri": "https://gateway.irys.xyz/G4mYFb2JgHjsCYdWLtYrhYQL1GGYUPvqaeUi4xao9cpL",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "rati",
@@ -151,7 +161,8 @@
     "profile_id": "rati-signal-studies-pass",
     "subject": "Signal Studies",
     "image_url": "/assets/cards/rati.png",
-    "chain_image_uri": "https://gateway.irys.xyz/4gDnEdkgqayZGDQ9sSFoHuY5LSgwfuDDWmwSJR2QPbVX"
+    "chain_image_uri": "https://gateway.irys.xyz/4gDnEdkgqayZGDQ9sSFoHuY5LSgwfuDDWmwSJR2QPbVX",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "captain-null",
@@ -165,7 +176,8 @@
     "profile_id": "captain-null-page-10-shadow",
     "subject": "First Bell",
     "image_url": "/assets/cards/captain-null.png",
-    "chain_image_uri": "https://gateway.irys.xyz/FQXsSJ4gJWj9pM4Fc2RcEAcomoPSyPaRyd19ghpxVdLv"
+    "chain_image_uri": "https://gateway.irys.xyz/FQXsSJ4gJWj9pM4Fc2RcEAcomoPSyPaRyd19ghpxVdLv",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "item-hall-pass",
@@ -179,7 +191,8 @@
     "profile_id": "item-hall-pass",
     "subject": "Administration",
     "image_url": "/assets/cards/item-hall-pass.png",
-    "chain_image_uri": "https://gateway.irys.xyz/9EsaWqjWaWKvb9a62iKr1dYSMRPGRQVaA1fpLFjWfk4q"
+    "chain_image_uri": "https://gateway.irys.xyz/9EsaWqjWaWKvb9a62iKr1dYSMRPGRQVaA1fpLFjWfk4q",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "item-flashcards",
@@ -193,7 +206,8 @@
     "profile_id": "item-flashcards",
     "subject": "Study",
     "image_url": "/assets/cards/item-flashcards.png",
-    "chain_image_uri": "https://gateway.irys.xyz/H38mBQgXzZZK6vEni77FShD8Lh7vX9QVsDd6C3yL4tVQ"
+    "chain_image_uri": "https://gateway.irys.xyz/H38mBQgXzZZK6vEni77FShD8Lh7vX9QVsDd6C3yL4tVQ",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "item-library-card",
@@ -207,7 +221,8 @@
     "profile_id": "item-library-card",
     "subject": "Library",
     "image_url": "/assets/cards/item-library-card.png",
-    "chain_image_uri": "https://gateway.irys.xyz/GW7DcPRJMum61q73hfynntUJ3zUje7yjwE7xVesLSNgU"
+    "chain_image_uri": "https://gateway.irys.xyz/GW7DcPRJMum61q73hfynntUJ3zUje7yjwE7xVesLSNgU",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "item-lab-flask",
@@ -221,7 +236,8 @@
     "profile_id": "item-lab-flask",
     "subject": "Science",
     "image_url": "/assets/cards/item-lab-flask.png",
-    "chain_image_uri": "https://gateway.irys.xyz/4rAuX9pMMUMfveZ9rL9yBKQD7dcPAcfgoiQzL71pr5Nr"
+    "chain_image_uri": "https://gateway.irys.xyz/4rAuX9pMMUMfveZ9rL9yBKQD7dcPAcfgoiQzL71pr5Nr",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "item-lunch-tray",
@@ -235,7 +251,8 @@
     "profile_id": "item-lunch-tray",
     "subject": "Cafeteria",
     "image_url": "/assets/cards/item-lunch-tray.png",
-    "chain_image_uri": "https://gateway.irys.xyz/6tvAmcFPM8cXAmxmZNciN6iYQkj5C1J84bjnFiXuoyrV"
+    "chain_image_uri": "https://gateway.irys.xyz/6tvAmcFPM8cXAmxmZNciN6iYQkj5C1J84bjnFiXuoyrV",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "item-notebook",
@@ -249,7 +266,8 @@
     "profile_id": "item-notebook",
     "subject": "Homeroom",
     "image_url": "/assets/cards/item-notebook.png",
-    "chain_image_uri": "https://gateway.irys.xyz/3U8K8YGe1nEhvVjuV7ThDkLLsLZViRsAdKDKGeLV1mDS"
+    "chain_image_uri": "https://gateway.irys.xyz/3U8K8YGe1nEhvVjuV7ThDkLLsLZViRsAdKDKGeLV1mDS",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "location-homeroom",
@@ -263,7 +281,8 @@
     "profile_id": "location-homeroom",
     "subject": "Homeroom",
     "image_url": "/assets/cards/location-homeroom.png",
-    "chain_image_uri": "https://gateway.irys.xyz/D4o7VmayTktEbx7HivEeWTzVvjnmbp4JrDgNzkvUwVQ"
+    "chain_image_uri": "https://gateway.irys.xyz/D4o7VmayTktEbx7HivEeWTzVvjnmbp4JrDgNzkvUwVQ",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "location-science-lab",
@@ -277,7 +296,8 @@
     "profile_id": "location-science-lab",
     "subject": "Science",
     "image_url": "/assets/cards/location-science-lab.png",
-    "chain_image_uri": "https://gateway.irys.xyz/DDmgnZHAZ3WPqvyNVjU57ayQMY6y2WYSL7Fu1jkjbJMu"
+    "chain_image_uri": "https://gateway.irys.xyz/DDmgnZHAZ3WPqvyNVjU57ayQMY6y2WYSL7Fu1jkjbJMu",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "location-library",
@@ -291,7 +311,8 @@
     "profile_id": "location-library",
     "subject": "Literature",
     "image_url": "/assets/cards/location-library.png",
-    "chain_image_uri": "https://gateway.irys.xyz/44eAXJkBYuXjrV2ctE8PurKnHQ4Zg29LdzeNm1Sh5PLR"
+    "chain_image_uri": "https://gateway.irys.xyz/44eAXJkBYuXjrV2ctE8PurKnHQ4Zg29LdzeNm1Sh5PLR",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "location-cafeteria",
@@ -305,7 +326,8 @@
     "profile_id": "location-cafeteria",
     "subject": "Cafeteria",
     "image_url": "/assets/cards/location-cafeteria.png",
-    "chain_image_uri": "https://gateway.irys.xyz/FXSukeq8KPmaZ2tBPqRMmRhruTEFSiE4mTrCThiVpCen"
+    "chain_image_uri": "https://gateway.irys.xyz/FXSukeq8KPmaZ2tBPqRMmRhruTEFSiE4mTrCThiVpCen",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "location-greenhouse",
@@ -319,7 +341,8 @@
     "profile_id": "location-greenhouse",
     "subject": "Science",
     "image_url": "/assets/cards/location-greenhouse.png",
-    "chain_image_uri": "https://gateway.irys.xyz/6V6TeKMCmD6kDJHkPHeJdqcNySzXJyov7b9QtsfVw8W8"
+    "chain_image_uri": "https://gateway.irys.xyz/6V6TeKMCmD6kDJHkPHeJdqcNySzXJyov7b9QtsfVw8W8",
+    "pack_id": "ruby-high.first-bell"
   },
   {
     "card_id": "location-courtyard",
@@ -333,6 +356,7 @@
     "profile_id": "location-courtyard",
     "subject": "Campus",
     "image_url": "/assets/cards/location-courtyard.png",
-    "chain_image_uri": "https://gateway.irys.xyz/5uestScY6q33FLjFY8gfSr9k2ZDMsZzYuXLvnVCtaz6G"
+    "chain_image_uri": "https://gateway.irys.xyz/5uestScY6q33FLjFY8gfSr9k2ZDMsZzYuXLvnVCtaz6G",
+    "pack_id": "ruby-high.first-bell"
   }
 ]

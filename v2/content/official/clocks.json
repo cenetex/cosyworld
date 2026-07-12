@@ -9,7 +9,8 @@
     "segments": 4,
     "filled": 0,
     "visible_to_players": true,
-    "status": "active"
+    "status": "active",
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "moonlit-trail.danger",
@@ -21,7 +22,8 @@
     "segments": 4,
     "filled": 0,
     "visible_to_players": true,
-    "status": "active"
+    "status": "active",
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "solar-abyss.drowned-bell",
@@ -33,7 +35,8 @@
     "segments": 4,
     "filled": 0,
     "visible_to_players": true,
-    "status": "active"
+    "status": "active",
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "solar-abyss.schism",
@@ -45,7 +48,8 @@
     "segments": 4,
     "filled": 0,
     "visible_to_players": true,
-    "status": "active"
+    "status": "active",
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "lantern-keeper.light",
@@ -57,7 +61,8 @@
     "segments": 6,
     "filled": 0,
     "visible_to_players": true,
-    "status": "active"
+    "status": "active",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "id": "lantern-keeper.darkness",
@@ -69,6 +74,7 @@
     "segments": 6,
     "filled": 0,
     "visible_to_players": true,
-    "status": "active"
+    "status": "active",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   }
 ]

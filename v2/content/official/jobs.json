@@ -17,7 +17,8 @@
       "orbs": 2
     },
     "consequence": "echo-fractured trail",
-    "memory_summary": ""
+    "memory_summary": "",
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "solar-abyss:drowned-bell",
@@ -42,7 +43,8 @@
       "orbs": 2
     },
     "consequence": "solar-abyssal schism",
-    "memory_summary": "The same bell rings differently in noon light and abyssal pressure."
+    "memory_summary": "The same bell rings differently in noon light and abyssal pressure.",
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "lantern-keeper:rekindle-the-beacon",
@@ -68,6 +70,7 @@
       "orbs": 2
     },
     "consequence": "the beacon becomes a lantern for borrowed shadows",
-    "memory_summary": "Travelers followed the last lamps north to find Rowan Vale and restore the Mothwood beacon."
+    "memory_summary": "Travelers followed the last lamps north to find Rowan Vale and restore the Mothwood beacon.",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   }
 ]

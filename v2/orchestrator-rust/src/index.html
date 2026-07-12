@@ -119,6 +119,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      cursor: pointer;
     }
     .brand::before { content: "cosyworld://"; color: var(--dim); }
     .economy {
@@ -576,10 +577,11 @@
       border-top: 1px solid rgba(129, 255, 167, 0.18);
       background: rgba(5, 12, 7, 0.52);
     }
-    .log:not(.account-mode):not(.chat-mode):not(.room-mode):not(.arrival-mode) {
+    .log:not(.account-mode):not(.library-mode):not(.chat-mode):not(.room-mode):not(.arrival-mode) {
       display: none;
     }
     .log.account-mode,
+    .log.library-mode,
     .log.chat-mode,
     .log.room-mode,
     .log.arrival-mode {
@@ -910,6 +912,89 @@
       margin-bottom: 8px;
       padding: 10px 12px;
     }
+    .library-panel {
+      display: grid;
+      gap: 10px;
+    }
+    .library-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--amber);
+      font-weight: 900;
+    }
+    .library-heading small {
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .library-intro {
+      color: var(--dim);
+      line-height: 1.45;
+    }
+    .library-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(270px, 100%), 1fr));
+      gap: 8px;
+    }
+    .library-pack {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: rgba(16, 25, 18, 0.72);
+      padding: 10px;
+      display: grid;
+      gap: 7px;
+    }
+    .library-pack-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .library-pack-name {
+      color: var(--text);
+      font-weight: 900;
+    }
+    .library-pack-meta,
+    .library-pack-counts,
+    .library-pack-access {
+      color: var(--dim);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .library-pack-copy {
+      color: var(--text);
+      line-height: 1.4;
+    }
+    .library-access-badge {
+      flex: 0 0 auto;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      padding: 2px 7px;
+      color: var(--green);
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .library-access-badge.locked { color: var(--amber); border-color: rgba(239, 201, 107, 0.45); }
+    .library-access-badge.partial { color: var(--amber); }
+    .library-locations {
+      border-top: 1px solid var(--line);
+      padding-top: 6px;
+      display: grid;
+      gap: 3px;
+    }
+    .library-location {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--dim);
+      font-size: 11px;
+    }
+    .library-location.accessible { color: var(--text); }
+    .library-location-state { color: var(--amber); white-space: nowrap; }
     .account-title {
       display: flex;
       align-items: baseline;
@@ -1022,6 +1107,45 @@
       gap: 8px;
       margin: 8px 0 10px;
     }
+    .account-auth-fields {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .account-auth-input {
+      min-width: 0;
+      min-height: 38px;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      background: var(--terminal-2);
+      color: var(--text);
+      padding: 7px 9px;
+      font: inherit;
+    }
+    .account-auth-copy {
+      color: var(--dim);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .account-wallet-list {
+      display: grid;
+      gap: 6px;
+      margin-top: 7px;
+    }
+    .account-wallet-entry {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 7px 8px;
+    }
+    .account-wallet-entry.active { border-color: var(--line-strong); }
+    .account-wallet-entry code { color: var(--text); overflow-wrap: anywhere; }
+    .account-wallet-controls { display: flex; flex-wrap: wrap; gap: 5px; }
+    .account-wallet-controls .account-button { min-height: 30px; padding: 3px 7px; }
     .account-button {
       min-height: 38px;
       border: 1px solid var(--line-strong);
@@ -2384,7 +2508,7 @@
 <body>
   <div class="shell">
     <header class="topbar">
-      <div class="brand" id="brand">private room</div>
+      <div class="brand" id="brand" role="button" tabindex="0" aria-label="Open World Library" aria-expanded="false" aria-controls="log">world library</div>
       <div class="economy" id="economy" role="button" tabindex="0" aria-label="Open your collection" aria-expanded="false" aria-controls="log"></div>
       <div class="location-pill" role="button" tabindex="0" aria-label="Focus current location">
         <img id="location-image" alt="" />
@@ -2554,6 +2678,10 @@
     let pendingAction = null;
     let actionConfirmAction = null;
     let accountPanelPinned = false;
+    let libraryPanelPinned = false;
+    let contentPacks = null;
+    let contentPacksAccessKey = "";
+    let identity = null;
     let openingBoxId = "";
     let roomCopyExpanded = false;
     let roomMemoryExpanded = false;
@@ -2595,8 +2723,11 @@
 
     async function api(path, options = {}) {
       const response = await fetch(path, options);
-      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-      return response.json();
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || `${response.status} ${response.statusText}`);
+      }
+      return payload;
     }
 
     async function post(path, payload) {
@@ -2605,6 +2736,215 @@
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
+    }
+
+    function base64UrlToBytes(value) {
+      const normalized = String(value || "").replaceAll("-", "+").replaceAll("_", "/");
+      const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
+      return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+    }
+
+    function bytesToBase64Url(value) {
+      const bytes = new Uint8Array(value || []);
+      let binary = "";
+      for (const byte of bytes) binary += String.fromCharCode(byte);
+      return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+    }
+
+    function creationOptionsFromJson(value) {
+      const options = value?.publicKey || value;
+      if (window.PublicKeyCredential?.parseCreationOptionsFromJSON) {
+        return PublicKeyCredential.parseCreationOptionsFromJSON(options);
+      }
+      return {
+        ...options,
+        challenge: base64UrlToBytes(options.challenge),
+        user: { ...options.user, id: base64UrlToBytes(options.user.id) },
+        excludeCredentials: (options.excludeCredentials || []).map((entry) => ({
+          ...entry,
+          id: base64UrlToBytes(entry.id),
+        })),
+      };
+    }
+
+    function requestOptionsFromJson(value) {
+      const options = value?.publicKey || value;
+      if (window.PublicKeyCredential?.parseRequestOptionsFromJSON) {
+        return PublicKeyCredential.parseRequestOptionsFromJSON(options);
+      }
+      return {
+        ...options,
+        challenge: base64UrlToBytes(options.challenge),
+        allowCredentials: (options.allowCredentials || []).map((entry) => ({
+          ...entry,
+          id: base64UrlToBytes(entry.id),
+        })),
+      };
+    }
+
+    function credentialToJson(credential) {
+      if (typeof credential?.toJSON === "function") return credential.toJSON();
+      const response = credential.response || {};
+      const registration = "attestationObject" in response;
+      return {
+        id: credential.id,
+        rawId: bytesToBase64Url(credential.rawId),
+        type: credential.type,
+        authenticatorAttachment: credential.authenticatorAttachment || undefined,
+        clientExtensionResults: credential.getClientExtensionResults?.() || {},
+        response: registration
+          ? {
+              attestationObject: bytesToBase64Url(response.attestationObject),
+              clientDataJSON: bytesToBase64Url(response.clientDataJSON),
+              transports: response.getTransports?.() || [],
+            }
+          : {
+              authenticatorData: bytesToBase64Url(response.authenticatorData),
+              clientDataJSON: bytesToBase64Url(response.clientDataJSON),
+              signature: bytesToBase64Url(response.signature),
+              userHandle: response.userHandle ? bytesToBase64Url(response.userHandle) : null,
+            },
+      };
+    }
+
+    function applyIdentity(nextIdentity) {
+      identity = nextIdentity || { authenticated: false, wallets: [], passkeys: [] };
+      if (identity.authenticated) {
+        walletAddress = identity.active_wallet || "";
+        walletSession = identity.wallet_session || "";
+        localStorage.removeItem("cosyworld.walletSession");
+        if (walletAddress) localStorage.setItem("cosyworld.wallet", walletAddress);
+      }
+      equippedCardIds = loadKeepsakeLoadout();
+      return identity;
+    }
+
+    async function loadIdentity() {
+      try {
+        const nextIdentity = await api("/auth/account");
+        const preferredWallet = localStorage.getItem("cosyworld.wallet") || "";
+        const canRestorePreference = nextIdentity?.authenticated
+          && preferredWallet
+          && preferredWallet !== nextIdentity.active_wallet
+          && (nextIdentity.wallets || []).some((entry) => entry.wallet_address === preferredWallet);
+        return applyIdentity(canRestorePreference
+          ? await post("/auth/wallets/select", { wallet_address: preferredWallet })
+          : nextIdentity);
+      } catch (error) {
+        identity = { authenticated: false, wallets: [], passkeys: [], error: String(error.message || error) };
+        return identity;
+      }
+    }
+
+    async function registerPasskey(additional = false) {
+      if (!window.PublicKeyCredential || !navigator.credentials?.create) {
+        throw new Error("Passkeys are not supported by this browser.");
+      }
+      const username = additional ? (identity?.username || "") : String($("account-username")?.value || "").trim();
+      const displayName = additional ? (identity?.display_name || username) : String($("account-display-name")?.value || "").trim();
+      const started = await post("/auth/passkey/register/start", {
+        username,
+        display_name: displayName,
+        wallet_session: identity?.authenticated ? null : (walletSession || null),
+      });
+      if (!started.ok) throw new Error(started.error || "Passkey registration could not start.");
+      const credential = await navigator.credentials.create({
+        publicKey: creationOptionsFromJson(started.public_key),
+      });
+      if (!credential) throw new Error("Passkey registration was cancelled.");
+      const finished = await post("/auth/passkey/register/finish", {
+        ceremony_id: started.ceremony_id,
+        credential: credentialToJson(credential),
+      });
+      if (!finished.ok) throw new Error(finished.error || "Passkey registration failed.");
+      applyIdentity(finished);
+      await refresh();
+      connectStream();
+    }
+
+    async function loginWithPasskey() {
+      if (!window.PublicKeyCredential || !navigator.credentials?.get) {
+        throw new Error("Passkeys are not supported by this browser.");
+      }
+      const username = String($("account-username")?.value || "").trim();
+      const started = await post("/auth/passkey/login/start", { username });
+      if (!started.ok) throw new Error(started.error || "Passkey sign-in could not start.");
+      const credential = await navigator.credentials.get({
+        publicKey: requestOptionsFromJson(started.public_key),
+      });
+      if (!credential) throw new Error("Passkey sign-in was cancelled.");
+      const finished = await post("/auth/passkey/login/finish", {
+        ceremony_id: started.ceremony_id,
+        credential: credentialToJson(credential),
+      });
+      if (!finished.ok) throw new Error(finished.error || "Passkey sign-in failed.");
+      applyIdentity(finished);
+      await refresh();
+      connectStream();
+    }
+
+    async function logoutAccount() {
+      applyIdentity(await post("/auth/logout", {}));
+      walletAddress = "";
+      walletSession = "";
+      localStorage.removeItem("cosyworld.wallet");
+      localStorage.removeItem("cosyworld.walletSession");
+      await refresh();
+      connectStream();
+    }
+
+    async function linkAnotherWallet() {
+      if (!identity?.authenticated) throw new Error("Sign in with a passkey first.");
+      const provider = solanaProvider();
+      if (!provider?.connect || !provider?.signMessage) {
+        throw new Error("Open this page in a Solana wallet browser to link another wallet.");
+      }
+      const connected = await withTimeout(provider.connect(), walletRequestTimeoutMs, "Wallet connection timed out.");
+      const nextWallet = (connected?.publicKey || provider.publicKey)?.toString?.() || "";
+      if (!nextWallet) throw new Error("Wallet connection failed.");
+      const challenge = await post("/auth/wallets/link/start", { wallet_address: nextWallet });
+      if (!challenge.ok) throw new Error(challenge.error || "Wallet link could not start.");
+      const signed = await withTimeout(
+        provider.signMessage(new TextEncoder().encode(challenge.message), "utf8"),
+        walletRequestTimeoutMs,
+        "Wallet signature timed out."
+      );
+      const finished = await post("/auth/wallets/link/finish", {
+        wallet_address: nextWallet,
+        nonce: challenge.nonce,
+        signature: Array.from(signed?.signature || signed || []),
+      });
+      if (!finished.ok) throw new Error(finished.error || "Wallet link failed.");
+      applyIdentity(finished);
+      await refresh();
+    }
+
+    async function selectLinkedWallet(wallet) {
+      const selected = await post("/auth/wallets/select", { wallet_address: wallet });
+      if (!selected.ok) throw new Error(selected.error || "Wallet selection failed.");
+      applyIdentity(selected);
+      await refresh();
+      connectStream();
+    }
+
+    async function unlinkWallet(wallet) {
+      const unlinked = await post("/auth/wallets/unlink", { wallet_address: wallet });
+      if (!unlinked.ok) throw new Error(unlinked.error || "Wallet unlink failed.");
+      applyIdentity(unlinked);
+      await refresh();
+    }
+
+    async function runIdentityTask(label, task) {
+      setError("");
+      setStatus(label, "ok");
+      try {
+        await task();
+        setStatus("Account updated.", "ok");
+      } catch (error) {
+        setError(String(error.message || error));
+      } finally {
+        render();
+      }
     }
 
     async function createAvatar(selection = null) {
@@ -2654,6 +2994,7 @@
       const requestedActorId = actorId;
       const nextState = await api(statePath());
       if (requestedActorId !== actorId) return;
+      await ensureContentPacks().catch(() => null);
       const timelineRewound = transcriptTimelineRewound(nextState);
       state = nextState;
       const keepsakeLoadoutChanged = reconcileKeepsakeLoadout();
@@ -2726,6 +3067,24 @@
       const params = requestParams();
       const qs = params.toString();
       return `/state${qs ? `?${qs}` : ""}`;
+    }
+
+    function contentPacksPath() {
+      const params = requestParams();
+      params.delete("actor_id");
+      params.delete("actor_session");
+      const qs = params.toString();
+      return `/content-packs${qs ? `?${qs}` : ""}`;
+    }
+
+    async function ensureContentPacks() {
+      const path = contentPacksPath();
+      if (contentPacks && contentPacksAccessKey === path) return contentPacks;
+      const nextContentPacks = await api(path);
+      if (path !== contentPacksPath()) return contentPacks;
+      contentPacks = nextContentPacks;
+      contentPacksAccessKey = path;
+      return contentPacks;
     }
 
     function latestSeenSeq() {
@@ -5119,7 +5478,10 @@
       setCardTarget(roomHero, locationCard);
       $("room-avatar-rail").innerHTML = roomAvatarRailHtml(state);
       $("subtitle").textContent = location.name || "Unknown";
-      $("brand").textContent = channelName(location.name || "cosyworld");
+      const brand = $("brand");
+      brand.textContent = libraryPanelPinned ? "close library" : "world library";
+      brand.setAttribute("aria-label", libraryPanelPinned ? "Close World Library" : "Open World Library");
+      brand.setAttribute("aria-expanded", libraryPanelPinned ? "true" : "false");
       renderEconomy();
       $("avatar").textContent = me ? `${actorLabel(me)}, ${me.title || "traveler"}` : "";
       $("location-name").textContent = location.name || "Unknown";
@@ -5811,17 +6173,24 @@
 
     function renderLog() {
       const log = $("log");
+      const libraryPanel = libraryPanelHtml();
       const accountPanel = accountPanelHtml();
       const visibleEvents = pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent));
       const pendingConversation = pendingConversationHtml();
       const pendingArrival = pendingAvatarArrivalHtml();
       const hasChat = visibleEvents.length > 0 || Boolean(pendingConversation);
       const residentOnly = visibleEvents.length > 0 && visibleEvents.every(messageActorIsResident);
-      log.classList.toggle("account-mode", Boolean(accountPanel));
-      log.classList.toggle("chat-mode", !accountPanel && hasChat);
-      log.classList.toggle("room-mode", !accountPanel && !hasChat && !pendingArrival);
-      log.classList.toggle("arrival-mode", !accountPanel && Boolean(pendingArrival));
-      log.classList.toggle("quiet-mode", !accountPanel && residentOnly);
+      log.classList.toggle("library-mode", Boolean(libraryPanel));
+      log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
+      log.classList.toggle("chat-mode", !libraryPanel && !accountPanel && hasChat);
+      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasChat && !pendingArrival);
+      log.classList.toggle("arrival-mode", !libraryPanel && !accountPanel && Boolean(pendingArrival));
+      log.classList.toggle("quiet-mode", !libraryPanel && !accountPanel && residentOnly);
+      if (libraryPanel) {
+        log.innerHTML = libraryPanel;
+        log.scrollTop = 0;
+        return;
+      }
       if (accountPanel) {
         log.innerHTML = `${accountPanel}${visibleEvents.map(messageHtml).join("")}`;
         log.scrollTop = 0;
@@ -5839,6 +6208,76 @@
       }
       log.innerHTML = `${visibleEvents.map(messageHtml).join("")}${pendingConversation}`;
       log.scrollTop = residentOnly && !pendingConversation ? 0 : log.scrollHeight;
+    }
+
+    function libraryPanelHtml() {
+      if (!libraryPanelPinned) return "";
+      const packs = Array.isArray(contentPacks?.packs) ? contentPacks.packs.filter((pack) => pack.visible !== false) : [];
+      if (!packs.length) {
+        return `<section class="account-panel library-panel" aria-label="World Library"><div class="library-heading"><span>world library</span></div><div class="library-intro">The catalogue is still being indexed.</div></section>`;
+      }
+      const bundle = compactAssetId(contentPacks?.bundle_hash || "");
+      const cards = packs.map(libraryPackHtml).join("");
+      return `<section class="account-panel library-panel" aria-label="World Library"><div class="library-heading"><span>world library</span><small>${escapeHtml(`${packs.length} installed · ${bundle}`)}</small></div><div class="library-intro">This shard installs one verified world bundle. Packs declare named access grants; verified NFT collections, private sets, or public access decide which grants your account receives.</div><div class="library-grid">${cards}</div></section>`;
+    }
+
+    function libraryPackHtml(pack) {
+      const stateName = String(pack.access_state || "included");
+      const locations = Array.isArray(pack.locations) ? pack.locations : [];
+      const shownLocations = locations.slice(0, 6).map((location) => {
+        const open = location.accessible !== false;
+        const stateLabel = open ? "open" : (location.required_card_id ? "card required" : "access required");
+        return `<div class="library-location${open ? " accessible" : ""}"><span>${escapeHtml(location.name || `Location ${location.id}`)}</span><span class="library-location-state">${escapeHtml(stateLabel)}</span></div>`;
+      }).join("");
+      const remaining = Math.max(0, locations.length - 6);
+      const locationList = shownLocations
+        ? `<div class="library-locations">${shownLocations}${remaining ? `<div class="library-location"><span>and ${remaining} more</span></div>` : ""}</div>`
+        : "";
+      const dependencies = Array.isArray(pack.dependencies) && pack.dependencies.length
+        ? ` · depends on ${pack.dependencies.map(shortPackName).join(", ")}`
+        : "";
+      const authority = libraryPackAuthoritySummary(pack);
+      return `<article class="library-pack"><div class="library-pack-top"><div><div class="library-pack-name">${escapeHtml(pack.name || pack.id)}</div><div class="library-pack-meta">${escapeHtml(`${pack.kind || "pack"} · v${pack.version || "?"} · ${pack.license || "unlicensed"}${dependencies}`)}</div></div><span class="library-access-badge ${escapeAttr(stateName)}">${escapeHtml(stateName)}</span></div><div class="library-pack-copy">${escapeHtml(pack.description || "No description yet.")}</div><div class="library-pack-counts">${escapeHtml(libraryPackCountSummary(pack.resource_counts || {}))}</div>${authority ? `<div class="library-pack-meta">${escapeHtml(authority)}</div>` : ""}<div class="library-pack-access">${escapeHtml(pack.access_summary || "Included with this world.")}</div>${locationList}</article>`;
+    }
+
+    function libraryPackAuthoritySummary(pack) {
+      const authorities = Array.isArray(pack.entitlement_authorities) ? pack.entitlement_authorities : [];
+      const labels = authorities.map((authority) => {
+        if (authority.type === "solana_collection") return `Solana collection ${compactAssetId(authority.collection_address || "")}`;
+        if (authority.type === "signed_set") return `private set signed by ${compactAssetId(authority.public_key || "")}`;
+        if (authority.type === "asset_feed") return `${authority.issuer || "trusted"} verified asset feed`;
+        return authority.type || "entitlement authority";
+      });
+      const permanence = pack.distribution?.permanent_uri
+        ? `permanent ${compactAssetId(pack.distribution.permanent_uri)}`
+        : pack.distribution?.permanence === "content-addressed"
+          ? "content-addressed release"
+          : "";
+      return [...labels, permanence].filter(Boolean).join(" · ");
+    }
+
+    function shortPackName(value) {
+      return String(value || "")
+        .replace(/^cosyworld\./, "")
+        .replace(/^campaign\./, "");
+    }
+
+    function libraryPackCountSummary(counts) {
+      const entries = [
+        ["locations", "places"],
+        ["actors", "residents"],
+        ["items", "items"],
+        ["cards", "cards"],
+        ["external_cards", "catalog cards"],
+        ["character_creation", "character paths"],
+        ["rules", "rules references"],
+        ["assets", "asset collections"],
+      ];
+      const visible = entries
+        .map(([key, label]) => [Number(counts[key] || 0), label])
+        .filter(([count]) => count > 0)
+        .map(([count, label]) => `${count} ${label}`);
+      return visible.length ? visible.join(" · ") : "metadata-only pack";
     }
 
     function pendingConversationHtml() {
@@ -5931,7 +6370,7 @@
         if (packs.length) {
           actions.push(`<button class="account-button secondary" type="button" data-account-open-pack="first">open pack</button>`);
         }
-      } else {
+      } else if (!identity?.authenticated) {
         actions.push(`<button class="account-button" type="button" data-account-connect>link account</button>`);
       }
       const inventory = assets.length
@@ -5941,8 +6380,32 @@
       const keepsakeNote = ownedCards.length
         ? `<div class="keepsake-note">Keep a few cards close—up to three. They help the choices they care about turn up sooner in your hand.</div>`
         : "";
-      const accountName = signed ? (compactAssetId(wallet) || "linked account") : "local tale";
-      return `<div class="account-panel" aria-label="Your avatar and collection"><div class="account-title"><span>your avatar</span><span class="account-wallet">${escapeHtml(accountName)}</span></div>${characterSheetHtml()}${accountActions}<div class="account-section"><div class="account-section-title">your keepsakes</div>${keepsakeNote}${inventory}${inventoryRows.join("")}</div></div>`;
+      const accountName = identity?.authenticated
+        ? `@${identity.username || "account"}`
+        : (signed ? (compactAssetId(wallet) || "linked account") : "local tale");
+      return `<div class="account-panel" aria-label="Your avatar and collection"><div class="account-title"><span>your avatar</span><span class="account-wallet">${escapeHtml(accountName)}</span></div>${identitySectionHtml()}${characterSheetHtml()}${accountActions}<div class="account-section"><div class="account-section-title">your keepsakes</div>${keepsakeNote}${inventory}${inventoryRows.join("")}</div></div>`;
+    }
+
+    function identitySectionHtml() {
+      if (!identity?.authenticated) {
+        const migration = walletSession
+          ? "Your connected wallet will be linked to the new account after the passkey is verified."
+          : "A wallet is optional. Create a passkey account now and link wallets whenever you need their assets.";
+        return `<section class="account-section" aria-label="CosyWorld sign in"><div class="account-section-title">CosyWorld account</div><div class="account-auth-copy">Use a passkey for everyday sign-in. Wallet signatures are reserved for linking wallets and blockchain actions.</div><div class="account-auth-fields"><input class="account-auth-input" id="account-username" name="username" autocomplete="username webauthn" maxlength="32" placeholder="username" aria-label="Account username" /><input class="account-auth-input" id="account-display-name" name="display-name" maxlength="64" placeholder="display name (new accounts)" aria-label="Display name" /></div><div class="account-actions"><button class="account-button" type="button" data-passkey-login>sign in with passkey</button><button class="account-button secondary" type="button" data-passkey-create>create passkey account</button></div><div class="account-auth-copy">${escapeHtml(migration)}</div></section>`;
+      }
+      const passkeys = Array.isArray(identity.passkeys) ? identity.passkeys : [];
+      const wallets = Array.isArray(identity.wallets) ? identity.wallets : [];
+      const walletRows = wallets.length
+        ? wallets.map((entry) => {
+            const wallet = String(entry.wallet_address || "");
+            const active = wallet === identity.active_wallet;
+            return `<div class="account-wallet-entry${active ? " active" : ""}"><code>${escapeHtml(compactAssetId(wallet))}</code><div class="account-wallet-controls">${active ? `<span class="account-auth-copy">active</span>` : `<button class="account-button secondary" type="button" data-wallet-select="${escapeAttr(wallet)}">use</button>`}<button class="account-button secondary" type="button" data-wallet-unlink="${escapeAttr(wallet)}">unlink</button></div></div>`;
+          }).join("")
+        : `<div class="account-empty">No wallet linked. Public play still works.</div>`;
+      const passkeyCopy = passkeys.length === 1
+        ? "1 passkey — add a second for recovery"
+        : `${passkeys.length} passkeys`;
+      return `<section class="account-section" aria-label="CosyWorld account"><div class="account-section-title">${escapeHtml(identity.display_name || identity.username || "CosyWorld account")}</div>${accountRow("passkeys", passkeyCopy)}<div class="account-actions"><button class="account-button secondary" type="button" data-passkey-add>add passkey</button><button class="account-button secondary" type="button" data-wallet-link>link wallet</button><button class="account-button secondary" type="button" data-account-logout>sign out</button></div><div class="account-wallet-list">${walletRows}</div></section>`;
     }
 
     function characterSheetHtml() {
@@ -7825,6 +8288,7 @@
     function focusAction(index, key = "") {
       if (!actions.length) return;
       accountPanelPinned = false;
+      libraryPanelPinned = false;
       focusIndex = ((index % actions.length) + actions.length) % actions.length;
       focusedKey = key || actions[focusIndex]?.focusKey || "";
       promoteActionToHand(focusIndex, focusedKey);
@@ -8248,6 +8712,50 @@
     }, true);
 
     $("log").addEventListener("click", (event) => {
+      const passkeyLogin = event.target.closest("[data-passkey-login]");
+      if (passkeyLogin) {
+        event.preventDefault();
+        runIdentityTask("Confirm your passkey.", loginWithPasskey);
+        return;
+      }
+      const passkeyCreate = event.target.closest("[data-passkey-create]");
+      if (passkeyCreate) {
+        event.preventDefault();
+        runIdentityTask("Create your CosyWorld passkey.", () => registerPasskey(false));
+        return;
+      }
+      const passkeyAdd = event.target.closest("[data-passkey-add]");
+      if (passkeyAdd) {
+        event.preventDefault();
+        runIdentityTask("Add another passkey.", () => registerPasskey(true));
+        return;
+      }
+      const accountLogout = event.target.closest("[data-account-logout]");
+      if (accountLogout) {
+        event.preventDefault();
+        runIdentityTask("Signing out.", logoutAccount);
+        return;
+      }
+      const walletLink = event.target.closest("[data-wallet-link]");
+      if (walletLink) {
+        event.preventDefault();
+        runIdentityTask("Sign to link this wallet.", linkAnotherWallet);
+        return;
+      }
+      const walletSelect = event.target.closest("[data-wallet-select]");
+      if (walletSelect) {
+        event.preventDefault();
+        const wallet = walletSelect.getAttribute("data-wallet-select") || "";
+        runIdentityTask("Switching linked wallet.", () => selectLinkedWallet(wallet));
+        return;
+      }
+      const walletUnlink = event.target.closest("[data-wallet-unlink]");
+      if (walletUnlink) {
+        event.preventDefault();
+        const wallet = walletUnlink.getAttribute("data-wallet-unlink") || "";
+        runIdentityTask("Unlinking wallet.", () => unlinkWallet(wallet));
+        return;
+      }
       const keepsake = event.target.closest("[data-account-toggle-keepsake]");
       if (keepsake) {
         event.preventDefault();
@@ -8348,6 +8856,17 @@
       }
     });
 
+    const libraryPill = $("brand");
+    libraryPill.addEventListener("click", () => {
+      toggleLibraryPanel();
+    });
+    libraryPill.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleLibraryPanel();
+    });
+
     const locationPill = document.querySelector(".location-pill");
     locationPill.addEventListener("click", () => {
       focusActionByKey("check");
@@ -8372,8 +8891,20 @@
 
     function toggleAccountPanel(forceOpen = null) {
       accountPanelPinned = forceOpen === null ? !accountPanelPinned : Boolean(forceOpen);
+      if (accountPanelPinned) libraryPanelPinned = false;
       render();
       return accountPanelPinned;
+    }
+
+    function toggleLibraryPanel(forceOpen = null) {
+      libraryPanelPinned = forceOpen === null ? !libraryPanelPinned : Boolean(forceOpen);
+      if (libraryPanelPinned) {
+        accountPanelPinned = false;
+        ensureContentPacks().then(render).catch(() => render());
+      } else {
+        render();
+      }
+      return libraryPanelPinned;
     }
 
     $("primary").addEventListener("click", () => {
@@ -8453,6 +8984,12 @@
         }
         return;
       }
+      if (libraryPanelPinned && event.key === "Escape") {
+        event.preventDefault();
+        toggleLibraryPanel(false);
+        libraryPill.focus();
+        return;
+      }
       if (accountPanelPinned && event.key === "Escape") {
         event.preventDefault();
         toggleAccountPanel(false);
@@ -8500,6 +9037,7 @@
     (async function boot() {
       try {
         await requestDevResetIfNeeded();
+        await loadIdentity();
         await pingPresence();
         await refresh();
         connectStream();

@@ -19,7 +19,8 @@
       "warmth": 3,
       "tea": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:2",
@@ -41,7 +42,8 @@
       "dew": 3,
       "shelter": 1
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:3",
@@ -65,7 +67,8 @@
     },
     "projects": [
       "moonlit-trail:quiet-the-echo"
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:10",
@@ -87,7 +90,8 @@
       "evidence": 3,
       "curiosity": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:11",
@@ -109,7 +113,8 @@
       "attention": 3,
       "pencils": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:12",
@@ -131,7 +136,8 @@
       "indexes": 3,
       "quiet": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:13",
@@ -153,7 +159,8 @@
       "snacks": 3,
       "gossip": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:14",
@@ -175,7 +182,8 @@
       "water": 3,
       "cuttings": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:15",
@@ -197,7 +205,8 @@
       "breeze": 3,
       "routes": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:30",
@@ -219,7 +228,8 @@
       "weather-glow": 3,
       "distance": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:31",
@@ -241,7 +251,8 @@
       "wind": 3,
       "grit": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:32",
@@ -263,7 +274,8 @@
       "lantern-light": 3,
       "footholds": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:33",
@@ -285,7 +297,8 @@
       "pine-shelter": 3,
       "tracks": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:34",
@@ -307,7 +320,8 @@
       "echoes": 3,
       "glitter": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:35",
@@ -329,7 +343,8 @@
       "moon-silver": 3,
       "stillness": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:36",
@@ -353,7 +368,8 @@
     },
     "projects": [
       "solar-abyss:drowned-bell"
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:40",
@@ -375,7 +391,8 @@
       "acorns": 3,
       "rings": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:41",
@@ -397,7 +414,8 @@
       "moss": 3,
       "breadcrumbs": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:42",
@@ -419,7 +437,8 @@
       "candles": 3,
       "dust": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:43",
@@ -441,7 +460,8 @@
       "silence": 3,
       "vows": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:44",
@@ -463,7 +483,8 @@
       "pollen": 3,
       "sun": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:50",
@@ -485,7 +506,8 @@
       "marginalia": 3,
       "ladders": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:60",
@@ -507,7 +529,8 @@
       "reeds": 3,
       "murk": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:61",
@@ -529,7 +552,8 @@
       "shade": 3,
       "vines": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:62",
@@ -551,7 +575,8 @@
       "tide": 3,
       "salt": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:63",
@@ -573,7 +598,8 @@
       "queries": 3,
       "keys": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:64",
@@ -597,7 +623,8 @@
     },
     "projects": [
       "solar-abyss:drowned-bell"
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:65",
@@ -621,7 +648,8 @@
     },
     "projects": [
       "solar-abyss:drowned-bell"
-    ]
+    ],
+    "pack_id": "cosyworld.core"
   },
   {
     "id": "room:800",
@@ -644,7 +672,8 @@
       "warmth": 3,
       "rumors": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "id": "room:801",
@@ -668,7 +697,8 @@
     },
     "projects": [
       "lantern-keeper:rekindle-the-beacon"
-    ]
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "id": "room:802",
@@ -692,7 +722,8 @@
     },
     "projects": [
       "lantern-keeper:rekindle-the-beacon"
-    ]
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "id": "room:803",
@@ -716,7 +747,8 @@
     },
     "projects": [
       "lantern-keeper:rekindle-the-beacon"
-    ]
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "id": "room:804",
@@ -740,7 +772,8 @@
     },
     "projects": [
       "lantern-keeper:rekindle-the-beacon"
-    ]
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
     "id": "holy-land:room:700",
@@ -762,7 +795,8 @@
       "shelter": 3,
       "lamplight": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:701",
@@ -784,7 +818,8 @@
       "craft": 3,
       "grain": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:702",
@@ -806,7 +841,8 @@
       "water": 3,
       "reeds": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:703",
@@ -828,7 +864,8 @@
       "hospitality": 3,
       "vines": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:704",
@@ -850,7 +887,8 @@
       "neighbors": 3,
       "basalt": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:705",
@@ -872,7 +910,8 @@
       "fish": 3,
       "cordage": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:706",
@@ -894,7 +933,8 @@
       "attention": 3,
       "wild-herbs": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:707",
@@ -916,7 +956,8 @@
       "boats": 3,
       "reeds": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:708",
@@ -938,7 +979,8 @@
       "springwater": 3,
       "shade": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:709",
@@ -960,7 +1002,8 @@
       "water": 3,
       "conversation": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:710",
@@ -982,7 +1025,8 @@
       "dates": 3,
       "springwater": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:711",
@@ -1004,7 +1048,8 @@
       "bread": 3,
       "olive-oil": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:712",
@@ -1026,7 +1071,8 @@
       "pilgrims": 3,
       "lamps": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:713",
@@ -1048,7 +1094,8 @@
       "quiet": 3,
       "olive-wood": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   },
   {
     "id": "holy-land:room:714",
@@ -1070,6 +1117,7 @@
       "companionship": 3,
       "road-bread": 2
     },
-    "projects": []
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
   }
 ]
