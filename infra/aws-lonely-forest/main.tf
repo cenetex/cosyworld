@@ -300,6 +300,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
   statement {
     sid = "ArchiveBucketReads"
     actions = [
+      "s3:GetAccelerateConfiguration",
       "s3:GetBucketLocation",
       "s3:GetBucketPolicy",
       "s3:GetBucketPublicAccessBlock",
