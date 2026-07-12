@@ -959,15 +959,24 @@ fn resolve_registration_identity(
             ));
         }
     }
-    let username = normalize_account_username(&payload.username).ok_or_else(|| {
-        account_error("username must be 3-32 letters, numbers, dots, dashes, or underscores")
-    })?;
-    let display_name =
-        normalize_display_name(&payload.display_name).unwrap_or_else(|| username.clone());
+    let user_id = Uuid::new_v4();
+    let generated = payload.username.trim().is_empty();
+    let username = if generated {
+        generated_account_username(user_id)
+    } else {
+        normalize_account_username(&payload.username).ok_or_else(|| {
+            account_error("username must be 3-32 letters, numbers, dots, dashes, or underscores")
+        })?
+    };
+    let display_name = if generated {
+        "CosyWorld player".to_string()
+    } else {
+        normalize_display_name(&payload.display_name).unwrap_or_else(|| username.clone())
+    };
     if find_user_by_username(auth.path()?, &username)?.is_some() {
         return Err(account_error("username is already in use"));
     }
-    Ok((Uuid::new_v4(), username, display_name, true))
+    Ok((user_id, username, display_name, true))
 }
 
 fn identity_response(
@@ -1336,6 +1345,11 @@ fn normalize_account_username(value: &str) -> Option<String> {
     .then_some(username)
 }
 
+fn generated_account_username(user_id: Uuid) -> String {
+    let compact = user_id.simple().to_string();
+    format!("player-{}", &compact[..20])
+}
+
 fn normalize_display_name(value: &str) -> Option<String> {
     let display_name = compact_whitespace(value);
     (!display_name.is_empty()
@@ -1432,6 +1446,38 @@ mod tests {
         assert!(normalize_account_username("ab").is_none());
         assert!(normalize_account_username("maple rook").is_none());
         assert!(normalize_account_username("maple@rook").is_none());
+    }
+
+    #[test]
+    fn generated_account_usernames_are_valid_internal_identifiers() {
+        let first = generated_account_username(Uuid::nil());
+        let second = generated_account_username(Uuid::from_u128(u128::MAX));
+        assert_eq!(first, "player-00000000000000000000");
+        assert_ne!(first, second);
+        assert_eq!(
+            normalize_account_username(&first).as_deref(),
+            Some(first.as_str())
+        );
+    }
+
+    #[test]
+    fn blank_registration_identity_generates_private_account_fields() {
+        let path = std::env::temp_dir().join(format!("cosyworld-account-{}.sqlite", random_hex(8)));
+        let auth = AccountAuth::for_test(Some(Arc::new(path.clone())));
+        let payload = PasskeyRegistrationStartRequest {
+            username: String::new(),
+            display_name: String::new(),
+            label: String::new(),
+            wallet_session: None,
+        };
+        let (_, username, display_name, new_user) =
+            resolve_registration_identity(&auth, &payload, None)
+                .expect("generated account identity");
+        assert!(new_user);
+        assert!(username.starts_with("player-"));
+        assert_eq!(display_name, "CosyWorld player");
+        drop(auth);
+        let _ = fs::remove_file(path);
     }
 
     #[test]

@@ -1107,22 +1107,6 @@
       gap: 8px;
       margin: 8px 0 10px;
     }
-    .account-auth-fields {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
-      gap: 8px;
-      margin: 8px 0;
-    }
-    .account-auth-input {
-      min-width: 0;
-      min-height: 38px;
-      border: 1px solid var(--line-strong);
-      border-radius: 4px;
-      background: var(--terminal-2);
-      color: var(--text);
-      padding: 7px 9px;
-      font: inherit;
-    }
     .account-auth-copy {
       color: var(--dim);
       font-size: 11px;
@@ -2840,8 +2824,8 @@
       if (!window.PublicKeyCredential || !navigator.credentials?.create) {
         throw new Error("Passkeys are not supported by this browser.");
       }
-      const username = additional ? (identity?.username || "") : String($("account-username")?.value || "").trim();
-      const displayName = additional ? (identity?.display_name || username) : String($("account-display-name")?.value || "").trim();
+      const username = additional ? (identity?.username || "") : "";
+      const displayName = additional ? (identity?.display_name || username) : "";
       const started = await post("/auth/passkey/register/start", {
         username,
         display_name: displayName,
@@ -2866,8 +2850,7 @@
       if (!window.PublicKeyCredential || !navigator.credentials?.get) {
         throw new Error("Passkeys are not supported by this browser.");
       }
-      const username = String($("account-username")?.value || "").trim();
-      const started = await post("/auth/passkey/login/start", { username });
+      const started = await post("/auth/passkey/login/start", { username: "" });
       if (!started.ok) throw new Error(started.error || "Passkey sign-in could not start.");
       const credential = await navigator.credentials.get({
         publicKey: requestOptionsFromJson(started.public_key),
@@ -2881,6 +2864,15 @@
       applyIdentity(finished);
       await refresh();
       connectStream();
+    }
+
+    async function continueWithPasskey() {
+      try {
+        await loginWithPasskey();
+      } catch (error) {
+        if (String(error?.name || "") !== "NotAllowedError") throw error;
+        await registerPasskey(false);
+      }
     }
 
     async function logoutAccount() {
@@ -6372,8 +6364,6 @@
         if (packs.length) {
           actions.push(`<button class="account-button secondary" type="button" data-account-open-pack="first">open pack</button>`);
         }
-      } else if (!identity?.authenticated) {
-        actions.push(`<button class="account-button" type="button" data-account-connect>link account</button>`);
       }
       const inventory = assets.length
         ? `<div class="account-assets">${assets.join("")}</div>`
@@ -6383,17 +6373,14 @@
         ? `<div class="keepsake-note">Keep a few cards close—up to three. They help the choices they care about turn up sooner in your hand.</div>`
         : "";
       const accountName = identity?.authenticated
-        ? `@${identity.username || "account"}`
+        ? "CosyWorld account"
         : (signed ? (compactAssetId(wallet) || "linked account") : "local tale");
       return `<div class="account-panel" aria-label="Your avatar and collection"><div class="account-title"><span>your avatar</span><span class="account-wallet">${escapeHtml(accountName)}</span></div>${identitySectionHtml()}${characterSheetHtml()}${accountActions}<div class="account-section"><div class="account-section-title">your keepsakes</div>${keepsakeNote}${inventory}${inventoryRows.join("")}</div></div>`;
     }
 
     function identitySectionHtml() {
       if (!identity?.authenticated) {
-        const migration = walletSession
-          ? "Your connected wallet will be linked to the new account after the passkey is verified."
-          : "A wallet is optional. Create a passkey account now and link wallets whenever you need their assets.";
-        return `<section class="account-section" aria-label="CosyWorld sign in"><div class="account-section-title">CosyWorld account</div><div class="account-auth-copy">Use a passkey for everyday sign-in. Wallet signatures are reserved for linking wallets and blockchain actions.</div><div class="account-auth-fields"><input class="account-auth-input" id="account-username" name="username" autocomplete="username webauthn" maxlength="32" placeholder="username" aria-label="Account username" /><input class="account-auth-input" id="account-display-name" name="display-name" maxlength="64" placeholder="display name (new accounts)" aria-label="Display name" /></div><div class="account-actions"><button class="account-button" type="button" data-passkey-login>sign in with passkey</button><button class="account-button secondary" type="button" data-passkey-create>create passkey account</button></div><div class="account-auth-copy">${escapeHtml(migration)}</div></section>`;
+        return `<section class="account-section" aria-label="CosyWorld sign in"><div class="account-actions"><button class="account-button" type="button" data-passkey-continue>continue with passkey</button></div></section>`;
       }
       const passkeys = Array.isArray(identity.passkeys) ? identity.passkeys : [];
       const wallets = Array.isArray(identity.wallets) ? identity.wallets : [];
@@ -6407,7 +6394,7 @@
       const passkeyCopy = passkeys.length === 1
         ? "1 passkey — add a second for recovery"
         : `${passkeys.length} passkeys`;
-      return `<section class="account-section" aria-label="CosyWorld account"><div class="account-section-title">${escapeHtml(identity.display_name || identity.username || "CosyWorld account")}</div>${accountRow("passkeys", passkeyCopy)}<div class="account-actions"><button class="account-button secondary" type="button" data-passkey-add>add passkey</button><button class="account-button secondary" type="button" data-wallet-link>link wallet</button><button class="account-button secondary" type="button" data-account-logout>sign out</button></div><div class="account-wallet-list">${walletRows}</div></section>`;
+      return `<section class="account-section" aria-label="CosyWorld account"><div class="account-section-title">CosyWorld account</div>${accountRow("passkeys", passkeyCopy)}<div class="account-actions"><button class="account-button secondary" type="button" data-passkey-add>add passkey</button><button class="account-button secondary" type="button" data-wallet-link>link wallet</button><button class="account-button secondary" type="button" data-account-logout>sign out</button></div><div class="account-wallet-list">${walletRows}</div></section>`;
     }
 
     function characterSheetHtml() {
@@ -8714,16 +8701,10 @@
     }, true);
 
     $("log").addEventListener("click", (event) => {
-      const passkeyLogin = event.target.closest("[data-passkey-login]");
-      if (passkeyLogin) {
+      const passkeyContinue = event.target.closest("[data-passkey-continue]");
+      if (passkeyContinue) {
         event.preventDefault();
-        runIdentityTask("Confirm your passkey.", loginWithPasskey);
-        return;
-      }
-      const passkeyCreate = event.target.closest("[data-passkey-create]");
-      if (passkeyCreate) {
-        event.preventDefault();
-        runIdentityTask("Create your CosyWorld passkey.", () => registerPasskey(false));
+        runIdentityTask("Continue with your passkey.", continueWithPasskey);
         return;
       }
       const passkeyAdd = event.target.closest("[data-passkey-add]");

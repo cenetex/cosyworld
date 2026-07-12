@@ -36221,8 +36221,12 @@ mod tests {
         assert!(INDEX_HTML.contains("parts.push(accountPanelPinned ? \"close\" : \"account\")"));
         assert!(!INDEX_HTML.contains("parts.push(signed ? \"wallet\" : \"connect wallet\")"));
         assert!(INDEX_HTML.contains("const accountName = identity?.authenticated"));
-        assert!(INDEX_HTML.contains("data-passkey-login"));
-        assert!(INDEX_HTML.contains("data-passkey-create"));
+        assert!(INDEX_HTML.contains("data-passkey-continue"));
+        assert!(!INDEX_HTML.contains("data-passkey-login"));
+        assert!(!INDEX_HTML.contains("data-passkey-create"));
+        assert!(!INDEX_HTML.contains("data-account-connect>link account"));
+        assert!(!INDEX_HTML.contains("id=\"account-username\""));
+        assert!(!INDEX_HTML.contains("id=\"account-display-name\""));
         assert!(INDEX_HTML.contains("data-wallet-link"));
         assert!(INDEX_HTML.contains(": \"local tale\""));
         assert!(!INDEX_HTML.contains("walletless"));
