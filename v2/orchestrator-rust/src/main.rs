@@ -24302,7 +24302,7 @@ async fn chat(
         plan
     };
 
-    let Some(_chat_guard) = try_begin_actor_chat(&state.actor_chat_locks, payload.actor_id) else {
+    let Some(chat_guard) = try_begin_actor_chat(&state.actor_chat_locks, payload.actor_id) else {
         return Json(ActionResponse {
             ok: false,
             status: CHAT_IN_FLIGHT_STATUS,
@@ -24446,7 +24446,12 @@ async fn chat(
 
     broadcast_events(&state, &events);
     if let Some(plan) = reply_plan {
-        complete_orb_chat_exchange(&state, payload.actor_id, payload.target_actor_id, plan).await;
+        let state = state.clone();
+        tokio::spawn(async move {
+            let _chat_guard = chat_guard;
+            complete_orb_chat_exchange(&state, payload.actor_id, payload.target_actor_id, plan)
+                .await;
+        });
     }
     Json(ActionResponse {
         ok: status == CW_OK,
@@ -30672,8 +30677,25 @@ fn broadcast_events(state: &AppState, events: &[EventView]) {
     }
 }
 
-async fn index() -> impl IntoResponse {
-    (no_store_headers(), Html(INDEX_HTML))
+fn index_etag() -> &'static str {
+    static ETAG: OnceLock<String> = OnceLock::new();
+    ETAG.get_or_init(|| format!("\"{}\"", stable_hash_hex(&[INDEX_HTML])))
+}
+
+async fn index(headers: HeaderMap) -> Response {
+    let etag = index_etag();
+    let cache_headers = [
+        (header::CACHE_CONTROL, "public, max-age=0, must-revalidate"),
+        (header::ETAG, etag),
+    ];
+    if headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value == etag)
+    {
+        return (StatusCode::NOT_MODIFIED, cache_headers).into_response();
+    }
+    (StatusCode::OK, cache_headers, Html(INDEX_HTML)).into_response()
 }
 
 async fn moderation_console() -> impl IntoResponse {
@@ -36151,6 +36173,22 @@ mod tests {
         assert!(!runtime.journeys.contains_key(&5000));
     }
 
+    #[tokio::test]
+    async fn index_shell_uses_a_stable_revalidation_etag() {
+        let response = index(HeaderMap::new()).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers()[header::CACHE_CONTROL],
+            "public, max-age=0, must-revalidate"
+        );
+        let etag = response.headers()[header::ETAG].clone();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(header::IF_NONE_MATCH, etag);
+        let response = index(headers).await;
+        assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+    }
+
     #[test]
     fn browser_index_contract_stays_chat_mud_shell() {
         assert!(INDEX_HTML.contains("role=\"log\""));
@@ -36172,6 +36210,8 @@ mod tests {
         assert!(!INDEX_HTML.contains("localStorage.setItem(\"cosyworld.openrouterApiKey\""));
         assert!(!INDEX_HTML.contains("sessionStorage.setItem(\"cosyworld.openrouterApiKey\""));
         assert!(INDEX_HTML.contains("walletRequestTimeoutMs"));
+        assert!(INDEX_HTML.contains("const stateRequest = api(statePath())"));
+        assert!(INDEX_HTML.contains("await Promise.all([pingPresence(), refresh()])"));
         assert!(INDEX_HTML.contains("window.phantom?.solana"));
         assert!(INDEX_HTML.contains("window.solflare"));
         assert!(INDEX_HTML.contains("Wallet connection timed out."));

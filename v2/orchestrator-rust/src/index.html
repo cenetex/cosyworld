@@ -2992,9 +2992,11 @@
       const previousLocationId = state?.location?.id || null;
       const wasTired = actorIsTired(state);
       const requestedActorId = actorId;
-      const nextState = await api(statePath());
+      const stateRequest = api(statePath());
+      const contentPacksRequest = ensureContentPacks().catch(() => null);
+      const nextState = await stateRequest;
       if (requestedActorId !== actorId) return;
-      await ensureContentPacks().catch(() => null);
+      await contentPacksRequest;
       const timelineRewound = transcriptTimelineRewound(nextState);
       state = nextState;
       const keepsakeLoadoutChanged = reconcileKeepsakeLoadout();
@@ -9038,8 +9040,7 @@
       try {
         await requestDevResetIfNeeded();
         await loadIdentity();
-        await pingPresence();
-        await refresh();
+        await Promise.all([pingPresence(), refresh()]);
         connectStream();
       } catch (error) {
         setError(String(error.message || error));

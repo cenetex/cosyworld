@@ -2,7 +2,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLayer};
 
 use super::*;
 
@@ -130,6 +130,7 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/flee", post(flee))
         .route("/commands", post(command))
         .route("/stream", get(stream))
+        .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state)
