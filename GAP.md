@@ -151,7 +151,7 @@ Implemented:
 
 - Humans do not submit text through the `Chat` verb specifically; `Chat` always asks the server to author the line. Separately, `say` lets a human submit free-text room speech directly (subject to moderation/sanitization), broadcast the same way as any other room event.
 - `Chat` validates actor session, target resident, rate limit, and shared location.
-- Server authors one player-avatar line using configured AI or deterministic fallback.
+- Server authors one player-avatar line using configured AI inference.
 - Avatar line commits through the C `SAY` event path.
 - Resident reply is scheduled and committed as another shared event.
 - Per-actor Chat in-flight lock rejects overlapping turns with `409`.
@@ -160,7 +160,7 @@ Gap:
 
 - AI output policy is prompt/sanitizer based. Broader moderation is still required before open public traffic.
 - Moderators can inspect all-room event history and suspend actors through protected endpoints, but there is no report queue or player-facing appeal/account flow.
-- Avatar line generation is one-shot. There is no retry UX beyond fallback.
+- Avatar line generation is one-shot. Inference failure is visible and uncharged, but there is not yet a richer retry UX.
 
 ### One-Button Browser MUD UI
 
@@ -272,8 +272,8 @@ Status: `Partial`.
 
 Evidence:
 
-- V2 has `AiConfig`, `request_ai_avatar_chat`, and `request_ai_resident_reply`.
-- V2 can use a single server OpenAI-compatible/OpenRouter key or deterministic fallback.
+- V2 has `ai_gateway.rs` for provider configuration, shared OpenAI-compatible requests, timeouts, bounded retries, typed failures, and inference tracing; dialogue plan construction and validation remain in the domain runtime.
+- V2 can use a single server OpenAI-compatible/OpenRouter key; dialogue inference fails closed when no model is available.
 - Legacy CosyWorld has text AI services, Gemini composition, Selfie/Scene camera tools, and battle media prompts.
 - Ruby High has OpenRouter PKCE, transient browser-held user keys, avatar-line generation, portrait generation, and reference-based class/graduation photos.
 - `AI.md` now defines the target gateway, media jobs, payer modes, and swarm pipeline.
@@ -285,7 +285,7 @@ Implemented:
 - Transient player OpenRouter key use for explicit `Chat`, with zero Orb spend.
 - One-to-many resident replies as room events.
 - Prompt-level constraint that the human operator is silent.
-- Deterministic fallback when no model key is configured.
+- Dialogue inference requires a configured model; unavailable inference emits no substitute speech.
 
 Gap:
 
@@ -437,7 +437,7 @@ Gap:
    A single shared global world now has protected all-room audit replay and actor suspension, but still needs content filtering, reports, richer mute/ban primitives, and retention rules before broad traffic.
 
 4. AI payer and cost controls are MVP-grade.
-   Player OpenRouter verification, Orb-paid server fallback, and usage ledgers now work, but production still needs an `ai_gateway` module, richer model latency/failure telemetry, and per-room spend budgets.
+   The first `ai_gateway` extraction, player OpenRouter verification, Orb-paid server inference, and usage ledgers now work, but production still needs gateway-owned payer resolution/ledger writes, richer aggregate model telemetry, and per-room spend budgets.
 
 5. Content authoring is still basic.
    Seed labels and level 2 evolution tracks are now data-backed, but the content pipeline still needs designer tooling, migrations, and higher-level evolution data.

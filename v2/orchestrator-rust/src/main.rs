@@ -1,4 +1,5 @@
 mod activation;
+mod ai_gateway;
 mod kernel;
 mod moderation;
 mod mud;
@@ -6,6 +7,7 @@ mod routes;
 mod turns;
 
 use activation::*;
+use ai_gateway::*;
 use axum::{
     extract::{ConnectInfo, Path as AxumPath, Query, State},
     http::{header, HeaderMap, StatusCode},
@@ -16,8 +18,7 @@ use axum::{
     Json,
 };
 use cosyworld_ai_model::{
-    AvatarChatModelInput, GeneratedAvatarIdentity as ModelGeneratedAvatarIdentity,
-    ResidentReplyModelInput,
+    GeneratedAvatarIdentity as ModelGeneratedAvatarIdentity, ResidentReplyModelInput,
 };
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use kernel::*;
@@ -84,16 +85,6 @@ struct AppState {
 }
 
 #[derive(Clone, Debug)]
-struct AiConfig {
-    api_key: String,
-    base_url: String,
-    model: String,
-}
-
-const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
-const DEFAULT_OPENAI_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
-
-#[derive(Clone, Debug)]
 struct RoomMemoryCacheEntry {
     day_index: u64,
     latest_seq: u64,
@@ -145,7 +136,6 @@ struct ResidentReplyPlan {
     cast: Vec<String>,
     recent_lines: Vec<String>,
     user_text: String,
-    fallback_text: String,
 }
 
 #[derive(Clone, Debug)]
@@ -167,7 +157,6 @@ struct AvatarChatPlan {
     recent_lines: Vec<String>,
     fresh_subject: Option<String>,
     missing_need: Option<String>,
-    fallback_text: String,
 }
 
 #[derive(Clone, Debug)]
@@ -303,6 +292,7 @@ const WHISKERWIND_ACTOR_ID: u64 = 1002;
 const SKULL_ACTOR_ID: u64 = 1003;
 #[cfg(test)]
 const MOONLIT_ECHO_ACTOR_ID: u64 = 1004;
+#[cfg(test)]
 const OLD_OAK_TREE_ACTOR_ID: u64 = 1005;
 #[cfg(test)]
 const BLUE_SQUIRREL_ACTOR_ID: u64 = 1044;
@@ -362,8 +352,6 @@ const MOONLIT_TRAIL_LOCATION_ID: u64 = 3;
 #[cfg(test)]
 const OLD_OAK_TREE_LOCATION_ID: u64 = 40;
 #[cfg(test)]
-const LOFTY_PEAK_LOCATION_ID: u64 = 31;
-#[cfg(test)]
 const CIRCLE_OF_MOON_LOCATION_ID: u64 = 35;
 const HEARTH_TONIC_WARMTH_TAG_ID: &str = "room:3:hearth_tonic_used";
 const FEATURE_BOND_TARGETS: &[FeatureBondTarget] = &[
@@ -406,6 +394,7 @@ const NARRATIVE_MOVE_SIGNATURE_TTL: Duration = Duration::from_secs(5 * 60);
 const NARRATIVE_MOVE_SIGNATURE_FUTURE_SKEW_SECS: u64 = 60;
 const NARRATIVE_MOVE_DELEGATION_MAX_TTL: Duration = Duration::from_secs(12 * 60 * 60);
 const GENERATED_PATHWAY_LOCATION_ID_BASE: u64 = 100_000;
+const GENERATED_PATHWAY_FAMILIARITY_SEGMENTS: u8 = 6;
 const EXPLORER_CALLING_STATEMENT: &str = "I explore the paths nobody has named yet.";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -454,6 +443,8 @@ struct GeneratedPathwayState {
     revealed_edges: BTreeSet<String>,
     #[serde(default)]
     art_eligible: bool,
+    #[serde(default)]
+    familiar: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -646,6 +637,10 @@ enum ProjectionMutation {
         reveal_edges: Vec<(u64, u64)>,
         narration: String,
         event_type: String,
+    },
+    UpgradePathwayIfReady {
+        pathway_id: String,
+        progress_clock_id: String,
     },
     SearchFeature {
         location_id: u64,
@@ -924,20 +919,6 @@ struct ResidentProposedAction {
     reason: Option<String>,
 }
 
-impl ResidentIntentProposal {
-    fn fallback(plan: &ResidentReplyPlan) -> Self {
-        Self {
-            speech: plan.fallback_text.clone(),
-            intent: plan.resident_continuity.current_intent.clone(),
-            belief: None,
-            desire: plan.resident_continuity.current_intent.clone(),
-            promise: None,
-            refusal: None,
-            proposed_action: None,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ItemMeta {
     name: String,
@@ -958,7 +939,6 @@ const SEED_CLOCKS_JSON: &str = include_str!("../../content/core/clocks.json");
 const SEED_JOBS_JSON: &str = include_str!("../../content/core/jobs.json");
 const SEED_FRONTS_JSON: &str = include_str!("../../content/core/fronts.json");
 const SEED_CARDS_JSON: &str = include_str!("../../content/core/cards.json");
-const SEED_FALLBACK_LINES_JSON: &str = include_str!("../../content/core/fallback_lines.json");
 const SEED_LIFECYCLE_HOOKS_JSON: &str = include_str!("../../content/core/lifecycle_hooks.json");
 const SEED_EVOLUTION_TRACKS_JSON: &str = include_str!("../../content/core/evolution_tracks.json");
 const SEED_RECIPES_JSON: &str = include_str!("../../content/core/recipes.json");
@@ -983,7 +963,6 @@ struct SeedContent {
     jobs: Vec<JobState>,
     fronts: Vec<SeedFrontContent>,
     cards: Vec<SeedCardContent>,
-    fallback_lines: Vec<SeedFallbackLineContent>,
     lifecycle_hooks: Vec<SeedLifecycleHookContent>,
     evolution_tracks: Vec<SeedEvolutionTrack>,
     recipes: Vec<SeedRecipeContent>,
@@ -1228,18 +1207,6 @@ struct SeedCardArtContent {
     ink: String,
     accent: String,
     glyph: String,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct SeedFallbackLineContent {
-    kind: String,
-    #[serde(default)]
-    actor_id: Option<u64>,
-    #[serde(default)]
-    target_actor_id: Option<u64>,
-    #[serde(default)]
-    location_id: Option<u64>,
-    text: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -3152,7 +3119,6 @@ fn parse_seed_content(manifest_json: &str) -> Result<SeedContent, String> {
         jobs: parse_seed_json("jobs.json", SEED_JOBS_JSON)?,
         fronts: parse_seed_json("fronts.json", SEED_FRONTS_JSON)?,
         cards: parse_seed_json("cards.json", SEED_CARDS_JSON)?,
-        fallback_lines: parse_seed_json("fallback_lines.json", SEED_FALLBACK_LINES_JSON)?,
         lifecycle_hooks: parse_seed_json("lifecycle_hooks.json", SEED_LIFECYCLE_HOOKS_JSON)?,
         evolution_tracks: parse_seed_json("evolution_tracks.json", SEED_EVOLUTION_TRACKS_JSON)?,
         recipes: parse_seed_json("recipes.json", SEED_RECIPES_JSON)?,
@@ -3226,7 +3192,6 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
         ("jobs", "jobs.json"),
         ("fronts", "fronts.json"),
         ("cards", "cards.json"),
-        ("fallback_lines", "fallback_lines.json"),
         ("lifecycle_hooks", "lifecycle_hooks.json"),
         ("evolution_tracks", "evolution_tracks.json"),
         ("recipes", "recipes.json"),
@@ -3775,42 +3740,6 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
                 "access gate for location {} references non-matching card {}",
                 gate.location_id, gate.required_card_id
             ));
-        }
-    }
-
-    for fallback in &content.fallback_lines {
-        if fallback.kind.trim().is_empty() || fallback.text.trim().is_empty() {
-            return Err("fallback line is missing kind or text".to_string());
-        }
-        if let Some(location_id) = fallback.location_id {
-            if !location_ids.contains(&location_id) {
-                return Err(format!(
-                    "fallback line references missing location {location_id}"
-                ));
-            }
-        }
-        match fallback.kind.as_str() {
-            "resident_reply" => {
-                let Some(actor_id) = fallback.actor_id else {
-                    return Err("resident_reply fallback is missing actor_id".to_string());
-                };
-                if !actor_ids.contains(&actor_id) {
-                    return Err(format!(
-                        "resident_reply fallback references missing actor {actor_id}"
-                    ));
-                }
-            }
-            "avatar_chat" => {
-                let Some(target_actor_id) = fallback.target_actor_id else {
-                    return Err("avatar_chat fallback is missing target_actor_id".to_string());
-                };
-                if !actor_ids.contains(&target_actor_id) {
-                    return Err(format!(
-                        "avatar_chat fallback references missing actor {target_actor_id}"
-                    ));
-                }
-            }
-            other => return Err(format!("invalid fallback line kind {other}")),
         }
     }
 
@@ -6442,51 +6371,6 @@ impl RateLimiter {
     }
 }
 
-impl AiConfig {
-    fn from_env() -> Option<Self> {
-        let api_key = std::env::var("COSYWORLD_AI_API_KEY")
-            .ok()
-            .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
-            .or_else(|| std::env::var("OPENAI_API_KEY").ok())
-            .filter(|key| !key.trim().is_empty());
-
-        let using_openrouter = std::env::var("OPENROUTER_API_KEY").is_ok()
-            || std::env::var("COSYWORLD_AI_PROVIDER")
-                .map(|provider| provider.eq_ignore_ascii_case("openrouter"))
-                .unwrap_or(false);
-        let base_url = std::env::var("COSYWORLD_AI_BASE_URL").unwrap_or_else(|_| {
-            if using_openrouter {
-                "https://openrouter.ai/api/v1".to_string()
-            } else {
-                "https://api.openai.com/v1".to_string()
-            }
-        });
-        let base_url = base_url.trim_end_matches('/').to_string();
-        let api_key = match api_key {
-            Some(key) => key,
-            None if local_ai_base_url(&base_url) => "local-ai".to_string(),
-            None => return None,
-        };
-        let model = std::env::var("COSYWORLD_AI_MODEL")
-            .ok()
-            .or_else(|| std::env::var("OPENROUTER_CHAT_MODEL").ok())
-            .or_else(|| std::env::var("OPENAI_MODEL").ok())
-            .unwrap_or_else(|| {
-                if using_openrouter {
-                    DEFAULT_OPENROUTER_CHAT_MODEL.to_string()
-                } else {
-                    DEFAULT_OPENAI_CHAT_MODEL.to_string()
-                }
-            });
-
-        Some(Self {
-            api_key,
-            base_url,
-            model,
-        })
-    }
-}
-
 impl ReplicateAvatarArtConfig {
     fn from_env() -> Option<Self> {
         let api_token = std::env::var("COSYWORLD_REPLICATE_API_TOKEN")
@@ -6545,12 +6429,6 @@ impl ReplicateAvatarArtConfig {
             output_format,
         })
     }
-}
-
-fn local_ai_base_url(base_url: &str) -> bool {
-    base_url.starts_with("http://127.0.0.1:")
-        || base_url.starts_with("http://localhost:")
-        || base_url.starts_with("http://[::1]:")
 }
 
 impl BoxBurnVerifierConfig {
@@ -7224,12 +7102,18 @@ impl RuntimeWorld {
     }
 
     fn ensure_generated_pathway_topology(&mut self) {
+        for pathway in self.generated_pathways.values_mut() {
+            if pathway.distance >= 2 {
+                pathway.art_eligible = true;
+            }
+        }
         let pathways = self
             .generated_pathways
             .values()
             .cloned()
             .collect::<Vec<_>>();
         for pathway in pathways {
+            self.ensure_generated_pathway_project(&pathway);
             for edge in &pathway.revealed_edges {
                 let Some((from_location_id, to_location_id)) = parse_pathway_edge_key(edge) else {
                     continue;
@@ -7237,6 +7121,78 @@ impl RuntimeWorld {
                 self.ensure_generated_pathway_edge(&pathway, from_location_id, to_location_id);
             }
         }
+    }
+
+    fn ensure_generated_pathway_project(&mut self, pathway: &GeneratedPathwayState) {
+        let Some(scope_id) = pathway.waypoints.first().map(|waypoint| waypoint.id) else {
+            return;
+        };
+        let progress_clock_id = generated_pathway_progress_clock_id(&pathway.id);
+        let danger_clock_id = generated_pathway_danger_clock_id(&pathway.id);
+        let job_id = generated_pathway_job_id(&pathway.id);
+        self.clocks
+            .entry(progress_clock_id.clone())
+            .or_insert_with(|| ClockState {
+                id: progress_clock_id.clone(),
+                scope: "room".to_string(),
+                scope_id,
+                kind: "progress".to_string(),
+                zone: ZONE_FRONTIER.to_string(),
+                label: "Make this way familiar".to_string(),
+                segments: GENERATED_PATHWAY_FAMILIARITY_SEGMENTS,
+                filled: if pathway.familiar {
+                    GENERATED_PATHWAY_FAMILIARITY_SEGMENTS
+                } else {
+                    0
+                },
+                visible_to_players: true,
+                status: if pathway.familiar { "filled" } else { "active" }.to_string(),
+                on_fill: Vec::new(),
+                created_event_seq: None,
+                updated_event_seq: None,
+            });
+        self.clocks
+            .entry(danger_clock_id.clone())
+            .or_insert_with(|| ClockState {
+                id: danger_clock_id.clone(),
+                scope: "room".to_string(),
+                scope_id,
+                kind: "danger".to_string(),
+                zone: ZONE_FRONTIER.to_string(),
+                label: "The wild way shifts".to_string(),
+                segments: GENERATED_PATHWAY_FAMILIARITY_SEGMENTS,
+                filled: 0,
+                visible_to_players: true,
+                status: if pathway.familiar { "quiet" } else { "active" }.to_string(),
+                on_fill: Vec::new(),
+                created_event_seq: None,
+                updated_event_seq: None,
+            });
+        self.jobs.entry(job_id.clone()).or_insert_with(|| JobState {
+            id: job_id,
+            premise: "Make the newly found way familiar.".to_string(),
+            stakes: "Until enough travelers help, the route stays wild and changeable.".to_string(),
+            location_ids: pathway
+                .waypoints
+                .iter()
+                .map(|waypoint| waypoint.id)
+                .collect(),
+            participant_ids: Vec::new(),
+            progress_clock_id,
+            danger_clock_id,
+            status: if pathway.familiar {
+                "completed"
+            } else {
+                "active"
+            }
+            .to_string(),
+            reward: JobReward::Label(
+                "The route settles and earns a lasting illustrated landscape.".to_string(),
+            ),
+            consequence: "The route remains a wild frontier.".to_string(),
+            memory_summary: "Travelers worked together until the new way felt familiar."
+                .to_string(),
+        });
     }
 
     fn ensure_generated_pathway_edge(
@@ -8619,7 +8575,8 @@ impl RuntimeWorld {
                             .insert(pathway_edge_key(*from_location_id, *to_location_id));
                     }
                     self.generated_pathways
-                        .insert(next_pathway.id.clone(), next_pathway);
+                        .insert(next_pathway.id.clone(), next_pathway.clone());
+                    self.ensure_generated_pathway_project(&next_pathway);
                     if let Some(journey) = journey {
                         self.journeys.insert(action.actor_id, journey.clone());
                     } else {
@@ -8637,6 +8594,44 @@ impl RuntimeWorld {
                         action.actor_id,
                         narration,
                         journey_destination,
+                    ));
+                }
+                ProjectionMutation::UpgradePathwayIfReady {
+                    pathway_id,
+                    progress_clock_id,
+                } => {
+                    let ready = self
+                        .clocks
+                        .get(progress_clock_id)
+                        .is_some_and(|clock| clock.filled >= clock.segments);
+                    let should_upgrade = ready
+                        && self
+                            .generated_pathways
+                            .get(pathway_id)
+                            .is_some_and(|pathway| !pathway.familiar);
+                    if !should_upgrade {
+                        continue;
+                    }
+                    if let Some(pathway) = self.generated_pathways.get_mut(pathway_id) {
+                        pathway.familiar = true;
+                    }
+                    if let Some(clock) = self
+                        .clocks
+                        .get_mut(&generated_pathway_danger_clock_id(pathway_id))
+                    {
+                        clock.status = "quiet".to_string();
+                    }
+                    events.extend(self.set_job_status_events(
+                        &generated_pathway_job_id(pathway_id),
+                        "completed",
+                        action.actor_id,
+                        "pathway_familiarized",
+                    ));
+                    events.push(self.append_journey_event(
+                        "pathway.familiarized",
+                        action.actor_id,
+                        "Travelers have made the whole way familiar; its lasting landscape can now take shape.",
+                        None,
                     ));
                 }
                 ProjectionMutation::SearchFeature {
@@ -10838,6 +10833,7 @@ impl RuntimeWorld {
     fn journey_view(&self, actor_id: u64) -> Option<JourneyView> {
         let journey = self.journeys.get(&actor_id)?;
         let total_steps = journey.path.len().saturating_sub(1);
+        let current_location_id = journey.path.get(journey.current_step).copied();
         let next_location_id = journey.path.get(journey.current_step + 1).copied();
         Some(JourneyView {
             destination_location_id: journey.destination_location_id,
@@ -10849,12 +10845,32 @@ impl RuntimeWorld {
             next_location_id,
             next_location_name: next_location_id.and_then(|id| {
                 if id >= GENERATED_PATHWAY_LOCATION_ID_BASE {
-                    Some(format!(
-                        "Pathway to {} {}/{}",
-                        journey.destination_name,
-                        journey.current_step + 1,
-                        total_steps
-                    ))
+                    let revealed = current_location_id.is_some_and(|current_id| {
+                        self.generated_pathways
+                            .get(&journey.pathway_id)
+                            .is_some_and(|pathway| {
+                                pathway
+                                    .revealed_edges
+                                    .contains(&pathway_edge_key(current_id, id))
+                            })
+                    });
+                    if revealed {
+                        self.location_name(id).or_else(|| {
+                            self.generated_pathways
+                                .get(&journey.pathway_id)
+                                .and_then(|pathway| {
+                                    pathway.waypoints.iter().find(|waypoint| waypoint.id == id)
+                                })
+                                .map(|waypoint| waypoint.name.clone())
+                        })
+                    } else {
+                        Some(format!(
+                            "Unexplored stretch {}/{} toward {}",
+                            journey.current_step + 1,
+                            total_steps,
+                            journey.destination_name
+                        ))
+                    }
                 } else {
                     self.location_name(id)
                 }
@@ -10869,6 +10885,42 @@ impl RuntimeWorld {
     ) -> Option<&GeneratedPathwayState> {
         self.generated_pathways
             .get(&generated_pathway_id(from_location_id, to_location_id))
+    }
+
+    fn generated_pathway_for_location(&self, location_id: u64) -> Option<&GeneratedPathwayState> {
+        self.generated_pathways.values().find(|pathway| {
+            pathway
+                .waypoints
+                .iter()
+                .any(|waypoint| waypoint.id == location_id)
+        })
+    }
+
+    fn generated_pathway_id_for_progress_clock(&self, clock_id: &str) -> Option<String> {
+        self.generated_pathways
+            .values()
+            .find(|pathway| generated_pathway_progress_clock_id(&pathway.id) == clock_id)
+            .map(|pathway| pathway.id.clone())
+    }
+
+    fn generated_pathway_art_targets(&self, pathway_id: &str) -> Vec<(u64, String)> {
+        let Some(pathway) = self.generated_pathways.get(pathway_id) else {
+            return Vec::new();
+        };
+        if !pathway.familiar || !pathway.art_eligible {
+            return Vec::new();
+        }
+        pathway
+            .waypoints
+            .iter()
+            .filter_map(|waypoint| {
+                waypoint
+                    .meta
+                    .art_prompt
+                    .as_ref()
+                    .map(|prompt| (waypoint.id, prompt.clone()))
+            })
+            .collect()
     }
 
     fn generated_location_is_revealed(&self, location_id: u64) -> bool {
@@ -10910,9 +10962,6 @@ impl RuntimeWorld {
         let destination_name = self
             .location_name(destination_location_id)
             .unwrap_or_else(|| "another known place".to_string());
-        let journey_destination_name = self
-            .location_name(to_location_id)
-            .unwrap_or_else(|| destination_name.clone());
         let origin_meta = self.location_meta_for(origin_location_id);
         let destination_meta = self.location_meta_for(destination_location_id);
         let pathway_id = generated_pathway_id(origin_location_id, destination_location_id);
@@ -10929,14 +10978,10 @@ impl RuntimeWorld {
         let waypoints = (0..waypoint_count)
             .map(|index| {
                 let landmark_name = names[(seed as usize + index) % names.len()].to_string();
-                let name = format!(
-                    "Pathway to {journey_destination_name} {}/{}",
-                    index + 1,
-                    distance
-                );
                 let id = generated_pathway_location_id(&pathway_id, index);
                 let art_prompt = format!(
-                    "cozy storybook landscape, {landmark_name} along {name}, a newly explored pathway between {origin_name} and {destination_name}, {origin_biome} terrain meeting {destination_biome} terrain, {origin} meeting {destination}, no people, no text",
+                    "cozy storybook landscape, {landmark_name}, a hidden waypoint along a newly explored pathway between {origin_name} and {destination_name}, stretch {step} of {distance}, {origin_biome} terrain meeting {destination_biome} terrain, {origin} meeting {destination}, no people, no text",
+                    step = index + 1,
                     origin_biome = origin_meta.biome,
                     destination_biome = destination_meta.biome,
                     origin = origin_meta.description,
@@ -10955,16 +11000,16 @@ impl RuntimeWorld {
                     .collect::<Vec<_>>()
                     .join(", ");
                 let description = format!(
-                    "At {landmark_name}, {terrain_phrase} share {name}; weather and footprints are still deciding what belongs."
+                    "At {landmark_name}, {terrain_phrase} mark a half-known stretch between {origin_name} and {destination_name}; weather and footprints are still deciding what belongs."
                 );
                 GeneratedWaypointState {
                     id,
-                    name: name.clone(),
+                    name: landmark_name.clone(),
                     meta: LocationMeta {
                         title: "Newly Found Path".to_string(),
                         description,
                         persona: format!(
-                            "{name} is unfinished geography: alert, changeable, and eager to become familiar through footsteps."
+                            "{landmark_name} is unfinished geography: alert, changeable, and eager to become familiar through footsteps."
                         ),
                         memory: vec![format!(
                             "An Explorer first drew this path between {origin_name} and {destination_name}."
@@ -10985,7 +11030,8 @@ impl RuntimeWorld {
             created_by_actor_id: actor_id,
             waypoints,
             revealed_edges: BTreeSet::new(),
-            art_eligible: distance >= 3 && self.actor_is_explorer(actor_id),
+            art_eligible: distance >= 2,
+            familiar: false,
         }
     }
 
@@ -11035,15 +11081,99 @@ impl RuntimeWorld {
                 .get(next_step)
                 .copied()
                 .ok_or_else(|| "This pathway has already arrived.".to_string())?;
-            if requested_destination_id != next_location_id {
-                return Err("Follow the next adjacent stretch of the pathway.".to_string());
-            }
             let pathway = self
                 .generated_pathways
                 .get(&current.pathway_id)
                 .cloned()
                 .ok_or_else(|| "The pathway has slipped out of the shared map.".to_string())?;
             let current_location_id = current.path[current.current_step];
+            if requested_destination_id != next_location_id {
+                let alternate_distance =
+                    self.pathway_distance(actor.location_id, requested_destination_id);
+                if alternate_distance > 1 {
+                    return self
+                        .plan_new_journey(actor, requested_destination_id, alternate_distance)
+                        .map(Some);
+                }
+                let adjacent = self.world.exits[..self.world.exit_count]
+                    .iter()
+                    .any(|exit| {
+                        exit.from_location_id == actor.location_id
+                            && exit.to_location_id == requested_destination_id
+                            && exit.flags & CW_EXIT_LOCKED == 0
+                    });
+                if !adjacent {
+                    return Err("That place is not an open adjacent path.".to_string());
+                }
+                let previous_step = current.current_step.checked_sub(1);
+                let backtracking = previous_step.is_some_and(|step| {
+                    current.path.get(step).copied() == Some(requested_destination_id)
+                        && pathway.revealed_edges.contains(&pathway_edge_key(
+                            current_location_id,
+                            requested_destination_id,
+                        ))
+                });
+                let to_name = self
+                    .location_name(requested_destination_id)
+                    .or_else(|| {
+                        pathway
+                            .waypoints
+                            .iter()
+                            .find(|waypoint| waypoint.id == requested_destination_id)
+                            .map(|waypoint| waypoint.name.clone())
+                    })
+                    .unwrap_or_else(|| "another open way".to_string());
+                let mut next_journey = current.clone();
+                if let Some(step) = previous_step.filter(|_| backtracking) {
+                    next_journey.current_step = step;
+                }
+                let plan = JourneyNarrationPlan {
+                    actor_name: self
+                        .actor_name(actor_id)
+                        .unwrap_or_else(|| "The traveller".to_string()),
+                    from_name: self
+                        .location_name(current_location_id)
+                        .unwrap_or_else(|| "the path's edge".to_string()),
+                    to_name: to_name.clone(),
+                    destination_name: if backtracking {
+                        current.destination_name.clone()
+                    } else {
+                        to_name
+                    },
+                    current_step: if backtracking {
+                        next_journey.current_step
+                    } else {
+                        1
+                    },
+                    total_steps: if backtracking {
+                        current.path.len().saturating_sub(1)
+                    } else {
+                        1
+                    },
+                    explorer: current.explorer,
+                    discovery: false,
+                };
+                return Ok(Some((
+                    CwAction {
+                        kind: CW_ACTION_MOVE,
+                        actor_id,
+                        destination_location_id: requested_destination_id,
+                        ..CwAction::default()
+                    },
+                    ProjectionMutation::JourneyTransition {
+                        pathway,
+                        journey: backtracking.then_some(next_journey),
+                        reveal_edges: Vec::new(),
+                        narration: String::new(),
+                        event_type: if backtracking {
+                            "journey.backtracked".to_string()
+                        } else {
+                            "journey.paused".to_string()
+                        },
+                    },
+                    plan,
+                )));
+            }
             if actor.location_id != current_location_id
                 || !pathway
                     .revealed_edges
@@ -11104,6 +11234,17 @@ impl RuntimeWorld {
         if distance <= 1 {
             return Ok(None);
         }
+        self.plan_new_journey(actor, requested_destination_id, distance)
+            .map(Some)
+    }
+
+    fn plan_new_journey(
+        &self,
+        actor: CwActor,
+        requested_destination_id: u64,
+        distance: u8,
+    ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
+        let actor_id = actor.id;
         let explorer = self.actor_is_explorer(actor_id);
         let existing_pathway = self
             .pathway_for_anchors(actor.location_id, requested_destination_id)
@@ -11152,7 +11293,7 @@ impl RuntimeWorld {
             explorer,
             discovery: discovering_pathway,
         };
-        Ok(Some((
+        Ok((
             CwAction {
                 kind: CW_ACTION_NONE,
                 actor_id,
@@ -11166,7 +11307,7 @@ impl RuntimeWorld {
                 event_type: "pathway.discovered".to_string(),
             },
             plan,
-        )))
+        ))
     }
 
     fn plan_pathway_search(
@@ -13321,7 +13462,6 @@ impl RuntimeWorld {
             location_memory: location_meta.memory,
             cast: self.room_cast_names(actor.location_id),
             recent_lines: self.recent_room_lines(actor.location_id, 8),
-            fallback_text: self.resident_economy_action_fallback_text(actor, action),
             user_text,
         })
     }
@@ -13412,72 +13552,6 @@ impl RuntimeWorld {
             }
             _ => None,
         }
-    }
-
-    fn resident_economy_action_fallback_text(&self, actor: CwActor, action: &CwAction) -> String {
-        let name = self
-            .actor_name(actor.id)
-            .unwrap_or_else(|| format!("Resident {}", actor.id));
-        let speech_mode = self
-            .actors
-            .get(&actor.id)
-            .map(|meta| meta.speech_mode.as_str())
-            .unwrap_or("prose");
-        if matches!(speech_mode, "emoji" | "emoji_only") {
-            return "🤝✨🌿".to_string();
-        }
-        if matches!(speech_mode, "emote" | "emote_only" | "silent") {
-            return match action.kind {
-                CW_ACTION_MOVE => {
-                    format!("*{name} pads toward the next room, silent and alert.*")
-                }
-                CW_ACTION_TRADE_ITEM => format!("*{name} weighs the trade with a quiet nod.*"),
-                CW_ACTION_GIVE_ITEM => format!("*{name} passes the item over carefully.*"),
-                CW_ACTION_PICK_UP_ITEM => format!("*{name} gathers the item close.*"),
-                CW_ACTION_DROP_ITEM => format!("*{name} sets the item down and watches it rest.*"),
-                CW_ACTION_USE_ITEM => format!("*{name} uses the item with careful attention.*"),
-                _ => format!("*{name} acknowledges the room with a quiet nod.*"),
-            };
-        }
-        match action.kind {
-            CW_ACTION_GIVE_ITEM => {
-                format!("{name} smiles softly. \"That should stay with the one who needs it.\"")
-            }
-            CW_ACTION_TRADE_ITEM => {
-                format!("{name} weighs the exchange. \"This trade feels useful.\"")
-            }
-            CW_ACTION_USE_ITEM => format!("{name} steadies the room. \"This helps.\""),
-            CW_ACTION_PICK_UP_ITEM => {
-                format!("{name} gathers the item close. \"I was looking for this.\"")
-            }
-            CW_ACTION_DROP_ITEM => {
-                format!("{name} lets the item rest nearby. \"Something else matters more.\"")
-            }
-            CW_ACTION_MOVE => self.resident_move_fallback_text(actor, action),
-            _ => self.resident_fallback_for_target(actor.id),
-        }
-    }
-
-    fn resident_move_fallback_text(&self, actor: CwActor, action: &CwAction) -> String {
-        let name = self
-            .actor_name(actor.id)
-            .unwrap_or_else(|| format!("Resident {}", actor.id));
-        let destination = self
-            .location_name(action.destination_location_id)
-            .unwrap_or_else(|| "the next room".to_string());
-        let variants = [
-            format!("{name} heads toward {destination}. \"I'll listen for what changed.\""),
-            format!("{name} slips toward {destination}. \"The room is tugging me onward.\""),
-            format!("{name} follows the path to {destination}. \"Something shifted there.\""),
-            format!("{name} moves toward {destination}. \"I'll bring back what I notice.\""),
-        ];
-        let index = (self
-            .world
-            .tick
-            .wrapping_add(actor.id)
-            .wrapping_add(action.destination_location_id) as usize)
-            % variants.len();
-        variants[index].clone()
     }
 
     fn resident_memory_prompt_notes(&self, resident_id: u64) -> Vec<String> {
@@ -14777,19 +14851,7 @@ impl RuntimeWorld {
         let client_actor_id = actor_id.filter(|id| self.client_actor_can_submit(*id));
         let actor = client_actor_id.and_then(|id| self.actor_by_id(id));
         let location_id = actor.map(|actor| actor.location_id).unwrap_or(1);
-        let mut location = self.location_view(location_id);
-        if let Some(journey) = client_actor_id.and_then(|id| self.journeys.get(&id)) {
-            if location_id >= GENERATED_PATHWAY_LOCATION_ID_BASE
-                && journey.path.get(journey.current_step) == Some(&location_id)
-            {
-                location.name = format!(
-                    "Pathway to {} {}/{}",
-                    journey.destination_name,
-                    journey.current_step,
-                    journey.path.len().saturating_sub(1)
-                );
-            }
-        }
+        let location = self.location_view(location_id);
 
         let actors: Vec<ActorView> = self.world.actors[..self.world.actor_count]
             .iter()
@@ -15028,6 +15090,9 @@ impl RuntimeWorld {
     }
 
     fn location_is_frontier(&self, location_id: u64) -> bool {
+        if let Some(pathway) = self.generated_pathway_for_location(location_id) {
+            return !pathway.familiar;
+        }
         self.room_sheets
             .get(&location_id)
             .map(|sheet| room_sheet_zone(sheet) == ZONE_FRONTIER)
@@ -15088,6 +15153,19 @@ impl RuntimeWorld {
     }
 
     fn active_progress_clock_id_for_location(&self, location_id: u64) -> Option<String> {
+        if let Some(pathway) = self
+            .generated_pathway_for_location(location_id)
+            .filter(|pathway| !pathway.familiar)
+        {
+            let clock_id = generated_pathway_progress_clock_id(&pathway.id);
+            if self
+                .clocks
+                .get(&clock_id)
+                .is_some_and(|clock| clock.filled < clock.segments)
+            {
+                return Some(clock_id);
+            }
+        }
         let has_location_job = self.location_has_job(location_id);
         self.active_job_for_location(location_id)
             .map(|job| job.progress_clock_id.clone())
@@ -15899,6 +15977,42 @@ impl RuntimeWorld {
                 hooks: sheet.hooks.clone(),
                 resources: sheet.resources.clone(),
                 projects: sheet.projects.clone(),
+            })
+            .or_else(|| {
+                let pathway = self.generated_pathway_for_location(location_id)?;
+                let familiar = pathway.familiar;
+                let meta = self.location_meta_for(location_id);
+                Some(RoomSheetView {
+                    id: format!("generated-pathway-room:{location_id}"),
+                    location_id,
+                    name: self
+                        .location_name(location_id)
+                        .unwrap_or_else(|| "Newly Found Path".to_string()),
+                    safety: if familiar { "safe" } else { "risky" }.to_string(),
+                    zone: if familiar {
+                        ZONE_SANCTUARY
+                    } else {
+                        ZONE_FRONTIER
+                    }
+                    .to_string(),
+                    aspects: if meta.terrain.is_empty() {
+                        vec!["unfinished ground".to_string()]
+                    } else {
+                        meta.terrain.clone()
+                    },
+                    boons: vec![if familiar {
+                        "Travelers know how to find their footing here.".to_string()
+                    } else {
+                        "Every careful hand helps the route take shape.".to_string()
+                    }],
+                    hooks: vec![if familiar {
+                        "The settled way remembers who helped make it familiar.".to_string()
+                    } else {
+                        "Work together until the wild way becomes familiar.".to_string()
+                    }],
+                    resources: BTreeMap::new(),
+                    projects: vec![generated_pathway_job_id(&pathway.id)],
+                })
             })
     }
 
@@ -18534,13 +18648,6 @@ impl RuntimeWorld {
         let target_actor_name = self
             .actor_name(target_actor_id)
             .unwrap_or_else(|| format!("Actor {target_actor_id}"));
-        let fallback_text = avatar_chat_fallback_text(
-            actor_id,
-            &target_actor_name,
-            target_actor_id,
-            Some(target.location_id),
-            missing_need.as_deref(),
-        );
         let location_meta = self.location_meta_for(actor.location_id);
         let target_economy_note = self.resident_economy_prompt_note(target, Some(actor_id));
         let recent_lines = self.recent_room_lines(actor.location_id, 8);
@@ -18581,27 +18688,6 @@ impl RuntimeWorld {
             recent_lines,
             fresh_subject,
             missing_need,
-            fallback_text,
-        })
-    }
-
-    fn resident_fallback_for_target(&self, npc_actor_id: u64) -> String {
-        let location_id = self
-            .actor_by_id(npc_actor_id)
-            .map(|actor| actor.location_id);
-        if let Some(line) = seed_resident_fallback_line(npc_actor_id, location_id) {
-            return line;
-        }
-        let meta = self.actors.get(&npc_actor_id);
-        cosyworld_ai_model::generate_resident_reply(&ResidentReplyModelInput {
-            npc_actor_id,
-            npc_name: self
-                .actor_name(npc_actor_id)
-                .unwrap_or_else(|| format!("Actor {npc_actor_id}")),
-            speech_mode: meta
-                .map(|meta| meta.speech_mode.clone())
-                .unwrap_or_else(|| "prose".to_string()),
-            user_text: String::new(),
         })
     }
 
@@ -18611,127 +18697,7 @@ impl RuntimeWorld {
         target_actor_id: u64,
         text: &str,
     ) -> Option<ResidentReplyPlan> {
-        self.resident_reply_plan_for_target_with_fallback(
-            speaker_actor_id,
-            target_actor_id,
-            text,
-            self.resident_conversation_fallback(target_actor_id, text),
-        )
-    }
-
-    fn resident_reactive_fallback(&self, npc_actor_id: u64, user_text: &str) -> String {
-        let meta = self.actors.get(&npc_actor_id);
-        cosyworld_ai_model::generate_resident_reply(&ResidentReplyModelInput {
-            npc_actor_id,
-            npc_name: self
-                .actor_name(npc_actor_id)
-                .unwrap_or_else(|| format!("Actor {npc_actor_id}")),
-            speech_mode: meta
-                .map(|meta| meta.speech_mode.clone())
-                .unwrap_or_else(|| "prose".to_string()),
-            user_text: user_text.to_string(),
-        })
-    }
-
-    fn resident_conversation_fallback(&self, npc_actor_id: u64, user_text: &str) -> String {
-        let contextual = self.resident_contextual_fallback(npc_actor_id, user_text);
-        if contextual != self.resident_fallback_for_target(npc_actor_id) {
-            return contextual;
-        }
-        if let Some(subject) = self.conversation_subject(user_text, npc_actor_id) {
-            let speech_mode = self
-                .actors
-                .get(&npc_actor_id)
-                .map(|meta| meta.speech_mode.as_str())
-                .unwrap_or("prose");
-            return match npc_actor_id {
-                RATI_ACTOR_ID => format!(
-                    "Rati's needles pause. \"{subject}. Start with what it does, not where you hope it belongs. What have you seen?\""
-                ),
-                WHISKERWIND_ACTOR_ID => "👀👉🔎✨".to_string(),
-                SKULL_ACTOR_ID => format!(
-                    "*Skull lifts both ears at {subject}; then points toward the nearest useful clue.*"
-                ),
-                OLD_OAK_TREE_ACTOR_ID => format!(
-                    "[Ring] {subject}, noted. [Root] Start with what you know. [Leaf] And snacks. [Hollow] Tell us the clue."
-                ),
-                _ if matches!(speech_mode, "emoji" | "emoji_only") => {
-                    "👀👉🔎✨".to_string()
-                }
-                _ if matches!(speech_mode, "emote" | "emote_only" | "silent") => format!(
-                    "*{} looks toward {subject}, then nudges the nearest clue closer.*",
-                    self.actor_name(npc_actor_id)
-                        .unwrap_or_else(|| "A nearby resident".to_string())
-                ),
-                _ => format!(
-                    "{} nods at the mention of {subject}. \"Start with what you noticed. What does it seem to want?\"",
-                    self.actor_name(npc_actor_id)
-                        .unwrap_or_else(|| "A nearby resident".to_string())
-                ),
-            };
-        }
-        contextual
-    }
-
-    fn resident_contextual_fallback(&self, npc_actor_id: u64, user_text: &str) -> String {
-        let reactive = self.resident_reactive_fallback(npc_actor_id, user_text);
-        let unprompted = self.resident_reactive_fallback(npc_actor_id, "");
-        if reactive == unprompted {
-            self.resident_fallback_for_target(npc_actor_id)
-        } else {
-            reactive
-        }
-    }
-
-    fn resident_conversation_closing_fallback(&self, npc_actor_id: u64, user_text: &str) -> String {
-        let subject = self.conversation_subject(user_text, npc_actor_id);
-        let speech_mode = self
-            .actors
-            .get(&npc_actor_id)
-            .map(|meta| meta.speech_mode.as_str())
-            .unwrap_or("prose");
-        match (npc_actor_id, subject.as_deref()) {
-            (RATI_ACTOR_ID, Some(subject)) => format!(
-                "Rati winds one loose thread around her needle. \"{subject}, then. We'll keep that thought warm until the next cup of tea.\""
-            ),
-            (RATI_ACTOR_ID, None) => {
-                "Rati tucks her needles away. \"Good. We'll keep that thought warm until the next cup of tea.\"".to_string()
-            }
-            (WHISKERWIND_ACTOR_ID, _) => "🫖✨🤝".to_string(),
-            (SKULL_ACTOR_ID, Some(subject)) => format!(
-                "*Skull settles beside {subject} and gives the matter one final nod.*"
-            ),
-            (SKULL_ACTOR_ID, None) => {
-                "*Skull settles by the doorway and gives the matter one final nod.*".to_string()
-            }
-            (OLD_OAK_TREE_ACTOR_ID, Some(subject)) => format!(
-                "[Ring] {subject}, remembered. [Root] Enough for now. [Leaf] Snacks. [Hollow] I get the last word."
-            ),
-            (OLD_OAK_TREE_ACTOR_ID, None) => {
-                "[Ring] Remembered. [Root] Enough for now. [Leaf] Snacks. [Hollow] I get the last word.".to_string()
-            }
-            (_, _) if matches!(speech_mode, "emoji" | "emoji_only") => "🫖✨🤝".to_string(),
-            (_, Some(subject)) if matches!(speech_mode, "emote" | "emote_only" | "silent") => format!(
-                "*{} settles beside {subject} and gives the matter one final nod.*",
-                self.actor_name(npc_actor_id)
-                    .unwrap_or_else(|| "A nearby resident".to_string())
-            ),
-            (_, None) if matches!(speech_mode, "emote" | "emote_only" | "silent") => format!(
-                "*{} gives the matter one final nod.*",
-                self.actor_name(npc_actor_id)
-                    .unwrap_or_else(|| "A nearby resident".to_string())
-            ),
-            (_, Some(subject)) => format!(
-                "{} nods. \"We'll keep {subject} in mind for next time.\"",
-                self.actor_name(npc_actor_id)
-                    .unwrap_or_else(|| "A nearby resident".to_string())
-            ),
-            (_, None) => format!(
-                "{} nods. \"We'll keep that thought for next time.\"",
-                self.actor_name(npc_actor_id)
-                    .unwrap_or_else(|| "A nearby resident".to_string())
-            ),
-        }
+        self.resident_reply_plan_for_target_with_context(speaker_actor_id, target_actor_id, text)
     }
 
     fn conversation_subject(&self, text: &str, npc_actor_id: u64) -> Option<String> {
@@ -18954,69 +18920,6 @@ impl RuntimeWorld {
         }
     }
 
-    fn card_reaction_fallback(
-        &self,
-        target: CwActor,
-        event: &EventView,
-        action_text: &str,
-    ) -> String {
-        let subject = self.card_reaction_subject(event);
-        let Some(subject) = subject else {
-            return self.resident_contextual_fallback(target.id, action_text);
-        };
-        let speech_mode = self
-            .actors
-            .get(&target.id)
-            .map(|meta| meta.speech_mode.as_str())
-            .unwrap_or("prose");
-        if matches!(speech_mode, "emoji" | "emoji_only") {
-            return self.resident_contextual_fallback(target.id, action_text);
-        }
-        let discovery = matches!(
-            event.type_name.as_str(),
-            "ability_check.rolled"
-                | "location.searched"
-                | "feature.searched"
-                | "exit.discovered"
-                | "avatar.discovered"
-        );
-        let keepsake = matches!(
-            event.type_name.as_str(),
-            "item.picked_up" | "item.dropped" | "item.used" | "item.given" | "item.traded"
-        );
-        match target.id {
-            RATI_ACTOR_ID if discovery => format!(
-                "Rati follows your glance toward {subject}. \"There's the little clue. What do you think it wants next?\""
-            ),
-            RATI_ACTOR_ID if keepsake => format!(
-                "Rati turns {subject} over gently. \"There now. Where does it belong next?\""
-            ),
-            RATI_ACTOR_ID => self.resident_contextual_fallback(target.id, action_text),
-            SKULL_ACTOR_ID if discovery => {
-                format!("*Skull studies {subject}, then points toward the next question.*")
-            }
-            SKULL_ACTOR_ID if keepsake => {
-                format!("*Skull inspects {subject} and gives its new place one solemn nod.*")
-            }
-            SKULL_ACTOR_ID => self.resident_contextual_fallback(target.id, action_text),
-            OLD_OAK_TREE_ACTOR_ID if discovery => format!(
-                "[Leaf] {subject}! [Ring] Noted. [Root] What changed? [Hollow] Let them tell it."
-            ),
-            OLD_OAK_TREE_ACTOR_ID if keepsake => format!(
-                "[Ring] {subject}, newly placed. [Leaf] I like it. [Root] Watch what follows."
-            ),
-            OLD_OAK_TREE_ACTOR_ID => self.resident_contextual_fallback(target.id, action_text),
-            _ if matches!(speech_mode, "emote" | "emote_only" | "silent") => {
-                self.resident_contextual_fallback(target.id, action_text)
-            }
-            _ => format!(
-                "{} looks toward {subject}. \"I saw that. What do you think it changes?\"",
-                self.actor_name(target.id)
-                    .unwrap_or_else(|| "A nearby resident".to_string())
-            ),
-        }
-    }
-
     fn next_resident_card_reaction_plan(
         &self,
         speaker_actor_id: u64,
@@ -19074,21 +18977,14 @@ impl RuntimeWorld {
             .unwrap_or_else(|| "The visitor".to_string());
         let reaction_event = self.card_reaction_event(speaker_actor_id, events)?;
         let action_text = self.card_reaction_action_text(&actor_name, reaction_event);
-        let fallback = self.card_reaction_fallback(target, reaction_event, &action_text);
-        self.resident_reply_plan_for_target_with_fallback(
-            speaker_actor_id,
-            target.id,
-            &action_text,
-            fallback,
-        )
+        self.resident_reply_plan_for_target_with_context(speaker_actor_id, target.id, &action_text)
     }
 
-    fn resident_reply_plan_for_target_with_fallback(
+    fn resident_reply_plan_for_target_with_context(
         &self,
         speaker_actor_id: u64,
         target_actor_id: u64,
         text: &str,
-        fallback_text: String,
     ) -> Option<ResidentReplyPlan> {
         let speaker = self.actor_by_id(speaker_actor_id)?;
         let npc = self.actor_by_id(target_actor_id)?;
@@ -19124,7 +19020,6 @@ impl RuntimeWorld {
             cast: self.room_cast_names(npc.location_id),
             recent_lines: self.recent_room_lines(npc.location_id, 8),
             user_text: text.to_string(),
-            fallback_text,
         })
     }
 
@@ -19278,7 +19173,6 @@ impl RuntimeWorld {
             cast: self.room_cast_names(npc.location_id),
             recent_lines: self.recent_room_lines(npc.location_id, 8),
             user_text: "The room has been quiet. Add one fresh in-character ambient beat that follows the recent room dialogue without repeating an earlier line.".to_string(),
-            fallback_text: self.resident_fallback_for_target(npc.id),
         })
     }
 
@@ -19492,8 +19386,8 @@ impl RuntimeWorld {
     fn collision_safe_resident_proposal(
         &self,
         plan: &ResidentReplyPlan,
-        mut proposal: ResidentIntentProposal,
-    ) -> ResidentIntentProposal {
+        proposal: ResidentIntentProposal,
+    ) -> Option<ResidentIntentProposal> {
         let location_id = self
             .actor_by_id(plan.npc_actor_id)
             .map(|actor| actor.location_id)
@@ -19503,121 +19397,20 @@ impl RuntimeWorld {
             location_id,
             &proposal.speech,
         ) {
-            return proposal;
+            return Some(proposal);
         }
-
-        let mut candidates = vec![plan.fallback_text.clone()];
-        match plan.npc_actor_id {
-            RATI_ACTOR_ID => candidates.extend([
-                "I saw that. Put it by the kettle and tell me what you meant by it.".to_string(),
-                "Well, that changed the room. Wipe your boots and keep going.".to_string(),
-                "There now. The room noticed, and so did I. What comes next?".to_string(),
-            ]),
-            WHISKERWIND_ACTOR_ID => candidates.extend([
-                "👀✨🌿".to_string(),
-                "🫖🫶✨".to_string(),
-                "🌧️👉🎁".to_string(),
-                "🍃👂💫".to_string(),
-            ]),
-            SKULL_ACTOR_ID => candidates.extend([
-                "*Skull gives the changed room one grave, practical nod.*".to_string(),
-                "*Skull checks the doorway, then nods once at the new trouble.*".to_string(),
-                "*Skull watches the little consequence settle into place.*".to_string(),
-            ]),
-            OLD_OAK_TREE_ACTOR_ID => candidates.extend([
-                "[Root] Good. [Ring] Precedent agrees. [Leaf] Did something sparkle? [Hollow] Keep going.".to_string(),
-                "[Ring] Noted. [Root] Hmph. [Leaf] I liked that bit. [Hollow] What happens next?".to_string(),
-            ]),
-            _ if matches!(plan.speech_mode.as_str(), "emoji" | "emoji_only") => candidates
-                .extend([
-                    "👀✨🌿".to_string(),
-                    "🫶🕯️✨".to_string(),
-                    "🍃👉💫".to_string(),
-                ]),
-            _ if matches!(
-                plan.speech_mode.as_str(),
-                "emote" | "emote_only" | "silent"
-            ) => candidates.extend([
-                format!("*{} notices the change and leans in.*", plan.npc_name),
-                format!("*{} gives the moment a careful nod.*", plan.npc_name),
-                format!("*{} watches to see what follows.*", plan.npc_name),
-            ]),
-            _ => candidates.extend([
-                "Oh, that matters. Keep going—I’m listening.".to_string(),
-                "There. The room feels a little different now. What comes next?".to_string(),
-                "I noticed that too. Which small piece should we follow?".to_string(),
-            ]),
-        }
-
-        let start = (self.world.next_event_seq as usize) % candidates.len().max(1);
-        let mut first_valid = None;
-        for offset in 0..candidates.len() {
-            let candidate = &candidates[(start + offset) % candidates.len()];
-            let Some(candidate) = sanitize_resident_reply(plan, candidate) else {
-                continue;
-            };
-            first_valid.get_or_insert_with(|| candidate.clone());
-            if !self.resident_reply_repeats_recent_event(plan.npc_actor_id, location_id, &candidate)
-            {
-                proposal.speech = candidate;
-                return proposal;
-            }
-        }
-
-        // A promised player-triggered beat is more important than perfect variety.
-        // This is only reachable after every contract-safe alternate was recently used.
-        if let Some(candidate) = first_valid {
-            proposal.speech = candidate;
-        }
-        proposal
+        None
     }
 
-    fn collision_safe_avatar_followup(
-        &self,
-        actor_id: u64,
-        plan: &AvatarChatPlan,
-        proposed: &str,
-    ) -> String {
+    fn collision_safe_avatar_followup(&self, actor_id: u64, proposed: &str) -> Option<String> {
         let location_id = self
             .actor_by_id(actor_id)
             .map(|actor| actor.location_id)
             .unwrap_or_default();
         if !self.resident_reply_repeats_recent_event(actor_id, location_id, proposed) {
-            return proposed.to_string();
+            return Some(proposed.to_string());
         }
-
-        let mut candidates = Vec::new();
-        if let Some(subject) = plan.fresh_subject.as_deref() {
-            candidates.push(format!(
-                "Then let’s follow {subject} one step further. Where would you start?"
-            ));
-        }
-        candidates.extend([
-            format!(
-                "I like that, {}. What small thing should we notice next?",
-                plan.target_actor_name
-            ),
-            "Then let’s carry that thought one step further—what would you try first?".to_string(),
-            "All right. Give me one detail you don’t want the room to lose.".to_string(),
-            format!(
-                "Before we leave {}, what should we keep close?",
-                plan.location_name
-            ),
-        ]);
-        let start = (self.world.next_event_seq as usize) % candidates.len().max(1);
-        for offset in 0..candidates.len() {
-            let candidate = &candidates[(start + offset) % candidates.len()];
-            let Some(candidate) = sanitize_avatar_chat(candidate) else {
-                continue;
-            };
-            if !self.resident_reply_repeats_recent_event(actor_id, location_id, &candidate) {
-                return candidate;
-            }
-        }
-
-        // Preserve the promised conversational beat even in the extremely unlikely
-        // case that every authored alternate is still in the recent window.
-        proposed.to_string()
+        None
     }
 
     fn resident_autonomy_action_repeats_recent_event(
@@ -20000,7 +19793,9 @@ impl RuntimeWorld {
         };
         proposed_action.reason = Some(intent.clone());
         ResidentIntentProposal {
-            speech: self.resident_economy_action_fallback_text(actor, action),
+            // Autonomy continuity is not visible dialogue. Spoken reactions are
+            // generated separately through the resident inference path.
+            speech: intent.clone(),
             intent: Some(intent.clone()),
             belief: None,
             desire: Some(intent),
@@ -23714,7 +23509,29 @@ async fn chat(
         tokio::time::sleep(state.avatar_chat_delay).await;
     }
 
-    let content = avatar_chat_text(state.ai_config.as_ref().as_ref(), &plan).await;
+    let content = match avatar_chat_text(state.ai_config.as_ref().as_ref(), &plan).await {
+        Ok(content) => content,
+        Err(error) => {
+            warn!("AI avatar inference failed; rejecting chat: {}", error);
+            record_ai_usage(
+                &state,
+                Some(payload.actor_id),
+                "avatar_chat",
+                payer_mode,
+                success_usage_config.as_ref(),
+                "failed",
+                None,
+                0,
+                Some(error.code()),
+                chat_started_at.elapsed(),
+            );
+            return Json(ActionResponse {
+                ok: false,
+                status: StatusCode::SERVICE_UNAVAILABLE.as_u16() as u32,
+                events: Vec::new(),
+            });
+        }
+    };
 
     let mut runtime = state.inner.lock().await;
     if !client_actor_authorized_for_state(
@@ -25025,11 +24842,13 @@ async fn command(
 }
 
 async fn complete_resident_reply(state: &AppState, plan: ResidentReplyPlan) {
-    // Scene-card replies are deliberately local and immediate. They are a
-    // turn-order affordance, not a second paid generation: committing them
-    // before the action request returns prevents a later card (or Orb Chat)
-    // from being interleaved with a reply that belonged to the previous card.
-    let proposal = ResidentIntentProposal::fallback(&plan);
+    let proposal = match resident_reply_intent(state.ai_config.as_ref().as_ref(), &plan).await {
+        Ok(proposal) => proposal,
+        Err(error) => {
+            warn!("AI resident inference failed; skipping dialogue: {}", error);
+            return;
+        }
+    };
     let mut runtime = state.inner.lock().await;
     let Some(events) = commit_resident_reply_record(state, &mut runtime, &plan, proposal) else {
         return;
@@ -25045,7 +24864,16 @@ async fn complete_orb_chat_exchange(
     first_reply_plan: ResidentReplyPlan,
 ) {
     let first_proposal =
-        resident_reply_intent(state.ai_config.as_ref().as_ref(), &first_reply_plan).await;
+        match resident_reply_intent(state.ai_config.as_ref().as_ref(), &first_reply_plan).await {
+            Ok(proposal) => proposal,
+            Err(error) => {
+                warn!(
+                    "AI resident inference failed; ending chat exchange: {}",
+                    error
+                );
+                return;
+            }
+        };
     let first_reply_events = {
         let mut runtime = state.inner.lock().await;
         commit_resident_reply_record(state, &mut runtime, &first_reply_plan, first_proposal)
@@ -25069,7 +24897,17 @@ async fn complete_orb_chat_exchange(
     let Some(followup_plan) = followup_plan else {
         return;
     };
-    let proposed_followup = avatar_chat_followup_text(None, &followup_plan).await;
+    let proposed_followup =
+        match avatar_chat_followup_text(state.ai_config.as_ref().as_ref(), &followup_plan).await {
+            Ok(followup) => followup,
+            Err(error) => {
+                warn!(
+                    "AI avatar follow-up inference failed; ending chat exchange: {}",
+                    error
+                );
+                return;
+            }
+        };
     let (followup_events, closing_plan) = {
         let mut runtime = state.inner.lock().await;
         if runtime
@@ -25078,8 +24916,11 @@ async fn complete_orb_chat_exchange(
         {
             return;
         }
-        let followup =
-            runtime.collision_safe_avatar_followup(actor_id, &followup_plan, &proposed_followup);
+        let Some(followup) = runtime.collision_safe_avatar_followup(actor_id, &proposed_followup)
+        else {
+            warn!("AI avatar follow-up repeated recent dialogue; ending chat exchange");
+            return;
+        };
         let content_id = runtime.next_content_id_value();
         let mut record = JournalRecord::new(
             CwAction {
@@ -25110,13 +24951,7 @@ async fn complete_orb_chat_exchange(
         if status != CW_OK || events.is_empty() {
             return;
         }
-        let fallback = runtime.resident_conversation_closing_fallback(target_actor_id, &followup);
-        let plan = runtime.resident_reply_plan_for_target_with_fallback(
-            actor_id,
-            target_actor_id,
-            &followup,
-            fallback,
-        );
+        let plan = runtime.resident_reply_plan_for_target(actor_id, target_actor_id, &followup);
         (events, plan)
     };
     broadcast_events(state, &followup_events);
@@ -25125,42 +24960,19 @@ async fn complete_orb_chat_exchange(
     let Some(closing_plan) = closing_plan else {
         return;
     };
-    let mut closing_proposal = resident_reply_intent(None, &closing_plan).await;
+    let closing_proposal =
+        match resident_reply_intent(state.ai_config.as_ref().as_ref(), &closing_plan).await {
+            Ok(proposal) => proposal,
+            Err(error) => {
+                warn!(
+                    "AI resident closing inference failed; ending chat exchange: {}",
+                    error
+                );
+                return;
+            }
+        };
     let closing_events = {
         let mut runtime = state.inner.lock().await;
-        let location_id = runtime
-            .actor_by_id(closing_plan.npc_actor_id)
-            .map(|actor| actor.location_id)
-            .unwrap_or(0);
-        if runtime.resident_reply_repeats_recent_event(
-            closing_plan.npc_actor_id,
-            location_id,
-            &closing_proposal.speech,
-        ) {
-            let prose_closings = [
-                "Then we'll leave that thought by the kettle—for now.",
-                "All right. Keep that thought warm until we meet it again.",
-                "That feels like enough truth for one little room.",
-                "Deal. The rest can wait for the next cup of tea.",
-            ];
-            let emoji_closings = ["🫖✨🤝", "🌙🍃✨", "🧵💫🏡", "🌧️🤝🕯️"];
-            for offset in 0..prose_closings.len() {
-                let index = (runtime.world.tick as usize + offset) % prose_closings.len();
-                let candidate = if closing_plan.speech_mode == "emoji" {
-                    emoji_closings[index]
-                } else {
-                    prose_closings[index]
-                };
-                if !runtime.resident_reply_repeats_recent_event(
-                    closing_plan.npc_actor_id,
-                    location_id,
-                    candidate,
-                ) {
-                    closing_proposal.speech = candidate.to_string();
-                    break;
-                }
-            }
-        }
         commit_resident_reply_record(state, &mut runtime, &closing_plan, closing_proposal)
     };
     if let Some(events) = closing_events {
@@ -25178,7 +24990,7 @@ fn commit_resident_reply_record(
     if npc.kind != CW_ACTOR_NPC || npc.status != CW_ACTOR_ACTIVE {
         return None;
     }
-    let proposal = runtime.collision_safe_resident_proposal(plan, proposal);
+    let proposal = runtime.collision_safe_resident_proposal(plan, proposal)?;
     let content_id = runtime.next_content_id_value();
     let action = CwAction {
         kind: CW_ACTION_SAY,
@@ -25216,24 +25028,15 @@ fn advance_turn_and_maybe_emit_resident_ripple(
     } else {
         None
     };
-    let card_reaction_committed = card_reaction_plan.as_ref().is_some_and(|plan| {
-        let proposal = ResidentIntentProposal::fallback(plan);
-        let Some(reply_events) = commit_resident_reply_record(state, runtime, plan, proposal)
-        else {
-            return false;
-        };
-        events.extend(reply_events);
-        true
-    });
     advance_actor_room_turn_after_commit(state, runtime, location_id, actor_id, status, events);
     if status != CW_OK || events.is_empty() {
-        return None;
+        return card_reaction_plan;
     }
     if !events
         .iter()
         .any(|event| event.success && event.actor_id == Some(actor_id))
     {
-        return None;
+        return card_reaction_plan;
     }
 
     let seed = runtime.next_seed_value();
@@ -25241,30 +25044,31 @@ fn advance_turn_and_maybe_emit_resident_ripple(
     let Some(context) =
         runtime.ripple_context_for_player_turn(actor_id, source_action_kind, events)
     else {
-        return None;
+        return card_reaction_plan;
     };
     let Some(record) = runtime.ripple_record_for_player_turn(&context, seed) else {
-        return None;
+        return card_reaction_plan;
     };
     let action = record.action;
+    if card_reaction_plan
+        .as_ref()
+        .is_some_and(|plan| plan.npc_actor_id == action.actor_id)
+    {
+        return card_reaction_plan;
+    }
     let Ok((ripple_status, ripple_events)) = commit_journal_record(state, runtime, record) else {
         warn!("failed to commit player-powered resident ripple");
-        return None;
+        return card_reaction_plan;
     };
     if ripple_status != CW_OK || ripple_events.is_empty() {
-        return None;
+        return card_reaction_plan;
     }
     let ripple_reply_plan = runtime.resident_economy_action_reply_plan(&action);
     events.extend(ripple_events);
-    // The player's confirmed card owns this conversational beat. A resident
-    // ripple may still change the world, but it must not replace the promised
-    // next-in-card-order reaction with commentary from whichever resident
-    // happened to perform the ripple.
-    if card_reaction_committed {
-        None
-    } else {
-        ripple_reply_plan
-    }
+    // The player's confirmed card owns this conversational beat. Inference is
+    // completed after the kernel lock is released; the ripple may still change
+    // the world, but it must not replace the card reaction.
+    card_reaction_plan.or(ripple_reply_plan)
 }
 
 fn ripple_action_kind_from_events(actor_id: u64, events: &[EventView]) -> u8 {
@@ -26003,8 +25807,14 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
                     .unwrap_or("somewhere new")
             )
         }),
-        "journey.started" | "journey.progressed" | "journey.narrated" | "journey.completed"
-        | "pathway.discovered" => event.content.clone().unwrap_or_else(|| {
+        "journey.started"
+        | "journey.progressed"
+        | "journey.narrated"
+        | "journey.completed"
+        | "journey.backtracked"
+        | "journey.paused"
+        | "pathway.discovered"
+        | "pathway.familiarized" => event.content.clone().unwrap_or_else(|| {
             format!("{actor_name} carries the path a little farther into the world")
         }),
         "ability_check.rolled" => {
@@ -26354,11 +26164,6 @@ async fn request_ai_room_memory_summary(
     prior_chapters: &[RoomMemoryChapter],
     entries: &[RoomMemoryEntryView],
 ) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .map_err(|error| error.to_string())?;
-    let url = format!("{}/chat/completions", config.base_url);
     let context = if entries.is_empty() {
         "No recent room events.".to_string()
     } else {
@@ -26401,37 +26206,22 @@ async fn request_ai_room_memory_summary(
         chapter_memory = chapter_memory,
         context = context,
     );
-    let response = client
-        .post(url)
-        .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "https://cosyworld.fly.dev")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
-        .header("X-Title", "CosyWorld v2")
-        .json(&serde_json::json!({
-            "model": config.model,
-            "messages": [
-                { "role": "system", "content": system },
-                { "role": "user", "content": user }
-            ],
-            "temperature": 0.45,
-            "max_tokens": 110
-        }))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?
-        .error_for_status()
-        .map_err(|error| error.to_string())?;
-    let body: serde_json::Value = response.json().await.map_err(|error| error.to_string())?;
-    let text = body
-        .get("choices")
-        .and_then(|choices| choices.get(0))
-        .and_then(|choice| choice.get("message"))
-        .and_then(|message| message.get("content"))
-        .and_then(|content| content.as_str())
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-        .ok_or_else(|| "AI room memory response did not include message content".to_string())?;
-    sanitize_room_memory_summary(text)
+    let completion = request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: "room_memory",
+            system,
+            user: &user,
+            temperature: 0.45,
+            max_tokens: 110,
+            timeout: Duration::from_secs(10),
+            max_attempts: 2,
+            referer: "https://cosyworld.fly.dev",
+        },
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+    sanitize_room_memory_summary(&completion.text)
         .ok_or_else(|| "AI room memory response was not usable".to_string())
 }
 
@@ -26504,91 +26294,77 @@ fn trim_to_chars(value: &str, max_chars: usize) -> String {
 async fn resident_reply_intent(
     config: Option<&AiConfig>,
     plan: &ResidentReplyPlan,
-) -> ResidentIntentProposal {
-    let Some(config) = config else {
-        return ResidentIntentProposal::fallback(plan);
-    };
-    match request_ai_resident_intent(config, plan).await {
-        Ok(proposal) => proposal,
-        Err(error) => {
-            warn!(
-                "AI resident intent failed; using deterministic fallback: {}",
-                error
-            );
-            ResidentIntentProposal::fallback(plan)
-        }
-    }
+) -> Result<ResidentIntentProposal, AiGatewayError> {
+    let config = config.ok_or_else(|| AiGatewayError::unconfigured("resident dialogue"))?;
+    request_ai_resident_intent(config, plan).await
 }
 
-async fn avatar_chat_text(config: Option<&AiConfig>, plan: &AvatarChatPlan) -> String {
-    let Some(config) = config else {
-        return plan.fallback_text.clone();
-    };
-    match request_ai_avatar_chat(config, plan, false).await {
-        Ok(text) => sanitize_avatar_chat(&text).unwrap_or_else(|| plan.fallback_text.clone()),
-        Err(error) => {
-            warn!(
-                "AI avatar chat failed; using deterministic fallback: {}",
-                error
-            );
-            plan.fallback_text.clone()
-        }
-    }
+async fn avatar_chat_text(
+    config: Option<&AiConfig>,
+    plan: &AvatarChatPlan,
+) -> Result<String, AiGatewayError> {
+    let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
+    let text = request_ai_avatar_chat(config, plan, false).await?;
+    sanitize_avatar_chat(&text)
+        .ok_or_else(|| AiGatewayError::invalid_response("AI avatar chat response was not usable"))
 }
 
-async fn avatar_chat_followup_text(config: Option<&AiConfig>, plan: &AvatarChatPlan) -> String {
-    let fallback = plan
-        .fresh_subject
-        .as_ref()
-        .map(|subject| {
-            format!("Then let's follow {subject} one step further. Where would you start?")
-        })
-        .unwrap_or_else(|| "That makes sense. What part of it should we notice next?".to_string());
-    let Some(config) = config else {
-        return fallback;
-    };
-    match request_ai_avatar_chat(config, plan, true).await {
-        Ok(text) => sanitize_avatar_chat(&text).unwrap_or(fallback),
-        Err(error) => {
-            warn!(
-                "AI avatar chat follow-up failed; using deterministic fallback: {}",
-                error
-            );
-            fallback
-        }
-    }
+async fn avatar_chat_followup_text(
+    config: Option<&AiConfig>,
+    plan: &AvatarChatPlan,
+) -> Result<String, AiGatewayError> {
+    let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
+    let text = request_ai_avatar_chat(config, plan, true).await?;
+    sanitize_avatar_chat(&text).ok_or_else(|| {
+        AiGatewayError::invalid_response("AI avatar chat follow-up response was not usable")
+    })
 }
 
 async fn request_ai_avatar_chat(
     config: &AiConfig,
     plan: &AvatarChatPlan,
     followup: bool,
-) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(12))
-        .build()
-        .map_err(|error| error.to_string())?;
-    let url = format!("{}/chat/completions", config.base_url);
-    let recent = if plan.recent_lines.is_empty() {
+) -> Result<String, AiGatewayError> {
+    let recent_lines = if followup {
+        let start = plan.recent_lines.len().saturating_sub(2);
+        &plan.recent_lines[start..]
+    } else {
+        &plan.recent_lines[..]
+    };
+    let recent = if recent_lines.is_empty() {
         "No recent room dialogue.".to_string()
     } else {
-        plan.recent_lines.join("\n")
+        recent_lines.join("\n")
     };
     let location_memory = format_location_memory(&plan.location_memory);
     let goals = format_goal_lines(&plan.goals);
     let target_continuity = format_resident_continuity(&plan.target_continuity);
-    let need = plan
-        .missing_need
-        .as_ref()
-        .map(|item| format!("The resident may currently need: {item}."))
-        .unwrap_or_else(|| "No current resident item need is known.".to_string());
+    let need = if followup {
+        "Do not introduce a resident need or item that is absent from the freshest exchange."
+            .to_string()
+    } else {
+        plan.missing_need
+            .as_ref()
+            .map(|item| format!("The resident may currently need: {item}."))
+            .unwrap_or_else(|| "No current resident item need is known.".to_string())
+    };
+    let target_economy = if followup {
+        "Do not revive an older request, trade, or item topic.".to_string()
+    } else {
+        plan.target_economy_note.clone()
+    };
+    let fresh_subject = plan
+        .fresh_subject
+        .as_deref()
+        .map(|subject| format!("Fresh conversation subject: {subject}. Stay on it."))
+        .unwrap_or_else(|| "Follow only the freshest resident line.".to_string());
     let system = if followup {
-        "You write the player avatar's brief follow-up in an ongoing cozy conversation. Respond directly to the freshest resident line, keep one concrete room or continuity detail in play, and leave a small closing hook. Do not restart the conversation. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Keep it under 28 words."
+        "You write the player avatar's brief follow-up in an ongoing cozy conversation. Respond directly to the freshest resident line and continue only its current subject. Never introduce an item, request, goal, or place that is absent from the two freshest lines. Keep one concrete room detail in play and leave a small closing hook. Do not restart the conversation. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Keep it under 28 words."
     } else {
         "You write one in-character line for the player avatar after the human presses Chat. Make the line feel intentionally authored: use one concrete detail from the room, recent dialogue, or the target resident's continuity/current need, and give the resident an easy hook to answer. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Keep it under 34 words."
     };
     let user = format!(
-        "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nTarget resident: {target} / {target_title}\nTarget continuity:\n{target_continuity}\nTarget economy:\n{target_economy}\nCast present: {cast}\n{need}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
+        "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nTarget resident: {target} / {target_title}\nTarget continuity:\n{target_continuity}\nTarget economy:\n{target_economy}\nCast present: {cast}\n{need}\n{fresh_subject}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
         name = plan.actor_name,
         title = plan.actor_title,
         description = plan.actor_description,
@@ -26601,53 +26377,38 @@ async fn request_ai_avatar_chat(
         target = plan.target_actor_name,
         target_title = plan.target_title,
         target_continuity = target_continuity,
-        target_economy = plan.target_economy_note,
+        target_economy = target_economy,
         cast = plan.cast.join(", "),
         need = need,
+        fresh_subject = fresh_subject,
         recent = recent,
     );
 
-    let response = client
-        .post(url)
-        .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "http://127.0.0.1:3102")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
-        .header("X-Title", "CosyWorld v2")
-        .json(&serde_json::json!({
-            "model": config.model,
-            "messages": [
-                { "role": "system", "content": system },
-                { "role": "user", "content": user }
-            ],
-            "temperature": 0.8,
-            "max_tokens": 70
-        }))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?
-        .error_for_status()
-        .map_err(|error| error.to_string())?;
-    let body: serde_json::Value = response.json().await.map_err(|error| error.to_string())?;
-    body.get("choices")
-        .and_then(|choices| choices.get(0))
-        .and_then(|choice| choice.get("message"))
-        .and_then(|message| message.get("content"))
-        .and_then(|content| content.as_str())
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-        .map(ToString::to_string)
-        .ok_or_else(|| "AI response did not include message content".to_string())
+    request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: if followup {
+                "dialogue_avatar_followup"
+            } else {
+                "dialogue_avatar"
+            },
+            system,
+            user: &user,
+            temperature: 0.8,
+            max_tokens: 70,
+            timeout: Duration::from_secs(12),
+            max_attempts: 2,
+            referer: "http://127.0.0.1:3102",
+        },
+    )
+    .await
+    .map(|completion| completion.text)
 }
 
 async fn request_ai_avatar_identity(
     config: &AiConfig,
     actor_id: u64,
 ) -> Result<GeneratedAvatarIdentity, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(14))
-        .build()
-        .map_err(|error| error.to_string())?;
-    let url = format!("{}/chat/completions", config.base_url);
     let fallback = fallback_avatar_identity(actor_id);
     let system = "You generate compact JSON for a player avatar in a cozy shared MUD. Every identity must feel warm, playful, and safe to meet. Output valid JSON only. Do not mention AI, prompts, models, policies, tools, wallets, NFTs, or UI.";
     let user = format!(
@@ -26661,37 +26422,22 @@ async fn request_ai_avatar_identity(
         description = fallback.description,
     );
 
-    let response = client
-        .post(url)
-        .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "https://cosyworld.fly.dev")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
-        .header("X-Title", "CosyWorld v2")
-        .json(&serde_json::json!({
-            "model": config.model,
-            "messages": [
-                { "role": "system", "content": system },
-                { "role": "user", "content": user }
-            ],
-            "temperature": 1.0,
-            "max_tokens": 240
-        }))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?
-        .error_for_status()
-        .map_err(|error| error.to_string())?;
-    let body: serde_json::Value = response.json().await.map_err(|error| error.to_string())?;
-    let content = body
-        .get("choices")
-        .and_then(|choices| choices.get(0))
-        .and_then(|choice| choice.get("message"))
-        .and_then(|message| message.get("content"))
-        .and_then(|content| content.as_str())
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-        .ok_or_else(|| "AI avatar identity response did not include message content".to_string())?;
-    parse_avatar_identity_json(content, actor_id)
+    let completion = request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: "avatar_identity",
+            system,
+            user: &user,
+            temperature: 1.0,
+            max_tokens: 240,
+            timeout: Duration::from_secs(14),
+            max_attempts: 2,
+            referer: "https://cosyworld.fly.dev",
+        },
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+    parse_avatar_identity_json(&completion.text, actor_id)
         .ok_or_else(|| "AI avatar identity response was not usable JSON".to_string())
 }
 
@@ -26782,7 +26528,7 @@ fn pathway_art_targets(mutation: &ProjectionMutation) -> Vec<(u64, String)> {
     else {
         return Vec::new();
     };
-    if !pathway.art_eligible {
+    if !pathway.art_eligible || !pathway.familiar {
         return Vec::new();
     }
     let revealed_location_ids = reveal_edges
@@ -27097,12 +26843,7 @@ fn replicate_image_content_type(header_value: &str, output_url: &str) -> Result<
 async fn request_ai_resident_intent(
     config: &AiConfig,
     plan: &ResidentReplyPlan,
-) -> Result<ResidentIntentProposal, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(12))
-        .build()
-        .map_err(|error| error.to_string())?;
-    let url = format!("{}/chat/completions", config.base_url);
+) -> Result<ResidentIntentProposal, AiGatewayError> {
     let system = resident_system_prompt(plan);
     let recent = if plan.recent_lines.is_empty() {
         "No recent room dialogue.".to_string()
@@ -27128,38 +26869,23 @@ async fn request_ai_resident_intent(
         name = plan.npc_name
     );
 
-    let response = client
-        .post(url)
-        .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "http://127.0.0.1:3102")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
-        .header("X-Title", "CosyWorld v2")
-        .json(&serde_json::json!({
-            "model": config.model,
-            "messages": [
-                { "role": "system", "content": system },
-                { "role": "user", "content": user }
-            ],
-            "temperature": 0.75,
-            "max_tokens": 220
-        }))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?
-        .error_for_status()
-        .map_err(|error| error.to_string())?;
-    let body: serde_json::Value = response.json().await.map_err(|error| error.to_string())?;
-    let content = body
-        .get("choices")
-        .and_then(|choices| choices.get(0))
-        .and_then(|choice| choice.get("message"))
-        .and_then(|message| message.get("content"))
-        .and_then(|content| content.as_str())
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-        .ok_or_else(|| "AI response did not include message content".to_string())?;
-    parse_resident_intent_json(content, plan)
-        .ok_or_else(|| "AI resident intent response was not usable JSON".to_string())
+    let completion = request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: "dialogue_resident",
+            system: &system,
+            user: &user,
+            temperature: 0.75,
+            max_tokens: 220,
+            timeout: Duration::from_secs(12),
+            max_attempts: 2,
+            referer: "http://127.0.0.1:3102",
+        },
+    )
+    .await?;
+    parse_resident_intent_json(&completion.text, plan).ok_or_else(|| {
+        AiGatewayError::invalid_response("AI resident intent response was not usable JSON")
+    })
 }
 
 fn format_location_memory(memory: &[String]) -> String {
@@ -27324,81 +27050,6 @@ fn format_resident_continuity(continuity: &ResidentContinuityState) -> String {
         continuity.last_observed_event_seq
     ));
     lines.join("\n")
-}
-
-fn avatar_chat_fallback_text(
-    actor_id: u64,
-    target_actor_name: &str,
-    target_actor_id: u64,
-    location_id: Option<u64>,
-    missing_need: Option<&str>,
-) -> String {
-    if let Some(line) = seed_avatar_chat_fallback_line(
-        target_actor_id,
-        target_actor_name,
-        location_id,
-        missing_need,
-    ) {
-        return line;
-    }
-    cosyworld_ai_model::generate_avatar_chat(&AvatarChatModelInput {
-        actor_id,
-        target_actor_id,
-        target_actor_name: target_actor_name.to_string(),
-        missing_need: missing_need.map(ToString::to_string),
-    })
-}
-
-fn seed_resident_fallback_line(actor_id: u64, location_id: Option<u64>) -> Option<String> {
-    let lines = &seed_content().fallback_lines;
-    location_id
-        .and_then(|location_id| {
-            lines.iter().find(|line| {
-                line.kind == "resident_reply"
-                    && line.actor_id == Some(actor_id)
-                    && line.location_id == Some(location_id)
-            })
-        })
-        .or_else(|| {
-            lines.iter().find(|line| {
-                line.kind == "resident_reply"
-                    && line.actor_id == Some(actor_id)
-                    && line.location_id.is_none()
-            })
-        })
-        .map(|line| line.text.clone())
-}
-
-fn seed_avatar_chat_fallback_line(
-    target_actor_id: u64,
-    target_actor_name: &str,
-    location_id: Option<u64>,
-    missing_need: Option<&str>,
-) -> Option<String> {
-    let lines = &seed_content().fallback_lines;
-    location_id
-        .and_then(|location_id| {
-            lines.iter().find(|line| {
-                line.kind == "avatar_chat"
-                    && line.target_actor_id == Some(target_actor_id)
-                    && line.location_id == Some(location_id)
-            })
-        })
-        .or_else(|| {
-            lines.iter().find(|line| {
-                line.kind == "avatar_chat"
-                    && line.target_actor_id == Some(target_actor_id)
-                    && line.location_id.is_none()
-            })
-        })
-        .map(|line| {
-            line.text
-                .replace("{target_actor_name}", target_actor_name)
-                .replace(
-                    "{missing_need}",
-                    missing_need.unwrap_or("the next small need"),
-                )
-        })
 }
 
 fn sanitize_avatar_chat(text: &str) -> Option<String> {
@@ -27567,17 +27218,133 @@ fn travel_narration_fallback(plan: &JourneyNarrationPlan) -> String {
     )
 }
 
+fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
+    let name = compact_whitespace(value.trim().trim_matches('"'));
+    let word_count = name.split_whitespace().count();
+    let char_count = name.chars().count();
+    let lower = name.to_ascii_lowercase();
+    if !(2..=5).contains(&word_count)
+        || !(4..=40).contains(&char_count)
+        || lower.contains("pathway")
+        || lower.contains("stretch")
+        || !name
+            .chars()
+            .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
+    {
+        return None;
+    }
+    Some(name)
+}
+
+fn parse_generated_pathway_names(text: &str, expected: usize) -> Option<Vec<String>> {
+    let cleaned = text
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    let json_text = if cleaned.starts_with('{') {
+        cleaned
+    } else {
+        let start = cleaned.find('{')?;
+        let end = cleaned.rfind('}')?;
+        cleaned.get(start..=end)?
+    };
+    let value: serde_json::Value = serde_json::from_str(json_text).ok()?;
+    let values = value.get("names")?.as_array()?;
+    if values.len() != expected {
+        return None;
+    }
+    let names = values
+        .iter()
+        .map(|value| sanitize_generated_pathway_name(value.as_str()?))
+        .collect::<Option<Vec<_>>>()?;
+    let unique = names
+        .iter()
+        .map(|name| name.to_ascii_lowercase())
+        .collect::<BTreeSet<_>>();
+    (unique.len() == names.len()).then_some(names)
+}
+
+fn rename_hidden_waypoint(waypoint: &mut GeneratedWaypointState, name: &str) {
+    let previous = std::mem::replace(&mut waypoint.name, name.to_string());
+    waypoint.meta.description = waypoint.meta.description.replace(&previous, name);
+    waypoint.meta.persona = waypoint.meta.persona.replace(&previous, name);
+    if let Some(prompt) = waypoint.meta.art_prompt.as_mut() {
+        *prompt = prompt.replace(&previous, name);
+    }
+}
+
+async fn generate_hidden_pathway_names(
+    config: Option<&AiConfig>,
+    mutation: &mut ProjectionMutation,
+    narration_plan: &mut JourneyNarrationPlan,
+) {
+    let ProjectionMutation::JourneyTransition { pathway, .. } = mutation else {
+        return;
+    };
+    if !pathway.revealed_edges.is_empty() || pathway.waypoints.is_empty() {
+        return;
+    }
+    let Some(config) = config else {
+        return;
+    };
+    let waypoint_context = pathway
+        .waypoints
+        .iter()
+        .enumerate()
+        .map(|(index, waypoint)| {
+            format!(
+                "{}. fallback name: {}; biome: {}; terrain: {}",
+                index + 1,
+                waypoint.name,
+                waypoint.meta.biome,
+                waypoint.meta.terrain.join(", ")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let prompt = format!(
+        "Invent {count} distinct hidden landmark names for successive waypoints on one cozy storybook route. They are generated now but players encounter them one at a time through Explore. Route: {origin} toward {destination}.\n{context}\nReturn valid JSON only: {{\"names\":[\"Two to five words\"]}}. Preserve the listed order. Each name must be evocative, concrete, 2-5 words, at most 40 characters, and use only ASCII letters, spaces, hyphens, or apostrophes. Do not use numbers, Pathway, Stretch, the route destination, or repeat a name.",
+        count = pathway.waypoints.len(),
+        origin = narration_plan.from_name,
+        destination = narration_plan.destination_name,
+        context = waypoint_context,
+    );
+    let Ok(completion) = request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: "pathway_names",
+            system: "You name hidden geography in CosyWorld. Return only the requested JSON object, with no prose or markdown.",
+            user: &prompt,
+            temperature: 0.9,
+            max_tokens: 140,
+            timeout: Duration::from_secs(12),
+            max_attempts: 2,
+            referer: "http://127.0.0.1:3102",
+        },
+    )
+    .await
+    else {
+        return;
+    };
+    let Some(names) = parse_generated_pathway_names(&completion.text, pathway.waypoints.len())
+    else {
+        return;
+    };
+    for (waypoint, name) in pathway.waypoints.iter_mut().zip(names) {
+        let previous = waypoint.name.clone();
+        rename_hidden_waypoint(waypoint, &name);
+        if narration_plan.to_name == previous {
+            narration_plan.to_name = name;
+        }
+    }
+}
+
 async fn travel_narration_text(config: Option<&AiConfig>, plan: &JourneyNarrationPlan) -> String {
     let fallback = travel_narration_fallback(plan);
     let Some(config) = config else {
         return fallback;
-    };
-    let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(12))
-        .build()
-    {
-        Ok(client) => client,
-        Err(_) => return fallback,
     };
     let prompt = format!(
         "Narrate one compact tabletop-RPG travel beat in 18-38 words. The narrator is a warm, concrete dungeon master. Describe physical terrain and forward motion, not UI or rules. No dialogue and no question. Traveller: {actor}. From: {from}. Current stretch: {to}. Final destination: {destination}. Progress: step {step} of {total}. Explorer discovering new geography: {explorer}. This beat reveals a path: {discovery}.",
@@ -27590,39 +27357,24 @@ async fn travel_narration_text(config: Option<&AiConfig>, plan: &JourneyNarratio
         explorer = plan.explorer,
         discovery = plan.discovery,
     );
-    let response = client
-        .post(format!("{}/chat/completions", config.base_url))
-        .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "http://127.0.0.1:3102")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
-        .json(&serde_json::json!({
-            "model": config.model,
-            "messages": [
-                { "role": "system", "content": "You are CosyWorld's travel narrator. Return only the narrated beat, with no label or quotation marks." },
-                { "role": "user", "content": prompt }
-            ],
-            "temperature": 0.8,
-            "max_tokens": 100
-        }))
-        .send()
-        .await;
-    let Ok(response) = response else {
-        return fallback;
-    };
-    let Ok(response) = response.error_for_status() else {
-        return fallback;
-    };
-    let Ok(body) = response.json::<serde_json::Value>().await else {
-        return fallback;
-    };
-    let Some(text) = body
-        .get("choices")
-        .and_then(|choices| choices.get(0))
-        .and_then(|choice| choice.get("message"))
-        .and_then(|message| message.get("content"))
-        .and_then(|content| content.as_str())
-        .and_then(|text| sanitize_continuity_note_text(Some(text)))
+    let Ok(completion) = request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: "travel_narration",
+            system: "You are CosyWorld's travel narrator. Return only the narrated beat, with no label or quotation marks.",
+            user: &prompt,
+            temperature: 0.8,
+            max_tokens: 100,
+            timeout: Duration::from_secs(12),
+            max_attempts: 1,
+            referer: "http://127.0.0.1:3102",
+        },
+    )
+    .await
     else {
+        return fallback;
+    };
+    let Some(text) = sanitize_continuity_note_text(Some(&completion.text)) else {
         return fallback;
     };
     let text = text.trim().trim_matches('"').trim().to_string();
@@ -27685,7 +27437,13 @@ async fn move_actor(
             });
         }
     };
-    if let Some((action, mut mutation, narration_plan)) = journey_plan {
+    if let Some((action, mut mutation, mut narration_plan)) = journey_plan {
+        generate_hidden_pathway_names(
+            state.ai_config.as_ref().as_ref(),
+            &mut mutation,
+            &mut narration_plan,
+        )
+        .await;
         let narration =
             travel_narration_text(state.ai_config.as_ref().as_ref(), &narration_plan).await;
         if let ProjectionMutation::JourneyTransition {
@@ -28401,6 +28159,7 @@ async fn work(
     } else {
         "work"
     };
+    let pathway_upgrade_id = runtime.generated_pathway_id_for_progress_clock(&clock_id);
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -28416,6 +28175,14 @@ async fn work(
             amount: progress_amount,
             reason: progress_reason.to_string(),
         });
+    if let Some(pathway_id) = &pathway_upgrade_id {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::UpgradePathwayIfReady {
+                pathway_id: pathway_id.clone(),
+                progress_clock_id: clock_id.clone(),
+            });
+    }
     if prepared {
         record
             .projection_mutations
@@ -28463,6 +28230,14 @@ async fn work(
             events: Vec::new(),
         });
     };
+    let pathway_upgraded = events
+        .iter()
+        .any(|event| event.type_name == "pathway.familiarized");
+    let pathway_art_targets = pathway_upgrade_id
+        .as_deref()
+        .filter(|_| pathway_upgraded)
+        .map(|pathway_id| runtime.generated_pathway_art_targets(pathway_id))
+        .unwrap_or_default();
     let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
         &state,
         &mut runtime,
@@ -28474,6 +28249,9 @@ async fn work(
     drop(runtime);
 
     broadcast_events(&state, &events);
+    if pathway_upgraded {
+        schedule_pathway_art_generation(&state, pathway_art_targets);
+    }
     if let Some(plan) = ripple_reply_plan {
         complete_resident_reply(&state, plan).await;
     }
@@ -28547,6 +28325,7 @@ async fn help_room(
     } else {
         "help"
     };
+    let pathway_upgrade_id = runtime.generated_pathway_id_for_progress_clock(&clock_id);
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -28562,6 +28341,14 @@ async fn help_room(
             amount: progress_amount,
             reason: progress_reason.to_string(),
         });
+    if let Some(pathway_id) = &pathway_upgrade_id {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::UpgradePathwayIfReady {
+                pathway_id: pathway_id.clone(),
+                progress_clock_id: clock_id.clone(),
+            });
+    }
     record
         .projection_mutations
         .push(ProjectionMutation::SetTag {
@@ -28635,6 +28422,14 @@ async fn help_room(
             events: Vec::new(),
         });
     };
+    let pathway_upgraded = events
+        .iter()
+        .any(|event| event.type_name == "pathway.familiarized");
+    let pathway_art_targets = pathway_upgrade_id
+        .as_deref()
+        .filter(|_| pathway_upgraded)
+        .map(|pathway_id| runtime.generated_pathway_art_targets(pathway_id))
+        .unwrap_or_default();
     let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
         &state,
         &mut runtime,
@@ -28646,6 +28441,9 @@ async fn help_room(
     drop(runtime);
 
     broadcast_events(&state, &events);
+    if pathway_upgraded {
+        schedule_pathway_art_generation(&state, pathway_art_targets);
+    }
     if let Some(plan) = ripple_reply_plan {
         complete_resident_reply(&state, plan).await;
     }
@@ -30526,6 +30324,18 @@ fn generated_pathway_id(left: u64, right: u64) -> String {
     format!("pathway:{origin}:{destination}")
 }
 
+fn generated_pathway_progress_clock_id(pathway_id: &str) -> String {
+    format!("{pathway_id}:familiarity")
+}
+
+fn generated_pathway_danger_clock_id(pathway_id: &str) -> String {
+    format!("{pathway_id}:wildness")
+}
+
+fn generated_pathway_job_id(pathway_id: &str) -> String {
+    format!("{pathway_id}:community-work")
+}
+
 fn pathway_edge_key(left: u64, right: u64) -> String {
     let (origin, destination) = canonical_pathway_anchors(left, right);
     format!("{origin}:{destination}")
@@ -30918,25 +30728,6 @@ fn orb_ledger_entries_for_record(
             }
         })
         .collect()
-}
-
-fn ai_provider_name(config: Option<&AiConfig>) -> &'static str {
-    let Some(config) = config else {
-        return "local_fallback";
-    };
-    if config.base_url.contains("openrouter.ai") {
-        "openrouter"
-    } else if config.base_url.contains("api.openai.com") {
-        "openai"
-    } else {
-        "openai_compatible"
-    }
-}
-
-fn ai_model_name(config: Option<&AiConfig>) -> String {
-    config
-        .map(|config| config.model.clone())
-        .unwrap_or_else(|| "deterministic-fallback".to_string())
 }
 
 fn source_event_id_for_chat(events: &[EventView], actor_id: u64, content_id: u64) -> Option<u64> {
@@ -34238,6 +34029,31 @@ mod tests {
     }
 
     #[test]
+    fn generated_pathway_names_require_distinct_evocative_json_names() {
+        assert_eq!(
+            parse_generated_pathway_names(
+                r#"{"names":["Rain-Silver Crossing","Foxglove Turn"]}"#,
+                2,
+            ),
+            Some(vec![
+                "Rain-Silver Crossing".to_string(),
+                "Foxglove Turn".to_string(),
+            ])
+        );
+        assert_eq!(
+            parse_generated_pathway_names(
+                r#"{"names":["Pathway to Moonlit Trail","Foxglove Turn"]}"#,
+                2,
+            ),
+            None
+        );
+        assert_eq!(
+            parse_generated_pathway_names(r#"{"names":["Foxglove Turn","foxglove turn"]}"#, 2,),
+            None
+        );
+    }
+
+    #[test]
     fn segmented_pathways_alternate_search_and_travel_into_shared_world_state() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -34263,14 +34079,10 @@ mod tests {
         if let ProjectionMutation::JourneyTransition { narration, .. } = &mut first_mutation {
             *narration = travel_narration_fallback(&first_narration);
         }
-        let first_art_targets = pathway_art_targets(&first_mutation);
-        assert_eq!(
-            first_art_targets.len(),
-            1,
-            "an Explorer's newly revealed long-path waypoint is eligible for AI art"
+        assert!(
+            pathway_art_targets(&first_mutation).is_empty(),
+            "discovering a route keeps premium art locked behind community work"
         );
-        assert!(first_art_targets[0].1.contains("rain garden terrain"));
-        assert!(first_art_targets[0].1.contains("moonlit woodland terrain"));
         let mut first_record = JournalRecord::new(first_search, 900_001);
         first_record.projection_mutations.push(first_mutation);
         let (first_status, first_events) = runtime.apply_journal_record(&first_record);
@@ -34300,9 +34112,15 @@ mod tests {
             RAIN_SOFT_GARDEN_LOCATION_ID,
             "Search reveals the adjacent segment without moving the avatar"
         );
+        let first_waypoint_name = runtime
+            .location_name(first_waypoint_id)
+            .expect("Explore reveals the hidden first waypoint name");
+        assert!(sanitize_generated_pathway_name(&first_waypoint_name).is_some());
+        assert!(!first_waypoint_name.contains("Pathway to"));
         assert_eq!(
-            runtime.location_name(first_waypoint_id).as_deref(),
-            Some("Pathway to Moonlit Trail 1/3")
+            runtime.location_name(second_waypoint_id),
+            None,
+            "the next hidden waypoint stays out of the public world until Explore"
         );
         let first_meta = runtime.location_meta_for(first_waypoint_id);
         assert!(first_meta.biome.contains("rain garden"));
@@ -34353,6 +34171,25 @@ mod tests {
             runtime.actor_by_id(5000).unwrap().location_id,
             first_waypoint_id
         );
+        let frontier_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(frontier_state.location.name, first_waypoint_name);
+        assert_eq!(
+            frontier_state
+                .journey
+                .as_ref()
+                .and_then(|journey| journey.next_location_name.as_deref()),
+            Some("Unexplored stretch 2/3 toward Moonlit Trail")
+        );
+        let frontier_sheet = frontier_state
+            .room_sheet
+            .expect("generated pathway exposes a room sheet");
+        assert_eq!(frontier_sheet.zone, ZONE_FRONTIER);
+        assert_eq!(frontier_sheet.safety, "risky");
+        assert!(runtime.work_available(5000));
+        assert!(frontier_state
+            .clocks
+            .iter()
+            .any(|clock| clock.label == "Make this way familiar"));
 
         let (second_search, mut second_search_mutation, second_search_narration) = runtime
             .plan_pathway_search(5000)
@@ -34362,10 +34199,9 @@ mod tests {
         {
             *narration = travel_narration_fallback(&second_search_narration);
         }
-        assert_eq!(
-            pathway_art_targets(&second_search_mutation).len(),
-            1,
-            "Search schedules art for the newly revealed waypoint only"
+        assert!(
+            pathway_art_targets(&second_search_mutation).is_empty(),
+            "later discoveries keep premium art locked until the route is familiar"
         );
         let mut second_search_record = JournalRecord::new(second_search, 900_003);
         second_search_record
@@ -34380,10 +34216,12 @@ mod tests {
             first_waypoint_id,
             "Search should reveal the next location without travelling into it"
         );
-        assert_eq!(
-            runtime.location_name(second_waypoint_id).as_deref(),
-            Some("Pathway to Moonlit Trail 2/3")
-        );
+        let second_waypoint_name = runtime
+            .location_name(second_waypoint_id)
+            .expect("Explore reveals the hidden second waypoint name");
+        assert!(sanitize_generated_pathway_name(&second_waypoint_name).is_some());
+        assert!(!second_waypoint_name.contains("Pathway to"));
+        assert_ne!(first_waypoint_name, second_waypoint_name);
         assert!(runtime
             .state_response(Some(5000), &AccessContext::default())
             .exits
@@ -34508,13 +34346,16 @@ mod tests {
             runtime.apply_journal_record(&reverse_search_record).0,
             CW_OK
         );
+        let reverse_waypoint_id = runtime.journeys[&5002].path[1];
+        let reverse_waypoint_name = runtime
+            .location_name(reverse_waypoint_id)
+            .expect("the already discovered reverse waypoint keeps its name");
         let reverse_start = runtime.state_response(Some(5002), &AccessContext::default());
         assert_eq!(reverse_start.location.name, "Moonlit Trail");
         assert_eq!(
             reverse_start.journey.unwrap().next_location_name.as_deref(),
-            Some("Pathway to Rain-Soft Garden 1/3")
+            Some(reverse_waypoint_name.as_str())
         );
-        let reverse_waypoint_id = runtime.journeys[&5002].path[1];
         let (reverse_travel, mut reverse_travel_mutation, reverse_travel_plan) = runtime
             .plan_journey_move(5002, reverse_waypoint_id)
             .expect("reverse adjacent Travel planning succeeds")
@@ -34533,14 +34374,173 @@ mod tests {
             CW_OK
         );
         let reverse_state = runtime.state_response(Some(5002), &AccessContext::default());
-        assert_eq!(
-            reverse_state.location.name,
-            "Pathway to Rain-Soft Garden 1/3"
-        );
+        assert_eq!(reverse_state.location.name, reverse_waypoint_name);
+        let reverse_next_waypoint_id = runtime.journeys[&5002].path[2];
+        let reverse_next_waypoint_name = runtime
+            .location_name(reverse_next_waypoint_id)
+            .expect("the completed route keeps the next reverse waypoint visible");
         assert_eq!(
             reverse_state.journey.unwrap().next_location_name.as_deref(),
-            Some("Pathway to Rain-Soft Garden 2/3")
+            Some(reverse_next_waypoint_name.as_str())
         );
+    }
+
+    #[test]
+    fn community_work_familiarizes_generated_pathway_and_unlocks_art() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Trail Builder",
+        );
+        let (search, search_mutation, _) = runtime
+            .plan_journey_move(5000, MOONLIT_TRAIL_LOCATION_ID)
+            .expect("pathway search planning succeeds")
+            .expect("the garden-to-trail route has distance");
+        let mut search_record = JournalRecord::new(search, 910_001);
+        search_record.projection_mutations.push(search_mutation);
+        assert_eq!(runtime.apply_journal_record(&search_record).0, CW_OK);
+
+        let pathway_id =
+            generated_pathway_id(RAIN_SOFT_GARDEN_LOCATION_ID, MOONLIT_TRAIL_LOCATION_ID);
+        let first_waypoint_id = runtime.journeys[&5000].path[1];
+        let (travel, travel_mutation, _) = runtime
+            .plan_journey_move(5000, first_waypoint_id)
+            .expect("first pathway travel planning succeeds")
+            .expect("the first revealed edge is travelable");
+        let mut travel_record = JournalRecord::new(travel, 910_002);
+        travel_record.projection_mutations.push(travel_mutation);
+        assert_eq!(runtime.apply_journal_record(&travel_record).0, CW_OK);
+        assert!(runtime.location_is_frontier(first_waypoint_id));
+
+        let clock_id = generated_pathway_progress_clock_id(&pathway_id);
+        let mut familiarized_events = Vec::new();
+        for index in 0..3 {
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: 5000,
+                    ..CwAction::default()
+                },
+                910_010 + index,
+            );
+            record
+                .projection_mutations
+                .push(ProjectionMutation::AdvanceClock {
+                    clock_id: clock_id.clone(),
+                    amount: 2,
+                    reason: "community_work_test".to_string(),
+                });
+            record
+                .projection_mutations
+                .push(ProjectionMutation::UpgradePathwayIfReady {
+                    pathway_id: pathway_id.clone(),
+                    progress_clock_id: clock_id.clone(),
+                });
+            let (status, events) = runtime.apply_journal_record(&record);
+            assert_eq!(status, CW_OK);
+            familiarized_events.extend(events);
+        }
+
+        assert!(familiarized_events
+            .iter()
+            .any(|event| event.type_name == "pathway.familiarized"));
+        assert!(runtime.generated_pathways[&pathway_id].familiar);
+        assert!(!runtime.location_is_frontier(first_waypoint_id));
+        let familiar_sheet = runtime
+            .room_sheet_view(first_waypoint_id)
+            .expect("familiar pathway keeps its generated room sheet");
+        assert_eq!(familiar_sheet.zone, ZONE_SANCTUARY);
+        assert_eq!(familiar_sheet.safety, "safe");
+        assert_eq!(
+            runtime.job_status(&runtime.jobs[&generated_pathway_job_id(&pathway_id)]),
+            "completed"
+        );
+        let art_targets = runtime.generated_pathway_art_targets(&pathway_id);
+        assert_eq!(art_targets.len(), 2);
+        assert!(art_targets
+            .iter()
+            .all(|(_, prompt)| prompt.contains("cozy storybook landscape")));
+    }
+
+    #[test]
+    fn generated_pathway_can_be_backtracked_or_left_for_another_route() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Free Wanderer",
+        );
+        let (search, search_mutation, _) = runtime
+            .plan_journey_move(5000, MOONLIT_TRAIL_LOCATION_ID)
+            .expect("pathway search planning succeeds")
+            .expect("the garden-to-trail route has distance");
+        let mut search_record = JournalRecord::new(search, 920_001);
+        search_record.projection_mutations.push(search_mutation);
+        assert_eq!(runtime.apply_journal_record(&search_record).0, CW_OK);
+
+        let first_waypoint_id = runtime.journeys[&5000].path[1];
+        let (forward, forward_mutation, _) = runtime
+            .plan_journey_move(5000, first_waypoint_id)
+            .expect("forward travel planning succeeds")
+            .expect("the revealed waypoint is adjacent");
+        let mut forward_record = JournalRecord::new(forward, 920_002);
+        forward_record.projection_mutations.push(forward_mutation);
+        assert_eq!(runtime.apply_journal_record(&forward_record).0, CW_OK);
+
+        let (back, back_mutation, _) = runtime
+            .plan_journey_move(5000, RAIN_SOFT_GARDEN_LOCATION_ID)
+            .expect("backtracking remains a valid ordinary move")
+            .expect("backtracking uses the pathway transition");
+        assert!(matches!(
+            &back_mutation,
+            ProjectionMutation::JourneyTransition {
+                journey: Some(journey),
+                event_type,
+                ..
+            } if journey.current_step == 0 && event_type == "journey.backtracked"
+        ));
+        let mut back_record = JournalRecord::new(back, 920_003);
+        back_record.projection_mutations.push(back_mutation);
+        assert_eq!(runtime.apply_journal_record(&back_record).0, CW_OK);
+        assert_eq!(
+            runtime.actor_by_id(5000).unwrap().location_id,
+            RAIN_SOFT_GARDEN_LOCATION_ID
+        );
+
+        let next_pathway_location_id = runtime.journeys[&5000].path[1];
+        let alternate_destination_id = runtime.world.exits[..runtime.world.exit_count]
+            .iter()
+            .filter(|exit| exit.from_location_id == RAIN_SOFT_GARDEN_LOCATION_ID)
+            .map(|exit| exit.to_location_id)
+            .find(|destination_id| {
+                *destination_id != next_pathway_location_id
+                    && *destination_id != MOONLIT_TRAIL_LOCATION_ID
+                    && runtime.pathway_distance(RAIN_SOFT_GARDEN_LOCATION_ID, *destination_id) <= 1
+            })
+            .expect("the garden has another ordinary adjacent route");
+        let (leave, leave_mutation, _) = runtime
+            .plan_journey_move(5000, alternate_destination_id)
+            .expect("another route can pause the pathway")
+            .expect("leaving uses an audited journey transition");
+        assert!(matches!(
+            &leave_mutation,
+            ProjectionMutation::JourneyTransition {
+                journey: None,
+                event_type,
+                ..
+            } if event_type == "journey.paused"
+        ));
+        let mut leave_record = JournalRecord::new(leave, 920_004);
+        leave_record.projection_mutations.push(leave_mutation);
+        assert_eq!(runtime.apply_journal_record(&leave_record).0, CW_OK);
+        assert_eq!(
+            runtime.actor_by_id(5000).unwrap().location_id,
+            alternate_destination_id
+        );
+        assert!(!runtime.journeys.contains_key(&5000));
     }
 
     #[test]
@@ -34584,8 +34584,9 @@ mod tests {
         assert!(INDEX_HTML.contains("function firstThreadModel"));
         assert!(INDEX_HTML.contains("function nextStoryThreadModel"));
         assert!(INDEX_HTML.contains("function firstTaleIsComplete"));
-        assert!(INDEX_HTML.contains("class=\"update-pill story-thread\""));
-        assert!(INDEX_HTML.contains("data-story-action-key"));
+        assert!(!INDEX_HTML.contains("class=\"update-pill story-thread\""));
+        assert!(!INDEX_HTML.contains("data-story-action-key"));
+        assert!(!INDEX_HTML.contains("function storyThreadHtml"));
         assert!(INDEX_HTML.contains("A path to ${destination} is waiting"));
         assert!(INDEX_HTML.contains("is still waiting to be found"));
         assert!(INDEX_HTML.contains("room thread"));
@@ -34599,8 +34600,14 @@ mod tests {
         assert!(!INDEX_HTML.contains("listen to the room — it may have a clue just for you."));
         assert!(INDEX_HTML.contains("white-space: normal;"));
         assert!(INDEX_HTML.contains(
-            "log.innerHTML = `${openingRoomLineHtml()}${visibleEvents.map(timelineEventHtml).join(\"\")}${pendingConversation}`;"
+            "const visibleEvents = pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent));"
         ));
+        assert!(INDEX_HTML.contains(
+            "log.innerHTML = `${visibleEvents.map(messageHtml).join(\"\")}${pendingConversation}`;"
+        ));
+        assert!(INDEX_HTML.contains("return event?.type === \"message.created\";"));
+        assert!(!INDEX_HTML.contains("function openingRoomLineHtml"));
+        assert!(!INDEX_HTML.contains("visibleEvents.map(timelineEventHtml)"));
         assert!(INDEX_HTML.contains("function pendingConversationHtml"));
         assert!(INDEX_HTML.contains("finding the thread…"));
         assert!(INDEX_HTML.contains("learned_truth_count"));
@@ -34643,13 +34650,19 @@ mod tests {
         assert!(!INDEX_HTML.contains("data-event-row title="));
         assert!(!INDEX_HTML.contains(".line.event:hover .text"));
         assert!(!INDEX_HTML.contains(".line.event.expanded .text"));
+        assert!(INDEX_HTML.contains(".log > .line,"));
+        assert!(INDEX_HTML.contains("flex-shrink: 0;"));
         assert!(!INDEX_HTML.contains("classList.toggle(\"expanded\")"));
         assert!(INDEX_HTML.contains("action-mini-card"));
         assert!(INDEX_HTML.contains("class=\"shuffle-glyph\""));
         assert!(INDEX_HTML.contains("more</span>"));
         assert!(INDEX_HTML.contains("search for the next path"));
-        assert!(INDEX_HTML.contains("the way to ${nextName} is revealed"));
-        assert!(INDEX_HTML.contains("Follow the revealed path into ${nextName}."));
+        assert!(INDEX_HTML
+            .contains("the hidden next stretch toward ${journey.destination_name} is revealed"));
+        assert!(INDEX_HTML.contains("const built = [];"));
+        assert!(INDEX_HTML.contains("if (!nextStretchRevealed)"));
+        assert!(INDEX_HTML.contains("function mergeDuplicateSearchCards"));
+        assert!(!INDEX_HTML.contains("Follow the revealed path into ${nextName}."));
         assert!(INDEX_HTML.contains("Search out the first stretch toward"));
         assert!(!INDEX_HTML.contains("journey-step:"));
         assert!(!INDEX_HTML.contains("travel turn"));
@@ -34732,7 +34745,6 @@ mod tests {
         assert!(INDEX_HTML.contains("listens; the room answers"));
         assert!(INDEX_HTML.contains("recentDistinctVoices.length < 2"));
         assert!(INDEX_HTML.contains("quiet-mode"));
-        assert!(INDEX_HTML.contains("openingRoomLineHtml"));
         assert!(INDEX_HTML.contains("ledger.banked"));
         assert!(INDEX_HTML.contains("calling.revised"));
         assert!(INDEX_HTML.contains("advancement.spent"));
@@ -35052,8 +35064,8 @@ mod tests {
                 actor_id: Some(5000),
                 feature: "reset_test".to_string(),
                 payer_mode: "cosyworld_orbs".to_string(),
-                provider: "local_fallback".to_string(),
-                model: "deterministic-fallback".to_string(),
+                provider: "unconfigured".to_string(),
+                model: "none".to_string(),
                 status: "ok".to_string(),
                 source_event_id: Some(42),
                 orb_delta: -1,
@@ -36020,7 +36032,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn real_player_action_emits_player_powered_resident_ripple() {
+    async fn real_player_action_reserves_the_ai_reaction_speaker() {
         let mut runtime = RuntimeWorld::seeded();
         hide_seed_items(&mut runtime);
         let mut create = CwAction::default();
@@ -36056,37 +36068,25 @@ mod tests {
         assert!(response.events.iter().any(|event| {
             event.type_name == "location.searched" && event.actor_id == Some(5000)
         }));
-        let resident_action = response
-            .events
-            .iter()
-            .find(|event| {
-                [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
+        let resident_action = response.events.iter().find(|event| {
+            [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
+                .contains(&event.actor_id.unwrap_or_default())
+                && matches!(
+                    event.type_name.as_str(),
+                    "actor.moved"
+                        | "item.picked_up"
+                        | "item.dropped"
+                        | "item.given"
+                        | "item.traded"
+                        | "item.used"
+                )
+        });
+        assert!(resident_action.is_none());
+        assert!(!response.events.iter().any(|event| {
+            event.type_name == "message.created"
+                && [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
                     .contains(&event.actor_id.unwrap_or_default())
-                    && matches!(
-                        event.type_name.as_str(),
-                        "actor.moved"
-                            | "item.picked_up"
-                            | "item.dropped"
-                            | "item.given"
-                            | "item.traded"
-                            | "item.used"
-                    )
-            })
-            .expect("a real player turn should let one resident ripple through the world");
-
-        let runtime = state.inner.lock().await;
-        let ripple_actor = runtime
-            .actor_by_id(resident_action.actor_id.unwrap())
-            .expect("ripple resident remains in world");
-        if resident_action.type_name == "actor.moved" {
-            assert_eq!(
-                resident_action.destination_location_id,
-                Some(RAIN_SOFT_GARDEN_LOCATION_ID)
-            );
-            assert_eq!(ripple_actor.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
-        } else {
-            assert_eq!(ripple_actor.location_id, COSY_COTTAGE_LOCATION_ID);
-        }
+        }));
     }
 
     #[test]
@@ -36106,7 +36106,6 @@ mod tests {
             .expect("a resident should react to the card");
         assert_eq!(first.npc_actor_id, RATI_ACTOR_ID);
         assert!(first.user_text.contains("searched"));
-        assert!(first.fallback_text.contains("clue"));
 
         runtime.event_log.push(EventView {
             type_name: "message.created".to_string(),
@@ -36120,7 +36119,7 @@ mod tests {
             .next_resident_card_reaction_plan(5000, &card_events)
             .expect("the next resident should react");
         assert_eq!(second.npc_actor_id, WHISKERWIND_ACTOR_ID);
-        assert_eq!(second.fallback_text, "👂🔎✨👉");
+        assert_eq!(second.speech_mode, "emoji_only");
 
         runtime.event_log.push(EventView {
             type_name: "message.created".to_string(),
@@ -36134,8 +36133,7 @@ mod tests {
             .next_resident_card_reaction_plan(5000, &card_events)
             .expect("resident card order should continue");
         assert_eq!(third.npc_actor_id, SKULL_ACTOR_ID);
-        assert!(third.fallback_text.contains("clue"));
-        assert!(!third.fallback_text.contains("mud"));
+        assert_eq!(third.user_text, first.user_text);
     }
 
     #[test]
@@ -36161,8 +36159,6 @@ mod tests {
         assert!(search_reply.user_text.contains("Scarf Basket"));
         assert!(search_reply.user_text.contains("round notch"));
         assert!(!search_reply.user_text.contains("search_feature"));
-        assert!(search_reply.fallback_text.contains("Scarf Basket"));
-        assert!(search_reply.fallback_text.contains("little clue"));
 
         let practiced = vec![
             EventView {
@@ -36185,7 +36181,6 @@ mod tests {
             .expect("practice skips the spend bookkeeping");
         assert!(practice_reply.user_text.contains("your Listening practice"));
         assert!(!practice_reply.user_text.contains("skill_step"));
-        assert!(practice_reply.fallback_text.contains("kinder to yourself"));
 
         let gifted = vec![EventView {
             type_name: "item.given".to_string(),
@@ -36202,11 +36197,10 @@ mod tests {
             .expect("the gift keeps its item and recipient");
         assert!(gift_reply.user_text.contains("Story Button"));
         assert!(gift_reply.user_text.contains("Gust"));
-        assert!(gift_reply.fallback_text.contains("Story Button"));
     }
 
     #[tokio::test]
-    async fn card_reaction_speaks_before_the_last_resident_can_wander_away() {
+    async fn card_reaction_reserves_the_speaker_before_inference() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Card Player");
         hide_seed_items(&mut runtime);
@@ -36239,14 +36233,10 @@ mod tests {
             &mut events,
         );
 
-        assert!(
-            deferred_reply.is_none(),
-            "the card reply is already committed"
-        );
-        assert!(events.iter().any(|event| {
-            event.type_name == "message.created"
-                && event.actor_id == Some(RATI_ACTOR_ID)
-                && event.location_id == Some(COSY_COTTAGE_LOCATION_ID)
+        let deferred_reply = deferred_reply.expect("the card reaction waits for AI inference");
+        assert_eq!(deferred_reply.npc_actor_id, RATI_ACTOR_ID);
+        assert!(!events.iter().any(|event| {
+            event.type_name == "message.created" && event.actor_id == Some(RATI_ACTOR_ID)
         }));
         assert!(!events.iter().any(|event| {
             event.type_name == "actor.moved" && event.actor_id == Some(RATI_ACTOR_ID)
@@ -36361,7 +36351,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn avatar_creation_arrives_with_a_resident_welcome() {
+    async fn avatar_creation_without_ai_emits_no_fallback_welcome() {
         let state = test_app_state(RuntimeWorld::seeded(), None);
         let mut broadcasts = state.tx.subscribe();
 
@@ -36385,21 +36375,11 @@ mod tests {
             .find(|event| event.type_name == "actor.created" && event.actor_id == Some(actor_id))
             .expect("Begin commits the avatar arrival");
         let emitted = std::iter::from_fn(|| broadcasts.try_recv().ok()).collect::<Vec<_>>();
-        let welcome = emitted
-            .iter()
-            .find(|event| {
-                event.type_name == "message.created"
-                    && event.actor_id == Some(RATI_ACTOR_ID)
-                    && event.seq > arrival.seq
-            })
-            .expect("the first resident welcomes the new avatar before Begin returns");
-        assert!(
-            welcome
-                .content
-                .as_deref()
-                .is_some_and(|line| line.contains("kettle")),
-            "arrival welcome should preserve Rati's cosy voice: {welcome:?}"
-        );
+        assert!(!emitted.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.actor_id == Some(RATI_ACTOR_ID)
+                && event.seq > arrival.seq
+        }));
     }
 
     #[tokio::test]
@@ -36437,18 +36417,11 @@ mod tests {
             })
             .expect("the arrival card brings a cottage host home");
         let emitted = std::iter::from_fn(|| broadcasts.try_recv().ok()).collect::<Vec<_>>();
-        let welcome = emitted
-            .iter()
-            .find(|event| {
-                event.type_name == "message.created"
-                    && event.actor_id == Some(RATI_ACTOR_ID)
-                    && event.seq > homecoming.seq
-            })
-            .expect("the returning host welcomes the new avatar");
-        assert!(welcome
-            .content
-            .as_deref()
-            .is_some_and(|line| line.contains("kettle")));
+        assert!(!emitted.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.actor_id == Some(RATI_ACTOR_ID)
+                && event.seq > homecoming.seq
+        }));
 
         let runtime = state.inner.lock().await;
         assert_eq!(
@@ -36497,19 +36470,15 @@ mod tests {
             })
             .expect("Rati comes home for the opening tale");
         let emitted = std::iter::from_fn(|| broadcasts.try_recv().ok()).collect::<Vec<_>>();
-        assert!(emitted.iter().any(|event| {
+        assert!(!emitted.iter().any(|event| {
             event.type_name == "message.created"
                 && event.actor_id == Some(RATI_ACTOR_ID)
                 && event.seq > homecoming.seq
-                && event
-                    .content
-                    .as_deref()
-                    .is_some_and(|line| line.contains("kettle"))
         }));
     }
 
     #[test]
-    fn direct_target_cards_use_semantic_replies_but_free_chat_keeps_room_flavor() {
+    fn resident_inference_plans_preserve_semantic_input_and_voice_contract() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Card Player");
 
@@ -36520,14 +36489,15 @@ mod tests {
                 "I want to keep you close: I bring small kindnesses.",
             )
             .expect("friendship target can reply");
-        assert_eq!(friendship.fallback_text, "🌧️🤝💛✨");
+        assert_eq!(friendship.speech_mode, "emoji_only");
+        assert!(friendship.user_text.contains("small kindnesses"));
 
         let gift = runtime
             .resident_reply_plan_for_target(5000, RATI_ACTOR_ID, "I gave you Story Button.")
             .expect("gift target can reply");
-        assert!(gift.fallback_text.contains("keepsake"));
+        assert_eq!(gift.npc_actor_id, RATI_ACTOR_ID);
+        assert!(gift.user_text.contains("Story Button"));
 
-        let room_fallback = runtime.resident_fallback_for_target(SKULL_ACTOR_ID);
         let free_chat = runtime
             .resident_reply_plan_for_target(
                 5000,
@@ -36535,7 +36505,8 @@ mod tests {
                 "What are you watching by the door?",
             )
             .expect("free chat target can reply");
-        assert_eq!(free_chat.fallback_text, room_fallback);
+        assert_eq!(free_chat.speech_mode, "emote_only");
+        assert!(free_chat.user_text.contains("watching by the door"));
     }
 
     #[test]
@@ -36680,7 +36651,7 @@ mod tests {
         assert!(broadcasts
             .iter()
             .any(|event| event.type_name == "ability_check.rolled"));
-        assert!(broadcasts.iter().any(|event| {
+        assert!(!broadcasts.iter().any(|event| {
             event.type_name == "message.created" && event.actor_id == Some(RATI_ACTOR_ID)
         }));
         assert!(broadcasts.iter().any(|event| {
@@ -36693,17 +36664,11 @@ mod tests {
             .find(|event| event.type_name == "ability_check.rolled" && event.actor_id == Some(5000))
             .map(|event| event.seq)
             .expect("the card action committed");
-        let reply_seq = runtime
-            .event_log
-            .iter()
-            .find(|event| {
-                event.seq > action_seq
-                    && event.type_name == "message.created"
-                    && event.actor_id == Some(RATI_ACTOR_ID)
-            })
-            .map(|event| event.seq)
-            .expect("the promised resident reply committed before the endpoint returned");
-        assert!(reply_seq > action_seq);
+        assert!(!runtime.event_log.iter().any(|event| {
+            event.seq > action_seq
+                && event.type_name == "message.created"
+                && event.actor_id == Some(RATI_ACTOR_ID)
+        }));
     }
 
     #[test]
@@ -40687,238 +40652,46 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn chat_handler_records_ai_usage_for_server_paid_chat() {
-        let path = std::env::temp_dir().join(format!(
-            "cosyworld-v2-ai-usage-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let _ = fs::remove_file(&path);
-
-        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+    async fn chat_without_ai_fails_before_spending_or_emitting_dialogue() {
+        let state = test_app_state(RuntimeWorld::seeded(), None);
         {
             let mut runtime = state.inner.lock().await;
-            let mut create = CwAction::default();
-            create.kind = CW_ACTION_CREATE_ACTOR;
-            create.actor_id = 5000;
-            create.location_id = 1;
-            let mut create_record = JournalRecord::new(create, 7041);
-            create_record.actor_meta_upserts.insert(
+            create_test_human(
+                &mut runtime,
                 5000,
-                ActorMeta {
-                    name: "Usage Tester".to_string(),
-                    speech_mode: "prose".to_string(),
-                    title: "AI Usage Avatar".to_string(),
-                    description: "A test avatar checking AI accounting.".to_string(),
-                },
-            );
-            assert_eq!(
-                commit_journal_record(&state, &mut runtime, create_record)
-                    .expect("commit create")
-                    .0,
-                CW_OK
-            );
-            let repeated_reply = runtime.resident_fallback_for_target(RATI_ACTOR_ID);
-            let content_id = runtime.next_content_id_value();
-            let mut repeated_record = JournalRecord::new(
-                CwAction {
-                    kind: CW_ACTION_SAY,
-                    actor_id: RATI_ACTOR_ID,
-                    content_id,
-                    ..CwAction::default()
-                },
-                runtime.next_seed_value(),
-            );
-            repeated_record
-                .content_upserts
-                .insert(content_id, repeated_reply);
-            assert_eq!(
-                commit_journal_record(&state, &mut runtime, repeated_record)
-                    .expect("commit recent repeated resident line")
-                    .0,
-                CW_OK
+                COSY_COTTAGE_LOCATION_ID,
+                "Inference Tester",
             );
         }
         let (actor_session, _) = issue_actor_session(&state, 5000);
-        let stale_client_key_payload: ChatRequest = serde_json::from_value(serde_json::json!({
-            "actor_id": 5000,
-            "actor_session": actor_session.clone(),
-            "target_actor_id": 1001,
-            "openrouter_api_key": "sk-or-v1-stale-client-key",
-        }))
-        .expect("stale client OpenRouter key should be ignored by ChatRequest");
-        assert_eq!(stale_client_key_payload.actor_id, 5000);
-        assert_eq!(stale_client_key_payload.target_actor_id, 1001);
 
         let response = chat(
             ConnectInfo("127.0.0.1:44001".parse().expect("client address")),
             State(state.clone()),
-            Json(stale_client_key_payload),
-        )
-        .await
-        .0;
-        assert!(response.ok);
-        assert_eq!(response.status, CW_OK);
-        assert!(response
-            .events
-            .iter()
-            .any(|event| event.type_name == "message.created" && event.actor_id == Some(5000)));
-        assert!(!response
-            .events
-            .iter()
-            .any(|event| event.type_name == "message.created" && event.actor_id == Some(1001)));
-        assert!(!response
-            .events
-            .iter()
-            .any(|event| event.type_name == "bond.deepened"));
-
-        let exchange_lines = tokio::time::timeout(Duration::from_secs(4), async {
-            loop {
-                let lines = {
-                    let runtime = state.inner.lock().await;
-                    runtime
-                        .event_log
-                        .iter()
-                        .filter(|event| {
-                            event.type_name == "message.created" && event.location_id == Some(1)
-                        })
-                        .filter_map(|event| {
-                            Some((event.actor_id?, event.content.clone().unwrap_or_default()))
-                        })
-                        .collect::<Vec<_>>()
-                };
-                if lines.len() >= 5 {
-                    break lines;
-                }
-                tokio::time::sleep(Duration::from_millis(40)).await;
-            }
-        })
-        .await
-        .expect("one-Orb Chat should complete its short exchange");
-        let exchange_actor_ids = exchange_lines
-            .iter()
-            .map(|(actor_id, _)| *actor_id)
-            .collect::<Vec<_>>();
-        assert_eq!(
-            &exchange_actor_ids[exchange_actor_ids.len() - 4..],
-            &[5000, 1001, 5000, 1001]
-        );
-        let exchange = &exchange_lines[exchange_lines.len() - 4..];
-        assert!(exchange[0].1.contains("Moonwool Thread"));
-        assert!(exchange[1].1.contains("Moonwool Thread"));
-        assert!(exchange[2].1.contains("Moonwool Thread"));
-        assert!(exchange[3].1.contains("Moonwool Thread"));
-        assert!(!exchange[3].1.trim_end().ends_with('?'));
-        {
-            let runtime = state.inner.lock().await;
-            assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - CHAT_ORB_COST);
-            let view = runtime.state_response(Some(5000), &AccessContext::default());
-            assert_eq!(
-                view.room_memory
-                    .latest
-                    .as_ref()
-                    .map(|entry| entry.text.as_str()),
-                Some("Usage Tester kept a memory: shared a little chat with Rati.")
-            );
-        }
-        tokio::time::timeout(Duration::from_secs(1), async {
-            loop {
-                let idle = state
-                    .actor_chat_locks
-                    .lock()
-                    .map(|active| !active.contains(&5000))
-                    .unwrap_or(false);
-                if idle {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(20)).await;
-            }
-        })
-        .await
-        .expect("chat guard should release after the exchange");
-
-        let conn = open_event_store(&path).expect("open event store");
-        let row = conn
-            .query_row(
-                "SELECT actor_id, feature, payer_mode, provider, model, status,
-                        source_event_id, orb_delta
-                 FROM ai_usage_ledger
-                 WHERE feature = 'avatar_chat'",
-                [],
-                |row| {
-                    Ok((
-                        row.get::<_, Option<i64>>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, String>(2)?,
-                        row.get::<_, String>(3)?,
-                        row.get::<_, String>(4)?,
-                        row.get::<_, String>(5)?,
-                        row.get::<_, Option<i64>>(6)?,
-                        row.get::<_, i64>(7)?,
-                    ))
-                },
-            )
-            .expect("ai usage row");
-        assert_eq!(row.0, Some(5000));
-        assert_eq!(row.1, "avatar_chat");
-        assert_eq!(row.2, "cosyworld_orbs");
-        assert_eq!(row.3, "local_fallback");
-        assert_eq!(row.4, "deterministic-fallback");
-        assert_eq!(row.5, "ok");
-        assert!(row.6.is_some());
-        assert_eq!(row.7, -(CHAT_ORB_COST as i64));
-
-        let repeat = chat(
-            ConnectInfo("127.0.0.1:44002".parse().expect("client address")),
-            State(state.clone()),
             Json(ChatRequest {
                 actor_id: 5000,
                 actor_session: Some(actor_session),
-                target_actor_id: 1001,
+                target_actor_id: RATI_ACTOR_ID,
             }),
         )
         .await
         .0;
-        assert!(repeat.ok);
-        assert_eq!(repeat.status, CW_OK);
-        assert!(!repeat
-            .events
+
+        assert!(!response.ok);
+        assert_eq!(
+            response.status,
+            StatusCode::SERVICE_UNAVAILABLE.as_u16() as u32
+        );
+        assert!(response.events.is_empty());
+        let runtime = state.inner.lock().await;
+        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
+        assert!(!runtime
+            .event_log
             .iter()
-            .any(|event| event.type_name == "bond.deepened"));
-        {
-            let runtime = state.inner.lock().await;
-            let chat_state = runtime.state_response(Some(5000), &AccessContext::default());
-            assert!(chat_state.bonds.is_empty());
-            assert!(chat_state.chat_bond_claimed_target_ids.is_empty());
-            assert!(!chat_state
-                .ledger
-                .unbanked_marks
-                .iter()
-                .any(|mark| mark.category == "bond"));
-            assert!(chat_state
-                .ledger
-                .unbanked_marks
-                .iter()
-                .any(|mark| mark.category == "witness"));
-            let chat_offer = chat_state
-                .action_offers
-                .iter()
-                .find(|offer| offer.kind == "chat")
-                .expect("chat offer remains available after first chat");
-            assert_eq!(
-                chat_offer.target.as_ref().and_then(|target| target.id),
-                Some(1001)
-            );
-            assert!(chat_offer.effect.is_some());
-            assert!(chat_offer.claim_key.is_none());
-        }
-
-        tokio::time::sleep(Duration::from_millis(20)).await;
-        let _ = fs::remove_file(path);
+            .any(|event| { event.type_name == "message.created" && event.actor_id == Some(5000) }));
     }
-
     #[tokio::test]
-    async fn create_bond_action_schedules_target_chat_reply() {
+    async fn create_bond_action_without_ai_emits_no_fallback_reply() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -41000,7 +40773,7 @@ mod tests {
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        assert!(saw_reply, "target avatar should answer after a bond action");
+        assert!(!saw_reply, "no fallback reply should follow without AI");
     }
 
     #[test]
@@ -41119,7 +40892,6 @@ mod tests {
             .all(|job| job.reward.orbs() == 2 && !job.reward.label().is_empty()));
         assert_eq!(content.fronts.len(), 2);
         assert_eq!(content.cards.len(), 71);
-        assert_eq!(content.fallback_lines.len(), 18);
         assert_eq!(content.lifecycle_hooks.len(), 13);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 1);
@@ -42612,7 +42384,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn trade_action_schedules_target_chat_reply() {
+    async fn trade_action_without_ai_emits_no_fallback_reply() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -42700,7 +42472,7 @@ mod tests {
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        assert!(saw_reply, "target avatar should answer after a trade");
+        assert!(!saw_reply, "no fallback reply should follow without AI");
     }
 
     #[test]
@@ -45196,28 +44968,6 @@ mod tests {
     }
 
     #[test]
-    fn resident_move_fallback_rotates_lines() {
-        let mut runtime = RuntimeWorld::seeded();
-        let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
-        let action = CwAction {
-            kind: CW_ACTION_MOVE,
-            actor_id: RATI_ACTOR_ID,
-            destination_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
-            ..CwAction::default()
-        };
-
-        let first = runtime.resident_economy_action_fallback_text(rati, &action);
-        runtime.world.tick = runtime.world.tick.saturating_add(1);
-        let second = runtime.resident_economy_action_fallback_text(rati, &action);
-
-        assert_ne!(first, second);
-        assert!(!first.contains("steps to the next room and listens for change"));
-        assert!(!second.contains("steps to the next room and listens for change"));
-        assert!(first.contains("Rain-Soft Garden"));
-        assert!(second.contains("Rain-Soft Garden"));
-    }
-
-    #[test]
     fn ambient_autonomy_wanders_when_no_stronger_resident_task() {
         let mut runtime = RuntimeWorld::seeded();
         hide_seed_items(&mut runtime);
@@ -45290,39 +45040,6 @@ mod tests {
             next_step.destination_location_id, COSY_COTTAGE_LOCATION_ID,
             "resident should not immediately bounce back through the edge they just used"
         );
-    }
-
-    #[test]
-    fn emote_resident_autonomy_fallbacks_never_quote_dialogue() {
-        let runtime = RuntimeWorld::seeded();
-        let skull = runtime.actor_by_id(SKULL_ACTOR_ID).expect("Skull exists");
-        for action in [
-            CwAction {
-                kind: CW_ACTION_MOVE,
-                actor_id: SKULL_ACTOR_ID,
-                destination_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
-                ..CwAction::default()
-            },
-            CwAction {
-                kind: CW_ACTION_TRADE_ITEM,
-                actor_id: SKULL_ACTOR_ID,
-                target_actor_id: RATI_ACTOR_ID,
-                item_id: DEWBRIGHT_BUTTON_ITEM_ID,
-                target_item_id: STORY_BUTTON_ITEM_ID,
-                ..CwAction::default()
-            },
-            CwAction {
-                kind: CW_ACTION_PICK_UP_ITEM,
-                actor_id: SKULL_ACTOR_ID,
-                item_id: DEWBRIGHT_BUTTON_ITEM_ID,
-                ..CwAction::default()
-            },
-        ] {
-            let line = runtime.resident_economy_action_fallback_text(skull, &action);
-            assert!(line.starts_with('*') && line.ends_with('*'), "{line}");
-            assert!(!line.contains('"'), "{line}");
-            assert!(!line.contains("I will see what changed"), "{line}");
-        }
     }
 
     #[test]
@@ -47431,7 +47148,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ambient_autonomy_trade_schedules_resident_speech() {
+    async fn ambient_autonomy_trade_without_ai_emits_no_fallback_speech() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
         runtime.resident_memories.clear();
@@ -47489,7 +47206,7 @@ mod tests {
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        assert!(saw_reply, "resident should speak after an autonomous trade");
+        assert!(!saw_reply, "no fallback speech should follow without AI");
     }
 
     #[test]
@@ -47667,10 +47384,9 @@ mod tests {
     }
 
     #[test]
-    fn promised_resident_reply_rotates_duplicate_without_breaking_speech_mode() {
+    fn repeated_ai_resident_reply_is_rejected_without_authored_replacement() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut plan = resident_reply_test_plan(SKULL_ACTOR_ID, "Skull", "emote_only");
-        plan.fallback_text = "*Skull gives the doorway one practical nod.*".to_string();
+        let plan = resident_reply_test_plan(SKULL_ACTOR_ID, "Skull", "emote_only");
         let repeated = "*Skull gives the doorway one practical nod.*";
         runtime.event_log.push(EventView {
             seq: runtime.world.next_event_seq,
@@ -47681,7 +47397,6 @@ mod tests {
             content: Some(repeated.to_string()),
             ..EventView::default()
         });
-        runtime.world.next_event_seq += 1;
 
         let proposal = runtime.collision_safe_resident_proposal(
             &plan,
@@ -47696,16 +47411,11 @@ mod tests {
             },
         );
 
-        assert_ne!(proposal.speech, repeated);
-        assert_eq!(
-            sanitize_resident_reply(&plan, &proposal.speech).as_deref(),
-            Some(proposal.speech.as_str())
-        );
-        assert!(proposal.speech.starts_with('*') && proposal.speech.ends_with('*'));
+        assert!(proposal.is_none());
     }
 
     #[test]
-    fn avatar_followup_rotates_instead_of_repeating_the_opener() {
+    fn repeated_ai_avatar_followup_is_rejected_without_authored_replacement() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -47713,9 +47423,6 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Followup Tester",
         );
-        let plan = runtime
-            .avatar_chat_plan_for(5000, RATI_ACTOR_ID)
-            .expect("avatar can chat with Rati");
         let repeated = "Then let's carry that thought one step further—what would you try first?";
         runtime.event_log.push(EventView {
             seq: runtime.world.next_event_seq,
@@ -47726,7 +47433,6 @@ mod tests {
             content: Some(repeated.to_string()),
             ..EventView::default()
         });
-        runtime.world.next_event_seq += 1;
 
         let typographic_twin =
             "Then let’s carry that thought one step further—what would you try first?";
@@ -47734,21 +47440,13 @@ mod tests {
             normalized_resident_speech_key(repeated),
             normalized_resident_speech_key(typographic_twin)
         );
-        let followup = runtime.collision_safe_avatar_followup(5000, &plan, typographic_twin);
-
-        assert_ne!(followup, typographic_twin);
-        assert_ne!(
-            normalized_resident_speech_key(&followup),
-            normalized_resident_speech_key(repeated)
-        );
-        assert_eq!(
-            sanitize_avatar_chat(&followup).as_deref(),
-            Some(followup.as_str())
-        );
+        assert!(runtime
+            .collision_safe_avatar_followup(5000, typographic_twin)
+            .is_none());
     }
 
     #[test]
-    fn resident_chat_fallback_keeps_the_fresh_conversation_subject() {
+    fn resident_inference_plan_keeps_the_fresh_conversation_subject() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -47764,9 +47462,8 @@ mod tests {
                 "Could Moonwool Thread help in Rain-Soft Garden?",
             )
             .expect("Rati can answer the avatar");
-        assert!(rati.fallback_text.contains("Moonwool Thread"));
-        assert!(rati.fallback_text.contains("What have you seen?"));
-        assert!(!rati.fallback_text.contains("Tea first"));
+        assert!(rati.user_text.contains("Moonwool Thread"));
+        assert!(rati.user_text.contains("Rain-Soft Garden"));
 
         let skull = runtime
             .resident_reply_plan_for_target(
@@ -47775,11 +47472,8 @@ mod tests {
                 "I think Story Button belongs somewhere nearby.",
             )
             .expect("Skull can answer the avatar");
-        assert!(skull.fallback_text.contains("Story Button"));
-        assert_eq!(
-            sanitize_resident_reply(&skull, &skull.fallback_text).as_deref(),
-            Some(skull.fallback_text.as_str())
-        );
+        assert!(skull.user_text.contains("Story Button"));
+        assert_eq!(skull.speech_mode, "emote_only");
 
         let gust = runtime
             .resident_reply_plan_for_target(
@@ -47788,25 +47482,9 @@ mod tests {
                 "Did you notice Hearth Tonic?",
             )
             .expect("Gust can answer the avatar");
-        assert_eq!(gust.fallback_text, "👀👉🔎✨");
-        assert_eq!(
-            sanitize_resident_reply(&gust, &gust.fallback_text).as_deref(),
-            Some(gust.fallback_text.as_str())
-        );
-
-        let rati_closing =
-            runtime.resident_conversation_closing_fallback(RATI_ACTOR_ID, &rati.user_text);
-        assert!(rati_closing.contains("Moonwool Thread"));
-        assert!(!rati_closing.ends_with('?'));
-        let skull_closing =
-            runtime.resident_conversation_closing_fallback(SKULL_ACTOR_ID, &skull.user_text);
-        assert!(skull_closing.contains("Story Button"));
-        assert_eq!(
-            sanitize_resident_reply(&skull, &skull_closing).as_deref(),
-            Some(skull_closing.as_str())
-        );
+        assert!(gust.user_text.contains("Hearth Tonic"));
+        assert_eq!(gust.speech_mode, "emoji_only");
     }
-
     #[test]
     fn resident_gifts_non_track_room_feature_item_from_desire_memory() {
         let mut runtime = RuntimeWorld::seeded();
@@ -48363,7 +48041,6 @@ mod tests {
             cast: vec![npc_name.to_string()],
             recent_lines: Vec::new(),
             user_text: "weather?".to_string(),
-            fallback_text: "🌧️🫖✨🧶".to_string(),
         }
     }
 
@@ -48400,64 +48077,19 @@ mod tests {
     }
 
     #[test]
-    fn resident_fallback_lines_follow_current_location() {
+    fn dialogue_inference_plans_follow_the_current_location() {
         let mut runtime = RuntimeWorld::seeded();
-        let cottage_line = runtime.resident_fallback_for_target(SKULL_ACTOR_ID);
-        assert!(cottage_line.contains("boots"));
-        assert!(cottage_line.starts_with('*') && cottage_line.ends_with('*'));
-
-        runtime
-            .world
-            .actors
-            .iter_mut()
-            .find(|actor| actor.id == SKULL_ACTOR_ID)
-            .expect("Skull exists")
-            .location_id = CIRCLE_OF_MOON_LOCATION_ID;
-        let circle_line = runtime.resident_fallback_for_target(SKULL_ACTOR_ID);
-        assert!(circle_line.contains("standing stones"), "{circle_line}");
-        assert!(!circle_line.contains("hearth"), "{circle_line}");
-        assert!(!circle_line.contains("rain"), "{circle_line}");
-        assert!(!circle_line.contains("doorway"), "{circle_line}");
-        assert!(circle_line.starts_with('*') && circle_line.ends_with('*'));
-
-        runtime
-            .world
-            .actors
-            .iter_mut()
-            .find(|actor| actor.id == SKULL_ACTOR_ID)
-            .expect("Skull exists")
-            .location_id = LOFTY_PEAK_LOCATION_ID;
-        let mountain_line = runtime.resident_fallback_for_target(SKULL_ACTOR_ID);
-        assert!(mountain_line.contains("one ear"), "{mountain_line}");
-        assert!(!mountain_line.contains("hearth"), "{mountain_line}");
-        assert!(!mountain_line.contains("rain"), "{mountain_line}");
-        assert!(!mountain_line.contains("doorway"), "{mountain_line}");
-        assert!(mountain_line.starts_with('*') && mountain_line.ends_with('*'));
-    }
-
-    #[test]
-    fn avatar_chat_fallback_lines_follow_current_location() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = COSY_COTTAGE_LOCATION_ID;
-        let mut record = JournalRecord::new(create, 92_201);
-        record.actor_meta_upserts.insert(
+        create_test_human(
+            &mut runtime,
             5000,
-            ActorMeta {
-                name: "Fallback Guest".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Fallback Tester".to_string(),
-                description: "A test avatar checking location-aware fallback chat.".to_string(),
-            },
+            COSY_COTTAGE_LOCATION_ID,
+            "Inference Guest",
         );
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
 
         let cottage = runtime
             .avatar_chat_plan_for(5000, SKULL_ACTOR_ID)
             .expect("Skull chat plan available in cottage");
-        assert!(cottage.fallback_text.contains("hearth"));
+        assert_eq!(cottage.location_name, "The Cosy Cottage");
 
         for actor in runtime
             .world
@@ -48472,52 +48104,15 @@ mod tests {
         let circle = runtime
             .avatar_chat_plan_for(5000, SKULL_ACTOR_ID)
             .expect("Skull chat plan available at the moon circle");
-        assert!(
-            circle.fallback_text.contains("among the stones"),
-            "{}",
-            circle.fallback_text
-        );
-        assert!(
-            !circle.fallback_text.contains("hearth"),
-            "{}",
-            circle.fallback_text
-        );
-        assert!(
-            !circle.fallback_text.contains("rain"),
-            "{}",
-            circle.fallback_text
-        );
+        assert_eq!(circle.location_name, "Circle of the Moon");
+        assert_ne!(circle.location_description, cottage.location_description);
 
-        for actor in runtime
-            .world
-            .actors
-            .iter_mut()
-            .take(runtime.world.actor_count)
-        {
-            if actor.id == 5000 || actor.id == SKULL_ACTOR_ID {
-                actor.location_id = LOFTY_PEAK_LOCATION_ID;
-            }
-        }
-        let mountain = runtime
-            .avatar_chat_plan_for(5000, SKULL_ACTOR_ID)
-            .expect("Skull chat plan available on the mountain");
-        assert!(
-            mountain.fallback_text.contains("done this before"),
-            "{}",
-            mountain.fallback_text
-        );
-        assert!(
-            !mountain.fallback_text.contains("hearth"),
-            "{}",
-            mountain.fallback_text
-        );
-        assert!(
-            !mountain.fallback_text.contains("rain"),
-            "{}",
-            mountain.fallback_text
-        );
+        let resident = runtime
+            .resident_reply_plan_for_target(5000, SKULL_ACTOR_ID, "What changed here?")
+            .expect("resident inference plan follows both actors");
+        assert_eq!(resident.location_name, "Circle of the Moon");
+        assert_eq!(resident.user_text, "What changed here?");
     }
-
     #[test]
     fn resident_intent_json_parses_speech_and_taxonomy() {
         let plan = resident_reply_test_plan(RATI_ACTOR_ID, "Rati", "prose");
@@ -48812,7 +48407,6 @@ mod tests {
             .contains("heard Gust near Rain-Soft Garden"));
         assert!(plan.target_economy_note.contains("Moonwool Thread"));
         assert!(plan.target_economy_note.contains("seeks:"));
-        assert!(plan.fallback_text.contains("Moonwool Thread"));
 
         let reply_plan = runtime
             .resident_reply_plan_for_target(5000, 1001, "What does the scarf need?")
@@ -48843,7 +48437,7 @@ mod tests {
     }
 
     #[test]
-    fn avatar_chat_commits_server_authored_avatar_line() {
+    fn inferred_avatar_chat_line_can_commit_and_schedule_a_reply() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -48861,10 +48455,10 @@ mod tests {
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
 
-        let plan = runtime
+        let _plan = runtime
             .avatar_chat_plan_for(5000, 1002)
             .expect("Gust chat plan available");
-        let line = plan.fallback_text.clone();
+        let line = "Gust, does that cloud look like trouble or lunch?".to_string();
         let mut say = CwAction::default();
         say.kind = CW_ACTION_SAY;
         say.actor_id = 5000;
@@ -49994,8 +49588,8 @@ mod tests {
                 actor_id: Some(5000),
                 feature: "avatar_chat".to_string(),
                 payer_mode: "cosyworld_orbs".to_string(),
-                provider: "local_fallback".to_string(),
-                model: "deterministic-fallback".to_string(),
+                provider: "unconfigured".to_string(),
+                model: "none".to_string(),
                 status: "ok".to_string(),
                 source_event_id: Some(10),
                 orb_delta: -1,

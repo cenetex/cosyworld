@@ -1,6 +1,6 @@
 # CosyWorld Voice Redesign: From Mystic Hush to Muddy Boots
 
-**Status:** Applied (2026-07-04) — actors, cards, fallback lines, prompts, and tests updated.
+**Status:** Applied (2026-07-04), with deterministic dialogue fallbacks removed on 2026-07-11; actors, cards, prompts, and tests remain current.
 **Problem:** The world read as new-age — everything whispered, remembered, kept vows, and gazed into veils. NPC output drifted toward discount-Lovecraft portent ("the abyss that yawns open like a maw of eternal night") or precious hush.
 **Fix:** Grounded, near-slapstick physical comedy. Wind in the Willows energy: a shared house full of animals and angels who are all having a *day*. Slightly cheeky, a little provocative, never cruel or explicit.
 
@@ -69,7 +69,7 @@ Every resident has a one-word name — species or homely given name, Grahame-sty
 | 1068 | **Badger** | *(new)* | **Grumpy landlord of the lower burrow.** One good chair, three shovels, a mud list. |
 | 1069 | **Toad** | *(new)* | **Reckless swamp daredevil, zero completed jumps.** Considers this a scheduling issue. |
 
-Sample fallback lines now in seed content:
+Historical fallback-line samples from the original redesign (no longer shipped):
 - Badger: *"Badger looks at your boots for a long, long time. 'The mat. Use the mat.'"*
 - Toad: *"Toad limps in wearing half a lilypad. 'You should see the other pond.'"*
 - Oak: *"Root: Left. Ring: Left worked in 1893. Leaf: There's a wasp. Hollow: I'm telling everyone what you just said."*
@@ -81,7 +81,7 @@ Sample fallback lines now in seed content:
 - **`content/core/actors.json`** — 35 actors: one-word names, new titles/descriptions, Badger (1068, caves) and Toad (1069, swamp) added with grounded desire/attachment reasons.
 - **`content/core/items.json`** — seed item descriptions moved from vow/memory language to useful, tangible props.
 - **`content/core/cards.json`** — actor and item card blurbs synced from content; art labels/glyphs updated for renamed seed cards. Existing card ids unchanged.
-- **`content/core/fallback_lines.json`** — full rewrite in the new voice; Badger/Toad resident replies added (16 → 18 lines).
+- **`content/core/fallback_lines.json`** — removed; all visible dialogue now comes from AI inference.
 - **`content/core/{locations,room_features,fronts}.json`** — prose references to renamed actors updated.
 - **`orchestrator-rust/src/main.rs`**
   - `resident_system_prompt`: comedy rules + banned-word list appended to the base; bespoke voice arms for Rati, Gust, Skull, Oak, Euphemie, Chamuel, Azazoth, Zadkiel, Badger, Toad; generic arm now frames CosyWorld as "a grounded physical-comedy village".
@@ -89,10 +89,10 @@ Sample fallback lines now in seed content:
   - Avatar identity prompt tone: "a character with an appetite, a grudge, and at least one bad plan".
   - Reserved avatar names extended (gust, coach, badger, toad); dialogue options and evolution copy renamed; test expectations and counts updated.
 - **`orchestrator-rust/src/index.html`** — ambient presence lines updated ("Skull watches the door like it owes him money.").
-- **`ai-model-rust/src/lib.rs`** — local chat/reply fallbacks rewritten; generated-avatar titles/traits grounded ("Doormat Skeptic", "claims to have wiped their feet; the floor disagrees"); reserved names synced.
+- **`ai-model-rust/src/lib.rs`** — generated-avatar titles/traits grounded ("Doormat Skeptic", "claims to have wiped their feet; the floor disagrees"); reserved names and dialogue speech-contract sanitizers synced. Local chat/reply generation was later removed.
 - **`scripts/smoke-browser.mjs`** — fixtures/assertions renamed Whiskerwind → Gust.
 
-**Verified in this pass:** `check-worldpack` ok (71 cards), smoke script syntax ok, `cargo fmt --check` ok, and the seed-content manifest test passes. Full `npm run check` reaches `v2:rust:test` and still fails 12 existing room-feature/resident-economy tests in `orchestrator-rust/src/main.rs`.
+**Verified after the inference-only follow-up:** `npm run v2:check` passes worldpack validation (71 cards), kernel and AI-model gates, 256 Rust tests, the production-profile smoke, normal and living-world browser smokes, terminal smokes, and visual checks. The browser smoke also verifies the first settled growth appears in activation metrics inside the ten-minute target.
 
 ---
 

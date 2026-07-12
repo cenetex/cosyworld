@@ -563,29 +563,6 @@
     .update-pill.first-thread.complete .update-label {
       color: var(--green);
     }
-    .update-pill.story-thread {
-      width: 100%;
-      border-color: rgba(239, 201, 107, 0.3);
-      background: rgba(239, 201, 107, 0.065);
-      color: inherit;
-      font: inherit;
-      text-align: left;
-      align-items: start;
-      white-space: normal;
-    }
-    button.update-pill.story-thread {
-      cursor: pointer;
-    }
-    button.update-pill.story-thread:focus-visible {
-      outline: 2px solid rgba(239, 201, 107, 0.8);
-      outline-offset: 2px;
-    }
-    .update-pill.story-thread .update-text {
-      color: var(--text);
-      overflow: visible;
-      text-overflow: clip;
-      white-space: normal;
-    }
     .log {
       grid-row: 3;
       min-height: 0;
@@ -615,6 +592,10 @@
     }
     .log.chat-mode.quiet-mode::before {
       display: none;
+    }
+    .log > .line,
+    .log > .roll-line {
+      flex-shrink: 0;
     }
     .log.quiet-mode .line.event.room {
       margin-bottom: auto;
@@ -3147,54 +3128,36 @@
         return [buildEvolveAction(), waitingAction].filter(Boolean);
       }
 
+      const built = [];
       const journey = view.journey || null;
       if (journey) {
-        const stepsRemaining = Math.max(0, Number(journey.steps_remaining || 0));
-        const nextName = String(journey.next_location_name || journey.destination_name || "the next bend");
         const nextLocationId = Number(journey.next_location_id || 0);
+        const nextIsDestination = nextLocationId === Number(journey.destination_location_id || 0);
         const nextStretchRevealed = (view.exits || []).some((exit) => (
           Number(exit.destination_location_id || 0) === nextLocationId
           && !exitUnavailable(exit, view)
         ));
-        if (nextStretchRevealed) {
-          return [{
-            label: "travel",
-            detail: nextName,
-            command: `go ${nextName}`,
-            focusKey: `exit:${nextLocationId}`,
-            card: cardForLocation(nextLocationId) || cardForLocation(view.location?.id),
+        if (!nextStretchRevealed) {
+          built.push({
+            label: "search",
+            detail: `for the path toward ${journey.destination_name}`,
+            command: "search",
+            focusKey: `journey-search:${journey.destination_location_id}:${journey.current_step}`,
+            card: cardForLocation(view.location?.id),
             shape: "location",
-            priority: 1,
-            modalSummary: `Follow the revealed path into ${nextName}.`,
-            effect: stepsRemaining <= 1
-              ? `you arrive in ${journey.destination_name}`
-              : `you enter ${nextName}`,
-            busyLabel: "travelling",
-            busyDetail: "following the next stretch…",
-            run: () => action("/actions/move", {
-              actor_id: actorId,
-              destination_location_id: nextLocationId,
-            }),
-          }];
+            priority: 55,
+            modalTitle: "search for the next path",
+            modalSummary: `Look around this place for the next adjacent stretch toward ${journey.destination_name}.`,
+            effect: nextIsDestination
+              ? `the way to ${journey.destination_name} is revealed`
+              : `the hidden next stretch toward ${journey.destination_name} is revealed`,
+            busyLabel: "searching",
+            busyDetail: "the next stretch is taking shape…",
+            run: () => action("/actions/explore-path", { actor_id: actorId }),
+          });
         }
-        return [{
-          label: "search",
-          detail: `for the path toward ${journey.destination_name}`,
-          command: "search",
-          focusKey: `journey-search:${journey.destination_location_id}:${journey.current_step}`,
-          card: cardForLocation(view.location?.id),
-          shape: "location",
-          priority: 1,
-          modalTitle: "search for the next path",
-          modalSummary: `Look around this place for the next adjacent stretch toward ${journey.destination_name}.`,
-          effect: `the way to ${nextName} is revealed`,
-          busyLabel: "searching",
-          busyDetail: "the next stretch is taking shape…",
-          run: () => action("/actions/explore-path", { actor_id: actorId }),
-        }];
       }
 
-      const built = [];
       const canChat = economy.can_chat_with_orbs !== false;
       const heldUsableItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "potion" && item.charges > 0);
       const heldItems = (view.items || []).filter((item) => item.holder_actor_id === actorId);
@@ -3221,7 +3184,6 @@
         return match ? Number(match[1]) : fallback;
       };
       const activeProject = (view.jobs || []).find((job) => job.status === "active") || null;
-      const activeRoomProject = Boolean(activeProject);
       const currentLocationId = Number(view.location?.id || 0);
       const roomZone = String(view.room_sheet?.zone || "").toLowerCase();
       const roomSafety = String(view.room_sheet?.safety || "").toLowerCase();
@@ -3233,7 +3195,8 @@
       ));
       const activeProgressClock = activeProject
         ? (view.clocks || []).find((clock) => clock.id === activeProject.progress_clock_id)
-        : null;
+        : (view.clocks || []).find((clock) => clock.kind === "progress" && Number(clock.filled || 0) < Number(clock.segments || 0));
+      const activeRoomProject = Boolean(activeProgressClock);
       const activeProgressRemaining = activeProgressClock
         ? Math.max(0, Number(activeProgressClock.segments || 0) - Number(activeProgressClock.filled || 0))
         : 0;
@@ -3630,7 +3593,12 @@
           });
         }
       }
-      const routeExits = (view.exits || []).filter((exit) => !exitUnavailable(exit, view));
+      const routeExits = (view.exits || []).filter((exit) => (
+        !exitUnavailable(exit, view)
+        && !(journey
+          && Number(exit.distance || 1) > 1
+          && Number(exit.destination_location_id || 0) === Number(journey.destination_location_id || 0))
+      ));
       const escaping = options.has("flee");
       if (routeExits.length && (escaping || options.has("move"))) {
         const routeGroups = escaping
@@ -3679,7 +3647,7 @@
                   : "Choose a path and follow it into the next room.")),
             effect: onePath
               ? (searchingPathway
-                ? `the way to Pathway to ${firstExit.destination_location_name} 1/${Number(firstExit.distance || 1)} is revealed`
+                ? `a hidden first stretch toward ${firstExit.destination_location_name} is revealed`
                 : `you arrive in ${firstExit.destination_location_name}`)
               : (searchingPathway ? "the first adjacent stretch of the chosen pathway is revealed" : "you arrive at the place you choose"),
             ...(onePath ? {} : {
@@ -4092,6 +4060,7 @@
           built.push(rememberAction);
         }
       }
+      mergeDuplicateSearchCards(built);
       mergeDuplicateUseCards(built);
       built.sort(compareActions);
       if (!built.length) {
@@ -4106,6 +4075,58 @@
         });
       }
       return built;
+    }
+
+    function mergeDuplicateSearchCards(builtActions) {
+      const searches = builtActions.filter((action) => String(action?.label || "").toLowerCase() === "search");
+      if (searches.length <= 1) return;
+      const modes = [];
+      searches.forEach((source, sourceIndex) => {
+        const sourceChoices = Array.isArray(source.choices) && source.choices.length
+          ? source.choices
+          : [null];
+        sourceChoices.forEach((choice, choiceIndex) => {
+          modes.push({
+            key: `search:${sourceIndex}:${choiceIndex}:${choice?.value || source.focusKey || source.command}`,
+            label: String(choice?.label || source.detail || "look around").replace(/^for\s+/i, ""),
+            detail: friendlyActionText(choice?.detail || source.effect || "uncover what is hidden"),
+            card: choice?.card || source.card,
+            source,
+            choiceValue: choice?.value,
+          });
+        });
+      });
+      const first = modes[0];
+      const merged = {
+        ...first.source,
+        label: "search",
+        detail: "choose what to look for",
+        command: "search",
+        focusKey: `search:${modes.map((mode) => mode.key).join("|")}`,
+        focusKeys: [...new Set(searches.flatMap((source) => [source.focusKey, ...(source.focusKeys || [])]).filter(Boolean))],
+        card: first.card,
+        modalTitle: "choose what to search",
+        modalSummary: "Follow a path clue or look more closely at the room.",
+        effect: "the search you choose reveals one hidden thing",
+        choices: modes.map((mode) => ({
+          label: mode.label,
+          detail: mode.detail,
+          value: mode.key,
+          card: mode.card,
+        })),
+        selectedChoice: first.key,
+      };
+      merged.run = () => {
+        const selected = modes.find((mode) => mode.key === merged.selectedChoice) || first;
+        if (selected.choiceValue != null) selected.source.selectedChoice = selected.choiceValue;
+        return selected.source.run();
+      };
+      const firstIndex = builtActions.indexOf(searches[0]);
+      for (const source of searches) {
+        const index = builtActions.indexOf(source);
+        if (index >= 0) builtActions.splice(index, 1);
+      }
+      builtActions.splice(Math.min(firstIndex, builtActions.length), 0, merged);
     }
 
     function mergeDuplicateUseCards(builtActions) {
@@ -4765,7 +4786,8 @@
 
     function eventIsJourneyNarration(event) {
       return String(event?.type || "").startsWith("journey.")
-        || event?.type === "pathway.discovered";
+        || event?.type === "pathway.discovered"
+        || event?.type === "pathway.familiarized";
     }
 
     function eventsShareAJourneyBeat(left, right) {
@@ -4881,7 +4903,10 @@
       "journey.progressed",
       "journey.narrated",
       "journey.completed",
+      "journey.backtracked",
+      "journey.paused",
       "pathway.discovered",
+      "pathway.familiarized",
       "ability_check.rolled",
       "feature.searched",
       "location.searched",
@@ -5190,18 +5215,13 @@
         firstTaleCelebration = true;
         firstTaleCompletionSeen = true;
       }
-      const storyThread = !firstThread && !firstTaleCelebration && firstTaleIsComplete(state)
-        ? nextStoryThreadModel(state, actions)
-        : null;
-      updates.hidden = !firstThread && !firstTaleCelebration && !storyThread;
+      updates.hidden = !firstThread && !firstTaleCelebration;
       const firstTaleEnding = firstTaleCompletionText(state);
       updates.innerHTML = firstThread
         ? `<span class="updates-guide">your first tale</span><div class="updates-list"><div class="update-pill first-thread" aria-label="Your first tale. Next: ${escapeAttr(firstThread.text)}"><span class="update-label" aria-hidden="true">next</span><span class="update-text">${escapeHtml(firstThread.text)}</span></div></div>`
         : firstTaleCelebration
           ? `<span class="updates-guide">your first tale</span><div class="updates-list"><div class="update-pill first-thread complete" aria-label="Your first tale is yours. ${escapeAttr(firstTaleEnding.charAt(0).toUpperCase() + firstTaleEnding.slice(1))}"><span class="update-label" aria-hidden="true">✦</span><span class="update-text">your first tale is yours — ${escapeHtml(firstTaleEnding)}</span></div></div>`
-          : storyThread
-            ? storyThreadHtml(storyThread)
-            : "";
+          : "";
     }
 
     function firstTaleCompletionText(view = state) {
@@ -5307,15 +5327,6 @@
         return makeThread(evolve, "Something you learned is ready to become part of you", "evolve");
       }
       return null;
-    }
-
-    function storyThreadHtml(thread) {
-      const contents = `<span class="update-label" aria-hidden="true">follow</span><span class="update-text">${escapeHtml(thread.text)}</span>`;
-      if (!thread.actionKey) {
-        return `<span class="updates-guide">room thread</span><div class="updates-list"><div class="update-pill story-thread" aria-label="Room thread. ${escapeAttr(thread.text)}">${contents}</div></div>`;
-      }
-      const aria = `Room thread. ${thread.text} Focus the ${thread.actionLabel || "matching"} card.`;
-      return `<span class="updates-guide">room thread</span><div class="updates-list"><button class="update-pill story-thread" type="button" data-story-action-key="${escapeAttr(thread.actionKey)}" aria-label="${escapeAttr(aria)}">${contents}</button></div>`;
     }
 
     function renderRoomMemory() {
@@ -5448,7 +5459,7 @@
       for (let index = entries.length - 1; index >= 0; index -= 1) {
         const entry = entries[index];
         if (!entry?.text) continue;
-        const key = `${String(entry.kind || "").toLowerCase()}:${memoryPhrase(entry.text).toLowerCase()}`;
+        const key = memoryPhrase(entry.text).toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
         unique.unshift(entry);
@@ -5756,9 +5767,7 @@
     function renderLog() {
       const log = $("log");
       const accountPanel = accountPanelHtml();
-      const visibleEvents = narratedTranscriptEvents(
-        pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent))
-      );
+      const visibleEvents = pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent));
       const pendingConversation = pendingConversationHtml();
       const pendingArrival = pendingAvatarArrivalHtml();
       const hasChat = visibleEvents.length > 0 || Boolean(pendingConversation);
@@ -5769,7 +5778,7 @@
       log.classList.toggle("arrival-mode", !accountPanel && Boolean(pendingArrival));
       log.classList.toggle("quiet-mode", !accountPanel && residentOnly);
       if (accountPanel) {
-        log.innerHTML = `${accountPanel}${visibleEvents.map(timelineEventHtml).join("")}`;
+        log.innerHTML = `${accountPanel}${visibleEvents.map(messageHtml).join("")}`;
         log.scrollTop = 0;
         return;
       }
@@ -5783,7 +5792,7 @@
         log.scrollTop = 0;
         return;
       }
-      log.innerHTML = `${openingRoomLineHtml()}${visibleEvents.map(timelineEventHtml).join("")}${pendingConversation}`;
+      log.innerHTML = `${visibleEvents.map(messageHtml).join("")}${pendingConversation}`;
       log.scrollTop = residentOnly && !pendingConversation ? 0 : log.scrollHeight;
     }
 
@@ -5811,11 +5820,6 @@
       return `<div class="room-scene arrival-scene" role="status" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
     }
 
-    function openingRoomLineHtml() {
-      const beat = openingBeat(state);
-      return `<div class="line event room" data-event-row aria-label="Scene. ${escapeAttr(beat)}"><span class="event-label" aria-hidden="true">✦</span><span class="text">${escapeHtml(beat)}</span></div>`;
-    }
-
     function quietRoomSceneHtml() {
       const beat = openingBeat(state);
       const hasAvatar = Boolean(actorId && state?.primary_action?.kind !== "create_avatar");
@@ -5828,15 +5832,7 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
-      if (event?.type === "message.created") return true;
-      const numericActorId = Number(event?.actor_id || 0);
-      const actor = actorForId(numericActorId);
-      const humanCard = actor?.kind === "human" || numericActorId === Number(actorId) || numericActorId >= 5000;
-      if (!humanCard) return false;
-      if (sceneCardEventTypes.has(event?.type)) return true;
-      if (event?.type === "tag.applied") return event?.tag_label === "prepared";
-      if (event?.type === "tag.cleared") return event?.tag_label === "tired";
-      return false;
+      return event?.type === "message.created";
     }
 
     function accountPanelHtml() {
@@ -6088,7 +6084,7 @@
       if (type === "actor.moved") {
         return `The way opens, and ${actor} steps into ${event.destination_location_name || "somewhere new"}.`;
       }
-      if (type.startsWith("journey.") || type === "pathway.discovered") {
+      if (type.startsWith("journey.") || type === "pathway.discovered" || type === "pathway.familiarized") {
         return finishSentence(cleanStatusText(event.content || "The path changes beneath careful feet"));
       }
       if (type === "feature.searched" || type === "location.searched") {
@@ -8197,20 +8193,6 @@
       event.stopPropagation();
       openCardModal(card);
     }, true);
-
-    $("updates").addEventListener("click", (event) => {
-      const thread = event.target.closest("[data-story-action-key]");
-      if (!thread) return;
-      event.preventDefault();
-      const key = thread.getAttribute("data-story-action-key") || "";
-      const index = actionIndexForHandKey(key);
-      if (index < 0) return;
-      focusAction(index, actions[index]?.focusKey || "");
-      const focusedButton = ["primary", "secondary", "tertiary"]
-        .map((id) => $(id))
-        .find((button) => button?.dataset?.handKey === key);
-      focusedButton?.focus();
-    });
 
     $("log").addEventListener("click", (event) => {
       const keepsake = event.target.closest("[data-account-toggle-keepsake]");

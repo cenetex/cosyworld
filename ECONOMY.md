@@ -54,7 +54,7 @@ Rules:
 - The player's OpenRouter payer covers only the explicit action they initiated, normally the player-avatar line plus the immediate resident reply.
 - The player's OpenRouter payer is not used for ambient resident beats, autonomous swarm jobs, admin content generation, or other players' later actions.
 - Failed validation does not spend Orbs.
-- A successful server-paid avatar line spends Orbs, whether the line came from the configured LLM or deterministic fallback.
+- A successful server-paid inferred avatar line spends Orbs after it commits. Failed or unavailable inference emits no substitute speech and spends nothing.
 - If AI fails before any shared avatar line is committed, the spend is rolled back or never committed.
 - P0 Orbs are not on-chain, not transferable, and not a payment rail. Later bridges can be designed explicitly.
 
@@ -276,10 +276,10 @@ Rules:
 - The transcript stays the main event.
 - No chat composer.
 - No permanent economy panel.
-- One primary command at rest.
+- At most three dealt action cards plus shuffle at rest; no system may replace the hand except required onboarding or an urgent safety gate.
 - Economy/account operations appear only when focused through a small account/card/inventory affordance.
 - The account surface can borrow Ruby High's card selector and pack progress patterns, but should be visually tuned to CosyWorld's terminal MUD shell.
-- If a flow needs two options, show a temporary action sheet with at most two clear choices. The rest state returns to one button.
+- If one card needs a target or mode choice, show a temporary action sheet and return to the dealt hand after selection.
 
 Primary command examples:
 

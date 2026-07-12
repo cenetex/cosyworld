@@ -51,7 +51,7 @@ These are the engineering enforcement of the PRD's pillars. Code review holds th
 5. **Every mint, spend, ledger mark, and one-shot effect is claim-key gated.** Keys are pure functions of authoritative facts — never wall-clock time or RNG. Review checks key granularity in both directions (too coarse swallows legitimate repeats; too fine lets retries double-mint). This applies to NPC behavior too: resident ambient lines and autonomous acts carry cooldown/claim discipline like player rewards.
 6. **The client is untrusted.** Affordability, access, ownership, outcomes, and primary-action state are server-derived. Client-supplied card ids are ignored outside explicit local dev flags.
 7. **Turn discipline has a fixed taxonomy.** Committed cards consume a room turn; `say`, `/me`, `report`, and reads never do; browsing the hand is free. A present player is never hostage to an absent one — ping/pong (or its successor) must always provide a bounded path past an unresponsive turn-holder.
-8. **Every primary verb has a deterministic non-AI path.** No feature ships with an AI-only happy path.
+8. **Core world actions do not depend on AI.** Travel, Listen, Search, item actions, growth, projects, and conflict keep deterministic kernel paths. Dialogue is an explicit inference capability: when unavailable it fails visibly before charging or committing speech, and incidental replies are skipped.
 9. **The kernel stays wallet-blind and IO-free.** Stable numeric ids, type flags, and rule fields only. Ownership feeds, card metadata, signatures, and money are Rust concerns.
 10. **One shard per process.** A process owns one world, one store, one stream. Horizontal scale is more processes with isolated state; cross-shard routing is out of scope this era.
 11. **Structured content over free-form.** Anything that can change authoritative state — clock on-fill effects, crafting recipes, generated evolution patterns — is a closed-vocabulary descriptor that compiles to kernel actions or typed projection mutations, dry-run validated, fail-closed.
@@ -99,9 +99,9 @@ Implements PRD "Now" #4, from the live economy audit:
 - Season scoping: claim keys fold in a season id that increments on played world-ticks, so exhausted faucets (listen rewards, encounter rewards) reopen through play — never through a scheduler.
 - Write down the Orbs identity decision (AI meter funneling to BYOK vs. renewable play energy) and tune faucets to match.
 
-### 4. Extract `ai_gateway`
+### 4. Finish `ai_gateway`
 
-AI calls are still inline. The gateway module owns provider routing (OpenAI-compatible, OpenRouter, Replicate), payer-mode resolution (`player_openrouter_transient`, `cosyworld_orbs`, `cosyworld_system`, `local_fallback`), key verification, timeouts/retries, usage-ledger writes, and model capability discovery. Domain routes keep auth, target validation, and idempotency; the kernel keeps legality. This is the precondition for media jobs, per-room AI spend budgets, and generated content (crafted names, evolution quest lists). Design detail: `AI.md`.
+`v2/orchestrator-rust/src/ai_gateway.rs` now owns OpenAI-compatible/OpenRouter provider configuration, the shared chat-completion client, per-feature timeouts, bounded retry policy, stable failure codes, and provider/model/attempt/latency tracing. Domain routes keep auth, target validation, idempotency, Orb affordability, and spend-after-commit; the kernel keeps legality. Dialogue inference fails closed without substitute speech. Remaining gateway work is transient player-payer resolution, key verification, usage-ledger ownership, model capability discovery, and moving Replicate/media calls behind the same boundary. This is the precondition for media jobs, per-room AI spend budgets, and generated content (crafted names, evolution quest lists). Design detail: `AI.md`.
 
 ### 5. Media pipeline
 
@@ -144,14 +144,14 @@ The signed provenance log from the RPG Bible: Ed25519 identities, content-addres
 
 ### 10. Content pipeline
 
-The worldpack is the designer contract. Keep `check-worldpack.mjs` strict and extend it as schemas grow (recipes, recipe balance declarations, placement patterns, item pools, covenants, fallback-line coverage per resident reaction state). Add migration support for content id changes, and grow the `--report-json` inspector toward designer tooling. Kernel ids stay stable across content revisions; generated content (quest lists, crafted names) is committed content once accepted, subject to the same validation as authored content.
+The worldpack is the designer contract. Keep `check-worldpack.mjs` strict and extend it as schemas grow (recipes, recipe balance declarations, placement patterns, item pools, and covenants). Add migration support for content id changes, and grow the `--report-json` inspector toward designer tooling. Kernel ids stay stable across content revisions; generated content (quest lists, crafted names) is committed content once accepted, subject to the same validation as authored content.
 
 ### 11. Production operations
 
 - The container is host-agnostic: the root `Dockerfile` builds the release orchestrator; the current deployment target is **AWS** (with `fly.toml` retained for Fly). The contract is identical everywhere: a persistent volume at `/data`, the production-profile env (protected ownership feed + bearer, SQLite event store, moderation token, shard id), and `/meta` as the deploy smoke surface.
 - Run the production profile in staging against Ruby High's actual protected ownership feed (currently only smoke-tested against a local stand-in).
 - SQLite backup, retention, and restore-drill policy for `/data`.
-- Observability past `/meta`: request/latency metrics, AI provider failure rates, fallback usage, ledger anomaly counts, ping-to-skip rates.
+- Observability past `/meta`: request/latency metrics, AI provider and dialogue inference failure rates, ledger anomaly counts, ping-to-skip rates.
 - World hygiene rituals: a documented wipe/reset procedure before playtests (no smoke-avatar residue in first impressions), and presence/turn eligibility windows tuned so ghosts are rare rather than merely skippable.
 - Keep resident placement player-powered: overlap tie rotation uses world-tick seasons rather than wall-clock days, and future placement changes should be audited world actions rather than invisible time.
 - Production Box burn transaction construction (confirm-side verification already exists) and reconciliation against Ruby High/chain state.
@@ -179,7 +179,7 @@ Standing rules for new work:
 
 - Every new rule or reward ships with at least one test or smoke assertion on its authoritative path, per the RPG Bible's acceptance criteria.
 - Every new claim key states its intended repeatability in review; NPC behaviors carry the same discipline.
-- Every new verb demonstrates its deterministic non-AI path and declares its turn taxonomy.
+- Every new core world verb demonstrates its deterministic non-AI path and declares its turn taxonomy. Dialogue capabilities demonstrate visible, uncharged failure when inference is unavailable.
 - New persistent state is added to snapshot/journal handling in the same change (a claim set that isn't persisted re-mints on restart).
 - Generated-content paths (crafted names, quest lists) ship with their compiler rejection tests: an invalid proposal must fail closed to the authored fallback, visibly in the audit trail.
 - The one-slot migration lands with reworked multi-actor smoke coverage (two-player non-consuming ceremony, swap semantics, search-faucet cycling, craft-created item placed in a legal new/empty slot, craft-event mint without input deletion) in the same change as the kernel cut.

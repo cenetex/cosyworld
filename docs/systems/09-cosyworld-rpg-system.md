@@ -28,7 +28,7 @@ CosyWorld is a shared-world cozy adventure RPG where you keep a home you own, fo
 - **The home is a sanctuary.** A player's cottage and equivalent starting homes never decay, are never invaded, and reject combat by default. Pressure is something you choose to walk toward, not something that comes to you at home.
 - **Progression is earned, never bought.** Advancement comes from play; currency buys amplification and cosmetics, never power, success, access, or rules outcomes.
 - **The core loop is free.** A player with zero currency can always do the meaningful thing — listen, help, bond, travel — without paying.
-- **The world degrades gracefully without AI.** Every primary action has a deterministic, authored fallback so the game still functions when generation is unavailable.
+- **The world degrades gracefully without AI.** Core world actions remain deterministic and playable when generation is unavailable. Explicit dialogue fails visibly without charge or substitute speech; incidental dialogue is skipped.
 - There are no private resident conversations in the main world loop.
 - The client never decides affordability, model access, combat outcomes, rewards, room access, inventory grants, or quest completion.
 - **Ownership is native and token-free.** Cards, items, and avatars are owned through CosyWorld's own signed provenance log (an Ed25519 + content-addressed chain, not a blockchain or token). External NFTs are an optional *bridge* that gates official expansions — never the base game's ownership layer.
@@ -144,7 +144,7 @@ The visible verbs are ordinary words: Chat, Listen, Travel, Take, Give, Use, Pre
 6. Rust submits a rule action to the C kernel or schedules a validated projection-only action.
 7. The C kernel emits events for authoritative state changes.
 8. Rust persists the source action, projects events, updates Orbs, clocks, tags, bonds, room memory, and Visit Ledger progress.
-9. AI narrates or replies only through public, validated events — or the deterministic fallback fires.
+9. AI narrates or replies only through public, validated events; failed or unavailable dialogue inference emits no substitute speech.
 10. The room state is broadcast to everyone present.
 
 ## Core Entities
@@ -203,7 +203,7 @@ Residents are public world actors, not private companions.
 - `reaction_state`
 - `memory_refs`
 - `allowed_actions`
-- `fallback_lines`: authored, reaction-state-keyed lines for when AI is unavailable
+- Dialogue is inference-only; the worldpack does not ship authored fallback lines.
 
 ### Item
 
@@ -305,6 +305,8 @@ Create Actor, Say, Move, Ability Check, Pick Up Item, Use Item, Attack, Defend, 
 | Rest | projection action now; kernel later only if needed | Reset fatigue/skill step-downs; in the frontier, costs a danger/season tick. |
 | Work | projection clock action | Advance a project, job, or covenant clock. |
 | Help | projection clock or assist action | Assist another actor or project, forming and deepening bonds. |
+
+Generated long-distance pathways use these same verbs and UI rules. Search reveals one adjacent stretch as shared geography, but it never replaces the rest of the hand or locks future movement. Generated waypoint rooms begin risky and frontier-zoned. Every generated route receives one shared familiarity job and progress clock across its waypoint rooms; Work and Help advance it. Filling that clock settles the route into sanctuary rules and unlocks generated landscape art, while the deterministic SVG remains available throughout discovery and as the inference fallback.
 
 ### Primary Action Priority
 
@@ -614,12 +616,12 @@ This is how CosyWorld becomes more than a chat layer: the room and the covenant 
 
 ## Resident Behavior And Graceful Degradation
 
-Residents are the most alive part of the world, so they cannot depend entirely on live generation.
+Residents remain deterministic world actors even though their visible dialogue requires live inference.
 
 - **With AI:** residents propose lines through the validated AI layer, reading their persona, wants, reaction state, and the player's bonds.
-- **Without AI:** residents fall back to authored `fallback_lines` keyed by reaction state and bond status, and continue to act through deterministic reducers (accept gifts, react to gifts matching their wants, advance evolution gates). The world stays warm and functional; it is just less surprising.
+- **Without AI:** deterministic reducers still run world actions such as gifts and evolution gates, but no resident or avatar dialogue is fabricated. Paid Chat fails before charging, and incidental reactions are skipped until inference is available.
 
-This is enforced as an acceptance criterion: no primary verb may have *only* an AI path. Reaction-state transitions, bond deepening, and evolution gates are all deterministic projection logic; generation decorates them, it does not own them.
+This is enforced as an acceptance criterion for core world rules: reaction-state transitions, bond deepening, and evolution gates are deterministic projection logic. Generation may speak about those changes, but it does not own them; dialogue itself fails closed when inference is unavailable.
 
 ## Data Migration Direction
 
@@ -662,7 +664,7 @@ A new RPG feature is ready to ship when:
 - It cannot be triggered by client-only state.
 - It behaves correctly in sanctuary, frontier, gated, and public core rooms.
 - It has an idempotency strategy for rewards, ledger marks, or spends.
-- It has a deterministic, non-AI path — no primary verb is AI-only.
+- A core world rule has a deterministic, non-AI path. A dialogue capability instead fails visibly and without charge when inference is unavailable, and never emits substitute speech.
 - It preserves public-room behavior and never lets currency buy progression or outcomes.
 - It has at least one local test or smoke assertion covering the authoritative path.
 

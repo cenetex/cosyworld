@@ -23,7 +23,6 @@ const expectedFiles = {
   jobs: "jobs.json",
   fronts: "fronts.json",
   cards: "cards.json",
-  fallback_lines: "fallback_lines.json",
   lifecycle_hooks: "lifecycle_hooks.json",
   evolution_tracks: "evolution_tracks.json",
   recipes: "recipes.json",
@@ -154,7 +153,6 @@ const clocks = content.clocks;
 const jobs = content.jobs;
 const fronts = content.fronts;
 const cards = content.cards;
-const fallbackLines = content.fallback_lines;
 const lifecycleHooks = content.lifecycle_hooks;
 const evolutionTracks = content.evolution_tracks;
 const recipes = content.recipes;
@@ -472,17 +470,6 @@ for (const faction of factions) {
     if (opposedId === faction.id || !has(factionIds, opposedId)) {
       fail(`faction ${faction.id} has invalid opposition ${opposedId}`);
     }
-  }
-}
-
-for (const fallback of fallbackLines) {
-  validateRequiredStrings("fallback line", fallback, ["kind", "text"]);
-  if (fallback.kind === "resident_reply" && !has(actorIds, fallback.actor_id)) {
-    fail(`resident_reply fallback references missing actor ${fallback.actor_id}`);
-  } else if (fallback.kind === "avatar_chat" && !has(actorIds, fallback.target_actor_id)) {
-    fail(`avatar_chat fallback references missing actor ${fallback.target_actor_id}`);
-  } else if (!["resident_reply", "avatar_chat"].includes(fallback.kind)) {
-    fail(`fallback line has invalid kind ${fallback.kind}`);
   }
 }
 

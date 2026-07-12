@@ -41,7 +41,7 @@ Every feature must serve at least one of these; a feature that serves none does 
 3. **The world runs on played time.** World time advances only through committed player turns — never on a wall clock. A quiet world is still, not rotting; a busy world is alive because people are in it. "The world moved while you were away" is always true in a populated shard, and it always means other players moved it.
 4. **Identity through play.** A player should be able to say "I am the kind soul who ___, my home is ___, and I am slowly ___" after ten minutes. Callings, Bonds, and the Journal make that sentence mechanical and publicly remembered.
 5. **One meaningful hand.** The resting UI is a dealt hand of at most three labeled action cards plus shuffle — one surface, server-derived, each card showing its target, cost, and risk before commit. Playing a card is a turn. Speech (`say`, `/me`) is always available and never consumes a turn. No dashboards, no permanent composer, no navigation chrome.
-6. **AI is a world actor, not the product.** AI proposes narration, resident speech, and media; the kernel decides truth. Every primary verb has a deterministic authored fallback, so the world stays warm when generation is down.
+6. **AI is a world actor, not the product.** AI proposes narration, resident speech, and media; the kernel decides truth. Core world actions remain playable without inference. Dialogue is never fabricated from canned text: an explicit dialogue action fails visibly and without charge when inference is unavailable, while incidental resident speech is skipped.
 7. **Progression is earned, never bought.** Orbs buy amplification and cosmetics — never power, access, success, or growth. The core loop (listen, help, bond, travel) always has a zero-Orb path.
 8. **Ownership without a token.** The target ownership layer is CosyWorld's own signed provenance log (Ed25519, content-addressed, append-only) — gifting free and first-class, trading world-bound and lineage-preserving, secret poems as commit-reveal claim tickets. External NFTs remain an optional bridge that gates official expansions, never the base game.
 
@@ -180,7 +180,7 @@ World health:
 
 - Rooms whose hand offers only exits (target: zero — every settled room offers listen or search).
 - Items held by inactive avatars (target: near zero via recovery).
-- Turns with more than one resident reply (keep near zero); repeated identical ambient lines per session (target: zero); AI fallback rate; resident speech-contract pass rate.
+- Turns with more than one resident reply (keep near zero); repeated identical ambient lines per session (target: zero); dialogue inference failure rate; resident speech-contract pass rate.
 - Ping-to-skip rate in shared rooms (high values mean turn friction); report resolution time.
 
 Economy health:
@@ -209,7 +209,7 @@ A release of the current era is acceptable when:
 - Two players can complete a resident's placement-based evolution ceremony together without consuming the arranged items, and a present witness earns a Journal mark when a resident claims what it desires.
 - The room transcript reads as a place: at most one resident reply per turn, no repeated ambient lines, dice and clocks visible as public events.
 - A player with zero Orbs and no wallet can listen, help, bond, travel, and settle the Journal.
-- Killing the AI provider leaves every primary verb functional with authored fallback.
+- Killing the AI provider leaves every core world action functional; explicit dialogue fails visibly without spending Orbs or emitting substitute speech, and incidental dialogue is skipped.
 - A waiting player in a shared room can always see whose turn it is, ping them, watch the countdown, and never waits on a ghost.
 - An operator can go from player report to resolution (including suspension) inside the console, and the queue reflects it.
 - No client-supplied claim (card ids, affordability, outcomes) changes world state on the official shard.
