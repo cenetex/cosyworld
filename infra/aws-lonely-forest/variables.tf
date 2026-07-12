@@ -144,6 +144,32 @@ variable "openrouter_chat_model" {
   description = "OPENROUTER_CHAT_MODEL to use when openrouter_api_key_secret_arn is set."
 }
 
+variable "generation_default_mode" {
+  type        = string
+  default     = "off"
+  description = "Default policy for server-side generative content features: off, shadow, or auto_bounded. Keep off so newly added features fail closed until explicitly enabled."
+
+  validation {
+    condition     = contains(["off", "shadow", "auto_bounded"], var.generation_default_mode)
+    error_message = "generation_default_mode must be off, shadow, or auto_bounded."
+  }
+}
+
+variable "generation_feature_modes" {
+  type = map(string)
+  default = {
+    pathway_content = "auto_bounded"
+  }
+  description = "Per-feature generative content policy overrides. Values must be off, shadow, or auto_bounded."
+
+  validation {
+    condition = alltrue([
+      for mode in values(var.generation_feature_modes) : contains(["off", "shadow", "auto_bounded"], mode)
+    ])
+    error_message = "generation_feature_modes values must be off, shadow, or auto_bounded."
+  }
+}
+
 variable "replicate_api_token_secret_arn" {
   type        = string
   default     = ""

@@ -1,0 +1,234 @@
+[
+  {
+    "location_id": 1,
+    "key": "hearth",
+    "name": "Hearth",
+    "aliases": [
+      "fire",
+      "fireplace",
+      "ashes"
+    ],
+    "look": "A steady amber fire keeps the room kind without making it sleepy.",
+    "search": "The ashes have been swept into a small arrow pointing from the hearth toward the low doorway.",
+    "uses": [
+      {
+        "item_id": 2001,
+        "text": "The Hearth Tonic warms in your hand, but the hearth is already doing its gentlest work."
+      }
+    ]
+  },
+  {
+    "location_id": 1,
+    "key": "low_doorway",
+    "name": "Low Doorway",
+    "aliases": [
+      "door",
+      "doorway",
+      "threshold"
+    ],
+    "look": "The doorway is low enough that even brave guests bow before leaving.",
+    "search": "Old scratch marks near the frame point toward Rain-Soft Garden, Homeroom, and a shadow small enough for Skull.",
+    "uses": [
+      {
+        "item_id": 2007,
+        "text": "The Watch Bell gives one felt chime. Skull's silence seems to approve of checking the threshold."
+      }
+    ]
+  },
+  {
+    "location_id": 1,
+    "key": "scarf_basket",
+    "name": "Scarf Basket",
+    "aliases": [
+      "basket",
+      "blue scarf",
+      "wool",
+      "knitting"
+    ],
+    "look": "Blue wool curls over the basket rim like a quiet sentence waiting for a verb.",
+    "search": "Under the top skein is a round notch exactly the size of a warm wooden button.",
+    "uses": [
+      {
+        "item_id": 2005,
+        "text": "The Story Button nestles into the notch. The scarf basket clicks once, as if Rati's next tale found its first word."
+      }
+    ]
+  },
+  {
+    "location_id": 1,
+    "key": "rain_window",
+    "name": "Rain Window",
+    "aliases": [
+      "window",
+      "rain",
+      "glass"
+    ],
+    "look": "Rain threads down the glass in patient silver lines.",
+    "search": "The droplets draw a route: garden first, trail second, school after the kettle."
+  },
+  {
+    "location_id": 2,
+    "key": "broad_leaves",
+    "name": "Broad Leaves",
+    "aliases": [
+      "leaves",
+      "leaf",
+      "plants"
+    ],
+    "look": "Wide leaves hold rain in neat, trembling beads.",
+    "search": "One leaf has been turned over recently. Its underside shines with button-bright dew.",
+    "uses": [
+      {
+        "item_id": 2002,
+        "text": "The Dewbright Button matches the leaf's shine and hums toward Gust."
+      }
+    ]
+  },
+  {
+    "location_id": 2,
+    "key": "puddle_path",
+    "name": "Puddle Path",
+    "aliases": [
+      "puddle",
+      "path",
+      "mud"
+    ],
+    "look": "Small puddles reflect the cottage window and a sliver of moonlit trail.",
+    "search": "The puddles are shallow, but their reflections make the trail look closer than it is."
+  },
+  {
+    "location_id": 3,
+    "key": "silver_milepost",
+    "name": "Silver Milepost",
+    "aliases": [
+      "milepost",
+      "post",
+      "sign"
+    ],
+    "look": "A silvered post marks the trail without naming the distance.",
+    "search": "Three scratches read like advice: test your guard, take what is earned, leave before pride gets loud."
+  },
+  {
+    "location_id": 3,
+    "key": "practice_circle",
+    "name": "Practice Circle",
+    "aliases": [
+      "circle",
+      "sparring circle",
+      "clearing"
+    ],
+    "look": "Moonlight makes a pale circle where Coach waits.",
+    "search": "The dust shows careful footwork and no blood. This place is meant for practice, not cruelty.",
+    "uses": [
+      {
+        "item_id": 2003,
+        "text": "The Wolfprint Charm cools in your palm, pleased by the circle's restraint."
+      }
+    ]
+  },
+  {
+    "location_id": 36,
+    "key": "sun_bell",
+    "name": "Missing Sun Bell",
+    "aliases": [
+      "bell",
+      "drowned bell",
+      "sun bell",
+      "temple bell"
+    ],
+    "look": "A clean arch waits where a noon bell should hang. Sunlight outlines the absence in gold.",
+    "search": "The empty bracket hums downward, as if the bell fell through sky, sea, and certainty.",
+    "uses": []
+  },
+  {
+    "location_id": 64,
+    "key": "drowned_bell",
+    "name": "Drowned Bell",
+    "aliases": [
+      "bell",
+      "sun bell",
+      "abyssal bell",
+      "pearl bell"
+    ],
+    "look": "A white-gold bell rests in black water, its rim crusted with pearls and patient songs.",
+    "search": "The bell has not gone silent. It has learned a lower note the Solar Temple never wrote down.",
+    "uses": []
+  },
+  {
+    "location_id": 65,
+    "key": "abyssal_anvil",
+    "name": "Abyssal Anvil",
+    "aliases": [
+      "anvil",
+      "forge",
+      "dark anvil"
+    ],
+    "look": "A cold anvil waits beside the impossible feast, polished by pronouncements and bad timing.",
+    "search": "The anvil rings without being struck, as if every route here expects a witness before it becomes real.",
+    "uses": []
+  },
+  {
+    "location_id": 10,
+    "key": "lab_bench",
+    "name": "Lab Bench",
+    "aliases": [
+      "bench",
+      "table",
+      "apparatus"
+    ],
+    "look": "A bright bench holds clean questions, small instruments, and room for a second try.",
+    "search": "A note under the bench says: observe first, listen second, revise always."
+  },
+  {
+    "location_id": 40,
+    "key": "root_voice",
+    "name": "Root Voice",
+    "aliases": [
+      "root",
+      "roots"
+    ],
+    "look": "The roots braid through the soil like roads that decided to stay.",
+    "search": "Root remembers every footstep that circled back and every traveler who pretended not to be lost."
+  },
+  {
+    "location_id": 40,
+    "key": "ring_voice",
+    "name": "Ring Voice",
+    "aliases": [
+      "ring",
+      "rings",
+      "bark"
+    ],
+    "look": "The trunk's rings press time into a patient spiral.",
+    "search": "Ring remembers the years when the forest was less lonely and the paths still argued about names."
+  },
+  {
+    "location_id": 40,
+    "key": "leaf_voice",
+    "name": "Leaf Voice",
+    "aliases": [
+      "leaf",
+      "leaves"
+    ],
+    "look": "Leaves turn their small green faces toward the newest sound.",
+    "search": "Leaf remembers what changed today, which is nearly always more than the rest of the tree admits."
+  },
+  {
+    "location_id": 40,
+    "key": "hollow_voice",
+    "name": "Hollow Voice",
+    "aliases": [
+      "hollow",
+      "secret",
+      "secrets"
+    ],
+    "look": "A dark hollow opens in the trunk, quiet enough to make questions lower their voices.",
+    "search": "Hollow remembers what nobody has asked yet. It is waiting for a better question.",
+    "uses": [
+      {
+        "item_id": 2005,
+        "text": "The Story Button clicks inside the hollow. Old Oak answers with a story it had kept for a kinder listener."
+      }
+    ]
+  }
+]

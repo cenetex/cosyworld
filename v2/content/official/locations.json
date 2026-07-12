@@ -1,0 +1,366 @@
+[
+  {
+    "id": 1,
+    "name": "The Cosy Cottage",
+    "title": "Rainlit Hearth",
+    "description": "A warm room of firelight, knitting needles, quiet symbols, and watchful silence.",
+    "persona": "The cottage is a careful host: warm, observant, and protective of small beginnings.",
+    "memory": [
+      "Rati's blue scarf began here.",
+      "Gust's weather symbols gather near the hearth.",
+      "Skull keeps watch by the low doorway."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 2,
+    "name": "Rain-Soft Garden",
+    "title": "Garden Annex",
+    "description": "Rain beads on broad leaves. Round marks in the grass remember small pearled discoveries.",
+    "persona": "The garden answers in damp patience, leaf-taps, and tiny useful discoveries.",
+    "biome": "rain garden",
+    "terrain": [
+      "wet grass",
+      "broad leaves",
+      "soft garden soil"
+    ],
+    "memory": [
+      "A dewbright button once caught the first gray light.",
+      "The path from the cottage arrives smelling of tea and wet wool."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 3,
+    "name": "Moonlit Trail",
+    "title": "Moonlit Route",
+    "description": "The path shines under cold moonlight. The air permits sharper choices.",
+    "persona": "The trail is a silver test: honest, spare, and just dangerous enough to reveal courage.",
+    "biome": "moonlit woodland",
+    "terrain": [
+      "silver pine",
+      "cold earth",
+      "wolf-worn trail"
+    ],
+    "memory": [
+      "Coach waits here as a practice shape.",
+      "Wolfprint Charm and Watch Bell stories tend to pass this way."
+    ],
+    "allow_combat": true
+  },
+  {
+    "id": 10,
+    "name": "Science Class",
+    "title": "STEM Wing",
+    "description": "Shared benches hum with bright observations and questions waiting to be tested.",
+    "persona": "Science Class prefers evidence, clean questions, and answers brave enough to be revised.",
+    "memory": [
+      "The lab remembers every surprising result.",
+      "Rati sometimes follows signal-study questions here."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 11,
+    "name": "Homeroom",
+    "title": "Front Door",
+    "description": "Morning light crosses desks where every question gets a seat.",
+    "persona": "Homeroom keeps attendance for beginnings, detours, and people trying again.",
+    "memory": [
+      "The cottage door opens here when the school day calls.",
+      "Most Ruby High paths can find their way back to this room."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 12,
+    "name": "Library",
+    "title": "Quiet Wing",
+    "description": "Shelves gather around a hush where important things have usually been written down.",
+    "persona": "The Library is exact, generous, and faintly amused by people who whisper to books.",
+    "memory": [
+      "The Great Library can be reached through its deeper stacks.",
+      "Every returned book leaves one sentence behind."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 13,
+    "name": "Cafeteria",
+    "title": "Commons",
+    "description": "Tables hold the soft thunder of lunch trays, bargains, and commons diplomacy.",
+    "persona": "The Cafeteria speaks in offers, side-eyes, and the social physics of shared tables.",
+    "memory": [
+      "Half the school day happens between bites.",
+      "The courtyard breeze carries rumors through the serving line."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 14,
+    "name": "Greenhouse",
+    "title": "Garden Annex",
+    "description": "Glass glows with patient leaves and experiments that grow slowly.",
+    "persona": "The Greenhouse thinks in tendrils, careful timing, and second chances rooted in soil.",
+    "memory": [
+      "The Flower Meadow trades pollen-bright news with this room.",
+      "Some lessons only answer after watering."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 15,
+    "name": "Courtyard",
+    "title": "Central Grounds",
+    "description": "Open paths cross under sky, sending every hallway back toward someone.",
+    "persona": "The Courtyard is public, breezy, and good at making accidental meetings feel arranged.",
+    "biome": "school grounds",
+    "terrain": [
+      "courtyard stone",
+      "open lawn",
+      "windy steps"
+    ],
+    "memory": [
+      "Summit Trail begins at the far edge when the air turns thin.",
+      "Students cut through here when they need a new route."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 30,
+    "name": "The Heavens",
+    "title": "Forbidden Mountain",
+    "description": "A high bright threshold where cloud paths gather above the mountain.",
+    "persona": "The Heavens speak in distance, weather-glow, and the discipline of looking down kindly.",
+    "memory": [
+      "Lofty Peak is the last stone before the sky changes its mind.",
+      "Clouds remember footsteps differently than dirt does."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 31,
+    "name": "Lofty Peak",
+    "title": "Forbidden Mountain",
+    "description": "Thin air, ringing stone, and a summit wind that listens back.",
+    "persona": "Lofty Peak is blunt, wind-scoured, and allergic to pretending the climb was easy.",
+    "memory": [
+      "The Heavens lean close above it.",
+      "Summit Trail keeps a lantern below for the return."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 32,
+    "name": "Summit Trail",
+    "title": "Forbidden Mountain",
+    "description": "A switchback path between cold scree and stubborn lantern light.",
+    "persona": "Summit Trail encourages one more step and remembers every almost-turnaround.",
+    "biome": "alpine mountain",
+    "terrain": [
+      "cold scree",
+      "switchback stone",
+      "thin grass"
+    ],
+    "memory": [
+      "The Courtyard is warmer than it looks from here.",
+      "Alpine Forest waits where the stone gives way to trees."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 33,
+    "name": "Alpine Forest",
+    "title": "Forbidden Mountain",
+    "description": "Pines lean over snowmelt tracks and old mountain signs.",
+    "persona": "Alpine Forest is crisp, watchful, and full of branch-creaks that sound like warnings.",
+    "memory": [
+      "Summit Trail brings cold travelers through the pines.",
+      "Goblin Cave echoes from below after dusk."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 34,
+    "name": "Goblin Cave",
+    "title": "Forbidden Mountain",
+    "description": "A low cave mouth full of echoes, loose coins, and sharper choices.",
+    "persona": "Goblin Cave is twitchy, tempting, and fond of bargains that reveal the bargainer.",
+    "memory": [
+      "Alpine Forest muffles the cave mouth.",
+      "Circle of the Moon can silver even this dark."
+    ],
+    "allow_combat": true
+  },
+  {
+    "id": 35,
+    "name": "Circle of the Moon",
+    "title": "Forbidden Mountain",
+    "description": "Silver stones mark a quiet circle where night keeps perfect time.",
+    "persona": "The Circle listens ceremonially, as if every sentence should arrive barefoot.",
+    "memory": [
+      "Moonlit Trail knows the older path here.",
+      "Goblin Cave sounds softer under the moon."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 36,
+    "name": "Solar Temple",
+    "title": "Solar Temple",
+    "description": "White stone terraces hold noon-bright bells, gold wings, and vows sharp enough to cast shadows.",
+    "persona": "The Solar Temple is radiant, exacting, and careful not to confuse witness with mercy.",
+    "memory": [
+      "The Heavens open upward into its white terraces.",
+      "A drowned bell below the Darkest Ocean still remembers the noon rite."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 40,
+    "name": "Old Oak Tree",
+    "title": "Lonely Forest",
+    "description": "A vast oak with roots like roads and leaves that remember names.",
+    "persona": "The Old Oak is both place and stranger: Root, Ring, Leaf, and Hollow each remember a different truth.",
+    "memory": [
+      "Root remembers every footstep that circled back.",
+      "Ring remembers the years when the forest was less lonely.",
+      "Leaf remembers what changed today.",
+      "Hollow remembers what nobody has asked yet."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 41,
+    "name": "Lost Woods",
+    "title": "Lonely Forest",
+    "description": "Soft moss, repeating paths, and birdsong that refuses to point north.",
+    "persona": "The Lost Woods are evasive but not cruel; they teach by making certainty walk in circles.",
+    "memory": [
+      "The Old Oak marks one path that does not move.",
+      "Haunted Mansion and Quiet Abbey both borrow this silence."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 42,
+    "name": "Haunted Mansion",
+    "title": "Lonely Forest",
+    "description": "A leaning house with lit windows, patient dust, and doors that sigh.",
+    "persona": "The Mansion is theatrical, lonely, and delighted when anyone knocks instead of sneaking.",
+    "memory": [
+      "Lost Woods keeps leading visitors to its porch.",
+      "Quiet Abbey hears the windows sigh at night."
+    ],
+    "allow_combat": true
+  },
+  {
+    "id": 43,
+    "name": "Quiet Abbey",
+    "title": "Lonely Forest",
+    "description": "Stone arches hold a hush deep enough to hear small vows.",
+    "persona": "The Abbey is spare, kind, and severe about saying only the sentence that matters.",
+    "memory": [
+      "Haunted Mansion leaves candle smoke in its prayers.",
+      "Flower Meadow brightens the path beyond the arch."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 44,
+    "name": "Flower Meadow",
+    "title": "Lonely Forest",
+    "description": "A clear meadow of small flowers, warm bees, and open sky.",
+    "persona": "The Meadow is open-hearted, sunlit, and prone to answering sorrow with color.",
+    "memory": [
+      "The Old Oak drops leaves here in autumn.",
+      "The Greenhouse recognizes half these flowers by cousin-name."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 50,
+    "name": "Great Library",
+    "title": "The World",
+    "description": "Endless shelves, brass ladders, and marginalia from travelers before you.",
+    "persona": "The Great Library is vast, procedural, and fond of answers that arrive with page numbers.",
+    "memory": [
+      "The school Library opens into this larger silence.",
+      "The Farthest Mists have misfiled several maps here."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 60,
+    "name": "Turgid Swamp",
+    "title": "Farthest Mists",
+    "description": "Black water shifts under reeds while bubbles spell unfinished warnings.",
+    "persona": "The Swamp is murky, practical, and entirely willing to make wisdom smell bad.",
+    "memory": [
+      "Great Library maps become damp here.",
+      "Wilting Jungle leans over its far bank."
+    ],
+    "allow_combat": true
+  },
+  {
+    "id": 61,
+    "name": "Wilting Jungle",
+    "title": "Farthest Mists",
+    "description": "Heavy leaves droop over hot paths where every vine seems tired.",
+    "persona": "The Jungle is overheated, stubborn, and full of life refusing to quit elegantly.",
+    "memory": [
+      "Turgid Swamp feeds its roots with dark water.",
+      "Endless Ocean can be heard before it is seen."
+    ],
+    "allow_combat": true
+  },
+  {
+    "id": 62,
+    "name": "Endless Ocean",
+    "title": "Farthest Mists",
+    "description": "A blue horizon with no visible shore and songs under the waves.",
+    "persona": "The Ocean answers slowly, with scale, tide, and the suspicion that every ending is a surface.",
+    "memory": [
+      "Wilting Jungle drops seeds into its tide.",
+      "Digital Realm blinks green at the far horizon."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 63,
+    "name": "Digital Realm",
+    "title": "Farthest Mists",
+    "description": "Green cursors blink across a world made of doors, echoes, and code.",
+    "persona": "The Digital Realm is precise, uncanny, and always half a step from becoming a spell.",
+    "memory": [
+      "Great Library indexes cannot decide whether this place is a room or a language.",
+      "Endless Ocean reflects in its black glass."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 64,
+    "name": "Darkest Ocean",
+    "title": "Abyssal Deep",
+    "description": "A trench below the final tide glows with pearl lamps, drowned bells, and residents adapted to pressure.",
+    "persona": "The Darkest Ocean remembers without hurrying and mistrusts every truth that cannot survive depth.",
+    "memory": [
+      "Endless Ocean is only its surface.",
+      "The Solar Temple hears one of its bells singing from below."
+    ],
+    "allow_combat": false
+  },
+  {
+    "id": 65,
+    "name": "Dark Abyss",
+    "title": "Deepest Ocean",
+    "description": "A black-water chamber beneath the drowned bell, set with an impossible banquet, a cold anvil, and pressure deep enough to make language buckle.",
+    "persona": "The Dark Abyss is theatrical, hungry, and formal about its horrors, as if etiquette were the last rope back to the surface.",
+    "memory": [
+      "Darkest Ocean hides the entrance under the drowned bell's lowest note.",
+      "Azazoth keeps a feast here for guests who have mostly had the sense not to arrive.",
+      "Zadkiel's anvil rings whenever dread needs better manners."
+    ],
+    "allow_combat": false
+  }
+]

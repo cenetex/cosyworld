@@ -20,7 +20,10 @@ For the OpenRouter player payer, Orb-paid Chat, real AI media, combat rewards, a
 - `orchestrator-rust/src/routes.rs`: HTTP route table extracted from the runtime bootstrap.
 - `orchestrator-rust/src/index.html`: one-button browser MUD shell served by the Rust host.
 - `orchestrator-rust/src/mud.rs`: typed command protocol, parser aliases, response formatting, fuzzy matching, and direction canonicalization.
-- `content/core/`: seed actors, items, locations, exits, room features, clocks, jobs, fronts, cards, and evolution tracks consumed by the Rust host.
+- `content/core/`: authored first-party world pack.
+- `content/lonely-forest/` and `content/ruby-high-first-bell/`: asset and external-catalog packs.
+- `worlds/official/`: selected packs and reproducible integrity lock.
+- `content/official/`: generated bundle consumed by the Rust host. See `docs/worldpacks.md`.
 
 ## Current Capabilities
 
@@ -44,7 +47,7 @@ Seed world content:
 - Location `3`: Moonlit Trail.
 - Locations `2` and `3`: Rain-Soft Garden and Moonlit Trail, public CosyWorld Core rooms.
 - Locations `10`-`15`: Ruby High: First Bell expansion rooms. Science Class, Homeroom, Library, Cafeteria, Greenhouse, and Courtyard require their matching Ruby High location cards on the official shard.
-- Locations `30`-`35`, `40`-`44`, `50`, and `60`-`63`: public CosyWorld Core seed rooms for free-world breadth.
+- Locations `30`-`36`, `40`-`44`, `50`, and `60`-`65`: public CosyWorld Core seed rooms for free-world breadth.
 - Exits: `1 <-> 2 <-> 3`, plus Cottage hub doors to public seed rooms and locked Ruby High expansion doors.
 - Default public room: everyone can enter The Cosy Cottage without an NFT.
 - Official expansion exits: Ruby High: First Bell locations require their matching location card in the request access context; each expansion room is still one shared global channel, never a private copy.
@@ -283,6 +286,23 @@ COSYWORLD_AI_BASE_URL=https://api.openai.com/v1
 COSYWORLD_AI_PROVIDER=openrouter
 ```
 
+Server-side generative world content is separately controlled and defaults to
+off. Enable only reviewed features, or run them in shadow mode to validate and
+audit proposals without publishing them:
+
+```sh
+COSYWORLD_GENERATION_DEFAULT_MODE=off
+COSYWORLD_GENERATION_FEATURE_MODES_JSON='{"pathway_content":"auto_bounded"}'
+```
+
+`pathway_content` generates the hidden name, title, description, persona, and
+landscape detail for every waypoint when an Explorer first opens a route. The
+server requires strict structured output and validates every narrative field;
+invalid, unavailable, disabled, or shadowed generation keeps the deterministic
+fallback. Generated names are stored in the pathway snapshot but are shown only
+as their corresponding Explore edges are revealed. AI cannot alter topology,
+movement, access, danger, jobs, clocks, inventory, rewards, or economy state.
+
 Generate Avatar can also draw a full avatar card through Replicate. The server
 downloads the returned image immediately and stores the full bytes plus content
 type locally, so temporary Replicate URLs can expire safely:
@@ -398,7 +418,7 @@ Visible actors, items, and locations now resolve through `state.cards`:
 - Ruby High cards carry First Bell catalog/on-chain metadata;
 - CosyWorld seed cards use the same shape with generated mini art served from `/assets/generated/cards/{card_id}.webp` until the card pipeline adds full NFT records.
 
-The Rust orchestrator mirrors the 24 live Ruby High: First Bell card profiles from `../app-ruby-high`, covering students, teachers, special cards, items, and locations. Exposed First Bell cards use `/assets/cards/{card_id}.png`, backed by `../app-ruby-high/assets/nft/cards`, and project the matching set number, profile id, subject, rarity, aspect, and Arweave image URI into `state.cards`.
+The `ruby-high.first-bell` pack supplies the 24 live Ruby High: First Bell card profiles, covering students, teachers, special cards, items, and locations. Exposed First Bell cards use `/assets/cards/{card_id}.png`; a materialized pack asset is served locally when present, otherwise the compatibility route redirects to the catalog's pinned chain image URI. The runtime projects the matching set number, profile id, subject, rarity, aspect, and Arweave image URI into `state.cards` without reading a sibling repository.
 
 For the current dev slice, the server owns wallet/card access through an ownership snapshot:
 
@@ -519,7 +539,7 @@ Items can now drive resident evolution through the C kernel:
 - The C kernel rejects wrong-resident gifts before transfer. In the current seed, Rati needs `Moonwool Thread` plus `Story Button`; Whiskerwind needs `Dewbright Button` plus `Wolfprint Charm`; Skull needs `Hearthstone Tag` plus `Watch Bell`.
 - Evolved residents project into the same card system with `level`, `evolved`, evolved rarity, and updated title/blurb. The browser reflects this in compact room chips and action details instead of a stats table.
 
-The Rust host loads seed actor placement/stats, faction definitions, item descriptions/placement/kinds, location labels, directed exits, combat flags, access gates, complete room RPG sheets, jobs/fronts, lifecycle/effect descriptors, and level-2 evolution tracks from the `content/core/` worldpack. Startup tests and `npm run v2:worldpack` validate unique ids, valid references, canonical one-direction-per-room exits, every location having a complete room sheet, seeded kernel parity, faction opposition links, frontier-only front links to jobs and danger clocks, lifecycle hook and clock-fill effect descriptors with reasons, and exactly two unique items for each evolution track. The C kernel still owns rule enforcement for movement, speech event emission, item transfer, and evolution, with its evolution track table configured from the worldpack at boot.
+The Rust host loads seed actor placement/stats, faction definitions, item descriptions/placement/kinds, location labels, directed exits, combat flags, access gates, complete room RPG sheets, jobs/fronts, lifecycle/effect descriptors, and level-2 evolution tracks from the compiled `content/official/` worldpack. `worlds/official/world.json` selects independently versioned source packs and `world.lock.json` pins their integrity. Startup tests and `npm run v2:worldpack` validate a current lock and bundle, unique ids, valid references, canonical one-direction-per-room exits, every location having a complete room sheet, seeded kernel parity, faction opposition links, frontier-only front links to jobs and danger clocks, lifecycle hook and clock-fill effect descriptors with reasons, and exactly two unique items for each evolution track. The C kernel still owns rule enforcement for movement, speech event emission, item transfer, and evolution, with its evolution track table configured from the worldpack at boot.
 
 Factions are content-backed opposing forces rather than hard-coded teams. `content/core/factions.json` defines each faction's axis, mirrored opposition, protected truth, shadow failure mode, verbs, motifs, home locations, and member actors. `/state` and `/world` expose the global faction list, and location/actor views include compact faction refs so clients can render allegiance without inferring it from names. The first mythic axis is live in content: Solar Temple and Vowbright Angel mirror the Darkest Ocean and Pearl-Deep Listener through the shared `solar-abyss:drowned-bell` project.
 
@@ -669,7 +689,7 @@ npm run v2:kernel
 npm run v2:rust:test
 ```
 
-`npm run v2:worldpack` is the terse pass/fail content gate. `npm run v2:worldpack:inspect` runs the same validation first, then prints a builder report with room gates, exits, actors, items, features, clocks, jobs, lifecycle hooks, and evolution tracks. Use `node v2/scripts/check-worldpack.mjs --report-json` when another tool needs the same report as structured JSON.
+`npm run v2:worldpack` is the terse pass/fail content gate. It first proves that pack integrity and the compiled official bundle are current, then validates the assembled world. `npm run v2:worldpack:inspect` runs the same validation and prints a builder report with the bundle hash, pack count, room gates, exits, actors, items, features, clocks, jobs, lifecycle hooks, and evolution tracks. Use `node v2/scripts/check-worldpack.mjs --report-json` when another tool needs the same report as structured JSON. Use `npm run v2:worldpack:lock` only after an intentional source-pack change.
 
 From `v2/orchestrator-rust`:
 

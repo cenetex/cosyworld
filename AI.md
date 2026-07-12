@@ -122,7 +122,9 @@ Rules:
 
 ## AI Gateway
 
-The first Rust `ai_gateway` slice is live for text inference. It centralizes OpenAI-compatible/OpenRouter configuration and requests, per-feature timeouts, bounded transient retries, stable failure codes, and provider/model/attempt/latency tracing. Continue moving payer resolution, key verification, usage-ledger writes, model discovery, and media providers behind it before adding more model calls.
+The Rust `ai_gateway` centralizes OpenAI-compatible/OpenRouter configuration and requests, structured response formats, per-feature timeouts, bounded transient retries, stable failure codes, and provider/model/attempt/latency tracing. Server-side generative content also passes through a fail-closed feature policy: `COSYWORLD_GENERATION_DEFAULT_MODE` sets `off`, `shadow`, or `auto_bounded`, while `COSYWORLD_GENERATION_FEATURE_MODES_JSON` supplies explicit per-feature overrides. Production leaves the default at `off` and enables only reviewed features. `shadow` performs and validates inference without publishing the proposal; `auto_bounded` may publish only after feature-specific validation. Continue moving payer resolution, key verification, model discovery, and media providers behind the gateway.
+
+The first bounded world-content feature is `pathway_content`. When an Explorer first opens a multi-step route, the server creates all hidden waypoint identities together from trusted route biome and terrain context. The model may propose only a name, title, physical description, place persona, and visual detail. A strict JSON schema, unknown-field rejection, length and character limits, authority-language filtering, and deterministic fallback protect the projection. The generated identity and its provider/model/prompt-version provenance persist in the world snapshot, but each name remains hidden until the corresponding Explore edge is revealed. Movement, access, danger, projects, clocks, items, rewards, and all other world truth remain deterministic.
 
 Responsibilities:
 

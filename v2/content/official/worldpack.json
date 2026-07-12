@@ -1,0 +1,67 @@
+{
+  "schema_version": 2,
+  "id": "cosyworld.official",
+  "name": "CosyWorld Official",
+  "version": 1,
+  "description": "The reproducible seed world for the official CosyWorld shard.",
+  "entry_location": "cosyworld.core:location/1",
+  "bundle_hash": "sha256:0a1129ce8f3315946c972bb3e5f5a6e4b3f65cb7dac7d1ea3fe441f398c84d32",
+  "packs": [
+    {
+      "id": "cosyworld.core",
+      "name": "CosyWorld Core",
+      "version": "1.0.0",
+      "kind": "world",
+      "license": "MIT",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/core"
+      },
+      "integrity": "sha256:b7b8b565aa8888a3521332c5ed624bc2cc028a36aeade455f29cb60cf225d879"
+    },
+    {
+      "id": "cosyworld.lonely-forest.characters",
+      "name": "Lonely Forest Character Art",
+      "version": "1.0.0",
+      "kind": "assets",
+      "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/lonely-forest"
+      },
+      "integrity": "sha256:7f1d74740f17a88053f0d8f1f0f2e320b6365f37d96f5f2fb85f6d84b4e579fe"
+    },
+    {
+      "id": "ruby-high.first-bell",
+      "name": "Ruby High: First Bell",
+      "version": "1.0.0",
+      "kind": "catalog",
+      "license": "MIT",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/ruby-high-first-bell"
+      },
+      "integrity": "sha256:ca2be4bb82017b5bb20ae826c43f5bbc533c298297c2c4ad21497f73b09d2e8d"
+    }
+  ],
+  "files": {
+    "actors": "actors.json",
+    "access_gates": "access_gates.json",
+    "factions": "factions.json",
+    "items": "items.json",
+    "locations": "locations.json",
+    "exits": "exits.json",
+    "hidden_exits": "hidden_exits.json",
+    "room_features": "room_features.json",
+    "room_sheets": "room_sheets.json",
+    "clocks": "clocks.json",
+    "jobs": "jobs.json",
+    "fronts": "fronts.json",
+    "cards": "cards.json",
+    "lifecycle_hooks": "lifecycle_hooks.json",
+    "evolution_tracks": "evolution_tracks.json",
+    "recipes": "recipes.json"
+  },
+  "external_cards": "external_cards.json",
+  "assets": "assets.json"
+}

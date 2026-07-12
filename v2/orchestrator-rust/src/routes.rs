@@ -16,6 +16,10 @@ pub(super) fn app_router(state: AppState) -> Router {
         )
         .route("/assets/cards/{card_file}", get(ruby_high_card_asset))
         .route(
+            "/assets/packs/{pack_id}/{*asset_path}",
+            get(worldpack_asset),
+        )
+        .route(
             "/assets/lonely-forest/characters/{asset_file}",
             get(lonely_forest_character_asset),
         )

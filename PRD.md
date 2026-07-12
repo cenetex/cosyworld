@@ -20,7 +20,7 @@ The product should feel like living in a small fantasy world that remembers you 
 
 CosyWorld V2 is a playable, production-deployable game, live-tested with simultaneous human and agent players:
 
-- 27 locations across CosyWorld Core (free) and the Ruby High: First Bell expansion (card-gated), with 68 cards and complete room sheets, validated by a content gate.
+- 28 locations across CosyWorld Core (free) and the Ruby High: First Bell expansion (card-gated), with 71 cards and complete room sheets, validated by a content gate.
 - The full verb surface: Chat (server-authored avatar speech), moderated typed `say` and `/me`, Listen, Travel, Take, Drop, Give, Use, Trade, Prepare, Rest, Work, Help, Attack, Defend, Flee, plus Calling/Bond/skill/growth actions.
 - The card-hand control surface: dealt action cards with art and labels, a detail/confirm surface, and shuffle — play feels like turns, not clicking.
 - Room turn-taking for co-present humans, with ping/pong pacing: waiting players can ping the current player; unresponsive players are skipped, not waited on.

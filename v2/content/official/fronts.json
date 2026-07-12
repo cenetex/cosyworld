@@ -1,0 +1,49 @@
+[
+  {
+    "id": "moonlit-trail:echo-front",
+    "premise": "Coach keeps gathering stray sounds into a shape that can answer back.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      3
+    ],
+    "participant_ids": [
+      1004
+    ],
+    "stakes_questions": [
+      "Can the trail learn to carry quiet again?",
+      "Will the echo become a resident, a warning, or a wound?"
+    ],
+    "portent_clock_id": "moonlit-trail.danger",
+    "job_ids": [
+      "moonlit-trail:quiet-the-echo"
+    ],
+    "impending_outcome": "The trail becomes echo-fractured and every crossing carries a cost."
+  },
+  {
+    "id": "solar-abyss:bell-front",
+    "premise": "The solar and abyssal bell songs are close enough to harmonize and proud enough to split.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      36,
+      64,
+      65
+    ],
+    "participant_ids": [
+      1064,
+      1065,
+      1066,
+      1067
+    ],
+    "stakes_questions": [
+      "Can height and depth hear each other before doctrine hardens?",
+      "Which covenant will claim the drowned bell if nobody answers both songs?"
+    ],
+    "portent_clock_id": "solar-abyss.schism",
+    "job_ids": [
+      "solar-abyss:drowned-bell"
+    ],
+    "impending_outcome": "The bell schism hardens and the two paths mistake harmony for betrayal."
+  }
+]

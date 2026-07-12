@@ -35,6 +35,7 @@ CLAUDE.md
 .lore-*
 .runtime/
 v2/orchestrator-rust/.runtime/
+v2/content/imports/
 
 # Terraform
 infra/terraform/.terraform/

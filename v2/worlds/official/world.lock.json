@@ -1,0 +1,33 @@
+{
+  "lock_version": 1,
+  "world_id": "cosyworld.official",
+  "packs": [
+    {
+      "id": "cosyworld.core",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/core"
+      },
+      "integrity": "sha256:b7b8b565aa8888a3521332c5ed624bc2cc028a36aeade455f29cb60cf225d879"
+    },
+    {
+      "id": "cosyworld.lonely-forest.characters",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/lonely-forest"
+      },
+      "integrity": "sha256:7f1d74740f17a88053f0d8f1f0f2e320b6365f37d96f5f2fb85f6d84b4e579fe"
+    },
+    {
+      "id": "ruby-high.first-bell",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/ruby-high-first-bell"
+      },
+      "integrity": "sha256:ca2be4bb82017b5bb20ae826c43f5bbc533c298297c2c4ad21497f73b09d2e8d"
+    }
+  ]
+}

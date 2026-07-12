@@ -60,6 +60,7 @@ struct AppState {
     trust_client_card_ids: bool,
     dev_reset_enabled: bool,
     ai_config: Arc<Option<AiConfig>>,
+    generation_controls: Arc<GenerationControls>,
     avatar_art_config: Arc<Option<ReplicateAvatarArtConfig>>,
     generated_asset_dir: Arc<PathBuf>,
     #[cfg(test)]
@@ -424,6 +425,20 @@ struct LocationMeta {
     art_prompt: Option<String>,
 }
 
+const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
+const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v1";
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+struct GenerationProvenance {
+    source: String,
+    feature: String,
+    policy_mode: String,
+    prompt_version: String,
+    provider: String,
+    model: String,
+    attempts: u8,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct GeneratedWaypointState {
     id: u64,
@@ -439,6 +454,8 @@ struct GeneratedPathwayState {
     distance: u8,
     created_by_actor_id: u64,
     waypoints: Vec<GeneratedWaypointState>,
+    #[serde(default)]
+    generation: GenerationProvenance,
     #[serde(default)]
     revealed_edges: BTreeSet<String>,
     #[serde(default)]
@@ -925,23 +942,26 @@ struct ItemMeta {
     description: String,
 }
 
-const SEED_CONTENT_JSON: &str = include_str!("../../content/core/worldpack.json");
-const SEED_ACTORS_JSON: &str = include_str!("../../content/core/actors.json");
-const SEED_ACCESS_GATES_JSON: &str = include_str!("../../content/core/access_gates.json");
-const SEED_FACTIONS_JSON: &str = include_str!("../../content/core/factions.json");
-const SEED_ITEMS_JSON: &str = include_str!("../../content/core/items.json");
-const SEED_LOCATIONS_JSON: &str = include_str!("../../content/core/locations.json");
-const SEED_EXITS_JSON: &str = include_str!("../../content/core/exits.json");
-const SEED_HIDDEN_EXITS_JSON: &str = include_str!("../../content/core/hidden_exits.json");
-const SEED_ROOM_FEATURES_JSON: &str = include_str!("../../content/core/room_features.json");
-const SEED_ROOM_SHEETS_JSON: &str = include_str!("../../content/core/room_sheets.json");
-const SEED_CLOCKS_JSON: &str = include_str!("../../content/core/clocks.json");
-const SEED_JOBS_JSON: &str = include_str!("../../content/core/jobs.json");
-const SEED_FRONTS_JSON: &str = include_str!("../../content/core/fronts.json");
-const SEED_CARDS_JSON: &str = include_str!("../../content/core/cards.json");
-const SEED_LIFECYCLE_HOOKS_JSON: &str = include_str!("../../content/core/lifecycle_hooks.json");
-const SEED_EVOLUTION_TRACKS_JSON: &str = include_str!("../../content/core/evolution_tracks.json");
-const SEED_RECIPES_JSON: &str = include_str!("../../content/core/recipes.json");
+const SEED_CONTENT_JSON: &str = include_str!("../../content/official/worldpack.json");
+const SEED_ACTORS_JSON: &str = include_str!("../../content/official/actors.json");
+const SEED_ACCESS_GATES_JSON: &str = include_str!("../../content/official/access_gates.json");
+const SEED_FACTIONS_JSON: &str = include_str!("../../content/official/factions.json");
+const SEED_ITEMS_JSON: &str = include_str!("../../content/official/items.json");
+const SEED_LOCATIONS_JSON: &str = include_str!("../../content/official/locations.json");
+const SEED_EXITS_JSON: &str = include_str!("../../content/official/exits.json");
+const SEED_HIDDEN_EXITS_JSON: &str = include_str!("../../content/official/hidden_exits.json");
+const SEED_ROOM_FEATURES_JSON: &str = include_str!("../../content/official/room_features.json");
+const SEED_ROOM_SHEETS_JSON: &str = include_str!("../../content/official/room_sheets.json");
+const SEED_CLOCKS_JSON: &str = include_str!("../../content/official/clocks.json");
+const SEED_JOBS_JSON: &str = include_str!("../../content/official/jobs.json");
+const SEED_FRONTS_JSON: &str = include_str!("../../content/official/fronts.json");
+const SEED_CARDS_JSON: &str = include_str!("../../content/official/cards.json");
+const SEED_LIFECYCLE_HOOKS_JSON: &str = include_str!("../../content/official/lifecycle_hooks.json");
+const SEED_EVOLUTION_TRACKS_JSON: &str =
+    include_str!("../../content/official/evolution_tracks.json");
+const SEED_RECIPES_JSON: &str = include_str!("../../content/official/recipes.json");
+const SEED_EXTERNAL_CARDS_JSON: &str = include_str!("../../content/official/external_cards.json");
+const SEED_ASSET_MOUNTS_JSON: &str = include_str!("../../content/official/assets.json");
 const LONELY_FOREST_CHARACTER_MANIFEST_JSON: &str =
     include_str!("../../content/lonely-forest/assets/characters/manifest.json");
 const LONELY_FOREST_CHARACTER_ASSET_PREFIX: &str = "/assets/lonely-forest/characters/";
@@ -970,13 +990,44 @@ struct SeedContent {
 
 #[derive(Debug, Deserialize)]
 struct SeedWorldpackManifest {
+    #[serde(default)]
+    schema_version: u32,
     id: String,
     name: String,
     version: u32,
     #[serde(default)]
     #[cfg_attr(not(test), allow(dead_code))]
     description: String,
+    #[serde(default)]
+    entry_location: String,
+    #[serde(default)]
+    bundle_hash: String,
+    #[serde(default)]
+    packs: Vec<SeedWorldpackPack>,
     files: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedWorldpackPack {
+    id: String,
+    name: String,
+    version: String,
+    kind: String,
+    license: String,
+    integrity: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedAssetMount {
+    pack_id: String,
+    mount: String,
+    root: String,
+    directory: String,
+    public_prefix: String,
+    #[serde(default)]
+    optional: bool,
+    #[serde(default)]
+    fallback: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1323,6 +1374,8 @@ struct RuntimeWorld {
 #[derive(Debug, Deserialize, Serialize)]
 struct RuntimeSnapshot {
     version: u32,
+    #[serde(default)]
+    worldpack_bundle_hash: String,
     world_version: u32,
     tick: u64,
     next_event_seq: u64,
@@ -1386,6 +1439,8 @@ struct RuntimeSnapshot {
 #[derive(Debug, Deserialize, Serialize)]
 struct ResidentContinuitySnapshot {
     version: u32,
+    #[serde(default)]
+    worldpack_bundle_hash: String,
     world_tick: u64,
     latest_event_seq: u64,
     residents: BTreeMap<u64, ResidentContinuityState>,
@@ -1394,6 +1449,8 @@ struct ResidentContinuitySnapshot {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct JournalRecord {
     version: u32,
+    #[serde(default)]
+    worldpack_bundle_hash: String,
     action: CwAction,
     seed: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1418,6 +1475,7 @@ impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
         Self {
             version: 1,
+            worldpack_bundle_hash: seed_content().manifest.bundle_hash.clone(),
             action,
             seed,
             ripple_source: None,
@@ -1566,7 +1624,18 @@ struct MetaResponse {
     persistence: MetaPersistence,
     ownership_feed: MetaOwnershipFeed,
     nft: MetaNftConfig,
+    worldpack: MetaWorldpack,
     world: MetaWorldCounters,
+}
+
+#[derive(Debug, Serialize)]
+struct MetaWorldpack {
+    id: String,
+    name: String,
+    version: u32,
+    bundle_hash: String,
+    entry_location: String,
+    packs: Vec<SeedWorldpackPack>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1574,6 +1643,8 @@ struct MetaFeatureFlags {
     server_authored_chat: bool,
     client_authored_speech: bool,
     ai_enabled: bool,
+    generation_default_mode: &'static str,
+    pathway_content_mode: &'static str,
     ambient_enabled: bool,
     dev_reset_enabled: bool,
     unsigned_wallet_claims_enabled: bool,
@@ -3174,9 +3245,74 @@ fn seed_content_root() -> PathBuf {
     }
 }
 
+fn seed_asset_mounts() -> &'static [SeedAssetMount] {
+    static MOUNTS: OnceLock<Vec<SeedAssetMount>> = OnceLock::new();
+    MOUNTS
+        .get_or_init(|| {
+            parse_seed_json("assets.json", SEED_ASSET_MOUNTS_JSON)
+                .expect("embedded worldpack asset index must parse")
+        })
+        .as_slice()
+}
+
+fn safe_relative_asset_path(asset_path: &str) -> bool {
+    !asset_path.is_empty()
+        && asset_path.len() <= 512
+        && Path::new(asset_path)
+            .components()
+            .all(|component| matches!(component, std::path::Component::Normal(_)))
+}
+
+fn seed_pack_asset_path(pack_id: &str, mount_name: &str, asset_path: &str) -> Option<PathBuf> {
+    if !safe_relative_asset_path(asset_path) {
+        return None;
+    }
+    let mount = seed_asset_mounts()
+        .iter()
+        .find(|mount| mount.pack_id == pack_id && mount.mount == mount_name)?;
+    Some(
+        seed_content_root()
+            .join(&mount.root)
+            .join(&mount.directory)
+            .join(asset_path),
+    )
+}
+
+fn asset_content_type(asset_path: &str) -> &'static str {
+    if asset_path.ends_with(".webp") {
+        "image/webp"
+    } else if asset_path.ends_with(".svg") {
+        "image/svg+xml"
+    } else if asset_path.ends_with(".json") {
+        "application/json"
+    } else {
+        "image/png"
+    }
+}
+
 fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), String> {
-    if manifest.id.trim().is_empty() || manifest.name.trim().is_empty() || manifest.version == 0 {
+    if manifest.schema_version != 2
+        || manifest.id.trim().is_empty()
+        || manifest.name.trim().is_empty()
+        || manifest.version == 0
+        || manifest.entry_location.trim().is_empty()
+        || !manifest.bundle_hash.starts_with("sha256:")
+        || manifest.packs.is_empty()
+    {
         return Err("worldpack manifest is missing id, name, or version".to_string());
+    }
+    let mut pack_ids = BTreeSet::new();
+    for pack in &manifest.packs {
+        if pack.id.trim().is_empty()
+            || pack.name.trim().is_empty()
+            || pack.version.trim().is_empty()
+            || pack.kind.trim().is_empty()
+            || pack.license.trim().is_empty()
+            || !pack.integrity.starts_with("sha256:")
+            || !pack_ids.insert(pack.id.as_str())
+        {
+            return Err(format!("invalid or duplicate worldpack pack {}", pack.id));
+        }
     }
     for (key, expected_file) in [
         ("actors", "actors.json"),
@@ -5966,7 +6102,7 @@ fn reveal_seed_for_pack(
 
 fn avatar_pack_card_rarity(card_id: &str) -> &str {
     ruby_high_card_spec(card_id)
-        .map(|card| card.rarity)
+        .map(|card| card.rarity.as_str())
         .or_else(|| seed_card_rarity_for_card_id(card_id))
         .unwrap_or("common")
 }
@@ -6149,6 +6285,8 @@ impl AppState {
             .map(Arc::new);
         let moderation_report_retention = ModerationReportRetention::from_env()?;
         let ai_config = Arc::new(AiConfig::from_env());
+        let generation_controls =
+            Arc::new(GenerationControls::from_env().map_err(deployment_config_error)?);
         let avatar_art_config = Arc::new(ReplicateAvatarArtConfig::from_env());
         let generated_asset_dir = generated_asset_dir_from_env();
         fs::create_dir_all(generated_avatar_dir(&generated_asset_dir))?;
@@ -6295,6 +6433,7 @@ impl AppState {
             trust_client_card_ids,
             dev_reset_enabled,
             ai_config,
+            generation_controls,
             avatar_art_config,
             generated_asset_dir: Arc::new(generated_asset_dir),
             #[cfg(test)]
@@ -6591,6 +6730,7 @@ impl RuntimeSnapshot {
     fn from_runtime(runtime: &RuntimeWorld) -> Self {
         Self {
             version: 1,
+            worldpack_bundle_hash: seed_content().manifest.bundle_hash.clone(),
             world_version: runtime.world.version,
             tick: runtime.world.tick,
             next_event_seq: runtime.world.next_event_seq,
@@ -6633,6 +6773,15 @@ impl RuntimeSnapshot {
     }
 
     fn into_runtime(self) -> io::Result<RuntimeWorld> {
+        if !self.worldpack_bundle_hash.is_empty()
+            && self.worldpack_bundle_hash != seed_content().manifest.bundle_hash
+        {
+            return Err(snapshot_error(format!(
+                "snapshot worldpack {} does not match active worldpack {}",
+                self.worldpack_bundle_hash,
+                seed_content().manifest.bundle_hash
+            )));
+        }
         if self.world_actors.len() > CW_MAX_ACTORS {
             return Err(snapshot_error("too many actors in snapshot"));
         }
@@ -6749,6 +6898,7 @@ impl ResidentContinuitySnapshot {
     fn from_runtime(runtime: &RuntimeWorld) -> Self {
         Self {
             version: 1,
+            worldpack_bundle_hash: seed_content().manifest.bundle_hash.clone(),
             world_tick: runtime.world.tick,
             latest_event_seq: runtime.world.next_event_seq.saturating_sub(1),
             residents: runtime.resident_continuities.clone(),
@@ -6776,6 +6926,15 @@ impl RuntimeWorld {
         let mut runtime = Self::seeded();
         let records = read_action_journal(path)?;
         for record in records {
+            if !record.worldpack_bundle_hash.is_empty()
+                && record.worldpack_bundle_hash != seed_content().manifest.bundle_hash
+            {
+                return Err(snapshot_error(format!(
+                    "action journal worldpack {} does not match active worldpack {}",
+                    record.worldpack_bundle_hash,
+                    seed_content().manifest.bundle_hash
+                )));
+            }
             let _ = runtime.apply_journal_record(&record);
         }
         runtime.recompute_counters();
@@ -7105,6 +7264,17 @@ impl RuntimeWorld {
         for pathway in self.generated_pathways.values_mut() {
             if pathway.distance >= 2 {
                 pathway.art_eligible = true;
+            }
+            if pathway.generation.feature.is_empty() {
+                pathway.generation = GenerationProvenance {
+                    source: "legacy_deterministic".to_string(),
+                    feature: PATHWAY_CONTENT_FEATURE.to_string(),
+                    policy_mode: "legacy".to_string(),
+                    prompt_version: "legacy".to_string(),
+                    provider: "none".to_string(),
+                    model: "none".to_string(),
+                    attempts: 0,
+                };
             }
         }
         let pathways = self
@@ -8375,6 +8545,15 @@ impl RuntimeWorld {
             return Err(snapshot_error(
                 "unsupported resident continuity snapshot version",
             ));
+        }
+        if !snapshot.worldpack_bundle_hash.is_empty()
+            && snapshot.worldpack_bundle_hash != seed_content().manifest.bundle_hash
+        {
+            return Err(snapshot_error(format!(
+                "resident continuity worldpack {} does not match active worldpack {}",
+                snapshot.worldpack_bundle_hash,
+                seed_content().manifest.bundle_hash
+            )));
         }
         Ok(self.apply_resident_continuity_snapshot(snapshot))
     }
@@ -11029,6 +11208,15 @@ impl RuntimeWorld {
             distance,
             created_by_actor_id: actor_id,
             waypoints,
+            generation: GenerationProvenance {
+                source: "deterministic_fallback".to_string(),
+                feature: PATHWAY_CONTENT_FEATURE.to_string(),
+                policy_mode: "fallback".to_string(),
+                prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
+                provider: "none".to_string(),
+                model: "none".to_string(),
+                attempts: 0,
+            },
             revealed_edges: BTreeSet::new(),
             art_eligible: distance >= 2,
             familiar: false,
@@ -20856,392 +21044,62 @@ fn unknown_location_card(location_id: u64, name: &str, meta: Option<&LocationMet
     })
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Debug, Deserialize)]
 struct RubyHighCardSpec {
-    card_id: &'static str,
-    display_name: &'static str,
-    role: &'static str,
-    rarity: &'static str,
-    title: &'static str,
-    blurb: &'static str,
-    aspect: &'static str,
-    set_number: &'static str,
-    profile_id: &'static str,
-    subject: &'static str,
-    image_url: &'static str,
-    chain_image_uri: &'static str,
+    card_id: String,
+    display_name: String,
+    role: String,
+    rarity: String,
+    title: String,
+    blurb: String,
+    aspect: String,
+    set_number: String,
+    profile_id: String,
+    subject: String,
+    image_url: String,
+    chain_image_uri: String,
 }
 
-const RUBY_HIGH_FIRST_BELL_CATALOG: &[RubyHighCardSpec] = &[
-    RubyHighCardSpec {
-        card_id: "lyra",
-        display_name: "Lyra",
-        role: "student",
-        rarity: "common",
-        title: "Color-Coded Spare",
-        blurb: "Lyra made three backups and labeled this one urgent.",
-        aspect: "tall",
-        set_number: "FB-001",
-        profile_id: "lyra-color-coded-spare",
-        subject: "Homeroom",
-        image_url: "/assets/cards/lyra.png",
-        chain_image_uri: "https://gateway.irys.xyz/7BGwmo5bhDKDhhKVcoUaKfNcaWcVU5ifHQfPqQNVyYrP",
-    },
-    RubyHighCardSpec {
-        card_id: "sami",
-        display_name: "Sami",
-        role: "student",
-        rarity: "common",
-        title: "Side Door Whatever",
-        blurb: "Sami says it works if you look bored enough.",
-        aspect: "tall",
-        set_number: "FB-002",
-        profile_id: "sami-side-door-whatever",
-        subject: "Homeroom",
-        image_url: "/assets/cards/sami.png",
-        chain_image_uri: "https://gateway.irys.xyz/Fmhr5NjuA3ZLpWJPzRcPeAT7wfaXepxSemWBCLj4eDT3",
-    },
-    RubyHighCardSpec {
-        card_id: "ravi",
-        display_name: "Ravi",
-        role: "student",
-        rarity: "common",
-        title: "Field Trip Fact Slip",
-        blurb: "Ravi has a tangent ready for the entire walk.",
-        aspect: "tall",
-        set_number: "FB-003",
-        profile_id: "ravi-field-trip-fact-slip",
-        subject: "Field Trip",
-        image_url: "/assets/cards/ravi.png",
-        chain_image_uri: "https://gateway.irys.xyz/9gsNxRKPyeZ4AyB8Vi31VoPgxYNFapMFhkQN7TbU17AK",
-    },
-    RubyHighCardSpec {
-        card_id: "indra",
-        display_name: "Indra",
-        role: "student",
-        rarity: "rare",
-        title: "Quiet Perfect Exit",
-        blurb: "Indra noticed the pattern and left before anyone clapped.",
-        aspect: "tall",
-        set_number: "FB-004",
-        profile_id: "indra-quiet-perfect-exit",
-        subject: "Strategy",
-        image_url: "/assets/cards/indra.png",
-        chain_image_uri: "https://gateway.irys.xyz/6S94Fzxaos9mpWeRhjfaJ9ce8c6HHCSdNuBVRHie5LFy",
-    },
-    RubyHighCardSpec {
-        card_id: "mika",
-        display_name: "Mika",
-        role: "student",
-        rarity: "rare",
-        title: "Locker Room Shortcut",
-        blurb: "Mika says you are absolutely cleared for this.",
-        aspect: "tall",
-        set_number: "FB-005",
-        profile_id: "mika-locker-room-shortcut",
-        subject: "Social",
-        image_url: "/assets/cards/mika.png",
-        chain_image_uri: "https://gateway.irys.xyz/8AZLNaZdJDYx1jbdqFCKpS8JM12PGQD5b2U16P2pjAy5",
-    },
-    RubyHighCardSpec {
-        card_id: "noor",
-        display_name: "Noor",
-        role: "student",
-        rarity: "rare",
-        title: "Deadpan Detour",
-        blurb: "Noor called it a plot hole and walked through it.",
-        aspect: "tall",
-        set_number: "FB-006",
-        profile_id: "noor-deadpan-detour",
-        subject: "Literature",
-        image_url: "/assets/cards/noor.png",
-        chain_image_uri: "https://gateway.irys.xyz/3Mt6b11iNvuBHXKoqRTmDQcouwxpmzaSimWyDM6EYUAH",
-    },
-    RubyHighCardSpec {
-        card_id: "ruby",
-        display_name: "Ruby",
-        role: "teacher",
-        rarity: "common",
-        title: "Homeroom Card",
-        blurb: "Ruby stamped this one before the late bell could object.",
-        aspect: "tall",
-        set_number: "FB-007",
-        profile_id: "ruby-homeroom-card",
-        subject: "Homeroom",
-        image_url: "/assets/cards/ruby.png",
-        chain_image_uri: "https://gateway.irys.xyz/3N7c6M2wjZa456uHysFisgmRwnV9MshJFLzgDrLY8xYB",
-    },
-    RubyHighCardSpec {
-        card_id: "sally-science",
-        display_name: "Sally Science",
-        role: "teacher",
-        rarity: "common",
-        title: "Lab Sink Shortcut",
-        blurb: "Good for one escape from sloppy variables.",
-        aspect: "tall",
-        set_number: "FB-008",
-        profile_id: "sally-lab-sink-shortcut",
-        subject: "Science",
-        image_url: "/assets/cards/sally-science.png",
-        chain_image_uri: "https://gateway.irys.xyz/9EEyhSHwH3k4Mm4TyAhJNSSren9ZYF7XZE8RhJ9SfGX",
-    },
-    RubyHighCardSpec {
-        card_id: "professor-edward",
-        display_name: "Professor Edward",
-        role: "teacher",
-        rarity: "common",
-        title: "Library Corridor Pass",
-        blurb: "Please return before the footnotes start breeding.",
-        aspect: "tall",
-        set_number: "FB-009",
-        profile_id: "professor-edward-library-corridor",
-        subject: "Literature",
-        image_url: "/assets/cards/professor-edward.png",
-        chain_image_uri: "https://gateway.irys.xyz/63VTMvTDzdPbK8T4y1naQBwk5by43kYbpRn6wtiVyXPe",
-    },
-    RubyHighCardSpec {
-        card_id: "eliza",
-        display_name: "Eliza",
-        role: "teacher",
-        rarity: "super-rare",
-        title: "Systems Lab Override",
-        blurb: "Eliza makes the system legible, then makes it sing.",
-        aspect: "tall",
-        set_number: "FB-010",
-        profile_id: "eliza-systems-lab-override",
-        subject: "Systems",
-        image_url: "/assets/cards/eliza.png",
-        chain_image_uri: "https://gateway.irys.xyz/G4mYFb2JgHjsCYdWLtYrhYQL1GGYUPvqaeUi4xao9cpL",
-    },
-    RubyHighCardSpec {
-        card_id: "rati",
-        display_name: "Rati",
-        role: "teacher",
-        rarity: "super-rare",
-        title: "Signal Studies Pass",
-        blurb: "Hold the signal. Build the world.",
-        aspect: "tall",
-        set_number: "FB-011",
-        profile_id: "rati-signal-studies-pass",
-        subject: "Signal Studies",
-        image_url: "/assets/cards/rati.png",
-        chain_image_uri: "https://gateway.irys.xyz/4gDnEdkgqayZGDQ9sSFoHuY5LSgwfuDDWmwSJR2QPbVX",
-    },
-    RubyHighCardSpec {
-        card_id: "captain-null",
-        display_name: "Captain Null",
-        role: "special",
-        rarity: "ultra-rare",
-        title: "Page 10 Shadow Pass",
-        blurb: "Find page 10 and the hallway forgets your name.",
-        aspect: "tall",
-        set_number: "FB-012",
-        profile_id: "captain-null-page-10-shadow",
-        subject: "First Bell",
-        image_url: "/assets/cards/captain-null.png",
-        chain_image_uri: "https://gateway.irys.xyz/FQXsSJ4gJWj9pM4Fc2RcEAcomoPSyPaRyd19ghpxVdLv",
-    },
-    RubyHighCardSpec {
-        card_id: "item-hall-pass",
-        display_name: "Hall Pass",
-        role: "item",
-        rarity: "common",
-        title: "Front Office Reset",
-        blurb: "Sometimes the smartest move is stepping out and coming back better.",
-        aspect: "square",
-        set_number: "FB-013",
-        profile_id: "item-hall-pass",
-        subject: "Administration",
-        image_url: "/assets/cards/item-hall-pass.png",
-        chain_image_uri: "https://gateway.irys.xyz/9EsaWqjWaWKvb9a62iKr1dYSMRPGRQVaA1fpLFjWfk4q",
-    },
-    RubyHighCardSpec {
-        card_id: "item-flashcards",
-        display_name: "Flashcards",
-        role: "item",
-        rarity: "common",
-        title: "Study Kit",
-        blurb: "Shuffle. Repeat. Survive.",
-        aspect: "square",
-        set_number: "FB-014",
-        profile_id: "item-flashcards",
-        subject: "Study",
-        image_url: "/assets/cards/item-flashcards.png",
-        chain_image_uri: "https://gateway.irys.xyz/H38mBQgXzZZK6vEni77FShD8Lh7vX9QVsDd6C3yL4tVQ",
-    },
-    RubyHighCardSpec {
-        card_id: "item-library-card",
-        display_name: "Library Card",
-        role: "item",
-        rarity: "common",
-        title: "Quiet Wing Access",
-        blurb: "If the answer exists, this helps you find it.",
-        aspect: "square",
-        set_number: "FB-015",
-        profile_id: "item-library-card",
-        subject: "Library",
-        image_url: "/assets/cards/item-library-card.png",
-        chain_image_uri: "https://gateway.irys.xyz/GW7DcPRJMum61q73hfynntUJ3zUje7yjwE7xVesLSNgU",
-    },
-    RubyHighCardSpec {
-        card_id: "item-lab-flask",
-        display_name: "Lab Flask",
-        role: "item",
-        rarity: "rare",
-        title: "Science Lab Evidence",
-        blurb: "Observe first. Guess later.",
-        aspect: "square",
-        set_number: "FB-016",
-        profile_id: "item-lab-flask",
-        subject: "Science",
-        image_url: "/assets/cards/item-lab-flask.png",
-        chain_image_uri: "https://gateway.irys.xyz/4rAuX9pMMUMfveZ9rL9yBKQD7dcPAcfgoiQzL71pr5Nr",
-    },
-    RubyHighCardSpec {
-        card_id: "item-lunch-tray",
-        display_name: "Lunch Tray",
-        role: "item",
-        rarity: "rare",
-        title: "Commons Diplomacy",
-        blurb: "Half the social game happens between bites.",
-        aspect: "square",
-        set_number: "FB-017",
-        profile_id: "item-lunch-tray",
-        subject: "Cafeteria",
-        image_url: "/assets/cards/item-lunch-tray.png",
-        chain_image_uri: "https://gateway.irys.xyz/6tvAmcFPM8cXAmxmZNciN6iYQkj5C1J84bjnFiXuoyrV",
-    },
-    RubyHighCardSpec {
-        card_id: "item-notebook",
-        display_name: "Notebook",
-        role: "item",
-        rarity: "rare",
-        title: "Daily Carry",
-        blurb: "Messy notes still count as evidence of life.",
-        aspect: "square",
-        set_number: "FB-018",
-        profile_id: "item-notebook",
-        subject: "Homeroom",
-        image_url: "/assets/cards/item-notebook.png",
-        chain_image_uri: "https://gateway.irys.xyz/3U8K8YGe1nEhvVjuV7ThDkLLsLZViRsAdKDKGeLV1mDS",
-    },
-    RubyHighCardSpec {
-        card_id: "location-homeroom",
-        display_name: "Homeroom",
-        role: "location",
-        rarity: "common",
-        title: "Front Door",
-        blurb: "Where every day begins, and every question gets a room.",
-        aspect: "wide",
-        set_number: "FB-019",
-        profile_id: "location-homeroom",
-        subject: "Homeroom",
-        image_url: "/assets/cards/location-homeroom.png",
-        chain_image_uri: "https://gateway.irys.xyz/D4o7VmayTktEbx7HivEeWTzVvjnmbp4JrDgNzkvUwVQ",
-    },
-    RubyHighCardSpec {
-        card_id: "location-science-lab",
-        display_name: "Science Class",
-        role: "location",
-        rarity: "common",
-        title: "STEM Wing",
-        blurb: "Observe. Test. Explain. Repeat.",
-        aspect: "wide",
-        set_number: "FB-020",
-        profile_id: "location-science-lab",
-        subject: "Science",
-        image_url: "/assets/cards/location-science-lab.png",
-        chain_image_uri: "https://gateway.irys.xyz/DDmgnZHAZ3WPqvyNVjU57ayQMY6y2WYSL7Fu1jkjbJMu",
-    },
-    RubyHighCardSpec {
-        card_id: "location-library",
-        display_name: "Library",
-        role: "location",
-        rarity: "common",
-        title: "Quiet Wing",
-        blurb: "If it matters, someone wrote it down.",
-        aspect: "wide",
-        set_number: "FB-021",
-        profile_id: "location-library",
-        subject: "Literature",
-        image_url: "/assets/cards/location-library.png",
-        chain_image_uri: "https://gateway.irys.xyz/44eAXJkBYuXjrV2ctE8PurKnHQ4Zg29LdzeNm1Sh5PLR",
-    },
-    RubyHighCardSpec {
-        card_id: "location-cafeteria",
-        display_name: "Cafeteria",
-        role: "location",
-        rarity: "rare",
-        title: "Commons",
-        blurb: "Half the school day happens between bites.",
-        aspect: "wide",
-        set_number: "FB-022",
-        profile_id: "location-cafeteria",
-        subject: "Cafeteria",
-        image_url: "/assets/cards/location-cafeteria.png",
-        chain_image_uri: "https://gateway.irys.xyz/FXSukeq8KPmaZ2tBPqRMmRhruTEFSiE4mTrCThiVpCen",
-    },
-    RubyHighCardSpec {
-        card_id: "location-greenhouse",
-        display_name: "Greenhouse",
-        role: "location",
-        rarity: "rare",
-        title: "Garden Annex",
-        blurb: "Some lessons grow slowly.",
-        aspect: "wide",
-        set_number: "FB-023",
-        profile_id: "location-greenhouse",
-        subject: "Science",
-        image_url: "/assets/cards/location-greenhouse.png",
-        chain_image_uri: "https://gateway.irys.xyz/6V6TeKMCmD6kDJHkPHeJdqcNySzXJyov7b9QtsfVw8W8",
-    },
-    RubyHighCardSpec {
-        card_id: "location-courtyard",
-        display_name: "Courtyard",
-        role: "location",
-        rarity: "rare",
-        title: "Central Grounds",
-        blurb: "Every hallway leads somewhere. Every path leads to someone.",
-        aspect: "wide",
-        set_number: "FB-024",
-        profile_id: "location-courtyard",
-        subject: "Campus",
-        image_url: "/assets/cards/location-courtyard.png",
-        chain_image_uri: "https://gateway.irys.xyz/5uestScY6q33FLjFY8gfSr9k2ZDMsZzYuXLvnVCtaz6G",
-    },
-];
+fn ruby_high_first_bell_catalog() -> &'static [RubyHighCardSpec] {
+    static CATALOG: OnceLock<Vec<RubyHighCardSpec>> = OnceLock::new();
+    CATALOG
+        .get_or_init(|| {
+            parse_seed_json("external_cards.json", SEED_EXTERNAL_CARDS_JSON)
+                .expect("embedded external card catalog must parse")
+        })
+        .as_slice()
+}
 
 fn ruby_high_card_by_id(card_id: &str) -> Option<CardView> {
     ruby_high_card_spec(card_id).map(ruby_high_card)
 }
 
-fn ruby_high_card_spec(card_id: &str) -> Option<RubyHighCardSpec> {
-    RUBY_HIGH_FIRST_BELL_CATALOG
+fn ruby_high_card_spec(card_id: &str) -> Option<&'static RubyHighCardSpec> {
+    ruby_high_first_bell_catalog()
         .iter()
-        .copied()
         .find(|spec| spec.card_id == card_id)
 }
 
-fn ruby_high_card(spec: RubyHighCardSpec) -> CardView {
+fn ruby_high_card(spec: &RubyHighCardSpec) -> CardView {
     CardView {
-        card_id: spec.card_id.to_string(),
-        display_name: spec.display_name.to_string(),
-        role: spec.role.to_string(),
-        rarity: spec.rarity.to_string(),
-        title: spec.title.to_string(),
-        blurb: spec.blurb.to_string(),
+        card_id: spec.card_id.clone(),
+        display_name: spec.display_name.clone(),
+        role: spec.role.clone(),
+        rarity: spec.rarity.clone(),
+        title: spec.title.clone(),
+        blurb: spec.blurb.clone(),
         level: 0,
         evolved: false,
-        aspect: spec.aspect.to_string(),
+        aspect: spec.aspect.clone(),
         source: "ruby_high_first_bell".to_string(),
         asset_status: "on_chain".to_string(),
-        set_number: Some(spec.set_number.to_string()),
-        profile_id: Some(spec.profile_id.to_string()),
-        subject: Some(spec.subject.to_string()),
+        set_number: Some(spec.set_number.clone()),
+        profile_id: Some(spec.profile_id.clone()),
+        subject: Some(spec.subject.clone()),
         biome: None,
         terrain: Vec::new(),
-        image_url: Some(spec.image_url.to_string()),
-        chain_image_uri: Some(spec.chain_image_uri.to_string()),
+        image_url: Some(spec.image_url.clone()),
+        chain_image_uri: Some(spec.chain_image_uri.clone()),
         requires_ownership: false,
         owned: false,
         accessible: true,
@@ -21361,6 +21219,8 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             server_authored_chat: true,
             client_authored_speech: true,
             ai_enabled: state.ai_config.as_ref().is_some(),
+            generation_default_mode: state.generation_controls.default_mode().as_str(),
+            pathway_content_mode: state.generation_controls.mode("pathway_content").as_str(),
             ambient_enabled: false,
             dev_reset_enabled: state.dev_reset_enabled,
             unsigned_wallet_claims_enabled: state.allow_unsigned_wallet_claims,
@@ -21387,6 +21247,14 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         },
         nft: MetaNftConfig {
             box_burn_verifier_configured: state.box_burn_verifier.as_ref().is_some(),
+        },
+        worldpack: MetaWorldpack {
+            id: seed_content().manifest.id.clone(),
+            name: seed_content().manifest.name.clone(),
+            version: seed_content().manifest.version,
+            bundle_hash: seed_content().manifest.bundle_hash.clone(),
+            entry_location: seed_content().manifest.entry_location.clone(),
+            packs: seed_content().manifest.packs.clone(),
         },
         world: MetaWorldCounters {
             tick,
@@ -26217,6 +26085,7 @@ async fn request_ai_room_memory_summary(
             timeout: Duration::from_secs(10),
             max_attempts: 2,
             referer: "https://cosyworld.fly.dev",
+            response_format: None,
         },
     )
     .await
@@ -26399,6 +26268,7 @@ async fn request_ai_avatar_chat(
             timeout: Duration::from_secs(12),
             max_attempts: 2,
             referer: "http://127.0.0.1:3102",
+            response_format: None,
         },
     )
     .await
@@ -26433,6 +26303,7 @@ async fn request_ai_avatar_identity(
             timeout: Duration::from_secs(14),
             max_attempts: 2,
             referer: "https://cosyworld.fly.dev",
+            response_format: None,
         },
     )
     .await
@@ -26880,6 +26751,7 @@ async fn request_ai_resident_intent(
             timeout: Duration::from_secs(12),
             max_attempts: 2,
             referer: "http://127.0.0.1:3102",
+            response_format: None,
         },
     )
     .await?;
@@ -27227,6 +27099,7 @@ fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
         || !(4..=40).contains(&char_count)
         || lower.contains("pathway")
         || lower.contains("stretch")
+        || generated_label_contains_authority_language(&lower)
         || !name
             .chars()
             .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
@@ -27236,7 +27109,120 @@ fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
     Some(name)
 }
 
-fn parse_generated_pathway_names(text: &str, expected: usize) -> Option<Vec<String>> {
+fn generated_label_contains_authority_language(value: &str) -> bool {
+    value
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .any(|token| {
+            matches!(
+                token,
+                "access"
+                    | "award"
+                    | "awards"
+                    | "clock"
+                    | "damage"
+                    | "health"
+                    | "inventory"
+                    | "item"
+                    | "items"
+                    | "orb"
+                    | "orbs"
+                    | "quest"
+                    | "quests"
+                    | "reward"
+                    | "rewards"
+                    | "unlock"
+                    | "unlocks"
+                    | "wallet"
+            )
+        })
+}
+
+fn sanitize_generated_content_text(
+    value: &str,
+    min_chars: usize,
+    max_chars: usize,
+) -> Option<String> {
+    let text = compact_whitespace(value.trim().trim_matches('"'));
+    let char_count = text.chars().count();
+    let lowered = format!(" {} ", text.to_ascii_lowercase());
+    if !(min_chars..=max_chars).contains(&char_count)
+        || text.chars().any(char::is_control)
+        || text.chars().any(|character| "{}<>\"".contains(character))
+        || [
+            " http://",
+            " https://",
+            " ignore previous",
+            " system prompt",
+            " developer message",
+            " assistant message",
+            " ai model",
+            " policy",
+            " wallet",
+            " orb ",
+            " orbs ",
+            " item ",
+            " items ",
+            " inventory ",
+            " reward",
+            " award",
+            " damage",
+            " health ",
+            " hit point",
+            " level up",
+            " grants ",
+            " gives you ",
+            " unlock",
+            " access gate",
+            " allows entry",
+            " opens access",
+            " locked until",
+            " quest",
+            " clock",
+        ]
+        .iter()
+        .any(|needle| lowered.contains(needle))
+    {
+        return None;
+    }
+    Some(text)
+}
+
+fn sanitize_generated_pathway_title(value: &str) -> Option<String> {
+    let title = compact_whitespace(value.trim().trim_matches('"'));
+    let word_count = title.split_whitespace().count();
+    if !(1..=6).contains(&word_count)
+        || !(4..=48).contains(&title.chars().count())
+        || title.to_ascii_lowercase().contains("pathway to")
+        || generated_label_contains_authority_language(&title.to_ascii_lowercase())
+        || !title
+            .chars()
+            .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
+    {
+        return None;
+    }
+    Some(title)
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GeneratedWaypointContentProposal {
+    name: String,
+    title: String,
+    description: String,
+    persona: String,
+    visual_detail: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GeneratedPathwayContentProposal {
+    waypoints: Vec<GeneratedWaypointContentProposal>,
+}
+
+fn parse_generated_pathway_content(
+    text: &str,
+    expected: usize,
+) -> Option<Vec<GeneratedWaypointContentProposal>> {
     let cleaned = text
         .trim()
         .trim_start_matches("```json")
@@ -27250,33 +27236,75 @@ fn parse_generated_pathway_names(text: &str, expected: usize) -> Option<Vec<Stri
         let end = cleaned.rfind('}')?;
         cleaned.get(start..=end)?
     };
-    let value: serde_json::Value = serde_json::from_str(json_text).ok()?;
-    let values = value.get("names")?.as_array()?;
-    if values.len() != expected {
+    let proposal: GeneratedPathwayContentProposal = serde_json::from_str(json_text).ok()?;
+    if proposal.waypoints.len() != expected {
         return None;
     }
-    let names = values
-        .iter()
-        .map(|value| sanitize_generated_pathway_name(value.as_str()?))
+    let waypoints = proposal
+        .waypoints
+        .into_iter()
+        .map(|waypoint| {
+            Some(GeneratedWaypointContentProposal {
+                name: sanitize_generated_pathway_name(&waypoint.name)?,
+                title: sanitize_generated_pathway_title(&waypoint.title)?,
+                description: sanitize_generated_content_text(&waypoint.description, 24, 240)?,
+                persona: sanitize_generated_content_text(&waypoint.persona, 20, 180)?,
+                visual_detail: sanitize_generated_content_text(&waypoint.visual_detail, 12, 180)?,
+            })
+        })
         .collect::<Option<Vec<_>>>()?;
-    let unique = names
+    let unique = waypoints
         .iter()
-        .map(|name| name.to_ascii_lowercase())
+        .map(|waypoint| waypoint.name.to_ascii_lowercase())
         .collect::<BTreeSet<_>>();
-    (unique.len() == names.len()).then_some(names)
+    (unique.len() == waypoints.len()).then_some(waypoints)
 }
 
-fn rename_hidden_waypoint(waypoint: &mut GeneratedWaypointState, name: &str) {
-    let previous = std::mem::replace(&mut waypoint.name, name.to_string());
-    waypoint.meta.description = waypoint.meta.description.replace(&previous, name);
-    waypoint.meta.persona = waypoint.meta.persona.replace(&previous, name);
-    if let Some(prompt) = waypoint.meta.art_prompt.as_mut() {
-        *prompt = prompt.replace(&previous, name);
-    }
+fn generated_pathway_name_avoids_anchors(name: &str, anchors: &[&str]) -> bool {
+    let name = compact_whitespace(name).to_ascii_lowercase();
+    anchors.iter().all(|anchor| {
+        let anchor = compact_whitespace(anchor).to_ascii_lowercase();
+        anchor.is_empty() || !name.contains(&anchor)
+    })
 }
 
-async fn generate_hidden_pathway_names(
+fn apply_generated_waypoint_content(
+    waypoint: &mut GeneratedWaypointState,
+    content: GeneratedWaypointContentProposal,
+) {
+    waypoint.name = content.name.clone();
+    waypoint.meta.title = content.title;
+    waypoint.meta.description = content.description;
+    waypoint.meta.persona = content.persona;
+    waypoint.meta.art_prompt = Some(format!(
+        "cozy storybook landscape, {detail}, {name}, {biome}, terrain of {terrain}, no people, no character, no text, no logo, no watermark",
+        detail = content.visual_detail,
+        name = content.name,
+        biome = waypoint.meta.biome,
+        terrain = waypoint.meta.terrain.join(", "),
+    ));
+}
+
+fn set_pathway_generation_provenance(
+    pathway: &mut GeneratedPathwayState,
+    mode: GenerationMode,
     config: Option<&AiConfig>,
+    source: &str,
+    attempts: u8,
+) {
+    pathway.generation = GenerationProvenance {
+        source: source.to_string(),
+        feature: PATHWAY_CONTENT_FEATURE.to_string(),
+        policy_mode: mode.as_str().to_string(),
+        prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
+        provider: ai_provider_name(config).to_string(),
+        model: ai_model_name(config),
+        attempts,
+    };
+}
+
+async fn generate_hidden_pathway_content(
+    state: &AppState,
     mutation: &mut ProjectionMutation,
     narration_plan: &mut JourneyNarrationPlan,
 ) {
@@ -27286,7 +27314,38 @@ async fn generate_hidden_pathway_names(
     if !pathway.revealed_edges.is_empty() || pathway.waypoints.is_empty() {
         return;
     }
+    let mode = state.generation_controls.mode(PATHWAY_CONTENT_FEATURE);
+    let config = state.ai_config.as_ref().as_ref();
+    if mode == GenerationMode::Off {
+        set_pathway_generation_provenance(pathway, mode, config, "deterministic_fallback", 0);
+        record_ai_usage(
+            state,
+            Some(pathway.created_by_actor_id),
+            PATHWAY_CONTENT_FEATURE,
+            "cosyworld_system",
+            config,
+            "disabled",
+            None,
+            0,
+            Some("generation_off"),
+            Duration::ZERO,
+        );
+        return;
+    }
     let Some(config) = config else {
+        set_pathway_generation_provenance(pathway, mode, None, "deterministic_fallback", 0);
+        record_ai_usage(
+            state,
+            Some(pathway.created_by_actor_id),
+            PATHWAY_CONTENT_FEATURE,
+            "cosyworld_system",
+            None,
+            "fallback",
+            None,
+            0,
+            Some("inference_unconfigured"),
+            Duration::ZERO,
+        );
         return;
     };
     let waypoint_context = pathway
@@ -27305,40 +27364,157 @@ async fn generate_hidden_pathway_names(
         .collect::<Vec<_>>()
         .join("\n");
     let prompt = format!(
-        "Invent {count} distinct hidden landmark names for successive waypoints on one cozy storybook route. They are generated now but players encounter them one at a time through Explore. Route: {origin} toward {destination}.\n{context}\nReturn valid JSON only: {{\"names\":[\"Two to five words\"]}}. Preserve the listed order. Each name must be evocative, concrete, 2-5 words, at most 40 characters, and use only ASCII letters, spaces, hyphens, or apostrophes. Do not use numbers, Pathway, Stretch, the route destination, or repeat a name.",
+        "Create {count} distinct hidden waypoint identities for successive stretches of one cozy storybook route. They are generated together now but players encounter them one at a time through Explore. Route: {origin} toward {destination}.\n{context}\nFor each waypoint return: name (evocative proper place name, 2-5 words); title (1-6 words); description (one concrete physical sentence); persona (one sentence describing how the place behaves, never dialogue); visual_detail (physical landscape details only). Preserve order. Do not introduce people, creatures, items, quests, rewards, rules, danger outcomes, access, magic powers, or facts beyond the listed biome and terrain. Names must use only ASCII letters, spaces, hyphens, or apostrophes, and must not use numbers, Pathway, Stretch, the route destination, or duplicates.",
         count = pathway.waypoints.len(),
         origin = narration_plan.from_name,
         destination = narration_plan.destination_name,
         context = waypoint_context,
     );
-    let Ok(completion) = request_chat_completion(
+    let response_format = serde_json::json!({
+        "type": "json_schema",
+        "json_schema": {
+            "name": "cosyworld_pathway_content",
+            "strict": true,
+            "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "waypoints": {
+                        "type": "array",
+                        "minItems": pathway.waypoints.len(),
+                        "maxItems": pathway.waypoints.len(),
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "name": { "type": "string", "minLength": 4, "maxLength": 40 },
+                                "title": { "type": "string", "minLength": 4, "maxLength": 48 },
+                                "description": { "type": "string", "minLength": 24, "maxLength": 240 },
+                                "persona": { "type": "string", "minLength": 20, "maxLength": 180 },
+                                "visual_detail": { "type": "string", "minLength": 12, "maxLength": 180 }
+                            },
+                            "required": ["name", "title", "description", "persona", "visual_detail"]
+                        }
+                    }
+                },
+                "required": ["waypoints"]
+            }
+        }
+    });
+    let completion = match request_chat_completion(
         config,
         ChatCompletionRequest {
-            feature: "pathway_names",
-            system: "You name hidden geography in CosyWorld. Return only the requested JSON object, with no prose or markdown.",
+            feature: PATHWAY_CONTENT_FEATURE,
+            system: "You create bounded hidden geography in CosyWorld. Return only JSON matching the supplied schema. World rules and rewards are outside your authority.",
             user: &prompt,
-            temperature: 0.9,
-            max_tokens: 140,
+            temperature: 0.8,
+            max_tokens: 600,
             timeout: Duration::from_secs(12),
             max_attempts: 2,
             referer: "http://127.0.0.1:3102",
+            response_format: Some(&response_format),
         },
     )
     .await
-    else {
+    {
+        Ok(completion) => completion,
+        Err(error) => {
+            set_pathway_generation_provenance(
+                pathway,
+                mode,
+                Some(config),
+                "deterministic_fallback",
+                error.attempts,
+            );
+            record_ai_usage(
+                state,
+                Some(pathway.created_by_actor_id),
+                PATHWAY_CONTENT_FEATURE,
+                "cosyworld_system",
+                Some(config),
+                "fallback",
+                None,
+                0,
+                Some(error.code()),
+                error.latency,
+            );
+            return;
+        }
+    };
+    let contents = parse_generated_pathway_content(&completion.text, pathway.waypoints.len())
+        .filter(|contents| {
+            contents.iter().all(|content| {
+                generated_pathway_name_avoids_anchors(
+                    &content.name,
+                    &[&narration_plan.from_name, &narration_plan.destination_name],
+                )
+            })
+        });
+    let Some(contents) = contents else {
+        set_pathway_generation_provenance(
+            pathway,
+            mode,
+            Some(config),
+            "deterministic_fallback",
+            completion.attempts,
+        );
+        record_ai_usage(
+            state,
+            Some(pathway.created_by_actor_id),
+            PATHWAY_CONTENT_FEATURE,
+            "cosyworld_system",
+            Some(config),
+            "fallback",
+            None,
+            0,
+            Some("inference_invalid_response"),
+            completion.latency,
+        );
         return;
     };
-    let Some(names) = parse_generated_pathway_names(&completion.text, pathway.waypoints.len())
-    else {
+    if mode == GenerationMode::Shadow {
+        set_pathway_generation_provenance(
+            pathway,
+            mode,
+            Some(config),
+            "deterministic_fallback",
+            completion.attempts,
+        );
+        record_ai_usage(
+            state,
+            Some(pathway.created_by_actor_id),
+            PATHWAY_CONTENT_FEATURE,
+            "cosyworld_system",
+            Some(config),
+            "shadow_ok",
+            None,
+            0,
+            None,
+            completion.latency,
+        );
         return;
-    };
-    for (waypoint, name) in pathway.waypoints.iter_mut().zip(names) {
-        let previous = waypoint.name.clone();
-        rename_hidden_waypoint(waypoint, &name);
-        if narration_plan.to_name == previous {
-            narration_plan.to_name = name;
+    }
+    for (waypoint, content) in pathway.waypoints.iter_mut().zip(contents) {
+        let previous_name = waypoint.name.clone();
+        let next_name = content.name.clone();
+        apply_generated_waypoint_content(waypoint, content);
+        if narration_plan.to_name == previous_name {
+            narration_plan.to_name = next_name;
         }
     }
+    set_pathway_generation_provenance(pathway, mode, Some(config), "ai", completion.attempts);
+    record_ai_usage(
+        state,
+        Some(pathway.created_by_actor_id),
+        PATHWAY_CONTENT_FEATURE,
+        "cosyworld_system",
+        Some(config),
+        "ok",
+        None,
+        0,
+        None,
+        completion.latency,
+    );
 }
 
 async fn travel_narration_text(config: Option<&AiConfig>, plan: &JourneyNarrationPlan) -> String {
@@ -27368,6 +27544,7 @@ async fn travel_narration_text(config: Option<&AiConfig>, plan: &JourneyNarratio
             timeout: Duration::from_secs(12),
             max_attempts: 1,
             referer: "http://127.0.0.1:3102",
+            response_format: None,
         },
     )
     .await
@@ -27438,12 +27615,7 @@ async fn move_actor(
         }
     };
     if let Some((action, mut mutation, mut narration_plan)) = journey_plan {
-        generate_hidden_pathway_names(
-            state.ai_config.as_ref().as_ref(),
-            &mut mutation,
-            &mut narration_plan,
-        )
-        .await;
+        generate_hidden_pathway_content(&state, &mut mutation, &mut narration_plan).await;
         let narration =
             travel_narration_text(state.ai_config.as_ref().as_ref(), &narration_plan).await;
         if let ProjectionMutation::JourneyTransition {
@@ -29565,11 +29737,10 @@ async fn ruby_high_card_asset(AxumPath(card_file): AxumPath<String>) -> impl Int
         return (StatusCode::NOT_FOUND, "unknown card").into_response();
     };
 
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../app-ruby-high/assets/nft/cards")
-        .join(format!("{card_id}.png"));
-    match fs::read(path) {
-        Ok(bytes) => (
+    let asset_file = format!("{card_id}.png");
+    let path = seed_pack_asset_path("ruby-high.first-bell", "cards", &asset_file);
+    match path.and_then(|path| fs::read(path).ok()) {
+        Some(bytes) => (
             StatusCode::OK,
             [
                 (header::CONTENT_TYPE, "image/png"),
@@ -29578,7 +29749,7 @@ async fn ruby_high_card_asset(AxumPath(card_file): AxumPath<String>) -> impl Int
             bytes,
         )
             .into_response(),
-        Err(_) => ruby_high_card_missing_asset_response(spec),
+        None => ruby_high_card_missing_asset_response(spec),
     }
 }
 
@@ -29589,11 +29760,13 @@ async fn lonely_forest_character_asset(
         return (StatusCode::NOT_FOUND, "unknown Lonely Forest asset").into_response();
     }
 
-    let path = seed_content_root()
-        .join("lonely-forest/assets/characters/slices")
-        .join(&asset_file);
-    match fs::read(path) {
-        Ok(bytes) => (
+    let path = seed_pack_asset_path(
+        "cosyworld.lonely-forest.characters",
+        "characters",
+        &asset_file,
+    );
+    match path.and_then(|path| fs::read(path).ok()) {
+        Some(bytes) => (
             StatusCode::OK,
             [
                 (header::CONTENT_TYPE, "image/png"),
@@ -29602,21 +29775,19 @@ async fn lonely_forest_character_asset(
             bytes,
         )
             .into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "missing Lonely Forest asset").into_response(),
+        None => (StatusCode::NOT_FOUND, "missing Lonely Forest asset").into_response(),
     }
 }
 
-fn ruby_high_card_missing_asset_response(spec: RubyHighCardSpec) -> Response {
-    Redirect::temporary(spec.chain_image_uri).into_response()
+fn ruby_high_card_missing_asset_response(spec: &RubyHighCardSpec) -> Response {
+    Redirect::temporary(&spec.chain_image_uri).into_response()
 }
 
 async fn generated_seed_card_asset(AxumPath(card_file): AxumPath<String>) -> impl IntoResponse {
     if let Some((card_id, content_type)) = generated_seed_card_bitmap_request(&card_file) {
-        let path = seed_content_root()
-            .join("core/assets/generated/cards")
-            .join(&card_file);
-        return match fs::read(path) {
-            Ok(bytes) => (
+        let path = seed_pack_asset_path("cosyworld.core", "generated/cards", &card_file);
+        return match path.and_then(|path| fs::read(path).ok()) {
+            Some(bytes) => (
                 StatusCode::OK,
                 [
                     (header::CONTENT_TYPE, content_type),
@@ -29625,7 +29796,7 @@ async fn generated_seed_card_asset(AxumPath(card_file): AxumPath<String>) -> imp
                 bytes,
             )
                 .into_response(),
-            Err(_) => (
+            None => (
                 StatusCode::NOT_FOUND,
                 format!("missing generated seed card asset {card_id}"),
             )
@@ -29648,6 +29819,57 @@ async fn generated_seed_card_asset(AxumPath(card_file): AxumPath<String>) -> imp
         generated_seed_card_svg(&spec),
     )
         .into_response()
+}
+
+async fn worldpack_asset(
+    AxumPath((pack_id, asset_path)): AxumPath<(String, String)>,
+) -> impl IntoResponse {
+    let Some(mount) = seed_asset_mounts()
+        .iter()
+        .filter(|mount| {
+            mount.pack_id == pack_id
+                && asset_path
+                    .strip_prefix(&mount.mount)
+                    .is_some_and(|suffix| suffix.starts_with('/'))
+        })
+        .max_by_key(|mount| mount.mount.len())
+    else {
+        return (StatusCode::NOT_FOUND, "unknown worldpack asset mount").into_response();
+    };
+    let relative_path = asset_path
+        .strip_prefix(&mount.mount)
+        .unwrap_or_default()
+        .trim_start_matches('/');
+    let Some(path) = seed_pack_asset_path(&pack_id, &mount.mount, relative_path) else {
+        return (StatusCode::BAD_REQUEST, "invalid worldpack asset path").into_response();
+    };
+    match fs::read(path) {
+        Ok(bytes) => (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, asset_content_type(relative_path)),
+                (header::CACHE_CONTROL, "public, max-age=86400"),
+            ],
+            bytes,
+        )
+            .into_response(),
+        Err(_) if mount.optional => {
+            let fallback = mount.fallback.as_deref().unwrap_or("none");
+            (
+                StatusCode::NOT_FOUND,
+                format!("optional worldpack asset missing; fallback={fallback}"),
+            )
+                .into_response()
+        }
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            format!(
+                "missing required worldpack asset under {}",
+                mount.public_prefix
+            ),
+        )
+            .into_response(),
+    }
 }
 
 async fn generated_pathway_asset(
@@ -32119,8 +32341,8 @@ fn open_event_store(path: &Path) -> io::Result<Connection> {
     Connection::open(path).map_err(sqlite_error)
 }
 
-fn snapshot_error(message: &'static str) -> io::Error {
-    io::Error::new(io::ErrorKind::InvalidData, message)
+fn snapshot_error(message: impl Into<String>) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
 
 fn sqlite_error(error: rusqlite::Error) -> io::Error {
@@ -32253,6 +32475,7 @@ mod tests {
             trust_client_card_ids: false,
             dev_reset_enabled: false,
             ai_config: Arc::new(None),
+            generation_controls: Arc::new(GenerationControls::default()),
             avatar_art_config: Arc::new(None),
             generated_asset_dir: Arc::new(std::env::temp_dir().join("cosyworld-test-generated")),
             ambient: AmbientConfig {
@@ -34029,28 +34252,185 @@ mod tests {
     }
 
     #[test]
-    fn generated_pathway_names_require_distinct_evocative_json_names() {
+    fn generated_pathway_content_requires_bounded_distinct_structured_output() {
+        let valid = r#"{"waypoints":[{"name":"Rain-Silver Crossing","title":"Silverwater Bend","description":"Rain threads the flat stones while foxglove leans over the crossing.","persona":"The crossing brightens after rain and keeps every footprint briefly visible.","visual_detail":"silver rain on flat stones beneath leaning foxglove"},{"name":"Foxglove Turn","title":"Blooming Corner","description":"Foxglove crowds a soft bend where moss gathers beneath the old roots.","persona":"The turn feels close and sheltered, opening only as travelers round it.","visual_detail":"dense foxglove around a mossy root-lined bend"}]}"#;
+        let parsed = parse_generated_pathway_content(valid, 2).expect("valid bounded content");
+        assert_eq!(parsed[0].name, "Rain-Silver Crossing");
+        assert_eq!(parsed[1].title, "Blooming Corner");
+        assert!(generated_pathway_name_avoids_anchors(
+            &parsed[0].name,
+            &["Rain-Soft Garden", "Moonlit Trail"]
+        ));
+        assert!(!generated_pathway_name_avoids_anchors(
+            "Moonlit Trail Bend",
+            &["Moonlit Trail"]
+        ));
+        assert!(sanitize_generated_pathway_name("Orb Reward Gate").is_none());
+        assert!(sanitize_generated_pathway_title("Quest Unlock").is_none());
+
+        let duplicate = valid.replace("Foxglove Turn", "rain-silver crossing");
+        assert!(parse_generated_pathway_content(&duplicate, 2).is_none());
+
+        let authority_claim = valid.replace(
+            "Rain threads the flat stones while foxglove leans over the crossing.",
+            "This reward unlocks access to a dangerous quest beyond the crossing.",
+        );
+        assert!(parse_generated_pathway_content(&authority_claim, 2).is_none());
+
+        let extra_field = valid.replace(
+            r#""visual_detail":"silver rain on flat stones beneath leaning foxglove""#,
+            r#""visual_detail":"silver rain on flat stones beneath leaning foxglove","reward":"ten orbs""#,
+        );
+        assert!(parse_generated_pathway_content(&extra_field, 2).is_none());
+    }
+
+    #[test]
+    fn generated_pathway_content_can_change_narrative_fields_only() {
+        let runtime = RuntimeWorld::seeded();
+        let mut pathway = runtime.generated_pathway(
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            MOONLIT_TRAIL_LOCATION_ID,
+            2,
+        );
+        let waypoint = pathway
+            .waypoints
+            .first_mut()
+            .expect("distance two creates one hidden waypoint");
+        let id = waypoint.id;
+        let memory = waypoint.meta.memory.clone();
+        let biome = waypoint.meta.biome.clone();
+        let terrain = waypoint.meta.terrain.clone();
+        let image_url = waypoint.meta.image_url.clone();
+        apply_generated_waypoint_content(
+            waypoint,
+            GeneratedWaypointContentProposal {
+                name: "Rain-Silver Crossing".to_string(),
+                title: "Silverwater Bend".to_string(),
+                description: "Rain threads the flat stones while foxglove leans over the crossing."
+                    .to_string(),
+                persona:
+                    "The crossing brightens after rain and keeps every footprint briefly visible."
+                        .to_string(),
+                visual_detail: "silver rain on flat stones beneath leaning foxglove".to_string(),
+            },
+        );
+
+        assert_eq!(waypoint.id, id);
+        assert_eq!(waypoint.meta.memory, memory);
+        assert_eq!(waypoint.meta.biome, biome);
+        assert_eq!(waypoint.meta.terrain, terrain);
+        assert_eq!(waypoint.meta.image_url, image_url);
+        assert_eq!(waypoint.name, "Rain-Silver Crossing");
+        assert_eq!(waypoint.meta.title, "Silverwater Bend");
+        let art_prompt = waypoint
+            .meta
+            .art_prompt
+            .as_deref()
+            .expect("validated visual detail becomes a bounded art prompt");
+        assert!(art_prompt.contains("no people"));
+        assert!(art_prompt.contains("no text"));
+        assert!(art_prompt.contains(&biome));
+
+        set_pathway_generation_provenance(&mut pathway, GenerationMode::AutoBounded, None, "ai", 2);
+        assert_eq!(pathway.generation.feature, PATHWAY_CONTENT_FEATURE);
         assert_eq!(
-            parse_generated_pathway_names(
-                r#"{"names":["Rain-Silver Crossing","Foxglove Turn"]}"#,
-                2,
-            ),
-            Some(vec![
-                "Rain-Silver Crossing".to_string(),
-                "Foxglove Turn".to_string(),
-            ])
+            pathway.generation.prompt_version,
+            PATHWAY_CONTENT_PROMPT_VERSION
+        );
+        assert_eq!(pathway.generation.policy_mode, "auto_bounded");
+        assert_eq!(pathway.generation.attempts, 2);
+    }
+
+    #[tokio::test]
+    async fn bounded_ai_pathway_content_is_persisted_hidden_then_revealed_in_order() {
+        let app = Router::new().route(
+            "/chat/completions",
+            post(|| async {
+                Json(serde_json::json!({
+                    "choices": [{
+                        "message": {
+                            "content": r#"{"waypoints":[{"name":"Rain-Silver Crossing","title":"Silverwater Bend","description":"Rain threads the flat stones while foxglove leans over the crossing.","persona":"The crossing brightens after rain and keeps every footprint briefly visible.","visual_detail":"silver rain on flat stones beneath leaning foxglove"},{"name":"Foxglove Turn","title":"Blooming Corner","description":"Foxglove crowds a soft bend where moss gathers beneath the old roots.","persona":"The turn feels close and sheltered, opening only as travelers round it.","visual_detail":"dense foxglove around a mossy root-lined bend"}]}"#
+                        }
+                    }]
+                }))
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind pathway generation test server");
+        let address = listener
+            .local_addr()
+            .expect("pathway generation test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Pathfinder",
+        );
+        runtime.callings.insert(
+            5000,
+            CallingState {
+                actor_id: 5000,
+                statement: EXPLORER_CALLING_STATEMENT.to_string(),
+                source_event_seq: None,
+            },
+        );
+        let mut state = test_app_state(runtime, None);
+        state.ai_config = Arc::new(Some(AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            model: "test-structured-model".to_string(),
+        }));
+        state.generation_controls = Arc::new(
+            GenerationControls::from_values(
+                Some("off"),
+                Some(r#"{"pathway_content":"auto_bounded"}"#),
+            )
+            .expect("bounded pathway generation policy"),
+        );
+
+        let (action, mut mutation, mut narration_plan) = {
+            let runtime = state.inner.lock().await;
+            runtime
+                .plan_journey_move(5000, MOONLIT_TRAIL_LOCATION_ID)
+                .expect("pathway planning succeeds")
+                .expect("distance three begins with Explore")
+        };
+        generate_hidden_pathway_content(&state, &mut mutation, &mut narration_plan).await;
+        let ProjectionMutation::JourneyTransition { pathway, .. } = &mutation else {
+            panic!("pathway generation retains a journey transition");
+        };
+        assert_eq!(pathway.generation.source, "ai");
+        assert_eq!(pathway.generation.policy_mode, "auto_bounded");
+        assert_eq!(pathway.generation.model, "test-structured-model");
+        assert_eq!(pathway.waypoints[0].name, "Rain-Silver Crossing");
+        assert_eq!(pathway.waypoints[1].name, "Foxglove Turn");
+
+        let first_waypoint_id = pathway.waypoints[0].id;
+        let second_waypoint_id = pathway.waypoints[1].id;
+        let mut runtime = state.inner.lock().await;
+        assert_eq!(runtime.location_name(first_waypoint_id), None);
+        assert_eq!(runtime.location_name(second_waypoint_id), None);
+        let mut record = JournalRecord::new(action, 987_001);
+        record.projection_mutations.push(mutation);
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(
+            runtime.location_name(first_waypoint_id).as_deref(),
+            Some("Rain-Silver Crossing")
         );
         assert_eq!(
-            parse_generated_pathway_names(
-                r#"{"names":["Pathway to Moonlit Trail","Foxglove Turn"]}"#,
-                2,
-            ),
-            None
+            runtime.location_name(second_waypoint_id),
+            None,
+            "later generated identities remain hidden until their Explore edge"
         );
-        assert_eq!(
-            parse_generated_pathway_names(r#"{"names":["Foxglove Turn","foxglove turn"]}"#, 2,),
-            None
-        );
+        drop(runtime);
+        server.abort();
     }
 
     #[test]
@@ -40872,9 +41252,12 @@ mod tests {
     #[test]
     fn seed_content_manifest_drives_runtime_metadata_and_evolution_tracks() {
         let content = parse_seed_content(SEED_CONTENT_JSON).expect("seed content parses");
-        assert_eq!(content.manifest.id, "cosyworld.core");
+        assert_eq!(content.manifest.id, "cosyworld.official");
         assert_eq!(content.manifest.version, 1);
-        assert!(content.manifest.description.contains("seed worldpack"));
+        assert_eq!(content.manifest.schema_version, 2);
+        assert_eq!(content.manifest.packs.len(), 3);
+        assert!(content.manifest.bundle_hash.starts_with("sha256:"));
+        assert!(content.manifest.description.contains("seed world"));
         assert_eq!(content.actors.len(), 35);
         assert_eq!(content.access_gates.len(), 6);
         assert_eq!(content.factions.len(), 12);
@@ -41114,6 +41497,18 @@ mod tests {
                 assert_eq!(world_requirement.target_id, requirement.target_id);
             }
         }
+    }
+
+    #[test]
+    fn snapshot_rejects_a_different_worldpack_bundle() {
+        let mut snapshot = RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded());
+        snapshot.worldpack_bundle_hash = format!("sha256:{}", "0".repeat(64));
+        let error = snapshot
+            .into_runtime()
+            .expect_err("bundle mismatch must fail closed");
+        assert!(error
+            .to_string()
+            .contains("does not match active worldpack"));
     }
 
     #[test]
@@ -41909,11 +42304,11 @@ mod tests {
 
     #[test]
     fn ruby_high_first_bell_live_catalog_projects_card_metadata() {
-        assert_eq!(RUBY_HIGH_FIRST_BELL_CATALOG.len(), 24);
+        assert_eq!(ruby_high_first_bell_catalog().len(), 24);
 
-        let ids: BTreeSet<&str> = RUBY_HIGH_FIRST_BELL_CATALOG
+        let ids: BTreeSet<&str> = ruby_high_first_bell_catalog()
             .iter()
-            .map(|spec| spec.card_id)
+            .map(|spec| spec.card_id.as_str())
             .collect();
         for card_id in [
             "lyra",
@@ -41970,6 +42365,41 @@ mod tests {
     }
 
     #[test]
+    fn compiled_worldpack_asset_index_resolves_pack_mounts_safely() {
+        assert_eq!(seed_asset_mounts().len(), 3);
+        let card_path = seed_pack_asset_path(
+            "cosyworld.core",
+            "generated/cards",
+            "cosy-hearth-tonic.webp",
+        )
+        .expect("core card mount resolves");
+        assert!(card_path.ends_with("core/assets/generated/cards/cosy-hearth-tonic.webp"));
+        assert!(card_path.exists());
+        assert!(
+            seed_pack_asset_path("cosyworld.core", "generated/cards", "../pack.json").is_none()
+        );
+        assert!(seed_pack_asset_path("missing.pack", "cards", "card.png").is_none());
+    }
+
+    #[tokio::test]
+    async fn generic_worldpack_asset_route_supports_nested_mount_names() {
+        let response = worldpack_asset(AxumPath((
+            "cosyworld.core".to_string(),
+            "generated/cards/cosy-hearth-tonic.webp".to_string(),
+        )))
+        .await
+        .into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("image/webp")
+        );
+    }
+
+    #[test]
     fn missing_ruby_high_card_asset_redirects_to_chain_image() {
         let spec = ruby_high_card_spec("location-science-lab").expect("science lab card exists");
         let response = ruby_high_card_missing_asset_response(spec);
@@ -41980,7 +42410,7 @@ mod tests {
                 .headers()
                 .get(header::LOCATION)
                 .and_then(|value| value.to_str().ok()),
-            Some(spec.chain_image_uri)
+            Some(spec.chain_image_uri.as_str())
         );
     }
 
@@ -50459,6 +50889,7 @@ mod tests {
             trust_client_card_ids: false,
             dev_reset_enabled: false,
             ai_config: Arc::new(None),
+            generation_controls: Arc::new(GenerationControls::default()),
             avatar_art_config: Arc::new(None),
             generated_asset_dir: Arc::new(std::env::temp_dir().join("cosyworld-test-generated")),
             ambient: AmbientConfig {

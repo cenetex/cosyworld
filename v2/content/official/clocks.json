@@ -1,0 +1,50 @@
+[
+  {
+    "id": "moonlit-trail.progress",
+    "scope": "room",
+    "scope_id": 3,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Quiet the Moonlit Trail",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
+  },
+  {
+    "id": "moonlit-trail.danger",
+    "scope": "room",
+    "scope_id": 3,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "Echo Shatters the Trail",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
+  },
+  {
+    "id": "solar-abyss.drowned-bell",
+    "scope": "room",
+    "scope_id": 36,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Hear Both Bell Songs",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
+  },
+  {
+    "id": "solar-abyss.schism",
+    "scope": "room",
+    "scope_id": 64,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "Bell Schism Hardens",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
+  }
+]

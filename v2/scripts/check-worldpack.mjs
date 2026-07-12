@@ -7,7 +7,7 @@ const args = process.argv.slice(2);
 const reportText = args.includes("--report");
 const reportJson = args.includes("--report-json");
 const contentRootArg = args.find((arg) => !arg.startsWith("--"));
-const contentRoot = path.resolve(contentRootArg ?? path.join(scriptDir, "../content/core"));
+const contentRoot = path.resolve(contentRootArg ?? path.join(scriptDir, "../content/official"));
 
 const expectedFiles = {
   actors: "actors.json",
@@ -122,11 +122,31 @@ if (!isObject(manifest)) {
 }
 
 validateRequiredStrings("worldpack manifest", manifest, ["id", "name", "description"]);
+if (manifest.schema_version !== 2) {
+  fail("worldpack manifest schema_version must be 2");
+}
 if (!Number.isInteger(manifest.version) || manifest.version <= 0) {
   fail("worldpack manifest version must be a positive integer");
 }
+if (!isNonEmptyString(manifest.entry_location)) {
+  fail("worldpack manifest is missing entry_location");
+}
+if (!isNonEmptyString(manifest.bundle_hash) || !/^sha256:[0-9a-f]{64}$/.test(manifest.bundle_hash)) {
+  fail("worldpack manifest has an invalid bundle_hash");
+}
+const packs = asArray("worldpack manifest packs", manifest.packs);
+const packIds = idSet("worldpack manifest packs", packs, (pack) => pack.id);
+for (const pack of packs) {
+  validateRequiredStrings("worldpack pack", pack, ["name", "version", "kind", "license", "integrity"]);
+  if (!/^sha256:[0-9a-f]{64}$/.test(pack.integrity ?? "")) {
+    fail(`worldpack pack ${pack.id} has an invalid integrity hash`);
+  }
+}
 if (!isObject(manifest.files)) {
   fail("worldpack manifest files must be an object");
+}
+if (manifest.external_cards !== "external_cards.json" || manifest.assets !== "assets.json") {
+  fail("worldpack manifest must map external_cards and assets to their compiled files");
 }
 
 for (const [key, fileName] of Object.entries(expectedFiles)) {
@@ -138,6 +158,40 @@ for (const [key, fileName] of Object.entries(expectedFiles)) {
 const content = {};
 for (const [key, fileName] of Object.entries(expectedFiles)) {
   content[key] = asArray(fileName, readJson(fileName));
+}
+
+const externalCards = asArray("external_cards.json", readJson("external_cards.json"));
+idSet("external cards", externalCards, (card) => card.card_id);
+for (const card of externalCards) {
+  validateRequiredStrings("external card", card, [
+    "display_name",
+    "role",
+    "rarity",
+    "title",
+    "blurb",
+    "aspect",
+    "set_number",
+    "profile_id",
+    "subject",
+    "image_url",
+    "chain_image_uri",
+  ]);
+}
+const assetMounts = asArray("assets.json", readJson("assets.json"));
+idSet("asset mounts", assetMounts, (mount) => `${mount.pack_id}:${mount.mount}`);
+idSet("asset public prefixes", assetMounts, (mount) => mount.public_prefix);
+for (const mount of assetMounts) {
+  validateRequiredStrings("asset mount", mount, ["pack_id", "mount", "root", "directory", "public_prefix"]);
+  if (!has(packIds, mount.pack_id)) {
+    fail(`asset mount ${mount.pack_id}:${mount.mount} references a pack outside this bundle`);
+  }
+  if (mount.root.includes("..") || mount.directory.includes("..") || !mount.public_prefix.startsWith("/assets/")) {
+    fail(`asset mount ${mount.pack_id}:${mount.mount} has an unsafe path`);
+  }
+  const assetDirectory = path.resolve(contentRoot, "..", mount.root, mount.directory);
+  if (!mount.optional && !fs.existsSync(assetDirectory)) {
+    fail(`required asset mount ${mount.pack_id}:${mount.mount} is missing ${assetDirectory}`);
+  }
 }
 
 const actors = content.actors;
@@ -799,6 +853,8 @@ function buildWorldpackReport() {
       id: manifest.id,
       name: manifest.name,
       version: manifest.version,
+      bundle_hash: manifest.bundle_hash,
+      packs: packs.map((pack) => ({ id: pack.id, version: pack.version, integrity: pack.integrity })),
       content_root: contentRoot,
     },
     counts: {
@@ -813,6 +869,8 @@ function buildWorldpackReport() {
       jobs: jobs.length,
       fronts: fronts.length,
       cards: cards.length,
+      external_cards: externalCards.length,
+      asset_mounts: assetMounts.length,
       lifecycle_hooks: lifecycleHooks.length,
       evolution_tracks: evolutionTracks.length,
       recipes: recipes.length,
@@ -869,7 +927,7 @@ function buildWorldpackReport() {
 
 function printWorldpackReport(report) {
   console.log(`worldpack ok: ${report.counts.locations} locations, ${report.counts.room_sheets} room sheets, ${report.counts.cards} cards`);
-  console.log(`manifest: ${report.manifest.id} v${report.manifest.version} (${report.manifest.content_root})`);
+  console.log(`manifest: ${report.manifest.id} v${report.manifest.version} ${report.manifest.bundle_hash} (${report.manifest.packs.length} packs; ${report.manifest.content_root})`);
   console.log(
     `counts: actors=${report.counts.actors} items=${report.counts.items} factions=${report.counts.factions} gates=${report.counts.access_gates} jobs=${report.counts.jobs} fronts=${report.counts.fronts} hooks=${report.counts.lifecycle_hooks} recipes=${report.counts.recipes}`
   );

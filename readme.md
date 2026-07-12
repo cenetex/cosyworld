@@ -34,8 +34,10 @@ npm run dev:node
 - `v2/core-c/`: deterministic C kernel for world rules and event emission.
 - `v2/orchestrator-rust/`: Rust host, browser shell, HTTP routes, SSE, wallets,
   ownership feeds, AI calls, persistence, moderation, and NFT pack flow.
-- `v2/content/core/`: seed worldpack data for rooms, actors, items, cards,
-  factions, fronts, clocks, jobs, and access gates.
+- `v2/content/core/`: authored source pack for first-party rooms, actors, items,
+  cards, factions, fronts, clocks, jobs, and access gates.
+- `v2/worlds/official/`: official seed-world selection and integrity lock.
+- `v2/content/official/`: generated, deterministic bundle consumed by the runtime.
 - `src/`: legacy Node companion service and inherited social/community tooling.
 - `docs/`, `AI.md`, `ECONOMY.md`, `PRD.md`: product and system notes.
 

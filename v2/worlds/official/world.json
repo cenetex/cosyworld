@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.official",
+  "name": "CosyWorld Official",
+  "version": 1,
+  "description": "The reproducible seed world for the official CosyWorld shard.",
+  "entry_location": "cosyworld.core:location/1",
+  "packs": [
+    "cosyworld.core",
+    "cosyworld.lonely-forest.characters",
+    "ruby-high.first-bell"
+  ]
+}

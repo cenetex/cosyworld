@@ -636,6 +636,8 @@ locals {
     { name = "COSYWORLD_V2_EVENT_DB_PATH", value = "/data/cosyworld-v2-events.sqlite" },
     { name = "COSYWORLD_GENERATED_ASSET_DIR", value = "/data/generated" },
     { name = "COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL", value = var.ruby_high_wallet_cards_url },
+    { name = "COSYWORLD_GENERATION_DEFAULT_MODE", value = var.generation_default_mode },
+    { name = "COSYWORLD_GENERATION_FEATURE_MODES_JSON", value = jsonencode(var.generation_feature_modes) },
     { name = "RUST_LOG", value = "cosyworld_orchestrator=info,tower_http=warn" },
     ],
     var.openrouter_api_key_secret_arn != "" ? [

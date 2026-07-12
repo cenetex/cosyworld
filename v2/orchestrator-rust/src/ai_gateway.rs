@@ -1,9 +1,98 @@
-use serde_json::json;
-use std::{fmt, time::Duration};
+use serde_json::{json, Value};
+use std::{collections::BTreeMap, fmt, time::Duration};
 use tokio::time::{sleep, Instant};
 
 pub(crate) const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 pub(crate) const DEFAULT_OPENAI_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
+pub(crate) const GENERATION_DEFAULT_MODE_ENV: &str = "COSYWORLD_GENERATION_DEFAULT_MODE";
+pub(crate) const GENERATION_FEATURE_MODES_ENV: &str = "COSYWORLD_GENERATION_FEATURE_MODES_JSON";
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum GenerationMode {
+    #[default]
+    Off,
+    Shadow,
+    AutoBounded,
+}
+
+impl GenerationMode {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "off" => Ok(Self::Off),
+            "shadow" => Ok(Self::Shadow),
+            "auto" | "auto_bounded" => Ok(Self::AutoBounded),
+            _ => Err(format!(
+                "generation mode must be off, shadow, or auto_bounded; got {value:?}"
+            )),
+        }
+    }
+
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Shadow => "shadow",
+            Self::AutoBounded => "auto_bounded",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct GenerationControls {
+    default_mode: GenerationMode,
+    feature_modes: BTreeMap<String, GenerationMode>,
+}
+
+impl GenerationControls {
+    pub(crate) fn from_env() -> Result<Self, String> {
+        let default_mode = std::env::var(GENERATION_DEFAULT_MODE_ENV).ok();
+        let feature_modes = std::env::var(GENERATION_FEATURE_MODES_ENV).ok();
+        Self::from_values(default_mode.as_deref(), feature_modes.as_deref())
+    }
+
+    pub(crate) fn from_values(
+        default_mode: Option<&str>,
+        feature_modes_json: Option<&str>,
+    ) -> Result<Self, String> {
+        let default_mode = default_mode
+            .map(GenerationMode::parse)
+            .transpose()?
+            .unwrap_or_default();
+        let raw_modes = match feature_modes_json.map(str::trim) {
+            None | Some("") => BTreeMap::new(),
+            Some(value) => serde_json::from_str::<BTreeMap<String, String>>(value)
+                .map_err(|error| format!("{GENERATION_FEATURE_MODES_ENV} must be a JSON object of feature-to-mode strings: {error}"))?,
+        };
+        let mut feature_modes = BTreeMap::new();
+        for (feature, mode) in raw_modes {
+            if feature.is_empty()
+                || feature.len() > 64
+                || !feature.chars().all(|character| {
+                    character.is_ascii_lowercase()
+                        || character.is_ascii_digit()
+                        || "_.-".contains(character)
+                })
+            {
+                return Err(format!("invalid generation feature id {feature:?}"));
+            }
+            feature_modes.insert(feature, GenerationMode::parse(&mode)?);
+        }
+        Ok(Self {
+            default_mode,
+            feature_modes,
+        })
+    }
+
+    pub(crate) fn default_mode(&self) -> GenerationMode {
+        self.default_mode
+    }
+
+    pub(crate) fn mode(&self, feature: &str) -> GenerationMode {
+        self.feature_modes
+            .get(feature)
+            .copied()
+            .unwrap_or(self.default_mode)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct AiConfig {
@@ -135,11 +224,14 @@ pub(crate) struct ChatCompletionRequest<'a> {
     pub(crate) timeout: Duration,
     pub(crate) max_attempts: u8,
     pub(crate) referer: &'a str,
+    pub(crate) response_format: Option<&'a Value>,
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct AiCompletion {
     pub(crate) text: String,
+    pub(crate) attempts: u8,
+    pub(crate) latency: Duration,
 }
 
 pub(crate) async fn request_chat_completion(
@@ -160,21 +252,25 @@ pub(crate) async fn request_chat_completion(
     let max_attempts = request.max_attempts.max(1);
 
     for attempt in 1..=max_attempts {
+        let mut payload = json!({
+            "model": config.model,
+            "messages": [
+                { "role": "system", "content": request.system },
+                { "role": "user", "content": request.user }
+            ],
+            "temperature": request.temperature,
+            "max_tokens": request.max_tokens
+        });
+        if let Some(response_format) = request.response_format {
+            payload["response_format"] = response_format.clone();
+        }
         let response = client
             .post(&url)
             .bearer_auth(&config.api_key)
             .header("HTTP-Referer", request.referer)
             .header("X-OpenRouter-Title", "CosyWorld v2")
             .header("X-Title", "CosyWorld v2")
-            .json(&json!({
-                "model": config.model,
-                "messages": [
-                    { "role": "system", "content": request.system },
-                    { "role": "user", "content": request.user }
-                ],
-                "temperature": request.temperature,
-                "max_tokens": request.max_tokens
-            }))
+            .json(&payload)
             .send()
             .await;
 
@@ -248,7 +344,11 @@ pub(crate) async fn request_chat_completion(
             latency_ms = started_at.elapsed().as_millis() as u64,
             "CosyWorld AI inference completed"
         );
-        return Ok(AiCompletion { text });
+        return Ok(AiCompletion {
+            text,
+            attempts: attempt,
+            latency: started_at.elapsed(),
+        });
     }
 
     unreachable!("the bounded AI attempt loop always returns")
@@ -288,7 +388,7 @@ mod tests {
     use super::*;
     use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
     use std::sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
     };
     use tokio::net::TcpListener;
@@ -335,16 +435,49 @@ mod tests {
         );
     }
 
+    #[test]
+    fn generation_controls_are_feature_scoped_and_fail_closed_on_bad_configuration() {
+        assert_eq!(
+            GenerationControls::default().default_mode(),
+            GenerationMode::Off,
+            "unreviewed generation features must default off"
+        );
+        let controls = GenerationControls::from_values(
+            Some("shadow"),
+            Some(r#"{"pathway_content":"auto_bounded","room.memory":"off"}"#),
+        )
+        .expect("valid generation controls");
+        assert_eq!(controls.default_mode(), GenerationMode::Shadow);
+        assert_eq!(
+            controls.mode("pathway_content"),
+            GenerationMode::AutoBounded
+        );
+        assert_eq!(controls.mode("room.memory"), GenerationMode::Off);
+        assert_eq!(controls.mode("dialogue_avatar"), GenerationMode::Shadow);
+        assert!(GenerationControls::from_values(Some("unbounded"), None).is_err());
+        assert!(GenerationControls::from_values(None, Some(r#"{"Bad Feature":"off"}"#)).is_err());
+    }
+
     #[tokio::test]
     async fn gateway_retries_transient_provider_failures_once() {
         let attempts = Arc::new(AtomicUsize::new(0));
+        let structured_format_seen = Arc::new(AtomicBool::new(false));
         let app = Router::new().route(
             "/chat/completions",
             post({
                 let attempts = attempts.clone();
-                move || {
+                let structured_format_seen = structured_format_seen.clone();
+                move |Json(body): Json<Value>| {
                     let attempts = attempts.clone();
+                    let structured_format_seen = structured_format_seen.clone();
                     async move {
+                        if body
+                            .pointer("/response_format/json_schema/name")
+                            .and_then(Value::as_str)
+                            == Some("retry_test_schema")
+                        {
+                            structured_format_seen.store(true, Ordering::SeqCst);
+                        }
                         if attempts.fetch_add(1, Ordering::SeqCst) == 0 {
                             return (StatusCode::BAD_GATEWAY, "try again").into_response();
                         }
@@ -368,6 +501,14 @@ mod tests {
             base_url: format!("http://{addr}"),
             model: "test-model".to_string(),
         };
+        let response_format = json!({
+            "type": "json_schema",
+            "json_schema": {
+                "name": "retry_test_schema",
+                "strict": true,
+                "schema": { "type": "object" }
+            }
+        });
 
         let completion = request_chat_completion(
             &config,
@@ -380,13 +521,16 @@ mod tests {
                 timeout: Duration::from_secs(2),
                 max_attempts: 2,
                 referer: "http://127.0.0.1",
+                response_format: Some(&response_format),
             },
         )
         .await
         .expect("transient provider failure should retry");
 
         assert_eq!(completion.text, "The kettle behaves.");
+        assert_eq!(completion.attempts, 2);
         assert_eq!(attempts.load(Ordering::SeqCst), 2);
+        assert!(structured_format_seen.load(Ordering::SeqCst));
         server.abort();
     }
 }
