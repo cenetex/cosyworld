@@ -1,13 +1,17 @@
 mod activation;
 mod ai_gateway;
+mod avatar_identity;
+mod content_policy;
 mod kernel;
 mod moderation;
 mod mud;
+mod rate_limit;
 mod routes;
 mod turns;
 
 use activation::*;
 use ai_gateway::*;
+use avatar_identity::*;
 use axum::{
     extract::{ConnectInfo, Path as AxumPath, Query, State},
     http::{header, HeaderMap, StatusCode},
@@ -18,15 +22,15 @@ use axum::{
     Json,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use cosyworld_ai_model::{
-    GeneratedAvatarIdentity as ModelGeneratedAvatarIdentity, ResidentReplyModelInput,
-};
+use content_policy::*;
+use cosyworld_ai_model::ResidentReplyModelInput;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use kernel::*;
 use moderation::*;
 use mud::*;
 use qrcode::{render::svg, QrCode};
 use rand::{rngs::OsRng, RngCore};
+use rate_limit::*;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
@@ -162,27 +166,6 @@ struct AvatarChatPlan {
     missing_need: Option<String>,
 }
 
-#[derive(Clone, Debug)]
-struct GeneratedAvatarIdentity {
-    name: String,
-    title: String,
-    description: String,
-    visual_prompt: String,
-}
-
-impl From<ModelGeneratedAvatarIdentity> for GeneratedAvatarIdentity {
-    fn from(identity: ModelGeneratedAvatarIdentity) -> Self {
-        let visual_prompt =
-            avatar_visual_prompt(&identity.name, &identity.title, &identity.description);
-        Self {
-            name: identity.name,
-            title: identity.title,
-            description: identity.description,
-            visual_prompt,
-        }
-    }
-}
-
 #[cfg(test)]
 #[derive(Clone, Debug)]
 struct AmbientConfig {
@@ -208,30 +191,6 @@ struct PreparedBoxBurnTransaction {
     last_valid_block_height: u64,
 }
 
-#[derive(Clone, Copy, Debug)]
-struct RateLimit {
-    max_hits: usize,
-    window: Duration,
-}
-
-#[derive(Debug, Default)]
-struct RateLimiter {
-    hits: BTreeMap<String, VecDeque<Instant>>,
-}
-
-struct ActorChatGuard {
-    locks: Arc<StdMutex<BTreeSet<u64>>>,
-    actor_id: u64,
-}
-
-impl Drop for ActorChatGuard {
-    fn drop(&mut self) {
-        if let Ok(mut locks) = self.locks.lock() {
-            locks.remove(&self.actor_id);
-        }
-    }
-}
-
 #[derive(Clone, Copy)]
 struct FeatureBondTarget {
     location_id: u64,
@@ -241,38 +200,11 @@ struct FeatureBondTarget {
     reason: &'static str,
 }
 
-const AVATAR_CREATE_LIMIT: RateLimit = RateLimit {
-    max_hits: 12,
-    window: Duration::from_secs(10 * 60),
-};
-const CHAT_ACTION_LIMIT: RateLimit = RateLimit {
-    max_hits: 45,
-    window: Duration::from_secs(60),
-};
-const REPORT_ACTION_LIMIT: RateLimit = RateLimit {
-    max_hits: 12,
-    window: Duration::from_secs(10 * 60),
-};
-const GENERAL_ACTION_LIMIT: RateLimit = RateLimit {
-    max_hits: 180,
-    window: Duration::from_secs(60),
-};
-const PUBLIC_MUTATION_LIMIT: RateLimit = RateLimit {
-    max_hits: 240,
-    window: Duration::from_secs(60),
-};
-const WALLET_AUTH_LIMIT: RateLimit = RateLimit {
-    max_hits: 30,
-    window: Duration::from_secs(60),
-};
 const QR_WALLET_LOGIN_TTL: Duration = Duration::from_secs(5 * 60);
 const QR_WALLET_COMPLETE_GRACE: Duration = Duration::from_secs(60);
 
 const RATE_LIMITED_STATUS: u32 = 429;
 const CHAT_IN_FLIGHT_STATUS: u32 = 409;
-const MAX_AVATAR_NAME_CHARS: usize = 28;
-const MAX_CALLING_STATEMENT_CHARS: usize = 96;
-const MAX_BOND_STATEMENT_CHARS: usize = 96;
 const CALLING_REVISION_COST: u8 = 1;
 const BOND_SLOT_COST: u8 = 1;
 const BOND_REVISION_COST: u8 = 1;
@@ -398,7 +330,6 @@ const MOONLIT_DANGER_CLOCK_ID: &str = "moonlit-trail.danger";
 const ATTACK_HIT_ORB_REWARD: i32 = 1;
 const KNOCKOUT_ORB_REWARD: i32 = 3;
 const FLEE_ORB_REWARD: i32 = 1;
-const MAX_HUMAN_MESSAGE_CHARS: usize = 500;
 #[cfg(test)]
 const DIALOGUE_BRANCH_TTL_TICKS: u64 = 24;
 const ACTIVE_ACTOR_WINDOW: Duration = Duration::from_secs(15 * 60);
@@ -6044,353 +5975,6 @@ fn action_rate_limited_response() -> Json<ActionResponse> {
     })
 }
 
-fn normalize_human_message(content: &str) -> Option<String> {
-    if content
-        .chars()
-        .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        return None;
-    }
-    let normalized = content.split_whitespace().collect::<Vec<_>>().join(" ");
-    if normalized.is_empty() || normalized.chars().count() > MAX_HUMAN_MESSAGE_CHARS {
-        None
-    } else if !human_message_is_cozy_safe(&normalized) {
-        None
-    } else {
-        Some(normalized)
-    }
-}
-
-fn normalized_resident_speech_key(value: &str) -> String {
-    let punctuation_folded = value
-        .chars()
-        .map(|character| match character {
-            '\u{2018}' | '\u{2019}' | '\u{0060}' => '\'',
-            '\u{201c}' | '\u{201d}' => '"',
-            '\u{2013}' | '\u{2014}' => '-',
-            '\u{00a0}' => ' ',
-            other => other,
-        })
-        .collect::<String>();
-    compact_whitespace(punctuation_folded.trim().trim_matches('"')).to_lowercase()
-}
-
-fn human_message_is_cozy_safe(message: &str) -> bool {
-    let lower = message.to_lowercase();
-    let compact = lower.split_whitespace().collect::<Vec<_>>().join(" ");
-    let blocked_phrases = [
-        "http://",
-        "https://",
-        "www.",
-        "discord.gg",
-        "<script",
-        "</script",
-        "javascript:",
-        "system prompt",
-        "developer message",
-        "ignore previous",
-        "ignore all previous",
-        "jailbreak",
-        "prompt injection",
-        "as an ai",
-        "as a language model",
-        "kill yourself",
-    ];
-    let blocked_terms = ["kys", "porn", "nude", "rape", "gore"];
-    let padded = format!(" {compact} ");
-    !blocked_phrases
-        .iter()
-        .any(|blocked| compact.contains(blocked))
-        && !blocked_terms
-            .iter()
-            .any(|blocked| padded.contains(&format!(" {blocked} ")))
-}
-
-fn fallback_avatar_name(actor_id: u64) -> String {
-    format!("Traveler {actor_id}")
-}
-
-fn normalize_avatar_name(name: Option<&str>, actor_id: u64) -> String {
-    let Some(name) = name else {
-        return fallback_avatar_name(actor_id);
-    };
-    if name
-        .chars()
-        .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        return fallback_avatar_name(actor_id);
-    }
-    let normalized = name.split_whitespace().collect::<Vec<_>>().join(" ");
-    if normalized.is_empty()
-        || normalized.chars().count() > MAX_AVATAR_NAME_CHARS
-        || !human_message_is_cozy_safe(&normalized)
-        || avatar_name_is_reserved(&normalized)
-        || !normalized
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, ' ' | '-' | '\''))
-        || !normalized.chars().any(|ch| ch.is_ascii_alphanumeric())
-    {
-        fallback_avatar_name(actor_id)
-    } else {
-        normalized
-    }
-}
-
-fn normalize_calling_statement(statement: &str) -> Option<String> {
-    if statement
-        .chars()
-        .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        return None;
-    }
-    let normalized = compact_whitespace(statement);
-    if normalized.is_empty()
-        || normalized.chars().count() > MAX_CALLING_STATEMENT_CHARS
-        || !human_message_is_cozy_safe(&normalized)
-        || !normalized.chars().any(|ch| ch.is_ascii_alphanumeric())
-    {
-        None
-    } else {
-        Some(normalized)
-    }
-}
-
-fn normalize_bond_statement(statement: &str) -> Option<String> {
-    if statement
-        .chars()
-        .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        return None;
-    }
-    let normalized = compact_whitespace(statement);
-    if normalized.is_empty()
-        || normalized.chars().count() > MAX_BOND_STATEMENT_CHARS
-        || !human_message_is_cozy_safe(&normalized)
-        || !normalized.chars().any(|ch| ch.is_ascii_alphanumeric())
-    {
-        None
-    } else {
-        Some(normalized)
-    }
-}
-
-fn avatar_name_is_reserved(name: &str) -> bool {
-    matches!(
-        name.to_ascii_lowercase().as_str(),
-        "rati"
-            | "gust"
-            | "whiskerwind"
-            | "skull"
-            | "coach"
-            | "badger"
-            | "toad"
-            | "moonlit echo"
-            | "cosyworld"
-            | "system"
-    )
-}
-
-fn compact_whitespace(value: &str) -> String {
-    value.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-fn fallback_avatar_identity(actor_id: u64) -> GeneratedAvatarIdentity {
-    cosyworld_ai_model::generate_avatar_identity(actor_id, None).into()
-}
-
-fn portable_avatar_title(value: &str) -> String {
-    let normalized = compact_whitespace(value)
-        .trim_end_matches(&['.', '!', '?'][..])
-        .trim()
-        .to_string();
-    for suffix in [
-        " at The Cosy Cottage",
-        " in The Cosy Cottage",
-        " — The Cosy Cottage",
-        ", The Cosy Cottage",
-    ] {
-        let Some(start) = normalized.len().checked_sub(suffix.len()) else {
-            continue;
-        };
-        let Some(tail) = normalized.get(start..) else {
-            continue;
-        };
-        if tail.eq_ignore_ascii_case(suffix) {
-            return normalized[..start].trim().to_string();
-        }
-    }
-    normalized
-}
-
-fn avatar_flavor_is_cozy(value: &str) -> bool {
-    let tokens = value
-        .to_ascii_lowercase()
-        .split(|character: char| !character.is_ascii_alphanumeric())
-        .filter(|token| !token.is_empty())
-        .map(ToString::to_string)
-        .collect::<Vec<_>>();
-    let blocked = [
-        "grudge",
-        "ravenous",
-        "hostile",
-        "obsessed",
-        "revenge",
-        "vengeance",
-        "hatred",
-        "hateful",
-        "cruel",
-        "evil",
-        "villain",
-        "killer",
-        "slayer",
-        "violent",
-        "weapon",
-        "murder",
-        "bloodthirsty",
-        "danger",
-        "dangerous",
-        "threat",
-        "threatening",
-        "insult",
-        "insults",
-        "mean",
-    ];
-    !tokens.iter().any(|token| {
-        blocked.contains(&token.as_str())
-            || token.starts_with("schem")
-            || matches!(token.as_str(), "hate" | "hates" | "hated")
-    })
-}
-
-fn sanitize_avatar_title(value: Option<&str>, fallback: &str) -> String {
-    let normalized = value.map(portable_avatar_title).unwrap_or_default();
-    if normalized.is_empty()
-        || normalized.chars().count() > 36
-        || normalized.split_whitespace().count() > 5
-        || normalized.to_ascii_lowercase().contains("the cosy cottage")
-        || !human_message_is_cozy_safe(&normalized)
-        || !avatar_flavor_is_cozy(&normalized)
-        || normalized
-            .chars()
-            .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        fallback.to_string()
-    } else {
-        normalized
-    }
-}
-
-fn sanitize_avatar_description(value: Option<&str>, fallback: &str) -> String {
-    let normalized = value.map(compact_whitespace).unwrap_or_default();
-    if normalized.is_empty()
-        || normalized.chars().count() > 220
-        || !human_message_is_cozy_safe(&normalized)
-        || !avatar_flavor_is_cozy(&normalized)
-        || normalized
-            .chars()
-            .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        fallback.to_string()
-    } else {
-        normalized
-    }
-}
-
-fn align_avatar_description_name(value: &str, name: &str, fallback_name: &str) -> String {
-    let aligned = if fallback_name != name && value.contains(fallback_name) {
-        value.replace(fallback_name, name)
-    } else {
-        value.to_string()
-    };
-    if aligned
-        .to_ascii_lowercase()
-        .contains(&name.to_ascii_lowercase())
-    {
-        aligned
-    } else {
-        trim_to_chars(&format!("{name} — {aligned}"), 220)
-    }
-}
-
-fn avatar_visual_prompt(name: &str, title: &str, description: &str) -> String {
-    compact_whitespace(&format!(
-        "{name}, {title}. {description}. Cozy full-body fantasy avatar portrait, warm cottage light, expressive silhouette, readable trading-card character art, safe for all ages."
-    ))
-}
-
-fn sanitize_avatar_visual_prompt(value: Option<&str>, fallback: &str) -> String {
-    let normalized = value.map(compact_whitespace).unwrap_or_default();
-    if normalized.is_empty()
-        || normalized.chars().count() > 360
-        || !human_message_is_cozy_safe(&normalized)
-        || !avatar_flavor_is_cozy(&normalized)
-        || normalized
-            .chars()
-            .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        fallback.to_string()
-    } else {
-        normalized
-    }
-}
-
-fn avatar_identity_from_json_value(
-    value: &serde_json::Value,
-    actor_id: u64,
-) -> GeneratedAvatarIdentity {
-    let fallback = fallback_avatar_identity(actor_id);
-    let raw_name = value.get("name").and_then(|value| value.as_str());
-    let normalized_name = raw_name
-        .map(|name| normalize_avatar_name(Some(name), actor_id))
-        .unwrap_or_else(|| fallback.name.clone());
-    let name = if normalized_name == fallback_avatar_name(actor_id) {
-        fallback.name.clone()
-    } else {
-        normalized_name
-    };
-    let title = sanitize_avatar_title(
-        value.get("title").and_then(|value| value.as_str()),
-        &fallback.title,
-    );
-    let description = align_avatar_description_name(
-        &sanitize_avatar_description(
-            value.get("description").and_then(|value| value.as_str()),
-            &fallback.description,
-        ),
-        &name,
-        &fallback.name,
-    );
-    let fallback_visual_prompt = avatar_visual_prompt(&name, &title, &description);
-    GeneratedAvatarIdentity {
-        name,
-        title,
-        description,
-        visual_prompt: sanitize_avatar_visual_prompt(
-            value.get("visual_prompt").and_then(|value| value.as_str()),
-            &fallback_visual_prompt,
-        ),
-    }
-}
-
-fn parse_avatar_identity_json(text: &str, actor_id: u64) -> Option<GeneratedAvatarIdentity> {
-    let cleaned = text
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim();
-    let json_text = if cleaned.starts_with('{') {
-        cleaned
-    } else {
-        let start = cleaned.find('{')?;
-        let end = cleaned.rfind('}')?;
-        cleaned.get(start..=end)?
-    };
-    serde_json::from_str::<serde_json::Value>(json_text)
-        .ok()
-        .map(|value| avatar_identity_from_json_value(&value, actor_id))
-}
-
 async fn generate_avatar_identity(
     config: Option<&AiConfig>,
     actor_id: u64,
@@ -7176,31 +6760,6 @@ impl AppState {
             .lock()
             .map(|mut limiter| limiter.allow(key.into(), limit, Instant::now()))
             .unwrap_or(false)
-    }
-}
-
-impl RateLimiter {
-    fn allow(&mut self, key: String, limit: RateLimit, now: Instant) -> bool {
-        let cutoff = now.checked_sub(limit.window).unwrap_or(now);
-        let hits = self.hits.entry(key).or_default();
-        while hits.front().is_some_and(|hit| *hit <= cutoff) {
-            hits.pop_front();
-        }
-        if hits.len() >= limit.max_hits {
-            return false;
-        }
-        hits.push_back(now);
-
-        if self.hits.len() > 4096 {
-            self.hits.retain(|_, hits| {
-                while hits.front().is_some_and(|hit| *hit <= cutoff) {
-                    hits.pop_front();
-                }
-                !hits.is_empty()
-            });
-        }
-
-        true
     }
 }
 
@@ -34792,38 +34351,6 @@ mod tests {
                 false,
             )
             .expect("production config should accept remote feed plus guardrails");
-    }
-
-    #[test]
-    fn rate_limiter_blocks_until_window_expires() {
-        let mut limiter = RateLimiter::default();
-        let limit = RateLimit {
-            max_hits: 2,
-            window: Duration::from_secs(10),
-        };
-        let now = Instant::now();
-
-        assert!(limiter.allow("actor:5000".to_string(), limit, now));
-        assert!(limiter.allow(
-            "actor:5000".to_string(),
-            limit,
-            now + Duration::from_secs(1)
-        ));
-        assert!(!limiter.allow(
-            "actor:5000".to_string(),
-            limit,
-            now + Duration::from_secs(2)
-        ));
-        assert!(limiter.allow(
-            "actor:5000".to_string(),
-            limit,
-            now + Duration::from_secs(11)
-        ));
-        assert!(limiter.allow(
-            "actor:5001".to_string(),
-            limit,
-            now + Duration::from_secs(2)
-        ));
     }
 
     #[test]
