@@ -43,5 +43,31 @@
     },
     "consequence": "solar-abyssal schism",
     "memory_summary": "The same bell rings differently in noon light and abyssal pressure."
+  },
+  {
+    "id": "lantern-keeper:rekindle-the-beacon",
+    "premise": "The Mothwood beacon is dark and its keeper Rowan Vale has vanished inside the tower.",
+    "stakes": "If the road remains unlit, the borrowed shadows will learn every traveler's shape.",
+    "location_ids": [
+      801,
+      802,
+      803,
+      804
+    ],
+    "participant_ids": [
+      8301,
+      8302,
+      8303,
+      8304
+    ],
+    "progress_clock_id": "lantern-keeper.light",
+    "danger_clock_id": "lantern-keeper.darkness",
+    "status": "active",
+    "reward": {
+      "label": "the Mothwood road relit",
+      "orbs": 2
+    },
+    "consequence": "the beacon becomes a lantern for borrowed shadows",
+    "memory_summary": "Travelers followed the last lamps north to find Rowan Vale and restore the Mothwood beacon."
   }
 ]

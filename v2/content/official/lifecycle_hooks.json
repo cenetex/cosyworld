@@ -231,5 +231,135 @@
         "reason": "drowned_bell_danger_filled"
       }
     ]
+  },
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "801",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "follow_rowan_footprints"
+      }
+    ]
+  },
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "802",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "learn_keeper_warning"
+      }
+    ]
+  },
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "803",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "find_dawn_oil_trail"
+      }
+    ]
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "8401",
+    "claim_scope": "world_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "open_inner_lens"
+      }
+    ]
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "8402",
+    "claim_scope": "world_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "see_rowan_inside_shadow"
+      }
+    ]
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "8403",
+    "claim_scope": "world_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "separate_keeper_from_shadow"
+      }
+    ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "lantern-keeper.light",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:804:beacon_rekindled",
+        "scope": "room",
+        "scope_id": 804,
+        "label": "beacon rekindled",
+        "kind": "memory",
+        "reason": "lantern_keeper_completed"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "lantern-keeper:rekindle-the-beacon",
+        "status": "completed",
+        "reason": "lantern_keeper_completed"
+      }
+    ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "lantern-keeper.darkness",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:804:black_beacon",
+        "scope": "room",
+        "scope_id": 804,
+        "label": "black beacon",
+        "kind": "hook",
+        "reason": "lantern_keeper_failed"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "lantern-keeper:rekindle-the-beacon",
+        "status": "failed",
+        "reason": "lantern_keeper_failed"
+      }
+    ]
   }
 ]

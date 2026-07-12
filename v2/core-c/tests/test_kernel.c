@@ -96,6 +96,103 @@ static void test_movement_and_check(void) {
   assert(events.events[0].raw_roll <= 20);
 }
 
+static void test_d20_roll_modes_bloodied_and_nonlethal_knockout(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action check = {0};
+  check.kind = CW_ACTION_ABILITY_CHECK;
+  check.actor_id = 1001;
+  check.ability = CW_ABILITY_WISDOM;
+  check.dc = 12;
+  assert(cw_world_apply(&world, &check, 1234, &events) == CW_OK);
+  int16_t normal_roll = events.events[0].raw_roll;
+
+  check.roll_mode = CW_ROLL_ADVANTAGE;
+  assert(cw_world_apply(&world, &check, 1234, &events) == CW_OK);
+  int16_t advantage_roll = events.events[0].raw_roll;
+  assert(advantage_roll >= normal_roll);
+
+  check.roll_mode = CW_ROLL_DISADVANTAGE;
+  assert(cw_world_apply(&world, &check, 1234, &events) == CW_OK);
+  int16_t disadvantage_roll = events.events[0].raw_roll;
+  assert(disadvantage_roll <= normal_roll);
+  assert(advantage_roll >= disadvantage_roll);
+
+  check.roll_mode = 99;
+  assert(cw_world_apply(&world, &check, 1234, &events) == CW_ERR_RULE);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+
+  check.roll_mode = CW_ROLL_NORMAL;
+  uint64_t natural_one_seed = 0;
+  uint64_t natural_twenty_seed = 0;
+  for (uint64_t seed = 1; seed <= 10000 && (!natural_one_seed || !natural_twenty_seed); ++seed) {
+    assert(cw_world_apply(&world, &check, seed, &events) == CW_OK);
+    if (events.events[0].raw_roll == 1) natural_one_seed = seed;
+    if (events.events[0].raw_roll == 20) natural_twenty_seed = seed;
+  }
+  assert(natural_one_seed);
+  assert(natural_twenty_seed);
+
+  cw_actor *attacker = &world.actors[2];
+  cw_actor *target = &world.actors[3];
+  attacker->location_id = 3;
+  attacker->stats.strength = 30;
+  target->stats.dexterity = 1;
+  target->stats.hp_base = 100;
+  target->damage = 0;
+
+  cw_action attack = {0};
+  attack.kind = CW_ACTION_ATTACK;
+  attack.actor_id = attacker->id;
+  attack.target_actor_id = target->id;
+  assert(cw_world_apply(&world, &attack, natural_one_seed, &events) == CW_OK);
+  assert(events.events[0].raw_roll == 1);
+  assert(!events.events[0].success);
+  assert(events.events[1].type == CW_EVENT_COMBAT_ATTACK_MISS);
+
+  attacker->stats.strength = 1;
+  target->stats.dexterity = 30;
+  assert(cw_world_apply(&world, &attack, natural_twenty_seed, &events) == CW_OK);
+  assert(events.events[0].raw_roll == 20);
+  assert(events.events[0].success);
+  assert(events.events[1].type == CW_EVENT_COMBAT_ATTACK_HIT);
+
+  attacker->stats.strength = 30;
+  target->stats.dexterity = 1;
+  target->stats.hp_base = 2;
+  target->damage = 0;
+  assert(!cw_actor_is_bloodied(target));
+
+  attack.roll_mode = CW_ROLL_ADVANTAGE;
+  assert(cw_world_apply(&world, &attack, 55, &events) == CW_OK);
+  assert(events.count == 3);
+  assert(events.events[0].type == CW_EVENT_COMBAT_ATTACK_ATTEMPT);
+  assert(events.events[1].type == CW_EVENT_COMBAT_ATTACK_HIT);
+  assert(events.events[2].type == CW_EVENT_COMBAT_KNOCKOUT);
+  assert(events.events[2].current_hp == 1);
+  assert(target->status == CW_ACTOR_KNOCKED_OUT);
+  assert(target->conditions & CW_CONDITION_UNCONSCIOUS);
+  assert(cw_actor_current_hp(target) == 1);
+  assert(cw_actor_is_bloodied(target));
+
+  world.items[0].holder_actor_id = attacker->id;
+  world.items[0].location_id = 0;
+  world.items[0].charges = 1;
+  cw_action use = {0};
+  use.kind = CW_ACTION_USE_ITEM;
+  use.actor_id = attacker->id;
+  use.target_actor_id = target->id;
+  use.item_id = world.items[0].id;
+  assert(cw_world_apply(&world, &use, 56, &events) == CW_OK);
+  assert(target->status == CW_ACTOR_ACTIVE);
+  assert(!(target->conditions & CW_CONDITION_UNCONSCIOUS));
+  assert(cw_actor_current_hp(target) == target->stats.hp_base);
+  assert(!cw_actor_is_bloodied(target));
+}
+
 static void test_items_and_combat_gate(void) {
   cw_world world;
   cw_event_buffer events;
@@ -587,6 +684,7 @@ int main(void) {
   test_kernel_capacities_are_runtime_sized();
   test_seed_and_chat();
   test_movement_and_check();
+  test_d20_roll_modes_bloodied_and_nonlethal_knockout();
   test_items_and_combat_gate();
   test_give_items_and_evolution();
   test_npc_trade_items();

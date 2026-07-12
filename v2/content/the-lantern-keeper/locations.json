@@ -1,0 +1,57 @@
+[
+  {
+    "id": 800,
+    "name": "Wayside Lantern Inn",
+    "title": "The Last Warm Window",
+    "description": "A low inn leans into the rain beneath a lantern that burns with half its usual flame.",
+    "persona": "The inn refuses despair by keeping soup hot, boots drying, and one chair ready for the missing keeper.",
+    "biome": "rainy roadside",
+    "terrain": ["muddy yard", "warm common room", "lantern posts"],
+    "memory": ["Rowan Vale left before dawn with the tower key.", "Every road lamp north of the inn went dark in order."],
+    "allow_combat": false
+  },
+  {
+    "id": 801,
+    "name": "Mothwood Path",
+    "title": "The Unlit Mile",
+    "description": "White moths crowd cold lamp cages while the road narrows between black pines.",
+    "persona": "The path tests whether travelers notice small warnings before large teeth arrive.",
+    "biome": "dark pine forest",
+    "terrain": ["root-broken road", "cold lamp cages", "moth clouds"],
+    "memory": ["The first lamp failed without broken glass.", "Tiny bare footprints circle one post and then vanish."],
+    "allow_combat": false
+  },
+  {
+    "id": 802,
+    "name": "Saint Orra's Ruin",
+    "title": "Chapel of the Brass Key",
+    "description": "A roofless chapel shelters a stone lantern and a door-shaped patch of clean wall.",
+    "persona": "The ruin rewards careful questions and punishes anyone who mistakes age for helplessness.",
+    "biome": "woodland ruin",
+    "terrain": ["fallen masonry", "wet ivy", "open nave"],
+    "memory": ["Keepers once swore to light the road, not rule it.", "A brass key was hidden where noon never reaches."],
+    "allow_combat": false
+  },
+  {
+    "id": 803,
+    "name": "Flooded Barrow",
+    "title": "The Road Beneath the Water",
+    "description": "Black water fills an old burial road where a single dry causeway leads toward the tower hill.",
+    "persona": "The barrow offers a short crossing and makes every frightened traveler believe it is much longer.",
+    "biome": "flooded moor",
+    "terrain": ["black water", "narrow causeway", "sunken stones"],
+    "memory": ["Rowan spilled dawn oil here while running uphill.", "Something armored learned to walk without breathing."],
+    "allow_combat": true
+  },
+  {
+    "id": 804,
+    "name": "Lantern Tower",
+    "title": "The Hollow Beacon",
+    "description": "A round tower crowns the hill, its great lens dark and its upper windows beating with borrowed shadow.",
+    "persona": "The tower remembers every keeper and cannot decide whether Rowan still belongs among them.",
+    "biome": "storm hill",
+    "terrain": ["spiral stair", "iron gallery", "great dark lens"],
+    "memory": ["The beacon was built to guide travelers and expose things wearing stolen shapes.", "Rowan locked the flame away from the inside."],
+    "allow_combat": true
+  }
+]

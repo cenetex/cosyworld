@@ -55,7 +55,7 @@ Every resident has a one-word name — species or homely given name, Grahame-sty
 | 1054 | **Aster** | Aster Mirrorwing | Wings too big for every door in the county; apologizes mid-crash. |
 | 1055 | **Jophiel** | Jophiel | Jock angel. Everything is reps; prayers come in sets. |
 | 1056 | **Chamuel** | Chamuel | **The nerdy twink angel.** Laminated schedule, perfect hair, accidentally flirty, blushes in Latin. |
-| 1057 | **Cassiel** | Cassiel Clatterwing | Announces her own crash landings like weather reports. |
+| 1057 | **Flit** | Flit Clatterwing | Announces her own crash landings like weather reports. |
 | 1058 | **Bastian** | Bastian Sparecup | Judges you by coaster usage; forgives by the second cup. |
 | 1059 | **Samael** | Lord Samael | Middle-management angel: clipboard, triplicate, armor worn to meetings. |
 | 1060 | **Moxie** | Moxie Glitchstripe | Cocky glitchcat. Untouched — already grounded. |

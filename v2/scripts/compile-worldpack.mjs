@@ -30,6 +30,9 @@ const resourceFiles = {
   evolution_tracks: "evolution_tracks.json",
   recipes: "recipes.json",
 };
+const allowedPackKinds = new Set(["world", "campaign", "catalog", "assets", "rules"]);
+const rulesAdapter = "cosyworld.rules/1";
+const supportedRuleResources = new Set(["conditions", "monster_seeds"]);
 
 function readJson(filePath) {
   try {
@@ -72,6 +75,11 @@ function declaredPackFiles(packRoot, manifest) {
   for (const relativePath of Object.values(manifest.resources ?? {})) {
     files.push(path.join(packRoot, relativePath));
   }
+  for (const relativePath of Object.values(manifest.rules ?? {})) {
+    files.push(path.join(packRoot, relativePath));
+  }
+  if (manifest.character_creation) files.push(path.join(packRoot, manifest.character_creation));
+  if (manifest.attribution?.file) files.push(path.join(packRoot, manifest.attribution.file));
   if (manifest.external_cards) files.push(path.join(packRoot, manifest.external_cards));
   for (const mount of manifest.assets ?? []) {
     if (mount.manifest) files.push(path.join(packRoot, mount.manifest));
@@ -113,6 +121,36 @@ for (const packId of world.packs) {
   assert(manifest.schema_version === 2, `pack ${packId} must use schema_version 2`);
   assert(manifest.id === packId, `pack path for ${packId} contains ${manifest.id}`);
   assert(manifest.version === locked.version, `pack ${packId} version does not match lockfile`);
+  assert(allowedPackKinds.has(manifest.kind), `pack ${packId} has unsupported kind ${manifest.kind}`);
+  if (manifest.kind === "rules") {
+    assert(manifest.rules_adapter === rulesAdapter, `rules pack ${packId} must use ${rulesAdapter}`);
+    assert(
+      typeof manifest.rules_namespace === "string" && /^[a-z0-9][a-z0-9.-]*$/.test(manifest.rules_namespace),
+      `rules pack ${packId} has an invalid rules_namespace`,
+    );
+    assert(
+      manifest.rules && Object.keys(manifest.rules).length > 0,
+      `rules pack ${packId} must declare rules resources`,
+    );
+    assert(
+      manifest.attribution?.file && manifest.attribution?.source_name && manifest.attribution?.source_url,
+      `rules pack ${packId} must declare attribution`,
+    );
+  } else {
+    assert(!manifest.rules, `only rules packs may declare rules resources (${packId})`);
+  }
+  if (manifest.kind === "campaign") {
+    assert(manifest.character_creation, `campaign pack ${packId} must declare character_creation`);
+  }
+  if (manifest.character_creation) {
+    assert(
+      ["world", "campaign"].includes(manifest.kind),
+      `only world or campaign packs may declare character_creation (${packId})`,
+    );
+  }
+  for (const resource of Object.keys(manifest.rules ?? {})) {
+    assert(supportedRuleResources.has(resource), `rules pack ${packId} declares unknown rules resource ${resource}`);
+  }
   for (const dependency of manifest.dependencies ?? []) {
     assert(available.has(dependency), `pack ${packId} dependency ${dependency} must appear earlier`);
   }
@@ -131,12 +169,52 @@ if (writeLock) fs.writeFileSync(lockPath, json(lock));
 const resources = Object.fromEntries(Object.keys(resourceFiles).map((key) => [key, []]));
 const externalCards = [];
 const assets = [];
+const ruleBundles = [];
+const attributions = [];
+const characterCreationBundles = [];
 for (const pack of packs) {
   for (const [resource, relativePath] of Object.entries(pack.manifest.resources ?? {})) {
     assert(resource in resources, `pack ${pack.manifest.id} declares unknown resource ${resource}`);
     const rows = readJson(path.join(pack.packRoot, relativePath));
     assert(Array.isArray(rows), `pack ${pack.manifest.id} resource ${resource} must be an array`);
     resources[resource].push(...rows);
+  }
+  if (pack.manifest.rules) {
+    const ruleResources = {};
+    for (const [resource, relativePath] of Object.entries(pack.manifest.rules)) {
+      const rows = readJson(path.join(pack.packRoot, relativePath));
+      assert(Array.isArray(rows), `rules pack ${pack.manifest.id} resource ${resource} must be an array`);
+      ruleResources[resource] = rows;
+    }
+    ruleBundles.push({
+      pack_id: pack.manifest.id,
+      pack_version: pack.manifest.version,
+      adapter: pack.manifest.rules_adapter,
+      namespace: pack.manifest.rules_namespace,
+      resources: ruleResources,
+    });
+  }
+  if (pack.manifest.attribution) {
+    const attributionText = fs.readFileSync(
+      path.join(pack.packRoot, pack.manifest.attribution.file),
+      "utf8",
+    );
+    attributions.push({
+      pack_id: pack.manifest.id,
+      license: pack.manifest.license,
+      source_name: pack.manifest.attribution.source_name,
+      source_url: pack.manifest.attribution.source_url,
+      text: attributionText.trim(),
+    });
+  }
+  if (pack.manifest.character_creation) {
+    const profiles = readJson(path.join(pack.packRoot, pack.manifest.character_creation));
+    assert(Array.isArray(profiles), `pack ${pack.manifest.id} character_creation must be an array`);
+    characterCreationBundles.push({
+      pack_id: pack.manifest.id,
+      pack_version: pack.manifest.version,
+      profiles,
+    });
   }
   if (pack.manifest.external_cards) {
     const rows = readJson(path.join(pack.packRoot, pack.manifest.external_cards));
@@ -166,10 +244,21 @@ const packSummary = packs.map(({ locked, manifest, integrity }) => ({
   version: manifest.version,
   kind: manifest.kind,
   license: manifest.license,
+  ...(manifest.rules_adapter ? { rules_adapter: manifest.rules_adapter } : {}),
+  ...(manifest.rules_namespace ? { rules_namespace: manifest.rules_namespace } : {}),
   source: locked.source,
   integrity,
 }));
-const bundleHash = sha256([json(world), json(packSummary), ...Object.values(resources).map(json), json(externalCards), json(assets)]);
+const bundleHash = sha256([
+  json(world),
+  json(packSummary),
+  ...Object.values(resources).map(json),
+  json(externalCards),
+  json(assets),
+  json(ruleBundles),
+  json(attributions),
+  json(characterCreationBundles),
+]);
 const manifest = {
   schema_version: 2,
   id: world.id,
@@ -182,12 +271,18 @@ const manifest = {
   files: resourceFiles,
   external_cards: "external_cards.json",
   assets: "assets.json",
+  rules: "rules.json",
+  attributions: "attributions.json",
+  character_creation: "character_creation.json",
 };
 
 const outputs = new Map([
   ["worldpack.json", json(manifest)],
   ["external_cards.json", json(externalCards)],
   ["assets.json", json(assets)],
+  ["rules.json", json(ruleBundles)],
+  ["attributions.json", json(attributions)],
+  ["character_creation.json", json(characterCreationBundles)],
   ...Object.entries(resourceFiles).map(([resource, fileName]) => [fileName, json(resources[resource])]),
 ]);
 

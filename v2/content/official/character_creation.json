@@ -1,0 +1,55 @@
+[
+  {
+    "pack_id": "cosyworld.campaign.the-lantern-keeper",
+    "pack_version": "0.1.0",
+    "profiles": [
+      {
+        "schema_version": 1,
+        "id": "the-lantern-keeper",
+        "name": "The Lantern Keeper",
+        "description": "Create a level-one traveler answering the last light on the Mothwood road.",
+        "entry_location_id": 800,
+        "prompt": "Who takes up the road when the beacon goes dark?",
+        "default_choice_id": "lantern-warden",
+        "choices": [
+          {
+            "id": "lantern-warden",
+            "label": "Lantern Warden",
+            "detail": "hold the line and bring people home",
+            "calling": "I keep a light burning when others lose the road.",
+            "title": "Lantern Warden",
+            "description": "A steady road-guard with a battered shield, a hooded lamp, and no habit of abandoning stragglers.",
+            "starting_skill_id": "steadiness"
+          },
+          {
+            "id": "mothwood-guide",
+            "label": "Mothwood Guide",
+            "detail": "read tracks, weather, and frightened silences",
+            "calling": "I find the path that still has living footprints on it.",
+            "title": "Mothwood Guide",
+            "description": "A weather-wise scout carrying chalk, twine, and a map corrected more often than it is folded.",
+            "starting_skill_id": "listening"
+          },
+          {
+            "id": "chapel-scholar",
+            "label": "Chapel Scholar",
+            "detail": "name the old wards before they break",
+            "calling": "I learn what the old lights were built to keep out.",
+            "title": "Chapel Scholar",
+            "description": "A field scholar with soot-black notes, practical prayers, and an inconvenient curiosity about sealed doors.",
+            "starting_skill_id": "lorecraft"
+          },
+          {
+            "id": "hedge-mender",
+            "label": "Hedge Mender",
+            "detail": "patch wounds, gear, and quarrels",
+            "calling": "I mend what the dark road tries to break.",
+            "title": "Hedge Mender",
+            "description": "A traveling fixer whose satchel holds bandages, wire, tea leaves, and exactly the wrong-sized screwdriver.",
+            "starting_skill_id": "kindness"
+          }
+        ]
+      }
+    ]
+  }
+]

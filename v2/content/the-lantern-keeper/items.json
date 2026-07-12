@@ -1,0 +1,6 @@
+[
+  { "id": 8401, "name": "Keeper's Brass Key", "description": "A heavy key warm on one side and cold on the other, cut for the Lantern Tower's inner lock.", "kind": "keepsake", "charges": 1, "location_id": 802 },
+  { "id": 8402, "name": "Mothglass Lens", "description": "A palm-sized lens that shows the faint outline of whatever last carried a nearby light.", "kind": "keepsake", "charges": 1, "location_id": 801 },
+  { "id": 8403, "name": "Dawn Oil", "description": "A stoppered flask of gold oil that smells of hot stone after rain and can steady a fallen traveler.", "kind": "potion", "charges": 1, "location_id": 803 },
+  { "id": 8404, "name": "Keeper's Ember", "description": "A coal-bright fragment of the beacon flame, small enough to carry and stubborn enough to relight the road.", "kind": "keepsake", "charges": 1, "location_id": 804 }
+]

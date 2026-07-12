@@ -31,6 +31,18 @@ static int16_t roll_die(uint64_t seed, uint64_t salt, int16_t sides) {
   return (int16_t)((splitmix64(&state) % (uint64_t)sides) + 1u);
 }
 
+static int valid_roll_mode(uint8_t roll_mode) {
+  return roll_mode <= CW_ROLL_DISADVANTAGE;
+}
+
+static int16_t roll_d20(uint64_t seed, uint64_t salt, uint8_t roll_mode) {
+  int16_t first = roll_die(seed, salt, 20);
+  if (roll_mode == CW_ROLL_NORMAL) return first;
+  int16_t second = roll_die(seed, salt ^ 0xA5A5A5A5A5A5A5A5ull, 20);
+  if (roll_mode == CW_ROLL_ADVANTAGE) return first > second ? first : second;
+  return first < second ? first : second;
+}
+
 static int16_t ability_modifier(int8_t score) {
   int16_t diff = (int16_t)score - 10;
   if (diff >= 0) return diff / 2;
@@ -263,6 +275,12 @@ int16_t cw_actor_current_hp(const cw_actor *actor) {
   if (!actor) return 0;
   int16_t hp = (int16_t)(actor->stats.hp_base - actor->damage);
   return hp > 0 ? hp : 0;
+}
+
+int cw_actor_is_bloodied(const cw_actor *actor) {
+  if (!actor || actor->stats.hp_base < 1) return 0;
+  int16_t hp = cw_actor_current_hp(actor);
+  return hp > 0 && hp <= actor->stats.hp_base / 2;
 }
 
 void cw_world_init(cw_world *world) {
@@ -520,8 +538,9 @@ static cw_status apply_ability_check(cw_world *world, const cw_action *action, u
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
   if (status != CW_OK) return status;
+  if (!valid_roll_mode(action->roll_mode)) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
 
-  int16_t raw = roll_die(seed, 1, 20);
+  int16_t raw = roll_d20(seed, 1, action->roll_mode);
   int16_t modifier = (int16_t)(ability_modifier((int8_t)stat_value(&actor->stats, action->ability)) + action->modifier);
   int16_t total = (int16_t)(raw + modifier);
   int16_t dc = (int16_t)(action->dc ? action->dc : 10);
@@ -952,6 +971,7 @@ static cw_status apply_attack(cw_world *world, const cw_action *action, uint64_t
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
   if (status != CW_OK) return status;
+  if (!valid_roll_mode(action->roll_mode)) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
 
   if (action->actor_id == action->target_actor_id) return reject(world, out_events, action, CW_REASON_SELF_TARGET);
   cw_actor *target = find_actor(world, action->target_actor_id);
@@ -964,16 +984,17 @@ static cw_status apply_attack(cw_world *world, const cw_action *action, uint64_t
     return reject(world, out_events, action, CW_REASON_COMBAT_NOT_ALLOWED);
   }
 
-  int16_t raw = roll_die(seed, 1, 20);
+  int16_t raw = roll_d20(seed, 1, action->roll_mode);
   int16_t attack_mod = ability_modifier(actor->stats.strength);
   int16_t attack_total = (int16_t)(raw + attack_mod);
   int16_t ac = (int16_t)(10 + ability_modifier(target->stats.dexterity));
   if (target->conditions & CW_CONDITION_DEFENDING) ac += 2;
+  int attack_hit = raw == 20 || (raw != 1 && attack_total >= ac);
 
   append_event(world, out_events, CW_EVENT_COMBAT_ATTACK_ATTEMPT);
   if (out_events && out_events->count > 0) {
     cw_event *event = &out_events->events[out_events->count - 1];
-    event->success = attack_total >= ac ? 1 : 0;
+    event->success = attack_hit ? 1 : 0;
     event->actor_id = actor->id;
     event->target_actor_id = target->id;
     event->location_id = actor->location_id;
@@ -983,7 +1004,7 @@ static cw_status apply_attack(cw_world *world, const cw_action *action, uint64_t
     event->dc = ac;
   }
 
-  if (attack_total < ac) {
+  if (!attack_hit) {
     target->conditions &= ~CW_CONDITION_DEFENDING;
     append_event(world, out_events, CW_EVENT_COMBAT_ATTACK_MISS);
     if (out_events && out_events->count > 0) {
@@ -1004,7 +1025,14 @@ static cw_status apply_attack(cw_world *world, const cw_action *action, uint64_t
   if (raw == 20) damage_die = (int16_t)(damage_die + roll_die(seed, 3, 8));
   int16_t damage = (int16_t)(damage_die + ability_modifier(actor->stats.strength));
   if (damage < 1) damage = 1;
-  target->damage = (int16_t)(target->damage + damage);
+  int knocks_out = damage >= cw_actor_current_hp(target);
+  if (knocks_out) {
+    target->damage = target->stats.hp_base > 1 ? (int16_t)(target->stats.hp_base - 1) : 0;
+    target->status = CW_ACTOR_KNOCKED_OUT;
+    target->conditions |= CW_CONDITION_UNCONSCIOUS;
+  } else {
+    target->damage = (int16_t)(target->damage + damage);
+  }
   target->conditions &= ~CW_CONDITION_DEFENDING;
 
   append_event(world, out_events, CW_EVENT_COMBAT_ATTACK_HIT);
@@ -1022,9 +1050,7 @@ static cw_status apply_attack(cw_world *world, const cw_action *action, uint64_t
     event->current_hp = cw_actor_current_hp(target);
   }
 
-  if (cw_actor_current_hp(target) <= 0) {
-    target->status = CW_ACTOR_KNOCKED_OUT;
-    target->conditions |= CW_CONDITION_UNCONSCIOUS;
+  if (knocks_out) {
     append_event(world, out_events, CW_EVENT_COMBAT_KNOCKOUT);
     if (out_events && out_events->count > 0) {
       cw_event *event = &out_events->events[out_events->count - 1];
@@ -1033,7 +1059,7 @@ static cw_status apply_attack(cw_world *world, const cw_action *action, uint64_t
       event->target_actor_id = target->id;
       event->location_id = actor->location_id;
       event->damage = damage;
-      event->current_hp = 0;
+      event->current_hp = cw_actor_current_hp(target);
     }
   }
 

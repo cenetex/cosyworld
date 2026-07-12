@@ -6859,28 +6859,28 @@ async function main() {
     });
     await assertActionBarCapped("guest avatar gate", 1);
     const openingPrimary = (await primaryText()).toLowerCase();
-    assert(openingPrimary.includes("begin") && openingPrimary.includes("choose what draws you in"), `guest first card should make the identity choice immediate: ${openingPrimary}`);
+    assert(openingPrimary.includes("begin") && openingPrimary.includes("enter the lantern keeper"), `guest first card should name the campaign: ${openingPrimary}`);
     await page.locator("#primary").click();
     await page.waitForSelector("#action-modal:not([hidden])");
-    assert(await page.locator("#action-modal-title").innerText() === "what draws you in?", "opening modal should ask an immediate character question");
+    assert(await page.locator("#action-modal-title").innerText() === "Who takes up the road when the beacon goes dark?", "opening modal should ask the campaign's character question");
     assert(
-      await page.locator("#action-modal-summary").innerText() === "Pick the sort of trouble your avatar can't resist.",
-      "purpose modal should frame identity as grounded trouble, not an abstract promise",
+      await page.locator("#action-modal-summary").innerText() === "Create a level-one traveler answering the last light on the Mothwood road.",
+      "campaign modal should frame the character's immediate adventure",
     );
     const openingRows = await page.locator("#action-modal-meta .action-row").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
     ));
-    assert(openingRows.includes("Choose the trouble that always draws you in") && openingRows.includes("Then your new avatar arrives in The Cosy Cottage"), `opening modal should explain the choice without system language: ${JSON.stringify(openingRows)}`);
+    assert(openingRows.includes("Campaign The Lantern Keeper") && openingRows.includes("Begin at Wayside Lantern Inn"), `opening modal should name the campaign and entry room: ${JSON.stringify(openingRows)}`);
     const purposeChoices = await page.locator("#action-modal-choices .action-choice").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
     ));
     assert(
       purposeChoices.length === 4
-        && purposeChoices[0].toLowerCase().includes("odd jobs")
-        && purposeChoices[1].toLowerCase().includes("lost property")
-        && purposeChoices[2].toLowerCase().includes("stuck doors")
-        && purposeChoices[3].toLowerCase().includes("uncharted paths"),
-      `guest avatar gate should expose grounded purpose choices in the modal: ${JSON.stringify(purposeChoices)}`,
+        && purposeChoices[0].toLowerCase().includes("lantern warden")
+        && purposeChoices[1].toLowerCase().includes("mothwood guide")
+        && purposeChoices[2].toLowerCase().includes("chapel scholar")
+        && purposeChoices[3].toLowerCase().includes("hedge mender"),
+      `guest avatar gate should expose campaign archetypes in the modal: ${JSON.stringify(purposeChoices)}`,
     );
     await page.locator("#action-modal-confirm").click();
     await page.waitForTimeout(200);
@@ -6915,7 +6915,7 @@ async function main() {
     await assertActionBarCapped("guest account inventory");
     await page.waitForSelector(".account-panel [data-account-connect]");
     const guestSheetText = await page.locator(".account-panel").innerText();
-    assert(guestSheetText.includes("I listen for odd jobs nobody else wants."), `new avatar sheet should carry the grounded purpose choice: ${guestSheetText}`);
+    assert(guestSheetText.includes("I keep a light burning when others lose the road."), `new avatar sheet should carry the campaign purpose choice: ${guestSheetText}`);
     assert(guestSheetText.includes("journal") && guestSheetText.includes("friends"), `avatar sheet should use the small player vocabulary: ${guestSheetText}`);
     assert(
       guestSheetText.includes("your first little moment is waiting")

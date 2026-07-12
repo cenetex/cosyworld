@@ -9,6 +9,7 @@ cc = "1"
 
 [dependencies]
 axum = "0.8"
+base64 = "0.22"
 bs58 = "0.5"
 cosyworld-ai-model = { path = "../ai-model-rust" }
 ed25519-dalek = "2"

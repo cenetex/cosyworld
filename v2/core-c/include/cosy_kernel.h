@@ -75,6 +75,12 @@ typedef enum {
 } cw_ability;
 
 typedef enum {
+  CW_ROLL_NORMAL = 0,
+  CW_ROLL_ADVANTAGE = 1,
+  CW_ROLL_DISADVANTAGE = 2
+} cw_roll_mode;
+
+typedef enum {
   CW_CONDITION_NONE = 0,
   CW_CONDITION_HIDDEN = 1u << 0,
   CW_CONDITION_DEFENDING = 1u << 1,
@@ -204,7 +210,7 @@ typedef struct {
   uint8_t output_target_kind;
   uint8_t output_item_kind;
   uint8_t output_item_charges;
-  uint8_t reserved;
+  uint8_t roll_mode;
 } cw_action;
 
 typedef struct {
@@ -272,6 +278,7 @@ cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed
 cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_offers *out_offers);
 const char *cw_event_type_name(uint8_t type);
 int16_t cw_actor_current_hp(const cw_actor *actor);
+int cw_actor_is_bloodied(const cw_actor *actor);
 
 #ifdef __cplusplus
 }

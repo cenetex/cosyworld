@@ -69,6 +69,10 @@ pub(super) fn app_router(state: AppState) -> Router {
         )
         .route("/moderation/economy", get(moderation_economy_view))
         .route(
+            "/moderation/economy/reconciliations/{run_id}/resolve",
+            post(moderation_resolve_economy_reconciliation),
+        )
+        .route(
             "/moderation/actors/{actor_id}/suspend",
             post(moderation_suspend_actor),
         )

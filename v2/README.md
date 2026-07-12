@@ -22,6 +22,8 @@ For the OpenRouter player payer, Orb-paid Chat, real AI media, combat rewards, a
 - `orchestrator-rust/src/mud.rs`: typed command protocol, parser aliases, response formatting, fuzzy matching, and direction canonicalization.
 - `content/core/`: authored first-party world pack.
 - `content/lonely-forest/` and `content/ruby-high-first-bell/`: asset and external-catalog packs.
+- `content/rules-srd-5.1/` and `content/rules-srd-5.2.1/`: separately attributed, non-authoritative fifth-edition rules references.
+- `content/the-lantern-keeper/`: short campaign pack and its character-creation profile.
 - `worlds/official/`: selected packs and reproducible integrity lock.
 - `content/official/`: generated bundle consumed by the Rust host. See `docs/worldpacks.md`.
 
@@ -85,12 +87,12 @@ The C kernel currently resolves:
 - Room speech as content IDs.
 - Exit-gated movement.
 - Blocked movement for missing or locked exits.
-- Visible ability checks with deterministic dice.
+- Visible ability checks with deterministic normal, Advantage, and Disadvantage d20 resolution.
 - Item pickup.
 - Potion use with rule validation.
 - Evolution item handoff.
 - Level 2 resident evolution after two unique evolution items.
-- Defend, attack, and flee primitives.
+- Defend, attack, and flee primitives, including derived Bloodied state and nonlethal 1-HP knockouts.
 - Combat rejection in safe locations; The Cosy Cottage remains non-combat.
 - A reachable Moonlit Trail sparring encounter for one-button attack/defend/flee smoke coverage.
 - Ranked primary action offers with typed category, target, cost, risk, effect, claim-key, source, disabled-state, and inspector metadata.
@@ -332,7 +334,8 @@ The MVP economy is enabled by default:
 - If Chat is unaffordable, the browser prefers in-world earning actions such as `Listen` over AI setup only while that action can still claim a reward; a verified player OpenRouter key still makes explicit `Chat` actions cost zero Orbs while the result remains a public shared-room event.
 - Orb mutations and player-avatar Chat AI usage are persisted to SQLite ledger tables when the event store is enabled.
 - Trusted ownership feeds may include active Wooden Boxes and unopened avatar packs; the main room UI keeps those out of the normal transcript, while the top economy chip can focus account inventory/provenance and change the one contextual command to `Open Box` or `Open Pack`.
-- `/nft/boxes/burn-prepare`, `/nft/boxes/burn-confirm`, and `/nft/packs/open` exist as signed-wallet endpoints. Local mode can still create staging receipts for fast development. Production profile requires a configured Solana/Core verifier; `burn-confirm` checks the submitted transaction signature for a confirmed Metaplex Core burn of the Box asset from the connected wallet and configured Box collection before creating a receipt. Receipts and pack openings are durable, idempotent, merged back into the ownership projection, and shown in account state. Wallet-specific burn transaction construction remains a client/wallet adapter concern; the server boundary is prepare, verify, receipt, reconcile, and expose account/card state.
+- `/nft/boxes/burn-prepare`, `/nft/boxes/burn-confirm`, and `/nft/packs/open` exist as signed-wallet endpoints. Local mode can still create staging receipts for fast development. With a configured Solana/Core verifier, production `burn-prepare` fetches a current blockhash and returns an unsigned owner-paid Metaplex Core BurnV1 transaction for the trusted Box and configured collection. The browser confirms the irreversible action, asks the wallet to sign and send it, and passes the returned chain signature to `burn-confirm`, which verifies the transaction before creating a receipt. Receipts and pack openings are durable, idempotent, merged back into the ownership projection, and shown in account state.
+- `/moderation/economy` returns recent Orb/AI ledgers, Box receipts, pack reveals, and pre-merge ownership reconciliation runs. Open anomaly runs can be resolved idempotently with moderator identity and notes through `/moderation/economy/reconciliations/{run_id}/resolve`; the moderation console exposes the same economy workflow.
 
 CosyWorld time is player-powered. There is no real-time ambient scheduler: the world does not commit resident speech, checks, danger ticks, or placement changes simply because wall-clock seconds passed. Each confirmed scene card reserves the next active resident in room-card order for an inferred reaction; a direct target reply takes precedence so Give, Trade, and friendship cards do not answer twice. Accepted reactions follow the resident's prose, emoji, emote, or multi-voice contract and are committed before the card request resolves. When inference is unavailable or invalid, the deterministic card outcome still commits and the reaction is skipped rather than replaced with stock dialogue. Group chat contains only committed speech. Card outcomes—what the avatar heard, found, carried, changed, or helped—remain available through the room Log alongside the audited projection events. Player actions can also fan out into lifecycle hooks, frontier danger/progress clocks, and player-turn encounter resets, all through the normal audited journal path. `COSYWORLD_AMBIENT_QUIET_SECS` remains only as a local test threshold for ambient helper coverage; `/meta.features.ambient_enabled` reports `false` in the running service.
 
@@ -479,7 +482,7 @@ cargo build
 node v2/scripts/smoke-production-profile.mjs
 ```
 
-It launches a temporary bearer-protected ownership feed, starts the orchestrator with `COSYWORLD_DEPLOY_PROFILE=production`, and verifies `/meta` reports production mode, remote ownership, moderation, persistence, configured Box burn verification for the smoke process, and disabled dev shortcuts.
+It launches temporary bearer-protected ownership and Solana RPC fixtures, starts the orchestrator with `COSYWORLD_DEPLOY_PROFILE=production`, and verifies `/meta` reports production mode, remote ownership, moderation, persistence, configured Box burn verification for the smoke process, and disabled dev shortcuts. It then signs a real wallet-session challenge, prepares a trusted fixture Box, and verifies the live process returns a current-blockhash Core BurnV1 transaction.
 
 The file uses the same line format:
 

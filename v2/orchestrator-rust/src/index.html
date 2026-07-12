@@ -2607,8 +2607,16 @@
       });
     }
 
-    async function createAvatar(calling = authoredCallingChoices[0].statement) {
-      const avatar = await post("/avatar", withAccess({ calling }));
+    async function createAvatar(selection = null) {
+      const profile = (state?.character_creation || [])[0] || null;
+      const choiceId = selection?.choiceId || profile?.default_choice_id || null;
+      const payload = profile
+        ? {
+            character_creation_id: selection?.profileId || profile.id,
+            character_choice_id: choiceId,
+          }
+        : { calling: selection?.calling || authoredCallingChoices[0].statement };
+      const avatar = await post("/avatar", withAccess(payload));
       if (!avatar.ok || !avatar.actor?.id || !avatar.actor_session) {
         throw new Error(avatarFailureMessage(avatar));
       }
@@ -2913,27 +2921,40 @@
 
     function buildActions(view) {
       if (view.primary_action?.kind === "create_avatar") {
+        const creationProfile = (view.character_creation || [])[0] || null;
+        const creationChoices = creationProfile?.choices?.length
+          ? creationProfile.choices.map((choice) => ({
+              label: choice.label,
+              detail: choice.detail,
+              value: choice.id,
+            }))
+          : authoredCallingChoices.map((choice) => ({
+              label: choice.label,
+              detail: choice.detail,
+              value: choice.statement,
+            }));
+        const defaultChoice = creationProfile?.default_choice_id || authoredCallingChoices[0].statement;
         const action = {
           kind: "avatar-arrival",
           label: "begin",
-          detail: "choose what draws you in",
+          detail: creationProfile ? `enter ${creationProfile.name}` : "choose what draws you in",
           command: "create avatar",
           focusKey: "create-avatar",
           card: cardForLocation(view.location?.id),
           shape: "location",
-          modalTitle: "what draws you in?",
-          modalSummary: "Pick the sort of trouble your avatar can't resist.",
-          effect: "brings your new avatar into The Cosy Cottage",
-          choices: authoredCallingChoices.map((choice) => ({
-            label: choice.label,
-            detail: choice.detail,
-            value: choice.statement,
-          })),
-          selectedChoice: authoredCallingChoices[0].statement,
+          modalTitle: creationProfile?.prompt || "what draws you in?",
+          modalSummary: creationProfile?.description || "Pick the sort of trouble your avatar can't resist.",
+          effect: creationProfile
+            ? `begins ${creationProfile.name}`
+            : "brings your new avatar into The Cosy Cottage",
+          choices: creationChoices,
+          selectedChoice: defaultChoice,
           busyLabel: "arriving",
-          busyDetail: "the cottage is making room…",
+          busyDetail: creationProfile ? "the last lantern is making room…" : "the cottage is making room…",
         };
-        action.run = () => createAvatar(action.selectedChoice || authoredCallingChoices[0].statement);
+        action.run = () => createAvatar(creationProfile
+          ? { profileId: creationProfile.id, choiceId: action.selectedChoice || defaultChoice }
+          : { calling: action.selectedChoice || defaultChoice });
         return [action];
       }
 
@@ -4474,7 +4495,9 @@
         }
         let packId = prepared.pack_id || "";
         if (!String(prepared.burn_message || "").startsWith("Box already")) {
-          const burnSignature = await signWalletMessage(prepared.burn_message || `Burn Wooden Box ${boxAssetAddress}`);
+          const burnSignature = prepared.burn_transaction
+            ? await signAndSendBoxBurnTransaction(prepared.burn_transaction)
+            : await signWalletMessage(prepared.burn_message || `Burn Wooden Box ${boxAssetAddress}`);
           const confirmed = await post("/nft/boxes/burn-confirm", {
             wallet_session: walletSession,
             box_asset_address: boxAssetAddress,
@@ -4516,6 +4539,28 @@
       focusedKey = "";
       accountPanelPinned = true;
       await refresh();
+    }
+
+    async function signAndSendBoxBurnTransaction(transaction) {
+      const provider = solanaProvider();
+      if (!provider?.request) {
+        throw new Error("A Solana wallet with transaction signing is needed to burn this Box.");
+      }
+      if (transaction?.message_encoding !== "base58" || !transaction?.message) {
+        throw new Error("The Box burn transaction could not be read safely.");
+      }
+      setStatus("Confirm the irreversible Box burn in your Solana wallet.", "ok");
+      const signed = await withTimeout(
+        provider.request({
+          method: "signAndSendTransaction",
+          params: { message: transaction.message },
+        }),
+        walletRequestTimeoutMs,
+        "Wallet transaction timed out."
+      );
+      const signature = String(signed?.signature || signed?.hash || signed || "").trim();
+      if (!signature) throw new Error("Wallet did not return a transaction signature.");
+      return signature;
     }
 
     function avatarFailureMessage(result = {}) {
@@ -7092,6 +7137,14 @@
 
     function actionModalRows(action) {
       if (String(action?.command || "").trim().toLowerCase() === "create avatar") {
+        const creationProfile = (state?.character_creation || [])[0] || null;
+        if (creationProfile) {
+          const entryName = cardForLocation(creationProfile.entry_location_id)?.display_name || "the campaign threshold";
+          return [
+            ["Campaign", creationProfile.name],
+            ["Begin at", entryName],
+          ];
+        }
         return [
           ["Choose", "the trouble that always draws you in"],
           ["Then", "your new avatar arrives in The Cosy Cottage"],
@@ -8231,6 +8284,10 @@
           detail: compactAssetId(boxId),
           card: cardByKey(`box:${boxId}`),
           shape: "item",
+          modalTitle: "burn this Box?",
+          modalSummary: "This permanently destroys the on-chain Box. After confirmation, it becomes one avatar-card pack.",
+          effect: "one unopened avatar-card pack joins this account",
+          risk: "the Box burn is irreversible",
           run: () => openBox(boxId),
         });
         return;

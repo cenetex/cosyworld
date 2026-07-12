@@ -26,16 +26,16 @@ The legacy Node/Discord app remains useful reference material. The current MVP i
 
 ## Executive Summary
 
-CosyWorld v2 has crossed from sketch to playable local MVP, and has grown well past the original single-room slice. It now has a deterministic C rules kernel, Rust HTTP/SSE orchestrator, a 27-location worldpack (CosyWorld Core plus Ruby High: First Bell), one-button browser MUD UI with a typed command palette (`say`, `look`, `go`, `/me`, `report`, `drop`, etc.), terminal client, avatar gate, server-authored Chat plus moderated human-typed `say`, Ruby High card projection, wallet-gated shared locations, item pickup/gifting/trading, level 2 resident evolution, combat primitives, a first-slice RPG layer (Callings, Bonds, Clocks, Jobs, Fronts, Work/Rest/Prepare/Help), Orb banking and skill training, room-scoped event replay, persistence, actor sessions, presence filtering, and a full local smoke gate.
+CosyWorld v2 has crossed from sketch to playable local MVP, and has grown well past the original single-room slice. It now has a deterministic C rules kernel, Rust HTTP/SSE orchestrator, a 48-location official worldpack, one-button browser MUD UI with a typed command palette (`say`, `look`, `go`, `/me`, `report`, `drop`, etc.), terminal client, avatar gate, server-authored Chat plus moderated human-typed `say`, Ruby High card projection, wallet-gated shared locations, item pickup/gifting/trading, level 2 resident evolution, combat primitives, a first-slice RPG layer (Callings, Bonds, Clocks, Jobs, Fronts, Work/Rest/Prepare/Help), Orb banking and skill training, room-scoped event replay, persistence, actor sessions, presence filtering, and a full local smoke gate.
 
 The biggest remaining gaps are production hardening and product polish rather than missing core loop:
 
-- Replace local/dev ownership feeds with the production Ruby High wallet export path in deployment.
+- Restore the production Ruby High export's exhausted Solana RPC capacity, deploy feed-health telemetry, and prove a successful hosted refresh.
 - Continue splitting Rust domain/projection code into modules before adding larger systems.
 - Add production moderation/abuse controls for a single shared world.
 - Move generated human avatar art from deterministic SVG into the OpenRouter/card media pipeline.
 - Extend the current combat/challenge loop beyond the Moonlit Trail sparring slice.
-- Add production burn transaction building, reconciliation against Ruby High/chain state, and account UI for Box burns and avatar pack reveals.
+- Deploy and smoke the production Box burn builder/verifier, then add richer account UI and support search/alerts for burns, avatar pack reveals, and reconciliation history.
 - Move resident placement from boot/refresh recalculation toward scheduled audited world actions.
 - Expand combat/conditions only where they serve the MUD experience, not as a dashboard.
 
@@ -245,6 +245,9 @@ Implemented:
 - `/nft/boxes/burn-prepare`, `/nft/boxes/burn-confirm`, and `/nft/packs/open` are implemented behind signed wallet sessions, trusted ownership checks, idempotent SQLite receipts, deterministic reveal provenance, and wallet card grants.
 - Production profile requires a configured Solana RPC URL and Box Core collection address; `burn-confirm` verifies a confirmed Metaplex Core burn instruction for the Box asset, connected wallet, and collection before writing a production receipt.
 - Startup and ownership refresh both merge durable local Box/pack receipts into the effective ownership index, so pack-open card grants survive Ruby High feed refreshes.
+- Successful external ownership snapshots are reconciled against local burn/opening receipts before
+  those grants are merged. Durable reconciliation runs flag duplicate external owners, burned Boxes
+  still reported active, and opened packs still reported unopened through `/moderation/economy`.
 - Current `OwnershipIndex` can parse Ruby High-style wallet/card exports and is the right starting point for Box/card projection.
 - Current SQLite event store already hosts action journal, projected events, actor sessions, wallet-avatar links, and suspensions; it is the right persistence boundary for economy tables.
 
@@ -253,9 +256,11 @@ Gap:
 - Player OpenRouter keys are browser-held and transient; no PKCE account flow yet.
 - No durable AI account link table.
 - Orb reward claims prevent obvious replay farming, but richer balance tuning, daily/encounter cooldown policy, and operator review tools are still needed.
-- Local Box burn confirmation can still trust the ownership feed plus submitted burn signature for staging. Production `burn-confirm` verifies the submitted Solana/Core burn, but production `burn-prepare` still needs real transaction construction.
+- Local Box burn confirmation can still trust the ownership feed plus submitted burn signature for staging. With a configured verifier, production `burn-prepare` now returns a current-blockhash Metaplex Core BurnV1 transaction for the connected owner to sign and send; `burn-confirm` verifies that submitted transaction on-chain before issuing a receipt.
 - Minimal Box/pack account focus exists in the top economy chip, including wallet-scoped burn/reveal provenance in the terminal panel, but there is no rich card gallery, full burn-state history, pack art surface, or support-grade provenance viewer.
-- No economy reconciliation against Ruby High's actual chain/export state.
+- Reconciliation evidence, contradiction detection, protected moderator resolution notes, and a
+  basic console are implemented. Production still needs support-grade search/alerts and a healthy
+  Ruby High chain export to exercise the workflow continuously.
 
 Migration points:
 
@@ -446,18 +451,18 @@ Gap:
    The current smoke checks mobile and desktop shell geometry, preserves local screenshots, and compares them against committed PNG baselines. It does not yet cover a broader viewport/browser matrix or page-state matrix.
 
 7. Economy still needs production guardrails.
-   MVP Orbs, claim-gated automatic rewards, claim-aware zero-Orb recovery commands, OpenRouter payer mode, durable ledgers, trusted Box/pack projection, signed-wallet Box/pack flows, Solana/Core burn confirmation verification, replayable pack/card grants, and protected economy audit are implemented. Real wallet burns still need production burn transaction construction, reconciliation, richer balance policy, and fuller operator tooling.
+   MVP Orbs, claim-gated automatic rewards, claim-aware zero-Orb recovery commands, OpenRouter payer mode, durable ledgers, trusted Box/pack projection, signed-wallet Box/pack flows, Solana/Core burn transaction construction and confirmation verification, replayable pack/card grants, protected economy audit, pre-merge reconciliation evidence, and moderator resolution notes are implemented. Production still needs a configured live burn smoke, richer balance policy, and support-grade anomaly search/alerts.
 
 ## Current Best Next Steps
 
 1. Keep `./v2/mvp.sh check` green as the MVP gate.
 2. Split Rust card/world projection, persistence, AI, and route handlers into modules.
-3. Run the production profile in staging against Ruby High's actual protected ownership feed.
+3. Restore Ruby High's upstream RPC capacity, deploy feed-health telemetry, and rerun the hosted protected-feed smoke.
 4. Extract `ai_gateway` from inline Rust AI calls and promote player OpenRouter linking beyond browser-held keys.
 5. Add richer balance policy and operator workflows over the existing economy audit tables.
 6. Add OpenRouter media jobs for avatar portraits and combat scenes.
 7. Extend the ownership feed contract with production Box, pack, and card status reconciliation fields.
-8. Add production Box burn transaction construction to pair with verified Solana/Core burn confirmation.
+8. Configure the Box collection/RPC in staging and execute an owner-signed BurnV1 prepare/send/confirm smoke with a disposable Box.
 9. Add an explicit moderation/audit plan before public shared-world traffic.
 10. Expand the seed content manifest into a fuller content pipeline while keeping C kernel ids stable.
 11. Broaden visual baselines beyond the core narrow and desktop MUD layouts.

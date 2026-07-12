@@ -177,6 +177,7 @@ name = "cosyworld-orchestrator"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
  "bs58",
  "cc",
  "cosyworld-ai-model",

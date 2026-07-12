@@ -35,6 +35,10 @@ pub const CW_ITEM_POTION: u8 = 1;
 pub const CW_ITEM_EVOLUTION: u8 = 2;
 pub const CW_ITEM_KEEPSAKE: u8 = 3;
 
+pub const CW_ROLL_NORMAL: u8 = 0;
+pub const CW_ROLL_ADVANTAGE: u8 = 1;
+pub const CW_ROLL_DISADVANTAGE: u8 = 2;
+
 pub const CW_ACTION_NONE: u8 = 0;
 pub const CW_ACTION_CREATE_ACTOR: u8 = 1;
 pub const CW_ACTION_SAY: u8 = 2;
@@ -161,7 +165,7 @@ pub struct CwAction {
     #[serde(default)]
     pub output_item_charges: u8,
     #[serde(default)]
-    pub reserved: u8,
+    pub roll_mode: u8,
 }
 
 #[repr(C)]
@@ -285,4 +289,5 @@ extern "C" {
     ) -> u32;
     pub fn cw_event_type_name(type_: u8) -> *const c_char;
     pub fn cw_actor_current_hp(actor: *const CwActor) -> i16;
+    pub fn cw_actor_is_bloodied(actor: *const CwActor) -> i32;
 }

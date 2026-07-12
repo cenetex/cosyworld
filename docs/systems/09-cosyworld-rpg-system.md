@@ -280,7 +280,7 @@ The product UI hides that texture behind friendlier groupings:
 - `clock_delta`: proposed progress or danger movement
 - `consequence_pool`: allowed consequences on failure or partial success
 
-The d20 check is fine near-term because it is implemented and familiar. The long-term design does not depend on a die shape. What matters is a clear fictional trigger, a visible result, and a constrained consequence.
+The d20 check is fine near-term because it is implemented and familiar. The kernel supports normal, Advantage, and Disadvantage resolution through one deterministic roll path, allowing server-authored Help, Prepare, and condition effects without trusting a client to grant itself a better roll. The long-term design does not depend on a die shape. What matters is a clear fictional trigger, a visible result, and a constrained consequence.
 
 ## Action Surface
 
@@ -554,9 +554,10 @@ Combat is not a separate subsystem; it is a risk roll on the frontier, usually t
 - Conflict is usually about an **objective clock**, not only HP — calm the thing, reach the exit, protect the resident.
 - **Flee is a valid success path**, and can mark the frontier ledger.
 - Gear durability can **break to absorb harm**, turning a hit into a brief hindrance.
-- KO creates recovery or consequence pressure before any permanent loss; favor continuation over elimination.
+- KO is explicitly nonlethal: an otherwise-defeated actor remains at 1 HP, becomes Unconscious, and needs recovery before acting again.
+- Bloodied is derived at half HP or lower and can drive recovery offers and resident reactions without becoming another persistent flag.
 
-Near-term combat can keep the existing d20 attack, armor, defend bonus, d8 damage, crit, potion, and flee primitives — but they are framed as one risk/effect resolution, not a bespoke D&D engine. The next evolution adds objective clocks, nonlethal outcomes, room danger clocks, durability-absorbs-harm, and public resident reactions to conflict.
+Near-term combat can keep the existing d20 attack, armor, defend bonus, d8 damage, crit, potion, nonlethal KO, Bloodied threshold, and flee primitives — but they are framed as one risk/effect resolution, not a bespoke D&D engine. The next evolution adds objective clocks, room danger clocks, durability-absorbs-harm, and public resident reactions to conflict.
 
 Example conflict:
 

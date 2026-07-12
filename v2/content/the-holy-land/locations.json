@@ -1,0 +1,167 @@
+[
+  {
+    "id": 700,
+    "name": "Bethlehem",
+    "title": "Town of the Nativity",
+    "description": "Pale stone homes gather along a Judean ridge while olive leaves turn silver in the evening wind.",
+    "persona": "Bethlehem is humble, watchful, and practiced at finding room where none seems to remain.",
+    "biome": "Judean hill country",
+    "terrain": ["limestone ridge", "olive terraces", "courtyard lanes"],
+    "memory": ["Christian tradition remembers this town as the birthplace of Jesus.", "Pilgrims arrive quietly before continuing toward Jerusalem."],
+    "allow_combat": false
+  },
+  {
+    "id": 701,
+    "name": "Nazareth",
+    "title": "Village of Hidden Years",
+    "description": "A small Galilean village rests among limestone slopes, workshops, cisterns, and plots of grain.",
+    "persona": "Nazareth values patient work, familiar names, and beginnings too ordinary to announce themselves.",
+    "biome": "lower Galilean hills",
+    "terrain": ["chalky lanes", "terraced fields", "workshop courtyards"],
+    "memory": ["The Gospel traditions remember Nazareth as the home where Jesus was raised.", "The road toward Cana begins beyond the village fields."],
+    "allow_combat": false
+  },
+  {
+    "id": 702,
+    "name": "Jordan River Crossing",
+    "title": "Waters of Beginning",
+    "description": "Reeds bend beside slow brown-green water where desert light opens a bright path between the banks.",
+    "persona": "The Jordan speaks in crossings, repentance, renewal, and the courage to begin again.",
+    "biome": "Jordan valley riverbank",
+    "terrain": ["reed beds", "river stones", "desert scrub"],
+    "memory": ["The Gospel narratives begin Jesus' public ministry with baptism in the Jordan region.", "Travelers follow the valley south toward Jericho."],
+    "allow_combat": false
+  },
+  {
+    "id": 703,
+    "name": "Cana",
+    "title": "Village of the Wedding Feast",
+    "description": "Stone jars cool in shaded courtyards while vine rows climb the hills beyond a village prepared for guests.",
+    "persona": "Cana is hospitable, celebratory, and attentive to the quiet crisis behind a public feast.",
+    "biome": "Galilean village vineyards",
+    "terrain": ["vine rows", "stone courtyards", "fig-shaded lanes"],
+    "memory": ["The Gospel of John associates Cana with a wedding and the beginning of Jesus' signs.", "Cana's exact ancient location remains a matter of scholarly discussion."],
+    "allow_combat": false
+  },
+  {
+    "id": 704,
+    "name": "Capernaum",
+    "title": "Lakeside Ministry Town",
+    "description": "Basalt houses and busy lanes meet the northern shore of the lake where boats, neighbors, and questions return daily.",
+    "persona": "Capernaum is practical, crowded, and accustomed to astonishing things happening beside ordinary doorways.",
+    "biome": "northern Galilee lakeshore",
+    "terrain": ["black basalt walls", "harbor lanes", "sunlit courtyards"],
+    "memory": ["The Gospel narratives place much of Jesus' Galilean ministry in and around Capernaum.", "Fishing roads connect the town with Bethsaida and the lakeshore."],
+    "allow_combat": false
+  },
+  {
+    "id": 705,
+    "name": "Sea of Galilee Shore",
+    "title": "The Fishermen's Water",
+    "description": "A freshwater lake widens under blue hills as nets dry on stones and small boats lean into the wind.",
+    "persona": "The shore is changeable and candid, turning work, weather, fear, and trust into the same conversation.",
+    "biome": "Galilee freshwater shore",
+    "terrain": ["pebbled beach", "net racks", "wind-creased water"],
+    "memory": ["The Gospels repeatedly place Jesus and his disciples beside and upon this lake.", "Storms can rise quickly above the fishing water."],
+    "allow_combat": false
+  },
+  {
+    "id": 706,
+    "name": "Hillside of Teachings",
+    "title": "A Place Above the Lake",
+    "description": "Grassy slopes look across the Sea of Galilee, with enough open ground for a crowd to sit and listen.",
+    "persona": "The hillside is spacious, merciful, and unwilling to hurry a difficult teaching.",
+    "biome": "Galilean lakeside hills",
+    "terrain": ["spring grass", "wild mustard", "lake overlook"],
+    "memory": ["This is a narrative evocation of the Galilean settings associated with Jesus' public teaching.", "The precise sites of individual teachings are not always recoverable."],
+    "allow_combat": false
+  },
+  {
+    "id": 707,
+    "name": "Bethsaida",
+    "title": "Fishing Village of Callings",
+    "description": "Fishing courtyards and reed-fringed inlets sit near the lake's northern reaches where several disciples found their first roads.",
+    "persona": "Bethsaida is direct, observant, and forever mending the edge between livelihood and calling.",
+    "biome": "northeastern Galilee lakeshore",
+    "terrain": ["reed inlets", "fishing yards", "low stone houses"],
+    "memory": ["The Gospel traditions associate Bethsaida with Philip, Andrew, and Peter.", "The identification of the ancient site remains debated."],
+    "allow_combat": false
+  },
+  {
+    "id": 708,
+    "name": "Caesarea Philippi",
+    "title": "Springs Beneath the Northern Cliffs",
+    "description": "Cold springs emerge below a high limestone face at the green edge of the northern country.",
+    "persona": "Caesarea Philippi is cool, echoing, and full of questions about names, loyalties, and identity.",
+    "biome": "northern spring country",
+    "terrain": ["limestone cliff", "cold springs", "oak shade"],
+    "memory": ["The Synoptic Gospels set Peter's confession in the district of Caesarea Philippi.", "The long road back toward the lake crosses changing country."],
+    "allow_combat": false
+  },
+  {
+    "id": 709,
+    "name": "Sychar Well",
+    "title": "A Samaritan Noon",
+    "description": "An old stone well holds its shade beneath the hard noon sun while the road through Samaria climbs away on both sides.",
+    "persona": "The well is candid, hospitable, and ready to let a difficult conversation become a shared drink.",
+    "biome": "Samaritan hill country",
+    "terrain": ["ancient well stones", "dry terraces", "pilgrim road"],
+    "memory": ["The Gospel of John places Jesus' conversation with a Samaritan woman near Sychar at Jacob's well.", "This central route links Galilee and Judea through Samaria."],
+    "allow_combat": false
+  },
+  {
+    "id": 710,
+    "name": "Jericho",
+    "title": "Palm City Below the Hills",
+    "description": "Date palms, springs, and sunlit walls rest below the steep ascent toward Jerusalem.",
+    "persona": "Jericho is hot, vivid, and alert to the person calling from the edge of a crowd.",
+    "biome": "lower Jordan oasis",
+    "terrain": ["date palms", "spring channels", "dusty road"],
+    "memory": ["The Gospel journey toward Jerusalem includes encounters in and around Jericho.", "The road west climbs sharply into the Judean hills."],
+    "allow_combat": false
+  },
+  {
+    "id": 711,
+    "name": "Bethany",
+    "title": "Village of Friends",
+    "description": "A village on the eastern slope of the Mount of Olives offers lamps, bread, and a familiar doorway near Jerusalem.",
+    "persona": "Bethany is intimate, grief-wise, and certain that hospitality can be a form of courage.",
+    "biome": "Mount of Olives village",
+    "terrain": ["olive groves", "stone homes", "hillside path"],
+    "memory": ["The Gospel traditions associate Bethany with Mary, Martha, and Lazarus.", "Jerusalem lies just beyond the ridge."],
+    "allow_combat": false
+  },
+  {
+    "id": 712,
+    "name": "Jerusalem",
+    "title": "City of Pilgrimage",
+    "description": "Walls, gates, roofs, markets, and temple courts rise across the hills in a city crowded for festival.",
+    "persona": "Jerusalem is ancient, contested, prayerful, and heavy with the choices of the final week.",
+    "biome": "Judean highland city",
+    "terrain": ["limestone streets", "city gates", "crowded courts"],
+    "memory": ["The Gospel narratives culminate in Jerusalem during Passover.", "The city is sacred to several living faiths and should be approached with care."],
+    "allow_combat": false
+  },
+  {
+    "id": 713,
+    "name": "Garden of Gethsemane",
+    "title": "Olives in the Night",
+    "description": "Old olive trunks twist beneath moonlight in a garden quiet enough to hear distant city sounds.",
+    "persona": "Gethsemane is wakeful, sorrowful, and steadfast in the long interval between prayer and consequence.",
+    "biome": "Mount of Olives garden",
+    "terrain": ["ancient olive trees", "rocky ground", "moonlit path"],
+    "memory": ["The Gospel accounts place Jesus' night of prayer and arrest in Gethsemane.", "Jerusalem's lamps remain visible across the valley."],
+    "allow_combat": false
+  },
+  {
+    "id": 714,
+    "name": "Road to Emmaus",
+    "title": "The Stranger on the Way",
+    "description": "A westward road crosses open hills where evening light lengthens every traveler's shadow.",
+    "persona": "The Emmaus road is companionable, searching, and slow to recognize what has been walking alongside it.",
+    "biome": "western Judean hill road",
+    "terrain": ["rolling limestone hills", "grain fields", "evening road"],
+    "memory": ["The Gospel of Luke tells of two disciples meeting the risen Jesus on the road to Emmaus.", "The exact location of ancient Emmaus is disputed."],
+    "allow_combat": false
+  }
+]

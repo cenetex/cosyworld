@@ -45,5 +45,31 @@
       "solar-abyss:drowned-bell"
     ],
     "impending_outcome": "The bell schism hardens and the two paths mistake harmony for betrayal."
+  },
+  {
+    "id": "lantern-keeper:hollow-light",
+    "premise": "The beacon's shadow has learned Rowan's shape and wants every road lamp to recognize it as keeper.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      801,
+      802,
+      803,
+      804
+    ],
+    "participant_ids": [
+      8302,
+      8303,
+      8304
+    ],
+    "stakes_questions": [
+      "Can Rowan be separated from the shadow without extinguishing the keeper's ember?",
+      "Will the party restore a guiding light or merely another weapon against the dark?"
+    ],
+    "portent_clock_id": "lantern-keeper.darkness",
+    "job_ids": [
+      "lantern-keeper:rekindle-the-beacon"
+    ],
+    "impending_outcome": "Every lamp on the road burns black and invites travelers toward the tower instead of home."
   }
 ]

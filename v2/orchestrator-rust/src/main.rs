@@ -17,6 +17,7 @@ use axum::{
     },
     Json,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use cosyworld_ai_model::{
     GeneratedAvatarIdentity as ModelGeneratedAvatarIdentity, ResidentReplyModelInput,
 };
@@ -67,6 +68,7 @@ struct AppState {
     ambient: AmbientConfig,
     box_burn_verifier: Arc<Option<BoxBurnVerifierConfig>>,
     ownership_feed: Arc<OwnershipFeedConfig>,
+    ownership_feed_health: Arc<StdMutex<OwnershipFeedHealth>>,
     last_world_event_at: Arc<StdMutex<Instant>>,
     wallet_sessions: Arc<StdMutex<WalletSessions>>,
     qr_wallet_logins: Arc<StdMutex<QrWalletLogins>>,
@@ -198,6 +200,14 @@ struct BoxBurnVerification {
     verification_status: &'static str,
 }
 
+#[derive(Clone, Debug)]
+struct PreparedBoxBurnTransaction {
+    transaction_base64: String,
+    message_base58: String,
+    recent_blockhash: String,
+    last_valid_block_height: u64,
+}
+
 #[derive(Clone, Copy, Debug)]
 struct RateLimit {
     max_hits: usize,
@@ -275,6 +285,8 @@ const MAX_EVENT_STORE_SCAN: usize = 1000;
 const STARTING_ORBS: i32 = 3;
 const CHAT_ORB_COST: i32 = 1;
 const CORE_PROGRAM_ID: &str = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
+const SOLANA_SYSTEM_PROGRAM_ID: &str = "11111111111111111111111111111111";
+const SPL_NOOP_PROGRAM_ID: &str = "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV";
 const LISTEN_ORB_REWARD: i32 = 1;
 const LISTEN_REPEAT_ORB_COST: i32 = 1;
 const LISTEN_ABILITY: u8 = 4;
@@ -962,6 +974,10 @@ const SEED_EVOLUTION_TRACKS_JSON: &str =
 const SEED_RECIPES_JSON: &str = include_str!("../../content/official/recipes.json");
 const SEED_EXTERNAL_CARDS_JSON: &str = include_str!("../../content/official/external_cards.json");
 const SEED_ASSET_MOUNTS_JSON: &str = include_str!("../../content/official/assets.json");
+const SEED_RULES_JSON: &str = include_str!("../../content/official/rules.json");
+const SEED_ATTRIBUTIONS_JSON: &str = include_str!("../../content/official/attributions.json");
+const SEED_CHARACTER_CREATION_JSON: &str =
+    include_str!("../../content/official/character_creation.json");
 const LONELY_FOREST_CHARACTER_MANIFEST_JSON: &str =
     include_str!("../../content/lonely-forest/assets/characters/manifest.json");
 const LONELY_FOREST_CHARACTER_ASSET_PREFIX: &str = "/assets/lonely-forest/characters/";
@@ -986,6 +1002,9 @@ struct SeedContent {
     lifecycle_hooks: Vec<SeedLifecycleHookContent>,
     evolution_tracks: Vec<SeedEvolutionTrack>,
     recipes: Vec<SeedRecipeContent>,
+    rules: Vec<SeedRuleBundle>,
+    attributions: Vec<SeedAttribution>,
+    character_creation: Vec<SeedCharacterCreationBundle>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1005,6 +1024,12 @@ struct SeedWorldpackManifest {
     #[serde(default)]
     packs: Vec<SeedWorldpackPack>,
     files: BTreeMap<String, String>,
+    #[serde(default)]
+    rules: String,
+    #[serde(default)]
+    attributions: String,
+    #[serde(default)]
+    character_creation: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1015,6 +1040,110 @@ struct SeedWorldpackPack {
     kind: String,
     license: String,
     integrity: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rules_adapter: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rules_namespace: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedRuleBundle {
+    pack_id: String,
+    pack_version: String,
+    adapter: String,
+    namespace: String,
+    resources: SeedRuleResources,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+struct SeedRuleResources {
+    #[serde(default)]
+    conditions: Vec<SeedRuleCondition>,
+    #[serde(default)]
+    monster_seeds: Vec<SeedRuleMonsterSeed>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedRuleCondition {
+    id: String,
+    name: String,
+    source_section: String,
+    source_text: String,
+    mapping: SeedRuleMapping,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedRuleMonsterSeed {
+    id: String,
+    name: String,
+    source_name: String,
+    size: String,
+    creature_type: String,
+    alignment: String,
+    armor_class: String,
+    hit_points: String,
+    speed: String,
+    ability_scores: BTreeMap<String, u8>,
+    challenge: String,
+    #[serde(default)]
+    senses: String,
+    #[serde(default)]
+    features: Vec<SeedRuleFeature>,
+    mapping: SeedRuleMapping,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedRuleFeature {
+    name: String,
+    description: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedRuleMapping {
+    status: String,
+    #[serde(default)]
+    kernel_condition: Option<String>,
+    #[serde(default)]
+    suggested_role: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedAttribution {
+    pack_id: String,
+    license: String,
+    source_name: String,
+    source_url: String,
+    text: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedCharacterCreationBundle {
+    pack_id: String,
+    pack_version: String,
+    profiles: Vec<SeedCharacterCreationProfile>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedCharacterCreationProfile {
+    schema_version: u32,
+    id: String,
+    name: String,
+    description: String,
+    entry_location_id: u64,
+    prompt: String,
+    default_choice_id: String,
+    choices: Vec<SeedCharacterCreationChoice>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedCharacterCreationChoice {
+    id: String,
+    label: String,
+    detail: String,
+    calling: String,
+    title: String,
+    description: String,
+    starting_skill_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1064,6 +1193,8 @@ struct SeedActorContent {
     speech_mode: String,
     title: String,
     description: String,
+    #[serde(default)]
+    ambient_autonomy: Option<bool>,
     #[serde(default)]
     location_id: Option<u64>,
     #[serde(default)]
@@ -1457,6 +1588,8 @@ struct JournalRecord {
     ripple_source: Option<RippleSource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     initial_calling: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    initial_skill: Option<String>,
     #[serde(default)]
     actor_meta_upserts: BTreeMap<u64, ActorMeta>,
     #[serde(default)]
@@ -1480,6 +1613,7 @@ impl JournalRecord {
             seed,
             ripple_source: None,
             initial_calling: None,
+            initial_skill: None,
             actor_meta_upserts: BTreeMap::new(),
             content_upserts: BTreeMap::new(),
             branch_upserts: BTreeMap::new(),
@@ -1636,6 +1770,17 @@ struct MetaWorldpack {
     bundle_hash: String,
     entry_location: String,
     packs: Vec<SeedWorldpackPack>,
+    rules: Vec<MetaRulesBundle>,
+    attributions: Vec<SeedAttribution>,
+}
+
+#[derive(Debug, Serialize)]
+struct MetaRulesBundle {
+    pack_id: String,
+    adapter: String,
+    namespace: String,
+    conditions: usize,
+    monster_seeds: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -1670,6 +1815,11 @@ struct MetaOwnershipFeed {
     bearer_configured: bool,
     refresh_secs: Option<u64>,
     wallet_count: usize,
+    status: &'static str,
+    last_attempt_at_unix: Option<u64>,
+    last_success_at_unix: Option<u64>,
+    consecutive_failures: u32,
+    last_error_code: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1750,6 +1900,46 @@ struct ModerationEconomyResponse {
     ai_usage_ledger: Vec<AiUsageLedgerAuditView>,
     wooden_box_receipts: Vec<WoodenBoxReceiptView>,
     avatar_pack_openings: Vec<AvatarPackOpeningView>,
+    economy_reconciliations: Vec<EconomyReconciliationView>,
+    error: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct EconomyReconciliationAnomaly {
+    kind: String,
+    asset_id: String,
+    external_wallet_address: String,
+    local_wallet_address: Option<String>,
+    detail: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct EconomyReconciliationView {
+    run_id: u64,
+    source: String,
+    wallet_count: usize,
+    active_box_count: usize,
+    unopened_pack_count: usize,
+    anomaly_count: usize,
+    anomalies: Vec<EconomyReconciliationAnomaly>,
+    status: String,
+    created_at_ms: u64,
+    resolved_at_ms: Option<u64>,
+    resolved_by: Option<String>,
+    resolution_note: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ResolveEconomyReconciliationRequest {
+    moderator: Option<String>,
+    note: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct EconomyReconciliationResponse {
+    ok: bool,
+    status: u16,
+    reconciliation: Option<EconomyReconciliationView>,
     error: Option<String>,
 }
 
@@ -1829,6 +2019,30 @@ struct StateResponse {
     primary_action: PrimaryAction,
     action_offers: Vec<RankedActionOffer>,
     inspector: InspectorView,
+    character_creation: Vec<CharacterCreationProfileView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CharacterCreationProfileView {
+    pack_id: String,
+    id: String,
+    name: String,
+    description: String,
+    entry_location_id: u64,
+    prompt: String,
+    default_choice_id: String,
+    choices: Vec<CharacterCreationChoiceView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CharacterCreationChoiceView {
+    id: String,
+    label: String,
+    detail: String,
+    calling: String,
+    title: String,
+    description: String,
+    starting_skill_id: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -1967,6 +2181,7 @@ struct ActorView {
     factions: Vec<FactionRefView>,
     resident_economy: Option<ResidentEconomyView>,
     hp: i16,
+    bloodied: bool,
     stats: StatView,
 }
 
@@ -2614,6 +2829,8 @@ struct CreateAvatarRequest {
     name: Option<String>,
     calling: Option<String>,
     wallet_session: Option<String>,
+    character_creation_id: Option<String>,
+    character_choice_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2753,8 +2970,21 @@ struct BoxBurnPrepareResponse {
     box_asset_address: Option<String>,
     pack_id: Option<String>,
     burn_message: Option<String>,
+    burn_transaction: Option<BoxBurnTransactionView>,
     verification_mode: String,
     error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct BoxBurnTransactionView {
+    transaction: String,
+    transaction_encoding: String,
+    message: String,
+    message_encoding: String,
+    recent_blockhash: String,
+    last_valid_block_height: u64,
+    program_id: String,
+    instruction: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2900,6 +3130,30 @@ struct OwnershipFeedConfig {
     remote_url: Option<String>,
     remote_bearer: Option<String>,
     refresh_every: Option<Duration>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct OwnershipFeedHealth {
+    last_attempt_at_unix: Option<u64>,
+    last_success_at_unix: Option<u64>,
+    consecutive_failures: u32,
+    last_error_code: Option<String>,
+}
+
+impl OwnershipFeedHealth {
+    fn record_success(&mut self) {
+        let now = now_unix_secs();
+        self.last_attempt_at_unix = Some(now);
+        self.last_success_at_unix = Some(now);
+        self.consecutive_failures = 0;
+        self.last_error_code = None;
+    }
+
+    fn record_failure(&mut self, error: &io::Error) {
+        self.last_attempt_at_unix = Some(now_unix_secs());
+        self.consecutive_failures = self.consecutive_failures.saturating_add(1);
+        self.last_error_code = Some(ownership_feed_error_code(error));
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -3109,8 +3363,9 @@ impl OwnershipFeedConfig {
         }
     }
 
-    async fn load_best_effort(&self) -> OwnershipIndex {
+    async fn load_best_effort_with_health(&self) -> (OwnershipIndex, OwnershipFeedHealth) {
         let mut index = OwnershipIndex::default();
+        let mut health = OwnershipFeedHealth::default();
         if let Some(value) = self.inline_feed.as_deref() {
             index.merge(OwnershipIndex::parse(value));
         }
@@ -3126,11 +3381,21 @@ impl OwnershipFeedConfig {
         }
         if let Some(url) = self.remote_url.as_deref() {
             match OwnershipIndex::fetch_remote(url, self.remote_bearer.as_deref()).await {
-                Ok(remote) => index.merge(remote),
-                Err(error) => warn!("failed to fetch Ruby High ownership feed {url}: {error}"),
+                Ok(remote) => {
+                    index.merge(remote);
+                    health.record_success();
+                }
+                Err(error) => {
+                    health.record_failure(&error);
+                    warn!("failed to fetch Ruby High ownership feed {url}: {error}");
+                }
             }
         }
-        index
+        (index, health)
+    }
+
+    async fn load_best_effort(&self) -> OwnershipIndex {
+        self.load_best_effort_with_health().await.0
     }
 
     async fn load_strict(&self) -> io::Result<OwnershipIndex> {
@@ -3148,6 +3413,22 @@ impl OwnershipFeedConfig {
     }
 }
 
+fn ownership_feed_error_code(error: &io::Error) -> String {
+    let message = error.to_string().to_ascii_lowercase();
+    for status in [401, 403, 404, 408, 429, 500, 502, 503, 504] {
+        if message.contains(&format!("http {status}")) {
+            return format!("http_{status}");
+        }
+    }
+    if message.contains("timed out") || message.contains("timeout") {
+        "timeout".to_string()
+    } else if message.contains("json") || message.contains("decode") {
+        "invalid_response".to_string()
+    } else {
+        "request_failed".to_string()
+    }
+}
+
 async fn load_base_ownership_index(state: &AppState) -> io::Result<OwnershipIndex> {
     if state.deployment.profile.is_production() {
         state.ownership_feed.load_strict().await
@@ -3159,6 +3440,18 @@ async fn load_base_ownership_index(state: &AppState) -> io::Result<OwnershipInde
 async fn load_effective_ownership_index_strict(state: &AppState) -> io::Result<OwnershipIndex> {
     let mut ownership = state.ownership_feed.load_strict().await?;
     if let Some(path) = state.event_store_path.as_deref() {
+        let reconciliation = record_economy_reconciliation(path, &ownership, "refresh")?;
+        if reconciliation.anomaly_count > 0 {
+            warn!(
+                "economy reconciliation found {} anomal{} during ownership refresh",
+                reconciliation.anomaly_count,
+                if reconciliation.anomaly_count == 1 {
+                    "y"
+                } else {
+                    "ies"
+                }
+            );
+        }
         ownership.merge(load_receipt_ownership_index(path)?);
     }
     Ok(ownership)
@@ -3193,6 +3486,12 @@ fn parse_seed_content(manifest_json: &str) -> Result<SeedContent, String> {
         lifecycle_hooks: parse_seed_json("lifecycle_hooks.json", SEED_LIFECYCLE_HOOKS_JSON)?,
         evolution_tracks: parse_seed_json("evolution_tracks.json", SEED_EVOLUTION_TRACKS_JSON)?,
         recipes: parse_seed_json("recipes.json", SEED_RECIPES_JSON)?,
+        rules: parse_seed_json("rules.json", SEED_RULES_JSON)?,
+        attributions: parse_seed_json("attributions.json", SEED_ATTRIBUTIONS_JSON)?,
+        character_creation: parse_seed_json(
+            "character_creation.json",
+            SEED_CHARACTER_CREATION_JSON,
+        )?,
     };
     validate_seed_content(&content)?;
     Ok(content)
@@ -3200,6 +3499,62 @@ fn parse_seed_content(manifest_json: &str) -> Result<SeedContent, String> {
 
 fn parse_seed_json<T: DeserializeOwned>(label: &str, value: &str) -> Result<T, String> {
     serde_json::from_str(value).map_err(|error| format!("{label}: {error}"))
+}
+
+fn character_creation_views() -> Vec<CharacterCreationProfileView> {
+    seed_content()
+        .character_creation
+        .iter()
+        .flat_map(|bundle| {
+            bundle
+                .profiles
+                .iter()
+                .map(|profile| CharacterCreationProfileView {
+                    pack_id: bundle.pack_id.clone(),
+                    id: profile.id.clone(),
+                    name: profile.name.clone(),
+                    description: profile.description.clone(),
+                    entry_location_id: profile.entry_location_id,
+                    prompt: profile.prompt.clone(),
+                    default_choice_id: profile.default_choice_id.clone(),
+                    choices: profile
+                        .choices
+                        .iter()
+                        .map(|choice| CharacterCreationChoiceView {
+                            id: choice.id.clone(),
+                            label: choice.label.clone(),
+                            detail: choice.detail.clone(),
+                            calling: choice.calling.clone(),
+                            title: choice.title.clone(),
+                            description: choice.description.clone(),
+                            starting_skill_id: choice.starting_skill_id.clone(),
+                        })
+                        .collect(),
+                })
+        })
+        .collect()
+}
+
+fn character_creation_selection(
+    profile_id: Option<&str>,
+    choice_id: Option<&str>,
+) -> Option<(SeedCharacterCreationProfile, SeedCharacterCreationChoice)> {
+    let profiles = seed_content()
+        .character_creation
+        .iter()
+        .flat_map(|bundle| bundle.profiles.iter());
+    let profile = match profile_id {
+        Some(profile_id) => profiles
+            .into_iter()
+            .find(|profile| profile.id == profile_id)?,
+        None => profiles.into_iter().next()?,
+    };
+    let selected_choice_id = choice_id.unwrap_or(&profile.default_choice_id);
+    let choice = profile
+        .choices
+        .iter()
+        .find(|choice| choice.id == selected_choice_id)?;
+    Some((profile.clone(), choice.clone()))
 }
 
 fn lonely_forest_character_manifest() -> &'static LonelyForestCharacterManifest {
@@ -3313,6 +3668,15 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
         {
             return Err(format!("invalid or duplicate worldpack pack {}", pack.id));
         }
+        if pack.kind == "rules"
+            && (pack.rules_adapter.as_deref() != Some("cosyworld.rules/1")
+                || pack
+                    .rules_namespace
+                    .as_deref()
+                    .is_none_or(|namespace| namespace.trim().is_empty()))
+        {
+            return Err(format!("invalid rules pack metadata for {}", pack.id));
+        }
     }
     for (key, expected_file) in [
         ("actors", "actors.json"),
@@ -3342,10 +3706,152 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
             None => return Err(format!("worldpack manifest is missing {key} file entry")),
         }
     }
+    if manifest.rules != "rules.json"
+        || manifest.attributions != "attributions.json"
+        || manifest.character_creation != "character_creation.json"
+    {
+        return Err(
+            "worldpack manifest is missing rules, attribution, or character creation files"
+                .to_string(),
+        );
+    }
     Ok(())
 }
 
 fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
+    let packs_by_id = content
+        .manifest
+        .packs
+        .iter()
+        .map(|pack| (pack.id.as_str(), pack))
+        .collect::<BTreeMap<_, _>>();
+    let mut rules_pack_ids = BTreeSet::new();
+    let mut rules_namespaces = BTreeSet::new();
+    for bundle in &content.rules {
+        let Some(pack) = packs_by_id.get(bundle.pack_id.as_str()) else {
+            return Err(format!(
+                "rules bundle {} references an unknown pack",
+                bundle.pack_id
+            ));
+        };
+        if pack.kind != "rules"
+            || bundle.pack_version != pack.version
+            || bundle.adapter != "cosyworld.rules/1"
+            || pack.rules_adapter.as_deref() != Some(bundle.adapter.as_str())
+            || pack.rules_namespace.as_deref() != Some(bundle.namespace.as_str())
+            || !rules_pack_ids.insert(bundle.pack_id.as_str())
+            || !rules_namespaces.insert(bundle.namespace.as_str())
+        {
+            return Err(format!("invalid rules bundle {}", bundle.pack_id));
+        }
+
+        let mut condition_ids = BTreeSet::new();
+        for condition in &bundle.resources.conditions {
+            if !condition.id.starts_with("condition/")
+                || condition.name.trim().is_empty()
+                || condition.source_section.trim().is_empty()
+                || condition.source_text.trim().is_empty()
+                || !condition_ids.insert(condition.id.as_str())
+            {
+                return Err(format!("invalid rules condition {}", condition.id));
+            }
+            match condition.mapping.status.as_str() {
+                "reference_only" if condition.mapping.kernel_condition.is_none() => {}
+                "kernel"
+                    if condition.id == "condition/unconscious"
+                        && condition.mapping.kernel_condition.as_deref() == Some("unconscious") => {
+                }
+                _ => return Err(format!("invalid condition mapping {}", condition.id)),
+            }
+        }
+
+        let mut monster_ids = BTreeSet::new();
+        for monster in &bundle.resources.monster_seeds {
+            if !monster.id.starts_with("monster/")
+                || monster.name.trim().is_empty()
+                || monster.source_name.trim().is_empty()
+                || monster.size.trim().is_empty()
+                || monster.creature_type.trim().is_empty()
+                || monster.alignment.trim().is_empty()
+                || monster.armor_class.trim().is_empty()
+                || monster.hit_points.trim().is_empty()
+                || monster.speed.trim().is_empty()
+                || monster.challenge.trim().is_empty()
+                || monster.mapping.status != "reference_only"
+                || monster.mapping.kernel_condition.is_some()
+                || !monster_ids.insert(monster.id.as_str())
+            {
+                return Err(format!("invalid rules monster seed {}", monster.id));
+            }
+            for ability in [
+                "strength",
+                "dexterity",
+                "constitution",
+                "intelligence",
+                "wisdom",
+                "charisma",
+            ] {
+                if !monster
+                    .ability_scores
+                    .get(ability)
+                    .is_some_and(|score| (1..=30).contains(score))
+                {
+                    return Err(format!(
+                        "invalid {ability} for rules monster {}",
+                        monster.id
+                    ));
+                }
+            }
+            if monster.features.iter().any(|feature| {
+                feature.name.trim().is_empty() || feature.description.trim().is_empty()
+            }) {
+                return Err(format!("invalid feature for rules monster {}", monster.id));
+            }
+            let _ = (&monster.senses, &monster.mapping.suggested_role);
+        }
+    }
+    for pack in content
+        .manifest
+        .packs
+        .iter()
+        .filter(|pack| pack.kind == "rules")
+    {
+        if !rules_pack_ids.contains(pack.id.as_str()) {
+            return Err(format!(
+                "rules pack {} has no compiled rules bundle",
+                pack.id
+            ));
+        }
+    }
+
+    let mut attributed_pack_ids = BTreeSet::new();
+    for attribution in &content.attributions {
+        let Some(pack) = packs_by_id.get(attribution.pack_id.as_str()) else {
+            return Err(format!(
+                "attribution {} references an unknown pack",
+                attribution.pack_id
+            ));
+        };
+        if attribution.license != pack.license
+            || attribution.source_name.trim().is_empty()
+            || attribution.source_url.trim().is_empty()
+            || attribution.text.trim().is_empty()
+            || !attributed_pack_ids.insert(attribution.pack_id.as_str())
+        {
+            return Err(format!("invalid attribution for {}", attribution.pack_id));
+        }
+    }
+    for pack in content
+        .manifest
+        .packs
+        .iter()
+        .filter(|pack| pack.kind == "rules")
+    {
+        if !attributed_pack_ids.contains(pack.id.as_str()) {
+            return Err(format!("rules pack {} has no attribution", pack.id));
+        }
+    }
+
     let mut actor_ids = BTreeSet::new();
     for actor in &content.actors {
         if actor.id == 0 || !actor_ids.insert(actor.id) {
@@ -3394,6 +3900,74 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
             return Err(format!(
                 "seed location {} is missing title, description, or persona",
                 location.id
+            ));
+        }
+    }
+    let mut character_creation_pack_ids = BTreeSet::new();
+    let mut character_creation_profile_ids = BTreeSet::new();
+    for bundle in &content.character_creation {
+        let Some(pack) = packs_by_id.get(bundle.pack_id.as_str()) else {
+            return Err(format!(
+                "character creation bundle {} references an unknown pack",
+                bundle.pack_id
+            ));
+        };
+        if !matches!(pack.kind.as_str(), "world" | "campaign")
+            || bundle.pack_version != pack.version
+            || !character_creation_pack_ids.insert(bundle.pack_id.as_str())
+        {
+            return Err(format!(
+                "invalid character creation bundle {}",
+                bundle.pack_id
+            ));
+        }
+        for profile in &bundle.profiles {
+            if profile.schema_version != 1
+                || profile.id.trim().is_empty()
+                || profile.name.trim().is_empty()
+                || profile.description.trim().is_empty()
+                || profile.prompt.trim().is_empty()
+                || !location_ids.contains(&profile.entry_location_id)
+                || !(2..=6).contains(&profile.choices.len())
+                || !character_creation_profile_ids.insert(profile.id.as_str())
+            {
+                return Err(format!("invalid character creation profile {}", profile.id));
+            }
+            let mut choice_ids = BTreeSet::new();
+            for choice in &profile.choices {
+                if choice.id.trim().is_empty()
+                    || choice.label.trim().is_empty()
+                    || choice.detail.trim().is_empty()
+                    || normalize_calling_statement(&choice.calling).is_none()
+                    || choice.title.trim().is_empty()
+                    || choice.description.trim().is_empty()
+                    || skill_label(&choice.starting_skill_id).is_none()
+                    || !choice_ids.insert(choice.id.as_str())
+                {
+                    return Err(format!(
+                        "invalid character creation choice {}:{}",
+                        profile.id, choice.id
+                    ));
+                }
+            }
+            if !choice_ids.contains(profile.default_choice_id.as_str()) {
+                return Err(format!(
+                    "character creation profile {} has missing default choice",
+                    profile.id
+                ));
+            }
+        }
+    }
+    for pack in content
+        .manifest
+        .packs
+        .iter()
+        .filter(|pack| pack.kind == "campaign")
+    {
+        if !character_creation_pack_ids.contains(pack.id.as_str()) {
+            return Err(format!(
+                "campaign pack {} has no character creation bundle",
+                pack.id
             ));
         }
     }
@@ -5971,6 +6545,95 @@ fn is_base58_char(ch: char) -> bool {
     )
 }
 
+fn decode_solana_32(value: &str, label: &str) -> Result<[u8; 32], String> {
+    let clean = clean_solana_address(value, label)?;
+    let bytes = bs58::decode(&clean)
+        .into_vec()
+        .map_err(|_| format!("{label} is invalid"))?;
+    bytes
+        .try_into()
+        .map_err(|_| format!("{label} must decode to 32 bytes"))
+}
+
+fn push_solana_shortvec(output: &mut Vec<u8>, mut value: usize) {
+    loop {
+        let mut byte = (value & 0x7f) as u8;
+        value >>= 7;
+        if value != 0 {
+            byte |= 0x80;
+        }
+        output.push(byte);
+        if value == 0 {
+            break;
+        }
+    }
+}
+
+fn compile_core_burn_transaction(
+    owner_wallet_address: &str,
+    box_asset_address: &str,
+    collection_address: &str,
+    recent_blockhash: &str,
+    last_valid_block_height: u64,
+) -> Result<PreparedBoxBurnTransaction, String> {
+    let owner = decode_solana_32(owner_wallet_address, "Owner wallet address")?;
+    let asset = decode_solana_32(box_asset_address, "Box asset address")?;
+    let collection = decode_solana_32(collection_address, "Box collection address")?;
+    let system_program = decode_solana_32(SOLANA_SYSTEM_PROGRAM_ID, "System program")?;
+    let log_wrapper = decode_solana_32(SPL_NOOP_PROGRAM_ID, "SPL Noop program")?;
+    let core_program = decode_solana_32(CORE_PROGRAM_ID, "Metaplex Core program")?;
+    let blockhash = decode_solana_32(recent_blockhash, "Recent blockhash")?;
+
+    if owner == asset || owner == collection || asset == collection {
+        return Err("Box burn owner, asset, and collection addresses must be distinct".to_string());
+    }
+
+    // Legacy Solana message. The owner is both fee payer and BurnV1 authority, so it appears once
+    // as the writable signer. BurnV1 account order follows the generated Metaplex Core SDK:
+    // asset, collection, payer, authority, system program, SPL Noop log wrapper.
+    let account_keys = [
+        owner,
+        asset,
+        collection,
+        system_program,
+        log_wrapper,
+        core_program,
+    ];
+    let mut message = Vec::with_capacity(256);
+    message.extend_from_slice(&[
+        1, // num_required_signatures
+        0, // num_readonly_signed_accounts
+        3, // system, log wrapper, and Core are readonly unsigned accounts
+    ]);
+    push_solana_shortvec(&mut message, account_keys.len());
+    for key in account_keys {
+        message.extend_from_slice(&key);
+    }
+    message.extend_from_slice(&blockhash);
+    push_solana_shortvec(&mut message, 1); // one BurnV1 instruction
+    message.push(5); // Core program account index
+    let burn_accounts = [1_u8, 2, 0, 0, 3, 4];
+    push_solana_shortvec(&mut message, burn_accounts.len());
+    message.extend_from_slice(&burn_accounts);
+    let burn_data = [12_u8, 0_u8]; // BurnV1 discriminator + None compression proof
+    push_solana_shortvec(&mut message, burn_data.len());
+    message.extend_from_slice(&burn_data);
+
+    // A legacy wire transaction is a shortvec signature count, one empty 64-byte signature for
+    // the owner, then the compiled message. Wallets replace the empty signature before sending.
+    let mut transaction = Vec::with_capacity(message.len() + 65);
+    push_solana_shortvec(&mut transaction, 1);
+    transaction.extend_from_slice(&[0_u8; 64]);
+    transaction.extend_from_slice(&message);
+
+    Ok(PreparedBoxBurnTransaction {
+        transaction_base64: BASE64_STANDARD.encode(transaction),
+        message_base58: bs58::encode(message).into_string(),
+        recent_blockhash: recent_blockhash.to_string(),
+        last_valid_block_height,
+    })
+}
+
 fn transaction_burns_core_asset_from_owner(
     transaction: &serde_json::Value,
     asset_address: &str,
@@ -6303,8 +6966,38 @@ impl AppState {
             moderation_token.is_some(),
             box_burn_verifier.is_some(),
         )?;
-        let mut ownership_index = ownership_feed.load_best_effort().await;
+        let (mut ownership_index, ownership_feed_health) =
+            ownership_feed.load_best_effort_with_health().await;
         if let Some(path) = event_store_path.as_deref() {
+            let external_snapshot_loaded = ownership_feed.remote_url.is_none()
+                || (ownership_feed_health.last_success_at_unix.is_some()
+                    && ownership_feed_health.consecutive_failures == 0);
+            if external_snapshot_loaded
+                && (ownership_feed.inline_feed.is_some()
+                    || ownership_feed.path_feed.is_some()
+                    || ownership_feed.remote_url.is_some())
+            {
+                match record_economy_reconciliation(path, &ownership_index, "startup") {
+                    Ok(run) if run.anomaly_count > 0 => warn!(
+                        "economy reconciliation found {} anomal{} at startup",
+                        run.anomaly_count,
+                        if run.anomaly_count == 1 { "y" } else { "ies" }
+                    ),
+                    Ok(_) => {}
+                    Err(error) if deployment.profile.is_production() => {
+                        return Err(io::Error::other(format!(
+                            "production profile failed to record economy reconciliation in {}: {}",
+                            path.display(),
+                            error
+                        )));
+                    }
+                    Err(error) => warn!(
+                        "failed to record economy reconciliation in {}: {}",
+                        path.display(),
+                        error
+                    ),
+                }
+            }
             match load_receipt_ownership_index(path) {
                 Ok(receipt_index) => ownership_index.merge(receipt_index),
                 Err(error) if deployment.profile.is_production() => {
@@ -6440,6 +7133,7 @@ impl AppState {
             ambient,
             box_burn_verifier: Arc::new(box_burn_verifier),
             ownership_feed: Arc::new(ownership_feed),
+            ownership_feed_health: Arc::new(StdMutex::new(ownership_feed_health)),
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
@@ -6607,6 +7301,62 @@ impl BoxBurnVerifierConfig {
                 "COSYWORLD_BOX_CORE_COLLECTION_ADDRESS requires COSYWORLD_BOX_BURN_SOLANA_RPC_URL",
             )),
         }
+    }
+
+    async fn prepare_box_burn(
+        &self,
+        owner_wallet_address: &str,
+        box_asset_address: &str,
+    ) -> Result<PreparedBoxBurnTransaction, String> {
+        let owner_wallet_address =
+            clean_solana_address(owner_wallet_address, "Owner wallet address")?;
+        let box_asset_address = clean_solana_address(box_asset_address, "Box asset address")?;
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .map_err(|error| error.to_string())?;
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "cosyworld-box-burn-prepare",
+            "method": "getLatestBlockhash",
+            "params": [{ "commitment": "confirmed" }]
+        });
+        let response = client
+            .post(&self.rpc_url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|error| error.to_string())?;
+        if !response.status().is_success() {
+            return Err(format!(
+                "Solana RPC failed with status {}",
+                response.status().as_u16()
+            ));
+        }
+        let payload: serde_json::Value =
+            response.json().await.map_err(|error| error.to_string())?;
+        if let Some(error) = payload.get("error") {
+            return Err(error
+                .get("message")
+                .and_then(|value| value.as_str())
+                .unwrap_or("Solana RPC returned an error")
+                .to_string());
+        }
+        let blockhash = payload
+            .pointer("/result/value/blockhash")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| "Solana RPC did not return a recent blockhash".to_string())?;
+        let last_valid_block_height = payload
+            .pointer("/result/value/lastValidBlockHeight")
+            .and_then(|value| value.as_u64())
+            .ok_or_else(|| "Solana RPC did not return a last valid block height".to_string())?;
+        compile_core_burn_transaction(
+            &owner_wallet_address,
+            &box_asset_address,
+            &self.collection_address,
+            blockhash,
+            last_valid_block_height,
+        )
     }
 
     async fn verify_box_burn(
@@ -8668,6 +9418,7 @@ impl RuntimeWorld {
                 &action,
                 &events,
                 record.initial_calling.as_deref(),
+                record.initial_skill.as_deref(),
             ));
             events.extend(self.expire_stale_branches());
             events.extend(self.apply_projection_mutations(&action, &record.projection_mutations));
@@ -9430,6 +10181,7 @@ impl RuntimeWorld {
         action: &CwAction,
         events: &[EventView],
         initial_calling: Option<&str>,
+        initial_skill: Option<&str>,
     ) -> Vec<EventView> {
         if action.kind != CW_ACTION_CREATE_ACTOR || self.callings.contains_key(&action.actor_id) {
             return Vec::new();
@@ -9447,16 +10199,36 @@ impl RuntimeWorld {
         let calling = CallingState {
             actor_id: action.actor_id,
             statement: initial_calling
-                .and_then(authored_calling_statement)
+                .and_then(normalize_calling_statement)
                 .unwrap_or_else(|| default_calling_statement().to_string()),
             source_event_seq,
         };
         self.callings.insert(action.actor_id, calling.clone());
         let reason = initial_calling
-            .and_then(authored_calling_statement)
+            .and_then(normalize_calling_statement)
             .map(|_| "chosen_calling")
             .unwrap_or("avatar_created");
-        vec![self.append_calling_event("calling.set", &calling, reason)]
+        let mut projection_events =
+            vec![self.append_calling_event("calling.set", &calling, reason)];
+        if let Some(skill_id) = initial_skill.filter(|skill_id| skill_label(skill_id).is_some()) {
+            let id = skill_state_id(action.actor_id, skill_id);
+            if !self.skills.contains_key(&id) {
+                let skill = SkillState {
+                    actor_id: action.actor_id,
+                    skill_id: skill_id.to_string(),
+                    label: skill_label(skill_id).unwrap_or("Knack").to_string(),
+                    rank: 1,
+                    updated_event_seq: Some(self.world.next_event_seq),
+                };
+                self.skills.insert(id, skill.clone());
+                projection_events.push(self.append_skill_event(
+                    "skill.stepped",
+                    &skill,
+                    "character_creation",
+                ));
+            }
+        }
+        projection_events
     }
 
     fn apply_defend_project_preparation(
@@ -11621,6 +12393,7 @@ impl RuntimeWorld {
             factions: faction_refs_for_actor(actor.id),
             resident_economy: self.resident_economy_view(actor, client_actor_id),
             hp: unsafe { cw_actor_current_hp(&actor) },
+            bloodied: unsafe { cw_actor_is_bloodied(&actor) != 0 },
             stats: StatView {
                 strength: actor.stats.strength,
                 dexterity: actor.stats.dexterity,
@@ -15153,6 +15926,7 @@ impl RuntimeWorld {
             primary_action,
             action_offers,
             inspector,
+            character_creation: character_creation_views(),
         }
     }
 
@@ -19324,6 +20098,7 @@ impl RuntimeWorld {
             .filter(|actor| {
                 actor.kind == CW_ACTOR_NPC
                     && actor.status == CW_ACTOR_ACTIVE
+                    && seed_actor_allows_ambient_autonomy(actor.id)
                     && human_locations.contains(&actor.location_id)
             })
             .collect();
@@ -20008,7 +20783,11 @@ impl RuntimeWorld {
         let candidates: Vec<CwActor> = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
-            .filter(|actor| actor.kind == CW_ACTOR_NPC && actor.status == CW_ACTOR_ACTIVE)
+            .filter(|actor| {
+                actor.kind == CW_ACTOR_NPC
+                    && actor.status == CW_ACTOR_ACTIVE
+                    && seed_actor_allows_ambient_autonomy(actor.id)
+            })
             .collect();
         if candidates.is_empty() {
             return Vec::new();
@@ -20380,6 +21159,15 @@ fn evolution_track_item_ids(actor_id: u64) -> Option<Vec<u64>> {
                 .map(|requirement| requirement.item_id)
                 .collect()
         })
+}
+
+fn seed_actor_allows_ambient_autonomy(actor_id: u64) -> bool {
+    seed_content()
+        .actors
+        .iter()
+        .find(|actor| actor.id == actor_id)
+        .and_then(|actor| actor.ambient_autonomy)
+        .unwrap_or(true)
 }
 
 fn evolution_item_matches_resident(item_id: u64, actor_id: u64) -> bool {
@@ -21199,6 +21987,20 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         .map(|sessions| sessions.sessions.len())
         .unwrap_or_default();
     let ownership_feed = state.ownership_feed.as_ref();
+    let ownership_feed_health = state
+        .ownership_feed_health
+        .lock()
+        .map(|health| health.clone())
+        .unwrap_or_default();
+    let ownership_feed_status = if ownership_feed.remote_url.is_none() {
+        "not_configured"
+    } else if ownership_feed_health.consecutive_failures > 0 {
+        "degraded"
+    } else if ownership_feed_health.last_success_at_unix.is_some() {
+        "healthy"
+    } else {
+        "pending"
+    };
 
     Json(MetaResponse {
         ok: true,
@@ -21244,6 +22046,11 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
                 .refresh_every
                 .map(|duration| duration.as_secs()),
             wallet_count,
+            status: ownership_feed_status,
+            last_attempt_at_unix: ownership_feed_health.last_attempt_at_unix,
+            last_success_at_unix: ownership_feed_health.last_success_at_unix,
+            consecutive_failures: ownership_feed_health.consecutive_failures,
+            last_error_code: ownership_feed_health.last_error_code,
         },
         nft: MetaNftConfig {
             box_burn_verifier_configured: state.box_burn_verifier.as_ref().is_some(),
@@ -21255,6 +22062,18 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             bundle_hash: seed_content().manifest.bundle_hash.clone(),
             entry_location: seed_content().manifest.entry_location.clone(),
             packs: seed_content().manifest.packs.clone(),
+            rules: seed_content()
+                .rules
+                .iter()
+                .map(|bundle| MetaRulesBundle {
+                    pack_id: bundle.pack_id.clone(),
+                    adapter: bundle.adapter.clone(),
+                    namespace: bundle.namespace.clone(),
+                    conditions: bundle.resources.conditions.len(),
+                    monster_seeds: bundle.resources.monster_seeds.len(),
+                })
+                .collect(),
+            attributions: seed_content().attributions.clone(),
         },
         world: MetaWorldCounters {
             tick,
@@ -21841,6 +22660,7 @@ async fn box_burn_prepare(
             box_asset_address: None,
             pack_id: None,
             burn_message: None,
+            burn_transaction: None,
             verification_mode: "trusted_feed_staging".to_string(),
             error: Some("NFT action rate limited".to_string()),
         });
@@ -21853,6 +22673,7 @@ async fn box_burn_prepare(
             box_asset_address: None,
             pack_id: None,
             burn_message: None,
+            burn_transaction: None,
             verification_mode: "chain_verification_required".to_string(),
             error: Some("production Box burns require Solana/Core burn verification".to_string()),
         });
@@ -21869,6 +22690,7 @@ async fn box_burn_prepare(
             box_asset_address: None,
             pack_id: None,
             burn_message: None,
+            burn_transaction: None,
             verification_mode: "trusted_feed_staging".to_string(),
             error: Some("signed wallet session required".to_string()),
         });
@@ -21881,6 +22703,7 @@ async fn box_burn_prepare(
             box_asset_address: None,
             pack_id: None,
             burn_message: None,
+            burn_transaction: None,
             verification_mode: "trusted_feed_staging".to_string(),
             error: Some("box asset address is required".to_string()),
         });
@@ -21897,6 +22720,7 @@ async fn box_burn_prepare(
                     box_asset_address: Some(box_asset_address),
                     pack_id: Some(receipt.pack_id),
                     burn_message: Some("Box already has a burn receipt.".to_string()),
+                    burn_transaction: None,
                     verification_mode: receipt.verification_status,
                     error: None,
                 });
@@ -21909,6 +22733,7 @@ async fn box_burn_prepare(
                     box_asset_address: Some(box_asset_address),
                     pack_id: None,
                     burn_message: None,
+                    burn_transaction: None,
                     verification_mode: "trusted_feed_staging".to_string(),
                     error: Some("box already has a receipt for another wallet".to_string()),
                 });
@@ -21922,6 +22747,7 @@ async fn box_burn_prepare(
                     box_asset_address: Some(box_asset_address),
                     pack_id: None,
                     burn_message: None,
+                    burn_transaction: None,
                     verification_mode: "trusted_feed_staging".to_string(),
                     error: Some(error.to_string()),
                 });
@@ -21941,10 +22767,44 @@ async fn box_burn_prepare(
             box_asset_address: Some(box_asset_address),
             pack_id: None,
             burn_message: None,
+            burn_transaction: None,
             verification_mode: "trusted_feed_staging".to_string(),
             error: Some("box is not active in the trusted ownership feed".to_string()),
         });
     }
+
+    let burn_transaction = if let Some(verifier) = state.box_burn_verifier.as_ref().as_ref() {
+        match verifier
+            .prepare_box_burn(&wallet_address, &box_asset_address)
+            .await
+        {
+            Ok(transaction) => Some(BoxBurnTransactionView {
+                transaction: transaction.transaction_base64,
+                transaction_encoding: "base64".to_string(),
+                message: transaction.message_base58,
+                message_encoding: "base58".to_string(),
+                recent_blockhash: transaction.recent_blockhash,
+                last_valid_block_height: transaction.last_valid_block_height,
+                program_id: CORE_PROGRAM_ID.to_string(),
+                instruction: "BurnV1".to_string(),
+            }),
+            Err(error) => {
+                return Json(BoxBurnPrepareResponse {
+                    ok: false,
+                    status: 502,
+                    wallet_address: Some(wallet_address),
+                    box_asset_address: Some(box_asset_address),
+                    pack_id: None,
+                    burn_message: None,
+                    burn_transaction: None,
+                    verification_mode: "solana_core_burn_transaction_unavailable".to_string(),
+                    error: Some(error),
+                });
+            }
+        }
+    } else {
+        None
+    };
 
     Json(BoxBurnPrepareResponse {
         ok: true,
@@ -21955,8 +22815,9 @@ async fn box_burn_prepare(
         burn_message: Some(format!(
             "Burn Wooden Box {box_asset_address} from {wallet_address} to create {pack_id}."
         )),
+        burn_transaction,
         verification_mode: if state.box_burn_verifier.as_ref().is_some() {
-            "solana_core_burn_signature_required"
+            "solana_core_burn_transaction_required"
         } else {
             "trusted_feed_staging"
         }
@@ -22543,6 +23404,7 @@ async fn moderation_economy_view(
             ai_usage_ledger: Vec::new(),
             wooden_box_receipts: Vec::new(),
             avatar_pack_openings: Vec::new(),
+            economy_reconciliations: Vec::new(),
             error: Some("moderation bearer token required".to_string()),
         });
     }
@@ -22555,6 +23417,7 @@ async fn moderation_economy_view(
             ai_usage_ledger: Vec::new(),
             wooden_box_receipts: Vec::new(),
             avatar_pack_openings: Vec::new(),
+            economy_reconciliations: Vec::new(),
             error: Some("event store is required for economy audit".to_string()),
         });
     };
@@ -22566,6 +23429,7 @@ async fn moderation_economy_view(
             ai_usage_ledger: Vec::new(),
             wooden_box_receipts: Vec::new(),
             avatar_pack_openings: Vec::new(),
+            economy_reconciliations: Vec::new(),
             error: None,
         });
     }
@@ -22585,7 +23449,97 @@ async fn moderation_economy_view(
                 ai_usage_ledger: Vec::new(),
                 wooden_box_receipts: Vec::new(),
                 avatar_pack_openings: Vec::new(),
+                economy_reconciliations: Vec::new(),
                 error: Some(error.to_string()),
+            })
+        }
+    }
+}
+
+async fn moderation_resolve_economy_reconciliation(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath(run_id): AxumPath<u64>,
+    Json(payload): Json<ResolveEconomyReconciliationRequest>,
+) -> Json<EconomyReconciliationResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 403,
+            reconciliation: None,
+            error: Some("moderation bearer token required".to_string()),
+        });
+    }
+    if run_id == 0 {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 400,
+            reconciliation: None,
+            error: Some("Reconciliation run id is required.".to_string()),
+        });
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 503,
+            reconciliation: None,
+            error: Some("Economy reconciliation requires the event store.".to_string()),
+        });
+    };
+    let Some(moderator) = normalize_moderator_label(payload.moderator.as_deref()) else {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 400,
+            reconciliation: None,
+            error: Some(format!(
+                "Moderator label must be under {MAX_MODERATOR_LABEL_CHARS} characters."
+            )),
+        });
+    };
+    let Some(note) = normalize_report_resolution_note(payload.note.as_deref()) else {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 400,
+            reconciliation: None,
+            error: Some(format!(
+                "Resolution note must be under {MAX_REPORT_RESOLUTION_NOTE_CHARS} characters."
+            )),
+        });
+    };
+
+    match resolve_economy_reconciliation(path, run_id, &moderator, note.as_deref()) {
+        Ok(Some(reconciliation)) if reconciliation.status == "clear" => {
+            Json(EconomyReconciliationResponse {
+                ok: false,
+                status: 409,
+                reconciliation: Some(reconciliation),
+                error: Some("A clear reconciliation run has no anomaly to resolve.".to_string()),
+            })
+        }
+        Ok(Some(reconciliation)) => Json(EconomyReconciliationResponse {
+            ok: true,
+            status: 200,
+            reconciliation: Some(reconciliation),
+            error: None,
+        }),
+        Ok(None) => Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 404,
+            reconciliation: None,
+            error: Some("Reconciliation run was not found.".to_string()),
+        }),
+        Err(error) => {
+            warn!(
+                "failed to resolve economy reconciliation {} in {}: {}",
+                run_id,
+                path.display(),
+                error
+            );
+            Json(EconomyReconciliationResponse {
+                ok: false,
+                status: 500,
+                reconciliation: None,
+                error: Some("Reconciliation run could not be resolved.".to_string()),
             })
         }
     }
@@ -23084,24 +24038,61 @@ async fn create_avatar(
         }
     }
 
+    let selection_requested = payload.character_creation_id.is_some()
+        || payload.character_choice_id.is_some()
+        || payload.calling.is_none();
+    let character_selection = if selection_requested {
+        let Some(selection) = character_creation_selection(
+            payload.character_creation_id.as_deref(),
+            payload.character_choice_id.as_deref(),
+        ) else {
+            return Json(AvatarResponse {
+                ok: false,
+                status: 400,
+                actor: None,
+                actor_session: None,
+                actor_session_expires_at_unix: None,
+                events: Vec::new(),
+            });
+        };
+        Some(selection)
+    } else {
+        None
+    };
     let actor_id = {
         let mut runtime = state.inner.lock().await;
         let actor_id = runtime.next_actor_id;
         runtime.next_actor_id = runtime.next_actor_id.saturating_add(1);
         actor_id
     };
-    let initial_calling = payload
-        .calling
-        .as_deref()
-        .and_then(authored_calling_statement)
+    let initial_calling = character_selection
+        .as_ref()
+        .map(|(_, choice)| choice.calling.clone())
+        .or_else(|| {
+            payload
+                .calling
+                .as_deref()
+                .and_then(authored_calling_statement)
+        })
         .unwrap_or_else(|| default_calling_statement().to_string());
+    let entry_location_id = character_selection
+        .as_ref()
+        .map(|(profile, _)| profile.entry_location_id)
+        .unwrap_or(COSY_COTTAGE_LOCATION_ID);
     let mut identity = generate_avatar_identity(
         state.ai_config.as_ref().as_ref(),
         actor_id,
         payload.name.as_deref(),
     )
     .await;
-    if calling_statement_is_explorer(&initial_calling) {
+    if let Some((_, choice)) = character_selection.as_ref() {
+        identity.title = choice.title.clone();
+        identity.description = format!("{} {}", identity.name, choice.description);
+        identity.visual_prompt = format!(
+            "{}, {}, short fantasy campaign character, practical traveling gear, hooded lantern",
+            identity.visual_prompt, choice.description
+        );
+    } else if calling_statement_is_explorer(&initial_calling) {
         identity.title = "Explorer of Unnamed Ways".to_string();
         identity.description = format!(
             "{} reads terrain like an invitation and leaves usable paths behind for everyone who follows.",
@@ -23122,18 +24113,21 @@ async fn create_avatar(
     let action = CwAction {
         kind: CW_ACTION_CREATE_ACTOR,
         actor_id,
-        location_id: 1,
+        location_id: entry_location_id,
         ..CwAction::default()
     };
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
     record.initial_calling = Some(initial_calling);
+    record.initial_skill = character_selection
+        .as_ref()
+        .map(|(_, choice)| choice.starting_skill_id.clone());
     record.actor_meta_upserts.insert(actor_id, actor_meta);
-    if let Some(host) = runtime.welcome_host_for(COSY_COTTAGE_LOCATION_ID) {
+    if let Some(host) = runtime.welcome_host_for(entry_location_id) {
         record
             .projection_mutations
             .push(ProjectionMutation::PlaceResident {
                 actor_id: host.id,
-                location_id: COSY_COTTAGE_LOCATION_ID,
+                location_id: entry_location_id,
                 reason: "welcome_new_avatar".to_string(),
             });
     }
@@ -24971,21 +25965,47 @@ fn start_ownership_refresh_scheduler(state: AppState) {
         return;
     };
     tokio::spawn(async move {
-        tokio::time::sleep(refresh_every).await;
+        let mut next_refresh = refresh_every;
         loop {
-            if let Err(error) = refresh_ownership_index_once(&state).await {
-                warn!(
-                    "Ruby High ownership refresh failed; keeping last good feed: {}",
-                    error
-                );
-            }
-            tokio::time::sleep(refresh_every).await;
+            tokio::time::sleep(next_refresh).await;
+            let failures = match refresh_ownership_index_once(&state).await {
+                Ok(_) => 0,
+                Err(error) => {
+                    warn!(
+                        "Ruby High ownership refresh failed; keeping last good feed: {}",
+                        error
+                    );
+                    state
+                        .ownership_feed_health
+                        .lock()
+                        .map(|health| health.consecutive_failures)
+                        .unwrap_or(1)
+                }
+            };
+            next_refresh = ownership_refresh_delay(refresh_every, failures);
         }
     });
 }
 
 async fn refresh_ownership_index_once(state: &AppState) -> io::Result<bool> {
-    let refreshed = load_effective_ownership_index_strict(state).await?;
+    let refreshed = match load_effective_ownership_index_strict(state).await {
+        Ok(refreshed) => {
+            if state.ownership_feed.remote_url.is_some() {
+                if let Ok(mut health) = state.ownership_feed_health.lock() {
+                    health.record_success();
+                }
+            }
+            refreshed
+        }
+        Err(error) => {
+            if state.ownership_feed.remote_url.is_some() {
+                if let Ok(mut health) = state.ownership_feed_health.lock() {
+                    health.record_failure(&error);
+                }
+            }
+            return Err(error);
+        }
+    };
     let changed = {
         let mut ownership = state.ownership_index.write().await;
         if *ownership == refreshed {
@@ -25018,6 +26038,15 @@ async fn refresh_ownership_index_once(state: &AppState) -> io::Result<bool> {
         );
     }
     Ok(changed || !placement_events.is_empty())
+}
+
+fn ownership_refresh_delay(base: Duration, consecutive_failures: u32) -> Duration {
+    const MAX_BACKOFF: Duration = Duration::from_secs(15 * 60);
+    if consecutive_failures == 0 {
+        return base;
+    }
+    let multiplier = 1_u32 << consecutive_failures.min(4);
+    base.saturating_mul(multiplier).min(MAX_BACKOFF)
 }
 
 fn start_moderation_retention_scheduler(state: AppState) {
@@ -31270,7 +32299,23 @@ fn init_event_store(path: &Path) -> io::Result<()> {
             provenance_json TEXT NOT NULL,
             created_at_ms INTEGER NOT NULL
         );
-        CREATE INDEX IF NOT EXISTS idx_avatar_pack_openings_owner ON avatar_pack_openings(owner_wallet_address);",
+        CREATE INDEX IF NOT EXISTS idx_avatar_pack_openings_owner ON avatar_pack_openings(owner_wallet_address);
+        CREATE TABLE IF NOT EXISTS economy_reconciliation_runs (
+            run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            wallet_count INTEGER NOT NULL,
+            active_box_count INTEGER NOT NULL,
+            unopened_pack_count INTEGER NOT NULL,
+            anomaly_count INTEGER NOT NULL,
+            anomalies_json TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            created_at_ms INTEGER NOT NULL,
+            resolved_at_ms INTEGER,
+            resolved_by TEXT,
+            resolution_note TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_economy_reconciliation_runs_created
+            ON economy_reconciliation_runs(created_at_ms);",
     )
     .map_err(sqlite_error)?;
     init_activation_store(&conn)?;
@@ -31310,6 +32355,37 @@ fn init_event_store(path: &Path) -> io::Result<()> {
         "resolution_note",
         "ALTER TABLE moderation_reports ADD COLUMN resolution_note TEXT",
     )?;
+    ensure_sqlite_column(
+        &conn,
+        "economy_reconciliation_runs",
+        "status",
+        "ALTER TABLE economy_reconciliation_runs ADD COLUMN status TEXT NOT NULL DEFAULT 'open'",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "economy_reconciliation_runs",
+        "resolved_at_ms",
+        "ALTER TABLE economy_reconciliation_runs ADD COLUMN resolved_at_ms INTEGER",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "economy_reconciliation_runs",
+        "resolved_by",
+        "ALTER TABLE economy_reconciliation_runs ADD COLUMN resolved_by TEXT",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "economy_reconciliation_runs",
+        "resolution_note",
+        "ALTER TABLE economy_reconciliation_runs ADD COLUMN resolution_note TEXT",
+    )?;
+    conn.execute(
+        "UPDATE economy_reconciliation_runs
+         SET status = 'clear'
+         WHERE anomaly_count = 0 AND status = 'open' AND resolved_at_ms IS NULL",
+        [],
+    )
+    .map_err(sqlite_error)?;
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_moderation_reports_status ON moderation_reports(status, report_id)",
         [],
@@ -32118,6 +33194,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
          DELETE FROM ai_usage_ledger;
          DELETE FROM wooden_box_receipts;
          DELETE FROM avatar_pack_openings;
+         DELETE FROM economy_reconciliation_runs;
          DELETE FROM room_memory_chapters;
          DELETE FROM activation_events;
          DELETE FROM activation_backfills;",
@@ -32201,6 +33278,218 @@ fn read_event_store_between(
         events.push(event);
     }
     Ok(events)
+}
+
+fn record_economy_reconciliation(
+    path: &Path,
+    external: &OwnershipIndex,
+    source: &str,
+) -> io::Result<EconomyReconciliationView> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let mut box_owners = BTreeMap::<String, BTreeSet<String>>::new();
+    let mut pack_owners = BTreeMap::<String, BTreeSet<String>>::new();
+    for wallet in &external.wallets {
+        for asset_id in &wallet.box_ids {
+            box_owners
+                .entry(asset_id.clone())
+                .or_default()
+                .insert(wallet.wallet_address.clone());
+        }
+        for asset_id in &wallet.pack_ids {
+            pack_owners
+                .entry(asset_id.clone())
+                .or_default()
+                .insert(wallet.wallet_address.clone());
+        }
+    }
+
+    let local_receipts = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT box_asset_address, owner_wallet_address
+                 FROM wooden_box_receipts",
+            )
+            .map_err(sqlite_error)?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(sqlite_error)?;
+        rows.collect::<Result<BTreeMap<_, _>, _>>()
+            .map_err(sqlite_error)?
+    };
+    let local_openings = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT pack_id, owner_wallet_address
+                 FROM avatar_pack_openings",
+            )
+            .map_err(sqlite_error)?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(sqlite_error)?;
+        rows.collect::<Result<BTreeMap<_, _>, _>>()
+            .map_err(sqlite_error)?
+    };
+
+    let mut anomalies = Vec::new();
+    for (asset_id, owners) in &box_owners {
+        if owners.len() > 1 {
+            anomalies.push(EconomyReconciliationAnomaly {
+                kind: "box_multiple_external_owners".to_string(),
+                asset_id: asset_id.clone(),
+                external_wallet_address: owners.iter().cloned().collect::<Vec<_>>().join(","),
+                local_wallet_address: None,
+                detail: "The trusted snapshot reports one Box under multiple wallets.".to_string(),
+            });
+        }
+        if let Some(local_owner) = local_receipts.get(asset_id) {
+            anomalies.push(EconomyReconciliationAnomaly {
+                kind: "burned_box_reported_active".to_string(),
+                asset_id: asset_id.clone(),
+                external_wallet_address: owners.iter().next().cloned().unwrap_or_default(),
+                local_wallet_address: Some(local_owner.clone()),
+                detail:
+                    "A Box with a durable burn receipt is still active in the trusted snapshot."
+                        .to_string(),
+            });
+        }
+    }
+    for (asset_id, owners) in &pack_owners {
+        if owners.len() > 1 {
+            anomalies.push(EconomyReconciliationAnomaly {
+                kind: "pack_multiple_external_owners".to_string(),
+                asset_id: asset_id.clone(),
+                external_wallet_address: owners.iter().cloned().collect::<Vec<_>>().join(","),
+                local_wallet_address: None,
+                detail: "The trusted snapshot reports one unopened pack under multiple wallets."
+                    .to_string(),
+            });
+        }
+        if let Some(local_owner) = local_openings.get(asset_id) {
+            anomalies.push(EconomyReconciliationAnomaly {
+                kind: "opened_pack_reported_unopened".to_string(),
+                asset_id: asset_id.clone(),
+                external_wallet_address: owners.iter().next().cloned().unwrap_or_default(),
+                local_wallet_address: Some(local_owner.clone()),
+                detail:
+                    "A pack with a durable opening record is still unopened in the trusted snapshot."
+                        .to_string(),
+            });
+        }
+    }
+    anomalies.sort_by(|a, b| a.kind.cmp(&b.kind).then(a.asset_id.cmp(&b.asset_id)));
+
+    let source = match source {
+        "startup" => "startup",
+        _ => "refresh",
+    };
+    let created_at_ms = now_millis();
+    let status = if anomalies.is_empty() {
+        "clear"
+    } else {
+        "open"
+    };
+    let anomalies_json = serde_json::to_string(&anomalies).map_err(io::Error::other)?;
+    conn.execute(
+        "INSERT INTO economy_reconciliation_runs
+         (source, wallet_count, active_box_count, unopened_pack_count,
+          anomaly_count, anomalies_json, status, created_at_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            source,
+            external.wallet_count() as i64,
+            box_owners.len() as i64,
+            pack_owners.len() as i64,
+            anomalies.len() as i64,
+            anomalies_json,
+            status,
+            created_at_ms as i64,
+        ],
+    )
+    .map_err(sqlite_error)?;
+
+    Ok(EconomyReconciliationView {
+        run_id: conn.last_insert_rowid().max(0) as u64,
+        source: source.to_string(),
+        wallet_count: external.wallet_count(),
+        active_box_count: box_owners.len(),
+        unopened_pack_count: pack_owners.len(),
+        anomaly_count: anomalies.len(),
+        anomalies,
+        status: status.to_string(),
+        created_at_ms,
+        resolved_at_ms: None,
+        resolved_by: None,
+        resolution_note: None,
+    })
+}
+
+fn economy_reconciliation_from_row(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<EconomyReconciliationView> {
+    let anomalies_json: String = row.get(6)?;
+    let anomalies = serde_json::from_str(&anomalies_json).unwrap_or_default();
+    Ok(EconomyReconciliationView {
+        run_id: row.get::<_, i64>(0)?.max(0) as u64,
+        source: row.get(1)?,
+        wallet_count: row.get::<_, i64>(2)?.max(0) as usize,
+        active_box_count: row.get::<_, i64>(3)?.max(0) as usize,
+        unopened_pack_count: row.get::<_, i64>(4)?.max(0) as usize,
+        anomaly_count: row.get::<_, i64>(5)?.max(0) as usize,
+        anomalies,
+        status: row.get(7)?,
+        created_at_ms: row.get::<_, i64>(8)?.max(0) as u64,
+        resolved_at_ms: row
+            .get::<_, Option<i64>>(9)?
+            .map(|value| value.max(0) as u64),
+        resolved_by: row.get(10)?,
+        resolution_note: row.get(11)?,
+    })
+}
+
+fn economy_reconciliation_by_id(
+    conn: &Connection,
+    run_id: u64,
+) -> io::Result<Option<EconomyReconciliationView>> {
+    conn.query_row(
+        "SELECT run_id, source, wallet_count, active_box_count,
+                unopened_pack_count, anomaly_count, anomalies_json, status, created_at_ms,
+                resolved_at_ms, resolved_by, resolution_note
+         FROM economy_reconciliation_runs
+         WHERE run_id = ?1",
+        params![run_id as i64],
+        economy_reconciliation_from_row,
+    )
+    .optional()
+    .map_err(sqlite_error)
+}
+
+fn resolve_economy_reconciliation(
+    path: &Path,
+    run_id: u64,
+    moderator: &str,
+    note: Option<&str>,
+) -> io::Result<Option<EconomyReconciliationView>> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let Some(current) = economy_reconciliation_by_id(&conn, run_id)? else {
+        return Ok(None);
+    };
+    if current.status != "open" || current.anomaly_count == 0 {
+        return Ok(Some(current));
+    }
+    conn.execute(
+        "UPDATE economy_reconciliation_runs
+         SET status = 'resolved', resolved_at_ms = ?2, resolved_by = ?3, resolution_note = ?4
+         WHERE run_id = ?1 AND status = 'open' AND anomaly_count > 0",
+        params![run_id as i64, now_millis() as i64, moderator, note],
+    )
+    .map_err(sqlite_error)?;
+    economy_reconciliation_by_id(&conn, run_id)
 }
 
 fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomyResponse> {
@@ -32326,6 +33615,23 @@ fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomy
         rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)?
     };
 
+    let economy_reconciliations = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT run_id, source, wallet_count, active_box_count,
+                        unopened_pack_count, anomaly_count, anomalies_json, status, created_at_ms,
+                        resolved_at_ms, resolved_by, resolution_note
+                 FROM economy_reconciliation_runs
+                 ORDER BY created_at_ms DESC, run_id DESC
+                 LIMIT ?1",
+            )
+            .map_err(sqlite_error)?;
+        let rows = stmt
+            .query_map(params![limit], economy_reconciliation_from_row)
+            .map_err(sqlite_error)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)?
+    };
+
     Ok(ModerationEconomyResponse {
         ok: true,
         status: 200,
@@ -32333,6 +33639,7 @@ fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomy
         ai_usage_ledger,
         wooden_box_receipts,
         avatar_pack_openings,
+        economy_reconciliations,
         error: None,
     })
 }
@@ -32462,6 +33769,12 @@ mod tests {
         }
     }
 
+    #[test]
+    fn homeward_is_a_canonical_outbound_direction_alias() {
+        assert_eq!(canonical_direction("homeward"), Some("out"));
+        assert_eq!(canonical_direction("home"), Some("out"));
+    }
+
     fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<PathBuf>) -> AppState {
         let (tx, _) = broadcast::channel(32);
         AppState {
@@ -32483,6 +33796,7 @@ mod tests {
             },
             box_burn_verifier: Arc::new(None),
             ownership_feed: Arc::new(OwnershipFeedConfig::default()),
+            ownership_feed_health: Arc::new(StdMutex::new(OwnershipFeedHealth::default())),
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
@@ -34947,6 +36261,9 @@ mod tests {
         assert!(INDEX_HTML.contains("window.phantom?.solana"));
         assert!(INDEX_HTML.contains("window.solflare"));
         assert!(INDEX_HTML.contains("Wallet connection timed out."));
+        assert!(INDEX_HTML.contains("function signAndSendBoxBurnTransaction"));
+        assert!(INDEX_HTML.contains("method: \"signAndSendTransaction\""));
+        assert!(INDEX_HTML.contains("params: { message: transaction.message }"));
         assert!(INDEX_HTML.contains("parts.push(accountPanelPinned ? \"close\" : \"account\")"));
         assert!(!INDEX_HTML.contains("parts.push(signed ? \"wallet\" : \"connect wallet\")"));
         assert!(INDEX_HTML.contains("const accountName = signed"));
@@ -35072,8 +36389,10 @@ mod tests {
         assert!(INDEX_HTML.contains("stuck doors"));
         assert!(INDEX_HTML.contains("arrive as"));
         assert!(INDEX_HTML.contains("What draws you in:"));
-        assert!(INDEX_HTML.contains("detail: \"choose what draws you in\""));
-        assert!(INDEX_HTML.contains("modalTitle: \"what draws you in?\""));
+        assert!(INDEX_HTML.contains("`enter ${creationProfile.name}`"));
+        assert!(INDEX_HTML.contains("modalTitle: creationProfile?.prompt"));
+        assert!(INDEX_HTML.contains("character_creation_id"));
+        assert!(INDEX_HTML.contains("character_choice_id"));
         assert!(INDEX_HTML.contains("accountRow(\"purpose\", purpose)"));
         assert!(!INDEX_HTML.contains("detail: \"choose calling\""));
         assert!(!INDEX_HTML.contains("modalTitle: \"choose a calling\""));
@@ -35221,6 +36540,11 @@ mod tests {
         assert!(MODERATION_HTML.contains("target_suspended"));
         assert!(MODERATION_HTML.contains("/moderation/reports?"));
         assert!(MODERATION_HTML.contains("/moderation/actors/"));
+        assert!(MODERATION_HTML.contains("data-economy-summary"));
+        assert!(MODERATION_HTML.contains("data-reconciliation-list"));
+        assert!(MODERATION_HTML.contains("data-resolve-reconciliation"));
+        assert!(MODERATION_HTML.contains("/moderation/economy?"));
+        assert!(MODERATION_HTML.contains("/moderation/economy/reconciliations/"));
         assert!(MODERATION_HTML.contains("/resolve"));
         assert!(MODERATION_HTML.contains("/delete"));
         assert!(MODERATION_HTML.contains("/suspend"));
@@ -36731,6 +38055,51 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn lantern_keeper_character_creation_sets_entry_identity_and_starting_knack() {
+        let runtime = RuntimeWorld::seeded();
+        let guest = runtime.state_response(None, &AccessContext::default());
+        assert_eq!(guest.character_creation.len(), 1);
+        assert_eq!(guest.character_creation[0].id, "the-lantern-keeper");
+        assert_eq!(guest.character_creation[0].entry_location_id, 800);
+        assert_eq!(guest.character_creation[0].choices.len(), 4);
+        let state = test_app_state(runtime, None);
+        let response = create_avatar(
+            ConnectInfo("127.0.0.1:45110".parse().expect("client address")),
+            State(state.clone()),
+            Json(CreateAvatarRequest {
+                name: Some("Elowen Reed".to_string()),
+                calling: None,
+                wallet_session: None,
+                character_creation_id: Some("the-lantern-keeper".to_string()),
+                character_choice_id: Some("chapel-scholar".to_string()),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok, "{response:?}");
+        let actor = response.actor.expect("campaign avatar");
+        assert_eq!(actor.location_id, 800);
+        assert_eq!(actor.title, "Chapel Scholar");
+        assert!(actor.description.contains("field scholar"));
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime
+                .callings
+                .get(&actor.id)
+                .map(|calling| calling.statement.as_str()),
+            Some("I learn what the old lights were built to keep out.")
+        );
+        assert_eq!(
+            runtime
+                .skills
+                .get(&skill_state_id(actor.id, "lorecraft"))
+                .map(|skill| skill.rank),
+            Some(1)
+        );
+    }
+
+    #[tokio::test]
     async fn avatar_creation_without_ai_emits_no_fallback_welcome() {
         let state = test_app_state(RuntimeWorld::seeded(), None);
         let mut broadcasts = state.tx.subscribe();
@@ -36742,6 +38111,8 @@ mod tests {
                 name: Some("Welcome Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                character_creation_id: None,
+                character_choice_id: None,
             }),
         )
         .await
@@ -36781,6 +38152,8 @@ mod tests {
                 name: Some("Homecoming Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                character_creation_id: None,
+                character_choice_id: None,
             }),
         )
         .await
@@ -36834,6 +38207,8 @@ mod tests {
                 name: Some("Scarf Story Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                character_creation_id: None,
+                character_choice_id: None,
             }),
         )
         .await
@@ -41250,34 +42625,127 @@ mod tests {
     }
 
     #[test]
+    fn embedded_srd_rules_are_attributed_and_non_authoritative_by_default() {
+        let rules: Vec<SeedRuleBundle> =
+            parse_seed_json("rules.json", SEED_RULES_JSON).expect("embedded rules parse");
+        let attributions: Vec<SeedAttribution> =
+            parse_seed_json("attributions.json", SEED_ATTRIBUTIONS_JSON)
+                .expect("embedded attributions parse");
+
+        assert_eq!(rules.len(), 2);
+        for (pack_id, namespace) in [
+            ("cosyworld.rules-srd-5.1", "srd5.1"),
+            ("cosyworld.rules-srd-5.2.1", "srd5.2.1"),
+        ] {
+            let srd = rules
+                .iter()
+                .find(|bundle| bundle.pack_id == pack_id)
+                .expect("versioned SRD bundle");
+            assert_eq!(srd.adapter, "cosyworld.rules/1");
+            assert_eq!(srd.namespace, namespace);
+            assert_eq!(srd.resources.conditions.len(), 15);
+            assert_eq!(srd.resources.monster_seeds.len(), 3);
+            assert!(srd.resources.conditions.iter().all(|condition| {
+                condition.mapping.status == "reference_only"
+                    || (condition.id == "condition/unconscious"
+                        && condition.mapping.status == "kernel"
+                        && condition.mapping.kernel_condition.as_deref() == Some("unconscious"))
+            }));
+            assert!(srd
+                .resources
+                .monster_seeds
+                .iter()
+                .all(|monster| monster.mapping.status == "reference_only"));
+        }
+
+        assert!(attributions.len() >= 2);
+        for (pack_id, document_name) in [
+            ("cosyworld.rules-srd-5.1", "System Reference Document 5.1"),
+            (
+                "cosyworld.rules-srd-5.2.1",
+                "System Reference Document 5.2.1",
+            ),
+        ] {
+            let attribution = attributions
+                .iter()
+                .find(|attribution| attribution.pack_id == pack_id)
+                .expect("versioned SRD attribution");
+            assert_eq!(attribution.license, "CC-BY-4.0");
+            assert!(attribution.text.contains(document_name));
+            assert!(!attribution.text.contains("CC-BY-SA"));
+        }
+    }
+
+    #[test]
     fn seed_content_manifest_drives_runtime_metadata_and_evolution_tracks() {
         let content = parse_seed_content(SEED_CONTENT_JSON).expect("seed content parses");
         assert_eq!(content.manifest.id, "cosyworld.official");
         assert_eq!(content.manifest.version, 1);
         assert_eq!(content.manifest.schema_version, 2);
-        assert_eq!(content.manifest.packs.len(), 3);
+        assert_eq!(content.manifest.packs.len(), 7);
         assert!(content.manifest.bundle_hash.starts_with("sha256:"));
         assert!(content.manifest.description.contains("seed world"));
-        assert_eq!(content.actors.len(), 35);
+        assert_eq!(content.actors.len(), 55);
         assert_eq!(content.access_gates.len(), 6);
         assert_eq!(content.factions.len(), 12);
-        assert_eq!(content.items.len(), 10);
-        assert_eq!(content.locations.len(), 28);
-        assert_eq!(content.exits.len(), 68);
+        assert_eq!(content.items.len(), 14);
+        assert_eq!(content.locations.len(), 48);
+        assert_eq!(content.exits.len(), 108);
         assert_eq!(content.hidden_exits.len(), 1);
-        assert_eq!(content.room_features.len(), 16);
-        assert_eq!(content.room_sheets.len(), 28);
-        assert_eq!(content.clocks.len(), 4);
-        assert_eq!(content.jobs.len(), 2);
+        assert_eq!(content.room_features.len(), 36);
+        assert_eq!(content.room_sheets.len(), 48);
+        assert_eq!(content.clocks.len(), 6);
+        assert_eq!(content.jobs.len(), 3);
         assert!(content
             .jobs
             .iter()
             .all(|job| job.reward.orbs() == 2 && !job.reward.label().is_empty()));
-        assert_eq!(content.fronts.len(), 2);
-        assert_eq!(content.cards.len(), 71);
-        assert_eq!(content.lifecycle_hooks.len(), 13);
+        assert_eq!(content.fronts.len(), 3);
+        assert_eq!(content.cards.len(), 115);
+        assert_eq!(content.lifecycle_hooks.len(), 21);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 1);
+        assert_eq!(content.rules.len(), 2);
+        for namespace in ["srd5.1", "srd5.2.1"] {
+            let srd = content
+                .rules
+                .iter()
+                .find(|bundle| bundle.namespace == namespace)
+                .expect("versioned SRD bundle");
+            assert_eq!(srd.adapter, "cosyworld.rules/1");
+            assert_eq!(srd.resources.conditions.len(), 15);
+            assert_eq!(srd.resources.monster_seeds.len(), 3);
+            assert!(srd.resources.conditions.iter().any(|condition| {
+                condition.id == "condition/unconscious"
+                    && condition.mapping.status == "kernel"
+                    && condition.mapping.kernel_condition.as_deref() == Some("unconscious")
+            }));
+            assert!(srd
+                .resources
+                .monster_seeds
+                .iter()
+                .all(|monster| monster.mapping.status == "reference_only"));
+        }
+        assert_eq!(content.attributions.len(), 3);
+        assert!(content
+            .attributions
+            .iter()
+            .all(|attribution| attribution.license == "CC-BY-4.0"));
+        assert!(content
+            .attributions
+            .iter()
+            .any(|attribution| attribution.text.contains("System Reference Document 5.1")));
+        assert!(content
+            .attributions
+            .iter()
+            .any(|attribution| attribution.text.contains("System Reference Document 5.2.1")));
+        assert_eq!(content.character_creation.len(), 1);
+        let creation = &content.character_creation[0];
+        assert_eq!(creation.pack_id, "cosyworld.campaign.the-lantern-keeper");
+        assert_eq!(creation.profiles.len(), 1);
+        assert_eq!(creation.profiles[0].id, "the-lantern-keeper");
+        assert_eq!(creation.profiles[0].entry_location_id, 800);
+        assert_eq!(creation.profiles[0].choices.len(), 4);
         let mut exit_direction_keys = BTreeSet::new();
         for exit in &content.exits {
             let direction = exit
@@ -41371,6 +42839,16 @@ mod tests {
             .actors
             .iter()
             .filter(|actor| actor.id != MOONLIT_ECHO_ACTOR_ID)
+            // The Holy Land pack is a narrative pilgrimage pack and deliberately
+            // declares no physical item resource. Its historical/composite cast
+            // therefore does not participate in the one-slot item economy.
+            .filter(|actor| {
+                !content.cards.iter().any(|card| {
+                    card.subject_kind == "actor"
+                        && card.subject_id == actor.id
+                        && (card.source == "holy_land" || card.role == "encounter")
+                })
+            })
             .filter(|actor| actor.desires.is_empty() && actor.attachments.is_empty())
             .map(|actor| actor.name.as_str())
             .collect();
@@ -42032,7 +43510,7 @@ mod tests {
             .iter()
             .filter(|actor| actor.location_id.is_some())
             .collect();
-        assert_eq!(placed_seed_actors.len(), 35);
+        assert_eq!(placed_seed_actors.len(), 55);
         for actor in placed_seed_actors {
             let world_actor = runtime.actor_by_id(actor.id).expect("placed seed actor");
             assert_eq!(world_actor.location_id, actor.location_id.unwrap());
@@ -42366,7 +43844,10 @@ mod tests {
 
     #[test]
     fn compiled_worldpack_asset_index_resolves_pack_mounts_safely() {
-        assert_eq!(seed_asset_mounts().len(), 3);
+        assert!(seed_asset_mounts().len() >= 3);
+        assert!(seed_asset_mounts()
+            .iter()
+            .any(|mount| { mount.pack_id == "ruby-high.first-bell" && mount.mount == "cards" }));
         let card_path = seed_pack_asset_path(
             "cosyworld.core",
             "generated/cards",
@@ -45402,6 +46883,7 @@ mod tests {
         let mut runtime = RuntimeWorld::seeded();
         hide_seed_items(&mut runtime);
         assert!(runtime.ambient_autonomy_action().is_none());
+        discover_all_seed_exits_for_test(&mut runtime);
 
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -45426,14 +46908,20 @@ mod tests {
             .expect("autonomous action with human present");
         assert_eq!(action.kind, CW_ACTION_MOVE);
         assert!([1001, 1002, 1003].contains(&action.actor_id));
-        assert_eq!(action.destination_location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
+        let public_destinations = runtime
+            .exit_views(COSY_COTTAGE_LOCATION_ID, &AccessContext::default())
+            .into_iter()
+            .filter(|exit| exit.accessible)
+            .map(|exit| exit.destination_location_id)
+            .collect::<BTreeSet<_>>();
+        assert!(public_destinations.contains(&action.destination_location_id));
 
         let (status, events) = runtime.apply_journal_record(&JournalRecord::new(action, 7067));
         assert_eq!(status, CW_OK);
         assert!(events.iter().any(|event| {
             event.type_name == "actor.moved"
                 && event.actor_id == Some(action.actor_id)
-                && event.destination_location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+                && event.destination_location_id == Some(action.destination_location_id)
         }));
     }
 
@@ -45448,10 +46936,8 @@ mod tests {
         let first_step = runtime
             .resident_wander_action(actor)
             .expect("first resident wander step");
-        assert_eq!(
-            first_step.destination_location_id,
-            RAIN_SOFT_GARDEN_LOCATION_ID
-        );
+        assert_ne!(first_step.destination_location_id, COSY_COTTAGE_LOCATION_ID);
+        let first_destination = first_step.destination_location_id;
         assert_eq!(
             runtime
                 .apply_journal_record(&JournalRecord::new(first_step, 7068))
@@ -45462,7 +46948,7 @@ mod tests {
         let moved_actor = runtime
             .actor_by_id(RATI_ACTOR_ID)
             .expect("Rati remains after moving");
-        assert_eq!(moved_actor.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
+        assert_eq!(moved_actor.location_id, first_destination);
         let next_step = runtime
             .resident_wander_action(moved_actor)
             .expect("resident chooses a fresh onward step");
@@ -49517,7 +51003,8 @@ mod tests {
             .iter()
             .map(|exit| exit.destination_location_id)
             .collect();
-        assert_eq!(cottage_exits, BTreeSet::from([2, 11]));
+        assert!(cottage_exits.contains(&2));
+        assert!(cottage_exits.contains(&11));
         assert!(state.cards.locations[&2].accessible);
         assert!(!state.cards.locations[&11].accessible);
         assert_eq!(
@@ -49983,6 +51470,148 @@ mod tests {
         assert!(ids.contains(&open.report_id));
         assert!(ids.contains(&recent.report_id));
         assert!(!ids.contains(&old.report_id));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn economy_reconciliation_records_and_resolves_external_receipt_conflicts() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-economy-reconciliation-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+
+        insert_wooden_box_receipt(
+            &path,
+            "wallet-local",
+            "box-burned",
+            "burn-signature-reconciliation",
+            "solana_core_burn_verified",
+            "pack-from-box",
+        )
+        .expect("insert reconciliation box receipt");
+        insert_avatar_pack_opening(
+            &path,
+            "wallet-local",
+            Some("box-burned"),
+            "pack-opened",
+            "reveal-seed",
+            "catalog-hash",
+            &["rati".to_string()],
+            r#"{"source":"test"}"#,
+        )
+        .expect("insert reconciliation pack opening");
+
+        let external = OwnershipIndex::parse(
+            r#"{
+                "wallets": [
+                    {
+                        "walletAddress": "wallet-external-a",
+                        "boxes": ["box-burned", "box-duplicated"],
+                        "packs": ["pack-opened", "pack-duplicated"]
+                    },
+                    {
+                        "walletAddress": "wallet-external-b",
+                        "boxes": ["box-duplicated"],
+                        "packs": ["pack-duplicated"]
+                    }
+                ]
+            }"#,
+        );
+        let run = record_economy_reconciliation(&path, &external, "refresh")
+            .expect("record reconciliation run");
+        assert_eq!(run.wallet_count, 2);
+        assert_eq!(run.active_box_count, 2);
+        assert_eq!(run.unopened_pack_count, 2);
+        assert_eq!(run.anomaly_count, 4);
+        assert_eq!(run.status, "open");
+        assert!(run.resolved_at_ms.is_none());
+        let kinds = run
+            .anomalies
+            .iter()
+            .map(|anomaly| anomaly.kind.as_str())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            kinds,
+            BTreeSet::from([
+                "box_multiple_external_owners",
+                "burned_box_reported_active",
+                "opened_pack_reported_unopened",
+                "pack_multiple_external_owners",
+            ])
+        );
+
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        state.moderation_token = Some(Arc::new("reconciliation-secret".to_string()));
+        let denied = moderation_resolve_economy_reconciliation(
+            HeaderMap::new(),
+            State(state.clone()),
+            AxumPath(run.run_id),
+            Json(ResolveEconomyReconciliationRequest {
+                moderator: Some("Economy Mod".to_string()),
+                note: Some("verified upstream lag".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(!denied.ok);
+        assert_eq!(denied.status, 403);
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            "Bearer reconciliation-secret".parse().unwrap(),
+        );
+        let resolved = moderation_resolve_economy_reconciliation(
+            headers.clone(),
+            State(state.clone()),
+            AxumPath(run.run_id),
+            Json(ResolveEconomyReconciliationRequest {
+                moderator: Some(" Economy   Mod ".to_string()),
+                note: Some(" verified upstream lag ".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(resolved.ok);
+        assert_eq!(resolved.status, 200);
+        let resolved_run = resolved.reconciliation.expect("resolved reconciliation");
+        assert_eq!(resolved_run.status, "resolved");
+        assert_eq!(resolved_run.resolved_by.as_deref(), Some("Economy Mod"));
+        assert_eq!(
+            resolved_run.resolution_note.as_deref(),
+            Some("verified upstream lag")
+        );
+        assert!(resolved_run.resolved_at_ms.is_some());
+
+        let repeated = moderation_resolve_economy_reconciliation(
+            headers,
+            State(state),
+            AxumPath(run.run_id),
+            Json(ResolveEconomyReconciliationRequest {
+                moderator: Some("Different Mod".to_string()),
+                note: Some("should not overwrite".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(repeated.ok);
+        assert_eq!(
+            repeated
+                .reconciliation
+                .expect("idempotent resolution")
+                .resolved_by
+                .as_deref(),
+            Some("Economy Mod")
+        );
+
+        let audit = read_economy_audit(&path, 10).expect("read reconciliation audit");
+        assert_eq!(audit.economy_reconciliations.len(), 1);
+        assert_eq!(audit.economy_reconciliations[0].run_id, run.run_id);
+        assert_eq!(audit.economy_reconciliations[0].anomaly_count, 4);
+        assert_eq!(audit.economy_reconciliations[0].status, "resolved");
 
         let _ = fs::remove_file(path);
     }
@@ -50613,6 +52242,121 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
+    #[test]
+    fn core_burn_transaction_compiles_expected_metaplex_message() {
+        let owner = "DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES";
+        let asset = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+        let collection = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
+        let blockhash = "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH";
+        let prepared = compile_core_burn_transaction(owner, asset, collection, blockhash, 777)
+            .expect("compile Core BurnV1 transaction");
+
+        assert_eq!(prepared.recent_blockhash, blockhash);
+        assert_eq!(prepared.last_valid_block_height, 777);
+        let transaction = BASE64_STANDARD
+            .decode(&prepared.transaction_base64)
+            .expect("decode transaction wire bytes");
+        let message = bs58::decode(&prepared.message_base58)
+            .into_vec()
+            .expect("decode compiled message");
+        assert_eq!(transaction[0], 1, "one required signature slot");
+        assert!(transaction[1..65].iter().all(|byte| *byte == 0));
+        assert_eq!(&transaction[65..], message.as_slice());
+
+        assert_eq!(&message[..4], &[1, 0, 3, 6]);
+        let expected_keys = [
+            owner,
+            asset,
+            collection,
+            SOLANA_SYSTEM_PROGRAM_ID,
+            SPL_NOOP_PROGRAM_ID,
+            CORE_PROGRAM_ID,
+        ];
+        for (index, address) in expected_keys.into_iter().enumerate() {
+            let start = 4 + index * 32;
+            assert_eq!(
+                &message[start..start + 32],
+                decode_solana_32(address, "expected address")
+                    .expect("decode expected address")
+                    .as_slice()
+            );
+        }
+        assert_eq!(
+            &message[196..228],
+            decode_solana_32(blockhash, "expected blockhash")
+                .expect("decode expected blockhash")
+                .as_slice()
+        );
+        assert_eq!(
+            &message[228..],
+            &[1, 5, 6, 1, 2, 0, 0, 3, 4, 2, 12, 0],
+            "one Core BurnV1 instruction with a None compression proof"
+        );
+    }
+
+    #[tokio::test]
+    async fn production_box_burn_prepare_fails_closed_when_rpc_cannot_build_transaction() {
+        let rpc_app = Router::new().route(
+            "/rpc",
+            post(|Json(body): Json<serde_json::Value>| async move {
+                assert_eq!(
+                    body.get("method").and_then(|value| value.as_str()),
+                    Some("getLatestBlockhash")
+                );
+                Json(serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": body.get("id").cloned().unwrap_or(serde_json::Value::Null),
+                    "error": { "code": -32429, "message": "max usage reached" }
+                }))
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind failing Solana RPC test server");
+        let addr = listener.local_addr().expect("RPC server address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, rpc_app).await;
+        });
+
+        let owner = "DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES";
+        let box_asset = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+        let collection = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
+        let mut state = test_app_state(RuntimeWorld::seeded(), None);
+        state.deployment = DeploymentConfig {
+            profile: DeploymentProfile::Production,
+            shard_id: "prod-test".to_string(),
+        };
+        state.box_burn_verifier = Arc::new(Some(BoxBurnVerifierConfig {
+            rpc_url: format!("http://{addr}/rpc"),
+            collection_address: collection.to_string(),
+        }));
+        *state.ownership_index.write().await = OwnershipIndex::parse(&format!(
+            r#"{{"wallets":[{{"walletAddress":"{owner}","boxes":["{box_asset}"]}}]}}"#
+        ));
+        insert_wallet_session(&state, "wallet-rpc-failure-session", owner);
+
+        let prepare = box_burn_prepare(
+            ConnectInfo("127.0.0.1:45300".parse().expect("client addr")),
+            State(state),
+            Json(BoxBurnPrepareRequest {
+                wallet_session: Some("wallet-rpc-failure-session".to_string()),
+                box_asset_address: box_asset.to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(!prepare.ok);
+        assert_eq!(prepare.status, 502);
+        assert_eq!(
+            prepare.verification_mode,
+            "solana_core_burn_transaction_unavailable"
+        );
+        assert!(prepare.burn_transaction.is_none());
+        assert_eq!(prepare.error.as_deref(), Some("max usage reached"));
+
+        server.abort();
+    }
+
     #[tokio::test]
     async fn production_box_burn_uses_solana_core_verifier() {
         let path = std::env::temp_dir().join(format!(
@@ -50627,6 +52371,7 @@ mod tests {
         let collection = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC".to_string();
         let burn_signature =
             "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS".to_string();
+        let recent_blockhash = "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH".to_string();
         let burn_data = bs58::encode([12_u8]).into_string();
         let rpc_app = Router::new().route(
             "/rpc",
@@ -50635,22 +52380,25 @@ mod tests {
                 let box_asset = box_asset.clone();
                 let collection = collection.clone();
                 let burn_signature = burn_signature.clone();
+                let recent_blockhash = recent_blockhash.clone();
                 let burn_data = burn_data.clone();
                 move |Json(body): Json<serde_json::Value>| {
                     let owner = owner.clone();
                     let box_asset = box_asset.clone();
                     let collection = collection.clone();
                     let burn_signature = burn_signature.clone();
+                    let recent_blockhash = recent_blockhash.clone();
                     let burn_data = burn_data.clone();
                     async move {
-                        assert_eq!(
-                            body.get("method").and_then(|value| value.as_str()),
-                            Some("getTransaction")
-                        );
-                        Json(serde_json::json!({
-                            "jsonrpc": "2.0",
-                            "id": body.get("id").cloned().unwrap_or(serde_json::Value::Null),
-                            "result": {
+                        let result = match body.get("method").and_then(|value| value.as_str()) {
+                            Some("getLatestBlockhash") => serde_json::json!({
+                                "context": { "slot": 122 },
+                                "value": {
+                                    "blockhash": recent_blockhash,
+                                    "lastValidBlockHeight": 999
+                                }
+                            }),
+                            Some("getTransaction") => serde_json::json!({
                                 "slot": 123,
                                 "blockTime": 456,
                                 "meta": {
@@ -50667,7 +52415,13 @@ mod tests {
                                         }]
                                     }
                                 }
-                            }
+                            }),
+                            method => panic!("unexpected Solana RPC method: {method:?}"),
+                        };
+                        Json(serde_json::json!({
+                            "jsonrpc": "2.0",
+                            "id": body.get("id").cloned().unwrap_or(serde_json::Value::Null),
+                            "result": result
                         }))
                     }
                 }
@@ -50709,8 +52463,20 @@ mod tests {
         assert_eq!(prepare.status, 200);
         assert_eq!(
             prepare.verification_mode,
-            "solana_core_burn_signature_required"
+            "solana_core_burn_transaction_required"
         );
+        let burn_transaction = prepare
+            .burn_transaction
+            .as_ref()
+            .expect("production prepare returns an unsigned burn transaction");
+        assert_eq!(burn_transaction.transaction_encoding, "base64");
+        assert_eq!(burn_transaction.message_encoding, "base58");
+        assert_eq!(burn_transaction.recent_blockhash, recent_blockhash);
+        assert_eq!(burn_transaction.last_valid_block_height, 999);
+        assert_eq!(burn_transaction.program_id, CORE_PROGRAM_ID);
+        assert_eq!(burn_transaction.instruction, "BurnV1");
+        assert!(!burn_transaction.transaction.is_empty());
+        assert!(!burn_transaction.message.is_empty());
 
         let confirm = box_burn_confirm(
             ConnectInfo("127.0.0.1:45302".parse().expect("client addr")),
@@ -50802,13 +52568,19 @@ mod tests {
             let _ = axum::serve(listener, app).await;
         });
 
-        let index = OwnershipIndex::fetch_remote(&format!("http://{addr}/ownership"), None)
-            .await
-            .expect("fetch ownership feed");
+        let feed = OwnershipFeedConfig {
+            remote_url: Some(format!("http://{addr}/ownership")),
+            ..OwnershipFeedConfig::default()
+        };
+        let (index, health) = feed.load_best_effort_with_health().await;
         assert!(index.cards_for_wallet("remote-wallet").contains("rati"));
         assert!(index
             .cards_for_wallet("remote-wallet")
             .contains("location-courtyard"));
+        assert_eq!(health.consecutive_failures, 0);
+        assert!(health.last_attempt_at_unix.is_some());
+        assert!(health.last_success_at_unix.is_some());
+        assert!(health.last_error_code.is_none());
 
         server.abort();
     }
@@ -50835,8 +52607,25 @@ mod tests {
             ..OwnershipFeedConfig::default()
         };
         assert!(feed.load_strict().await.is_err());
-        let index = feed.load_best_effort().await;
+        let (index, health) = feed.load_best_effort_with_health().await;
         assert!(index.cards_for_wallet("remote-wallet").is_empty());
+        assert_eq!(health.consecutive_failures, 1);
+        assert!(health.last_attempt_at_unix.is_some());
+        assert!(health.last_success_at_unix.is_none());
+        assert_eq!(health.last_error_code.as_deref(), Some("http_502"));
+
+        assert_eq!(
+            ownership_refresh_delay(Duration::from_secs(60), 0),
+            Duration::from_secs(60)
+        );
+        assert_eq!(
+            ownership_refresh_delay(Duration::from_secs(60), 1),
+            Duration::from_secs(120)
+        );
+        assert_eq!(
+            ownership_refresh_delay(Duration::from_secs(60), 8),
+            Duration::from_secs(900)
+        );
 
         server.abort();
     }
@@ -50897,6 +52686,7 @@ mod tests {
             },
             box_burn_verifier: Arc::new(None),
             ownership_feed: Arc::new(feed),
+            ownership_feed_health: Arc::new(StdMutex::new(OwnershipFeedHealth::default())),
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
@@ -50925,6 +52715,14 @@ mod tests {
         assert!(refresh_ownership_index_once(&state)
             .await
             .expect("refresh ownership feed"));
+        let health = state
+            .ownership_feed_health
+            .lock()
+            .expect("ownership health lock")
+            .clone();
+        assert_eq!(health.consecutive_failures, 0);
+        assert!(health.last_success_at_unix.is_some());
+        assert!(health.last_error_code.is_none());
         let ownership = state.ownership_snapshot().await;
         assert!(ownership
             .cards_for_wallet("wallet-1")

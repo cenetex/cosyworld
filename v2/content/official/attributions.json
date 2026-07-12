@@ -1,0 +1,23 @@
+[
+  {
+    "pack_id": "cosyworld.rules-srd-5.1",
+    "license": "CC-BY-4.0",
+    "source_name": "System Reference Document 5.1",
+    "source_url": "https://www.dndbeyond.com/srd",
+    "text": "# SRD 5.1 attribution\n\nThis work includes material taken from the System Reference Document 5.1\n(“SRD 5.1”) by Wizards of the Coast LLC and available at\nhttps://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is\nlicensed under the Creative Commons Attribution 4.0 International License\navailable at https://creativecommons.org/licenses/by/4.0/legalcode.\n\nConversion of the source document to the JSON reference files used by the\nimporter was performed by the team at Tabyltop (https://www.tabyltop.com)."
+  },
+  {
+    "pack_id": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "source_name": "System Reference Document 5.2.1",
+    "source_url": "https://www.dndbeyond.com/srd",
+    "text": "This work includes material from the System Reference Document 5.2.1 (“SRD\n5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd.\nThe SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0\nInternational License, available at\nhttps://creativecommons.org/licenses/by/4.0/legalcode."
+  },
+  {
+    "pack_id": "cosyworld.campaign.the-lantern-keeper",
+    "license": "CC-BY-4.0",
+    "source_name": "System Reference Document 5.1",
+    "source_url": "https://www.dndbeyond.com/srd",
+    "text": "# SRD 5.1 attribution\n\nThis work includes material taken from the System Reference Document 5.1\n(“SRD 5.1”) by Wizards of the Coast LLC and available at\nhttps://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is\nlicensed under the Creative Commons Attribution 4.0 International License\navailable at https://creativecommons.org/licenses/by/4.0/legalcode."
+  }
+]

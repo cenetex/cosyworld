@@ -1,0 +1,163 @@
+[
+  {
+    "id": "monster/dryad",
+    "name": "Dryad",
+    "source_name": "Dryad",
+    "size": "Medium",
+    "creature_type": "Fey",
+    "alignment": "Neutral",
+    "armor_class": "16",
+    "hit_points": "22 (5d8)",
+    "speed": "30 ft.",
+    "ability_scores": {
+      "strength": 10,
+      "dexterity": 12,
+      "constitution": 11,
+      "intelligence": 14,
+      "wisdom": 15,
+      "charisma": 18
+    },
+    "challenge": "1 (XP 200; PB +2)",
+    "senses": "Darkvision 60 ft.; Passive Perception 14",
+    "features": [
+      {
+        "name": "Magic Resistance",
+        "description": "The dryad has Advantage on saving throws against spells and other magical effects."
+      },
+      {
+        "name": "Speak with Beasts and Plants",
+        "description": "The dryad can communicate with Beasts and Plants as if they shared a language."
+      },
+      {
+        "name": "Multiattack",
+        "description": "The dryad makes one Vine Lash or Thorn Burst attack, and it can use Spellcasting to cast Charm Monster."
+      },
+      {
+        "name": "Vine Lash",
+        "description": "Melee Attack Roll: +6, reach 10 ft. Hit: 8 (1d8 + 4) Slashing damage."
+      },
+      {
+        "name": "Thorn Burst",
+        "description": "Ranged Attack Roll: +6, range 60 ft. Hit: 7 (1d6 + 4) Piercing damage."
+      },
+      {
+        "name": "Spellcasting",
+        "description": "The dryad casts one of the following spells, requiring no Material components and using Charisma as the spellcasting ability (spell save DC 14): At Will: Animal Friendship, Charm Monster (lasts 24 hours; ends early if the dryad casts the spell again), Druidcraft. 1/Day Each: Entangle, Pass without Trace."
+      },
+      {
+        "name": "Tree Stride",
+        "description": "If within 5 feet of a Large or bigger tree, the dryad teleports to an unoccupied space within 5 feet of a second Large or bigger tree that is within 60 feet of the previous tree."
+      }
+    ],
+    "mapping": {
+      "status": "reference_only",
+      "suggested_role": "resident"
+    }
+  },
+  {
+    "id": "monster/sprite",
+    "name": "Sprite",
+    "source_name": "Sprite",
+    "size": "Tiny",
+    "creature_type": "Fey",
+    "alignment": "Neutral Good",
+    "armor_class": "15",
+    "hit_points": "10 (4d4)",
+    "speed": "10 ft., Fly 40 ft.",
+    "ability_scores": {
+      "strength": 3,
+      "dexterity": 18,
+      "constitution": 10,
+      "intelligence": 14,
+      "wisdom": 13,
+      "charisma": 11
+    },
+    "challenge": "1/4 (XP 50; PB +2)",
+    "senses": "Passive Perception 13",
+    "features": [
+      {
+        "name": "Needle Sword",
+        "description": "Melee Attack Roll: +6, reach 5 ft. Hit: 6 (1d4 + 4) Piercing damage."
+      },
+      {
+        "name": "Enchanting Bow",
+        "description": "Ranged Attack Roll: +6, range 40/160 ft. Hit: 1 Piercing damage, and the target has the Charmed condition until the start of the sprite's next turn."
+      },
+      {
+        "name": "Heart Sight",
+        "description": "Charisma Saving Throw: DC 10, one creature within 5 feet the sprite can see (Celestials, Fiends, and Undead automatically fail the save). Failure: The sprite knows the target's emotions and alignment."
+      },
+      {
+        "name": "Invisibility",
+        "description": "The sprite casts Invisibility on itself, requiring no spell components and using Charisma as the spellcasting ability."
+      }
+    ],
+    "mapping": {
+      "status": "reference_only",
+      "suggested_role": "resident"
+    }
+  },
+  {
+    "id": "monster/unicorn",
+    "name": "Unicorn",
+    "source_name": "Unicorn",
+    "size": "Large",
+    "creature_type": "Celestial",
+    "alignment": "Lawful Good",
+    "armor_class": "12",
+    "hit_points": "97 (13d10 + 26)",
+    "speed": "50 ft.",
+    "ability_scores": {
+      "strength": 18,
+      "dexterity": 14,
+      "constitution": 15,
+      "intelligence": 11,
+      "wisdom": 17,
+      "charisma": 16
+    },
+    "challenge": "5 (XP 1,800; PB +3)",
+    "senses": "Darkvision 60 ft.; Passive Perception 13",
+    "features": [
+      {
+        "name": "Legendary Resistance (3/Day)",
+        "description": "If the unicorn fails a saving throw, it can choose to succeed instead."
+      },
+      {
+        "name": "Magic Resistance",
+        "description": "The unicorn has Advantage on saving throws against spells and other magical effects."
+      },
+      {
+        "name": "Multiattack",
+        "description": "The unicorn makes one Hooves attack and one Radiant Horn attack."
+      },
+      {
+        "name": "Hooves",
+        "description": "Melee Attack Roll: +7, reach 5 ft. Hit: 11 (2d6 + 4) Bludgeoning damage."
+      },
+      {
+        "name": "Radiant Horn",
+        "description": "Melee Attack Roll: +7, reach 5 ft. Hit: 9 (1d10 + 4) Radiant damage."
+      },
+      {
+        "name": "Spellcasting",
+        "description": "The unicorn casts one of the following spells, requiring no spell components and using Charisma as the spellcasting ability (spell save DC 14): At Will: Detect Evil and Good, Druidcraft. 1/Day Each: Calm Emotions, Dispel Evil and Good, Entangle, Pass without Trace, Word of Recall."
+      },
+      {
+        "name": "Unicorn's Blessing (3/Day)",
+        "description": "The unicorn touches another creature with its horn and casts Cure Wounds or Lesser Restoration on that creature, using the same spellcasting ability as Spellcasting."
+      },
+      {
+        "name": "Charging Horn",
+        "description": "The unicorn moves up to half its Speed without provoking Opportunity Attacks, and it makes one Radiant Horn attack."
+      },
+      {
+        "name": "Shimmering Shield",
+        "description": "The unicorn targets itself or one creature it can see within 60 feet of itself. The target gains 10 (3d6) Temporary Hit Points, and its AC increases by 2 until the end of the unicorn's next turn. The unicorn can't take this action again until the start of its next turn."
+      }
+    ],
+    "mapping": {
+      "status": "reference_only",
+      "suggested_role": "guardian"
+    }
+  }
+]

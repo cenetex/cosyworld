@@ -14,9 +14,10 @@ The compiled directory is a release artifact and should not be edited by hand.
 
 ## Pack contract
 
-`pack.json` schema version 2 supports four pack kinds:
+`pack.json` schema version 2 supports five pack kinds:
 
 - `world`: actors, locations, items, exits, cards, jobs, fronts, and other runtime resources.
+- `campaign`: a bounded world arc that must also declare pack-owned character creation.
 - `catalog`: external collectible-card metadata that projects into the world but is not a kernel entity by itself.
 - `assets`: art or other static media mounted by a world or catalog pack.
 - `rules`: reusable rules reference data. Rules packs may omit world resources entirely.
@@ -24,6 +25,25 @@ The compiled directory is a release artifact and should not be edited by hand.
 Resource files are JSON arrays. A pack may provide any subset; the compiler concatenates them in declared pack order and the worldpack validator checks duplicate IDs, references, capacities, and final-world invariants. Implicit overriding is not supported.
 
 Dependencies must appear before the dependent pack in `world.json`. Cross-pack links should live in an explicit bridge pack or official-world composition pack rather than making two otherwise reusable packs own each other's topology.
+
+## Pack-defined character creation
+
+A `world` pack may declare `character_creation`; a `campaign` pack must. The
+file is an array of schema-version-1 profiles. Each profile defines a stable id,
+campaign name and prompt, entry location, default choice, and two to six
+choices. Each choice supplies an authored Calling, title, description, and one
+existing CosyWorld starting knack.
+
+The compiler scopes profiles to their owning pack in
+`character_creation.json`. The validator rejects duplicate profile/choice ids,
+missing entry rooms, invalid Callings, or unknown knacks. The guest state
+exposes the compiled profiles; `/avatar` accepts `character_creation_id` and
+`character_choice_id`, then commits the selected entry room, identity, Calling,
+and rank-one knack through the existing kernel and journal path.
+
+This is intentionally narrower than a tabletop character builder. Packs cannot
+set arbitrary kernel statistics, grant unvalidated items, invent classes, or
+add spell slots through character-creation JSON.
 
 ## Commands
 
@@ -71,4 +91,19 @@ The current kernel ABI still uses numeric actor, item, and location IDs. The val
 
 ## SRD packs
 
-A future `cosyworld-rules-srd-5.1` or `cosyworld-rules-srd-5.2.1` should be a version-specific `rules` pack, not the official seed world. It must include its CC-BY-4.0 attribution and expose only concepts supported by the CosyWorld rules adapter. The official world decides whether and how to depend on it.
+`cosyworld.rules-srd-5.1` and `cosyworld.rules-srd-5.2.1` are separate,
+version-specific `rules` packs. They use the `cosyworld.rules/1` adapter and
+compile attributed conditions and selected monster conversion seeds into
+independent bundles in `rules.json`; their required CC-BY-4.0 statements are
+carried into `attributions.json`.
+
+The official world includes both packs as reference data. Neither pack adds
+world entities, gains authority over monster behavior, or overlays the other
+pack's namespace. See `docs/rules-adapter.md` for the mapping boundary.
+
+## Campaign packs
+
+`cosyworld.campaign.the-lantern-keeper` is the first short campaign pack. It
+depends on Core and SRD 5.1, adds a five-room adventure with one progress/danger
+arc, and owns four level-one character archetypes through the character-creation
+contract above.

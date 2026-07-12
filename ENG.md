@@ -149,12 +149,12 @@ The worldpack is the designer contract. Keep `check-worldpack.mjs` strict and ex
 ### 11. Production operations
 
 - The container is host-agnostic: the root `Dockerfile` builds the release orchestrator; the current deployment target is **AWS** (with `fly.toml` retained for Fly). The contract is identical everywhere: a persistent volume at `/data`, the production-profile env (protected ownership feed + bearer, SQLite event store, moderation token, shard id), and `/meta` as the deploy smoke surface.
-- Run the production profile in staging against Ruby High's actual protected ownership feed (currently only smoke-tested against a local stand-in).
+- Restore Ruby High's upstream Solana RPC capacity, deploy the ownership-feed health telemetry, and rerun the hosted smoke against the actual protected export. The hosted path is configured and has been exercised, but the export currently fails on upstream RPC quota exhaustion.
 - SQLite backup, retention, and restore-drill policy for `/data`.
 - Observability past `/meta`: request/latency metrics, AI provider and dialogue inference failure rates, ledger anomaly counts, ping-to-skip rates.
 - World hygiene rituals: a documented wipe/reset procedure before playtests (no smoke-avatar residue in first impressions), and presence/turn eligibility windows tuned so ghosts are rare rather than merely skippable.
 - Keep resident placement player-powered: overlap tie rotation uses world-tick seasons rather than wall-clock days, and future placement changes should be audited world actions rather than invisible time.
-- Production Box burn transaction construction (confirm-side verification already exists) and reconciliation against Ruby High/chain state.
+- Deploy and smoke the configured production Box burn builder/verifier, then extend the protected reconciliation resolution console with support search, alerts, and retention policy.
 
 ## The Hand as Transport Contract
 
