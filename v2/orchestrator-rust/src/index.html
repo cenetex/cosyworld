@@ -1843,6 +1843,29 @@
       font-size: 12px;
       overflow-wrap: anywhere;
     }
+    .wallet-app-links {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .wallet-app-links a,
+    .wallet-app-links button {
+      min-height: 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(139, 183, 255, 0.38);
+      border-radius: 4px;
+      background: rgba(139, 183, 255, 0.08);
+      color: var(--blue);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 850;
+      text-align: center;
+      text-decoration: none;
+    }
+    .wallet-app-links .wallet-copy-link { grid-column: 1 / -1; }
+    .wallet-app-links[hidden] { display: none; }
     .wallet-status {
       min-height: 22px;
       margin-top: 10px;
@@ -2559,11 +2582,16 @@
   </div>
   <div class="wallet-modal" id="wallet-modal" hidden>
     <section class="wallet-dialog" role="dialog" aria-modal="true" aria-labelledby="wallet-modal-title">
-      <button class="wallet-close" type="button" data-wallet-close aria-label="Close wallet sign-in">x</button>
+      <button class="wallet-close" type="button" data-wallet-close aria-label="Close wallet window">x</button>
       <div class="wallet-title" id="wallet-modal-title">wallet sign-in</div>
       <div class="wallet-copy">Scan this with your phone. Sign one message. No transaction, no fee.</div>
       <div class="wallet-qr"><img id="wallet-qr-image" alt="Wallet sign-in QR code" /></div>
       <div class="wallet-link" id="wallet-mobile-url"></div>
+      <div class="wallet-app-links" id="wallet-app-links" hidden>
+        <a id="wallet-phantom-link" href="#" rel="noreferrer">open in Phantom</a>
+        <a id="wallet-solflare-link" href="#" rel="noreferrer">open in Solflare</a>
+        <button class="wallet-copy-link" id="wallet-copy-link" type="button">copy portable link</button>
+      </div>
       <div class="wallet-status" id="wallet-status"></div>
     </section>
   </div>
@@ -2660,6 +2688,8 @@
     let refreshQueued = false;
     let actionBusy = false;
     let pendingAction = null;
+    let pendingCardReactions = [];
+    let nextPendingCardReactionId = 1;
     let actionConfirmAction = null;
     let accountPanelPinned = false;
     let libraryPanelPinned = false;
@@ -2885,32 +2915,6 @@
       connectStream();
     }
 
-    async function linkAnotherWallet() {
-      if (!identity?.authenticated) throw new Error("Sign in with a passkey first.");
-      const provider = solanaProvider();
-      if (!provider?.connect || !provider?.signMessage) {
-        throw new Error("Open this page in a Solana wallet browser to link another wallet.");
-      }
-      const connected = await withTimeout(provider.connect(), walletRequestTimeoutMs, "Wallet connection timed out.");
-      const nextWallet = (connected?.publicKey || provider.publicKey)?.toString?.() || "";
-      if (!nextWallet) throw new Error("Wallet connection failed.");
-      const challenge = await post("/auth/wallets/link/start", { wallet_address: nextWallet });
-      if (!challenge.ok) throw new Error(challenge.error || "Wallet link could not start.");
-      const signed = await withTimeout(
-        provider.signMessage(new TextEncoder().encode(challenge.message), "utf8"),
-        walletRequestTimeoutMs,
-        "Wallet signature timed out."
-      );
-      const finished = await post("/auth/wallets/link/finish", {
-        wallet_address: nextWallet,
-        nonce: challenge.nonce,
-        signature: Array.from(signed?.signature || signed || []),
-      });
-      if (!finished.ok) throw new Error(finished.error || "Wallet link failed.");
-      applyIdentity(finished);
-      await refresh();
-    }
-
     async function selectLinkedWallet(wallet) {
       const selected = await post("/auth/wallets/select", { wallet_address: wallet });
       if (!selected.ok) throw new Error(selected.error || "Wallet selection failed.");
@@ -2930,7 +2934,8 @@
       setError("");
       setStatus(label, "ok");
       try {
-        await task();
+        const result = await task();
+        if (result === false) return;
         setStatus("Account updated.", "ok");
       } catch (error) {
         setError(String(error.message || error));
@@ -4715,7 +4720,15 @@
     function closeWalletQrModal(result = false) {
       stopWalletQrPolling();
       $("wallet-modal").hidden = true;
+      $("wallet-modal-title").textContent = "wallet sign-in";
+      $("wallet-modal").querySelector(".wallet-copy").textContent = "Scan this with your phone. Sign one message. No transaction, no fee.";
       $("wallet-qr-image").removeAttribute("src");
+      $("wallet-qr-image").alt = "Wallet sign-in QR code";
+      $("wallet-mobile-url").textContent = "";
+      $("wallet-app-links").hidden = true;
+      $("wallet-phantom-link").href = "#";
+      $("wallet-solflare-link").href = "#";
+      $("wallet-copy-link").dataset.portableUrl = "";
       if (walletQrResolve) {
         const resolve = walletQrResolve;
         walletQrResolve = null;
@@ -4723,7 +4736,64 @@
       }
     }
 
+    function configureWalletAppLinks(portableUrl) {
+      const ref = window.location.origin;
+      $("wallet-phantom-link").href = `https://phantom.app/ul/browse/${encodeURIComponent(portableUrl)}?ref=${encodeURIComponent(ref)}`;
+      $("wallet-solflare-link").href = `https://solflare.com/ul/v1/browse/${encodeURIComponent(portableUrl)}?ref=${encodeURIComponent(ref)}`;
+      $("wallet-copy-link").dataset.portableUrl = portableUrl;
+      $("wallet-app-links").hidden = false;
+    }
+
+    async function claimNftWallet() {
+      if (!identity?.authenticated) throw new Error("Sign in with a passkey first.");
+      setStatus("Create a portable NFT wallet claim.", "ok");
+      const started = await post("/auth/wallet-claims/start", {});
+      if (!started.ok || !started.claim_id || !started.poll_token) {
+        throw new Error(started.error || "Wallet claim could not start.");
+      }
+      const portableUrl = new URL(started.mobile_path || `/wallet/claim/${started.claim_id}`, window.location.href).toString();
+      const qrSvgUrl = new URL(started.qr_svg_path || `/wallet/claim/${started.claim_id}/code.svg`, window.location.href).toString();
+      $("wallet-modal-title").textContent = "claim NFT wallet";
+      $("wallet-modal").querySelector(".wallet-copy").textContent = "Open this link in Phantom or Solflare. Sign one message there; this passkey browser stays signed in here.";
+      $("wallet-qr-image").alt = "NFT wallet claim QR code";
+      $("wallet-qr-image").src = qrSvgUrl;
+      $("wallet-mobile-url").textContent = portableUrl;
+      configureWalletAppLinks(portableUrl);
+      setWalletQrStatus("Waiting for the wallet signature. You can keep using this browser.");
+      $("wallet-modal").hidden = false;
+      $("wallet-modal").querySelector(".wallet-close")?.focus();
+
+      return new Promise((resolve) => {
+        walletQrResolve = resolve;
+        const poll = async () => {
+          try {
+            const status = await api(`/auth/wallet-claims/status?claim_id=${encodeURIComponent(started.claim_id)}&poll_token=${encodeURIComponent(started.poll_token)}`);
+            if (status.ok && status.state === "complete" && status.wallet_address) {
+              applyIdentity(await api("/auth/account"));
+              equippedCardIds = loadKeepsakeLoadout();
+              setStatus(status.moved ? "NFT wallet claim moved here." : "NFT wallet claimed.", "ok");
+              focusIndex = 0;
+              focusedKey = "";
+              await refresh();
+              connectStream();
+              closeWalletQrModal(true);
+            } else if (!status.ok && status.state === "expired") {
+              setWalletQrStatus("Wallet claim expired. Start a fresh claim.", "error");
+              closeWalletQrModal(false);
+            }
+          } catch (error) {
+            setWalletQrStatus(String(error.message || error), "error");
+          }
+        };
+        walletQrPollTimer = window.setInterval(poll, 1400);
+        poll();
+      });
+    }
+
     async function openQrWalletLogin() {
+      $("wallet-modal-title").textContent = "wallet sign-in";
+      $("wallet-modal").querySelector(".wallet-copy").textContent = "Scan this with your phone. Sign one message. No transaction, no fee.";
+      $("wallet-app-links").hidden = true;
       setStatus("Scan the wallet sign-in QR.", "ok");
       const started = await post("/wallet/qr/start", {});
       if (!started.ok || !started.login_id || !started.poll_token) {
@@ -5213,6 +5283,7 @@
 
     function resetTranscriptAtWorldBoundary(event) {
       logEvents = [];
+      pendingCardReactions = [];
       seenSeq.clear();
       if (event?.seq !== undefined && event?.seq !== null) seenSeq.add(event.seq);
     }
@@ -5267,12 +5338,71 @@
         }
         if (!event || seenSeq.has(event.seq)) continue;
         seenSeq.add(event.seq);
+        resolvePendingCardReaction(event);
         if (eventIsHiddenContext(event)) continue;
         if (!eventIsLowSignalStatus(event)) appendLogEvent(event);
         changed = true;
       }
       logEvents = logEvents.slice(-90);
       return changed;
+    }
+
+    function reactionTargetForAction(action) {
+      let selectedTargetId = 0;
+      if (typeof action?.selectedPayload === "function") {
+        try {
+          selectedTargetId = Number(action.selectedPayload()?.target_actor_id || 0);
+        } catch {
+          selectedTargetId = 0;
+        }
+      }
+      const residents = (state?.actors || []).filter((actor) => (
+        actor.kind === "npc"
+        && actor.status === "active"
+        && Number(actor.location_id || state?.location?.id || 0) === Number(state?.location?.id || 0)
+      ));
+      const selected = residents.find((actor) => Number(actor.id) === selectedTargetId);
+      if (selected) return selected;
+      if (!residents.length) return actorForId(actorId);
+      const latestResidentId = [...logEvents].reverse().find((event) => (
+        event?.type === "message.created"
+        && residents.some((actor) => Number(actor.id) === Number(event.actor_id))
+      ))?.actor_id;
+      if (!latestResidentId) return residents[0];
+      const latestIndex = residents.findIndex((actor) => Number(actor.id) === Number(latestResidentId));
+      return residents[(latestIndex + 1) % residents.length];
+    }
+
+    function beginPendingCardReaction(action) {
+      if (!actorId || action?.kind === "orb-chat" || action?.kind === "avatar-arrival") return 0;
+      const target = reactionTargetForAction(action);
+      if (!target) return 0;
+      const id = nextPendingCardReactionId++;
+      pendingCardReactions.push({
+        id,
+        targetActorId: Number(target.id || 0),
+        targetName: actorLabel(target),
+        afterSeq: latestSeenSeq(),
+      });
+      return id;
+    }
+
+    function cancelPendingCardReaction(id) {
+      if (!id) return;
+      pendingCardReactions = pendingCardReactions.filter((reaction) => reaction.id !== id);
+    }
+
+    function resolvePendingCardReaction(event) {
+      if (event?.type !== "message.created" || !pendingCardReactions.length) return;
+      const eventSeq = Number(event.seq || 0);
+      let index = pendingCardReactions.findIndex((reaction) => (
+        eventSeq > Number(reaction.afterSeq || 0)
+        && Number(event.actor_id || 0) === Number(reaction.targetActorId || 0)
+      ));
+      if (index < 0) {
+        index = pendingCardReactions.findIndex((reaction) => eventSeq > Number(reaction.afterSeq || 0));
+      }
+      if (index >= 0) pendingCardReactions.splice(index, 1);
     }
 
     function rebuildLog(events) {
@@ -5284,6 +5414,7 @@
           continue;
         }
         if (!event || eventIsHiddenContext(event)) continue;
+        resolvePendingCardReaction(event);
         if (event.seq !== undefined && event.seq !== null) {
           if (seenSeq.has(event.seq)) continue;
           seenSeq.add(event.seq);
@@ -6171,8 +6302,9 @@
       const accountPanel = accountPanelHtml();
       const visibleEvents = pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent));
       const pendingConversation = pendingConversationHtml();
+      const pendingCardReplies = pendingCardReactionsHtml();
       const pendingArrival = pendingAvatarArrivalHtml();
-      const hasChat = visibleEvents.length > 0 || Boolean(pendingConversation);
+      const hasChat = visibleEvents.length > 0 || Boolean(pendingConversation) || Boolean(pendingCardReplies);
       const residentOnly = visibleEvents.length > 0 && visibleEvents.every(messageActorIsResident);
       log.classList.toggle("library-mode", Boolean(libraryPanel));
       log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
@@ -6200,8 +6332,8 @@
         log.scrollTop = 0;
         return;
       }
-      log.innerHTML = `${visibleEvents.map(messageHtml).join("")}${pendingConversation}`;
-      log.scrollTop = residentOnly && !pendingConversation ? 0 : log.scrollHeight;
+      log.innerHTML = `${visibleEvents.map(messageHtml).join("")}${pendingConversation}${pendingCardReplies}`;
+      log.scrollTop = residentOnly && !pendingConversation && !pendingCardReplies ? 0 : log.scrollHeight;
     }
 
     function libraryPanelHtml() {
@@ -6285,6 +6417,14 @@
       const speaker = target ? actorLabel(target) : (pendingAction.targetName || "A neighbour");
       const aria = `${speaker} is finding the thread. Your conversation is unfolding.`;
       return `<div class="line chat npc pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: targetId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>finding the thread…</span></div>`;
+    }
+
+    function pendingCardReactionsHtml() {
+      return pendingCardReactions.map((reaction) => {
+        const speaker = reaction.targetName || "Someone nearby";
+        const aria = `${speaker} is responding to your card. Your next cards are ready.`;
+        return `<div class="line chat npc pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: reaction.targetActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>responding to your card…</span></div>`;
+      }).join("");
     }
 
     function pendingAvatarArrivalHtml() {
@@ -6388,13 +6528,13 @@
         ? wallets.map((entry) => {
             const wallet = String(entry.wallet_address || "");
             const active = wallet === identity.active_wallet;
-            return `<div class="account-wallet-entry${active ? " active" : ""}"><code>${escapeHtml(compactAssetId(wallet))}</code><div class="account-wallet-controls">${active ? `<span class="account-auth-copy">active</span>` : `<button class="account-button secondary" type="button" data-wallet-select="${escapeAttr(wallet)}">use</button>`}<button class="account-button secondary" type="button" data-wallet-unlink="${escapeAttr(wallet)}">unlink</button></div></div>`;
+            return `<div class="account-wallet-entry${active ? " active" : ""}"><code>${escapeHtml(compactAssetId(wallet))}</code><div class="account-wallet-controls">${active ? `<span class="account-auth-copy">NFT access active</span>` : `<button class="account-button secondary" type="button" data-wallet-select="${escapeAttr(wallet)}">use</button>`}<button class="account-button secondary" type="button" data-wallet-unlink="${escapeAttr(wallet)}">release</button></div></div>`;
           }).join("")
-        : `<div class="account-empty">No wallet linked. Public play still works.</div>`;
+        : `<div class="account-empty">No NFT wallet claimed. Public play still works.</div>`;
       const passkeyCopy = passkeys.length === 1
         ? "1 passkey — add a second for recovery"
         : `${passkeys.length} passkeys`;
-      return `<section class="account-section" aria-label="CosyWorld account"><div class="account-section-title">CosyWorld account</div>${accountRow("passkeys", passkeyCopy)}<div class="account-actions"><button class="account-button secondary" type="button" data-passkey-add>add passkey</button><button class="account-button secondary" type="button" data-wallet-link>link wallet</button><button class="account-button secondary" type="button" data-account-logout>sign out</button></div><div class="account-wallet-list">${walletRows}</div></section>`;
+      return `<section class="account-section" aria-label="CosyWorld account"><div class="account-section-title">CosyWorld account</div>${accountRow("passkeys", passkeyCopy)}<div class="account-actions"><button class="account-button secondary" type="button" data-passkey-add>add passkey</button><button class="account-button secondary" type="button" data-wallet-link>claim NFT wallet</button><button class="account-button secondary" type="button" data-account-logout>sign out</button></div><div class="account-wallet-list">${walletRows}</div></section>`;
     }
 
     function characterSheetHtml() {
@@ -8570,15 +8710,18 @@
       if (actionBusy) return;
       actionBusy = true;
       pendingAction = action;
+      const pendingReactionId = beginPendingCardReaction(action);
       renderCommands();
       renderLog();
       try {
         const result = await action.run();
+        if (result?.ok === false) cancelPendingCardReaction(pendingReactionId);
         const handKey = action.handKey || actionHandKey(action);
         if (!state?.branch && handKey && result?.ok !== false) {
           discardHandKey(handKey);
         }
       } catch (error) {
+        cancelPendingCardReaction(pendingReactionId);
         setError(String(error.message || error));
       } finally {
         actionBusy = false;
@@ -8722,7 +8865,7 @@
       const walletLink = event.target.closest("[data-wallet-link]");
       if (walletLink) {
         event.preventDefault();
-        runIdentityTask("Sign to link this wallet.", linkAnotherWallet);
+        runIdentityTask("Open this claim in your Solana wallet.", claimNftWallet);
         return;
       }
       const walletSelect = event.target.closest("[data-wallet-select]");
@@ -8833,6 +8976,16 @@
     });
 
     $("wallet-modal").addEventListener("click", (event) => {
+      const copyLink = event.target.closest("#wallet-copy-link");
+      if (copyLink) {
+        event.preventDefault();
+        const portableUrl = copyLink.dataset.portableUrl || "";
+        if (!portableUrl) return;
+        navigator.clipboard.writeText(portableUrl)
+          .then(() => setWalletQrStatus("Portable wallet claim link copied."))
+          .catch(() => setWalletQrStatus("Copy the visible link above.", "error"));
+        return;
+      }
       if (event.target.closest("[data-wallet-close]") || event.target.id === "wallet-modal") {
         event.preventDefault();
         closeWalletQrModal(false);

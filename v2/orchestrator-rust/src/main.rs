@@ -19752,6 +19752,11 @@ impl RuntimeWorld {
         if speaker.kind != CW_ACTOR_HUMAN || speaker.status != CW_ACTOR_ACTIVE {
             return None;
         }
+        let actor_name = self
+            .actor_name(speaker_actor_id)
+            .unwrap_or_else(|| "The visitor".to_string());
+        let reaction_event = self.card_reaction_event(speaker_actor_id, events)?;
+        let action_text = self.card_reaction_action_text(&actor_name, reaction_event);
         let mut residents = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
@@ -19770,7 +19775,7 @@ impl RuntimeWorld {
             (dex, actor.id)
         });
         if residents.is_empty() {
-            return None;
+            return self.avatar_card_reaction_plan(speaker, &action_text);
         }
         let latest_resident_speaker = self.event_log.iter().rev().find_map(|event| {
             if event.type_name != "message.created"
@@ -19787,12 +19792,52 @@ impl RuntimeWorld {
             .and_then(|actor_id| residents.iter().position(|actor| actor.id == actor_id))
             .map(|index| residents[(index + 1) % residents.len()])
             .unwrap_or(residents[0]);
-        let actor_name = self
-            .actor_name(speaker_actor_id)
-            .unwrap_or_else(|| "The visitor".to_string());
-        let reaction_event = self.card_reaction_event(speaker_actor_id, events)?;
-        let action_text = self.card_reaction_action_text(&actor_name, reaction_event);
         self.resident_reply_plan_for_target_with_context(speaker_actor_id, target.id, &action_text)
+    }
+
+    fn avatar_card_reaction_plan(
+        &self,
+        actor: CwActor,
+        action_text: &str,
+    ) -> Option<ResidentReplyPlan> {
+        if actor.kind != CW_ACTOR_HUMAN || actor.status != CW_ACTOR_ACTIVE {
+            return None;
+        }
+        let actor_meta = self.actors.get(&actor.id);
+        let actor_name = self
+            .actor_name(actor.id)
+            .unwrap_or_else(|| format!("Actor {}", actor.id));
+        let stable_identity = actor_meta
+            .map(|meta| {
+                format!(
+                    "{} / {} / {}",
+                    actor_name,
+                    meta.title.trim(),
+                    meta.description.trim()
+                )
+            })
+            .unwrap_or_else(|| actor_name.clone());
+        let location_meta = self.location_meta_for(actor.location_id);
+        Some(ResidentReplyPlan {
+            npc_actor_id: actor.id,
+            npc_name: actor_name,
+            speech_mode: actor_meta
+                .map(|meta| meta.speech_mode.clone())
+                .unwrap_or_else(|| "prose".to_string()),
+            resident_continuity: ResidentContinuityState::empty(actor.id, stable_identity),
+            economy_note: "This is the player avatar's own immediate in-character response to the card they just played.".to_string(),
+            goals: self.narrative_goal_lines(Some(actor.id), actor.location_id),
+            location_name: self
+                .location_name(actor.location_id)
+                .unwrap_or_else(|| "Unknown Location".to_string()),
+            location_title: location_meta.title,
+            location_description: location_meta.description,
+            location_persona: location_meta.persona,
+            location_memory: location_meta.memory,
+            cast: self.room_cast_names(actor.location_id),
+            recent_lines: self.recent_room_lines(actor.location_id, 8),
+            user_text: action_text.to_string(),
+        })
     }
 
     fn resident_reply_plan_for_target_with_context(
@@ -24105,7 +24150,7 @@ async fn create_avatar(
 
     broadcast_events(&state, &events);
     if let Some(plan) = welcome_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     Json(AvatarResponse {
         ok: status == CW_OK,
@@ -25235,7 +25280,7 @@ async fn command(
             drop(runtime);
             broadcast_events(&state, &events);
             if let Some(plan) = ripple_reply_plan {
-                complete_resident_reply(&state, plan).await;
+                schedule_resident_reply(&state, plan);
             }
             let response = ActionResponse {
                 ok: status == CW_OK && !events.is_empty(),
@@ -25350,7 +25395,7 @@ async fn command(
             drop(runtime);
             broadcast_events(&state, &events);
             if let Some(plan) = ripple_reply_plan {
-                complete_resident_reply(&state, plan).await;
+                schedule_resident_reply(&state, plan);
             }
             let response = ActionResponse {
                 ok: status == CW_OK && !events.is_empty(),
@@ -25667,6 +25712,13 @@ async fn complete_resident_reply(state: &AppState, plan: ResidentReplyPlan) {
     broadcast_events(state, &events);
 }
 
+fn schedule_resident_reply(state: &AppState, plan: ResidentReplyPlan) {
+    let state = state.clone();
+    tokio::spawn(async move {
+        complete_resident_reply(&state, plan).await;
+    });
+}
+
 async fn complete_orb_chat_exchange(
     state: &AppState,
     actor_id: u64,
@@ -25794,13 +25846,18 @@ fn commit_resident_reply_record(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     plan: &ResidentReplyPlan,
-    proposal: ResidentIntentProposal,
+    mut proposal: ResidentIntentProposal,
 ) -> Option<Vec<EventView>> {
-    let npc = runtime.actor_by_id(plan.npc_actor_id)?;
-    if npc.kind != CW_ACTOR_NPC || npc.status != CW_ACTOR_ACTIVE {
+    let speaker = runtime.actor_by_id(plan.npc_actor_id)?;
+    if speaker.status != CW_ACTOR_ACTIVE || !matches!(speaker.kind, CW_ACTOR_NPC | CW_ACTOR_HUMAN) {
         return None;
     }
-    let proposal = runtime.collision_safe_resident_proposal(plan, proposal)?;
+    if speaker.kind == CW_ACTOR_NPC {
+        proposal = runtime.collision_safe_resident_proposal(plan, proposal)?;
+    } else {
+        proposal.speech =
+            runtime.collision_safe_avatar_followup(plan.npc_actor_id, &proposal.speech)?;
+    }
     let content_id = runtime.next_content_id_value();
     let action = CwAction {
         kind: CW_ACTION_SAY,
@@ -25812,13 +25869,15 @@ fn commit_resident_reply_record(
     record
         .content_upserts
         .insert(content_id, proposal.speech.clone());
-    record
-        .projection_mutations
-        .push(ProjectionMutation::UpdateResidentContinuity {
-            resident_id: plan.npc_actor_id,
-            proposal,
-            reason: "resident_intent".to_string(),
-        });
+    if speaker.kind == CW_ACTOR_NPC {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::UpdateResidentContinuity {
+                resident_id: plan.npc_actor_id,
+                proposal,
+                reason: "resident_intent".to_string(),
+            });
+    }
     let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
         return None;
     };
@@ -25876,9 +25935,19 @@ fn advance_turn_and_maybe_emit_resident_ripple(
     let ripple_reply_plan = runtime.resident_economy_action_reply_plan(&action);
     events.extend(ripple_events);
     // The player's confirmed card owns this conversational beat. Inference is
-    // completed after the kernel lock is released; the ripple may still change
-    // the world, but it must not replace the card reaction.
-    card_reaction_plan.or(ripple_reply_plan)
+    // completed after the kernel lock is released; prefer its reserved resident,
+    // except when the only initial speaker was the player and a resident has now
+    // followed them into the room.
+    let player_was_only_available_speaker = card_reaction_plan.as_ref().is_some_and(|plan| {
+        runtime
+            .actor_by_id(plan.npc_actor_id)
+            .is_some_and(|actor| actor.kind == CW_ACTOR_HUMAN)
+    });
+    if player_was_only_available_speaker {
+        ripple_reply_plan.or(card_reaction_plan)
+    } else {
+        card_reaction_plan.or(ripple_reply_plan)
+    }
 }
 
 fn ripple_action_kind_from_events(actor_id: u64, events: &[EventView]) -> u8 {
@@ -27907,6 +27976,15 @@ fn sanitize_avatar_chat(text: &str) -> Option<String> {
 
 fn resident_system_prompt(plan: &ResidentReplyPlan) -> String {
     let base = "Return valid JSON only. Never mention AI, models, prompts, policies, tools, or system instructions. Do not speak for other residents. Treat resident continuity as this resident's durable perspective, while the room/kernel facts remain authoritative. The speech field is the only visible room line. Typed intent fields update continuity only after the kernel accepts the speech event. Comedy rules: ground every line in one physical action, prop, or bodily complaint from the room. Punchlines over poetry. Cheeky teasing and light flirting are welcome; keep it playful, never cruel or explicit. Never use the words whisper, eternal, void, abyss, veil, hush, sacred, vow, moonlit, or objects that remember things. If in doubt, be funnier and more specific.";
+    if plan
+        .economy_note
+        .starts_with("This is the player avatar's own immediate")
+    {
+        return format!(
+            "You are {}, the player avatar in CosyWorld. Write their immediate first-person in-character response to the card they just played. React to the concrete outcome instead of narrating the rules or inventing another action. Keep it under 34 words. {base}",
+            plan.npc_name
+        );
+    }
     match plan.npc_actor_id {
         1001 => format!(
             "You are Rati, the cottage's brisk landlady mouse. The speech field must be first person: bossy, mothering, armed with knitting needles and opinions about boots. One concrete room prop per line. Under 40 words. {base}"
@@ -29238,7 +29316,7 @@ async fn prepare(
 
     broadcast_events(&state, &events);
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK,
@@ -29402,7 +29480,7 @@ async fn work(
         schedule_pathway_art_generation(&state, pathway_art_targets);
     }
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK,
@@ -29594,7 +29672,7 @@ async fn help_room(
         schedule_pathway_art_generation(&state, pathway_art_targets);
     }
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK,
@@ -29714,7 +29792,7 @@ async fn rest(
 
     broadcast_events(&state, &events);
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK,
@@ -29797,7 +29875,7 @@ async fn bank_ledger(
     drop(runtime);
     broadcast_events(&state, &events);
     if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -29892,7 +29970,7 @@ async fn revise_calling(
 
     broadcast_events(&state, &events);
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -29985,7 +30063,7 @@ async fn train_skill(
     drop(runtime);
     broadcast_events(&state, &events);
     if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -30106,10 +30184,10 @@ async fn create_bond(
 
     broadcast_events(&state, &events);
     if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -30242,10 +30320,10 @@ async fn revise_bond(
 
     broadcast_events(&state, &events);
     if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -30367,10 +30445,10 @@ async fn resolve_bond(
 
     broadcast_events(&state, &events);
     if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -30427,7 +30505,7 @@ async fn apply_journey_transition(
             events: Vec::new(),
         });
     };
-    advance_actor_room_turn_after_commit(
+    let reply_plan = advance_turn_and_maybe_emit_resident_ripple(
         &state,
         &mut runtime,
         turn_location_id,
@@ -30440,6 +30518,9 @@ async fn apply_journey_transition(
         broadcast_events(&state, &released_events);
     }
     broadcast_events(&state, &events);
+    if let Some(plan) = reply_plan {
+        schedule_resident_reply(&state, plan);
+    }
     let mut response_events = events;
     if !was_active {
         response_events.extend(commit_presence_event(&state, actor_id, true).await);
@@ -30549,10 +30630,10 @@ async fn apply_and_broadcast_with_resident_reply(
     }
     broadcast_events(&state, &events);
     if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_resident_reply(&state, plan);
     }
     let mut response_events = events;
     if !was_active {
@@ -36228,6 +36309,11 @@ mod tests {
         assert!(!INDEX_HTML.contains("id=\"account-username\""));
         assert!(!INDEX_HTML.contains("id=\"account-display-name\""));
         assert!(INDEX_HTML.contains("data-wallet-link"));
+        assert!(INDEX_HTML.contains("claim NFT wallet"));
+        assert!(INDEX_HTML.contains("/auth/wallet-claims/start"));
+        assert!(INDEX_HTML.contains("https://phantom.app/ul/browse/"));
+        assert!(INDEX_HTML.contains("https://solflare.com/ul/v1/browse/"));
+        assert!(!INDEX_HTML.contains("linkAnotherWallet"));
         assert!(INDEX_HTML.contains(": \"local tale\""));
         assert!(!INDEX_HTML.contains("walletless"));
         assert!(INDEX_HTML.contains("id=\"card-modal\""));
@@ -36261,13 +36347,18 @@ mod tests {
             "const visibleEvents = pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent));"
         ));
         assert!(INDEX_HTML.contains(
-            "log.innerHTML = `${visibleEvents.map(messageHtml).join(\"\")}${pendingConversation}`;"
+            "log.innerHTML = `${visibleEvents.map(messageHtml).join(\"\")}${pendingConversation}${pendingCardReplies}`;"
         ));
         assert!(INDEX_HTML.contains("return event?.type === \"message.created\";"));
         assert!(!INDEX_HTML.contains("function openingRoomLineHtml"));
         assert!(!INDEX_HTML.contains("visibleEvents.map(timelineEventHtml)"));
         assert!(INDEX_HTML.contains("function pendingConversationHtml"));
         assert!(INDEX_HTML.contains("finding the thread…"));
+        assert!(INDEX_HTML.contains("function pendingCardReactionsHtml"));
+        assert!(INDEX_HTML.contains("responding to your card…"));
+        assert!(INDEX_HTML.contains("Your next cards are ready."));
+        assert!(INDEX_HTML.contains("const pendingReactionId = beginPendingCardReaction(action)"));
+        assert!(INDEX_HTML.contains("if (result?.ok === false) cancelPendingCardReaction"));
         assert!(INDEX_HTML.contains("learned_truth_count"));
         assert!(INDEX_HTML.contains("function quietRoomSceneHtml"));
         assert!(INDEX_HTML.contains("the room is listening"));
@@ -37799,6 +37890,32 @@ mod tests {
             .expect("resident card order should continue");
         assert_eq!(third.npc_actor_id, SKULL_ACTOR_ID);
         assert_eq!(third.user_text, first.user_text);
+    }
+
+    #[test]
+    fn card_reaction_uses_the_player_avatar_when_no_resident_is_present() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Card Player");
+        for actor in &mut runtime.world.actors[..runtime.world.actor_count] {
+            if actor.kind == CW_ACTOR_NPC && actor.location_id == COSY_COTTAGE_LOCATION_ID {
+                actor.location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+            }
+        }
+        let card_events = vec![EventView {
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            location_name: Some("The Cosy Cottage".to_string()),
+            ..EventView::default()
+        }];
+
+        let plan = runtime
+            .next_resident_card_reaction_plan(5000, &card_events)
+            .expect("the player avatar should answer when the room has no resident");
+        assert_eq!(plan.npc_actor_id, 5000);
+        assert!(plan.user_text.contains("listened carefully"));
+        assert!(resident_system_prompt(&plan).contains("player avatar in CosyWorld"));
     }
 
     #[test]

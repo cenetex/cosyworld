@@ -13,6 +13,8 @@ const ACCOUNT_SESSION_TTL: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 const ACCOUNT_STEP_UP_TTL: Duration = Duration::from_secs(10 * 60);
 const CEREMONY_TTL: Duration = Duration::from_secs(5 * 60);
 const WALLET_LINK_TTL: Duration = Duration::from_secs(5 * 60);
+const WALLET_CLAIM_TTL: Duration = Duration::from_secs(5 * 60);
+const WALLET_CLAIM_COMPLETE_GRACE: Duration = Duration::from_secs(2 * 60);
 const ACCOUNT_WALLET_CAPABILITY_TTL: Duration = Duration::from_secs(30 * 60);
 
 type AccountResult<T> = Result<T, AccountError>;
@@ -57,6 +59,8 @@ pub(super) struct AccountAuth {
     db_path: Option<Arc<PathBuf>>,
     ceremonies: StdMutex<BTreeMap<String, AccountCeremony>>,
     wallet_link_challenges: StdMutex<BTreeMap<String, WalletLinkChallenge>>,
+    wallet_claims: StdMutex<BTreeMap<String, WalletClaimIntent>>,
+    wallet_claim_challenges: StdMutex<BTreeMap<String, WalletClaimChallenge>>,
     rp_origin: String,
     cookie_name: String,
     secure_cookie: bool,
@@ -99,6 +103,27 @@ struct WalletLinkChallenge {
     user_id: String,
     wallet_address: String,
     message: String,
+    expires_at: Instant,
+}
+
+#[derive(Clone, Debug)]
+struct WalletClaimIntent {
+    user_id: String,
+    poll_token: String,
+    expires_at: Instant,
+    expires_at_unix: u64,
+    wallet_address: Option<String>,
+    moved: bool,
+    completed_at: Option<Instant>,
+}
+
+#[derive(Clone, Debug)]
+struct WalletClaimChallenge {
+    claim_id: String,
+    user_id: String,
+    wallet_address: String,
+    message: String,
+    claimed_elsewhere: bool,
     expires_at: Instant,
 }
 
@@ -173,6 +198,24 @@ pub(super) struct WalletSelectionRequest {
     wallet_address: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub(super) struct WalletClaimStatusQuery {
+    claim_id: String,
+    poll_token: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct WalletClaimChallengeRequest {
+    wallet_address: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct WalletClaimFinishRequest {
+    wallet_address: String,
+    nonce: String,
+    signature: Vec<u8>,
+}
+
 #[derive(Debug, Serialize)]
 struct CeremonyResponse {
     ok: bool,
@@ -187,6 +230,46 @@ struct WalletChallengeResponse {
     nonce: String,
     message: String,
     expires_at_unix: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct WalletClaimStartResponse {
+    ok: bool,
+    claim_id: String,
+    poll_token: String,
+    mobile_path: String,
+    qr_svg_path: String,
+    expires_at_unix: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct WalletClaimStatusResponse {
+    ok: bool,
+    state: String,
+    wallet_address: Option<String>,
+    moved: bool,
+    expires_at_unix: Option<u64>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct WalletClaimChallengeResponse {
+    ok: bool,
+    wallet_address: String,
+    nonce: String,
+    message: String,
+    claimed_elsewhere: bool,
+    expires_at_unix: u64,
+    error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct WalletClaimFinishResponse {
+    ok: bool,
+    state: String,
+    wallet_address: Option<String>,
+    moved: bool,
+    error: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -282,6 +365,8 @@ impl AccountAuth {
             db_path,
             ceremonies: StdMutex::new(BTreeMap::new()),
             wallet_link_challenges: StdMutex::new(BTreeMap::new()),
+            wallet_claims: StdMutex::new(BTreeMap::new()),
+            wallet_claim_challenges: StdMutex::new(BTreeMap::new()),
             rp_origin,
             cookie_name: if secure_cookie {
                 "__Host-cosyworld_session".to_string()
@@ -308,6 +393,8 @@ impl AccountAuth {
             db_path,
             ceremonies: StdMutex::new(BTreeMap::new()),
             wallet_link_challenges: StdMutex::new(BTreeMap::new()),
+            wallet_claims: StdMutex::new(BTreeMap::new()),
+            wallet_claim_challenges: StdMutex::new(BTreeMap::new()),
             rp_origin: "http://localhost:3102".to_string(),
             cookie_name: "cosyworld_session".to_string(),
             secure_cookie: false,
@@ -883,6 +970,618 @@ pub(super) async fn wallet_link_finish(
     identity_response(&state, &current.user_id, None, Some(&wallet_address))
 }
 
+fn cleanup_wallet_claims(auth: &AccountAuth) {
+    let now = Instant::now();
+    if let Ok(mut claims) = auth.wallet_claims.lock() {
+        claims.retain(|_, claim| {
+            claim.expires_at > now
+                || claim.completed_at.is_some_and(|completed_at| {
+                    now.duration_since(completed_at) <= WALLET_CLAIM_COMPLETE_GRACE
+                })
+        });
+    }
+    if let Ok(mut challenges) = auth.wallet_claim_challenges.lock() {
+        challenges.retain(|_, challenge| challenge.expires_at > now);
+    }
+}
+
+fn wallet_claim_is_pending(auth: &AccountAuth, claim_id: &str) -> bool {
+    let Some(claim_id) = clean_auth_token(claim_id, 32) else {
+        return false;
+    };
+    cleanup_wallet_claims(auth);
+    auth.wallet_claims
+        .lock()
+        .ok()
+        .and_then(|claims| claims.get(&claim_id).cloned())
+        .is_some_and(|claim| claim.expires_at > Instant::now() && claim.completed_at.is_none())
+}
+
+pub(super) async fn wallet_claim_start(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    let current = match require_recent_account(&state.account_auth, &headers) {
+        Ok(current) => current,
+        Err(error) => return auth_error(StatusCode::UNAUTHORIZED, error),
+    };
+    cleanup_wallet_claims(&state.account_auth);
+    let claim_id = random_hex(16);
+    let poll_token = random_hex(32);
+    let expires_at_unix = now_unix_secs() + WALLET_CLAIM_TTL.as_secs();
+    let claim = WalletClaimIntent {
+        user_id: current.user_id,
+        poll_token: poll_token.clone(),
+        expires_at: Instant::now() + WALLET_CLAIM_TTL,
+        expires_at_unix,
+        wallet_address: None,
+        moved: false,
+        completed_at: None,
+    };
+    let Ok(mut claims) = state.account_auth.wallet_claims.lock() else {
+        return auth_message(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "wallet claims are unavailable",
+        );
+    };
+    claims.insert(claim_id.clone(), claim);
+    no_store_json(
+        StatusCode::OK,
+        &WalletClaimStartResponse {
+            ok: true,
+            claim_id: claim_id.clone(),
+            poll_token,
+            mobile_path: format!("/wallet/claim/{claim_id}"),
+            qr_svg_path: format!("/wallet/claim/{claim_id}/code.svg"),
+            expires_at_unix,
+        },
+        None,
+    )
+}
+
+pub(super) async fn wallet_claim_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<WalletClaimStatusQuery>,
+) -> Response {
+    let current = match state.account_auth.session_from_headers(&headers) {
+        Ok(Some(current)) => current,
+        Ok(None) => return auth_message(StatusCode::UNAUTHORIZED, "passkey sign-in required"),
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
+    let Some(claim_id) = clean_auth_token(&query.claim_id, 32) else {
+        return no_store_json(
+            StatusCode::BAD_REQUEST,
+            &WalletClaimStatusResponse {
+                ok: false,
+                state: "invalid".to_string(),
+                wallet_address: None,
+                moved: false,
+                expires_at_unix: None,
+                error: Some("wallet claim id is invalid".to_string()),
+            },
+            None,
+        );
+    };
+    let Some(poll_token) = clean_auth_token(&query.poll_token, 64) else {
+        return no_store_json(
+            StatusCode::BAD_REQUEST,
+            &WalletClaimStatusResponse {
+                ok: false,
+                state: "invalid".to_string(),
+                wallet_address: None,
+                moved: false,
+                expires_at_unix: None,
+                error: Some("wallet claim poll token is invalid".to_string()),
+            },
+            None,
+        );
+    };
+    cleanup_wallet_claims(&state.account_auth);
+    let Ok(claims) = state.account_auth.wallet_claims.lock() else {
+        return auth_message(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "wallet claims are unavailable",
+        );
+    };
+    let Some(claim) = claims.get(&claim_id) else {
+        return no_store_json(
+            StatusCode::GONE,
+            &WalletClaimStatusResponse {
+                ok: false,
+                state: "expired".to_string(),
+                wallet_address: None,
+                moved: false,
+                expires_at_unix: None,
+                error: Some("wallet claim expired".to_string()),
+            },
+            None,
+        );
+    };
+    if claim.user_id != current.user_id || claim.poll_token != poll_token {
+        return no_store_json(
+            StatusCode::FORBIDDEN,
+            &WalletClaimStatusResponse {
+                ok: false,
+                state: "forbidden".to_string(),
+                wallet_address: None,
+                moved: false,
+                expires_at_unix: Some(claim.expires_at_unix),
+                error: Some("wallet claim poll token rejected".to_string()),
+            },
+            None,
+        );
+    }
+    let complete = claim.completed_at.is_some();
+    no_store_json(
+        StatusCode::OK,
+        &WalletClaimStatusResponse {
+            ok: true,
+            state: if complete { "complete" } else { "pending" }.to_string(),
+            wallet_address: claim.wallet_address.clone(),
+            moved: claim.moved,
+            expires_at_unix: Some(claim.expires_at_unix),
+            error: None,
+        },
+        None,
+    )
+}
+
+pub(super) async fn wallet_claim_challenge(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    AxumPath(claim_id): AxumPath<String>,
+    Json(payload): Json<WalletClaimChallengeRequest>,
+) -> Response {
+    if !state.allow_rate_limit(
+        rate_limit_key("wallet-claim-ip", client_ip_key(client_addr)),
+        WALLET_AUTH_LIMIT,
+    ) {
+        return no_store_json(
+            StatusCode::TOO_MANY_REQUESTS,
+            &WalletClaimChallengeResponse {
+                ok: false,
+                wallet_address: String::new(),
+                nonce: String::new(),
+                message: String::new(),
+                claimed_elsewhere: false,
+                expires_at_unix: 0,
+                error: Some("wallet claim rate limited".to_string()),
+            },
+            None,
+        );
+    }
+    let Some(claim_id) = clean_auth_token(&claim_id, 32) else {
+        return no_store_json(
+            StatusCode::BAD_REQUEST,
+            &WalletClaimChallengeResponse {
+                ok: false,
+                wallet_address: String::new(),
+                nonce: String::new(),
+                message: String::new(),
+                claimed_elsewhere: false,
+                expires_at_unix: 0,
+                error: Some("wallet claim is invalid".to_string()),
+            },
+            None,
+        );
+    };
+    let Some(wallet_address) = normalize_wallet_address(&payload.wallet_address) else {
+        return no_store_json(
+            StatusCode::BAD_REQUEST,
+            &WalletClaimChallengeResponse {
+                ok: false,
+                wallet_address: String::new(),
+                nonce: String::new(),
+                message: String::new(),
+                claimed_elsewhere: false,
+                expires_at_unix: 0,
+                error: Some("wallet address is invalid".to_string()),
+            },
+            None,
+        );
+    };
+    cleanup_wallet_claims(&state.account_auth);
+    let claim = state
+        .account_auth
+        .wallet_claims
+        .lock()
+        .ok()
+        .and_then(|claims| claims.get(&claim_id).cloned());
+    let Some(claim) =
+        claim.filter(|claim| claim.expires_at > Instant::now() && claim.completed_at.is_none())
+    else {
+        return no_store_json(
+            StatusCode::GONE,
+            &WalletClaimChallengeResponse {
+                ok: false,
+                wallet_address: String::new(),
+                nonce: String::new(),
+                message: String::new(),
+                claimed_elsewhere: false,
+                expires_at_unix: 0,
+                error: Some("wallet claim expired".to_string()),
+            },
+            None,
+        );
+    };
+    let claimed_elsewhere = match wallet_owner_user_id(
+        state.account_auth.path().unwrap_or_else(|_| Path::new("")),
+        &wallet_address,
+    ) {
+        Ok(Some(owner)) => owner != claim.user_id,
+        Ok(None) => false,
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
+    let nonce = random_hex(24);
+    let expires_at_unix = now_unix_secs() + WALLET_LINK_TTL.as_secs();
+    let action = if claimed_elsewhere {
+        "Move this wallet's NFT claim to the waiting CosyWorld account."
+    } else {
+        "Claim this wallet's NFTs for the waiting CosyWorld account."
+    };
+    let message = format!(
+        "CosyWorld NFT wallet claim\nOrigin: {}\nClaim: {}\nWallet: {}\nNonce: {}\n{}\nThis proves wallet ownership. It does not authorize a transaction.",
+        state.account_auth.rp_origin, claim_id, wallet_address, nonce, action
+    );
+    let challenge = WalletClaimChallenge {
+        claim_id,
+        user_id: claim.user_id,
+        wallet_address: wallet_address.clone(),
+        message: message.clone(),
+        claimed_elsewhere,
+        expires_at: Instant::now() + WALLET_LINK_TTL,
+    };
+    let Ok(mut challenges) = state.account_auth.wallet_claim_challenges.lock() else {
+        return auth_message(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "wallet claim signing is unavailable",
+        );
+    };
+    challenges.insert(nonce.clone(), challenge);
+    no_store_json(
+        StatusCode::OK,
+        &WalletClaimChallengeResponse {
+            ok: true,
+            wallet_address,
+            nonce,
+            message,
+            claimed_elsewhere,
+            expires_at_unix,
+            error: None,
+        },
+        None,
+    )
+}
+
+pub(super) async fn wallet_claim_finish(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    AxumPath(claim_id): AxumPath<String>,
+    Json(payload): Json<WalletClaimFinishRequest>,
+) -> Response {
+    if !state.allow_rate_limit(
+        rate_limit_key("wallet-claim-ip", client_ip_key(client_addr)),
+        WALLET_AUTH_LIMIT,
+    ) {
+        return no_store_json(
+            StatusCode::TOO_MANY_REQUESTS,
+            &WalletClaimFinishResponse {
+                ok: false,
+                state: "rate_limited".to_string(),
+                wallet_address: None,
+                moved: false,
+                error: Some("wallet claim rate limited".to_string()),
+            },
+            None,
+        );
+    }
+    let Some(claim_id) = clean_auth_token(&claim_id, 32) else {
+        return no_store_json(
+            StatusCode::BAD_REQUEST,
+            &WalletClaimFinishResponse {
+                ok: false,
+                state: "invalid".to_string(),
+                wallet_address: None,
+                moved: false,
+                error: Some("wallet claim is invalid".to_string()),
+            },
+            None,
+        );
+    };
+    let Some(wallet_address) = normalize_wallet_address(&payload.wallet_address) else {
+        return no_store_json(
+            StatusCode::BAD_REQUEST,
+            &WalletClaimFinishResponse {
+                ok: false,
+                state: "invalid".to_string(),
+                wallet_address: None,
+                moved: false,
+                error: Some("wallet address is invalid".to_string()),
+            },
+            None,
+        );
+    };
+    cleanup_wallet_claims(&state.account_auth);
+    let challenge = state
+        .account_auth
+        .wallet_claim_challenges
+        .lock()
+        .ok()
+        .and_then(|mut challenges| challenges.remove(payload.nonce.trim()));
+    let Some(challenge) = challenge else {
+        return no_store_json(
+            StatusCode::GONE,
+            &WalletClaimFinishResponse {
+                ok: false,
+                state: "expired".to_string(),
+                wallet_address: None,
+                moved: false,
+                error: Some("wallet claim signature expired".to_string()),
+            },
+            None,
+        );
+    };
+    if challenge.claim_id != claim_id
+        || challenge.wallet_address != wallet_address
+        || !verify_solana_wallet_signature(&wallet_address, &challenge.message, &payload.signature)
+    {
+        return no_store_json(
+            StatusCode::UNAUTHORIZED,
+            &WalletClaimFinishResponse {
+                ok: false,
+                state: "rejected".to_string(),
+                wallet_address: None,
+                moved: false,
+                error: Some("wallet signature rejected".to_string()),
+            },
+            None,
+        );
+    }
+    let valid_intent = state
+        .account_auth
+        .wallet_claims
+        .lock()
+        .ok()
+        .and_then(|claims| claims.get(&claim_id).cloned())
+        .is_some_and(|claim| {
+            claim.user_id == challenge.user_id
+                && claim.expires_at > Instant::now()
+                && claim.completed_at.is_none()
+        });
+    if !valid_intent {
+        return no_store_json(
+            StatusCode::GONE,
+            &WalletClaimFinishResponse {
+                ok: false,
+                state: "expired".to_string(),
+                wallet_address: None,
+                moved: false,
+                error: Some("wallet claim expired".to_string()),
+            },
+            None,
+        );
+    }
+    let moved = match claim_account_wallet(
+        state.account_auth.path().unwrap_or_else(|_| Path::new("")),
+        &challenge.user_id,
+        &wallet_address,
+        challenge.claimed_elsewhere,
+    ) {
+        Ok(moved) => moved,
+        Err(AccountError::Message(error)) => {
+            return no_store_json(
+                StatusCode::CONFLICT,
+                &WalletClaimFinishResponse {
+                    ok: false,
+                    state: "confirmation_required".to_string(),
+                    wallet_address: None,
+                    moved: false,
+                    error: Some(error),
+                },
+                None,
+            )
+        }
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
+    let Ok(mut claims) = state.account_auth.wallet_claims.lock() else {
+        return auth_message(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "wallet claims are unavailable",
+        );
+    };
+    let Some(claim) = claims.get_mut(&claim_id) else {
+        return auth_message(StatusCode::GONE, "wallet claim expired");
+    };
+    claim.wallet_address = Some(wallet_address.clone());
+    claim.moved = moved || challenge.claimed_elsewhere;
+    claim.completed_at = Some(Instant::now());
+    no_store_json(
+        StatusCode::OK,
+        &WalletClaimFinishResponse {
+            ok: true,
+            state: "complete".to_string(),
+            wallet_address: Some(wallet_address),
+            moved: claim.moved,
+            error: None,
+        },
+        None,
+    )
+}
+
+pub(super) async fn wallet_claim_code(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath(claim_id): AxumPath<String>,
+) -> impl IntoResponse {
+    let Some(claim_id) = clean_auth_token(&claim_id, 32) else {
+        return (StatusCode::BAD_REQUEST, "invalid wallet claim").into_response();
+    };
+    if !wallet_claim_is_pending(&state.account_auth, &claim_id) {
+        return (StatusCode::NOT_FOUND, "wallet claim expired").into_response();
+    }
+    let mobile_url = format!("{}/wallet/claim/{claim_id}", request_origin(&headers));
+    let Ok(code) = QrCode::new(mobile_url.as_bytes()) else {
+        return (StatusCode::INTERNAL_SERVER_ERROR, "QR generation failed").into_response();
+    };
+    let image = code
+        .render::<svg::Color<'_>>()
+        .min_dimensions(320, 320)
+        .dark_color(svg::Color("#0d140f"))
+        .light_color(svg::Color("#f5f8ef"))
+        .build();
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "image/svg+xml; charset=utf-8")],
+        image,
+    )
+        .into_response()
+}
+
+pub(super) async fn wallet_claim_page(
+    State(state): State<AppState>,
+    AxumPath(claim_id): AxumPath<String>,
+) -> impl IntoResponse {
+    let Some(claim_id) = clean_auth_token(&claim_id, 32) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            no_store_headers(),
+            Html("invalid wallet claim".to_string()),
+        )
+            .into_response();
+    };
+    if !wallet_claim_is_pending(&state.account_auth, &claim_id) {
+        return (
+            StatusCode::NOT_FOUND,
+            no_store_headers(),
+            Html("wallet claim expired".to_string()),
+        )
+            .into_response();
+    }
+    let claim_json = serde_json::to_string(&claim_id).unwrap_or_else(|_| "\"\"".to_string());
+    let page = format!(
+        r##"<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#080b09" />
+  <title>Claim NFT wallet · CosyWorld</title>
+  <style>
+    * {{ box-sizing: border-box; }}
+    html, body {{ margin: 0; min-height: 100%; background: #080b09; color: #d8f7dc; font: 16px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }}
+    body {{ display: grid; place-items: center; padding: 18px; }}
+    main {{ width: min(440px, 100%); border: 1px solid rgba(239,201,107,.36); background: #0d140f; padding: 20px; box-shadow: 0 20px 70px rgba(0,0,0,.55); }}
+    h1 {{ margin: 0 0 8px; color: #efc96b; font-size: 20px; }}
+    p {{ margin: 0 0 14px; color: #85a58a; }}
+    button {{ width: 100%; min-height: 54px; border: 1px solid rgba(239,201,107,.55); background: rgba(101,230,138,.12); color: #65e68a; font: inherit; font-weight: 900; border-radius: 5px; }}
+    button[disabled] {{ opacity: .55; }}
+    .wallet-links {{ display: grid; gap: 8px; margin-top: 12px; }}
+    .wallet-links a {{ display: grid; place-items: center; min-height: 46px; border: 1px solid rgba(139,183,255,.38); color: #8bb7ff; text-decoration: none; border-radius: 5px; font-weight: 850; }}
+    .status {{ min-height: 24px; margin-top: 14px; color: #8bb7ff; overflow-wrap: anywhere; }}
+    .error {{ color: #ff8d8d; }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>claim NFT wallet</h1>
+    <p id="copy">Sign one message to let your passkey account use this wallet's NFTs. No transaction, no fee.</p>
+    <button id="claim">claim this wallet</button>
+    <div class="wallet-links" id="wallet-links" hidden>
+      <a id="phantom-link" href="#" rel="noreferrer">open in Phantom</a>
+      <a id="solflare-link" href="#" rel="noreferrer">open in Solflare</a>
+    </div>
+    <div class="status" id="status"></div>
+  </main>
+  <script>
+    const claimId = {claim_json};
+    const button = document.getElementById("claim");
+    const copy = document.getElementById("copy");
+    const statusNode = document.getElementById("status");
+    const walletLinks = document.getElementById("wallet-links");
+    let prepared = null;
+    let wallet = null;
+    function provider() {{ return window.solana || window.phantom?.solana || window.solflare?.solana || window.solflare || null; }}
+    function status(text, error = false) {{
+      statusNode.textContent = text;
+      statusNode.classList.toggle("error", error);
+    }}
+    function configureWalletLinks() {{
+      const pageUrl = window.location.href;
+      const ref = window.location.origin;
+      document.getElementById("phantom-link").href = `https://phantom.app/ul/browse/${{encodeURIComponent(pageUrl)}}?ref=${{encodeURIComponent(ref)}}`;
+      document.getElementById("solflare-link").href = `https://solflare.com/ul/v1/browse/${{encodeURIComponent(pageUrl)}}?ref=${{encodeURIComponent(ref)}}`;
+      walletLinks.hidden = false;
+    }}
+    function walletErrorMessage(error) {{
+      const message = String(error?.message || error || "").trim();
+      if (/reject|denied|cancel/i.test(message)) return "Wallet request cancelled.";
+      return message || "Wallet claim failed.";
+    }}
+    async function api(path, options = {{}}) {{
+      const response = await fetch(path, options);
+      return response.json();
+    }}
+    configureWalletLinks();
+    button.addEventListener("click", async () => {{
+      wallet = wallet || provider();
+      if (!wallet?.connect || !wallet?.signMessage) {{
+        status("Open this page in Phantom or Solflare, then tap claim this wallet.", true);
+        return;
+      }}
+      button.disabled = true;
+      try {{
+        if (!prepared) {{
+          status("Connect the wallet.");
+          const connected = await wallet.connect();
+          const publicKey = connected?.publicKey || wallet.publicKey;
+          const walletAddress = publicKey?.toString?.() || "";
+          if (!walletAddress) throw new Error("Wallet did not return an address.");
+          prepared = await api(`/wallet/claim/${{claimId}}/challenge`, {{
+            method: "POST",
+            headers: {{ "content-type": "application/json" }},
+            body: JSON.stringify({{ wallet_address: walletAddress }}),
+          }});
+          if (!prepared.ok) throw new Error(prepared.error || "Wallet claim could not start.");
+          if (prepared.claimed_elsewhere) {{
+            copy.textContent = "This wallet is claimed by another CosyWorld account. A fresh signature will move its NFT access here; it cannot belong to both accounts.";
+            button.textContent = "move wallet claim here";
+            status("Review the move, then confirm once more.");
+            button.disabled = false;
+            return;
+          }}
+        }}
+        status("Sign the NFT wallet claim message.");
+        const signed = await wallet.signMessage(new TextEncoder().encode(prepared.message), "utf8");
+        const finished = await api(`/wallet/claim/${{claimId}}/finish`, {{
+          method: "POST",
+          headers: {{ "content-type": "application/json" }},
+          body: JSON.stringify({{
+            wallet_address: prepared.wallet_address,
+            nonce: prepared.nonce,
+            signature: Array.from(signed?.signature || signed || []),
+          }}),
+        }});
+        if (!finished.ok) throw new Error(finished.error || "Wallet signature rejected.");
+        copy.textContent = finished.moved
+          ? "This wallet's NFT claim now belongs to your waiting passkey account."
+          : "This wallet's NFTs are now available to your waiting passkey account.";
+        button.textContent = "wallet claimed";
+        status("Done. Return to the original CosyWorld browser.");
+      }} catch (error) {{
+        status(walletErrorMessage(error), true);
+        prepared = null;
+        button.textContent = "claim this wallet";
+        button.disabled = false;
+      }}
+    }});
+  </script>
+</body>
+</html>"##
+    );
+    (StatusCode::OK, no_store_headers(), Html(page)).into_response()
+}
+
 pub(super) async fn wallet_select(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1323,6 +2022,61 @@ fn link_account_wallet(path: &Path, user_id: &str, wallet_address: &str) -> Acco
     Ok(())
 }
 
+fn wallet_owner_user_id(path: &Path, wallet_address: &str) -> AccountResult<Option<String>> {
+    let conn = open_event_store(path)?;
+    conn.query_row(
+        "SELECT user_id FROM user_wallets WHERE wallet_address = ?1",
+        params![wallet_address],
+        |row| row.get::<_, String>(0),
+    )
+    .optional()
+    .map_err(Into::into)
+}
+
+fn claim_account_wallet(
+    path: &Path,
+    user_id: &str,
+    wallet_address: &str,
+    allow_move: bool,
+) -> AccountResult<bool> {
+    let mut conn = open_event_store(path)?;
+    let transaction = conn.transaction()?;
+    let existing = transaction
+        .query_row(
+            "SELECT user_id FROM user_wallets WHERE wallet_address = ?1",
+            params![wallet_address],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?;
+    let moved = existing
+        .as_deref()
+        .is_some_and(|existing_user_id| existing_user_id != user_id);
+    if moved && !allow_move {
+        return Err(account_error(
+            "This wallet was claimed by another account. Review and sign a fresh move request.",
+        ));
+    }
+    if moved {
+        transaction.execute(
+            "DELETE FROM user_wallets WHERE wallet_address = ?1",
+            params![wallet_address],
+        )?;
+    }
+    let now = now_unix_secs() as i64;
+    transaction.execute(
+        "INSERT INTO user_wallets
+         (user_id, wallet_address, role, verified_at_unix, created_at_unix)
+         VALUES (?1, ?2, 'ownership', ?3, ?3)
+         ON CONFLICT(wallet_address) DO UPDATE SET
+           user_id = excluded.user_id,
+           role = 'ownership',
+           verified_at_unix = excluded.verified_at_unix",
+        params![user_id, wallet_address, now],
+    )?;
+    transaction.commit()?;
+    Ok(moved)
+}
+
 fn wallet_belongs_to_user(path: &Path, user_id: &str, wallet_address: &str) -> AccountResult<bool> {
     let conn = open_event_store(path)?;
     Ok(conn
@@ -1507,6 +2261,35 @@ mod tests {
         assert!(link_account_wallet(&path, "u2", "wallet-a").is_err());
         assert!(wallet_belongs_to_user(&path, "u1", "wallet-a").unwrap());
         assert!(wallet_belongs_to_user(&path, "u1", "wallet-b").unwrap());
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn wallet_claim_moves_exclusive_nft_access_between_accounts() {
+        let path = std::env::temp_dir().join(format!("cosyworld-account-{}.sqlite", random_hex(8)));
+        init_account_schema(&path).expect("account schema");
+        let conn = open_event_store(&path).expect("account database");
+        let now = now_unix_secs() as i64;
+        for (id, username) in [("u1", "one"), ("u2", "two")] {
+            conn.execute(
+                "INSERT INTO auth_users (id, username, display_name, status, created_at_unix, updated_at_unix)
+                 VALUES (?1, ?2, ?2, 'active', ?3, ?3)",
+                params![id, username, now],
+            )
+            .expect("insert user");
+        }
+        link_account_wallet(&path, "u1", "wallet-a").expect("initial wallet claim");
+
+        assert!(claim_account_wallet(&path, "u2", "wallet-a", false).is_err());
+        assert!(wallet_belongs_to_user(&path, "u1", "wallet-a").unwrap());
+        assert!(claim_account_wallet(&path, "u2", "wallet-a", true).expect("move wallet claim"));
+        assert!(!wallet_belongs_to_user(&path, "u1", "wallet-a").unwrap());
+        assert!(wallet_belongs_to_user(&path, "u2", "wallet-a").unwrap());
+        assert_eq!(
+            wallet_owner_user_id(&path, "wallet-a").unwrap().as_deref(),
+            Some("u2")
+        );
+        assert!(!claim_account_wallet(&path, "u2", "wallet-a", false).expect("reclaim same wallet"));
         let _ = fs::remove_file(path);
     }
 }
