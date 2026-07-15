@@ -313,7 +313,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
       "s3:GetBucketVersioning",
       "s3:GetEncryptionConfiguration",
       "s3:GetLifecycleConfiguration",
-      "s3:GetObjectLockConfiguration",
+      "s3:GetBucketObjectLockConfiguration",
       "s3:GetReplicationConfiguration",
       "s3:ListBucket",
     ]
