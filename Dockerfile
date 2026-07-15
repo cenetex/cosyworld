@@ -14,6 +14,7 @@ FROM chef AS build
 
 COPY --from=planner /app/recipe.json /app/recipe.json
 COPY v2/core-c /app/v2/core-c
+COPY v2/ai-model-rust /app/v2/ai-model-rust
 
 # Keep third-party Rust dependencies in a layer that application source edits do
 # not invalidate. The release workflow persists this layer in ECR.
