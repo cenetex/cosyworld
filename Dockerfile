@@ -1,14 +1,30 @@
-FROM rust:1-bookworm AS build
-
-WORKDIR /app
-
-COPY v2/core-c ./v2/core-c
-COPY v2/content ./v2/content
-COPY v2/ai-model-rust ./v2/ai-model-rust
-COPY v2/orchestrator-rust ./v2/orchestrator-rust
-COPY src/services/web/public/images/cosy-cottage.png ./src/services/web/public/images/cosy-cottage.png
+FROM lukemathwalker/cargo-chef:0.1.77-rust-1-bookworm AS chef
 
 WORKDIR /app/v2/orchestrator-rust
+
+FROM chef AS planner
+
+COPY v2/core-c /app/v2/core-c
+COPY v2/ai-model-rust /app/v2/ai-model-rust
+COPY v2/orchestrator-rust /app/v2/orchestrator-rust
+
+RUN cargo chef prepare --recipe-path /app/recipe.json
+
+FROM chef AS build
+
+COPY --from=planner /app/recipe.json /app/recipe.json
+COPY v2/core-c /app/v2/core-c
+
+# Keep third-party Rust dependencies in a layer that application source edits do
+# not invalidate. The release workflow persists this layer in ECR.
+RUN cargo chef cook --release --recipe-path /app/recipe.json
+
+COPY v2/core-c /app/v2/core-c
+COPY v2/content /app/v2/content
+COPY v2/ai-model-rust /app/v2/ai-model-rust
+COPY v2/orchestrator-rust /app/v2/orchestrator-rust
+COPY src/services/web/public/images/cosy-cottage.png /app/src/services/web/public/images/cosy-cottage.png
+
 RUN cargo build --release
 
 FROM debian:bookworm-slim AS runtime

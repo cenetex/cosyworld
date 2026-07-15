@@ -70,6 +70,8 @@ jobs:
           tags: |
             ${{ steps.ecr.outputs.registry }}/${{ env.AWS_ECR_REPOSITORY }}:${{ github.ref_name }}
             ${{ steps.ecr.outputs.registry }}/${{ env.AWS_ECR_REPOSITORY }}:latest
+          cache-from: type=registry,ref=${{ steps.ecr.outputs.registry }}/${{ env.AWS_ECR_REPOSITORY }}:buildcache
+          cache-to: type=registry,ref=${{ steps.ecr.outputs.registry }}/${{ env.AWS_ECR_REPOSITORY }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
