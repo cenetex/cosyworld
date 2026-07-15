@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.26",
+  "version": "0.0.27",
   "description": "Shared AI MUD runtime with a deterministic C kernel and Rust orchestrator",
   "type": "module",
   "private": true,
