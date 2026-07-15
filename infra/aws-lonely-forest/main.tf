@@ -372,9 +372,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
     actions = [
       "ecs:DeregisterTaskDefinition",
     ]
-    resources = [
-      "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.name_prefix}-app:*",
-    ]
+    resources = ["*"]
   }
 
   statement {
@@ -735,6 +733,8 @@ resource "aws_ecs_task_definition" "app" {
   }
 
   lifecycle {
+    create_before_destroy = true
+
     precondition {
       condition = (
         var.deploy_profile != "production" ||
