@@ -14,6 +14,22 @@
     "pack_id": "cosyworld.core"
   },
   {
+    "from_location_id": 3,
+    "to_location_id": 50,
+    "flags": 0,
+    "distance": 3,
+    "direction": "north",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 50,
+    "to_location_id": 3,
+    "flags": 0,
+    "distance": 3,
+    "direction": "south",
+    "pack_id": "cosyworld.core"
+  },
+  {
     "from_location_id": 1,
     "to_location_id": 11,
     "flags": 0,

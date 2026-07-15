@@ -508,6 +508,16 @@ pub(super) fn actor_action_turn_rejection(
     runtime: &RuntimeWorld,
     action: &CwAction,
 ) -> Option<Json<ActionResponse>> {
+    if matches!(
+        action.kind,
+        CW_ACTION_COMBAT_START
+            | CW_ACTION_COMBAT_JOIN
+            | CW_ACTION_COMBAT_ATTACK
+            | CW_ACTION_COMBAT_DODGE
+            | CW_ACTION_COMBAT_ESCAPE
+    ) {
+        return None;
+    }
     if action_is_welcoming_listen(runtime, action) {
         return None;
     }
@@ -587,6 +597,18 @@ pub(super) fn advance_actor_room_turn_after_commit(
     events: &[EventView],
 ) {
     if status != CW_OK || events.is_empty() {
+        return;
+    }
+    if events.iter().any(|event| {
+        matches!(
+            event.type_name.as_str(),
+            "combat.encounter.started"
+                | "combat.participant.joined"
+                | "combat.turn.started"
+                | "combat.turn.ended"
+                | "combat.encounter.resolved"
+        )
+    }) {
         return;
     }
     if let Some(event) = events

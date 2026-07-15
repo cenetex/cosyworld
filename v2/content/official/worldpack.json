@@ -5,7 +5,7 @@
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:cddcbb74cab94750ce403037ca22b0dcf2fb4972fdc2668ddf8c9a6f95957655",
+  "bundle_hash": "sha256:47c6fbd7d0e50a9b96580b53231cf76bce7b2085f4a75e1afd42f47feb7b2e49",
   "packs": [
     {
       "id": "cosyworld.core",
@@ -21,7 +21,7 @@
         "factions": 12,
         "items": 10,
         "locations": 28,
-        "exits": 68,
+        "exits": 70,
         "hidden_exits": 1,
         "room_features": 16,
         "room_sheets": 28,
@@ -41,7 +41,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:6602bb60f078c37bf1ef148a263936c215958c3567f2c63f400286948e995515"
+      "integrity": "sha256:fbf8934cfec2cb9081c751146f1248cafab195047d26f0f95e0a1caa63967d56"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -194,7 +194,7 @@
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:2240e3270ea02d49bf4a9d8ddcf2baf297452ba8935379afeb3ccbb1e109c151"
+      "integrity": "sha256:b6a36cc1ec92fb8844ceb4777b838377ce309464300045adce8206b94805d236"
     },
     {
       "id": "cosyworld.lonely-forest.characters",

@@ -654,6 +654,15 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             .to_string(),
         ),
         "combat.defend" => Some("You raise a careful guard.".to_string()),
+        "combat.encounter.started" => Some(format!(
+            "The scuffle with {} begins.",
+            event.target_actor_name.as_deref().unwrap_or("the danger")
+        )),
+        "combat.participant.joined"
+        | "combat.initiative.rolled"
+        | "combat.turn.started"
+        | "combat.turn.ended" => None,
+        "combat.dodge" => Some("You focus entirely on staying clear.".to_string()),
         "combat.attack.attempt" => None,
         "combat.attack.hit" => Some(format!(
             "You break through {}'s guard.",
@@ -667,6 +676,11 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             "{}'s light falls quiet for now.",
             event.target_actor_name.as_deref().unwrap_or("The target")
         )),
+        "combat.encounter.resolved" => Some(if event.total == Some(1) {
+            "The danger yields, and the scuffle is over.".to_string()
+        } else {
+            "The scuffle is over for now.".to_string()
+        }),
         "rule.rejected" => Some("The room will not let that happen just now.".to_string()),
         _ => None,
     }

@@ -3885,8 +3885,17 @@
       const inventoryFull = heldItems.length >= inventoryCapacity;
       const bonds = Array.isArray(view.bonds) ? view.bonds : [];
       const activeBondTargetIds = new Set(bonds.map((bond) => Number(bond.target_actor_id || 0)));
+      const offeredAttackTargetId = Number(offerFor("attack")?.target?.id || 0);
+      const encounterTargetIds = new Set((view.combat?.participants || [])
+        .filter((participant) => Number(participant.side) === 2 && participant.status === "active" && !participant.escaped)
+        .map((participant) => Number(participant.actor_id)));
       const attackTargetIds = new Set(options.has("attack") ? (view.actors || [])
-        .filter((actor) => actor.id !== actorId && actor.kind === "npc" && actor.status === "active")
+        .filter((actor) => actor.id !== actorId
+          && actor.kind === "npc"
+          && actor.status === "active"
+          && (offeredAttackTargetId > 0
+            ? actor.id === offeredAttackTargetId
+            : encounterTargetIds.size === 0 || encounterTargetIds.has(actor.id)))
         .map((actor) => actor.id) : []);
       const usableTargets = (view.actors || []).filter((actor) => (
         actorNeedsHealing(actor)

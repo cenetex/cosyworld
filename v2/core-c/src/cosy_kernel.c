@@ -16,7 +16,14 @@ enum {
   CW_REASON_COMBAT_NOT_ALLOWED = 10,
   CW_REASON_SELF_TARGET = 11,
   CW_REASON_NO_EXIT = 12,
-  CW_REASON_EXIT_LOCKED = 13
+  CW_REASON_EXIT_LOCKED = 13,
+  CW_REASON_ENCOUNTER_NOT_FOUND = 14,
+  CW_REASON_ENCOUNTER_FULL = 15,
+  CW_REASON_NOT_PARTICIPANT = 16,
+  CW_REASON_NOT_CURRENT_TURN = 17,
+  CW_REASON_NOT_HOSTILE = 18,
+  CW_REASON_ENCOUNTER_ACTIVE = 19,
+  CW_REASON_COMBAT_ACTION_REQUIRED = 20
 };
 
 static uint64_t splitmix64(uint64_t *state) {
@@ -129,6 +136,43 @@ static const cw_item *find_item_const(const cw_world *world, cw_id item_id) {
 static cw_evolution_track *find_evolution_track(cw_world *world, cw_id actor_id) {
   for (size_t i = 0; i < world->evolution_track_count; ++i) {
     if (world->evolution_tracks[i].actor_id == actor_id) return &world->evolution_tracks[i];
+  }
+  return 0;
+}
+
+static cw_combat_encounter *find_combat_encounter(cw_world *world, cw_id encounter_id) {
+  for (size_t i = 0; i < world->combat_encounter_count; ++i) {
+    if (world->combat_encounters[i].id == encounter_id) return &world->combat_encounters[i];
+  }
+  return 0;
+}
+
+static cw_combat_encounter *find_active_combat_encounter_for_actor(cw_world *world, cw_id actor_id) {
+  for (size_t i = 0; i < world->combat_encounter_count; ++i) {
+    cw_combat_encounter *encounter = &world->combat_encounters[i];
+    if (encounter->status != CW_COMBAT_ENCOUNTER_ACTIVE) continue;
+    for (size_t j = 0; j < encounter->participant_count; ++j) {
+      if (encounter->participants[j].actor_id == actor_id
+          && !(encounter->participants[j].flags & CW_COMBAT_PARTICIPANT_ESCAPED)) {
+        return encounter;
+      }
+    }
+  }
+  return 0;
+}
+
+static cw_combat_participant *find_combat_participant(cw_combat_encounter *encounter, cw_id actor_id) {
+  if (!encounter) return 0;
+  for (size_t i = 0; i < encounter->participant_count; ++i) {
+    if (encounter->participants[i].actor_id == actor_id) return &encounter->participants[i];
+  }
+  return 0;
+}
+
+static const cw_combat_participant *find_combat_participant_const(const cw_combat_encounter *encounter, cw_id actor_id) {
+  if (!encounter) return 0;
+  for (size_t i = 0; i < encounter->participant_count; ++i) {
+    if (encounter->participants[i].actor_id == actor_id) return &encounter->participants[i];
   }
   return 0;
 }
@@ -539,6 +583,7 @@ static cw_status apply_ability_check(cw_world *world, const cw_action *action, u
   cw_status status = require_active_actor(world, action, out_events, &actor);
   if (status != CW_OK) return status;
   if (!valid_roll_mode(action->roll_mode)) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  if (action->dc > INT16_MAX) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
 
   int16_t raw = roll_d20(seed, 1, action->roll_mode);
   int16_t modifier = (int16_t)(ability_modifier((int8_t)stat_value(&actor->stats, action->ability)) + action->modifier);
@@ -1106,9 +1151,447 @@ static cw_status apply_flee(cw_world *world, const cw_action *action, cw_event_b
   return CW_OK;
 }
 
+static int16_t proficiency_bonus(const cw_actor *actor) {
+  int16_t level = actor && actor->stats.level > 0 ? actor->stats.level : 1;
+  int16_t bonus = (int16_t)(2 + ((level - 1) / 4));
+  return bonus > 6 ? 6 : bonus;
+}
+
+static int combat_participant_can_act(const cw_world *world, const cw_combat_participant *participant) {
+  if (!participant || (participant->flags & CW_COMBAT_PARTICIPANT_ESCAPED)) return 0;
+  const cw_actor *actor = find_actor_const(world, participant->actor_id);
+  return actor_is_active(actor);
+}
+
+static void sort_combat_participants(cw_combat_encounter *encounter) {
+  for (size_t i = 1; i < encounter->participant_count; ++i) {
+    cw_combat_participant value = encounter->participants[i];
+    size_t j = i;
+    while (j > 0) {
+      const cw_combat_participant *left = &encounter->participants[j - 1];
+      int value_before_left = value.initiative > left->initiative
+          || (value.initiative == left->initiative && value.actor_id < left->actor_id);
+      if (!value_before_left) break;
+      encounter->participants[j] = encounter->participants[j - 1];
+      --j;
+    }
+    encounter->participants[j] = value;
+  }
+}
+
+static void append_combat_turn_started(cw_world *world, cw_combat_encounter *encounter, cw_event_buffer *out_events) {
+  if (!encounter || encounter->participant_count == 0) return;
+  cw_combat_participant *participant = &encounter->participants[encounter->current_index];
+  cw_actor *actor = find_actor(world, participant->actor_id);
+  if (actor) actor->conditions &= ~CW_CONDITION_DODGING;
+  append_event(world, out_events, CW_EVENT_COMBAT_TURN_STARTED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = participant->actor_id;
+    event->location_id = encounter->location_id;
+    event->content_id = encounter->id;
+    event->total = (int16_t)encounter->round;
+  }
+}
+
+static int combat_side_can_act(const cw_world *world, const cw_combat_encounter *encounter, uint8_t side) {
+  for (size_t i = 0; i < encounter->participant_count; ++i) {
+    if (encounter->participants[i].side == side
+        && combat_participant_can_act(world, &encounter->participants[i])) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static void finish_or_advance_combat_turn(
+    cw_world *world,
+    cw_combat_encounter *encounter,
+    const cw_action *action,
+    cw_event_buffer *out_events) {
+  append_event(world, out_events, CW_EVENT_COMBAT_TURN_ENDED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = action->actor_id;
+    event->location_id = encounter->location_id;
+    event->content_id = encounter->id;
+    event->total = (int16_t)encounter->round;
+  }
+
+  int side_one_active = combat_side_can_act(world, encounter, 1);
+  int side_two_active = combat_side_can_act(world, encounter, 2);
+  if (!side_one_active || !side_two_active) {
+    encounter->status = CW_COMBAT_ENCOUNTER_RESOLVED;
+    append_event(world, out_events, CW_EVENT_COMBAT_ENCOUNTER_RESOLVED);
+    if (out_events && out_events->count > 0) {
+      cw_event *event = &out_events->events[out_events->count - 1];
+      event->success = 1;
+      event->actor_id = action->actor_id;
+      event->target_actor_id = action->target_actor_id;
+      event->location_id = encounter->location_id;
+      event->content_id = encounter->id;
+      event->total = side_one_active ? 1 : (side_two_active ? 2 : 0);
+    }
+    return;
+  }
+
+  size_t previous_index = encounter->current_index;
+  for (size_t step = 1; step <= encounter->participant_count; ++step) {
+    size_t next_index = (previous_index + step) % encounter->participant_count;
+    if (!combat_participant_can_act(world, &encounter->participants[next_index])) continue;
+    if (next_index <= previous_index && encounter->round < UINT16_MAX) encounter->round++;
+    encounter->current_index = (uint8_t)next_index;
+    append_combat_turn_started(world, encounter, out_events);
+    return;
+  }
+}
+
+static cw_status require_active_combat_turn(
+    cw_world *world,
+    const cw_action *action,
+    cw_event_buffer *out_events,
+    cw_combat_encounter **out_encounter,
+    cw_actor **out_actor) {
+  cw_actor *actor = 0;
+  cw_status status = require_active_actor(world, action, out_events, &actor);
+  if (status != CW_OK) return status;
+  cw_combat_encounter *encounter = action->content_id
+      ? find_combat_encounter(world, action->content_id)
+      : find_active_combat_encounter_for_actor(world, action->actor_id);
+  if (!encounter || encounter->status != CW_COMBAT_ENCOUNTER_ACTIVE) {
+    return reject(world, out_events, action, CW_REASON_ENCOUNTER_NOT_FOUND);
+  }
+  const cw_combat_participant *participant = find_combat_participant_const(encounter, action->actor_id);
+  if (!participant || !combat_participant_can_act(world, participant)) {
+    return reject(world, out_events, action, CW_REASON_NOT_PARTICIPANT);
+  }
+  if (encounter->participants[encounter->current_index].actor_id != action->actor_id) {
+    return reject(world, out_events, action, CW_REASON_NOT_CURRENT_TURN);
+  }
+  *out_encounter = encounter;
+  *out_actor = actor;
+  return CW_OK;
+}
+
+static cw_status apply_combat_start(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events) {
+  if (!action->content_id) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  cw_actor *actor = 0;
+  cw_status status = require_active_actor(world, action, out_events, &actor);
+  if (status != CW_OK) return status;
+  if (actor->kind != CW_ACTOR_HUMAN || action->actor_id == action->target_actor_id) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
+  cw_actor *target = find_actor(world, action->target_actor_id);
+  if (!target) return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
+  if (!actor_is_active(target) || target->kind != CW_ACTOR_NPC) {
+    return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
+  }
+  if (target->location_id != actor->location_id) {
+    return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
+  }
+  const cw_location *location = find_location_const(world, actor->location_id);
+  if (!location || !(location->flags & CW_LOCATION_ALLOW_COMBAT)) {
+    return reject(world, out_events, action, CW_REASON_COMBAT_NOT_ALLOWED);
+  }
+  if (find_active_combat_encounter_for_actor(world, actor->id)
+      || find_active_combat_encounter_for_actor(world, target->id)) {
+    return reject(world, out_events, action, CW_REASON_ENCOUNTER_ACTIVE);
+  }
+
+  cw_combat_encounter *encounter = find_combat_encounter(world, action->content_id);
+  if (encounter && encounter->status == CW_COMBAT_ENCOUNTER_ACTIVE) {
+    return reject(world, out_events, action, CW_REASON_ENCOUNTER_ACTIVE);
+  }
+  if (!encounter) {
+    for (size_t i = 0; i < world->combat_encounter_count; ++i) {
+      if (world->combat_encounters[i].status == CW_COMBAT_ENCOUNTER_RESOLVED) {
+        encounter = &world->combat_encounters[i];
+        break;
+      }
+    }
+    if (!encounter) {
+      if (world->combat_encounter_count >= CW_MAX_COMBAT_ENCOUNTERS) {
+        return reject(world, out_events, action, CW_REASON_ENCOUNTER_FULL);
+      }
+      encounter = &world->combat_encounters[world->combat_encounter_count++];
+    }
+  }
+  memset(encounter, 0, sizeof(*encounter));
+  encounter->id = action->content_id;
+  encounter->location_id = actor->location_id;
+  encounter->status = CW_COMBAT_ENCOUNTER_ACTIVE;
+  encounter->round = 1;
+  encounter->participant_count = 2;
+
+  int16_t actor_raw = roll_d20(seed, 101, CW_ROLL_NORMAL);
+  int16_t target_raw = roll_d20(seed, 102, CW_ROLL_NORMAL);
+  encounter->participants[0].actor_id = actor->id;
+  encounter->participants[0].side = 1;
+  encounter->participants[0].initiative = (int16_t)(actor_raw + ability_modifier(actor->stats.dexterity));
+  encounter->participants[1].actor_id = target->id;
+  encounter->participants[1].side = 2;
+  encounter->participants[1].initiative = (int16_t)(target_raw + ability_modifier(target->stats.dexterity));
+  sort_combat_participants(encounter);
+
+  append_event(world, out_events, CW_EVENT_COMBAT_ENCOUNTER_STARTED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->target_actor_id = target->id;
+    event->location_id = actor->location_id;
+    event->content_id = encounter->id;
+  }
+  cw_actor *initiative_actors[2] = {actor, target};
+  int16_t initiative_raw[2] = {actor_raw, target_raw};
+  for (size_t i = 0; i < 2; ++i) {
+    const cw_combat_participant *participant = find_combat_participant_const(encounter, initiative_actors[i]->id);
+    append_event(world, out_events, CW_EVENT_COMBAT_INITIATIVE_ROLLED);
+    if (out_events && out_events->count > 0) {
+      cw_event *event = &out_events->events[out_events->count - 1];
+      event->success = 1;
+      event->actor_id = initiative_actors[i]->id;
+      event->location_id = actor->location_id;
+      event->content_id = encounter->id;
+      event->raw_roll = initiative_raw[i];
+      event->modifier = ability_modifier(initiative_actors[i]->stats.dexterity);
+      event->total = participant ? participant->initiative : 0;
+    }
+  }
+  append_combat_turn_started(world, encounter, out_events);
+  return CW_OK;
+}
+
+static cw_status apply_combat_join(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events) {
+  if (!action->content_id) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  cw_actor *actor = 0;
+  cw_status status = require_active_actor(world, action, out_events, &actor);
+  if (status != CW_OK) return status;
+  cw_combat_encounter *encounter = find_combat_encounter(world, action->content_id);
+  if (!encounter || encounter->status != CW_COMBAT_ENCOUNTER_ACTIVE) {
+    return reject(world, out_events, action, CW_REASON_ENCOUNTER_NOT_FOUND);
+  }
+  if (actor->location_id != encounter->location_id) {
+    return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
+  }
+  if (find_combat_participant(encounter, actor->id)) return CW_OK;
+  if (find_active_combat_encounter_for_actor(world, actor->id)) {
+    return reject(world, out_events, action, CW_REASON_ENCOUNTER_ACTIVE);
+  }
+  if (encounter->participant_count >= CW_MAX_COMBAT_PARTICIPANTS) {
+    return reject(world, out_events, action, CW_REASON_ENCOUNTER_FULL);
+  }
+
+  cw_id current_actor_id = encounter->participants[encounter->current_index].actor_id;
+  int16_t raw = roll_d20(seed, 103, CW_ROLL_NORMAL);
+  cw_combat_participant *participant = &encounter->participants[encounter->participant_count++];
+  memset(participant, 0, sizeof(*participant));
+  participant->actor_id = actor->id;
+  participant->side = actor->kind == CW_ACTOR_HUMAN ? 1 : 2;
+  participant->initiative = (int16_t)(raw + ability_modifier(actor->stats.dexterity));
+  sort_combat_participants(encounter);
+  for (size_t i = 0; i < encounter->participant_count; ++i) {
+    if (encounter->participants[i].actor_id == current_actor_id) {
+      encounter->current_index = (uint8_t)i;
+      break;
+    }
+  }
+
+  append_event(world, out_events, CW_EVENT_COMBAT_PARTICIPANT_JOINED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = encounter->location_id;
+    event->content_id = encounter->id;
+  }
+  append_event(world, out_events, CW_EVENT_COMBAT_INITIATIVE_ROLLED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = encounter->location_id;
+    event->content_id = encounter->id;
+    event->raw_roll = raw;
+    event->modifier = ability_modifier(actor->stats.dexterity);
+    event->total = find_combat_participant_const(encounter, actor->id)->initiative;
+  }
+  return CW_OK;
+}
+
+static cw_status apply_combat_attack(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events) {
+  cw_combat_encounter *encounter = 0;
+  cw_actor *actor = 0;
+  cw_status status = require_active_combat_turn(world, action, out_events, &encounter, &actor);
+  if (status != CW_OK) return status;
+  if (action->actor_id == action->target_actor_id) {
+    return reject(world, out_events, action, CW_REASON_SELF_TARGET);
+  }
+  cw_actor *target = find_actor(world, action->target_actor_id);
+  const cw_combat_participant *actor_participant = find_combat_participant_const(encounter, actor->id);
+  const cw_combat_participant *target_participant = find_combat_participant_const(encounter, action->target_actor_id);
+  if (!target || !target_participant) return reject(world, out_events, action, CW_REASON_NOT_PARTICIPANT);
+  if (!combat_participant_can_act(world, target_participant)) {
+    return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
+  }
+  if (!actor_participant || actor_participant->side == target_participant->side) {
+    return reject(world, out_events, action, CW_REASON_NOT_HOSTILE);
+  }
+
+  uint8_t roll_mode = (target->conditions & CW_CONDITION_DODGING)
+      ? CW_ROLL_DISADVANTAGE
+      : CW_ROLL_NORMAL;
+  int16_t raw = roll_d20(seed, 1, roll_mode);
+  int16_t attack_mod = (int16_t)(ability_modifier(actor->stats.strength) + proficiency_bonus(actor));
+  int16_t attack_total = (int16_t)(raw + attack_mod);
+  int16_t ac = (int16_t)(10 + ability_modifier(target->stats.dexterity));
+  int attack_hit = raw == 20 || (raw != 1 && attack_total >= ac);
+
+  append_event(world, out_events, CW_EVENT_COMBAT_ATTACK_ATTEMPT);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = attack_hit ? 1 : 0;
+    event->actor_id = actor->id;
+    event->target_actor_id = target->id;
+    event->location_id = encounter->location_id;
+    event->content_id = encounter->id;
+    event->raw_roll = raw;
+    event->modifier = attack_mod;
+    event->total = attack_total;
+    event->dc = ac;
+  }
+
+  if (!attack_hit) {
+    append_event(world, out_events, CW_EVENT_COMBAT_ATTACK_MISS);
+    if (out_events && out_events->count > 0) {
+      cw_event *event = &out_events->events[out_events->count - 1];
+      event->success = 0;
+      event->actor_id = actor->id;
+      event->target_actor_id = target->id;
+      event->location_id = encounter->location_id;
+      event->content_id = encounter->id;
+      event->raw_roll = raw;
+      event->modifier = attack_mod;
+      event->total = attack_total;
+      event->dc = ac;
+    }
+    finish_or_advance_combat_turn(world, encounter, action, out_events);
+    return CW_OK;
+  }
+
+  int16_t damage_dice = roll_die(seed, 2, 8);
+  if (raw == 20) damage_dice = (int16_t)(damage_dice + roll_die(seed, 3, 8));
+  int16_t damage = (int16_t)(damage_dice + ability_modifier(actor->stats.strength));
+  if (damage < 0) damage = 0;
+  int knocks_out = damage >= cw_actor_current_hp(target) && damage > 0;
+  if (knocks_out) {
+    target->damage = target->stats.hp_base > 1 ? (int16_t)(target->stats.hp_base - 1) : 0;
+    target->status = CW_ACTOR_KNOCKED_OUT;
+    target->conditions |= CW_CONDITION_UNCONSCIOUS;
+  } else {
+    target->damage = (int16_t)(target->damage + damage);
+  }
+
+  append_event(world, out_events, CW_EVENT_COMBAT_ATTACK_HIT);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->target_actor_id = target->id;
+    event->location_id = encounter->location_id;
+    event->content_id = encounter->id;
+    event->raw_roll = raw;
+    event->modifier = attack_mod;
+    event->total = attack_total;
+    event->dc = ac;
+    event->damage = damage;
+    event->current_hp = cw_actor_current_hp(target);
+  }
+  if (knocks_out) {
+    append_event(world, out_events, CW_EVENT_COMBAT_KNOCKOUT);
+    if (out_events && out_events->count > 0) {
+      cw_event *event = &out_events->events[out_events->count - 1];
+      event->success = 1;
+      event->actor_id = actor->id;
+      event->target_actor_id = target->id;
+      event->location_id = encounter->location_id;
+      event->content_id = encounter->id;
+      event->damage = damage;
+      event->current_hp = cw_actor_current_hp(target);
+    }
+  }
+  finish_or_advance_combat_turn(world, encounter, action, out_events);
+  return CW_OK;
+}
+
+static cw_status apply_combat_dodge(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  cw_combat_encounter *encounter = 0;
+  cw_actor *actor = 0;
+  cw_status status = require_active_combat_turn(world, action, out_events, &encounter, &actor);
+  if (status != CW_OK) return status;
+  actor->conditions |= CW_CONDITION_DODGING;
+  append_event(world, out_events, CW_EVENT_COMBAT_DODGE);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = encounter->location_id;
+    event->content_id = encounter->id;
+  }
+  finish_or_advance_combat_turn(world, encounter, action, out_events);
+  return CW_OK;
+}
+
+static cw_status apply_combat_escape(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  cw_combat_encounter *encounter = 0;
+  cw_actor *actor = 0;
+  cw_status status = require_active_combat_turn(world, action, out_events, &encounter, &actor);
+  if (status != CW_OK) return status;
+  cw_id destination_id = action->destination_location_id;
+  if (!destination_id || !find_location(world, destination_id)) {
+    return reject(world, out_events, action, CW_REASON_LOCATION_NOT_FOUND);
+  }
+  const cw_exit *exit = find_exit_const(world, actor->location_id, destination_id);
+  if (!exit) return reject(world, out_events, action, CW_REASON_NO_EXIT);
+  if (exit->flags & CW_EXIT_LOCKED) return reject(world, out_events, action, CW_REASON_EXIT_LOCKED);
+
+  cw_id from_location_id = actor->location_id;
+  actor->location_id = destination_id;
+  actor->conditions &= ~(CW_CONDITION_DODGING | CW_CONDITION_DEFENDING | CW_CONDITION_HIDDEN);
+  cw_combat_participant *participant = find_combat_participant(encounter, actor->id);
+  participant->flags |= CW_COMBAT_PARTICIPANT_ESCAPED;
+  append_event(world, out_events, CW_EVENT_COMBAT_FLEE_SUCCESS);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = from_location_id;
+    event->destination_location_id = destination_id;
+    event->content_id = encounter->id;
+  }
+  finish_or_advance_combat_turn(world, encounter, action, out_events);
+  return CW_OK;
+}
+
 cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uint64_t seed, uint8_t advance_tick, cw_event_buffer *out_events) {
   if (!world || !action) return CW_ERR_INVALID;
   if (out_events) memset(out_events, 0, sizeof(*out_events));
+  cw_combat_encounter *active_encounter = find_active_combat_encounter_for_actor(world, action->actor_id);
+  if (active_encounter
+      && action->kind != CW_ACTION_SAY
+      && action->kind != CW_ACTION_COMBAT_ATTACK
+      && action->kind != CW_ACTION_COMBAT_DODGE
+      && action->kind != CW_ACTION_COMBAT_ESCAPE) {
+    cw_status status = reject(world, out_events, action, CW_REASON_COMBAT_ACTION_REQUIRED);
+    if (out_events && out_events->count > 0) {
+      cw_event *event = &out_events->events[out_events->count - 1];
+      event->location_id = active_encounter->location_id;
+      event->content_id = active_encounter->id;
+    }
+    return status;
+  }
   uint64_t previous_tick = world->tick;
   if (advance_tick) world->tick++;
 
@@ -1156,6 +1639,21 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
     case CW_ACTION_FLEE:
       status = apply_flee(world, action, out_events);
       break;
+    case CW_ACTION_COMBAT_START:
+      status = apply_combat_start(world, action, seed, out_events);
+      break;
+    case CW_ACTION_COMBAT_JOIN:
+      status = apply_combat_join(world, action, seed, out_events);
+      break;
+    case CW_ACTION_COMBAT_ATTACK:
+      status = apply_combat_attack(world, action, seed, out_events);
+      break;
+    case CW_ACTION_COMBAT_DODGE:
+      status = apply_combat_dodge(world, action, out_events);
+      break;
+    case CW_ACTION_COMBAT_ESCAPE:
+      status = apply_combat_escape(world, action, out_events);
+      break;
     default:
       status = reject(world, out_events, action, CW_REASON_INVALID_ACTION);
       break;
@@ -1174,6 +1672,24 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
   const cw_actor *actor = find_actor_const(world, actor_id);
   if (!actor) return CW_ERR_NOT_FOUND;
   if (!actor_is_active(actor)) return CW_OK;
+
+  for (size_t i = 0; i < world->combat_encounter_count; ++i) {
+    const cw_combat_encounter *encounter = &world->combat_encounters[i];
+    if (encounter->status != CW_COMBAT_ENCOUNTER_ACTIVE) continue;
+    const cw_combat_participant *participant = find_combat_participant_const(encounter, actor_id);
+    if (!participant || !combat_participant_can_act(world, participant)) continue;
+    if (encounter->participants[encounter->current_index].actor_id == actor_id) {
+      out_offers->option_flags = CW_OFFER_ATTACK | CW_OFFER_DEFEND;
+      for (size_t exit_index = 0; exit_index < world->exit_count; ++exit_index) {
+        const cw_exit *exit = &world->exits[exit_index];
+        if (exit->from_location_id == actor->location_id && !(exit->flags & CW_EXIT_LOCKED)) {
+          out_offers->option_flags |= CW_OFFER_FLEE;
+          break;
+        }
+      }
+    }
+    return CW_OK;
+  }
 
   out_offers->option_flags |= CW_OFFER_CHAT | CW_OFFER_CHECK;
 
@@ -1287,6 +1803,13 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_ITEM_FOUND: return "item.found";
     case CW_EVENT_ITEM_CRAFTED: return "item.crafted";
     case CW_EVENT_ITEM_CREATED: return "item.created";
+    case CW_EVENT_COMBAT_ENCOUNTER_STARTED: return "combat.encounter.started";
+    case CW_EVENT_COMBAT_PARTICIPANT_JOINED: return "combat.participant.joined";
+    case CW_EVENT_COMBAT_INITIATIVE_ROLLED: return "combat.initiative.rolled";
+    case CW_EVENT_COMBAT_TURN_STARTED: return "combat.turn.started";
+    case CW_EVENT_COMBAT_TURN_ENDED: return "combat.turn.ended";
+    case CW_EVENT_COMBAT_DODGE: return "combat.dodge";
+    case CW_EVENT_COMBAT_ENCOUNTER_RESOLVED: return "combat.encounter.resolved";
     default: return "unknown";
   }
 }
