@@ -254,6 +254,8 @@ const ZONE_FRONTIER: &str = "frontier";
 const COSY_COTTAGE_LOCATION_ID: u64 = 1;
 const RAIN_SOFT_GARDEN_LOCATION_ID: u64 = 2;
 #[cfg(test)]
+const GREAT_LIBRARY_LOCATION_ID: u64 = 50;
+#[cfg(test)]
 const DARKEST_OCEAN_LOCATION_ID: u64 = 64;
 #[cfg(test)]
 const DARK_ABYSS_LOCATION_ID: u64 = 65;
@@ -355,6 +357,7 @@ const MOONLIT_DANGER_CLOCK_ID: &str = "moonlit-trail.danger";
 const ATTACK_HIT_ORB_REWARD: i32 = 1;
 const KNOCKOUT_ORB_REWARD: i32 = 3;
 const FLEE_ORB_REWARD: i32 = 1;
+const COMBAT_OUTCOME_ORB_REWARD: i32 = 3;
 #[cfg(test)]
 const DIALOGUE_BRANCH_TTL_TICKS: u64 = 24;
 const ACTIVE_ACTOR_WINDOW: Duration = Duration::from_secs(15 * 60);
@@ -1587,6 +1590,8 @@ struct RuntimeSnapshot {
     world_exits: Vec<CwExit>,
     #[serde(default)]
     world_evolution_tracks: Vec<CwEvolutionTrack>,
+    #[serde(default)]
+    world_combat_encounters: Vec<CwCombatEncounter>,
     actor_meta: BTreeMap<u64, ActorMeta>,
     item_meta: BTreeMap<u64, ItemMeta>,
     location_names: BTreeMap<u64, String>,
@@ -1958,8 +1963,18 @@ struct MetaResponse {
     persistence: MetaPersistence,
     ownership_feed: MetaOwnershipFeed,
     nft: MetaNftConfig,
+    combat: MetaCombat,
     worldpack: MetaWorldpack,
     world: MetaWorldCounters,
+}
+
+#[derive(Debug, Serialize)]
+struct MetaCombat {
+    protocol: &'static str,
+    kernel_version: u32,
+    action_economy: &'static str,
+    resolution: &'static str,
+    actions: [&'static str; 3],
 }
 
 #[derive(Debug, Serialize)]
@@ -2212,6 +2227,7 @@ struct StateResponse {
     access: AccessView,
     account: AccountView,
     economy: EconomyView,
+    combat: Option<CombatView>,
     turn: RoomTurnView,
     branch: Option<BranchView>,
     recent_events: Vec<EventView>,
@@ -2220,6 +2236,33 @@ struct StateResponse {
     action_offers: Vec<RankedActionOffer>,
     inspector: InspectorView,
     character_creation: Vec<CharacterCreationProfileView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CombatView {
+    protocol: &'static str,
+    encounter_id: u64,
+    location_id: u64,
+    round: u16,
+    current_actor_id: u64,
+    current_actor_name: Option<String>,
+    is_current_actor: bool,
+    available_actions: Vec<&'static str>,
+    participants: Vec<CombatParticipantView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CombatParticipantView {
+    actor_id: u64,
+    actor_name: Option<String>,
+    side: u8,
+    initiative: i16,
+    status: &'static str,
+    current_hp: i16,
+    max_hp: i16,
+    dodging: bool,
+    unconscious: bool,
+    escaped: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -3306,6 +3349,13 @@ struct AttackRequest {
 struct ActorRequest {
     actor_id: u64,
     actor_session: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum CombatChoice {
+    Attack { target_actor_id: u64 },
+    Dodge,
+    Escape { destination_location_id: u64 },
 }
 
 #[derive(Debug, Deserialize)]
@@ -7663,6 +7713,9 @@ impl RuntimeSnapshot {
             world_evolution_tracks: runtime.world.evolution_tracks
                 [..runtime.world.evolution_track_count]
                 .to_vec(),
+            world_combat_encounters: runtime.world.combat_encounters
+                [..runtime.world.combat_encounter_count]
+                .to_vec(),
             actor_meta: runtime.actors.clone(),
             item_meta: runtime.items.clone(),
             location_names: runtime.locations.clone(),
@@ -7720,6 +7773,39 @@ impl RuntimeSnapshot {
         if self.world_evolution_tracks.len() > CW_MAX_EVOLUTION_TRACKS {
             return Err(snapshot_error("too many evolution tracks in snapshot"));
         }
+        if self.world_combat_encounters.len() > CW_MAX_COMBAT_ENCOUNTERS {
+            return Err(snapshot_error("too many combat encounters in snapshot"));
+        }
+        for encounter in &self.world_combat_encounters {
+            if encounter.id == 0 || encounter.location_id == 0 {
+                return Err(snapshot_error("combat encounter has no id or location"));
+            }
+            if encounter.participant_count > CW_MAX_COMBAT_PARTICIPANTS {
+                return Err(snapshot_error(
+                    "too many combat participants in snapshot encounter",
+                ));
+            }
+            if !matches!(
+                encounter.status,
+                CW_COMBAT_ENCOUNTER_ACTIVE | CW_COMBAT_ENCOUNTER_RESOLVED
+            ) {
+                return Err(snapshot_error("invalid combat encounter status"));
+            }
+            if encounter.participant_count < 2
+                || usize::from(encounter.current_index) >= encounter.participant_count
+            {
+                return Err(snapshot_error("invalid combat encounter turn state"));
+            }
+            let mut participant_ids = BTreeSet::new();
+            for participant in &encounter.participants[..encounter.participant_count] {
+                if participant.actor_id == 0
+                    || !matches!(participant.side, 1 | 2)
+                    || !participant_ids.insert(participant.actor_id)
+                {
+                    return Err(snapshot_error("invalid combat participant state"));
+                }
+            }
+        }
 
         let mut world = CwWorld {
             version: self.world_version,
@@ -7730,6 +7816,7 @@ impl RuntimeSnapshot {
             location_count: self.world_locations.len(),
             exit_count: self.world_exits.len(),
             evolution_track_count: self.world_evolution_tracks.len(),
+            combat_encounter_count: self.world_combat_encounters.len(),
             ..CwWorld::default()
         };
 
@@ -7742,9 +7829,11 @@ impl RuntimeSnapshot {
             world.location_count = self.world_locations.len();
             world.exit_count = self.world_exits.len();
             world.evolution_track_count = self.world_evolution_tracks.len();
+            world.combat_encounter_count = self.world_combat_encounters.len();
             world.tick = self.tick;
             world.next_event_seq = self.next_event_seq;
         }
+        world.version = CW_KERNEL_VERSION;
 
         for (idx, actor) in self.world_actors.into_iter().enumerate() {
             world.actors[idx] = actor;
@@ -7760,6 +7849,9 @@ impl RuntimeSnapshot {
         }
         for (idx, track) in self.world_evolution_tracks.into_iter().enumerate() {
             world.evolution_tracks[idx] = track;
+        }
+        for (idx, encounter) in self.world_combat_encounters.into_iter().enumerate() {
+            world.combat_encounters[idx] = encounter;
         }
 
         let max_seq = self
@@ -9712,15 +9804,22 @@ impl RuntimeWorld {
         let action = self.action_with_skill_bonus(record.action);
         let advances_world_tick = record.advances_world_tick();
         self.prepare_projection_mutations(&record.projection_mutations);
-        let (status, mut events) =
-            if action.kind == CW_ACTION_NONE && !record.projection_mutations.is_empty() {
-                if advances_world_tick {
-                    self.world.tick = self.world.tick.saturating_add(1);
-                }
-                (CW_OK, Vec::new())
-            } else {
-                self.apply_action_with_seed(action, record.seed, advances_world_tick)
-            };
+        let projection_only_blocked_by_combat = advances_world_tick
+            && action.kind == CW_ACTION_NONE
+            && self
+                .active_combat_encounter_for_actor(action.actor_id)
+                .is_some();
+        let (status, mut events) = if action.kind == CW_ACTION_NONE
+            && !record.projection_mutations.is_empty()
+            && !projection_only_blocked_by_combat
+        {
+            if advances_world_tick {
+                self.world.tick = self.world.tick.saturating_add(1);
+            }
+            (CW_OK, Vec::new())
+        } else {
+            self.apply_action_with_seed(action, record.seed, advances_world_tick)
+        };
         if status == CW_OK {
             if advances_world_tick {
                 self.decay_search_memories();
@@ -9755,6 +9854,8 @@ impl RuntimeWorld {
             events.extend(self.apply_defend_project_preparation(&action, &committed_events));
             let committed_events = events.clone();
             events.extend(self.apply_attack_project_danger(&action, &committed_events));
+            let committed_events = events.clone();
+            events.extend(self.apply_combat_outcome_projection(&action, &committed_events));
             events.extend(self.apply_progress_contribution_ledger_projection(&events));
             events.extend(self.apply_frontier_return_ledger_projection(&action, &events));
             events.extend(self.apply_frontier_travel_since_rest_projection(&events));
@@ -10681,6 +10782,39 @@ impl RuntimeWorld {
         self.advance_clock(&clock_id, 1, action.actor_id, "attack")
     }
 
+    fn apply_combat_outcome_projection(
+        &mut self,
+        action: &CwAction,
+        events: &[EventView],
+    ) -> Vec<EventView> {
+        let Some(encounter_id) = events.iter().find_map(|event| {
+            (event.type_name == "combat.encounter.resolved"
+                && event.success
+                && event.total == Some(1))
+            .then_some(event.content_id)
+            .flatten()
+        }) else {
+            return Vec::new();
+        };
+        let Some(job_id) = self.combat_job_id_for_encounter(encounter_id) else {
+            return Vec::new();
+        };
+        let Some((clock_id, remaining)) = self.jobs.get(&job_id).and_then(|job| {
+            self.clocks.get(&job.progress_clock_id).map(|clock| {
+                (
+                    job.progress_clock_id.clone(),
+                    clock.segments.saturating_sub(clock.filled),
+                )
+            })
+        }) else {
+            return Vec::new();
+        };
+        if remaining == 0 {
+            return Vec::new();
+        }
+        self.advance_clock(&clock_id, remaining, action.actor_id, "combat_resolved")
+    }
+
     fn apply_progress_contribution_ledger_projection(
         &mut self,
         events: &[EventView],
@@ -10727,7 +10861,7 @@ impl RuntimeWorld {
         action: &CwAction,
         events: &[EventView],
     ) -> Vec<EventView> {
-        if action.kind != CW_ACTION_FLEE {
+        if !matches!(action.kind, CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE) {
             return Vec::new();
         }
         let mut projected = Vec::new();
@@ -13536,7 +13670,6 @@ impl RuntimeWorld {
         candidates
             .iter()
             .find(|candidate| self.search_candidate_succeeds(seed, actor_id, candidate))
-            .or_else(|| candidates.first())
             .cloned()
     }
 
@@ -16490,6 +16623,7 @@ impl RuntimeWorld {
                 wooden_boxes: access.owned_box_ids.len(),
                 unopened_packs: access.unopened_pack_ids.len(),
             },
+            combat: client_actor_id.and_then(|id| self.combat_view(id, access)),
             turn: RoomTurnView::idle(location_id),
             branch: None,
             recent_events,
@@ -16733,6 +16867,154 @@ impl RuntimeWorld {
             })
             .find(|(_, clock)| clock.filled < clock.segments)
             .map(|(job, _)| job)
+    }
+
+    fn combat_job_for_actor(
+        &self,
+        actor_id: u64,
+        requested_target_id: Option<u64>,
+    ) -> Option<(String, u64)> {
+        let actor = self.actor_by_id(actor_id)?;
+        self.jobs
+            .values()
+            .filter(|job| job.location_ids.contains(&actor.location_id))
+            .filter(|job| self.job_status(job) == "active")
+            .filter(|job| {
+                requested_target_id
+                    .map(|target_id| job.participant_ids.contains(&target_id))
+                    .unwrap_or(true)
+            })
+            .find_map(|job| {
+                job.participant_ids
+                    .iter()
+                    .copied()
+                    .filter(|target_id| {
+                        requested_target_id
+                            .map(|requested| requested == *target_id)
+                            .unwrap_or(true)
+                    })
+                    .find(|target_id| {
+                        self.actor_by_id(*target_id).is_some_and(|target| {
+                            target.kind == CW_ACTOR_NPC
+                                && target.status == CW_ACTOR_ACTIVE
+                                && target.location_id == actor.location_id
+                        })
+                    })
+                    .map(|target_id| (job.id.clone(), target_id))
+            })
+    }
+
+    fn combat_encounter(&self, encounter_id: u64) -> Option<&CwCombatEncounter> {
+        self.world.combat_encounters[..self.world.combat_encounter_count]
+            .iter()
+            .find(|encounter| encounter.id == encounter_id)
+    }
+
+    fn active_combat_encounter_for_actor(&self, actor_id: u64) -> Option<&CwCombatEncounter> {
+        self.world.combat_encounters[..self.world.combat_encounter_count]
+            .iter()
+            .filter(|encounter| encounter.status == CW_COMBAT_ENCOUNTER_ACTIVE)
+            .find(|encounter| {
+                encounter.participants[..encounter.participant_count]
+                    .iter()
+                    .any(|participant| {
+                        participant.actor_id == actor_id
+                            && participant.flags & CW_COMBAT_PARTICIPANT_ESCAPED == 0
+                    })
+            })
+    }
+
+    fn active_combat_encounter(&self, encounter_id: u64) -> Option<&CwCombatEncounter> {
+        self.combat_encounter(encounter_id)
+            .filter(|encounter| encounter.status == CW_COMBAT_ENCOUNTER_ACTIVE)
+    }
+
+    fn combat_actor_is_participant(&self, encounter_id: u64, actor_id: u64) -> bool {
+        self.active_combat_encounter(encounter_id)
+            .is_some_and(|encounter| {
+                encounter.participants[..encounter.participant_count]
+                    .iter()
+                    .any(|participant| participant.actor_id == actor_id)
+            })
+    }
+
+    fn combat_current_actor_id(&self, encounter_id: u64) -> Option<u64> {
+        let encounter = self.active_combat_encounter(encounter_id)?;
+        encounter
+            .participants
+            .get(usize::from(encounter.current_index))
+            .map(|participant| participant.actor_id)
+            .filter(|actor_id| *actor_id != 0)
+    }
+
+    fn combat_target_for_actor(&self, encounter_id: u64, actor_id: u64) -> Option<u64> {
+        let encounter = self.active_combat_encounter(encounter_id)?;
+        let actor_side = encounter.participants[..encounter.participant_count]
+            .iter()
+            .find(|participant| participant.actor_id == actor_id)?
+            .side;
+        encounter.participants[..encounter.participant_count]
+            .iter()
+            .filter(|participant| {
+                participant.side != actor_side
+                    && participant.flags & CW_COMBAT_PARTICIPANT_ESCAPED == 0
+            })
+            .filter_map(|participant| self.actor_by_id(participant.actor_id))
+            .filter(|target| target.status == CW_ACTOR_ACTIVE)
+            .min_by_key(|target| (target.damage, target.id))
+            .map(|target| target.id)
+    }
+
+    fn combat_view(&self, actor_id: u64, access: &AccessContext) -> Option<CombatView> {
+        let encounter = self.active_combat_encounter_for_actor(actor_id)?;
+        let current_actor_id = encounter
+            .participants
+            .get(usize::from(encounter.current_index))?
+            .actor_id;
+        let is_current_actor = current_actor_id == actor_id;
+        let mut available_actions = Vec::new();
+        if is_current_actor {
+            available_actions.extend(["attack", "dodge"]);
+            if self.has_accessible_exit(actor_id, access) {
+                available_actions.push("escape");
+            }
+        }
+        let participants = encounter.participants[..encounter.participant_count]
+            .iter()
+            .filter_map(|participant| {
+                let actor = self.actor_by_id(participant.actor_id)?;
+                Some(CombatParticipantView {
+                    actor_id: actor.id,
+                    actor_name: self.actor_name(actor.id),
+                    side: participant.side,
+                    initiative: participant.initiative,
+                    status: actor_status(actor.status),
+                    current_hp: unsafe { cw_actor_current_hp(&actor) },
+                    max_hp: actor.stats.hp_base,
+                    dodging: actor.conditions & CW_CONDITION_DODGING != 0,
+                    unconscious: actor.conditions & CW_CONDITION_UNCONSCIOUS != 0,
+                    escaped: participant.flags & CW_COMBAT_PARTICIPANT_ESCAPED != 0,
+                })
+            })
+            .collect();
+        Some(CombatView {
+            protocol: "cosyworld.combat/2",
+            encounter_id: encounter.id,
+            location_id: encounter.location_id,
+            round: encounter.round,
+            current_actor_id,
+            current_actor_name: self.actor_name(current_actor_id),
+            is_current_actor,
+            available_actions,
+            participants,
+        })
+    }
+
+    fn combat_job_id_for_encounter(&self, encounter_id: u64) -> Option<String> {
+        self.jobs
+            .keys()
+            .find(|job_id| combat_encounter_id(job_id) == encounter_id)
+            .cloned()
     }
 
     fn active_danger_clock_id_for_location(&self, location_id: u64) -> Option<String> {
@@ -18387,6 +18669,44 @@ impl RuntimeWorld {
             };
         }
 
+        if let Some(encounter) = self.active_combat_encounter_for_actor(actor_id) {
+            if self.combat_current_actor_id(encounter.id) != Some(actor_id) {
+                return PrimaryAction {
+                    kind: "wait".to_string(),
+                    label: "Wait".to_string(),
+                    command: "wait".to_string(),
+                    disabled: true,
+                    options: Vec::new(),
+                };
+            }
+            let mut options = vec![
+                ActionOption {
+                    kind: "attack".to_string(),
+                    label: "Attack".to_string(),
+                    command: "attack".to_string(),
+                },
+                ActionOption {
+                    kind: "defend".to_string(),
+                    label: "Dodge".to_string(),
+                    command: "defend".to_string(),
+                },
+            ];
+            if self.has_accessible_exit(actor_id, access) {
+                options.push(ActionOption {
+                    kind: "flee".to_string(),
+                    label: "Escape".to_string(),
+                    command: "flee".to_string(),
+                });
+            }
+            return PrimaryAction {
+                kind: "attack".to_string(),
+                label: "Attack".to_string(),
+                command: "attack".to_string(),
+                disabled: false,
+                options,
+            };
+        }
+
         let mut offers = CwActionOffers::default();
         let status = unsafe { cw_get_action_offers(&self.world, actor_id, &mut offers) };
         if status != CW_OK || offers.option_flags == 0 {
@@ -18857,15 +19177,9 @@ impl RuntimeWorld {
                     id: Some(target.id),
                     label: self.actor_name(target.id),
                 }),
-            "attack" | "defend" => self.world.actors[..self.world.actor_count]
-                .iter()
-                .find(|target| {
-                    target.id != actor_id
-                        && target.kind == CW_ACTOR_NPC
-                        && target.status == CW_ACTOR_ACTIVE
-                        && target.location_id == actor.location_id
-                        && self.location_has_unresolved_combat(actor.location_id)
-                })
+            "attack" | "defend" => self
+                .combat_job_for_actor(actor_id, None)
+                .and_then(|(_, target_id)| self.actor_by_id(target_id))
                 .map(|target| ActionTargetView {
                     kind: "actor".to_string(),
                     id: Some(target.id),
@@ -19306,16 +19620,24 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return false;
         };
-        self.location_has_unresolved_combat(actor.location_id)
-            && self.world.actors[..self.world.actor_count]
-                .iter()
-                .any(|target| {
-                    target.id != actor_id
-                        && target.kind == CW_ACTOR_NPC
-                        && target.status == CW_ACTOR_ACTIVE
-                        && target.location_id == actor.location_id
-                        && self.actor_visible_in_projection(*target, Some(actor_id), None)
-                })
+        self.combat_job_for_actor(actor_id, None)
+            .is_some_and(|(job_id, target_id)| {
+                let encounter_id = combat_encounter_id(&job_id);
+                let actor_can_act = self
+                    .active_combat_encounter(encounter_id)
+                    .map(|_| {
+                        !self.combat_actor_is_participant(encounter_id, actor_id)
+                            || self.combat_current_actor_id(encounter_id) == Some(actor_id)
+                    })
+                    .unwrap_or(true);
+                actor_can_act
+                    && self.actor_by_id(target_id).is_some_and(|target| {
+                        target.kind == CW_ACTOR_NPC
+                            && target.status == CW_ACTOR_ACTIVE
+                            && target.location_id == actor.location_id
+                            && self.actor_visible_in_projection(target, Some(actor_id), None)
+                    })
+            })
     }
 
     fn location_has_unresolved_combat(&self, location_id: u64) -> bool {
@@ -22739,6 +23061,13 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         },
         nft: MetaNftConfig {
             box_burn_verifier_configured: state.box_burn_verifier.as_ref().is_some(),
+        },
+        combat: MetaCombat {
+            protocol: "cosyworld.combat/2",
+            kernel_version: CW_KERNEL_VERSION,
+            action_economy: "one_action_per_turn",
+            resolution: "nonlethal_subdual_at_1_hp",
+            actions: ["attack", "dodge", "escape"],
         },
         worldpack: MetaWorldpack {
             id: seed_content().manifest.id.clone(),
@@ -27734,7 +28063,14 @@ fn room_memory_entry_for_event_at_location(
 ) -> Option<RoomMemoryEntryView> {
     if matches!(
         event.type_name.as_str(),
-        "world.reset" | "world.bootstrapped" | "actor.presence" | "message.created"
+        "world.reset"
+            | "world.bootstrapped"
+            | "actor.presence"
+            | "message.created"
+            | "combat.participant.joined"
+            | "combat.initiative.rolled"
+            | "combat.turn.started"
+            | "combat.turn.ended"
     ) || (event.type_name == "tag.applied"
         && matches!(
             event.content.as_deref(),
@@ -27902,6 +28238,18 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
                     "slipped clear"
                 }
             )
+        }
+        "combat.encounter.started" => format!(
+            "{actor_name} faced {} as the scuffle began",
+            event.target_actor_name.as_deref().unwrap_or("the danger")
+        ),
+        "combat.dodge" => format!("{actor_name} focused on staying clear"),
+        "combat.encounter.resolved" => {
+            if event.total == Some(1) {
+                format!("{actor_name} brought the scuffle safely to an end")
+            } else {
+                "the scuffle ended for now".to_string()
+            }
         }
         "ledger.marked" => {
             let memory = event
@@ -29951,39 +30299,11 @@ async fn flee(
             events: Vec::new(),
         });
     }
-    {
-        let runtime = state.inner.lock().await;
-        if !client_actor_authorized_for_state(
-            &runtime,
-            &state,
-            payload.actor_id,
-            payload.actor_session.as_deref(),
-        ) {
-            return client_actor_rejected_response();
-        }
-        let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
-            return Json(ActionResponse {
-                ok: false,
-                status: 404,
-                events: Vec::new(),
-            });
-        };
-        if !runtime.location_has_unresolved_combat(actor.location_id) {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
-        }
-    }
-
-    apply_and_broadcast(
+    apply_combat_choice(
         state,
-        CwAction {
-            kind: CW_ACTION_FLEE,
-            actor_id: payload.actor_id,
+        payload.actor_id,
+        CombatChoice::Escape {
             destination_location_id: payload.destination_location_id,
-            ..CwAction::default()
         },
         payload.actor_session.as_deref(),
     )
@@ -30004,13 +30324,22 @@ async fn ability_check(
     ) {
         return action_rate_limited_response();
     }
+    if ability_from_string(&payload.ability) != LISTEN_ABILITY
+        || payload.dc.is_some_and(|dc| dc != LISTEN_DC)
+    {
+        return Json(ActionResponse {
+            ok: false,
+            status: 400,
+            events: Vec::new(),
+        });
+    }
     apply_and_broadcast(
         state,
         CwAction {
             kind: CW_ACTION_ABILITY_CHECK,
             actor_id: payload.actor_id,
-            ability: ability_from_string(&payload.ability),
-            dc: payload.dc.unwrap_or(10),
+            ability: LISTEN_ABILITY,
+            dc: LISTEN_DC,
             ..CwAction::default()
         },
         payload.actor_session.as_deref(),
@@ -30255,6 +30584,276 @@ async fn craft(
     apply_and_broadcast(state, action, payload.actor_session.as_deref()).await
 }
 
+fn drive_combat_npc_turns(
+    state: &AppState,
+    runtime: &mut RuntimeWorld,
+    encounter_id: u64,
+    events: &mut Vec<EventView>,
+) -> io::Result<u32> {
+    for _ in 0..CW_MAX_COMBAT_PARTICIPANTS {
+        let Some(actor_id) = runtime.combat_current_actor_id(encounter_id) else {
+            return Ok(CW_OK);
+        };
+        let Some(actor) = runtime.actor_by_id(actor_id) else {
+            return Ok(CW_OK);
+        };
+        if actor.kind != CW_ACTOR_NPC {
+            return Ok(CW_OK);
+        }
+        let Some(target_actor_id) = runtime.combat_target_for_actor(encounter_id, actor_id) else {
+            return Ok(CW_OK);
+        };
+        let record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_ATTACK,
+                actor_id,
+                target_actor_id,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            runtime.next_seed_value(),
+        )
+        .into_system();
+        let (status, npc_events) = commit_journal_record(state, runtime, record)?;
+        events.extend(npc_events);
+        if status != CW_OK {
+            return Ok(status);
+        }
+    }
+    Ok(CW_OK)
+}
+
+async fn apply_combat_choice(
+    state: AppState,
+    actor_id: u64,
+    choice: CombatChoice,
+    actor_session: Option<&str>,
+) -> Json<ActionResponse> {
+    let was_active = actor_session
+        .and_then(|token| actor_session_active_for_actor(&state.actor_sessions, actor_id, token))
+        .unwrap_or(false);
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(&runtime, &state, actor_id, actor_session) {
+        return client_actor_rejected_response();
+    }
+    let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
+    let Some(actor) = runtime.actor_by_id(actor_id) else {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    if actor.kind != CW_ACTOR_HUMAN || actor.status != CW_ACTOR_ACTIVE {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    let requested_target_id = match choice {
+        CombatChoice::Attack { target_actor_id } => Some(target_actor_id),
+        CombatChoice::Dodge | CombatChoice::Escape { .. } => None,
+    };
+    let Some((job_id, encounter_target_id)) =
+        runtime.combat_job_for_actor(actor_id, requested_target_id)
+    else {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    };
+    let encounter_id = combat_encounter_id(&job_id);
+    let turn_location_id = Some(actor.location_id);
+    let mut events = Vec::new();
+
+    if runtime.active_combat_encounter(encounter_id).is_none() {
+        let record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_START,
+                actor_id,
+                target_actor_id: encounter_target_id,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            runtime.next_seed_value(),
+        )
+        .into_system();
+        let Ok((status, start_events)) = commit_journal_record(&state, &mut runtime, record) else {
+            drop(runtime);
+            broadcast_events(&state, &released_events);
+            return Json(ActionResponse {
+                ok: false,
+                status: 500,
+                events: Vec::new(),
+            });
+        };
+        events.extend(start_events);
+        if status != CW_OK {
+            drop(runtime);
+            broadcast_events(&state, &released_events);
+            broadcast_events(&state, &events);
+            return Json(ActionResponse {
+                ok: false,
+                status,
+                events,
+            });
+        }
+    } else if !runtime.combat_actor_is_participant(encounter_id, actor_id) {
+        let record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_JOIN,
+                actor_id,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            runtime.next_seed_value(),
+        )
+        .into_system();
+        let Ok((status, join_events)) = commit_journal_record(&state, &mut runtime, record) else {
+            drop(runtime);
+            broadcast_events(&state, &released_events);
+            broadcast_events(&state, &events);
+            return Json(ActionResponse {
+                ok: false,
+                status: 500,
+                events: Vec::new(),
+            });
+        };
+        events.extend(join_events);
+        if status != CW_OK {
+            drop(runtime);
+            broadcast_events(&state, &released_events);
+            broadcast_events(&state, &events);
+            return Json(ActionResponse {
+                ok: false,
+                status,
+                events,
+            });
+        }
+    }
+
+    let npc_status = match drive_combat_npc_turns(&state, &mut runtime, encounter_id, &mut events) {
+        Ok(status) => status,
+        Err(_) => 500,
+    };
+    if npc_status != CW_OK {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        broadcast_events(&state, &events);
+        return Json(ActionResponse {
+            ok: false,
+            status: npc_status,
+            events,
+        });
+    }
+    let Some(current_actor_id) = runtime.combat_current_actor_id(encounter_id) else {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        broadcast_events(&state, &events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events,
+        });
+    };
+    if current_actor_id != actor_id {
+        events.push(EventView {
+            type_name: "combat.turn.waiting".to_string(),
+            success: true,
+            actor_id: Some(current_actor_id),
+            actor_name: runtime.actor_name(current_actor_id),
+            location_id: turn_location_id,
+            content_id: Some(encounter_id),
+            content: Some("wait".to_string()),
+            ..EventView::default()
+        });
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        broadcast_events(&state, &events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 423,
+            events,
+        });
+    }
+
+    let action = match choice {
+        CombatChoice::Attack { target_actor_id } => CwAction {
+            kind: CW_ACTION_COMBAT_ATTACK,
+            actor_id,
+            target_actor_id,
+            content_id: encounter_id,
+            ..CwAction::default()
+        },
+        CombatChoice::Dodge => CwAction {
+            kind: CW_ACTION_COMBAT_DODGE,
+            actor_id,
+            content_id: encounter_id,
+            ..CwAction::default()
+        },
+        CombatChoice::Escape {
+            destination_location_id,
+        } => CwAction {
+            kind: CW_ACTION_COMBAT_ESCAPE,
+            actor_id,
+            destination_location_id,
+            content_id: encounter_id,
+            ..CwAction::default()
+        },
+    };
+    let record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
+    let Ok((mut status, player_events)) = commit_journal_record(&state, &mut runtime, record)
+    else {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        broadcast_events(&state, &events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    events.extend(player_events);
+    if status == CW_OK {
+        status = match drive_combat_npc_turns(&state, &mut runtime, encounter_id, &mut events) {
+            Ok(npc_status) => npc_status,
+            Err(_) => 500,
+        };
+    }
+    let observation = advance_turn_and_capture_player_tick_observation(
+        &state,
+        &mut runtime,
+        turn_location_id,
+        actor_id,
+        status,
+        &mut events,
+    );
+    drop(runtime);
+
+    broadcast_events(&state, &released_events);
+    broadcast_events(&state, &events);
+    if let Some(observation) = observation {
+        schedule_player_tick_observation(&state, observation);
+    }
+    let mut response_events = events;
+    if !was_active {
+        response_events.extend(commit_presence_event(&state, actor_id, true).await);
+    }
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
+        events: response_events,
+    })
+}
+
 async fn attack(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -30269,59 +30868,11 @@ async fn attack(
     ) {
         return action_rate_limited_response();
     }
-    {
-        let runtime = state.inner.lock().await;
-        if !client_actor_authorized_for_state(
-            &runtime,
-            &state,
-            payload.actor_id,
-            payload.actor_session.as_deref(),
-        ) {
-            return client_actor_rejected_response();
-        }
-        let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
-            return Json(ActionResponse {
-                ok: false,
-                status: 404,
-                events: Vec::new(),
-            });
-        };
-        if !runtime.location_has_unresolved_combat(actor.location_id) {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
-        }
-        let Some(target) = runtime.actor_by_id(payload.target_actor_id) else {
-            return Json(ActionResponse {
-                ok: false,
-                status: 404,
-                events: Vec::new(),
-            });
-        };
-        if target.kind != CW_ACTOR_NPC {
-            return Json(ActionResponse {
-                ok: false,
-                status: 403,
-                events: Vec::new(),
-            });
-        }
-        if target.status != CW_ACTOR_ACTIVE || target.location_id != actor.location_id {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
-        }
-    }
-    apply_and_broadcast(
+    apply_combat_choice(
         state,
-        CwAction {
-            kind: CW_ACTION_ATTACK,
-            actor_id: payload.actor_id,
+        payload.actor_id,
+        CombatChoice::Attack {
             target_actor_id: payload.target_actor_id,
-            ..CwAction::default()
         },
         payload.actor_session.as_deref(),
     )
@@ -30342,38 +30893,10 @@ async fn defend(
     ) {
         return action_rate_limited_response();
     }
-    {
-        let runtime = state.inner.lock().await;
-        if !client_actor_authorized_for_state(
-            &runtime,
-            &state,
-            payload.actor_id,
-            payload.actor_session.as_deref(),
-        ) {
-            return client_actor_rejected_response();
-        }
-        let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
-            return Json(ActionResponse {
-                ok: false,
-                status: 404,
-                events: Vec::new(),
-            });
-        };
-        if !runtime.location_has_unresolved_combat(actor.location_id) {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
-        }
-    }
-    apply_and_broadcast(
+    apply_combat_choice(
         state,
-        CwAction {
-            kind: CW_ACTION_DEFEND,
-            actor_id: payload.actor_id,
-            ..CwAction::default()
-        },
+        payload.actor_id,
+        CombatChoice::Dodge,
         payload.actor_session.as_deref(),
     )
     .await
@@ -32352,7 +32875,7 @@ fn automatic_orb_reward_for_action(
                     reason: "avatar_created".to_string(),
                 },
             }),
-        CW_ACTION_ABILITY_CHECK => events
+        CW_ACTION_ABILITY_CHECK if action_is_listen_check(action) => events
             .iter()
             .find(|event| {
                 event.type_name == "ability_check.rolled"
@@ -32368,10 +32891,8 @@ fn automatic_orb_reward_for_action(
                 claim_key: ability_check_success_claim_key(
                     action.actor_id,
                     event.location_id.unwrap_or(0),
-                    action.ability,
-                    event
-                        .dc
-                        .unwrap_or_else(|| i16::try_from(action.dc).unwrap_or(i16::MAX)),
+                    LISTEN_ABILITY,
+                    LISTEN_DC as i16,
                 ),
                 delta: OrbDelta {
                     actor_id: action.actor_id,
@@ -32419,7 +32940,27 @@ fn automatic_orb_reward_for_action(
                     })
             }
         }
-        CW_ACTION_FLEE => events
+        CW_ACTION_COMBAT_ATTACK => events
+            .iter()
+            .find(|event| {
+                event.type_name == "combat.encounter.resolved"
+                    && event.success
+                    && event.actor_id == Some(action.actor_id)
+                    && event.total == Some(1)
+            })
+            .map(|event| AutomaticOrbReward {
+                claim_key: format!(
+                    "combat_outcome:{}:{}",
+                    action.actor_id,
+                    event.content_id.unwrap_or(action.content_id)
+                ),
+                delta: OrbDelta {
+                    actor_id: action.actor_id,
+                    delta: COMBAT_OUTCOME_ORB_REWARD,
+                    reason: "combat_outcome".to_string(),
+                },
+            }),
+        CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE => events
             .iter()
             .find(|event| {
                 event.type_name == "combat.flee.success"
@@ -32932,6 +33473,19 @@ fn normalize_job_status(value: &str) -> Option<&'static str> {
     }
 }
 
+fn combat_encounter_id(job_id: &str) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for byte in b"cosyworld.combat/2:"
+        .iter()
+        .copied()
+        .chain(job_id.as_bytes().iter().copied())
+    {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash.max(1)
+}
+
 fn action_is_listen_check(action: &CwAction) -> bool {
     action.kind == CW_ACTION_ABILITY_CHECK
         && action.ability == LISTEN_ABILITY
@@ -33048,6 +33602,7 @@ fn source_event_for_orb_delta<'a>(
         "ability_check_success" => Some("ability_check.rolled"),
         "combat_knockout" => Some("combat.knockout"),
         "combat_hit" => Some("combat.attack.hit"),
+        "combat_outcome" => Some("combat.encounter.resolved"),
         "combat_flee" => Some("combat.flee.success"),
         "job_completed" => Some("job.updated"),
         "chat" => Some("chat.queued"),
@@ -33193,7 +33748,6 @@ fn commit_journal_record(
         state.event_store_path.as_deref()
     {
         init_event_store(path)?;
-        let backup = runtime.clone();
         let mut conn = open_event_store(path)?;
         let tx = conn.transaction().map_err(sqlite_error)?;
         let committed = (|| -> io::Result<(u32, Vec<EventView>, bool)> {
@@ -33247,13 +33801,18 @@ fn commit_journal_record(
         let committed = match committed {
             Ok(committed) => committed,
             Err(error) => {
-                *runtime = backup;
-                return Err(error);
+                let rollback_error = tx.rollback().map_err(sqlite_error).err();
+                let restore_error = restore_runtime_from_durable_state(state, runtime, path).err();
+                return Err(journal_commit_recovery_error(
+                    error,
+                    rollback_error,
+                    restore_error,
+                ));
             }
         };
         if let Err(error) = tx.commit().map_err(sqlite_error) {
-            *runtime = backup;
-            return Err(error);
+            let restore_error = restore_runtime_from_durable_state(state, runtime, path).err();
+            return Err(journal_commit_recovery_error(error, None, restore_error));
         }
         committed
     } else {
@@ -33267,14 +33826,52 @@ fn commit_journal_record(
     Ok((status, events))
 }
 
+fn restore_runtime_from_durable_state(
+    state: &AppState,
+    runtime: &mut RuntimeWorld,
+    event_store_path: &Path,
+) -> io::Result<()> {
+    let mut restored = RuntimeWorld::from_action_journal(event_store_path)?;
+    if let Some(path) = state.resident_continuity_path.as_deref() {
+        match restored.load_resident_continuity_snapshot(path) {
+            Ok(_) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+    }
+    if let Ok(ownership) = state.ownership_index.try_read() {
+        let placement_rotation = placement_rotation_index_for_runtime(&restored);
+        restored.apply_wallet_overlap_placements(&ownership, placement_rotation);
+    }
+    *runtime = restored;
+    Ok(())
+}
+
+fn journal_commit_recovery_error(
+    commit_error: io::Error,
+    rollback_error: Option<io::Error>,
+    restore_error: Option<io::Error>,
+) -> io::Error {
+    let mut message = commit_error.to_string();
+    if let Some(error) = rollback_error {
+        message.push_str(&format!("; transaction rollback failed: {error}"));
+    }
+    if let Some(error) = restore_error {
+        message.push_str(&format!("; runtime journal recovery failed: {error}"));
+    }
+    io::Error::new(commit_error.kind(), message)
+}
+
 fn persist_runtime(state: &AppState, runtime: &RuntimeWorld) {
-    if let Some(path) = state.snapshot_path.as_deref() {
-        if let Err(error) = runtime.save_snapshot(path) {
-            warn!(
-                "failed to persist CosyWorld v2 snapshot {}: {}",
-                path.display(),
-                error
-            );
+    if state.event_store_path.is_none() {
+        if let Some(path) = state.snapshot_path.as_deref() {
+            if let Err(error) = runtime.save_snapshot(path) {
+                warn!(
+                    "failed to persist CosyWorld v2 snapshot {}: {}",
+                    path.display(),
+                    error
+                );
+            }
         }
     }
     if let Some(path) = state.resident_continuity_path.as_deref() {
@@ -36088,7 +36685,8 @@ mod tests {
         assert_eq!(CW_MAX_ITEMS, 1024);
         assert_eq!(CW_MAX_LOCATIONS, 256);
         assert_eq!(CW_MAX_EXITS, 1024);
-        assert_eq!(CW_MAX_EVENTS, 128);
+        assert_eq!(CW_MAX_EVENTS, 256);
+        assert!(CW_MAX_EVENTS >= CW_MAX_EVOLUTION_TRACKS + 2);
         assert_eq!(CW_MAX_EVOLUTION_TRACKS, 128);
     }
 
@@ -39550,6 +40148,34 @@ mod tests {
         ));
         let _ = fs::remove_file(&path);
         init_event_store(&path).expect("initialize actor outbox");
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        {
+            let mut runtime = state.inner.blocking_lock();
+            let mut create_record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_CREATE_ACTOR,
+                    actor_id: 5000,
+                    location_id: COSY_COTTAGE_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                17632,
+            );
+            create_record.actor_meta_upserts.insert(
+                5000,
+                ActorMeta {
+                    name: "Rollback Player".to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Rollback Tester".to_string(),
+                    description: "A test avatar committed before failure injection.".to_string(),
+                },
+            );
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, create_record)
+                    .expect("commit rollback test baseline")
+                    .0,
+                CW_OK
+            );
+        }
         let conn = open_event_store(&path).expect("open actor outbox");
         conn.execute_batch(
             "CREATE TRIGGER reject_actor_job BEFORE INSERT ON actor_jobs
@@ -39557,14 +40183,20 @@ mod tests {
         )
         .expect("install failure injection");
         drop(conn);
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
-            &mut runtime,
-            5000,
-            COSY_COTTAGE_LOCATION_ID,
-            "Rollback Player",
-        );
-        let state = test_app_state(runtime, Some(path.clone()));
+        let baseline_counts = {
+            let conn = open_event_store(&path).expect("count rollback baseline rows");
+            ["action_journal", "world_events", "actor_jobs"]
+                .into_iter()
+                .map(|table| {
+                    let count = conn
+                        .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                            row.get::<_, i64>(0)
+                        })
+                        .expect("count baseline table rows");
+                    (table, count)
+                })
+                .collect::<BTreeMap<_, _>>()
+        };
         let mut runtime = state.inner.blocking_lock();
         let before_tick = runtime.world.tick;
         let before_next_event_seq = runtime.world.next_event_seq;
@@ -39605,7 +40237,10 @@ mod tests {
                     row.get(0)
                 })
                 .expect("rolled back table count");
-            assert_eq!(count, 0, "{table} should roll back atomically");
+            assert_eq!(
+                count, baseline_counts[table],
+                "{table} should roll back atomically"
+            );
         }
         drop(conn);
         let _ = fs::remove_file(path);
@@ -40449,6 +41084,41 @@ mod tests {
         }));
     }
 
+    #[tokio::test]
+    async fn ability_check_endpoint_rejects_noncanonical_dc_and_ability() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Exploit Tester",
+        );
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let before_tick = state.inner.lock().await.world.tick;
+        let before_orbs = state.inner.lock().await.orb_balance(5000);
+
+        let response = ability_check(
+            ConnectInfo("127.0.0.1:43109".parse().expect("client address")),
+            State(state.clone()),
+            Json(CheckRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                ability: "charisma".to_string(),
+                dc: Some(u16::MAX),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(!response.ok);
+        assert_eq!(response.status, 400);
+        assert!(response.events.is_empty());
+        let runtime = state.inner.lock().await;
+        assert_eq!(runtime.world.tick, before_tick);
+        assert_eq!(runtime.orb_balance(5000), before_orbs);
+    }
+
     #[test]
     fn action_journal_backfills_legacy_generated_avatar_flavor() {
         let path = std::env::temp_dir().join(format!(
@@ -40957,8 +41627,8 @@ mod tests {
             let mut check = CwAction::default();
             check.kind = CW_ACTION_ABILITY_CHECK;
             check.actor_id = 5000;
-            check.ability = ability_from_string("wisdom");
-            check.dc = 0;
+            check.ability = LISTEN_ABILITY;
+            check.dc = LISTEN_DC;
             let (status, events) =
                 commit_journal_record(&state, &mut runtime, JournalRecord::new(check, seed))
                     .expect("commit repeated check");
@@ -41008,6 +41678,28 @@ mod tests {
         );
 
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn noncanonical_ability_checks_do_not_mint_orbs() {
+        let action = CwAction {
+            kind: CW_ACTION_ABILITY_CHECK,
+            actor_id: 5000,
+            ability: ability_from_string("charisma"),
+            dc: u16::MAX,
+            ..CwAction::default()
+        };
+        let events = vec![EventView {
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            total: Some(20),
+            dc: Some(-1),
+            ..EventView::default()
+        }];
+
+        assert!(automatic_orb_reward_for_action(&action, &events).is_none());
     }
 
     #[test]
@@ -43893,6 +44585,228 @@ mod tests {
     }
 
     #[test]
+    fn combat_v2_state_snapshot_and_projection_gate_follow_encounter_turns() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Encounter Snapshotter",
+        );
+        let encounter_id = combat_encounter_id(MOONLIT_JOB_ID);
+        let start = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_START,
+                actor_id: 5000,
+                target_actor_id: 1004,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            71_731,
+        )
+        .into_system();
+        let (status, events) = runtime.apply_journal_record(&start);
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "combat.encounter.started"));
+
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        let combat = state
+            .combat
+            .as_ref()
+            .expect("active encounter is public state");
+        assert_eq!(combat.protocol, "cosyworld.combat/2");
+        assert_eq!(combat.encounter_id, encounter_id);
+        assert_eq!(combat.round, 1);
+        assert_eq!(combat.participants.len(), 2);
+        assert!(combat
+            .participants
+            .iter()
+            .any(|participant| participant.actor_id == 5000 && participant.side == 1));
+        assert!(combat
+            .participants
+            .iter()
+            .any(|participant| participant.actor_id == 1004 && participant.side == 2));
+        if combat.is_current_actor {
+            assert!(combat.available_actions.contains(&"attack"));
+            assert!(combat.available_actions.contains(&"dodge"));
+            assert!(state
+                .primary_action
+                .options
+                .iter()
+                .all(|option| matches!(option.kind.as_str(), "attack" | "defend" | "flee")));
+        } else {
+            assert_eq!(state.primary_action.kind, "wait");
+            assert!(state.primary_action.disabled);
+        }
+
+        let progress_before = runtime
+            .clocks
+            .get(MOONLIT_PROGRESS_CLOCK_ID)
+            .map(|clock| clock.filled)
+            .expect("moonlit progress clock");
+        let mut blocked = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            71_732,
+        )
+        .into_player_card();
+        blocked
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
+                amount: 1,
+                reason: "combat_bypass_attempt".to_string(),
+            });
+        let (status, blocked_events) = runtime.apply_journal_record(&blocked);
+        assert_ne!(status, CW_OK);
+        assert!(blocked_events
+            .iter()
+            .any(|event| event.type_name == "rule.rejected" && event.reason == 20));
+        assert_eq!(
+            runtime
+                .clocks
+                .get(MOONLIT_PROGRESS_CLOCK_ID)
+                .map(|clock| clock.filled),
+            Some(progress_before)
+        );
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("active combat survives a snapshot round trip");
+        let restored_encounter = restored
+            .active_combat_encounter(encounter_id)
+            .expect("restored encounter remains active");
+        assert_eq!(restored_encounter.round, 1);
+        assert_eq!(restored_encounter.participant_count, 2);
+        assert_eq!(restored.world.version, CW_KERNEL_VERSION);
+
+        let mut invalid_snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        invalid_snapshot.world_combat_encounters[0].participant_count =
+            CW_MAX_COMBAT_PARTICIPANTS + 1;
+        assert!(invalid_snapshot.into_runtime().is_err());
+    }
+
+    #[tokio::test]
+    async fn combat_v2_route_filters_targets_and_drives_npc_turns_to_resolution() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Encounter Router",
+        );
+        let human = runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("test human exists");
+        human.stats.strength = 100;
+        human.stats.dexterity = 1;
+        human.stats.hp_base = 100;
+        human.damage = 0;
+        let echo = runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 1004)
+            .expect("Moonlit encounter target exists");
+        echo.stats.strength = 1;
+        echo.stats.dexterity = 50;
+        echo.stats.hp_base = 2;
+        echo.damage = 0;
+        let unrelated = runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 1003)
+            .expect("unrelated resident exists");
+        unrelated.location_id = MOONLIT_TRAIL_LOCATION_ID;
+        unrelated.status = CW_ACTOR_ACTIVE;
+
+        let starting_orbs = runtime.orb_balance(5000);
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let rejected = apply_combat_choice(
+            state.clone(),
+            5000,
+            CombatChoice::Attack {
+                target_actor_id: 1003,
+            },
+            Some(&actor_session),
+        )
+        .await
+        .0;
+        assert!(!rejected.ok);
+        assert_eq!(rejected.status, 409);
+        assert!(rejected.events.is_empty());
+
+        let mut all_events = Vec::new();
+        for _ in 0..5 {
+            let response = apply_combat_choice(
+                state.clone(),
+                5000,
+                CombatChoice::Attack {
+                    target_actor_id: 1004,
+                },
+                Some(&actor_session),
+            )
+            .await
+            .0;
+            assert!(response.ok, "combat attack failed with {}", response.status);
+            all_events.extend(response.events);
+            let resolved = state
+                .inner
+                .lock()
+                .await
+                .combat_encounter(combat_encounter_id(MOONLIT_JOB_ID))
+                .is_some_and(|encounter| encounter.status == CW_COMBAT_ENCOUNTER_RESOLVED);
+            if resolved {
+                break;
+            }
+        }
+
+        assert!(all_events
+            .iter()
+            .any(|event| event.type_name == "combat.encounter.started"));
+        assert!(all_events
+            .iter()
+            .any(|event| event.type_name == "combat.initiative.rolled"));
+        assert!(all_events.iter().any(|event| {
+            event.type_name == "combat.attack.attempt" && event.actor_id == Some(1004)
+        }));
+        assert!(all_events
+            .iter()
+            .any(|event| event.type_name == "combat.encounter.resolved" && event.total == Some(1)));
+        assert!(all_events.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
+                && event.content.as_deref() == Some("combat_resolved")
+        }));
+
+        let runtime = state.inner.lock().await;
+        let encounter = runtime
+            .combat_encounter(combat_encounter_id(MOONLIT_JOB_ID))
+            .expect("resolved encounter is retained for replay");
+        assert_eq!(encounter.status, CW_COMBAT_ENCOUNTER_RESOLVED);
+        let echo = runtime.actor_by_id(1004).expect("target remains in world");
+        assert_eq!(echo.status, CW_ACTOR_KNOCKED_OUT);
+        assert_eq!(unsafe { cw_actor_current_hp(&echo) }, 1);
+        assert_eq!(
+            runtime.job_status(&runtime.jobs[MOONLIT_JOB_ID]),
+            "completed"
+        );
+        assert!(runtime.orb_balance(5000) >= starting_orbs + COMBAT_OUTCOME_ORB_REWARD);
+        let state_view = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(state_view.combat.is_none());
+    }
+
+    #[test]
     fn completed_combat_project_clears_combat_actions() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
@@ -44892,7 +45806,15 @@ mod tests {
         assert_eq!(content.factions.len(), 12);
         assert_eq!(content.items.len(), 14);
         assert_eq!(content.locations.len(), 48);
-        assert_eq!(content.exits.len(), 108);
+        assert_eq!(content.exits.len(), 110);
+        assert!(content.exits.iter().any(|exit| {
+            exit.from_location_id == MOONLIT_TRAIL_LOCATION_ID
+                && exit.to_location_id == GREAT_LIBRARY_LOCATION_ID
+        }));
+        assert!(content.exits.iter().any(|exit| {
+            exit.from_location_id == GREAT_LIBRARY_LOCATION_ID
+                && exit.to_location_id == MOONLIT_TRAIL_LOCATION_ID
+        }));
         assert_eq!(content.hidden_exits.len(), 1);
         assert_eq!(content.room_features.len(), 36);
         assert_eq!(content.room_sheets.len(), 48);
@@ -45479,7 +46401,7 @@ mod tests {
     }
 
     #[test]
-    fn search_always_selects_one_waiting_discovery() {
+    fn search_reveal_chance_can_leave_all_discoveries_hidden() {
         let runtime = RuntimeWorld::seeded();
         let candidates = vec![
             SearchRevealCandidate::SeedExit {
@@ -45499,13 +46421,9 @@ mod tests {
                     .all(|candidate| !runtime.search_candidate_succeeds(*seed, 5000, candidate))
             })
             .expect("a seed where every rarity roll misses");
-        let fallback = runtime
+        assert!(runtime
             .select_search_reveal_candidate(fallback_seed, 5000, &candidates)
-            .expect("Search still reveals a waiting discovery");
-        assert_eq!(
-            runtime.search_candidate_stable_key(&fallback),
-            runtime.search_candidate_stable_key(&candidates[0])
-        );
+            .is_none());
 
         let later_success_seed = (1..100_000)
             .find(|seed| {
@@ -52478,6 +53396,30 @@ mod tests {
 
         let _ = fs::remove_file(snapshot_path);
         let _ = fs::remove_file(continuity_path);
+    }
+
+    #[test]
+    fn journal_backed_runtime_skips_redundant_full_snapshot_writes() {
+        let runtime = RuntimeWorld::seeded();
+        let event_store_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-persist-journal-{}-{}.sqlite",
+            std::process::id(),
+            now_millis()
+        ));
+        let snapshot_path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-persist-skipped-snapshot-{}-{}.json",
+            std::process::id(),
+            now_millis()
+        ));
+        let _ = fs::remove_file(&event_store_path);
+        let _ = fs::remove_file(&snapshot_path);
+
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(event_store_path.clone()));
+        state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
+        persist_runtime(&state, &runtime);
+
+        assert!(!snapshot_path.exists());
+        let _ = fs::remove_file(event_store_path);
     }
 
     #[test]

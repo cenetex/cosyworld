@@ -37,9 +37,13 @@ an explicit versioned pack update.
 
 The kernel independently implements a deliberately small compatible surface:
 normal, Advantage, and Disadvantage d20 rolls; derived Bloodied state; and a
-CosyWorld nonlethal knockout that leaves an actor at 1 Hit Point. These
-primitives do not grant authority to reference-only entries or turn the adapter
-into a complete implementation of either SRD.
+CosyWorld nonlethal knockout that leaves an actor at 1 Hit Point. The versioned
+`cosyworld.combat/2` protocol adds explicit encounters, initiative,
+proficiency-scaled melee attacks, critical hits, Dodge, one-action turns, and
+escape through an unlocked exit. These primitives do not grant authority to
+reference-only entries or turn the adapter into a complete implementation of
+either SRD. See [combat-system.md](combat-system.md) for the exact compatibility
+profile and exclusions.
 
 ## Product boundary
 
@@ -51,5 +55,5 @@ in CosyWorld's ordinary language.
 
 SRD 5.1 and SRD 5.2.1 are both available as attributed authoring references.
 SRD 5.2.1 targets the revised fifth-edition ruleset, but its broader class,
-spell, equipment, action-economy, and monster mechanics remain outside the
-product boundary.
+spell, equipment, reaction, bonus-action, tactical-movement, and monster
+mechanics remain outside the product boundary.

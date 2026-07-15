@@ -8,15 +8,17 @@
 extern "C" {
 #endif
 
-#define CW_KERNEL_VERSION 1u
+#define CW_KERNEL_VERSION 2u
 
 #define CW_MAX_ACTORS 512u
 #define CW_MAX_ITEMS 1024u
 #define CW_MAX_LOCATIONS 256u
 #define CW_MAX_EXITS 1024u
-#define CW_MAX_EVENTS 128u
 #define CW_MAX_EVOLUTION_TRACKS 128u
 #define CW_MAX_EVOLUTION_REQUIREMENTS 4u
+#define CW_MAX_EVENTS 256u
+#define CW_MAX_COMBAT_ENCOUNTERS 32u
+#define CW_MAX_COMBAT_PARTICIPANTS 16u
 #define CW_INVENTORY_BASE_SLOTS 1u
 
 typedef uint64_t cw_id;
@@ -84,7 +86,8 @@ typedef enum {
   CW_CONDITION_NONE = 0,
   CW_CONDITION_HIDDEN = 1u << 0,
   CW_CONDITION_DEFENDING = 1u << 1,
-  CW_CONDITION_UNCONSCIOUS = 1u << 2
+  CW_CONDITION_UNCONSCIOUS = 1u << 2,
+  CW_CONDITION_DODGING = 1u << 3
 } cw_condition_flags;
 
 typedef enum {
@@ -102,7 +105,12 @@ typedef enum {
   CW_ACTION_DROP_ITEM = 11,
   CW_ACTION_TRADE_ITEM = 12,
   CW_ACTION_SEARCH = 13,
-  CW_ACTION_CRAFT = 14
+  CW_ACTION_CRAFT = 14,
+  CW_ACTION_COMBAT_START = 15,
+  CW_ACTION_COMBAT_JOIN = 16,
+  CW_ACTION_COMBAT_ATTACK = 17,
+  CW_ACTION_COMBAT_DODGE = 18,
+  CW_ACTION_COMBAT_ESCAPE = 19
 } cw_action_kind;
 
 typedef enum {
@@ -129,8 +137,26 @@ typedef enum {
   CW_EVENT_ITEM_TRADED = 20,
   CW_EVENT_ITEM_FOUND = 21,
   CW_EVENT_ITEM_CRAFTED = 22,
-  CW_EVENT_ITEM_CREATED = 23
+  CW_EVENT_ITEM_CREATED = 23,
+  CW_EVENT_COMBAT_ENCOUNTER_STARTED = 24,
+  CW_EVENT_COMBAT_PARTICIPANT_JOINED = 25,
+  CW_EVENT_COMBAT_INITIATIVE_ROLLED = 26,
+  CW_EVENT_COMBAT_TURN_STARTED = 27,
+  CW_EVENT_COMBAT_TURN_ENDED = 28,
+  CW_EVENT_COMBAT_DODGE = 29,
+  CW_EVENT_COMBAT_ENCOUNTER_RESOLVED = 30
 } cw_event_type;
+
+typedef enum {
+  CW_COMBAT_ENCOUNTER_NONE = 0,
+  CW_COMBAT_ENCOUNTER_ACTIVE = 1,
+  CW_COMBAT_ENCOUNTER_RESOLVED = 2
+} cw_combat_encounter_status;
+
+typedef enum {
+  CW_COMBAT_PARTICIPANT_NONE = 0,
+  CW_COMBAT_PARTICIPANT_ESCAPED = 1u << 0
+} cw_combat_participant_flags;
 
 typedef enum {
   CW_OFFER_NONE = 0,
@@ -256,6 +282,26 @@ typedef struct {
 } cw_evolution_track;
 
 typedef struct {
+  cw_id actor_id;
+  uint8_t side;
+  uint8_t flags;
+  uint16_t reserved;
+  int16_t initiative;
+  uint16_t reserved2;
+} cw_combat_participant;
+
+typedef struct {
+  cw_id id;
+  cw_id location_id;
+  uint8_t status;
+  uint8_t current_index;
+  uint16_t round;
+  uint32_t reserved;
+  size_t participant_count;
+  cw_combat_participant participants[CW_MAX_COMBAT_PARTICIPANTS];
+} cw_combat_encounter;
+
+typedef struct {
   uint32_t version;
   uint64_t tick;
   uint64_t next_event_seq;
@@ -269,6 +315,8 @@ typedef struct {
   cw_location locations[CW_MAX_LOCATIONS];
   cw_exit exits[CW_MAX_EXITS];
   cw_evolution_track evolution_tracks[CW_MAX_EVOLUTION_TRACKS];
+  size_t combat_encounter_count;
+  cw_combat_encounter combat_encounters[CW_MAX_COMBAT_ENCOUNTERS];
 } cw_world;
 
 void cw_world_init(cw_world *world);
