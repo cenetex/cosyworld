@@ -5,7 +5,7 @@
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:47c6fbd7d0e50a9b96580b53231cf76bce7b2085f4a75e1afd42f47feb7b2e49",
+  "bundle_hash": "sha256:338f4d9a5eefc75d832f7cc48c40600263dc49c89a2e6aa7365ea0d6a361d960",
   "packs": [
     {
       "id": "cosyworld.core",
@@ -194,7 +194,7 @@
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:b6a36cc1ec92fb8844ceb4777b838377ce309464300045adce8206b94805d236"
+      "integrity": "sha256:2240e3270ea02d49bf4a9d8ddcf2baf297452ba8935379afeb3ccbb1e109c151"
     },
     {
       "id": "cosyworld.lonely-forest.characters",
