@@ -140,8 +140,19 @@ variable "openrouter_api_key_secret_arn" {
 
 variable "openrouter_chat_model" {
   type        = string
-  default     = "openai/gpt-4.1-mini"
+  default     = "openai/gpt-5.6-luna"
   description = "OPENROUTER_CHAT_MODEL to use when openrouter_api_key_secret_arn is set."
+}
+
+variable "openrouter_reasoning_effort" {
+  type        = string
+  default     = "none"
+  description = "OpenRouter reasoning effort. Use none for the lowest-latency resident dialogue path."
+
+  validation {
+    condition     = contains(["none", "minimal", "low", "medium", "high", "xhigh", "max"], var.openrouter_reasoning_effort)
+    error_message = "openrouter_reasoning_effort must be none, minimal, low, medium, high, xhigh, or max."
+  }
 }
 
 variable "generation_default_mode" {

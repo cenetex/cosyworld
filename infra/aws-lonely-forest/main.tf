@@ -647,6 +647,7 @@ locals {
     var.openrouter_api_key_secret_arn != "" ? [
       { name = "COSYWORLD_AI_PROVIDER", value = "openrouter" },
       { name = "OPENROUTER_CHAT_MODEL", value = var.openrouter_chat_model },
+      { name = "OPENROUTER_REASONING_EFFORT", value = var.openrouter_reasoning_effort },
     ] : [],
   )
 

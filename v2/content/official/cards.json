@@ -1473,6 +1473,7 @@
     "aspect": "wide",
     "source": "the_lantern_keeper",
     "asset_status": "pending_art",
+    "image_url": "/assets/generated/cards/location-haunted-mansion.webp",
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
@@ -1487,6 +1488,7 @@
     "aspect": "wide",
     "source": "the_lantern_keeper",
     "asset_status": "pending_art",
+    "image_url": "/assets/generated/cards/location-lost-woods.webp",
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
@@ -1501,6 +1503,7 @@
     "aspect": "wide",
     "source": "the_lantern_keeper",
     "asset_status": "pending_art",
+    "image_url": "/assets/generated/cards/location-quiet-abbey.webp",
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
@@ -1515,6 +1518,7 @@
     "aspect": "wide",
     "source": "the_lantern_keeper",
     "asset_status": "pending_art",
+    "image_url": "/assets/generated/cards/location-darkest-ocean.webp",
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
@@ -1529,6 +1533,7 @@
     "aspect": "wide",
     "source": "the_lantern_keeper",
     "asset_status": "pending_art",
+    "image_url": "/assets/generated/cards/location-solar-temple.webp",
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {

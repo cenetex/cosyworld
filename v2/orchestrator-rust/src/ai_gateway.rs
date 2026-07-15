@@ -99,6 +99,7 @@ pub(crate) struct AiConfig {
     pub(crate) api_key: String,
     pub(crate) base_url: String,
     pub(crate) model: String,
+    pub(crate) reasoning_effort: Option<String>,
 }
 
 impl AiConfig {
@@ -137,11 +138,17 @@ impl AiConfig {
                     DEFAULT_OPENAI_CHAT_MODEL.to_string()
                 }
             });
+        let reasoning_effort = using_openrouter
+            .then(|| std::env::var("OPENROUTER_REASONING_EFFORT").ok())
+            .flatten()
+            .map(|effort| effort.trim().to_ascii_lowercase())
+            .filter(|effort| !effort.is_empty());
 
         Some(Self {
             api_key,
             base_url,
             model,
+            reasoning_effort,
         })
     }
 }
@@ -263,6 +270,9 @@ pub(crate) async fn request_chat_completion(
         });
         if let Some(response_format) = request.response_format {
             payload["response_format"] = response_format.clone();
+        }
+        if let Some(reasoning_effort) = config.reasoning_effort.as_deref() {
+            payload["reasoning"] = json!({ "effort": reasoning_effort });
         }
         let response = client
             .post(&url)
@@ -399,6 +409,7 @@ mod tests {
             api_key: "test".to_string(),
             base_url: base_url.to_string(),
             model: "test-model".to_string(),
+            reasoning_effort: None,
         };
         assert_eq!(
             ai_provider_name(Some(&config("https://openrouter.ai/api/v1"))),
@@ -462,14 +473,17 @@ mod tests {
     async fn gateway_retries_transient_provider_failures_once() {
         let attempts = Arc::new(AtomicUsize::new(0));
         let structured_format_seen = Arc::new(AtomicBool::new(false));
+        let reasoning_none_seen = Arc::new(AtomicBool::new(false));
         let app = Router::new().route(
             "/chat/completions",
             post({
                 let attempts = attempts.clone();
                 let structured_format_seen = structured_format_seen.clone();
+                let reasoning_none_seen = reasoning_none_seen.clone();
                 move |Json(body): Json<Value>| {
                     let attempts = attempts.clone();
                     let structured_format_seen = structured_format_seen.clone();
+                    let reasoning_none_seen = reasoning_none_seen.clone();
                     async move {
                         if body
                             .pointer("/response_format/json_schema/name")
@@ -477,6 +491,10 @@ mod tests {
                             == Some("retry_test_schema")
                         {
                             structured_format_seen.store(true, Ordering::SeqCst);
+                        }
+                        if body.pointer("/reasoning/effort").and_then(Value::as_str) == Some("none")
+                        {
+                            reasoning_none_seen.store(true, Ordering::SeqCst);
                         }
                         if attempts.fetch_add(1, Ordering::SeqCst) == 0 {
                             return (StatusCode::BAD_GATEWAY, "try again").into_response();
@@ -500,6 +518,7 @@ mod tests {
             api_key: "test".to_string(),
             base_url: format!("http://{addr}"),
             model: "test-model".to_string(),
+            reasoning_effort: Some("none".to_string()),
         };
         let response_format = json!({
             "type": "json_schema",
@@ -531,6 +550,7 @@ mod tests {
         assert_eq!(completion.attempts, 2);
         assert_eq!(attempts.load(Ordering::SeqCst), 2);
         assert!(structured_format_seen.load(Ordering::SeqCst));
+        assert!(reasoning_none_seen.load(Ordering::SeqCst));
         server.abort();
     }
 }

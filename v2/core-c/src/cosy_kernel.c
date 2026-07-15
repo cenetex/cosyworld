@@ -1106,43 +1106,66 @@ static cw_status apply_flee(cw_world *world, const cw_action *action, cw_event_b
   return CW_OK;
 }
 
-cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events) {
+cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uint64_t seed, uint8_t advance_tick, cw_event_buffer *out_events) {
   if (!world || !action) return CW_ERR_INVALID;
   if (out_events) memset(out_events, 0, sizeof(*out_events));
-  world->tick++;
+  uint64_t previous_tick = world->tick;
+  if (advance_tick) world->tick++;
 
+  cw_status status = CW_ERR_INVALID;
   switch (action->kind) {
     case CW_ACTION_CREATE_ACTOR:
-      return apply_create_actor(world, action, seed, out_events);
+      status = apply_create_actor(world, action, seed, out_events);
+      break;
     case CW_ACTION_SAY:
-      return apply_say(world, action, out_events);
+      status = apply_say(world, action, out_events);
+      break;
     case CW_ACTION_MOVE:
-      return apply_move(world, action, out_events);
+      status = apply_move(world, action, out_events);
+      break;
     case CW_ACTION_ABILITY_CHECK:
-      return apply_ability_check(world, action, seed, out_events);
+      status = apply_ability_check(world, action, seed, out_events);
+      break;
     case CW_ACTION_PICK_UP_ITEM:
-      return apply_pick_up_item(world, action, out_events);
+      status = apply_pick_up_item(world, action, out_events);
+      break;
     case CW_ACTION_DROP_ITEM:
-      return apply_drop_item(world, action, out_events);
+      status = apply_drop_item(world, action, out_events);
+      break;
     case CW_ACTION_USE_ITEM:
-      return apply_use_item(world, action, out_events);
+      status = apply_use_item(world, action, out_events);
+      break;
     case CW_ACTION_ATTACK:
-      return apply_attack(world, action, seed, out_events);
+      status = apply_attack(world, action, seed, out_events);
+      break;
     case CW_ACTION_DEFEND:
-      return apply_defend(world, action, out_events);
+      status = apply_defend(world, action, out_events);
+      break;
     case CW_ACTION_GIVE_ITEM:
-      return apply_give_item(world, action, out_events);
+      status = apply_give_item(world, action, out_events);
+      break;
     case CW_ACTION_TRADE_ITEM:
-      return apply_trade_item(world, action, out_events);
+      status = apply_trade_item(world, action, out_events);
+      break;
     case CW_ACTION_SEARCH:
-      return apply_search(world, action, out_events);
+      status = apply_search(world, action, out_events);
+      break;
     case CW_ACTION_CRAFT:
-      return apply_craft(world, action, out_events);
+      status = apply_craft(world, action, out_events);
+      break;
     case CW_ACTION_FLEE:
-      return apply_flee(world, action, out_events);
+      status = apply_flee(world, action, out_events);
+      break;
     default:
-      return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+      status = reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+      break;
   }
+  if (status != CW_OK && advance_tick) world->tick = previous_tick;
+  return status;
+}
+
+cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events) {
+  return cw_world_apply_with_tick(world, action, seed, 0, out_events);
 }
 
 cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_offers *out_offers) {

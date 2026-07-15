@@ -887,8 +887,8 @@ async function main() {
     assert(guide.arrivalActions[0]?.effect === "the room shares one welcoming clue just for you", `the arrival Listen outcome should read as a complete story thought: ${JSON.stringify(guide)}`);
     assert(guide.waitingGrowActions[0]?.label === "evolve" && guide.waitingGrowActions[0]?.focusKey === "bank-ledger", `personal Evolve should keep the learned-clue choice available while another player has the room: ${JSON.stringify(guide)}`);
     assert(guide.waitingGrowActions.some((action) => action.label === "nudge"), `waiting Evolve should not remove the gentle room handoff: ${JSON.stringify(guide)}`);
-    assert(guide.waitingTrainActions[0]?.label === "evolve" && guide.waitingTrainActions[0]?.detail === "choose a knack to practice", `personal Evolve should offer a real knack choice without waiting on the room turn: ${JSON.stringify(guide)}`);
-    assert(guide.waitingTrainActions[0]?.title === "choose how to evolve" && /put it into a knack you want to strengthen/i.test(guide.waitingTrainActions[0]?.summary || ""), `Evolve confirmation should explain the personal choice warmly: ${JSON.stringify(guide)}`);
+    assert(guide.waitingTrainActions[0]?.label === "evolve" && guide.waitingTrainActions[0]?.detail === "choose one of two knacks", `personal Evolve should offer two dealt knack choices without waiting on the room turn: ${JSON.stringify(guide)}`);
+    assert(guide.waitingTrainActions[0]?.title === "choose how to evolve" && /one of two ways this lesson can strengthen your avatar/i.test(guide.waitingTrainActions[0]?.summary || ""), `Evolve confirmation should explain the personal choice warmly: ${JSON.stringify(guide)}`);
     assert(guide.waitingTrainActions.some((action) => action.label === "nudge"), `waiting training should retain the gentle room handoff: ${JSON.stringify(guide)}`);
     assert(guide.waitingActions.length === 1 && guide.waitingActions[0]?.label === "nudge", `ordinary waiting should use a gentle Nudge instead of ping jargon: ${JSON.stringify(guide)}`);
     assert(!/ping|pong|dex|priority/i.test(JSON.stringify(guide.waitingActions)), `waiting copy should stay free of technical turn jargon: ${JSON.stringify(guide)}`);
@@ -1919,12 +1919,12 @@ async function main() {
     assert(result.multiResident?.length === 1, `nearby residents should share one choice-bearing Chat card: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.detail === "choose someone · one Orb", `multi-resident Chat should advertise its in-card choice and whole-conversation cost: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.title === "choose someone to talk with", `multi-resident Chat should open a clear target picker: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.summary === "Choose someone nearby for a short back-and-forth. One Orb covers the whole conversation.", `multi-resident Chat should promise one complete exchange: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.summary === "Choose someone nearby, then play Chat. The card passes the room turn immediately while the conversation unfolds.", `multi-resident Chat should explain the card commit and asynchronous conversation: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.choices?.map((choice) => choice.label).join(",") === "Rati,Skull", `the Chat card should carry every eligible resident choice: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.alternateTargetId === 1003, `confirming an alternate Chat choice should address that resident: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.focusKeys?.includes("actor:1001") && result.multiResident[0]?.focusKeys?.includes("actor:1003"), `one Chat card should retain affinity for every resident it can reach: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.title === "talk with Skull", `chat confirmation should name the conversation partner: ${JSON.stringify(result)}`);
-    assert(result.serverPaid?.summary === "Share a short back-and-forth with Skull. One Orb covers the whole conversation.", `chat confirmation should promise the full social exchange: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.summary === "Play Chat to start a short conversation with Skull. The card passes the room turn immediately while the conversation unfolds.", `chat confirmation should explain the ordinary card and asynchronous conversation: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.rows?.some((row) => row[0] === "Costs" && row[1] === "one Orb for the whole exchange"), `chat confirmation should spell out the single cost for every line: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.rows?.some((row) => row[0] === "Conversation" && row[1].includes("one more line")), `chat confirmation should explain the back-and-forth cadence: ${JSON.stringify(result)}`);
     assert(!/reply hook|authors a line|-[0-9]+ Orb/i.test(JSON.stringify(result.serverPaid)), `chat confirmation should hide implementation and subtraction jargon: ${JSON.stringify(result)}`);
@@ -2158,10 +2158,29 @@ async function main() {
         const routes = actions.filter((action) => action.label === "travel");
         const route = routes[0] || null;
         if (route) openActionModal(route);
+        const confirmButton = document.querySelector("#action-modal-confirm");
+        const cancelButton = document.querySelector("#action-modal [data-action-close]");
         const modal = {
           title: document.querySelector("#action-modal-title")?.textContent?.trim() || "",
           summary: document.querySelector("#action-modal-summary")?.textContent?.trim() || "",
           confirm: document.querySelector("#action-modal-confirm")?.textContent?.trim() || "",
+          cancel: cancelButton?.textContent?.trim() || "",
+          cancelClass: cancelButton?.classList.contains("action-cancel") || false,
+          cancelAfterConfirm: Boolean(
+            confirmButton
+              && cancelButton
+              && (confirmButton.compareDocumentPosition(cancelButton) & Node.DOCUMENT_POSITION_FOLLOWING),
+          ),
+          confirmStyle: confirmButton ? {
+            color: getComputedStyle(confirmButton).color,
+            background: getComputedStyle(confirmButton).backgroundColor,
+            width: getComputedStyle(confirmButton).width,
+          } : null,
+          cancelStyle: cancelButton ? {
+            color: getComputedStyle(cancelButton).color,
+            background: getComputedStyle(cancelButton).backgroundColor,
+            width: getComputedStyle(cancelButton).width,
+          } : null,
           rows: [...document.querySelectorAll("#action-modal-meta .action-row")]
             .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
           choices: [...document.querySelectorAll("#action-modal-choices .action-choice")]
@@ -2176,7 +2195,20 @@ async function main() {
         };
         const selectedChoice = route?.selectedChoice || "";
         const selectedPayload = route?.selectedPayload?.() || null;
+        const busyLabel = route?.busyLabel || "";
+        const busyDetail = typeof route?.busyDetail === "function" ? route.busyDetail() : "";
         closeActionModal();
+
+        renderButton("primary", { ...route, busy: true });
+        const primary = document.querySelector("#primary");
+        const busy = {
+          text: primary?.innerText?.trim().replace(/\s+/g, " ") || "",
+          ariaBusy: primary?.getAttribute("aria-busy") || "",
+          ariaLabel: primary?.getAttribute("aria-label") || "",
+          progressBars: primary?.querySelectorAll("[role='progressbar']").length || 0,
+          opacity: primary ? getComputedStyle(primary).opacity : "",
+          cursor: primary ? getComputedStyle(primary).cursor : "",
+        };
 
         const singleState = { ...fakeState, exits: [fakeState.exits[0]] };
         state = singleState;
@@ -2190,6 +2222,9 @@ async function main() {
           choices: route?.choices || [],
           selectedChoice,
           selectedPayload,
+          busyLabel,
+          busyDetail,
+          busy,
           modal,
           selectedPreview,
           single: single ? {
@@ -2204,6 +2239,7 @@ async function main() {
         state = previousState;
         actorId = previousActorId;
         actions = previousActions;
+        renderCommands();
       }
     });
     assert(result.count === 1, `multiple open paths should collapse into one Travel card: ${JSON.stringify(result)}`);
@@ -2217,6 +2253,16 @@ async function main() {
       `grouped Travel should retain every exit focus anchor: ${JSON.stringify(result)}`,
     );
     assert(result.selectedChoice === "11" && result.selectedPayload?.destination_location_id === 11, `Travel confirmation should use the selected destination: ${JSON.stringify(result)}`);
+    assert(result.busyLabel === "travelling" && result.busyDetail === "following the path to Homeroom…", `Travel should name the destination while it is in progress: ${JSON.stringify(result)}`);
+    assert(
+      result.busy?.ariaBusy === "true"
+        && result.busy?.ariaLabel.includes("in progress")
+        && result.busy?.progressBars === 1
+        && result.busy?.opacity === "1"
+        && result.busy?.cursor === "progress"
+        && /travelling.*following the path to Homeroom/i.test(result.busy?.text || ""),
+      `Travel should remain legible and show an accessible progress rail while pending: ${JSON.stringify(result)}`,
+    );
     assert(result.choices.every((choice) => choice.card?.role === "location"), `each Travel destination should carry its own Location card: ${JSON.stringify(result)}`);
     assert(
       result.selectedPreview.src === "/choice-homeroom.png"
@@ -2228,6 +2274,15 @@ async function main() {
     assert(result.modal.title === "choose where to go", `grouped Travel should introduce its destination choice clearly: ${JSON.stringify(result)}`);
     assert(result.modal.summary === "Choose a path and follow it into the next room.", `grouped Travel should explain the gesture plainly: ${JSON.stringify(result)}`);
     assert(result.modal.confirm === "go", `grouped Travel should keep the compact Go confirmation: ${JSON.stringify(result)}`);
+    assert(
+      result.modal.cancel === "cancel"
+        && result.modal.cancelClass
+        && result.modal.cancelAfterConfirm
+        && result.modal.cancelStyle?.width === result.modal.confirmStyle?.width
+        && result.modal.cancelStyle?.color !== result.modal.confirmStyle?.color
+        && result.modal.cancelStyle?.background !== result.modal.confirmStyle?.background,
+      `action modals should place a full-width red Cancel button below the confirmation: ${JSON.stringify(result)}`,
+    );
     assert(result.modal.rows.some((row) => row.includes("path you want to follow")), `Travel confirmation should explain what is being chosen: ${JSON.stringify(result)}`);
     assert(["Rain-Soft Garden", "Homeroom"].every((name) => result.modal.choices.some((choice) => choice.includes(name))), `Travel modal should render both destinations: ${JSON.stringify(result)}`);
     assert(result.single?.detail === "Rain-Soft Garden" && result.single?.command === "go Rain-Soft Garden", `a single open path should stay a simple direct Travel card: ${JSON.stringify(result)}`);
@@ -2928,6 +2983,7 @@ async function main() {
             summary: actionSummary(action),
             rows: actionModalRows(action),
             choices: (action.choices || []).map((choice) => choice.label),
+            choiceDetails: (action.choices || []).map((choice) => choice.detail),
             selectedChoice: originalChoice || "",
             alternatePayload,
           };
@@ -2936,6 +2992,18 @@ async function main() {
       try {
         return {
           firstStep: actionSnapshot(baseState),
+          combinedLesson: actionSnapshot({
+            ...baseState,
+            primary_action: {
+              kind: "bank_ledger",
+              options: [{ kind: "bank_ledger" }, { kind: "train_skill" }, { kind: "move" }],
+            },
+            action_offers: [
+              { kind: "bank_ledger", effect: "lets this visit become part of you" },
+              { kind: "train_skill", effect: "Listening grows a little stronger" },
+            ],
+            ledger: { unbanked_count: 1, banked_count: 1, spent_count: 0, advancement_points: 1 },
+          }),
           contextual: actionSnapshot({
             ...baseState,
             action_offers: [{
@@ -2984,19 +3052,23 @@ async function main() {
     const travelIndex = result.firstStep.findIndex((action) => action.label === "travel");
     assert(trainIndex >= 0, `train action should surface after points are banked: ${JSON.stringify(result)}`);
     assert(trainIndex < travelIndex, `train action should appear before wandering away with spendable progress: ${JSON.stringify(result)}`);
-    assert(result.firstStep[trainIndex]?.detail === "choose a knack to practice", `Evolve should make its knack choice visible without token language: ${JSON.stringify(result)}`);
-    assert(result.firstStep[trainIndex]?.title === "choose how to evolve" && result.firstStep[trainIndex]?.summary === "Keep what happened as part of you, or put it into a knack you want to strengthen.", `Evolve should explain the identity choice warmly: ${JSON.stringify(result)}`);
-    assert(result.firstStep[trainIndex]?.choices.join(",") === "practice Listening,practice Kindness,practice Lorecraft,practice Steadiness,practice Nimble Hands,practice Lifting", `Evolve should carry every trainable knack inside one card: ${JSON.stringify(result)}`);
-    assert(result.firstStep[trainIndex]?.selectedChoice === "practice:listening", `Evolve should keep the server-suggested knack selected without forcing it: ${JSON.stringify(result)}`);
+    assert(result.firstStep[trainIndex]?.detail === "choose one of two knacks", `Evolve should make its two dealt knack choices visible without token language: ${JSON.stringify(result)}`);
+    assert(result.firstStep[trainIndex]?.title === "choose how to evolve" && result.firstStep[trainIndex]?.summary === "Choose one of two ways this lesson can strengthen your avatar.", `Evolve should explain the identity choice warmly: ${JSON.stringify(result)}`);
+    assert(result.firstStep[trainIndex]?.choices.length === 2 && result.firstStep[trainIndex]?.choices.every((choice) => choice.startsWith("practice ")), `Evolve should deal exactly two random trainable knacks inside one card: ${JSON.stringify(result)}`);
+    assert(result.firstStep[trainIndex]?.choiceDetails.every((detail) => /\+1 to .+ checks/i.test(detail)), `each Evolve option should name the exact check bonus it changes: ${JSON.stringify(result)}`);
+    assert(/^practice:/.test(result.firstStep[trainIndex]?.selectedChoice || ""), `Evolve should select one of its two dealt knacks by default: ${JSON.stringify(result)}`);
+    const combinedIndex = result.combinedLesson.findIndex((action) => action.label === "evolve");
+    assert(result.combinedLesson[combinedIndex]?.detail === "choose one of two lessons", `Learn and Evolve should surface as one two-choice card: ${JSON.stringify(result)}`);
+    assert(result.combinedLesson[combinedIndex]?.choices.length === 2 && result.combinedLesson[combinedIndex]?.choices.includes("keep the lesson") && result.combinedLesson[combinedIndex]?.choices.some((choice) => choice.startsWith("practice ")), `the combined card should keep the lesson beside one randomly dealt knack: ${JSON.stringify(result)}`);
     const contextualIndex = result.contextual.findIndex((action) => action.label === "evolve");
     assert(contextualIndex >= 0, `contextual train action should use the offered skill: ${JSON.stringify(result)}`);
-    assert(result.contextual[contextualIndex]?.choices[0] === "practice Steadiness" && result.contextual[contextualIndex]?.selectedChoice === "practice:steadiness", `the server-suggested knack should lead the picker without being forced: ${JSON.stringify(result)}`);
+    assert(result.contextual[contextualIndex]?.choices.length === 2, `contextual Evolve should still deal only two choices: ${JSON.stringify(result)}`);
     const directPractice = result.onlyListening.find((action) => action.focusKey === "train-listening");
     assert(directPractice?.label === "evolve" && directPractice?.detail === "choose a knack to practice" && directPractice?.command === "evolve", `a lone trainable knack should stay inside the unified Evolve card: ${JSON.stringify(result)}`);
     const repeatTrainIndex = result.repeatWithBond.findIndex((action) => action.label === "evolve");
     const bondIndex = result.repeatWithBond.findIndex((action) => action.focusKey === "bond:1001");
     assert(bondIndex >= 0 && repeatTrainIndex >= 0 && bondIndex < repeatTrainIndex, `growing closer should interrupt repeat practice when both are available: ${JSON.stringify(result)}`);
-    assert(result.repeatWithBond[repeatTrainIndex]?.detail === "choose a knack to practice", `repeat Evolve should retain the same real knack choice: ${JSON.stringify(result)}`);
+    assert(result.repeatWithBond[repeatTrainIndex]?.detail === "choose one of two knacks", `repeat Evolve should retain two dealt knack choices: ${JSON.stringify(result)}`);
     assert(!/one growth|growth spent/i.test(JSON.stringify(result)), `practice should not expose growth as a counted token: ${JSON.stringify(result)}`);
     assert(![...result.firstStep, ...result.contextual, ...result.onlyListening, ...result.repeatWithBond].some((action) => String(action.detail || "").includes(" / ")), `train copy should avoid slash-heavy detail: ${JSON.stringify(result)}`);
   }
@@ -4397,11 +4469,11 @@ async function main() {
     assert(result.collapsedHtml.includes("chat-repeat") && result.collapsedHtml.includes("×2"), `collapsed resident speech should show a quiet repeat badge: ${JSON.stringify(result)}`);
     assert(result.residentOnlyRoomRows === 0 && result.residentOnlyChatRows === 2 && result.residentOnlyQuietMode, `resident chat should contain voices without a synthetic room-log row: ${JSON.stringify(result)}`);
     assert(result.mixedRoomRows === 0, `a player conversation should not grow a synthetic room-log row: ${JSON.stringify(result)}`);
-    assert(result.pacedResidentOnly?.length === 2 && result.pacedResidentOnly[0] === "second room murmur" && result.pacedResidentOnly[1] === "third room murmur", `an uninterrupted resident monologue should show only its two freshest lines: ${JSON.stringify(result)}`);
-    assert(result.pacedSameResident?.length === 1 && result.pacedSameResident[0] === "the only thought worth keeping", `one resident should contribute only their freshest ambient line: ${JSON.stringify(result)}`);
+    assert(result.pacedResidentOnly?.length === 3 && result.pacedResidentOnly[0] === "first room murmur" && result.pacedResidentOnly[2] === "third room murmur", `distinct resident lines should remain scrollable instead of being discarded: ${JSON.stringify(result)}`);
+    assert(result.pacedSameResident?.length === 3 && result.pacedSameResident[0] === "first repeated thought" && result.pacedSameResident[2] === "the only thought worth keeping", `consecutive replies from one resident should remain in transcript history: ${JSON.stringify(result)}`);
     assert(result.conversationHistoryCount === 7, `transcript pacing should not delete the underlying room history: ${JSON.stringify(result)}`);
-    assert(result.pacedConversation?.length === 5 && result.pacedConversation[2]?.actorId === 5000 && result.pacedConversation[2]?.content === "What did I miss?", `player speech should remain the center of a paced conversation: ${JSON.stringify(result)}`);
-    assert(result.pacedConversation[3]?.content === "another direct answer" && result.pacedConversation[4]?.content === "the latest direct answer", `resident runs after a player line should retain their two freshest replies: ${JSON.stringify(result)}`);
+    assert(result.pacedConversation?.length === 7 && result.pacedConversation[3]?.actorId === 5000 && result.pacedConversation[3]?.content === "What did I miss?", `player speech should remain in the complete conversation history: ${JSON.stringify(result)}`);
+    assert(result.pacedConversation[4]?.content === "one direct answer" && result.pacedConversation[6]?.content === "the latest direct answer", `resident runs after a player line should retain every distinct reply: ${JSON.stringify(result)}`);
     assert(result.afterHumanReply.length === 4 && result.afterHumanReply[3]?.repeats === 1, `a human reply should end the resident repeat-collapse window: ${JSON.stringify(result)}`);
     assert(result.afterLiveReset.length === 1 && result.afterLiveReset[0]?.content === "*the new room begins quietly*", `a live world reset should clear the previous transcript: ${JSON.stringify(result)}`);
     assert(result.afterReplayReset.length === 1 && result.afterReplayReset[0]?.content === "fresh firelight", `rebuilding replay should keep only unique chat after the latest world reset: ${JSON.stringify(result)}`);
@@ -5102,18 +5174,17 @@ async function main() {
     await confirmActionModalIfOpen();
     await page.waitForFunction(() => {
       const primary = document.querySelector("#primary");
-      return primary?.disabled
-        && primary?.getAttribute("aria-busy") === "true"
-        && primary.innerText.toLowerCase().includes("chatting")
-        && primary.innerText.toLowerCase().includes("finding the thread")
+      return primary
+        && !primary.disabled
+        && primary.getAttribute("aria-busy") !== "true"
         && Boolean(document.querySelector("#log .line.chat.pending[role='status']"));
     });
     const pendingCopy = await page.locator("#log .line.chat.pending").getAttribute("aria-label");
     assert(
-      /is finding the thread\. Your conversation is unfolding\./.test(pendingCopy || ""),
-      `Orb Chat should announce a resident-specific unfolding beat: ${pendingCopy}`,
+      /is finding the thread\. Your next cards are ready while the conversation unfolds\./.test(pendingCopy || ""),
+      `queued Orb Chat should announce that play can continue: ${pendingCopy}`,
     );
-    steps.push({ label, pending: "busy" });
+    steps.push({ label, pending: "queued", cards: "ready" });
   }
 
   async function beginAvatarAndAssertArrival() {
@@ -5121,26 +5192,15 @@ async function main() {
     await confirmActionModalIfOpen();
     await page.waitForFunction(() => {
       const primary = document.querySelector("#primary");
-      return primary?.disabled
-        && primary?.getAttribute("aria-busy") === "true"
-        && primary.innerText.toLowerCase().includes("arriving")
-        && primary.innerText.toLowerCase().includes("making room")
-        && Boolean(document.querySelector("#log .arrival-scene[role='status']"));
+      return localStorage.getItem("cosyworld.actorId")
+        && primary
+        && !primary.disabled
+        && primary.getAttribute("aria-busy") !== "true"
+        && !primary.innerText.toLowerCase().startsWith("begin")
+        && !primary.innerText.toLowerCase().startsWith("arriving");
     });
-    const arrival = await page.locator("#log .arrival-scene").evaluate((node) => ({
-      text: node.textContent.trim().replace(/\s+/g, " "),
-      aria: node.getAttribute("aria-label") || "",
-      centered: getComputedStyle(node.parentElement).justifyContent === "center",
-    }));
-    assert(
-      /the cottage is making room/i.test(arrival.text)
-        && /name, a face, and a little trouble/i.test(arrival.text)
-        && /someone here is getting ready to say hello/i.test(arrival.aria),
-      `avatar generation should feel like an arrival, not a frozen card: ${JSON.stringify(arrival)}`,
-    );
-    assert(arrival.centered, `avatar arrival should occupy the story stage: ${JSON.stringify(arrival)}`);
     await assertNoVisibleOverflow();
-    steps.push({ label: "begin avatar", pending: "arrival" });
+    steps.push({ label: "begin avatar", result: "accepted", cards: "ready" });
   }
 
   async function currentLocation() {
@@ -6505,6 +6565,102 @@ async function main() {
     assert(!overflow, `visible UI overflowed the viewport: ${JSON.stringify(overflow)}`);
   }
 
+  async function assertUiAccessibilityContract(label) {
+    const base = await page.evaluate(() => {
+      const visible = (node) => Boolean(node && getComputedStyle(node).display !== "none" && node.getClientRects().length);
+      const target = (selector) => {
+        const node = document.querySelector(selector);
+        const rect = node?.getBoundingClientRect();
+        return node && rect ? { tag: node.tagName, height: rect.height, visible: visible(node) } : null;
+      };
+      return {
+        viewport: document.querySelector("meta[name='viewport']")?.content || "",
+        headingCount: document.querySelectorAll("h1,h2,h3,h4,h5,h6").length,
+        worldButton: target("#brand"),
+        accountButton: target("#economy"),
+        locationButton: target(".location-pill"),
+        roomLogButton: target("#room-log-toggle"),
+        heroCard: target("#room-hero-card[data-card-key]"),
+        avatarCards: [...document.querySelectorAll(".room-avatar-pfp[data-card-key]")]
+          .map((node) => ({ tag: node.tagName, tabIndex: node.tabIndex })),
+        heroImage: document.querySelector("#room-hero-image")?.getAttribute("src") || "",
+      };
+    });
+    assert(!/maximum-scale/i.test(base.viewport), `${label}: mobile viewport should allow zoom: ${JSON.stringify(base)}`);
+    assert(base.headingCount > 0, `${label}: shell should expose semantic headings: ${JSON.stringify(base)}`);
+    assert(
+      [base.worldButton, base.accountButton, base.locationButton].every((target) => target?.tag === "BUTTON" && target.visible && target.height >= 44),
+      `${label}: top navigation should use visible native 44px buttons: ${JSON.stringify(base)}`,
+    );
+    assert(!base.roomLogButton?.visible || base.roomLogButton.height >= 44, `${label}: room log touch target should be at least 44px tall: ${JSON.stringify(base)}`);
+    assert(base.heroCard?.tag === "BUTTON" && base.heroCard.visible, `${label}: room art should open through a native button: ${JSON.stringify(base)}`);
+    assert(base.avatarCards.length > 0 && base.avatarCards.every((target) => target.tag === "BUTTON" && target.tabIndex === 0), `${label}: avatar portraits should be keyboard buttons: ${JSON.stringify(base)}`);
+    assert(base.heroImage && !base.heroImage.startsWith("data:image/svg+xml"), `${label}: campaign room should use reviewed art instead of the abstract fallback: ${JSON.stringify(base)}`);
+
+    const modalOpened = await page.evaluate(() => {
+      const trigger = document.querySelector("#primary");
+      const action = actionForButton("primary") || actions[0];
+      if (!trigger || !action) return false;
+      trigger.focus();
+      openActionModal(action);
+      return true;
+    });
+    assert(modalOpened, `${label}: needs a primary action for dialog checks`);
+    await page.waitForSelector("#action-modal:not([hidden])");
+    await page.waitForFunction(() => document.querySelector("#action-modal")?.contains(document.activeElement));
+    const modal = await page.evaluate(() => ({
+      backgroundInert: document.querySelector(".shell")?.hasAttribute("inert") || false,
+      activeInside: document.querySelector("#action-modal")?.contains(document.activeElement) || false,
+      heading: document.querySelector("#action-modal-title")?.tagName || "",
+      exposedBackgroundControls: [...document.querySelectorAll(".shell button:not([disabled]), .shell [href], .shell input:not([disabled])")]
+        .filter((node) => !node.closest("[inert]"))
+        .length,
+    }));
+    assert(modal.backgroundInert && modal.activeInside && modal.heading === "H2" && modal.exposedBackgroundControls === 0, `${label}: action dialog should isolate focus and expose a heading: ${JSON.stringify(modal)}`);
+    await page.locator("#action-modal [data-action-close]").focus();
+    await page.keyboard.press("Tab");
+    assert(await page.evaluate(() => {
+      const modal = document.querySelector("#action-modal");
+      const first = [...modal.querySelectorAll("button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])")]
+        .find((node) => !node.hidden && node.getClientRects().length > 0);
+      return document.activeElement === first;
+    }), `${label}: Tab should wrap from the last dialog control to the first`);
+    await page.keyboard.press("Shift+Tab");
+    assert(await page.evaluate(() => document.activeElement?.matches?.("#action-modal [data-action-close]")), `${label}: Shift+Tab should wrap from the first dialog control to the last`);
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.querySelector("#action-modal")?.hidden === true && !document.querySelector(".shell")?.hasAttribute("inert"));
+    await page.waitForFunction(() => document.activeElement?.id === "primary");
+
+    await page.locator("#brand").click();
+    await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.classList.contains("library-mode"));
+    const library = await page.evaluate(() => ({
+      role: document.querySelector("#log")?.getAttribute("role") || "",
+      label: document.querySelector("#log")?.getAttribute("aria-label") || "",
+      live: document.querySelector("#log")?.hasAttribute("aria-live") || false,
+      roomHidden: getComputedStyle(document.querySelector(".room")).display === "none",
+      promptHidden: document.querySelector(".prompt")?.hidden || false,
+      heading: document.querySelector(".library-heading h2")?.textContent?.trim() || "",
+      intro: document.querySelector(".library-intro")?.textContent?.trim() || "",
+    }));
+    assert(library.role === "region" && library.label === "World Library" && !library.live && library.roomHidden && library.promptHidden, `${label}: library should be a dedicated semantic panel: ${JSON.stringify(library)}`);
+    assert(library.heading === "world library" && /where your story can travel/i.test(library.intro), `${label}: library should lead with player-facing copy: ${JSON.stringify(library)}`);
+    await page.locator("#brand").click();
+    await page.waitForFunction(() => !document.querySelector(".terminal")?.classList.contains("panel-open"));
+
+    await page.locator("#economy").click();
+    await page.waitForFunction(() => document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.classList.contains("account-mode"));
+    const account = await page.evaluate(() => ({
+      role: document.querySelector("#log")?.getAttribute("role") || "",
+      label: document.querySelector("#log")?.getAttribute("aria-label") || "",
+      promptHidden: document.querySelector(".prompt")?.hidden || false,
+      heading: document.querySelector("#account-panel-title")?.tagName || "",
+    }));
+    assert(account.role === "region" && account.label === "Your avatar and collection" && account.promptHidden && account.heading === "H2", `${label}: collection should be a dedicated semantic panel: ${JSON.stringify(account)}`);
+    await page.locator("#economy").click();
+    await page.waitForFunction(() => !document.querySelector(".terminal")?.classList.contains("panel-open") && document.querySelector("#log")?.getAttribute("role") === "log");
+    steps.push({ label, mobileNavigation: "visible", dialogs: "contained", panels: "semantic" });
+  }
+
   async function assertStatusBarDoesNotOverlayTranscript(label) {
     const layout = await page.evaluate(() => {
       const status = document.querySelector("#error");
@@ -7556,6 +7712,7 @@ async function main() {
   await assertRoomSummaryStaysFlatAndMechanical();
   await assertStatusBarDoesNotOverlayTranscript("mobile status row");
   await assertRoomMemoryContextPanel("mobile room memory");
+  await assertUiAccessibilityContract("mobile accessibility and navigation");
   await assertMudShellVisualContract("mobile visual shell");
   await assertTimelineAccessibilityBase();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();

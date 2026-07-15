@@ -282,6 +282,13 @@ extern "C" {
         seed: u64,
         out_events: *mut CwEventBuffer,
     ) -> u32;
+    pub fn cw_world_apply_with_tick(
+        world: *mut CwWorld,
+        action: *const CwAction,
+        seed: u64,
+        advance_tick: u8,
+        out_events: *mut CwEventBuffer,
+    ) -> u32;
     pub fn cw_get_action_offers(
         world: *const CwWorld,
         actor_id: u64,

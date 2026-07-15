@@ -96,6 +96,34 @@ static void test_movement_and_check(void) {
   assert(events.events[0].raw_roll <= 20);
 }
 
+static void test_explicit_tick_control_and_rejected_action_rollback(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+  const uint64_t starting_tick = world.tick;
+
+  cw_action say = {0};
+  say.kind = CW_ACTION_SAY;
+  say.actor_id = 1001;
+  say.content_id = 9001;
+  assert(cw_world_apply_with_tick(&world, &say, 201, 0, &events) == CW_OK);
+  assert(world.tick == starting_tick);
+  assert(cw_world_apply(&world, &say, 201, &events) == CW_OK);
+  assert(world.tick == starting_tick);
+
+  cw_action blocked_move = {0};
+  blocked_move.kind = CW_ACTION_MOVE;
+  blocked_move.actor_id = 1001;
+  blocked_move.destination_location_id = 3;
+  assert(cw_world_apply_with_tick(&world, &blocked_move, 202, 1, &events) == CW_ERR_RULE);
+  assert(world.tick == starting_tick);
+
+  blocked_move.destination_location_id = 2;
+  assert(cw_world_apply_with_tick(&world, &blocked_move, 203, 1, &events) == CW_OK);
+  assert(world.tick == starting_tick + 1);
+}
+
 static void test_d20_roll_modes_bloodied_and_nonlethal_knockout(void) {
   cw_world world;
   cw_event_buffer events;
@@ -684,6 +712,7 @@ int main(void) {
   test_kernel_capacities_are_runtime_sized();
   test_seed_and_chat();
   test_movement_and_check();
+  test_explicit_tick_control_and_rejected_action_rollback();
   test_d20_roll_modes_bloodied_and_nonlethal_knockout();
   test_items_and_combat_gate();
   test_give_items_and_evolution();
