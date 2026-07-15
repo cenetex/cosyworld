@@ -1,11 +1,20 @@
+mod account_auth;
 mod activation;
+mod ai_gateway;
+mod avatar_identity;
+mod content_packs;
+mod content_policy;
 mod kernel;
 mod moderation;
 mod mud;
+mod rate_limit;
 mod routes;
 mod turns;
 
+use account_auth::*;
 use activation::*;
+use ai_gateway::*;
+use avatar_identity::*;
 use axum::{
     extract::{ConnectInfo, Path as AxumPath, Query, State},
     http::{header, HeaderMap, StatusCode},
@@ -15,16 +24,17 @@ use axum::{
     },
     Json,
 };
-use cosyworld_ai_model::{
-    AvatarChatModelInput, GeneratedAvatarIdentity as ModelGeneratedAvatarIdentity,
-    ResidentReplyModelInput,
-};
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use content_packs::*;
+use content_policy::*;
+use cosyworld_ai_model::ResidentReplyModelInput;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use kernel::*;
 use moderation::*;
 use mud::*;
 use qrcode::{render::svg, QrCode};
 use rand::{rngs::OsRng, RngCore};
+use rate_limit::*;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
@@ -41,7 +51,7 @@ use std::{
 use tokio::{
     net::TcpListener,
     signal,
-    sync::{broadcast, Mutex, RwLock},
+    sync::{broadcast, Mutex, Notify, RwLock},
 };
 use tokio_stream::{wrappers::BroadcastStream, StreamExt};
 use tracing::{info, warn};
@@ -55,16 +65,19 @@ struct AppState {
     snapshot_path: Option<Arc<PathBuf>>,
     resident_continuity_path: Option<Arc<PathBuf>>,
     event_store_path: Option<Arc<PathBuf>>,
+    account_auth: Arc<AccountAuth>,
     ownership_index: Arc<RwLock<OwnershipIndex>>,
     trust_client_card_ids: bool,
     dev_reset_enabled: bool,
     ai_config: Arc<Option<AiConfig>>,
+    generation_controls: Arc<GenerationControls>,
     avatar_art_config: Arc<Option<ReplicateAvatarArtConfig>>,
     generated_asset_dir: Arc<PathBuf>,
     #[cfg(test)]
     ambient: AmbientConfig,
     box_burn_verifier: Arc<Option<BoxBurnVerifierConfig>>,
     ownership_feed: Arc<OwnershipFeedConfig>,
+    ownership_feed_health: Arc<StdMutex<OwnershipFeedHealth>>,
     last_world_event_at: Arc<StdMutex<Instant>>,
     wallet_sessions: Arc<StdMutex<WalletSessions>>,
     qr_wallet_logins: Arc<StdMutex<QrWalletLogins>>,
@@ -77,21 +90,12 @@ struct AppState {
     room_memory_cache: Arc<StdMutex<BTreeMap<u64, RoomMemoryCacheEntry>>>,
     room_memory_jobs: Arc<StdMutex<BTreeSet<(u64, u64, u64)>>>,
     avatar_art_jobs: Arc<StdMutex<BTreeSet<u64>>>,
+    actor_job_notify: Arc<Notify>,
     avatar_chat_delay: Duration,
     moderation_token: Option<Arc<String>>,
     moderation_report_retention: ModerationReportRetention,
     allow_unsigned_wallet_claims: bool,
 }
-
-#[derive(Clone, Debug)]
-struct AiConfig {
-    api_key: String,
-    base_url: String,
-    model: String,
-}
-
-const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
-const DEFAULT_OPENAI_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 
 #[derive(Clone, Debug)]
 struct RoomMemoryCacheEntry {
@@ -129,7 +133,7 @@ struct DownloadedReplicateImage {
     content_type: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct ResidentReplyPlan {
     npc_actor_id: u64,
     npc_name: String,
@@ -145,11 +149,29 @@ struct ResidentReplyPlan {
     cast: Vec<String>,
     recent_lines: Vec<String>,
     user_text: String,
-    fallback_text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    caused_by_event_seq: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_world_tick: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    observed_through_seq: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_location_id: Option<u64>,
 }
 
-#[derive(Clone, Debug)]
+impl ResidentReplyPlan {
+    fn with_observation(mut self, observation: &PlayerTickObservation) -> Self {
+        self.caused_by_event_seq = observation.caused_by_event_seq;
+        self.source_world_tick = Some(observation.source_world_tick);
+        self.observed_through_seq = Some(observation.observed_through_seq);
+        self.source_location_id = observation.source_location_id;
+        self
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct AvatarChatPlan {
+    location_id: u64,
     actor_name: String,
     actor_title: String,
     actor_description: String,
@@ -167,28 +189,6 @@ struct AvatarChatPlan {
     recent_lines: Vec<String>,
     fresh_subject: Option<String>,
     missing_need: Option<String>,
-    fallback_text: String,
-}
-
-#[derive(Clone, Debug)]
-struct GeneratedAvatarIdentity {
-    name: String,
-    title: String,
-    description: String,
-    visual_prompt: String,
-}
-
-impl From<ModelGeneratedAvatarIdentity> for GeneratedAvatarIdentity {
-    fn from(identity: ModelGeneratedAvatarIdentity) -> Self {
-        let visual_prompt =
-            avatar_visual_prompt(&identity.name, &identity.title, &identity.description);
-        Self {
-            name: identity.name,
-            title: identity.title,
-            description: identity.description,
-            visual_prompt,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -208,28 +208,12 @@ struct BoxBurnVerification {
     verification_status: &'static str,
 }
 
-#[derive(Clone, Copy, Debug)]
-struct RateLimit {
-    max_hits: usize,
-    window: Duration,
-}
-
-#[derive(Debug, Default)]
-struct RateLimiter {
-    hits: BTreeMap<String, VecDeque<Instant>>,
-}
-
-struct ActorChatGuard {
-    locks: Arc<StdMutex<BTreeSet<u64>>>,
-    actor_id: u64,
-}
-
-impl Drop for ActorChatGuard {
-    fn drop(&mut self) {
-        if let Ok(mut locks) = self.locks.lock() {
-            locks.remove(&self.actor_id);
-        }
-    }
+#[derive(Clone, Debug)]
+struct PreparedBoxBurnTransaction {
+    transaction_base64: String,
+    message_base58: String,
+    recent_blockhash: String,
+    last_valid_block_height: u64,
 }
 
 #[derive(Clone, Copy)]
@@ -241,38 +225,11 @@ struct FeatureBondTarget {
     reason: &'static str,
 }
 
-const AVATAR_CREATE_LIMIT: RateLimit = RateLimit {
-    max_hits: 12,
-    window: Duration::from_secs(10 * 60),
-};
-const CHAT_ACTION_LIMIT: RateLimit = RateLimit {
-    max_hits: 45,
-    window: Duration::from_secs(60),
-};
-const REPORT_ACTION_LIMIT: RateLimit = RateLimit {
-    max_hits: 12,
-    window: Duration::from_secs(10 * 60),
-};
-const GENERAL_ACTION_LIMIT: RateLimit = RateLimit {
-    max_hits: 180,
-    window: Duration::from_secs(60),
-};
-const PUBLIC_MUTATION_LIMIT: RateLimit = RateLimit {
-    max_hits: 240,
-    window: Duration::from_secs(60),
-};
-const WALLET_AUTH_LIMIT: RateLimit = RateLimit {
-    max_hits: 30,
-    window: Duration::from_secs(60),
-};
 const QR_WALLET_LOGIN_TTL: Duration = Duration::from_secs(5 * 60);
 const QR_WALLET_COMPLETE_GRACE: Duration = Duration::from_secs(60);
 
 const RATE_LIMITED_STATUS: u32 = 429;
 const CHAT_IN_FLIGHT_STATUS: u32 = 409;
-const MAX_AVATAR_NAME_CHARS: usize = 28;
-const MAX_CALLING_STATEMENT_CHARS: usize = 96;
-const MAX_BOND_STATEMENT_CHARS: usize = 96;
 const CALLING_REVISION_COST: u8 = 1;
 const BOND_SLOT_COST: u8 = 1;
 const BOND_REVISION_COST: u8 = 1;
@@ -285,6 +242,8 @@ const MAX_EVENT_STORE_SCAN: usize = 1000;
 const STARTING_ORBS: i32 = 3;
 const CHAT_ORB_COST: i32 = 1;
 const CORE_PROGRAM_ID: &str = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
+const SOLANA_SYSTEM_PROGRAM_ID: &str = "11111111111111111111111111111111";
+const SPL_NOOP_PROGRAM_ID: &str = "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV";
 const LISTEN_ORB_REWARD: i32 = 1;
 const LISTEN_REPEAT_ORB_COST: i32 = 1;
 const LISTEN_ABILITY: u8 = 4;
@@ -303,6 +262,7 @@ const WHISKERWIND_ACTOR_ID: u64 = 1002;
 const SKULL_ACTOR_ID: u64 = 1003;
 #[cfg(test)]
 const MOONLIT_ECHO_ACTOR_ID: u64 = 1004;
+#[cfg(test)]
 const OLD_OAK_TREE_ACTOR_ID: u64 = 1005;
 #[cfg(test)]
 const BLUE_SQUIRREL_ACTOR_ID: u64 = 1044;
@@ -362,8 +322,6 @@ const MOONLIT_TRAIL_LOCATION_ID: u64 = 3;
 #[cfg(test)]
 const OLD_OAK_TREE_LOCATION_ID: u64 = 40;
 #[cfg(test)]
-const LOFTY_PEAK_LOCATION_ID: u64 = 31;
-#[cfg(test)]
 const CIRCLE_OF_MOON_LOCATION_ID: u64 = 35;
 const HEARTH_TONIC_WARMTH_TAG_ID: &str = "room:3:hearth_tonic_used";
 const FEATURE_BOND_TARGETS: &[FeatureBondTarget] = &[
@@ -397,7 +355,6 @@ const MOONLIT_DANGER_CLOCK_ID: &str = "moonlit-trail.danger";
 const ATTACK_HIT_ORB_REWARD: i32 = 1;
 const KNOCKOUT_ORB_REWARD: i32 = 3;
 const FLEE_ORB_REWARD: i32 = 1;
-const MAX_HUMAN_MESSAGE_CHARS: usize = 500;
 #[cfg(test)]
 const DIALOGUE_BRANCH_TTL_TICKS: u64 = 24;
 const ACTIVE_ACTOR_WINDOW: Duration = Duration::from_secs(15 * 60);
@@ -406,6 +363,7 @@ const NARRATIVE_MOVE_SIGNATURE_TTL: Duration = Duration::from_secs(5 * 60);
 const NARRATIVE_MOVE_SIGNATURE_FUTURE_SKEW_SECS: u64 = 60;
 const NARRATIVE_MOVE_DELEGATION_MAX_TTL: Duration = Duration::from_secs(12 * 60 * 60);
 const GENERATED_PATHWAY_LOCATION_ID_BASE: u64 = 100_000;
+const GENERATED_PATHWAY_FAMILIARITY_SEGMENTS: u8 = 6;
 const EXPLORER_CALLING_STATEMENT: &str = "I explore the paths nobody has named yet.";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -435,6 +393,20 @@ struct LocationMeta {
     art_prompt: Option<String>,
 }
 
+const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
+const PATHWAY_CONTENT_PROMPT_VERSION: &str = "pathway-content-v1";
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+struct GenerationProvenance {
+    source: String,
+    feature: String,
+    policy_mode: String,
+    prompt_version: String,
+    provider: String,
+    model: String,
+    attempts: u8,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct GeneratedWaypointState {
     id: u64,
@@ -451,9 +423,13 @@ struct GeneratedPathwayState {
     created_by_actor_id: u64,
     waypoints: Vec<GeneratedWaypointState>,
     #[serde(default)]
+    generation: GenerationProvenance,
+    #[serde(default)]
     revealed_edges: BTreeSet<String>,
     #[serde(default)]
     art_eligible: bool,
+    #[serde(default)]
+    familiar: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -488,7 +464,6 @@ struct JourneyNarrationPlan {
     destination_name: String,
     current_step: usize,
     total_steps: usize,
-    explorer: bool,
     discovery: bool,
 }
 
@@ -630,6 +605,17 @@ enum ProjectionMutation {
     ShuffleHand {
         reason: String,
     },
+    ChatStatus {
+        target_actor_id: u64,
+        status: String,
+        reason: String,
+    },
+    RefreshAvatarIdentity {
+        actor_id: u64,
+    },
+    RefinePathway {
+        pathway: GeneratedPathwayState,
+    },
     UpdateResidentContinuity {
         resident_id: u64,
         proposal: ResidentIntentProposal,
@@ -646,6 +632,10 @@ enum ProjectionMutation {
         reveal_edges: Vec<(u64, u64)>,
         narration: String,
         event_type: String,
+    },
+    UpgradePathwayIfReady {
+        pathway_id: String,
+        progress_clock_id: String,
     },
     SearchFeature {
         location_id: u64,
@@ -911,6 +901,32 @@ struct ResidentIntentProposal {
     proposed_action: Option<ResidentProposedAction>,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum ActorControlMode {
+    #[default]
+    Human,
+    ReactiveAi,
+    LocalAi,
+    RoamingAi,
+    DelegatedAi,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+struct ActorAutonomyState {
+    control_mode: ActorControlMode,
+    #[serde(default)]
+    current_desires: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pending_intent: Option<String>,
+    #[serde(default)]
+    last_observed_tick: u64,
+    #[serde(default)]
+    last_acted_tick: u64,
+    #[serde(default)]
+    attention_credits: u8,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ResidentProposedAction {
     kind: String,
@@ -924,44 +940,36 @@ struct ResidentProposedAction {
     reason: Option<String>,
 }
 
-impl ResidentIntentProposal {
-    fn fallback(plan: &ResidentReplyPlan) -> Self {
-        Self {
-            speech: plan.fallback_text.clone(),
-            intent: plan.resident_continuity.current_intent.clone(),
-            belief: None,
-            desire: plan.resident_continuity.current_intent.clone(),
-            promise: None,
-            refusal: None,
-            proposed_action: None,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ItemMeta {
     name: String,
     description: String,
 }
 
-const SEED_CONTENT_JSON: &str = include_str!("../../content/core/worldpack.json");
-const SEED_ACTORS_JSON: &str = include_str!("../../content/core/actors.json");
-const SEED_ACCESS_GATES_JSON: &str = include_str!("../../content/core/access_gates.json");
-const SEED_FACTIONS_JSON: &str = include_str!("../../content/core/factions.json");
-const SEED_ITEMS_JSON: &str = include_str!("../../content/core/items.json");
-const SEED_LOCATIONS_JSON: &str = include_str!("../../content/core/locations.json");
-const SEED_EXITS_JSON: &str = include_str!("../../content/core/exits.json");
-const SEED_HIDDEN_EXITS_JSON: &str = include_str!("../../content/core/hidden_exits.json");
-const SEED_ROOM_FEATURES_JSON: &str = include_str!("../../content/core/room_features.json");
-const SEED_ROOM_SHEETS_JSON: &str = include_str!("../../content/core/room_sheets.json");
-const SEED_CLOCKS_JSON: &str = include_str!("../../content/core/clocks.json");
-const SEED_JOBS_JSON: &str = include_str!("../../content/core/jobs.json");
-const SEED_FRONTS_JSON: &str = include_str!("../../content/core/fronts.json");
-const SEED_CARDS_JSON: &str = include_str!("../../content/core/cards.json");
-const SEED_FALLBACK_LINES_JSON: &str = include_str!("../../content/core/fallback_lines.json");
-const SEED_LIFECYCLE_HOOKS_JSON: &str = include_str!("../../content/core/lifecycle_hooks.json");
-const SEED_EVOLUTION_TRACKS_JSON: &str = include_str!("../../content/core/evolution_tracks.json");
-const SEED_RECIPES_JSON: &str = include_str!("../../content/core/recipes.json");
+const SEED_CONTENT_JSON: &str = include_str!("../../content/official/worldpack.json");
+const SEED_ACTORS_JSON: &str = include_str!("../../content/official/actors.json");
+const SEED_ACCESS_GATES_JSON: &str = include_str!("../../content/official/access_gates.json");
+const SEED_FACTIONS_JSON: &str = include_str!("../../content/official/factions.json");
+const SEED_ITEMS_JSON: &str = include_str!("../../content/official/items.json");
+const SEED_LOCATIONS_JSON: &str = include_str!("../../content/official/locations.json");
+const SEED_EXITS_JSON: &str = include_str!("../../content/official/exits.json");
+const SEED_HIDDEN_EXITS_JSON: &str = include_str!("../../content/official/hidden_exits.json");
+const SEED_ROOM_FEATURES_JSON: &str = include_str!("../../content/official/room_features.json");
+const SEED_ROOM_SHEETS_JSON: &str = include_str!("../../content/official/room_sheets.json");
+const SEED_CLOCKS_JSON: &str = include_str!("../../content/official/clocks.json");
+const SEED_JOBS_JSON: &str = include_str!("../../content/official/jobs.json");
+const SEED_FRONTS_JSON: &str = include_str!("../../content/official/fronts.json");
+const SEED_CARDS_JSON: &str = include_str!("../../content/official/cards.json");
+const SEED_LIFECYCLE_HOOKS_JSON: &str = include_str!("../../content/official/lifecycle_hooks.json");
+const SEED_EVOLUTION_TRACKS_JSON: &str =
+    include_str!("../../content/official/evolution_tracks.json");
+const SEED_RECIPES_JSON: &str = include_str!("../../content/official/recipes.json");
+const SEED_EXTERNAL_CARDS_JSON: &str = include_str!("../../content/official/external_cards.json");
+const SEED_ASSET_MOUNTS_JSON: &str = include_str!("../../content/official/assets.json");
+const SEED_RULES_JSON: &str = include_str!("../../content/official/rules.json");
+const SEED_ATTRIBUTIONS_JSON: &str = include_str!("../../content/official/attributions.json");
+const SEED_CHARACTER_CREATION_JSON: &str =
+    include_str!("../../content/official/character_creation.json");
 const LONELY_FOREST_CHARACTER_MANIFEST_JSON: &str =
     include_str!("../../content/lonely-forest/assets/characters/manifest.json");
 const LONELY_FOREST_CHARACTER_ASSET_PREFIX: &str = "/assets/lonely-forest/characters/";
@@ -983,27 +991,239 @@ struct SeedContent {
     jobs: Vec<JobState>,
     fronts: Vec<SeedFrontContent>,
     cards: Vec<SeedCardContent>,
-    fallback_lines: Vec<SeedFallbackLineContent>,
     lifecycle_hooks: Vec<SeedLifecycleHookContent>,
     evolution_tracks: Vec<SeedEvolutionTrack>,
     recipes: Vec<SeedRecipeContent>,
+    rules: Vec<SeedRuleBundle>,
+    attributions: Vec<SeedAttribution>,
+    character_creation: Vec<SeedCharacterCreationBundle>,
 }
 
 #[derive(Debug, Deserialize)]
 struct SeedWorldpackManifest {
+    #[serde(default)]
+    schema_version: u32,
     id: String,
     name: String,
     version: u32,
     #[serde(default)]
     #[cfg_attr(not(test), allow(dead_code))]
     description: String,
+    #[serde(default)]
+    entry_location: String,
+    #[serde(default)]
+    bundle_hash: String,
+    #[serde(default)]
+    packs: Vec<SeedWorldpackPack>,
     files: BTreeMap<String, String>,
+    #[serde(default)]
+    rules: String,
+    #[serde(default)]
+    attributions: String,
+    #[serde(default)]
+    character_creation: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedWorldpackPack {
+    id: String,
+    name: String,
+    #[serde(default)]
+    description: String,
+    version: String,
+    kind: String,
+    license: String,
+    integrity: String,
+    #[serde(default)]
+    dependencies: Vec<String>,
+    #[serde(default)]
+    resource_counts: BTreeMap<String, usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    distribution: Option<SeedPackDistribution>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    entitlements: Option<SeedPackEntitlements>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rules_adapter: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rules_namespace: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedPackDistribution {
+    media_type: String,
+    canonicalization: String,
+    permanence: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    permanent_uri: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedPackEntitlements {
+    schema_version: u32,
+    #[serde(default)]
+    authorities: Vec<SeedEntitlementAuthority>,
+    #[serde(default)]
+    grants: Vec<SeedEntitlementGrant>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedEntitlementAuthority {
+    id: String,
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    asset_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    issuer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    chain: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    network: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    standard: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    collection_address: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    collection_binding: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    algorithm: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    public_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedEntitlementGrant {
+    id: String,
+    authority_id: String,
+    #[serde(default, rename = "match", skip_serializing_if = "Option::is_none")]
+    match_rule: Option<SeedEntitlementMatch>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedEntitlementMatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    asset_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedRuleBundle {
+    pack_id: String,
+    pack_version: String,
+    adapter: String,
+    namespace: String,
+    resources: SeedRuleResources,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+struct SeedRuleResources {
+    #[serde(default)]
+    conditions: Vec<SeedRuleCondition>,
+    #[serde(default)]
+    monster_seeds: Vec<SeedRuleMonsterSeed>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedRuleCondition {
+    id: String,
+    name: String,
+    source_section: String,
+    source_text: String,
+    mapping: SeedRuleMapping,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedRuleMonsterSeed {
+    id: String,
+    name: String,
+    source_name: String,
+    size: String,
+    creature_type: String,
+    alignment: String,
+    armor_class: String,
+    hit_points: String,
+    speed: String,
+    ability_scores: BTreeMap<String, u8>,
+    challenge: String,
+    #[serde(default)]
+    senses: String,
+    #[serde(default)]
+    features: Vec<SeedRuleFeature>,
+    mapping: SeedRuleMapping,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedRuleFeature {
+    name: String,
+    description: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedRuleMapping {
+    status: String,
+    #[serde(default)]
+    kernel_condition: Option<String>,
+    #[serde(default)]
+    suggested_role: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedAttribution {
+    pack_id: String,
+    license: String,
+    source_name: String,
+    source_url: String,
+    text: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedCharacterCreationBundle {
+    pack_id: String,
+    pack_version: String,
+    profiles: Vec<SeedCharacterCreationProfile>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedCharacterCreationProfile {
+    schema_version: u32,
+    id: String,
+    name: String,
+    description: String,
+    entry_location_id: u64,
+    prompt: String,
+    default_choice_id: String,
+    choices: Vec<SeedCharacterCreationChoice>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedCharacterCreationChoice {
+    id: String,
+    label: String,
+    detail: String,
+    calling: String,
+    title: String,
+    description: String,
+    starting_skill_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedAssetMount {
+    pack_id: String,
+    mount: String,
+    root: String,
+    directory: String,
+    public_prefix: String,
+    #[serde(default)]
+    optional: bool,
+    #[serde(default)]
+    fallback: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 struct SeedAccessGateContent {
     location_id: u64,
-    required_card_id: String,
+    required_grant_id: String,
+    #[serde(default)]
+    required_card_id: Option<String>,
     reason: String,
 }
 
@@ -1029,11 +1249,15 @@ struct SeedFactionContent {
 
 #[derive(Debug, Deserialize)]
 struct SeedActorContent {
+    #[serde(default)]
+    pack_id: String,
     id: u64,
     name: String,
     speech_mode: String,
     title: String,
     description: String,
+    #[serde(default)]
+    ambient_autonomy: Option<bool>,
     #[serde(default)]
     location_id: Option<u64>,
     #[serde(default)]
@@ -1070,6 +1294,8 @@ struct SeedStatBlockContent {
 
 #[derive(Debug, Deserialize)]
 struct SeedItemContent {
+    #[serde(default)]
+    pack_id: String,
     id: u64,
     name: String,
     description: String,
@@ -1080,6 +1306,8 @@ struct SeedItemContent {
 
 #[derive(Debug, Deserialize)]
 struct SeedLocationContent {
+    #[serde(default)]
+    pack_id: String,
     id: u64,
     name: String,
     #[serde(default)]
@@ -1190,6 +1418,8 @@ enum SearchRevealCandidate {
 
 #[derive(Clone, Debug, Deserialize)]
 struct SeedCardContent {
+    #[serde(default)]
+    pack_id: String,
     subject_kind: String,
     subject_id: u64,
     card_id: String,
@@ -1228,18 +1458,6 @@ struct SeedCardArtContent {
     ink: String,
     accent: String,
     glyph: String,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct SeedFallbackLineContent {
-    kind: String,
-    #[serde(default)]
-    actor_id: Option<u64>,
-    #[serde(default)]
-    target_actor_id: Option<u64>,
-    #[serde(default)]
-    location_id: Option<u64>,
-    text: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1320,7 +1538,7 @@ struct LonelyForestCharacterAsset {
     file: String,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct RuntimeWorld {
     world: CwWorld,
     actors: BTreeMap<u64, ActorMeta>,
@@ -1343,6 +1561,7 @@ struct RuntimeWorld {
     resident_memories: BTreeMap<String, ResidentMemoryState>,
     search_memories: BTreeMap<String, SearchMemoryState>,
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
+    actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
     rpg_claims: BTreeSet<String>,
     orb_balances: BTreeMap<u64, i32>,
     orb_reward_claims: BTreeSet<String>,
@@ -1356,6 +1575,8 @@ struct RuntimeWorld {
 #[derive(Debug, Deserialize, Serialize)]
 struct RuntimeSnapshot {
     version: u32,
+    #[serde(default)]
+    worldpack_bundle_hash: String,
     world_version: u32,
     tick: u64,
     next_event_seq: u64,
@@ -1403,6 +1624,8 @@ struct RuntimeSnapshot {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     #[serde(default)]
+    actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
+    #[serde(default)]
     rpg_claims: BTreeSet<String>,
     #[serde(default)]
     orb_balances: BTreeMap<u64, i32>,
@@ -1419,20 +1642,50 @@ struct RuntimeSnapshot {
 #[derive(Debug, Deserialize, Serialize)]
 struct ResidentContinuitySnapshot {
     version: u32,
+    #[serde(default)]
+    worldpack_bundle_hash: String,
     world_tick: u64,
     latest_event_seq: u64,
     residents: BTreeMap<u64, ResidentContinuityState>,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum JournalOrigin {
+    /// Records written before origin-aware clocks landed keep their replayed tick behavior.
+    #[default]
+    Legacy,
+    PlayerCard,
+    Speech,
+    ActorConsequence,
+    System,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct JournalRecord {
     version: u32,
+    #[serde(default)]
+    worldpack_bundle_hash: String,
+    #[serde(default)]
+    origin: JournalOrigin,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    caused_by_event_seq: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_world_tick: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    observed_through_seq: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_location_id: Option<u64>,
     action: CwAction,
     seed: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     ripple_source: Option<RippleSource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    queued_actor_job: Option<ActorJobPayload>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     initial_calling: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    initial_skill: Option<String>,
     #[serde(default)]
     actor_meta_upserts: BTreeMap<u64, ActorMeta>,
     #[serde(default)]
@@ -1449,12 +1702,25 @@ struct JournalRecord {
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
+        let origin = match action.kind {
+            CW_ACTION_SAY => JournalOrigin::Speech,
+            CW_ACTION_NONE => JournalOrigin::System,
+            _ => JournalOrigin::PlayerCard,
+        };
         Self {
-            version: 1,
+            version: 3,
+            worldpack_bundle_hash: seed_content().manifest.bundle_hash.clone(),
+            origin,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
             action,
             seed,
             ripple_source: None,
+            queued_actor_job: None,
             initial_calling: None,
+            initial_skill: None,
             actor_meta_upserts: BTreeMap::new(),
             content_upserts: BTreeMap::new(),
             branch_upserts: BTreeMap::new(),
@@ -1462,6 +1728,34 @@ impl JournalRecord {
             projection_mutations: Vec::new(),
             orb_deltas: Vec::new(),
         }
+    }
+
+    fn into_player_card(mut self) -> Self {
+        self.origin = JournalOrigin::PlayerCard;
+        self
+    }
+
+    fn into_actor_consequence(
+        mut self,
+        source_world_tick: u64,
+        caused_by_event_seq: Option<u64>,
+    ) -> Self {
+        self.origin = JournalOrigin::ActorConsequence;
+        self.source_world_tick = Some(source_world_tick);
+        self.caused_by_event_seq = caused_by_event_seq;
+        self
+    }
+
+    fn into_system(mut self) -> Self {
+        self.origin = JournalOrigin::System;
+        self
+    }
+
+    fn advances_world_tick(&self) -> bool {
+        matches!(
+            self.origin,
+            JournalOrigin::Legacy | JournalOrigin::PlayerCard
+        )
     }
 }
 
@@ -1495,6 +1789,53 @@ struct RippleBudget {
     allow_wander: bool,
     allow_movement: bool,
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct PlayerTickObservation {
+    source_actor_id: u64,
+    source_world_tick: u64,
+    caused_by_event_seq: Option<u64>,
+    observed_through_seq: u64,
+    source_location_id: Option<u64>,
+    allow_ordinary_speech: bool,
+    source_events: Vec<EventView>,
+    ripple_source: Option<RippleSource>,
+}
+
+#[derive(Clone, Debug)]
+struct ActorJob {
+    id: i64,
+    kind: String,
+    actor_id: u64,
+    attempts: u32,
+    payload: ActorJobPayload,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "payload_kind", content = "payload", rename_all = "snake_case")]
+enum ActorJobPayload {
+    PlayerTick(PlayerTickObservation),
+    OrbChat(OrbChatJob),
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct OrbChatJob {
+    actor_id: u64,
+    target_actor_id: u64,
+    plan: AvatarChatPlan,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    queue_event_id: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_world_tick: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    observed_through_seq: Option<u64>,
+}
+
+const ACTOR_JOB_KIND_PLAYER_TICK: &str = "player_tick_observation";
+const ACTOR_JOB_KIND_ORB_CHAT: &str = "orb_chat";
+const ACTOR_JOB_LEASE_MS: u64 = 120_000;
+const ACTOR_JOB_MAX_ATTEMPTS: u32 = 3;
+const ACTOR_JOB_IDLE_POLL: Duration = Duration::from_secs(2);
 
 impl RippleBudget {
     fn for_zone_and_action(zone: &str, source_action_kind: u8) -> Self {
@@ -1539,6 +1880,24 @@ impl RippleContext {
             resident_action_budget: self.budget.resident_actions,
             allow_wander: self.budget.allow_wander,
             allow_movement: self.budget.allow_movement,
+        }
+    }
+}
+
+impl RippleSource {
+    fn to_context(&self) -> RippleContext {
+        RippleContext {
+            source_actor_id: self.source_actor_id,
+            source_action_kind: self.source_action_kind,
+            source_event_seqs: self.source_event_seqs.clone(),
+            source_location_id: self.source_location_id,
+            affected_location_ids: self.affected_location_ids.iter().copied().collect(),
+            zone: self.zone.clone(),
+            budget: RippleBudget {
+                resident_actions: self.resident_action_budget,
+                allow_wander: self.allow_wander,
+                allow_movement: self.allow_movement,
+            },
         }
     }
 }
@@ -1599,7 +1958,29 @@ struct MetaResponse {
     persistence: MetaPersistence,
     ownership_feed: MetaOwnershipFeed,
     nft: MetaNftConfig,
+    worldpack: MetaWorldpack,
     world: MetaWorldCounters,
+}
+
+#[derive(Debug, Serialize)]
+struct MetaWorldpack {
+    id: String,
+    name: String,
+    version: u32,
+    bundle_hash: String,
+    entry_location: String,
+    packs: Vec<SeedWorldpackPack>,
+    rules: Vec<MetaRulesBundle>,
+    attributions: Vec<SeedAttribution>,
+}
+
+#[derive(Debug, Serialize)]
+struct MetaRulesBundle {
+    pack_id: String,
+    adapter: String,
+    namespace: String,
+    conditions: usize,
+    monster_seeds: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -1607,6 +1988,8 @@ struct MetaFeatureFlags {
     server_authored_chat: bool,
     client_authored_speech: bool,
     ai_enabled: bool,
+    generation_default_mode: &'static str,
+    pathway_content_mode: &'static str,
     ambient_enabled: bool,
     dev_reset_enabled: bool,
     unsigned_wallet_claims_enabled: bool,
@@ -1632,6 +2015,11 @@ struct MetaOwnershipFeed {
     bearer_configured: bool,
     refresh_secs: Option<u64>,
     wallet_count: usize,
+    status: &'static str,
+    last_attempt_at_unix: Option<u64>,
+    last_success_at_unix: Option<u64>,
+    consecutive_failures: u32,
+    last_error_code: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1712,6 +2100,46 @@ struct ModerationEconomyResponse {
     ai_usage_ledger: Vec<AiUsageLedgerAuditView>,
     wooden_box_receipts: Vec<WoodenBoxReceiptView>,
     avatar_pack_openings: Vec<AvatarPackOpeningView>,
+    economy_reconciliations: Vec<EconomyReconciliationView>,
+    error: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct EconomyReconciliationAnomaly {
+    kind: String,
+    asset_id: String,
+    external_wallet_address: String,
+    local_wallet_address: Option<String>,
+    detail: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct EconomyReconciliationView {
+    run_id: u64,
+    source: String,
+    wallet_count: usize,
+    active_box_count: usize,
+    unopened_pack_count: usize,
+    anomaly_count: usize,
+    anomalies: Vec<EconomyReconciliationAnomaly>,
+    status: String,
+    created_at_ms: u64,
+    resolved_at_ms: Option<u64>,
+    resolved_by: Option<String>,
+    resolution_note: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ResolveEconomyReconciliationRequest {
+    moderator: Option<String>,
+    note: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct EconomyReconciliationResponse {
+    ok: bool,
+    status: u16,
+    reconciliation: Option<EconomyReconciliationView>,
     error: Option<String>,
 }
 
@@ -1791,6 +2219,31 @@ struct StateResponse {
     primary_action: PrimaryAction,
     action_offers: Vec<RankedActionOffer>,
     inspector: InspectorView,
+    character_creation: Vec<CharacterCreationProfileView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CharacterCreationProfileView {
+    pack_id: String,
+    id: String,
+    name: String,
+    description: String,
+    entry_location_id: u64,
+    entry_location_name: String,
+    prompt: String,
+    default_choice_id: String,
+    choices: Vec<CharacterCreationChoiceView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CharacterCreationChoiceView {
+    id: String,
+    label: String,
+    detail: String,
+    calling: String,
+    title: String,
+    description: String,
+    starting_skill_id: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -1851,6 +2304,7 @@ struct WorldResponse {
 #[derive(Debug, Serialize)]
 struct WorldLocationView {
     id: u64,
+    pack_id: Option<String>,
     name: String,
     title: String,
     description: String,
@@ -1859,6 +2313,7 @@ struct WorldLocationView {
     factions: Vec<FactionRefView>,
     public: bool,
     accessible: bool,
+    required_grant_id: Option<String>,
     required_card_id: Option<String>,
     access_reason: Option<String>,
     card: CardView,
@@ -1874,6 +2329,7 @@ struct WorldLocationView {
 #[derive(Clone, Debug, Serialize)]
 struct LocationView {
     id: u64,
+    pack_id: Option<String>,
     name: String,
     title: String,
     description: String,
@@ -1912,6 +2368,7 @@ struct ExitView {
     distance: u8,
     locked: bool,
     accessible: bool,
+    required_grant_id: Option<String>,
     required_card_id: Option<String>,
     access_reason: Option<String>,
 }
@@ -1919,6 +2376,7 @@ struct ExitView {
 #[derive(Debug, Serialize)]
 struct ActorView {
     id: u64,
+    pack_id: Option<String>,
     name: String,
     title: String,
     description: String,
@@ -1929,6 +2387,7 @@ struct ActorView {
     factions: Vec<FactionRefView>,
     resident_economy: Option<ResidentEconomyView>,
     hp: i16,
+    bloodied: bool,
     stats: StatView,
 }
 
@@ -2095,6 +2554,7 @@ struct StatView {
 #[derive(Debug, Serialize)]
 struct ItemView {
     id: u64,
+    pack_id: Option<String>,
     name: String,
     description: String,
     kind: String,
@@ -2258,6 +2718,7 @@ struct CardTransactionView {
 
 #[derive(Clone, Debug, Serialize)]
 struct CardView {
+    pack_id: Option<String>,
     card_id: String,
     display_name: String,
     role: String,
@@ -2290,6 +2751,7 @@ struct AccessView {
     owned_card_ids: Vec<String>,
     owned_box_ids: Vec<String>,
     unopened_pack_ids: Vec<String>,
+    granted_entitlement_ids: Vec<String>,
     accessible_card_ids: Vec<String>,
     locked_card_ids: Vec<String>,
 }
@@ -2508,6 +2970,14 @@ struct EventView {
     tag_scope_id: Option<u64>,
     tag_kind: Option<String>,
     tag_label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    caused_by_event_seq: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_world_tick: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    observed_through_seq: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_location_id: Option<u64>,
 }
 
 impl Default for EventView {
@@ -2550,7 +3020,20 @@ impl Default for EventView {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         }
+    }
+}
+
+impl EventView {
+    fn apply_async_causality(&mut self, record: &JournalRecord) {
+        self.caused_by_event_seq = record.caused_by_event_seq;
+        self.source_world_tick = record.source_world_tick;
+        self.observed_through_seq = record.observed_through_seq;
+        self.source_location_id = record.source_location_id;
     }
 }
 
@@ -2576,6 +3059,8 @@ struct CreateAvatarRequest {
     name: Option<String>,
     calling: Option<String>,
     wallet_session: Option<String>,
+    character_creation_id: Option<String>,
+    character_choice_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2715,8 +3200,21 @@ struct BoxBurnPrepareResponse {
     box_asset_address: Option<String>,
     pack_id: Option<String>,
     burn_message: Option<String>,
+    burn_transaction: Option<BoxBurnTransactionView>,
     verification_mode: String,
     error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct BoxBurnTransactionView {
+    transaction: String,
+    transaction_encoding: String,
+    message: String,
+    message_encoding: String,
+    recent_blockhash: String,
+    last_valid_block_height: u64,
+    program_id: String,
+    instruction: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2836,6 +3334,7 @@ struct TrainSkillRequest {
 struct AccessContext {
     owner_wallet_address: Option<String>,
     owned_card_ids: BTreeSet<String>,
+    granted_entitlement_ids: BTreeSet<String>,
     owned_box_ids: BTreeSet<String>,
     unopened_pack_ids: BTreeSet<String>,
     signed_wallet_session: bool,
@@ -2851,6 +3350,7 @@ struct OwnershipIndex {
 struct WalletCardSet {
     wallet_address: String,
     card_ids: BTreeSet<String>,
+    grant_ids: BTreeSet<String>,
     box_ids: BTreeSet<String>,
     pack_ids: BTreeSet<String>,
 }
@@ -2864,6 +3364,30 @@ struct OwnershipFeedConfig {
     refresh_every: Option<Duration>,
 }
 
+#[derive(Clone, Debug, Default)]
+struct OwnershipFeedHealth {
+    last_attempt_at_unix: Option<u64>,
+    last_success_at_unix: Option<u64>,
+    consecutive_failures: u32,
+    last_error_code: Option<String>,
+}
+
+impl OwnershipFeedHealth {
+    fn record_success(&mut self) {
+        let now = now_unix_secs();
+        self.last_attempt_at_unix = Some(now);
+        self.last_success_at_unix = Some(now);
+        self.consecutive_failures = 0;
+        self.last_error_code = None;
+    }
+
+    fn record_failure(&mut self, error: &io::Error) {
+        self.last_attempt_at_unix = Some(now_unix_secs());
+        self.consecutive_failures = self.consecutive_failures.saturating_add(1);
+        self.last_error_code = Some(ownership_feed_error_code(error));
+    }
+}
+
 #[derive(Clone, Debug)]
 struct WalletChallenge {
     wallet_address: String,
@@ -2874,6 +3398,7 @@ struct WalletChallenge {
 #[derive(Clone, Debug)]
 struct WalletSession {
     wallet_address: String,
+    linked_wallet_addresses: Vec<String>,
     expires_at: Instant,
 }
 
@@ -3071,8 +3596,9 @@ impl OwnershipFeedConfig {
         }
     }
 
-    async fn load_best_effort(&self) -> OwnershipIndex {
+    async fn load_best_effort_with_health(&self) -> (OwnershipIndex, OwnershipFeedHealth) {
         let mut index = OwnershipIndex::default();
+        let mut health = OwnershipFeedHealth::default();
         if let Some(value) = self.inline_feed.as_deref() {
             index.merge(OwnershipIndex::parse(value));
         }
@@ -3088,11 +3614,21 @@ impl OwnershipFeedConfig {
         }
         if let Some(url) = self.remote_url.as_deref() {
             match OwnershipIndex::fetch_remote(url, self.remote_bearer.as_deref()).await {
-                Ok(remote) => index.merge(remote),
-                Err(error) => warn!("failed to fetch Ruby High ownership feed {url}: {error}"),
+                Ok(remote) => {
+                    index.merge(remote);
+                    health.record_success();
+                }
+                Err(error) => {
+                    health.record_failure(&error);
+                    warn!("failed to fetch Ruby High ownership feed {url}: {error}");
+                }
             }
         }
-        index
+        (index, health)
+    }
+
+    async fn load_best_effort(&self) -> OwnershipIndex {
+        self.load_best_effort_with_health().await.0
     }
 
     async fn load_strict(&self) -> io::Result<OwnershipIndex> {
@@ -3110,6 +3646,22 @@ impl OwnershipFeedConfig {
     }
 }
 
+fn ownership_feed_error_code(error: &io::Error) -> String {
+    let message = error.to_string().to_ascii_lowercase();
+    for status in [401, 403, 404, 408, 429, 500, 502, 503, 504] {
+        if message.contains(&format!("http {status}")) {
+            return format!("http_{status}");
+        }
+    }
+    if message.contains("timed out") || message.contains("timeout") {
+        "timeout".to_string()
+    } else if message.contains("json") || message.contains("decode") {
+        "invalid_response".to_string()
+    } else {
+        "request_failed".to_string()
+    }
+}
+
 async fn load_base_ownership_index(state: &AppState) -> io::Result<OwnershipIndex> {
     if state.deployment.profile.is_production() {
         state.ownership_feed.load_strict().await
@@ -3121,6 +3673,18 @@ async fn load_base_ownership_index(state: &AppState) -> io::Result<OwnershipInde
 async fn load_effective_ownership_index_strict(state: &AppState) -> io::Result<OwnershipIndex> {
     let mut ownership = state.ownership_feed.load_strict().await?;
     if let Some(path) = state.event_store_path.as_deref() {
+        let reconciliation = record_economy_reconciliation(path, &ownership, "refresh")?;
+        if reconciliation.anomaly_count > 0 {
+            warn!(
+                "economy reconciliation found {} anomal{} during ownership refresh",
+                reconciliation.anomaly_count,
+                if reconciliation.anomaly_count == 1 {
+                    "y"
+                } else {
+                    "ies"
+                }
+            );
+        }
         ownership.merge(load_receipt_ownership_index(path)?);
     }
     Ok(ownership)
@@ -3152,10 +3716,15 @@ fn parse_seed_content(manifest_json: &str) -> Result<SeedContent, String> {
         jobs: parse_seed_json("jobs.json", SEED_JOBS_JSON)?,
         fronts: parse_seed_json("fronts.json", SEED_FRONTS_JSON)?,
         cards: parse_seed_json("cards.json", SEED_CARDS_JSON)?,
-        fallback_lines: parse_seed_json("fallback_lines.json", SEED_FALLBACK_LINES_JSON)?,
         lifecycle_hooks: parse_seed_json("lifecycle_hooks.json", SEED_LIFECYCLE_HOOKS_JSON)?,
         evolution_tracks: parse_seed_json("evolution_tracks.json", SEED_EVOLUTION_TRACKS_JSON)?,
         recipes: parse_seed_json("recipes.json", SEED_RECIPES_JSON)?,
+        rules: parse_seed_json("rules.json", SEED_RULES_JSON)?,
+        attributions: parse_seed_json("attributions.json", SEED_ATTRIBUTIONS_JSON)?,
+        character_creation: parse_seed_json(
+            "character_creation.json",
+            SEED_CHARACTER_CREATION_JSON,
+        )?,
     };
     validate_seed_content(&content)?;
     Ok(content)
@@ -3163,6 +3732,68 @@ fn parse_seed_content(manifest_json: &str) -> Result<SeedContent, String> {
 
 fn parse_seed_json<T: DeserializeOwned>(label: &str, value: &str) -> Result<T, String> {
     serde_json::from_str(value).map_err(|error| format!("{label}: {error}"))
+}
+
+fn character_creation_views() -> Vec<CharacterCreationProfileView> {
+    seed_content()
+        .character_creation
+        .iter()
+        .flat_map(|bundle| {
+            bundle
+                .profiles
+                .iter()
+                .map(|profile| CharacterCreationProfileView {
+                    pack_id: bundle.pack_id.clone(),
+                    id: profile.id.clone(),
+                    name: profile.name.clone(),
+                    description: profile.description.clone(),
+                    entry_location_id: profile.entry_location_id,
+                    entry_location_name: seed_content()
+                        .locations
+                        .iter()
+                        .find(|location| location.id == profile.entry_location_id)
+                        .map(|location| location.name.clone())
+                        .unwrap_or_else(|| "the campaign threshold".to_string()),
+                    prompt: profile.prompt.clone(),
+                    default_choice_id: profile.default_choice_id.clone(),
+                    choices: profile
+                        .choices
+                        .iter()
+                        .map(|choice| CharacterCreationChoiceView {
+                            id: choice.id.clone(),
+                            label: choice.label.clone(),
+                            detail: choice.detail.clone(),
+                            calling: choice.calling.clone(),
+                            title: choice.title.clone(),
+                            description: choice.description.clone(),
+                            starting_skill_id: choice.starting_skill_id.clone(),
+                        })
+                        .collect(),
+                })
+        })
+        .collect()
+}
+
+fn character_creation_selection(
+    profile_id: Option<&str>,
+    choice_id: Option<&str>,
+) -> Option<(SeedCharacterCreationProfile, SeedCharacterCreationChoice)> {
+    let profiles = seed_content()
+        .character_creation
+        .iter()
+        .flat_map(|bundle| bundle.profiles.iter());
+    let profile = match profile_id {
+        Some(profile_id) => profiles
+            .into_iter()
+            .find(|profile| profile.id == profile_id)?,
+        None => profiles.into_iter().next()?,
+    };
+    let selected_choice_id = choice_id.unwrap_or(&profile.default_choice_id);
+    let choice = profile
+        .choices
+        .iter()
+        .find(|choice| choice.id == selected_choice_id)?;
+    Some((profile.clone(), choice.clone()))
 }
 
 fn lonely_forest_character_manifest() -> &'static LonelyForestCharacterManifest {
@@ -3208,9 +3839,83 @@ fn seed_content_root() -> PathBuf {
     }
 }
 
+fn seed_asset_mounts() -> &'static [SeedAssetMount] {
+    static MOUNTS: OnceLock<Vec<SeedAssetMount>> = OnceLock::new();
+    MOUNTS
+        .get_or_init(|| {
+            parse_seed_json("assets.json", SEED_ASSET_MOUNTS_JSON)
+                .expect("embedded worldpack asset index must parse")
+        })
+        .as_slice()
+}
+
+fn safe_relative_asset_path(asset_path: &str) -> bool {
+    !asset_path.is_empty()
+        && asset_path.len() <= 512
+        && Path::new(asset_path)
+            .components()
+            .all(|component| matches!(component, std::path::Component::Normal(_)))
+}
+
+fn seed_pack_asset_path(pack_id: &str, mount_name: &str, asset_path: &str) -> Option<PathBuf> {
+    if !safe_relative_asset_path(asset_path) {
+        return None;
+    }
+    let mount = seed_asset_mounts()
+        .iter()
+        .find(|mount| mount.pack_id == pack_id && mount.mount == mount_name)?;
+    Some(
+        seed_content_root()
+            .join(&mount.root)
+            .join(&mount.directory)
+            .join(asset_path),
+    )
+}
+
+fn asset_content_type(asset_path: &str) -> &'static str {
+    if asset_path.ends_with(".webp") {
+        "image/webp"
+    } else if asset_path.ends_with(".svg") {
+        "image/svg+xml"
+    } else if asset_path.ends_with(".json") {
+        "application/json"
+    } else {
+        "image/png"
+    }
+}
+
 fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), String> {
-    if manifest.id.trim().is_empty() || manifest.name.trim().is_empty() || manifest.version == 0 {
+    if manifest.schema_version != 2
+        || manifest.id.trim().is_empty()
+        || manifest.name.trim().is_empty()
+        || manifest.version == 0
+        || manifest.entry_location.trim().is_empty()
+        || !manifest.bundle_hash.starts_with("sha256:")
+        || manifest.packs.is_empty()
+    {
         return Err("worldpack manifest is missing id, name, or version".to_string());
+    }
+    let mut pack_ids = BTreeSet::new();
+    for pack in &manifest.packs {
+        if pack.id.trim().is_empty()
+            || pack.name.trim().is_empty()
+            || pack.version.trim().is_empty()
+            || pack.kind.trim().is_empty()
+            || pack.license.trim().is_empty()
+            || !pack.integrity.starts_with("sha256:")
+            || !pack_ids.insert(pack.id.as_str())
+        {
+            return Err(format!("invalid or duplicate worldpack pack {}", pack.id));
+        }
+        if pack.kind == "rules"
+            && (pack.rules_adapter.as_deref() != Some("cosyworld.rules/1")
+                || pack
+                    .rules_namespace
+                    .as_deref()
+                    .is_none_or(|namespace| namespace.trim().is_empty()))
+        {
+            return Err(format!("invalid rules pack metadata for {}", pack.id));
+        }
     }
     for (key, expected_file) in [
         ("actors", "actors.json"),
@@ -3226,7 +3931,6 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
         ("jobs", "jobs.json"),
         ("fronts", "fronts.json"),
         ("cards", "cards.json"),
-        ("fallback_lines", "fallback_lines.json"),
         ("lifecycle_hooks", "lifecycle_hooks.json"),
         ("evolution_tracks", "evolution_tracks.json"),
         ("recipes", "recipes.json"),
@@ -3241,10 +3945,229 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
             None => return Err(format!("worldpack manifest is missing {key} file entry")),
         }
     }
+    if manifest.rules != "rules.json"
+        || manifest.attributions != "attributions.json"
+        || manifest.character_creation != "character_creation.json"
+    {
+        return Err(
+            "worldpack manifest is missing rules, attribution, or character creation files"
+                .to_string(),
+        );
+    }
     Ok(())
 }
 
 fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
+    let packs_by_id = content
+        .manifest
+        .packs
+        .iter()
+        .map(|pack| (pack.id.as_str(), pack))
+        .collect::<BTreeMap<_, _>>();
+    let mut entitlement_grant_ids = BTreeSet::new();
+    for pack in &content.manifest.packs {
+        if let Some(distribution) = pack.distribution.as_ref() {
+            if distribution.media_type != "application/vnd.cosyworld.pack+json"
+                || distribution.canonicalization != "jcs"
+                || !matches!(
+                    distribution.permanence.as_str(),
+                    "content-addressed" | "arweave"
+                )
+                || distribution
+                    .permanent_uri
+                    .as_deref()
+                    .is_some_and(|uri| !uri.starts_with("ar://"))
+            {
+                return Err(format!(
+                    "invalid distribution metadata for pack {}",
+                    pack.id
+                ));
+            }
+        }
+        let Some(entitlements) = pack.entitlements.as_ref() else {
+            continue;
+        };
+        if entitlements.schema_version != 1 {
+            return Err(format!("invalid entitlement schema for pack {}", pack.id));
+        }
+        let mut authority_ids = BTreeSet::new();
+        for authority in &entitlements.authorities {
+            if authority.id.trim().is_empty()
+                || !matches!(
+                    authority.kind.as_str(),
+                    "asset_feed" | "solana_collection" | "signed_set"
+                )
+                || !authority_ids.insert(authority.id.as_str())
+            {
+                return Err(format!(
+                    "invalid entitlement authority for pack {}",
+                    pack.id
+                ));
+            }
+            if authority.kind == "solana_collection"
+                && (authority.network.as_deref().unwrap_or_default().is_empty()
+                    || authority.standard.as_deref().unwrap_or_default().is_empty()
+                    || authority
+                        .collection_address
+                        .as_deref()
+                        .unwrap_or_default()
+                        .is_empty())
+            {
+                return Err(format!("incomplete Solana authority {}", authority.id));
+            }
+            if authority.kind == "signed_set"
+                && (authority.algorithm.as_deref() != Some("ed25519")
+                    || authority
+                        .public_key
+                        .as_deref()
+                        .unwrap_or_default()
+                        .is_empty())
+            {
+                return Err(format!("invalid signed-set authority {}", authority.id));
+            }
+            let _ = (
+                &authority.asset_kind,
+                &authority.issuer,
+                &authority.chain,
+                &authority.collection_binding,
+            );
+        }
+        for grant in &entitlements.grants {
+            if !grant.id.starts_with(&format!("{}:", pack.id))
+                || !authority_ids.contains(grant.authority_id.as_str())
+                || !entitlement_grant_ids.insert(grant.id.as_str())
+            {
+                return Err(format!("invalid entitlement grant {}", grant.id));
+            }
+        }
+    }
+    let mut rules_pack_ids = BTreeSet::new();
+    let mut rules_namespaces = BTreeSet::new();
+    for bundle in &content.rules {
+        let Some(pack) = packs_by_id.get(bundle.pack_id.as_str()) else {
+            return Err(format!(
+                "rules bundle {} references an unknown pack",
+                bundle.pack_id
+            ));
+        };
+        if pack.kind != "rules"
+            || bundle.pack_version != pack.version
+            || bundle.adapter != "cosyworld.rules/1"
+            || pack.rules_adapter.as_deref() != Some(bundle.adapter.as_str())
+            || pack.rules_namespace.as_deref() != Some(bundle.namespace.as_str())
+            || !rules_pack_ids.insert(bundle.pack_id.as_str())
+            || !rules_namespaces.insert(bundle.namespace.as_str())
+        {
+            return Err(format!("invalid rules bundle {}", bundle.pack_id));
+        }
+
+        let mut condition_ids = BTreeSet::new();
+        for condition in &bundle.resources.conditions {
+            if !condition.id.starts_with("condition/")
+                || condition.name.trim().is_empty()
+                || condition.source_section.trim().is_empty()
+                || condition.source_text.trim().is_empty()
+                || !condition_ids.insert(condition.id.as_str())
+            {
+                return Err(format!("invalid rules condition {}", condition.id));
+            }
+            match condition.mapping.status.as_str() {
+                "reference_only" if condition.mapping.kernel_condition.is_none() => {}
+                "kernel"
+                    if condition.id == "condition/unconscious"
+                        && condition.mapping.kernel_condition.as_deref() == Some("unconscious") => {
+                }
+                _ => return Err(format!("invalid condition mapping {}", condition.id)),
+            }
+        }
+
+        let mut monster_ids = BTreeSet::new();
+        for monster in &bundle.resources.monster_seeds {
+            if !monster.id.starts_with("monster/")
+                || monster.name.trim().is_empty()
+                || monster.source_name.trim().is_empty()
+                || monster.size.trim().is_empty()
+                || monster.creature_type.trim().is_empty()
+                || monster.alignment.trim().is_empty()
+                || monster.armor_class.trim().is_empty()
+                || monster.hit_points.trim().is_empty()
+                || monster.speed.trim().is_empty()
+                || monster.challenge.trim().is_empty()
+                || monster.mapping.status != "reference_only"
+                || monster.mapping.kernel_condition.is_some()
+                || !monster_ids.insert(monster.id.as_str())
+            {
+                return Err(format!("invalid rules monster seed {}", monster.id));
+            }
+            for ability in [
+                "strength",
+                "dexterity",
+                "constitution",
+                "intelligence",
+                "wisdom",
+                "charisma",
+            ] {
+                if !monster
+                    .ability_scores
+                    .get(ability)
+                    .is_some_and(|score| (1..=30).contains(score))
+                {
+                    return Err(format!(
+                        "invalid {ability} for rules monster {}",
+                        monster.id
+                    ));
+                }
+            }
+            if monster.features.iter().any(|feature| {
+                feature.name.trim().is_empty() || feature.description.trim().is_empty()
+            }) {
+                return Err(format!("invalid feature for rules monster {}", monster.id));
+            }
+            let _ = (&monster.senses, &monster.mapping.suggested_role);
+        }
+    }
+    for pack in content
+        .manifest
+        .packs
+        .iter()
+        .filter(|pack| pack.kind == "rules")
+    {
+        if !rules_pack_ids.contains(pack.id.as_str()) {
+            return Err(format!(
+                "rules pack {} has no compiled rules bundle",
+                pack.id
+            ));
+        }
+    }
+
+    let mut attributed_pack_ids = BTreeSet::new();
+    for attribution in &content.attributions {
+        let Some(pack) = packs_by_id.get(attribution.pack_id.as_str()) else {
+            return Err(format!(
+                "attribution {} references an unknown pack",
+                attribution.pack_id
+            ));
+        };
+        if attribution.license != pack.license
+            || attribution.source_name.trim().is_empty()
+            || attribution.source_url.trim().is_empty()
+            || attribution.text.trim().is_empty()
+            || !attributed_pack_ids.insert(attribution.pack_id.as_str())
+        {
+            return Err(format!("invalid attribution for {}", attribution.pack_id));
+        }
+    }
+    for pack in content
+        .manifest
+        .packs
+        .iter()
+        .filter(|pack| pack.kind == "rules")
+    {
+        if !attributed_pack_ids.contains(pack.id.as_str()) {
+            return Err(format!("rules pack {} has no attribution", pack.id));
+        }
+    }
+
     let mut actor_ids = BTreeSet::new();
     for actor in &content.actors {
         if actor.id == 0 || !actor_ids.insert(actor.id) {
@@ -3293,6 +4216,74 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
             return Err(format!(
                 "seed location {} is missing title, description, or persona",
                 location.id
+            ));
+        }
+    }
+    let mut character_creation_pack_ids = BTreeSet::new();
+    let mut character_creation_profile_ids = BTreeSet::new();
+    for bundle in &content.character_creation {
+        let Some(pack) = packs_by_id.get(bundle.pack_id.as_str()) else {
+            return Err(format!(
+                "character creation bundle {} references an unknown pack",
+                bundle.pack_id
+            ));
+        };
+        if !matches!(pack.kind.as_str(), "world" | "campaign")
+            || bundle.pack_version != pack.version
+            || !character_creation_pack_ids.insert(bundle.pack_id.as_str())
+        {
+            return Err(format!(
+                "invalid character creation bundle {}",
+                bundle.pack_id
+            ));
+        }
+        for profile in &bundle.profiles {
+            if profile.schema_version != 1
+                || profile.id.trim().is_empty()
+                || profile.name.trim().is_empty()
+                || profile.description.trim().is_empty()
+                || profile.prompt.trim().is_empty()
+                || !location_ids.contains(&profile.entry_location_id)
+                || !(2..=6).contains(&profile.choices.len())
+                || !character_creation_profile_ids.insert(profile.id.as_str())
+            {
+                return Err(format!("invalid character creation profile {}", profile.id));
+            }
+            let mut choice_ids = BTreeSet::new();
+            for choice in &profile.choices {
+                if choice.id.trim().is_empty()
+                    || choice.label.trim().is_empty()
+                    || choice.detail.trim().is_empty()
+                    || normalize_calling_statement(&choice.calling).is_none()
+                    || choice.title.trim().is_empty()
+                    || choice.description.trim().is_empty()
+                    || skill_label(&choice.starting_skill_id).is_none()
+                    || !choice_ids.insert(choice.id.as_str())
+                {
+                    return Err(format!(
+                        "invalid character creation choice {}:{}",
+                        profile.id, choice.id
+                    ));
+                }
+            }
+            if !choice_ids.contains(profile.default_choice_id.as_str()) {
+                return Err(format!(
+                    "character creation profile {} has missing default choice",
+                    profile.id
+                ));
+            }
+        }
+    }
+    for pack in content
+        .manifest
+        .packs
+        .iter()
+        .filter(|pack| pack.kind == "campaign")
+    {
+        if !character_creation_pack_ids.contains(pack.id.as_str()) {
+            return Err(format!(
+                "campaign pack {} has no character creation bundle",
+                pack.id
             ));
         }
     }
@@ -3752,7 +4743,8 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
     let mut access_gate_locations = BTreeSet::new();
     for gate in &content.access_gates {
         if !location_ids.contains(&gate.location_id)
-            || gate.required_card_id.trim().is_empty()
+            || gate.required_grant_id.trim().is_empty()
+            || !entitlement_grant_ids.contains(gate.required_grant_id.as_str())
             || gate.reason.trim().is_empty()
             || !access_gate_locations.insert(gate.location_id)
         {
@@ -3761,56 +4753,34 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
                 gate.location_id
             ));
         }
+        let grant = content
+            .manifest
+            .packs
+            .iter()
+            .filter_map(|pack| pack.entitlements.as_ref())
+            .flat_map(|entitlements| entitlements.grants.iter())
+            .find(|grant| grant.id == gate.required_grant_id);
+        let Some(required_card_id) = gate.required_card_id.as_deref().or_else(|| {
+            grant
+                .and_then(|grant| grant.match_rule.as_ref())
+                .and_then(|rule| rule.asset_id.as_deref())
+        }) else {
+            continue;
+        };
         let Some(card) = content.cards.iter().find(|card| {
-            card.card_id == gate.required_card_id
-                || card.external_card_id.as_deref() == Some(gate.required_card_id.as_str())
+            card.card_id == required_card_id
+                || card.external_card_id.as_deref() == Some(required_card_id)
         }) else {
             return Err(format!(
                 "access gate for location {} references missing card {}",
-                gate.location_id, gate.required_card_id
+                gate.location_id, required_card_id
             ));
         };
         if card.subject_kind != "location" || card.subject_id != gate.location_id {
             return Err(format!(
                 "access gate for location {} references non-matching card {}",
-                gate.location_id, gate.required_card_id
+                gate.location_id, required_card_id
             ));
-        }
-    }
-
-    for fallback in &content.fallback_lines {
-        if fallback.kind.trim().is_empty() || fallback.text.trim().is_empty() {
-            return Err("fallback line is missing kind or text".to_string());
-        }
-        if let Some(location_id) = fallback.location_id {
-            if !location_ids.contains(&location_id) {
-                return Err(format!(
-                    "fallback line references missing location {location_id}"
-                ));
-            }
-        }
-        match fallback.kind.as_str() {
-            "resident_reply" => {
-                let Some(actor_id) = fallback.actor_id else {
-                    return Err("resident_reply fallback is missing actor_id".to_string());
-                };
-                if !actor_ids.contains(&actor_id) {
-                    return Err(format!(
-                        "resident_reply fallback references missing actor {actor_id}"
-                    ));
-                }
-            }
-            "avatar_chat" => {
-                let Some(target_actor_id) = fallback.target_actor_id else {
-                    return Err("avatar_chat fallback is missing target_actor_id".to_string());
-                };
-                if !actor_ids.contains(&target_actor_id) {
-                    return Err(format!(
-                        "avatar_chat fallback references missing actor {target_actor_id}"
-                    ));
-                }
-            }
-            other => return Err(format!("invalid fallback line kind {other}")),
         }
     }
 
@@ -4411,6 +5381,7 @@ impl OwnershipIndex {
                 Some(WalletCardSet {
                     wallet_address: wallet_address.to_ascii_lowercase(),
                     card_ids: parse_card_ids(cards).into_iter().collect(),
+                    grant_ids: BTreeSet::new(),
                     box_ids: BTreeSet::new(),
                     pack_ids: BTreeSet::new(),
                 })
@@ -4489,7 +5460,12 @@ impl OwnershipIndex {
                             "id",
                         ],
                     );
-                    index.add_wallet_assets(wallet.as_deref(), cards, boxes, packs);
+                    let grants = first_json_assets(
+                        &map,
+                        &["grantIds", "grant_ids", "entitlements", "grants"],
+                        &["grantId", "grant_id", "id"],
+                    );
+                    index.add_wallet_assets(wallet.as_deref(), cards, grants, boxes, packs);
                 }
             }
             serde_json::Value::Object(map) => {
@@ -4553,11 +5529,16 @@ impl OwnershipIndex {
                                 "id",
                             ],
                         );
-                        index.add_wallet_assets(wallet.as_deref(), cards, boxes, packs);
+                        let grants = first_json_assets(
+                            map,
+                            &["grantIds", "grant_ids", "entitlements", "grants"],
+                            &["grantId", "grant_id", "id"],
+                        );
+                        index.add_wallet_assets(wallet.as_deref(), cards, grants, boxes, packs);
                     }
                 } else {
                     for (wallet, value) in map {
-                        let (cards, boxes, packs) = match value {
+                        let (cards, grants, boxes, packs) = match value {
                             serde_json::Value::Object(map) => (
                                 first_json_cards(
                                     &map,
@@ -4568,6 +5549,11 @@ impl OwnershipIndex {
                                         "ownedCardIds",
                                         "hallPassCards",
                                     ],
+                                ),
+                                first_json_assets(
+                                    &map,
+                                    &["grantIds", "grant_ids", "entitlements", "grants"],
+                                    &["grantId", "grant_id", "id"],
                                 ),
                                 first_json_assets(
                                     &map,
@@ -4606,9 +5592,14 @@ impl OwnershipIndex {
                                     ],
                                 ),
                             ),
-                            other => (json_card_ids(&other), BTreeSet::new(), BTreeSet::new()),
+                            other => (
+                                json_card_ids(&other),
+                                BTreeSet::new(),
+                                BTreeSet::new(),
+                                BTreeSet::new(),
+                            ),
                         };
-                        index.add_wallet_assets(Some(wallet.as_str()), cards, boxes, packs);
+                        index.add_wallet_assets(Some(wallet.as_str()), cards, grants, boxes, packs);
                     }
                 }
             }
@@ -4628,6 +5619,7 @@ impl OwnershipIndex {
                 continue;
             };
             existing.card_ids.extend(wallet.card_ids);
+            existing.grant_ids.extend(wallet.grant_ids);
             existing.box_ids.extend(wallet.box_ids);
             existing.pack_ids.extend(wallet.pack_ids);
         }
@@ -4637,6 +5629,7 @@ impl OwnershipIndex {
         &mut self,
         wallet_address: Option<&str>,
         card_ids: BTreeSet<String>,
+        grant_ids: BTreeSet<String>,
         box_ids: BTreeSet<String>,
         pack_ids: BTreeSet<String>,
     ) {
@@ -4646,7 +5639,8 @@ impl OwnershipIndex {
         else {
             return;
         };
-        if card_ids.is_empty() && box_ids.is_empty() && pack_ids.is_empty() {
+        if card_ids.is_empty() && grant_ids.is_empty() && box_ids.is_empty() && pack_ids.is_empty()
+        {
             return;
         }
         let normalized = wallet_address.to_ascii_lowercase();
@@ -4658,12 +5652,14 @@ impl OwnershipIndex {
             self.wallets.push(WalletCardSet {
                 wallet_address: normalized,
                 card_ids,
+                grant_ids,
                 box_ids,
                 pack_ids,
             });
             return;
         };
         existing.card_ids.extend(card_ids);
+        existing.grant_ids.extend(grant_ids);
         existing.box_ids.extend(box_ids);
         existing.pack_ids.extend(pack_ids);
     }
@@ -4691,6 +5687,19 @@ impl OwnershipIndex {
             .iter()
             .filter(|wallet| wallet.wallet_address == normalized)
             .flat_map(|wallet| wallet.box_ids.iter().cloned())
+            .collect()
+    }
+
+    fn grants_for_wallet(&self, wallet_address: &str) -> BTreeSet<String> {
+        let normalized = wallet_address.trim().to_ascii_lowercase();
+        if normalized.is_empty() {
+            return BTreeSet::new();
+        }
+
+        self.wallets
+            .iter()
+            .filter(|wallet| wallet.wallet_address == normalized)
+            .flat_map(|wallet| wallet.grant_ids.iter().cloned())
             .collect()
     }
 
@@ -4726,6 +5735,7 @@ impl OwnershipIndex {
             self.wallets.push(WalletCardSet {
                 wallet_address: normalized,
                 card_ids: BTreeSet::new(),
+                grant_ids: BTreeSet::new(),
                 box_ids: BTreeSet::new(),
                 pack_ids: [pack_id.to_string()].into_iter().collect(),
             });
@@ -4748,6 +5758,7 @@ impl OwnershipIndex {
             self.wallets.push(WalletCardSet {
                 wallet_address: normalized,
                 card_ids: card_ids.iter().cloned().collect(),
+                grant_ids: BTreeSet::new(),
                 box_ids: BTreeSet::new(),
                 pack_ids: BTreeSet::new(),
             });
@@ -4763,6 +5774,49 @@ impl OwnershipIndex {
 }
 
 impl AccessContext {
+    fn for_linked_actor_receipt(state: &AppState, actor_id: u64) -> Self {
+        let linked_wallets = state
+            .wallet_actor_links
+            .lock()
+            .map(|links| {
+                links
+                    .iter()
+                    .filter(|(_, linked_actor_id)| **linked_actor_id == actor_id)
+                    .map(|(wallet, _)| wallet.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let Ok(ownership) = state.ownership_index.try_read() else {
+            return Self::default();
+        };
+        let mut access = Self {
+            owner_wallet_address: linked_wallets.first().cloned(),
+            signed_wallet_session: !linked_wallets.is_empty(),
+            ..Self::default()
+        };
+        for wallet in linked_wallets {
+            access
+                .owned_card_ids
+                .extend(ownership.cards_for_wallet(&wallet));
+            access
+                .granted_entitlement_ids
+                .extend(ownership.grants_for_wallet(&wallet));
+            access
+                .owned_box_ids
+                .extend(ownership.boxes_for_wallet(&wallet));
+            access
+                .unopened_pack_ids
+                .extend(ownership.packs_for_wallet(&wallet));
+        }
+        access
+            .granted_entitlement_ids
+            .retain(|grant_id| seed_entitlement_grant(grant_id).is_some());
+        access
+            .granted_entitlement_ids
+            .extend(entitlement_grants_for_assets(&access.owned_card_ids));
+        access
+    }
+
     fn from_query(
         query: &StateQuery,
         ownership: &OwnershipIndex,
@@ -4873,8 +5927,10 @@ impl AccessContext {
         wallet_sessions: &StdMutex<WalletSessions>,
         allow_unsigned_wallet_claims: bool,
     ) -> Self {
-        let signed_wallet =
-            wallet_session.and_then(|token| wallet_for_session(wallet_sessions, token));
+        let signed_wallets = wallet_session
+            .and_then(|token| wallets_for_session(wallet_sessions, token))
+            .unwrap_or_default();
+        let signed_wallet = signed_wallets.first().cloned();
         let unsigned_wallet = signed_wallet
             .is_none()
             .then(|| {
@@ -4891,14 +5947,28 @@ impl AccessContext {
         });
         let mut owned_card_ids = BTreeSet::new();
 
-        if let Some(wallet) = owner_wallet_address.as_deref() {
+        for wallet in &signed_wallets {
             owned_card_ids.extend(ownership.cards_for_wallet(wallet));
+        }
+        if signed_wallets.is_empty() {
+            if let Some(wallet) = owner_wallet_address.as_deref() {
+                owned_card_ids.extend(ownership.cards_for_wallet(wallet));
+            }
         }
         let mut owned_box_ids = BTreeSet::new();
         let mut unopened_pack_ids = BTreeSet::new();
-        if let Some(wallet) = owner_wallet_address.as_deref() {
+        let mut granted_entitlement_ids = BTreeSet::new();
+        for wallet in &signed_wallets {
             owned_box_ids.extend(ownership.boxes_for_wallet(wallet));
             unopened_pack_ids.extend(ownership.packs_for_wallet(wallet));
+            granted_entitlement_ids.extend(ownership.grants_for_wallet(wallet));
+        }
+        if signed_wallets.is_empty() {
+            if let Some(wallet) = owner_wallet_address.as_deref() {
+                owned_box_ids.extend(ownership.boxes_for_wallet(wallet));
+                unopened_pack_ids.extend(ownership.packs_for_wallet(wallet));
+                granted_entitlement_ids.extend(ownership.grants_for_wallet(wallet));
+            }
         }
 
         for source in owned_sources.into_iter().flatten() {
@@ -4906,10 +5976,13 @@ impl AccessContext {
                 owned_card_ids.insert(card_id);
             }
         }
+        granted_entitlement_ids.retain(|grant_id| seed_entitlement_grant(grant_id).is_some());
+        granted_entitlement_ids.extend(entitlement_grants_for_assets(&owned_card_ids));
 
         Self {
             owner_wallet_address,
             owned_card_ids,
+            granted_entitlement_ids,
             owned_box_ids,
             unopened_pack_ids,
             signed_wallet_session: signed_wallet.is_some(),
@@ -4936,9 +6009,11 @@ impl AccessContext {
         }
         let mut owned_box_ids = BTreeSet::new();
         let mut unopened_pack_ids = BTreeSet::new();
+        let mut granted_entitlement_ids = BTreeSet::new();
         if let Some(wallet) = owner_wallet_address.as_deref() {
             owned_box_ids.extend(ownership.boxes_for_wallet(wallet));
             unopened_pack_ids.extend(ownership.packs_for_wallet(wallet));
+            granted_entitlement_ids.extend(ownership.grants_for_wallet(wallet));
         }
 
         for source in owned_sources.into_iter().flatten() {
@@ -4946,10 +6021,13 @@ impl AccessContext {
                 owned_card_ids.insert(card_id);
             }
         }
+        granted_entitlement_ids.retain(|grant_id| seed_entitlement_grant(grant_id).is_some());
+        granted_entitlement_ids.extend(entitlement_grants_for_assets(&owned_card_ids));
 
         Self {
             owner_wallet_address,
             owned_card_ids,
+            granted_entitlement_ids,
             owned_box_ids,
             unopened_pack_ids,
             signed_wallet_session: false,
@@ -4959,6 +6037,10 @@ impl AccessContext {
 
     fn owns_card(&self, card_id: &str) -> bool {
         self.owned_card_ids.contains(card_id)
+    }
+
+    fn has_grant(&self, grant_id: &str) -> bool {
+        self.granted_entitlement_ids.contains(grant_id)
     }
 }
 
@@ -4989,6 +6071,34 @@ fn wallet_for_session(
         .sessions
         .get(token)
         .map(|session| session.wallet_address.clone())
+}
+
+fn wallets_for_session(
+    wallet_sessions: &StdMutex<WalletSessions>,
+    session_token: &str,
+) -> Option<Vec<String>> {
+    let token = session_token.trim();
+    if token.is_empty() {
+        return None;
+    }
+    let now = Instant::now();
+    let Ok(mut sessions) = wallet_sessions.lock() else {
+        return None;
+    };
+    sessions
+        .sessions
+        .retain(|_, session| session.expires_at > now);
+    sessions.sessions.get(token).map(|session| {
+        let mut wallets = vec![session.wallet_address.clone()];
+        wallets.extend(
+            session
+                .linked_wallet_addresses
+                .iter()
+                .filter(|wallet| *wallet != &session.wallet_address)
+                .cloned(),
+        );
+        wallets
+    })
 }
 
 fn narrative_move_signature_is_fresh(issued_at_unix: u64) -> bool {
@@ -5405,376 +6515,95 @@ fn action_rate_limited_response() -> Json<ActionResponse> {
     })
 }
 
-fn normalize_human_message(content: &str) -> Option<String> {
-    if content
-        .chars()
-        .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        return None;
-    }
-    let normalized = content.split_whitespace().collect::<Vec<_>>().join(" ");
-    if normalized.is_empty() || normalized.chars().count() > MAX_HUMAN_MESSAGE_CHARS {
-        None
-    } else if !human_message_is_cozy_safe(&normalized) {
-        None
-    } else {
-        Some(normalized)
-    }
-}
-
-fn normalized_resident_speech_key(value: &str) -> String {
-    let punctuation_folded = value
-        .chars()
-        .map(|character| match character {
-            '\u{2018}' | '\u{2019}' | '\u{0060}' => '\'',
-            '\u{201c}' | '\u{201d}' => '"',
-            '\u{2013}' | '\u{2014}' => '-',
-            '\u{00a0}' => ' ',
-            other => other,
-        })
-        .collect::<String>();
-    compact_whitespace(punctuation_folded.trim().trim_matches('"')).to_lowercase()
-}
-
-fn human_message_is_cozy_safe(message: &str) -> bool {
-    let lower = message.to_lowercase();
-    let compact = lower.split_whitespace().collect::<Vec<_>>().join(" ");
-    let blocked_phrases = [
-        "http://",
-        "https://",
-        "www.",
-        "discord.gg",
-        "<script",
-        "</script",
-        "javascript:",
-        "system prompt",
-        "developer message",
-        "ignore previous",
-        "ignore all previous",
-        "jailbreak",
-        "prompt injection",
-        "as an ai",
-        "as a language model",
-        "kill yourself",
-    ];
-    let blocked_terms = ["kys", "porn", "nude", "rape", "gore"];
-    let padded = format!(" {compact} ");
-    !blocked_phrases
-        .iter()
-        .any(|blocked| compact.contains(blocked))
-        && !blocked_terms
-            .iter()
-            .any(|blocked| padded.contains(&format!(" {blocked} ")))
-}
-
-fn fallback_avatar_name(actor_id: u64) -> String {
-    format!("Traveler {actor_id}")
-}
-
-fn normalize_avatar_name(name: Option<&str>, actor_id: u64) -> String {
-    let Some(name) = name else {
-        return fallback_avatar_name(actor_id);
-    };
-    if name
-        .chars()
-        .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        return fallback_avatar_name(actor_id);
-    }
-    let normalized = name.split_whitespace().collect::<Vec<_>>().join(" ");
-    if normalized.is_empty()
-        || normalized.chars().count() > MAX_AVATAR_NAME_CHARS
-        || !human_message_is_cozy_safe(&normalized)
-        || avatar_name_is_reserved(&normalized)
-        || !normalized
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, ' ' | '-' | '\''))
-        || !normalized.chars().any(|ch| ch.is_ascii_alphanumeric())
-    {
-        fallback_avatar_name(actor_id)
-    } else {
-        normalized
-    }
-}
-
-fn normalize_calling_statement(statement: &str) -> Option<String> {
-    if statement
-        .chars()
-        .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        return None;
-    }
-    let normalized = compact_whitespace(statement);
-    if normalized.is_empty()
-        || normalized.chars().count() > MAX_CALLING_STATEMENT_CHARS
-        || !human_message_is_cozy_safe(&normalized)
-        || !normalized.chars().any(|ch| ch.is_ascii_alphanumeric())
-    {
-        None
-    } else {
-        Some(normalized)
-    }
-}
-
-fn normalize_bond_statement(statement: &str) -> Option<String> {
-    if statement
-        .chars()
-        .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        return None;
-    }
-    let normalized = compact_whitespace(statement);
-    if normalized.is_empty()
-        || normalized.chars().count() > MAX_BOND_STATEMENT_CHARS
-        || !human_message_is_cozy_safe(&normalized)
-        || !normalized.chars().any(|ch| ch.is_ascii_alphanumeric())
-    {
-        None
-    } else {
-        Some(normalized)
-    }
-}
-
-fn avatar_name_is_reserved(name: &str) -> bool {
-    matches!(
-        name.to_ascii_lowercase().as_str(),
-        "rati"
-            | "gust"
-            | "whiskerwind"
-            | "skull"
-            | "coach"
-            | "badger"
-            | "toad"
-            | "moonlit echo"
-            | "cosyworld"
-            | "system"
-    )
-}
-
-fn compact_whitespace(value: &str) -> String {
-    value.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-fn fallback_avatar_identity(actor_id: u64) -> GeneratedAvatarIdentity {
-    cosyworld_ai_model::generate_avatar_identity(actor_id, None).into()
-}
-
-fn portable_avatar_title(value: &str) -> String {
-    let normalized = compact_whitespace(value)
-        .trim_end_matches(&['.', '!', '?'][..])
-        .trim()
-        .to_string();
-    for suffix in [
-        " at The Cosy Cottage",
-        " in The Cosy Cottage",
-        " — The Cosy Cottage",
-        ", The Cosy Cottage",
-    ] {
-        let Some(start) = normalized.len().checked_sub(suffix.len()) else {
-            continue;
-        };
-        let Some(tail) = normalized.get(start..) else {
-            continue;
-        };
-        if tail.eq_ignore_ascii_case(suffix) {
-            return normalized[..start].trim().to_string();
-        }
-    }
-    normalized
-}
-
-fn avatar_flavor_is_cozy(value: &str) -> bool {
-    let tokens = value
-        .to_ascii_lowercase()
-        .split(|character: char| !character.is_ascii_alphanumeric())
-        .filter(|token| !token.is_empty())
-        .map(ToString::to_string)
-        .collect::<Vec<_>>();
-    let blocked = [
-        "grudge",
-        "ravenous",
-        "hostile",
-        "obsessed",
-        "revenge",
-        "vengeance",
-        "hatred",
-        "hateful",
-        "cruel",
-        "evil",
-        "villain",
-        "killer",
-        "slayer",
-        "violent",
-        "weapon",
-        "murder",
-        "bloodthirsty",
-        "danger",
-        "dangerous",
-        "threat",
-        "threatening",
-        "insult",
-        "insults",
-        "mean",
-    ];
-    !tokens.iter().any(|token| {
-        blocked.contains(&token.as_str())
-            || token.starts_with("schem")
-            || matches!(token.as_str(), "hate" | "hates" | "hated")
-    })
-}
-
-fn sanitize_avatar_title(value: Option<&str>, fallback: &str) -> String {
-    let normalized = value.map(portable_avatar_title).unwrap_or_default();
-    if normalized.is_empty()
-        || normalized.chars().count() > 36
-        || normalized.split_whitespace().count() > 5
-        || normalized.to_ascii_lowercase().contains("the cosy cottage")
-        || !human_message_is_cozy_safe(&normalized)
-        || !avatar_flavor_is_cozy(&normalized)
-        || normalized
-            .chars()
-            .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        fallback.to_string()
-    } else {
-        normalized
-    }
-}
-
-fn sanitize_avatar_description(value: Option<&str>, fallback: &str) -> String {
-    let normalized = value.map(compact_whitespace).unwrap_or_default();
-    if normalized.is_empty()
-        || normalized.chars().count() > 220
-        || !human_message_is_cozy_safe(&normalized)
-        || !avatar_flavor_is_cozy(&normalized)
-        || normalized
-            .chars()
-            .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        fallback.to_string()
-    } else {
-        normalized
-    }
-}
-
-fn align_avatar_description_name(value: &str, name: &str, fallback_name: &str) -> String {
-    let aligned = if fallback_name != name && value.contains(fallback_name) {
-        value.replace(fallback_name, name)
-    } else {
-        value.to_string()
-    };
-    if aligned
-        .to_ascii_lowercase()
-        .contains(&name.to_ascii_lowercase())
-    {
-        aligned
-    } else {
-        trim_to_chars(&format!("{name} — {aligned}"), 220)
-    }
-}
-
-fn avatar_visual_prompt(name: &str, title: &str, description: &str) -> String {
-    compact_whitespace(&format!(
-        "{name}, {title}. {description}. Cozy full-body fantasy avatar portrait, warm cottage light, expressive silhouette, readable trading-card character art, safe for all ages."
-    ))
-}
-
-fn sanitize_avatar_visual_prompt(value: Option<&str>, fallback: &str) -> String {
-    let normalized = value.map(compact_whitespace).unwrap_or_default();
-    if normalized.is_empty()
-        || normalized.chars().count() > 360
-        || !human_message_is_cozy_safe(&normalized)
-        || !avatar_flavor_is_cozy(&normalized)
-        || normalized
-            .chars()
-            .any(|ch| ch.is_control() && !ch.is_whitespace())
-    {
-        fallback.to_string()
-    } else {
-        normalized
-    }
-}
-
-fn avatar_identity_from_json_value(
-    value: &serde_json::Value,
-    actor_id: u64,
+fn apply_avatar_creation_flavor(
+    mut identity: GeneratedAvatarIdentity,
+    character_choice: Option<&SeedCharacterCreationChoice>,
+    initial_calling: &str,
 ) -> GeneratedAvatarIdentity {
-    let fallback = fallback_avatar_identity(actor_id);
-    let raw_name = value.get("name").and_then(|value| value.as_str());
-    let normalized_name = raw_name
-        .map(|name| normalize_avatar_name(Some(name), actor_id))
-        .unwrap_or_else(|| fallback.name.clone());
-    let name = if normalized_name == fallback_avatar_name(actor_id) {
-        fallback.name.clone()
-    } else {
-        normalized_name
-    };
-    let title = sanitize_avatar_title(
-        value.get("title").and_then(|value| value.as_str()),
-        &fallback.title,
-    );
-    let description = align_avatar_description_name(
-        &sanitize_avatar_description(
-            value.get("description").and_then(|value| value.as_str()),
-            &fallback.description,
-        ),
-        &name,
-        &fallback.name,
-    );
-    let fallback_visual_prompt = avatar_visual_prompt(&name, &title, &description);
-    GeneratedAvatarIdentity {
-        name,
-        title,
-        description,
-        visual_prompt: sanitize_avatar_visual_prompt(
-            value.get("visual_prompt").and_then(|value| value.as_str()),
-            &fallback_visual_prompt,
-        ),
+    if let Some(choice) = character_choice {
+        identity.title = choice.title.clone();
+        identity.description = format!("{} {}", identity.name, choice.description);
+        identity.visual_prompt = format!(
+            "{}, {}, short fantasy campaign character, practical traveling gear, hooded lantern",
+            identity.visual_prompt, choice.description
+        );
+    } else if calling_statement_is_explorer(initial_calling) {
+        identity.title = "Explorer of Unnamed Ways".to_string();
+        identity.description = format!(
+            "{} reads terrain like an invitation and leaves usable paths behind for everyone who follows.",
+            identity.name
+        );
+        identity.visual_prompt = format!(
+            "{}, practical pathfinder with a weathered field map, trail ribbons, muddy boots, and a curious lantern",
+            identity.visual_prompt
+        );
     }
+    identity
 }
 
-fn parse_avatar_identity_json(text: &str, actor_id: u64) -> Option<GeneratedAvatarIdentity> {
-    let cleaned = text
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim();
-    let json_text = if cleaned.starts_with('{') {
-        cleaned
-    } else {
-        let start = cleaned.find('{')?;
-        let end = cleaned.rfind('}')?;
-        cleaned.get(start..=end)?
-    };
-    serde_json::from_str::<serde_json::Value>(json_text)
-        .ok()
-        .map(|value| avatar_identity_from_json_value(&value, actor_id))
-}
-
-async fn generate_avatar_identity(
-    config: Option<&AiConfig>,
+fn schedule_avatar_identity_refinement(
+    state: &AppState,
     actor_id: u64,
-    requested_name: Option<&str>,
-) -> GeneratedAvatarIdentity {
-    if let Some(name) = requested_name {
-        return cosyworld_ai_model::generate_avatar_identity(actor_id, Some(name)).into();
-    }
-
-    let fallback = fallback_avatar_identity(actor_id);
-    let Some(config) = config else {
-        return fallback;
+    character_choice: Option<SeedCharacterCreationChoice>,
+    initial_calling: String,
+    fallback_identity: GeneratedAvatarIdentity,
+) {
+    let Some(config) = state.ai_config.as_ref().clone() else {
+        schedule_avatar_art_generation(state, actor_id, fallback_identity);
+        return;
     };
-    match request_ai_avatar_identity(config, actor_id).await {
-        Ok(identity) => identity,
-        Err(error) => {
-            warn!(
-                "AI avatar identity generation failed; using deterministic fallback: {}",
-                error
+    let state = state.clone();
+    tokio::spawn(async move {
+        let identity = match request_ai_avatar_identity(&config, actor_id).await {
+            Ok(identity) => {
+                apply_avatar_creation_flavor(identity, character_choice.as_ref(), &initial_calling)
+            }
+            Err(error) => {
+                warn!(
+                    "AI avatar identity refinement failed for actor {}: {}",
+                    actor_id, error
+                );
+                schedule_avatar_art_generation(&state, actor_id, fallback_identity);
+                return;
+            }
+        };
+        let actor_meta = ActorMeta {
+            name: identity.name.clone(),
+            speech_mode: "prose".to_string(),
+            title: identity.title.clone(),
+            description: identity.description.clone(),
+        };
+        let events = {
+            let mut runtime = state.inner.lock().await;
+            let valid_actor = runtime
+                .actor_by_id(actor_id)
+                .is_some_and(|actor| actor.kind == CW_ACTOR_HUMAN);
+            if !valid_actor {
+                return;
+            }
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
             );
-            fallback
-        }
-    }
+            record.actor_meta_upserts.insert(actor_id, actor_meta);
+            record
+                .projection_mutations
+                .push(ProjectionMutation::RefreshAvatarIdentity { actor_id });
+            let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+                return;
+            };
+            if status != CW_OK {
+                return;
+            }
+            events
+        };
+        broadcast_events(&state, &events);
+        schedule_avatar_art_generation(&state, actor_id, identity);
+    });
 }
 
 fn wallet_challenge_message(wallet_address: &str, nonce: &str, issued_at_unix: u64) -> String {
@@ -5904,6 +6733,95 @@ fn is_base58_char(ch: char) -> bool {
             | 'a'..='k'
             | 'm'..='z'
     )
+}
+
+fn decode_solana_32(value: &str, label: &str) -> Result<[u8; 32], String> {
+    let clean = clean_solana_address(value, label)?;
+    let bytes = bs58::decode(&clean)
+        .into_vec()
+        .map_err(|_| format!("{label} is invalid"))?;
+    bytes
+        .try_into()
+        .map_err(|_| format!("{label} must decode to 32 bytes"))
+}
+
+fn push_solana_shortvec(output: &mut Vec<u8>, mut value: usize) {
+    loop {
+        let mut byte = (value & 0x7f) as u8;
+        value >>= 7;
+        if value != 0 {
+            byte |= 0x80;
+        }
+        output.push(byte);
+        if value == 0 {
+            break;
+        }
+    }
+}
+
+fn compile_core_burn_transaction(
+    owner_wallet_address: &str,
+    box_asset_address: &str,
+    collection_address: &str,
+    recent_blockhash: &str,
+    last_valid_block_height: u64,
+) -> Result<PreparedBoxBurnTransaction, String> {
+    let owner = decode_solana_32(owner_wallet_address, "Owner wallet address")?;
+    let asset = decode_solana_32(box_asset_address, "Box asset address")?;
+    let collection = decode_solana_32(collection_address, "Box collection address")?;
+    let system_program = decode_solana_32(SOLANA_SYSTEM_PROGRAM_ID, "System program")?;
+    let log_wrapper = decode_solana_32(SPL_NOOP_PROGRAM_ID, "SPL Noop program")?;
+    let core_program = decode_solana_32(CORE_PROGRAM_ID, "Metaplex Core program")?;
+    let blockhash = decode_solana_32(recent_blockhash, "Recent blockhash")?;
+
+    if owner == asset || owner == collection || asset == collection {
+        return Err("Box burn owner, asset, and collection addresses must be distinct".to_string());
+    }
+
+    // Legacy Solana message. The owner is both fee payer and BurnV1 authority, so it appears once
+    // as the writable signer. BurnV1 account order follows the generated Metaplex Core SDK:
+    // asset, collection, payer, authority, system program, SPL Noop log wrapper.
+    let account_keys = [
+        owner,
+        asset,
+        collection,
+        system_program,
+        log_wrapper,
+        core_program,
+    ];
+    let mut message = Vec::with_capacity(256);
+    message.extend_from_slice(&[
+        1, // num_required_signatures
+        0, // num_readonly_signed_accounts
+        3, // system, log wrapper, and Core are readonly unsigned accounts
+    ]);
+    push_solana_shortvec(&mut message, account_keys.len());
+    for key in account_keys {
+        message.extend_from_slice(&key);
+    }
+    message.extend_from_slice(&blockhash);
+    push_solana_shortvec(&mut message, 1); // one BurnV1 instruction
+    message.push(5); // Core program account index
+    let burn_accounts = [1_u8, 2, 0, 0, 3, 4];
+    push_solana_shortvec(&mut message, burn_accounts.len());
+    message.extend_from_slice(&burn_accounts);
+    let burn_data = [12_u8, 0_u8]; // BurnV1 discriminator + None compression proof
+    push_solana_shortvec(&mut message, burn_data.len());
+    message.extend_from_slice(&burn_data);
+
+    // A legacy wire transaction is a shortvec signature count, one empty 64-byte signature for
+    // the owner, then the compiled message. Wallets replace the empty signature before sending.
+    let mut transaction = Vec::with_capacity(message.len() + 65);
+    push_solana_shortvec(&mut transaction, 1);
+    transaction.extend_from_slice(&[0_u8; 64]);
+    transaction.extend_from_slice(&message);
+
+    Ok(PreparedBoxBurnTransaction {
+        transaction_base64: BASE64_STANDARD.encode(transaction),
+        message_base58: bs58::encode(message).into_string(),
+        recent_blockhash: recent_blockhash.to_string(),
+        last_valid_block_height,
+    })
 }
 
 fn transaction_burns_core_asset_from_owner(
@@ -6037,7 +6955,7 @@ fn reveal_seed_for_pack(
 
 fn avatar_pack_card_rarity(card_id: &str) -> &str {
     ruby_high_card_spec(card_id)
-        .map(|card| card.rarity)
+        .map(|card| card.rarity.as_str())
         .or_else(|| seed_card_rarity_for_card_id(card_id))
         .unwrap_or("common")
 }
@@ -6129,6 +7047,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let state = AppState::bootstrap().await?;
+    start_actor_job_worker(state.clone());
     start_ownership_refresh_scheduler(state.clone());
     start_moderation_retention_scheduler(state.clone());
     let app = routes::app_router(state);
@@ -6220,6 +7139,8 @@ impl AppState {
             .map(Arc::new);
         let moderation_report_retention = ModerationReportRetention::from_env()?;
         let ai_config = Arc::new(AiConfig::from_env());
+        let generation_controls =
+            Arc::new(GenerationControls::from_env().map_err(deployment_config_error)?);
         let avatar_art_config = Arc::new(ReplicateAvatarArtConfig::from_env());
         let generated_asset_dir = generated_asset_dir_from_env();
         fs::create_dir_all(generated_avatar_dir(&generated_asset_dir))?;
@@ -6236,8 +7157,38 @@ impl AppState {
             moderation_token.is_some(),
             box_burn_verifier.is_some(),
         )?;
-        let mut ownership_index = ownership_feed.load_best_effort().await;
+        let (mut ownership_index, ownership_feed_health) =
+            ownership_feed.load_best_effort_with_health().await;
         if let Some(path) = event_store_path.as_deref() {
+            let external_snapshot_loaded = ownership_feed.remote_url.is_none()
+                || (ownership_feed_health.last_success_at_unix.is_some()
+                    && ownership_feed_health.consecutive_failures == 0);
+            if external_snapshot_loaded
+                && (ownership_feed.inline_feed.is_some()
+                    || ownership_feed.path_feed.is_some()
+                    || ownership_feed.remote_url.is_some())
+            {
+                match record_economy_reconciliation(path, &ownership_index, "startup") {
+                    Ok(run) if run.anomaly_count > 0 => warn!(
+                        "economy reconciliation found {} anomal{} at startup",
+                        run.anomaly_count,
+                        if run.anomaly_count == 1 { "y" } else { "ies" }
+                    ),
+                    Ok(_) => {}
+                    Err(error) if deployment.profile.is_production() => {
+                        return Err(io::Error::other(format!(
+                            "production profile failed to record economy reconciliation in {}: {}",
+                            path.display(),
+                            error
+                        )));
+                    }
+                    Err(error) => warn!(
+                        "failed to record economy reconciliation in {}: {}",
+                        path.display(),
+                        error
+                    ),
+                }
+            }
             match load_receipt_ownership_index(path) {
                 Ok(receipt_index) => ownership_index.merge(receipt_index),
                 Err(error) if deployment.profile.is_production() => {
@@ -6354,6 +7305,10 @@ impl AppState {
                 }
             })
             .unwrap_or_default();
+        let account_auth = Arc::new(AccountAuth::from_env(
+            event_store_path.clone(),
+            deployment.profile.is_production(),
+        )?);
 
         Ok(Self {
             inner: Arc::new(Mutex::new(runtime)),
@@ -6362,16 +7317,19 @@ impl AppState {
             snapshot_path,
             resident_continuity_path,
             event_store_path,
+            account_auth,
             ownership_index,
             trust_client_card_ids,
             dev_reset_enabled,
             ai_config,
+            generation_controls,
             avatar_art_config,
             generated_asset_dir: Arc::new(generated_asset_dir),
             #[cfg(test)]
             ambient,
             box_burn_verifier: Arc::new(box_burn_verifier),
             ownership_feed: Arc::new(ownership_feed),
+            ownership_feed_health: Arc::new(StdMutex::new(ownership_feed_health)),
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
@@ -6384,6 +7342,7 @@ impl AppState {
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
             avatar_art_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
+            actor_job_notify: Arc::new(Notify::new()),
             avatar_chat_delay,
             moderation_token,
             moderation_report_retention,
@@ -6414,76 +7373,6 @@ impl AppState {
             .lock()
             .map(|mut limiter| limiter.allow(key.into(), limit, Instant::now()))
             .unwrap_or(false)
-    }
-}
-
-impl RateLimiter {
-    fn allow(&mut self, key: String, limit: RateLimit, now: Instant) -> bool {
-        let cutoff = now.checked_sub(limit.window).unwrap_or(now);
-        let hits = self.hits.entry(key).or_default();
-        while hits.front().is_some_and(|hit| *hit <= cutoff) {
-            hits.pop_front();
-        }
-        if hits.len() >= limit.max_hits {
-            return false;
-        }
-        hits.push_back(now);
-
-        if self.hits.len() > 4096 {
-            self.hits.retain(|_, hits| {
-                while hits.front().is_some_and(|hit| *hit <= cutoff) {
-                    hits.pop_front();
-                }
-                !hits.is_empty()
-            });
-        }
-
-        true
-    }
-}
-
-impl AiConfig {
-    fn from_env() -> Option<Self> {
-        let api_key = std::env::var("COSYWORLD_AI_API_KEY")
-            .ok()
-            .or_else(|| std::env::var("OPENROUTER_API_KEY").ok())
-            .or_else(|| std::env::var("OPENAI_API_KEY").ok())
-            .filter(|key| !key.trim().is_empty());
-
-        let using_openrouter = std::env::var("OPENROUTER_API_KEY").is_ok()
-            || std::env::var("COSYWORLD_AI_PROVIDER")
-                .map(|provider| provider.eq_ignore_ascii_case("openrouter"))
-                .unwrap_or(false);
-        let base_url = std::env::var("COSYWORLD_AI_BASE_URL").unwrap_or_else(|_| {
-            if using_openrouter {
-                "https://openrouter.ai/api/v1".to_string()
-            } else {
-                "https://api.openai.com/v1".to_string()
-            }
-        });
-        let base_url = base_url.trim_end_matches('/').to_string();
-        let api_key = match api_key {
-            Some(key) => key,
-            None if local_ai_base_url(&base_url) => "local-ai".to_string(),
-            None => return None,
-        };
-        let model = std::env::var("COSYWORLD_AI_MODEL")
-            .ok()
-            .or_else(|| std::env::var("OPENROUTER_CHAT_MODEL").ok())
-            .or_else(|| std::env::var("OPENAI_MODEL").ok())
-            .unwrap_or_else(|| {
-                if using_openrouter {
-                    DEFAULT_OPENROUTER_CHAT_MODEL.to_string()
-                } else {
-                    DEFAULT_OPENAI_CHAT_MODEL.to_string()
-                }
-            });
-
-        Some(Self {
-            api_key,
-            base_url,
-            model,
-        })
     }
 }
 
@@ -6547,12 +7436,6 @@ impl ReplicateAvatarArtConfig {
     }
 }
 
-fn local_ai_base_url(base_url: &str) -> bool {
-    base_url.starts_with("http://127.0.0.1:")
-        || base_url.starts_with("http://localhost:")
-        || base_url.starts_with("http://[::1]:")
-}
-
 impl BoxBurnVerifierConfig {
     fn from_env() -> io::Result<Option<Self>> {
         let rpc_url = std::env::var("COSYWORLD_BOX_BURN_SOLANA_RPC_URL")
@@ -6590,6 +7473,62 @@ impl BoxBurnVerifierConfig {
                 "COSYWORLD_BOX_CORE_COLLECTION_ADDRESS requires COSYWORLD_BOX_BURN_SOLANA_RPC_URL",
             )),
         }
+    }
+
+    async fn prepare_box_burn(
+        &self,
+        owner_wallet_address: &str,
+        box_asset_address: &str,
+    ) -> Result<PreparedBoxBurnTransaction, String> {
+        let owner_wallet_address =
+            clean_solana_address(owner_wallet_address, "Owner wallet address")?;
+        let box_asset_address = clean_solana_address(box_asset_address, "Box asset address")?;
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .map_err(|error| error.to_string())?;
+        let body = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "cosyworld-box-burn-prepare",
+            "method": "getLatestBlockhash",
+            "params": [{ "commitment": "confirmed" }]
+        });
+        let response = client
+            .post(&self.rpc_url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|error| error.to_string())?;
+        if !response.status().is_success() {
+            return Err(format!(
+                "Solana RPC failed with status {}",
+                response.status().as_u16()
+            ));
+        }
+        let payload: serde_json::Value =
+            response.json().await.map_err(|error| error.to_string())?;
+        if let Some(error) = payload.get("error") {
+            return Err(error
+                .get("message")
+                .and_then(|value| value.as_str())
+                .unwrap_or("Solana RPC returned an error")
+                .to_string());
+        }
+        let blockhash = payload
+            .pointer("/result/value/blockhash")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| "Solana RPC did not return a recent blockhash".to_string())?;
+        let last_valid_block_height = payload
+            .pointer("/result/value/lastValidBlockHeight")
+            .and_then(|value| value.as_u64())
+            .ok_or_else(|| "Solana RPC did not return a last valid block height".to_string())?;
+        compile_core_burn_transaction(
+            &owner_wallet_address,
+            &box_asset_address,
+            &self.collection_address,
+            blockhash,
+            last_valid_block_height,
+        )
     }
 
     async fn verify_box_burn(
@@ -6713,6 +7652,7 @@ impl RuntimeSnapshot {
     fn from_runtime(runtime: &RuntimeWorld) -> Self {
         Self {
             version: 1,
+            worldpack_bundle_hash: seed_content().manifest.bundle_hash.clone(),
             world_version: runtime.world.version,
             tick: runtime.world.tick,
             next_event_seq: runtime.world.next_event_seq,
@@ -6743,6 +7683,7 @@ impl RuntimeSnapshot {
             resident_memories: runtime.resident_memories.clone(),
             search_memories: runtime.search_memories.clone(),
             resident_continuities: BTreeMap::new(),
+            actor_autonomy: runtime.actor_autonomy.clone(),
             rpg_claims: runtime.rpg_claims.clone(),
             orb_balances: runtime.orb_balances.clone(),
             orb_reward_claims: runtime.orb_reward_claims.clone(),
@@ -6755,6 +7696,15 @@ impl RuntimeSnapshot {
     }
 
     fn into_runtime(self) -> io::Result<RuntimeWorld> {
+        if !self.worldpack_bundle_hash.is_empty()
+            && self.worldpack_bundle_hash != seed_content().manifest.bundle_hash
+        {
+            return Err(snapshot_error(format!(
+                "snapshot worldpack {} does not match active worldpack {}",
+                self.worldpack_bundle_hash,
+                seed_content().manifest.bundle_hash
+            )));
+        }
         if self.world_actors.len() > CW_MAX_ACTORS {
             return Err(snapshot_error("too many actors in snapshot"));
         }
@@ -6847,6 +7797,7 @@ impl RuntimeSnapshot {
             resident_memories: self.resident_memories,
             search_memories: self.search_memories,
             resident_continuities: self.resident_continuities,
+            actor_autonomy: self.actor_autonomy,
             rpg_claims: self.rpg_claims,
             orb_balances: self.orb_balances,
             orb_reward_claims: self.orb_reward_claims,
@@ -6862,6 +7813,7 @@ impl RuntimeSnapshot {
             runtime.backfill_generated_avatar_flavor();
             runtime.backfill_listen_attempt_claims_from_events();
             runtime.refresh_all_resident_continuities();
+            runtime.ensure_actor_autonomy();
             runtime
         })
     }
@@ -6871,6 +7823,7 @@ impl ResidentContinuitySnapshot {
     fn from_runtime(runtime: &RuntimeWorld) -> Self {
         Self {
             version: 1,
+            worldpack_bundle_hash: seed_content().manifest.bundle_hash.clone(),
             world_tick: runtime.world.tick,
             latest_event_seq: runtime.world.next_event_seq.saturating_sub(1),
             residents: runtime.resident_continuities.clone(),
@@ -6898,12 +7851,22 @@ impl RuntimeWorld {
         let mut runtime = Self::seeded();
         let records = read_action_journal(path)?;
         for record in records {
+            if !record.worldpack_bundle_hash.is_empty()
+                && record.worldpack_bundle_hash != seed_content().manifest.bundle_hash
+            {
+                return Err(snapshot_error(format!(
+                    "action journal worldpack {} does not match active worldpack {}",
+                    record.worldpack_bundle_hash,
+                    seed_content().manifest.bundle_hash
+                )));
+            }
             let _ = runtime.apply_journal_record(&record);
         }
         runtime.recompute_counters();
         runtime.ensure_seed_topology();
         runtime.ensure_seed_rpg_projection();
         runtime.backfill_generated_avatar_flavor();
+        runtime.ensure_actor_autonomy();
         Ok(runtime)
     }
 
@@ -6936,6 +7899,7 @@ impl RuntimeWorld {
             resident_memories: BTreeMap::new(),
             search_memories: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
+            actor_autonomy: BTreeMap::new(),
             rpg_claims: BTreeSet::new(),
             orb_balances: BTreeMap::new(),
             orb_reward_claims: BTreeSet::new(),
@@ -6951,6 +7915,7 @@ impl RuntimeWorld {
         runtime.ensure_seed_rpg_projection();
         runtime.backfill_generated_avatar_flavor();
         runtime.refresh_all_resident_continuities();
+        runtime.ensure_actor_autonomy();
         runtime
     }
 
@@ -7224,12 +8189,29 @@ impl RuntimeWorld {
     }
 
     fn ensure_generated_pathway_topology(&mut self) {
+        for pathway in self.generated_pathways.values_mut() {
+            if pathway.distance >= 2 {
+                pathway.art_eligible = true;
+            }
+            if pathway.generation.feature.is_empty() {
+                pathway.generation = GenerationProvenance {
+                    source: "legacy_deterministic".to_string(),
+                    feature: PATHWAY_CONTENT_FEATURE.to_string(),
+                    policy_mode: "legacy".to_string(),
+                    prompt_version: "legacy".to_string(),
+                    provider: "none".to_string(),
+                    model: "none".to_string(),
+                    attempts: 0,
+                };
+            }
+        }
         let pathways = self
             .generated_pathways
             .values()
             .cloned()
             .collect::<Vec<_>>();
         for pathway in pathways {
+            self.ensure_generated_pathway_project(&pathway);
             for edge in &pathway.revealed_edges {
                 let Some((from_location_id, to_location_id)) = parse_pathway_edge_key(edge) else {
                     continue;
@@ -7237,6 +8219,78 @@ impl RuntimeWorld {
                 self.ensure_generated_pathway_edge(&pathway, from_location_id, to_location_id);
             }
         }
+    }
+
+    fn ensure_generated_pathway_project(&mut self, pathway: &GeneratedPathwayState) {
+        let Some(scope_id) = pathway.waypoints.first().map(|waypoint| waypoint.id) else {
+            return;
+        };
+        let progress_clock_id = generated_pathway_progress_clock_id(&pathway.id);
+        let danger_clock_id = generated_pathway_danger_clock_id(&pathway.id);
+        let job_id = generated_pathway_job_id(&pathway.id);
+        self.clocks
+            .entry(progress_clock_id.clone())
+            .or_insert_with(|| ClockState {
+                id: progress_clock_id.clone(),
+                scope: "room".to_string(),
+                scope_id,
+                kind: "progress".to_string(),
+                zone: ZONE_FRONTIER.to_string(),
+                label: "Make this way familiar".to_string(),
+                segments: GENERATED_PATHWAY_FAMILIARITY_SEGMENTS,
+                filled: if pathway.familiar {
+                    GENERATED_PATHWAY_FAMILIARITY_SEGMENTS
+                } else {
+                    0
+                },
+                visible_to_players: true,
+                status: if pathway.familiar { "filled" } else { "active" }.to_string(),
+                on_fill: Vec::new(),
+                created_event_seq: None,
+                updated_event_seq: None,
+            });
+        self.clocks
+            .entry(danger_clock_id.clone())
+            .or_insert_with(|| ClockState {
+                id: danger_clock_id.clone(),
+                scope: "room".to_string(),
+                scope_id,
+                kind: "danger".to_string(),
+                zone: ZONE_FRONTIER.to_string(),
+                label: "The wild way shifts".to_string(),
+                segments: GENERATED_PATHWAY_FAMILIARITY_SEGMENTS,
+                filled: 0,
+                visible_to_players: true,
+                status: if pathway.familiar { "quiet" } else { "active" }.to_string(),
+                on_fill: Vec::new(),
+                created_event_seq: None,
+                updated_event_seq: None,
+            });
+        self.jobs.entry(job_id.clone()).or_insert_with(|| JobState {
+            id: job_id,
+            premise: "Make the newly found way familiar.".to_string(),
+            stakes: "Until enough travelers help, the route stays wild and changeable.".to_string(),
+            location_ids: pathway
+                .waypoints
+                .iter()
+                .map(|waypoint| waypoint.id)
+                .collect(),
+            participant_ids: Vec::new(),
+            progress_clock_id,
+            danger_clock_id,
+            status: if pathway.familiar {
+                "completed"
+            } else {
+                "active"
+            }
+            .to_string(),
+            reward: JobReward::Label(
+                "The route settles and earns a lasting illustrated landscape.".to_string(),
+            ),
+            consequence: "The route remains a wild frontier.".to_string(),
+            memory_summary: "Travelers worked together until the new way felt familiar."
+                .to_string(),
+        });
     }
 
     fn ensure_generated_pathway_edge(
@@ -7323,6 +8377,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7368,6 +8426,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7418,6 +8480,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7474,6 +8540,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7523,6 +8593,69 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
+    fn append_async_job_event(
+        &mut self,
+        type_name: &str,
+        actor_id: u64,
+        target_actor_id: Option<u64>,
+        content: Option<String>,
+    ) -> EventView {
+        let location_id = self
+            .actor_by_id(actor_id)
+            .map(|actor| actor.location_id)
+            .unwrap_or(COSY_COTTAGE_LOCATION_ID);
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: type_name.to_string(),
+            success: !type_name.ends_with(".failed"),
+            reason: 0,
+            actor_id: Some(actor_id),
+            actor_name: self.actor_name(actor_id),
+            target_actor_id,
+            target_actor_name: target_actor_id.and_then(|id| self.actor_name(id)),
+            location_id: Some(location_id),
+            location_name: self.location_name(location_id),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content,
+            item_id: None,
+            item_name: None,
+            target_item_id: None,
+            target_item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7575,6 +8708,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7627,6 +8764,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7678,6 +8819,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7729,6 +8874,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7780,6 +8929,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7833,6 +8986,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7889,6 +9046,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -7946,6 +9107,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8002,6 +9167,10 @@ impl RuntimeWorld {
             tag_scope_id: Some(tag.scope_id),
             tag_kind: Some(tag.kind.clone()),
             tag_label: Some(tag.label.clone()),
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8058,6 +9227,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8111,6 +9284,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8164,6 +9341,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8217,6 +9398,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8269,6 +9454,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8325,6 +9514,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8374,6 +9567,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8419,6 +9616,15 @@ impl RuntimeWorld {
             return Err(snapshot_error(
                 "unsupported resident continuity snapshot version",
             ));
+        }
+        if !snapshot.worldpack_bundle_hash.is_empty()
+            && snapshot.worldpack_bundle_hash != seed_content().manifest.bundle_hash
+        {
+            return Err(snapshot_error(format!(
+                "resident continuity worldpack {} does not match active worldpack {}",
+                snapshot.worldpack_bundle_hash,
+                seed_content().manifest.bundle_hash
+            )));
         }
         Ok(self.apply_resident_continuity_snapshot(snapshot))
     }
@@ -8504,16 +9710,21 @@ impl RuntimeWorld {
 
         self.next_seed = record.seed;
         let action = self.action_with_skill_bonus(record.action);
+        let advances_world_tick = record.advances_world_tick();
         self.prepare_projection_mutations(&record.projection_mutations);
         let (status, mut events) =
             if action.kind == CW_ACTION_NONE && !record.projection_mutations.is_empty() {
-                self.world.tick = self.world.tick.saturating_add(1);
+                if advances_world_tick {
+                    self.world.tick = self.world.tick.saturating_add(1);
+                }
                 (CW_OK, Vec::new())
             } else {
-                self.apply_action_with_seed(action, record.seed)
+                self.apply_action_with_seed(action, record.seed, advances_world_tick)
             };
         if status == CW_OK {
-            self.decay_search_memories();
+            if advances_world_tick {
+                self.decay_search_memories();
+            }
             let listen_context = self.listen_context_for_action(&action, &events);
             let was_repeat_listen = listen_context
                 .map(|(actor_id, location_id)| {
@@ -8533,6 +9744,7 @@ impl RuntimeWorld {
                 &action,
                 &events,
                 record.initial_calling.as_deref(),
+                record.initial_skill.as_deref(),
             ));
             events.extend(self.expire_stale_branches());
             events.extend(self.apply_projection_mutations(&action, &record.projection_mutations));
@@ -8561,8 +9773,26 @@ impl RuntimeWorld {
                 self.clear_resident_pending_action(action.actor_id);
             }
             self.apply_resident_memory_projection(&action, &events);
-            let committed_events = events.clone();
-            events.extend(self.apply_player_tick_frontier_resets(&action, &committed_events));
+            if advances_world_tick {
+                let committed_events = events.clone();
+                events.extend(self.apply_player_tick_frontier_resets(&action, &committed_events));
+            }
+            self.record_autonomous_action(record);
+            if record.source_world_tick.is_some() {
+                for event in &mut events {
+                    event.apply_async_causality(record);
+                }
+                for event in &events {
+                    if let Some(logged) = self
+                        .event_log
+                        .iter_mut()
+                        .rev()
+                        .find(|logged| logged.seq == event.seq)
+                    {
+                        logged.apply_async_causality(record);
+                    }
+                }
+            }
         }
         (status, events)
     }
@@ -8577,6 +9807,48 @@ impl RuntimeWorld {
             match mutation {
                 ProjectionMutation::ShuffleHand { reason } => {
                     events.push(self.append_hand_shuffled_event(action.actor_id, reason));
+                }
+                ProjectionMutation::ChatStatus {
+                    target_actor_id,
+                    status,
+                    reason,
+                } => {
+                    events.push(self.append_async_job_event(
+                        &format!("chat.{status}"),
+                        action.actor_id,
+                        Some(*target_actor_id),
+                        Some(reason.clone()),
+                    ));
+                }
+                ProjectionMutation::RefreshAvatarIdentity { actor_id } => {
+                    events.push(self.append_async_job_event(
+                        "avatar.refined",
+                        *actor_id,
+                        None,
+                        None,
+                    ));
+                }
+                ProjectionMutation::RefinePathway { pathway } => {
+                    let mut refined = pathway.clone();
+                    if let Some(current) = self.generated_pathways.get(&pathway.id) {
+                        refined
+                            .revealed_edges
+                            .extend(current.revealed_edges.clone());
+                        refined.familiar |= current.familiar;
+                    }
+                    for waypoint in &refined.waypoints {
+                        self.locations.insert(waypoint.id, waypoint.name.clone());
+                        self.location_meta
+                            .insert(waypoint.id, waypoint.meta.clone());
+                    }
+                    self.generated_pathways
+                        .insert(refined.id.clone(), refined.clone());
+                    events.push(self.append_async_job_event(
+                        "pathway.refined",
+                        refined.created_by_actor_id,
+                        None,
+                        Some(refined.id),
+                    ));
                 }
                 ProjectionMutation::UpdateResidentContinuity {
                     resident_id,
@@ -8619,7 +9891,8 @@ impl RuntimeWorld {
                             .insert(pathway_edge_key(*from_location_id, *to_location_id));
                     }
                     self.generated_pathways
-                        .insert(next_pathway.id.clone(), next_pathway);
+                        .insert(next_pathway.id.clone(), next_pathway.clone());
+                    self.ensure_generated_pathway_project(&next_pathway);
                     if let Some(journey) = journey {
                         self.journeys.insert(action.actor_id, journey.clone());
                     } else {
@@ -8637,6 +9910,44 @@ impl RuntimeWorld {
                         action.actor_id,
                         narration,
                         journey_destination,
+                    ));
+                }
+                ProjectionMutation::UpgradePathwayIfReady {
+                    pathway_id,
+                    progress_clock_id,
+                } => {
+                    let ready = self
+                        .clocks
+                        .get(progress_clock_id)
+                        .is_some_and(|clock| clock.filled >= clock.segments);
+                    let should_upgrade = ready
+                        && self
+                            .generated_pathways
+                            .get(pathway_id)
+                            .is_some_and(|pathway| !pathway.familiar);
+                    if !should_upgrade {
+                        continue;
+                    }
+                    if let Some(pathway) = self.generated_pathways.get_mut(pathway_id) {
+                        pathway.familiar = true;
+                    }
+                    if let Some(clock) = self
+                        .clocks
+                        .get_mut(&generated_pathway_danger_clock_id(pathway_id))
+                    {
+                        clock.status = "quiet".to_string();
+                    }
+                    events.extend(self.set_job_status_events(
+                        &generated_pathway_job_id(pathway_id),
+                        "completed",
+                        action.actor_id,
+                        "pathway_familiarized",
+                    ));
+                    events.push(self.append_journey_event(
+                        "pathway.familiarized",
+                        action.actor_id,
+                        "Travelers have made the whole way familiar; its lasting landscape can now take shape.",
+                        None,
                     ));
                 }
                 ProjectionMutation::SearchFeature {
@@ -9256,6 +10567,7 @@ impl RuntimeWorld {
         action: &CwAction,
         events: &[EventView],
         initial_calling: Option<&str>,
+        initial_skill: Option<&str>,
     ) -> Vec<EventView> {
         if action.kind != CW_ACTION_CREATE_ACTOR || self.callings.contains_key(&action.actor_id) {
             return Vec::new();
@@ -9273,16 +10585,36 @@ impl RuntimeWorld {
         let calling = CallingState {
             actor_id: action.actor_id,
             statement: initial_calling
-                .and_then(authored_calling_statement)
+                .and_then(normalize_calling_statement)
                 .unwrap_or_else(|| default_calling_statement().to_string()),
             source_event_seq,
         };
         self.callings.insert(action.actor_id, calling.clone());
         let reason = initial_calling
-            .and_then(authored_calling_statement)
+            .and_then(normalize_calling_statement)
             .map(|_| "chosen_calling")
             .unwrap_or("avatar_created");
-        vec![self.append_calling_event("calling.set", &calling, reason)]
+        let mut projection_events =
+            vec![self.append_calling_event("calling.set", &calling, reason)];
+        if let Some(skill_id) = initial_skill.filter(|skill_id| skill_label(skill_id).is_some()) {
+            let id = skill_state_id(action.actor_id, skill_id);
+            if !self.skills.contains_key(&id) {
+                let skill = SkillState {
+                    actor_id: action.actor_id,
+                    skill_id: skill_id.to_string(),
+                    label: skill_label(skill_id).unwrap_or("Knack").to_string(),
+                    rank: 1,
+                    updated_event_seq: Some(self.world.next_event_seq),
+                };
+                self.skills.insert(id, skill.clone());
+                projection_events.push(self.append_skill_event(
+                    "skill.stepped",
+                    &skill,
+                    "character_creation",
+                ));
+            }
+        }
+        projection_events
     }
 
     fn apply_defend_project_preparation(
@@ -10484,9 +11816,22 @@ impl RuntimeWorld {
         }
     }
 
-    fn apply_action_with_seed(&mut self, action: CwAction, seed: u64) -> (u32, Vec<EventView>) {
+    fn apply_action_with_seed(
+        &mut self,
+        action: CwAction,
+        seed: u64,
+        advances_world_tick: bool,
+    ) -> (u32, Vec<EventView>) {
         let mut events = CwEventBuffer::default();
-        let status = unsafe { cw_world_apply(&mut self.world, &action, seed, &mut events) };
+        let status = unsafe {
+            cw_world_apply_with_tick(
+                &mut self.world,
+                &action,
+                seed,
+                u8::from(advances_world_tick),
+                &mut events,
+            )
+        };
         let views = self.views_from_buffer(&events);
         self.event_log.extend(views.iter().cloned());
         if self.event_log.len() > 512 {
@@ -10779,6 +12124,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         }
     }
 
@@ -10820,6 +12169,7 @@ impl RuntimeWorld {
         let meta = self.location_meta_for(location_id);
         LocationView {
             id: location_id,
+            pack_id: seed_pack_id_for_location(location_id),
             name,
             title: meta.title,
             description: meta.description,
@@ -10838,6 +12188,7 @@ impl RuntimeWorld {
     fn journey_view(&self, actor_id: u64) -> Option<JourneyView> {
         let journey = self.journeys.get(&actor_id)?;
         let total_steps = journey.path.len().saturating_sub(1);
+        let current_location_id = journey.path.get(journey.current_step).copied();
         let next_location_id = journey.path.get(journey.current_step + 1).copied();
         Some(JourneyView {
             destination_location_id: journey.destination_location_id,
@@ -10849,12 +12200,32 @@ impl RuntimeWorld {
             next_location_id,
             next_location_name: next_location_id.and_then(|id| {
                 if id >= GENERATED_PATHWAY_LOCATION_ID_BASE {
-                    Some(format!(
-                        "Pathway to {} {}/{}",
-                        journey.destination_name,
-                        journey.current_step + 1,
-                        total_steps
-                    ))
+                    let revealed = current_location_id.is_some_and(|current_id| {
+                        self.generated_pathways
+                            .get(&journey.pathway_id)
+                            .is_some_and(|pathway| {
+                                pathway
+                                    .revealed_edges
+                                    .contains(&pathway_edge_key(current_id, id))
+                            })
+                    });
+                    if revealed {
+                        self.location_name(id).or_else(|| {
+                            self.generated_pathways
+                                .get(&journey.pathway_id)
+                                .and_then(|pathway| {
+                                    pathway.waypoints.iter().find(|waypoint| waypoint.id == id)
+                                })
+                                .map(|waypoint| waypoint.name.clone())
+                        })
+                    } else {
+                        Some(format!(
+                            "Unexplored stretch {}/{} toward {}",
+                            journey.current_step + 1,
+                            total_steps,
+                            journey.destination_name
+                        ))
+                    }
                 } else {
                     self.location_name(id)
                 }
@@ -10869,6 +12240,42 @@ impl RuntimeWorld {
     ) -> Option<&GeneratedPathwayState> {
         self.generated_pathways
             .get(&generated_pathway_id(from_location_id, to_location_id))
+    }
+
+    fn generated_pathway_for_location(&self, location_id: u64) -> Option<&GeneratedPathwayState> {
+        self.generated_pathways.values().find(|pathway| {
+            pathway
+                .waypoints
+                .iter()
+                .any(|waypoint| waypoint.id == location_id)
+        })
+    }
+
+    fn generated_pathway_id_for_progress_clock(&self, clock_id: &str) -> Option<String> {
+        self.generated_pathways
+            .values()
+            .find(|pathway| generated_pathway_progress_clock_id(&pathway.id) == clock_id)
+            .map(|pathway| pathway.id.clone())
+    }
+
+    fn generated_pathway_art_targets(&self, pathway_id: &str) -> Vec<(u64, String)> {
+        let Some(pathway) = self.generated_pathways.get(pathway_id) else {
+            return Vec::new();
+        };
+        if !pathway.familiar || !pathway.art_eligible {
+            return Vec::new();
+        }
+        pathway
+            .waypoints
+            .iter()
+            .filter_map(|waypoint| {
+                waypoint
+                    .meta
+                    .art_prompt
+                    .as_ref()
+                    .map(|prompt| (waypoint.id, prompt.clone()))
+            })
+            .collect()
     }
 
     fn generated_location_is_revealed(&self, location_id: u64) -> bool {
@@ -10910,9 +12317,6 @@ impl RuntimeWorld {
         let destination_name = self
             .location_name(destination_location_id)
             .unwrap_or_else(|| "another known place".to_string());
-        let journey_destination_name = self
-            .location_name(to_location_id)
-            .unwrap_or_else(|| destination_name.clone());
         let origin_meta = self.location_meta_for(origin_location_id);
         let destination_meta = self.location_meta_for(destination_location_id);
         let pathway_id = generated_pathway_id(origin_location_id, destination_location_id);
@@ -10929,14 +12333,10 @@ impl RuntimeWorld {
         let waypoints = (0..waypoint_count)
             .map(|index| {
                 let landmark_name = names[(seed as usize + index) % names.len()].to_string();
-                let name = format!(
-                    "Pathway to {journey_destination_name} {}/{}",
-                    index + 1,
-                    distance
-                );
                 let id = generated_pathway_location_id(&pathway_id, index);
                 let art_prompt = format!(
-                    "cozy storybook landscape, {landmark_name} along {name}, a newly explored pathway between {origin_name} and {destination_name}, {origin_biome} terrain meeting {destination_biome} terrain, {origin} meeting {destination}, no people, no text",
+                    "cozy storybook landscape, {landmark_name}, a hidden waypoint along a newly explored pathway between {origin_name} and {destination_name}, stretch {step} of {distance}, {origin_biome} terrain meeting {destination_biome} terrain, {origin} meeting {destination}, no people, no text",
+                    step = index + 1,
                     origin_biome = origin_meta.biome,
                     destination_biome = destination_meta.biome,
                     origin = origin_meta.description,
@@ -10955,16 +12355,16 @@ impl RuntimeWorld {
                     .collect::<Vec<_>>()
                     .join(", ");
                 let description = format!(
-                    "At {landmark_name}, {terrain_phrase} share {name}; weather and footprints are still deciding what belongs."
+                    "At {landmark_name}, {terrain_phrase} mark a half-known stretch between {origin_name} and {destination_name}; weather and footprints are still deciding what belongs."
                 );
                 GeneratedWaypointState {
                     id,
-                    name: name.clone(),
+                    name: landmark_name.clone(),
                     meta: LocationMeta {
                         title: "Newly Found Path".to_string(),
                         description,
                         persona: format!(
-                            "{name} is unfinished geography: alert, changeable, and eager to become familiar through footsteps."
+                            "{landmark_name} is unfinished geography: alert, changeable, and eager to become familiar through footsteps."
                         ),
                         memory: vec![format!(
                             "An Explorer first drew this path between {origin_name} and {destination_name}."
@@ -10984,8 +12384,18 @@ impl RuntimeWorld {
             distance,
             created_by_actor_id: actor_id,
             waypoints,
+            generation: GenerationProvenance {
+                source: "deterministic_fallback".to_string(),
+                feature: PATHWAY_CONTENT_FEATURE.to_string(),
+                policy_mode: "fallback".to_string(),
+                prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
+                provider: "none".to_string(),
+                model: "none".to_string(),
+                attempts: 0,
+            },
             revealed_edges: BTreeSet::new(),
-            art_eligible: distance >= 3 && self.actor_is_explorer(actor_id),
+            art_eligible: distance >= 2,
+            familiar: false,
         }
     }
 
@@ -11035,15 +12445,98 @@ impl RuntimeWorld {
                 .get(next_step)
                 .copied()
                 .ok_or_else(|| "This pathway has already arrived.".to_string())?;
-            if requested_destination_id != next_location_id {
-                return Err("Follow the next adjacent stretch of the pathway.".to_string());
-            }
             let pathway = self
                 .generated_pathways
                 .get(&current.pathway_id)
                 .cloned()
                 .ok_or_else(|| "The pathway has slipped out of the shared map.".to_string())?;
             let current_location_id = current.path[current.current_step];
+            if requested_destination_id != next_location_id {
+                let alternate_distance =
+                    self.pathway_distance(actor.location_id, requested_destination_id);
+                if alternate_distance > 1 {
+                    return self
+                        .plan_new_journey(actor, requested_destination_id, alternate_distance)
+                        .map(Some);
+                }
+                let adjacent = self.world.exits[..self.world.exit_count]
+                    .iter()
+                    .any(|exit| {
+                        exit.from_location_id == actor.location_id
+                            && exit.to_location_id == requested_destination_id
+                            && exit.flags & CW_EXIT_LOCKED == 0
+                    });
+                if !adjacent {
+                    return Err("That place is not an open adjacent path.".to_string());
+                }
+                let previous_step = current.current_step.checked_sub(1);
+                let backtracking = previous_step.is_some_and(|step| {
+                    current.path.get(step).copied() == Some(requested_destination_id)
+                        && pathway.revealed_edges.contains(&pathway_edge_key(
+                            current_location_id,
+                            requested_destination_id,
+                        ))
+                });
+                let to_name = self
+                    .location_name(requested_destination_id)
+                    .or_else(|| {
+                        pathway
+                            .waypoints
+                            .iter()
+                            .find(|waypoint| waypoint.id == requested_destination_id)
+                            .map(|waypoint| waypoint.name.clone())
+                    })
+                    .unwrap_or_else(|| "another open way".to_string());
+                let mut next_journey = current.clone();
+                if let Some(step) = previous_step.filter(|_| backtracking) {
+                    next_journey.current_step = step;
+                }
+                let plan = JourneyNarrationPlan {
+                    actor_name: self
+                        .actor_name(actor_id)
+                        .unwrap_or_else(|| "The traveller".to_string()),
+                    from_name: self
+                        .location_name(current_location_id)
+                        .unwrap_or_else(|| "the path's edge".to_string()),
+                    to_name: to_name.clone(),
+                    destination_name: if backtracking {
+                        current.destination_name.clone()
+                    } else {
+                        to_name
+                    },
+                    current_step: if backtracking {
+                        next_journey.current_step
+                    } else {
+                        1
+                    },
+                    total_steps: if backtracking {
+                        current.path.len().saturating_sub(1)
+                    } else {
+                        1
+                    },
+                    discovery: false,
+                };
+                return Ok(Some((
+                    CwAction {
+                        kind: CW_ACTION_MOVE,
+                        actor_id,
+                        destination_location_id: requested_destination_id,
+                        ..CwAction::default()
+                    },
+                    ProjectionMutation::JourneyTransition {
+                        pathway,
+                        journey: backtracking.then_some(next_journey),
+                        reveal_edges: Vec::new(),
+                        narration: String::new(),
+                        event_type: if backtracking {
+                            "journey.backtracked".to_string()
+                        } else {
+                            "journey.paused".to_string()
+                        },
+                    },
+                    plan,
+                )));
+            }
             if actor.location_id != current_location_id
                 || !pathway
                     .revealed_edges
@@ -11075,7 +12568,6 @@ impl RuntimeWorld {
                 destination_name: current.destination_name.clone(),
                 current_step: next_step,
                 total_steps: current.path.len().saturating_sub(1),
-                explorer: current.explorer,
                 discovery: false,
             };
             return Ok(Some((
@@ -11104,6 +12596,17 @@ impl RuntimeWorld {
         if distance <= 1 {
             return Ok(None);
         }
+        self.plan_new_journey(actor, requested_destination_id, distance)
+            .map(Some)
+    }
+
+    fn plan_new_journey(
+        &self,
+        actor: CwActor,
+        requested_destination_id: u64,
+        distance: u8,
+    ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
+        let actor_id = actor.id;
         let explorer = self.actor_is_explorer(actor_id);
         let existing_pathway = self
             .pathway_for_anchors(actor.location_id, requested_destination_id)
@@ -11149,10 +12652,9 @@ impl RuntimeWorld {
             destination_name: next_journey.destination_name.clone(),
             current_step: 1,
             total_steps: path.len().saturating_sub(1),
-            explorer,
             discovery: discovering_pathway,
         };
-        Ok(Some((
+        Ok((
             CwAction {
                 kind: CW_ACTION_NONE,
                 actor_id,
@@ -11166,7 +12668,7 @@ impl RuntimeWorld {
                 event_type: "pathway.discovered".to_string(),
             },
             plan,
-        )))
+        ))
     }
 
     fn plan_pathway_search(
@@ -11217,7 +12719,6 @@ impl RuntimeWorld {
             destination_name: current.destination_name.clone(),
             current_step: next_step,
             total_steps: current.path.len().saturating_sub(1),
-            explorer: current.explorer,
             discovery: true,
         };
         Ok((
@@ -11278,6 +12779,7 @@ impl RuntimeWorld {
         let meta = self.actors.get(&actor.id);
         ActorView {
             id: actor.id,
+            pack_id: seed_pack_id_for_actor(actor.id),
             name: meta
                 .map(|m| m.name.clone())
                 .unwrap_or_else(|| format!("Actor {}", actor.id)),
@@ -11292,6 +12794,7 @@ impl RuntimeWorld {
             factions: faction_refs_for_actor(actor.id),
             resident_economy: self.resident_economy_view(actor, client_actor_id),
             hp: unsafe { cw_actor_current_hp(&actor) },
+            bloodied: unsafe { cw_actor_is_bloodied(&actor) != 0 },
             stats: StatView {
                 strength: actor.stats.strength,
                 dexterity: actor.stats.dexterity,
@@ -11309,6 +12812,7 @@ impl RuntimeWorld {
         let meta = self.items.get(&item.id);
         ItemView {
             id: item.id,
+            pack_id: seed_pack_id_for_item(item.id),
             name: meta
                 .map(|m| m.name.clone())
                 .unwrap_or_else(|| format!("Item {}", item.id)),
@@ -13228,6 +14732,7 @@ impl RuntimeWorld {
         }
     }
 
+    #[cfg(test)]
     fn resident_reply_text_for_committed_action(&self, action: &CwAction) -> Option<(u64, String)> {
         let target = self.actor_by_id(action.target_actor_id)?;
         if target.kind != CW_ACTOR_NPC || target.status != CW_ACTOR_ACTIVE {
@@ -13259,6 +14764,44 @@ impl RuntimeWorld {
             }
             _ => None,
         }
+    }
+
+    fn direct_observation_reply_plan(
+        &self,
+        observation: &PlayerTickObservation,
+    ) -> Option<ResidentReplyPlan> {
+        let event = observation.source_events.iter().find(|event| {
+            event.success
+                && event.actor_id == Some(observation.source_actor_id)
+                && matches!(
+                    event.type_name.as_str(),
+                    "item.given"
+                        | "item.traded"
+                        | "bond.created"
+                        | "bond.revised"
+                        | "bond.resolved"
+                )
+        })?;
+        let target_actor_id = event.target_actor_id?;
+        let subject = event
+            .content
+            .clone()
+            .or_else(|| event.item_name.clone())
+            .unwrap_or_else(|| "what just changed between us".to_string());
+        let user_text = match event.type_name.as_str() {
+            "item.given" => format!("I gave you {subject}."),
+            "item.traded" => format!("We made this trade: {subject}."),
+            "bond.created" => format!("I want to remember this friendship: {subject}"),
+            "bond.revised" => format!("I see our friendship differently now: {subject}"),
+            "bond.resolved" => format!("I want to keep what mattered between us: {subject}"),
+            _ => return None,
+        };
+        self.resident_reply_plan_for_target(
+            observation.source_actor_id,
+            target_actor_id,
+            &user_text,
+        )
+        .map(|plan| plan.with_observation(observation))
     }
 
     fn resident_action_item_reason(&self, resident: CwActor, item_id: u64) -> Option<String> {
@@ -13321,8 +14864,11 @@ impl RuntimeWorld {
             location_memory: location_meta.memory,
             cast: self.room_cast_names(actor.location_id),
             recent_lines: self.recent_room_lines(actor.location_id, 8),
-            fallback_text: self.resident_economy_action_fallback_text(actor, action),
             user_text,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         })
     }
 
@@ -13412,72 +14958,6 @@ impl RuntimeWorld {
             }
             _ => None,
         }
-    }
-
-    fn resident_economy_action_fallback_text(&self, actor: CwActor, action: &CwAction) -> String {
-        let name = self
-            .actor_name(actor.id)
-            .unwrap_or_else(|| format!("Resident {}", actor.id));
-        let speech_mode = self
-            .actors
-            .get(&actor.id)
-            .map(|meta| meta.speech_mode.as_str())
-            .unwrap_or("prose");
-        if matches!(speech_mode, "emoji" | "emoji_only") {
-            return "🤝✨🌿".to_string();
-        }
-        if matches!(speech_mode, "emote" | "emote_only" | "silent") {
-            return match action.kind {
-                CW_ACTION_MOVE => {
-                    format!("*{name} pads toward the next room, silent and alert.*")
-                }
-                CW_ACTION_TRADE_ITEM => format!("*{name} weighs the trade with a quiet nod.*"),
-                CW_ACTION_GIVE_ITEM => format!("*{name} passes the item over carefully.*"),
-                CW_ACTION_PICK_UP_ITEM => format!("*{name} gathers the item close.*"),
-                CW_ACTION_DROP_ITEM => format!("*{name} sets the item down and watches it rest.*"),
-                CW_ACTION_USE_ITEM => format!("*{name} uses the item with careful attention.*"),
-                _ => format!("*{name} acknowledges the room with a quiet nod.*"),
-            };
-        }
-        match action.kind {
-            CW_ACTION_GIVE_ITEM => {
-                format!("{name} smiles softly. \"That should stay with the one who needs it.\"")
-            }
-            CW_ACTION_TRADE_ITEM => {
-                format!("{name} weighs the exchange. \"This trade feels useful.\"")
-            }
-            CW_ACTION_USE_ITEM => format!("{name} steadies the room. \"This helps.\""),
-            CW_ACTION_PICK_UP_ITEM => {
-                format!("{name} gathers the item close. \"I was looking for this.\"")
-            }
-            CW_ACTION_DROP_ITEM => {
-                format!("{name} lets the item rest nearby. \"Something else matters more.\"")
-            }
-            CW_ACTION_MOVE => self.resident_move_fallback_text(actor, action),
-            _ => self.resident_fallback_for_target(actor.id),
-        }
-    }
-
-    fn resident_move_fallback_text(&self, actor: CwActor, action: &CwAction) -> String {
-        let name = self
-            .actor_name(actor.id)
-            .unwrap_or_else(|| format!("Resident {}", actor.id));
-        let destination = self
-            .location_name(action.destination_location_id)
-            .unwrap_or_else(|| "the next room".to_string());
-        let variants = [
-            format!("{name} heads toward {destination}. \"I'll listen for what changed.\""),
-            format!("{name} slips toward {destination}. \"The room is tugging me onward.\""),
-            format!("{name} follows the path to {destination}. \"Something shifted there.\""),
-            format!("{name} moves toward {destination}. \"I'll bring back what I notice.\""),
-        ];
-        let index = (self
-            .world
-            .tick
-            .wrapping_add(actor.id)
-            .wrapping_add(action.destination_location_id) as usize)
-            % variants.len();
-        variants[index].clone()
     }
 
     fn resident_memory_prompt_notes(&self, resident_id: u64) -> Vec<String> {
@@ -13608,6 +15088,135 @@ impl RuntimeWorld {
         for resident_id in resident_ids {
             self.refresh_resident_continuity(resident_id);
         }
+    }
+
+    fn ensure_actor_autonomy(&mut self) {
+        let actors = self.world.actors[..self.world.actor_count].to_vec();
+        let active_ids = actors.iter().map(|actor| actor.id).collect::<BTreeSet<_>>();
+        self.actor_autonomy
+            .retain(|actor_id, _| active_ids.contains(actor_id));
+        for actor in actors {
+            let default_mode = if actor.kind == CW_ACTOR_HUMAN {
+                ActorControlMode::Human
+            } else if seed_actor_allows_ambient_autonomy(actor.id) {
+                ActorControlMode::LocalAi
+            } else {
+                ActorControlMode::ReactiveAi
+            };
+            let desires = self
+                .resident_continuities
+                .get(&actor.id)
+                .map(|continuity| continuity.open_obligations.clone())
+                .unwrap_or_default();
+            let autonomy = self.actor_autonomy.entry(actor.id).or_default();
+            if actor.kind == CW_ACTOR_HUMAN
+                && !matches!(autonomy.control_mode, ActorControlMode::DelegatedAi)
+            {
+                autonomy.control_mode = ActorControlMode::Human;
+            } else if actor.kind == CW_ACTOR_NPC && autonomy.control_mode == ActorControlMode::Human
+            {
+                autonomy.control_mode = default_mode;
+            }
+            autonomy.current_desires = desires;
+            if actor.kind == CW_ACTOR_NPC && autonomy.attention_credits == 0 {
+                autonomy.attention_credits = 1;
+            }
+        }
+    }
+
+    fn observe_player_tick_for_autonomy(&mut self, observation: &PlayerTickObservation) {
+        self.ensure_actor_autonomy();
+        let affected_locations = observation
+            .ripple_source
+            .as_ref()
+            .map(|source| {
+                source
+                    .affected_location_ids
+                    .iter()
+                    .copied()
+                    .collect::<BTreeSet<_>>()
+            })
+            .unwrap_or_else(|| observation.source_location_id.into_iter().collect());
+        for actor in &self.world.actors[..self.world.actor_count] {
+            if actor.kind != CW_ACTOR_NPC
+                || actor.status != CW_ACTOR_ACTIVE
+                || !affected_locations.contains(&actor.location_id)
+            {
+                continue;
+            }
+            if let Some(autonomy) = self.actor_autonomy.get_mut(&actor.id) {
+                autonomy.last_observed_tick = observation.source_world_tick;
+                autonomy.attention_credits = autonomy.attention_credits.saturating_add(1).min(2);
+            }
+        }
+    }
+
+    fn autonomy_allows_action(
+        &self,
+        actor_id: u64,
+        action_kind: u8,
+        source_world_tick: u64,
+    ) -> bool {
+        let Some(autonomy) = self.actor_autonomy.get(&actor_id) else {
+            return false;
+        };
+        if autonomy.attention_credits == 0 || autonomy.last_acted_tick >= source_world_tick {
+            return false;
+        }
+        match autonomy.control_mode {
+            ActorControlMode::Human => false,
+            ActorControlMode::ReactiveAi => action_kind == CW_ACTION_SAY,
+            ActorControlMode::LocalAi => action_kind != CW_ACTION_FLEE,
+            ActorControlMode::RoamingAi | ActorControlMode::DelegatedAi => true,
+        }
+    }
+
+    fn kernel_offer_allows_action(&self, action: &CwAction) -> bool {
+        let required_offer = match action.kind {
+            CW_ACTION_NONE | CW_ACTION_SAY | CW_ACTION_CREATE_ACTOR => return true,
+            CW_ACTION_MOVE => CW_OFFER_MOVE,
+            CW_ACTION_ABILITY_CHECK => CW_OFFER_CHECK,
+            CW_ACTION_PICK_UP_ITEM => CW_OFFER_PICK_UP,
+            CW_ACTION_USE_ITEM => CW_OFFER_USE_ITEM,
+            CW_ACTION_ATTACK => CW_OFFER_ATTACK,
+            CW_ACTION_DEFEND => CW_OFFER_DEFEND,
+            CW_ACTION_GIVE_ITEM => CW_OFFER_GIVE_ITEM,
+            CW_ACTION_FLEE => CW_OFFER_FLEE,
+            CW_ACTION_DROP_ITEM => CW_OFFER_DROP_ITEM,
+            CW_ACTION_TRADE_ITEM => CW_OFFER_TRADE_ITEM,
+            CW_ACTION_SEARCH => CW_OFFER_SEARCH,
+            CW_ACTION_CRAFT => CW_OFFER_CRAFT,
+            _ => return false,
+        };
+        let mut offers = CwActionOffers::default();
+        (unsafe { cw_get_action_offers(&self.world, action.actor_id, &mut offers) }) == CW_OK
+            && offers.option_flags & required_offer != 0
+    }
+
+    fn record_autonomous_action(&mut self, record: &JournalRecord) {
+        if !matches!(
+            record.origin,
+            JournalOrigin::ActorConsequence | JournalOrigin::Speech
+        ) || record.source_world_tick.is_none()
+        {
+            return;
+        }
+        let Some(autonomy) = self.actor_autonomy.get_mut(&record.action.actor_id) else {
+            return;
+        };
+        if autonomy.control_mode == ActorControlMode::Human {
+            return;
+        }
+        autonomy.last_acted_tick = record.source_world_tick.unwrap_or(self.world.tick);
+        autonomy.attention_credits = autonomy.attention_credits.saturating_sub(1);
+        autonomy.pending_intent = None;
+    }
+
+    fn player_tick_already_has_autonomous_result(&self, source_world_tick: u64) -> bool {
+        self.actor_autonomy.values().any(|autonomy| {
+            autonomy.control_mode != ActorControlMode::Human
+                && autonomy.last_acted_tick >= source_world_tick
+        })
     }
 
     fn apply_resident_intent_projection(
@@ -14751,6 +16360,7 @@ impl RuntimeWorld {
                     distance: self.pathway_distance(exit.from_location_id, exit.to_location_id),
                     locked: false,
                     accessible,
+                    required_grant_id: access_rule.required_grant_id.map(ToString::to_string),
                     required_card_id: access_rule.required_card_id.map(ToString::to_string),
                     access_reason: if accessible {
                         None
@@ -14777,19 +16387,7 @@ impl RuntimeWorld {
         let client_actor_id = actor_id.filter(|id| self.client_actor_can_submit(*id));
         let actor = client_actor_id.and_then(|id| self.actor_by_id(id));
         let location_id = actor.map(|actor| actor.location_id).unwrap_or(1);
-        let mut location = self.location_view(location_id);
-        if let Some(journey) = client_actor_id.and_then(|id| self.journeys.get(&id)) {
-            if location_id >= GENERATED_PATHWAY_LOCATION_ID_BASE
-                && journey.path.get(journey.current_step) == Some(&location_id)
-            {
-                location.name = format!(
-                    "Pathway to {} {}/{}",
-                    journey.destination_name,
-                    journey.current_step,
-                    journey.path.len().saturating_sub(1)
-                );
-            }
-        }
+        let location = self.location_view(location_id);
 
         let actors: Vec<ActorView> = self.world.actors[..self.world.actor_count]
             .iter()
@@ -14903,6 +16501,7 @@ impl RuntimeWorld {
             primary_action,
             action_offers,
             inspector,
+            character_creation: character_creation_views(),
         }
     }
 
@@ -15028,6 +16627,9 @@ impl RuntimeWorld {
     }
 
     fn location_is_frontier(&self, location_id: u64) -> bool {
+        if let Some(pathway) = self.generated_pathway_for_location(location_id) {
+            return !pathway.familiar;
+        }
         self.room_sheets
             .get(&location_id)
             .map(|sheet| room_sheet_zone(sheet) == ZONE_FRONTIER)
@@ -15088,6 +16690,19 @@ impl RuntimeWorld {
     }
 
     fn active_progress_clock_id_for_location(&self, location_id: u64) -> Option<String> {
+        if let Some(pathway) = self
+            .generated_pathway_for_location(location_id)
+            .filter(|pathway| !pathway.familiar)
+        {
+            let clock_id = generated_pathway_progress_clock_id(&pathway.id);
+            if self
+                .clocks
+                .get(&clock_id)
+                .is_some_and(|clock| clock.filled < clock.segments)
+            {
+                return Some(clock_id);
+            }
+        }
         let has_location_job = self.location_has_job(location_id);
         self.active_job_for_location(location_id)
             .map(|job| job.progress_clock_id.clone())
@@ -15418,6 +17033,10 @@ impl RuntimeWorld {
             tag_scope_id: None,
             tag_kind: None,
             tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -15899,6 +17518,42 @@ impl RuntimeWorld {
                 hooks: sheet.hooks.clone(),
                 resources: sheet.resources.clone(),
                 projects: sheet.projects.clone(),
+            })
+            .or_else(|| {
+                let pathway = self.generated_pathway_for_location(location_id)?;
+                let familiar = pathway.familiar;
+                let meta = self.location_meta_for(location_id);
+                Some(RoomSheetView {
+                    id: format!("generated-pathway-room:{location_id}"),
+                    location_id,
+                    name: self
+                        .location_name(location_id)
+                        .unwrap_or_else(|| "Newly Found Path".to_string()),
+                    safety: if familiar { "safe" } else { "risky" }.to_string(),
+                    zone: if familiar {
+                        ZONE_SANCTUARY
+                    } else {
+                        ZONE_FRONTIER
+                    }
+                    .to_string(),
+                    aspects: if meta.terrain.is_empty() {
+                        vec!["unfinished ground".to_string()]
+                    } else {
+                        meta.terrain.clone()
+                    },
+                    boons: vec![if familiar {
+                        "Travelers know how to find their footing here.".to_string()
+                    } else {
+                        "Every careful hand helps the route take shape.".to_string()
+                    }],
+                    hooks: vec![if familiar {
+                        "The settled way remembers who helped make it familiar.".to_string()
+                    } else {
+                        "Work together until the wild way becomes familiar.".to_string()
+                    }],
+                    resources: BTreeMap::new(),
+                    projects: vec![generated_pathway_job_id(&pathway.id)],
+                })
             })
     }
 
@@ -16507,14 +18162,17 @@ impl RuntimeWorld {
 
                 WorldLocationView {
                     id: location.id,
+                    pack_id: seed_pack_id_for_location(location.id),
                     name,
                     title: meta.title,
                     description: meta.description,
                     persona: meta.persona,
                     memory: meta.memory,
                     factions: faction_refs_for_location(location.id),
-                    public: access_rule.required_card_id.is_none(),
+                    public: access_rule.required_grant_id.is_none()
+                        && access_rule.required_card_id.is_none(),
                     accessible,
+                    required_grant_id: access_rule.required_grant_id.map(ToString::to_string),
                     required_card_id: access_rule.required_card_id.map(ToString::to_string),
                     access_reason: if accessible {
                         None
@@ -18534,13 +20192,6 @@ impl RuntimeWorld {
         let target_actor_name = self
             .actor_name(target_actor_id)
             .unwrap_or_else(|| format!("Actor {target_actor_id}"));
-        let fallback_text = avatar_chat_fallback_text(
-            actor_id,
-            &target_actor_name,
-            target_actor_id,
-            Some(target.location_id),
-            missing_need.as_deref(),
-        );
         let location_meta = self.location_meta_for(actor.location_id);
         let target_economy_note = self.resident_economy_prompt_note(target, Some(actor_id));
         let recent_lines = self.recent_room_lines(actor.location_id, 8);
@@ -18551,6 +20202,7 @@ impl RuntimeWorld {
             .find_map(|line| self.conversation_subject(line, target_actor_id));
 
         Some(AvatarChatPlan {
+            location_id: actor.location_id,
             actor_name: self
                 .actor_name(actor_id)
                 .unwrap_or_else(|| format!("Actor {actor_id}")),
@@ -18581,27 +20233,6 @@ impl RuntimeWorld {
             recent_lines,
             fresh_subject,
             missing_need,
-            fallback_text,
-        })
-    }
-
-    fn resident_fallback_for_target(&self, npc_actor_id: u64) -> String {
-        let location_id = self
-            .actor_by_id(npc_actor_id)
-            .map(|actor| actor.location_id);
-        if let Some(line) = seed_resident_fallback_line(npc_actor_id, location_id) {
-            return line;
-        }
-        let meta = self.actors.get(&npc_actor_id);
-        cosyworld_ai_model::generate_resident_reply(&ResidentReplyModelInput {
-            npc_actor_id,
-            npc_name: self
-                .actor_name(npc_actor_id)
-                .unwrap_or_else(|| format!("Actor {npc_actor_id}")),
-            speech_mode: meta
-                .map(|meta| meta.speech_mode.clone())
-                .unwrap_or_else(|| "prose".to_string()),
-            user_text: String::new(),
         })
     }
 
@@ -18611,127 +20242,7 @@ impl RuntimeWorld {
         target_actor_id: u64,
         text: &str,
     ) -> Option<ResidentReplyPlan> {
-        self.resident_reply_plan_for_target_with_fallback(
-            speaker_actor_id,
-            target_actor_id,
-            text,
-            self.resident_conversation_fallback(target_actor_id, text),
-        )
-    }
-
-    fn resident_reactive_fallback(&self, npc_actor_id: u64, user_text: &str) -> String {
-        let meta = self.actors.get(&npc_actor_id);
-        cosyworld_ai_model::generate_resident_reply(&ResidentReplyModelInput {
-            npc_actor_id,
-            npc_name: self
-                .actor_name(npc_actor_id)
-                .unwrap_or_else(|| format!("Actor {npc_actor_id}")),
-            speech_mode: meta
-                .map(|meta| meta.speech_mode.clone())
-                .unwrap_or_else(|| "prose".to_string()),
-            user_text: user_text.to_string(),
-        })
-    }
-
-    fn resident_conversation_fallback(&self, npc_actor_id: u64, user_text: &str) -> String {
-        let contextual = self.resident_contextual_fallback(npc_actor_id, user_text);
-        if contextual != self.resident_fallback_for_target(npc_actor_id) {
-            return contextual;
-        }
-        if let Some(subject) = self.conversation_subject(user_text, npc_actor_id) {
-            let speech_mode = self
-                .actors
-                .get(&npc_actor_id)
-                .map(|meta| meta.speech_mode.as_str())
-                .unwrap_or("prose");
-            return match npc_actor_id {
-                RATI_ACTOR_ID => format!(
-                    "Rati's needles pause. \"{subject}. Start with what it does, not where you hope it belongs. What have you seen?\""
-                ),
-                WHISKERWIND_ACTOR_ID => "👀👉🔎✨".to_string(),
-                SKULL_ACTOR_ID => format!(
-                    "*Skull lifts both ears at {subject}; then points toward the nearest useful clue.*"
-                ),
-                OLD_OAK_TREE_ACTOR_ID => format!(
-                    "[Ring] {subject}, noted. [Root] Start with what you know. [Leaf] And snacks. [Hollow] Tell us the clue."
-                ),
-                _ if matches!(speech_mode, "emoji" | "emoji_only") => {
-                    "👀👉🔎✨".to_string()
-                }
-                _ if matches!(speech_mode, "emote" | "emote_only" | "silent") => format!(
-                    "*{} looks toward {subject}, then nudges the nearest clue closer.*",
-                    self.actor_name(npc_actor_id)
-                        .unwrap_or_else(|| "A nearby resident".to_string())
-                ),
-                _ => format!(
-                    "{} nods at the mention of {subject}. \"Start with what you noticed. What does it seem to want?\"",
-                    self.actor_name(npc_actor_id)
-                        .unwrap_or_else(|| "A nearby resident".to_string())
-                ),
-            };
-        }
-        contextual
-    }
-
-    fn resident_contextual_fallback(&self, npc_actor_id: u64, user_text: &str) -> String {
-        let reactive = self.resident_reactive_fallback(npc_actor_id, user_text);
-        let unprompted = self.resident_reactive_fallback(npc_actor_id, "");
-        if reactive == unprompted {
-            self.resident_fallback_for_target(npc_actor_id)
-        } else {
-            reactive
-        }
-    }
-
-    fn resident_conversation_closing_fallback(&self, npc_actor_id: u64, user_text: &str) -> String {
-        let subject = self.conversation_subject(user_text, npc_actor_id);
-        let speech_mode = self
-            .actors
-            .get(&npc_actor_id)
-            .map(|meta| meta.speech_mode.as_str())
-            .unwrap_or("prose");
-        match (npc_actor_id, subject.as_deref()) {
-            (RATI_ACTOR_ID, Some(subject)) => format!(
-                "Rati winds one loose thread around her needle. \"{subject}, then. We'll keep that thought warm until the next cup of tea.\""
-            ),
-            (RATI_ACTOR_ID, None) => {
-                "Rati tucks her needles away. \"Good. We'll keep that thought warm until the next cup of tea.\"".to_string()
-            }
-            (WHISKERWIND_ACTOR_ID, _) => "🫖✨🤝".to_string(),
-            (SKULL_ACTOR_ID, Some(subject)) => format!(
-                "*Skull settles beside {subject} and gives the matter one final nod.*"
-            ),
-            (SKULL_ACTOR_ID, None) => {
-                "*Skull settles by the doorway and gives the matter one final nod.*".to_string()
-            }
-            (OLD_OAK_TREE_ACTOR_ID, Some(subject)) => format!(
-                "[Ring] {subject}, remembered. [Root] Enough for now. [Leaf] Snacks. [Hollow] I get the last word."
-            ),
-            (OLD_OAK_TREE_ACTOR_ID, None) => {
-                "[Ring] Remembered. [Root] Enough for now. [Leaf] Snacks. [Hollow] I get the last word.".to_string()
-            }
-            (_, _) if matches!(speech_mode, "emoji" | "emoji_only") => "🫖✨🤝".to_string(),
-            (_, Some(subject)) if matches!(speech_mode, "emote" | "emote_only" | "silent") => format!(
-                "*{} settles beside {subject} and gives the matter one final nod.*",
-                self.actor_name(npc_actor_id)
-                    .unwrap_or_else(|| "A nearby resident".to_string())
-            ),
-            (_, None) if matches!(speech_mode, "emote" | "emote_only" | "silent") => format!(
-                "*{} gives the matter one final nod.*",
-                self.actor_name(npc_actor_id)
-                    .unwrap_or_else(|| "A nearby resident".to_string())
-            ),
-            (_, Some(subject)) => format!(
-                "{} nods. \"We'll keep {subject} in mind for next time.\"",
-                self.actor_name(npc_actor_id)
-                    .unwrap_or_else(|| "A nearby resident".to_string())
-            ),
-            (_, None) => format!(
-                "{} nods. \"We'll keep that thought for next time.\"",
-                self.actor_name(npc_actor_id)
-                    .unwrap_or_else(|| "A nearby resident".to_string())
-            ),
-        }
+        self.resident_reply_plan_for_target_with_context(speaker_actor_id, target_actor_id, text)
     }
 
     fn conversation_subject(&self, text: &str, npc_actor_id: u64) -> Option<String> {
@@ -18954,69 +20465,6 @@ impl RuntimeWorld {
         }
     }
 
-    fn card_reaction_fallback(
-        &self,
-        target: CwActor,
-        event: &EventView,
-        action_text: &str,
-    ) -> String {
-        let subject = self.card_reaction_subject(event);
-        let Some(subject) = subject else {
-            return self.resident_contextual_fallback(target.id, action_text);
-        };
-        let speech_mode = self
-            .actors
-            .get(&target.id)
-            .map(|meta| meta.speech_mode.as_str())
-            .unwrap_or("prose");
-        if matches!(speech_mode, "emoji" | "emoji_only") {
-            return self.resident_contextual_fallback(target.id, action_text);
-        }
-        let discovery = matches!(
-            event.type_name.as_str(),
-            "ability_check.rolled"
-                | "location.searched"
-                | "feature.searched"
-                | "exit.discovered"
-                | "avatar.discovered"
-        );
-        let keepsake = matches!(
-            event.type_name.as_str(),
-            "item.picked_up" | "item.dropped" | "item.used" | "item.given" | "item.traded"
-        );
-        match target.id {
-            RATI_ACTOR_ID if discovery => format!(
-                "Rati follows your glance toward {subject}. \"There's the little clue. What do you think it wants next?\""
-            ),
-            RATI_ACTOR_ID if keepsake => format!(
-                "Rati turns {subject} over gently. \"There now. Where does it belong next?\""
-            ),
-            RATI_ACTOR_ID => self.resident_contextual_fallback(target.id, action_text),
-            SKULL_ACTOR_ID if discovery => {
-                format!("*Skull studies {subject}, then points toward the next question.*")
-            }
-            SKULL_ACTOR_ID if keepsake => {
-                format!("*Skull inspects {subject} and gives its new place one solemn nod.*")
-            }
-            SKULL_ACTOR_ID => self.resident_contextual_fallback(target.id, action_text),
-            OLD_OAK_TREE_ACTOR_ID if discovery => format!(
-                "[Leaf] {subject}! [Ring] Noted. [Root] What changed? [Hollow] Let them tell it."
-            ),
-            OLD_OAK_TREE_ACTOR_ID if keepsake => format!(
-                "[Ring] {subject}, newly placed. [Leaf] I like it. [Root] Watch what follows."
-            ),
-            OLD_OAK_TREE_ACTOR_ID => self.resident_contextual_fallback(target.id, action_text),
-            _ if matches!(speech_mode, "emote" | "emote_only" | "silent") => {
-                self.resident_contextual_fallback(target.id, action_text)
-            }
-            _ => format!(
-                "{} looks toward {subject}. \"I saw that. What do you think it changes?\"",
-                self.actor_name(target.id)
-                    .unwrap_or_else(|| "A nearby resident".to_string())
-            ),
-        }
-    }
-
     fn next_resident_card_reaction_plan(
         &self,
         speaker_actor_id: u64,
@@ -19034,6 +20482,11 @@ impl RuntimeWorld {
         if speaker.kind != CW_ACTOR_HUMAN || speaker.status != CW_ACTOR_ACTIVE {
             return None;
         }
+        let actor_name = self
+            .actor_name(speaker_actor_id)
+            .unwrap_or_else(|| "The visitor".to_string());
+        let reaction_event = self.card_reaction_event(speaker_actor_id, events)?;
+        let action_text = self.card_reaction_action_text(&actor_name, reaction_event);
         let mut residents = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
@@ -19069,26 +20522,14 @@ impl RuntimeWorld {
             .and_then(|actor_id| residents.iter().position(|actor| actor.id == actor_id))
             .map(|index| residents[(index + 1) % residents.len()])
             .unwrap_or(residents[0]);
-        let actor_name = self
-            .actor_name(speaker_actor_id)
-            .unwrap_or_else(|| "The visitor".to_string());
-        let reaction_event = self.card_reaction_event(speaker_actor_id, events)?;
-        let action_text = self.card_reaction_action_text(&actor_name, reaction_event);
-        let fallback = self.card_reaction_fallback(target, reaction_event, &action_text);
-        self.resident_reply_plan_for_target_with_fallback(
-            speaker_actor_id,
-            target.id,
-            &action_text,
-            fallback,
-        )
+        self.resident_reply_plan_for_target_with_context(speaker_actor_id, target.id, &action_text)
     }
 
-    fn resident_reply_plan_for_target_with_fallback(
+    fn resident_reply_plan_for_target_with_context(
         &self,
         speaker_actor_id: u64,
         target_actor_id: u64,
         text: &str,
-        fallback_text: String,
     ) -> Option<ResidentReplyPlan> {
         let speaker = self.actor_by_id(speaker_actor_id)?;
         let npc = self.actor_by_id(target_actor_id)?;
@@ -19124,7 +20565,10 @@ impl RuntimeWorld {
             cast: self.room_cast_names(npc.location_id),
             recent_lines: self.recent_room_lines(npc.location_id, 8),
             user_text: text.to_string(),
-            fallback_text,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         })
     }
 
@@ -19241,6 +20685,7 @@ impl RuntimeWorld {
             .filter(|actor| {
                 actor.kind == CW_ACTOR_NPC
                     && actor.status == CW_ACTOR_ACTIVE
+                    && seed_actor_allows_ambient_autonomy(actor.id)
                     && human_locations.contains(&actor.location_id)
             })
             .collect();
@@ -19278,7 +20723,10 @@ impl RuntimeWorld {
             cast: self.room_cast_names(npc.location_id),
             recent_lines: self.recent_room_lines(npc.location_id, 8),
             user_text: "The room has been quiet. Add one fresh in-character ambient beat that follows the recent room dialogue without repeating an earlier line.".to_string(),
-            fallback_text: self.resident_fallback_for_target(npc.id),
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         })
     }
 
@@ -19492,8 +20940,8 @@ impl RuntimeWorld {
     fn collision_safe_resident_proposal(
         &self,
         plan: &ResidentReplyPlan,
-        mut proposal: ResidentIntentProposal,
-    ) -> ResidentIntentProposal {
+        proposal: ResidentIntentProposal,
+    ) -> Option<ResidentIntentProposal> {
         let location_id = self
             .actor_by_id(plan.npc_actor_id)
             .map(|actor| actor.location_id)
@@ -19503,121 +20951,20 @@ impl RuntimeWorld {
             location_id,
             &proposal.speech,
         ) {
-            return proposal;
+            return Some(proposal);
         }
-
-        let mut candidates = vec![plan.fallback_text.clone()];
-        match plan.npc_actor_id {
-            RATI_ACTOR_ID => candidates.extend([
-                "I saw that. Put it by the kettle and tell me what you meant by it.".to_string(),
-                "Well, that changed the room. Wipe your boots and keep going.".to_string(),
-                "There now. The room noticed, and so did I. What comes next?".to_string(),
-            ]),
-            WHISKERWIND_ACTOR_ID => candidates.extend([
-                "👀✨🌿".to_string(),
-                "🫖🫶✨".to_string(),
-                "🌧️👉🎁".to_string(),
-                "🍃👂💫".to_string(),
-            ]),
-            SKULL_ACTOR_ID => candidates.extend([
-                "*Skull gives the changed room one grave, practical nod.*".to_string(),
-                "*Skull checks the doorway, then nods once at the new trouble.*".to_string(),
-                "*Skull watches the little consequence settle into place.*".to_string(),
-            ]),
-            OLD_OAK_TREE_ACTOR_ID => candidates.extend([
-                "[Root] Good. [Ring] Precedent agrees. [Leaf] Did something sparkle? [Hollow] Keep going.".to_string(),
-                "[Ring] Noted. [Root] Hmph. [Leaf] I liked that bit. [Hollow] What happens next?".to_string(),
-            ]),
-            _ if matches!(plan.speech_mode.as_str(), "emoji" | "emoji_only") => candidates
-                .extend([
-                    "👀✨🌿".to_string(),
-                    "🫶🕯️✨".to_string(),
-                    "🍃👉💫".to_string(),
-                ]),
-            _ if matches!(
-                plan.speech_mode.as_str(),
-                "emote" | "emote_only" | "silent"
-            ) => candidates.extend([
-                format!("*{} notices the change and leans in.*", plan.npc_name),
-                format!("*{} gives the moment a careful nod.*", plan.npc_name),
-                format!("*{} watches to see what follows.*", plan.npc_name),
-            ]),
-            _ => candidates.extend([
-                "Oh, that matters. Keep going—I’m listening.".to_string(),
-                "There. The room feels a little different now. What comes next?".to_string(),
-                "I noticed that too. Which small piece should we follow?".to_string(),
-            ]),
-        }
-
-        let start = (self.world.next_event_seq as usize) % candidates.len().max(1);
-        let mut first_valid = None;
-        for offset in 0..candidates.len() {
-            let candidate = &candidates[(start + offset) % candidates.len()];
-            let Some(candidate) = sanitize_resident_reply(plan, candidate) else {
-                continue;
-            };
-            first_valid.get_or_insert_with(|| candidate.clone());
-            if !self.resident_reply_repeats_recent_event(plan.npc_actor_id, location_id, &candidate)
-            {
-                proposal.speech = candidate;
-                return proposal;
-            }
-        }
-
-        // A promised player-triggered beat is more important than perfect variety.
-        // This is only reachable after every contract-safe alternate was recently used.
-        if let Some(candidate) = first_valid {
-            proposal.speech = candidate;
-        }
-        proposal
+        None
     }
 
-    fn collision_safe_avatar_followup(
-        &self,
-        actor_id: u64,
-        plan: &AvatarChatPlan,
-        proposed: &str,
-    ) -> String {
+    fn collision_safe_avatar_followup(&self, actor_id: u64, proposed: &str) -> Option<String> {
         let location_id = self
             .actor_by_id(actor_id)
             .map(|actor| actor.location_id)
             .unwrap_or_default();
         if !self.resident_reply_repeats_recent_event(actor_id, location_id, proposed) {
-            return proposed.to_string();
+            return Some(proposed.to_string());
         }
-
-        let mut candidates = Vec::new();
-        if let Some(subject) = plan.fresh_subject.as_deref() {
-            candidates.push(format!(
-                "Then let’s follow {subject} one step further. Where would you start?"
-            ));
-        }
-        candidates.extend([
-            format!(
-                "I like that, {}. What small thing should we notice next?",
-                plan.target_actor_name
-            ),
-            "Then let’s carry that thought one step further—what would you try first?".to_string(),
-            "All right. Give me one detail you don’t want the room to lose.".to_string(),
-            format!(
-                "Before we leave {}, what should we keep close?",
-                plan.location_name
-            ),
-        ]);
-        let start = (self.world.next_event_seq as usize) % candidates.len().max(1);
-        for offset in 0..candidates.len() {
-            let candidate = &candidates[(start + offset) % candidates.len()];
-            let Some(candidate) = sanitize_avatar_chat(candidate) else {
-                continue;
-            };
-            if !self.resident_reply_repeats_recent_event(actor_id, location_id, &candidate) {
-                return candidate;
-            }
-        }
-
-        // Preserve the promised conversational beat even in the extremely unlikely
-        // case that every authored alternate is still in the recent window.
-        proposed.to_string()
+        None
     }
 
     fn resident_autonomy_action_repeats_recent_event(
@@ -19799,7 +21146,8 @@ impl RuntimeWorld {
                 ..CwAction::default()
             },
             seed,
-        );
+        )
+        .into_actor_consequence(self.world.tick, None);
         record
             .projection_mutations
             .push(ProjectionMutation::UseFeature {
@@ -19823,7 +21171,8 @@ impl RuntimeWorld {
             }
         }
         self.resident_economy_autonomy_action(actor).map(|action| {
-            let mut record = JournalRecord::new(action, seed);
+            let mut record =
+                JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
             self.append_resident_autonomy_intent_projection(actor, &mut record);
             record
         })
@@ -19843,9 +21192,8 @@ impl RuntimeWorld {
             .filter(|exit| exit.from_location_id == actor.location_id)
             .filter(|exit| exit.flags & CW_EXIT_LOCKED == 0)
             .filter(|exit| {
-                location_access_rule(exit.to_location_id)
-                    .required_card_id
-                    .is_none()
+                let rule = location_access_rule(exit.to_location_id);
+                rule.required_grant_id.is_none() && rule.required_card_id.is_none()
             })
             .filter(|exit| self.location_name(exit.to_location_id).is_some())
             .collect::<Vec<_>>();
@@ -19871,7 +21219,8 @@ impl RuntimeWorld {
 
     fn resident_wander_record(&self, actor: CwActor, seed: u64) -> Option<JournalRecord> {
         let action = self.resident_wander_action(actor)?;
-        let mut record = JournalRecord::new(action, seed);
+        let mut record =
+            JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
         self.append_resident_autonomy_intent_projection(actor, &mut record);
         Some(record)
     }
@@ -20000,7 +21349,9 @@ impl RuntimeWorld {
         };
         proposed_action.reason = Some(intent.clone());
         ResidentIntentProposal {
-            speech: self.resident_economy_action_fallback_text(actor, action),
+            // Autonomy continuity is not visible dialogue. Spoken reactions are
+            // generated separately through the resident inference path.
+            speech: intent.clone(),
             intent: Some(intent.clone()),
             belief: None,
             desire: Some(intent),
@@ -20025,7 +21376,11 @@ impl RuntimeWorld {
         let candidates: Vec<CwActor> = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
-            .filter(|actor| actor.kind == CW_ACTOR_NPC && actor.status == CW_ACTOR_ACTIVE)
+            .filter(|actor| {
+                actor.kind == CW_ACTOR_NPC
+                    && actor.status == CW_ACTOR_ACTIVE
+                    && seed_actor_allows_ambient_autonomy(actor.id)
+            })
             .collect();
         if candidates.is_empty() {
             return Vec::new();
@@ -20340,6 +21695,9 @@ impl RuntimeWorld {
         }
         self.refresh_resident_memories_for_autonomy();
         if let Some(mut record) = self.resident_ripple_record_for_seed(context, seed) {
+            record.origin = JournalOrigin::ActorConsequence;
+            record.source_world_tick = Some(self.world.tick);
+            record.caused_by_event_seq = context.source_event_seqs.iter().copied().max();
             record.ripple_source = Some(context.to_source());
             return Some(record);
         }
@@ -20349,6 +21707,9 @@ impl RuntimeWorld {
                 if !self.ripple_move_keeps_player_company(context, &record.action) {
                     return None;
                 }
+                record.origin = JournalOrigin::ActorConsequence;
+                record.source_world_tick = Some(self.world.tick);
+                record.caused_by_event_seq = context.source_event_seqs.iter().copied().max();
                 record.ripple_source = Some(context.to_source());
                 return Some(record);
             }
@@ -20359,8 +21720,73 @@ impl RuntimeWorld {
 
 #[derive(Clone, Copy)]
 struct LocationAccessRule {
+    required_grant_id: Option<&'static str>,
     required_card_id: Option<&'static str>,
     reason: Option<&'static str>,
+}
+
+fn seed_entitlement_grant(grant_id: &str) -> Option<&'static SeedEntitlementGrant> {
+    seed_content()
+        .manifest
+        .packs
+        .iter()
+        .filter_map(|pack| pack.entitlements.as_ref())
+        .flat_map(|entitlements| entitlements.grants.iter())
+        .find(|grant| grant.id == grant_id)
+}
+
+fn entitlement_grant_asset_id(grant_id: &str) -> Option<&'static str> {
+    seed_entitlement_grant(grant_id)?
+        .match_rule
+        .as_ref()?
+        .asset_id
+        .as_deref()
+}
+
+fn entitlement_grants_for_assets(asset_ids: &BTreeSet<String>) -> BTreeSet<String> {
+    seed_content()
+        .manifest
+        .packs
+        .iter()
+        .filter_map(|pack| pack.entitlements.as_ref())
+        .flat_map(|entitlements| entitlements.grants.iter())
+        .filter(|grant| {
+            grant
+                .match_rule
+                .as_ref()
+                .and_then(|rule| rule.asset_id.as_ref())
+                .is_some_and(|asset_id| asset_ids.contains(asset_id))
+        })
+        .map(|grant| grant.id.clone())
+        .collect()
+}
+
+fn non_empty_pack_id(pack_id: &str) -> Option<String> {
+    (!pack_id.trim().is_empty()).then(|| pack_id.to_string())
+}
+
+fn seed_pack_id_for_actor(actor_id: u64) -> Option<String> {
+    seed_content()
+        .actors
+        .iter()
+        .find(|actor| actor.id == actor_id)
+        .and_then(|actor| non_empty_pack_id(&actor.pack_id))
+}
+
+fn seed_pack_id_for_item(item_id: u64) -> Option<String> {
+    seed_content()
+        .items
+        .iter()
+        .find(|item| item.id == item_id)
+        .and_then(|item| non_empty_pack_id(&item.pack_id))
+}
+
+fn seed_pack_id_for_location(location_id: u64) -> Option<String> {
+    seed_content()
+        .locations
+        .iter()
+        .find(|location| location.id == location_id)
+        .and_then(|location| non_empty_pack_id(&location.pack_id))
 }
 
 fn location_access_rule(location_id: u64) -> LocationAccessRule {
@@ -20368,20 +21794,33 @@ fn location_access_rule(location_id: u64) -> LocationAccessRule {
         .access_gates
         .iter()
         .find(|gate| gate.location_id == location_id)
-        .map(|gate| LocationAccessRule {
-            required_card_id: Some(gate.required_card_id.as_str()),
-            reason: Some(gate.reason.as_str()),
+        .map(|gate| {
+            let required_grant_id = (!gate.required_grant_id.trim().is_empty())
+                .then_some(gate.required_grant_id.as_str());
+            LocationAccessRule {
+                required_grant_id,
+                required_card_id: gate
+                    .required_card_id
+                    .as_deref()
+                    .or_else(|| required_grant_id.and_then(entitlement_grant_asset_id)),
+                reason: Some(gate.reason.as_str()),
+            }
         })
         .unwrap_or(LocationAccessRule {
+            required_grant_id: None,
             required_card_id: None,
             reason: None,
         })
 }
 
 fn location_access_allowed(location_id: u64, access: &AccessContext) -> bool {
-    location_access_rule(location_id)
-        .required_card_id
-        .map(|card_id| access.owns_card(card_id))
+    let rule = location_access_rule(location_id);
+    rule.required_grant_id
+        .map(|grant_id| access.has_grant(grant_id))
+        .or_else(|| {
+            rule.required_card_id
+                .map(|card_id| access.owns_card(card_id))
+        })
         .unwrap_or(true)
 }
 
@@ -20397,6 +21836,15 @@ fn evolution_track_item_ids(actor_id: u64) -> Option<Vec<u64>> {
                 .map(|requirement| requirement.item_id)
                 .collect()
         })
+}
+
+fn seed_actor_allows_ambient_autonomy(actor_id: u64) -> bool {
+    seed_content()
+        .actors
+        .iter()
+        .find(|actor| actor.id == actor_id)
+        .and_then(|actor| actor.ambient_autonomy)
+        .unwrap_or(true)
 }
 
 fn evolution_item_matches_resident(item_id: u64, actor_id: u64) -> bool {
@@ -20624,15 +22072,16 @@ fn apply_location_access(mut card: CardView, location_id: u64, access: &AccessCo
     let rule = location_access_rule(location_id);
     let owned = access.owns_card(&card.card_id)
         || rule
-            .required_card_id
-            .map(|card_id| access.owns_card(card_id))
+            .required_grant_id
+            .map(|grant_id| access.has_grant(grant_id))
+            .or_else(|| {
+                rule.required_card_id
+                    .map(|card_id| access.owns_card(card_id))
+            })
             .unwrap_or(false);
-    card.requires_ownership = rule.required_card_id.is_some();
+    card.requires_ownership = rule.required_grant_id.is_some() || rule.required_card_id.is_some();
     card.owned = owned;
-    card.accessible = rule
-        .required_card_id
-        .map(|card_id| access.owns_card(card_id))
-        .unwrap_or(true);
+    card.accessible = location_access_allowed(location_id, access);
     card.access_reason = if card.accessible {
         None
     } else {
@@ -20666,6 +22115,7 @@ fn access_view(access: &AccessContext, location_cards: &BTreeMap<u64, CardView>)
         owned_card_ids: access.owned_card_ids.iter().cloned().collect(),
         owned_box_ids: access.owned_box_ids.iter().cloned().collect(),
         unopened_pack_ids: access.unopened_pack_ids.iter().cloned().collect(),
+        granted_entitlement_ids: access.granted_entitlement_ids.iter().cloned().collect(),
         accessible_card_ids,
         locked_card_ids,
     }
@@ -20908,7 +22358,7 @@ fn card_for_item(item_id: u64, name: &str, description: &str) -> CardView {
         return card;
     }
 
-    seed_card(SeedCardSpec {
+    let mut card = seed_card(SeedCardSpec {
         card_id: "cosy-item",
         display_name: name,
         role: "item",
@@ -20919,12 +22369,17 @@ fn card_for_item(item_id: u64, name: &str, description: &str) -> CardView {
         source: "cosyworld_runtime",
         asset_status: "pending_art",
         image_url: None,
-    })
+    });
+    card.pack_id = seed_pack_id_for_item(item_id);
+    card
 }
 
 fn card_for_location(location_id: u64, name: &str, meta: Option<&LocationMeta>) -> CardView {
     let mut card = seed_card_for_subject("location", location_id)
         .unwrap_or_else(|| unknown_location_card(location_id, name, meta));
+    if card.pack_id.is_none() {
+        card.pack_id = seed_pack_id_for_location(location_id);
+    }
     if let Some(meta) = meta {
         card.biome = (!meta.biome.trim().is_empty()).then(|| meta.biome.clone());
         card.terrain = meta.terrain.clone();
@@ -21017,6 +22472,7 @@ fn card_from_seed_content(card: &SeedCardContent) -> CardView {
         card.asset_status.clone()
     };
     CardView {
+        pack_id: non_empty_pack_id(&card.pack_id),
         card_id: card.card_id.clone(),
         display_name: card.display_name.clone(),
         role: card.role.clone(),
@@ -21061,392 +22517,65 @@ fn unknown_location_card(location_id: u64, name: &str, meta: Option<&LocationMet
     })
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Debug, Deserialize)]
 struct RubyHighCardSpec {
-    card_id: &'static str,
-    display_name: &'static str,
-    role: &'static str,
-    rarity: &'static str,
-    title: &'static str,
-    blurb: &'static str,
-    aspect: &'static str,
-    set_number: &'static str,
-    profile_id: &'static str,
-    subject: &'static str,
-    image_url: &'static str,
-    chain_image_uri: &'static str,
+    #[serde(default)]
+    pack_id: String,
+    card_id: String,
+    display_name: String,
+    role: String,
+    rarity: String,
+    title: String,
+    blurb: String,
+    aspect: String,
+    set_number: String,
+    profile_id: String,
+    subject: String,
+    image_url: String,
+    chain_image_uri: String,
 }
 
-const RUBY_HIGH_FIRST_BELL_CATALOG: &[RubyHighCardSpec] = &[
-    RubyHighCardSpec {
-        card_id: "lyra",
-        display_name: "Lyra",
-        role: "student",
-        rarity: "common",
-        title: "Color-Coded Spare",
-        blurb: "Lyra made three backups and labeled this one urgent.",
-        aspect: "tall",
-        set_number: "FB-001",
-        profile_id: "lyra-color-coded-spare",
-        subject: "Homeroom",
-        image_url: "/assets/cards/lyra.png",
-        chain_image_uri: "https://gateway.irys.xyz/7BGwmo5bhDKDhhKVcoUaKfNcaWcVU5ifHQfPqQNVyYrP",
-    },
-    RubyHighCardSpec {
-        card_id: "sami",
-        display_name: "Sami",
-        role: "student",
-        rarity: "common",
-        title: "Side Door Whatever",
-        blurb: "Sami says it works if you look bored enough.",
-        aspect: "tall",
-        set_number: "FB-002",
-        profile_id: "sami-side-door-whatever",
-        subject: "Homeroom",
-        image_url: "/assets/cards/sami.png",
-        chain_image_uri: "https://gateway.irys.xyz/Fmhr5NjuA3ZLpWJPzRcPeAT7wfaXepxSemWBCLj4eDT3",
-    },
-    RubyHighCardSpec {
-        card_id: "ravi",
-        display_name: "Ravi",
-        role: "student",
-        rarity: "common",
-        title: "Field Trip Fact Slip",
-        blurb: "Ravi has a tangent ready for the entire walk.",
-        aspect: "tall",
-        set_number: "FB-003",
-        profile_id: "ravi-field-trip-fact-slip",
-        subject: "Field Trip",
-        image_url: "/assets/cards/ravi.png",
-        chain_image_uri: "https://gateway.irys.xyz/9gsNxRKPyeZ4AyB8Vi31VoPgxYNFapMFhkQN7TbU17AK",
-    },
-    RubyHighCardSpec {
-        card_id: "indra",
-        display_name: "Indra",
-        role: "student",
-        rarity: "rare",
-        title: "Quiet Perfect Exit",
-        blurb: "Indra noticed the pattern and left before anyone clapped.",
-        aspect: "tall",
-        set_number: "FB-004",
-        profile_id: "indra-quiet-perfect-exit",
-        subject: "Strategy",
-        image_url: "/assets/cards/indra.png",
-        chain_image_uri: "https://gateway.irys.xyz/6S94Fzxaos9mpWeRhjfaJ9ce8c6HHCSdNuBVRHie5LFy",
-    },
-    RubyHighCardSpec {
-        card_id: "mika",
-        display_name: "Mika",
-        role: "student",
-        rarity: "rare",
-        title: "Locker Room Shortcut",
-        blurb: "Mika says you are absolutely cleared for this.",
-        aspect: "tall",
-        set_number: "FB-005",
-        profile_id: "mika-locker-room-shortcut",
-        subject: "Social",
-        image_url: "/assets/cards/mika.png",
-        chain_image_uri: "https://gateway.irys.xyz/8AZLNaZdJDYx1jbdqFCKpS8JM12PGQD5b2U16P2pjAy5",
-    },
-    RubyHighCardSpec {
-        card_id: "noor",
-        display_name: "Noor",
-        role: "student",
-        rarity: "rare",
-        title: "Deadpan Detour",
-        blurb: "Noor called it a plot hole and walked through it.",
-        aspect: "tall",
-        set_number: "FB-006",
-        profile_id: "noor-deadpan-detour",
-        subject: "Literature",
-        image_url: "/assets/cards/noor.png",
-        chain_image_uri: "https://gateway.irys.xyz/3Mt6b11iNvuBHXKoqRTmDQcouwxpmzaSimWyDM6EYUAH",
-    },
-    RubyHighCardSpec {
-        card_id: "ruby",
-        display_name: "Ruby",
-        role: "teacher",
-        rarity: "common",
-        title: "Homeroom Card",
-        blurb: "Ruby stamped this one before the late bell could object.",
-        aspect: "tall",
-        set_number: "FB-007",
-        profile_id: "ruby-homeroom-card",
-        subject: "Homeroom",
-        image_url: "/assets/cards/ruby.png",
-        chain_image_uri: "https://gateway.irys.xyz/3N7c6M2wjZa456uHysFisgmRwnV9MshJFLzgDrLY8xYB",
-    },
-    RubyHighCardSpec {
-        card_id: "sally-science",
-        display_name: "Sally Science",
-        role: "teacher",
-        rarity: "common",
-        title: "Lab Sink Shortcut",
-        blurb: "Good for one escape from sloppy variables.",
-        aspect: "tall",
-        set_number: "FB-008",
-        profile_id: "sally-lab-sink-shortcut",
-        subject: "Science",
-        image_url: "/assets/cards/sally-science.png",
-        chain_image_uri: "https://gateway.irys.xyz/9EEyhSHwH3k4Mm4TyAhJNSSren9ZYF7XZE8RhJ9SfGX",
-    },
-    RubyHighCardSpec {
-        card_id: "professor-edward",
-        display_name: "Professor Edward",
-        role: "teacher",
-        rarity: "common",
-        title: "Library Corridor Pass",
-        blurb: "Please return before the footnotes start breeding.",
-        aspect: "tall",
-        set_number: "FB-009",
-        profile_id: "professor-edward-library-corridor",
-        subject: "Literature",
-        image_url: "/assets/cards/professor-edward.png",
-        chain_image_uri: "https://gateway.irys.xyz/63VTMvTDzdPbK8T4y1naQBwk5by43kYbpRn6wtiVyXPe",
-    },
-    RubyHighCardSpec {
-        card_id: "eliza",
-        display_name: "Eliza",
-        role: "teacher",
-        rarity: "super-rare",
-        title: "Systems Lab Override",
-        blurb: "Eliza makes the system legible, then makes it sing.",
-        aspect: "tall",
-        set_number: "FB-010",
-        profile_id: "eliza-systems-lab-override",
-        subject: "Systems",
-        image_url: "/assets/cards/eliza.png",
-        chain_image_uri: "https://gateway.irys.xyz/G4mYFb2JgHjsCYdWLtYrhYQL1GGYUPvqaeUi4xao9cpL",
-    },
-    RubyHighCardSpec {
-        card_id: "rati",
-        display_name: "Rati",
-        role: "teacher",
-        rarity: "super-rare",
-        title: "Signal Studies Pass",
-        blurb: "Hold the signal. Build the world.",
-        aspect: "tall",
-        set_number: "FB-011",
-        profile_id: "rati-signal-studies-pass",
-        subject: "Signal Studies",
-        image_url: "/assets/cards/rati.png",
-        chain_image_uri: "https://gateway.irys.xyz/4gDnEdkgqayZGDQ9sSFoHuY5LSgwfuDDWmwSJR2QPbVX",
-    },
-    RubyHighCardSpec {
-        card_id: "captain-null",
-        display_name: "Captain Null",
-        role: "special",
-        rarity: "ultra-rare",
-        title: "Page 10 Shadow Pass",
-        blurb: "Find page 10 and the hallway forgets your name.",
-        aspect: "tall",
-        set_number: "FB-012",
-        profile_id: "captain-null-page-10-shadow",
-        subject: "First Bell",
-        image_url: "/assets/cards/captain-null.png",
-        chain_image_uri: "https://gateway.irys.xyz/FQXsSJ4gJWj9pM4Fc2RcEAcomoPSyPaRyd19ghpxVdLv",
-    },
-    RubyHighCardSpec {
-        card_id: "item-hall-pass",
-        display_name: "Hall Pass",
-        role: "item",
-        rarity: "common",
-        title: "Front Office Reset",
-        blurb: "Sometimes the smartest move is stepping out and coming back better.",
-        aspect: "square",
-        set_number: "FB-013",
-        profile_id: "item-hall-pass",
-        subject: "Administration",
-        image_url: "/assets/cards/item-hall-pass.png",
-        chain_image_uri: "https://gateway.irys.xyz/9EsaWqjWaWKvb9a62iKr1dYSMRPGRQVaA1fpLFjWfk4q",
-    },
-    RubyHighCardSpec {
-        card_id: "item-flashcards",
-        display_name: "Flashcards",
-        role: "item",
-        rarity: "common",
-        title: "Study Kit",
-        blurb: "Shuffle. Repeat. Survive.",
-        aspect: "square",
-        set_number: "FB-014",
-        profile_id: "item-flashcards",
-        subject: "Study",
-        image_url: "/assets/cards/item-flashcards.png",
-        chain_image_uri: "https://gateway.irys.xyz/H38mBQgXzZZK6vEni77FShD8Lh7vX9QVsDd6C3yL4tVQ",
-    },
-    RubyHighCardSpec {
-        card_id: "item-library-card",
-        display_name: "Library Card",
-        role: "item",
-        rarity: "common",
-        title: "Quiet Wing Access",
-        blurb: "If the answer exists, this helps you find it.",
-        aspect: "square",
-        set_number: "FB-015",
-        profile_id: "item-library-card",
-        subject: "Library",
-        image_url: "/assets/cards/item-library-card.png",
-        chain_image_uri: "https://gateway.irys.xyz/GW7DcPRJMum61q73hfynntUJ3zUje7yjwE7xVesLSNgU",
-    },
-    RubyHighCardSpec {
-        card_id: "item-lab-flask",
-        display_name: "Lab Flask",
-        role: "item",
-        rarity: "rare",
-        title: "Science Lab Evidence",
-        blurb: "Observe first. Guess later.",
-        aspect: "square",
-        set_number: "FB-016",
-        profile_id: "item-lab-flask",
-        subject: "Science",
-        image_url: "/assets/cards/item-lab-flask.png",
-        chain_image_uri: "https://gateway.irys.xyz/4rAuX9pMMUMfveZ9rL9yBKQD7dcPAcfgoiQzL71pr5Nr",
-    },
-    RubyHighCardSpec {
-        card_id: "item-lunch-tray",
-        display_name: "Lunch Tray",
-        role: "item",
-        rarity: "rare",
-        title: "Commons Diplomacy",
-        blurb: "Half the social game happens between bites.",
-        aspect: "square",
-        set_number: "FB-017",
-        profile_id: "item-lunch-tray",
-        subject: "Cafeteria",
-        image_url: "/assets/cards/item-lunch-tray.png",
-        chain_image_uri: "https://gateway.irys.xyz/6tvAmcFPM8cXAmxmZNciN6iYQkj5C1J84bjnFiXuoyrV",
-    },
-    RubyHighCardSpec {
-        card_id: "item-notebook",
-        display_name: "Notebook",
-        role: "item",
-        rarity: "rare",
-        title: "Daily Carry",
-        blurb: "Messy notes still count as evidence of life.",
-        aspect: "square",
-        set_number: "FB-018",
-        profile_id: "item-notebook",
-        subject: "Homeroom",
-        image_url: "/assets/cards/item-notebook.png",
-        chain_image_uri: "https://gateway.irys.xyz/3U8K8YGe1nEhvVjuV7ThDkLLsLZViRsAdKDKGeLV1mDS",
-    },
-    RubyHighCardSpec {
-        card_id: "location-homeroom",
-        display_name: "Homeroom",
-        role: "location",
-        rarity: "common",
-        title: "Front Door",
-        blurb: "Where every day begins, and every question gets a room.",
-        aspect: "wide",
-        set_number: "FB-019",
-        profile_id: "location-homeroom",
-        subject: "Homeroom",
-        image_url: "/assets/cards/location-homeroom.png",
-        chain_image_uri: "https://gateway.irys.xyz/D4o7VmayTktEbx7HivEeWTzVvjnmbp4JrDgNzkvUwVQ",
-    },
-    RubyHighCardSpec {
-        card_id: "location-science-lab",
-        display_name: "Science Class",
-        role: "location",
-        rarity: "common",
-        title: "STEM Wing",
-        blurb: "Observe. Test. Explain. Repeat.",
-        aspect: "wide",
-        set_number: "FB-020",
-        profile_id: "location-science-lab",
-        subject: "Science",
-        image_url: "/assets/cards/location-science-lab.png",
-        chain_image_uri: "https://gateway.irys.xyz/DDmgnZHAZ3WPqvyNVjU57ayQMY6y2WYSL7Fu1jkjbJMu",
-    },
-    RubyHighCardSpec {
-        card_id: "location-library",
-        display_name: "Library",
-        role: "location",
-        rarity: "common",
-        title: "Quiet Wing",
-        blurb: "If it matters, someone wrote it down.",
-        aspect: "wide",
-        set_number: "FB-021",
-        profile_id: "location-library",
-        subject: "Literature",
-        image_url: "/assets/cards/location-library.png",
-        chain_image_uri: "https://gateway.irys.xyz/44eAXJkBYuXjrV2ctE8PurKnHQ4Zg29LdzeNm1Sh5PLR",
-    },
-    RubyHighCardSpec {
-        card_id: "location-cafeteria",
-        display_name: "Cafeteria",
-        role: "location",
-        rarity: "rare",
-        title: "Commons",
-        blurb: "Half the school day happens between bites.",
-        aspect: "wide",
-        set_number: "FB-022",
-        profile_id: "location-cafeteria",
-        subject: "Cafeteria",
-        image_url: "/assets/cards/location-cafeteria.png",
-        chain_image_uri: "https://gateway.irys.xyz/FXSukeq8KPmaZ2tBPqRMmRhruTEFSiE4mTrCThiVpCen",
-    },
-    RubyHighCardSpec {
-        card_id: "location-greenhouse",
-        display_name: "Greenhouse",
-        role: "location",
-        rarity: "rare",
-        title: "Garden Annex",
-        blurb: "Some lessons grow slowly.",
-        aspect: "wide",
-        set_number: "FB-023",
-        profile_id: "location-greenhouse",
-        subject: "Science",
-        image_url: "/assets/cards/location-greenhouse.png",
-        chain_image_uri: "https://gateway.irys.xyz/6V6TeKMCmD6kDJHkPHeJdqcNySzXJyov7b9QtsfVw8W8",
-    },
-    RubyHighCardSpec {
-        card_id: "location-courtyard",
-        display_name: "Courtyard",
-        role: "location",
-        rarity: "rare",
-        title: "Central Grounds",
-        blurb: "Every hallway leads somewhere. Every path leads to someone.",
-        aspect: "wide",
-        set_number: "FB-024",
-        profile_id: "location-courtyard",
-        subject: "Campus",
-        image_url: "/assets/cards/location-courtyard.png",
-        chain_image_uri: "https://gateway.irys.xyz/5uestScY6q33FLjFY8gfSr9k2ZDMsZzYuXLvnVCtaz6G",
-    },
-];
+fn ruby_high_first_bell_catalog() -> &'static [RubyHighCardSpec] {
+    static CATALOG: OnceLock<Vec<RubyHighCardSpec>> = OnceLock::new();
+    CATALOG
+        .get_or_init(|| {
+            parse_seed_json("external_cards.json", SEED_EXTERNAL_CARDS_JSON)
+                .expect("embedded external card catalog must parse")
+        })
+        .as_slice()
+}
 
 fn ruby_high_card_by_id(card_id: &str) -> Option<CardView> {
     ruby_high_card_spec(card_id).map(ruby_high_card)
 }
 
-fn ruby_high_card_spec(card_id: &str) -> Option<RubyHighCardSpec> {
-    RUBY_HIGH_FIRST_BELL_CATALOG
+fn ruby_high_card_spec(card_id: &str) -> Option<&'static RubyHighCardSpec> {
+    ruby_high_first_bell_catalog()
         .iter()
-        .copied()
         .find(|spec| spec.card_id == card_id)
 }
 
-fn ruby_high_card(spec: RubyHighCardSpec) -> CardView {
+fn ruby_high_card(spec: &RubyHighCardSpec) -> CardView {
     CardView {
-        card_id: spec.card_id.to_string(),
-        display_name: spec.display_name.to_string(),
-        role: spec.role.to_string(),
-        rarity: spec.rarity.to_string(),
-        title: spec.title.to_string(),
-        blurb: spec.blurb.to_string(),
+        pack_id: non_empty_pack_id(&spec.pack_id),
+        card_id: spec.card_id.clone(),
+        display_name: spec.display_name.clone(),
+        role: spec.role.clone(),
+        rarity: spec.rarity.clone(),
+        title: spec.title.clone(),
+        blurb: spec.blurb.clone(),
         level: 0,
         evolved: false,
-        aspect: spec.aspect.to_string(),
+        aspect: spec.aspect.clone(),
         source: "ruby_high_first_bell".to_string(),
         asset_status: "on_chain".to_string(),
-        set_number: Some(spec.set_number.to_string()),
-        profile_id: Some(spec.profile_id.to_string()),
-        subject: Some(spec.subject.to_string()),
+        set_number: Some(spec.set_number.clone()),
+        profile_id: Some(spec.profile_id.clone()),
+        subject: Some(spec.subject.clone()),
         biome: None,
         terrain: Vec::new(),
-        image_url: Some(spec.image_url.to_string()),
-        chain_image_uri: Some(spec.chain_image_uri.to_string()),
+        image_url: Some(spec.image_url.clone()),
+        chain_image_uri: Some(spec.chain_image_uri.clone()),
         requires_ownership: false,
         owned: false,
         accessible: true,
@@ -21478,6 +22607,7 @@ fn seed_card(spec: SeedCardSpec<'_>) -> CardView {
     };
 
     CardView {
+        pack_id: None,
         card_id: spec.card_id.to_string(),
         display_name: spec.display_name.to_string(),
         role: spec.role.to_string(),
@@ -21546,6 +22676,20 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         .map(|sessions| sessions.sessions.len())
         .unwrap_or_default();
     let ownership_feed = state.ownership_feed.as_ref();
+    let ownership_feed_health = state
+        .ownership_feed_health
+        .lock()
+        .map(|health| health.clone())
+        .unwrap_or_default();
+    let ownership_feed_status = if ownership_feed.remote_url.is_none() {
+        "not_configured"
+    } else if ownership_feed_health.consecutive_failures > 0 {
+        "degraded"
+    } else if ownership_feed_health.last_success_at_unix.is_some() {
+        "healthy"
+    } else {
+        "pending"
+    };
 
     Json(MetaResponse {
         ok: true,
@@ -21566,6 +22710,8 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             server_authored_chat: true,
             client_authored_speech: true,
             ai_enabled: state.ai_config.as_ref().is_some(),
+            generation_default_mode: state.generation_controls.default_mode().as_str(),
+            pathway_content_mode: state.generation_controls.mode("pathway_content").as_str(),
             ambient_enabled: false,
             dev_reset_enabled: state.dev_reset_enabled,
             unsigned_wallet_claims_enabled: state.allow_unsigned_wallet_claims,
@@ -21589,9 +22735,34 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
                 .refresh_every
                 .map(|duration| duration.as_secs()),
             wallet_count,
+            status: ownership_feed_status,
+            last_attempt_at_unix: ownership_feed_health.last_attempt_at_unix,
+            last_success_at_unix: ownership_feed_health.last_success_at_unix,
+            consecutive_failures: ownership_feed_health.consecutive_failures,
+            last_error_code: ownership_feed_health.last_error_code,
         },
         nft: MetaNftConfig {
             box_burn_verifier_configured: state.box_burn_verifier.as_ref().is_some(),
+        },
+        worldpack: MetaWorldpack {
+            id: seed_content().manifest.id.clone(),
+            name: seed_content().manifest.name.clone(),
+            version: seed_content().manifest.version,
+            bundle_hash: seed_content().manifest.bundle_hash.clone(),
+            entry_location: seed_content().manifest.entry_location.clone(),
+            packs: seed_content().manifest.packs.clone(),
+            rules: seed_content()
+                .rules
+                .iter()
+                .map(|bundle| MetaRulesBundle {
+                    pack_id: bundle.pack_id.clone(),
+                    adapter: bundle.adapter.clone(),
+                    namespace: bundle.namespace.clone(),
+                    conditions: bundle.resources.conditions.len(),
+                    monster_seeds: bundle.resources.monster_seeds.len(),
+                })
+                .collect(),
+            attributions: seed_content().attributions.clone(),
         },
         world: MetaWorldCounters {
             tick,
@@ -22133,6 +23304,7 @@ async fn wallet_session(
             session_token.clone(),
             WalletSession {
                 wallet_address: wallet_address.clone(),
+                linked_wallet_addresses: Vec::new(),
                 expires_at: now + Duration::from_secs(12 * 60 * 60),
             },
         );
@@ -22178,6 +23350,7 @@ async fn box_burn_prepare(
             box_asset_address: None,
             pack_id: None,
             burn_message: None,
+            burn_transaction: None,
             verification_mode: "trusted_feed_staging".to_string(),
             error: Some("NFT action rate limited".to_string()),
         });
@@ -22190,6 +23363,7 @@ async fn box_burn_prepare(
             box_asset_address: None,
             pack_id: None,
             burn_message: None,
+            burn_transaction: None,
             verification_mode: "chain_verification_required".to_string(),
             error: Some("production Box burns require Solana/Core burn verification".to_string()),
         });
@@ -22206,6 +23380,7 @@ async fn box_burn_prepare(
             box_asset_address: None,
             pack_id: None,
             burn_message: None,
+            burn_transaction: None,
             verification_mode: "trusted_feed_staging".to_string(),
             error: Some("signed wallet session required".to_string()),
         });
@@ -22218,6 +23393,7 @@ async fn box_burn_prepare(
             box_asset_address: None,
             pack_id: None,
             burn_message: None,
+            burn_transaction: None,
             verification_mode: "trusted_feed_staging".to_string(),
             error: Some("box asset address is required".to_string()),
         });
@@ -22234,6 +23410,7 @@ async fn box_burn_prepare(
                     box_asset_address: Some(box_asset_address),
                     pack_id: Some(receipt.pack_id),
                     burn_message: Some("Box already has a burn receipt.".to_string()),
+                    burn_transaction: None,
                     verification_mode: receipt.verification_status,
                     error: None,
                 });
@@ -22246,6 +23423,7 @@ async fn box_burn_prepare(
                     box_asset_address: Some(box_asset_address),
                     pack_id: None,
                     burn_message: None,
+                    burn_transaction: None,
                     verification_mode: "trusted_feed_staging".to_string(),
                     error: Some("box already has a receipt for another wallet".to_string()),
                 });
@@ -22259,6 +23437,7 @@ async fn box_burn_prepare(
                     box_asset_address: Some(box_asset_address),
                     pack_id: None,
                     burn_message: None,
+                    burn_transaction: None,
                     verification_mode: "trusted_feed_staging".to_string(),
                     error: Some(error.to_string()),
                 });
@@ -22278,10 +23457,44 @@ async fn box_burn_prepare(
             box_asset_address: Some(box_asset_address),
             pack_id: None,
             burn_message: None,
+            burn_transaction: None,
             verification_mode: "trusted_feed_staging".to_string(),
             error: Some("box is not active in the trusted ownership feed".to_string()),
         });
     }
+
+    let burn_transaction = if let Some(verifier) = state.box_burn_verifier.as_ref().as_ref() {
+        match verifier
+            .prepare_box_burn(&wallet_address, &box_asset_address)
+            .await
+        {
+            Ok(transaction) => Some(BoxBurnTransactionView {
+                transaction: transaction.transaction_base64,
+                transaction_encoding: "base64".to_string(),
+                message: transaction.message_base58,
+                message_encoding: "base58".to_string(),
+                recent_blockhash: transaction.recent_blockhash,
+                last_valid_block_height: transaction.last_valid_block_height,
+                program_id: CORE_PROGRAM_ID.to_string(),
+                instruction: "BurnV1".to_string(),
+            }),
+            Err(error) => {
+                return Json(BoxBurnPrepareResponse {
+                    ok: false,
+                    status: 502,
+                    wallet_address: Some(wallet_address),
+                    box_asset_address: Some(box_asset_address),
+                    pack_id: None,
+                    burn_message: None,
+                    burn_transaction: None,
+                    verification_mode: "solana_core_burn_transaction_unavailable".to_string(),
+                    error: Some(error),
+                });
+            }
+        }
+    } else {
+        None
+    };
 
     Json(BoxBurnPrepareResponse {
         ok: true,
@@ -22292,8 +23505,9 @@ async fn box_burn_prepare(
         burn_message: Some(format!(
             "Burn Wooden Box {box_asset_address} from {wallet_address} to create {pack_id}."
         )),
+        burn_transaction,
         verification_mode: if state.box_burn_verifier.as_ref().is_some() {
-            "solana_core_burn_signature_required"
+            "solana_core_burn_transaction_required"
         } else {
             "trusted_feed_staging"
         }
@@ -22880,6 +24094,7 @@ async fn moderation_economy_view(
             ai_usage_ledger: Vec::new(),
             wooden_box_receipts: Vec::new(),
             avatar_pack_openings: Vec::new(),
+            economy_reconciliations: Vec::new(),
             error: Some("moderation bearer token required".to_string()),
         });
     }
@@ -22892,6 +24107,7 @@ async fn moderation_economy_view(
             ai_usage_ledger: Vec::new(),
             wooden_box_receipts: Vec::new(),
             avatar_pack_openings: Vec::new(),
+            economy_reconciliations: Vec::new(),
             error: Some("event store is required for economy audit".to_string()),
         });
     };
@@ -22903,6 +24119,7 @@ async fn moderation_economy_view(
             ai_usage_ledger: Vec::new(),
             wooden_box_receipts: Vec::new(),
             avatar_pack_openings: Vec::new(),
+            economy_reconciliations: Vec::new(),
             error: None,
         });
     }
@@ -22922,7 +24139,97 @@ async fn moderation_economy_view(
                 ai_usage_ledger: Vec::new(),
                 wooden_box_receipts: Vec::new(),
                 avatar_pack_openings: Vec::new(),
+                economy_reconciliations: Vec::new(),
                 error: Some(error.to_string()),
+            })
+        }
+    }
+}
+
+async fn moderation_resolve_economy_reconciliation(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath(run_id): AxumPath<u64>,
+    Json(payload): Json<ResolveEconomyReconciliationRequest>,
+) -> Json<EconomyReconciliationResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 403,
+            reconciliation: None,
+            error: Some("moderation bearer token required".to_string()),
+        });
+    }
+    if run_id == 0 {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 400,
+            reconciliation: None,
+            error: Some("Reconciliation run id is required.".to_string()),
+        });
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 503,
+            reconciliation: None,
+            error: Some("Economy reconciliation requires the event store.".to_string()),
+        });
+    };
+    let Some(moderator) = normalize_moderator_label(payload.moderator.as_deref()) else {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 400,
+            reconciliation: None,
+            error: Some(format!(
+                "Moderator label must be under {MAX_MODERATOR_LABEL_CHARS} characters."
+            )),
+        });
+    };
+    let Some(note) = normalize_report_resolution_note(payload.note.as_deref()) else {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 400,
+            reconciliation: None,
+            error: Some(format!(
+                "Resolution note must be under {MAX_REPORT_RESOLUTION_NOTE_CHARS} characters."
+            )),
+        });
+    };
+
+    match resolve_economy_reconciliation(path, run_id, &moderator, note.as_deref()) {
+        Ok(Some(reconciliation)) if reconciliation.status == "clear" => {
+            Json(EconomyReconciliationResponse {
+                ok: false,
+                status: 409,
+                reconciliation: Some(reconciliation),
+                error: Some("A clear reconciliation run has no anomaly to resolve.".to_string()),
+            })
+        }
+        Ok(Some(reconciliation)) => Json(EconomyReconciliationResponse {
+            ok: true,
+            status: 200,
+            reconciliation: Some(reconciliation),
+            error: None,
+        }),
+        Ok(None) => Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 404,
+            reconciliation: None,
+            error: Some("Reconciliation run was not found.".to_string()),
+        }),
+        Err(error) => {
+            warn!(
+                "failed to resolve economy reconciliation {} in {}: {}",
+                run_id,
+                path.display(),
+                error
+            );
+            Json(EconomyReconciliationResponse {
+                ok: false,
+                status: 500,
+                reconciliation: None,
+                error: Some("Reconciliation run could not be resolved.".to_string()),
             })
         }
     }
@@ -23421,34 +24728,60 @@ async fn create_avatar(
         }
     }
 
+    let selection_requested = payload.character_creation_id.is_some()
+        || payload.character_choice_id.is_some()
+        || payload.calling.is_none();
+    let character_selection = if selection_requested {
+        let Some(selection) = character_creation_selection(
+            payload.character_creation_id.as_deref(),
+            payload.character_choice_id.as_deref(),
+        ) else {
+            return Json(AvatarResponse {
+                ok: false,
+                status: 400,
+                actor: None,
+                actor_session: None,
+                actor_session_expires_at_unix: None,
+                events: Vec::new(),
+            });
+        };
+        Some(selection)
+    } else {
+        None
+    };
     let actor_id = {
         let mut runtime = state.inner.lock().await;
         let actor_id = runtime.next_actor_id;
         runtime.next_actor_id = runtime.next_actor_id.saturating_add(1);
         actor_id
     };
-    let initial_calling = payload
-        .calling
-        .as_deref()
-        .and_then(authored_calling_statement)
+    let initial_calling = character_selection
+        .as_ref()
+        .map(|(_, choice)| choice.calling.clone())
+        .or_else(|| {
+            payload
+                .calling
+                .as_deref()
+                .and_then(authored_calling_statement)
+        })
         .unwrap_or_else(|| default_calling_statement().to_string());
-    let mut identity = generate_avatar_identity(
-        state.ai_config.as_ref().as_ref(),
-        actor_id,
-        payload.name.as_deref(),
-    )
-    .await;
-    if calling_statement_is_explorer(&initial_calling) {
-        identity.title = "Explorer of Unnamed Ways".to_string();
-        identity.description = format!(
-            "{} reads terrain like an invitation and leaves usable paths behind for everyone who follows.",
-            identity.name
-        );
-        identity.visual_prompt = format!(
-            "{}, practical pathfinder with a weathered field map, trail ribbons, muddy boots, and a curious lantern",
-            identity.visual_prompt
-        );
-    }
+    let entry_location_id = character_selection
+        .as_ref()
+        .map(|(profile, _)| profile.entry_location_id)
+        .unwrap_or(COSY_COTTAGE_LOCATION_ID);
+    // Avatar creation is a card action, so it commits with a deterministic
+    // identity immediately. Unnamed avatars are refined by AI after the
+    // response has returned and announced over the event stream.
+    let base_identity = payload
+        .name
+        .as_deref()
+        .map(|name| cosyworld_ai_model::generate_avatar_identity(actor_id, Some(name)).into())
+        .unwrap_or_else(|| fallback_avatar_identity(actor_id));
+    let identity = apply_avatar_creation_flavor(
+        base_identity,
+        character_selection.as_ref().map(|(_, choice)| choice),
+        &initial_calling,
+    );
     let actor_meta = ActorMeta {
         name: identity.name.clone(),
         speech_mode: "prose".to_string(),
@@ -23459,18 +24792,21 @@ async fn create_avatar(
     let action = CwAction {
         kind: CW_ACTION_CREATE_ACTOR,
         actor_id,
-        location_id: 1,
+        location_id: entry_location_id,
         ..CwAction::default()
     };
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
-    record.initial_calling = Some(initial_calling);
+    record.initial_calling = Some(initial_calling.clone());
+    record.initial_skill = character_selection
+        .as_ref()
+        .map(|(_, choice)| choice.starting_skill_id.clone());
     record.actor_meta_upserts.insert(actor_id, actor_meta);
-    if let Some(host) = runtime.welcome_host_for(COSY_COTTAGE_LOCATION_ID) {
+    if let Some(host) = runtime.welcome_host_for(entry_location_id) {
         record
             .projection_mutations
             .push(ProjectionMutation::PlaceResident {
                 actor_id: host.id,
-                location_id: COSY_COTTAGE_LOCATION_ID,
+                location_id: entry_location_id,
                 reason: "welcome_new_avatar".to_string(),
             });
     }
@@ -23487,11 +24823,8 @@ async fn create_avatar(
     let actor = runtime
         .actor_by_id(actor_id)
         .map(|actor| runtime.actor_view(actor));
-    let welcome_reply_plan = if status == CW_OK {
-        runtime.next_resident_card_reaction_plan(actor_id, &events)
-    } else {
-        None
-    };
+    let actor_observation =
+        player_tick_observation(&runtime, Some(entry_location_id), actor_id, status, &events);
     drop(runtime);
     let (actor_session, actor_session_record) = issue_actor_session(&state, actor_id);
     if status == CW_OK {
@@ -23500,12 +24833,24 @@ async fn create_avatar(
         }
         record_avatar_created(&state, actor_id);
         record_daily_visit(&state, actor_id);
-        schedule_avatar_art_generation(&state, actor_id, identity);
+        if payload.name.is_some() {
+            schedule_avatar_art_generation(&state, actor_id, identity.clone());
+        } else {
+            schedule_avatar_identity_refinement(
+                &state,
+                actor_id,
+                character_selection
+                    .as_ref()
+                    .map(|(_, choice)| choice.clone()),
+                initial_calling.clone(),
+                identity.clone(),
+            );
+        }
     }
 
     broadcast_events(&state, &events);
-    if let Some(plan) = welcome_reply_plan {
-        complete_resident_reply(&state, plan).await;
+    if let Some(observation) = actor_observation {
+        schedule_player_tick_observation(&state, observation);
     }
     Json(AvatarResponse {
         ok: status == CW_OK,
@@ -23577,7 +24922,7 @@ fn release_inactive_human_inventory_locked(
             item_id,
             ..CwAction::default()
         };
-        let record = JournalRecord::new(action, runtime.next_seed_value());
+        let record = JournalRecord::new(action, runtime.next_seed_value()).into_system();
         match commit_journal_record(state, runtime, record) {
             Ok((CW_OK, mut events)) => released_events.append(&mut events),
             Ok((_status, _events)) => {}
@@ -23666,10 +25011,19 @@ async fn chat(
     ) {
         return action_rate_limited_response();
     }
-
-    let payer_mode = "cosyworld_orbs";
-    let chat_started_at = Instant::now();
-    let success_usage_config = state.ai_config.as_ref().clone();
+    if let Some(path) = state.event_store_path.as_deref() {
+        match actor_has_active_job(path, payload.actor_id, ACTOR_JOB_KIND_ORB_CHAT) {
+            Ok(true) => {
+                return Json(ActionResponse {
+                    ok: false,
+                    status: CHAT_IN_FLIGHT_STATUS,
+                    events: Vec::new(),
+                });
+            }
+            Ok(false) => {}
+            Err(error) => warn!("failed to inspect active Orb Chat jobs: {}", error),
+        }
+    }
 
     let plan = {
         let runtime = state.inner.lock().await;
@@ -23702,19 +25056,13 @@ async fn chat(
         plan
     };
 
-    let Some(_chat_guard) = try_begin_actor_chat(&state.actor_chat_locks, payload.actor_id) else {
+    let Some(chat_guard) = try_begin_actor_chat(&state.actor_chat_locks, payload.actor_id) else {
         return Json(ActionResponse {
             ok: false,
             status: CHAT_IN_FLIGHT_STATUS,
             events: Vec::new(),
         });
     };
-
-    if state.avatar_chat_delay > Duration::ZERO {
-        tokio::time::sleep(state.avatar_chat_delay).await;
-    }
-
-    let content = avatar_chat_text(state.ai_config.as_ref().as_ref(), &plan).await;
 
     let mut runtime = state.inner.lock().await;
     if !client_actor_authorized_for_state(
@@ -23748,70 +25096,41 @@ async fn chat(
             events: Vec::new(),
         });
     }
-    let content_id = runtime.next_content_id_value();
+    // Commit the ordinary Chat card and pass the room turn immediately. The
+    // generated conversation is the asynchronous consequence of that card.
     let action = CwAction {
-        kind: CW_ACTION_SAY,
+        kind: CW_ACTION_NONE,
         actor_id: payload.actor_id,
-        content_id,
         ..CwAction::default()
     };
-    let mut record = JournalRecord::new(action, runtime.next_seed_value());
-    record.content_upserts.insert(content_id, content.clone());
+    let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
+    record.queued_actor_job = Some(ActorJobPayload::OrbChat(OrbChatJob {
+        actor_id: payload.actor_id,
+        target_actor_id: payload.target_actor_id,
+        plan: plan.clone(),
+        queue_event_id: None,
+        source_world_tick: None,
+        observed_through_seq: None,
+    }));
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ChatStatus {
+            target_actor_id: payload.target_actor_id,
+            status: "queued".to_string(),
+            reason: "dialogue is being written".to_string(),
+        });
     record.orb_deltas.push(OrbDelta {
         actor_id: payload.actor_id,
         delta: -CHAT_ORB_COST,
         reason: "chat".to_string(),
     });
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
-        record_ai_usage(
-            &state,
-            Some(payload.actor_id),
-            "avatar_chat",
-            payer_mode,
-            success_usage_config.as_ref(),
-            "failed",
-            None,
-            0,
-            Some("commit_failed"),
-            chat_started_at.elapsed(),
-        );
         return Json(ActionResponse {
             ok: false,
             status: 500,
             events: Vec::new(),
         });
     };
-    let reply_plan = if status == CW_OK {
-        runtime.resident_reply_plan_for_target(payload.actor_id, payload.target_actor_id, &content)
-    } else {
-        record_ai_usage(
-            &state,
-            Some(payload.actor_id),
-            "avatar_chat",
-            payer_mode,
-            success_usage_config.as_ref(),
-            "failed",
-            None,
-            0,
-            Some("kernel_rejected"),
-            chat_started_at.elapsed(),
-        );
-        None
-    };
-    if status == CW_OK {
-        record_ai_usage(
-            &state,
-            Some(payload.actor_id),
-            "avatar_chat",
-            payer_mode,
-            success_usage_config.as_ref(),
-            "ok",
-            source_event_id_for_chat(&events, payload.actor_id, content_id),
-            -CHAT_ORB_COST,
-            None,
-            chat_started_at.elapsed(),
-        );
-    }
     advance_actor_room_turn_after_commit(
         &state,
         &mut runtime,
@@ -23820,17 +25139,250 @@ async fn chat(
         status,
         &mut events,
     );
+    if status == CW_OK {
+        append_action_receipt(&state, &runtime, payload.actor_id, &mut events);
+    }
+    let source_world_tick = Some(runtime.world.tick);
+    let observed_through_seq = Some(runtime.world.next_event_seq.saturating_sub(1));
     drop(runtime);
 
     broadcast_events(&state, &events);
-    if let Some(plan) = reply_plan {
-        complete_orb_chat_exchange(&state, payload.actor_id, payload.target_actor_id, plan).await;
+    if status == CW_OK {
+        if state.event_store_path.is_some() {
+            state.actor_job_notify.notify_one();
+        } else {
+            let queue_event_id = events
+                .iter()
+                .find(|event| event.type_name == "chat.queued")
+                .map(|event| event.seq);
+            let state = state.clone();
+            let actor_id = payload.actor_id;
+            let target_actor_id = payload.target_actor_id;
+            tokio::spawn(async move {
+                let _chat_guard = chat_guard;
+                complete_queued_orb_chat(
+                    &state,
+                    actor_id,
+                    target_actor_id,
+                    plan,
+                    queue_event_id,
+                    source_world_tick,
+                    observed_through_seq,
+                )
+                .await;
+            });
+        }
     }
     Json(ActionResponse {
         ok: status == CW_OK,
         status,
         events,
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn commit_chat_status(
+    state: &AppState,
+    actor_id: u64,
+    target_actor_id: u64,
+    status: &str,
+    reason: &str,
+    orb_delta: i32,
+    caused_by_event_seq: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+    source_location_id: Option<u64>,
+) -> Vec<EventView> {
+    let mut runtime = state.inner.lock().await;
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record.caused_by_event_seq = caused_by_event_seq;
+    record.source_world_tick = source_world_tick;
+    record.observed_through_seq = observed_through_seq;
+    record.source_location_id = source_location_id;
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ChatStatus {
+            target_actor_id,
+            status: status.to_string(),
+            reason: reason.to_string(),
+        });
+    if orb_delta != 0 {
+        record.orb_deltas.push(OrbDelta {
+            actor_id,
+            delta: orb_delta,
+            reason: "chat_refund".to_string(),
+        });
+    }
+    let Ok((commit_status, events)) = commit_journal_record(state, &mut runtime, record) else {
+        return Vec::new();
+    };
+    drop(runtime);
+    if commit_status == CW_OK {
+        broadcast_events(state, &events);
+        events
+    } else {
+        Vec::new()
+    }
+}
+
+async fn complete_queued_orb_chat(
+    state: &AppState,
+    actor_id: u64,
+    target_actor_id: u64,
+    plan: AvatarChatPlan,
+    queue_event_id: Option<u64>,
+    source_world_tick: Option<u64>,
+    observed_through_seq: Option<u64>,
+) {
+    let started_at = Instant::now();
+    let usage_config = state.ai_config.as_ref().clone();
+    if state.avatar_chat_delay > Duration::ZERO {
+        tokio::time::sleep(state.avatar_chat_delay).await;
+    }
+    let content = match avatar_chat_text(usage_config.as_ref(), &plan).await {
+        Ok(content) => content,
+        Err(error) => {
+            warn!("queued AI avatar inference failed: {}", error);
+            commit_chat_status(
+                state,
+                actor_id,
+                target_actor_id,
+                "failed",
+                "the reply got lost; your Orb returned",
+                CHAT_ORB_COST,
+                queue_event_id,
+                source_world_tick,
+                observed_through_seq,
+                Some(plan.location_id),
+            )
+            .await;
+            record_ai_usage(
+                state,
+                Some(actor_id),
+                "avatar_chat",
+                "cosyworld_orbs",
+                usage_config.as_ref(),
+                "failed",
+                queue_event_id,
+                0,
+                Some(error.code()),
+                started_at.elapsed(),
+            );
+            return;
+        }
+    };
+
+    let committed = {
+        let mut runtime = state.inner.lock().await;
+        let still_together = runtime
+            .actor_by_id(actor_id)
+            .zip(runtime.actor_by_id(target_actor_id))
+            .is_some_and(|(actor, target)| {
+                actor.status == CW_ACTOR_ACTIVE
+                    && target.status == CW_ACTOR_ACTIVE
+                    && actor.location_id == plan.location_id
+                    && target.location_id == plan.location_id
+            });
+        if !still_together {
+            None
+        } else {
+            let content_id = runtime.next_content_id_value();
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_SAY,
+                    actor_id,
+                    content_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            );
+            record.caused_by_event_seq = queue_event_id;
+            record.source_world_tick = source_world_tick;
+            record.observed_through_seq = observed_through_seq;
+            record.source_location_id = Some(plan.location_id);
+            record.content_upserts.insert(content_id, content.clone());
+            match commit_journal_record(state, &mut runtime, record) {
+                Ok((CW_OK, events)) if !events.is_empty() => {
+                    let reply_plan = runtime
+                        .resident_reply_plan_for_target(actor_id, target_actor_id, &content)
+                        .map(|mut reply_plan| {
+                            reply_plan.caused_by_event_seq = queue_event_id;
+                            reply_plan.source_world_tick = source_world_tick;
+                            reply_plan.observed_through_seq = observed_through_seq;
+                            reply_plan.source_location_id = Some(plan.location_id);
+                            reply_plan
+                        });
+                    Some((content_id, events, reply_plan))
+                }
+                _ => None,
+            }
+        }
+    };
+
+    let Some((content_id, events, reply_plan)) = committed else {
+        commit_chat_status(
+            state,
+            actor_id,
+            target_actor_id,
+            "failed",
+            "the conversation moved out of reach; your Orb returned",
+            CHAT_ORB_COST,
+            queue_event_id,
+            source_world_tick,
+            observed_through_seq,
+            Some(plan.location_id),
+        )
+        .await;
+        record_ai_usage(
+            state,
+            Some(actor_id),
+            "avatar_chat",
+            "cosyworld_orbs",
+            usage_config.as_ref(),
+            "failed",
+            queue_event_id,
+            0,
+            Some("chat_context_changed"),
+            started_at.elapsed(),
+        );
+        return;
+    };
+    broadcast_events(state, &events);
+    record_ai_usage(
+        state,
+        Some(actor_id),
+        "avatar_chat",
+        "cosyworld_orbs",
+        usage_config.as_ref(),
+        "ok",
+        queue_event_id.or_else(|| source_event_id_for_chat(&events, actor_id, content_id)),
+        -CHAT_ORB_COST,
+        None,
+        started_at.elapsed(),
+    );
+    if let Some(reply_plan) = reply_plan {
+        complete_orb_chat_exchange(state, actor_id, target_actor_id, reply_plan).await;
+    }
+    commit_chat_status(
+        state,
+        actor_id,
+        target_actor_id,
+        "completed",
+        "the conversation settled",
+        0,
+        queue_event_id,
+        source_world_tick,
+        observed_through_seq,
+        Some(plan.location_id),
+    )
+    .await;
 }
 
 async fn say(
@@ -24513,7 +26065,8 @@ async fn command(
                     ..CwAction::default()
                 },
                 seed,
-            );
+            )
+            .into_player_card();
             if found_item_id.is_some() {
                 record.content_upserts.insert(content_id, output.clone());
             }
@@ -24597,7 +26150,7 @@ async fn command(
                     events: presence_events,
                 });
             };
-            let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+            let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
                 &state,
                 &mut runtime,
                 Some(location_id),
@@ -24608,7 +26161,7 @@ async fn command(
             drop(runtime);
             broadcast_events(&state, &events);
             if let Some(plan) = ripple_reply_plan {
-                complete_resident_reply(&state, plan).await;
+                schedule_player_tick_observation(&state, plan);
             }
             let response = ActionResponse {
                 ok: status == CW_OK && !events.is_empty(),
@@ -24687,7 +26240,8 @@ async fn command(
                     ..CwAction::default()
                 },
                 runtime.next_seed_value(),
-            );
+            )
+            .into_player_card();
             record
                 .projection_mutations
                 .push(ProjectionMutation::UseFeature {
@@ -24712,7 +26266,7 @@ async fn command(
                     events: presence_events,
                 });
             };
-            let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+            let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
                 &state,
                 &mut runtime,
                 Some(location_id),
@@ -24723,7 +26277,7 @@ async fn command(
             drop(runtime);
             broadcast_events(&state, &events);
             if let Some(plan) = ripple_reply_plan {
-                complete_resident_reply(&state, plan).await;
+                schedule_player_tick_observation(&state, plan);
             }
             let response = ActionResponse {
                 ok: status == CW_OK && !events.is_empty(),
@@ -25024,18 +26578,21 @@ async fn command(
     }
 }
 
-async fn complete_resident_reply(state: &AppState, plan: ResidentReplyPlan) {
-    // Scene-card replies are deliberately local and immediate. They are a
-    // turn-order affordance, not a second paid generation: committing them
-    // before the action request returns prevents a later card (or Orb Chat)
-    // from being interleaved with a reply that belonged to the previous card.
-    let proposal = ResidentIntentProposal::fallback(&plan);
+async fn complete_resident_reply(state: &AppState, plan: ResidentReplyPlan) -> Result<(), String> {
+    let proposal = match resident_reply_intent(state.ai_config.as_ref().as_ref(), &plan).await {
+        Ok(proposal) => proposal,
+        Err(error) => {
+            warn!("AI resident inference failed; skipping dialogue: {}", error);
+            return Err(error.to_string());
+        }
+    };
     let mut runtime = state.inner.lock().await;
     let Some(events) = commit_resident_reply_record(state, &mut runtime, &plan, proposal) else {
-        return;
+        return Ok(());
     };
     drop(runtime);
     broadcast_events(state, &events);
+    Ok(())
 }
 
 async fn complete_orb_chat_exchange(
@@ -25045,7 +26602,16 @@ async fn complete_orb_chat_exchange(
     first_reply_plan: ResidentReplyPlan,
 ) {
     let first_proposal =
-        resident_reply_intent(state.ai_config.as_ref().as_ref(), &first_reply_plan).await;
+        match resident_reply_intent(state.ai_config.as_ref().as_ref(), &first_reply_plan).await {
+            Ok(proposal) => proposal,
+            Err(error) => {
+                warn!(
+                    "AI resident inference failed; ending chat exchange: {}",
+                    error
+                );
+                return;
+            }
+        };
     let first_reply_events = {
         let mut runtime = state.inner.lock().await;
         commit_resident_reply_record(state, &mut runtime, &first_reply_plan, first_proposal)
@@ -25069,7 +26635,17 @@ async fn complete_orb_chat_exchange(
     let Some(followup_plan) = followup_plan else {
         return;
     };
-    let proposed_followup = avatar_chat_followup_text(None, &followup_plan).await;
+    let proposed_followup =
+        match avatar_chat_followup_text(state.ai_config.as_ref().as_ref(), &followup_plan).await {
+            Ok(followup) => followup,
+            Err(error) => {
+                warn!(
+                    "AI avatar follow-up inference failed; ending chat exchange: {}",
+                    error
+                );
+                return;
+            }
+        };
     let (followup_events, closing_plan) = {
         let mut runtime = state.inner.lock().await;
         if runtime
@@ -25078,8 +26654,11 @@ async fn complete_orb_chat_exchange(
         {
             return;
         }
-        let followup =
-            runtime.collision_safe_avatar_followup(actor_id, &followup_plan, &proposed_followup);
+        let Some(followup) = runtime.collision_safe_avatar_followup(actor_id, &proposed_followup)
+        else {
+            warn!("AI avatar follow-up repeated recent dialogue; ending chat exchange");
+            return;
+        };
         let content_id = runtime.next_content_id_value();
         let mut record = JournalRecord::new(
             CwAction {
@@ -25090,6 +26669,10 @@ async fn complete_orb_chat_exchange(
             },
             runtime.next_seed_value(),
         );
+        record.caused_by_event_seq = first_reply_plan.caused_by_event_seq;
+        record.source_world_tick = first_reply_plan.source_world_tick;
+        record.observed_through_seq = first_reply_plan.observed_through_seq;
+        record.source_location_id = first_reply_plan.source_location_id;
         record.content_upserts.insert(content_id, followup.clone());
         record
             .projection_mutations
@@ -25110,13 +26693,15 @@ async fn complete_orb_chat_exchange(
         if status != CW_OK || events.is_empty() {
             return;
         }
-        let fallback = runtime.resident_conversation_closing_fallback(target_actor_id, &followup);
-        let plan = runtime.resident_reply_plan_for_target_with_fallback(
-            actor_id,
-            target_actor_id,
-            &followup,
-            fallback,
-        );
+        let plan = runtime
+            .resident_reply_plan_for_target(actor_id, target_actor_id, &followup)
+            .map(|mut plan| {
+                plan.caused_by_event_seq = first_reply_plan.caused_by_event_seq;
+                plan.source_world_tick = first_reply_plan.source_world_tick;
+                plan.observed_through_seq = first_reply_plan.observed_through_seq;
+                plan.source_location_id = first_reply_plan.source_location_id;
+                plan
+            });
         (events, plan)
     };
     broadcast_events(state, &followup_events);
@@ -25125,42 +26710,19 @@ async fn complete_orb_chat_exchange(
     let Some(closing_plan) = closing_plan else {
         return;
     };
-    let mut closing_proposal = resident_reply_intent(None, &closing_plan).await;
+    let closing_proposal =
+        match resident_reply_intent(state.ai_config.as_ref().as_ref(), &closing_plan).await {
+            Ok(proposal) => proposal,
+            Err(error) => {
+                warn!(
+                    "AI resident closing inference failed; ending chat exchange: {}",
+                    error
+                );
+                return;
+            }
+        };
     let closing_events = {
         let mut runtime = state.inner.lock().await;
-        let location_id = runtime
-            .actor_by_id(closing_plan.npc_actor_id)
-            .map(|actor| actor.location_id)
-            .unwrap_or(0);
-        if runtime.resident_reply_repeats_recent_event(
-            closing_plan.npc_actor_id,
-            location_id,
-            &closing_proposal.speech,
-        ) {
-            let prose_closings = [
-                "Then we'll leave that thought by the kettle—for now.",
-                "All right. Keep that thought warm until we meet it again.",
-                "That feels like enough truth for one little room.",
-                "Deal. The rest can wait for the next cup of tea.",
-            ];
-            let emoji_closings = ["🫖✨🤝", "🌙🍃✨", "🧵💫🏡", "🌧️🤝🕯️"];
-            for offset in 0..prose_closings.len() {
-                let index = (runtime.world.tick as usize + offset) % prose_closings.len();
-                let candidate = if closing_plan.speech_mode == "emoji" {
-                    emoji_closings[index]
-                } else {
-                    prose_closings[index]
-                };
-                if !runtime.resident_reply_repeats_recent_event(
-                    closing_plan.npc_actor_id,
-                    location_id,
-                    candidate,
-                ) {
-                    closing_proposal.speech = candidate.to_string();
-                    break;
-                }
-            }
-        }
         commit_resident_reply_record(state, &mut runtime, &closing_plan, closing_proposal)
     };
     if let Some(events) = closing_events {
@@ -25172,13 +26734,18 @@ fn commit_resident_reply_record(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     plan: &ResidentReplyPlan,
-    proposal: ResidentIntentProposal,
+    mut proposal: ResidentIntentProposal,
 ) -> Option<Vec<EventView>> {
-    let npc = runtime.actor_by_id(plan.npc_actor_id)?;
-    if npc.kind != CW_ACTOR_NPC || npc.status != CW_ACTOR_ACTIVE {
+    let speaker = runtime.actor_by_id(plan.npc_actor_id)?;
+    if speaker.status != CW_ACTOR_ACTIVE || !matches!(speaker.kind, CW_ACTOR_NPC | CW_ACTOR_HUMAN) {
         return None;
     }
-    let proposal = runtime.collision_safe_resident_proposal(plan, proposal);
+    if speaker.kind == CW_ACTOR_NPC {
+        proposal = runtime.collision_safe_resident_proposal(plan, proposal)?;
+    } else {
+        proposal.speech =
+            runtime.collision_safe_avatar_followup(plan.npc_actor_id, &proposal.speech)?;
+    }
     let content_id = runtime.next_content_id_value();
     let action = CwAction {
         kind: CW_ACTION_SAY,
@@ -25187,45 +26754,83 @@ fn commit_resident_reply_record(
         ..CwAction::default()
     };
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
+    record.caused_by_event_seq = plan.caused_by_event_seq;
+    record.source_world_tick = plan.source_world_tick;
+    record.observed_through_seq = plan.observed_through_seq;
+    record.source_location_id = plan.source_location_id;
     record
         .content_upserts
         .insert(content_id, proposal.speech.clone());
-    record
-        .projection_mutations
-        .push(ProjectionMutation::UpdateResidentContinuity {
-            resident_id: plan.npc_actor_id,
-            proposal,
-            reason: "resident_intent".to_string(),
-        });
+    if speaker.kind == CW_ACTOR_NPC {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::UpdateResidentContinuity {
+                resident_id: plan.npc_actor_id,
+                proposal,
+                reason: "resident_intent".to_string(),
+            });
+    }
     let Ok((status, events)) = commit_journal_record(state, runtime, record) else {
         return None;
     };
     (status == CW_OK).then_some(events)
 }
 
-fn advance_turn_and_maybe_emit_resident_ripple(
+fn advance_turn_and_capture_player_tick_observation(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     location_id: Option<u64>,
     actor_id: u64,
     status: u32,
     events: &mut Vec<EventView>,
-) -> Option<ResidentReplyPlan> {
-    let card_reaction_plan = if status == CW_OK {
-        runtime.next_resident_card_reaction_plan(actor_id, events)
-    } else {
-        None
-    };
-    let card_reaction_committed = card_reaction_plan.as_ref().is_some_and(|plan| {
-        let proposal = ResidentIntentProposal::fallback(plan);
-        let Some(reply_events) = commit_resident_reply_record(state, runtime, plan, proposal)
-        else {
-            return false;
-        };
-        events.extend(reply_events);
-        true
-    });
+) -> Option<PlayerTickObservation> {
     advance_actor_room_turn_after_commit(state, runtime, location_id, actor_id, status, events);
+    let observation = player_tick_observation(runtime, location_id, actor_id, status, events);
+    if status == CW_OK {
+        append_action_receipt(state, runtime, actor_id, events);
+    }
+    observation
+}
+
+fn append_action_receipt(
+    state: &AppState,
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    events: &mut Vec<EventView>,
+) {
+    let access = AccessContext::for_linked_actor_receipt(state, actor_id);
+    let active_humans = active_turn_actor_ids_for_state(state);
+    let mut next_state =
+        runtime.state_response_with_presence(Some(actor_id), &access, Some(&active_humans), false);
+    next_state.turn = actor_room_turn_view(state, runtime, actor_id, &active_humans)
+        .unwrap_or_else(|| RoomTurnView::idle(next_state.location.id));
+    let Ok(content) = serde_json::to_string(&serde_json::json!({
+        "world_tick": runtime.world.tick,
+        "state_revision": runtime.world.next_event_seq.saturating_sub(1),
+        "state": next_state,
+    })) else {
+        return;
+    };
+    events.push(EventView {
+        seq: 0,
+        type_name: "action.receipt".to_string(),
+        success: true,
+        reason: 0,
+        actor_id: Some(actor_id),
+        actor_name: runtime.actor_name(actor_id),
+        location_id: runtime.actor_by_id(actor_id).map(|actor| actor.location_id),
+        content: Some(content),
+        ..EventView::default()
+    });
+}
+
+fn player_tick_observation(
+    runtime: &RuntimeWorld,
+    location_id: Option<u64>,
+    actor_id: u64,
+    status: u32,
+    events: &[EventView],
+) -> Option<PlayerTickObservation> {
     if status != CW_OK || events.is_empty() {
         return None;
     }
@@ -25236,35 +26841,241 @@ fn advance_turn_and_maybe_emit_resident_ripple(
         return None;
     }
 
-    let seed = runtime.next_seed_value();
     let source_action_kind = ripple_action_kind_from_events(actor_id, events);
-    let Some(context) =
-        runtime.ripple_context_for_player_turn(actor_id, source_action_kind, events)
-    else {
-        return None;
+    let ripple_source = runtime
+        .ripple_context_for_player_turn(actor_id, source_action_kind, events)
+        .map(|context| context.to_source());
+    let caused_by_event_seq = events
+        .iter()
+        .filter(|event| event.success && event.actor_id == Some(actor_id))
+        .map(|event| event.seq)
+        .max();
+    let source_location_id = ripple_source
+        .as_ref()
+        .and_then(|source| source.source_location_id)
+        .or(location_id);
+    let allow_ordinary_speech = !matches!(
+        source_action_kind,
+        CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM
+    ) && !events.iter().any(|event| event.type_name == "chat.queued")
+        && !events.iter().any(|event| {
+            matches!(
+                event.type_name.as_str(),
+                "bond.created" | "bond.revised" | "bond.resolved"
+            )
+        });
+
+    Some(PlayerTickObservation {
+        source_actor_id: actor_id,
+        source_world_tick: runtime.world.tick,
+        caused_by_event_seq,
+        observed_through_seq: runtime.world.next_event_seq.saturating_sub(1),
+        source_location_id,
+        allow_ordinary_speech,
+        source_events: events.to_vec(),
+        ripple_source,
+    })
+}
+
+async fn complete_player_tick_observation(
+    state: &AppState,
+    observation: PlayerTickObservation,
+) -> Result<(), String> {
+    let (ripple_events, reply_plan) = {
+        let mut runtime = state.inner.lock().await;
+        // A worker may be reclaimed after its reaction committed but before the
+        // outbox row was acknowledged. The source tick is globally unique, so
+        // an already-recorded autonomous result makes the retry a no-op.
+        if runtime.player_tick_already_has_autonomous_result(observation.source_world_tick) {
+            return Ok(());
+        }
+        runtime.observe_player_tick_for_autonomy(&observation);
+        let card_reaction_plan = if observation.allow_ordinary_speech {
+            runtime
+                .next_resident_card_reaction_plan(
+                    observation.source_actor_id,
+                    &observation.source_events,
+                )
+                .map(|plan| plan.with_observation(&observation))
+        } else {
+            runtime.direct_observation_reply_plan(&observation)
+        }
+        .filter(|plan| {
+            runtime.autonomy_allows_action(
+                plan.npc_actor_id,
+                CW_ACTION_SAY,
+                observation.source_world_tick,
+            )
+        });
+        let source_action_kind = observation
+            .ripple_source
+            .as_ref()
+            .map(|source| source.source_action_kind)
+            .unwrap_or(CW_ACTION_NONE);
+        let ripple = if matches!(
+            source_action_kind,
+            CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM
+        ) {
+            None
+        } else {
+            observation.ripple_source.as_ref().and_then(|source| {
+                let seed = runtime.next_seed_value();
+                let context = source.to_context();
+                runtime
+                    .ripple_record_for_player_turn(&context, seed)
+                    .filter(|record| {
+                        runtime.autonomy_allows_action(
+                            record.action.actor_id,
+                            record.action.kind,
+                            observation.source_world_tick,
+                        ) && runtime.kernel_offer_allows_action(&record.action)
+                    })
+                    .map(|mut record| {
+                        record.origin = JournalOrigin::ActorConsequence;
+                        record.source_world_tick = Some(observation.source_world_tick);
+                        record.caused_by_event_seq = observation.caused_by_event_seq;
+                        record.observed_through_seq = Some(observation.observed_through_seq);
+                        record.source_location_id = observation.source_location_id;
+                        record
+                    })
+            })
+        };
+        match ripple {
+            None => (Vec::new(), card_reaction_plan),
+            Some(record) => {
+                let action = record.action;
+                if card_reaction_plan
+                    .as_ref()
+                    .is_some_and(|plan| plan.npc_actor_id == action.actor_id)
+                {
+                    (Vec::new(), card_reaction_plan)
+                } else {
+                    match commit_journal_record(state, &mut runtime, record) {
+                        Ok((CW_OK, events)) if !events.is_empty() => {
+                            let ripple_reply_plan = observation
+                                .allow_ordinary_speech
+                                .then(|| runtime.resident_economy_action_reply_plan(&action))
+                                .flatten()
+                                .map(|plan| plan.with_observation(&observation));
+                            let player_was_only_available_speaker =
+                                card_reaction_plan.as_ref().is_some_and(|plan| {
+                                    runtime
+                                        .actor_by_id(plan.npc_actor_id)
+                                        .is_some_and(|actor| actor.kind == CW_ACTOR_HUMAN)
+                                });
+                            let reply = if player_was_only_available_speaker {
+                                ripple_reply_plan.or(card_reaction_plan)
+                            } else {
+                                card_reaction_plan.or(ripple_reply_plan)
+                            };
+                            (events, reply)
+                        }
+                        Ok((_status, _events)) => (Vec::new(), card_reaction_plan),
+                        Err(error) => {
+                            warn!(
+                                "failed to commit player-tick actor consequence for event {:?}: {}",
+                                observation.caused_by_event_seq, error
+                            );
+                            return Err(error.to_string());
+                        }
+                    }
+                }
+            }
+        }
     };
-    let Some(record) = runtime.ripple_record_for_player_turn(&context, seed) else {
-        return None;
-    };
-    let action = record.action;
-    let Ok((ripple_status, ripple_events)) = commit_journal_record(state, runtime, record) else {
-        warn!("failed to commit player-powered resident ripple");
-        return None;
-    };
-    if ripple_status != CW_OK || ripple_events.is_empty() {
-        return None;
+    if !ripple_events.is_empty() {
+        broadcast_events(state, &ripple_events);
     }
-    let ripple_reply_plan = runtime.resident_economy_action_reply_plan(&action);
-    events.extend(ripple_events);
-    // The player's confirmed card owns this conversational beat. A resident
-    // ripple may still change the world, but it must not replace the promised
-    // next-in-card-order reaction with commentary from whichever resident
-    // happened to perform the ripple.
-    if card_reaction_committed {
-        None
-    } else {
-        ripple_reply_plan
+    if let Some(plan) = reply_plan {
+        complete_resident_reply(state, plan).await?;
     }
+    Ok(())
+}
+
+fn schedule_player_tick_observation(state: &AppState, observation: PlayerTickObservation) {
+    if state.event_store_path.is_some() {
+        // The observation was inserted in the same SQLite transaction as the
+        // card journal and events. This call only wakes the durable worker.
+        state.actor_job_notify.notify_one();
+        return;
+    }
+    let state = state.clone();
+    tokio::spawn(async move {
+        let _ = complete_player_tick_observation(&state, observation.clone()).await;
+        let _ = complete_player_tick_observation(&state, observation).await;
+    });
+}
+
+fn start_actor_job_worker(state: AppState) {
+    if state.event_store_path.is_none() {
+        return;
+    }
+    tokio::spawn(async move {
+        loop {
+            let path = state
+                .event_store_path
+                .as_deref()
+                .expect("actor worker requires an event store");
+            match claim_next_actor_job(path) {
+                Ok(Some(job)) => {
+                    let result = match (&job.kind[..], &job.payload) {
+                        (ACTOR_JOB_KIND_PLAYER_TICK, ActorJobPayload::PlayerTick(observation))
+                            if job.actor_id == observation.source_actor_id =>
+                        {
+                            complete_player_tick_observation(&state, observation.clone()).await
+                        }
+                        (ACTOR_JOB_KIND_ORB_CHAT, ActorJobPayload::OrbChat(chat))
+                            if job.actor_id == chat.actor_id =>
+                        {
+                            complete_queued_orb_chat(
+                                &state,
+                                chat.actor_id,
+                                chat.target_actor_id,
+                                chat.plan.clone(),
+                                chat.queue_event_id,
+                                chat.source_world_tick,
+                                chat.observed_through_seq,
+                            )
+                            .await;
+                            Ok(())
+                        }
+                        _ => Err(format!(
+                            "unsupported or inconsistent actor job kind {}",
+                            job.kind
+                        )),
+                    };
+                    match result {
+                        Ok(()) => {
+                            if let Err(error) = complete_actor_job(path, job.id) {
+                                warn!("failed to complete actor job {}: {}", job.id, error);
+                            }
+                        }
+                        Err(error) => {
+                            warn!("actor job {} failed: {}", job.id, error);
+                            if let Err(store_error) =
+                                fail_or_retry_actor_job(path, &job, &error.to_string())
+                            {
+                                warn!(
+                                    "failed to update retry state for actor job {}: {}",
+                                    job.id, store_error
+                                );
+                            }
+                        }
+                    }
+                }
+                Ok(None) => {
+                    tokio::select! {
+                        _ = state.actor_job_notify.notified() => {},
+                        _ = tokio::time::sleep(ACTOR_JOB_IDLE_POLL) => {},
+                    }
+                }
+                Err(error) => {
+                    warn!("durable actor worker could not claim a job: {}", error);
+                    tokio::time::sleep(ACTOR_JOB_IDLE_POLL).await;
+                }
+            }
+        }
+    });
 }
 
 fn ripple_action_kind_from_events(actor_id: u64, events: &[EventView]) -> u8 {
@@ -25299,21 +27110,47 @@ fn start_ownership_refresh_scheduler(state: AppState) {
         return;
     };
     tokio::spawn(async move {
-        tokio::time::sleep(refresh_every).await;
+        let mut next_refresh = refresh_every;
         loop {
-            if let Err(error) = refresh_ownership_index_once(&state).await {
-                warn!(
-                    "Ruby High ownership refresh failed; keeping last good feed: {}",
-                    error
-                );
-            }
-            tokio::time::sleep(refresh_every).await;
+            tokio::time::sleep(next_refresh).await;
+            let failures = match refresh_ownership_index_once(&state).await {
+                Ok(_) => 0,
+                Err(error) => {
+                    warn!(
+                        "Ruby High ownership refresh failed; keeping last good feed: {}",
+                        error
+                    );
+                    state
+                        .ownership_feed_health
+                        .lock()
+                        .map(|health| health.consecutive_failures)
+                        .unwrap_or(1)
+                }
+            };
+            next_refresh = ownership_refresh_delay(refresh_every, failures);
         }
     });
 }
 
 async fn refresh_ownership_index_once(state: &AppState) -> io::Result<bool> {
-    let refreshed = load_effective_ownership_index_strict(state).await?;
+    let refreshed = match load_effective_ownership_index_strict(state).await {
+        Ok(refreshed) => {
+            if state.ownership_feed.remote_url.is_some() {
+                if let Ok(mut health) = state.ownership_feed_health.lock() {
+                    health.record_success();
+                }
+            }
+            refreshed
+        }
+        Err(error) => {
+            if state.ownership_feed.remote_url.is_some() {
+                if let Ok(mut health) = state.ownership_feed_health.lock() {
+                    health.record_failure(&error);
+                }
+            }
+            return Err(error);
+        }
+    };
     let changed = {
         let mut ownership = state.ownership_index.write().await;
         if *ownership == refreshed {
@@ -25346,6 +27183,15 @@ async fn refresh_ownership_index_once(state: &AppState) -> io::Result<bool> {
         );
     }
     Ok(changed || !placement_events.is_empty())
+}
+
+fn ownership_refresh_delay(base: Duration, consecutive_failures: u32) -> Duration {
+    const MAX_BACKOFF: Duration = Duration::from_secs(15 * 60);
+    if consecutive_failures == 0 {
+        return base;
+    }
+    let multiplier = 1_u32 << consecutive_failures.min(4);
+    base.saturating_mul(multiplier).min(MAX_BACKOFF)
 }
 
 fn start_moderation_retention_scheduler(state: AppState) {
@@ -25401,7 +27247,7 @@ async fn maybe_emit_ambient_event(state: AppState) {
             broadcast_events(&state, &events);
         }
         if let Some(plan) = reply_plan {
-            complete_resident_reply(&state, plan).await;
+            let _ = complete_resident_reply(&state, plan).await;
         }
         return;
     }
@@ -26003,8 +27849,14 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
                     .unwrap_or("somewhere new")
             )
         }),
-        "journey.started" | "journey.progressed" | "journey.narrated" | "journey.completed"
-        | "pathway.discovered" => event.content.clone().unwrap_or_else(|| {
+        "journey.started"
+        | "journey.progressed"
+        | "journey.narrated"
+        | "journey.completed"
+        | "journey.backtracked"
+        | "journey.paused"
+        | "pathway.discovered"
+        | "pathway.familiarized" => event.content.clone().unwrap_or_else(|| {
             format!("{actor_name} carries the path a little farther into the world")
         }),
         "ability_check.rolled" => {
@@ -26354,11 +28206,6 @@ async fn request_ai_room_memory_summary(
     prior_chapters: &[RoomMemoryChapter],
     entries: &[RoomMemoryEntryView],
 ) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .map_err(|error| error.to_string())?;
-    let url = format!("{}/chat/completions", config.base_url);
     let context = if entries.is_empty() {
         "No recent room events.".to_string()
     } else {
@@ -26401,37 +28248,23 @@ async fn request_ai_room_memory_summary(
         chapter_memory = chapter_memory,
         context = context,
     );
-    let response = client
-        .post(url)
-        .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "https://cosyworld.fly.dev")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
-        .header("X-Title", "CosyWorld v2")
-        .json(&serde_json::json!({
-            "model": config.model,
-            "messages": [
-                { "role": "system", "content": system },
-                { "role": "user", "content": user }
-            ],
-            "temperature": 0.45,
-            "max_tokens": 110
-        }))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?
-        .error_for_status()
-        .map_err(|error| error.to_string())?;
-    let body: serde_json::Value = response.json().await.map_err(|error| error.to_string())?;
-    let text = body
-        .get("choices")
-        .and_then(|choices| choices.get(0))
-        .and_then(|choice| choice.get("message"))
-        .and_then(|message| message.get("content"))
-        .and_then(|content| content.as_str())
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-        .ok_or_else(|| "AI room memory response did not include message content".to_string())?;
-    sanitize_room_memory_summary(text)
+    let completion = request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: "room_memory",
+            system,
+            user: &user,
+            temperature: 0.45,
+            max_tokens: 110,
+            timeout: Duration::from_secs(10),
+            max_attempts: 2,
+            referer: "https://cosyworld.fly.dev",
+            response_format: None,
+        },
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+    sanitize_room_memory_summary(&completion.text)
         .ok_or_else(|| "AI room memory response was not usable".to_string())
 }
 
@@ -26504,91 +28337,77 @@ fn trim_to_chars(value: &str, max_chars: usize) -> String {
 async fn resident_reply_intent(
     config: Option<&AiConfig>,
     plan: &ResidentReplyPlan,
-) -> ResidentIntentProposal {
-    let Some(config) = config else {
-        return ResidentIntentProposal::fallback(plan);
-    };
-    match request_ai_resident_intent(config, plan).await {
-        Ok(proposal) => proposal,
-        Err(error) => {
-            warn!(
-                "AI resident intent failed; using deterministic fallback: {}",
-                error
-            );
-            ResidentIntentProposal::fallback(plan)
-        }
-    }
+) -> Result<ResidentIntentProposal, AiGatewayError> {
+    let config = config.ok_or_else(|| AiGatewayError::unconfigured("resident dialogue"))?;
+    request_ai_resident_intent(config, plan).await
 }
 
-async fn avatar_chat_text(config: Option<&AiConfig>, plan: &AvatarChatPlan) -> String {
-    let Some(config) = config else {
-        return plan.fallback_text.clone();
-    };
-    match request_ai_avatar_chat(config, plan, false).await {
-        Ok(text) => sanitize_avatar_chat(&text).unwrap_or_else(|| plan.fallback_text.clone()),
-        Err(error) => {
-            warn!(
-                "AI avatar chat failed; using deterministic fallback: {}",
-                error
-            );
-            plan.fallback_text.clone()
-        }
-    }
+async fn avatar_chat_text(
+    config: Option<&AiConfig>,
+    plan: &AvatarChatPlan,
+) -> Result<String, AiGatewayError> {
+    let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
+    let text = request_ai_avatar_chat(config, plan, false).await?;
+    sanitize_avatar_chat(&text)
+        .ok_or_else(|| AiGatewayError::invalid_response("AI avatar chat response was not usable"))
 }
 
-async fn avatar_chat_followup_text(config: Option<&AiConfig>, plan: &AvatarChatPlan) -> String {
-    let fallback = plan
-        .fresh_subject
-        .as_ref()
-        .map(|subject| {
-            format!("Then let's follow {subject} one step further. Where would you start?")
-        })
-        .unwrap_or_else(|| "That makes sense. What part of it should we notice next?".to_string());
-    let Some(config) = config else {
-        return fallback;
-    };
-    match request_ai_avatar_chat(config, plan, true).await {
-        Ok(text) => sanitize_avatar_chat(&text).unwrap_or(fallback),
-        Err(error) => {
-            warn!(
-                "AI avatar chat follow-up failed; using deterministic fallback: {}",
-                error
-            );
-            fallback
-        }
-    }
+async fn avatar_chat_followup_text(
+    config: Option<&AiConfig>,
+    plan: &AvatarChatPlan,
+) -> Result<String, AiGatewayError> {
+    let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
+    let text = request_ai_avatar_chat(config, plan, true).await?;
+    sanitize_avatar_chat(&text).ok_or_else(|| {
+        AiGatewayError::invalid_response("AI avatar chat follow-up response was not usable")
+    })
 }
 
 async fn request_ai_avatar_chat(
     config: &AiConfig,
     plan: &AvatarChatPlan,
     followup: bool,
-) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(12))
-        .build()
-        .map_err(|error| error.to_string())?;
-    let url = format!("{}/chat/completions", config.base_url);
-    let recent = if plan.recent_lines.is_empty() {
+) -> Result<String, AiGatewayError> {
+    let recent_lines = if followup {
+        let start = plan.recent_lines.len().saturating_sub(2);
+        &plan.recent_lines[start..]
+    } else {
+        &plan.recent_lines[..]
+    };
+    let recent = if recent_lines.is_empty() {
         "No recent room dialogue.".to_string()
     } else {
-        plan.recent_lines.join("\n")
+        recent_lines.join("\n")
     };
     let location_memory = format_location_memory(&plan.location_memory);
     let goals = format_goal_lines(&plan.goals);
     let target_continuity = format_resident_continuity(&plan.target_continuity);
-    let need = plan
-        .missing_need
-        .as_ref()
-        .map(|item| format!("The resident may currently need: {item}."))
-        .unwrap_or_else(|| "No current resident item need is known.".to_string());
+    let need = if followup {
+        "Do not introduce a resident need or item that is absent from the freshest exchange."
+            .to_string()
+    } else {
+        plan.missing_need
+            .as_ref()
+            .map(|item| format!("The resident may currently need: {item}."))
+            .unwrap_or_else(|| "No current resident item need is known.".to_string())
+    };
+    let target_economy = if followup {
+        "Do not revive an older request, trade, or item topic.".to_string()
+    } else {
+        plan.target_economy_note.clone()
+    };
+    let fresh_subject = plan
+        .fresh_subject
+        .as_deref()
+        .map(|subject| format!("Fresh conversation subject: {subject}. Stay on it."))
+        .unwrap_or_else(|| "Follow only the freshest resident line.".to_string());
     let system = if followup {
-        "You write the player avatar's brief follow-up in an ongoing cozy conversation. Respond directly to the freshest resident line, keep one concrete room or continuity detail in play, and leave a small closing hook. Do not restart the conversation. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Keep it under 28 words."
+        "You write the player avatar's brief follow-up in an ongoing cozy conversation. Respond directly to the freshest resident line and continue only its current subject. Never introduce an item, request, goal, or place that is absent from the two freshest lines. Keep one concrete room detail in play and leave a small closing hook. Do not restart the conversation. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Keep it under 28 words."
     } else {
         "You write one in-character line for the player avatar after the human presses Chat. Make the line feel intentionally authored: use one concrete detail from the room, recent dialogue, or the target resident's continuity/current need, and give the resident an easy hook to answer. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Keep it under 34 words."
     };
     let user = format!(
-        "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nTarget resident: {target} / {target_title}\nTarget continuity:\n{target_continuity}\nTarget economy:\n{target_economy}\nCast present: {cast}\n{need}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
+        "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nTarget resident: {target} / {target_title}\nTarget continuity:\n{target_continuity}\nTarget economy:\n{target_economy}\nCast present: {cast}\n{need}\n{fresh_subject}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
         name = plan.actor_name,
         title = plan.actor_title,
         description = plan.actor_description,
@@ -26601,53 +28420,39 @@ async fn request_ai_avatar_chat(
         target = plan.target_actor_name,
         target_title = plan.target_title,
         target_continuity = target_continuity,
-        target_economy = plan.target_economy_note,
+        target_economy = target_economy,
         cast = plan.cast.join(", "),
         need = need,
+        fresh_subject = fresh_subject,
         recent = recent,
     );
 
-    let response = client
-        .post(url)
-        .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "http://127.0.0.1:3102")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
-        .header("X-Title", "CosyWorld v2")
-        .json(&serde_json::json!({
-            "model": config.model,
-            "messages": [
-                { "role": "system", "content": system },
-                { "role": "user", "content": user }
-            ],
-            "temperature": 0.8,
-            "max_tokens": 70
-        }))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?
-        .error_for_status()
-        .map_err(|error| error.to_string())?;
-    let body: serde_json::Value = response.json().await.map_err(|error| error.to_string())?;
-    body.get("choices")
-        .and_then(|choices| choices.get(0))
-        .and_then(|choice| choice.get("message"))
-        .and_then(|message| message.get("content"))
-        .and_then(|content| content.as_str())
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-        .map(ToString::to_string)
-        .ok_or_else(|| "AI response did not include message content".to_string())
+    request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: if followup {
+                "dialogue_avatar_followup"
+            } else {
+                "dialogue_avatar"
+            },
+            system,
+            user: &user,
+            temperature: 0.8,
+            max_tokens: 70,
+            timeout: Duration::from_secs(12),
+            max_attempts: 2,
+            referer: "http://127.0.0.1:3102",
+            response_format: None,
+        },
+    )
+    .await
+    .map(|completion| completion.text)
 }
 
 async fn request_ai_avatar_identity(
     config: &AiConfig,
     actor_id: u64,
 ) -> Result<GeneratedAvatarIdentity, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(14))
-        .build()
-        .map_err(|error| error.to_string())?;
-    let url = format!("{}/chat/completions", config.base_url);
     let fallback = fallback_avatar_identity(actor_id);
     let system = "You generate compact JSON for a player avatar in a cozy shared MUD. Every identity must feel warm, playful, and safe to meet. Output valid JSON only. Do not mention AI, prompts, models, policies, tools, wallets, NFTs, or UI.";
     let user = format!(
@@ -26661,37 +28466,23 @@ async fn request_ai_avatar_identity(
         description = fallback.description,
     );
 
-    let response = client
-        .post(url)
-        .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "https://cosyworld.fly.dev")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
-        .header("X-Title", "CosyWorld v2")
-        .json(&serde_json::json!({
-            "model": config.model,
-            "messages": [
-                { "role": "system", "content": system },
-                { "role": "user", "content": user }
-            ],
-            "temperature": 1.0,
-            "max_tokens": 240
-        }))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?
-        .error_for_status()
-        .map_err(|error| error.to_string())?;
-    let body: serde_json::Value = response.json().await.map_err(|error| error.to_string())?;
-    let content = body
-        .get("choices")
-        .and_then(|choices| choices.get(0))
-        .and_then(|choice| choice.get("message"))
-        .and_then(|message| message.get("content"))
-        .and_then(|content| content.as_str())
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-        .ok_or_else(|| "AI avatar identity response did not include message content".to_string())?;
-    parse_avatar_identity_json(content, actor_id)
+    let completion = request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: "avatar_identity",
+            system,
+            user: &user,
+            temperature: 1.0,
+            max_tokens: 240,
+            timeout: Duration::from_secs(14),
+            max_attempts: 2,
+            referer: "https://cosyworld.fly.dev",
+            response_format: None,
+        },
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+    parse_avatar_identity_json(&completion.text, actor_id)
         .ok_or_else(|| "AI avatar identity response was not usable JSON".to_string())
 }
 
@@ -26782,7 +28573,7 @@ fn pathway_art_targets(mutation: &ProjectionMutation) -> Vec<(u64, String)> {
     else {
         return Vec::new();
     };
-    if !pathway.art_eligible {
+    if !pathway.art_eligible || !pathway.familiar {
         return Vec::new();
     }
     let revealed_location_ids = reveal_edges
@@ -27097,12 +28888,7 @@ fn replicate_image_content_type(header_value: &str, output_url: &str) -> Result<
 async fn request_ai_resident_intent(
     config: &AiConfig,
     plan: &ResidentReplyPlan,
-) -> Result<ResidentIntentProposal, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(12))
-        .build()
-        .map_err(|error| error.to_string())?;
-    let url = format!("{}/chat/completions", config.base_url);
+) -> Result<ResidentIntentProposal, AiGatewayError> {
     let system = resident_system_prompt(plan);
     let recent = if plan.recent_lines.is_empty() {
         "No recent room dialogue.".to_string()
@@ -27128,38 +28914,24 @@ async fn request_ai_resident_intent(
         name = plan.npc_name
     );
 
-    let response = client
-        .post(url)
-        .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "http://127.0.0.1:3102")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
-        .header("X-Title", "CosyWorld v2")
-        .json(&serde_json::json!({
-            "model": config.model,
-            "messages": [
-                { "role": "system", "content": system },
-                { "role": "user", "content": user }
-            ],
-            "temperature": 0.75,
-            "max_tokens": 220
-        }))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?
-        .error_for_status()
-        .map_err(|error| error.to_string())?;
-    let body: serde_json::Value = response.json().await.map_err(|error| error.to_string())?;
-    let content = body
-        .get("choices")
-        .and_then(|choices| choices.get(0))
-        .and_then(|choice| choice.get("message"))
-        .and_then(|message| message.get("content"))
-        .and_then(|content| content.as_str())
-        .map(str::trim)
-        .filter(|text| !text.is_empty())
-        .ok_or_else(|| "AI response did not include message content".to_string())?;
-    parse_resident_intent_json(content, plan)
-        .ok_or_else(|| "AI resident intent response was not usable JSON".to_string())
+    let completion = request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: "dialogue_resident",
+            system: &system,
+            user: &user,
+            temperature: 0.75,
+            max_tokens: 220,
+            timeout: Duration::from_secs(12),
+            max_attempts: 2,
+            referer: "http://127.0.0.1:3102",
+            response_format: None,
+        },
+    )
+    .await?;
+    parse_resident_intent_json(&completion.text, plan).ok_or_else(|| {
+        AiGatewayError::invalid_response("AI resident intent response was not usable JSON")
+    })
 }
 
 fn format_location_memory(memory: &[String]) -> String {
@@ -27326,87 +29098,21 @@ fn format_resident_continuity(continuity: &ResidentContinuityState) -> String {
     lines.join("\n")
 }
 
-fn avatar_chat_fallback_text(
-    actor_id: u64,
-    target_actor_name: &str,
-    target_actor_id: u64,
-    location_id: Option<u64>,
-    missing_need: Option<&str>,
-) -> String {
-    if let Some(line) = seed_avatar_chat_fallback_line(
-        target_actor_id,
-        target_actor_name,
-        location_id,
-        missing_need,
-    ) {
-        return line;
-    }
-    cosyworld_ai_model::generate_avatar_chat(&AvatarChatModelInput {
-        actor_id,
-        target_actor_id,
-        target_actor_name: target_actor_name.to_string(),
-        missing_need: missing_need.map(ToString::to_string),
-    })
-}
-
-fn seed_resident_fallback_line(actor_id: u64, location_id: Option<u64>) -> Option<String> {
-    let lines = &seed_content().fallback_lines;
-    location_id
-        .and_then(|location_id| {
-            lines.iter().find(|line| {
-                line.kind == "resident_reply"
-                    && line.actor_id == Some(actor_id)
-                    && line.location_id == Some(location_id)
-            })
-        })
-        .or_else(|| {
-            lines.iter().find(|line| {
-                line.kind == "resident_reply"
-                    && line.actor_id == Some(actor_id)
-                    && line.location_id.is_none()
-            })
-        })
-        .map(|line| line.text.clone())
-}
-
-fn seed_avatar_chat_fallback_line(
-    target_actor_id: u64,
-    target_actor_name: &str,
-    location_id: Option<u64>,
-    missing_need: Option<&str>,
-) -> Option<String> {
-    let lines = &seed_content().fallback_lines;
-    location_id
-        .and_then(|location_id| {
-            lines.iter().find(|line| {
-                line.kind == "avatar_chat"
-                    && line.target_actor_id == Some(target_actor_id)
-                    && line.location_id == Some(location_id)
-            })
-        })
-        .or_else(|| {
-            lines.iter().find(|line| {
-                line.kind == "avatar_chat"
-                    && line.target_actor_id == Some(target_actor_id)
-                    && line.location_id.is_none()
-            })
-        })
-        .map(|line| {
-            line.text
-                .replace("{target_actor_name}", target_actor_name)
-                .replace(
-                    "{missing_need}",
-                    missing_need.unwrap_or("the next small need"),
-                )
-        })
-}
-
 fn sanitize_avatar_chat(text: &str) -> Option<String> {
     cosyworld_ai_model::sanitize_avatar_chat(text)
 }
 
 fn resident_system_prompt(plan: &ResidentReplyPlan) -> String {
     let base = "Return valid JSON only. Never mention AI, models, prompts, policies, tools, or system instructions. Do not speak for other residents. Treat resident continuity as this resident's durable perspective, while the room/kernel facts remain authoritative. The speech field is the only visible room line. Typed intent fields update continuity only after the kernel accepts the speech event. Comedy rules: ground every line in one physical action, prop, or bodily complaint from the room. Punchlines over poetry. Cheeky teasing and light flirting are welcome; keep it playful, never cruel or explicit. Never use the words whisper, eternal, void, abyss, veil, hush, sacred, vow, moonlit, or objects that remember things. If in doubt, be funnier and more specific.";
+    if plan
+        .economy_note
+        .starts_with("This is the player avatar's own immediate")
+    {
+        return format!(
+            "You are {}, the player avatar in CosyWorld. Write their immediate first-person in-character response to the card they just played. React to the concrete outcome instead of narrating the rules or inventing another action. Keep it under 34 words. {base}",
+            plan.npc_name
+        );
+    }
     match plan.npc_actor_id {
         1001 => format!(
             "You are Rati, the cottage's brisk landlady mouse. The speech field must be first person: bossy, mothering, armed with knitting needles and opinions about boots. One concrete room prop per line. Under 40 words. {base}"
@@ -27567,70 +29273,481 @@ fn travel_narration_fallback(plan: &JourneyNarrationPlan) -> String {
     )
 }
 
-async fn travel_narration_text(config: Option<&AiConfig>, plan: &JourneyNarrationPlan) -> String {
-    let fallback = travel_narration_fallback(plan);
-    let Some(config) = config else {
-        return fallback;
-    };
-    let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(12))
-        .build()
+fn sanitize_generated_pathway_name(value: &str) -> Option<String> {
+    let name = compact_whitespace(value.trim().trim_matches('"'));
+    let word_count = name.split_whitespace().count();
+    let char_count = name.chars().count();
+    let lower = name.to_ascii_lowercase();
+    if !(2..=5).contains(&word_count)
+        || !(4..=40).contains(&char_count)
+        || lower.contains("pathway")
+        || lower.contains("stretch")
+        || generated_label_contains_authority_language(&lower)
+        || !name
+            .chars()
+            .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
     {
-        Ok(client) => client,
-        Err(_) => return fallback,
-    };
-    let prompt = format!(
-        "Narrate one compact tabletop-RPG travel beat in 18-38 words. The narrator is a warm, concrete dungeon master. Describe physical terrain and forward motion, not UI or rules. No dialogue and no question. Traveller: {actor}. From: {from}. Current stretch: {to}. Final destination: {destination}. Progress: step {step} of {total}. Explorer discovering new geography: {explorer}. This beat reveals a path: {discovery}.",
-        actor = plan.actor_name,
-        from = plan.from_name,
-        to = plan.to_name,
-        destination = plan.destination_name,
-        step = plan.current_step,
-        total = plan.total_steps,
-        explorer = plan.explorer,
-        discovery = plan.discovery,
-    );
-    let response = client
-        .post(format!("{}/chat/completions", config.base_url))
-        .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "http://127.0.0.1:3102")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
-        .json(&serde_json::json!({
-            "model": config.model,
-            "messages": [
-                { "role": "system", "content": "You are CosyWorld's travel narrator. Return only the narrated beat, with no label or quotation marks." },
-                { "role": "user", "content": prompt }
-            ],
-            "temperature": 0.8,
-            "max_tokens": 100
-        }))
-        .send()
-        .await;
-    let Ok(response) = response else {
-        return fallback;
-    };
-    let Ok(response) = response.error_for_status() else {
-        return fallback;
-    };
-    let Ok(body) = response.json::<serde_json::Value>().await else {
-        return fallback;
-    };
-    let Some(text) = body
-        .get("choices")
-        .and_then(|choices| choices.get(0))
-        .and_then(|choice| choice.get("message"))
-        .and_then(|message| message.get("content"))
-        .and_then(|content| content.as_str())
-        .and_then(|text| sanitize_continuity_note_text(Some(text)))
-    else {
-        return fallback;
-    };
-    let text = text.trim().trim_matches('"').trim().to_string();
-    if text.is_empty() || text.ends_with('?') {
-        fallback
-    } else {
-        text
+        return None;
     }
+    Some(name)
+}
+
+fn generated_label_contains_authority_language(value: &str) -> bool {
+    value
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .any(|token| {
+            matches!(
+                token,
+                "access"
+                    | "award"
+                    | "awards"
+                    | "clock"
+                    | "damage"
+                    | "health"
+                    | "inventory"
+                    | "item"
+                    | "items"
+                    | "orb"
+                    | "orbs"
+                    | "quest"
+                    | "quests"
+                    | "reward"
+                    | "rewards"
+                    | "unlock"
+                    | "unlocks"
+                    | "wallet"
+            )
+        })
+}
+
+fn sanitize_generated_content_text(
+    value: &str,
+    min_chars: usize,
+    max_chars: usize,
+) -> Option<String> {
+    let text = compact_whitespace(value.trim().trim_matches('"'));
+    let char_count = text.chars().count();
+    let lowered = format!(" {} ", text.to_ascii_lowercase());
+    if !(min_chars..=max_chars).contains(&char_count)
+        || text.chars().any(char::is_control)
+        || text.chars().any(|character| "{}<>\"".contains(character))
+        || [
+            " http://",
+            " https://",
+            " ignore previous",
+            " system prompt",
+            " developer message",
+            " assistant message",
+            " ai model",
+            " policy",
+            " wallet",
+            " orb ",
+            " orbs ",
+            " item ",
+            " items ",
+            " inventory ",
+            " reward",
+            " award",
+            " damage",
+            " health ",
+            " hit point",
+            " level up",
+            " grants ",
+            " gives you ",
+            " unlock",
+            " access gate",
+            " allows entry",
+            " opens access",
+            " locked until",
+            " quest",
+            " clock",
+        ]
+        .iter()
+        .any(|needle| lowered.contains(needle))
+    {
+        return None;
+    }
+    Some(text)
+}
+
+fn sanitize_generated_pathway_title(value: &str) -> Option<String> {
+    let title = compact_whitespace(value.trim().trim_matches('"'));
+    let word_count = title.split_whitespace().count();
+    if !(1..=6).contains(&word_count)
+        || !(4..=48).contains(&title.chars().count())
+        || title.to_ascii_lowercase().contains("pathway to")
+        || generated_label_contains_authority_language(&title.to_ascii_lowercase())
+        || !title
+            .chars()
+            .all(|character| character.is_ascii_alphabetic() || " -'".contains(character))
+    {
+        return None;
+    }
+    Some(title)
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GeneratedWaypointContentProposal {
+    name: String,
+    title: String,
+    description: String,
+    persona: String,
+    visual_detail: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GeneratedPathwayContentProposal {
+    waypoints: Vec<GeneratedWaypointContentProposal>,
+}
+
+fn parse_generated_pathway_content(
+    text: &str,
+    expected: usize,
+) -> Option<Vec<GeneratedWaypointContentProposal>> {
+    let cleaned = text
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    let json_text = if cleaned.starts_with('{') {
+        cleaned
+    } else {
+        let start = cleaned.find('{')?;
+        let end = cleaned.rfind('}')?;
+        cleaned.get(start..=end)?
+    };
+    let proposal: GeneratedPathwayContentProposal = serde_json::from_str(json_text).ok()?;
+    if proposal.waypoints.len() != expected {
+        return None;
+    }
+    let waypoints = proposal
+        .waypoints
+        .into_iter()
+        .map(|waypoint| {
+            Some(GeneratedWaypointContentProposal {
+                name: sanitize_generated_pathway_name(&waypoint.name)?,
+                title: sanitize_generated_pathway_title(&waypoint.title)?,
+                description: sanitize_generated_content_text(&waypoint.description, 24, 240)?,
+                persona: sanitize_generated_content_text(&waypoint.persona, 20, 180)?,
+                visual_detail: sanitize_generated_content_text(&waypoint.visual_detail, 12, 180)?,
+            })
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let unique = waypoints
+        .iter()
+        .map(|waypoint| waypoint.name.to_ascii_lowercase())
+        .collect::<BTreeSet<_>>();
+    (unique.len() == waypoints.len()).then_some(waypoints)
+}
+
+fn generated_pathway_name_avoids_anchors(name: &str, anchors: &[&str]) -> bool {
+    let name = compact_whitespace(name).to_ascii_lowercase();
+    anchors.iter().all(|anchor| {
+        let anchor = compact_whitespace(anchor).to_ascii_lowercase();
+        anchor.is_empty() || !name.contains(&anchor)
+    })
+}
+
+fn apply_generated_waypoint_content(
+    waypoint: &mut GeneratedWaypointState,
+    content: GeneratedWaypointContentProposal,
+) {
+    waypoint.name = content.name.clone();
+    waypoint.meta.title = content.title;
+    waypoint.meta.description = content.description;
+    waypoint.meta.persona = content.persona;
+    waypoint.meta.art_prompt = Some(format!(
+        "cozy storybook landscape, {detail}, {name}, {biome}, terrain of {terrain}, no people, no character, no text, no logo, no watermark",
+        detail = content.visual_detail,
+        name = content.name,
+        biome = waypoint.meta.biome,
+        terrain = waypoint.meta.terrain.join(", "),
+    ));
+}
+
+fn set_pathway_generation_provenance(
+    pathway: &mut GeneratedPathwayState,
+    mode: GenerationMode,
+    config: Option<&AiConfig>,
+    source: &str,
+    attempts: u8,
+) {
+    pathway.generation = GenerationProvenance {
+        source: source.to_string(),
+        feature: PATHWAY_CONTENT_FEATURE.to_string(),
+        policy_mode: mode.as_str().to_string(),
+        prompt_version: PATHWAY_CONTENT_PROMPT_VERSION.to_string(),
+        provider: ai_provider_name(config).to_string(),
+        model: ai_model_name(config),
+        attempts,
+    };
+}
+
+async fn generate_hidden_pathway_content(
+    state: &AppState,
+    mutation: &mut ProjectionMutation,
+    narration_plan: &mut JourneyNarrationPlan,
+) {
+    let ProjectionMutation::JourneyTransition { pathway, .. } = mutation else {
+        return;
+    };
+    if !pathway.revealed_edges.is_empty() || pathway.waypoints.is_empty() {
+        return;
+    }
+    let mode = state.generation_controls.mode(PATHWAY_CONTENT_FEATURE);
+    let config = state.ai_config.as_ref().as_ref();
+    if mode == GenerationMode::Off {
+        set_pathway_generation_provenance(pathway, mode, config, "deterministic_fallback", 0);
+        record_ai_usage(
+            state,
+            Some(pathway.created_by_actor_id),
+            PATHWAY_CONTENT_FEATURE,
+            "cosyworld_system",
+            config,
+            "disabled",
+            None,
+            0,
+            Some("generation_off"),
+            Duration::ZERO,
+        );
+        return;
+    }
+    let Some(config) = config else {
+        set_pathway_generation_provenance(pathway, mode, None, "deterministic_fallback", 0);
+        record_ai_usage(
+            state,
+            Some(pathway.created_by_actor_id),
+            PATHWAY_CONTENT_FEATURE,
+            "cosyworld_system",
+            None,
+            "fallback",
+            None,
+            0,
+            Some("inference_unconfigured"),
+            Duration::ZERO,
+        );
+        return;
+    };
+    let waypoint_context = pathway
+        .waypoints
+        .iter()
+        .enumerate()
+        .map(|(index, waypoint)| {
+            format!(
+                "{}. fallback name: {}; biome: {}; terrain: {}",
+                index + 1,
+                waypoint.name,
+                waypoint.meta.biome,
+                waypoint.meta.terrain.join(", ")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let prompt = format!(
+        "Create {count} distinct hidden waypoint identities for successive stretches of one cozy storybook route. They are generated together now but players encounter them one at a time through Explore. Route: {origin} toward {destination}.\n{context}\nFor each waypoint return: name (evocative proper place name, 2-5 words); title (1-6 words); description (one concrete physical sentence); persona (one sentence describing how the place behaves, never dialogue); visual_detail (physical landscape details only). Preserve order. Do not introduce people, creatures, items, quests, rewards, rules, danger outcomes, access, magic powers, or facts beyond the listed biome and terrain. Names must use only ASCII letters, spaces, hyphens, or apostrophes, and must not use numbers, Pathway, Stretch, the route destination, or duplicates.",
+        count = pathway.waypoints.len(),
+        origin = narration_plan.from_name,
+        destination = narration_plan.destination_name,
+        context = waypoint_context,
+    );
+    let response_format = serde_json::json!({
+        "type": "json_schema",
+        "json_schema": {
+            "name": "cosyworld_pathway_content",
+            "strict": true,
+            "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "waypoints": {
+                        "type": "array",
+                        "minItems": pathway.waypoints.len(),
+                        "maxItems": pathway.waypoints.len(),
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "name": { "type": "string", "minLength": 4, "maxLength": 40 },
+                                "title": { "type": "string", "minLength": 4, "maxLength": 48 },
+                                "description": { "type": "string", "minLength": 24, "maxLength": 240 },
+                                "persona": { "type": "string", "minLength": 20, "maxLength": 180 },
+                                "visual_detail": { "type": "string", "minLength": 12, "maxLength": 180 }
+                            },
+                            "required": ["name", "title", "description", "persona", "visual_detail"]
+                        }
+                    }
+                },
+                "required": ["waypoints"]
+            }
+        }
+    });
+    let completion = match request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: PATHWAY_CONTENT_FEATURE,
+            system: "You create bounded hidden geography in CosyWorld. Return only JSON matching the supplied schema. World rules and rewards are outside your authority.",
+            user: &prompt,
+            temperature: 0.8,
+            max_tokens: 600,
+            timeout: Duration::from_secs(12),
+            max_attempts: 2,
+            referer: "http://127.0.0.1:3102",
+            response_format: Some(&response_format),
+        },
+    )
+    .await
+    {
+        Ok(completion) => completion,
+        Err(error) => {
+            set_pathway_generation_provenance(
+                pathway,
+                mode,
+                Some(config),
+                "deterministic_fallback",
+                error.attempts,
+            );
+            record_ai_usage(
+                state,
+                Some(pathway.created_by_actor_id),
+                PATHWAY_CONTENT_FEATURE,
+                "cosyworld_system",
+                Some(config),
+                "fallback",
+                None,
+                0,
+                Some(error.code()),
+                error.latency,
+            );
+            return;
+        }
+    };
+    let contents = parse_generated_pathway_content(&completion.text, pathway.waypoints.len())
+        .filter(|contents| {
+            contents.iter().all(|content| {
+                generated_pathway_name_avoids_anchors(
+                    &content.name,
+                    &[&narration_plan.from_name, &narration_plan.destination_name],
+                )
+            })
+        });
+    let Some(contents) = contents else {
+        set_pathway_generation_provenance(
+            pathway,
+            mode,
+            Some(config),
+            "deterministic_fallback",
+            completion.attempts,
+        );
+        record_ai_usage(
+            state,
+            Some(pathway.created_by_actor_id),
+            PATHWAY_CONTENT_FEATURE,
+            "cosyworld_system",
+            Some(config),
+            "fallback",
+            None,
+            0,
+            Some("inference_invalid_response"),
+            completion.latency,
+        );
+        return;
+    };
+    if mode == GenerationMode::Shadow {
+        set_pathway_generation_provenance(
+            pathway,
+            mode,
+            Some(config),
+            "deterministic_fallback",
+            completion.attempts,
+        );
+        record_ai_usage(
+            state,
+            Some(pathway.created_by_actor_id),
+            PATHWAY_CONTENT_FEATURE,
+            "cosyworld_system",
+            Some(config),
+            "shadow_ok",
+            None,
+            0,
+            None,
+            completion.latency,
+        );
+        return;
+    }
+    for (waypoint, content) in pathway.waypoints.iter_mut().zip(contents) {
+        let previous_name = waypoint.name.clone();
+        let next_name = content.name.clone();
+        apply_generated_waypoint_content(waypoint, content);
+        if narration_plan.to_name == previous_name {
+            narration_plan.to_name = next_name;
+        }
+    }
+    set_pathway_generation_provenance(pathway, mode, Some(config), "ai", completion.attempts);
+    record_ai_usage(
+        state,
+        Some(pathway.created_by_actor_id),
+        PATHWAY_CONTENT_FEATURE,
+        "cosyworld_system",
+        Some(config),
+        "ok",
+        None,
+        0,
+        None,
+        completion.latency,
+    );
+}
+
+fn schedule_hidden_pathway_content_generation(
+    state: &AppState,
+    mut mutation: ProjectionMutation,
+    mut narration_plan: JourneyNarrationPlan,
+) {
+    let should_generate = matches!(
+        &mutation,
+        ProjectionMutation::JourneyTransition { pathway, .. }
+            if pathway.revealed_edges.is_empty() && !pathway.waypoints.is_empty()
+    );
+    if !should_generate {
+        return;
+    }
+    let state = state.clone();
+    tokio::spawn(async move {
+        generate_hidden_pathway_content(&state, &mut mutation, &mut narration_plan).await;
+        let ProjectionMutation::JourneyTransition { pathway, .. } = mutation else {
+            return;
+        };
+        if pathway.generation.source != "ai" {
+            return;
+        }
+        let events = {
+            let mut runtime = state.inner.lock().await;
+            if !runtime.generated_pathways.contains_key(&pathway.id) {
+                return;
+            }
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: pathway.created_by_actor_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            );
+            record
+                .projection_mutations
+                .push(ProjectionMutation::RefinePathway { pathway });
+            let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+                return;
+            };
+            if status != CW_OK {
+                return;
+            }
+            events
+        };
+        broadcast_events(&state, &events);
+    });
 }
 
 async fn move_actor(
@@ -27686,8 +29803,9 @@ async fn move_actor(
         }
     };
     if let Some((action, mut mutation, narration_plan)) = journey_plan {
-        let narration =
-            travel_narration_text(state.ai_config.as_ref().as_ref(), &narration_plan).await;
+        // Movement and path discovery commit from deterministic content. Optional
+        // AI geography refinement runs after the card response has returned.
+        let narration = travel_narration_fallback(&narration_plan);
         if let ProjectionMutation::JourneyTransition {
             narration: stored_narration,
             ..
@@ -27695,6 +29813,7 @@ async fn move_actor(
         {
             *stored_narration = narration;
         }
+        let content_generation = mutation.clone();
         let art_targets = pathway_art_targets(&mutation);
         let turn_action_kind = if action.kind == CW_ACTION_MOVE {
             CW_ACTION_MOVE
@@ -27710,6 +29829,7 @@ async fn move_actor(
         )
         .await;
         if response.0.ok {
+            schedule_hidden_pathway_content_generation(&state, content_generation, narration_plan);
             schedule_pathway_art_generation(&state, art_targets);
         }
         return response;
@@ -27764,7 +29884,8 @@ async fn explore_pathway(
             });
         }
     };
-    let narration = travel_narration_text(state.ai_config.as_ref().as_ref(), &narration_plan).await;
+    // Exploring a known journey step should resolve without a second AI round trip.
+    let narration = travel_narration_fallback(&narration_plan);
     if let ProjectionMutation::JourneyTransition {
         narration: stored_narration,
         ..
@@ -28295,7 +30416,8 @@ async fn prepare(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    );
+    )
+    .into_player_card();
     record
         .projection_mutations
         .push(ProjectionMutation::SetTag {
@@ -28319,7 +30441,7 @@ async fn prepare(
             events: Vec::new(),
         });
     };
-    let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+    let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
         turn_location_id,
@@ -28331,7 +30453,7 @@ async fn prepare(
 
     broadcast_events(&state, &events);
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_player_tick_observation(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK,
@@ -28401,6 +30523,7 @@ async fn work(
     } else {
         "work"
     };
+    let pathway_upgrade_id = runtime.generated_pathway_id_for_progress_clock(&clock_id);
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -28408,7 +30531,8 @@ async fn work(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    );
+    )
+    .into_player_card();
     record
         .projection_mutations
         .push(ProjectionMutation::AdvanceClock {
@@ -28416,6 +30540,14 @@ async fn work(
             amount: progress_amount,
             reason: progress_reason.to_string(),
         });
+    if let Some(pathway_id) = &pathway_upgrade_id {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::UpgradePathwayIfReady {
+                pathway_id: pathway_id.clone(),
+                progress_clock_id: clock_id.clone(),
+            });
+    }
     if prepared {
         record
             .projection_mutations
@@ -28463,7 +30595,15 @@ async fn work(
             events: Vec::new(),
         });
     };
-    let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+    let pathway_upgraded = events
+        .iter()
+        .any(|event| event.type_name == "pathway.familiarized");
+    let pathway_art_targets = pathway_upgrade_id
+        .as_deref()
+        .filter(|_| pathway_upgraded)
+        .map(|pathway_id| runtime.generated_pathway_art_targets(pathway_id))
+        .unwrap_or_default();
+    let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
         turn_location_id,
@@ -28474,8 +30614,11 @@ async fn work(
     drop(runtime);
 
     broadcast_events(&state, &events);
+    if pathway_upgraded {
+        schedule_pathway_art_generation(&state, pathway_art_targets);
+    }
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_player_tick_observation(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK,
@@ -28547,6 +30690,7 @@ async fn help_room(
     } else {
         "help"
     };
+    let pathway_upgrade_id = runtime.generated_pathway_id_for_progress_clock(&clock_id);
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -28554,7 +30698,8 @@ async fn help_room(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    );
+    )
+    .into_player_card();
     record
         .projection_mutations
         .push(ProjectionMutation::AdvanceClock {
@@ -28562,6 +30707,14 @@ async fn help_room(
             amount: progress_amount,
             reason: progress_reason.to_string(),
         });
+    if let Some(pathway_id) = &pathway_upgrade_id {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::UpgradePathwayIfReady {
+                pathway_id: pathway_id.clone(),
+                progress_clock_id: clock_id.clone(),
+            });
+    }
     record
         .projection_mutations
         .push(ProjectionMutation::SetTag {
@@ -28635,7 +30788,15 @@ async fn help_room(
             events: Vec::new(),
         });
     };
-    let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+    let pathway_upgraded = events
+        .iter()
+        .any(|event| event.type_name == "pathway.familiarized");
+    let pathway_art_targets = pathway_upgrade_id
+        .as_deref()
+        .filter(|_| pathway_upgraded)
+        .map(|pathway_id| runtime.generated_pathway_art_targets(pathway_id))
+        .unwrap_or_default();
+    let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
         turn_location_id,
@@ -28646,8 +30807,11 @@ async fn help_room(
     drop(runtime);
 
     broadcast_events(&state, &events);
+    if pathway_upgraded {
+        schedule_pathway_art_generation(&state, pathway_art_targets);
+    }
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_player_tick_observation(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK,
@@ -28705,7 +30869,8 @@ async fn rest(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    );
+    )
+    .into_player_card();
     record
         .projection_mutations
         .push(ProjectionMutation::ClearTag {
@@ -28755,7 +30920,7 @@ async fn rest(
             events: Vec::new(),
         });
     };
-    let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+    let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
         turn_location_id,
@@ -28767,7 +30932,7 @@ async fn rest(
 
     broadcast_events(&state, &events);
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_player_tick_observation(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK,
@@ -28818,7 +30983,8 @@ async fn bank_ledger(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    );
+    )
+    .into_player_card();
     record
         .projection_mutations
         .push(ProjectionMutation::BankVisitLedger {
@@ -28839,7 +31005,7 @@ async fn bank_ledger(
             record_first_ledger_banked(&state, payload.actor_id, event.seq);
         }
     }
-    let reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+    let reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
         turn_location_id,
@@ -28850,7 +31016,7 @@ async fn bank_ledger(
     drop(runtime);
     broadcast_events(&state, &events);
     if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_player_tick_observation(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -28917,7 +31083,8 @@ async fn revise_calling(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    );
+    )
+    .into_player_card();
     record
         .projection_mutations
         .push(ProjectionMutation::ReviseCalling {
@@ -28933,7 +31100,7 @@ async fn revise_calling(
             events: Vec::new(),
         });
     };
-    let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+    let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
         turn_location_id,
@@ -28945,7 +31112,7 @@ async fn revise_calling(
 
     broadcast_events(&state, &events);
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_player_tick_observation(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -29011,7 +31178,8 @@ async fn train_skill(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    );
+    )
+    .into_player_card();
     record
         .projection_mutations
         .push(ProjectionMutation::TrainSkill {
@@ -29027,7 +31195,7 @@ async fn train_skill(
             events: Vec::new(),
         });
     };
-    let reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+    let reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
         turn_location_id,
@@ -29038,7 +31206,7 @@ async fn train_skill(
     drop(runtime);
     broadcast_events(&state, &events);
     if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_player_tick_observation(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -29113,7 +31281,6 @@ async fn create_bond(
         });
     }
 
-    let reply_text = format!("I want to keep you close: {statement}");
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -29121,7 +31288,8 @@ async fn create_bond(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    );
+    )
+    .into_player_card();
     record
         .projection_mutations
         .push(ProjectionMutation::CreateBond {
@@ -29138,16 +31306,7 @@ async fn create_bond(
             events: Vec::new(),
         });
     };
-    let reply_plan = if status == CW_OK && !events.is_empty() {
-        runtime.resident_reply_plan_for_target(
-            payload.actor_id,
-            payload.target_actor_id,
-            &reply_text,
-        )
-    } else {
-        None
-    };
-    let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+    let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
         turn_location_id,
@@ -29158,11 +31317,8 @@ async fn create_bond(
     drop(runtime);
 
     broadcast_events(&state, &events);
-    if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
-    }
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_player_tick_observation(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -29249,7 +31405,6 @@ async fn revise_bond(
         });
     }
 
-    let reply_text = format!("I see our friendship a little differently now: {statement}");
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -29257,7 +31412,8 @@ async fn revise_bond(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    );
+    )
+    .into_player_card();
     record
         .projection_mutations
         .push(ProjectionMutation::ReviseBond {
@@ -29274,16 +31430,7 @@ async fn revise_bond(
             events: Vec::new(),
         });
     };
-    let reply_plan = if status == CW_OK && !events.is_empty() {
-        runtime.resident_reply_plan_for_target(
-            payload.actor_id,
-            payload.target_actor_id,
-            &reply_text,
-        )
-    } else {
-        None
-    };
-    let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+    let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
         turn_location_id,
@@ -29294,11 +31441,8 @@ async fn revise_bond(
     drop(runtime);
 
     broadcast_events(&state, &events);
-    if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
-    }
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_player_tick_observation(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -29373,10 +31517,6 @@ async fn resolve_bond(
         });
     }
 
-    let reply_text = format!(
-        "I want to keep what mattered between us: {}",
-        active_bond.statement
-    );
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -29384,7 +31524,8 @@ async fn resolve_bond(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    );
+    )
+    .into_player_card();
     record
         .projection_mutations
         .push(ProjectionMutation::ResolveBond {
@@ -29399,16 +31540,7 @@ async fn resolve_bond(
             events: Vec::new(),
         });
     };
-    let reply_plan = if status == CW_OK && !events.is_empty() {
-        runtime.resident_reply_plan_for_target(
-            payload.actor_id,
-            payload.target_actor_id,
-            &reply_text,
-        )
-    } else {
-        None
-    };
-    let ripple_reply_plan = advance_turn_and_maybe_emit_resident_ripple(
+    let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
         turn_location_id,
@@ -29419,11 +31551,8 @@ async fn resolve_bond(
     drop(runtime);
 
     broadcast_events(&state, &events);
-    if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
-    }
     if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+        schedule_player_tick_observation(&state, plan);
     }
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
@@ -29480,7 +31609,7 @@ async fn apply_journey_transition(
             events: Vec::new(),
         });
     };
-    advance_actor_room_turn_after_commit(
+    let reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
         turn_location_id,
@@ -29493,6 +31622,9 @@ async fn apply_journey_transition(
         broadcast_events(&state, &released_events);
     }
     broadcast_events(&state, &events);
+    if let Some(plan) = reply_plan {
+        schedule_player_tick_observation(&state, plan);
+    }
     let mut response_events = events;
     if !was_active {
         response_events.extend(commit_presence_event(&state, actor_id, true).await);
@@ -29566,46 +31698,22 @@ async fn apply_and_broadcast_with_resident_reply(
             events: Vec::new(),
         });
     };
-    let reply_plan = if status == CW_OK && !events.is_empty() {
-        runtime
-            .resident_reply_text_for_committed_action(&action)
-            .and_then(|(target_actor_id, reply_text)| {
-                runtime.resident_reply_plan_for_target(actor_id, target_actor_id, &reply_text)
-            })
-    } else {
-        None
-    };
-    let ripple_reply_plan = if reply_plan.is_some() {
-        advance_actor_room_turn_after_commit(
-            &state,
-            &mut runtime,
-            turn_location_id,
-            actor_id,
-            status,
-            &mut events,
-        );
-        None
-    } else {
-        advance_turn_and_maybe_emit_resident_ripple(
-            &state,
-            &mut runtime,
-            turn_location_id,
-            actor_id,
-            status,
-            &mut events,
-        )
-    };
+    let actor_observation = advance_turn_and_capture_player_tick_observation(
+        &state,
+        &mut runtime,
+        turn_location_id,
+        actor_id,
+        status,
+        &mut events,
+    );
     drop(runtime);
 
     if !released_events.is_empty() {
         broadcast_events(&state, &released_events);
     }
     broadcast_events(&state, &events);
-    if let Some(plan) = reply_plan {
-        complete_resident_reply(&state, plan).await;
-    }
-    if let Some(plan) = ripple_reply_plan {
-        complete_resident_reply(&state, plan).await;
+    if let Some(observation) = actor_observation {
+        schedule_player_tick_observation(&state, observation);
     }
     let mut response_events = events;
     if !was_active {
@@ -29725,13 +31833,33 @@ fn sse_world_event(view: EventView) -> Option<Result<Event, Infallible>> {
 }
 
 fn broadcast_events(state: &AppState, events: &[EventView]) {
-    for event in events {
+    for event in events
+        .iter()
+        .filter(|event| event.type_name != "action.receipt")
+    {
         let _ = state.tx.send(event.clone());
     }
 }
 
-async fn index() -> impl IntoResponse {
-    (no_store_headers(), Html(INDEX_HTML))
+fn index_etag() -> &'static str {
+    static ETAG: OnceLock<String> = OnceLock::new();
+    ETAG.get_or_init(|| format!("\"{}\"", stable_hash_hex(&[INDEX_HTML])))
+}
+
+async fn index(headers: HeaderMap) -> Response {
+    let etag = index_etag();
+    let cache_headers = [
+        (header::CACHE_CONTROL, "public, max-age=0, must-revalidate"),
+        (header::ETAG, etag),
+    ];
+    if headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value == etag)
+    {
+        return (StatusCode::NOT_MODIFIED, cache_headers).into_response();
+    }
+    (StatusCode::OK, cache_headers, Html(INDEX_HTML)).into_response()
 }
 
 async fn moderation_console() -> impl IntoResponse {
@@ -29767,11 +31895,10 @@ async fn ruby_high_card_asset(AxumPath(card_file): AxumPath<String>) -> impl Int
         return (StatusCode::NOT_FOUND, "unknown card").into_response();
     };
 
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../app-ruby-high/assets/nft/cards")
-        .join(format!("{card_id}.png"));
-    match fs::read(path) {
-        Ok(bytes) => (
+    let asset_file = format!("{card_id}.png");
+    let path = seed_pack_asset_path("ruby-high.first-bell", "cards", &asset_file);
+    match path.and_then(|path| fs::read(path).ok()) {
+        Some(bytes) => (
             StatusCode::OK,
             [
                 (header::CONTENT_TYPE, "image/png"),
@@ -29780,7 +31907,7 @@ async fn ruby_high_card_asset(AxumPath(card_file): AxumPath<String>) -> impl Int
             bytes,
         )
             .into_response(),
-        Err(_) => ruby_high_card_missing_asset_response(spec),
+        None => ruby_high_card_missing_asset_response(spec),
     }
 }
 
@@ -29791,11 +31918,13 @@ async fn lonely_forest_character_asset(
         return (StatusCode::NOT_FOUND, "unknown Lonely Forest asset").into_response();
     }
 
-    let path = seed_content_root()
-        .join("lonely-forest/assets/characters/slices")
-        .join(&asset_file);
-    match fs::read(path) {
-        Ok(bytes) => (
+    let path = seed_pack_asset_path(
+        "cosyworld.lonely-forest.characters",
+        "characters",
+        &asset_file,
+    );
+    match path.and_then(|path| fs::read(path).ok()) {
+        Some(bytes) => (
             StatusCode::OK,
             [
                 (header::CONTENT_TYPE, "image/png"),
@@ -29804,21 +31933,19 @@ async fn lonely_forest_character_asset(
             bytes,
         )
             .into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "missing Lonely Forest asset").into_response(),
+        None => (StatusCode::NOT_FOUND, "missing Lonely Forest asset").into_response(),
     }
 }
 
-fn ruby_high_card_missing_asset_response(spec: RubyHighCardSpec) -> Response {
-    Redirect::temporary(spec.chain_image_uri).into_response()
+fn ruby_high_card_missing_asset_response(spec: &RubyHighCardSpec) -> Response {
+    Redirect::temporary(&spec.chain_image_uri).into_response()
 }
 
 async fn generated_seed_card_asset(AxumPath(card_file): AxumPath<String>) -> impl IntoResponse {
     if let Some((card_id, content_type)) = generated_seed_card_bitmap_request(&card_file) {
-        let path = seed_content_root()
-            .join("core/assets/generated/cards")
-            .join(&card_file);
-        return match fs::read(path) {
-            Ok(bytes) => (
+        let path = seed_pack_asset_path("cosyworld.core", "generated/cards", &card_file);
+        return match path.and_then(|path| fs::read(path).ok()) {
+            Some(bytes) => (
                 StatusCode::OK,
                 [
                     (header::CONTENT_TYPE, content_type),
@@ -29827,7 +31954,7 @@ async fn generated_seed_card_asset(AxumPath(card_file): AxumPath<String>) -> imp
                 bytes,
             )
                 .into_response(),
-            Err(_) => (
+            None => (
                 StatusCode::NOT_FOUND,
                 format!("missing generated seed card asset {card_id}"),
             )
@@ -29850,6 +31977,57 @@ async fn generated_seed_card_asset(AxumPath(card_file): AxumPath<String>) -> imp
         generated_seed_card_svg(&spec),
     )
         .into_response()
+}
+
+async fn worldpack_asset(
+    AxumPath((pack_id, asset_path)): AxumPath<(String, String)>,
+) -> impl IntoResponse {
+    let Some(mount) = seed_asset_mounts()
+        .iter()
+        .filter(|mount| {
+            mount.pack_id == pack_id
+                && asset_path
+                    .strip_prefix(&mount.mount)
+                    .is_some_and(|suffix| suffix.starts_with('/'))
+        })
+        .max_by_key(|mount| mount.mount.len())
+    else {
+        return (StatusCode::NOT_FOUND, "unknown worldpack asset mount").into_response();
+    };
+    let relative_path = asset_path
+        .strip_prefix(&mount.mount)
+        .unwrap_or_default()
+        .trim_start_matches('/');
+    let Some(path) = seed_pack_asset_path(&pack_id, &mount.mount, relative_path) else {
+        return (StatusCode::BAD_REQUEST, "invalid worldpack asset path").into_response();
+    };
+    match fs::read(path) {
+        Ok(bytes) => (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, asset_content_type(relative_path)),
+                (header::CACHE_CONTROL, "public, max-age=86400"),
+            ],
+            bytes,
+        )
+            .into_response(),
+        Err(_) if mount.optional => {
+            let fallback = mount.fallback.as_deref().unwrap_or("none");
+            (
+                StatusCode::NOT_FOUND,
+                format!("optional worldpack asset missing; fallback={fallback}"),
+            )
+                .into_response()
+        }
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            format!(
+                "missing required worldpack asset under {}",
+                mount.public_prefix
+            ),
+        )
+            .into_response(),
+    }
 }
 
 async fn generated_pathway_asset(
@@ -30526,6 +32704,18 @@ fn generated_pathway_id(left: u64, right: u64) -> String {
     format!("pathway:{origin}:{destination}")
 }
 
+fn generated_pathway_progress_clock_id(pathway_id: &str) -> String {
+    format!("{pathway_id}:familiarity")
+}
+
+fn generated_pathway_danger_clock_id(pathway_id: &str) -> String {
+    format!("{pathway_id}:wildness")
+}
+
+fn generated_pathway_job_id(pathway_id: &str) -> String {
+    format!("{pathway_id}:community-work")
+}
+
 fn pathway_edge_key(left: u64, right: u64) -> String {
     let (origin, destination) = canonical_pathway_anchors(left, right);
     format!("{origin}:{destination}")
@@ -30846,14 +33036,15 @@ fn source_event_for_orb_delta<'a>(
         "combat_hit" => Some("combat.attack.hit"),
         "combat_flee" => Some("combat.flee.success"),
         "job_completed" => Some("job.updated"),
-        "chat" => Some("message.created"),
+        "chat" => Some("chat.queued"),
+        "chat_refund" => Some("chat.failed"),
         "listen" => Some("ability_check.rolled"),
         _ => None,
     };
     events
         .iter()
         .find(|event| {
-            event.success
+            (event.success || delta.reason == "chat_refund")
                 && event.actor_id == Some(delta.actor_id)
                 && preferred_type
                     .map(|type_name| event.type_name == type_name)
@@ -30863,11 +33054,16 @@ fn source_event_for_orb_delta<'a>(
                     || event.content_id == Some(record.action.content_id))
         })
         .or_else(|| {
+            events.iter().find(|event| {
+                (event.success || delta.reason == "chat_refund")
+                    && event.actor_id == Some(delta.actor_id)
+            })
+        })
+        .or_else(|| {
             events
                 .iter()
-                .find(|event| event.success && event.actor_id == Some(delta.actor_id))
+                .find(|event| event.success || delta.reason == "chat_refund")
         })
-        .or_else(|| events.iter().find(|event| event.success))
 }
 
 fn orb_ledger_entries_for_record(
@@ -30918,25 +33114,6 @@ fn orb_ledger_entries_for_record(
             }
         })
         .collect()
-}
-
-fn ai_provider_name(config: Option<&AiConfig>) -> &'static str {
-    let Some(config) = config else {
-        return "local_fallback";
-    };
-    if config.base_url.contains("openrouter.ai") {
-        "openrouter"
-    } else if config.base_url.contains("api.openai.com") {
-        "openai"
-    } else {
-        "openai_compatible"
-    }
-}
-
-fn ai_model_name(config: Option<&AiConfig>) -> String {
-    config
-        .map(|config| config.model.clone())
-        .unwrap_or_else(|| "deterministic-fallback".to_string())
 }
 
 fn source_event_id_for_chat(events: &[EventView], actor_id: u64, content_id: u64) -> Option<u64> {
@@ -30996,35 +33173,83 @@ fn commit_journal_record(
     runtime: &mut RuntimeWorld,
     record: JournalRecord,
 ) -> io::Result<(u32, Vec<EventView>)> {
-    if let Some(path) = state.event_store_path.as_deref() {
-        append_action_journal(path, &record)?;
-    }
-
     let pre_orb_balances = runtime.orb_balances.clone();
     let pre_orb_reward_claims = runtime.orb_reward_claims.clone();
-    let (status, events) = runtime.apply_journal_record(&record);
-    if status == CW_OK {
-        if let Some(path) = state.event_store_path.as_deref() {
+    let (status, events, _actor_job_inserted) = if let Some(path) =
+        state.event_store_path.as_deref()
+    {
+        init_event_store(path)?;
+        let backup = runtime.clone();
+        let mut conn = open_event_store(path)?;
+        let tx = conn.transaction().map_err(sqlite_error)?;
+        let committed = (|| -> io::Result<(u32, Vec<EventView>, bool)> {
+            insert_action_journal(&tx, &record)?;
+            let (status, events) = runtime.apply_journal_record(&record);
             let ledger_entries = orb_ledger_entries_for_record(
                 &record,
                 &events,
                 &pre_orb_balances,
                 &pre_orb_reward_claims,
             );
-            if let Err(error) = append_orb_ledger(path, &ledger_entries) {
-                warn!(
-                    "failed to append CosyWorld v2 Orb ledger to {}: {}",
-                    path.display(),
-                    error
-                );
+            if status == CW_OK {
+                insert_orb_ledger_entries(&tx, &ledger_entries)?;
             }
+            insert_world_events(&tx, &events)?;
+            let observation_job_inserted =
+                if status == CW_OK && record.origin == JournalOrigin::PlayerCard {
+                    player_tick_observation(runtime, None, record.action.actor_id, status, &events)
+                        .map(|observation| insert_actor_job(&tx, &observation))
+                        .transpose()?
+                        .unwrap_or(false)
+                } else {
+                    false
+                };
+            let queued_job_inserted = if status == CW_OK {
+                match record.queued_actor_job.as_ref() {
+                    Some(ActorJobPayload::OrbChat(job)) => {
+                        let queue_event_id = events
+                            .iter()
+                            .find(|event| event.type_name == "chat.queued" && event.success)
+                            .map(|event| event.seq);
+                        insert_orb_chat_job(&tx, job, runtime.world.tick, queue_event_id)?
+                    }
+                    Some(_) => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "journal queued an unsupported actor job payload",
+                        ));
+                    }
+                    None => false,
+                }
+            } else {
+                false
+            };
+            Ok((
+                status,
+                events,
+                observation_job_inserted || queued_job_inserted,
+            ))
+        })();
+        let committed = match committed {
+            Ok(committed) => committed,
+            Err(error) => {
+                *runtime = backup;
+                return Err(error);
+            }
+        };
+        if let Err(error) = tx.commit().map_err(sqlite_error) {
+            *runtime = backup;
+            return Err(error);
         }
-    }
+        committed
+    } else {
+        let (status, events) = runtime.apply_journal_record(&record);
+        (status, events, false)
+    };
     if !events.is_empty() {
         state.mark_activity();
     }
     persist_runtime(state, runtime);
-    persist_events(state, &events);
     Ok((status, events))
 }
 
@@ -31165,6 +33390,28 @@ fn init_event_store(path: &Path) -> io::Result<()> {
             created_at_ms INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_action_journal_kind ON action_journal(action_kind);
+        CREATE TABLE IF NOT EXISTS actor_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL,
+            actor_id INTEGER NOT NULL,
+            cause_event_seq INTEGER,
+            source_tick INTEGER NOT NULL,
+            observed_through_seq INTEGER NOT NULL,
+            location_id INTEGER,
+            status TEXT NOT NULL DEFAULT 'pending',
+            attempts INTEGER NOT NULL DEFAULT 0,
+            lease_until_ms INTEGER,
+            available_at_ms INTEGER NOT NULL DEFAULT 0,
+            context_json TEXT NOT NULL,
+            dedupe_key TEXT NOT NULL UNIQUE,
+            last_error TEXT,
+            created_at_ms INTEGER NOT NULL,
+            updated_at_ms INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_actor_jobs_ready
+            ON actor_jobs(status, available_at_ms, lease_until_ms, id);
+        CREATE INDEX IF NOT EXISTS idx_actor_jobs_actor
+            ON actor_jobs(actor_id, status, id);
         CREATE TABLE IF NOT EXISTS actor_sessions (
             session_token TEXT PRIMARY KEY,
             actor_id INTEGER NOT NULL,
@@ -31257,7 +33504,23 @@ fn init_event_store(path: &Path) -> io::Result<()> {
             provenance_json TEXT NOT NULL,
             created_at_ms INTEGER NOT NULL
         );
-        CREATE INDEX IF NOT EXISTS idx_avatar_pack_openings_owner ON avatar_pack_openings(owner_wallet_address);",
+        CREATE INDEX IF NOT EXISTS idx_avatar_pack_openings_owner ON avatar_pack_openings(owner_wallet_address);
+        CREATE TABLE IF NOT EXISTS economy_reconciliation_runs (
+            run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            wallet_count INTEGER NOT NULL,
+            active_box_count INTEGER NOT NULL,
+            unopened_pack_count INTEGER NOT NULL,
+            anomaly_count INTEGER NOT NULL,
+            anomalies_json TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            created_at_ms INTEGER NOT NULL,
+            resolved_at_ms INTEGER,
+            resolved_by TEXT,
+            resolution_note TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_economy_reconciliation_runs_created
+            ON economy_reconciliation_runs(created_at_ms);",
     )
     .map_err(sqlite_error)?;
     init_activation_store(&conn)?;
@@ -31297,6 +33560,37 @@ fn init_event_store(path: &Path) -> io::Result<()> {
         "resolution_note",
         "ALTER TABLE moderation_reports ADD COLUMN resolution_note TEXT",
     )?;
+    ensure_sqlite_column(
+        &conn,
+        "economy_reconciliation_runs",
+        "status",
+        "ALTER TABLE economy_reconciliation_runs ADD COLUMN status TEXT NOT NULL DEFAULT 'open'",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "economy_reconciliation_runs",
+        "resolved_at_ms",
+        "ALTER TABLE economy_reconciliation_runs ADD COLUMN resolved_at_ms INTEGER",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "economy_reconciliation_runs",
+        "resolved_by",
+        "ALTER TABLE economy_reconciliation_runs ADD COLUMN resolved_by TEXT",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "economy_reconciliation_runs",
+        "resolution_note",
+        "ALTER TABLE economy_reconciliation_runs ADD COLUMN resolution_note TEXT",
+    )?;
+    conn.execute(
+        "UPDATE economy_reconciliation_runs
+         SET status = 'clear'
+         WHERE anomaly_count = 0 AND status = 'open' AND resolved_at_ms IS NULL",
+        [],
+    )
+    .map_err(sqlite_error)?;
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_moderation_reports_status ON moderation_reports(status, report_id)",
         [],
@@ -31333,9 +33627,14 @@ fn action_journal_has_records(path: &Path) -> io::Result<bool> {
     Ok(count > 0)
 }
 
+#[cfg(test)]
 fn append_action_journal(path: &Path, record: &JournalRecord) -> io::Result<()> {
     init_event_store(path)?;
     let conn = open_event_store(path)?;
+    insert_action_journal(&conn, record)
+}
+
+fn insert_action_journal(conn: &Connection, record: &JournalRecord) -> io::Result<()> {
     let payload = serde_json::to_string(record)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     conn.execute(
@@ -31346,6 +33645,240 @@ fn append_action_journal(path: &Path, record: &JournalRecord) -> io::Result<()> 
             record.seed as i64,
             payload,
             now_millis() as i64
+        ],
+    )
+    .map_err(sqlite_error)?;
+    Ok(())
+}
+
+fn actor_job_dedupe_key(observation: &PlayerTickObservation) -> String {
+    format!(
+        "player-tick:{}:{}:{}",
+        observation.source_world_tick,
+        observation.caused_by_event_seq.unwrap_or(0),
+        observation.source_actor_id
+    )
+}
+
+fn insert_actor_job(conn: &Connection, observation: &PlayerTickObservation) -> io::Result<bool> {
+    let payload = ActorJobPayload::PlayerTick(observation.clone());
+    insert_actor_job_payload(
+        conn,
+        ACTOR_JOB_KIND_PLAYER_TICK,
+        observation.source_actor_id,
+        observation.caused_by_event_seq,
+        observation.source_world_tick,
+        observation.observed_through_seq,
+        observation.source_location_id,
+        &actor_job_dedupe_key(observation),
+        &payload,
+    )
+}
+
+fn insert_orb_chat_job(
+    conn: &Connection,
+    job: &OrbChatJob,
+    source_tick: u64,
+    queue_event_id: Option<u64>,
+) -> io::Result<bool> {
+    let mut job = job.clone();
+    job.queue_event_id = queue_event_id.or(job.queue_event_id);
+    job.source_world_tick = Some(source_tick);
+    job.observed_through_seq = job.queue_event_id;
+    let payload = ActorJobPayload::OrbChat(job.clone());
+    let cause_event_seq = job.queue_event_id;
+    insert_actor_job_payload(
+        conn,
+        ACTOR_JOB_KIND_ORB_CHAT,
+        job.actor_id,
+        cause_event_seq,
+        source_tick,
+        cause_event_seq.unwrap_or(0),
+        Some(job.plan.location_id),
+        &format!(
+            "orb-chat:{}:{}:{}",
+            job.actor_id,
+            job.target_actor_id,
+            cause_event_seq.unwrap_or(0)
+        ),
+        &payload,
+    )
+}
+
+fn actor_has_active_job(path: &Path, actor_id: u64, kind: &str) -> io::Result<bool> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM actor_jobs
+             WHERE actor_id = ?1 AND kind = ?2 AND status IN ('pending', 'running')",
+            params![actor_id as i64, kind],
+            |row| row.get(0),
+        )
+        .map_err(sqlite_error)?;
+    Ok(count > 0)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn insert_actor_job_payload(
+    conn: &Connection,
+    kind: &str,
+    actor_id: u64,
+    cause_event_seq: Option<u64>,
+    source_tick: u64,
+    observed_through_seq: u64,
+    location_id: Option<u64>,
+    dedupe_key: &str,
+    payload: &ActorJobPayload,
+) -> io::Result<bool> {
+    let context_json = serde_json::to_string(payload)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    let now = now_millis() as i64;
+    let inserted = conn
+        .execute(
+            "INSERT OR IGNORE INTO actor_jobs
+                (kind, actor_id, cause_event_seq, source_tick, observed_through_seq,
+                 location_id, status, attempts, lease_until_ms, available_at_ms,
+                 context_json, dedupe_key, created_at_ms, updated_at_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', 0, NULL, ?7, ?8, ?9, ?7, ?7)",
+            params![
+                kind,
+                actor_id as i64,
+                cause_event_seq.map(|seq| seq as i64),
+                source_tick as i64,
+                observed_through_seq as i64,
+                location_id.map(|id| id as i64),
+                now,
+                context_json,
+                dedupe_key,
+            ],
+        )
+        .map_err(sqlite_error)?;
+    Ok(inserted > 0)
+}
+
+#[cfg(test)]
+fn append_actor_job(path: &Path, observation: &PlayerTickObservation) -> io::Result<bool> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    insert_actor_job(&conn, observation)
+}
+
+fn claim_next_actor_job(path: &Path) -> io::Result<Option<ActorJob>> {
+    init_event_store(path)?;
+    let mut conn = open_event_store(path)?;
+    let tx = conn.transaction().map_err(sqlite_error)?;
+    let now = now_millis() as i64;
+    tx.execute(
+        "UPDATE actor_jobs AS older
+         SET status = 'coalesced', updated_at_ms = ?2
+         WHERE older.kind = ?1 AND older.status = 'pending'
+           AND EXISTS (
+               SELECT 1 FROM actor_jobs AS newer
+               WHERE newer.kind = older.kind
+                 AND newer.actor_id = older.actor_id
+                 AND newer.status = 'pending'
+                 AND newer.source_tick > older.source_tick
+           )",
+        params![ACTOR_JOB_KIND_PLAYER_TICK, now],
+    )
+    .map_err(sqlite_error)?;
+    let row = tx
+        .query_row(
+            "SELECT id, kind, actor_id, attempts, context_json
+             FROM actor_jobs
+             WHERE ((status = 'pending' AND available_at_ms <= ?1)
+                OR (status = 'running' AND lease_until_ms IS NOT NULL AND lease_until_ms <= ?1))
+               AND NOT EXISTS (
+                   SELECT 1 FROM actor_jobs AS active
+                   WHERE active.actor_id = actor_jobs.actor_id
+                     AND active.id != actor_jobs.id
+                     AND active.status = 'running'
+                     AND active.lease_until_ms > ?1
+               )
+             ORDER BY source_tick ASC, id ASC
+             LIMIT 1",
+            params![now],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(sqlite_error)?;
+    let Some((id, kind, actor_id, attempts, context_json)) = row else {
+        tx.commit().map_err(sqlite_error)?;
+        return Ok(None);
+    };
+    let next_attempt = attempts.max(0).saturating_add(1);
+    let lease_until = now.saturating_add(ACTOR_JOB_LEASE_MS as i64);
+    let claimed = tx
+        .execute(
+            "UPDATE actor_jobs
+             SET status = 'running', attempts = ?2, lease_until_ms = ?3, updated_at_ms = ?4
+             WHERE id = ?1
+               AND ((status = 'pending' AND available_at_ms <= ?4)
+                 OR (status = 'running' AND lease_until_ms IS NOT NULL AND lease_until_ms <= ?4))",
+            params![id, next_attempt, lease_until, now],
+        )
+        .map_err(sqlite_error)?;
+    if claimed == 0 {
+        tx.commit().map_err(sqlite_error)?;
+        return Ok(None);
+    }
+    tx.commit().map_err(sqlite_error)?;
+    let payload = serde_json::from_str(&context_json)
+        .or_else(|primary_error| {
+            if kind == ACTOR_JOB_KIND_PLAYER_TICK {
+                serde_json::from_str::<PlayerTickObservation>(&context_json)
+                    .map(ActorJobPayload::PlayerTick)
+            } else {
+                Err(primary_error)
+            }
+        })
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    Ok(Some(ActorJob {
+        id,
+        kind,
+        actor_id: actor_id.max(0) as u64,
+        attempts: next_attempt.max(0) as u32,
+        payload,
+    }))
+}
+
+fn complete_actor_job(path: &Path, job_id: i64) -> io::Result<()> {
+    let conn = open_event_store(path)?;
+    conn.execute(
+        "UPDATE actor_jobs
+         SET status = 'completed', lease_until_ms = NULL, last_error = NULL, updated_at_ms = ?2
+         WHERE id = ?1",
+        params![job_id, now_millis() as i64],
+    )
+    .map_err(sqlite_error)?;
+    Ok(())
+}
+
+fn fail_or_retry_actor_job(path: &Path, job: &ActorJob, error: &str) -> io::Result<()> {
+    let conn = open_event_store(path)?;
+    let terminal = job.attempts >= ACTOR_JOB_MAX_ATTEMPTS;
+    let backoff_ms = 250_u64.saturating_mul(1_u64 << job.attempts.saturating_sub(1).min(5));
+    let now = now_millis();
+    conn.execute(
+        "UPDATE actor_jobs
+         SET status = ?2, lease_until_ms = NULL, available_at_ms = ?3,
+             last_error = ?4, updated_at_ms = ?5
+         WHERE id = ?1",
+        params![
+            job.id,
+            if terminal { "dead" } else { "pending" },
+            now.saturating_add(backoff_ms) as i64,
+            trim_to_chars(error, 500),
+            now as i64,
         ],
     )
     .map_err(sqlite_error)?;
@@ -31576,28 +34109,31 @@ fn append_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
     init_event_store(path)?;
     let mut conn = open_event_store(path)?;
     let tx = conn.transaction().map_err(sqlite_error)?;
-    {
-        let mut stmt = tx
-            .prepare(
-                "INSERT OR IGNORE INTO world_events
-                (seq, event_type, payload_json, created_at_ms)
-                VALUES (?1, ?2, ?3, ?4)",
-            )
-            .map_err(sqlite_error)?;
-        let now = now_millis();
-        for event in events {
-            let payload = serde_json::to_string(event)
-                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-            stmt.execute(params![
-                event.seq as i64,
-                event.type_name,
-                payload,
-                now as i64
-            ])
-            .map_err(sqlite_error)?;
-        }
-    }
+    insert_world_events(&tx, events)?;
     tx.commit().map_err(sqlite_error)?;
+    Ok(())
+}
+
+fn insert_world_events(conn: &Connection, events: &[EventView]) -> io::Result<()> {
+    let mut stmt = conn
+        .prepare(
+            "INSERT OR IGNORE INTO world_events
+             (seq, event_type, payload_json, created_at_ms)
+             VALUES (?1, ?2, ?3, ?4)",
+        )
+        .map_err(sqlite_error)?;
+    let now = now_millis();
+    for event in events {
+        let payload = serde_json::to_string(event)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        stmt.execute(params![
+            event.seq as i64,
+            event.type_name,
+            payload,
+            now as i64
+        ])
+        .map_err(sqlite_error)?;
+    }
     Ok(())
 }
 
@@ -31725,6 +34261,7 @@ fn advance_runtime_next_event_seq_from_store(
     Ok(())
 }
 
+#[cfg(test)]
 fn append_orb_ledger(path: &Path, entries: &[OrbLedgerEntry]) -> io::Result<()> {
     if entries.is_empty() {
         return Ok(());
@@ -31732,31 +34269,34 @@ fn append_orb_ledger(path: &Path, entries: &[OrbLedgerEntry]) -> io::Result<()> 
     init_event_store(path)?;
     let mut conn = open_event_store(path)?;
     let tx = conn.transaction().map_err(sqlite_error)?;
-    {
-        let mut stmt = tx
-            .prepare(
-                "INSERT OR IGNORE INTO orb_ledger
-                    (idempotency_key, actor_id, delta, reason, source_event_id,
-                     balance_after, metadata_json, created_at_ms)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            )
-            .map_err(sqlite_error)?;
-        let now = now_millis() as i64;
-        for entry in entries {
-            stmt.execute(params![
-                entry.idempotency_key.as_str(),
-                entry.actor_id as i64,
-                entry.delta as i64,
-                entry.reason.as_str(),
-                entry.source_event_id.map(|seq| seq as i64),
-                entry.balance_after as i64,
-                entry.metadata_json.as_str(),
-                now,
-            ])
-            .map_err(sqlite_error)?;
-        }
-    }
+    insert_orb_ledger_entries(&tx, entries)?;
     tx.commit().map_err(sqlite_error)?;
+    Ok(())
+}
+
+fn insert_orb_ledger_entries(conn: &Connection, entries: &[OrbLedgerEntry]) -> io::Result<()> {
+    let mut stmt = conn
+        .prepare(
+            "INSERT OR IGNORE INTO orb_ledger
+                (idempotency_key, actor_id, delta, reason, source_event_id,
+                 balance_after, metadata_json, created_at_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        )
+        .map_err(sqlite_error)?;
+    let now = now_millis() as i64;
+    for entry in entries {
+        stmt.execute(params![
+            entry.idempotency_key.as_str(),
+            entry.actor_id as i64,
+            entry.delta as i64,
+            entry.reason.as_str(),
+            entry.source_event_id.map(|seq| seq as i64),
+            entry.balance_after as i64,
+            entry.metadata_json.as_str(),
+            now,
+        ])
+        .map_err(sqlite_error)?;
+    }
     Ok(())
 }
 
@@ -31985,6 +34525,7 @@ fn load_receipt_ownership_index(path: &Path) -> io::Result<OwnershipIndex> {
                 Some(wallet.as_str()),
                 BTreeSet::new(),
                 BTreeSet::new(),
+                BTreeSet::new(),
                 [pack_id.clone()].into_iter().collect(),
             );
             index.apply_box_burn_receipt(&wallet, &box_id, &pack_id);
@@ -32097,6 +34638,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
     conn.execute_batch(
         "DELETE FROM world_events;
          DELETE FROM action_journal;
+         DELETE FROM actor_jobs;
          DELETE FROM actor_sessions;
          DELETE FROM wallet_avatar_links;
          DELETE FROM actor_suspensions;
@@ -32105,6 +34647,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
          DELETE FROM ai_usage_ledger;
          DELETE FROM wooden_box_receipts;
          DELETE FROM avatar_pack_openings;
+         DELETE FROM economy_reconciliation_runs;
          DELETE FROM room_memory_chapters;
          DELETE FROM activation_events;
          DELETE FROM activation_backfills;",
@@ -32188,6 +34731,218 @@ fn read_event_store_between(
         events.push(event);
     }
     Ok(events)
+}
+
+fn record_economy_reconciliation(
+    path: &Path,
+    external: &OwnershipIndex,
+    source: &str,
+) -> io::Result<EconomyReconciliationView> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let mut box_owners = BTreeMap::<String, BTreeSet<String>>::new();
+    let mut pack_owners = BTreeMap::<String, BTreeSet<String>>::new();
+    for wallet in &external.wallets {
+        for asset_id in &wallet.box_ids {
+            box_owners
+                .entry(asset_id.clone())
+                .or_default()
+                .insert(wallet.wallet_address.clone());
+        }
+        for asset_id in &wallet.pack_ids {
+            pack_owners
+                .entry(asset_id.clone())
+                .or_default()
+                .insert(wallet.wallet_address.clone());
+        }
+    }
+
+    let local_receipts = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT box_asset_address, owner_wallet_address
+                 FROM wooden_box_receipts",
+            )
+            .map_err(sqlite_error)?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(sqlite_error)?;
+        rows.collect::<Result<BTreeMap<_, _>, _>>()
+            .map_err(sqlite_error)?
+    };
+    let local_openings = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT pack_id, owner_wallet_address
+                 FROM avatar_pack_openings",
+            )
+            .map_err(sqlite_error)?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(sqlite_error)?;
+        rows.collect::<Result<BTreeMap<_, _>, _>>()
+            .map_err(sqlite_error)?
+    };
+
+    let mut anomalies = Vec::new();
+    for (asset_id, owners) in &box_owners {
+        if owners.len() > 1 {
+            anomalies.push(EconomyReconciliationAnomaly {
+                kind: "box_multiple_external_owners".to_string(),
+                asset_id: asset_id.clone(),
+                external_wallet_address: owners.iter().cloned().collect::<Vec<_>>().join(","),
+                local_wallet_address: None,
+                detail: "The trusted snapshot reports one Box under multiple wallets.".to_string(),
+            });
+        }
+        if let Some(local_owner) = local_receipts.get(asset_id) {
+            anomalies.push(EconomyReconciliationAnomaly {
+                kind: "burned_box_reported_active".to_string(),
+                asset_id: asset_id.clone(),
+                external_wallet_address: owners.iter().next().cloned().unwrap_or_default(),
+                local_wallet_address: Some(local_owner.clone()),
+                detail:
+                    "A Box with a durable burn receipt is still active in the trusted snapshot."
+                        .to_string(),
+            });
+        }
+    }
+    for (asset_id, owners) in &pack_owners {
+        if owners.len() > 1 {
+            anomalies.push(EconomyReconciliationAnomaly {
+                kind: "pack_multiple_external_owners".to_string(),
+                asset_id: asset_id.clone(),
+                external_wallet_address: owners.iter().cloned().collect::<Vec<_>>().join(","),
+                local_wallet_address: None,
+                detail: "The trusted snapshot reports one unopened pack under multiple wallets."
+                    .to_string(),
+            });
+        }
+        if let Some(local_owner) = local_openings.get(asset_id) {
+            anomalies.push(EconomyReconciliationAnomaly {
+                kind: "opened_pack_reported_unopened".to_string(),
+                asset_id: asset_id.clone(),
+                external_wallet_address: owners.iter().next().cloned().unwrap_or_default(),
+                local_wallet_address: Some(local_owner.clone()),
+                detail:
+                    "A pack with a durable opening record is still unopened in the trusted snapshot."
+                        .to_string(),
+            });
+        }
+    }
+    anomalies.sort_by(|a, b| a.kind.cmp(&b.kind).then(a.asset_id.cmp(&b.asset_id)));
+
+    let source = match source {
+        "startup" => "startup",
+        _ => "refresh",
+    };
+    let created_at_ms = now_millis();
+    let status = if anomalies.is_empty() {
+        "clear"
+    } else {
+        "open"
+    };
+    let anomalies_json = serde_json::to_string(&anomalies).map_err(io::Error::other)?;
+    conn.execute(
+        "INSERT INTO economy_reconciliation_runs
+         (source, wallet_count, active_box_count, unopened_pack_count,
+          anomaly_count, anomalies_json, status, created_at_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            source,
+            external.wallet_count() as i64,
+            box_owners.len() as i64,
+            pack_owners.len() as i64,
+            anomalies.len() as i64,
+            anomalies_json,
+            status,
+            created_at_ms as i64,
+        ],
+    )
+    .map_err(sqlite_error)?;
+
+    Ok(EconomyReconciliationView {
+        run_id: conn.last_insert_rowid().max(0) as u64,
+        source: source.to_string(),
+        wallet_count: external.wallet_count(),
+        active_box_count: box_owners.len(),
+        unopened_pack_count: pack_owners.len(),
+        anomaly_count: anomalies.len(),
+        anomalies,
+        status: status.to_string(),
+        created_at_ms,
+        resolved_at_ms: None,
+        resolved_by: None,
+        resolution_note: None,
+    })
+}
+
+fn economy_reconciliation_from_row(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<EconomyReconciliationView> {
+    let anomalies_json: String = row.get(6)?;
+    let anomalies = serde_json::from_str(&anomalies_json).unwrap_or_default();
+    Ok(EconomyReconciliationView {
+        run_id: row.get::<_, i64>(0)?.max(0) as u64,
+        source: row.get(1)?,
+        wallet_count: row.get::<_, i64>(2)?.max(0) as usize,
+        active_box_count: row.get::<_, i64>(3)?.max(0) as usize,
+        unopened_pack_count: row.get::<_, i64>(4)?.max(0) as usize,
+        anomaly_count: row.get::<_, i64>(5)?.max(0) as usize,
+        anomalies,
+        status: row.get(7)?,
+        created_at_ms: row.get::<_, i64>(8)?.max(0) as u64,
+        resolved_at_ms: row
+            .get::<_, Option<i64>>(9)?
+            .map(|value| value.max(0) as u64),
+        resolved_by: row.get(10)?,
+        resolution_note: row.get(11)?,
+    })
+}
+
+fn economy_reconciliation_by_id(
+    conn: &Connection,
+    run_id: u64,
+) -> io::Result<Option<EconomyReconciliationView>> {
+    conn.query_row(
+        "SELECT run_id, source, wallet_count, active_box_count,
+                unopened_pack_count, anomaly_count, anomalies_json, status, created_at_ms,
+                resolved_at_ms, resolved_by, resolution_note
+         FROM economy_reconciliation_runs
+         WHERE run_id = ?1",
+        params![run_id as i64],
+        economy_reconciliation_from_row,
+    )
+    .optional()
+    .map_err(sqlite_error)
+}
+
+fn resolve_economy_reconciliation(
+    path: &Path,
+    run_id: u64,
+    moderator: &str,
+    note: Option<&str>,
+) -> io::Result<Option<EconomyReconciliationView>> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let Some(current) = economy_reconciliation_by_id(&conn, run_id)? else {
+        return Ok(None);
+    };
+    if current.status != "open" || current.anomaly_count == 0 {
+        return Ok(Some(current));
+    }
+    conn.execute(
+        "UPDATE economy_reconciliation_runs
+         SET status = 'resolved', resolved_at_ms = ?2, resolved_by = ?3, resolution_note = ?4
+         WHERE run_id = ?1 AND status = 'open' AND anomaly_count > 0",
+        params![run_id as i64, now_millis() as i64, moderator, note],
+    )
+    .map_err(sqlite_error)?;
+    economy_reconciliation_by_id(&conn, run_id)
 }
 
 fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomyResponse> {
@@ -32313,6 +35068,23 @@ fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomy
         rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)?
     };
 
+    let economy_reconciliations = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT run_id, source, wallet_count, active_box_count,
+                        unopened_pack_count, anomaly_count, anomalies_json, status, created_at_ms,
+                        resolved_at_ms, resolved_by, resolution_note
+                 FROM economy_reconciliation_runs
+                 ORDER BY created_at_ms DESC, run_id DESC
+                 LIMIT ?1",
+            )
+            .map_err(sqlite_error)?;
+        let rows = stmt
+            .query_map(params![limit], economy_reconciliation_from_row)
+            .map_err(sqlite_error)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)?
+    };
+
     Ok(ModerationEconomyResponse {
         ok: true,
         status: 200,
@@ -32320,6 +35092,7 @@ fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomy
         ai_usage_ledger,
         wooden_box_receipts,
         avatar_pack_openings,
+        economy_reconciliations,
         error: None,
     })
 }
@@ -32328,8 +35101,8 @@ fn open_event_store(path: &Path) -> io::Result<Connection> {
     Connection::open(path).map_err(sqlite_error)
 }
 
-fn snapshot_error(message: &'static str) -> io::Error {
-    io::Error::new(io::ErrorKind::InvalidData, message)
+fn snapshot_error(message: impl Into<String>) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
 
 fn sqlite_error(error: rusqlite::Error) -> io::Error {
@@ -32449,6 +35222,12 @@ mod tests {
         }
     }
 
+    #[test]
+    fn homeward_is_a_canonical_outbound_direction_alias() {
+        assert_eq!(canonical_direction("homeward"), Some("out"));
+        assert_eq!(canonical_direction("home"), Some("out"));
+    }
+
     fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<PathBuf>) -> AppState {
         let (tx, _) = broadcast::channel(32);
         AppState {
@@ -32457,11 +35236,13 @@ mod tests {
             deployment: DeploymentConfig::local(),
             snapshot_path: None,
             resident_continuity_path: None,
-            event_store_path: event_store_path.map(Arc::new),
+            event_store_path: event_store_path.clone().map(Arc::new),
+            account_auth: AccountAuth::for_test(event_store_path.map(Arc::new)),
             ownership_index: Arc::new(RwLock::new(OwnershipIndex::default())),
             trust_client_card_ids: false,
             dev_reset_enabled: false,
             ai_config: Arc::new(None),
+            generation_controls: Arc::new(GenerationControls::default()),
             avatar_art_config: Arc::new(None),
             generated_asset_dir: Arc::new(std::env::temp_dir().join("cosyworld-test-generated")),
             ambient: AmbientConfig {
@@ -32469,6 +35250,7 @@ mod tests {
             },
             box_burn_verifier: Arc::new(None),
             ownership_feed: Arc::new(OwnershipFeedConfig::default()),
+            ownership_feed_health: Arc::new(StdMutex::new(OwnershipFeedHealth::default())),
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
@@ -32481,6 +35263,7 @@ mod tests {
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
             avatar_art_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
+            actor_job_notify: Arc::new(Notify::new()),
             avatar_chat_delay: Duration::ZERO,
             moderation_token: None,
             moderation_report_retention: ModerationReportRetention {
@@ -32784,6 +35567,7 @@ mod tests {
                 token.to_string(),
                 WalletSession {
                     wallet_address: wallet_address.to_string(),
+                    linked_wallet_addresses: Vec::new(),
                     expires_at: Instant::now() + Duration::from_secs(3600),
                 },
             );
@@ -33464,38 +36248,6 @@ mod tests {
                 false,
             )
             .expect("production config should accept remote feed plus guardrails");
-    }
-
-    #[test]
-    fn rate_limiter_blocks_until_window_expires() {
-        let mut limiter = RateLimiter::default();
-        let limit = RateLimit {
-            max_hits: 2,
-            window: Duration::from_secs(10),
-        };
-        let now = Instant::now();
-
-        assert!(limiter.allow("actor:5000".to_string(), limit, now));
-        assert!(limiter.allow(
-            "actor:5000".to_string(),
-            limit,
-            now + Duration::from_secs(1)
-        ));
-        assert!(!limiter.allow(
-            "actor:5000".to_string(),
-            limit,
-            now + Duration::from_secs(2)
-        ));
-        assert!(limiter.allow(
-            "actor:5000".to_string(),
-            limit,
-            now + Duration::from_secs(11)
-        ));
-        assert!(limiter.allow(
-            "actor:5001".to_string(),
-            limit,
-            now + Duration::from_secs(2)
-        ));
     }
 
     #[test]
@@ -34238,6 +36990,189 @@ mod tests {
     }
 
     #[test]
+    fn generated_pathway_content_requires_bounded_distinct_structured_output() {
+        let valid = r#"{"waypoints":[{"name":"Rain-Silver Crossing","title":"Silverwater Bend","description":"Rain threads the flat stones while foxglove leans over the crossing.","persona":"The crossing brightens after rain and keeps every footprint briefly visible.","visual_detail":"silver rain on flat stones beneath leaning foxglove"},{"name":"Foxglove Turn","title":"Blooming Corner","description":"Foxglove crowds a soft bend where moss gathers beneath the old roots.","persona":"The turn feels close and sheltered, opening only as travelers round it.","visual_detail":"dense foxglove around a mossy root-lined bend"}]}"#;
+        let parsed = parse_generated_pathway_content(valid, 2).expect("valid bounded content");
+        assert_eq!(parsed[0].name, "Rain-Silver Crossing");
+        assert_eq!(parsed[1].title, "Blooming Corner");
+        assert!(generated_pathway_name_avoids_anchors(
+            &parsed[0].name,
+            &["Rain-Soft Garden", "Moonlit Trail"]
+        ));
+        assert!(!generated_pathway_name_avoids_anchors(
+            "Moonlit Trail Bend",
+            &["Moonlit Trail"]
+        ));
+        assert!(sanitize_generated_pathway_name("Orb Reward Gate").is_none());
+        assert!(sanitize_generated_pathway_title("Quest Unlock").is_none());
+
+        let duplicate = valid.replace("Foxglove Turn", "rain-silver crossing");
+        assert!(parse_generated_pathway_content(&duplicate, 2).is_none());
+
+        let authority_claim = valid.replace(
+            "Rain threads the flat stones while foxglove leans over the crossing.",
+            "This reward unlocks access to a dangerous quest beyond the crossing.",
+        );
+        assert!(parse_generated_pathway_content(&authority_claim, 2).is_none());
+
+        let extra_field = valid.replace(
+            r#""visual_detail":"silver rain on flat stones beneath leaning foxglove""#,
+            r#""visual_detail":"silver rain on flat stones beneath leaning foxglove","reward":"ten orbs""#,
+        );
+        assert!(parse_generated_pathway_content(&extra_field, 2).is_none());
+    }
+
+    #[test]
+    fn generated_pathway_content_can_change_narrative_fields_only() {
+        let runtime = RuntimeWorld::seeded();
+        let mut pathway = runtime.generated_pathway(
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            MOONLIT_TRAIL_LOCATION_ID,
+            2,
+        );
+        let waypoint = pathway
+            .waypoints
+            .first_mut()
+            .expect("distance two creates one hidden waypoint");
+        let id = waypoint.id;
+        let memory = waypoint.meta.memory.clone();
+        let biome = waypoint.meta.biome.clone();
+        let terrain = waypoint.meta.terrain.clone();
+        let image_url = waypoint.meta.image_url.clone();
+        apply_generated_waypoint_content(
+            waypoint,
+            GeneratedWaypointContentProposal {
+                name: "Rain-Silver Crossing".to_string(),
+                title: "Silverwater Bend".to_string(),
+                description: "Rain threads the flat stones while foxglove leans over the crossing."
+                    .to_string(),
+                persona:
+                    "The crossing brightens after rain and keeps every footprint briefly visible."
+                        .to_string(),
+                visual_detail: "silver rain on flat stones beneath leaning foxglove".to_string(),
+            },
+        );
+
+        assert_eq!(waypoint.id, id);
+        assert_eq!(waypoint.meta.memory, memory);
+        assert_eq!(waypoint.meta.biome, biome);
+        assert_eq!(waypoint.meta.terrain, terrain);
+        assert_eq!(waypoint.meta.image_url, image_url);
+        assert_eq!(waypoint.name, "Rain-Silver Crossing");
+        assert_eq!(waypoint.meta.title, "Silverwater Bend");
+        let art_prompt = waypoint
+            .meta
+            .art_prompt
+            .as_deref()
+            .expect("validated visual detail becomes a bounded art prompt");
+        assert!(art_prompt.contains("no people"));
+        assert!(art_prompt.contains("no text"));
+        assert!(art_prompt.contains(&biome));
+
+        set_pathway_generation_provenance(&mut pathway, GenerationMode::AutoBounded, None, "ai", 2);
+        assert_eq!(pathway.generation.feature, PATHWAY_CONTENT_FEATURE);
+        assert_eq!(
+            pathway.generation.prompt_version,
+            PATHWAY_CONTENT_PROMPT_VERSION
+        );
+        assert_eq!(pathway.generation.policy_mode, "auto_bounded");
+        assert_eq!(pathway.generation.attempts, 2);
+    }
+
+    #[tokio::test]
+    async fn bounded_ai_pathway_content_is_persisted_hidden_then_revealed_in_order() {
+        let app = Router::new().route(
+            "/chat/completions",
+            post(|| async {
+                Json(serde_json::json!({
+                    "choices": [{
+                        "message": {
+                            "content": r#"{"waypoints":[{"name":"Rain-Silver Crossing","title":"Silverwater Bend","description":"Rain threads the flat stones while foxglove leans over the crossing.","persona":"The crossing brightens after rain and keeps every footprint briefly visible.","visual_detail":"silver rain on flat stones beneath leaning foxglove"},{"name":"Foxglove Turn","title":"Blooming Corner","description":"Foxglove crowds a soft bend where moss gathers beneath the old roots.","persona":"The turn feels close and sheltered, opening only as travelers round it.","visual_detail":"dense foxglove around a mossy root-lined bend"}]}"#
+                        }
+                    }]
+                }))
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind pathway generation test server");
+        let address = listener
+            .local_addr()
+            .expect("pathway generation test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Pathfinder",
+        );
+        runtime.callings.insert(
+            5000,
+            CallingState {
+                actor_id: 5000,
+                statement: EXPLORER_CALLING_STATEMENT.to_string(),
+                source_event_seq: None,
+            },
+        );
+        let mut state = test_app_state(runtime, None);
+        state.ai_config = Arc::new(Some(AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            model: "test-structured-model".to_string(),
+            reasoning_effort: None,
+        }));
+        state.generation_controls = Arc::new(
+            GenerationControls::from_values(
+                Some("off"),
+                Some(r#"{"pathway_content":"auto_bounded"}"#),
+            )
+            .expect("bounded pathway generation policy"),
+        );
+
+        let (action, mut mutation, mut narration_plan) = {
+            let runtime = state.inner.lock().await;
+            runtime
+                .plan_journey_move(5000, MOONLIT_TRAIL_LOCATION_ID)
+                .expect("pathway planning succeeds")
+                .expect("distance three begins with Explore")
+        };
+        generate_hidden_pathway_content(&state, &mut mutation, &mut narration_plan).await;
+        let ProjectionMutation::JourneyTransition { pathway, .. } = &mutation else {
+            panic!("pathway generation retains a journey transition");
+        };
+        assert_eq!(pathway.generation.source, "ai");
+        assert_eq!(pathway.generation.policy_mode, "auto_bounded");
+        assert_eq!(pathway.generation.model, "test-structured-model");
+        assert_eq!(pathway.waypoints[0].name, "Rain-Silver Crossing");
+        assert_eq!(pathway.waypoints[1].name, "Foxglove Turn");
+
+        let first_waypoint_id = pathway.waypoints[0].id;
+        let second_waypoint_id = pathway.waypoints[1].id;
+        let mut runtime = state.inner.lock().await;
+        assert_eq!(runtime.location_name(first_waypoint_id), None);
+        assert_eq!(runtime.location_name(second_waypoint_id), None);
+        let mut record = JournalRecord::new(action, 987_001);
+        record.projection_mutations.push(mutation);
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(
+            runtime.location_name(first_waypoint_id).as_deref(),
+            Some("Rain-Silver Crossing")
+        );
+        assert_eq!(
+            runtime.location_name(second_waypoint_id),
+            None,
+            "later generated identities remain hidden until their Explore edge"
+        );
+        drop(runtime);
+        server.abort();
+    }
+
+    #[test]
     fn segmented_pathways_alternate_search_and_travel_into_shared_world_state() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -34263,14 +37198,10 @@ mod tests {
         if let ProjectionMutation::JourneyTransition { narration, .. } = &mut first_mutation {
             *narration = travel_narration_fallback(&first_narration);
         }
-        let first_art_targets = pathway_art_targets(&first_mutation);
-        assert_eq!(
-            first_art_targets.len(),
-            1,
-            "an Explorer's newly revealed long-path waypoint is eligible for AI art"
+        assert!(
+            pathway_art_targets(&first_mutation).is_empty(),
+            "discovering a route keeps premium art locked behind community work"
         );
-        assert!(first_art_targets[0].1.contains("rain garden terrain"));
-        assert!(first_art_targets[0].1.contains("moonlit woodland terrain"));
         let mut first_record = JournalRecord::new(first_search, 900_001);
         first_record.projection_mutations.push(first_mutation);
         let (first_status, first_events) = runtime.apply_journal_record(&first_record);
@@ -34300,9 +37231,15 @@ mod tests {
             RAIN_SOFT_GARDEN_LOCATION_ID,
             "Search reveals the adjacent segment without moving the avatar"
         );
+        let first_waypoint_name = runtime
+            .location_name(first_waypoint_id)
+            .expect("Explore reveals the hidden first waypoint name");
+        assert!(sanitize_generated_pathway_name(&first_waypoint_name).is_some());
+        assert!(!first_waypoint_name.contains("Pathway to"));
         assert_eq!(
-            runtime.location_name(first_waypoint_id).as_deref(),
-            Some("Pathway to Moonlit Trail 1/3")
+            runtime.location_name(second_waypoint_id),
+            None,
+            "the next hidden waypoint stays out of the public world until Explore"
         );
         let first_meta = runtime.location_meta_for(first_waypoint_id);
         assert!(first_meta.biome.contains("rain garden"));
@@ -34353,6 +37290,25 @@ mod tests {
             runtime.actor_by_id(5000).unwrap().location_id,
             first_waypoint_id
         );
+        let frontier_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(frontier_state.location.name, first_waypoint_name);
+        assert_eq!(
+            frontier_state
+                .journey
+                .as_ref()
+                .and_then(|journey| journey.next_location_name.as_deref()),
+            Some("Unexplored stretch 2/3 toward Moonlit Trail")
+        );
+        let frontier_sheet = frontier_state
+            .room_sheet
+            .expect("generated pathway exposes a room sheet");
+        assert_eq!(frontier_sheet.zone, ZONE_FRONTIER);
+        assert_eq!(frontier_sheet.safety, "risky");
+        assert!(runtime.work_available(5000));
+        assert!(frontier_state
+            .clocks
+            .iter()
+            .any(|clock| clock.label == "Make this way familiar"));
 
         let (second_search, mut second_search_mutation, second_search_narration) = runtime
             .plan_pathway_search(5000)
@@ -34362,10 +37318,9 @@ mod tests {
         {
             *narration = travel_narration_fallback(&second_search_narration);
         }
-        assert_eq!(
-            pathway_art_targets(&second_search_mutation).len(),
-            1,
-            "Search schedules art for the newly revealed waypoint only"
+        assert!(
+            pathway_art_targets(&second_search_mutation).is_empty(),
+            "later discoveries keep premium art locked until the route is familiar"
         );
         let mut second_search_record = JournalRecord::new(second_search, 900_003);
         second_search_record
@@ -34380,10 +37335,12 @@ mod tests {
             first_waypoint_id,
             "Search should reveal the next location without travelling into it"
         );
-        assert_eq!(
-            runtime.location_name(second_waypoint_id).as_deref(),
-            Some("Pathway to Moonlit Trail 2/3")
-        );
+        let second_waypoint_name = runtime
+            .location_name(second_waypoint_id)
+            .expect("Explore reveals the hidden second waypoint name");
+        assert!(sanitize_generated_pathway_name(&second_waypoint_name).is_some());
+        assert!(!second_waypoint_name.contains("Pathway to"));
+        assert_ne!(first_waypoint_name, second_waypoint_name);
         assert!(runtime
             .state_response(Some(5000), &AccessContext::default())
             .exits
@@ -34508,13 +37465,16 @@ mod tests {
             runtime.apply_journal_record(&reverse_search_record).0,
             CW_OK
         );
+        let reverse_waypoint_id = runtime.journeys[&5002].path[1];
+        let reverse_waypoint_name = runtime
+            .location_name(reverse_waypoint_id)
+            .expect("the already discovered reverse waypoint keeps its name");
         let reverse_start = runtime.state_response(Some(5002), &AccessContext::default());
         assert_eq!(reverse_start.location.name, "Moonlit Trail");
         assert_eq!(
             reverse_start.journey.unwrap().next_location_name.as_deref(),
-            Some("Pathway to Rain-Soft Garden 1/3")
+            Some(reverse_waypoint_name.as_str())
         );
-        let reverse_waypoint_id = runtime.journeys[&5002].path[1];
         let (reverse_travel, mut reverse_travel_mutation, reverse_travel_plan) = runtime
             .plan_journey_move(5002, reverse_waypoint_id)
             .expect("reverse adjacent Travel planning succeeds")
@@ -34533,14 +37493,189 @@ mod tests {
             CW_OK
         );
         let reverse_state = runtime.state_response(Some(5002), &AccessContext::default());
-        assert_eq!(
-            reverse_state.location.name,
-            "Pathway to Rain-Soft Garden 1/3"
-        );
+        assert_eq!(reverse_state.location.name, reverse_waypoint_name);
+        let reverse_next_waypoint_id = runtime.journeys[&5002].path[2];
+        let reverse_next_waypoint_name = runtime
+            .location_name(reverse_next_waypoint_id)
+            .expect("the completed route keeps the next reverse waypoint visible");
         assert_eq!(
             reverse_state.journey.unwrap().next_location_name.as_deref(),
-            Some("Pathway to Rain-Soft Garden 2/3")
+            Some(reverse_next_waypoint_name.as_str())
         );
+    }
+
+    #[test]
+    fn community_work_familiarizes_generated_pathway_and_unlocks_art() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Trail Builder",
+        );
+        let (search, search_mutation, _) = runtime
+            .plan_journey_move(5000, MOONLIT_TRAIL_LOCATION_ID)
+            .expect("pathway search planning succeeds")
+            .expect("the garden-to-trail route has distance");
+        let mut search_record = JournalRecord::new(search, 910_001);
+        search_record.projection_mutations.push(search_mutation);
+        assert_eq!(runtime.apply_journal_record(&search_record).0, CW_OK);
+
+        let pathway_id =
+            generated_pathway_id(RAIN_SOFT_GARDEN_LOCATION_ID, MOONLIT_TRAIL_LOCATION_ID);
+        let first_waypoint_id = runtime.journeys[&5000].path[1];
+        let (travel, travel_mutation, _) = runtime
+            .plan_journey_move(5000, first_waypoint_id)
+            .expect("first pathway travel planning succeeds")
+            .expect("the first revealed edge is travelable");
+        let mut travel_record = JournalRecord::new(travel, 910_002);
+        travel_record.projection_mutations.push(travel_mutation);
+        assert_eq!(runtime.apply_journal_record(&travel_record).0, CW_OK);
+        assert!(runtime.location_is_frontier(first_waypoint_id));
+
+        let clock_id = generated_pathway_progress_clock_id(&pathway_id);
+        let mut familiarized_events = Vec::new();
+        for index in 0..3 {
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: 5000,
+                    ..CwAction::default()
+                },
+                910_010 + index,
+            );
+            record
+                .projection_mutations
+                .push(ProjectionMutation::AdvanceClock {
+                    clock_id: clock_id.clone(),
+                    amount: 2,
+                    reason: "community_work_test".to_string(),
+                });
+            record
+                .projection_mutations
+                .push(ProjectionMutation::UpgradePathwayIfReady {
+                    pathway_id: pathway_id.clone(),
+                    progress_clock_id: clock_id.clone(),
+                });
+            let (status, events) = runtime.apply_journal_record(&record);
+            assert_eq!(status, CW_OK);
+            familiarized_events.extend(events);
+        }
+
+        assert!(familiarized_events
+            .iter()
+            .any(|event| event.type_name == "pathway.familiarized"));
+        assert!(runtime.generated_pathways[&pathway_id].familiar);
+        assert!(!runtime.location_is_frontier(first_waypoint_id));
+        let familiar_sheet = runtime
+            .room_sheet_view(first_waypoint_id)
+            .expect("familiar pathway keeps its generated room sheet");
+        assert_eq!(familiar_sheet.zone, ZONE_SANCTUARY);
+        assert_eq!(familiar_sheet.safety, "safe");
+        assert_eq!(
+            runtime.job_status(&runtime.jobs[&generated_pathway_job_id(&pathway_id)]),
+            "completed"
+        );
+        let art_targets = runtime.generated_pathway_art_targets(&pathway_id);
+        assert_eq!(art_targets.len(), 2);
+        assert!(art_targets
+            .iter()
+            .all(|(_, prompt)| prompt.contains("cozy storybook landscape")));
+    }
+
+    #[test]
+    fn generated_pathway_can_be_backtracked_or_left_for_another_route() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Free Wanderer",
+        );
+        let (search, search_mutation, _) = runtime
+            .plan_journey_move(5000, MOONLIT_TRAIL_LOCATION_ID)
+            .expect("pathway search planning succeeds")
+            .expect("the garden-to-trail route has distance");
+        let mut search_record = JournalRecord::new(search, 920_001);
+        search_record.projection_mutations.push(search_mutation);
+        assert_eq!(runtime.apply_journal_record(&search_record).0, CW_OK);
+
+        let first_waypoint_id = runtime.journeys[&5000].path[1];
+        let (forward, forward_mutation, _) = runtime
+            .plan_journey_move(5000, first_waypoint_id)
+            .expect("forward travel planning succeeds")
+            .expect("the revealed waypoint is adjacent");
+        let mut forward_record = JournalRecord::new(forward, 920_002);
+        forward_record.projection_mutations.push(forward_mutation);
+        assert_eq!(runtime.apply_journal_record(&forward_record).0, CW_OK);
+
+        let (back, back_mutation, _) = runtime
+            .plan_journey_move(5000, RAIN_SOFT_GARDEN_LOCATION_ID)
+            .expect("backtracking remains a valid ordinary move")
+            .expect("backtracking uses the pathway transition");
+        assert!(matches!(
+            &back_mutation,
+            ProjectionMutation::JourneyTransition {
+                journey: Some(journey),
+                event_type,
+                ..
+            } if journey.current_step == 0 && event_type == "journey.backtracked"
+        ));
+        let mut back_record = JournalRecord::new(back, 920_003);
+        back_record.projection_mutations.push(back_mutation);
+        assert_eq!(runtime.apply_journal_record(&back_record).0, CW_OK);
+        assert_eq!(
+            runtime.actor_by_id(5000).unwrap().location_id,
+            RAIN_SOFT_GARDEN_LOCATION_ID
+        );
+
+        let next_pathway_location_id = runtime.journeys[&5000].path[1];
+        let alternate_destination_id = runtime.world.exits[..runtime.world.exit_count]
+            .iter()
+            .filter(|exit| exit.from_location_id == RAIN_SOFT_GARDEN_LOCATION_ID)
+            .map(|exit| exit.to_location_id)
+            .find(|destination_id| {
+                *destination_id != next_pathway_location_id
+                    && *destination_id != MOONLIT_TRAIL_LOCATION_ID
+                    && runtime.pathway_distance(RAIN_SOFT_GARDEN_LOCATION_ID, *destination_id) <= 1
+            })
+            .expect("the garden has another ordinary adjacent route");
+        let (leave, leave_mutation, _) = runtime
+            .plan_journey_move(5000, alternate_destination_id)
+            .expect("another route can pause the pathway")
+            .expect("leaving uses an audited journey transition");
+        assert!(matches!(
+            &leave_mutation,
+            ProjectionMutation::JourneyTransition {
+                journey: None,
+                event_type,
+                ..
+            } if event_type == "journey.paused"
+        ));
+        let mut leave_record = JournalRecord::new(leave, 920_004);
+        leave_record.projection_mutations.push(leave_mutation);
+        assert_eq!(runtime.apply_journal_record(&leave_record).0, CW_OK);
+        assert_eq!(
+            runtime.actor_by_id(5000).unwrap().location_id,
+            alternate_destination_id
+        );
+        assert!(!runtime.journeys.contains_key(&5000));
+    }
+
+    #[tokio::test]
+    async fn index_shell_uses_a_stable_revalidation_etag() {
+        let response = index(HeaderMap::new()).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers()[header::CACHE_CONTROL],
+            "public, max-age=0, must-revalidate"
+        );
+        let etag = response.headers()[header::ETAG].clone();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(header::IF_NONE_MATCH, etag);
+        let response = index(headers).await;
+        assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
     }
 
     #[test]
@@ -34564,12 +37699,29 @@ mod tests {
         assert!(!INDEX_HTML.contains("localStorage.setItem(\"cosyworld.openrouterApiKey\""));
         assert!(!INDEX_HTML.contains("sessionStorage.setItem(\"cosyworld.openrouterApiKey\""));
         assert!(INDEX_HTML.contains("walletRequestTimeoutMs"));
+        assert!(INDEX_HTML.contains("const stateRequest = api(statePath())"));
+        assert!(INDEX_HTML.contains("await Promise.all([pingPresence(), refresh()])"));
         assert!(INDEX_HTML.contains("window.phantom?.solana"));
         assert!(INDEX_HTML.contains("window.solflare"));
         assert!(INDEX_HTML.contains("Wallet connection timed out."));
+        assert!(INDEX_HTML.contains("function signAndSendBoxBurnTransaction"));
+        assert!(INDEX_HTML.contains("method: \"signAndSendTransaction\""));
+        assert!(INDEX_HTML.contains("params: { message: transaction.message }"));
         assert!(INDEX_HTML.contains("parts.push(accountPanelPinned ? \"close\" : \"account\")"));
         assert!(!INDEX_HTML.contains("parts.push(signed ? \"wallet\" : \"connect wallet\")"));
-        assert!(INDEX_HTML.contains("const accountName = signed"));
+        assert!(INDEX_HTML.contains("const accountName = identity?.authenticated"));
+        assert!(INDEX_HTML.contains("data-passkey-continue"));
+        assert!(!INDEX_HTML.contains("data-passkey-login"));
+        assert!(!INDEX_HTML.contains("data-passkey-create"));
+        assert!(!INDEX_HTML.contains("data-account-connect>link account"));
+        assert!(!INDEX_HTML.contains("id=\"account-username\""));
+        assert!(!INDEX_HTML.contains("id=\"account-display-name\""));
+        assert!(INDEX_HTML.contains("data-wallet-link"));
+        assert!(INDEX_HTML.contains("claim NFT wallet"));
+        assert!(INDEX_HTML.contains("/auth/wallet-claims/start"));
+        assert!(INDEX_HTML.contains("https://phantom.app/ul/browse/"));
+        assert!(INDEX_HTML.contains("https://solflare.com/ul/v1/browse/"));
+        assert!(!INDEX_HTML.contains("linkAnotherWallet"));
         assert!(INDEX_HTML.contains(": \"local tale\""));
         assert!(!INDEX_HTML.contains("walletless"));
         assert!(INDEX_HTML.contains("id=\"card-modal\""));
@@ -34584,8 +37736,9 @@ mod tests {
         assert!(INDEX_HTML.contains("function firstThreadModel"));
         assert!(INDEX_HTML.contains("function nextStoryThreadModel"));
         assert!(INDEX_HTML.contains("function firstTaleIsComplete"));
-        assert!(INDEX_HTML.contains("class=\"update-pill story-thread\""));
-        assert!(INDEX_HTML.contains("data-story-action-key"));
+        assert!(!INDEX_HTML.contains("class=\"update-pill story-thread\""));
+        assert!(!INDEX_HTML.contains("data-story-action-key"));
+        assert!(!INDEX_HTML.contains("function storyThreadHtml"));
         assert!(INDEX_HTML.contains("A path to ${destination} is waiting"));
         assert!(INDEX_HTML.contains("is still waiting to be found"));
         assert!(INDEX_HTML.contains("room thread"));
@@ -34595,14 +37748,41 @@ mod tests {
         assert!(INDEX_HTML.contains("listen for one little clue."));
         assert!(INDEX_HTML.contains("ledger.banked_count"));
         assert!(INDEX_HTML.contains("choose a friendship to grow."));
-        assert!(INDEX_HTML.contains("choose how your knack evolves."));
+        assert!(INDEX_HTML.contains("choose an ability to train."));
         assert!(!INDEX_HTML.contains("listen to the room — it may have a clue just for you."));
         assert!(INDEX_HTML.contains("white-space: normal;"));
         assert!(INDEX_HTML.contains(
-            "log.innerHTML = `${openingRoomLineHtml()}${visibleEvents.map(timelineEventHtml).join(\"\")}${pendingConversation}`;"
+            "const visibleEvents = pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent));"
         ));
+        assert!(INDEX_HTML.contains(
+            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${pendingConversation}${pendingCardReplies}`;"
+        ));
+        assert!(INDEX_HTML.contains(
+            "return event?.type === \"message.created\" || event?.type === \"chat.failed\";"
+        ));
+        assert!(INDEX_HTML.contains("function transcriptEventHtml"));
+        assert!(!INDEX_HTML.contains("function openingRoomLineHtml"));
+        assert!(!INDEX_HTML.contains("visibleEvents.map(timelineEventHtml)"));
         assert!(INDEX_HTML.contains("function pendingConversationHtml"));
         assert!(INDEX_HTML.contains("finding the thread…"));
+        assert!(INDEX_HTML.contains("function pendingCardReactionsHtml"));
+        assert!(INDEX_HTML.contains("reacting to your card…"));
+        assert!(!INDEX_HTML.contains("responding to your card…"));
+        assert!(INDEX_HTML.contains("Your next cards are ready while"));
+        assert!(INDEX_HTML.contains("return [...(events || [])].slice(-24);"));
+        assert!(INDEX_HTML.contains("const tailChanged = chatTailKey !== renderedChatTailKey;"));
+        assert!(INDEX_HTML.contains("tailChanged || wasAtBottom"));
+        assert!(INDEX_HTML.contains("function backgroundImageStyle"));
+        assert!(INDEX_HTML.contains("touch-action: pan-y;"));
+        assert!(!INDEX_HTML.contains("scroll-behavior: smooth;"));
+        assert!(INDEX_HTML.contains("action?.kind === \"orb-chat\""));
+        assert!(INDEX_HTML.contains("Play Chat to start a short conversation with"));
+        assert!(INDEX_HTML.contains("return [waitingAction, buildEvolveAction()].filter(Boolean);"));
+        assert!(!INDEX_HTML.contains("cmd-progress"));
+        assert!(INDEX_HTML.contains("if (!result.ok) void queueRefresh();"));
+        assert!(INDEX_HTML.contains("event?.type !== \"action.receipt\""));
+        assert!(INDEX_HTML.contains("state.state_revision"));
+        assert!(INDEX_HTML.contains("if (result?.ok === false) cancelPendingCardReaction"));
         assert!(INDEX_HTML.contains("learned_truth_count"));
         assert!(INDEX_HTML.contains("function quietRoomSceneHtml"));
         assert!(INDEX_HTML.contains("the room is listening"));
@@ -34617,7 +37797,7 @@ mod tests {
         assert!(INDEX_HTML.contains("the cottage is making room"));
         assert!(INDEX_HTML.contains("Someone here is getting ready to say hello."));
         assert!(INDEX_HTML.contains("your first little moment is waiting"));
-        assert!(INDEX_HTML.contains("a knack will grow here"));
+        assert!(INDEX_HTML.contains("ability training will grow here"));
         assert!(INDEX_HTML.contains("someone new is waiting to meet you"));
         assert!(INDEX_HTML.contains("room for ${smallNumberWord"));
         assert!(INDEX_HTML.contains("local tale"));
@@ -34643,13 +37823,19 @@ mod tests {
         assert!(!INDEX_HTML.contains("data-event-row title="));
         assert!(!INDEX_HTML.contains(".line.event:hover .text"));
         assert!(!INDEX_HTML.contains(".line.event.expanded .text"));
+        assert!(INDEX_HTML.contains(".log > .line,"));
+        assert!(INDEX_HTML.contains("flex-shrink: 0;"));
         assert!(!INDEX_HTML.contains("classList.toggle(\"expanded\")"));
         assert!(INDEX_HTML.contains("action-mini-card"));
         assert!(INDEX_HTML.contains("class=\"shuffle-glyph\""));
         assert!(INDEX_HTML.contains("more</span>"));
         assert!(INDEX_HTML.contains("search for the next path"));
-        assert!(INDEX_HTML.contains("the way to ${nextName} is revealed"));
-        assert!(INDEX_HTML.contains("Follow the revealed path into ${nextName}."));
+        assert!(INDEX_HTML
+            .contains("the hidden next stretch toward ${journey.destination_name} is revealed"));
+        assert!(INDEX_HTML.contains("const built = [];"));
+        assert!(INDEX_HTML.contains("if (!nextStretchRevealed)"));
+        assert!(INDEX_HTML.contains("function mergeDuplicateSearchCards"));
+        assert!(!INDEX_HTML.contains("Follow the revealed path into ${nextName}."));
         assert!(INDEX_HTML.contains("Search out the first stretch toward"));
         assert!(!INDEX_HTML.contains("journey-step:"));
         assert!(!INDEX_HTML.contains("travel turn"));
@@ -34679,8 +37865,10 @@ mod tests {
         assert!(INDEX_HTML.contains("stuck doors"));
         assert!(INDEX_HTML.contains("arrive as"));
         assert!(INDEX_HTML.contains("What draws you in:"));
-        assert!(INDEX_HTML.contains("detail: \"choose what draws you in\""));
-        assert!(INDEX_HTML.contains("modalTitle: \"what draws you in?\""));
+        assert!(INDEX_HTML.contains("`enter ${creationProfile.name}`"));
+        assert!(INDEX_HTML.contains("modalTitle: creationProfile?.prompt"));
+        assert!(INDEX_HTML.contains("character_creation_id"));
+        assert!(INDEX_HTML.contains("character_choice_id"));
         assert!(INDEX_HTML.contains("accountRow(\"purpose\", purpose)"));
         assert!(!INDEX_HTML.contains("detail: \"choose calling\""));
         assert!(!INDEX_HTML.contains("modalTitle: \"choose a calling\""));
@@ -34701,7 +37889,7 @@ mod tests {
         assert!(INDEX_HTML.contains("function orbChangeText"));
         assert!(!INDEX_HTML.contains("flashEconomy(`+${delta}`"));
         assert!(!INDEX_HTML.contains("flashEconomy(`-${spent}`"));
-        assert!(INDEX_HTML.contains("Share a short back-and-forth with"));
+        assert!(INDEX_HTML.contains("Play Chat to start a short conversation with"));
         assert!(INDEX_HTML.contains("one Orb for the whole exchange"));
         assert!(INDEX_HTML
             .contains("Look closely and uncover one thing the room has been keeping tucked away."));
@@ -34730,9 +37918,8 @@ mod tests {
         assert!(INDEX_HTML.contains("The way opens, and ${actor} steps into"));
         assert!(!INDEX_HTML.contains("function sceneCardEventLabel"));
         assert!(INDEX_HTML.contains("listens; the room answers"));
-        assert!(INDEX_HTML.contains("recentDistinctVoices.length < 2"));
+        assert!(!INDEX_HTML.contains("recentDistinctVoices.length < 2"));
         assert!(INDEX_HTML.contains("quiet-mode"));
-        assert!(INDEX_HTML.contains("openingRoomLineHtml"));
         assert!(INDEX_HTML.contains("ledger.banked"));
         assert!(INDEX_HTML.contains("calling.revised"));
         assert!(INDEX_HTML.contains("advancement.spent"));
@@ -34746,6 +37933,9 @@ mod tests {
         assert!(INDEX_HTML.contains("label: \"evolve\""));
         assert!(INDEX_HTML.contains("cardType: \"evolve\""));
         assert!(INDEX_HTML.contains("choose how to evolve"));
+        assert!(INDEX_HTML.contains("choose one of two lessons"));
+        assert!(INDEX_HTML.contains("practiceChoices.slice(0, growAction ? 1 : 2)"));
+        assert!(INDEX_HTML.contains("+1 training bonus to ${ability.label} checks"));
         assert!(INDEX_HTML.contains("action.evolveModes?.includes(\"practice\")"));
         assert!(INDEX_HTML.contains("/actions/create-bond"));
         assert!(INDEX_HTML.contains("label: \"grow closer\""));
@@ -34829,6 +38019,11 @@ mod tests {
         assert!(MODERATION_HTML.contains("target_suspended"));
         assert!(MODERATION_HTML.contains("/moderation/reports?"));
         assert!(MODERATION_HTML.contains("/moderation/actors/"));
+        assert!(MODERATION_HTML.contains("data-economy-summary"));
+        assert!(MODERATION_HTML.contains("data-reconciliation-list"));
+        assert!(MODERATION_HTML.contains("data-resolve-reconciliation"));
+        assert!(MODERATION_HTML.contains("/moderation/economy?"));
+        assert!(MODERATION_HTML.contains("/moderation/economy/reconciliations/"));
         assert!(MODERATION_HTML.contains("/resolve"));
         assert!(MODERATION_HTML.contains("/delete"));
         assert!(MODERATION_HTML.contains("/suspend"));
@@ -35052,8 +38247,8 @@ mod tests {
                 actor_id: Some(5000),
                 feature: "reset_test".to_string(),
                 payer_mode: "cosyworld_orbs".to_string(),
-                provider: "local_fallback".to_string(),
-                model: "deterministic-fallback".to_string(),
+                provider: "unconfigured".to_string(),
+                model: "none".to_string(),
                 status: "ok".to_string(),
                 source_event_id: Some(42),
                 orb_delta: -1,
@@ -35943,6 +39138,320 @@ mod tests {
         assert_eq!(message_broadcast.content.as_deref(), Some("hello room"));
     }
 
+    #[test]
+    fn player_cards_are_the_only_new_journal_records_that_advance_world_time() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Tick Keeper");
+        let starting_tick = runtime.world.tick;
+
+        let content_id = runtime.next_content_id_value();
+        let mut speech = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: 5000,
+                content_id,
+                ..CwAction::default()
+            },
+            17626,
+        );
+        speech
+            .content_upserts
+            .insert(content_id, "The clock stays still.".to_string());
+        assert_eq!(runtime.apply_journal_record(&speech).0, CW_OK);
+        assert_eq!(runtime.world.tick, starting_tick);
+
+        let mut system = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            17627,
+        );
+        system
+            .projection_mutations
+            .push(ProjectionMutation::ChatStatus {
+                target_actor_id: RATI_ACTOR_ID,
+                status: "queued".to_string(),
+                reason: "test".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&system).0, CW_OK);
+        assert_eq!(runtime.world.tick, starting_tick);
+
+        let mut card = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            17628,
+        )
+        .into_player_card();
+        card.projection_mutations
+            .push(ProjectionMutation::ChatStatus {
+                target_actor_id: RATI_ACTOR_ID,
+                status: "queued".to_string(),
+                reason: "test card".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&card).0, CW_OK);
+        assert_eq!(runtime.world.tick, starting_tick + 1);
+
+        let before_rejection = runtime.world.tick;
+        let rejected = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_MOVE,
+                actor_id: 5000,
+                destination_location_id: u64::MAX,
+                ..CwAction::default()
+            },
+            17629,
+        );
+        assert_ne!(runtime.apply_journal_record(&rejected).0, CW_OK);
+        assert_eq!(runtime.world.tick, before_rejection);
+    }
+
+    #[test]
+    fn actor_consequences_keep_causality_without_advancing_the_player_clock() {
+        let mut runtime = RuntimeWorld::seeded();
+        let resident = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati");
+        let source_location_id = resident.location_id;
+        let destination_location_id = runtime.world.exits[..runtime.world.exit_count]
+            .iter()
+            .find(|exit| exit.from_location_id == resident.location_id && exit.flags == 0)
+            .map(|exit| exit.to_location_id)
+            .expect("Rati has a legal adjacent room");
+        let starting_tick = runtime.world.tick;
+        let mut consequence = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_MOVE,
+                actor_id: RATI_ACTOR_ID,
+                destination_location_id,
+                ..CwAction::default()
+            },
+            17630,
+        )
+        .into_actor_consequence(starting_tick, Some(77));
+        consequence.observed_through_seq = Some(81);
+        consequence.source_location_id = Some(source_location_id);
+
+        let (status, events) = runtime.apply_journal_record(&consequence);
+        assert_eq!(status, CW_OK);
+        assert_eq!(runtime.world.tick, starting_tick);
+        assert_eq!(
+            runtime
+                .actor_by_id(RATI_ACTOR_ID)
+                .map(|actor| actor.location_id),
+            Some(destination_location_id)
+        );
+        assert_eq!(consequence.source_world_tick, Some(starting_tick));
+        assert_eq!(consequence.caused_by_event_seq, Some(77));
+        assert!(!events.is_empty());
+        assert!(events.iter().all(|event| {
+            event.caused_by_event_seq == Some(77)
+                && event.source_world_tick == Some(starting_tick)
+                && event.observed_through_seq == Some(81)
+                && event.source_location_id == Some(source_location_id)
+        }));
+    }
+
+    #[test]
+    fn legacy_journal_records_preserve_historical_tick_replay() {
+        let runtime = RuntimeWorld::seeded();
+        let content_id = runtime.next_content_id_value();
+        let mut legacy_json = serde_json::to_value(JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: RATI_ACTOR_ID,
+                content_id,
+                ..CwAction::default()
+            },
+            17631,
+        ))
+        .expect("serialize journal record");
+        let object = legacy_json.as_object_mut().expect("journal object");
+        object.insert("version".to_string(), serde_json::json!(1));
+        object.remove("origin");
+        object.remove("caused_by_event_seq");
+        object.remove("source_world_tick");
+        let legacy: JournalRecord =
+            serde_json::from_value(legacy_json).expect("deserialize legacy journal");
+        assert_eq!(legacy.origin, JournalOrigin::Legacy);
+
+        let mut replay = runtime;
+        let before = replay.world.tick;
+        assert_eq!(replay.apply_journal_record(&legacy).0, CW_OK);
+        assert_eq!(replay.world.tick, before + 1);
+    }
+
+    #[test]
+    fn player_card_commit_atomically_persists_events_and_a_recoverable_actor_job() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-actor-outbox-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize actor outbox");
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Outbox Player",
+        );
+        let state = test_app_state(runtime, Some(path.clone()));
+        let mut runtime = state.inner.blocking_lock();
+        let before_tick = runtime.world.tick;
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            17632,
+        )
+        .into_player_card();
+        record
+            .projection_mutations
+            .push(ProjectionMutation::SetTag {
+                tag: RpgTagState {
+                    id: "test:outbox:prepared".to_string(),
+                    scope: "actor".to_string(),
+                    scope_id: 5000,
+                    label: "prepared".to_string(),
+                    kind: "aspect".to_string(),
+                    active: true,
+                    source_event_seq: None,
+                    expires: Some("after_work".to_string()),
+                },
+                reason: "actor_outbox_test".to_string(),
+            });
+
+        let (status, events) =
+            commit_journal_record(&state, &mut runtime, record).expect("commit player card");
+        assert_eq!(status, CW_OK);
+        assert_eq!(runtime.world.tick, before_tick + 1);
+        assert!(!events.is_empty());
+        drop(runtime);
+
+        let conn = open_event_store(&path).expect("open actor outbox");
+        let journal_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM action_journal", [], |row| row.get(0))
+            .expect("journal count");
+        let event_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM world_events", [], |row| row.get(0))
+            .expect("event count");
+        let job_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM actor_jobs", [], |row| row.get(0))
+            .expect("job count");
+        assert_eq!(journal_count, 1);
+        assert_eq!(event_count, events.len() as i64);
+        assert_eq!(job_count, 1);
+        drop(conn);
+
+        let first = claim_next_actor_job(&path)
+            .expect("claim actor job")
+            .expect("pending actor job");
+        let observation = match &first.payload {
+            ActorJobPayload::PlayerTick(observation) => observation,
+            _ => panic!("player card queued the wrong actor payload"),
+        };
+        assert_eq!(observation.source_world_tick, before_tick + 1);
+        assert_eq!(
+            observation.caused_by_event_seq,
+            events.last().map(|event| event.seq)
+        );
+        assert!(!append_actor_job(&path, observation).expect("dedupe actor job"));
+
+        let conn = open_event_store(&path).expect("expire actor lease");
+        conn.execute(
+            "UPDATE actor_jobs SET lease_until_ms = 0 WHERE id = ?1",
+            params![first.id],
+        )
+        .expect("expire actor lease");
+        drop(conn);
+        let recovered = claim_next_actor_job(&path)
+            .expect("recover actor job")
+            .expect("expired actor job");
+        assert_eq!(recovered.id, first.id);
+        assert_eq!(recovered.attempts, 2);
+        complete_actor_job(&path, recovered.id).expect("complete actor job");
+        assert!(claim_next_actor_job(&path)
+            .expect("inspect drained outbox")
+            .is_none());
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn actor_outbox_failure_rolls_back_the_entire_player_card_commit() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-actor-outbox-rollback-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize actor outbox");
+        let conn = open_event_store(&path).expect("open actor outbox");
+        conn.execute_batch(
+            "CREATE TRIGGER reject_actor_job BEFORE INSERT ON actor_jobs
+             BEGIN SELECT RAISE(ABORT, 'injected actor outbox failure'); END;",
+        )
+        .expect("install failure injection");
+        drop(conn);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Rollback Player",
+        );
+        let state = test_app_state(runtime, Some(path.clone()));
+        let mut runtime = state.inner.blocking_lock();
+        let before_tick = runtime.world.tick;
+        let before_next_event_seq = runtime.world.next_event_seq;
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            17633,
+        )
+        .into_player_card();
+        record
+            .projection_mutations
+            .push(ProjectionMutation::SetTag {
+                tag: RpgTagState {
+                    id: "test:outbox:rollback".to_string(),
+                    scope: "actor".to_string(),
+                    scope_id: 5000,
+                    label: "prepared".to_string(),
+                    kind: "aspect".to_string(),
+                    active: true,
+                    source_event_seq: None,
+                    expires: None,
+                },
+                reason: "actor_outbox_rollback_test".to_string(),
+            });
+
+        assert!(commit_journal_record(&state, &mut runtime, record).is_err());
+        assert_eq!(runtime.world.tick, before_tick);
+        assert_eq!(runtime.world.next_event_seq, before_next_event_seq);
+        assert!(!runtime.tags.contains_key("test:outbox:rollback"));
+        drop(runtime);
+        let conn = open_event_store(&path).expect("inspect rolled back outbox");
+        for table in ["action_journal", "world_events", "actor_jobs"] {
+            let count: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .expect("rolled back table count");
+            assert_eq!(count, 0, "{table} should roll back atomically");
+        }
+        drop(conn);
+        let _ = fs::remove_file(path);
+    }
+
     #[tokio::test]
     async fn shuffle_command_is_free_hand_redeal_hint() {
         let mut runtime = RuntimeWorld::seeded();
@@ -36020,7 +39529,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn real_player_action_emits_player_powered_resident_ripple() {
+    async fn real_player_action_reserves_the_ai_reaction_speaker() {
         let mut runtime = RuntimeWorld::seeded();
         hide_seed_items(&mut runtime);
         let mut create = CwAction::default();
@@ -36056,37 +39565,25 @@ mod tests {
         assert!(response.events.iter().any(|event| {
             event.type_name == "location.searched" && event.actor_id == Some(5000)
         }));
-        let resident_action = response
-            .events
-            .iter()
-            .find(|event| {
-                [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
+        let resident_action = response.events.iter().find(|event| {
+            [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
+                .contains(&event.actor_id.unwrap_or_default())
+                && matches!(
+                    event.type_name.as_str(),
+                    "actor.moved"
+                        | "item.picked_up"
+                        | "item.dropped"
+                        | "item.given"
+                        | "item.traded"
+                        | "item.used"
+                )
+        });
+        assert!(resident_action.is_none());
+        assert!(!response.events.iter().any(|event| {
+            event.type_name == "message.created"
+                && [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
                     .contains(&event.actor_id.unwrap_or_default())
-                    && matches!(
-                        event.type_name.as_str(),
-                        "actor.moved"
-                            | "item.picked_up"
-                            | "item.dropped"
-                            | "item.given"
-                            | "item.traded"
-                            | "item.used"
-                    )
-            })
-            .expect("a real player turn should let one resident ripple through the world");
-
-        let runtime = state.inner.lock().await;
-        let ripple_actor = runtime
-            .actor_by_id(resident_action.actor_id.unwrap())
-            .expect("ripple resident remains in world");
-        if resident_action.type_name == "actor.moved" {
-            assert_eq!(
-                resident_action.destination_location_id,
-                Some(RAIN_SOFT_GARDEN_LOCATION_ID)
-            );
-            assert_eq!(ripple_actor.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
-        } else {
-            assert_eq!(ripple_actor.location_id, COSY_COTTAGE_LOCATION_ID);
-        }
+        }));
     }
 
     #[test]
@@ -36106,7 +39603,6 @@ mod tests {
             .expect("a resident should react to the card");
         assert_eq!(first.npc_actor_id, RATI_ACTOR_ID);
         assert!(first.user_text.contains("searched"));
-        assert!(first.fallback_text.contains("clue"));
 
         runtime.event_log.push(EventView {
             type_name: "message.created".to_string(),
@@ -36120,7 +39616,7 @@ mod tests {
             .next_resident_card_reaction_plan(5000, &card_events)
             .expect("the next resident should react");
         assert_eq!(second.npc_actor_id, WHISKERWIND_ACTOR_ID);
-        assert_eq!(second.fallback_text, "👂🔎✨👉");
+        assert_eq!(second.speech_mode, "emoji_only");
 
         runtime.event_log.push(EventView {
             type_name: "message.created".to_string(),
@@ -36134,8 +39630,30 @@ mod tests {
             .next_resident_card_reaction_plan(5000, &card_events)
             .expect("resident card order should continue");
         assert_eq!(third.npc_actor_id, SKULL_ACTOR_ID);
-        assert!(third.fallback_text.contains("clue"));
-        assert!(!third.fallback_text.contains("mud"));
+        assert_eq!(third.user_text, first.user_text);
+    }
+
+    #[test]
+    fn human_control_mode_never_speaks_for_the_player_avatar() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Card Player");
+        for actor in &mut runtime.world.actors[..runtime.world.actor_count] {
+            if actor.kind == CW_ACTOR_NPC && actor.location_id == COSY_COTTAGE_LOCATION_ID {
+                actor.location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+            }
+        }
+        let card_events = vec![EventView {
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            location_name: Some("The Cosy Cottage".to_string()),
+            ..EventView::default()
+        }];
+
+        assert!(runtime
+            .next_resident_card_reaction_plan(5000, &card_events)
+            .is_none());
     }
 
     #[test]
@@ -36161,8 +39679,6 @@ mod tests {
         assert!(search_reply.user_text.contains("Scarf Basket"));
         assert!(search_reply.user_text.contains("round notch"));
         assert!(!search_reply.user_text.contains("search_feature"));
-        assert!(search_reply.fallback_text.contains("Scarf Basket"));
-        assert!(search_reply.fallback_text.contains("little clue"));
 
         let practiced = vec![
             EventView {
@@ -36185,7 +39701,6 @@ mod tests {
             .expect("practice skips the spend bookkeeping");
         assert!(practice_reply.user_text.contains("your Listening practice"));
         assert!(!practice_reply.user_text.contains("skill_step"));
-        assert!(practice_reply.fallback_text.contains("kinder to yourself"));
 
         let gifted = vec![EventView {
             type_name: "item.given".to_string(),
@@ -36202,11 +39717,10 @@ mod tests {
             .expect("the gift keeps its item and recipient");
         assert!(gift_reply.user_text.contains("Story Button"));
         assert!(gift_reply.user_text.contains("Gust"));
-        assert!(gift_reply.fallback_text.contains("Story Button"));
     }
 
     #[tokio::test]
-    async fn card_reaction_speaks_before_the_last_resident_can_wander_away() {
+    async fn card_commit_captures_an_observation_without_reserving_a_speaker() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Card Player");
         hide_seed_items(&mut runtime);
@@ -36230,7 +39744,7 @@ mod tests {
             ..EventView::default()
         }];
 
-        let deferred_reply = advance_turn_and_maybe_emit_resident_ripple(
+        let observation = advance_turn_and_capture_player_tick_observation(
             &state,
             &mut runtime,
             Some(COSY_COTTAGE_LOCATION_ID),
@@ -36239,14 +39753,11 @@ mod tests {
             &mut events,
         );
 
-        assert!(
-            deferred_reply.is_none(),
-            "the card reply is already committed"
-        );
-        assert!(events.iter().any(|event| {
-            event.type_name == "message.created"
-                && event.actor_id == Some(RATI_ACTOR_ID)
-                && event.location_id == Some(COSY_COTTAGE_LOCATION_ID)
+        let observation = observation.expect("the committed card emits an actor observation");
+        assert_eq!(observation.source_actor_id, 5000);
+        assert_eq!(observation.caused_by_event_seq, Some(900));
+        assert!(!events.iter().any(|event| {
+            event.type_name == "message.created" && event.actor_id == Some(RATI_ACTOR_ID)
         }));
         assert!(!events.iter().any(|event| {
             event.type_name == "actor.moved" && event.actor_id == Some(RATI_ACTOR_ID)
@@ -36290,7 +39801,7 @@ mod tests {
         let state = test_app_state(runtime, None);
         let mut runtime = state.inner.lock().await;
 
-        let deferred_reply = advance_turn_and_maybe_emit_resident_ripple(
+        let observation = advance_turn_and_capture_player_tick_observation(
             &state,
             &mut runtime,
             Some(RAIN_SOFT_GARDEN_LOCATION_ID),
@@ -36298,21 +39809,50 @@ mod tests {
             status,
             &mut events,
         )
-        .expect("the following resident has something to say");
+        .expect("the move emits an actor observation");
 
-        assert_eq!(deferred_reply.npc_actor_id, RATI_ACTOR_ID);
         assert_eq!(
             runtime
                 .actor_by_id(RATI_ACTOR_ID)
-                .expect("Rati followed the path")
+                .expect("Rati has not acted in the card transaction")
                 .location_id,
-            RAIN_SOFT_GARDEN_LOCATION_ID
+            COSY_COTTAGE_LOCATION_ID
         );
-        assert!(events.iter().any(|event| {
+        assert!(!events.iter().any(|event| {
             event.type_name == "actor.moved"
                 && event.actor_id == Some(RATI_ACTOR_ID)
                 && event.destination_location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
         }));
+        drop(runtime);
+
+        let _ = complete_player_tick_observation(&state, observation).await;
+
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime
+                .actor_by_id(RATI_ACTOR_ID)
+                .expect("Rati followed the path asynchronously")
+                .location_id,
+            RAIN_SOFT_GARDEN_LOCATION_ID
+        );
+        assert!(runtime.event_log.iter().any(|event| {
+            event.type_name == "actor.moved"
+                && event.actor_id == Some(RATI_ACTOR_ID)
+                && event.destination_location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+        }));
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == "actor.moved"
+                        && event.actor_id == Some(RATI_ACTOR_ID)
+                        && event.destination_location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+                })
+                .count(),
+            1,
+            "reclaiming the same observation must not repeat its consequence"
+        );
     }
 
     #[test]
@@ -36361,7 +39901,56 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn avatar_creation_arrives_with_a_resident_welcome() {
+    async fn lantern_keeper_character_creation_sets_entry_identity_and_starting_knack() {
+        let runtime = RuntimeWorld::seeded();
+        let guest = runtime.state_response(None, &AccessContext::default());
+        assert_eq!(guest.character_creation.len(), 1);
+        assert_eq!(guest.character_creation[0].id, "the-lantern-keeper");
+        assert_eq!(guest.character_creation[0].entry_location_id, 800);
+        assert_eq!(
+            guest.character_creation[0].entry_location_name,
+            "Wayside Lantern Inn"
+        );
+        assert_eq!(guest.character_creation[0].choices.len(), 4);
+        let state = test_app_state(runtime, None);
+        let response = create_avatar(
+            ConnectInfo("127.0.0.1:45110".parse().expect("client address")),
+            State(state.clone()),
+            Json(CreateAvatarRequest {
+                name: Some("Elowen Reed".to_string()),
+                calling: None,
+                wallet_session: None,
+                character_creation_id: Some("the-lantern-keeper".to_string()),
+                character_choice_id: Some("chapel-scholar".to_string()),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok, "{response:?}");
+        let actor = response.actor.expect("campaign avatar");
+        assert_eq!(actor.location_id, 800);
+        assert_eq!(actor.title, "Chapel Scholar");
+        assert!(actor.description.contains("field scholar"));
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime
+                .callings
+                .get(&actor.id)
+                .map(|calling| calling.statement.as_str()),
+            Some("I learn what the old lights were built to keep out.")
+        );
+        assert_eq!(
+            runtime
+                .skills
+                .get(&skill_state_id(actor.id, "lorecraft"))
+                .map(|skill| skill.rank),
+            Some(1)
+        );
+    }
+
+    #[tokio::test]
+    async fn avatar_creation_without_ai_emits_no_fallback_welcome() {
         let state = test_app_state(RuntimeWorld::seeded(), None);
         let mut broadcasts = state.tx.subscribe();
 
@@ -36372,6 +39961,8 @@ mod tests {
                 name: Some("Welcome Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                character_creation_id: None,
+                character_choice_id: None,
             }),
         )
         .await
@@ -36385,21 +39976,11 @@ mod tests {
             .find(|event| event.type_name == "actor.created" && event.actor_id == Some(actor_id))
             .expect("Begin commits the avatar arrival");
         let emitted = std::iter::from_fn(|| broadcasts.try_recv().ok()).collect::<Vec<_>>();
-        let welcome = emitted
-            .iter()
-            .find(|event| {
-                event.type_name == "message.created"
-                    && event.actor_id == Some(RATI_ACTOR_ID)
-                    && event.seq > arrival.seq
-            })
-            .expect("the first resident welcomes the new avatar before Begin returns");
-        assert!(
-            welcome
-                .content
-                .as_deref()
-                .is_some_and(|line| line.contains("kettle")),
-            "arrival welcome should preserve Rati's cosy voice: {welcome:?}"
-        );
+        assert!(!emitted.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.actor_id == Some(RATI_ACTOR_ID)
+                && event.seq > arrival.seq
+        }));
     }
 
     #[tokio::test]
@@ -36421,6 +40002,8 @@ mod tests {
                 name: Some("Homecoming Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                character_creation_id: None,
+                character_choice_id: None,
             }),
         )
         .await
@@ -36437,18 +40020,11 @@ mod tests {
             })
             .expect("the arrival card brings a cottage host home");
         let emitted = std::iter::from_fn(|| broadcasts.try_recv().ok()).collect::<Vec<_>>();
-        let welcome = emitted
-            .iter()
-            .find(|event| {
-                event.type_name == "message.created"
-                    && event.actor_id == Some(RATI_ACTOR_ID)
-                    && event.seq > homecoming.seq
-            })
-            .expect("the returning host welcomes the new avatar");
-        assert!(welcome
-            .content
-            .as_deref()
-            .is_some_and(|line| line.contains("kettle")));
+        assert!(!emitted.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.actor_id == Some(RATI_ACTOR_ID)
+                && event.seq > homecoming.seq
+        }));
 
         let runtime = state.inner.lock().await;
         assert_eq!(
@@ -36481,6 +40057,8 @@ mod tests {
                 name: Some("Scarf Story Sprig".to_string()),
                 calling: Some(default_calling_statement().to_string()),
                 wallet_session: None,
+                character_creation_id: None,
+                character_choice_id: None,
             }),
         )
         .await
@@ -36497,19 +40075,15 @@ mod tests {
             })
             .expect("Rati comes home for the opening tale");
         let emitted = std::iter::from_fn(|| broadcasts.try_recv().ok()).collect::<Vec<_>>();
-        assert!(emitted.iter().any(|event| {
+        assert!(!emitted.iter().any(|event| {
             event.type_name == "message.created"
                 && event.actor_id == Some(RATI_ACTOR_ID)
                 && event.seq > homecoming.seq
-                && event
-                    .content
-                    .as_deref()
-                    .is_some_and(|line| line.contains("kettle"))
         }));
     }
 
     #[test]
-    fn direct_target_cards_use_semantic_replies_but_free_chat_keeps_room_flavor() {
+    fn resident_inference_plans_preserve_semantic_input_and_voice_contract() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Card Player");
 
@@ -36520,14 +40094,15 @@ mod tests {
                 "I want to keep you close: I bring small kindnesses.",
             )
             .expect("friendship target can reply");
-        assert_eq!(friendship.fallback_text, "🌧️🤝💛✨");
+        assert_eq!(friendship.speech_mode, "emoji_only");
+        assert!(friendship.user_text.contains("small kindnesses"));
 
         let gift = runtime
             .resident_reply_plan_for_target(5000, RATI_ACTOR_ID, "I gave you Story Button.")
             .expect("gift target can reply");
-        assert!(gift.fallback_text.contains("keepsake"));
+        assert_eq!(gift.npc_actor_id, RATI_ACTOR_ID);
+        assert!(gift.user_text.contains("Story Button"));
 
-        let room_fallback = runtime.resident_fallback_for_target(SKULL_ACTOR_ID);
         let free_chat = runtime
             .resident_reply_plan_for_target(
                 5000,
@@ -36535,7 +40110,8 @@ mod tests {
                 "What are you watching by the door?",
             )
             .expect("free chat target can reply");
-        assert_eq!(free_chat.fallback_text, room_fallback);
+        assert_eq!(free_chat.speech_mode, "emote_only");
+        assert!(free_chat.user_text.contains("watching by the door"));
     }
 
     #[test]
@@ -36680,7 +40256,7 @@ mod tests {
         assert!(broadcasts
             .iter()
             .any(|event| event.type_name == "ability_check.rolled"));
-        assert!(broadcasts.iter().any(|event| {
+        assert!(!broadcasts.iter().any(|event| {
             event.type_name == "message.created" && event.actor_id == Some(RATI_ACTOR_ID)
         }));
         assert!(broadcasts.iter().any(|event| {
@@ -36693,17 +40269,11 @@ mod tests {
             .find(|event| event.type_name == "ability_check.rolled" && event.actor_id == Some(5000))
             .map(|event| event.seq)
             .expect("the card action committed");
-        let reply_seq = runtime
-            .event_log
-            .iter()
-            .find(|event| {
-                event.seq > action_seq
-                    && event.type_name == "message.created"
-                    && event.actor_id == Some(RATI_ACTOR_ID)
-            })
-            .map(|event| event.seq)
-            .expect("the promised resident reply committed before the endpoint returned");
-        assert!(reply_seq > action_seq);
+        assert!(!runtime.event_log.iter().any(|event| {
+            event.seq > action_seq
+                && event.type_name == "message.created"
+                && event.actor_id == Some(RATI_ACTOR_ID)
+        }));
     }
 
     #[test]
@@ -40687,238 +44257,225 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn chat_handler_records_ai_usage_for_server_paid_chat() {
-        let path = std::env::temp_dir().join(format!(
-            "cosyworld-v2-ai-usage-{}-{}.sqlite",
-            std::process::id(),
-            now_seed()
-        ));
-        let _ = fs::remove_file(&path);
-
-        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+    async fn chat_without_ai_queues_then_fails_and_refunds_without_dialogue() {
+        let mut state = test_app_state(RuntimeWorld::seeded(), None);
+        state.avatar_chat_delay = Duration::from_millis(50);
         {
             let mut runtime = state.inner.lock().await;
-            let mut create = CwAction::default();
-            create.kind = CW_ACTION_CREATE_ACTOR;
-            create.actor_id = 5000;
-            create.location_id = 1;
-            let mut create_record = JournalRecord::new(create, 7041);
-            create_record.actor_meta_upserts.insert(
+            create_test_human(
+                &mut runtime,
                 5000,
-                ActorMeta {
-                    name: "Usage Tester".to_string(),
-                    speech_mode: "prose".to_string(),
-                    title: "AI Usage Avatar".to_string(),
-                    description: "A test avatar checking AI accounting.".to_string(),
-                },
-            );
-            assert_eq!(
-                commit_journal_record(&state, &mut runtime, create_record)
-                    .expect("commit create")
-                    .0,
-                CW_OK
-            );
-            let repeated_reply = runtime.resident_fallback_for_target(RATI_ACTOR_ID);
-            let content_id = runtime.next_content_id_value();
-            let mut repeated_record = JournalRecord::new(
-                CwAction {
-                    kind: CW_ACTION_SAY,
-                    actor_id: RATI_ACTOR_ID,
-                    content_id,
-                    ..CwAction::default()
-                },
-                runtime.next_seed_value(),
-            );
-            repeated_record
-                .content_upserts
-                .insert(content_id, repeated_reply);
-            assert_eq!(
-                commit_journal_record(&state, &mut runtime, repeated_record)
-                    .expect("commit recent repeated resident line")
-                    .0,
-                CW_OK
+                COSY_COTTAGE_LOCATION_ID,
+                "Inference Tester",
             );
         }
         let (actor_session, _) = issue_actor_session(&state, 5000);
-        let stale_client_key_payload: ChatRequest = serde_json::from_value(serde_json::json!({
-            "actor_id": 5000,
-            "actor_session": actor_session.clone(),
-            "target_actor_id": 1001,
-            "openrouter_api_key": "sk-or-v1-stale-client-key",
-        }))
-        .expect("stale client OpenRouter key should be ignored by ChatRequest");
-        assert_eq!(stale_client_key_payload.actor_id, 5000);
-        assert_eq!(stale_client_key_payload.target_actor_id, 1001);
 
         let response = chat(
             ConnectInfo("127.0.0.1:44001".parse().expect("client address")),
             State(state.clone()),
-            Json(stale_client_key_payload),
-        )
-        .await
-        .0;
-        assert!(response.ok);
-        assert_eq!(response.status, CW_OK);
-        assert!(response
-            .events
-            .iter()
-            .any(|event| event.type_name == "message.created" && event.actor_id == Some(5000)));
-        assert!(!response
-            .events
-            .iter()
-            .any(|event| event.type_name == "message.created" && event.actor_id == Some(1001)));
-        assert!(!response
-            .events
-            .iter()
-            .any(|event| event.type_name == "bond.deepened"));
-
-        let exchange_lines = tokio::time::timeout(Duration::from_secs(4), async {
-            loop {
-                let lines = {
-                    let runtime = state.inner.lock().await;
-                    runtime
-                        .event_log
-                        .iter()
-                        .filter(|event| {
-                            event.type_name == "message.created" && event.location_id == Some(1)
-                        })
-                        .filter_map(|event| {
-                            Some((event.actor_id?, event.content.clone().unwrap_or_default()))
-                        })
-                        .collect::<Vec<_>>()
-                };
-                if lines.len() >= 5 {
-                    break lines;
-                }
-                tokio::time::sleep(Duration::from_millis(40)).await;
-            }
-        })
-        .await
-        .expect("one-Orb Chat should complete its short exchange");
-        let exchange_actor_ids = exchange_lines
-            .iter()
-            .map(|(actor_id, _)| *actor_id)
-            .collect::<Vec<_>>();
-        assert_eq!(
-            &exchange_actor_ids[exchange_actor_ids.len() - 4..],
-            &[5000, 1001, 5000, 1001]
-        );
-        let exchange = &exchange_lines[exchange_lines.len() - 4..];
-        assert!(exchange[0].1.contains("Moonwool Thread"));
-        assert!(exchange[1].1.contains("Moonwool Thread"));
-        assert!(exchange[2].1.contains("Moonwool Thread"));
-        assert!(exchange[3].1.contains("Moonwool Thread"));
-        assert!(!exchange[3].1.trim_end().ends_with('?'));
-        {
-            let runtime = state.inner.lock().await;
-            assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - CHAT_ORB_COST);
-            let view = runtime.state_response(Some(5000), &AccessContext::default());
-            assert_eq!(
-                view.room_memory
-                    .latest
-                    .as_ref()
-                    .map(|entry| entry.text.as_str()),
-                Some("Usage Tester kept a memory: shared a little chat with Rati.")
-            );
-        }
-        tokio::time::timeout(Duration::from_secs(1), async {
-            loop {
-                let idle = state
-                    .actor_chat_locks
-                    .lock()
-                    .map(|active| !active.contains(&5000))
-                    .unwrap_or(false);
-                if idle {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(20)).await;
-            }
-        })
-        .await
-        .expect("chat guard should release after the exchange");
-
-        let conn = open_event_store(&path).expect("open event store");
-        let row = conn
-            .query_row(
-                "SELECT actor_id, feature, payer_mode, provider, model, status,
-                        source_event_id, orb_delta
-                 FROM ai_usage_ledger
-                 WHERE feature = 'avatar_chat'",
-                [],
-                |row| {
-                    Ok((
-                        row.get::<_, Option<i64>>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, String>(2)?,
-                        row.get::<_, String>(3)?,
-                        row.get::<_, String>(4)?,
-                        row.get::<_, String>(5)?,
-                        row.get::<_, Option<i64>>(6)?,
-                        row.get::<_, i64>(7)?,
-                    ))
-                },
-            )
-            .expect("ai usage row");
-        assert_eq!(row.0, Some(5000));
-        assert_eq!(row.1, "avatar_chat");
-        assert_eq!(row.2, "cosyworld_orbs");
-        assert_eq!(row.3, "local_fallback");
-        assert_eq!(row.4, "deterministic-fallback");
-        assert_eq!(row.5, "ok");
-        assert!(row.6.is_some());
-        assert_eq!(row.7, -(CHAT_ORB_COST as i64));
-
-        let repeat = chat(
-            ConnectInfo("127.0.0.1:44002".parse().expect("client address")),
-            State(state.clone()),
             Json(ChatRequest {
                 actor_id: 5000,
                 actor_session: Some(actor_session),
-                target_actor_id: 1001,
+                target_actor_id: RATI_ACTOR_ID,
             }),
         )
         .await
         .0;
-        assert!(repeat.ok);
-        assert_eq!(repeat.status, CW_OK);
-        assert!(!repeat
-            .events
-            .iter()
-            .any(|event| event.type_name == "bond.deepened"));
+
+        assert!(response.ok);
+        assert_eq!(response.status, CW_OK);
+        assert!(response.events.iter().any(|event| {
+            event.type_name == "chat.queued"
+                && event.actor_id == Some(5000)
+                && event.target_actor_id == Some(RATI_ACTOR_ID)
+        }));
         {
             let runtime = state.inner.lock().await;
-            let chat_state = runtime.state_response(Some(5000), &AccessContext::default());
-            assert!(chat_state.bonds.is_empty());
-            assert!(chat_state.chat_bond_claimed_target_ids.is_empty());
-            assert!(!chat_state
-                .ledger
-                .unbanked_marks
-                .iter()
-                .any(|mark| mark.category == "bond"));
-            assert!(chat_state
-                .ledger
-                .unbanked_marks
-                .iter()
-                .any(|mark| mark.category == "witness"));
-            let chat_offer = chat_state
-                .action_offers
-                .iter()
-                .find(|offer| offer.kind == "chat")
-                .expect("chat offer remains available after first chat");
-            assert_eq!(
-                chat_offer.target.as_ref().and_then(|target| target.id),
-                Some(1001)
-            );
-            assert!(chat_offer.effect.is_some());
-            assert!(chat_offer.claim_key.is_none());
+            assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
+            assert!(!runtime.event_log.iter().any(|event| {
+                event.type_name == "message.created" && event.actor_id == Some(5000)
+            }));
         }
 
-        tokio::time::sleep(Duration::from_millis(20)).await;
-        let _ = fs::remove_file(path);
+        let mut failed = false;
+        for _ in 0..30 {
+            {
+                let runtime = state.inner.lock().await;
+                failed = runtime.event_log.iter().any(|event| {
+                    event.type_name == "chat.failed"
+                        && event.actor_id == Some(5000)
+                        && event.target_actor_id == Some(RATI_ACTOR_ID)
+                });
+                if failed {
+                    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
+                    assert!(!runtime.event_log.iter().any(|event| {
+                        event.type_name == "message.created" && event.actor_id == Some(5000)
+                    }));
+                }
+            }
+            if failed {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(
+            failed,
+            "the queued chat should report failure and refund its Orb"
+        );
     }
 
     #[tokio::test]
-    async fn create_bond_action_schedules_target_chat_reply() {
+    async fn chat_card_is_turn_gated_and_passes_before_the_conversation_finishes() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Current Player",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Waiting Chatter",
+        );
+        let state = test_app_state(runtime, None);
+        let (session_5000, _) = issue_actor_session(&state, 5000);
+        let (session_5001, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5000, &session_5000),
+            Some(false)
+        );
+        assert_eq!(
+            ping_actor_session_for_actor(&state.actor_sessions, 5001, &session_5001),
+            Some(false)
+        );
+
+        let (current_actor_id, waiting_actor_id, round, before_tick) = {
+            let runtime = state.inner.lock().await;
+            let active_humans = active_turn_actor_ids_for_state(&state);
+            let turn = room_turn_view_for_runtime(
+                &state,
+                &runtime,
+                COSY_COTTAGE_LOCATION_ID,
+                Some(5000),
+                &active_humans,
+            );
+            let current_actor_id = turn.current_actor_id.expect("room has a current actor");
+            let waiting_actor_id = if current_actor_id == 5000 { 5001 } else { 5000 };
+            (
+                current_actor_id,
+                waiting_actor_id,
+                turn.round,
+                runtime.world.tick,
+            )
+        };
+        let current_session = if current_actor_id == 5000 {
+            session_5000.clone()
+        } else {
+            session_5001.clone()
+        };
+        let waiting_session = if waiting_actor_id == 5000 {
+            session_5000
+        } else {
+            session_5001
+        };
+
+        let rejected = chat(
+            ConnectInfo("127.0.0.1:44002".parse().expect("client address")),
+            State(state.clone()),
+            Json(ChatRequest {
+                actor_id: waiting_actor_id,
+                actor_session: Some(waiting_session),
+                target_actor_id: RATI_ACTOR_ID,
+            }),
+        )
+        .await
+        .0;
+        assert!(!rejected.ok, "Chat remains a turn-gated card");
+        assert_eq!(rejected.status, 423);
+
+        let response = chat(
+            ConnectInfo("127.0.0.1:44003".parse().expect("client address")),
+            State(state.clone()),
+            Json(ChatRequest {
+                actor_id: current_actor_id,
+                actor_session: Some(current_session.clone()),
+                target_actor_id: RATI_ACTOR_ID,
+            }),
+        )
+        .await
+        .0;
+        assert!(
+            response.ok,
+            "the current avatar can commit Chat immediately"
+        );
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "chat.queued"));
+        let card_receipt = response
+            .events
+            .iter()
+            .find(|event| event.type_name == "action.receipt")
+            .and_then(|event| event.content.as_deref())
+            .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
+            .expect("Chat returns the next turn before dialogue generation");
+
+        let runtime = state.inner.lock().await;
+        let active_humans = active_turn_actor_ids_for_state(&state);
+        let turn = room_turn_view_for_runtime(
+            &state,
+            &runtime,
+            COSY_COTTAGE_LOCATION_ID,
+            Some(current_actor_id),
+            &active_humans,
+        );
+        let after_card_tick = before_tick + 1;
+        assert_eq!(runtime.world.tick, after_card_tick);
+        assert_eq!(turn.current_actor_id, Some(waiting_actor_id));
+        assert_eq!(turn.round, round + 1);
+        assert!(!turn.is_current_actor);
+        assert_eq!(card_receipt["world_tick"], after_card_tick);
+        assert_eq!(
+            card_receipt["state"]["turn"]["current_actor_id"],
+            waiting_actor_id
+        );
+        drop(runtime);
+
+        let nudge = request_turn_timeout(
+            ConnectInfo("127.0.0.1:44004".parse().expect("client address")),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: current_actor_id,
+                actor_session: Some(current_session),
+            }),
+        )
+        .await
+        .0;
+        assert!(nudge.ok);
+        assert!(nudge
+            .events
+            .iter()
+            .any(|event| event.type_name == "turn.ping_started"));
+        let receipt = nudge
+            .events
+            .iter()
+            .find(|event| event.type_name == "action.receipt")
+            .and_then(|event| event.content.as_deref())
+            .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
+            .expect("nudge returns its next turn state without a refresh");
+        assert_eq!(receipt["world_tick"], after_card_tick);
+        assert_eq!(
+            receipt["state"]["turn"]["current_actor_id"],
+            waiting_actor_id
+        );
+        assert_eq!(receipt["state"]["turn"]["ping_active"], true);
+    }
+
+    #[tokio::test]
+    async fn create_bond_action_without_ai_emits_no_fallback_reply() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -41000,7 +44557,7 @@ mod tests {
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        assert!(saw_reply, "target avatar should answer after a bond action");
+        assert!(!saw_reply, "no fallback reply should follow without AI");
     }
 
     #[test]
@@ -41097,32 +44654,127 @@ mod tests {
     }
 
     #[test]
+    fn embedded_srd_rules_are_attributed_and_non_authoritative_by_default() {
+        let rules: Vec<SeedRuleBundle> =
+            parse_seed_json("rules.json", SEED_RULES_JSON).expect("embedded rules parse");
+        let attributions: Vec<SeedAttribution> =
+            parse_seed_json("attributions.json", SEED_ATTRIBUTIONS_JSON)
+                .expect("embedded attributions parse");
+
+        assert_eq!(rules.len(), 2);
+        for (pack_id, namespace) in [
+            ("cosyworld.rules-srd-5.1", "srd5.1"),
+            ("cosyworld.rules-srd-5.2.1", "srd5.2.1"),
+        ] {
+            let srd = rules
+                .iter()
+                .find(|bundle| bundle.pack_id == pack_id)
+                .expect("versioned SRD bundle");
+            assert_eq!(srd.adapter, "cosyworld.rules/1");
+            assert_eq!(srd.namespace, namespace);
+            assert_eq!(srd.resources.conditions.len(), 15);
+            assert_eq!(srd.resources.monster_seeds.len(), 3);
+            assert!(srd.resources.conditions.iter().all(|condition| {
+                condition.mapping.status == "reference_only"
+                    || (condition.id == "condition/unconscious"
+                        && condition.mapping.status == "kernel"
+                        && condition.mapping.kernel_condition.as_deref() == Some("unconscious"))
+            }));
+            assert!(srd
+                .resources
+                .monster_seeds
+                .iter()
+                .all(|monster| monster.mapping.status == "reference_only"));
+        }
+
+        assert!(attributions.len() >= 2);
+        for (pack_id, document_name) in [
+            ("cosyworld.rules-srd-5.1", "System Reference Document 5.1"),
+            (
+                "cosyworld.rules-srd-5.2.1",
+                "System Reference Document 5.2.1",
+            ),
+        ] {
+            let attribution = attributions
+                .iter()
+                .find(|attribution| attribution.pack_id == pack_id)
+                .expect("versioned SRD attribution");
+            assert_eq!(attribution.license, "CC-BY-4.0");
+            assert!(attribution.text.contains(document_name));
+            assert!(!attribution.text.contains("CC-BY-SA"));
+        }
+    }
+
+    #[test]
     fn seed_content_manifest_drives_runtime_metadata_and_evolution_tracks() {
         let content = parse_seed_content(SEED_CONTENT_JSON).expect("seed content parses");
-        assert_eq!(content.manifest.id, "cosyworld.core");
+        assert_eq!(content.manifest.id, "cosyworld.official");
         assert_eq!(content.manifest.version, 1);
-        assert!(content.manifest.description.contains("seed worldpack"));
-        assert_eq!(content.actors.len(), 35);
+        assert_eq!(content.manifest.schema_version, 2);
+        assert_eq!(content.manifest.packs.len(), 7);
+        assert!(content.manifest.bundle_hash.starts_with("sha256:"));
+        assert!(content.manifest.description.contains("seed world"));
+        assert_eq!(content.actors.len(), 55);
         assert_eq!(content.access_gates.len(), 6);
         assert_eq!(content.factions.len(), 12);
-        assert_eq!(content.items.len(), 10);
-        assert_eq!(content.locations.len(), 28);
-        assert_eq!(content.exits.len(), 68);
+        assert_eq!(content.items.len(), 14);
+        assert_eq!(content.locations.len(), 48);
+        assert_eq!(content.exits.len(), 108);
         assert_eq!(content.hidden_exits.len(), 1);
-        assert_eq!(content.room_features.len(), 16);
-        assert_eq!(content.room_sheets.len(), 28);
-        assert_eq!(content.clocks.len(), 4);
-        assert_eq!(content.jobs.len(), 2);
+        assert_eq!(content.room_features.len(), 36);
+        assert_eq!(content.room_sheets.len(), 48);
+        assert_eq!(content.clocks.len(), 6);
+        assert_eq!(content.jobs.len(), 3);
         assert!(content
             .jobs
             .iter()
             .all(|job| job.reward.orbs() == 2 && !job.reward.label().is_empty()));
-        assert_eq!(content.fronts.len(), 2);
-        assert_eq!(content.cards.len(), 71);
-        assert_eq!(content.fallback_lines.len(), 18);
-        assert_eq!(content.lifecycle_hooks.len(), 13);
+        assert_eq!(content.fronts.len(), 3);
+        assert_eq!(content.cards.len(), 115);
+        assert_eq!(content.lifecycle_hooks.len(), 21);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 1);
+        assert_eq!(content.rules.len(), 2);
+        for namespace in ["srd5.1", "srd5.2.1"] {
+            let srd = content
+                .rules
+                .iter()
+                .find(|bundle| bundle.namespace == namespace)
+                .expect("versioned SRD bundle");
+            assert_eq!(srd.adapter, "cosyworld.rules/1");
+            assert_eq!(srd.resources.conditions.len(), 15);
+            assert_eq!(srd.resources.monster_seeds.len(), 3);
+            assert!(srd.resources.conditions.iter().any(|condition| {
+                condition.id == "condition/unconscious"
+                    && condition.mapping.status == "kernel"
+                    && condition.mapping.kernel_condition.as_deref() == Some("unconscious")
+            }));
+            assert!(srd
+                .resources
+                .monster_seeds
+                .iter()
+                .all(|monster| monster.mapping.status == "reference_only"));
+        }
+        assert_eq!(content.attributions.len(), 3);
+        assert!(content
+            .attributions
+            .iter()
+            .all(|attribution| attribution.license == "CC-BY-4.0"));
+        assert!(content
+            .attributions
+            .iter()
+            .any(|attribution| attribution.text.contains("System Reference Document 5.1")));
+        assert!(content
+            .attributions
+            .iter()
+            .any(|attribution| attribution.text.contains("System Reference Document 5.2.1")));
+        assert_eq!(content.character_creation.len(), 1);
+        let creation = &content.character_creation[0];
+        assert_eq!(creation.pack_id, "cosyworld.campaign.the-lantern-keeper");
+        assert_eq!(creation.profiles.len(), 1);
+        assert_eq!(creation.profiles[0].id, "the-lantern-keeper");
+        assert_eq!(creation.profiles[0].entry_location_id, 800);
+        assert_eq!(creation.profiles[0].choices.len(), 4);
         let mut exit_direction_keys = BTreeSet::new();
         for exit in &content.exits {
             let direction = exit
@@ -41216,6 +44868,16 @@ mod tests {
             .actors
             .iter()
             .filter(|actor| actor.id != MOONLIT_ECHO_ACTOR_ID)
+            // The Holy Land pack is a narrative pilgrimage pack and deliberately
+            // declares no physical item resource. Its historical/composite cast
+            // therefore does not participate in the one-slot item economy.
+            .filter(|actor| {
+                !content.cards.iter().any(|card| {
+                    card.subject_kind == "actor"
+                        && card.subject_id == actor.id
+                        && (card.source == "holy_land" || card.role == "encounter")
+                })
+            })
             .filter(|actor| actor.desires.is_empty() && actor.attachments.is_empty())
             .map(|actor| actor.name.as_str())
             .collect();
@@ -41342,6 +45004,18 @@ mod tests {
                 assert_eq!(world_requirement.target_id, requirement.target_id);
             }
         }
+    }
+
+    #[test]
+    fn snapshot_rejects_a_different_worldpack_bundle() {
+        let mut snapshot = RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded());
+        snapshot.worldpack_bundle_hash = format!("sha256:{}", "0".repeat(64));
+        let error = snapshot
+            .into_runtime()
+            .expect_err("bundle mismatch must fail closed");
+        assert!(error
+            .to_string()
+            .contains("does not match active worldpack"));
     }
 
     #[test]
@@ -41865,7 +45539,7 @@ mod tests {
             .iter()
             .filter(|actor| actor.location_id.is_some())
             .collect();
-        assert_eq!(placed_seed_actors.len(), 35);
+        assert_eq!(placed_seed_actors.len(), 55);
         for actor in placed_seed_actors {
             let world_actor = runtime.actor_by_id(actor.id).expect("placed seed actor");
             assert_eq!(world_actor.location_id, actor.location_id.unwrap());
@@ -42137,11 +45811,11 @@ mod tests {
 
     #[test]
     fn ruby_high_first_bell_live_catalog_projects_card_metadata() {
-        assert_eq!(RUBY_HIGH_FIRST_BELL_CATALOG.len(), 24);
+        assert_eq!(ruby_high_first_bell_catalog().len(), 24);
 
-        let ids: BTreeSet<&str> = RUBY_HIGH_FIRST_BELL_CATALOG
+        let ids: BTreeSet<&str> = ruby_high_first_bell_catalog()
             .iter()
-            .map(|spec| spec.card_id)
+            .map(|spec| spec.card_id.as_str())
             .collect();
         for card_id in [
             "lyra",
@@ -42198,6 +45872,44 @@ mod tests {
     }
 
     #[test]
+    fn compiled_worldpack_asset_index_resolves_pack_mounts_safely() {
+        assert!(seed_asset_mounts().len() >= 3);
+        assert!(seed_asset_mounts()
+            .iter()
+            .any(|mount| { mount.pack_id == "ruby-high.first-bell" && mount.mount == "cards" }));
+        let card_path = seed_pack_asset_path(
+            "cosyworld.core",
+            "generated/cards",
+            "cosy-hearth-tonic.webp",
+        )
+        .expect("core card mount resolves");
+        assert!(card_path.ends_with("core/assets/generated/cards/cosy-hearth-tonic.webp"));
+        assert!(card_path.exists());
+        assert!(
+            seed_pack_asset_path("cosyworld.core", "generated/cards", "../pack.json").is_none()
+        );
+        assert!(seed_pack_asset_path("missing.pack", "cards", "card.png").is_none());
+    }
+
+    #[tokio::test]
+    async fn generic_worldpack_asset_route_supports_nested_mount_names() {
+        let response = worldpack_asset(AxumPath((
+            "cosyworld.core".to_string(),
+            "generated/cards/cosy-hearth-tonic.webp".to_string(),
+        )))
+        .await
+        .into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("image/webp")
+        );
+    }
+
+    #[test]
     fn missing_ruby_high_card_asset_redirects_to_chain_image() {
         let spec = ruby_high_card_spec("location-science-lab").expect("science lab card exists");
         let response = ruby_high_card_missing_asset_response(spec);
@@ -42208,7 +45920,7 @@ mod tests {
                 .headers()
                 .get(header::LOCATION)
                 .and_then(|value| value.to_str().ok()),
-            Some(spec.chain_image_uri)
+            Some(spec.chain_image_uri.as_str())
         );
     }
 
@@ -42612,7 +46324,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn trade_action_schedules_target_chat_reply() {
+    async fn trade_action_without_ai_emits_no_fallback_reply() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -42700,7 +46412,7 @@ mod tests {
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        assert!(saw_reply, "target avatar should answer after a trade");
+        assert!(!saw_reply, "no fallback reply should follow without AI");
     }
 
     #[test]
@@ -45196,32 +48908,11 @@ mod tests {
     }
 
     #[test]
-    fn resident_move_fallback_rotates_lines() {
-        let mut runtime = RuntimeWorld::seeded();
-        let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
-        let action = CwAction {
-            kind: CW_ACTION_MOVE,
-            actor_id: RATI_ACTOR_ID,
-            destination_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
-            ..CwAction::default()
-        };
-
-        let first = runtime.resident_economy_action_fallback_text(rati, &action);
-        runtime.world.tick = runtime.world.tick.saturating_add(1);
-        let second = runtime.resident_economy_action_fallback_text(rati, &action);
-
-        assert_ne!(first, second);
-        assert!(!first.contains("steps to the next room and listens for change"));
-        assert!(!second.contains("steps to the next room and listens for change"));
-        assert!(first.contains("Rain-Soft Garden"));
-        assert!(second.contains("Rain-Soft Garden"));
-    }
-
-    #[test]
     fn ambient_autonomy_wanders_when_no_stronger_resident_task() {
         let mut runtime = RuntimeWorld::seeded();
         hide_seed_items(&mut runtime);
         assert!(runtime.ambient_autonomy_action().is_none());
+        discover_all_seed_exits_for_test(&mut runtime);
 
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -45246,14 +48937,20 @@ mod tests {
             .expect("autonomous action with human present");
         assert_eq!(action.kind, CW_ACTION_MOVE);
         assert!([1001, 1002, 1003].contains(&action.actor_id));
-        assert_eq!(action.destination_location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
+        let public_destinations = runtime
+            .exit_views(COSY_COTTAGE_LOCATION_ID, &AccessContext::default())
+            .into_iter()
+            .filter(|exit| exit.accessible)
+            .map(|exit| exit.destination_location_id)
+            .collect::<BTreeSet<_>>();
+        assert!(public_destinations.contains(&action.destination_location_id));
 
         let (status, events) = runtime.apply_journal_record(&JournalRecord::new(action, 7067));
         assert_eq!(status, CW_OK);
         assert!(events.iter().any(|event| {
             event.type_name == "actor.moved"
                 && event.actor_id == Some(action.actor_id)
-                && event.destination_location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+                && event.destination_location_id == Some(action.destination_location_id)
         }));
     }
 
@@ -45268,10 +48965,8 @@ mod tests {
         let first_step = runtime
             .resident_wander_action(actor)
             .expect("first resident wander step");
-        assert_eq!(
-            first_step.destination_location_id,
-            RAIN_SOFT_GARDEN_LOCATION_ID
-        );
+        assert_ne!(first_step.destination_location_id, COSY_COTTAGE_LOCATION_ID);
+        let first_destination = first_step.destination_location_id;
         assert_eq!(
             runtime
                 .apply_journal_record(&JournalRecord::new(first_step, 7068))
@@ -45282,7 +48977,7 @@ mod tests {
         let moved_actor = runtime
             .actor_by_id(RATI_ACTOR_ID)
             .expect("Rati remains after moving");
-        assert_eq!(moved_actor.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
+        assert_eq!(moved_actor.location_id, first_destination);
         let next_step = runtime
             .resident_wander_action(moved_actor)
             .expect("resident chooses a fresh onward step");
@@ -45290,39 +48985,6 @@ mod tests {
             next_step.destination_location_id, COSY_COTTAGE_LOCATION_ID,
             "resident should not immediately bounce back through the edge they just used"
         );
-    }
-
-    #[test]
-    fn emote_resident_autonomy_fallbacks_never_quote_dialogue() {
-        let runtime = RuntimeWorld::seeded();
-        let skull = runtime.actor_by_id(SKULL_ACTOR_ID).expect("Skull exists");
-        for action in [
-            CwAction {
-                kind: CW_ACTION_MOVE,
-                actor_id: SKULL_ACTOR_ID,
-                destination_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
-                ..CwAction::default()
-            },
-            CwAction {
-                kind: CW_ACTION_TRADE_ITEM,
-                actor_id: SKULL_ACTOR_ID,
-                target_actor_id: RATI_ACTOR_ID,
-                item_id: DEWBRIGHT_BUTTON_ITEM_ID,
-                target_item_id: STORY_BUTTON_ITEM_ID,
-                ..CwAction::default()
-            },
-            CwAction {
-                kind: CW_ACTION_PICK_UP_ITEM,
-                actor_id: SKULL_ACTOR_ID,
-                item_id: DEWBRIGHT_BUTTON_ITEM_ID,
-                ..CwAction::default()
-            },
-        ] {
-            let line = runtime.resident_economy_action_fallback_text(skull, &action);
-            assert!(line.starts_with('*') && line.ends_with('*'), "{line}");
-            assert!(!line.contains('"'), "{line}");
-            assert!(!line.contains("I will see what changed"), "{line}");
-        }
     }
 
     #[test]
@@ -47431,7 +51093,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ambient_autonomy_trade_schedules_resident_speech() {
+    async fn ambient_autonomy_trade_without_ai_emits_no_fallback_speech() {
         let mut runtime = RuntimeWorld::seeded();
         runtime.world.tick = 0;
         runtime.resident_memories.clear();
@@ -47489,7 +51151,7 @@ mod tests {
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        assert!(saw_reply, "resident should speak after an autonomous trade");
+        assert!(!saw_reply, "no fallback speech should follow without AI");
     }
 
     #[test]
@@ -47667,10 +51329,9 @@ mod tests {
     }
 
     #[test]
-    fn promised_resident_reply_rotates_duplicate_without_breaking_speech_mode() {
+    fn repeated_ai_resident_reply_is_rejected_without_authored_replacement() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut plan = resident_reply_test_plan(SKULL_ACTOR_ID, "Skull", "emote_only");
-        plan.fallback_text = "*Skull gives the doorway one practical nod.*".to_string();
+        let plan = resident_reply_test_plan(SKULL_ACTOR_ID, "Skull", "emote_only");
         let repeated = "*Skull gives the doorway one practical nod.*";
         runtime.event_log.push(EventView {
             seq: runtime.world.next_event_seq,
@@ -47681,7 +51342,6 @@ mod tests {
             content: Some(repeated.to_string()),
             ..EventView::default()
         });
-        runtime.world.next_event_seq += 1;
 
         let proposal = runtime.collision_safe_resident_proposal(
             &plan,
@@ -47696,16 +51356,11 @@ mod tests {
             },
         );
 
-        assert_ne!(proposal.speech, repeated);
-        assert_eq!(
-            sanitize_resident_reply(&plan, &proposal.speech).as_deref(),
-            Some(proposal.speech.as_str())
-        );
-        assert!(proposal.speech.starts_with('*') && proposal.speech.ends_with('*'));
+        assert!(proposal.is_none());
     }
 
     #[test]
-    fn avatar_followup_rotates_instead_of_repeating_the_opener() {
+    fn repeated_ai_avatar_followup_is_rejected_without_authored_replacement() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -47713,9 +51368,6 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Followup Tester",
         );
-        let plan = runtime
-            .avatar_chat_plan_for(5000, RATI_ACTOR_ID)
-            .expect("avatar can chat with Rati");
         let repeated = "Then let's carry that thought one step further—what would you try first?";
         runtime.event_log.push(EventView {
             seq: runtime.world.next_event_seq,
@@ -47726,7 +51378,6 @@ mod tests {
             content: Some(repeated.to_string()),
             ..EventView::default()
         });
-        runtime.world.next_event_seq += 1;
 
         let typographic_twin =
             "Then let’s carry that thought one step further—what would you try first?";
@@ -47734,21 +51385,13 @@ mod tests {
             normalized_resident_speech_key(repeated),
             normalized_resident_speech_key(typographic_twin)
         );
-        let followup = runtime.collision_safe_avatar_followup(5000, &plan, typographic_twin);
-
-        assert_ne!(followup, typographic_twin);
-        assert_ne!(
-            normalized_resident_speech_key(&followup),
-            normalized_resident_speech_key(repeated)
-        );
-        assert_eq!(
-            sanitize_avatar_chat(&followup).as_deref(),
-            Some(followup.as_str())
-        );
+        assert!(runtime
+            .collision_safe_avatar_followup(5000, typographic_twin)
+            .is_none());
     }
 
     #[test]
-    fn resident_chat_fallback_keeps_the_fresh_conversation_subject() {
+    fn resident_inference_plan_keeps_the_fresh_conversation_subject() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -47764,9 +51407,8 @@ mod tests {
                 "Could Moonwool Thread help in Rain-Soft Garden?",
             )
             .expect("Rati can answer the avatar");
-        assert!(rati.fallback_text.contains("Moonwool Thread"));
-        assert!(rati.fallback_text.contains("What have you seen?"));
-        assert!(!rati.fallback_text.contains("Tea first"));
+        assert!(rati.user_text.contains("Moonwool Thread"));
+        assert!(rati.user_text.contains("Rain-Soft Garden"));
 
         let skull = runtime
             .resident_reply_plan_for_target(
@@ -47775,11 +51417,8 @@ mod tests {
                 "I think Story Button belongs somewhere nearby.",
             )
             .expect("Skull can answer the avatar");
-        assert!(skull.fallback_text.contains("Story Button"));
-        assert_eq!(
-            sanitize_resident_reply(&skull, &skull.fallback_text).as_deref(),
-            Some(skull.fallback_text.as_str())
-        );
+        assert!(skull.user_text.contains("Story Button"));
+        assert_eq!(skull.speech_mode, "emote_only");
 
         let gust = runtime
             .resident_reply_plan_for_target(
@@ -47788,25 +51427,9 @@ mod tests {
                 "Did you notice Hearth Tonic?",
             )
             .expect("Gust can answer the avatar");
-        assert_eq!(gust.fallback_text, "👀👉🔎✨");
-        assert_eq!(
-            sanitize_resident_reply(&gust, &gust.fallback_text).as_deref(),
-            Some(gust.fallback_text.as_str())
-        );
-
-        let rati_closing =
-            runtime.resident_conversation_closing_fallback(RATI_ACTOR_ID, &rati.user_text);
-        assert!(rati_closing.contains("Moonwool Thread"));
-        assert!(!rati_closing.ends_with('?'));
-        let skull_closing =
-            runtime.resident_conversation_closing_fallback(SKULL_ACTOR_ID, &skull.user_text);
-        assert!(skull_closing.contains("Story Button"));
-        assert_eq!(
-            sanitize_resident_reply(&skull, &skull_closing).as_deref(),
-            Some(skull_closing.as_str())
-        );
+        assert!(gust.user_text.contains("Hearth Tonic"));
+        assert_eq!(gust.speech_mode, "emoji_only");
     }
-
     #[test]
     fn resident_gifts_non_track_room_feature_item_from_desire_memory() {
         let mut runtime = RuntimeWorld::seeded();
@@ -48363,7 +51986,10 @@ mod tests {
             cast: vec![npc_name.to_string()],
             recent_lines: Vec::new(),
             user_text: "weather?".to_string(),
-            fallback_text: "🌧️🫖✨🧶".to_string(),
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
         }
     }
 
@@ -48400,64 +52026,19 @@ mod tests {
     }
 
     #[test]
-    fn resident_fallback_lines_follow_current_location() {
+    fn dialogue_inference_plans_follow_the_current_location() {
         let mut runtime = RuntimeWorld::seeded();
-        let cottage_line = runtime.resident_fallback_for_target(SKULL_ACTOR_ID);
-        assert!(cottage_line.contains("boots"));
-        assert!(cottage_line.starts_with('*') && cottage_line.ends_with('*'));
-
-        runtime
-            .world
-            .actors
-            .iter_mut()
-            .find(|actor| actor.id == SKULL_ACTOR_ID)
-            .expect("Skull exists")
-            .location_id = CIRCLE_OF_MOON_LOCATION_ID;
-        let circle_line = runtime.resident_fallback_for_target(SKULL_ACTOR_ID);
-        assert!(circle_line.contains("standing stones"), "{circle_line}");
-        assert!(!circle_line.contains("hearth"), "{circle_line}");
-        assert!(!circle_line.contains("rain"), "{circle_line}");
-        assert!(!circle_line.contains("doorway"), "{circle_line}");
-        assert!(circle_line.starts_with('*') && circle_line.ends_with('*'));
-
-        runtime
-            .world
-            .actors
-            .iter_mut()
-            .find(|actor| actor.id == SKULL_ACTOR_ID)
-            .expect("Skull exists")
-            .location_id = LOFTY_PEAK_LOCATION_ID;
-        let mountain_line = runtime.resident_fallback_for_target(SKULL_ACTOR_ID);
-        assert!(mountain_line.contains("one ear"), "{mountain_line}");
-        assert!(!mountain_line.contains("hearth"), "{mountain_line}");
-        assert!(!mountain_line.contains("rain"), "{mountain_line}");
-        assert!(!mountain_line.contains("doorway"), "{mountain_line}");
-        assert!(mountain_line.starts_with('*') && mountain_line.ends_with('*'));
-    }
-
-    #[test]
-    fn avatar_chat_fallback_lines_follow_current_location() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = COSY_COTTAGE_LOCATION_ID;
-        let mut record = JournalRecord::new(create, 92_201);
-        record.actor_meta_upserts.insert(
+        create_test_human(
+            &mut runtime,
             5000,
-            ActorMeta {
-                name: "Fallback Guest".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Fallback Tester".to_string(),
-                description: "A test avatar checking location-aware fallback chat.".to_string(),
-            },
+            COSY_COTTAGE_LOCATION_ID,
+            "Inference Guest",
         );
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
 
         let cottage = runtime
             .avatar_chat_plan_for(5000, SKULL_ACTOR_ID)
             .expect("Skull chat plan available in cottage");
-        assert!(cottage.fallback_text.contains("hearth"));
+        assert_eq!(cottage.location_name, "The Cosy Cottage");
 
         for actor in runtime
             .world
@@ -48472,52 +52053,15 @@ mod tests {
         let circle = runtime
             .avatar_chat_plan_for(5000, SKULL_ACTOR_ID)
             .expect("Skull chat plan available at the moon circle");
-        assert!(
-            circle.fallback_text.contains("among the stones"),
-            "{}",
-            circle.fallback_text
-        );
-        assert!(
-            !circle.fallback_text.contains("hearth"),
-            "{}",
-            circle.fallback_text
-        );
-        assert!(
-            !circle.fallback_text.contains("rain"),
-            "{}",
-            circle.fallback_text
-        );
+        assert_eq!(circle.location_name, "Circle of the Moon");
+        assert_ne!(circle.location_description, cottage.location_description);
 
-        for actor in runtime
-            .world
-            .actors
-            .iter_mut()
-            .take(runtime.world.actor_count)
-        {
-            if actor.id == 5000 || actor.id == SKULL_ACTOR_ID {
-                actor.location_id = LOFTY_PEAK_LOCATION_ID;
-            }
-        }
-        let mountain = runtime
-            .avatar_chat_plan_for(5000, SKULL_ACTOR_ID)
-            .expect("Skull chat plan available on the mountain");
-        assert!(
-            mountain.fallback_text.contains("done this before"),
-            "{}",
-            mountain.fallback_text
-        );
-        assert!(
-            !mountain.fallback_text.contains("hearth"),
-            "{}",
-            mountain.fallback_text
-        );
-        assert!(
-            !mountain.fallback_text.contains("rain"),
-            "{}",
-            mountain.fallback_text
-        );
+        let resident = runtime
+            .resident_reply_plan_for_target(5000, SKULL_ACTOR_ID, "What changed here?")
+            .expect("resident inference plan follows both actors");
+        assert_eq!(resident.location_name, "Circle of the Moon");
+        assert_eq!(resident.user_text, "What changed here?");
     }
-
     #[test]
     fn resident_intent_json_parses_speech_and_taxonomy() {
         let plan = resident_reply_test_plan(RATI_ACTOR_ID, "Rati", "prose");
@@ -48812,7 +52356,6 @@ mod tests {
             .contains("heard Gust near Rain-Soft Garden"));
         assert!(plan.target_economy_note.contains("Moonwool Thread"));
         assert!(plan.target_economy_note.contains("seeks:"));
-        assert!(plan.fallback_text.contains("Moonwool Thread"));
 
         let reply_plan = runtime
             .resident_reply_plan_for_target(5000, 1001, "What does the scarf need?")
@@ -48843,7 +52386,7 @@ mod tests {
     }
 
     #[test]
-    fn avatar_chat_commits_server_authored_avatar_line() {
+    fn inferred_avatar_chat_line_can_commit_and_schedule_a_reply() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -48861,10 +52404,10 @@ mod tests {
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
 
-        let plan = runtime
+        let _plan = runtime
             .avatar_chat_plan_for(5000, 1002)
             .expect("Gust chat plan available");
-        let line = plan.fallback_text.clone();
+        let line = "Gust, does that cloud look like trouble or lunch?".to_string();
         let mut say = CwAction::default();
         say.kind = CW_ACTION_SAY;
         say.actor_id = 5000;
@@ -49493,7 +53036,8 @@ mod tests {
             .iter()
             .map(|exit| exit.destination_location_id)
             .collect();
-        assert_eq!(cottage_exits, BTreeSet::from([2, 11]));
+        assert!(cottage_exits.contains(&2));
+        assert!(cottage_exits.contains(&11));
         assert!(state.cards.locations[&2].accessible);
         assert!(!state.cards.locations[&11].accessible);
         assert_eq!(
@@ -49964,6 +53508,148 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn economy_reconciliation_records_and_resolves_external_receipt_conflicts() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-economy-reconciliation-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+
+        insert_wooden_box_receipt(
+            &path,
+            "wallet-local",
+            "box-burned",
+            "burn-signature-reconciliation",
+            "solana_core_burn_verified",
+            "pack-from-box",
+        )
+        .expect("insert reconciliation box receipt");
+        insert_avatar_pack_opening(
+            &path,
+            "wallet-local",
+            Some("box-burned"),
+            "pack-opened",
+            "reveal-seed",
+            "catalog-hash",
+            &["rati".to_string()],
+            r#"{"source":"test"}"#,
+        )
+        .expect("insert reconciliation pack opening");
+
+        let external = OwnershipIndex::parse(
+            r#"{
+                "wallets": [
+                    {
+                        "walletAddress": "wallet-external-a",
+                        "boxes": ["box-burned", "box-duplicated"],
+                        "packs": ["pack-opened", "pack-duplicated"]
+                    },
+                    {
+                        "walletAddress": "wallet-external-b",
+                        "boxes": ["box-duplicated"],
+                        "packs": ["pack-duplicated"]
+                    }
+                ]
+            }"#,
+        );
+        let run = record_economy_reconciliation(&path, &external, "refresh")
+            .expect("record reconciliation run");
+        assert_eq!(run.wallet_count, 2);
+        assert_eq!(run.active_box_count, 2);
+        assert_eq!(run.unopened_pack_count, 2);
+        assert_eq!(run.anomaly_count, 4);
+        assert_eq!(run.status, "open");
+        assert!(run.resolved_at_ms.is_none());
+        let kinds = run
+            .anomalies
+            .iter()
+            .map(|anomaly| anomaly.kind.as_str())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            kinds,
+            BTreeSet::from([
+                "box_multiple_external_owners",
+                "burned_box_reported_active",
+                "opened_pack_reported_unopened",
+                "pack_multiple_external_owners",
+            ])
+        );
+
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        state.moderation_token = Some(Arc::new("reconciliation-secret".to_string()));
+        let denied = moderation_resolve_economy_reconciliation(
+            HeaderMap::new(),
+            State(state.clone()),
+            AxumPath(run.run_id),
+            Json(ResolveEconomyReconciliationRequest {
+                moderator: Some("Economy Mod".to_string()),
+                note: Some("verified upstream lag".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(!denied.ok);
+        assert_eq!(denied.status, 403);
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            "Bearer reconciliation-secret".parse().unwrap(),
+        );
+        let resolved = moderation_resolve_economy_reconciliation(
+            headers.clone(),
+            State(state.clone()),
+            AxumPath(run.run_id),
+            Json(ResolveEconomyReconciliationRequest {
+                moderator: Some(" Economy   Mod ".to_string()),
+                note: Some(" verified upstream lag ".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(resolved.ok);
+        assert_eq!(resolved.status, 200);
+        let resolved_run = resolved.reconciliation.expect("resolved reconciliation");
+        assert_eq!(resolved_run.status, "resolved");
+        assert_eq!(resolved_run.resolved_by.as_deref(), Some("Economy Mod"));
+        assert_eq!(
+            resolved_run.resolution_note.as_deref(),
+            Some("verified upstream lag")
+        );
+        assert!(resolved_run.resolved_at_ms.is_some());
+
+        let repeated = moderation_resolve_economy_reconciliation(
+            headers,
+            State(state),
+            AxumPath(run.run_id),
+            Json(ResolveEconomyReconciliationRequest {
+                moderator: Some("Different Mod".to_string()),
+                note: Some("should not overwrite".to_string()),
+            }),
+        )
+        .await
+        .0;
+        assert!(repeated.ok);
+        assert_eq!(
+            repeated
+                .reconciliation
+                .expect("idempotent resolution")
+                .resolved_by
+                .as_deref(),
+            Some("Economy Mod")
+        );
+
+        let audit = read_economy_audit(&path, 10).expect("read reconciliation audit");
+        assert_eq!(audit.economy_reconciliations.len(), 1);
+        assert_eq!(audit.economy_reconciliations[0].run_id, run.run_id);
+        assert_eq!(audit.economy_reconciliations[0].anomaly_count, 4);
+        assert_eq!(audit.economy_reconciliations[0].status, "resolved");
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
     async fn moderation_economy_audit_requires_token_and_reads_ledgers() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-economy-audit-{}-{}.sqlite",
@@ -49994,8 +53680,8 @@ mod tests {
                 actor_id: Some(5000),
                 feature: "avatar_chat".to_string(),
                 payer_mode: "cosyworld_orbs".to_string(),
-                provider: "local_fallback".to_string(),
-                model: "deterministic-fallback".to_string(),
+                provider: "unconfigured".to_string(),
+                model: "none".to_string(),
                 status: "ok".to_string(),
                 source_event_id: Some(10),
                 orb_delta: -1,
@@ -50589,6 +54275,121 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
+    #[test]
+    fn core_burn_transaction_compiles_expected_metaplex_message() {
+        let owner = "DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES";
+        let asset = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+        let collection = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
+        let blockhash = "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH";
+        let prepared = compile_core_burn_transaction(owner, asset, collection, blockhash, 777)
+            .expect("compile Core BurnV1 transaction");
+
+        assert_eq!(prepared.recent_blockhash, blockhash);
+        assert_eq!(prepared.last_valid_block_height, 777);
+        let transaction = BASE64_STANDARD
+            .decode(&prepared.transaction_base64)
+            .expect("decode transaction wire bytes");
+        let message = bs58::decode(&prepared.message_base58)
+            .into_vec()
+            .expect("decode compiled message");
+        assert_eq!(transaction[0], 1, "one required signature slot");
+        assert!(transaction[1..65].iter().all(|byte| *byte == 0));
+        assert_eq!(&transaction[65..], message.as_slice());
+
+        assert_eq!(&message[..4], &[1, 0, 3, 6]);
+        let expected_keys = [
+            owner,
+            asset,
+            collection,
+            SOLANA_SYSTEM_PROGRAM_ID,
+            SPL_NOOP_PROGRAM_ID,
+            CORE_PROGRAM_ID,
+        ];
+        for (index, address) in expected_keys.into_iter().enumerate() {
+            let start = 4 + index * 32;
+            assert_eq!(
+                &message[start..start + 32],
+                decode_solana_32(address, "expected address")
+                    .expect("decode expected address")
+                    .as_slice()
+            );
+        }
+        assert_eq!(
+            &message[196..228],
+            decode_solana_32(blockhash, "expected blockhash")
+                .expect("decode expected blockhash")
+                .as_slice()
+        );
+        assert_eq!(
+            &message[228..],
+            &[1, 5, 6, 1, 2, 0, 0, 3, 4, 2, 12, 0],
+            "one Core BurnV1 instruction with a None compression proof"
+        );
+    }
+
+    #[tokio::test]
+    async fn production_box_burn_prepare_fails_closed_when_rpc_cannot_build_transaction() {
+        let rpc_app = Router::new().route(
+            "/rpc",
+            post(|Json(body): Json<serde_json::Value>| async move {
+                assert_eq!(
+                    body.get("method").and_then(|value| value.as_str()),
+                    Some("getLatestBlockhash")
+                );
+                Json(serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": body.get("id").cloned().unwrap_or(serde_json::Value::Null),
+                    "error": { "code": -32429, "message": "max usage reached" }
+                }))
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind failing Solana RPC test server");
+        let addr = listener.local_addr().expect("RPC server address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, rpc_app).await;
+        });
+
+        let owner = "DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES";
+        let box_asset = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+        let collection = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
+        let mut state = test_app_state(RuntimeWorld::seeded(), None);
+        state.deployment = DeploymentConfig {
+            profile: DeploymentProfile::Production,
+            shard_id: "prod-test".to_string(),
+        };
+        state.box_burn_verifier = Arc::new(Some(BoxBurnVerifierConfig {
+            rpc_url: format!("http://{addr}/rpc"),
+            collection_address: collection.to_string(),
+        }));
+        *state.ownership_index.write().await = OwnershipIndex::parse(&format!(
+            r#"{{"wallets":[{{"walletAddress":"{owner}","boxes":["{box_asset}"]}}]}}"#
+        ));
+        insert_wallet_session(&state, "wallet-rpc-failure-session", owner);
+
+        let prepare = box_burn_prepare(
+            ConnectInfo("127.0.0.1:45300".parse().expect("client addr")),
+            State(state),
+            Json(BoxBurnPrepareRequest {
+                wallet_session: Some("wallet-rpc-failure-session".to_string()),
+                box_asset_address: box_asset.to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(!prepare.ok);
+        assert_eq!(prepare.status, 502);
+        assert_eq!(
+            prepare.verification_mode,
+            "solana_core_burn_transaction_unavailable"
+        );
+        assert!(prepare.burn_transaction.is_none());
+        assert_eq!(prepare.error.as_deref(), Some("max usage reached"));
+
+        server.abort();
+    }
+
     #[tokio::test]
     async fn production_box_burn_uses_solana_core_verifier() {
         let path = std::env::temp_dir().join(format!(
@@ -50603,6 +54404,7 @@ mod tests {
         let collection = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC".to_string();
         let burn_signature =
             "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS".to_string();
+        let recent_blockhash = "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH".to_string();
         let burn_data = bs58::encode([12_u8]).into_string();
         let rpc_app = Router::new().route(
             "/rpc",
@@ -50611,22 +54413,25 @@ mod tests {
                 let box_asset = box_asset.clone();
                 let collection = collection.clone();
                 let burn_signature = burn_signature.clone();
+                let recent_blockhash = recent_blockhash.clone();
                 let burn_data = burn_data.clone();
                 move |Json(body): Json<serde_json::Value>| {
                     let owner = owner.clone();
                     let box_asset = box_asset.clone();
                     let collection = collection.clone();
                     let burn_signature = burn_signature.clone();
+                    let recent_blockhash = recent_blockhash.clone();
                     let burn_data = burn_data.clone();
                     async move {
-                        assert_eq!(
-                            body.get("method").and_then(|value| value.as_str()),
-                            Some("getTransaction")
-                        );
-                        Json(serde_json::json!({
-                            "jsonrpc": "2.0",
-                            "id": body.get("id").cloned().unwrap_or(serde_json::Value::Null),
-                            "result": {
+                        let result = match body.get("method").and_then(|value| value.as_str()) {
+                            Some("getLatestBlockhash") => serde_json::json!({
+                                "context": { "slot": 122 },
+                                "value": {
+                                    "blockhash": recent_blockhash,
+                                    "lastValidBlockHeight": 999
+                                }
+                            }),
+                            Some("getTransaction") => serde_json::json!({
                                 "slot": 123,
                                 "blockTime": 456,
                                 "meta": {
@@ -50643,7 +54448,13 @@ mod tests {
                                         }]
                                     }
                                 }
-                            }
+                            }),
+                            method => panic!("unexpected Solana RPC method: {method:?}"),
+                        };
+                        Json(serde_json::json!({
+                            "jsonrpc": "2.0",
+                            "id": body.get("id").cloned().unwrap_or(serde_json::Value::Null),
+                            "result": result
                         }))
                     }
                 }
@@ -50685,8 +54496,20 @@ mod tests {
         assert_eq!(prepare.status, 200);
         assert_eq!(
             prepare.verification_mode,
-            "solana_core_burn_signature_required"
+            "solana_core_burn_transaction_required"
         );
+        let burn_transaction = prepare
+            .burn_transaction
+            .as_ref()
+            .expect("production prepare returns an unsigned burn transaction");
+        assert_eq!(burn_transaction.transaction_encoding, "base64");
+        assert_eq!(burn_transaction.message_encoding, "base58");
+        assert_eq!(burn_transaction.recent_blockhash, recent_blockhash);
+        assert_eq!(burn_transaction.last_valid_block_height, 999);
+        assert_eq!(burn_transaction.program_id, CORE_PROGRAM_ID);
+        assert_eq!(burn_transaction.instruction, "BurnV1");
+        assert!(!burn_transaction.transaction.is_empty());
+        assert!(!burn_transaction.message.is_empty());
 
         let confirm = box_burn_confirm(
             ConnectInfo("127.0.0.1:45302".parse().expect("client addr")),
@@ -50778,13 +54601,19 @@ mod tests {
             let _ = axum::serve(listener, app).await;
         });
 
-        let index = OwnershipIndex::fetch_remote(&format!("http://{addr}/ownership"), None)
-            .await
-            .expect("fetch ownership feed");
+        let feed = OwnershipFeedConfig {
+            remote_url: Some(format!("http://{addr}/ownership")),
+            ..OwnershipFeedConfig::default()
+        };
+        let (index, health) = feed.load_best_effort_with_health().await;
         assert!(index.cards_for_wallet("remote-wallet").contains("rati"));
         assert!(index
             .cards_for_wallet("remote-wallet")
             .contains("location-courtyard"));
+        assert_eq!(health.consecutive_failures, 0);
+        assert!(health.last_attempt_at_unix.is_some());
+        assert!(health.last_success_at_unix.is_some());
+        assert!(health.last_error_code.is_none());
 
         server.abort();
     }
@@ -50811,8 +54640,25 @@ mod tests {
             ..OwnershipFeedConfig::default()
         };
         assert!(feed.load_strict().await.is_err());
-        let index = feed.load_best_effort().await;
+        let (index, health) = feed.load_best_effort_with_health().await;
         assert!(index.cards_for_wallet("remote-wallet").is_empty());
+        assert_eq!(health.consecutive_failures, 1);
+        assert!(health.last_attempt_at_unix.is_some());
+        assert!(health.last_success_at_unix.is_none());
+        assert_eq!(health.last_error_code.as_deref(), Some("http_502"));
+
+        assert_eq!(
+            ownership_refresh_delay(Duration::from_secs(60), 0),
+            Duration::from_secs(60)
+        );
+        assert_eq!(
+            ownership_refresh_delay(Duration::from_secs(60), 1),
+            Duration::from_secs(120)
+        );
+        assert_eq!(
+            ownership_refresh_delay(Duration::from_secs(60), 8),
+            Duration::from_secs(900)
+        );
 
         server.abort();
     }
@@ -50861,10 +54707,12 @@ mod tests {
             snapshot_path: None,
             resident_continuity_path: None,
             event_store_path: None,
+            account_auth: AccountAuth::for_test(None),
             ownership_index: Arc::new(RwLock::new(initial)),
             trust_client_card_ids: false,
             dev_reset_enabled: false,
             ai_config: Arc::new(None),
+            generation_controls: Arc::new(GenerationControls::default()),
             avatar_art_config: Arc::new(None),
             generated_asset_dir: Arc::new(std::env::temp_dir().join("cosyworld-test-generated")),
             ambient: AmbientConfig {
@@ -50872,6 +54720,7 @@ mod tests {
             },
             box_burn_verifier: Arc::new(None),
             ownership_feed: Arc::new(feed),
+            ownership_feed_health: Arc::new(StdMutex::new(OwnershipFeedHealth::default())),
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
@@ -50884,6 +54733,7 @@ mod tests {
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
             avatar_art_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
+            actor_job_notify: Arc::new(Notify::new()),
             avatar_chat_delay: Duration::ZERO,
             moderation_token: None,
             moderation_report_retention: ModerationReportRetention {
@@ -50900,6 +54750,14 @@ mod tests {
         assert!(refresh_ownership_index_once(&state)
             .await
             .expect("refresh ownership feed"));
+        let health = state
+            .ownership_feed_health
+            .lock()
+            .expect("ownership health lock")
+            .clone();
+        assert_eq!(health.consecutive_failures, 0);
+        assert!(health.last_success_at_unix.is_some());
+        assert!(health.last_error_code.is_none());
         let ownership = state.ownership_snapshot().await;
         assert!(ownership
             .cards_for_wallet("wallet-1")

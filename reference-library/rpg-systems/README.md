@@ -13,6 +13,7 @@ are intentionally gitignored because they are large and externally licensed.
 | Dungeon World Markdown | `sources/dungeon-world-markdown` at `3d7118e` | CC-BY 3.0 in upstream LICENSE | GM moves, fronts, play-to-find-out, player-facing moves. |
 | Cairn | `sources/cairn` at `154fa1b` | CC-BY-SA 4.0 in upstream README | Inventory pressure, saves, scars, rules-light exploration. |
 | 5e CC SRD 5.1 | `sources/cc-srd-5e` at `c05c043` | CC-BY 4.0 in upstream README | Familiar d20 stats, monsters, spells, conditions, equipment. |
+| 5e CC SRD 5.2.1 selected data | `raw/srd-5.2.1-cosyworld.json` | CC-BY 4.0 in the official document | The fifteen conditions and three reference-only monster seeds used by the versioned CosyWorld adapter. |
 | Ars Magica open license | `sources/ars-magica-open-license` at `af370b5` | CC-BY-SA 4.0 in upstream LICENSE | Deep magic systems, covenants, long-term troupe campaign play. |
 | Awesome Tabletop RPGs | `sources/awesome-tabletop-rpgs` at `90b9eef` | Curated list; verify each linked project | Discovery index for additional open systems. |
 | 24XX SRD | `raw/24xx-srd.md` | CC-BY 4.0 in document text | Fast risk rolls, compact jobs, gear breakage, rules gaps by design. |

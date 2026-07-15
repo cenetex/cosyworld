@@ -1,0 +1,792 @@
+[
+  {
+    "from_location_id": 1,
+    "to_location_id": 2,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 2,
+    "to_location_id": 1,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 1,
+    "to_location_id": 11,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 11,
+    "to_location_id": 1,
+    "flags": 0,
+    "direction": "out",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 2,
+    "to_location_id": 3,
+    "flags": 0,
+    "distance": 3,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 3,
+    "to_location_id": 2,
+    "flags": 0,
+    "distance": 3,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 2,
+    "to_location_id": 40,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 40,
+    "to_location_id": 2,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 10,
+    "to_location_id": 11,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 11,
+    "to_location_id": 10,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 11,
+    "to_location_id": 12,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 12,
+    "to_location_id": 11,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 11,
+    "to_location_id": 13,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 13,
+    "to_location_id": 11,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 11,
+    "to_location_id": 15,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 15,
+    "to_location_id": 11,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 10,
+    "to_location_id": 14,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 14,
+    "to_location_id": 10,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 10,
+    "to_location_id": 15,
+    "flags": 0,
+    "direction": "southwest",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 15,
+    "to_location_id": 10,
+    "flags": 0,
+    "direction": "northeast",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 13,
+    "to_location_id": 15,
+    "flags": 0,
+    "direction": "northwest",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 15,
+    "to_location_id": 13,
+    "flags": 0,
+    "direction": "southeast",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 14,
+    "to_location_id": 15,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 15,
+    "to_location_id": 14,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 12,
+    "to_location_id": 50,
+    "flags": 0,
+    "distance": 3,
+    "direction": "down",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 50,
+    "to_location_id": 12,
+    "flags": 0,
+    "distance": 3,
+    "direction": "up",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 15,
+    "to_location_id": 32,
+    "flags": 0,
+    "distance": 4,
+    "direction": "up",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 32,
+    "to_location_id": 15,
+    "flags": 0,
+    "distance": 4,
+    "direction": "down",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 3,
+    "to_location_id": 35,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 35,
+    "to_location_id": 3,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 30,
+    "to_location_id": 31,
+    "flags": 0,
+    "direction": "up",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 31,
+    "to_location_id": 30,
+    "flags": 0,
+    "direction": "down",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 31,
+    "to_location_id": 32,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 32,
+    "to_location_id": 31,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 32,
+    "to_location_id": 33,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 33,
+    "to_location_id": 32,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 33,
+    "to_location_id": 34,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 34,
+    "to_location_id": 33,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 34,
+    "to_location_id": 35,
+    "flags": 0,
+    "direction": "up",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 35,
+    "to_location_id": 34,
+    "flags": 0,
+    "direction": "down",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 30,
+    "to_location_id": 36,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 36,
+    "to_location_id": 30,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 40,
+    "to_location_id": 41,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 41,
+    "to_location_id": 40,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 40,
+    "to_location_id": 44,
+    "flags": 0,
+    "direction": "northeast",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 44,
+    "to_location_id": 40,
+    "flags": 0,
+    "direction": "southwest",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 41,
+    "to_location_id": 42,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 42,
+    "to_location_id": 41,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 41,
+    "to_location_id": 43,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 43,
+    "to_location_id": 41,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 42,
+    "to_location_id": 43,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 43,
+    "to_location_id": 42,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 43,
+    "to_location_id": 44,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 44,
+    "to_location_id": 43,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 44,
+    "to_location_id": 14,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 14,
+    "to_location_id": 44,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 50,
+    "to_location_id": 60,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 60,
+    "to_location_id": 50,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 50,
+    "to_location_id": 63,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 63,
+    "to_location_id": 50,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 60,
+    "to_location_id": 61,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 61,
+    "to_location_id": 60,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 61,
+    "to_location_id": 62,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 62,
+    "to_location_id": 61,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 62,
+    "to_location_id": 63,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 63,
+    "to_location_id": 62,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 62,
+    "to_location_id": 64,
+    "flags": 0,
+    "direction": "down",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 64,
+    "to_location_id": 62,
+    "flags": 0,
+    "direction": "up",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "from_location_id": 800,
+    "to_location_id": 801,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "from_location_id": 801,
+    "to_location_id": 800,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "from_location_id": 801,
+    "to_location_id": 802,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "from_location_id": 802,
+    "to_location_id": 801,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "from_location_id": 802,
+    "to_location_id": 803,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "from_location_id": 803,
+    "to_location_id": 802,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "from_location_id": 803,
+    "to_location_id": 804,
+    "flags": 0,
+    "direction": "north",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "from_location_id": 804,
+    "to_location_id": 803,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "from_location_id": 1,
+    "to_location_id": 700,
+    "flags": 0,
+    "distance": 3,
+    "direction": "north",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 700,
+    "to_location_id": 1,
+    "flags": 0,
+    "distance": 3,
+    "direction": "homeward",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 700,
+    "to_location_id": 712,
+    "flags": 0,
+    "distance": 2,
+    "direction": "north",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 712,
+    "to_location_id": 700,
+    "flags": 0,
+    "distance": 2,
+    "direction": "south",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 701,
+    "to_location_id": 703,
+    "flags": 0,
+    "distance": 2,
+    "direction": "northeast",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 703,
+    "to_location_id": 701,
+    "flags": 0,
+    "distance": 2,
+    "direction": "southwest",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 703,
+    "to_location_id": 704,
+    "flags": 0,
+    "distance": 3,
+    "direction": "east",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 704,
+    "to_location_id": 703,
+    "flags": 0,
+    "distance": 3,
+    "direction": "west",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 704,
+    "to_location_id": 705,
+    "flags": 0,
+    "direction": "east",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 705,
+    "to_location_id": 704,
+    "flags": 0,
+    "direction": "west",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 704,
+    "to_location_id": 706,
+    "flags": 0,
+    "distance": 2,
+    "direction": "northwest",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 706,
+    "to_location_id": 704,
+    "flags": 0,
+    "distance": 2,
+    "direction": "southeast",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 705,
+    "to_location_id": 707,
+    "flags": 0,
+    "distance": 2,
+    "direction": "east",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 707,
+    "to_location_id": 705,
+    "flags": 0,
+    "distance": 2,
+    "direction": "west",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 707,
+    "to_location_id": 708,
+    "flags": 0,
+    "distance": 4,
+    "direction": "north",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 708,
+    "to_location_id": 707,
+    "flags": 0,
+    "distance": 4,
+    "direction": "south",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 701,
+    "to_location_id": 702,
+    "flags": 0,
+    "distance": 4,
+    "direction": "southeast",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 702,
+    "to_location_id": 701,
+    "flags": 0,
+    "distance": 4,
+    "direction": "northwest",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 701,
+    "to_location_id": 709,
+    "flags": 0,
+    "distance": 4,
+    "direction": "south",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 709,
+    "to_location_id": 701,
+    "flags": 0,
+    "distance": 4,
+    "direction": "north",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 702,
+    "to_location_id": 710,
+    "flags": 0,
+    "distance": 2,
+    "direction": "south",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 710,
+    "to_location_id": 702,
+    "flags": 0,
+    "distance": 2,
+    "direction": "north",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 709,
+    "to_location_id": 710,
+    "flags": 0,
+    "distance": 4,
+    "direction": "southeast",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 710,
+    "to_location_id": 709,
+    "flags": 0,
+    "distance": 4,
+    "direction": "northwest",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 710,
+    "to_location_id": 711,
+    "flags": 0,
+    "distance": 3,
+    "direction": "west",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 711,
+    "to_location_id": 710,
+    "flags": 0,
+    "distance": 3,
+    "direction": "east",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 711,
+    "to_location_id": 712,
+    "flags": 0,
+    "distance": 2,
+    "direction": "west",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 712,
+    "to_location_id": 711,
+    "flags": 0,
+    "distance": 2,
+    "direction": "east",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 712,
+    "to_location_id": 713,
+    "flags": 0,
+    "direction": "northeast",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 713,
+    "to_location_id": 712,
+    "flags": 0,
+    "direction": "southwest",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 712,
+    "to_location_id": 714,
+    "flags": 0,
+    "distance": 4,
+    "direction": "west",
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "from_location_id": 714,
+    "to_location_id": 712,
+    "flags": 0,
+    "distance": 4,
+    "direction": "east",
+    "pack_id": "cosyworld.the-holy-land"
+  }
+]

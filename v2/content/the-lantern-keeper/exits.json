@@ -1,0 +1,10 @@
+[
+  { "from_location_id": 800, "to_location_id": 801, "flags": 0, "direction": "north" },
+  { "from_location_id": 801, "to_location_id": 800, "flags": 0, "direction": "south" },
+  { "from_location_id": 801, "to_location_id": 802, "flags": 0, "direction": "north" },
+  { "from_location_id": 802, "to_location_id": 801, "flags": 0, "direction": "south" },
+  { "from_location_id": 802, "to_location_id": 803, "flags": 0, "direction": "east" },
+  { "from_location_id": 803, "to_location_id": 802, "flags": 0, "direction": "west" },
+  { "from_location_id": 803, "to_location_id": 804, "flags": 0, "direction": "north" },
+  { "from_location_id": 804, "to_location_id": 803, "flags": 0, "direction": "south" }
+]

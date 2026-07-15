@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#080b09" />
   <title>CosyWorld</title>
   <style>
@@ -95,7 +95,7 @@
       position: fixed;
       inset: 0;
       display: grid;
-      grid-template-rows: 42px minmax(0, 1fr) auto auto;
+      grid-template-rows: 48px minmax(0, 1fr) auto auto;
       background:
         radial-gradient(circle at 18% 12%, rgba(101, 230, 138, 0.09), transparent 25%),
         radial-gradient(circle at 78% 8%, rgba(239, 201, 107, 0.08), transparent 26%),
@@ -113,15 +113,26 @@
       background: rgba(5, 8, 6, 0.96);
     }
     .brand {
+      min-height: 44px;
+      border: 0;
+      padding: 0;
+      background: transparent;
       min-width: 0;
       color: var(--green);
       font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      cursor: pointer;
     }
     .brand::before { content: "cosyworld://"; color: var(--dim); }
     .economy {
+      min-height: 44px;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      display: flex;
+      align-items: center;
       flex: 0 0 auto;
       color: var(--dim);
       font-size: 13px;
@@ -150,6 +161,10 @@
       outline-offset: 3px;
     }
     .location-pill {
+      min-height: 44px;
+      border: 0;
+      padding: 0;
+      background: transparent;
       display: flex;
       align-items: center;
       justify-content: flex-end;
@@ -364,6 +379,19 @@
       object-position: center;
       filter: saturate(0.94) contrast(1.02);
     }
+    .room-hero-card {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      cursor: zoom-in;
+    }
+    .room-hero-card:focus-visible {
+      outline: 3px solid var(--blue);
+      outline-offset: -4px;
+    }
     .room-hero::after {
       content: "";
       position: absolute;
@@ -399,6 +427,7 @@
       box-shadow: 0 8px 22px rgba(0, 0, 0, 0.44);
     }
     .room-avatar-pfp {
+      padding: 0;
       background-size: 138%;
       background-position: center top;
       cursor: zoom-in;
@@ -563,46 +592,38 @@
     .update-pill.first-thread.complete .update-label {
       color: var(--green);
     }
-    .update-pill.story-thread {
-      width: 100%;
-      border-color: rgba(239, 201, 107, 0.3);
-      background: rgba(239, 201, 107, 0.065);
-      color: inherit;
-      font: inherit;
-      text-align: left;
-      align-items: start;
-      white-space: normal;
-    }
-    button.update-pill.story-thread {
-      cursor: pointer;
-    }
-    button.update-pill.story-thread:focus-visible {
-      outline: 2px solid rgba(239, 201, 107, 0.8);
-      outline-offset: 2px;
-    }
-    .update-pill.story-thread .update-text {
-      color: var(--text);
-      overflow: visible;
-      text-overflow: clip;
-      white-space: normal;
-    }
     .log {
       grid-row: 3;
       min-height: 0;
       max-height: min(28vh, 220px);
       overflow: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(239, 201, 107, 0.46) rgba(5, 12, 7, 0.3);
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
       padding: 12px 16px 18px;
       display: flex;
       flex-direction: column;
       gap: 5px;
-      scroll-behavior: smooth;
       border-top: 1px solid rgba(129, 255, 167, 0.18);
       background: rgba(5, 12, 7, 0.52);
     }
-    .log:not(.account-mode):not(.chat-mode):not(.room-mode):not(.arrival-mode) {
+    .log::-webkit-scrollbar {
+      width: 7px;
+    }
+    .log::-webkit-scrollbar-track {
+      background: rgba(5, 12, 7, 0.3);
+    }
+    .log::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: rgba(239, 201, 107, 0.46);
+    }
+    .log:not(.account-mode):not(.library-mode):not(.chat-mode):not(.room-mode):not(.arrival-mode) {
       display: none;
     }
     .log.account-mode,
+    .log.library-mode,
     .log.chat-mode,
     .log.room-mode,
     .log.arrival-mode {
@@ -615,6 +636,10 @@
     }
     .log.chat-mode.quiet-mode::before {
       display: none;
+    }
+    .log > .line,
+    .log > .roll-line {
+      flex-shrink: 0;
     }
     .log.quiet-mode .line.event.room {
       margin-bottom: auto;
@@ -929,6 +954,112 @@
       margin-bottom: 8px;
       padding: 10px 12px;
     }
+    .library-panel {
+      display: grid;
+      gap: 10px;
+    }
+    .library-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--amber);
+      font-weight: 900;
+    }
+    .library-heading h2 {
+      margin: 0;
+      color: inherit;
+      font: inherit;
+    }
+    .library-heading small {
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .library-intro {
+      color: var(--dim);
+      line-height: 1.45;
+    }
+    .library-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(270px, 100%), 1fr));
+      gap: 8px;
+    }
+    .library-pack {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: rgba(16, 25, 18, 0.72);
+      padding: 10px;
+      display: grid;
+      gap: 7px;
+    }
+    .library-pack-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .library-pack-name {
+      color: var(--text);
+      font-weight: 900;
+    }
+    .library-pack-meta,
+    .library-pack-counts,
+    .library-pack-access {
+      color: var(--dim);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .library-pack-copy {
+      color: var(--text);
+      line-height: 1.4;
+    }
+    .library-technical {
+      border-top: 1px solid var(--line);
+      padding-top: 6px;
+      color: var(--dim);
+      font-size: 11px;
+    }
+    .library-technical summary {
+      width: max-content;
+      color: var(--amber);
+      cursor: pointer;
+      font-weight: 800;
+    }
+    .library-technical code {
+      display: block;
+      margin-top: 5px;
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+    .library-access-badge {
+      flex: 0 0 auto;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      padding: 2px 7px;
+      color: var(--green);
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .library-access-badge.locked { color: var(--amber); border-color: rgba(239, 201, 107, 0.45); }
+    .library-access-badge.partial { color: var(--amber); }
+    .library-locations {
+      border-top: 1px solid var(--line);
+      padding-top: 6px;
+      display: grid;
+      gap: 3px;
+    }
+    .library-location {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--dim);
+      font-size: 11px;
+    }
+    .library-location.accessible { color: var(--text); }
+    .library-location-state { color: var(--amber); white-space: nowrap; }
     .account-title {
       display: flex;
       align-items: baseline;
@@ -937,6 +1068,11 @@
       color: var(--amber);
       font-weight: 900;
       margin-bottom: 6px;
+    }
+    .account-title h2 {
+      margin: 0;
+      color: inherit;
+      font: inherit;
     }
     .account-identity {
       display: grid;
@@ -1041,6 +1177,29 @@
       gap: 8px;
       margin: 8px 0 10px;
     }
+    .account-auth-copy {
+      color: var(--dim);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .account-wallet-list {
+      display: grid;
+      gap: 6px;
+      margin-top: 7px;
+    }
+    .account-wallet-entry {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 7px 8px;
+    }
+    .account-wallet-entry.active { border-color: var(--line-strong); }
+    .account-wallet-entry code { color: var(--text); overflow-wrap: anywhere; }
+    .account-wallet-controls { display: flex; flex-wrap: wrap; gap: 5px; }
+    .account-wallet-controls .account-button { min-height: 30px; padding: 3px 7px; }
     .account-button {
       min-height: 38px;
       border: 1px solid var(--line-strong);
@@ -1197,6 +1356,7 @@
     .prompt.choice-mode {
       grid-template-columns: auto repeat(3, minmax(0, 1fr)) minmax(86px, 0.58fr);
     }
+    .prompt[hidden] { display: none; }
     .caret {
       display: grid;
       place-items: center;
@@ -1487,6 +1647,27 @@
       opacity: 0.42;
       cursor: default;
     }
+    .cmd[aria-busy="true"] {
+      opacity: 1;
+      cursor: progress;
+      border-color: rgba(var(--cmd-accent-rgb), 0.58);
+      box-shadow:
+        inset 2px 0 0 rgba(var(--cmd-accent-rgb), 0.72),
+        0 0 18px rgba(var(--cmd-accent-rgb), 0.12);
+    }
+    .cmd[aria-busy="true"]::after {
+      animation: action-busy-pulse 1.1s ease-in-out infinite;
+      opacity: 1;
+    }
+    @keyframes action-busy-pulse {
+      0%, 100% { transform: scale(0.72); opacity: 0.46; }
+      50% { transform: scale(1.25); opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cmd[aria-busy="true"]::after {
+        animation: none;
+      }
+    }
     .detail {
       display: block;
       margin-top: 2px;
@@ -1583,11 +1764,16 @@
       box-shadow: 0 22px 80px rgba(0, 0, 0, 0.72);
       padding: 12px;
     }
+    .card-dialog:focus-visible,
+    .action-dialog:focus-visible,
+    .wallet-dialog:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
     .card-dialog {
       position: relative;
     }
     .card-close,
-    .action-close,
     .wallet-close,
     .ai-close {
       float: right;
@@ -1633,6 +1819,7 @@
         rgba(16, 25, 18, 0.72);
     }
     .action-title {
+      margin: 0;
       color: var(--amber);
       font-size: 18px;
       font-weight: 900;
@@ -1722,6 +1909,23 @@
       outline: 2px solid rgba(101, 230, 138, 0.86);
       outline-offset: 2px;
     }
+    .action-cancel {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid rgba(var(--type-danger-rgb), 0.58);
+      border-radius: 4px;
+      background: rgba(var(--type-danger-rgb), 0.16);
+      color: var(--red);
+      font: inherit;
+      font-weight: 900;
+    }
+    .action-cancel:hover {
+      background: rgba(var(--type-danger-rgb), 0.24);
+    }
+    .action-cancel:focus-visible {
+      outline: 2px solid rgba(var(--type-danger-rgb), 0.86);
+      outline-offset: 2px;
+    }
     .wallet-title {
       clear: both;
       color: var(--amber);
@@ -1754,6 +1958,29 @@
       font-size: 12px;
       overflow-wrap: anywhere;
     }
+    .wallet-app-links {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .wallet-app-links a,
+    .wallet-app-links button {
+      min-height: 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(139, 183, 255, 0.38);
+      border-radius: 4px;
+      background: rgba(139, 183, 255, 0.08);
+      color: var(--blue);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 850;
+      text-align: center;
+      text-decoration: none;
+    }
+    .wallet-app-links .wallet-copy-link { grid-column: 1 / -1; }
+    .wallet-app-links[hidden] { display: none; }
     .wallet-status {
       min-height: 22px;
       margin-top: 10px;
@@ -1819,7 +2046,7 @@
       min-width: 0;
     }
     .card-name {
-      margin-top: 10px;
+      margin: 10px 0 0;
       color: var(--amber);
       font-weight: 900;
       font-size: 17px;
@@ -1954,6 +2181,19 @@
       }
     }
     [data-card-key] { cursor: zoom-in; }
+    .terminal.panel-open {
+      grid-template-rows: minmax(0, 1fr);
+    }
+    .terminal.panel-open .room,
+    .terminal.panel-open .updates {
+      display: none;
+    }
+    .terminal.panel-open .log {
+      grid-row: 1;
+      max-height: none;
+      border-top: 0;
+      padding: 16px;
+    }
     @media (max-width: 900px) {
       html, body { font-size: 13px; }
       .shell { grid-template-rows: 42px minmax(0, 1fr) auto auto; }
@@ -2272,8 +2512,8 @@
     .wallet-panel,
     .wallet-close,
     .action-dialog,
-    .action-close,
     .action-confirm,
+    .action-cancel,
     .card-dialog,
     .card-close,
     .command-input {
@@ -2398,26 +2638,65 @@
     .turn-ping-pill .turn-ping-time {
       border-radius: 4px;
     }
+
+    #location-name {
+      margin: 0;
+      color: inherit;
+      font: inherit;
+    }
+
+    @media (max-width: 900px) {
+      .shell { grid-template-rows: 48px minmax(0, 1fr) auto auto; }
+      .topbar {
+        grid-template-columns: auto auto minmax(0, 1fr);
+        gap: 6px;
+        padding: 0 7px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        min-width: 54px;
+        font-size: 0;
+      }
+      .brand::before {
+        content: "worlds";
+        color: var(--text);
+        font-size: 12px;
+      }
+      .brand[aria-expanded="true"]::before { content: "close"; }
+      .economy {
+        max-width: 96px;
+        font-size: 11px;
+      }
+      .location-pill {
+        min-width: 0;
+        font-size: 12px;
+      }
+      .room-log-toggle { min-height: 44px; }
+      .terminal.panel-open .log { padding: 10px; }
+    }
   </style>
 </head>
 <body>
   <div class="shell">
     <header class="topbar">
-      <div class="brand" id="brand">private room</div>
-      <div class="economy" id="economy" role="button" tabindex="0" aria-label="Open your collection" aria-expanded="false" aria-controls="log"></div>
-      <div class="location-pill" role="button" tabindex="0" aria-label="Focus current location">
+      <button class="brand" id="brand" type="button" aria-label="Open World Library" aria-expanded="false" aria-controls="log">world library</button>
+      <button class="economy" id="economy" type="button" aria-label="Open your collection" aria-expanded="false" aria-controls="log"></button>
+      <button class="location-pill" type="button" aria-label="Focus current location">
         <img id="location-image" alt="" />
         <span id="subtitle">booting</span>
-      </div>
+      </button>
     </header>
     <main class="terminal">
       <section class="room">
-        <div class="room-hero" id="room-hero" aria-label="Current location artwork">
-          <img id="room-hero-image" alt="" />
+        <div class="room-hero" id="room-hero">
+          <button class="room-hero-card" id="room-hero-card" type="button" aria-label="Open current location card">
+            <img id="room-hero-image" alt="" />
+          </button>
           <div class="room-avatar-rail" id="room-avatar-rail" aria-label="Avatars in this location"></div>
         </div>
         <div class="room-title">
-          <span class="room-title-main"><span id="location-name">The Cosy Cottage</span></span>
+          <span class="room-title-main"><h1 id="location-name">The Cosy Cottage</h1></span>
           <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="room-memory" hidden><span class="room-log-kicker">log</span><span class="room-log-latest" id="room-log-latest"></span></button>
           <span id="avatar"></span>
         </div>
@@ -2427,7 +2706,7 @@
       <section class="updates" id="updates" aria-live="polite" aria-label="Status updates" hidden></section>
       <section class="log" id="log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Shared room chat"></section>
     </main>
-    <div class="status" id="error"></div>
+    <div class="status" id="error" role="status" aria-live="polite" aria-atomic="true"></div>
     <footer class="prompt">
       <div class="turn-ping-pill" id="turn-ping-pill" aria-live="assertive" hidden></div>
       <div class="caret">&gt;</div>
@@ -2444,11 +2723,11 @@
     </form>
   </div>
   <div class="card-modal" id="card-modal" hidden>
-    <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-modal-name">
+    <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-modal-name" tabindex="-1">
       <button class="card-close" type="button" data-card-close aria-label="Close card">x</button>
       <div class="card-art"><img id="card-modal-image" alt="" /></div>
       <div class="card-copy">
-        <div class="card-name" id="card-modal-name"></div>
+        <h2 class="card-name" id="card-modal-name"></h2>
         <div class="card-title" id="card-modal-title"></div>
         <div class="card-blurb" id="card-modal-blurb"></div>
         <div class="card-meta" id="card-modal-meta"></div>
@@ -2458,23 +2737,28 @@
     </section>
   </div>
   <div class="action-modal" id="action-modal" hidden>
-    <section class="action-dialog" role="dialog" aria-modal="true" aria-labelledby="action-modal-title">
-      <button class="action-close" type="button" data-action-close aria-label="Close action">x</button>
+    <section class="action-dialog" role="dialog" aria-modal="true" aria-labelledby="action-modal-title" tabindex="-1">
       <div class="action-art"><img id="action-modal-image" alt="" /></div>
-      <div class="action-title" id="action-modal-title"></div>
+      <h2 class="action-title" id="action-modal-title"></h2>
       <div class="action-summary" id="action-modal-summary"></div>
       <div class="action-meta" id="action-modal-meta"></div>
       <div class="action-choice-list" id="action-modal-choices" hidden></div>
       <button class="action-confirm" id="action-modal-confirm" type="button">confirm</button>
+      <button class="action-cancel" type="button" data-action-close>cancel</button>
     </section>
   </div>
   <div class="wallet-modal" id="wallet-modal" hidden>
-    <section class="wallet-dialog" role="dialog" aria-modal="true" aria-labelledby="wallet-modal-title">
-      <button class="wallet-close" type="button" data-wallet-close aria-label="Close wallet sign-in">x</button>
-      <div class="wallet-title" id="wallet-modal-title">wallet sign-in</div>
+    <section class="wallet-dialog" role="dialog" aria-modal="true" aria-labelledby="wallet-modal-title" tabindex="-1">
+      <button class="wallet-close" type="button" data-wallet-close aria-label="Close wallet window">x</button>
+      <h2 class="wallet-title" id="wallet-modal-title">wallet sign-in</h2>
       <div class="wallet-copy">Scan this with your phone. Sign one message. No transaction, no fee.</div>
       <div class="wallet-qr"><img id="wallet-qr-image" alt="Wallet sign-in QR code" /></div>
       <div class="wallet-link" id="wallet-mobile-url"></div>
+      <div class="wallet-app-links" id="wallet-app-links" hidden>
+        <a id="wallet-phantom-link" href="#" rel="noreferrer">open in Phantom</a>
+        <a id="wallet-solflare-link" href="#" rel="noreferrer">open in Solflare</a>
+        <button class="wallet-copy-link" id="wallet-copy-link" type="button">copy portable link</button>
+      </div>
       <div class="wallet-status" id="wallet-status"></div>
     </section>
   </div>
@@ -2504,14 +2788,26 @@
         statement: "I explore the paths nobody has named yet.",
       },
     ];
-    const authoredKnackChoices = [
-      { id: "listening", label: "Listening", detail: "catch the little clues" },
-      { id: "kindness", label: "Kindness", detail: "notice what care is needed" },
-      { id: "lorecraft", label: "Lorecraft", detail: "make sense of old stories" },
-      { id: "steadiness", label: "Steadiness", detail: "stay calm when things wobble" },
-      { id: "nimble_hands", label: "Nimble Hands", detail: "manage delicate fixes" },
-      { id: "lifting", label: "Lifting", detail: "put your shoulder into it" },
+    const authoredAbilityChoices = [
+      { id: "lifting", label: "Strength", detail: "physical force" },
+      { id: "nimble_hands", label: "Dexterity", detail: "agility and fine control" },
+      { id: "steadiness", label: "Constitution", detail: "endurance and resilience" },
+      { id: "lorecraft", label: "Intelligence", detail: "reason and remember" },
+      { id: "listening", label: "Wisdom", detail: "notice the world and behavior" },
+      { id: "kindness", label: "Charisma", detail: "influence and connect" },
     ];
+
+    function authoredAbilityChoice(value) {
+      const normalized = String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+      return authoredAbilityChoices.find((choice) => (
+        choice.id === normalized
+        || choice.label.toLowerCase().replace(/[^a-z0-9]+/g, "_") === normalized
+      )) || null;
+    }
+
+    function abilityLabel(value, fallback = "an ability") {
+      return authoredAbilityChoice(value)?.label || String(value || fallback);
+    }
     const actionCardTypes = [
       "travel",
       "chat",
@@ -2571,8 +2867,15 @@
     let refreshQueued = false;
     let actionBusy = false;
     let pendingAction = null;
+    let pendingCardReactions = [];
+    let nextPendingCardReactionId = 1;
+    let renderedChatTailKey = "";
     let actionConfirmAction = null;
     let accountPanelPinned = false;
+    let libraryPanelPinned = false;
+    let contentPacks = null;
+    let contentPacksAccessKey = "";
+    let identity = null;
     let openingBoxId = "";
     let roomCopyExpanded = false;
     let roomMemoryExpanded = false;
@@ -2591,6 +2894,7 @@
     let firstTaleCelebration = false;
     let firstTaleCompletionSeen = false;
     const $ = (id) => document.getElementById(id);
+    const modalReturnFocus = new Map();
     let walletAddress = bootParams.get("wallet") || bootParams.get("wallet_address") || localStorage.getItem("cosyworld.wallet") || "";
     let walletSession = bootParams.get("wallet_session") || localStorage.getItem("cosyworld.walletSession") || "";
     let ownedCardIds = parseCardIds(bootParams.get("cards") || bootParams.get("owned_card_ids") || localStorage.getItem("cosyworld.cards") || "");
@@ -2612,10 +2916,77 @@
       localStorage.removeItem("cosyworld.avatarGateVersion");
     }
 
+    function setModalBackgroundInert(inert) {
+      const shell = document.querySelector(".shell");
+      const commandPalette = $("command-palette");
+      for (const node of [shell, commandPalette]) {
+        if (!node) continue;
+        if (inert) node.setAttribute("inert", "");
+        else node.removeAttribute("inert");
+      }
+    }
+
+    function activeModal() {
+      return ["wallet-modal", "action-modal", "card-modal"]
+        .map((id) => $(id))
+        .find((modal) => modal && !modal.hidden) || null;
+    }
+
+    function openModal(modalId, preferredFocus) {
+      const modal = $(modalId);
+      if (!modal) return;
+      if (modal.hidden) {
+        const active = document.activeElement;
+        modalReturnFocus.set(modalId, active instanceof HTMLElement ? active : null);
+      }
+      modal.hidden = false;
+      setModalBackgroundInert(true);
+      window.requestAnimationFrame(() => {
+        if (modal.hidden) return;
+        const target = preferredFocus || modal.querySelector("[autofocus], button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])") || modal.querySelector("[role='dialog']");
+        target?.focus?.();
+      });
+    }
+
+    function closeModal(modalId) {
+      const modal = $(modalId);
+      if (!modal || modal.hidden) return;
+      modal.hidden = true;
+      if (!activeModal()) setModalBackgroundInert(false);
+      const returnTarget = modalReturnFocus.get(modalId);
+      modalReturnFocus.delete(modalId);
+      window.requestAnimationFrame(() => {
+        if (returnTarget?.isConnected && !returnTarget.closest("[inert]")) returnTarget.focus();
+      });
+    }
+
+    function trapModalFocus(event, modal) {
+      if (event.key !== "Tab" || !modal) return false;
+      const focusable = [...modal.querySelectorAll("button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])")]
+        .filter((node) => !node.hidden && node.getAttribute("aria-hidden") !== "true" && node.getClientRects().length > 0);
+      const dialog = modal.querySelector("[role='dialog']");
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog?.focus();
+        return true;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const current = document.activeElement;
+      if (!modal.contains(current) || (event.shiftKey && current === first) || (!event.shiftKey && current === last)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      }
+      return true;
+    }
+
     async function api(path, options = {}) {
       const response = await fetch(path, options);
-      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-      return response.json();
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || `${response.status} ${response.statusText}`);
+      }
+      return payload;
     }
 
     async function post(path, payload) {
@@ -2626,8 +2997,208 @@
       });
     }
 
-    async function createAvatar(calling = authoredCallingChoices[0].statement) {
-      const avatar = await post("/avatar", withAccess({ calling }));
+    function base64UrlToBytes(value) {
+      const normalized = String(value || "").replaceAll("-", "+").replaceAll("_", "/");
+      const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
+      return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+    }
+
+    function bytesToBase64Url(value) {
+      const bytes = new Uint8Array(value || []);
+      let binary = "";
+      for (const byte of bytes) binary += String.fromCharCode(byte);
+      return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+    }
+
+    function creationOptionsFromJson(value) {
+      const options = value?.publicKey || value;
+      if (window.PublicKeyCredential?.parseCreationOptionsFromJSON) {
+        return PublicKeyCredential.parseCreationOptionsFromJSON(options);
+      }
+      return {
+        ...options,
+        challenge: base64UrlToBytes(options.challenge),
+        user: { ...options.user, id: base64UrlToBytes(options.user.id) },
+        excludeCredentials: (options.excludeCredentials || []).map((entry) => ({
+          ...entry,
+          id: base64UrlToBytes(entry.id),
+        })),
+      };
+    }
+
+    function requestOptionsFromJson(value) {
+      const options = value?.publicKey || value;
+      if (window.PublicKeyCredential?.parseRequestOptionsFromJSON) {
+        return PublicKeyCredential.parseRequestOptionsFromJSON(options);
+      }
+      return {
+        ...options,
+        challenge: base64UrlToBytes(options.challenge),
+        allowCredentials: (options.allowCredentials || []).map((entry) => ({
+          ...entry,
+          id: base64UrlToBytes(entry.id),
+        })),
+      };
+    }
+
+    function credentialToJson(credential) {
+      if (typeof credential?.toJSON === "function") return credential.toJSON();
+      const response = credential.response || {};
+      const registration = "attestationObject" in response;
+      return {
+        id: credential.id,
+        rawId: bytesToBase64Url(credential.rawId),
+        type: credential.type,
+        authenticatorAttachment: credential.authenticatorAttachment || undefined,
+        clientExtensionResults: credential.getClientExtensionResults?.() || {},
+        response: registration
+          ? {
+              attestationObject: bytesToBase64Url(response.attestationObject),
+              clientDataJSON: bytesToBase64Url(response.clientDataJSON),
+              transports: response.getTransports?.() || [],
+            }
+          : {
+              authenticatorData: bytesToBase64Url(response.authenticatorData),
+              clientDataJSON: bytesToBase64Url(response.clientDataJSON),
+              signature: bytesToBase64Url(response.signature),
+              userHandle: response.userHandle ? bytesToBase64Url(response.userHandle) : null,
+            },
+      };
+    }
+
+    function applyIdentity(nextIdentity) {
+      identity = nextIdentity || { authenticated: false, wallets: [], passkeys: [] };
+      if (identity.authenticated) {
+        walletAddress = identity.active_wallet || "";
+        walletSession = identity.wallet_session || "";
+        localStorage.removeItem("cosyworld.walletSession");
+        if (walletAddress) localStorage.setItem("cosyworld.wallet", walletAddress);
+      }
+      equippedCardIds = loadKeepsakeLoadout();
+      return identity;
+    }
+
+    async function loadIdentity() {
+      try {
+        const nextIdentity = await api("/auth/account");
+        const preferredWallet = localStorage.getItem("cosyworld.wallet") || "";
+        const canRestorePreference = nextIdentity?.authenticated
+          && preferredWallet
+          && preferredWallet !== nextIdentity.active_wallet
+          && (nextIdentity.wallets || []).some((entry) => entry.wallet_address === preferredWallet);
+        return applyIdentity(canRestorePreference
+          ? await post("/auth/wallets/select", { wallet_address: preferredWallet })
+          : nextIdentity);
+      } catch (error) {
+        identity = { authenticated: false, wallets: [], passkeys: [], error: String(error.message || error) };
+        return identity;
+      }
+    }
+
+    async function registerPasskey(additional = false) {
+      if (!window.PublicKeyCredential || !navigator.credentials?.create) {
+        throw new Error("Passkeys are not supported by this browser.");
+      }
+      const username = additional ? (identity?.username || "") : "";
+      const displayName = additional ? (identity?.display_name || username) : "";
+      const started = await post("/auth/passkey/register/start", {
+        username,
+        display_name: displayName,
+        wallet_session: identity?.authenticated ? null : (walletSession || null),
+      });
+      if (!started.ok) throw new Error(started.error || "Passkey registration could not start.");
+      const credential = await navigator.credentials.create({
+        publicKey: creationOptionsFromJson(started.public_key),
+      });
+      if (!credential) throw new Error("Passkey registration was cancelled.");
+      const finished = await post("/auth/passkey/register/finish", {
+        ceremony_id: started.ceremony_id,
+        credential: credentialToJson(credential),
+      });
+      if (!finished.ok) throw new Error(finished.error || "Passkey registration failed.");
+      applyIdentity(finished);
+      await refresh();
+      connectStream();
+    }
+
+    async function loginWithPasskey() {
+      if (!window.PublicKeyCredential || !navigator.credentials?.get) {
+        throw new Error("Passkeys are not supported by this browser.");
+      }
+      const started = await post("/auth/passkey/login/start", { username: "" });
+      if (!started.ok) throw new Error(started.error || "Passkey sign-in could not start.");
+      const credential = await navigator.credentials.get({
+        publicKey: requestOptionsFromJson(started.public_key),
+      });
+      if (!credential) throw new Error("Passkey sign-in was cancelled.");
+      const finished = await post("/auth/passkey/login/finish", {
+        ceremony_id: started.ceremony_id,
+        credential: credentialToJson(credential),
+      });
+      if (!finished.ok) throw new Error(finished.error || "Passkey sign-in failed.");
+      applyIdentity(finished);
+      await refresh();
+      connectStream();
+    }
+
+    async function continueWithPasskey() {
+      try {
+        await loginWithPasskey();
+      } catch (error) {
+        if (String(error?.name || "") !== "NotAllowedError") throw error;
+        await registerPasskey(false);
+      }
+    }
+
+    async function logoutAccount() {
+      applyIdentity(await post("/auth/logout", {}));
+      walletAddress = "";
+      walletSession = "";
+      localStorage.removeItem("cosyworld.wallet");
+      localStorage.removeItem("cosyworld.walletSession");
+      await refresh();
+      connectStream();
+    }
+
+    async function selectLinkedWallet(wallet) {
+      const selected = await post("/auth/wallets/select", { wallet_address: wallet });
+      if (!selected.ok) throw new Error(selected.error || "Wallet selection failed.");
+      applyIdentity(selected);
+      await refresh();
+      connectStream();
+    }
+
+    async function unlinkWallet(wallet) {
+      const unlinked = await post("/auth/wallets/unlink", { wallet_address: wallet });
+      if (!unlinked.ok) throw new Error(unlinked.error || "Wallet unlink failed.");
+      applyIdentity(unlinked);
+      await refresh();
+    }
+
+    async function runIdentityTask(label, task) {
+      setError("");
+      setStatus(label, "ok");
+      try {
+        const result = await task();
+        if (result === false) return;
+        setStatus("Account updated.", "ok");
+      } catch (error) {
+        setError(String(error.message || error));
+      } finally {
+        render();
+      }
+    }
+
+    async function createAvatar(selection = null) {
+      const profile = (state?.character_creation || [])[0] || null;
+      const choiceId = selection?.choiceId || profile?.default_choice_id || null;
+      const payload = profile
+        ? {
+            character_creation_id: selection?.profileId || profile.id,
+            character_choice_id: choiceId,
+          }
+        : { calling: selection?.calling || authoredCallingChoices[0].statement };
+      const avatar = await post("/avatar", withAccess(payload));
       if (!avatar.ok || !avatar.actor?.id || !avatar.actor_session) {
         throw new Error(avatarFailureMessage(avatar));
       }
@@ -2663,8 +3234,11 @@
       const previousLocationId = state?.location?.id || null;
       const wasTired = actorIsTired(state);
       const requestedActorId = actorId;
-      const nextState = await api(statePath());
+      const stateRequest = api(statePath());
+      const contentPacksRequest = ensureContentPacks().catch(() => null);
+      const nextState = await stateRequest;
       if (requestedActorId !== actorId) return;
+      await contentPacksRequest;
       const timelineRewound = transcriptTimelineRewound(nextState);
       state = nextState;
       const keepsakeLoadoutChanged = reconcileKeepsakeLoadout();
@@ -2737,6 +3311,24 @@
       const params = requestParams();
       const qs = params.toString();
       return `/state${qs ? `?${qs}` : ""}`;
+    }
+
+    function contentPacksPath() {
+      const params = requestParams();
+      params.delete("actor_id");
+      params.delete("actor_session");
+      const qs = params.toString();
+      return `/content-packs${qs ? `?${qs}` : ""}`;
+    }
+
+    async function ensureContentPacks() {
+      const path = contentPacksPath();
+      if (contentPacks && contentPacksAccessKey === path) return contentPacks;
+      const nextContentPacks = await api(path);
+      if (path !== contentPacksPath()) return contentPacks;
+      contentPacks = nextContentPacks;
+      contentPacksAccessKey = path;
+      return contentPacks;
     }
 
     function latestSeenSeq() {
@@ -2932,27 +3524,40 @@
 
     function buildActions(view) {
       if (view.primary_action?.kind === "create_avatar") {
+        const creationProfile = (view.character_creation || [])[0] || null;
+        const creationChoices = creationProfile?.choices?.length
+          ? creationProfile.choices.map((choice) => ({
+              label: choice.label,
+              detail: choice.detail,
+              value: choice.id,
+            }))
+          : authoredCallingChoices.map((choice) => ({
+              label: choice.label,
+              detail: choice.detail,
+              value: choice.statement,
+            }));
+        const defaultChoice = creationProfile?.default_choice_id || authoredCallingChoices[0].statement;
         const action = {
           kind: "avatar-arrival",
           label: "begin",
-          detail: "choose what draws you in",
+          detail: creationProfile ? `enter ${creationProfile.name}` : "choose what draws you in",
           command: "create avatar",
           focusKey: "create-avatar",
           card: cardForLocation(view.location?.id),
           shape: "location",
-          modalTitle: "what draws you in?",
-          modalSummary: "Pick the sort of trouble your avatar can't resist.",
-          effect: "brings your new avatar into The Cosy Cottage",
-          choices: authoredCallingChoices.map((choice) => ({
-            label: choice.label,
-            detail: choice.detail,
-            value: choice.statement,
-          })),
-          selectedChoice: authoredCallingChoices[0].statement,
+          modalTitle: creationProfile?.prompt || "what draws you in?",
+          modalSummary: creationProfile?.description || "Pick the sort of trouble your avatar can't resist.",
+          effect: creationProfile
+            ? `begins ${creationProfile.name}`
+            : "brings your new avatar into The Cosy Cottage",
+          choices: creationChoices,
+          selectedChoice: defaultChoice,
           busyLabel: "arriving",
-          busyDetail: "the cottage is making room…",
+          busyDetail: creationProfile ? "the last lantern is making room…" : "the cottage is making room…",
         };
-        action.run = () => createAvatar(action.selectedChoice || authoredCallingChoices[0].statement);
+        action.run = () => createAvatar(creationProfile
+          ? { profileId: creationProfile.id, choiceId: action.selectedChoice || defaultChoice }
+          : { calling: action.selectedChoice || defaultChoice });
         return [action];
       }
 
@@ -2985,60 +3590,60 @@
         const trainEffect = String(offer?.effect || "");
         const offeredLabel = trainEffect.match(/steps\s+(.+?)\s+up/i)?.[1]?.trim()
           || trainEffect.match(/^(.+?)\s+grows\b/i)?.[1]?.trim()
-          || "Listening";
-        const offeredId = offeredLabel.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "listening";
+          || "Wisdom";
+        const offeredId = authoredAbilityChoice(offeredLabel)?.id || "listening";
         const rankFor = (choice) => Number(skills.find((skill) => (
           skill.skill_id === choice.id
           || String(skill.label || "").toLowerCase() === choice.label.toLowerCase()
         ))?.rank || 0);
-        const knackCandidates = authoredKnackChoices
+        const abilityCandidates = authoredAbilityChoices
           .filter((choice) => rankFor(choice) < 3)
           .sort((left, right) => (
             Number(right.id === offeredId) - Number(left.id === offeredId)
-            || authoredKnackChoices.findIndex((choice) => choice.id === left.id)
-              - authoredKnackChoices.findIndex((choice) => choice.id === right.id)
+            || authoredAbilityChoices.findIndex((choice) => choice.id === left.id)
+              - authoredAbilityChoices.findIndex((choice) => choice.id === right.id)
           ));
-        if (!knackCandidates.length) return null;
-        const firstKnack = knackCandidates[0];
-        const oneKnack = knackCandidates.length === 1;
-        const currentRank = rankFor(firstKnack);
+        if (!abilityCandidates.length) return null;
+        const firstAbility = abilityCandidates[0];
+        const oneAbility = abilityCandidates.length === 1;
+        const currentRank = rankFor(firstAbility);
         const practiceAction = {
           label: "practice",
-          detail: oneKnack
-            ? `${firstKnack.label} · use what you learned`
-            : "choose a knack · use what you learned",
-          command: oneKnack
-            ? (firstKnack.id === offeredId && offer?.command
+          detail: oneAbility
+            ? `${firstAbility.label} · use what you learned`
+            : "choose an ability · use what you learned",
+          command: oneAbility
+            ? (firstAbility.id === offeredId && offer?.command
               ? offer.command
-              : `skill ${firstKnack.label.toLowerCase()}`)
+              : `skill ${firstAbility.label.toLowerCase()}`)
             : "skill",
-          focusKey: oneKnack
-            ? `train-${firstKnack.id.replace(/_/g, "-")}`
-            : `train:${knackCandidates.map((choice) => choice.id).join("|")}`,
-          focusKeys: knackCandidates.map((choice) => `skill:${choice.id}`),
+          focusKey: oneAbility
+            ? `train-${firstAbility.id.replace(/_/g, "-")}`
+            : `train:${abilityCandidates.map((choice) => choice.id).join("|")}`,
+          focusKeys: abilityCandidates.map((choice) => `skill:${choice.id}`),
           card: cardForActor(actorId) || cardForLocation(view.location?.id),
           shape: "avatar",
           priority: currentRank > 0 && options.has("create_bond") ? 78 : 76,
-          modalTitle: oneKnack ? `practice ${firstKnack.label}` : "choose a knack to practice",
-          modalSummary: oneKnack
-            ? `Put what you learned into practice and become a little better at ${firstKnack.label}.`
-            : "Choose what this visit helped you get a little better at.",
-          effect: oneKnack ? offer?.effect : "the knack you choose grows a little stronger",
-          ...(oneKnack ? {} : {
-            choices: knackCandidates.map((choice) => ({
+          modalTitle: oneAbility ? `practice ${firstAbility.label}` : "choose an ability to practice",
+          modalSummary: oneAbility
+            ? `Add +1 to your training bonus for ${firstAbility.label} checks. The ability score itself does not change.`
+            : "Choose which ability gets +1 to its check training bonus. The ability score itself does not change.",
+          effect: oneAbility ? offer?.effect : "the ability you choose gets +1 to its check training bonus",
+          ...(oneAbility ? {} : {
+            choices: abilityCandidates.map((choice) => ({
               label: choice.label,
               detail: choice.detail,
               value: choice.id,
             })),
-            selectedChoice: firstKnack.id,
+            selectedChoice: firstAbility.id,
           }),
         };
         practiceAction.selectedPayload = () => ({
           actor_id: actorId,
-          skill_id: String(practiceAction.selectedChoice || firstKnack.id),
+          skill_id: String(practiceAction.selectedChoice || firstAbility.id),
         });
         practiceAction.run = () => action("/actions/train-skill", practiceAction.selectedPayload());
-        practiceAction.knackCandidates = knackCandidates;
+        practiceAction.abilityCandidates = abilityCandidates;
         return practiceAction;
       };
       const buildEvolveAction = () => {
@@ -3046,31 +3651,52 @@
         const practiceAction = buildTrainAction();
         if (!growAction && !practiceAction) return null;
 
+        const rankForAbility = (ability) => Number(skills.find((skill) => (
+          skill.skill_id === ability.id
+          || String(skill.label || "").toLowerCase() === ability.label.toLowerCase()
+        ))?.rank || 0);
+        const choiceSeed = [
+          actorId,
+          Number(view.world_tick || 0),
+          Number(ledger.unbanked_count || 0),
+          Number(ledger.banked_count || 0),
+          Number(ledger.spent_count || 0),
+          skills.map((skill) => `${skill.skill_id}:${skill.rank}`).sort().join(","),
+        ].join(":");
+        const practiceChoices = (practiceAction?.abilityCandidates || [])
+          .map((ability) => ({
+            label: `practice ${ability.label}`,
+            detail: `${ability.detail || "use what you learned"} · +1 training bonus to ${ability.label} checks`,
+            value: `practice:${ability.id}`,
+            card: practiceAction.card,
+            rankBefore: rankForAbility(ability),
+            rankAfter: rankForAbility(ability) + 1,
+          }))
+          .sort((left, right) => (
+            handHash(`${choiceSeed}:${left.value}`, handDealNonce)
+              - handHash(`${choiceSeed}:${right.value}`, handDealNonce)
+            || left.value.localeCompare(right.value)
+          ));
         const evolutionChoices = [];
         if (growAction) {
           evolutionChoices.push({
-            label: "grow",
-            detail: "keep what mattered from this visit",
+            label: "keep the lesson",
+            detail: "carry what mattered forward as growth you can use later",
             value: "grow",
             card: growAction.card,
           });
         }
-        for (const knack of practiceAction?.knackCandidates || []) {
-          evolutionChoices.push({
-            label: `practice ${knack.label}`,
-            detail: knack.detail || "use what you learned",
-            value: `practice:${knack.id}`,
-            card: practiceAction.card,
-          });
-        }
+        evolutionChoices.push(...practiceChoices.slice(0, growAction ? 1 : 2));
 
         const oneChoice = evolutionChoices.length === 1;
         const selectedChoice = evolutionChoices[0]?.value || "grow";
         const evolveAction = {
           label: "evolve",
           detail: growAction && practiceAction
-            ? "choose how you change"
-            : (growAction ? "from what you learned" : "choose a knack to practice"),
+            ? "choose one of two lessons"
+            : (growAction
+              ? "from what you learned"
+              : (oneChoice ? "choose an ability to practice" : "choose one of two abilities")),
           command: "evolve",
           focusKey: growAction?.focusKey || practiceAction?.focusKey || "evolve",
           focusKeys: [...new Set([
@@ -3093,11 +3719,15 @@
           modalSummary: oneChoice
             ? (growAction
               ? "Keep what mattered and let it shape what comes next."
-              : `Put what you learned into ${(practiceAction?.knackCandidates || [])[0]?.label || "a knack"} and make it a little stronger.`)
-            : "Keep what happened as part of you, or put it into a knack you want to strengthen.",
+              : `Put what you learned into ${(practiceAction?.abilityCandidates || [])[0]?.label || "an ability"} training.`)
+            : (growAction
+              ? "Choose one of two possibilities: keep the lesson, or improve one ability's training bonus."
+              : "Choose one of two ways this lesson can strengthen your avatar."),
           effect: oneChoice
             ? (growAction?.effect || practiceAction?.effect)
-            : "the way you choose changes what your avatar carries forward",
+            : (growAction
+              ? "your choice either keeps this lesson for later or adds +1 to an ability's check training bonus"
+              : "a practiced ability gets +1 to its check training bonus; its score stays the same"),
           selectedChoice,
           ...(oneChoice ? {} : { choices: evolutionChoices }),
         };
@@ -3108,6 +3738,75 @@
           return action("/actions/train-skill", { actor_id: actorId, skill_id: skillId });
         };
         return evolveAction;
+      };
+      const buildChatAction = () => {
+        if (economy.can_chat_with_orbs === false) return null;
+        const chatCandidates = (view.actors || []).filter((actor) => (
+          actor.id !== actorId
+          && actor.kind === "npc"
+          && actor.status === "active"
+        ));
+        if (!chatCandidates.length) return null;
+        const chatOffer = offerFor("chat");
+        const chatCostValue = Number.isFinite(Number(chatOffer?.cost?.orbs))
+          ? Number(chatOffer.cost.orbs)
+          : Number(economy.chat_cost_orbs || 0);
+        const chatUsesOrbs = chatCostValue > 0;
+        const chatCostText = chatCostValue === 1 ? "one Orb" : `${chatCostValue} Orbs`;
+        const firstChat = chatCandidates[0];
+        const oneChat = chatCandidates.length === 1;
+        const firstTargetName = actorLabel(firstChat);
+        const chatAction = {
+          kind: "orb-chat",
+          label: "chat",
+          detail: oneChat
+            ? (chatUsesOrbs ? `${firstTargetName} · ${chatCostText}` : firstTargetName)
+            : (chatUsesOrbs ? `choose someone · ${chatCostText}` : "choose someone"),
+          command: oneChat ? `chat ${firstTargetName}` : "chat",
+          focusKey: oneChat
+            ? (options.has("attack") ? `talk:${firstChat.id}` : `actor:${firstChat.id}`)
+            : `chat:${chatCandidates.map((actor) => actor.id).join("|")}`,
+          focusKeys: chatCandidates.map((actor) => (
+            options.has("attack") ? `talk:${actor.id}` : `actor:${actor.id}`
+          )),
+          card: oneChat
+            ? cardForActor(firstChat.id)
+            : (cardForActor(actorId) || cardForLocation(view.location?.id) || cardForActor(firstChat.id)),
+          shape: "avatar",
+          priority: 83,
+          targetName: oneChat ? firstTargetName : "",
+          orbCost: chatUsesOrbs ? chatCostValue : 0,
+          modalSummary: oneChat
+            ? `Play Chat to start a short conversation with ${firstTargetName}. The card passes the room turn immediately while the conversation unfolds.`
+            : "Choose someone nearby, then play Chat. The card passes the room turn immediately while the conversation unfolds.",
+          effect: oneChat
+            ? `you and ${firstTargetName} trade a few lines after the room turn passes`
+            : "the chosen conversation unfolds after the room turn passes",
+          ...(oneChat ? {} : {
+            choices: chatCandidates.map((actor) => {
+              const card = cardForActor(actor.id);
+              return {
+                label: actorLabel(actor),
+                detail: card?.title || "short back-and-forth",
+                value: String(actor.id),
+                card,
+              };
+            }),
+            selectedChoice: String(firstChat.id),
+          }),
+        };
+        chatAction.selectedTarget = () => chatCandidates.find((actor) => (
+          String(actor.id) === String(chatAction.selectedChoice || firstChat.id)
+        )) || firstChat;
+        chatAction.busyLabel = "chatting";
+        chatAction.busyDetail = () => `${actorLabel(chatAction.selectedTarget())} is finding the thread…`;
+        chatAction.pendingTargetActorId = () => chatAction.selectedTarget().id;
+        chatAction.selectedPayload = () => ({
+          actor_id: actorId,
+          target_actor_id: Number(chatAction.selectedTarget().id),
+        });
+        chatAction.run = () => chatWith(chatAction.selectedPayload().target_actor_id);
+        return chatAction;
       };
       if (turn.enabled && !turn.is_current_actor) {
         const currentName = turn.current_actor_name || "another avatar";
@@ -3144,58 +3843,39 @@
             : `gives ${currentName} a moment, then passes the choice if they're away`,
           run: () => action("/actions/timeout", { actor_id: actorId }),
         };
-        return [buildEvolveAction(), waitingAction].filter(Boolean);
+        return [waitingAction, buildEvolveAction()].filter(Boolean);
       }
 
+      const built = [];
       const journey = view.journey || null;
       if (journey) {
-        const stepsRemaining = Math.max(0, Number(journey.steps_remaining || 0));
-        const nextName = String(journey.next_location_name || journey.destination_name || "the next bend");
         const nextLocationId = Number(journey.next_location_id || 0);
+        const nextIsDestination = nextLocationId === Number(journey.destination_location_id || 0);
         const nextStretchRevealed = (view.exits || []).some((exit) => (
           Number(exit.destination_location_id || 0) === nextLocationId
           && !exitUnavailable(exit, view)
         ));
-        if (nextStretchRevealed) {
-          return [{
-            label: "travel",
-            detail: nextName,
-            command: `go ${nextName}`,
-            focusKey: `exit:${nextLocationId}`,
-            card: cardForLocation(nextLocationId) || cardForLocation(view.location?.id),
+        if (!nextStretchRevealed) {
+          built.push({
+            label: "search",
+            detail: `for the path toward ${journey.destination_name}`,
+            command: "search",
+            focusKey: `journey-search:${journey.destination_location_id}:${journey.current_step}`,
+            card: cardForLocation(view.location?.id),
             shape: "location",
-            priority: 1,
-            modalSummary: `Follow the revealed path into ${nextName}.`,
-            effect: stepsRemaining <= 1
-              ? `you arrive in ${journey.destination_name}`
-              : `you enter ${nextName}`,
-            busyLabel: "travelling",
-            busyDetail: "following the next stretch…",
-            run: () => action("/actions/move", {
-              actor_id: actorId,
-              destination_location_id: nextLocationId,
-            }),
-          }];
+            priority: 55,
+            modalTitle: "search for the next path",
+            modalSummary: `Look around this place for the next adjacent stretch toward ${journey.destination_name}.`,
+            effect: nextIsDestination
+              ? `the way to ${journey.destination_name} is revealed`
+              : `the hidden next stretch toward ${journey.destination_name} is revealed`,
+            busyLabel: "searching",
+            busyDetail: "the next stretch is taking shape…",
+            run: () => action("/actions/explore-path", { actor_id: actorId }),
+          });
         }
-        return [{
-          label: "search",
-          detail: `for the path toward ${journey.destination_name}`,
-          command: "search",
-          focusKey: `journey-search:${journey.destination_location_id}:${journey.current_step}`,
-          card: cardForLocation(view.location?.id),
-          shape: "location",
-          priority: 1,
-          modalTitle: "search for the next path",
-          modalSummary: `Look around this place for the next adjacent stretch toward ${journey.destination_name}.`,
-          effect: `the way to ${nextName} is revealed`,
-          busyLabel: "searching",
-          busyDetail: "the next stretch is taking shape…",
-          run: () => action("/actions/explore-path", { actor_id: actorId }),
-        }];
       }
 
-      const built = [];
-      const canChat = economy.can_chat_with_orbs !== false;
       const heldUsableItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "potion" && item.charges > 0);
       const heldItems = (view.items || []).filter((item) => item.holder_actor_id === actorId);
       const reportedInventoryCapacity = Number(economy.inventory_capacity);
@@ -3221,7 +3901,6 @@
         return match ? Number(match[1]) : fallback;
       };
       const activeProject = (view.jobs || []).find((job) => job.status === "active") || null;
-      const activeRoomProject = Boolean(activeProject);
       const currentLocationId = Number(view.location?.id || 0);
       const roomZone = String(view.room_sheet?.zone || "").toLowerCase();
       const roomSafety = String(view.room_sheet?.safety || "").toLowerCase();
@@ -3233,7 +3912,8 @@
       ));
       const activeProgressClock = activeProject
         ? (view.clocks || []).find((clock) => clock.id === activeProject.progress_clock_id)
-        : null;
+        : (view.clocks || []).find((clock) => clock.kind === "progress" && Number(clock.filled || 0) < Number(clock.segments || 0));
+      const activeRoomProject = Boolean(activeProgressClock);
       const activeProgressRemaining = activeProgressClock
         ? Math.max(0, Number(activeProgressClock.segments || 0) - Number(activeProgressClock.filled || 0))
         : 0;
@@ -3257,7 +3937,6 @@
         : `${projectProgressDetail(workProgressPreview)}, may tire you`;
       const projectSearchPriority = activeRoomProject && !preparedForRoom && !locationSearchObserved ? 29 : 86;
       const projectPreparePriority = activeRoomProject && !preparedForRoom && locationSearchObserved ? 29 : 32;
-      const giveTargetIds = new Set();
       if (options.has("give_item")) {
         const giveOffer = offerFor("give_item");
         const offeredTargetId = Number(giveOffer?.target?.id || 0);
@@ -3279,7 +3958,6 @@
             ? heldItems.find((held) => Number(held.id || 0) === requestedItemId)
             : giftItemForTarget(target);
           if (!item) continue;
-          giveTargetIds.add(target.id);
           giftCandidates.push({
             key: `${item.id}:${target.id}`,
             item,
@@ -3469,73 +4147,8 @@
           run: () => runCommandText(searchCommand),
         });
       }
-      const chatCandidates = (view.actors || []).filter((actor) => (
-        actor.id !== actorId
-        && actor.kind === "npc"
-        && actor.status === "active"
-      ));
-      if (canChat && chatCandidates.length) {
-        const chatOffer = offerFor("chat");
-        const chatCostValue = Number.isFinite(Number(chatOffer?.cost?.orbs))
-          ? Number(chatOffer.cost.orbs)
-          : Number(economy.chat_cost_orbs || 0);
-        const chatUsesOrbs = chatCostValue > 0;
-        const chatCostText = chatCostValue === 1 ? "one Orb" : `${chatCostValue} Orbs`;
-        const firstChat = chatCandidates[0];
-        const oneChat = chatCandidates.length === 1;
-        const firstTargetName = actorLabel(firstChat);
-        const chatAction = {
-          kind: "orb-chat",
-          label: "chat",
-          detail: oneChat
-            ? (chatUsesOrbs ? `${firstTargetName} · ${chatCostText}` : firstTargetName)
-            : (chatUsesOrbs ? `choose someone · ${chatCostText}` : "choose someone"),
-          command: oneChat ? `chat ${firstTargetName}` : "chat",
-          focusKey: oneChat
-            ? (giveTargetIds.has(firstChat.id) || options.has("attack") ? `talk:${firstChat.id}` : `actor:${firstChat.id}`)
-            : `chat:${chatCandidates.map((actor) => actor.id).join("|")}`,
-          focusKeys: chatCandidates.map((actor) => (
-            giveTargetIds.has(actor.id) || options.has("attack") ? `talk:${actor.id}` : `actor:${actor.id}`
-          )),
-          card: oneChat
-            ? cardForActor(firstChat.id)
-            : (cardForActor(actorId) || cardForLocation(view.location?.id) || cardForActor(firstChat.id)),
-          shape: "avatar",
-          priority: 83,
-          targetName: oneChat ? firstTargetName : "",
-          orbCost: chatUsesOrbs ? chatCostValue : 0,
-          modalSummary: oneChat
-            ? `Share a short back-and-forth with ${firstTargetName}. One Orb covers the whole conversation.`
-            : "Choose someone nearby for a short back-and-forth. One Orb covers the whole conversation.",
-          effect: oneChat
-            ? `you and ${firstTargetName} trade a few lines before the room moves on`
-            : "you and the chosen resident trade a few lines before the room moves on",
-          ...(oneChat ? {} : {
-            choices: chatCandidates.map((actor) => {
-              const card = cardForActor(actor.id);
-              return {
-                label: actorLabel(actor),
-                detail: card?.title || "short back-and-forth",
-                value: String(actor.id),
-                card,
-              };
-            }),
-            selectedChoice: String(firstChat.id),
-          }),
-        };
-        chatAction.selectedTarget = () => chatCandidates.find((actor) => (
-          String(actor.id) === String(chatAction.selectedChoice || firstChat.id)
-        )) || firstChat;
-        chatAction.busyLabel = "chatting";
-        chatAction.busyDetail = () => `${actorLabel(chatAction.selectedTarget())} is finding the thread…`;
-        chatAction.pendingTargetActorId = () => chatAction.selectedTarget().id;
-        chatAction.selectedPayload = () => ({
-          actor_id: actorId,
-          target_actor_id: Number(chatAction.selectedTarget().id),
-        });
-        chatAction.run = () => chatWith(chatAction.selectedPayload().target_actor_id);
-        built.push(chatAction);
-      }
+      const chatAction = buildChatAction();
+      if (chatAction) built.push(chatAction);
       if (options.has("pick_up")) {
         const roomItems = (view.items || []).filter((item) => (
           Number(item.location_id || 0) === currentLocationId
@@ -3630,7 +4243,12 @@
           });
         }
       }
-      const routeExits = (view.exits || []).filter((exit) => !exitUnavailable(exit, view));
+      const routeExits = (view.exits || []).filter((exit) => (
+        !exitUnavailable(exit, view)
+        && !(journey
+          && Number(exit.distance || 1) > 1
+          && Number(exit.destination_location_id || 0) === Number(journey.destination_location_id || 0))
+      ));
       const escaping = options.has("flee");
       if (routeExits.length && (escaping || options.has("move"))) {
         const routeGroups = escaping
@@ -3679,7 +4297,7 @@
                   : "Choose a path and follow it into the next room.")),
             effect: onePath
               ? (searchingPathway
-                ? `the way to Pathway to ${firstExit.destination_location_name} 1/${Number(firstExit.distance || 1)} is revealed`
+                ? `a hidden first stretch toward ${firstExit.destination_location_name} is revealed`
                 : `you arrive in ${firstExit.destination_location_name}`)
               : (searchingPathway ? "the first adjacent stretch of the chosen pathway is revealed" : "you arrive at the place you choose"),
             ...(onePath ? {} : {
@@ -3694,10 +4312,18 @@
               selectedChoice: String(firstExit.destination_location_id),
             }),
           };
+          const selectedRouteExit = () => groupedExits.find((exit) => (
+            String(exit.destination_location_id) === String(routeAction.selectedChoice || firstExit.destination_location_id)
+          )) || firstExit;
+          routeAction.busyLabel = fleeing ? "getting away" : (searchingPathway ? "searching" : "travelling");
+          routeAction.busyDetail = () => {
+            const selectedExit = selectedRouteExit();
+            if (fleeing) return `hurrying toward ${selectedExit.destination_location_name}…`;
+            if (searchingPathway) return `finding the path toward ${selectedExit.destination_location_name}…`;
+            return `following the path to ${selectedExit.destination_location_name}…`;
+          };
           routeAction.selectedPayload = () => {
-            const selectedExit = groupedExits.find((exit) => (
-              String(exit.destination_location_id) === String(routeAction.selectedChoice || firstExit.destination_location_id)
-            )) || firstExit;
+            const selectedExit = selectedRouteExit();
             return {
               actor_id: actorId,
               destination_location_id: selectedExit.destination_location_id,
@@ -4092,6 +4718,7 @@
           built.push(rememberAction);
         }
       }
+      mergeDuplicateSearchCards(built);
       mergeDuplicateUseCards(built);
       built.sort(compareActions);
       if (!built.length) {
@@ -4106,6 +4733,58 @@
         });
       }
       return built;
+    }
+
+    function mergeDuplicateSearchCards(builtActions) {
+      const searches = builtActions.filter((action) => String(action?.label || "").toLowerCase() === "search");
+      if (searches.length <= 1) return;
+      const modes = [];
+      searches.forEach((source, sourceIndex) => {
+        const sourceChoices = Array.isArray(source.choices) && source.choices.length
+          ? source.choices
+          : [null];
+        sourceChoices.forEach((choice, choiceIndex) => {
+          modes.push({
+            key: `search:${sourceIndex}:${choiceIndex}:${choice?.value || source.focusKey || source.command}`,
+            label: String(choice?.label || source.detail || "look around").replace(/^for\s+/i, ""),
+            detail: friendlyActionText(choice?.detail || source.effect || "uncover what is hidden"),
+            card: choice?.card || source.card,
+            source,
+            choiceValue: choice?.value,
+          });
+        });
+      });
+      const first = modes[0];
+      const merged = {
+        ...first.source,
+        label: "search",
+        detail: "choose what to look for",
+        command: "search",
+        focusKey: `search:${modes.map((mode) => mode.key).join("|")}`,
+        focusKeys: [...new Set(searches.flatMap((source) => [source.focusKey, ...(source.focusKeys || [])]).filter(Boolean))],
+        card: first.card,
+        modalTitle: "choose what to search",
+        modalSummary: "Follow a path clue or look more closely at the room.",
+        effect: "the search you choose reveals one hidden thing",
+        choices: modes.map((mode) => ({
+          label: mode.label,
+          detail: mode.detail,
+          value: mode.key,
+          card: mode.card,
+        })),
+        selectedChoice: first.key,
+      };
+      merged.run = () => {
+        const selected = modes.find((mode) => mode.key === merged.selectedChoice) || first;
+        if (selected.choiceValue != null) selected.source.selectedChoice = selected.choiceValue;
+        return selected.source.run();
+      };
+      const firstIndex = builtActions.indexOf(searches[0]);
+      for (const source of searches) {
+        const index = builtActions.indexOf(source);
+        if (index >= 0) builtActions.splice(index, 1);
+      }
+      builtActions.splice(Math.min(firstIndex, builtActions.length), 0, merged);
     }
 
     function mergeDuplicateUseCards(builtActions) {
@@ -4319,8 +4998,16 @@
 
     function closeWalletQrModal(result = false) {
       stopWalletQrPolling();
-      $("wallet-modal").hidden = true;
+      closeModal("wallet-modal");
+      $("wallet-modal-title").textContent = "wallet sign-in";
+      $("wallet-modal").querySelector(".wallet-copy").textContent = "Scan this with your phone. Sign one message. No transaction, no fee.";
       $("wallet-qr-image").removeAttribute("src");
+      $("wallet-qr-image").alt = "Wallet sign-in QR code";
+      $("wallet-mobile-url").textContent = "";
+      $("wallet-app-links").hidden = true;
+      $("wallet-phantom-link").href = "#";
+      $("wallet-solflare-link").href = "#";
+      $("wallet-copy-link").dataset.portableUrl = "";
       if (walletQrResolve) {
         const resolve = walletQrResolve;
         walletQrResolve = null;
@@ -4328,7 +5015,63 @@
       }
     }
 
+    function configureWalletAppLinks(portableUrl) {
+      const ref = window.location.origin;
+      $("wallet-phantom-link").href = `https://phantom.app/ul/browse/${encodeURIComponent(portableUrl)}?ref=${encodeURIComponent(ref)}`;
+      $("wallet-solflare-link").href = `https://solflare.com/ul/v1/browse/${encodeURIComponent(portableUrl)}?ref=${encodeURIComponent(ref)}`;
+      $("wallet-copy-link").dataset.portableUrl = portableUrl;
+      $("wallet-app-links").hidden = false;
+    }
+
+    async function claimNftWallet() {
+      if (!identity?.authenticated) throw new Error("Sign in with a passkey first.");
+      setStatus("Create a portable NFT wallet claim.", "ok");
+      const started = await post("/auth/wallet-claims/start", {});
+      if (!started.ok || !started.claim_id || !started.poll_token) {
+        throw new Error(started.error || "Wallet claim could not start.");
+      }
+      const portableUrl = new URL(started.mobile_path || `/wallet/claim/${started.claim_id}`, window.location.href).toString();
+      const qrSvgUrl = new URL(started.qr_svg_path || `/wallet/claim/${started.claim_id}/code.svg`, window.location.href).toString();
+      $("wallet-modal-title").textContent = "claim NFT wallet";
+      $("wallet-modal").querySelector(".wallet-copy").textContent = "Open this link in Phantom or Solflare. Sign one message there; this passkey browser stays signed in here.";
+      $("wallet-qr-image").alt = "NFT wallet claim QR code";
+      $("wallet-qr-image").src = qrSvgUrl;
+      $("wallet-mobile-url").textContent = portableUrl;
+      configureWalletAppLinks(portableUrl);
+      setWalletQrStatus("Waiting for the wallet signature. You can keep using this browser.");
+      openModal("wallet-modal", $("wallet-modal").querySelector(".wallet-close"));
+
+      return new Promise((resolve) => {
+        walletQrResolve = resolve;
+        const poll = async () => {
+          try {
+            const status = await api(`/auth/wallet-claims/status?claim_id=${encodeURIComponent(started.claim_id)}&poll_token=${encodeURIComponent(started.poll_token)}`);
+            if (status.ok && status.state === "complete" && status.wallet_address) {
+              applyIdentity(await api("/auth/account"));
+              equippedCardIds = loadKeepsakeLoadout();
+              setStatus(status.moved ? "NFT wallet claim moved here." : "NFT wallet claimed.", "ok");
+              focusIndex = 0;
+              focusedKey = "";
+              await refresh();
+              connectStream();
+              closeWalletQrModal(true);
+            } else if (!status.ok && status.state === "expired") {
+              setWalletQrStatus("Wallet claim expired. Start a fresh claim.", "error");
+              closeWalletQrModal(false);
+            }
+          } catch (error) {
+            setWalletQrStatus(String(error.message || error), "error");
+          }
+        };
+        walletQrPollTimer = window.setInterval(poll, 1400);
+        poll();
+      });
+    }
+
     async function openQrWalletLogin() {
+      $("wallet-modal-title").textContent = "wallet sign-in";
+      $("wallet-modal").querySelector(".wallet-copy").textContent = "Scan this with your phone. Sign one message. No transaction, no fee.";
+      $("wallet-app-links").hidden = true;
       setStatus("Scan the wallet sign-in QR.", "ok");
       const started = await post("/wallet/qr/start", {});
       if (!started.ok || !started.login_id || !started.poll_token) {
@@ -4340,8 +5083,7 @@
       $("wallet-qr-image").src = qrSvgUrl;
       $("wallet-mobile-url").textContent = mobileUrl;
       setWalletQrStatus("Waiting for a phone signature.");
-      $("wallet-modal").hidden = false;
-      $("wallet-modal").querySelector(".wallet-close")?.focus();
+      openModal("wallet-modal", $("wallet-modal").querySelector(".wallet-close"));
 
       return new Promise((resolve) => {
         walletQrResolve = resolve;
@@ -4453,7 +5195,9 @@
         }
         let packId = prepared.pack_id || "";
         if (!String(prepared.burn_message || "").startsWith("Box already")) {
-          const burnSignature = await signWalletMessage(prepared.burn_message || `Burn Wooden Box ${boxAssetAddress}`);
+          const burnSignature = prepared.burn_transaction
+            ? await signAndSendBoxBurnTransaction(prepared.burn_transaction)
+            : await signWalletMessage(prepared.burn_message || `Burn Wooden Box ${boxAssetAddress}`);
           const confirmed = await post("/nft/boxes/burn-confirm", {
             wallet_session: walletSession,
             box_asset_address: boxAssetAddress,
@@ -4495,6 +5239,28 @@
       focusedKey = "";
       accountPanelPinned = true;
       await refresh();
+    }
+
+    async function signAndSendBoxBurnTransaction(transaction) {
+      const provider = solanaProvider();
+      if (!provider?.request) {
+        throw new Error("A Solana wallet with transaction signing is needed to burn this Box.");
+      }
+      if (transaction?.message_encoding !== "base58" || !transaction?.message) {
+        throw new Error("The Box burn transaction could not be read safely.");
+      }
+      setStatus("Confirm the irreversible Box burn in your Solana wallet.", "ok");
+      const signed = await withTimeout(
+        provider.request({
+          method: "signAndSendTransaction",
+          params: { message: transaction.message },
+        }),
+        walletRequestTimeoutMs,
+        "Wallet transaction timed out."
+      );
+      const signature = String(signed?.signature || signed?.hash || signed || "").trim();
+      if (!signature) throw new Error("Wallet did not return a transaction signature.");
+      return signature;
     }
 
     function avatarFailureMessage(result = {}) {
@@ -4546,7 +5312,7 @@
       if (result.ok && clearFirstTaleAfterAction) firstTaleCelebration = false;
       focusIndex = 0;
       focusedKey = "";
-      await refresh();
+      if (!result.ok) void queueRefresh();
       announceOrbChange(beforeOrbs, result.ok);
       return result;
     }
@@ -4710,31 +5476,10 @@
     }
 
     function pacedChatTranscriptEvents(events) {
-      const paced = [];
-      let residentRun = [];
-      const flushResidentRun = () => {
-        const recentDistinctVoices = [];
-        const seenResidentIds = new Set();
-        for (let index = residentRun.length - 1; index >= 0 && recentDistinctVoices.length < 2; index -= 1) {
-          const event = residentRun[index];
-          const residentKey = Number(event.actor_id || 0) || String(event.actor_name || "resident");
-          if (seenResidentIds.has(residentKey)) continue;
-          seenResidentIds.add(residentKey);
-          recentDistinctVoices.unshift(event);
-        }
-        paced.push(...recentDistinctVoices);
-        residentRun = [];
-      };
-      for (const event of events || []) {
-        if (messageActorIsResident(event)) {
-          residentRun.push(event);
-          continue;
-        }
-        flushResidentRun();
-        paced.push(event);
-      }
-      flushResidentRun();
-      return paced;
+      // Exact duplicate resident lines are already collapsed when events enter
+      // the transcript. Keep distinct replies here so consecutive card plays do
+      // not erase one another just because the same resident answered them.
+      return [...(events || [])].slice(-24);
     }
 
     function narratedTranscriptEvents(events) {
@@ -4765,7 +5510,8 @@
 
     function eventIsJourneyNarration(event) {
       return String(event?.type || "").startsWith("journey.")
-        || event?.type === "pathway.discovered";
+        || event?.type === "pathway.discovered"
+        || event?.type === "pathway.familiarized";
     }
 
     function eventsShareAJourneyBeat(left, right) {
@@ -4793,6 +5539,7 @@
 
     function resetTranscriptAtWorldBoundary(event) {
       logEvents = [];
+      pendingCardReactions = [];
       seenSeq.clear();
       if (event?.seq !== undefined && event?.seq !== null) seenSeq.add(event.seq);
     }
@@ -4837,9 +5584,36 @@
       logEvents.push(event);
     }
 
+    function applyActionReceipt(event) {
+      if (event?.type !== "action.receipt" || !event.content) return false;
+      try {
+        const receipt = JSON.parse(event.content);
+        if (!receipt?.state) return false;
+        const previousAccess = state?.access || null;
+        const previousAccount = state?.account || null;
+        state = receipt.state;
+        state.world_tick = Number(receipt.world_tick || 0);
+        state.state_revision = Number(receipt.state_revision || 0);
+        if (previousAccess && !(state.access?.owned_card_ids || []).length) {
+          state.access = previousAccess;
+        }
+        if (previousAccount && !state.account?.authenticated) {
+          state.account = previousAccount;
+        }
+        actions = buildActions(state);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     function pushEvents(events) {
       let changed = false;
       for (const event of events) {
+        if (applyActionReceipt(event)) {
+          changed = true;
+          continue;
+        }
         if (event?.type === "world.reset") {
           resetTranscriptAtWorldBoundary(event);
           changed = true;
@@ -4847,12 +5621,92 @@
         }
         if (!event || seenSeq.has(event.seq)) continue;
         seenSeq.add(event.seq);
+        resolvePendingCardReaction(event);
         if (eventIsHiddenContext(event)) continue;
         if (!eventIsLowSignalStatus(event)) appendLogEvent(event);
         changed = true;
       }
       logEvents = logEvents.slice(-90);
       return changed;
+    }
+
+    function reactionTargetForAction(action) {
+      let selectedTargetId = 0;
+      if (typeof action?.selectedPayload === "function") {
+        try {
+          selectedTargetId = Number(action.selectedPayload()?.target_actor_id || 0);
+        } catch {
+          selectedTargetId = 0;
+        }
+      }
+      const residents = (state?.actors || []).filter((actor) => (
+        actor.kind === "npc"
+        && actor.status === "active"
+        && Number(actor.location_id || state?.location?.id || 0) === Number(state?.location?.id || 0)
+      ));
+      const selected = residents.find((actor) => Number(actor.id) === selectedTargetId);
+      if (selected) return selected;
+      if (!residents.length) return actorForId(actorId);
+      const latestResidentId = [...logEvents].reverse().find((event) => (
+        event?.type === "message.created"
+        && residents.some((actor) => Number(actor.id) === Number(event.actor_id))
+      ))?.actor_id;
+      if (!latestResidentId) return residents[0];
+      const latestIndex = residents.findIndex((actor) => Number(actor.id) === Number(latestResidentId));
+      return residents[(latestIndex + 1) % residents.length];
+    }
+
+    function beginPendingCardReaction(action) {
+      if (!actorId || action?.kind === "avatar-arrival") return 0;
+      const target = reactionTargetForAction(action);
+      if (!target) return 0;
+      const id = nextPendingCardReactionId++;
+      const kind = action?.kind === "orb-chat" ? "chat" : "card";
+      pendingCardReactions.push({
+        id,
+        kind,
+        strictTarget: kind === "chat",
+        targetActorId: Number(target.id || 0),
+        targetName: actorLabel(target),
+        afterSeq: latestSeenSeq(),
+      });
+      window.setTimeout(() => {
+        if (!pendingCardReactions.some((reaction) => reaction.id === id)) return;
+        cancelPendingCardReaction(id);
+        renderLog();
+      }, 60000);
+      return id;
+    }
+
+    function cancelPendingCardReaction(id) {
+      if (!id) return;
+      pendingCardReactions = pendingCardReactions.filter((reaction) => reaction.id !== id);
+    }
+
+    function resolvePendingCardReaction(event) {
+      if (!event || !pendingCardReactions.length) return;
+      const eventSeq = Number(event.seq || 0);
+      if (event.type === "chat.failed" || event.type === "chat.completed") {
+        const statusIndex = pendingCardReactions.findIndex((reaction) => (
+          reaction.kind === "chat"
+          && eventSeq > Number(reaction.afterSeq || 0)
+          && Number(event.actor_id || 0) === Number(actorId || 0)
+          && Number(event.target_actor_id || 0) === Number(reaction.targetActorId || 0)
+        ));
+        if (statusIndex >= 0) pendingCardReactions.splice(statusIndex, 1);
+        return;
+      }
+      if (event.type !== "message.created") return;
+      let index = pendingCardReactions.findIndex((reaction) => (
+        eventSeq > Number(reaction.afterSeq || 0)
+        && Number(event.actor_id || 0) === Number(reaction.targetActorId || 0)
+      ));
+      if (index < 0) {
+        index = pendingCardReactions.findIndex((reaction) => (
+          !reaction.strictTarget && eventSeq > Number(reaction.afterSeq || 0)
+        ));
+      }
+      if (index >= 0) pendingCardReactions.splice(index, 1);
     }
 
     function rebuildLog(events) {
@@ -4863,7 +5717,9 @@
           resetTranscriptAtWorldBoundary(event);
           continue;
         }
-        if (!event || eventIsHiddenContext(event)) continue;
+        if (!event) continue;
+        resolvePendingCardReaction(event);
+        if (eventIsHiddenContext(event)) continue;
         if (event.seq !== undefined && event.seq !== null) {
           if (seenSeq.has(event.seq)) continue;
           seenSeq.add(event.seq);
@@ -4881,7 +5737,11 @@
       "journey.progressed",
       "journey.narrated",
       "journey.completed",
+      "journey.backtracked",
+      "journey.paused",
       "pathway.discovered",
+      "pathway.familiarized",
+      "chat.failed",
       "ability_check.rolled",
       "feature.searched",
       "location.searched",
@@ -4949,7 +5809,12 @@
     }
 
     function eventIsHiddenContext(event) {
-      return event.type === "world.bootstrapped" || event.type === "actor.presence";
+      return event.type === "world.bootstrapped"
+        || event.type === "actor.presence"
+        || event.type === "chat.queued"
+        || event.type === "chat.completed"
+        || event.type === "avatar.refined"
+        || event.type === "pathway.refined";
     }
 
     function eventMatchesCurrentLocation(event) {
@@ -4972,6 +5837,9 @@
         || event.type === "turn.timeout_requested"
         || event.type === "turn.timeout_passed"
         || event.type === "message.created"
+        || event.type === "chat.failed"
+        || event.type === "avatar.refined"
+        || event.type === "pathway.refined"
         || event.type === "move.blocked"
         || event.type === "feature.searched"
         || event.type === "location.searched"
@@ -5027,7 +5895,9 @@
           const changed = pushEvents([event]);
           if (changed) renderTimelines();
         }
-        if (eventShouldRefreshState(event)) queueRefresh();
+        const coveredByReceipt = Number(event.seq || 0) > 0
+          && Number(event.seq || 0) <= Number(state?.state_revision || 0);
+        if (eventShouldRefreshState(event) && !actionBusy && !coveredByReceipt) queueRefresh();
       });
       stream.onerror = () => setError("The live room is reconnecting.");
       startPresenceHeartbeat();
@@ -5041,15 +5911,18 @@
       const locationImage = $("location-image");
       locationImage.src = locationArt;
       locationImage.alt = locationCard?.display_name || location.name || "";
-      setCardTarget(locationImage, locationCard);
-      const roomHero = $("room-hero");
+      const roomHeroCard = $("room-hero-card");
       const roomHeroImage = $("room-hero-image");
       roomHeroImage.src = locationArt;
       roomHeroImage.alt = locationCard?.display_name || location.name || "";
-      setCardTarget(roomHero, locationCard);
+      roomHeroCard.setAttribute("aria-label", `Open ${locationCard?.display_name || location.name || "current location"} card`);
+      setCardTarget(roomHeroCard, locationCard);
       $("room-avatar-rail").innerHTML = roomAvatarRailHtml(state);
       $("subtitle").textContent = location.name || "Unknown";
-      $("brand").textContent = channelName(location.name || "cosyworld");
+      const brand = $("brand");
+      brand.textContent = libraryPanelPinned ? "close library" : "world library";
+      brand.setAttribute("aria-label", libraryPanelPinned ? "Close World Library" : "Open World Library");
+      brand.setAttribute("aria-expanded", libraryPanelPinned ? "true" : "false");
       renderEconomy();
       $("avatar").textContent = me ? `${actorLabel(me)}, ${me.title || "traveler"}` : "";
       $("location-name").textContent = location.name || "Unknown";
@@ -5153,7 +6026,7 @@
         const you = actor.id === actorId;
         const evolved = Number(actor.stats?.level || 1) > 1;
         const label = you ? `${actorLabel(actor)} (you)` : actorLabel(actor);
-        return `<span class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}" style="background-image:url('${escapeAttr(image)}')"></span>`;
+        return `<button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} card"${backgroundImageStyle(image)}></button>`;
       });
       const remaining = actors.length - visible.length;
       if (remaining > 0) {
@@ -5190,18 +6063,13 @@
         firstTaleCelebration = true;
         firstTaleCompletionSeen = true;
       }
-      const storyThread = !firstThread && !firstTaleCelebration && firstTaleIsComplete(state)
-        ? nextStoryThreadModel(state, actions)
-        : null;
-      updates.hidden = !firstThread && !firstTaleCelebration && !storyThread;
+      updates.hidden = !firstThread && !firstTaleCelebration;
       const firstTaleEnding = firstTaleCompletionText(state);
       updates.innerHTML = firstThread
         ? `<span class="updates-guide">your first tale</span><div class="updates-list"><div class="update-pill first-thread" aria-label="Your first tale. Next: ${escapeAttr(firstThread.text)}"><span class="update-label" aria-hidden="true">next</span><span class="update-text">${escapeHtml(firstThread.text)}</span></div></div>`
         : firstTaleCelebration
           ? `<span class="updates-guide">your first tale</span><div class="updates-list"><div class="update-pill first-thread complete" aria-label="Your first tale is yours. ${escapeAttr(firstTaleEnding.charAt(0).toUpperCase() + firstTaleEnding.slice(1))}"><span class="update-label" aria-hidden="true">✦</span><span class="update-text">your first tale is yours — ${escapeHtml(firstTaleEnding)}</span></div></div>`
-          : storyThread
-            ? storyThreadHtml(storyThread)
-            : "";
+          : "";
     }
 
     function firstTaleCompletionText(view = state) {
@@ -5209,7 +6077,7 @@
         return "you listened, grew from a clue, and made a new friend.";
       }
       if (Array.isArray(view?.skills) && view.skills.length) {
-        return "you listened, grew from a clue, and found a knack to practice.";
+        return "you listened, grew from a clue, and trained an ability.";
       }
       return "you listened, grew from a clue, and chose what to care about.";
     }
@@ -5307,15 +6175,6 @@
         return makeThread(evolve, "Something you learned is ready to become part of you", "evolve");
       }
       return null;
-    }
-
-    function storyThreadHtml(thread) {
-      const contents = `<span class="update-label" aria-hidden="true">follow</span><span class="update-text">${escapeHtml(thread.text)}</span>`;
-      if (!thread.actionKey) {
-        return `<span class="updates-guide">room thread</span><div class="updates-list"><div class="update-pill story-thread" aria-label="Room thread. ${escapeAttr(thread.text)}">${contents}</div></div>`;
-      }
-      const aria = `Room thread. ${thread.text} Focus the ${thread.actionLabel || "matching"} card.`;
-      return `<span class="updates-guide">room thread</span><div class="updates-list"><button class="update-pill story-thread" type="button" data-story-action-key="${escapeAttr(thread.actionKey)}" aria-label="${escapeAttr(aria)}">${contents}</button></div>`;
     }
 
     function renderRoomMemory() {
@@ -5448,7 +6307,7 @@
       for (let index = entries.length - 1; index >= 0; index -= 1) {
         const entry = entries[index];
         if (!entry?.text) continue;
-        const key = `${String(entry.kind || "").toLowerCase()}:${memoryPhrase(entry.text).toLowerCase()}`;
+        const key = memoryPhrase(entry.text).toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
         unique.unshift(entry);
@@ -5619,7 +6478,7 @@
         return { kind: "growth", label: "change", text: cleanStatusText(advancementEventLabel(event)) };
       }
       if (event.type === "skill.stepped") {
-        return { kind: "skill", label: "knack", text: cleanStatusText(skillEventLabel(event)) };
+        return { kind: "skill", label: "ability", text: cleanStatusText(skillEventLabel(event)) };
       }
       if (event.type === "calling.set") {
         if (event.actor_id === actorId) {
@@ -5755,21 +6614,44 @@
 
     function renderLog() {
       const log = $("log");
+      const previousScrollTop = log.scrollTop;
+      const wasAtBottom = log.scrollHeight <= log.clientHeight + 1
+        || log.scrollHeight - log.scrollTop - log.clientHeight < 28;
+      const libraryPanel = libraryPanelHtml();
       const accountPanel = accountPanelHtml();
-      const visibleEvents = narratedTranscriptEvents(
-        pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent))
-      );
+      const visibleEvents = pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent));
       const pendingConversation = pendingConversationHtml();
+      const pendingCardReplies = pendingCardReactionsHtml();
       const pendingArrival = pendingAvatarArrivalHtml();
-      const hasChat = visibleEvents.length > 0 || Boolean(pendingConversation);
+      const hasChat = visibleEvents.length > 0 || Boolean(pendingConversation) || Boolean(pendingCardReplies);
       const residentOnly = visibleEvents.length > 0 && visibleEvents.every(messageActorIsResident);
-      log.classList.toggle("account-mode", Boolean(accountPanel));
-      log.classList.toggle("chat-mode", !accountPanel && hasChat);
-      log.classList.toggle("room-mode", !accountPanel && !hasChat && !pendingArrival);
-      log.classList.toggle("arrival-mode", !accountPanel && Boolean(pendingArrival));
-      log.classList.toggle("quiet-mode", !accountPanel && residentOnly);
+      log.classList.toggle("library-mode", Boolean(libraryPanel));
+      log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
+      log.classList.toggle("chat-mode", !libraryPanel && !accountPanel && hasChat);
+      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasChat && !pendingArrival);
+      log.classList.toggle("arrival-mode", !libraryPanel && !accountPanel && Boolean(pendingArrival));
+      log.classList.toggle("quiet-mode", !libraryPanel && !accountPanel && residentOnly);
+      const panelMode = libraryPanel ? "library" : (accountPanel ? "account" : "");
+      document.querySelector(".terminal")?.classList.toggle("panel-open", Boolean(panelMode));
+      document.querySelector(".prompt").hidden = Boolean(panelMode);
+      if (panelMode) {
+        log.setAttribute("role", "region");
+        log.setAttribute("aria-label", panelMode === "library" ? "World Library" : "Your avatar and collection");
+        log.removeAttribute("aria-live");
+        log.removeAttribute("aria-relevant");
+      } else {
+        log.setAttribute("role", "log");
+        log.setAttribute("aria-label", "Shared room chat");
+        log.setAttribute("aria-live", "polite");
+        log.setAttribute("aria-relevant", "additions text");
+      }
+      if (libraryPanel) {
+        log.innerHTML = libraryPanel;
+        log.scrollTop = 0;
+        return;
+      }
       if (accountPanel) {
-        log.innerHTML = `${accountPanel}${visibleEvents.map(timelineEventHtml).join("")}`;
+        log.innerHTML = accountPanel;
         log.scrollTop = 0;
         return;
       }
@@ -5779,12 +6661,103 @@
         return;
       }
       if (!hasChat) {
+        renderedChatTailKey = "";
         log.innerHTML = quietRoomSceneHtml();
         log.scrollTop = 0;
         return;
       }
-      log.innerHTML = `${openingRoomLineHtml()}${visibleEvents.map(timelineEventHtml).join("")}${pendingConversation}`;
-      log.scrollTop = residentOnly && !pendingConversation ? 0 : log.scrollHeight;
+      const tailEvent = visibleEvents[visibleEvents.length - 1] || null;
+      const chatTailKey = [
+        tailEvent?.seq ?? "",
+        tailEvent?.repeat_count ?? 1,
+        pendingConversation ? "conversation" : "",
+        pendingCardReactions.map((reaction) => reaction.id).join(","),
+      ].join(":");
+      const tailChanged = chatTailKey !== renderedChatTailKey;
+      renderedChatTailKey = chatTailKey;
+      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${pendingConversation}${pendingCardReplies}`;
+      log.scrollTop = tailChanged || wasAtBottom ? log.scrollHeight : previousScrollTop;
+    }
+
+    function libraryPanelHtml() {
+      if (!libraryPanelPinned) return "";
+      const packs = Array.isArray(contentPacks?.packs) ? contentPacks.packs.filter((pack) => pack.visible !== false) : [];
+      if (!packs.length) {
+        return `<section class="account-panel library-panel" aria-labelledby="world-library-title"><div class="library-heading"><h2 id="world-library-title">world library</h2></div><div class="library-intro">The worlds are still gathering. Try again in a moment.</div></section>`;
+      }
+      const bundle = compactAssetId(contentPacks?.bundle_hash || "");
+      const cards = packs.map(libraryPackHtml).join("");
+      const bundleDetails = bundle
+        ? `<details class="library-technical"><summary>bundle details</summary><code>${escapeHtml(bundle)}</code></details>`
+        : "";
+      return `<section class="account-panel library-panel" aria-labelledby="world-library-title"><div class="library-heading"><h2 id="world-library-title">world library</h2><small>${escapeHtml(`${packs.length} worlds and packs`)}</small></div><div class="library-intro">See where your story can travel. Open worlds are ready now; locked places show the card or collection that will let you enter.</div><div class="library-grid">${cards}</div>${bundleDetails}</section>`;
+    }
+
+    function libraryPackHtml(pack) {
+      const stateName = String(pack.access_state || "included");
+      const locations = Array.isArray(pack.locations) ? pack.locations : [];
+      const shownLocations = locations.slice(0, 6).map((location) => {
+        const open = location.accessible !== false;
+        const stateLabel = open ? "open" : (location.required_card_id ? "card required" : "access required");
+        return `<div class="library-location${open ? " accessible" : ""}"><span>${escapeHtml(location.name || `Location ${location.id}`)}</span><span class="library-location-state">${escapeHtml(stateLabel)}</span></div>`;
+      }).join("");
+      const remaining = Math.max(0, locations.length - 6);
+      const locationList = shownLocations
+        ? `<div class="library-locations">${shownLocations}${remaining ? `<div class="library-location"><span>and ${remaining} more</span></div>` : ""}</div>`
+        : "";
+      const dependencies = Array.isArray(pack.dependencies) && pack.dependencies.length
+        ? ` · depends on ${pack.dependencies.map(shortPackName).join(", ")}`
+        : "";
+      const authority = libraryPackAuthoritySummary(pack);
+      const badgeLabel = stateName === "partial" ? "some open" : (stateName === "included" ? "included" : stateName);
+      const technical = [
+        `${pack.kind || "pack"} · v${pack.version || "?"} · ${pack.license || "unlicensed"}${dependencies}`,
+        authority,
+      ].filter(Boolean).join(" · ");
+      const technicalDetails = technical
+        ? `<details class="library-technical"><summary>technical details</summary><div>${escapeHtml(technical)}</div></details>`
+        : "";
+      return `<article class="library-pack"><div class="library-pack-top"><div><div class="library-pack-name">${escapeHtml(pack.name || pack.id)}</div><div class="library-pack-meta">${escapeHtml(pack.kind || "pack")}</div></div><span class="library-access-badge ${escapeAttr(stateName)}">${escapeHtml(badgeLabel)}</span></div><div class="library-pack-copy">${escapeHtml(pack.description || "No description yet.")}</div><div class="library-pack-counts">${escapeHtml(libraryPackCountSummary(pack.resource_counts || {}))}</div><div class="library-pack-access">${escapeHtml(pack.access_summary || "Included with this world.")}</div>${locationList}${technicalDetails}</article>`;
+    }
+
+    function libraryPackAuthoritySummary(pack) {
+      const authorities = Array.isArray(pack.entitlement_authorities) ? pack.entitlement_authorities : [];
+      const labels = authorities.map((authority) => {
+        if (authority.type === "solana_collection") return `Solana collection ${compactAssetId(authority.collection_address || "")}`;
+        if (authority.type === "signed_set") return `private set signed by ${compactAssetId(authority.public_key || "")}`;
+        if (authority.type === "asset_feed") return `${authority.issuer || "trusted"} verified asset feed`;
+        return authority.type || "entitlement authority";
+      });
+      const permanence = pack.distribution?.permanent_uri
+        ? `permanent ${compactAssetId(pack.distribution.permanent_uri)}`
+        : pack.distribution?.permanence === "content-addressed"
+          ? "content-addressed release"
+          : "";
+      return [...labels, permanence].filter(Boolean).join(" · ");
+    }
+
+    function shortPackName(value) {
+      return String(value || "")
+        .replace(/^cosyworld\./, "")
+        .replace(/^campaign\./, "");
+    }
+
+    function libraryPackCountSummary(counts) {
+      const entries = [
+        ["locations", "places"],
+        ["actors", "residents"],
+        ["items", "items"],
+        ["cards", "cards"],
+        ["external_cards", "catalog cards"],
+        ["character_creation", "character paths"],
+        ["rules", "rules references"],
+        ["assets", "asset collections"],
+      ];
+      const visible = entries
+        .map(([key, label]) => [Number(counts[key] || 0), label])
+        .filter(([count]) => count > 0)
+        .map(([count, label]) => `${count} ${label}`);
+      return visible.length ? visible.join(" · ") : "metadata-only pack";
     }
 
     function pendingConversationHtml() {
@@ -5800,6 +6773,20 @@
       return `<div class="line chat npc pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: targetId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>finding the thread…</span></div>`;
     }
 
+    function pendingCardReactionsHtml() {
+      return pendingCardReactions.filter((reaction) => (
+        !(reaction.kind === "chat" && actionBusy && pendingAction?.kind === "orb-chat")
+      )).map((reaction) => {
+        const speaker = reaction.targetName || "Someone nearby";
+        const chatting = reaction.kind === "chat";
+        const aria = chatting
+          ? `${speaker} is finding the thread. Your next cards are ready while the conversation unfolds.`
+          : `${speaker} is reacting to your card. Your next cards are ready while the reply unfolds.`;
+        const text = chatting ? "finding the thread…" : "reacting to your card…";
+        return `<div class="line chat npc pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: reaction.targetActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>${escapeHtml(text)}</span></div>`;
+      }).join("");
+    }
+
     function pendingAvatarArrivalHtml() {
       if (!actionBusy || pendingAction?.kind !== "avatar-arrival") return "";
       const choice = selectedActionChoice(pendingAction);
@@ -5809,11 +6796,6 @@
       const cue = `Drawn in by ${calling}. Someone here is getting ready to say hello.`;
       const aria = `${kicker}. ${text} ${cue}`;
       return `<div class="room-scene arrival-scene" role="status" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
-    }
-
-    function openingRoomLineHtml() {
-      const beat = openingBeat(state);
-      return `<div class="line event room" data-event-row aria-label="Scene. ${escapeAttr(beat)}"><span class="event-label" aria-hidden="true">✦</span><span class="text">${escapeHtml(beat)}</span></div>`;
     }
 
     function quietRoomSceneHtml() {
@@ -5828,15 +6810,11 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
-      if (event?.type === "message.created") return true;
-      const numericActorId = Number(event?.actor_id || 0);
-      const actor = actorForId(numericActorId);
-      const humanCard = actor?.kind === "human" || numericActorId === Number(actorId) || numericActorId >= 5000;
-      if (!humanCard) return false;
-      if (sceneCardEventTypes.has(event?.type)) return true;
-      if (event?.type === "tag.applied") return event?.tag_label === "prepared";
-      if (event?.type === "tag.cleared") return event?.tag_label === "tired";
-      return false;
+      return event?.type === "message.created" || event?.type === "chat.failed";
+    }
+
+    function transcriptEventHtml(event) {
+      return event?.type === "message.created" ? messageHtml(event) : sceneCardEventHtml(event);
     }
 
     function accountPanelHtml() {
@@ -5890,8 +6868,6 @@
         if (packs.length) {
           actions.push(`<button class="account-button secondary" type="button" data-account-open-pack="first">open pack</button>`);
         }
-      } else {
-        actions.push(`<button class="account-button" type="button" data-account-connect>link account</button>`);
       }
       const inventory = assets.length
         ? `<div class="account-assets">${assets.join("")}</div>`
@@ -5900,8 +6876,29 @@
       const keepsakeNote = ownedCards.length
         ? `<div class="keepsake-note">Keep a few cards close—up to three. They help the choices they care about turn up sooner in your hand.</div>`
         : "";
-      const accountName = signed ? (compactAssetId(wallet) || "linked account") : "local tale";
-      return `<div class="account-panel" aria-label="Your avatar and collection"><div class="account-title"><span>your avatar</span><span class="account-wallet">${escapeHtml(accountName)}</span></div>${characterSheetHtml()}${accountActions}<div class="account-section"><div class="account-section-title">your keepsakes</div>${keepsakeNote}${inventory}${inventoryRows.join("")}</div></div>`;
+      const accountName = identity?.authenticated
+        ? "CosyWorld account"
+        : (signed ? (compactAssetId(wallet) || "linked account") : "local tale");
+      return `<section class="account-panel" aria-labelledby="account-panel-title"><div class="account-title"><h2 id="account-panel-title">your avatar</h2><span class="account-wallet">${escapeHtml(accountName)}</span></div>${identitySectionHtml()}${characterSheetHtml()}${accountActions}<div class="account-section"><div class="account-section-title">your keepsakes</div>${keepsakeNote}${inventory}${inventoryRows.join("")}</div></section>`;
+    }
+
+    function identitySectionHtml() {
+      if (!identity?.authenticated) {
+        return `<section class="account-section" aria-label="CosyWorld sign in"><div class="account-actions"><button class="account-button" type="button" data-passkey-continue>continue with passkey</button></div></section>`;
+      }
+      const passkeys = Array.isArray(identity.passkeys) ? identity.passkeys : [];
+      const wallets = Array.isArray(identity.wallets) ? identity.wallets : [];
+      const walletRows = wallets.length
+        ? wallets.map((entry) => {
+            const wallet = String(entry.wallet_address || "");
+            const active = wallet === identity.active_wallet;
+            return `<div class="account-wallet-entry${active ? " active" : ""}"><code>${escapeHtml(compactAssetId(wallet))}</code><div class="account-wallet-controls">${active ? `<span class="account-auth-copy">NFT access active</span>` : `<button class="account-button secondary" type="button" data-wallet-select="${escapeAttr(wallet)}">use</button>`}<button class="account-button secondary" type="button" data-wallet-unlink="${escapeAttr(wallet)}">release</button></div></div>`;
+          }).join("")
+        : `<div class="account-empty">No NFT wallet claimed. Public play still works.</div>`;
+      const passkeyCopy = passkeys.length === 1
+        ? "1 passkey — add a second for recovery"
+        : `${passkeys.length} passkeys`;
+      return `<section class="account-section" aria-label="CosyWorld account"><div class="account-section-title">CosyWorld account</div>${accountRow("passkeys", passkeyCopy)}<div class="account-actions"><button class="account-button secondary" type="button" data-passkey-add>add passkey</button><button class="account-button secondary" type="button" data-wallet-link>claim NFT wallet</button><button class="account-button secondary" type="button" data-account-logout>sign out</button></div><div class="account-wallet-list">${walletRows}</div></section>`;
     }
 
     function characterSheetHtml() {
@@ -5921,18 +6918,20 @@
       const growthReady = Number(ledger.advancement_points || 0);
       const growthSummary = [
         memoriesReady ? "something you noticed is ready to keep" : "",
-        growthReady ? "you can strengthen a friendship or evolve a knack" : "",
+        growthReady ? "you can strengthen a friendship or train an ability" : "",
       ].filter(Boolean).join(" · ") || "your first little moment is waiting";
       const rows = [
         accountRow("purpose", purpose),
         accountRow("journal", growthSummary),
       ];
       const skills = Array.isArray(state?.skills) ? state.skills : [];
-      rows.push(accountRow("better at", skills.length ? skills.map((skill) => {
+      rows.push(accountRow("ability training", skills.length ? skills.map((skill) => {
         const rank = Number(skill.rank || 0);
         const confidence = rank >= 3 ? "second nature" : (rank === 2 ? "strong" : "growing");
-        return `${skill.label} — ${confidence}`;
-      }).join(", ") : "a knack will grow here"));
+        const label = abilityLabel(skill.skill_id || skill.label, skill.label);
+        const bonus = Math.max(0, Number(skill.bonus ?? rank) || 0);
+        return `${label} checks +${bonus} — ${confidence}`;
+      }).join(", ") : "ability training will grow here"));
       const bonds = Array.isArray(state?.bonds) ? state.bonds : [];
       rows.push(accountRow("friends", bonds.length ? bonds.map((bond) => {
         const name = String(bond.target_actor_name || "someone").trim();
@@ -5980,7 +6979,7 @@
         "a wooden box may turn up",
         "an avatar pack may turn up",
         "your first little moment is waiting",
-        "a knack will grow here",
+        "ability training will grow here",
         "someone new is waiting to meet you",
       ].includes(value);
       return `<div class="account-row"><span class="account-key">${escapeHtml(key)}</span><span class="account-value${empty ? " account-empty" : ""}">${escapeHtml(value)}</span></div>`;
@@ -6088,7 +7087,10 @@
       if (type === "actor.moved") {
         return `The way opens, and ${actor} steps into ${event.destination_location_name || "somewhere new"}.`;
       }
-      if (type.startsWith("journey.") || type === "pathway.discovered") {
+      if (type === "chat.failed") {
+        return "The conversation slipped away before it could begin. Your Orb came back.";
+      }
+      if (type.startsWith("journey.") || type === "pathway.discovered" || type === "pathway.familiarized") {
         return finishSentence(cleanStatusText(event.content || "The path changes beneath careful feet"));
       }
       if (type === "feature.searched" || type === "location.searched") {
@@ -6124,8 +7126,8 @@
         return `${actor} and ${event.target_actor_name || "a friend"} swap ${event.item_name || "one keepsake"} for ${event.target_item_name || "another"}; both leave with something meant for them.`;
       }
       if (type === "skill.stepped") {
-        const skill = String(event.content || "a familiar knack").split(":")[0] || "a familiar knack";
-        return `${actor} tries ${skill} again. This time, it fits a little more easily.`;
+        const skill = abilityLabel(String(event.content || "").split(":")[0], "an ability");
+        return `${actor} practices ${skill}. Its checks now come a little more easily.`;
       }
       if (type === "clock.updated") {
         return `The shared work shifts beneath ${possessive(actor)} hands; ${withoutFinalPeriod(eventText(event))}.`;
@@ -6217,10 +7219,15 @@
 
     function chatPfpHtml(event, speaker) {
       const card = event.actor_id ? cardForActor(event.actor_id) : null;
-      const image = cardImage(card);
+      const fallback = card || {
+        display_name: speaker || "CosyWorld avatar",
+        role: "avatar",
+        aspect: "tall",
+      };
+      const image = event.actor_id ? (cardImage(card) || fallbackCardImage(fallback)) : "";
       const label = initials(speaker || card?.display_name || "CosyWorld");
       const dataAttr = card ? cardDataAttr(card) : "";
-      const style = image ? ` style="background-image:url('${escapeAttr(image)}')"` : "";
+      const style = backgroundImageStyle(image);
       return `<span class="chat-pfp"${dataAttr}${style} aria-hidden="true">${image ? "" : escapeHtml(label)}</span>`;
     }
 
@@ -6868,15 +7875,14 @@
         ? `<span>when kept close</span>${escapeHtml(promise)}`
         : "";
       $("card-modal-economy").innerHTML = residentEconomyPanelHtml(actor);
-      $("card-modal").hidden = false;
+      openModal("card-modal", $("card-modal").querySelector(".card-close"));
       if (dialog) dialog.scrollTop = 0;
       const copy = dialog?.querySelector(".card-copy");
       if (copy) copy.scrollTop = 0;
-      $("card-modal").querySelector(".card-close")?.focus();
     }
 
     function closeCardModal() {
-      $("card-modal").hidden = true;
+      closeModal("card-modal");
       $("card-modal-image").removeAttribute("src");
       $("card-modal-keepsake").innerHTML = "";
       $("card-modal-economy").innerHTML = "";
@@ -6988,7 +7994,7 @@
         summary: "Keep what mattered and let it shape what comes next.",
         rows: [
           ["What stays", "the little things you noticed this visit"],
-          ["What opens", "new ways to strengthen a friendship or knack"],
+          ["What opens", "new ways to strengthen a friendship or train an ability"],
         ],
       };
     }
@@ -7077,7 +8083,7 @@
         .replace(/can damage or knock out the target/gi, "someone may be hurt or fall quiet")
         .replace(/forgoes an attack this turn/gi, "you guard instead of striking")
         .replace(/fleeing exits danger but gives up the current room position/gi, "you leave the danger behind")
-        .replace(/training settles for another skill step/gi, "another knack will be ready to practice")
+        .replace(/training settles for another skill step/gi, "another ability will be ready to practice")
         .replace(/spends hearth tonic warmth; danger does not advance/gi, "uses the tonic's warmth; trouble stays back")
         .replace(/may advance danger in frontier rooms/gi, "the trouble may draw nearer out here")
         .replace(/\bbanks?\b/gi, "claims")
@@ -7096,6 +8102,16 @@
 
     function actionModalRows(action) {
       if (String(action?.command || "").trim().toLowerCase() === "create avatar") {
+        const creationProfile = (state?.character_creation || [])[0] || null;
+        if (creationProfile) {
+          const entryName = creationProfile.entry_location_name
+            || cardForLocation(creationProfile.entry_location_id)?.display_name
+            || "the campaign threshold";
+          return [
+            ["Campaign", creationProfile.name],
+            ["Begin at", entryName],
+          ];
+        }
         return [
           ["Choose", "the trouble that always draws you in"],
           ["Then", "your new avatar arrives in The Cosy Cottage"],
@@ -7172,22 +8188,35 @@
       }
       if (["practice", "train"].includes(String(action?.label || "").toLowerCase()) && action?.choices?.length) {
         return [
-          ["Choose", "the knack you want to practice"],
-          ["Then", "it grows a little stronger"],
+          ["Choose", "the ability you want to practice"],
+          ["Then", "its check training bonus increases by +1"],
+          ["Score", "the ability score itself does not change"],
         ];
       }
       if (String(action?.label || "").toLowerCase() === "evolve") {
         if (action?.choices?.length) {
-          return [
-            ["Choose", "keep what happened, or strengthen a knack"],
-            ["Then", "your choice becomes part of who you are"],
-          ];
+          const canKeepLesson = Array.isArray(action?.evolveModes)
+            && action.evolveModes.includes("grow");
+          return canKeepLesson
+            ? [
+                ["Choose", "one of two lessons"],
+                ["Keep it", "save this visit as growth you can use later"],
+                ["Practice it", "add +1 to that ability's check training bonus"],
+                ["Score", "the ability score itself does not change"],
+              ]
+            : [
+                ["Choose", "one of two abilities"],
+                ["Your avatar", "the chosen ability gets +1 training"],
+                ["Checks", "the bonus applies to matching ability checks"],
+                ["Score", "the ability score itself does not change"],
+                ["After", "rest before evolving another ability"],
+              ];
         }
         if (Array.isArray(action?.evolveModes) && action.evolveModes.includes("grow")) {
           return bankLedgerPlan(action)?.rows || [];
         }
         return [
-          ["What changes", friendlyActionText(action?.effect) || "a knack grows a little stronger"],
+          ["What changes", friendlyActionText(action?.effect) || "an ability gets +1 to its check training bonus"],
         ];
       }
       if (String(action?.label || "").toLowerCase() === "rest") {
@@ -7299,8 +8328,7 @@
       }).join("");
       renderActionChoices(action);
       $("action-modal-confirm").textContent = actionConfirmLabel(action);
-      $("action-modal").hidden = false;
-      $("action-modal-confirm").focus();
+      openModal("action-modal", $("action-modal-confirm"));
     }
 
     function renderActionChoices(action) {
@@ -7332,7 +8360,7 @@
     }
 
     function closeActionModal() {
-      $("action-modal").hidden = true;
+      closeModal("action-modal");
       $("action-modal-image").removeAttribute("src");
       $("action-modal").querySelector(".action-art")?.classList.remove("avatar", "item", "location");
       $("action-modal-meta").innerHTML = "";
@@ -7356,7 +8384,17 @@
           ? "<circle cx='160' cy='88' r='44' fill='#efc96b' opacity='.28'/><path d='M121 99 C134 65 186 65 199 99 C183 116 137 116 121 99 Z' fill='#d8f7dc' opacity='.72'/><circle cx='160' cy='91' r='18' fill='#efc96b' opacity='.82'/>"
           : "<circle cx='160' cy='74' r='36' fill='#d8f7dc' opacity='.72'/><path d='M88 150 C102 108 128 95 160 95 C192 95 218 108 232 150 Z' fill='#65e68a' opacity='.38'/><path d='M112 78 C130 45 190 45 208 78' fill='none' stroke='#efc96b' stroke-width='8' stroke-linecap='round' opacity='.82'/>";
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" role="img" aria-label="CosyWorld mini card art"><defs><radialGradient id="glow" cx="50%" cy="35%" r="65%"><stop offset="0" stop-color="#efc96b" stop-opacity=".24"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient></defs><rect width="320" height="180" fill="${color}"/><rect width="320" height="180" fill="url(#glow)"/><rect x="10" y="10" width="300" height="160" fill="none" stroke="#efc96b" stroke-width="4" opacity=".82"/>${motif}</svg>`;
-      return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+      return `data:image/svg+xml,${encodeURIComponent(svg).replaceAll("'", "%27")}`;
+    }
+
+    function backgroundImageStyle(image) {
+      if (!image) return "";
+      const cssUrl = String(image)
+        .replaceAll("\\", "\\\\")
+        .replaceAll('"', '\\"')
+        .replaceAll("\n", "")
+        .replaceAll("\r", "");
+      return ` style="background-image:url(&quot;${escapeAttr(cssUrl)}&quot;)"`;
     }
 
     function initials(value) {
@@ -7548,12 +8586,12 @@
           actionKey: next ? actionHandKey(next) : "",
           actionKeys: identityActionKeys,
           text: bond && train
-            ? "choose a friendship or a knack."
+            ? "choose friendship or ability training."
             : bond
             ? "choose a friendship to grow."
             : train
-              ? "choose how your knack evolves."
-              : "strengthen a friendship or evolve a knack.",
+              ? "choose an ability to train."
+              : "strengthen a friendship or train an ability.",
         };
       }
 
@@ -7776,6 +8814,7 @@
     function focusAction(index, key = "") {
       if (!actions.length) return;
       accountPanelPinned = false;
+      libraryPanelPinned = false;
       focusIndex = ((index % actions.length) + actions.length) % actions.length;
       focusedKey = key || actions[focusIndex]?.focusKey || "";
       promoteActionToHand(focusIndex, focusedKey);
@@ -7869,6 +8908,7 @@
           storyGuideLabel,
           keepsakeName ? `called forward by kept-close ${keepsakeName}` : "",
           count ? `action ${count}` : "",
+          action.busy ? "in progress" : "",
         ].filter(Boolean).join(", ")
       );
       if (cardType === "shuffle") {
@@ -8068,15 +9108,18 @@
       if (actionBusy) return;
       actionBusy = true;
       pendingAction = action;
+      const pendingReactionId = beginPendingCardReaction(action);
       renderCommands();
       renderLog();
       try {
         const result = await action.run();
+        if (result?.ok === false) cancelPendingCardReaction(pendingReactionId);
         const handKey = action.handKey || actionHandKey(action);
         if (!state?.branch && handKey && result?.ok !== false) {
           discardHandKey(handKey);
         }
       } catch (error) {
+        cancelPendingCardReaction(pendingReactionId);
         setError(String(error.message || error));
       } finally {
         actionBusy = false;
@@ -8198,21 +9241,45 @@
       openCardModal(card);
     }, true);
 
-    $("updates").addEventListener("click", (event) => {
-      const thread = event.target.closest("[data-story-action-key]");
-      if (!thread) return;
-      event.preventDefault();
-      const key = thread.getAttribute("data-story-action-key") || "";
-      const index = actionIndexForHandKey(key);
-      if (index < 0) return;
-      focusAction(index, actions[index]?.focusKey || "");
-      const focusedButton = ["primary", "secondary", "tertiary"]
-        .map((id) => $(id))
-        .find((button) => button?.dataset?.handKey === key);
-      focusedButton?.focus();
-    });
-
     $("log").addEventListener("click", (event) => {
+      const passkeyContinue = event.target.closest("[data-passkey-continue]");
+      if (passkeyContinue) {
+        event.preventDefault();
+        runIdentityTask("Continue with your passkey.", continueWithPasskey);
+        return;
+      }
+      const passkeyAdd = event.target.closest("[data-passkey-add]");
+      if (passkeyAdd) {
+        event.preventDefault();
+        runIdentityTask("Add another passkey.", () => registerPasskey(true));
+        return;
+      }
+      const accountLogout = event.target.closest("[data-account-logout]");
+      if (accountLogout) {
+        event.preventDefault();
+        runIdentityTask("Signing out.", logoutAccount);
+        return;
+      }
+      const walletLink = event.target.closest("[data-wallet-link]");
+      if (walletLink) {
+        event.preventDefault();
+        runIdentityTask("Open this claim in your Solana wallet.", claimNftWallet);
+        return;
+      }
+      const walletSelect = event.target.closest("[data-wallet-select]");
+      if (walletSelect) {
+        event.preventDefault();
+        const wallet = walletSelect.getAttribute("data-wallet-select") || "";
+        runIdentityTask("Switching linked wallet.", () => selectLinkedWallet(wallet));
+        return;
+      }
+      const walletUnlink = event.target.closest("[data-wallet-unlink]");
+      if (walletUnlink) {
+        event.preventDefault();
+        const wallet = walletUnlink.getAttribute("data-wallet-unlink") || "";
+        runIdentityTask("Unlinking wallet.", () => unlinkWallet(wallet));
+        return;
+      }
       const keepsake = event.target.closest("[data-account-toggle-keepsake]");
       if (keepsake) {
         event.preventDefault();
@@ -8249,6 +9316,10 @@
           detail: compactAssetId(boxId),
           card: cardByKey(`box:${boxId}`),
           shape: "item",
+          modalTitle: "burn this Box?",
+          modalSummary: "This permanently destroys the on-chain Box. After confirmation, it becomes one avatar-card pack.",
+          effect: "one unopened avatar-card pack joins this account",
+          risk: "the Box burn is irreversible",
           run: () => openBox(boxId),
         });
         return;
@@ -8303,20 +9374,29 @@
     });
 
     $("wallet-modal").addEventListener("click", (event) => {
+      const copyLink = event.target.closest("#wallet-copy-link");
+      if (copyLink) {
+        event.preventDefault();
+        const portableUrl = copyLink.dataset.portableUrl || "";
+        if (!portableUrl) return;
+        navigator.clipboard.writeText(portableUrl)
+          .then(() => setWalletQrStatus("Portable wallet claim link copied."))
+          .catch(() => setWalletQrStatus("Copy the visible link above.", "error"));
+        return;
+      }
       if (event.target.closest("[data-wallet-close]") || event.target.id === "wallet-modal") {
         event.preventDefault();
         closeWalletQrModal(false);
       }
     });
 
+    const libraryPill = $("brand");
+    libraryPill.addEventListener("click", () => {
+      toggleLibraryPanel();
+    });
+
     const locationPill = document.querySelector(".location-pill");
     locationPill.addEventListener("click", () => {
-      focusActionByKey("check");
-    });
-    locationPill.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      event.stopPropagation();
       focusActionByKey("check");
     });
 
@@ -8324,17 +9404,23 @@
     economyPill.addEventListener("click", () => {
       toggleAccountPanel();
     });
-    economyPill.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      event.stopPropagation();
-      toggleAccountPanel();
-    });
 
     function toggleAccountPanel(forceOpen = null) {
       accountPanelPinned = forceOpen === null ? !accountPanelPinned : Boolean(forceOpen);
+      if (accountPanelPinned) libraryPanelPinned = false;
       render();
       return accountPanelPinned;
+    }
+
+    function toggleLibraryPanel(forceOpen = null) {
+      libraryPanelPinned = forceOpen === null ? !libraryPanelPinned : Boolean(forceOpen);
+      if (libraryPanelPinned) {
+        accountPanelPinned = false;
+        ensureContentPacks().then(render).catch(() => render());
+      } else {
+        render();
+      }
+      return libraryPanelPinned;
     }
 
     $("primary").addEventListener("click", () => {
@@ -8391,6 +9477,7 @@
         return;
       }
       if (!$("wallet-modal").hidden) {
+        if (trapModalFocus(event, $("wallet-modal"))) return;
         if (event.key === "Escape") {
           event.preventDefault();
           closeWalletQrModal(false);
@@ -8398,29 +9485,39 @@
         return;
       }
       if (!$("action-modal").hidden) {
+        if (trapModalFocus(event, $("action-modal"))) return;
         if (event.key === "Escape") {
           event.preventDefault();
           closeActionModal();
-        } else if (event.key === "Enter" && event.target?.id !== "action-modal-confirm") {
+        } else if (event.key === "Enter" && !event.target?.matches?.("button, input, select, textarea, a, label")) {
           event.preventDefault();
           confirmActionModal();
         }
         return;
       }
       if (!$("card-modal").hidden) {
+        if (trapModalFocus(event, $("card-modal"))) return;
         if (event.key === "Escape") {
           event.preventDefault();
           closeCardModal();
         }
         return;
       }
+      if (libraryPanelPinned && event.key === "Escape") {
+        event.preventDefault();
+        toggleLibraryPanel(false);
+        libraryPill.focus();
+        return;
+      }
+      if (libraryPanelPinned) return;
       if (accountPanelPinned && event.key === "Escape") {
         event.preventDefault();
         toggleAccountPanel(false);
         economyPill.focus();
         return;
       }
-      if (event.target?.matches?.("input, textarea, [contenteditable='true']")) return;
+      if (accountPanelPinned) return;
+      if (event.target?.matches?.("button, a, input, select, textarea, [role='button'], [contenteditable='true']")) return;
       const plainKey = !event.metaKey && !event.ctrlKey && !event.altKey;
       if ((event.key === "/" || event.code === "Slash") && plainKey) {
         event.preventDefault();
@@ -8439,7 +9536,7 @@
       } else if (event.key === " ") {
         event.preventDefault();
         if (state?.branch && actions[1]) openActionModal(actions[1]);
-      } else if (event.key === "Tab" || event.key === "ArrowRight") {
+      } else if (event.key === "ArrowRight") {
         event.preventDefault();
         focusAction(focusIndex + 1);
       } else if (event.key === "ArrowLeft") {
@@ -8461,8 +9558,8 @@
     (async function boot() {
       try {
         await requestDevResetIfNeeded();
-        await pingPresence();
-        await refresh();
+        await loadIdentity();
+        await Promise.all([pingPresence(), refresh()]);
         connectStream();
       } catch (error) {
         setError(String(error.message || error));

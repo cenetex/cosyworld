@@ -2,7 +2,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLayer};
 
 use super::*;
 
@@ -15,6 +15,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             get(cosy_cottage_asset),
         )
         .route("/assets/cards/{card_file}", get(ruby_high_card_asset))
+        .route(
+            "/assets/packs/{pack_id}/{*asset_path}",
+            get(worldpack_asset),
+        )
         .route(
             "/assets/lonely-forest/characters/{asset_file}",
             get(lonely_forest_character_asset),
@@ -39,12 +43,38 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/assets/rati.png", get(legacy_rati_asset))
         .route("/health", get(health))
         .route("/meta", get(meta))
+        .route("/content-packs", get(content_packs_view))
+        .route("/auth/account", get(account_identity))
+        .route("/auth/logout", post(account_logout))
+        .route(
+            "/auth/passkey/register/start",
+            post(passkey_registration_start),
+        )
+        .route(
+            "/auth/passkey/register/finish",
+            post(passkey_registration_finish),
+        )
+        .route("/auth/passkey/login/start", post(passkey_login_start))
+        .route("/auth/passkey/login/finish", post(passkey_login_finish))
+        .route("/auth/wallets/link/start", post(wallet_link_start))
+        .route("/auth/wallets/link/finish", post(wallet_link_finish))
+        .route("/auth/wallet-claims/start", post(wallet_claim_start))
+        .route("/auth/wallet-claims/status", get(wallet_claim_status))
+        .route("/auth/wallets/select", post(wallet_select))
+        .route("/auth/wallets/unlink", post(wallet_unlink))
         .route("/wallet/challenge", get(wallet_challenge))
         .route("/wallet/session", post(wallet_session))
         .route("/wallet/qr/start", post(wallet_qr_start))
         .route("/wallet/qr/status", get(wallet_qr_status))
         .route("/wallet/qr/{login_id}/code.svg", get(wallet_qr_code))
         .route("/wallet/qr/{login_id}", get(wallet_qr_page))
+        .route("/wallet/claim/{claim_id}", get(wallet_claim_page))
+        .route("/wallet/claim/{claim_id}/code.svg", get(wallet_claim_code))
+        .route(
+            "/wallet/claim/{claim_id}/challenge",
+            post(wallet_claim_challenge),
+        )
+        .route("/wallet/claim/{claim_id}/finish", post(wallet_claim_finish))
         .route("/nft/boxes/burn-prepare", post(box_burn_prepare))
         .route("/nft/boxes/burn-confirm", post(box_burn_confirm))
         .route("/nft/packs/open", post(pack_open))
@@ -64,6 +94,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             post(moderation_delete_report),
         )
         .route("/moderation/economy", get(moderation_economy_view))
+        .route(
+            "/moderation/economy/reconciliations/{run_id}/resolve",
+            post(moderation_resolve_economy_reconciliation),
+        )
         .route(
             "/moderation/actors/{actor_id}/suspend",
             post(moderation_suspend_actor),
@@ -105,6 +139,7 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/flee", post(flee))
         .route("/commands", post(command))
         .route("/stream", get(stream))
+        .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state)

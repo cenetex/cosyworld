@@ -1,0 +1,38 @@
+[
+  {
+    "pack_id": "cosyworld.core",
+    "mount": "generated/cards",
+    "root": "core",
+    "directory": "assets/generated/cards",
+    "public_prefix": "/assets/generated/cards",
+    "optional": false,
+    "fallback": null
+  },
+  {
+    "pack_id": "cosyworld.the-holy-land",
+    "mount": "cards",
+    "root": "the-holy-land",
+    "directory": "assets/cards",
+    "public_prefix": "/assets/the-holy-land/cards",
+    "optional": false,
+    "fallback": null
+  },
+  {
+    "pack_id": "cosyworld.lonely-forest.characters",
+    "mount": "characters",
+    "root": "lonely-forest",
+    "directory": "assets/characters/slices",
+    "public_prefix": "/assets/lonely-forest/characters",
+    "optional": false,
+    "fallback": null
+  },
+  {
+    "pack_id": "ruby-high.first-bell",
+    "mount": "cards",
+    "root": "ruby-high-first-bell",
+    "directory": "assets/cards",
+    "public_prefix": "/assets/cards",
+    "optional": true,
+    "fallback": "chain_image_uri"
+  }
+]

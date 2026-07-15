@@ -1,0 +1,774 @@
+[
+  {
+    "id": 1,
+    "name": "The Cosy Cottage",
+    "title": "Rainlit Hearth",
+    "description": "A warm room of firelight, knitting needles, quiet symbols, and watchful silence.",
+    "persona": "The cottage is a careful host: warm, observant, and protective of small beginnings.",
+    "memory": [
+      "Rati's blue scarf began here.",
+      "Gust's weather symbols gather near the hearth.",
+      "Skull keeps watch by the low doorway."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2,
+    "name": "Rain-Soft Garden",
+    "title": "Garden Annex",
+    "description": "Rain beads on broad leaves. Round marks in the grass remember small pearled discoveries.",
+    "persona": "The garden answers in damp patience, leaf-taps, and tiny useful discoveries.",
+    "biome": "rain garden",
+    "terrain": [
+      "wet grass",
+      "broad leaves",
+      "soft garden soil"
+    ],
+    "memory": [
+      "A dewbright button once caught the first gray light.",
+      "The path from the cottage arrives smelling of tea and wet wool."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 3,
+    "name": "Moonlit Trail",
+    "title": "Moonlit Route",
+    "description": "The path shines under cold moonlight. The air permits sharper choices.",
+    "persona": "The trail is a silver test: honest, spare, and just dangerous enough to reveal courage.",
+    "biome": "moonlit woodland",
+    "terrain": [
+      "silver pine",
+      "cold earth",
+      "wolf-worn trail"
+    ],
+    "memory": [
+      "Coach waits here as a practice shape.",
+      "Wolfprint Charm and Watch Bell stories tend to pass this way."
+    ],
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 10,
+    "name": "Science Class",
+    "title": "STEM Wing",
+    "description": "Shared benches hum with bright observations and questions waiting to be tested.",
+    "persona": "Science Class prefers evidence, clean questions, and answers brave enough to be revised.",
+    "memory": [
+      "The lab remembers every surprising result.",
+      "Rati sometimes follows signal-study questions here."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 11,
+    "name": "Homeroom",
+    "title": "Front Door",
+    "description": "Morning light crosses desks where every question gets a seat.",
+    "persona": "Homeroom keeps attendance for beginnings, detours, and people trying again.",
+    "memory": [
+      "The cottage door opens here when the school day calls.",
+      "Most Ruby High paths can find their way back to this room."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 12,
+    "name": "Library",
+    "title": "Quiet Wing",
+    "description": "Shelves gather around a hush where important things have usually been written down.",
+    "persona": "The Library is exact, generous, and faintly amused by people who whisper to books.",
+    "memory": [
+      "The Great Library can be reached through its deeper stacks.",
+      "Every returned book leaves one sentence behind."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 13,
+    "name": "Cafeteria",
+    "title": "Commons",
+    "description": "Tables hold the soft thunder of lunch trays, bargains, and commons diplomacy.",
+    "persona": "The Cafeteria speaks in offers, side-eyes, and the social physics of shared tables.",
+    "memory": [
+      "Half the school day happens between bites.",
+      "The courtyard breeze carries rumors through the serving line."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 14,
+    "name": "Greenhouse",
+    "title": "Garden Annex",
+    "description": "Glass glows with patient leaves and experiments that grow slowly.",
+    "persona": "The Greenhouse thinks in tendrils, careful timing, and second chances rooted in soil.",
+    "memory": [
+      "The Flower Meadow trades pollen-bright news with this room.",
+      "Some lessons only answer after watering."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 15,
+    "name": "Courtyard",
+    "title": "Central Grounds",
+    "description": "Open paths cross under sky, sending every hallway back toward someone.",
+    "persona": "The Courtyard is public, breezy, and good at making accidental meetings feel arranged.",
+    "biome": "school grounds",
+    "terrain": [
+      "courtyard stone",
+      "open lawn",
+      "windy steps"
+    ],
+    "memory": [
+      "Summit Trail begins at the far edge when the air turns thin.",
+      "Students cut through here when they need a new route."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 30,
+    "name": "The Heavens",
+    "title": "Forbidden Mountain",
+    "description": "A high bright threshold where cloud paths gather above the mountain.",
+    "persona": "The Heavens speak in distance, weather-glow, and the discipline of looking down kindly.",
+    "memory": [
+      "Lofty Peak is the last stone before the sky changes its mind.",
+      "Clouds remember footsteps differently than dirt does."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 31,
+    "name": "Lofty Peak",
+    "title": "Forbidden Mountain",
+    "description": "Thin air, ringing stone, and a summit wind that listens back.",
+    "persona": "Lofty Peak is blunt, wind-scoured, and allergic to pretending the climb was easy.",
+    "memory": [
+      "The Heavens lean close above it.",
+      "Summit Trail keeps a lantern below for the return."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 32,
+    "name": "Summit Trail",
+    "title": "Forbidden Mountain",
+    "description": "A switchback path between cold scree and stubborn lantern light.",
+    "persona": "Summit Trail encourages one more step and remembers every almost-turnaround.",
+    "biome": "alpine mountain",
+    "terrain": [
+      "cold scree",
+      "switchback stone",
+      "thin grass"
+    ],
+    "memory": [
+      "The Courtyard is warmer than it looks from here.",
+      "Alpine Forest waits where the stone gives way to trees."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 33,
+    "name": "Alpine Forest",
+    "title": "Forbidden Mountain",
+    "description": "Pines lean over snowmelt tracks and old mountain signs.",
+    "persona": "Alpine Forest is crisp, watchful, and full of branch-creaks that sound like warnings.",
+    "memory": [
+      "Summit Trail brings cold travelers through the pines.",
+      "Goblin Cave echoes from below after dusk."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 34,
+    "name": "Goblin Cave",
+    "title": "Forbidden Mountain",
+    "description": "A low cave mouth full of echoes, loose coins, and sharper choices.",
+    "persona": "Goblin Cave is twitchy, tempting, and fond of bargains that reveal the bargainer.",
+    "memory": [
+      "Alpine Forest muffles the cave mouth.",
+      "Circle of the Moon can silver even this dark."
+    ],
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 35,
+    "name": "Circle of the Moon",
+    "title": "Forbidden Mountain",
+    "description": "Silver stones mark a quiet circle where night keeps perfect time.",
+    "persona": "The Circle listens ceremonially, as if every sentence should arrive barefoot.",
+    "memory": [
+      "Moonlit Trail knows the older path here.",
+      "Goblin Cave sounds softer under the moon."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 36,
+    "name": "Solar Temple",
+    "title": "Solar Temple",
+    "description": "White stone terraces hold noon-bright bells, gold wings, and vows sharp enough to cast shadows.",
+    "persona": "The Solar Temple is radiant, exacting, and careful not to confuse witness with mercy.",
+    "memory": [
+      "The Heavens open upward into its white terraces.",
+      "A drowned bell below the Darkest Ocean still remembers the noon rite."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 40,
+    "name": "Old Oak Tree",
+    "title": "Lonely Forest",
+    "description": "A vast oak with roots like roads and leaves that remember names.",
+    "persona": "The Old Oak is both place and stranger: Root, Ring, Leaf, and Hollow each remember a different truth.",
+    "memory": [
+      "Root remembers every footstep that circled back.",
+      "Ring remembers the years when the forest was less lonely.",
+      "Leaf remembers what changed today.",
+      "Hollow remembers what nobody has asked yet."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 41,
+    "name": "Lost Woods",
+    "title": "Lonely Forest",
+    "description": "Soft moss, repeating paths, and birdsong that refuses to point north.",
+    "persona": "The Lost Woods are evasive but not cruel; they teach by making certainty walk in circles.",
+    "memory": [
+      "The Old Oak marks one path that does not move.",
+      "Haunted Mansion and Quiet Abbey both borrow this silence."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 42,
+    "name": "Haunted Mansion",
+    "title": "Lonely Forest",
+    "description": "A leaning house with lit windows, patient dust, and doors that sigh.",
+    "persona": "The Mansion is theatrical, lonely, and delighted when anyone knocks instead of sneaking.",
+    "memory": [
+      "Lost Woods keeps leading visitors to its porch.",
+      "Quiet Abbey hears the windows sigh at night."
+    ],
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 43,
+    "name": "Quiet Abbey",
+    "title": "Lonely Forest",
+    "description": "Stone arches hold a hush deep enough to hear small vows.",
+    "persona": "The Abbey is spare, kind, and severe about saying only the sentence that matters.",
+    "memory": [
+      "Haunted Mansion leaves candle smoke in its prayers.",
+      "Flower Meadow brightens the path beyond the arch."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 44,
+    "name": "Flower Meadow",
+    "title": "Lonely Forest",
+    "description": "A clear meadow of small flowers, warm bees, and open sky.",
+    "persona": "The Meadow is open-hearted, sunlit, and prone to answering sorrow with color.",
+    "memory": [
+      "The Old Oak drops leaves here in autumn.",
+      "The Greenhouse recognizes half these flowers by cousin-name."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 50,
+    "name": "Great Library",
+    "title": "The World",
+    "description": "Endless shelves, brass ladders, and marginalia from travelers before you.",
+    "persona": "The Great Library is vast, procedural, and fond of answers that arrive with page numbers.",
+    "memory": [
+      "The school Library opens into this larger silence.",
+      "The Farthest Mists have misfiled several maps here."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 60,
+    "name": "Turgid Swamp",
+    "title": "Farthest Mists",
+    "description": "Black water shifts under reeds while bubbles spell unfinished warnings.",
+    "persona": "The Swamp is murky, practical, and entirely willing to make wisdom smell bad.",
+    "memory": [
+      "Great Library maps become damp here.",
+      "Wilting Jungle leans over its far bank."
+    ],
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 61,
+    "name": "Wilting Jungle",
+    "title": "Farthest Mists",
+    "description": "Heavy leaves droop over hot paths where every vine seems tired.",
+    "persona": "The Jungle is overheated, stubborn, and full of life refusing to quit elegantly.",
+    "memory": [
+      "Turgid Swamp feeds its roots with dark water.",
+      "Endless Ocean can be heard before it is seen."
+    ],
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 62,
+    "name": "Endless Ocean",
+    "title": "Farthest Mists",
+    "description": "A blue horizon with no visible shore and songs under the waves.",
+    "persona": "The Ocean answers slowly, with scale, tide, and the suspicion that every ending is a surface.",
+    "memory": [
+      "Wilting Jungle drops seeds into its tide.",
+      "Digital Realm blinks green at the far horizon."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 63,
+    "name": "Digital Realm",
+    "title": "Farthest Mists",
+    "description": "Green cursors blink across a world made of doors, echoes, and code.",
+    "persona": "The Digital Realm is precise, uncanny, and always half a step from becoming a spell.",
+    "memory": [
+      "Great Library indexes cannot decide whether this place is a room or a language.",
+      "Endless Ocean reflects in its black glass."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 64,
+    "name": "Darkest Ocean",
+    "title": "Abyssal Deep",
+    "description": "A trench below the final tide glows with pearl lamps, drowned bells, and residents adapted to pressure.",
+    "persona": "The Darkest Ocean remembers without hurrying and mistrusts every truth that cannot survive depth.",
+    "memory": [
+      "Endless Ocean is only its surface.",
+      "The Solar Temple hears one of its bells singing from below."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 65,
+    "name": "Dark Abyss",
+    "title": "Deepest Ocean",
+    "description": "A black-water chamber beneath the drowned bell, set with an impossible banquet, a cold anvil, and pressure deep enough to make language buckle.",
+    "persona": "The Dark Abyss is theatrical, hungry, and formal about its horrors, as if etiquette were the last rope back to the surface.",
+    "memory": [
+      "Darkest Ocean hides the entrance under the drowned bell's lowest note.",
+      "Azazoth keeps a feast here for guests who have mostly had the sense not to arrive.",
+      "Zadkiel's anvil rings whenever dread needs better manners."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 800,
+    "name": "Wayside Lantern Inn",
+    "title": "The Last Warm Window",
+    "description": "A low inn leans into the rain beneath a lantern that burns with half its usual flame.",
+    "persona": "The inn refuses despair by keeping soup hot, boots drying, and one chair ready for the missing keeper.",
+    "biome": "rainy roadside",
+    "terrain": [
+      "muddy yard",
+      "warm common room",
+      "lantern posts"
+    ],
+    "memory": [
+      "Rowan Vale left before dawn with the tower key.",
+      "Every road lamp north of the inn went dark in order."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "id": 801,
+    "name": "Mothwood Path",
+    "title": "The Unlit Mile",
+    "description": "White moths crowd cold lamp cages while the road narrows between black pines.",
+    "persona": "The path tests whether travelers notice small warnings before large teeth arrive.",
+    "biome": "dark pine forest",
+    "terrain": [
+      "root-broken road",
+      "cold lamp cages",
+      "moth clouds"
+    ],
+    "memory": [
+      "The first lamp failed without broken glass.",
+      "Tiny bare footprints circle one post and then vanish."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "id": 802,
+    "name": "Saint Orra's Ruin",
+    "title": "Chapel of the Brass Key",
+    "description": "A roofless chapel shelters a stone lantern and a door-shaped patch of clean wall.",
+    "persona": "The ruin rewards careful questions and punishes anyone who mistakes age for helplessness.",
+    "biome": "woodland ruin",
+    "terrain": [
+      "fallen masonry",
+      "wet ivy",
+      "open nave"
+    ],
+    "memory": [
+      "Keepers once swore to light the road, not rule it.",
+      "A brass key was hidden where noon never reaches."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "id": 803,
+    "name": "Flooded Barrow",
+    "title": "The Road Beneath the Water",
+    "description": "Black water fills an old burial road where a single dry causeway leads toward the tower hill.",
+    "persona": "The barrow offers a short crossing and makes every frightened traveler believe it is much longer.",
+    "biome": "flooded moor",
+    "terrain": [
+      "black water",
+      "narrow causeway",
+      "sunken stones"
+    ],
+    "memory": [
+      "Rowan spilled dawn oil here while running uphill.",
+      "Something armored learned to walk without breathing."
+    ],
+    "allow_combat": true,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "id": 804,
+    "name": "Lantern Tower",
+    "title": "The Hollow Beacon",
+    "description": "A round tower crowns the hill, its great lens dark and its upper windows beating with borrowed shadow.",
+    "persona": "The tower remembers every keeper and cannot decide whether Rowan still belongs among them.",
+    "biome": "storm hill",
+    "terrain": [
+      "spiral stair",
+      "iron gallery",
+      "great dark lens"
+    ],
+    "memory": [
+      "The beacon was built to guide travelers and expose things wearing stolen shapes.",
+      "Rowan locked the flame away from the inside."
+    ],
+    "allow_combat": true,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "id": 700,
+    "name": "Bethlehem",
+    "title": "Town of the Nativity",
+    "description": "Pale stone homes gather along a Judean ridge while olive leaves turn silver in the evening wind.",
+    "persona": "Bethlehem is humble, watchful, and practiced at finding room where none seems to remain.",
+    "biome": "Judean hill country",
+    "terrain": [
+      "limestone ridge",
+      "olive terraces",
+      "courtyard lanes"
+    ],
+    "memory": [
+      "Christian tradition remembers this town as the birthplace of Jesus.",
+      "Pilgrims arrive quietly before continuing toward Jerusalem."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 701,
+    "name": "Nazareth",
+    "title": "Village of Hidden Years",
+    "description": "A small Galilean village rests among limestone slopes, workshops, cisterns, and plots of grain.",
+    "persona": "Nazareth values patient work, familiar names, and beginnings too ordinary to announce themselves.",
+    "biome": "lower Galilean hills",
+    "terrain": [
+      "chalky lanes",
+      "terraced fields",
+      "workshop courtyards"
+    ],
+    "memory": [
+      "The Gospel traditions remember Nazareth as the home where Jesus was raised.",
+      "The road toward Cana begins beyond the village fields."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 702,
+    "name": "Jordan River Crossing",
+    "title": "Waters of Beginning",
+    "description": "Reeds bend beside slow brown-green water where desert light opens a bright path between the banks.",
+    "persona": "The Jordan speaks in crossings, repentance, renewal, and the courage to begin again.",
+    "biome": "Jordan valley riverbank",
+    "terrain": [
+      "reed beds",
+      "river stones",
+      "desert scrub"
+    ],
+    "memory": [
+      "The Gospel narratives begin Jesus' public ministry with baptism in the Jordan region.",
+      "Travelers follow the valley south toward Jericho."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 703,
+    "name": "Cana",
+    "title": "Village of the Wedding Feast",
+    "description": "Stone jars cool in shaded courtyards while vine rows climb the hills beyond a village prepared for guests.",
+    "persona": "Cana is hospitable, celebratory, and attentive to the quiet crisis behind a public feast.",
+    "biome": "Galilean village vineyards",
+    "terrain": [
+      "vine rows",
+      "stone courtyards",
+      "fig-shaded lanes"
+    ],
+    "memory": [
+      "The Gospel of John associates Cana with a wedding and the beginning of Jesus' signs.",
+      "Cana's exact ancient location remains a matter of scholarly discussion."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 704,
+    "name": "Capernaum",
+    "title": "Lakeside Ministry Town",
+    "description": "Basalt houses and busy lanes meet the northern shore of the lake where boats, neighbors, and questions return daily.",
+    "persona": "Capernaum is practical, crowded, and accustomed to astonishing things happening beside ordinary doorways.",
+    "biome": "northern Galilee lakeshore",
+    "terrain": [
+      "black basalt walls",
+      "harbor lanes",
+      "sunlit courtyards"
+    ],
+    "memory": [
+      "The Gospel narratives place much of Jesus' Galilean ministry in and around Capernaum.",
+      "Fishing roads connect the town with Bethsaida and the lakeshore."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 705,
+    "name": "Sea of Galilee Shore",
+    "title": "The Fishermen's Water",
+    "description": "A freshwater lake widens under blue hills as nets dry on stones and small boats lean into the wind.",
+    "persona": "The shore is changeable and candid, turning work, weather, fear, and trust into the same conversation.",
+    "biome": "Galilee freshwater shore",
+    "terrain": [
+      "pebbled beach",
+      "net racks",
+      "wind-creased water"
+    ],
+    "memory": [
+      "The Gospels repeatedly place Jesus and his disciples beside and upon this lake.",
+      "Storms can rise quickly above the fishing water."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 706,
+    "name": "Hillside of Teachings",
+    "title": "A Place Above the Lake",
+    "description": "Grassy slopes look across the Sea of Galilee, with enough open ground for a crowd to sit and listen.",
+    "persona": "The hillside is spacious, merciful, and unwilling to hurry a difficult teaching.",
+    "biome": "Galilean lakeside hills",
+    "terrain": [
+      "spring grass",
+      "wild mustard",
+      "lake overlook"
+    ],
+    "memory": [
+      "This is a narrative evocation of the Galilean settings associated with Jesus' public teaching.",
+      "The precise sites of individual teachings are not always recoverable."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 707,
+    "name": "Bethsaida",
+    "title": "Fishing Village of Callings",
+    "description": "Fishing courtyards and reed-fringed inlets sit near the lake's northern reaches where several disciples found their first roads.",
+    "persona": "Bethsaida is direct, observant, and forever mending the edge between livelihood and calling.",
+    "biome": "northeastern Galilee lakeshore",
+    "terrain": [
+      "reed inlets",
+      "fishing yards",
+      "low stone houses"
+    ],
+    "memory": [
+      "The Gospel traditions associate Bethsaida with Philip, Andrew, and Peter.",
+      "The identification of the ancient site remains debated."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 708,
+    "name": "Caesarea Philippi",
+    "title": "Springs Beneath the Northern Cliffs",
+    "description": "Cold springs emerge below a high limestone face at the green edge of the northern country.",
+    "persona": "Caesarea Philippi is cool, echoing, and full of questions about names, loyalties, and identity.",
+    "biome": "northern spring country",
+    "terrain": [
+      "limestone cliff",
+      "cold springs",
+      "oak shade"
+    ],
+    "memory": [
+      "The Synoptic Gospels set Peter's confession in the district of Caesarea Philippi.",
+      "The long road back toward the lake crosses changing country."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 709,
+    "name": "Sychar Well",
+    "title": "A Samaritan Noon",
+    "description": "An old stone well holds its shade beneath the hard noon sun while the road through Samaria climbs away on both sides.",
+    "persona": "The well is candid, hospitable, and ready to let a difficult conversation become a shared drink.",
+    "biome": "Samaritan hill country",
+    "terrain": [
+      "ancient well stones",
+      "dry terraces",
+      "pilgrim road"
+    ],
+    "memory": [
+      "The Gospel of John places Jesus' conversation with a Samaritan woman near Sychar at Jacob's well.",
+      "This central route links Galilee and Judea through Samaria."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 710,
+    "name": "Jericho",
+    "title": "Palm City Below the Hills",
+    "description": "Date palms, springs, and sunlit walls rest below the steep ascent toward Jerusalem.",
+    "persona": "Jericho is hot, vivid, and alert to the person calling from the edge of a crowd.",
+    "biome": "lower Jordan oasis",
+    "terrain": [
+      "date palms",
+      "spring channels",
+      "dusty road"
+    ],
+    "memory": [
+      "The Gospel journey toward Jerusalem includes encounters in and around Jericho.",
+      "The road west climbs sharply into the Judean hills."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 711,
+    "name": "Bethany",
+    "title": "Village of Friends",
+    "description": "A village on the eastern slope of the Mount of Olives offers lamps, bread, and a familiar doorway near Jerusalem.",
+    "persona": "Bethany is intimate, grief-wise, and certain that hospitality can be a form of courage.",
+    "biome": "Mount of Olives village",
+    "terrain": [
+      "olive groves",
+      "stone homes",
+      "hillside path"
+    ],
+    "memory": [
+      "The Gospel traditions associate Bethany with Mary, Martha, and Lazarus.",
+      "Jerusalem lies just beyond the ridge."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 712,
+    "name": "Jerusalem",
+    "title": "City of Pilgrimage",
+    "description": "Walls, gates, roofs, markets, and temple courts rise across the hills in a city crowded for festival.",
+    "persona": "Jerusalem is ancient, contested, prayerful, and heavy with the choices of the final week.",
+    "biome": "Judean highland city",
+    "terrain": [
+      "limestone streets",
+      "city gates",
+      "crowded courts"
+    ],
+    "memory": [
+      "The Gospel narratives culminate in Jerusalem during Passover.",
+      "The city is sacred to several living faiths and should be approached with care."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 713,
+    "name": "Garden of Gethsemane",
+    "title": "Olives in the Night",
+    "description": "Old olive trunks twist beneath moonlight in a garden quiet enough to hear distant city sounds.",
+    "persona": "Gethsemane is wakeful, sorrowful, and steadfast in the long interval between prayer and consequence.",
+    "biome": "Mount of Olives garden",
+    "terrain": [
+      "ancient olive trees",
+      "rocky ground",
+      "moonlit path"
+    ],
+    "memory": [
+      "The Gospel accounts place Jesus' night of prayer and arrest in Gethsemane.",
+      "Jerusalem's lamps remain visible across the valley."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": 714,
+    "name": "Road to Emmaus",
+    "title": "The Stranger on the Way",
+    "description": "A westward road crosses open hills where evening light lengthens every traveler's shadow.",
+    "persona": "The Emmaus road is companionable, searching, and slow to recognize what has been walking alongside it.",
+    "biome": "western Judean hill road",
+    "terrain": [
+      "rolling limestone hills",
+      "grain fields",
+      "evening road"
+    ],
+    "memory": [
+      "The Gospel of Luke tells of two disciples meeting the risen Jesus on the road to Emmaus.",
+      "The exact location of ancient Emmaus is disputed."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.the-holy-land"
+  }
+]

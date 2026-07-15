@@ -1,0 +1,28 @@
+[
+  {
+    "id": 3001,
+    "key": "hearth-story-lantern",
+    "name": "Hearth Story Lantern",
+    "description": "Bind a warm tonic and a tale-button into a lantern that opens a farther cottage doorway.",
+    "input_item_ids": [
+      2001,
+      2005
+    ],
+    "output": {
+      "item_id": 2011,
+      "name": "Hearth Story Lantern",
+      "description": "A small lantern whose flame remembers the first story told beside it.",
+      "kind": "keepsake",
+      "charges": 1,
+      "target_kind": "location_floor",
+      "target_id": 11
+    },
+    "balance": {
+      "kind": "location",
+      "target_kind": "location_floor",
+      "target_id": 11,
+      "reason": "The crafted lantern anchors a new floor slot in the Rain-Soft Garden route instead of adding an orphan item."
+    },
+    "pack_id": "cosyworld.core"
+  }
+]

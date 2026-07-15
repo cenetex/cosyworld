@@ -1,0 +1,363 @@
+{
+  "schema_version": 2,
+  "id": "cosyworld.official",
+  "name": "CosyWorld Official",
+  "version": 1,
+  "description": "The reproducible seed world for the official CosyWorld shard.",
+  "entry_location": "cosyworld.core:location/1",
+  "bundle_hash": "sha256:cddcbb74cab94750ce403037ca22b0dcf2fb4972fdc2668ddf8c9a6f95957655",
+  "packs": [
+    {
+      "id": "cosyworld.core",
+      "name": "CosyWorld Core",
+      "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
+      "version": "1.0.0",
+      "kind": "world",
+      "license": "MIT",
+      "dependencies": [],
+      "resource_counts": {
+        "actors": 35,
+        "access_gates": 6,
+        "factions": 12,
+        "items": 10,
+        "locations": 28,
+        "exits": 68,
+        "hidden_exits": 1,
+        "room_features": 16,
+        "room_sheets": 28,
+        "clocks": 4,
+        "jobs": 2,
+        "fronts": 2,
+        "cards": 71,
+        "lifecycle_hooks": 13,
+        "evolution_tracks": 3,
+        "recipes": 1,
+        "external_cards": 0,
+        "assets": 1,
+        "rules": 0,
+        "character_creation": 0
+      },
+      "source": {
+        "type": "workspace",
+        "path": "../../content/core"
+      },
+      "integrity": "sha256:6602bb60f078c37bf1ef148a263936c215958c3567f2c63f400286948e995515"
+    },
+    {
+      "id": "cosyworld.rules-srd-5.1",
+      "name": "CosyWorld Rules: SRD 5.1",
+      "description": "An attributed, non-authoritative SRD 5.1 adapter pack for CosyWorld conversion seeds.",
+      "version": "0.1.0",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "dependencies": [],
+      "resource_counts": {
+        "actors": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "fronts": 0,
+        "cards": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 18,
+        "character_creation": 0
+      },
+      "rules_adapter": "cosyworld.rules/1",
+      "rules_namespace": "srd5.1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-srd-5.1"
+      },
+      "integrity": "sha256:16db09e1541eb29fff3bc28cd93b1884b35c539710bf54409ca694a1e00cec1b"
+    },
+    {
+      "id": "cosyworld.rules-srd-5.2.1",
+      "name": "CosyWorld Rules: SRD 5.2.1",
+      "description": "An attributed, non-authoritative SRD 5.2.1 adapter pack for CosyWorld conversion seeds.",
+      "version": "0.1.0",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "dependencies": [],
+      "resource_counts": {
+        "actors": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "fronts": 0,
+        "cards": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 18,
+        "character_creation": 0
+      },
+      "rules_adapter": "cosyworld.rules/1",
+      "rules_namespace": "srd5.2.1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-srd-5.2.1"
+      },
+      "integrity": "sha256:6ffc9f8c84825f631986d51e23dcb58e94f12d1ac0cf57fdae83891a8203ba88"
+    },
+    {
+      "id": "cosyworld.campaign.the-lantern-keeper",
+      "name": "The Lantern Keeper",
+      "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
+      "version": "0.1.0",
+      "kind": "campaign",
+      "license": "CC-BY-4.0",
+      "dependencies": [
+        "cosyworld.core",
+        "cosyworld.rules-srd-5.1"
+      ],
+      "resource_counts": {
+        "actors": 4,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 4,
+        "locations": 5,
+        "exits": 8,
+        "hidden_exits": 0,
+        "room_features": 5,
+        "room_sheets": 5,
+        "clocks": 2,
+        "jobs": 1,
+        "fronts": 1,
+        "cards": 13,
+        "lifecycle_hooks": 8,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 0,
+        "character_creation": 1
+      },
+      "source": {
+        "type": "workspace",
+        "path": "../../content/the-lantern-keeper"
+      },
+      "integrity": "sha256:3fb4a21bafa78c2a541ed5e3db8a1a34e2505cf774f259c97f0ab4909107148a"
+    },
+    {
+      "id": "cosyworld.the-holy-land",
+      "name": "The Holy Land",
+      "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
+      "version": "1.0.0",
+      "kind": "world",
+      "license": "MIT",
+      "dependencies": [
+        "cosyworld.core"
+      ],
+      "resource_counts": {
+        "actors": 16,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 15,
+        "exits": 32,
+        "hidden_exits": 0,
+        "room_features": 15,
+        "room_sheets": 15,
+        "clocks": 0,
+        "jobs": 0,
+        "fronts": 0,
+        "cards": 31,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "external_cards": 0,
+        "assets": 1,
+        "rules": 0,
+        "character_creation": 0
+      },
+      "source": {
+        "type": "workspace",
+        "path": "../../content/the-holy-land"
+      },
+      "integrity": "sha256:2240e3270ea02d49bf4a9d8ddcf2baf297452ba8935379afeb3ccbb1e109c151"
+    },
+    {
+      "id": "cosyworld.lonely-forest.characters",
+      "name": "Lonely Forest Character Art",
+      "description": "Character source art and reviewed slices used by the Lonely Forest residents.",
+      "version": "1.0.0",
+      "kind": "assets",
+      "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
+      "dependencies": [
+        "cosyworld.core"
+      ],
+      "resource_counts": {
+        "actors": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "fronts": 0,
+        "cards": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "external_cards": 0,
+        "assets": 1,
+        "rules": 0,
+        "character_creation": 0
+      },
+      "source": {
+        "type": "workspace",
+        "path": "../../content/lonely-forest"
+      },
+      "integrity": "sha256:7f1d74740f17a88053f0d8f1f0f2e320b6365f37d96f5f2fb85f6d84b4e579fe"
+    },
+    {
+      "id": "ruby-high.first-bell",
+      "name": "Ruby High: First Bell",
+      "description": "The live First Bell card catalog consumed by the official CosyWorld shard.",
+      "version": "1.0.0",
+      "kind": "catalog",
+      "license": "MIT",
+      "dependencies": [
+        "cosyworld.core"
+      ],
+      "resource_counts": {
+        "actors": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "fronts": 0,
+        "cards": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "external_cards": 24,
+        "assets": 1,
+        "rules": 0,
+        "character_creation": 0
+      },
+      "distribution": {
+        "media_type": "application/vnd.cosyworld.pack+json",
+        "canonicalization": "jcs",
+        "permanence": "content-addressed"
+      },
+      "entitlements": {
+        "schema_version": 1,
+        "authorities": [
+          {
+            "id": "first-bell-card-feed",
+            "type": "asset_feed",
+            "asset_kind": "nft",
+            "issuer": "ruby-high.ai",
+            "chain": "solana",
+            "network": "mainnet-beta",
+            "standard": "metaplex_core",
+            "collection_binding": "RUBY_HIGH_SOLANA_CORE_CARD_COLLECTION_ADDRESS"
+          }
+        ],
+        "grants": [
+          {
+            "id": "ruby-high.first-bell:location-science-lab",
+            "authority_id": "first-bell-card-feed",
+            "match": {
+              "asset_id": "location-science-lab"
+            }
+          },
+          {
+            "id": "ruby-high.first-bell:location-homeroom",
+            "authority_id": "first-bell-card-feed",
+            "match": {
+              "asset_id": "location-homeroom"
+            }
+          },
+          {
+            "id": "ruby-high.first-bell:location-library",
+            "authority_id": "first-bell-card-feed",
+            "match": {
+              "asset_id": "location-library"
+            }
+          },
+          {
+            "id": "ruby-high.first-bell:location-cafeteria",
+            "authority_id": "first-bell-card-feed",
+            "match": {
+              "asset_id": "location-cafeteria"
+            }
+          },
+          {
+            "id": "ruby-high.first-bell:location-greenhouse",
+            "authority_id": "first-bell-card-feed",
+            "match": {
+              "asset_id": "location-greenhouse"
+            }
+          },
+          {
+            "id": "ruby-high.first-bell:location-courtyard",
+            "authority_id": "first-bell-card-feed",
+            "match": {
+              "asset_id": "location-courtyard"
+            }
+          }
+        ]
+      },
+      "source": {
+        "type": "workspace",
+        "path": "../../content/ruby-high-first-bell"
+      },
+      "integrity": "sha256:6c9e3961eefc89ab32ce41c258755b01d81d69af38ae331c4c7f201f24a333fe"
+    }
+  ],
+  "files": {
+    "actors": "actors.json",
+    "access_gates": "access_gates.json",
+    "factions": "factions.json",
+    "items": "items.json",
+    "locations": "locations.json",
+    "exits": "exits.json",
+    "hidden_exits": "hidden_exits.json",
+    "room_features": "room_features.json",
+    "room_sheets": "room_sheets.json",
+    "clocks": "clocks.json",
+    "jobs": "jobs.json",
+    "fronts": "fronts.json",
+    "cards": "cards.json",
+    "lifecycle_hooks": "lifecycle_hooks.json",
+    "evolution_tracks": "evolution_tracks.json",
+    "recipes": "recipes.json"
+  },
+  "external_cards": "external_cards.json",
+  "assets": "assets.json",
+  "rules": "rules.json",
+  "attributions": "attributions.json",
+  "character_creation": "character_creation.json"
+}

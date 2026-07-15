@@ -1,0 +1,26 @@
+[
+  {
+    "id": "lantern-keeper.light",
+    "scope": "room",
+    "scope_id": 804,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Rekindle the Beacon",
+    "segments": 6,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
+  },
+  {
+    "id": "lantern-keeper.darkness",
+    "scope": "room",
+    "scope_id": 804,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "The Road Goes Fully Dark",
+    "segments": 6,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
+  }
+]

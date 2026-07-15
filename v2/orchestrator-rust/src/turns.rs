@@ -456,7 +456,7 @@ pub(super) fn room_turn_view_for_runtime(
         .unwrap_or_else(|_| RoomTurnView::idle(location_id))
 }
 
-fn actor_room_turn_view(
+pub(super) fn actor_room_turn_view(
     state: &AppState,
     runtime: &RuntimeWorld,
     actor_id: u64,
@@ -791,6 +791,8 @@ pub(super) async fn request_turn_timeout(
     state.mark_activity();
     persist_runtime(&state, &runtime);
     persist_events(&state, &events);
+    let mut response_events = events.clone();
+    append_action_receipt(&state, &runtime, payload.actor_id, &mut response_events);
     drop(runtime);
 
     broadcast_events(&state, &events);
@@ -802,7 +804,7 @@ pub(super) async fn request_turn_timeout(
     Json(ActionResponse {
         ok: true,
         status: CW_OK,
-        events,
+        events: response_events,
     })
 }
 
@@ -946,6 +948,11 @@ mod tests {
         assert!(!command_dispatch_consumes_room_turn(
             &CommandDispatch::TrainSkill {
                 skill_id: "listening".to_string(),
+            }
+        ));
+        assert!(command_dispatch_consumes_room_turn(
+            &CommandDispatch::Chat {
+                target_actor_id: 1001,
             }
         ));
         assert!(command_dispatch_consumes_room_turn(&CommandDispatch::Check));

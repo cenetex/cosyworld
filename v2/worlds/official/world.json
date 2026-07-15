@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.official",
+  "name": "CosyWorld Official",
+  "version": 1,
+  "description": "The reproducible seed world for the official CosyWorld shard.",
+  "entry_location": "cosyworld.core:location/1",
+  "packs": [
+    "cosyworld.core",
+    "cosyworld.rules-srd-5.1",
+    "cosyworld.rules-srd-5.2.1",
+    "cosyworld.campaign.the-lantern-keeper",
+    "cosyworld.the-holy-land",
+    "cosyworld.lonely-forest.characters",
+    "ruby-high.first-bell"
+  ]
+}

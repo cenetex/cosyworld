@@ -300,6 +300,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
   statement {
     sid = "ArchiveBucketReads"
     actions = [
+      "s3:GetAccelerateConfiguration",
       "s3:GetBucketLocation",
       "s3:GetBucketPolicy",
       "s3:GetBucketPublicAccessBlock",
@@ -635,12 +636,18 @@ locals {
     { name = "COSYWORLD_V2_SNAPSHOT_PATH", value = "/data/cosyworld-v2-snapshot.json" },
     { name = "COSYWORLD_V2_EVENT_DB_PATH", value = "/data/cosyworld-v2-events.sqlite" },
     { name = "COSYWORLD_GENERATED_ASSET_DIR", value = "/data/generated" },
+    { name = "COSYWORLD_WEBAUTHN_RP_ID", value = var.app_domain },
+    { name = "COSYWORLD_WEBAUTHN_ORIGIN", value = "https://${var.app_domain}" },
+    { name = "COSYWORLD_WEBAUTHN_EXTRA_ORIGINS", value = var.enable_www_records ? "https://www.${var.app_domain}" : "" },
     { name = "COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL", value = var.ruby_high_wallet_cards_url },
+    { name = "COSYWORLD_GENERATION_DEFAULT_MODE", value = var.generation_default_mode },
+    { name = "COSYWORLD_GENERATION_FEATURE_MODES_JSON", value = jsonencode(var.generation_feature_modes) },
     { name = "RUST_LOG", value = "cosyworld_orchestrator=info,tower_http=warn" },
     ],
     var.openrouter_api_key_secret_arn != "" ? [
       { name = "COSYWORLD_AI_PROVIDER", value = "openrouter" },
       { name = "OPENROUTER_CHAT_MODEL", value = var.openrouter_chat_model },
+      { name = "OPENROUTER_REASONING_EFFORT", value = var.openrouter_reasoning_effort },
     ] : [],
   )
 

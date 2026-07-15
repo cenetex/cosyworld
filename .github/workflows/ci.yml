@@ -21,6 +21,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Checkout pinned SRD 5.1 source
+        uses: actions/checkout@v4
+        with:
+          repository: Tabyltop/CC-SRD
+          ref: c05c0438ea6c638bb7cb25224d97c9bd0e187c49
+          path: reference-library/rpg-systems/sources/cc-srd-5e
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

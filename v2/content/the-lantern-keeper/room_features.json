@@ -1,0 +1,51 @@
+[
+  {
+    "location_id": 800,
+    "key": "failing_lantern",
+    "name": "Failing Lantern",
+    "aliases": ["lantern", "lamp", "flame"],
+    "look": "The inn's road lantern gutters blue whenever the north door opens.",
+    "search": "Soot inside the cage forms three clean finger marks: lens, key, and oil."
+  },
+  {
+    "location_id": 801,
+    "key": "cold_lamp_post",
+    "name": "Cold Lamp Post",
+    "aliases": ["post", "lamp", "moths"],
+    "look": "The lamp is intact but cold, with white moths packed beneath its copper hood.",
+    "search": "A loose pane conceals the Mothglass Lens and one tiny note reading: not all shadows are enemies.",
+    "uses": [{ "item_id": 8402, "text": "Through the Mothglass Lens, one set of keeper's footprints shines toward Saint Orra's Ruin." }]
+  },
+  {
+    "location_id": 802,
+    "key": "stone_lantern",
+    "name": "Stone Lantern",
+    "aliases": ["altar", "lantern", "statue"],
+    "look": "The chapel's stone lantern has no wick, only a keyhole hidden under rainwater.",
+    "search": "The Keeper's Brass Key rests in a hollow beneath the unlit bowl.",
+    "uses": [{ "item_id": 8401, "text": "The brass key turns in the stone and reveals Rowan's warning: the flame knows my shape too well." }]
+  },
+  {
+    "location_id": 803,
+    "key": "oil_slick",
+    "name": "Golden Oil Slick",
+    "aliases": ["oil", "water", "flask"],
+    "look": "A thread of gold floats untouched across the barrow water.",
+    "search": "The trail ends at a stoppered flask of Dawn Oil wedged between two dry stones.",
+    "uses": [{ "item_id": 8403, "text": "The Dawn Oil burns without heat, and every false reflection in the water goes dark." }]
+  },
+  {
+    "location_id": 804,
+    "key": "great_lens",
+    "name": "Great Lantern Lens",
+    "aliases": ["lens", "beacon", "lantern", "gallery"],
+    "look": "The tower lens is clear glass by daylight and a solid black mirror now.",
+    "search": "Behind the lens, the Keeper's Ember waits in a socket shaped for a human hand.",
+    "uses": [
+      { "item_id": 8401, "text": "The Keeper's Brass Key opens the inner lens cage without waking the tower's old traps." },
+      { "item_id": 8402, "text": "The Mothglass Lens reveals Rowan inside the shadow rather than replaced by it." },
+      { "item_id": 8403, "text": "Dawn Oil draws a gold boundary between Rowan and the borrowed dark." },
+      { "item_id": 8404, "text": "The Keeper's Ember seats in the great lens and the road lamps answer one by one." }
+    ]
+  }
+]

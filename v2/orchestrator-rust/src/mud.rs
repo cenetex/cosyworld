@@ -228,7 +228,7 @@ pub(crate) fn canonical_direction(value: &str) -> Option<&'static str> {
         "u" | "up" => Some("up"),
         "d" | "down" => Some("down"),
         "in" | "inside" | "enter" => Some("in"),
-        "out" | "outside" | "exit" => Some("out"),
+        "out" | "outside" | "exit" | "home" | "homeward" => Some("out"),
         _ => None,
     }
 }
@@ -1811,7 +1811,7 @@ impl RuntimeWorld {
                 "quiet for now"
             } else if view.hp >= view.stats.hp_base {
                 "steady"
-            } else if view.hp.saturating_mul(2) <= view.stats.hp_base {
+            } else if view.bloodied {
                 "hurting"
             } else {
                 "a little worn"

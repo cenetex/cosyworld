@@ -1,0 +1,76 @@
+{
+  "schema_version": 2,
+  "id": "ruby-high.first-bell",
+  "name": "Ruby High: First Bell",
+  "version": "1.0.0",
+  "kind": "catalog",
+  "description": "The live First Bell card catalog consumed by the official CosyWorld shard.",
+  "license": "MIT",
+  "engine": ">=0.0.20 <0.1.0",
+  "dependencies": [
+    "cosyworld.core"
+  ],
+  "distribution": {
+    "media_type": "application/vnd.cosyworld.pack+json",
+    "canonicalization": "jcs",
+    "permanence": "content-addressed"
+  },
+  "entitlements": {
+    "schema_version": 1,
+    "authorities": [
+      {
+        "id": "first-bell-card-feed",
+        "type": "asset_feed",
+        "asset_kind": "nft",
+        "issuer": "ruby-high.ai",
+        "chain": "solana",
+        "network": "mainnet-beta",
+        "standard": "metaplex_core",
+        "collection_binding": "RUBY_HIGH_SOLANA_CORE_CARD_COLLECTION_ADDRESS"
+      }
+    ],
+    "grants": [
+      {
+        "id": "ruby-high.first-bell:location-science-lab",
+        "authority_id": "first-bell-card-feed",
+        "match": { "asset_id": "location-science-lab" }
+      },
+      {
+        "id": "ruby-high.first-bell:location-homeroom",
+        "authority_id": "first-bell-card-feed",
+        "match": { "asset_id": "location-homeroom" }
+      },
+      {
+        "id": "ruby-high.first-bell:location-library",
+        "authority_id": "first-bell-card-feed",
+        "match": { "asset_id": "location-library" }
+      },
+      {
+        "id": "ruby-high.first-bell:location-cafeteria",
+        "authority_id": "first-bell-card-feed",
+        "match": { "asset_id": "location-cafeteria" }
+      },
+      {
+        "id": "ruby-high.first-bell:location-greenhouse",
+        "authority_id": "first-bell-card-feed",
+        "match": { "asset_id": "location-greenhouse" }
+      },
+      {
+        "id": "ruby-high.first-bell:location-courtyard",
+        "authority_id": "first-bell-card-feed",
+        "match": { "asset_id": "location-courtyard" }
+      }
+    ]
+  },
+  "resources": {},
+  "external_cards": "external_cards.json",
+  "assets": [
+    {
+      "mount": "cards",
+      "directory": "assets/cards",
+      "public_prefix": "/assets/cards",
+      "optional": true,
+      "fallback": "chain_image_uri"
+    }
+  ]
+}

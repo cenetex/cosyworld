@@ -161,6 +161,7 @@ run_kernel_check() {
 }
 
 run_worldpack_check() {
+  node "$ROOT/scripts/compile-worldpack.mjs" --check
   node "$ROOT/scripts/check-worldpack.mjs"
 }
 

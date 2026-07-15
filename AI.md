@@ -103,7 +103,7 @@ Rules:
 - The Orb spend is tied to a committed public avatar line.
 - Failed validation spends nothing.
 - If AI fails before a shared avatar line commits, spend nothing or refund the reservation.
-- If deterministic fallback commits a valid avatar line, the spend is valid because the world action happened.
+- No deterministic dialogue fallback is permitted. If inference fails before a shared avatar line commits, the action fails and spends nothing.
 - The immediate resident reply is included in the same action budget. The player should not be charged twice for one press.
 - If no key and not enough Orbs, `Chat` should disappear or become an earning action such as `Challenge`, `Spar`, `Listen`, `Practice`, or `Notice`.
 
@@ -111,7 +111,7 @@ Rules:
 
 | Feature | Player OpenRouter | CosyWorld Server Key | Orb Cost |
 | --- | --- | --- | --- |
-| Player presses `Chat` | yes | fallback | 0 with player key, 1 with server key |
+| Player presses `Chat` | yes | yes, when configured | 0 with player key, 1 with server key |
 | Immediate resident reply | same payer as `Chat` | same action budget | included |
 | Avatar portrait generation | optional player payer | fallback for starter grants | 0 with player key, higher Orb cost with server key |
 | Combat narration | no by default | yes | free or included in combat |
@@ -122,7 +122,9 @@ Rules:
 
 ## AI Gateway
 
-Introduce a Rust `ai_gateway` module before adding more model calls.
+The Rust `ai_gateway` centralizes OpenAI-compatible/OpenRouter configuration and requests, structured response formats, per-feature timeouts, bounded transient retries, stable failure codes, and provider/model/attempt/latency tracing. Server-side generative content also passes through a fail-closed feature policy: `COSYWORLD_GENERATION_DEFAULT_MODE` sets `off`, `shadow`, or `auto_bounded`, while `COSYWORLD_GENERATION_FEATURE_MODES_JSON` supplies explicit per-feature overrides. Production leaves the default at `off` and enables only reviewed features. `shadow` performs and validates inference without publishing the proposal; `auto_bounded` may publish only after feature-specific validation. Continue moving payer resolution, key verification, model discovery, and media providers behind the gateway.
+
+The first bounded world-content feature is `pathway_content`. When an Explorer first opens a multi-step route, the server creates all hidden waypoint identities together from trusted route biome and terrain context. The model may propose only a name, title, physical description, place persona, and visual detail. A strict JSON schema, unknown-field rejection, length and character limits, authority-language filtering, and deterministic fallback protect the projection. The generated identity and its provider/model/prompt-version provenance persist in the world snapshot, but each name remains hidden until the corresponding Explore edge is revealed. Movement, access, danger, projects, clocks, items, rewards, and all other world truth remain deterministic.
 
 Responsibilities:
 
@@ -133,7 +135,7 @@ Responsibilities:
 - Discover model capabilities through OpenRouter's Models API.
 - Record usage without secrets.
 - Normalize OpenRouter errors into product decisions.
-- Enforce timeouts and fallbacks.
+- Enforce timeouts and feature-specific failure policy. Dialogue fails closed without substitute speech; structured content and media may use explicitly authored or deterministic non-dialogue fallbacks.
 - Attach model, payer mode, feature, latency, token/image usage, and event ids to `ai_usage_ledger`.
 
 Suggested feature ids:
@@ -158,7 +160,8 @@ Suggested payer modes:
 - `cosyworld_orbs`
 - `cosyworld_system`
 - `admin_system`
-- `local_fallback`
+
+Deterministic placeholders remain valid for non-dialogue media previews, but they are not an AI payer mode and never substitute for avatar or resident speech.
 
 ## Text Generation
 

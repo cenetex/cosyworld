@@ -143,6 +143,28 @@
       border-radius: 8px;
       min-width: 0;
     }
+    .economy-panel {
+      margin-top: 14px;
+    }
+    .economy-summary {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .reconciliation-row {
+      display: grid;
+      gap: 8px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .anomaly-list {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 13px;
+    }
     .panel-head {
       display: flex;
       justify-content: space-between;
@@ -281,6 +303,11 @@
         </div>
       </section>
     </section>
+    <section class="panel economy-panel" aria-label="Economy audit">
+      <div class="panel-head"><span>Economy reconciliation</span><span id="reconciliation-count">0</span></div>
+      <div class="economy-summary" id="economy-summary" data-economy-summary></div>
+      <div class="list" id="reconciliation-list" data-reconciliation-list></div>
+    </section>
   </main>
 
   <script>
@@ -293,8 +320,12 @@
     const queueCount = document.getElementById("queue-count");
     const detailStatus = document.getElementById("detail-status");
     const refreshButton = document.getElementById("refresh");
+    const economySummary = document.getElementById("economy-summary");
+    const reconciliationList = document.getElementById("reconciliation-list");
+    const reconciliationCount = document.getElementById("reconciliation-count");
     const storageKey = "cosyworld.moderationToken";
     let reports = [];
+    let economy = { wooden_box_receipts: [], avatar_pack_openings: [], economy_reconciliations: [] };
     let selectedReportId = 0;
     let statusFilter = "open";
     let busy = false;
@@ -362,6 +393,9 @@
       for (const button of document.querySelectorAll("[data-unsuspend-target]")) {
         button.disabled = busy;
       }
+      for (const button of document.querySelectorAll("[data-resolve-reconciliation]")) {
+        button.disabled = busy;
+      }
     }
 
     async function loadReports() {
@@ -373,10 +407,12 @@
       setBusy(true);
       try {
         const query = new URLSearchParams({ limit: "80", status: statusFilter });
-        const body = await api(`/moderation/reports?${query}`, {
-          headers: authHeaders(),
-        });
+        const [body, economyBody] = await Promise.all([
+          api(`/moderation/reports?${query}`, { headers: authHeaders() }),
+          api("/moderation/economy?limit=40", { headers: authHeaders() }),
+        ]);
         reports = body.reports || [];
+        economy = economyBody;
         if (!reports.some((report) => report.report_id === selectedReportId)) {
           selectedReportId = reports[0]?.report_id || 0;
         }
@@ -384,6 +420,7 @@
         setStatus("Loaded.", "ok");
       } catch (error) {
         reports = [];
+        economy = { wooden_box_receipts: [], avatar_pack_openings: [], economy_reconciliations: [] };
         selectedReportId = 0;
         render();
         setStatus(error.message || String(error), "error");
@@ -420,6 +457,25 @@
           body: "{}",
         });
         setStatus("Deleted.", "ok");
+        await loadReports();
+      } catch (error) {
+        setStatus(error.message || String(error), "error");
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function resolveReconciliation(runId, container) {
+      const moderator = container?.querySelector("[data-reconciliation-moderator]")?.value || "";
+      const note = container?.querySelector("[data-reconciliation-note]")?.value || "";
+      setBusy(true);
+      try {
+        await api(`/moderation/economy/reconciliations/${encodeURIComponent(runId)}/resolve`, {
+          method: "POST",
+          headers: authHeaders({ "content-type": "application/json" }),
+          body: JSON.stringify({ moderator, note }),
+        });
+        setStatus(`Reconciliation #${runId} resolved.`, "ok");
         await loadReports();
       } catch (error) {
         setStatus(error.message || String(error), "error");
@@ -487,6 +543,7 @@
       queueCount.textContent = String(reports.length);
       renderList();
       renderDetail();
+      renderEconomy();
     }
 
     function renderList() {
@@ -556,6 +613,43 @@
         ${deleteAction}`;
     }
 
+    function renderEconomy() {
+      const receipts = economy.wooden_box_receipts || [];
+      const openings = economy.avatar_pack_openings || [];
+      const runs = economy.economy_reconciliations || [];
+      const openCount = runs.filter((run) => run.status === "open").length;
+      reconciliationCount.textContent = String(openCount);
+      economySummary.innerHTML = [
+        `<span class="badge">${receipts.length} recent Box receipt${receipts.length === 1 ? "" : "s"}</span>`,
+        `<span class="badge">${openings.length} recent pack reveal${openings.length === 1 ? "" : "s"}</span>`,
+        `<span class="badge ${openCount ? "open" : "resolved"}">${openCount} open anomal${openCount === 1 ? "y" : "ies"}</span>`,
+      ].join("");
+      if (!runs.length) {
+        reconciliationList.innerHTML = `<div class="empty">No reconciliation runs recorded.</div>`;
+        return;
+      }
+      reconciliationList.innerHTML = runs.map((run) => {
+        const anomalies = (run.anomalies || []).map((anomaly) => (
+          `<div><strong>${escapeHtml(anomaly.kind)}</strong> / ${escapeHtml(anomaly.asset_id)} / ${escapeHtml(anomaly.detail)}</div>`
+        )).join("");
+        const resolution = run.resolved_at_ms
+          ? `<div class="detail-meta"><span>Resolved ${escapeHtml(reportTime(run.resolved_at_ms))}</span><span>${escapeHtml(run.resolved_by || "")}</span></div><div class="reason">${escapeHtml(run.resolution_note || "")}</div>`
+          : "";
+        const form = run.status === "open"
+          ? `<div class="field"><label>Moderator</label><input data-reconciliation-moderator value="moderator" /></div>
+             <div class="field"><label>Resolution note</label><textarea data-reconciliation-note></textarea></div>
+             <button class="danger" type="button" data-resolve-reconciliation="${run.run_id}">Resolve anomaly run</button>`
+          : "";
+        return `<div class="reconciliation-row" data-reconciliation-run="${run.run_id}">
+          <div class="detail-meta"><span class="badge ${escapeHtml(run.status)}">${escapeHtml(run.status)}</span><span>#${run.run_id}</span><span>${escapeHtml(run.source)}</span><span>${escapeHtml(reportTime(run.created_at_ms))}</span></div>
+          <strong>${run.anomaly_count} anomal${run.anomaly_count === 1 ? "y" : "ies"} / ${run.wallet_count} wallets</strong>
+          <div class="anomaly-list">${anomalies || "No contradictions found."}</div>
+          ${resolution}
+          ${form}
+        </div>`;
+      }).join("");
+    }
+
     authForm.addEventListener("submit", (event) => {
       event.preventDefault();
       loadReports();
@@ -604,6 +698,12 @@
       if (unsuspendTargetButton) {
         unsuspendReportActor(Number(unsuspendTargetButton.dataset.unsuspendTarget || 0), "target");
       }
+    });
+    reconciliationList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-resolve-reconciliation]");
+      if (!button) return;
+      const runId = Number(button.dataset.resolveReconciliation || 0);
+      resolveReconciliation(runId, button.closest("[data-reconciliation-run]"));
     });
   </script>
 </body>

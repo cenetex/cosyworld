@@ -1,0 +1,62 @@
+[
+  {
+    "id": "room:800",
+    "location_id": 800,
+    "name": "Wayside Lantern Inn",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": ["last warm window", "half-lit road lantern"],
+    "boons": ["campaign characters begin here", "Mara explains the darkened road"],
+    "hooks": ["Rowan's chair remains set for supper"],
+    "resources": { "warmth": 3, "rumors": 2 },
+    "projects": []
+  },
+  {
+    "id": "room:801",
+    "location_id": 801,
+    "name": "Mothwood Path",
+    "safety": "risky",
+    "zone": "frontier",
+    "aspects": ["unlit mile", "moths around cold glass"],
+    "boons": ["careful listening reveals Rowan's trail"],
+    "hooks": ["the forest copies familiar footsteps"],
+    "resources": { "tracks": 2, "mothlight": 1 },
+    "projects": ["lantern-keeper:rekindle-the-beacon"]
+  },
+  {
+    "id": "room:802",
+    "location_id": 802,
+    "name": "Saint Orra's Ruin",
+    "safety": "risky",
+    "zone": "frontier",
+    "aspects": ["roofless chapel", "key hidden from noon"],
+    "boons": ["old keeper vows clarify the mystery"],
+    "hooks": ["the sealed warning names Rowan as both keeper and threat"],
+    "resources": { "old_lore": 3, "shelter": 1 },
+    "projects": ["lantern-keeper:rekindle-the-beacon"]
+  },
+  {
+    "id": "room:803",
+    "location_id": 803,
+    "name": "Flooded Barrow",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": ["single dry causeway", "reflections that move late"],
+    "boons": ["Dawn Oil exposes false shapes"],
+    "hooks": ["the Moth-Eaten Knight bars the tower road"],
+    "resources": { "dawn_oil": 1, "cover": 1 },
+    "projects": ["lantern-keeper:rekindle-the-beacon"]
+  },
+  {
+    "id": "room:804",
+    "location_id": 804,
+    "name": "Lantern Tower",
+    "safety": "dangerous",
+    "zone": "frontier",
+    "aspects": ["hollow beacon", "keeper inside borrowed shadow"],
+    "boons": ["the recovered tools can separate Rowan from the dark"],
+    "hooks": ["relighting the lens may save Rowan or expose what followed home"],
+    "resources": { "keeper_ember": 1, "high_ground": 2 },
+    "projects": ["lantern-keeper:rekindle-the-beacon"]
+  }
+]

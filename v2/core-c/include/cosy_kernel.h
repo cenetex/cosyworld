@@ -75,6 +75,12 @@ typedef enum {
 } cw_ability;
 
 typedef enum {
+  CW_ROLL_NORMAL = 0,
+  CW_ROLL_ADVANTAGE = 1,
+  CW_ROLL_DISADVANTAGE = 2
+} cw_roll_mode;
+
+typedef enum {
   CW_CONDITION_NONE = 0,
   CW_CONDITION_HIDDEN = 1u << 0,
   CW_CONDITION_DEFENDING = 1u << 1,
@@ -204,7 +210,7 @@ typedef struct {
   uint8_t output_target_kind;
   uint8_t output_item_kind;
   uint8_t output_item_charges;
-  uint8_t reserved;
+  uint8_t roll_mode;
 } cw_action;
 
 typedef struct {
@@ -268,10 +274,13 @@ typedef struct {
 void cw_world_init(cw_world *world);
 cw_status cw_seed_cosy_cottage(cw_world *world, cw_event_buffer *out_events);
 cw_status cw_world_set_evolution_track(cw_world *world, cw_id actor_id, const cw_evolution_requirement *requirements, size_t requirement_count);
+/* Deterministic apply without clock advancement. Player-card callers own the tick. */
 cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events);
+cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uint64_t seed, uint8_t advance_tick, cw_event_buffer *out_events);
 cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_offers *out_offers);
 const char *cw_event_type_name(uint8_t type);
 int16_t cw_actor_current_hp(const cw_actor *actor);
+int cw_actor_is_bloodied(const cw_actor *actor);
 
 #ifdef __cplusplus
 }

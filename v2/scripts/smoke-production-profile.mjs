@@ -6,11 +6,16 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { constants } from "node:fs";
 import { spawn } from "node:child_process";
+import bs58 from "bs58";
+import nacl from "tweetnacl";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = resolve(__dirname, "../orchestrator-rust");
 const binaryPath = resolve(orchestratorDir, "target/debug/cosyworld-orchestrator");
 const feedToken = "cosyworld-production-profile-smoke-token";
+const boxAssetAddress = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+const boxCollectionAddress = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
+const recentBlockhash = "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -39,13 +44,14 @@ async function closeServer(server) {
   await new Promise((resolveClose) => server.close(() => resolveClose()));
 }
 
-async function productionFeedServer() {
+async function productionFeedServer(walletAddress) {
   const stats = { requests: 0, authorized: 0 };
   const body = JSON.stringify({
     wallets: [
       {
-        walletAddress: "production-wallet",
+        walletAddress,
         cardIds: ["rati", "location-science-lab", "location-library"],
+        boxes: [boxAssetAddress],
       },
     ],
   });
@@ -72,6 +78,56 @@ async function productionFeedServer() {
     stats,
     url: `http://127.0.0.1:${port}/ownership`,
   };
+}
+
+async function productionRpcServer() {
+  const stats = { requests: 0, latestBlockhash: 0 };
+  const server = createServer(async (request, response) => {
+    if (request.method !== "POST" || request.url !== "/rpc") {
+      response.writeHead(404).end();
+      return;
+    }
+    stats.requests += 1;
+    let raw = "";
+    for await (const chunk of request) raw += chunk;
+    const body = JSON.parse(raw || "{}");
+    if (body.method !== "getLatestBlockhash") {
+      response.writeHead(400, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        jsonrpc: "2.0",
+        id: body.id ?? null,
+        error: { code: -32601, message: "unsupported smoke RPC method" },
+      }));
+      return;
+    }
+    stats.latestBlockhash += 1;
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({
+      jsonrpc: "2.0",
+      id: body.id ?? null,
+      result: {
+        context: { slot: 123 },
+        value: { blockhash: recentBlockhash, lastValidBlockHeight: 999 },
+      },
+    }));
+  });
+  const port = await listen(server);
+  return { server, stats, url: `http://127.0.0.1:${port}/rpc` };
+}
+
+async function fetchJson(url, init) {
+  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(2_000) });
+  const body = await response.text();
+  assert(response.ok, `${url} returned HTTP ${response.status}: ${body.slice(0, 200)}`);
+  return JSON.parse(body);
+}
+
+async function postJson(url, body) {
+  return fetchJson(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 async function freePort() {
@@ -120,7 +176,10 @@ function terminate(proc) {
 async function main() {
   await assertBuiltBinary();
   const tempDir = await mkdtemp(resolve(tmpdir(), "cosyworld-production-profile-"));
-  const feed = await productionFeedServer();
+  const wallet = nacl.sign.keyPair();
+  const walletAddress = bs58.encode(wallet.publicKey);
+  const feed = await productionFeedServer(walletAddress);
+  const rpc = await productionRpcServer();
   const port = await freePort();
   const baseUrl = `http://127.0.0.1:${port}`;
   const outputLines = [];
@@ -144,8 +203,8 @@ async function main() {
     COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER: feedToken,
     COSYWORLD_RUBY_HIGH_WALLET_CARDS_REFRESH_SECS: "0",
     COSYWORLD_MODERATION_TOKEN: "production-profile-smoke-moderator",
-    COSYWORLD_BOX_BURN_SOLANA_RPC_URL: "http://127.0.0.1:9/solana",
-    COSYWORLD_BOX_CORE_COLLECTION_ADDRESS: "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    COSYWORLD_BOX_BURN_SOLANA_RPC_URL: rpc.url,
+    COSYWORLD_BOX_CORE_COLLECTION_ADDRESS: boxCollectionAddress,
     COSYWORLD_V2_SNAPSHOT_PATH: resolve(tempDir, "snapshot.json"),
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
   });
@@ -166,6 +225,10 @@ async function main() {
     assert(meta.ownership_feed?.remote_configured === true, `expected remote feed: ${JSON.stringify(meta.ownership_feed)}`);
     assert(meta.ownership_feed?.bearer_configured === true, `expected bearer feed: ${JSON.stringify(meta.ownership_feed)}`);
     assert(meta.ownership_feed?.wallet_count === 1, `expected remote wallet count: ${JSON.stringify(meta.ownership_feed)}`);
+    assert(meta.ownership_feed?.status === "healthy", `expected healthy remote feed: ${JSON.stringify(meta.ownership_feed)}`);
+    assert(Number.isInteger(meta.ownership_feed?.last_success_at_unix), `expected remote feed success timestamp: ${JSON.stringify(meta.ownership_feed)}`);
+    assert(meta.ownership_feed?.consecutive_failures === 0, `expected no remote feed failures: ${JSON.stringify(meta.ownership_feed)}`);
+    assert(meta.ownership_feed?.last_error_code == null, `expected no remote feed error: ${JSON.stringify(meta.ownership_feed)}`);
     assert(meta.features?.dev_reset_enabled === false, `dev reset must be off: ${JSON.stringify(meta.features)}`);
     assert(meta.features?.unsigned_wallet_claims_enabled === false, `unsigned wallets must be off: ${JSON.stringify(meta.features)}`);
     assert(meta.features?.trust_client_card_ids === false, `client card trust must be off: ${JSON.stringify(meta.features)}`);
@@ -174,16 +237,46 @@ async function main() {
     assert(meta.nft?.box_burn_verifier_configured === true, `Box burn verifier must be configured: ${JSON.stringify(meta.nft)}`);
     assert(feed.stats.requests >= 1, "production profile should fetch the remote ownership feed");
     assert(feed.stats.authorized >= 1, "production profile should use the feed bearer token");
+    const challenge = await fetchJson(
+      `${baseUrl}/wallet/challenge?wallet_address=${encodeURIComponent(walletAddress)}`,
+    );
+    assert(challenge.ok && challenge.message && challenge.nonce, "wallet challenge should be issued");
+    const signature = nacl.sign.detached(new TextEncoder().encode(challenge.message), wallet.secretKey);
+    const session = await postJson(`${baseUrl}/wallet/session`, {
+      wallet_address: walletAddress,
+      nonce: challenge.nonce,
+      signature: Array.from(signature),
+    });
+    assert(session.ok && session.wallet_session, `wallet session should verify: ${JSON.stringify(session)}`);
+    const prepared = await postJson(`${baseUrl}/nft/boxes/burn-prepare`, {
+      wallet_session: session.wallet_session,
+      box_asset_address: boxAssetAddress,
+    });
+    assert(prepared.ok, `production Box burn should prepare: ${JSON.stringify(prepared)}`);
+    assert(
+      prepared.verification_mode === "solana_core_burn_transaction_required",
+      `expected production BurnV1 mode: ${JSON.stringify(prepared)}`,
+    );
+    assert(prepared.burn_transaction?.transaction_encoding === "base64", "expected base64 burn transaction");
+    assert(prepared.burn_transaction?.message_encoding === "base58", "expected base58 burn message");
+    assert(prepared.burn_transaction?.recent_blockhash === recentBlockhash, "expected RPC blockhash");
+    assert(prepared.burn_transaction?.instruction === "BurnV1", "expected Core BurnV1 instruction");
+    assert(prepared.burn_transaction?.program_id === "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d", "expected Core program");
+    assert(rpc.stats.latestBlockhash === 1, "production burn prepare should fetch one blockhash");
     console.log(JSON.stringify({
       ok: true,
       profile: meta.deployment.profile,
       wallet_count: meta.ownership_feed.wallet_count,
+      ownership_feed_status: meta.ownership_feed.status,
       feed_requests: feed.stats.requests,
       authorized_feed_requests: feed.stats.authorized,
+      box_burn_prepare: prepared.burn_transaction.instruction,
+      burn_rpc_requests: rpc.stats.requests,
     }, null, 2));
   } finally {
     await terminate(proc);
     await closeServer(feed.server);
+    await closeServer(rpc.server);
     await rm(tempDir, { recursive: true, force: true });
   }
 }

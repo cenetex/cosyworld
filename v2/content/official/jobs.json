@@ -1,0 +1,76 @@
+[
+  {
+    "id": "moonlit-trail:quiet-the-echo",
+    "premise": "The Moonlit Trail is carrying too much echo.",
+    "stakes": "If nobody steadies the trail, every rest makes its danger louder.",
+    "location_ids": [
+      3
+    ],
+    "participant_ids": [
+      1004
+    ],
+    "progress_clock_id": "moonlit-trail.progress",
+    "danger_clock_id": "moonlit-trail.danger",
+    "status": "active",
+    "reward": {
+      "label": "quieted moonlight",
+      "orbs": 2
+    },
+    "consequence": "echo-fractured trail",
+    "memory_summary": "",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "solar-abyss:drowned-bell",
+    "premise": "The Solar Temple wants its drowned bell purified, while the Abyssal Residents say it has learned a deeper song.",
+    "stakes": "If nobody hears both sides, height and depth will mistake each other for desecration.",
+    "location_ids": [
+      36,
+      64,
+      65
+    ],
+    "participant_ids": [
+      1064,
+      1065,
+      1066,
+      1067
+    ],
+    "progress_clock_id": "solar-abyss.drowned-bell",
+    "danger_clock_id": "solar-abyss.schism",
+    "status": "active",
+    "reward": {
+      "label": "two-toned bell accord",
+      "orbs": 2
+    },
+    "consequence": "solar-abyssal schism",
+    "memory_summary": "The same bell rings differently in noon light and abyssal pressure.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "lantern-keeper:rekindle-the-beacon",
+    "premise": "The Mothwood beacon is dark and its keeper Rowan Vale has vanished inside the tower.",
+    "stakes": "If the road remains unlit, the borrowed shadows will learn every traveler's shape.",
+    "location_ids": [
+      801,
+      802,
+      803,
+      804
+    ],
+    "participant_ids": [
+      8301,
+      8302,
+      8303,
+      8304
+    ],
+    "progress_clock_id": "lantern-keeper.light",
+    "danger_clock_id": "lantern-keeper.darkness",
+    "status": "active",
+    "reward": {
+      "label": "the Mothwood road relit",
+      "orbs": 2
+    },
+    "consequence": "the beacon becomes a lantern for borrowed shadows",
+    "memory_summary": "Travelers followed the last lamps north to find Rowan Vale and restore the Mothwood beacon.",
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  }
+]

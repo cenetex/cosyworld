@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "cosyworld.lonely-forest.characters",
+  "name": "Lonely Forest Character Art",
+  "version": "1.0.0",
+  "kind": "assets",
+  "description": "Character source art and reviewed slices used by the Lonely Forest residents.",
+  "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
+  "engine": ">=0.0.20 <0.1.0",
+  "dependencies": [
+    "cosyworld.core"
+  ],
+  "resources": {},
+  "assets": [
+    {
+      "mount": "characters",
+      "directory": "assets/characters/slices",
+      "manifest": "assets/characters/manifest.json",
+      "public_prefix": "/assets/lonely-forest/characters",
+      "optional": false
+    }
+  ]
+}

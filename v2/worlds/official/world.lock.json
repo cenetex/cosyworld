@@ -1,0 +1,69 @@
+{
+  "lock_version": 1,
+  "world_id": "cosyworld.official",
+  "packs": [
+    {
+      "id": "cosyworld.core",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/core"
+      },
+      "integrity": "sha256:6602bb60f078c37bf1ef148a263936c215958c3567f2c63f400286948e995515"
+    },
+    {
+      "id": "cosyworld.rules-srd-5.1",
+      "version": "0.1.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-srd-5.1"
+      },
+      "integrity": "sha256:16db09e1541eb29fff3bc28cd93b1884b35c539710bf54409ca694a1e00cec1b"
+    },
+    {
+      "id": "cosyworld.rules-srd-5.2.1",
+      "version": "0.1.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-srd-5.2.1"
+      },
+      "integrity": "sha256:6ffc9f8c84825f631986d51e23dcb58e94f12d1ac0cf57fdae83891a8203ba88"
+    },
+    {
+      "id": "cosyworld.campaign.the-lantern-keeper",
+      "version": "0.1.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/the-lantern-keeper"
+      },
+      "integrity": "sha256:3fb4a21bafa78c2a541ed5e3db8a1a34e2505cf774f259c97f0ab4909107148a"
+    },
+    {
+      "id": "cosyworld.the-holy-land",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/the-holy-land"
+      },
+      "integrity": "sha256:2240e3270ea02d49bf4a9d8ddcf2baf297452ba8935379afeb3ccbb1e109c151"
+    },
+    {
+      "id": "cosyworld.lonely-forest.characters",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/lonely-forest"
+      },
+      "integrity": "sha256:7f1d74740f17a88053f0d8f1f0f2e320b6365f37d96f5f2fb85f6d84b4e579fe"
+    },
+    {
+      "id": "ruby-high.first-bell",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/ruby-high-first-bell"
+      },
+      "integrity": "sha256:6c9e3961eefc89ab32ce41c258755b01d81d69af38ae331c4c7f201f24a333fe"
+    }
+  ]
+}

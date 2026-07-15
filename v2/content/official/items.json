@@ -1,0 +1,128 @@
+[
+  {
+    "id": 2001,
+    "name": "Hearth Tonic",
+    "description": "A warm tonic that gets one person back on their feet, probably complaining.",
+    "kind": "potion",
+    "charges": 1,
+    "location_id": 1,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2002,
+    "name": "Dewbright Button",
+    "description": "A tiny pearled button that makes wet weather look more deliberate.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 2,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2003,
+    "name": "Wolfprint Charm",
+    "description": "A cool iron charm marked with a careful pawprint.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 3,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2004,
+    "name": "Moonwool Thread",
+    "description": "A silvery strand that tangles at the first hint of rain.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 10,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2005,
+    "name": "Story Button",
+    "description": "A warm wooden button with a tiny tale tucked under its rim.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 1,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2006,
+    "name": "Hearthstone Tag",
+    "description": "A smooth tag cut from warm stone, excellent for labeling chairs and terrible ideas.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 3,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2007,
+    "name": "Watch Bell",
+    "description": "A mute little bell that rings only for those keeping watch.",
+    "kind": "evolution",
+    "charges": 1,
+    "location_id": 2,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2008,
+    "name": "Threadbare Map Scrap",
+    "description": "A soft scrap of map-cloth with one path mended in red thread.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 41,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2009,
+    "name": "Abbey Bookmark",
+    "description": "A pressed fern bookmark that keeps sliding out at the dramatic sentence.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 43,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2010,
+    "name": "Mossglass Bead",
+    "description": "A green bead that catches meadow light and keeps it cool enough to trade.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 44,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 8401,
+    "name": "Keeper's Brass Key",
+    "description": "A heavy key warm on one side and cold on the other, cut for the Lantern Tower's inner lock.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 802,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "id": 8402,
+    "name": "Mothglass Lens",
+    "description": "A palm-sized lens that shows the faint outline of whatever last carried a nearby light.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 801,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "id": 8403,
+    "name": "Dawn Oil",
+    "description": "A stoppered flask of gold oil that smells of hot stone after rain and can steady a fallen traveler.",
+    "kind": "potion",
+    "charges": 1,
+    "location_id": 803,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "id": 8404,
+    "name": "Keeper's Ember",
+    "description": "A coal-bright fragment of the beacon flame, small enough to carry and stubborn enough to relight the road.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 804,
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  }
+]

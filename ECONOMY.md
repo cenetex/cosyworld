@@ -54,7 +54,7 @@ Rules:
 - The player's OpenRouter payer covers only the explicit action they initiated, normally the player-avatar line plus the immediate resident reply.
 - The player's OpenRouter payer is not used for ambient resident beats, autonomous swarm jobs, admin content generation, or other players' later actions.
 - Failed validation does not spend Orbs.
-- A successful server-paid avatar line spends Orbs, whether the line came from the configured LLM or deterministic fallback.
+- A successful server-paid inferred avatar line spends Orbs after it commits. Failed or unavailable inference emits no substitute speech and spends nothing.
 - If AI fails before any shared avatar line is committed, the spend is rolled back or never committed.
 - P0 Orbs are not on-chain, not transferable, and not a payment rail. Later bridges can be designed explicitly.
 
@@ -276,10 +276,10 @@ Rules:
 - The transcript stays the main event.
 - No chat composer.
 - No permanent economy panel.
-- One primary command at rest.
+- At most three dealt action cards plus shuffle at rest; no system may replace the hand except required onboarding or an urgent safety gate.
 - Economy/account operations appear only when focused through a small account/card/inventory affordance.
 - The account surface can borrow Ruby High's card selector and pack progress patterns, but should be visually tuned to CosyWorld's terminal MUD shell.
-- If a flow needs two options, show a temporary action sheet with at most two clear choices. The rest state returns to one button.
+- If one card needs a target or mode choice, show a temporary action sheet and return to the dealt hand after selection.
 
 Primary command examples:
 
@@ -385,7 +385,7 @@ Current status: implemented for trusted feed projection.
 
 ### Stage 5: Box Burn And Pack Creation
 
-Current status: implemented as a signed-wallet route flow, with production confirm-side chain verification.
+Current status: implemented as a signed-wallet route flow with production transaction construction and confirm-side chain verification.
 
 - Added `/nft/boxes/burn-prepare` and `/nft/boxes/burn-confirm`.
 - Requires a signed wallet session and trusted active Box ownership.
@@ -393,11 +393,15 @@ Current status: implemented as a signed-wallet route flow, with production confi
 - Production mode requires `COSYWORLD_BOX_BURN_SOLANA_RPC_URL` and `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; `burn-confirm` verifies a confirmed Metaplex Core burn transaction for the Box asset, connected owner, and configured collection before recording the receipt.
 - Records the burn receipt idempotently by Box asset and burn signature.
 - Creates an unopened avatar pack receipt and projects it back into wallet access.
-- `burn-prepare` is intentionally the server challenge/eligibility boundary;
-  wallet-specific transaction construction belongs in the client/wallet adapter.
-  Confirmed receipts reconcile back into ownership through the durable receipt
-  store. External import/reconciliation beyond locally recorded receipts remains
-  a production operations workflow.
+- With a configured production verifier, `burn-prepare` fetches a confirmed recent blockhash and
+  returns an unsigned legacy Solana transaction containing the owner-paid Metaplex Core BurnV1
+  instruction for the trusted Box and configured collection. It includes full base64 wire bytes
+  for adapters and a base58 compiled message for injected wallet providers.
+- The browser shows an irreversible-action confirmation, asks the wallet to sign and send that
+  transaction, then submits its chain signature to `burn-confirm`.
+- Confirmed receipts reconcile back into ownership through the durable receipt store. Successful
+  external snapshots are also compared with those receipts before merge; protected moderator
+  resolution notes persist the operator disposition of reported contradictions.
 
 ### Stage 6: Pack Reveal And Card Grants
 
@@ -416,9 +420,19 @@ Current status: implemented as deterministic local reveal provenance.
 
 ### Stage 7: Production Chain Hardening
 
-- Run staging against the actual Ruby High protected export.
-- Add reconciliation for Boxes moved between wallets, burned externally, or opened elsewhere.
-- Extend the protected `/moderation/economy` audit into richer operator workflows for review, reconciliation, and support.
+- Restore Ruby High's upstream Solana RPC capacity, deploy feed-health telemetry, and rerun the
+  hosted smoke against the actual protected export.
+- Active Boxes and unopened packs already follow each successful trusted snapshot, so transfers,
+  external burns, and externally opened packs disappear from the effective base index on refresh.
+- Successful startup and refresh snapshots are now compared with durable local burn/opening
+  receipts before receipt grants are merged. Each comparison is appended to
+  `economy_reconciliation_runs`; impossible active-after-burn/open states and duplicate external
+  owners are retained as structured anomalies in the protected `/moderation/economy` audit.
+- Protected moderators can resolve open anomaly runs with an identity and note through the API or
+  economy panel in `/moderation`; clear runs are non-actionable and repeated resolution is
+  idempotent.
+- Continue the operator workflow with support-facing search, retention policy, and alerts for new
+  anomalies.
 - Add alerting for duplicate signatures, impossible balances, and failed pack reveals.
 
 ## Invariants

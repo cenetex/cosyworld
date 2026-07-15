@@ -1,0 +1,386 @@
+[
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "3",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "moonlit-trail.progress",
+        "amount": 1,
+        "reason": "listen_success"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_enter",
+    "target_kind": "room",
+    "target_id": "3",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:3:moonlit_threshold_crossed",
+        "scope": "room",
+        "scope_id": 3,
+        "label": "moonlit threshold crossed",
+        "kind": "memory",
+        "reason": "enter_moonlit_trail"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "2001",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:3:hearth_tonic_used",
+        "scope": "room",
+        "scope_id": 3,
+        "label": "hearth tonic warmth",
+        "kind": "memory",
+        "reason": "use_hearth_tonic"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "2003",
+    "claim_scope": "world_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "moonlit-trail.progress",
+        "amount": 1,
+        "reason": "wolfprint_practice"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "36",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "solar-abyss.drowned-bell",
+        "amount": 1,
+        "reason": "listen_solar_bell_absence"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "64",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "solar-abyss.drowned-bell",
+        "amount": 1,
+        "reason": "listen_abyssal_bell_song"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_enter",
+    "target_kind": "room",
+    "target_id": "36",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:36:solar_temple_witnessed",
+        "scope": "room",
+        "scope_id": 36,
+        "label": "solar witness",
+        "kind": "memory",
+        "reason": "enter_solar_temple"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_enter",
+    "target_kind": "room",
+    "target_id": "64",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:64:abyssal_pressure_felt",
+        "scope": "room",
+        "scope_id": 64,
+        "label": "abyssal pressure",
+        "kind": "memory",
+        "reason": "enter_darkest_ocean"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_give",
+    "target_kind": "actor",
+    "target_id": "1001",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "resident:1001:gift_noticed",
+        "scope": "resident",
+        "scope_id": 1001,
+        "label": "gift noticed",
+        "kind": "bond",
+        "reason": "give_to_rati"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "moonlit-trail.progress",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:3:quieted_moonlight",
+        "scope": "room",
+        "scope_id": 3,
+        "label": "quieted moonlight",
+        "kind": "aspect",
+        "reason": "moonlit_progress_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "moonlit-trail:quiet-the-echo",
+        "status": "completed",
+        "reason": "moonlit_progress_filled"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "moonlit-trail.danger",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:3:echo_fractured",
+        "scope": "room",
+        "scope_id": 3,
+        "label": "echo-fractured trail",
+        "kind": "hook",
+        "reason": "moonlit_danger_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "moonlit-trail:quiet-the-echo",
+        "status": "failed",
+        "reason": "moonlit_danger_filled"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "solar-abyss.drowned-bell",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "faction:solar_abyss:bell_accord",
+        "scope": "room",
+        "scope_id": 36,
+        "label": "two-toned bell accord",
+        "kind": "aspect",
+        "reason": "drowned_bell_progress_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "solar-abyss:drowned-bell",
+        "status": "completed",
+        "reason": "drowned_bell_progress_filled"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "solar-abyss.schism",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "faction:solar_abyss:schism",
+        "scope": "room",
+        "scope_id": 64,
+        "label": "solar-abyssal schism",
+        "kind": "aspect",
+        "reason": "drowned_bell_danger_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "solar-abyss:drowned-bell",
+        "status": "failed",
+        "reason": "drowned_bell_danger_filled"
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "801",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "follow_rowan_footprints"
+      }
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "802",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "learn_keeper_warning"
+      }
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "hook": "on_listen",
+    "target_kind": "room",
+    "target_id": "803",
+    "claim_scope": "actor_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "find_dawn_oil_trail"
+      }
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "8401",
+    "claim_scope": "world_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "open_inner_lens"
+      }
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "8402",
+    "claim_scope": "world_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "see_rowan_inside_shadow"
+      }
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "hook": "on_use",
+    "target_kind": "item",
+    "target_id": "8403",
+    "claim_scope": "world_target_once",
+    "effects": [
+      {
+        "op": "advance_clock",
+        "clock_id": "lantern-keeper.light",
+        "amount": 1,
+        "reason": "separate_keeper_from_shadow"
+      }
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "lantern-keeper.light",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:804:beacon_rekindled",
+        "scope": "room",
+        "scope_id": 804,
+        "label": "beacon rekindled",
+        "kind": "memory",
+        "reason": "lantern_keeper_completed"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "lantern-keeper:rekindle-the-beacon",
+        "status": "completed",
+        "reason": "lantern_keeper_completed"
+      }
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "lantern-keeper.darkness",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:804:black_beacon",
+        "scope": "room",
+        "scope_id": 804,
+        "label": "black beacon",
+        "kind": "hook",
+        "reason": "lantern_keeper_failed"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "lantern-keeper:rekindle-the-beacon",
+        "status": "failed",
+        "reason": "lantern_keeper_failed"
+      }
+    ],
+    "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  }
+]

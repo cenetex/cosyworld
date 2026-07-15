@@ -1,0 +1,45 @@
+[
+  {
+    "id": 8301,
+    "name": "Mara Wick",
+    "speech_mode": "prose",
+    "title": "Retired Lantern Keeper",
+    "description": "A broad-shouldered innkeeper who retired from the lantern road but still oils every lamp before bed.",
+    "ambient_autonomy": false,
+    "location_id": 800,
+    "desires": [{ "item_id": 8401, "reason": "Rowan carried the tower key, and its return would mean the trail is real" }],
+    "stats": { "strength": 12, "dexterity": 10, "constitution": 14, "intelligence": 11, "wisdom": 15, "charisma": 13, "hp_base": 12, "level": 2 }
+  },
+  {
+    "id": 8302,
+    "name": "Pip Thistle",
+    "speech_mode": "prose",
+    "title": "Mothwood Lamp-Sprite",
+    "description": "A thumb-sized fey guide with a pin sword, bright opinions, and soot on both wings.",
+    "ambient_autonomy": false,
+    "location_id": 801,
+    "desires": [{ "item_id": 8402, "reason": "the mothglass lens lets Pip see which shadows belong to living things" }],
+    "stats": { "strength": 3, "dexterity": 18, "constitution": 10, "intelligence": 14, "wisdom": 13, "charisma": 11, "hp_base": 4, "level": 1 }
+  },
+  {
+    "id": 8303,
+    "name": "Moth-Eaten Knight",
+    "speech_mode": "silent",
+    "title": "Barrow Road Sentinel",
+    "description": "An empty suit of road-warden mail packed with wet moths and the reflex to bar every crossing.",
+    "ambient_autonomy": false,
+    "location_id": 803,
+    "stats": { "strength": 14, "dexterity": 9, "constitution": 14, "intelligence": 6, "wisdom": 10, "charisma": 5, "hp_base": 16, "level": 2 }
+  },
+  {
+    "id": 8304,
+    "name": "Rowan Vale",
+    "speech_mode": "prose",
+    "title": "The Hollow Keeper",
+    "description": "The missing keeper stands inside a coat of moving shadow, one hand still clenched around an ember that refuses to die.",
+    "ambient_autonomy": false,
+    "location_id": 804,
+    "desires": [{ "item_id": 8403, "reason": "dawn oil can separate Rowan's living ember from the shadow around it" }],
+    "stats": { "strength": 13, "dexterity": 12, "constitution": 14, "intelligence": 11, "wisdom": 13, "charisma": 12, "hp_base": 18, "level": 3 }
+  }
+]
