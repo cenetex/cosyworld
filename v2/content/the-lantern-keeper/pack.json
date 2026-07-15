@@ -28,6 +28,7 @@
     "jobs": "jobs.json",
     "fronts": "fronts.json",
     "cards": "cards.json",
-    "lifecycle_hooks": "lifecycle_hooks.json"
+    "lifecycle_hooks": "lifecycle_hooks.json",
+    "quests": "quests.json"
   }
 }

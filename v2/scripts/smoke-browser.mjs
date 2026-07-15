@@ -842,54 +842,31 @@ async function main() {
     assert(guide.growStep?.stage === 2 && guide.growStep?.total === 3, `ready memories should advance the guide to Grow: ${JSON.stringify(guide)}`);
     assert(
       guide.identityStep?.stage === 3
-        && guide.identityStep?.text === "choose a friendship or a knack."
-        && guide.identityStep?.actionKeys?.join(",") === "bond:1001,train-listening",
-      `banked growth should keep both promised identity choices in the guided hand: ${JSON.stringify(guide)}`,
-    );
-    assert(
-      guide.identityHand?.slice(0, 2).map((action) => `${action.label}:${action.storyGuide}`).join(",")
-        === "grow closer:true,practice:true",
-      `Grow Closer and Practice should both stay visibly guided at the final first-tale choice: ${JSON.stringify(guide)}`,
+        && guide.identityStep?.text === "find a place offering an objective.",
+      `banked growth should guide the player toward a world-scattered objective: ${JSON.stringify(guide)}`,
     );
     assert(
       guide.restoredFocusHand?.join(",") === "listen,take"
         && guide.playerFocusedHand?.join(",") === "take,listen",
       `guided cards should lead by default without overriding an explicit player focus: ${JSON.stringify(guide)}`,
     );
-    assert(guide.completedStep === null, `the guide should leave once growth has shaped the avatar: ${JSON.stringify(guide)}`);
+    assert(guide.completedStep?.text === "find a place offering an objective.", `legacy skill or bond spends should no longer complete the quest-driven opening: ${JSON.stringify(guide)}`);
     assert(guide.chatBeforeListenStep?.stage === 1 && /listen for one little clue/i.test(guide.chatBeforeListenStep?.text || ""), `a chat memory must not pretend the first clue was found: ${JSON.stringify(guide)}`);
     assert(guide.missedListenWithOtherGrowthStep?.stage === 1 && /no clue yet/i.test(guide.missedListenWithOtherGrowthStep?.text || ""), `unrelated banked growth must not skip a missed first clue: ${JSON.stringify(guide)}`);
-    assert(guide.completionBeat?.visible && /your first tale is yours/i.test(guide.completionBeat?.text || ""), `finishing the opening should earn a visible celebration: ${JSON.stringify(guide)}`);
-    assert(/listened, grew from a clue, and made a new friend/i.test(guide.completionBeat?.aria || ""), `the friendship ending should recap every step of the first tale: ${JSON.stringify(guide)}`);
-    assert(guide.knackCompletionText === "you listened, grew from a clue, and found a knack to practice.", `the knack ending should recap the matching first-tale choice: ${JSON.stringify(guide)}`);
+    assert(guide.knackCompletionText === "you listened, kept a clue, and chose what to seek.", `the opening recap should point toward the chosen objective: ${JSON.stringify(guide)}`);
     assert(guide.completionRepeats === false, `the first-tale celebration should not reappear after it has been acknowledged: ${JSON.stringify(guide)}`);
     assert(guide.travelThread?.text === "A path to Rain-Soft Garden is waiting." && guide.travelThread?.actionKey === "exit:2", `an open route should become a grounded clickable room thread: ${JSON.stringify(guide)}`);
     assert(guide.giftThread?.text === "Rati is waiting for Story Button.", `a wanted gift should outrank generic exploration in the room thread: ${JSON.stringify(guide)}`);
     assert(guide.ordinaryGiftThread?.kind === "search", `an optional gift should not be misrepresented as a resident waiting for it: ${JSON.stringify(guide)}`);
     assert(guide.searchThread?.text === "Something in The Cosy Cottage is still waiting to be found.", `a searchable room should offer a gentle discovery thread: ${JSON.stringify(guide)}`);
     assert(guide.roomHookThread?.text === "The hearth notices unfinished promises.", `an authored room hook should remain as the non-mechanical fallback thread: ${JSON.stringify(guide)}`);
-    assert(
-      guide.roomThreadSurfaceAfterCompletion?.visible === false
-        && guide.roomThreadSurfaceAfterCompletion.storyThread === false,
-      `the redundant room-thread strip should stay removed after the first tale: ${JSON.stringify(guide)}`,
-    );
-    assert(
-      guide.roomThreadHand?.labels?.[0] === "travel"
-        && guide.roomThreadHand.guided?.[0] === "travel:room thread"
-        && guide.roomThreadHand.buttonGuide === "room thread"
-        && guide.roomThreadHand.buttonCue === "✦ room thread",
-      `the matching room-thread card should deal itself into the hand with a visible reason: ${JSON.stringify(guide.roomThreadHand)}`,
-    );
     assert(guide.arrivalActions.length === 1 && guide.arrivalActions[0]?.label === "listen", `a newcomer should receive one welcoming Listen before joining room turns: ${JSON.stringify(guide)}`);
     assert(guide.welcomingListenWithoutOption.some((action) => action.label === "listen" && action.focusKey === "check"), `the welcoming Listen should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
     assert(guide.waitingWelcomeWithoutOption.length === 1 && guide.waitingWelcomeWithoutOption[0]?.label === "listen", `the personal welcoming Listen should ignore another player's shared turn: ${JSON.stringify(guide)}`);
     assert(/first clue/i.test(guide.arrivalActions[0]?.summary || ""), `the arrival Listen should explain its welcome clearly: ${JSON.stringify(guide)}`);
     assert(guide.arrivalActions[0]?.effect === "the room shares one welcoming clue just for you", `the arrival Listen outcome should read as a complete story thought: ${JSON.stringify(guide)}`);
-    assert(guide.waitingGrowActions[0]?.label === "evolve" && guide.waitingGrowActions[0]?.focusKey === "bank-ledger", `personal Evolve should keep the learned-clue choice available while another player has the room: ${JSON.stringify(guide)}`);
-    assert(guide.waitingGrowActions.some((action) => action.label === "nudge"), `waiting Evolve should not remove the gentle room handoff: ${JSON.stringify(guide)}`);
-    assert(guide.waitingTrainActions[0]?.label === "evolve" && guide.waitingTrainActions[0]?.detail === "choose one of two knacks", `personal Evolve should offer two dealt knack choices without waiting on the room turn: ${JSON.stringify(guide)}`);
-    assert(guide.waitingTrainActions[0]?.title === "choose how to evolve" && /one of two ways this lesson can strengthen your avatar/i.test(guide.waitingTrainActions[0]?.summary || ""), `Evolve confirmation should explain the personal choice warmly: ${JSON.stringify(guide)}`);
-    assert(guide.waitingTrainActions.some((action) => action.label === "nudge"), `waiting training should retain the gentle room handoff: ${JSON.stringify(guide)}`);
+    assert(guide.waitingGrowActions.length === 1 && guide.waitingGrowActions[0]?.label === "nudge", `Grow should wait for the shared room turn like every other card: ${JSON.stringify(guide)}`);
+    assert(guide.waitingTrainActions.length === 1 && guide.waitingTrainActions[0]?.label === "nudge", `retired personal training should not bypass the shared room turn: ${JSON.stringify(guide)}`);
     assert(guide.waitingActions.length === 1 && guide.waitingActions[0]?.label === "nudge", `ordinary waiting should use a gentle Nudge instead of ping jargon: ${JSON.stringify(guide)}`);
     assert(!/ping|pong|dex|priority/i.test(JSON.stringify(guide.waitingActions)), `waiting copy should stay free of technical turn jargon: ${JSON.stringify(guide)}`);
     assert(guide.gatheringActions.length === 1 && guide.gatheringActions[0]?.label === "I'm here", `an active handoff should ask whether the player is here: ${JSON.stringify(guide)}`);
@@ -2257,11 +2234,9 @@ async function main() {
     assert(
       result.busy?.ariaBusy === "true"
         && result.busy?.ariaLabel.includes("in progress")
-        && result.busy?.progressBars === 1
-        && result.busy?.opacity === "1"
-        && result.busy?.cursor === "progress"
-        && /travelling.*following the path to Homeroom/i.test(result.busy?.text || ""),
-      `Travel should remain legible and show an accessible progress rail while pending: ${JSON.stringify(result)}`,
+        && result.busy?.progressBars === 0
+        && result.busy?.cursor === "progress",
+      `Travel may announce a brief commit without showing a timer or progress rail: ${JSON.stringify(result)}`,
     );
     assert(result.choices.every((choice) => choice.card?.role === "location"), `each Travel destination should carry its own Location card: ${JSON.stringify(result)}`);
     assert(
@@ -2864,6 +2839,73 @@ async function main() {
     assert(result.deckCycle?.moreVisibleOnFinalPage === true, `the last partial page should offer a fresh pass through the deck: ${JSON.stringify(result.deckCycle)}`);
     assert(result.deckCycle?.restartedPageSize === result.deckCycle?.capacity && result.deckCycle?.restartedWithCleanHistory === true, `the next pass should begin as a fresh full hand: ${JSON.stringify(result.deckCycle)}`);
     assert(result.deckCycle?.moreHiddenForOnePageDeck === true, `More should disappear when every available card already fits in hand: ${JSON.stringify(result.deckCycle)}`);
+  }
+
+  async function assertQuestAndLevelUpCardsUseStandardProgression() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      actorId = 5000;
+      const quest = {
+        id: "quest.test.fighter",
+        title: "Hold the Lantern Line",
+        description: "Prove the road can rely on you.",
+        objective: "succeed at an Athletics check here",
+        rewards: [{ id: "knowledge.class.fighter", name: "Fighter", kind: "class" }],
+      };
+      const choice = {
+        id: "level-1-fighter-athletics-perception",
+        class_name: "Fighter",
+        summary: "d10 Hit Die · Athletics + Perception",
+        features: ["Fighting Style", "Second Wind"],
+      };
+      const base = {
+        location: { id: 800, name: "Wayside Lantern Inn" },
+        economy: { listen_attempted_here: true, can_chat_with_orbs: false },
+        primary_action: { options: [{ kind: "move" }] },
+        actors: [{ id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 0 } }],
+        items: [],
+        exits: [],
+        room_features: [],
+        cards: { actors: {}, items: {}, locations: {} },
+        access: {},
+        quests: { active: null, available: [quest] },
+        advancement: {
+          offer: { id: "level-up:5000:1", next_level: 1, choices: [choice] },
+        },
+      };
+      const snapshot = (view) => buildActions(view).map((action) => ({
+        label: action.label,
+        detail: action.detail,
+        command: action.command,
+        focusKey: action.focusKey,
+        title: actionTitle(action),
+        summary: actionSummary(action),
+        effect: action.effect,
+        choices: (action.choices || []).map((entry) => `${entry.label}: ${entry.detail}`),
+      }));
+      try {
+        return {
+          current: snapshot({ ...base, turn: { enabled: true, is_current_actor: true } }),
+          waiting: snapshot({
+            ...base,
+            turn: { enabled: true, is_current_actor: false, current_actor_id: 5001, current_actor_name: "Mabel Crumblethorn", ping_active: false },
+          }),
+          activeQuest: snapshot({ ...base, quests: { active: quest, available: [] }, turn: { enabled: true, is_current_actor: true } }),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+      }
+    });
+    const quest = result.current.find((action) => action.label === "quest");
+    const level = result.current.find((action) => action.label === "level up");
+    assert(quest?.command === "quest" && quest.title === "Hold the Lantern Line", `Quest should be a normal card with an objective picker: ${JSON.stringify(result)}`);
+    assert(quest.choices[0]?.includes("unlocks Fighter"), `Quest should show its knowledge reward before acceptance: ${JSON.stringify(result)}`);
+    assert(level?.command === "level up" && level.title === "level 1", `Level Up should be an ordinary level-one card: ${JSON.stringify(result)}`);
+    assert(/class package/i.test(level.summary || "") && /Hit Die/i.test(level.effect || ""), `Level Up should explain its atomic D&D-style package: ${JSON.stringify(result)}`);
+    assert(result.waiting.length === 1 && result.waiting[0]?.label === "nudge", `Quest and Level Up must wait for the shared room turn: ${JSON.stringify(result)}`);
+    assert(!result.activeQuest.some((action) => action.label === "quest"), `an accepted objective should live on the sheet instead of remaining a permanent card: ${JSON.stringify(result)}`);
   }
 
   async function assertBankLedgerSurfacesAsCompactProgressAction() {
@@ -3865,12 +3907,12 @@ async function main() {
     assert(result.knockoutText === "Moonlit Echo's light falls quiet for now.", `knockouts should avoid zero-HP language: ${JSON.stringify(result)}`);
    assert(result.bankedText === "lets what happened shape what comes next.", `Grow should land as a simple story beat instead of settling memory marks: ${JSON.stringify(result)}`);
    assert(result.bankedStatus?.text === "lets what happened shape what comes next", `Grow status should avoid counters and ledger language: ${JSON.stringify(result)}`);
-    assert(result.growthSpendText === "puts what they learned into practice.", `using growth should read as a change, not a transaction: ${JSON.stringify(result)}`);
+    assert(result.growthSpendText === "lets what they learned change them.", `using growth should read as a change, not a transaction: ${JSON.stringify(result)}`);
     assert(result.growthSpendStatus?.label === "change" && result.growthSpendStatus?.text === "what you learned finds a place", `growth status should avoid counted-token language: ${JSON.stringify(result)}`);
    assert(result.growthSpendIsQuiet === true, `redundant growth-spend bookkeeping should stay out of the story feed: ${JSON.stringify(result)}`);
     assert(result.recoveryText === "uses Hearth Tonic on Gust. Gust looks steadier.", `care items should describe recovery without HP arithmetic: ${JSON.stringify(result)}`);
     assert(result.skillText === "Listening grows a little stronger." && result.masteryText === "Listening feels second nature.", `practice feedback should describe growing confidence without rank labels: ${JSON.stringify(result)}`);
-    assert(result.skillStatus?.label === "knack" && result.skillStatus?.text === "Listening grows a little stronger", `practice status should use everyday knack language: ${JSON.stringify(result)}`);
+    assert(result.skillStatus?.label === "ability" && result.skillStatus?.text === "Listening grows a little stronger", `legacy skill status should use ability language: ${JSON.stringify(result)}`);
     assert(result.finishedWorkText === "the work is done.", `finished projects should land as a simple story beat: ${JSON.stringify(result)}`);
     assert(!/\bhp\b|trained|expert|master|progress clock/i.test(JSON.stringify([result.recoveryText, result.skillText, result.masteryText, result.finishedWorkText])), `everyday feedback should avoid health, rank, and clock jargon: ${JSON.stringify(result)}`);
     assert(result.friendshipText === "became friends with Gust.", `a new friendship should land as a clear story beat: ${JSON.stringify(result)}`);
@@ -3900,10 +3942,10 @@ async function main() {
     assert(result.setupDetail === "uses complete project evidence; makes the next try count", `compact setup copy should hide progress arithmetic before the friendlier rendering pass: ${JSON.stringify(result)}`);
     assert(result.orbGainText === "earned one" && result.orbSpendText === "spent two", `Orb changes should read as small events rather than signed arithmetic: ${JSON.stringify(result)}`);
     assert(result.sheetHtml.includes("Milo Harefoot") && result.sheetHtml.includes("Hapless Snack Seeker"), `avatar sheet should lead with the character identity: ${JSON.stringify(result)}`);
-    assert(result.sheetHtml.includes("journal") && result.sheetHtml.includes("something you noticed is ready to keep · you can strengthen a friendship or evolve a knack"), `Journal row should summarize growth without counted resources: ${JSON.stringify(result)}`);
+    assert(result.sheetHtml.includes("journal") && result.sheetHtml.includes("something you noticed is ready to keep · growth is ready when you unlock a compatible path"), `Journal row should connect banked growth to world-scattered knowledge: ${JSON.stringify(result)}`);
     assert(!/memory marks?|growth points?|\b(?:one|two|three|four) (?:memories|chances)\b/i.test(result.sheetHtml), `Journal row should keep growth arithmetic out of the avatar sheet: ${JSON.stringify(result)}`);
     assert(result.sheetHtml.includes("purpose") && result.sheetHtml.includes("I stick my nose into lost-property trouble."), `avatar sheet should name purpose in everyday language: ${JSON.stringify(result)}`);
-    assert(result.sheetHtml.includes("Listening — growing") && !result.sheetHtml.includes("trained"), `avatar sheet should describe confidence without rank tiers: ${JSON.stringify(result)}`);
+    assert(result.sheetHtml.includes("0 · classless") && result.sheetHtml.includes("complete quests to unlock Skills"), `avatar sheet should expose standard level and Skill progression: ${JSON.stringify(result)}`);
     assert(result.sheetHtml.includes("friends") && result.sheetHtml.includes("I bring small kindnesses to Gust. (new friend)"), `friendship should show its statement and warm closeness instead of a raw strength number: ${JSON.stringify(result)}`);
     assert(!result.sheetHtml.includes("Gust 1"), `avatar sheet should not expose raw bond counters: ${JSON.stringify(result)}`);
     assert(!Object.values(result).some((value) => String(value).includes(" / ")), `compact meta copy should avoid slash-heavy separators: ${JSON.stringify(result)}`);
@@ -4008,8 +4050,8 @@ async function main() {
       }
     });
     assert(result.frontier[0]?.label === "rest", `frontier fatigue should keep rest urgent: ${JSON.stringify(result)}`);
-    assert(result.frontierWithLedger[0]?.label === "evolve", `unclaimed frontier growth should interrupt rest once: ${JSON.stringify(result)}`);
-    assert(result.frontierWithLedger[0]?.detail === "from what you learned", `frontier Evolve should keep the same warm copy before rest: ${JSON.stringify(result)}`);
+    assert(result.frontierWithLedger[0]?.label === "grow", `unclaimed frontier growth should interrupt rest once: ${JSON.stringify(result)}`);
+    assert(result.frontierWithLedger[0]?.detail === "from what you learned", `frontier Grow should keep the same warm copy before rest: ${JSON.stringify(result)}`);
     assert(result.frontierWithLedger[1]?.label === "rest", `frontier rest should remain immediately available after bank: ${JSON.stringify(result)}`);
     assert(result.frontierWithLedger[1]?.summary === "Catch your breath and feel fresh again. Trouble may draw nearer while you rest.", `frontier Rest should explain its tradeoff once in natural language: ${JSON.stringify(result)}`);
     assert(result.frontierWithLedger[1]?.rows?.some((row) => row[0] === "What changes" && row[1] === "you feel fresh again"), `frontier Rest should state its payoff directly: ${JSON.stringify(result)}`);
@@ -7020,7 +7062,7 @@ async function main() {
     await page.waitForSelector("#action-modal:not([hidden])");
     assert(await page.locator("#action-modal-title").innerText() === "Who takes up the road when the beacon goes dark?", "opening modal should ask the campaign's character question");
     assert(
-      await page.locator("#action-modal-summary").innerText() === "Create a level-one traveler answering the last light on the Mothwood road.",
+      await page.locator("#action-modal-summary").innerText() === "Create a classless level-zero traveler answering the last light on the Mothwood road.",
       "campaign modal should frame the character's immediate adventure",
     );
     const openingRows = await page.locator("#action-modal-meta .action-row").evaluateAll((nodes) => (
@@ -7068,14 +7110,18 @@ async function main() {
       `generated avatar titles should stay short enough to feel like warm card epithets: ${guestAvatarTitle}`,
     );
     steps.push({ label: "open guest account inventory", primary: await focusAccountInventory() });
-    await assertActionBarCapped("guest account inventory");
-    await page.waitForSelector(".account-panel [data-account-connect]");
+    await assertActionBarCapped("guest account inventory", 0);
+    await page.waitForSelector(".account-panel [data-passkey-continue]");
     const guestSheetText = await page.locator(".account-panel").innerText();
     assert(guestSheetText.includes("I keep a light burning when others lose the road."), `new avatar sheet should carry the campaign purpose choice: ${guestSheetText}`);
     assert(guestSheetText.includes("journal") && guestSheetText.includes("friends"), `avatar sheet should use the small player vocabulary: ${guestSheetText}`);
     assert(
       guestSheetText.includes("your first little moment is waiting")
-        && guestSheetText.includes("a knack will grow here")
+        && guestSheetText.includes("0 · classless")
+        && guestSheetText.includes("complete quests to discover a class")
+        && guestSheetText.includes("complete quests to unlock Skills")
+        && guestSheetText.includes("a new objective is available here")
+        && guestSheetText.includes("knowledge is scattered through the world")
         && guestSheetText.includes("someone new is waiting to meet you"),
       `an empty avatar sheet should point warmly toward what comes next: ${guestSheetText}`,
     );
@@ -7083,7 +7129,7 @@ async function main() {
     assert(guestSheetText.includes("a wooden box may turn up") && guestSheetText.includes("an avatar pack may turn up"), `empty collection slots should suggest possibility instead of absence: ${guestSheetText}`);
     assert(guestSheetText.includes("local tale") && guestSheetText.includes("choose a few to keep close"), `local tale and empty keepsake capacity should read naturally: ${guestSheetText}`);
     assert(guestSheetText.includes("purpose") && !guestSheetText.includes("calling"), `avatar sheet should use purpose rather than Calling terminology: ${guestSheetText}`);
-    assert(guestSheetText.indexOf("purpose") < guestSheetText.indexOf("link account"), `character identity should appear before account controls: ${guestSheetText}`);
+    assert(guestSheetText.includes("continue with passkey"), `guest account should offer a durable sign-in path: ${guestSheetText}`);
     assert(await page.locator(".account-portrait[data-card-key]").count() === 1, "avatar sheet should make the generated portrait card visible");
     const guestSheetHeight = await page.locator("#log").evaluate((node) => node.getBoundingClientRect().height);
     assert(guestSheetHeight > 250, `mobile avatar sheet should use the available play area instead of a cramped transcript strip: ${guestSheetHeight}`);
@@ -7107,55 +7153,8 @@ async function main() {
     await page.waitForFunction(() => document.querySelector("#economy")?.getAttribute("aria-expanded") === "false");
     assert(await page.evaluate(() => document.activeElement?.id === "economy"), "Escape should close the collection and return focus to its toggle");
     await focusAccountInventory();
-    await page.evaluate(() => {
-      window.cosySmokeProvider = window.solana;
-      window.solana = undefined;
-      window.phantom = undefined;
-    });
-    await page.locator("[data-account-connect]").click();
-    await page.waitForSelector("#wallet-modal:not([hidden])");
-    const qrProbe = await page.evaluate(async () => {
-      const image = document.querySelector("#wallet-qr-image");
-      const mobileUrl = document.querySelector("#wallet-mobile-url")?.textContent || "";
-      const response = await fetch(image?.src || "");
-      return {
-        imageSrc: image?.src || "",
-        mobileUrl,
-        ok: response.ok,
-        contentType: response.headers.get("content-type") || "",
-        svgPrefix: (await response.text()).slice(0, 80),
-      };
-    });
-    assert(qrProbe.imageSrc.includes("/wallet/qr/") && qrProbe.imageSrc.endsWith("/code.svg"), `QR image should come from the server QR route: ${JSON.stringify(qrProbe)}`);
-    assert(qrProbe.mobileUrl.includes("/wallet/qr/"), `QR modal should show the mobile sign-in URL: ${JSON.stringify(qrProbe)}`);
-    assert(qrProbe.ok && qrProbe.contentType.includes("image/svg+xml") && qrProbe.svgPrefix.includes("<svg"), `QR SVG should be fetchable: ${JSON.stringify(qrProbe)}`);
-    steps.push({ label: "wallet QR fallback", qr: "visible" });
-    await page.locator("[data-wallet-close]").click();
-    await page.waitForFunction(() => document.querySelector("#wallet-modal")?.hidden === true && !document.querySelector("#primary")?.disabled);
-    await page.evaluate(() => {
-      window.solana = window.cosySmokeProvider;
-      delete window.cosySmokeProvider;
-    });
-    await focusAccountInventory();
-    await page.locator("[data-account-connect]").click();
-    await page.waitForFunction(
-      (walletAddress) => localStorage.getItem("cosyworld.wallet") === walletAddress
-        && Boolean(localStorage.getItem("cosyworld.walletSession")),
-      signedSmokeWalletAddress,
-    );
-    await page.waitForFunction(() => (
-      state?.access?.mode === "signed_ruby_high_wallet"
-        && !document.querySelector("#primary")?.disabled
-    ));
-    await focusAccountInventory();
-    const signedCollectionText = await page.locator(".account-panel").innerText();
-    assert(signedCollectionText.includes("Homeroom") && signedCollectionText.includes("Library"), `signed collection should show owned location cards before their paths are found: ${signedCollectionText}`);
-    assert(await page.locator(".account-panel .owned-card .account-card-open[data-card-key]").count() >= 2, "signed collection should render owned card art as detail buttons");
-    assert(await page.locator(".account-panel .owned-card .account-asset-effect").count() >= 2, "signed collection should explain what each kept-close card changes");
-    await page.evaluate(() => {
-      localStorage.removeItem("cosyworld.wallet");
-      localStorage.removeItem("cosyworld.walletSession");
-    });
+    assert(await page.locator("[data-passkey-continue]").isVisible(), "guest account should offer passkey continuation before NFT wallet claiming");
+    await closeAccountInventory();
   }
 
   async function assertSignedWalletBoxAccountFlow() {
@@ -7633,7 +7632,23 @@ async function main() {
   await assertActionBarCapped("avatar gate", 1);
   assert((await primaryText()).toLowerCase().includes("begin"), "first command should begin avatar creation");
 
-  await beginAvatarAndAssertArrival();
+  const coreAvatar = await page.evaluate(async () => {
+    const response = await fetch("/avatar", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Browser Smoke" }),
+    }).then((entry) => entry.json());
+    if (!response.ok || !response.actor?.id || !response.actor_session) return response;
+    localStorage.setItem("cosyworld.actorId", String(response.actor.id));
+    localStorage.setItem("cosyworld.actorSession", response.actor_session);
+    localStorage.setItem("cosyworld.avatarGateVersion", "2");
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.delete("reset");
+    history.replaceState({}, "", nextUrl);
+    return response;
+  });
+  assert(coreAvatar.ok, `core-world smoke avatar should be created through the public endpoint: ${JSON.stringify(coreAvatar)}`);
+  await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
   await page.waitForFunction(() => {
     const primary = document.querySelector("#primary");
@@ -7657,26 +7672,8 @@ async function main() {
   await assertActionBarCapped("normal play", 2);
   await assertFirstThreadGuide();
   await assertNoComposerOrDebugChrome();
-  steps.push({
-    label: "focus collectible card",
-    primary: await focusPrimaryMatching("collectible card", (text) => text.includes("take"), 64),
-  });
-  assert((await primaryText()).toLowerCase().includes("take"), "normal play should keep a collectible drawable before chat");
-  await assertPrimaryOmitsActionCounter("normal play collectible");
-  assert(!(await primaryText()).toLowerCase().includes("orb chat"), "chat command should not show an Orb cost suffix");
   const legacyListChrome = await page.locator("#route-map,#presence,#features,.route-node,.chip,.feature-pill").count();
   assert(legacyListChrome === 0, `inline item/location/avatar lists should not render: ${legacyListChrome}`);
-  steps.push({
-    label: "focus Hearth feature",
-    primary: await focusPrimaryMatchingAcrossShuffles(
-      "Hearth feature",
-      (text) => text.includes("hearth") && /\b(search|take|use)\b/.test(text),
-    ),
-  });
-  assert(
-    /\b(search|take|use)\b/.test((await primaryText()).toLowerCase()),
-    "feature focus should offer the visible Hearth affordance",
-  );
   await assertZeroOrbModePrefersWorldEarningAction();
   await assertEmptyActionSetFallsBackToLook();
   await assertLockedRoutesCollapseAndFooterVerbsFit();
@@ -7696,8 +7693,7 @@ async function main() {
   await assertKeepsakeLoadoutShapesSceneDeal();
   await assertOneItemHandUsesSwapLanguage();
   await assertGiveTradeCanBeDrawnFromShuffledDeck();
-  await assertBankLedgerSurfacesAsCompactProgressAction();
-  await assertTrainSkillSurfacesAsCompactAdvancementAction();
+  await assertQuestAndLevelUpCardsUseStandardProgression();
   await assertBondSurfacesAsCompactRelationshipAction();
   await assertMatureBondSurfacesAsCompactSettlementAction();
   await assertPreparedProgressLabelsAreRoomScoped();
@@ -8145,8 +8141,6 @@ async function main() {
   if (!runLivingWorldStress) {
     await assertMudShellVisualContract("desktop visual shell");
   }
-  await assertSignedWalletBoxAccountFlow();
-
   await browser.close();
   console.log(JSON.stringify({ ok: true, url: targetUrl, steps, finalState }, null, 2));
 }

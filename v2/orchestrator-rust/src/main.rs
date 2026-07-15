@@ -236,6 +236,8 @@ const BOND_REVISION_COST: u8 = 1;
 const BOND_SETTLE_MIN_STRENGTH: u8 = 2;
 const SKILL_STEP_COST: u8 = 1;
 const MAX_SKILL_RANK: u8 = 3;
+const LEVEL_UP_COST: u8 = 1;
+const LEVEL_UP_CHOICE_COUNT: usize = 2;
 const DEFAULT_EVENT_REPLAY_LIMIT: usize = 80;
 const MAX_EVENT_REPLAY_LIMIT: usize = 500;
 const MAX_EVENT_STORE_SCAN: usize = 1000;
@@ -724,6 +726,16 @@ enum ProjectionMutation {
         cost: u8,
         reason: String,
     },
+    AcceptQuest {
+        quest_id: String,
+        reason: String,
+    },
+    LevelUp {
+        offer_id: String,
+        choice_id: String,
+        cost: u8,
+        reason: String,
+    },
     DeepenBond {
         target_actor_id: u64,
         claim_key: String,
@@ -752,6 +764,24 @@ struct SkillState {
     rank: u8,
     #[serde(default)]
     updated_event_seq: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ActiveQuestState {
+    actor_id: u64,
+    quest_id: String,
+    accepted_event_seq: u64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+struct CharacterBuildState {
+    actor_id: u64,
+    #[serde(default)]
+    class_levels: BTreeMap<String, u8>,
+    #[serde(default)]
+    skill_proficiencies: BTreeSet<String>,
+    #[serde(default)]
+    features: BTreeSet<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -964,6 +994,8 @@ const SEED_LIFECYCLE_HOOKS_JSON: &str = include_str!("../../content/official/lif
 const SEED_EVOLUTION_TRACKS_JSON: &str =
     include_str!("../../content/official/evolution_tracks.json");
 const SEED_RECIPES_JSON: &str = include_str!("../../content/official/recipes.json");
+const SEED_QUESTS_JSON: &str = include_str!("../../content/official/quests.json");
+const SEED_KNOWLEDGE_JSON: &str = include_str!("../../content/official/knowledge.json");
 const SEED_EXTERNAL_CARDS_JSON: &str = include_str!("../../content/official/external_cards.json");
 const SEED_ASSET_MOUNTS_JSON: &str = include_str!("../../content/official/assets.json");
 const SEED_RULES_JSON: &str = include_str!("../../content/official/rules.json");
@@ -994,6 +1026,8 @@ struct SeedContent {
     lifecycle_hooks: Vec<SeedLifecycleHookContent>,
     evolution_tracks: Vec<SeedEvolutionTrack>,
     recipes: Vec<SeedRecipeContent>,
+    quests: Vec<SeedQuestContent>,
+    knowledge: Vec<SeedKnowledgeContent>,
     rules: Vec<SeedRuleBundle>,
     attributions: Vec<SeedAttribution>,
     character_creation: Vec<SeedCharacterCreationBundle>,
@@ -1528,6 +1562,57 @@ struct SeedRecipeBalanceContent {
     reason: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedQuestContent {
+    id: String,
+    title: String,
+    description: String,
+    source_location_id: u64,
+    objective: SeedQuestObjectiveContent,
+    rewards: Vec<SeedQuestRewardContent>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedQuestObjectiveContent {
+    text: String,
+    event_type: String,
+    location_id: u64,
+    #[serde(default)]
+    ability: Option<String>,
+    #[serde(default = "default_true")]
+    success: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedQuestRewardContent {
+    kind: String,
+    knowledge_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedKnowledgeContent {
+    id: String,
+    kind: String,
+    name: String,
+    description: String,
+    #[serde(default)]
+    ability: Option<String>,
+    #[serde(default)]
+    hit_die: Option<u8>,
+    #[serde(default)]
+    primary_abilities: Vec<String>,
+    #[serde(default)]
+    skill_choice_count: u8,
+    #[serde(default)]
+    allowed_skill_ids: Vec<String>,
+    #[serde(default)]
+    automatic_features: Vec<String>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Deserialize)]
 struct LonelyForestCharacterManifest {
     entries: Vec<LonelyForestCharacterAsset>,
@@ -1555,6 +1640,10 @@ struct RuntimeWorld {
     journeys: BTreeMap<u64, JourneyState>,
     callings: BTreeMap<u64, CallingState>,
     skills: BTreeMap<String, SkillState>,
+    active_quests: BTreeMap<u64, ActiveQuestState>,
+    completed_quests: BTreeSet<String>,
+    knowledge_unlocks: BTreeSet<String>,
+    character_builds: BTreeMap<u64, CharacterBuildState>,
     ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
     advancement_spends: BTreeMap<String, AdvancementSpendState>,
     bonds: BTreeMap<String, BondState>,
@@ -1611,6 +1700,14 @@ struct RuntimeSnapshot {
     callings: BTreeMap<u64, CallingState>,
     #[serde(default)]
     skills: BTreeMap<String, SkillState>,
+    #[serde(default)]
+    active_quests: BTreeMap<u64, ActiveQuestState>,
+    #[serde(default)]
+    completed_quests: BTreeSet<String>,
+    #[serde(default)]
+    knowledge_unlocks: BTreeSet<String>,
+    #[serde(default)]
+    character_builds: BTreeMap<u64, CharacterBuildState>,
     #[serde(default)]
     ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
     #[serde(default)]
@@ -2204,6 +2301,10 @@ struct StateResponse {
     journey: Option<JourneyView>,
     calling: Option<CallingView>,
     skills: Vec<SkillView>,
+    quests: QuestBoardView,
+    unlocks: Vec<KnowledgeUnlockView>,
+    character: CharacterBuildView,
+    advancement: AdvancementView,
     ledger: VisitLedgerView,
     bonds: Vec<BondView>,
     chat_bond_claimed_target_ids: Vec<u64>,
@@ -2220,6 +2321,76 @@ struct StateResponse {
     action_offers: Vec<RankedActionOffer>,
     inspector: InspectorView,
     character_creation: Vec<CharacterCreationProfileView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct QuestBoardView {
+    active: Option<QuestView>,
+    available: Vec<QuestView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct QuestView {
+    id: String,
+    title: String,
+    description: String,
+    source_location_id: u64,
+    objective: String,
+    rewards: Vec<KnowledgeUnlockView>,
+    status: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct KnowledgeUnlockView {
+    id: String,
+    kind: String,
+    name: String,
+    description: String,
+    ability: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CharacterBuildView {
+    level: u8,
+    class_levels: Vec<ClassLevelView>,
+    skill_proficiencies: Vec<KnowledgeUnlockView>,
+    features: Vec<String>,
+    proficiency_bonus: i16,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ClassLevelView {
+    id: String,
+    name: String,
+    level: u8,
+    hit_die: u8,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct AdvancementView {
+    points: usize,
+    offer: Option<LevelUpOfferView>,
+    blocked_reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct LevelUpOfferView {
+    id: String,
+    next_level: u8,
+    choices: Vec<LevelUpChoiceView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct LevelUpChoiceView {
+    id: String,
+    class_id: String,
+    class_name: String,
+    hit_die: u8,
+    hit_points: i16,
+    skill_ids: Vec<String>,
+    skill_names: Vec<String>,
+    features: Vec<String>,
+    summary: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -3330,6 +3501,21 @@ struct TrainSkillRequest {
     skill_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct AcceptQuestRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    quest_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct LevelUpRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    offer_id: String,
+    choice_id: String,
+}
+
 #[derive(Clone, Debug, Default)]
 struct AccessContext {
     owner_wallet_address: Option<String>,
@@ -3719,6 +3905,8 @@ fn parse_seed_content(manifest_json: &str) -> Result<SeedContent, String> {
         lifecycle_hooks: parse_seed_json("lifecycle_hooks.json", SEED_LIFECYCLE_HOOKS_JSON)?,
         evolution_tracks: parse_seed_json("evolution_tracks.json", SEED_EVOLUTION_TRACKS_JSON)?,
         recipes: parse_seed_json("recipes.json", SEED_RECIPES_JSON)?,
+        quests: parse_seed_json("quests.json", SEED_QUESTS_JSON)?,
+        knowledge: parse_seed_json("knowledge.json", SEED_KNOWLEDGE_JSON)?,
         rules: parse_seed_json("rules.json", SEED_RULES_JSON)?,
         attributions: parse_seed_json("attributions.json", SEED_ATTRIBUTIONS_JSON)?,
         character_creation: parse_seed_json(
@@ -4217,6 +4405,73 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
                 "seed location {} is missing title, description, or persona",
                 location.id
             ));
+        }
+    }
+    let mut knowledge_ids = BTreeSet::new();
+    for knowledge in &content.knowledge {
+        if knowledge.id.trim().is_empty()
+            || knowledge.name.trim().is_empty()
+            || knowledge.description.trim().is_empty()
+            || !knowledge_ids.insert(knowledge.id.as_str())
+        {
+            return Err(format!("invalid or duplicate knowledge {}", knowledge.id));
+        }
+        match knowledge.kind.as_str() {
+            "class"
+                if knowledge.hit_die.is_some_and(|die| (4..=12).contains(&die))
+                    && knowledge.skill_choice_count > 0
+                    && !knowledge.allowed_skill_ids.is_empty()
+                    && !knowledge.primary_abilities.is_empty() => {}
+            "skill_proficiency"
+                if knowledge.ability.as_deref().is_some_and(|ability| {
+                    matches!(
+                        ability,
+                        "strength"
+                            | "dexterity"
+                            | "constitution"
+                            | "intelligence"
+                            | "wisdom"
+                            | "charisma"
+                    )
+                }) => {}
+            _ => return Err(format!("invalid knowledge definition {}", knowledge.id)),
+        }
+    }
+    for knowledge in content
+        .knowledge
+        .iter()
+        .filter(|knowledge| knowledge.kind == "class")
+    {
+        if knowledge.allowed_skill_ids.iter().any(|skill_id| {
+            !content
+                .knowledge
+                .iter()
+                .any(|candidate| candidate.id == *skill_id && candidate.kind == "skill_proficiency")
+        }) {
+            return Err(format!(
+                "class knowledge {} references an unknown skill",
+                knowledge.id
+            ));
+        }
+    }
+    let mut quest_ids = BTreeSet::new();
+    for quest in &content.quests {
+        if quest.id.trim().is_empty()
+            || quest.title.trim().is_empty()
+            || quest.description.trim().is_empty()
+            || quest.objective.text.trim().is_empty()
+            || quest.objective.event_type.trim().is_empty()
+            || !location_ids.contains(&quest.source_location_id)
+            || !location_ids.contains(&quest.objective.location_id)
+            || quest.rewards.is_empty()
+            || !quest_ids.insert(quest.id.as_str())
+        {
+            return Err(format!("invalid or duplicate quest {}", quest.id));
+        }
+        if quest.rewards.iter().any(|reward| {
+            reward.kind != "unlock" || !knowledge_ids.contains(reward.knowledge_id.as_str())
+        }) {
+            return Err(format!("quest {} has an invalid reward", quest.id));
         }
     }
     let mut character_creation_pack_ids = BTreeSet::new();
@@ -7677,6 +7932,10 @@ impl RuntimeSnapshot {
             journeys: runtime.journeys.clone(),
             callings: runtime.callings.clone(),
             skills: runtime.skills.clone(),
+            active_quests: runtime.active_quests.clone(),
+            completed_quests: runtime.completed_quests.clone(),
+            knowledge_unlocks: runtime.knowledge_unlocks.clone(),
+            character_builds: runtime.character_builds.clone(),
             ledger_marks: runtime.ledger_marks.clone(),
             advancement_spends: runtime.advancement_spends.clone(),
             bonds: runtime.bonds.clone(),
@@ -7791,6 +8050,10 @@ impl RuntimeSnapshot {
             journeys: self.journeys,
             callings: self.callings,
             skills: self.skills,
+            active_quests: self.active_quests,
+            completed_quests: self.completed_quests,
+            knowledge_unlocks: self.knowledge_unlocks,
+            character_builds: self.character_builds,
             ledger_marks: self.ledger_marks,
             advancement_spends: self.advancement_spends,
             bonds: self.bonds,
@@ -7810,6 +8073,7 @@ impl RuntimeSnapshot {
         .map(|mut runtime| {
             runtime.ensure_seed_topology();
             runtime.ensure_seed_rpg_projection();
+            runtime.ensure_character_builds();
             runtime.backfill_generated_avatar_flavor();
             runtime.backfill_listen_attempt_claims_from_events();
             runtime.refresh_all_resident_continuities();
@@ -7893,6 +8157,10 @@ impl RuntimeWorld {
             journeys: BTreeMap::new(),
             callings: BTreeMap::new(),
             skills: BTreeMap::new(),
+            active_quests: BTreeMap::new(),
+            completed_quests: BTreeSet::new(),
+            knowledge_unlocks: BTreeSet::new(),
+            character_builds: BTreeMap::new(),
             ledger_marks: BTreeMap::new(),
             advancement_spends: BTreeMap::new(),
             bonds: BTreeMap::new(),
@@ -7913,6 +8181,7 @@ impl RuntimeWorld {
         runtime.ensure_seed_topology();
         runtime.append_world_bootstrapped_event();
         runtime.ensure_seed_rpg_projection();
+        runtime.ensure_character_builds();
         runtime.backfill_generated_avatar_flavor();
         runtime.refresh_all_resident_continuities();
         runtime.ensure_actor_autonomy();
@@ -9765,6 +10034,8 @@ impl RuntimeWorld {
             events.extend(self.apply_listen_rpg_projection(&action, &events, was_repeat_listen));
             let committed_events = events.clone();
             events.extend(self.clear_job_resolved_tags_from_events(&committed_events));
+            let committed_events = events.clone();
+            events.extend(self.apply_quest_completion(&action, &committed_events));
             self.apply_automatic_orb_rewards(&action, &events);
             for delta in &record.orb_deltas {
                 self.apply_orb_delta(delta.actor_id, delta.delta);
@@ -10391,6 +10662,23 @@ impl RuntimeWorld {
                 } => {
                     events.extend(self.train_skill(action.actor_id, skill_id, *cost, reason));
                 }
+                ProjectionMutation::AcceptQuest { quest_id, reason } => {
+                    events.extend(self.accept_quest(action.actor_id, quest_id, reason));
+                }
+                ProjectionMutation::LevelUp {
+                    offer_id,
+                    choice_id,
+                    cost,
+                    reason,
+                } => {
+                    events.extend(self.level_up(
+                        action.actor_id,
+                        offer_id,
+                        choice_id,
+                        *cost,
+                        reason,
+                    ));
+                }
                 ProjectionMutation::DeepenBond {
                     target_actor_id,
                     claim_key,
@@ -10567,7 +10855,7 @@ impl RuntimeWorld {
         action: &CwAction,
         events: &[EventView],
         initial_calling: Option<&str>,
-        initial_skill: Option<&str>,
+        _initial_skill: Option<&str>,
     ) -> Vec<EventView> {
         if action.kind != CW_ACTION_CREATE_ACTOR || self.callings.contains_key(&action.actor_id) {
             return Vec::new();
@@ -10577,6 +10865,15 @@ impl RuntimeWorld {
         };
         if actor.kind != CW_ACTOR_HUMAN {
             return Vec::new();
+        }
+        self.character_builds
+            .entry(action.actor_id)
+            .or_insert_with(|| CharacterBuildState {
+                actor_id: action.actor_id,
+                ..CharacterBuildState::default()
+            });
+        if let Some(actor) = self.actor_by_id_mut(action.actor_id) {
+            actor.stats.level = 0;
         }
         let source_event_seq = events
             .iter()
@@ -10594,27 +10891,7 @@ impl RuntimeWorld {
             .and_then(normalize_calling_statement)
             .map(|_| "chosen_calling")
             .unwrap_or("avatar_created");
-        let mut projection_events =
-            vec![self.append_calling_event("calling.set", &calling, reason)];
-        if let Some(skill_id) = initial_skill.filter(|skill_id| skill_label(skill_id).is_some()) {
-            let id = skill_state_id(action.actor_id, skill_id);
-            if !self.skills.contains_key(&id) {
-                let skill = SkillState {
-                    actor_id: action.actor_id,
-                    skill_id: skill_id.to_string(),
-                    label: skill_label(skill_id).unwrap_or("Knack").to_string(),
-                    rank: 1,
-                    updated_event_seq: Some(self.world.next_event_seq),
-                };
-                self.skills.insert(id, skill.clone());
-                projection_events.push(self.append_skill_event(
-                    "skill.stepped",
-                    &skill,
-                    "character_creation",
-                ));
-            }
-        }
-        projection_events
+        vec![self.append_calling_event("calling.set", &calling, reason)]
     }
 
     fn apply_defend_project_preparation(
@@ -11747,6 +12024,16 @@ impl RuntimeWorld {
     }
 
     fn skill_bonus_for_ability(&self, actor_id: u64, ability: u8) -> i16 {
+        if let Some(build) = self.character_builds.get(&actor_id) {
+            let level = self
+                .actor_by_id(actor_id)
+                .map(|actor| actor.stats.level)
+                .unwrap_or(0);
+            return dnd_skill_id_for_ability(ability)
+                .filter(|skill_id| build.skill_proficiencies.contains(*skill_id))
+                .map(|_| proficiency_bonus(level))
+                .unwrap_or(0);
+        }
         let Some(skill_id) = skill_id_for_ability(ability) else {
             return 0;
         };
@@ -12743,6 +13030,416 @@ impl RuntimeWorld {
             .iter()
             .copied()
             .find(|actor| actor.id == actor_id)
+    }
+
+    fn actor_by_id_mut(&mut self, actor_id: u64) -> Option<&mut CwActor> {
+        self.world.actors[..self.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == actor_id)
+    }
+
+    fn ensure_character_builds(&mut self) {
+        let human_ids = self.world.actors[..self.world.actor_count]
+            .iter()
+            .filter(|actor| actor.kind == CW_ACTOR_HUMAN)
+            .map(|actor| actor.id)
+            .collect::<Vec<_>>();
+        for actor_id in human_ids {
+            let build =
+                self.character_builds
+                    .entry(actor_id)
+                    .or_insert_with(|| CharacterBuildState {
+                        actor_id,
+                        ..CharacterBuildState::default()
+                    });
+            if build.class_levels.is_empty() {
+                if let Some(actor) = self.world.actors[..self.world.actor_count]
+                    .iter_mut()
+                    .find(|actor| actor.id == actor_id)
+                {
+                    actor.stats.level = 0;
+                }
+            }
+        }
+    }
+
+    fn quest_definition(&self, quest_id: &str) -> Option<&SeedQuestContent> {
+        seed_content()
+            .quests
+            .iter()
+            .find(|quest| quest.id == quest_id)
+    }
+
+    fn knowledge_definition(&self, knowledge_id: &str) -> Option<&SeedKnowledgeContent> {
+        seed_content()
+            .knowledge
+            .iter()
+            .find(|knowledge| knowledge.id == knowledge_id)
+    }
+
+    fn knowledge_unlocked(&self, actor_id: u64, knowledge_id: &str) -> bool {
+        self.knowledge_unlocks
+            .contains(&knowledge_unlock_key(actor_id, knowledge_id))
+    }
+
+    fn quest_completed(&self, actor_id: u64, quest_id: &str) -> bool {
+        self.completed_quests
+            .contains(&quest_completion_key(actor_id, quest_id))
+    }
+
+    fn accept_quest(&mut self, actor_id: u64, quest_id: &str, reason: &str) -> Vec<EventView> {
+        if self.active_quests.contains_key(&actor_id) || self.quest_completed(actor_id, quest_id) {
+            return Vec::new();
+        }
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return Vec::new();
+        };
+        let Some(quest) = self.quest_definition(quest_id).cloned() else {
+            return Vec::new();
+        };
+        if quest.source_location_id != actor.location_id
+            || quest
+                .rewards
+                .iter()
+                .all(|reward| self.knowledge_unlocked(actor_id, &reward.knowledge_id))
+        {
+            return Vec::new();
+        }
+        let state = ActiveQuestState {
+            actor_id,
+            quest_id: quest.id.clone(),
+            accepted_event_seq: self.world.next_event_seq,
+        };
+        self.active_quests.insert(actor_id, state);
+        vec![self.append_async_job_event(
+            "quest.started",
+            actor_id,
+            None,
+            Some(format!("{}|{}|{}", quest.id, quest.title, reason)),
+        )]
+    }
+
+    fn apply_quest_completion(
+        &mut self,
+        action: &CwAction,
+        events: &[EventView],
+    ) -> Vec<EventView> {
+        let Some(active) = self.active_quests.get(&action.actor_id).cloned() else {
+            return Vec::new();
+        };
+        let Some(quest) = self.quest_definition(&active.quest_id).cloned() else {
+            return Vec::new();
+        };
+        let matched = events.iter().any(|event| {
+            event.seq > active.accepted_event_seq
+                && event.actor_id == Some(action.actor_id)
+                && event.type_name == quest.objective.event_type
+                && event.location_id == Some(quest.objective.location_id)
+                && (!quest.objective.success || event.success)
+                && quest.objective.ability.as_deref().is_none_or(|ability| {
+                    action.kind == CW_ACTION_ABILITY_CHECK
+                        && action.ability == ability_from_string(ability)
+                })
+        });
+        if !matched {
+            return Vec::new();
+        }
+
+        self.active_quests.remove(&action.actor_id);
+        self.completed_quests
+            .insert(quest_completion_key(action.actor_id, &quest.id));
+        let mut projected = vec![self.append_async_job_event(
+            "quest.completed",
+            action.actor_id,
+            None,
+            Some(format!("{}|{}", quest.id, quest.title)),
+        )];
+        for reward in &quest.rewards {
+            if reward.kind != "unlock" {
+                continue;
+            }
+            let key = knowledge_unlock_key(action.actor_id, &reward.knowledge_id);
+            if !self.knowledge_unlocks.insert(key) {
+                continue;
+            }
+            let label = self
+                .knowledge_definition(&reward.knowledge_id)
+                .map(|knowledge| knowledge.name.clone())
+                .unwrap_or_else(|| reward.knowledge_id.clone());
+            projected.push(self.append_async_job_event(
+                "knowledge.unlocked",
+                action.actor_id,
+                None,
+                Some(format!("{}|{}", reward.knowledge_id, label)),
+            ));
+        }
+        projected
+    }
+
+    fn unlocked_knowledge_for_actor(&self, actor_id: u64) -> Vec<&SeedKnowledgeContent> {
+        seed_content()
+            .knowledge
+            .iter()
+            .filter(|knowledge| self.knowledge_unlocked(actor_id, &knowledge.id))
+            .collect()
+    }
+
+    fn level_up_offer(&self, actor_id: u64) -> Option<LevelUpOfferView> {
+        let actor = self.actor_by_id(actor_id)?;
+        let build = self.character_builds.get(&actor_id)?;
+        if actor.stats.level != 0
+            || !build.class_levels.is_empty()
+            || self.advancement_points_available(actor_id) < usize::from(LEVEL_UP_COST)
+        {
+            return None;
+        }
+        let unlocked_ids = self
+            .unlocked_knowledge_for_actor(actor_id)
+            .into_iter()
+            .map(|knowledge| knowledge.id.clone())
+            .collect::<BTreeSet<_>>();
+        let mut candidates = Vec::new();
+        for class in seed_content()
+            .knowledge
+            .iter()
+            .filter(|knowledge| knowledge.kind == "class" && unlocked_ids.contains(&knowledge.id))
+        {
+            let skills = class
+                .allowed_skill_ids
+                .iter()
+                .filter(|skill_id| unlocked_ids.contains(*skill_id))
+                .cloned()
+                .collect::<Vec<_>>();
+            for selected in choose_strings(&skills, usize::from(class.skill_choice_count)) {
+                let choice_id = format!("{}|{}", class.id, selected.join(","));
+                let skill_names = selected
+                    .iter()
+                    .filter_map(|skill_id| {
+                        self.knowledge_definition(skill_id)
+                            .map(|knowledge| knowledge.name.clone())
+                    })
+                    .collect::<Vec<_>>();
+                let hit_die = class.hit_die.unwrap_or(8);
+                let hit_points =
+                    (i16::from(hit_die) + ability_score_modifier(actor.stats.constitution)).max(1);
+                candidates.push(LevelUpChoiceView {
+                    id: choice_id,
+                    class_id: class.id.clone(),
+                    class_name: class.name.clone(),
+                    hit_die,
+                    hit_points,
+                    skill_ids: selected,
+                    skill_names: skill_names.clone(),
+                    features: class.automatic_features.clone(),
+                    summary: format!(
+                        "d{} Hit Die · {} HP · {}",
+                        hit_die,
+                        hit_points,
+                        skill_names.join(" + ")
+                    ),
+                });
+            }
+        }
+        if candidates.is_empty() {
+            return None;
+        }
+        let state_seed = format!(
+            "{actor_id}:{}:{}",
+            actor.stats.level,
+            unlocked_ids.iter().cloned().collect::<Vec<_>>().join(",")
+        );
+        candidates.sort_by_key(|choice| {
+            (
+                stable_domain_hash(&format!("{state_seed}:{}", choice.id)),
+                choice.id.clone(),
+            )
+        });
+        candidates.truncate(LEVEL_UP_CHOICE_COUNT);
+        let offer_fingerprint = candidates
+            .iter()
+            .map(|choice| choice.id.as_str())
+            .collect::<Vec<_>>()
+            .join(";");
+        Some(LevelUpOfferView {
+            id: format!(
+                "level-up-{actor_id}-{:016x}",
+                stable_domain_hash(&format!("{state_seed}:{offer_fingerprint}"))
+            ),
+            next_level: 1,
+            choices: candidates,
+        })
+    }
+
+    fn level_up(
+        &mut self,
+        actor_id: u64,
+        offer_id: &str,
+        choice_id: &str,
+        cost: u8,
+        reason: &str,
+    ) -> Vec<EventView> {
+        if cost == 0 || self.advancement_points_available(actor_id) < usize::from(cost) {
+            return Vec::new();
+        }
+        let Some(offer) = self.level_up_offer(actor_id) else {
+            return Vec::new();
+        };
+        if offer.id != offer_id {
+            return Vec::new();
+        }
+        let Some(choice) = offer
+            .choices
+            .into_iter()
+            .find(|choice| choice.id == choice_id)
+        else {
+            return Vec::new();
+        };
+
+        let spend_seq = self.world.next_event_seq;
+        let spend = AdvancementSpendState {
+            id: advancement_spend_id(actor_id, "level_up", spend_seq),
+            actor_id,
+            kind: "level_up".to_string(),
+            label: format!("Level 1 {}", choice.class_name),
+            cost,
+            source_event_seq: spend_seq,
+        };
+        if self.advancement_spends.contains_key(&spend.id) {
+            return Vec::new();
+        }
+        self.advancement_spends
+            .insert(spend.id.clone(), spend.clone());
+        let mut events = vec![self.append_advancement_event("advancement.spent", &spend, reason)];
+
+        let build = self
+            .character_builds
+            .entry(actor_id)
+            .or_insert_with(|| CharacterBuildState {
+                actor_id,
+                ..CharacterBuildState::default()
+            });
+        build.class_levels.insert(choice.class_id.clone(), 1);
+        build.skill_proficiencies.extend(choice.skill_ids.clone());
+        build.features.extend(choice.features.clone());
+        if let Some(actor) = self.actor_by_id_mut(actor_id) {
+            actor.stats.level = 1;
+            actor.stats.hp_base = choice.hit_points;
+            actor.damage = 0;
+            actor.status = CW_ACTOR_ACTIVE;
+        }
+        events.push(self.append_async_job_event(
+            "level.gained",
+            actor_id,
+            None,
+            Some(format!(
+                "1|{}|{}|{}",
+                choice.class_id,
+                choice.skill_ids.join(","),
+                choice.features.join(",")
+            )),
+        ));
+        events
+    }
+
+    fn quest_board_view(&self, actor_id: u64, location_id: u64) -> QuestBoardView {
+        let active = self.active_quests.get(&actor_id).and_then(|state| {
+            self.quest_definition(&state.quest_id)
+                .map(|quest| self.quest_view(quest, "active"))
+        });
+        let available = if active.is_some() {
+            Vec::new()
+        } else {
+            seed_content()
+                .quests
+                .iter()
+                .filter(|quest| quest.source_location_id == location_id)
+                .filter(|quest| !self.quest_completed(actor_id, &quest.id))
+                .filter(|quest| {
+                    quest
+                        .rewards
+                        .iter()
+                        .any(|reward| !self.knowledge_unlocked(actor_id, &reward.knowledge_id))
+                })
+                .map(|quest| self.quest_view(quest, "available"))
+                .collect()
+        };
+        QuestBoardView { active, available }
+    }
+
+    fn quest_view(&self, quest: &SeedQuestContent, status: &str) -> QuestView {
+        QuestView {
+            id: quest.id.clone(),
+            title: quest.title.clone(),
+            description: quest.description.clone(),
+            source_location_id: quest.source_location_id,
+            objective: quest.objective.text.clone(),
+            rewards: quest
+                .rewards
+                .iter()
+                .filter_map(|reward| self.knowledge_definition(&reward.knowledge_id))
+                .map(knowledge_unlock_view)
+                .collect(),
+            status: status.to_string(),
+        }
+    }
+
+    fn character_build_view(&self, actor_id: u64) -> CharacterBuildView {
+        let level = self
+            .actor_by_id(actor_id)
+            .map(|actor| actor.stats.level)
+            .unwrap_or(0);
+        let build = self.character_builds.get(&actor_id);
+        let class_levels = build
+            .into_iter()
+            .flat_map(|build| build.class_levels.iter())
+            .filter_map(|(class_id, level)| {
+                self.knowledge_definition(class_id)
+                    .map(|class| ClassLevelView {
+                        id: class_id.clone(),
+                        name: class.name.clone(),
+                        level: *level,
+                        hit_die: class.hit_die.unwrap_or(8),
+                    })
+            })
+            .collect();
+        let skill_proficiencies = build
+            .into_iter()
+            .flat_map(|build| build.skill_proficiencies.iter())
+            .filter_map(|skill_id| self.knowledge_definition(skill_id))
+            .map(knowledge_unlock_view)
+            .collect();
+        CharacterBuildView {
+            level,
+            class_levels,
+            skill_proficiencies,
+            features: build
+                .map(|build| build.features.iter().cloned().collect())
+                .unwrap_or_default(),
+            proficiency_bonus: proficiency_bonus(level),
+        }
+    }
+
+    fn advancement_view(&self, actor_id: u64) -> AdvancementView {
+        let points = self.advancement_points_available(actor_id);
+        let offer = self.level_up_offer(actor_id);
+        let level = self
+            .actor_by_id(actor_id)
+            .map(|actor| actor.stats.level)
+            .unwrap_or(0);
+        let blocked_reason = if points == 0 {
+            Some("Keep a journal memory before you level up.".to_string())
+        } else if level > 0 {
+            Some("Your next class level has not entered this world yet.".to_string())
+        } else if offer.is_none() {
+            Some("Complete quests to unlock a class and two compatible Skills.".to_string())
+        } else {
+            None
+        };
+        AdvancementView {
+            points,
+            offer,
+            blocked_reason,
+        }
     }
 
     fn client_actor_can_submit(&self, actor_id: u64) -> bool {
@@ -16461,6 +17158,36 @@ impl RuntimeWorld {
             skills: client_actor_id
                 .map(|id| self.skill_views(id))
                 .unwrap_or_default(),
+            quests: client_actor_id
+                .map(|id| self.quest_board_view(id, location_id))
+                .unwrap_or(QuestBoardView {
+                    active: None,
+                    available: Vec::new(),
+                }),
+            unlocks: client_actor_id
+                .map(|id| {
+                    self.unlocked_knowledge_for_actor(id)
+                        .into_iter()
+                        .map(knowledge_unlock_view)
+                        .collect()
+                })
+                .unwrap_or_default(),
+            character: client_actor_id
+                .map(|id| self.character_build_view(id))
+                .unwrap_or(CharacterBuildView {
+                    level: 0,
+                    class_levels: Vec::new(),
+                    skill_proficiencies: Vec::new(),
+                    features: Vec::new(),
+                    proficiency_bonus: 0,
+                }),
+            advancement: client_actor_id
+                .map(|id| self.advancement_view(id))
+                .unwrap_or(AdvancementView {
+                    points: 0,
+                    offer: None,
+                    blocked_reason: None,
+                }),
             ledger: client_actor_id
                 .map(|id| self.visit_ledger_view(id))
                 .unwrap_or_else(empty_visit_ledger_view),
@@ -17813,7 +18540,11 @@ impl RuntimeWorld {
     fn advancement_spent_count(&self, actor_id: u64) -> usize {
         self.advancement_spends
             .values()
-            .filter(|spend| spend.actor_id == actor_id)
+            .filter(|spend| {
+                spend.actor_id == actor_id
+                    && !(self.character_builds.contains_key(&actor_id)
+                        && spend.kind == "skill_step")
+            })
             .map(|spend| usize::from(spend.cost))
             .sum()
     }
@@ -17835,7 +18566,8 @@ impl RuntimeWorld {
     }
 
     fn default_trainable_skill(&self, actor_id: u64) -> Option<&'static str> {
-        if self.trained_since_rest_tag_active(actor_id)
+        if self.character_builds.contains_key(&actor_id)
+            || self.trained_since_rest_tag_active(actor_id)
             || self.advancement_points_available(actor_id) < usize::from(SKILL_STEP_COST)
         {
             return None;
@@ -30979,6 +31711,9 @@ async fn bank_ledger(
     ) {
         return client_actor_rejected_response();
     }
+    if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
+        return response;
+    }
     if runtime.visit_ledger_view(payload.actor_id).unbanked_count == 0 {
         return Json(ActionResponse {
             ok: false,
@@ -31035,6 +31770,188 @@ async fn bank_ledger(
     Json(ActionResponse {
         ok: status == CW_OK && !events.is_empty(),
         status: if events.is_empty() { 409 } else { status },
+        events,
+    })
+}
+
+async fn accept_quest(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<AcceptQuestRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
+        return response;
+    }
+    let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 404,
+            events: Vec::new(),
+        });
+    };
+    let valid = runtime
+        .quest_definition(&payload.quest_id)
+        .is_some_and(|quest| {
+            quest.source_location_id == actor.location_id
+                && !runtime.quest_completed(payload.actor_id, &quest.id)
+        });
+    if !valid || runtime.active_quests.contains_key(&payload.actor_id) {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    let turn_location_id = Some(actor.location_id);
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    )
+    .into_player_card();
+    record
+        .projection_mutations
+        .push(ProjectionMutation::AcceptQuest {
+            quest_id: payload.quest_id,
+            reason: "quest_card".to_string(),
+        });
+    let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    let reply_plan = advance_turn_and_capture_player_tick_observation(
+        &state,
+        &mut runtime,
+        turn_location_id,
+        payload.actor_id,
+        status,
+        &mut events,
+    );
+    drop(runtime);
+    broadcast_events(&state, &events);
+    if let Some(plan) = reply_plan {
+        schedule_player_tick_observation(&state, plan);
+    }
+    let accepted = events
+        .iter()
+        .any(|event| event.type_name == "quest.started");
+    Json(ActionResponse {
+        ok: status == CW_OK && accepted,
+        status: if accepted { status } else { 409 },
+        events,
+    })
+}
+
+async fn level_up(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<LevelUpRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
+        return response;
+    }
+    let valid = runtime
+        .level_up_offer(payload.actor_id)
+        .is_some_and(|offer| {
+            offer.id == payload.offer_id
+                && offer
+                    .choices
+                    .iter()
+                    .any(|choice| choice.id == payload.choice_id)
+        });
+    if !valid {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    let turn_location_id = runtime
+        .actor_by_id(payload.actor_id)
+        .map(|actor| actor.location_id);
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    )
+    .into_player_card();
+    record
+        .projection_mutations
+        .push(ProjectionMutation::LevelUp {
+            offer_id: payload.offer_id,
+            choice_id: payload.choice_id,
+            cost: LEVEL_UP_COST,
+            reason: "level_up".to_string(),
+        });
+    let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    let reply_plan = advance_turn_and_capture_player_tick_observation(
+        &state,
+        &mut runtime,
+        turn_location_id,
+        payload.actor_id,
+        status,
+        &mut events,
+    );
+    drop(runtime);
+    broadcast_events(&state, &events);
+    if let Some(plan) = reply_plan {
+        schedule_player_tick_observation(&state, plan);
+    }
+    let leveled = events.iter().any(|event| event.type_name == "level.gained");
+    Json(ActionResponse {
+        ok: status == CW_OK && leveled,
+        status: if leveled { status } else { 409 },
         events,
     })
 }
@@ -31171,7 +32088,8 @@ async fn train_skill(
         .get(&skill_state_id(payload.actor_id, skill_id))
         .map(|skill| skill.rank)
         .unwrap_or(0);
-    if current_rank >= MAX_SKILL_RANK
+    if runtime.character_builds.contains_key(&payload.actor_id)
+        || current_rank >= MAX_SKILL_RANK
         || runtime.trained_since_rest_tag_active(payload.actor_id)
         || runtime.advancement_points_available(payload.actor_id) < usize::from(SKILL_STEP_COST)
     {
@@ -32637,6 +33555,79 @@ fn visit_ledger_claim_key(mark_id: &str) -> String {
 
 fn advancement_spend_id(actor_id: u64, kind: &str, source_event_seq: u64) -> String {
     format!("advancement:{actor_id}:{kind}:{source_event_seq}")
+}
+
+fn knowledge_unlock_key(actor_id: u64, knowledge_id: &str) -> String {
+    format!("actor:{actor_id}:knowledge:{knowledge_id}")
+}
+
+fn quest_completion_key(actor_id: u64, quest_id: &str) -> String {
+    format!("actor:{actor_id}:quest:{quest_id}:completed")
+}
+
+fn knowledge_unlock_view(knowledge: &SeedKnowledgeContent) -> KnowledgeUnlockView {
+    KnowledgeUnlockView {
+        id: knowledge.id.clone(),
+        kind: knowledge.kind.clone(),
+        name: knowledge.name.clone(),
+        description: knowledge.description.clone(),
+        ability: knowledge.ability.clone(),
+    }
+}
+
+fn choose_strings(values: &[String], count: usize) -> Vec<Vec<String>> {
+    fn visit(
+        values: &[String],
+        count: usize,
+        start: usize,
+        current: &mut Vec<String>,
+        result: &mut Vec<Vec<String>>,
+    ) {
+        if current.len() == count {
+            result.push(current.clone());
+            return;
+        }
+        let remaining = count.saturating_sub(current.len());
+        if values.len().saturating_sub(start) < remaining {
+            return;
+        }
+        for index in start..values.len() {
+            current.push(values[index].clone());
+            visit(values, count, index + 1, current, result);
+            current.pop();
+        }
+    }
+
+    if count == 0 {
+        return vec![Vec::new()];
+    }
+    let mut result = Vec::new();
+    visit(values, count, 0, &mut Vec::new(), &mut result);
+    result
+}
+
+fn stable_domain_hash(value: &str) -> u64 {
+    value.bytes().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+        (hash ^ u64::from(byte)).wrapping_mul(0x1000_0000_01b3)
+    })
+}
+
+fn proficiency_bonus(level: u8) -> i16 {
+    if level == 0 {
+        0
+    } else {
+        2 + i16::from(level.saturating_sub(1) / 4)
+    }
+}
+
+fn dnd_skill_id_for_ability(ability: u8) -> Option<&'static str> {
+    match ability {
+        0 => Some("skill/athletics"),
+        1 => Some("skill/stealth"),
+        3 => Some("skill/investigation"),
+        4 => Some("skill/perception"),
+        _ => None,
+    }
 }
 
 fn skill_state_id(actor_id: u64, skill_id: &str) -> String {
@@ -37760,8 +38751,8 @@ mod tests {
         assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
         assert!(INDEX_HTML.contains("listen for one little clue."));
         assert!(INDEX_HTML.contains("ledger.banked_count"));
-        assert!(INDEX_HTML.contains("choose a friendship to grow."));
-        assert!(INDEX_HTML.contains("choose an ability to train."));
+        assert!(INDEX_HTML.contains("choose one objective to carry."));
+        assert!(INDEX_HTML.contains("complete quests to unlock Skills"));
         assert!(!INDEX_HTML.contains("listen to the room — it may have a clue just for you."));
         assert!(INDEX_HTML.contains("white-space: normal;"));
         assert!(INDEX_HTML.contains(
@@ -37791,7 +38782,10 @@ mod tests {
         assert!(!INDEX_HTML.contains("scroll-behavior: smooth;"));
         assert!(INDEX_HTML.contains("pendingAction?.kind === \"orb-chat\""));
         assert!(INDEX_HTML.contains("Play Chat to start a short conversation with"));
-        assert!(INDEX_HTML.contains("return [waitingAction, buildEvolveAction()].filter(Boolean);"));
+        assert!(INDEX_HTML.contains("return [waitingAction];"));
+        assert!(INDEX_HTML.contains("/actions/accept-quest"));
+        assert!(INDEX_HTML.contains("/actions/level-up"));
+        assert!(!INDEX_HTML.contains("/actions/train-skill"));
         assert!(!INDEX_HTML.contains("cmd-progress"));
         assert!(INDEX_HTML.contains("if (!result.ok) void queueRefresh();"));
         assert!(INDEX_HTML.contains("event?.type !== \"action.receipt\""));
@@ -37811,7 +38805,7 @@ mod tests {
         assert!(INDEX_HTML.contains("the cottage is making room"));
         assert!(INDEX_HTML.contains("Someone here is getting ready to say hello."));
         assert!(INDEX_HTML.contains("your first little moment is waiting"));
-        assert!(INDEX_HTML.contains("ability training will grow here"));
+        assert!(INDEX_HTML.contains("knowledge is scattered through the world"));
         assert!(INDEX_HTML.contains("someone new is waiting to meet you"));
         assert!(INDEX_HTML.contains("room for ${smallNumberWord"));
         assert!(INDEX_HTML.contains("local tale"));
@@ -37822,7 +38816,8 @@ mod tests {
         assert!(INDEX_HTML.contains("function dealtStoryGuide"));
         assert!(INDEX_HTML.contains("storyGuideActionKeys"));
         assert!(INDEX_HTML.contains("const buildGrowAction"));
-        assert!(INDEX_HTML.contains("const buildTrainAction"));
+        assert!(INDEX_HTML.contains("const buildQuestAction"));
+        assert!(INDEX_HTML.contains("const buildLevelUpAction"));
         assert!(INDEX_HTML.contains("the room shares one welcoming clue just for you"));
         assert!(INDEX_HTML.contains("id=\"turn-ping-pill\""));
         assert!(INDEX_HTML.contains("the room is waiting for your choice"));
@@ -37942,15 +38937,13 @@ mod tests {
         assert!(INDEX_HTML.contains("bond.created"));
         assert!(INDEX_HTML.contains("bond.resolved"));
         assert!(INDEX_HTML.contains("/actions/bank-ledger"));
-        assert!(INDEX_HTML.contains("/actions/train-skill"));
-        assert!(INDEX_HTML.contains("const buildEvolveAction = () =>"));
-        assert!(INDEX_HTML.contains("label: \"evolve\""));
-        assert!(INDEX_HTML.contains("cardType: \"evolve\""));
-        assert!(INDEX_HTML.contains("choose how to evolve"));
-        assert!(INDEX_HTML.contains("choose one of two lessons"));
-        assert!(INDEX_HTML.contains("practiceChoices.slice(0, growAction ? 1 : 2)"));
-        assert!(INDEX_HTML.contains("+1 training bonus to ${ability.label} checks"));
-        assert!(INDEX_HTML.contains("action.evolveModes?.includes(\"practice\")"));
+        assert!(INDEX_HTML.contains("/actions/accept-quest"));
+        assert!(INDEX_HTML.contains("/actions/level-up"));
+        assert!(INDEX_HTML.contains("label: \"level up\""));
+        assert!(INDEX_HTML.contains("cardType: \"level-up\""));
+        assert!(INDEX_HTML.contains("choose one of two paths"));
+        assert!(INDEX_HTML.contains("sets your class, Hit Die, hit points, Skill proficiencies"));
+        assert!(!INDEX_HTML.contains("/actions/train-skill"));
         assert!(INDEX_HTML.contains("/actions/create-bond"));
         assert!(INDEX_HTML.contains("label: \"grow closer\""));
         assert!(INDEX_HTML.contains("choose someone to grow closer to"));
@@ -38702,7 +39695,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn waiting_player_can_grow_and_train_without_taking_the_room_turn() {
+    async fn waiting_player_cannot_play_growth_cards_outside_their_turn() {
         let mut runtime = RuntimeWorld::seeded();
         for (actor_id, name, dexterity, seed) in [
             (5000, "Room Keeper", 30, 17601),
@@ -38784,30 +39777,8 @@ mod tests {
         )
         .await
         .0;
-        assert!(grown.ok);
-        assert_eq!(grown.status, CW_OK);
-        assert!(grown
-            .events
-            .iter()
-            .any(|event| event.type_name == "ledger.banked"));
-
-        let trained = train_skill(
-            ConnectInfo("127.0.0.1:0".parse().unwrap()),
-            State(state.clone()),
-            Json(TrainSkillRequest {
-                actor_id: 5001,
-                actor_session: Some(waiting_session),
-                skill_id: "listening".to_string(),
-            }),
-        )
-        .await
-        .0;
-        assert!(trained.ok);
-        assert_eq!(trained.status, CW_OK);
-        assert!(trained
-            .events
-            .iter()
-            .any(|event| event.type_name == "skill.stepped"));
+        assert!(!grown.ok);
+        assert_eq!(grown.status, 423);
 
         let active = active_turn_actor_ids_for_state(&state);
         let runtime = state.inner.lock().await;
@@ -38820,14 +39791,11 @@ mod tests {
         );
         assert_eq!(after.current_actor_id, Some(5000));
         assert!(!after.is_current_actor);
-        assert_eq!(runtime.visit_ledger_view(5001).unbanked_count, 0);
-        assert_eq!(
-            runtime
-                .skills
-                .get(&skill_state_id(5001, "listening"))
-                .map(|skill| skill.rank),
-            Some(1)
-        );
+        assert!(runtime.visit_ledger_view(5001).unbanked_count > 0);
+        assert!(runtime
+            .skills
+            .get(&skill_state_id(5001, "listening"))
+            .is_none());
     }
 
     #[tokio::test]
@@ -40074,7 +41042,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn lantern_keeper_character_creation_sets_entry_identity_and_starting_knack() {
+    async fn lantern_keeper_character_creation_sets_entry_identity_at_level_zero() {
         let runtime = RuntimeWorld::seeded();
         let guest = runtime.state_response(None, &AccessContext::default());
         assert_eq!(guest.character_creation.len(), 1);
@@ -40113,13 +41081,18 @@ mod tests {
                 .map(|calling| calling.statement.as_str()),
             Some("I learn what the old lights were built to keep out.")
         );
+        assert!(runtime
+            .skills
+            .get(&skill_state_id(actor.id, "lorecraft"))
+            .is_none());
         assert_eq!(
-            runtime
-                .skills
-                .get(&skill_state_id(actor.id, "lorecraft"))
-                .map(|skill| skill.rank),
-            Some(1)
+            runtime.actor_by_id(actor.id).map(|actor| actor.stats.level),
+            Some(0)
         );
+        assert!(runtime
+            .character_builds
+            .get(&actor.id)
+            .is_some_and(|build| build.class_levels.is_empty()));
     }
 
     #[tokio::test]
@@ -41600,6 +42573,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "legacy bespoke skill training was replaced by quest unlocks and standard Level Up"]
     fn banked_advancement_points_train_once_per_rest_and_skill_bonus() {
         let mut runtime = RuntimeWorld::seeded();
         assert_eq!(normalize_skill_id("nimble_hands"), Some("nimble_hands"));
@@ -41947,6 +42921,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "legacy contextual training was replaced by world-scattered D&D Skill unlocks"]
     fn default_training_follows_latest_banked_ledger_category() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
@@ -42018,6 +42993,116 @@ mod tests {
             CommandDispatch::TrainSkill { skill_id } => assert_eq!(skill_id, "steadiness"),
             other => panic!("contextual train should dispatch steadiness, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn quests_unlock_stable_level_up_packages_and_persist_the_build() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let mut create_record = JournalRecord::new(create, 72_001);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Quest Learner".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Level Zero Wanderer".to_string(),
+                description: "A test avatar discovering a class in the world.".to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+        assert_eq!(
+            runtime.actor_by_id(5000).map(|actor| actor.stats.level),
+            Some(0)
+        );
+
+        let started = runtime.accept_quest(5000, "quest/stand-the-moonlit-watch", "test");
+        assert!(started
+            .iter()
+            .any(|event| event.type_name == "quest.started"));
+        let accepted_seq = runtime
+            .active_quests
+            .get(&5000)
+            .map(|quest| quest.accepted_event_seq)
+            .expect("active quest");
+        let defend = CwAction {
+            kind: CW_ACTION_DEFEND,
+            actor_id: 5000,
+            ..CwAction::default()
+        };
+        let completed = runtime.apply_quest_completion(
+            &defend,
+            &[EventView {
+                seq: accepted_seq + 1,
+                type_name: "combat.defend".to_string(),
+                success: true,
+                actor_id: Some(5000),
+                location_id: Some(MOONLIT_TRAIL_LOCATION_ID),
+                ..EventView::default()
+            }],
+        );
+        assert!(completed
+            .iter()
+            .any(|event| event.type_name == "quest.completed"));
+        assert!(runtime.knowledge_unlocked(5000, "class/fighter"));
+        assert!(!runtime.active_quests.contains_key(&5000));
+
+        for skill_id in ["skill/athletics", "skill/perception"] {
+            runtime
+                .knowledge_unlocks
+                .insert(knowledge_unlock_key(5000, skill_id));
+        }
+        let ledger_event = runtime
+            .mark_visit_ledger(5000, "calling", "A level-up memory.", 72_010, "test:level")
+            .expect("ledger mark");
+        assert!(ledger_event.success);
+        assert!(runtime.bank_visit_ledger(5000, "test").is_some());
+
+        let offer = runtime.level_up_offer(5000).expect("stable level-up offer");
+        assert_eq!(offer.next_level, 1);
+        assert!(!offer.choices.is_empty());
+        assert!(offer
+            .choices
+            .iter()
+            .all(|choice| choice.class_id == "class/fighter" && choice.skill_ids.len() == 2));
+        assert_eq!(
+            runtime.level_up_offer(5000).map(|candidate| candidate.id),
+            Some(offer.id.clone())
+        );
+        let choice = offer.choices[0].id.clone();
+        let leveled = runtime.level_up(5000, &offer.id, &choice, LEVEL_UP_COST, "test");
+        assert!(leveled
+            .iter()
+            .any(|event| event.type_name == "level.gained"));
+        let actor = runtime.actor_by_id(5000).expect("leveled actor");
+        assert_eq!(actor.stats.level, 1);
+        assert_eq!(actor.damage, 0);
+        assert!(actor.stats.hp_base >= 1);
+        let build = runtime
+            .character_builds
+            .get(&5000)
+            .expect("character build");
+        assert_eq!(build.class_levels.get("class/fighter"), Some(&1));
+        assert_eq!(build.skill_proficiencies.len(), 2);
+        assert!(runtime.level_up_offer(5000).is_none());
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("quest and build snapshot restores");
+        assert!(restored.knowledge_unlocked(5000, "class/fighter"));
+        assert_eq!(
+            restored
+                .character_builds
+                .get(&5000)
+                .and_then(|build| build.class_levels.get("class/fighter")),
+            Some(&1)
+        );
+        let view = restored.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(view.character.level, 1);
+        assert_eq!(view.character.proficiency_bonus, 2);
+        assert!(view.quests.active.is_none());
     }
 
     #[test]

@@ -1,0 +1,52 @@
+[
+  {
+    "id": "class/fighter",
+    "kind": "class",
+    "name": "Fighter",
+    "description": "A practiced combatant who meets danger directly.",
+    "hit_die": 10,
+    "primary_abilities": ["strength", "dexterity"],
+    "skill_choice_count": 2,
+    "allowed_skill_ids": ["skill/athletics", "skill/investigation", "skill/perception"],
+    "automatic_features": ["Fighting Style", "Second Wind"]
+  },
+  {
+    "id": "class/rogue",
+    "kind": "class",
+    "name": "Rogue",
+    "description": "A resourceful adventurer who wins through precision and opportunity.",
+    "hit_die": 8,
+    "primary_abilities": ["dexterity"],
+    "skill_choice_count": 2,
+    "allowed_skill_ids": ["skill/athletics", "skill/investigation", "skill/perception", "skill/stealth"],
+    "automatic_features": ["Expertise", "Sneak Attack", "Thieves’ Cant"]
+  },
+  {
+    "id": "skill/athletics",
+    "kind": "skill_proficiency",
+    "name": "Athletics",
+    "description": "Training in climbing, jumping, swimming, and feats of bodily force.",
+    "ability": "strength"
+  },
+  {
+    "id": "skill/investigation",
+    "kind": "skill_proficiency",
+    "name": "Investigation",
+    "description": "Training in finding clues and reasoning from what they reveal.",
+    "ability": "intelligence"
+  },
+  {
+    "id": "skill/perception",
+    "kind": "skill_proficiency",
+    "name": "Perception",
+    "description": "Training in noticing hidden, distant, or easily missed details.",
+    "ability": "wisdom"
+  },
+  {
+    "id": "skill/stealth",
+    "kind": "skill_proficiency",
+    "name": "Stealth",
+    "description": "Training in moving without being noticed.",
+    "ability": "dexterity"
+  }
+]

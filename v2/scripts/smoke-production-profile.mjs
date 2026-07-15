@@ -205,6 +205,8 @@ async function main() {
     COSYWORLD_MODERATION_TOKEN: "production-profile-smoke-moderator",
     COSYWORLD_BOX_BURN_SOLANA_RPC_URL: rpc.url,
     COSYWORLD_BOX_CORE_COLLECTION_ADDRESS: boxCollectionAddress,
+    COSYWORLD_WEBAUTHN_RP_ID: "localhost",
+    COSYWORLD_WEBAUTHN_ORIGIN: `http://localhost:${port}`,
     COSYWORLD_V2_SNAPSHOT_PATH: resolve(tempDir, "snapshot.json"),
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
   });

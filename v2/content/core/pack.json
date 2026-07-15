@@ -24,7 +24,9 @@
     "cards": "cards.json",
     "lifecycle_hooks": "lifecycle_hooks.json",
     "evolution_tracks": "evolution_tracks.json",
-    "recipes": "recipes.json"
+    "recipes": "recipes.json",
+    "quests": "quests.json",
+    "knowledge": "knowledge.json"
   },
   "assets": [
     {

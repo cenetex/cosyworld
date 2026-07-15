@@ -35,19 +35,23 @@ seed are reference-only. The two documents remain separate bundles under the
 future mapping requires a kernel change, kernel tests, adapter validation, and
 an explicit versioned pack update.
 
-The kernel independently implements a deliberately small compatible surface:
-normal, Advantage, and Disadvantage d20 rolls; derived Bloodied state; and a
-CosyWorld nonlethal knockout that leaves an actor at 1 Hit Point. These
-primitives do not grant authority to reference-only entries or turn the adapter
-into a complete implementation of either SRD.
+The kernel and RPG projection independently implement a deliberately small
+compatible surface: the six D&D ability names and standard modifier formula;
+normal, Advantage, and Disadvantage d20 rolls; level, first-level class Hit Die
+and Hit Points; proficiency bonus and a small named-Skill mapping; derived
+Bloodied state; and a CosyWorld nonlethal knockout that leaves an actor at 1 Hit
+Point. These primitives do not grant authority to reference-only entries or
+turn the adapter into a complete implementation of either SRD.
 
 ## Product boundary
 
-CosyWorld retains six internal abilities and may use monster, condition,
-equipment, and spell concepts as conversion seeds. It does not adopt SRD class
-trees, subclasses, spell slots, encounter math, XP progression, or automatic
-monster stat blocks. Player-facing UI continues to describe risk and outcomes
-in CosyWorld's ordinary language.
+CosyWorld's quest/build projection currently implements only level 0 to class
+level 1, with Fighter and Rogue as authored knowledge definitions. Feature
+names are recorded, but their full feature mechanics are not implied. It does
+not yet implement later class trees, subclasses, saving throw/equipment
+proficiencies, spell slots, multiclass prerequisites, encounter math, XP tables,
+or automatic monster stat blocks. See `quests-and-levels.md` for the exact
+compatibility boundary.
 
 SRD 5.1 and SRD 5.2.1 are both available as attributed authoring references.
 SRD 5.2.1 targets the revised fifth-edition ruleset, but its broader class,

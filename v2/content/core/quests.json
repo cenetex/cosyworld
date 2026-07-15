@@ -1,0 +1,81 @@
+[
+  {
+    "id": "quest/stand-the-moonlit-watch",
+    "title": "Stand the Moonlit Watch",
+    "description": "Travel to the Moonlit Trail and protect someone when danger closes in.",
+    "source_location_id": 1,
+    "objective": {
+      "text": "Succeed at Defend on the Moonlit Trail.",
+      "event_type": "combat.defend",
+      "location_id": 3,
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "class/fighter" }]
+  },
+  {
+    "id": "quest/bring-back-a-trail-token",
+    "title": "Bring Back a Trail Token",
+    "description": "Find something loose beneath the moonlit boughs and carry it away.",
+    "source_location_id": 1,
+    "objective": {
+      "text": "Pick up an item on the Moonlit Trail.",
+      "event_type": "item.picked_up",
+      "location_id": 3,
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "class/rogue" }]
+  },
+  {
+    "id": "quest/hold-your-ground",
+    "title": "Hold Your Ground",
+    "description": "The trail teaches strength only to someone willing to brace against trouble.",
+    "source_location_id": 3,
+    "objective": {
+      "text": "Succeed at Defend on the Moonlit Trail.",
+      "event_type": "combat.defend",
+      "location_id": 3,
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "skill/athletics" }]
+  },
+  {
+    "id": "quest/hear-the-rain-between-words",
+    "title": "Hear the Rain Between Words",
+    "description": "The garden rewards the person who listens closely enough to hear what it almost hides.",
+    "source_location_id": 2,
+    "objective": {
+      "text": "Succeed at a Wisdom check in the Rain-Soft Garden.",
+      "event_type": "ability_check.rolled",
+      "location_id": 2,
+      "ability": "wisdom",
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "skill/perception" }]
+  },
+  {
+    "id": "quest/read-the-cottages-clues",
+    "title": "Read the Cottage’s Clues",
+    "description": "Look past the cottage’s comfort and work out what one of its details means.",
+    "source_location_id": 1,
+    "objective": {
+      "text": "Search The Cosy Cottage.",
+      "event_type": "location.searched",
+      "location_id": 1,
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "skill/investigation" }]
+  },
+  {
+    "id": "quest/leave-no-tracks",
+    "title": "Leave No Tracks",
+    "description": "Learn the trail’s quietest route by escaping its danger unseen.",
+    "source_location_id": 3,
+    "objective": {
+      "text": "Successfully flee danger on the Moonlit Trail.",
+      "event_type": "combat.flee.success",
+      "location_id": 3,
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "skill/stealth" }]
+  }
+]

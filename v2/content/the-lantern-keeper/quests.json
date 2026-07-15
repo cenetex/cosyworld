@@ -1,0 +1,81 @@
+[
+  {
+    "id": "quest/lantern-stand-before-the-knight",
+    "title": "Stand Before the Knight",
+    "description": "Mara says a true guardian is known by what they protect in the flooded dark.",
+    "source_location_id": 800,
+    "objective": {
+      "text": "Succeed at Defend in the Flooded Barrow.",
+      "event_type": "combat.defend",
+      "location_id": 803,
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "class/fighter" }]
+  },
+  {
+    "id": "quest/lantern-take-the-hidden-lens",
+    "title": "Take the Hidden Lens",
+    "description": "A guide learns to claim the one useful thing everyone else walked past.",
+    "source_location_id": 800,
+    "objective": {
+      "text": "Pick up an item on the Mothwood Path.",
+      "event_type": "item.picked_up",
+      "location_id": 801,
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "class/rogue" }]
+  },
+  {
+    "id": "quest/lantern-read-the-soot",
+    "title": "Read the Soot",
+    "description": "The failing lantern has a pattern in its soot for someone patient enough to reason it out.",
+    "source_location_id": 800,
+    "objective": {
+      "text": "Search the Wayside Lantern Inn.",
+      "event_type": "location.searched",
+      "location_id": 800,
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "skill/investigation" }]
+  },
+  {
+    "id": "quest/lantern-hear-the-moths",
+    "title": "Hear the Moths Turn",
+    "description": "Pip knows the Mothwood gives warning, but only just before the danger arrives.",
+    "source_location_id": 801,
+    "objective": {
+      "text": "Succeed at a Wisdom check on the Mothwood Path.",
+      "event_type": "ability_check.rolled",
+      "location_id": 801,
+      "ability": "wisdom",
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "skill/perception" }]
+  },
+  {
+    "id": "quest/lantern-lift-the-stone-light",
+    "title": "Lift the Stone Light",
+    "description": "Saint Orra's broken lantern still has weight enough to teach honest leverage.",
+    "source_location_id": 802,
+    "objective": {
+      "text": "Move the beacon work forward at Saint Orra's Ruin.",
+      "event_type": "clock.updated",
+      "location_id": 802,
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "skill/athletics" }]
+  },
+  {
+    "id": "quest/lantern-slip-the-barrows-grasp",
+    "title": "Slip the Barrow's Grasp",
+    "description": "The flooded stones teach quiet feet to anyone who escapes without feeding the echo.",
+    "source_location_id": 803,
+    "objective": {
+      "text": "Successfully flee danger in the Flooded Barrow.",
+      "event_type": "combat.flee.success",
+      "location_id": 803,
+      "success": true
+    },
+    "rewards": [{ "kind": "unlock", "knowledge_id": "skill/stealth" }]
+  }
+]

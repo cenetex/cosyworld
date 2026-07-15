@@ -131,6 +131,8 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/help", post(help_room))
         .route("/actions/rest", post(rest))
         .route("/actions/bank-ledger", post(bank_ledger))
+        .route("/actions/accept-quest", post(accept_quest))
+        .route("/actions/level-up", post(level_up))
         .route("/actions/revise-calling", post(revise_calling))
         .route("/actions/create-bond", post(create_bond))
         .route("/actions/revise-bond", post(revise_bond))

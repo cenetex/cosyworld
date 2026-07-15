@@ -3565,7 +3565,6 @@
       const options = new Set((view.primary_action?.options || []).map((option) => option.kind));
       const economy = view.economy || {};
       const ledger = view.ledger || {};
-      const skills = Array.isArray(view.skills) ? view.skills : [];
       const offerFor = (kind) => (view.action_offers || []).find((offer) => offer.kind === kind) || null;
       const buildGrowAction = () => {
         if (!options.has("bank_ledger") || Number(ledger.unbanked_count || 0) <= 0) return null;
@@ -3584,160 +3583,63 @@
           run: () => action("/actions/bank-ledger", { actor_id: actorId }),
         };
       };
-      const buildTrainAction = () => {
-        if (!options.has("train_skill") || Number(ledger.advancement_points || 0) <= 0) return null;
-        const offer = offerFor("train_skill");
-        const trainEffect = String(offer?.effect || "");
-        const offeredLabel = trainEffect.match(/steps\s+(.+?)\s+up/i)?.[1]?.trim()
-          || trainEffect.match(/^(.+?)\s+grows\b/i)?.[1]?.trim()
-          || "Wisdom";
-        const offeredId = authoredAbilityChoice(offeredLabel)?.id || "listening";
-        const rankFor = (choice) => Number(skills.find((skill) => (
-          skill.skill_id === choice.id
-          || String(skill.label || "").toLowerCase() === choice.label.toLowerCase()
-        ))?.rank || 0);
-        const abilityCandidates = authoredAbilityChoices
-          .filter((choice) => rankFor(choice) < 3)
-          .sort((left, right) => (
-            Number(right.id === offeredId) - Number(left.id === offeredId)
-            || authoredAbilityChoices.findIndex((choice) => choice.id === left.id)
-              - authoredAbilityChoices.findIndex((choice) => choice.id === right.id)
-          ));
-        if (!abilityCandidates.length) return null;
-        const firstAbility = abilityCandidates[0];
-        const oneAbility = abilityCandidates.length === 1;
-        const currentRank = rankFor(firstAbility);
-        const practiceAction = {
-          label: "practice",
-          detail: oneAbility
-            ? `${firstAbility.label} · use what you learned`
-            : "choose an ability · use what you learned",
-          command: oneAbility
-            ? (firstAbility.id === offeredId && offer?.command
-              ? offer.command
-              : `skill ${firstAbility.label.toLowerCase()}`)
-            : "skill",
-          focusKey: oneAbility
-            ? `train-${firstAbility.id.replace(/_/g, "-")}`
-            : `train:${abilityCandidates.map((choice) => choice.id).join("|")}`,
-          focusKeys: abilityCandidates.map((choice) => `skill:${choice.id}`),
+      const buildQuestAction = () => {
+        if (view.quests?.active || !Array.isArray(view.quests?.available) || !view.quests.available.length) return null;
+        const available = view.quests.available;
+        const first = available[0];
+        const questAction = {
+          label: "quest",
+          detail: available.length === 1 ? first.title : "choose one objective",
+          command: "quest",
+          focusKey: `quest:${available.map((quest) => quest.id).join("|")}`,
+          card: cardForLocation(view.location?.id),
+          shape: "location",
+          priority: 38,
+          modalTitle: available.length === 1 ? first.title : "choose a quest",
+          modalSummary: first.description,
+          effect: first.objective,
+          selectedChoice: first.id,
+          choices: available.map((quest) => ({
+            label: quest.title,
+            detail: `${quest.objective} · unlocks ${(quest.rewards || []).map((reward) => reward.name).join(" + ")}`,
+            value: quest.id,
+          })),
+        };
+        questAction.run = () => action("/actions/accept-quest", {
+          actor_id: actorId,
+          quest_id: String(questAction.selectedChoice || first.id),
+        });
+        return questAction;
+      };
+      const buildLevelUpAction = () => {
+        const offer = view.advancement?.offer;
+        if (!offer?.choices?.length) return null;
+        const first = offer.choices[0];
+        const levelAction = {
+          label: "level up",
+          detail: offer.choices.length === 1 ? `become a ${first.class_name}` : "choose one of two paths",
+          command: "level up",
+          focusKey: offer.id,
           card: cardForActor(actorId) || cardForLocation(view.location?.id),
           shape: "avatar",
-          priority: currentRank > 0 && options.has("create_bond") ? 78 : 76,
-          modalTitle: oneAbility ? `practice ${firstAbility.label}` : "choose an ability to practice",
-          modalSummary: oneAbility
-            ? `Add +1 to your training bonus for ${firstAbility.label} checks. The ability score itself does not change.`
-            : "Choose which ability gets +1 to its check training bonus. The ability score itself does not change.",
-          effect: oneAbility ? offer?.effect : "the ability you choose gets +1 to its check training bonus",
-          ...(oneAbility ? {} : {
-            choices: abilityCandidates.map((choice) => ({
-              label: choice.label,
-              detail: choice.detail,
-              value: choice.id,
-            })),
-            selectedChoice: firstAbility.id,
-          }),
+          cardType: "level-up",
+          priority: 22,
+          modalTitle: `level ${offer.next_level}`,
+          modalSummary: "Choose the complete class package your unlocked knowledge makes possible.",
+          effect: "sets your class, Hit Die, hit points, Skill proficiencies, and automatic class features together",
+          selectedChoice: first.id,
+          choices: offer.choices.map((choice) => ({
+            label: choice.class_name,
+            detail: `${choice.summary} · ${choice.features.join(" + ")}`,
+            value: choice.id,
+          })),
         };
-        practiceAction.selectedPayload = () => ({
+        levelAction.run = () => action("/actions/level-up", {
           actor_id: actorId,
-          skill_id: String(practiceAction.selectedChoice || firstAbility.id),
+          offer_id: offer.id,
+          choice_id: String(levelAction.selectedChoice || first.id),
         });
-        practiceAction.run = () => action("/actions/train-skill", practiceAction.selectedPayload());
-        practiceAction.abilityCandidates = abilityCandidates;
-        return practiceAction;
-      };
-      const buildEvolveAction = () => {
-        const growAction = buildGrowAction();
-        const practiceAction = buildTrainAction();
-        if (!growAction && !practiceAction) return null;
-
-        const rankForAbility = (ability) => Number(skills.find((skill) => (
-          skill.skill_id === ability.id
-          || String(skill.label || "").toLowerCase() === ability.label.toLowerCase()
-        ))?.rank || 0);
-        const choiceSeed = [
-          actorId,
-          Number(view.world_tick || 0),
-          Number(ledger.unbanked_count || 0),
-          Number(ledger.banked_count || 0),
-          Number(ledger.spent_count || 0),
-          skills.map((skill) => `${skill.skill_id}:${skill.rank}`).sort().join(","),
-        ].join(":");
-        const practiceChoices = (practiceAction?.abilityCandidates || [])
-          .map((ability) => ({
-            label: `practice ${ability.label}`,
-            detail: `${ability.detail || "use what you learned"} · +1 training bonus to ${ability.label} checks`,
-            value: `practice:${ability.id}`,
-            card: practiceAction.card,
-            rankBefore: rankForAbility(ability),
-            rankAfter: rankForAbility(ability) + 1,
-          }))
-          .sort((left, right) => (
-            handHash(`${choiceSeed}:${left.value}`, handDealNonce)
-              - handHash(`${choiceSeed}:${right.value}`, handDealNonce)
-            || left.value.localeCompare(right.value)
-          ));
-        const evolutionChoices = [];
-        if (growAction) {
-          evolutionChoices.push({
-            label: "keep the lesson",
-            detail: "carry what mattered forward as growth you can use later",
-            value: "grow",
-            card: growAction.card,
-          });
-        }
-        evolutionChoices.push(...practiceChoices.slice(0, growAction ? 1 : 2));
-
-        const oneChoice = evolutionChoices.length === 1;
-        const selectedChoice = evolutionChoices[0]?.value || "grow";
-        const evolveAction = {
-          label: "evolve",
-          detail: growAction && practiceAction
-            ? "choose one of two lessons"
-            : (growAction
-              ? "from what you learned"
-              : (oneChoice ? "choose an ability to practice" : "choose one of two abilities")),
-          command: "evolve",
-          focusKey: growAction?.focusKey || practiceAction?.focusKey || "evolve",
-          focusKeys: [...new Set([
-            ...(growAction?.focusKeys || []),
-            ...(practiceAction?.focusKeys || []),
-            growAction?.focusKey,
-            practiceAction?.focusKey,
-          ].filter(Boolean))],
-          card: growAction?.card || practiceAction?.card,
-          shape: "avatar",
-          cardType: "evolve",
-          priority: Math.min(
-            Number(growAction?.priority ?? 100),
-            Number(practiceAction?.priority ?? 100),
-          ),
-          memoryCount: growAction?.memoryCount,
-          growthCount: growAction?.growthCount,
-          evolveModes: [growAction ? "grow" : "", practiceAction ? "practice" : ""].filter(Boolean),
-          modalTitle: oneChoice ? "evolve" : "choose how to evolve",
-          modalSummary: oneChoice
-            ? (growAction
-              ? "Keep what mattered and let it shape what comes next."
-              : `Put what you learned into ${(practiceAction?.abilityCandidates || [])[0]?.label || "an ability"} training.`)
-            : (growAction
-              ? "Choose one of two possibilities: keep the lesson, or improve one ability's training bonus."
-              : "Choose one of two ways this lesson can strengthen your avatar."),
-          effect: oneChoice
-            ? (growAction?.effect || practiceAction?.effect)
-            : (growAction
-              ? "your choice either keeps this lesson for later or adds +1 to an ability's check training bonus"
-              : "a practiced ability gets +1 to its check training bonus; its score stays the same"),
-          selectedChoice,
-          ...(oneChoice ? {} : { choices: evolutionChoices }),
-        };
-        evolveAction.run = () => {
-          const selected = String(evolveAction.selectedChoice || selectedChoice);
-          if (selected === "grow") return growAction.run();
-          const skillId = selected.replace(/^practice:/, "");
-          return action("/actions/train-skill", { actor_id: actorId, skill_id: skillId });
-        };
-        return evolveAction;
+        return levelAction;
       };
       const buildChatAction = () => {
         if (economy.can_chat_with_orbs === false) return null;
@@ -3843,7 +3745,7 @@
             : `gives ${currentName} a moment, then passes the choice if they're away`,
           run: () => action("/actions/timeout", { actor_id: actorId }),
         };
-        return [waitingAction, buildEvolveAction()].filter(Boolean);
+        return [waitingAction];
       }
 
       const built = [];
@@ -4597,8 +4499,12 @@
           run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 })
         });
       }
-      const evolveAction = buildEvolveAction();
-      if (evolveAction) built.push(evolveAction);
+      const growAction = buildGrowAction();
+      if (growAction) built.push(growAction);
+      const questAction = buildQuestAction();
+      if (questAction) built.push(questAction);
+      const levelUpAction = buildLevelUpAction();
+      if (levelUpAction) built.push(levelUpAction);
       if (options.has("create_bond") && Number(ledger.advancement_points || 0) > 0) {
         const offer = offerFor("create_bond");
         const targetId = Number(offer?.target?.id || 0);
@@ -5749,6 +5655,10 @@
       "ledger.banked",
       "calling.revised",
       "skill.stepped",
+      "quest.started",
+      "quest.completed",
+      "knowledge.unlocked",
+      "level.gained",
       "bond.created",
       "bond.revised",
       "bond.resolved",
@@ -5851,6 +5761,10 @@
         || event.type === "ledger.banked"
         || event.type === "advancement.spent"
         || event.type === "skill.stepped"
+        || event.type === "quest.started"
+        || event.type === "quest.completed"
+        || event.type === "knowledge.unlocked"
+        || event.type === "level.gained"
         || event.type === "bond.deepened"
         || event.type === "bond.created"
         || event.type === "bond.revised"
@@ -6049,7 +5963,7 @@
         && firstTaleStageSeen >= 3
         && !firstTaleCompletionSeen
         && Number(state?.ledger?.banked_count || 0) > 0
-        && Number(state?.ledger?.spent_count || 0) > 0
+        && (state?.quests?.active || (state?.unlocks || []).length || Number(state?.character?.level || 0) > 0)
       ) {
         firstTaleCelebration = true;
         firstTaleCompletionSeen = true;
@@ -6064,25 +5978,31 @@
     }
 
     function firstTaleCompletionText(view = state) {
+      if (view?.quests?.active) {
+        return "you listened, kept a clue, and chose an objective.";
+      }
+      if (Number(view?.character?.level || 0) > 0) {
+        return "you listened, kept a clue, and found your first class.";
+      }
       if (Array.isArray(view?.bonds) && view.bonds.length) {
         return "you listened, grew from a clue, and made a new friend.";
       }
-      if (Array.isArray(view?.skills) && view.skills.length) {
-        return "you listened, grew from a clue, and trained an ability.";
+      if (Array.isArray(view?.unlocks) && view.unlocks.length) {
+        return "you listened, kept a clue, and unlocked new knowledge.";
       }
-      return "you listened, grew from a clue, and chose what to care about.";
+      return "you listened, kept a clue, and chose what to seek.";
     }
 
     function firstTaleIsComplete(view = state) {
       const ledger = view?.ledger || {};
-      const shapedIdentity = (Array.isArray(view?.bonds) && view.bonds.length)
-        || (Array.isArray(view?.skills) && view.skills.length);
+      const choseDirection = Boolean(view?.quests?.active)
+        || (Array.isArray(view?.unlocks) && view.unlocks.length)
+        || Number(view?.character?.level || 0) > 0;
       return Boolean(
         actorId
           && Number(ledger.learned_truth_count || 0) > 0
           && Number(ledger.banked_count || 0) > 0
-          && Number(ledger.spent_count || 0) > 0
-          && shapedIdentity
+          && choseDirection
       );
     }
 
@@ -6157,13 +6077,13 @@
       if (hook) {
         return makeThread(null, `${hook.charAt(0).toUpperCase()}${hook.slice(1)}`, "room");
       }
-      const evolve = availableActions.find((action) => (
-        String(action?.label || "").toLowerCase() === "evolve"
-          && Array.isArray(action?.evolveModes)
-          && action.evolveModes.includes("practice")
-      )) || findAction("practice");
-      if (evolve) {
-        return makeThread(evolve, "Something you learned is ready to become part of you", "evolve");
+      const levelUp = findAction("level up");
+      if (levelUp) {
+        return makeThread(levelUp, "Your unlocked knowledge is ready to become a class", "level-up");
+      }
+      const quest = findAction("quest");
+      if (quest) {
+        return makeThread(quest, "This place has an objective worth carrying", "quest");
       }
       return null;
     }
@@ -6467,6 +6387,20 @@
       }
       if (event.type === "advancement.spent") {
         return { kind: "growth", label: "change", text: cleanStatusText(advancementEventLabel(event)) };
+      }
+      if (event.type === "quest.started") {
+        return { kind: "calling", label: "objective", text: cleanStatusText(String(event.content || "").split("|")[1] || "new objective") };
+      }
+      if (event.type === "quest.completed") {
+        return { kind: "growth", label: "completed", text: cleanStatusText(String(event.content || "").split("|")[1] || "objective complete") };
+      }
+      if (event.type === "knowledge.unlocked") {
+        return { kind: "skill", label: "unlocked", text: cleanStatusText(String(event.content || "").split("|")[1] || "new knowledge") };
+      }
+      if (event.type === "level.gained") {
+        const classId = String(event.content || "").split("|")[1] || "class";
+        const className = classId.split(".").pop() || classId;
+        return { kind: "growth", label: "level 1", text: cleanStatusText(className) };
       }
       if (event.type === "skill.stepped") {
         return { kind: "skill", label: "ability", text: cleanStatusText(skillEventLabel(event)) };
@@ -6902,22 +6836,36 @@
       const purpose = String(state?.calling?.statement || "").trim() || "still choosing what trouble to get into";
       const memoriesReady = Number(ledger.unbanked_count || 0);
       const growthReady = Number(ledger.advancement_points || 0);
+      const character = state?.character || {};
+      const activeQuest = state?.quests?.active || null;
+      const levelOffer = state?.advancement?.offer || null;
       const growthSummary = [
         memoriesReady ? "something you noticed is ready to keep" : "",
-        growthReady ? "you can strengthen a friendship or train an ability" : "",
+        levelOffer ? "a Level Up choice is ready" : "",
+        growthReady && !levelOffer ? "growth is ready when you unlock a compatible path" : "",
       ].filter(Boolean).join(" · ") || "your first little moment is waiting";
       const rows = [
         accountRow("purpose", purpose),
         accountRow("journal", growthSummary),
       ];
-      const skills = Array.isArray(state?.skills) ? state.skills : [];
-      rows.push(accountRow("ability training", skills.length ? skills.map((skill) => {
-        const rank = Number(skill.rank || 0);
-        const confidence = rank >= 3 ? "second nature" : (rank === 2 ? "strong" : "growing");
-        const label = abilityLabel(skill.skill_id || skill.label, skill.label);
-        const bonus = Math.max(0, Number(skill.bonus ?? rank) || 0);
-        return `${label} checks +${bonus} — ${confidence}`;
-      }).join(", ") : "ability training will grow here"));
+      const classLevels = Array.isArray(character.class_levels) ? character.class_levels : [];
+      const dndSkills = Array.isArray(character.skill_proficiencies) ? character.skill_proficiencies : [];
+      const features = Array.isArray(character.features) ? character.features : [];
+      rows.push(accountRow("level", `${Number(character.level || 0)}${Number(character.proficiency_bonus || 0) ? ` · proficiency +${character.proficiency_bonus}` : " · classless"}`));
+      rows.push(accountRow("class", classLevels.length
+        ? classLevels.map((entry) => `${entry.name} ${entry.level} · d${entry.hit_die} Hit Die`).join(" / ")
+        : "complete quests to discover a class"));
+      rows.push(accountRow("Skill proficiencies", dndSkills.length
+        ? dndSkills.map((skill) => `${skill.name} (${abilityLabel(skill.ability, skill.ability)})`).join(", ")
+        : "complete quests to unlock Skills"));
+      if (features.length) rows.push(accountRow("class features", features.join(", ")));
+      rows.push(accountRow("quest", activeQuest
+        ? `${activeQuest.title} — ${activeQuest.objective}`
+        : ((state?.quests?.available || []).length ? "a new objective is available here" : "find an objective somewhere in the world")));
+      const unlocks = Array.isArray(state?.unlocks) ? state.unlocks : [];
+      rows.push(accountRow("unlocked knowledge", unlocks.length
+        ? unlocks.map((entry) => entry.name).join(", ")
+        : "knowledge is scattered through the world"));
       const bonds = Array.isArray(state?.bonds) ? state.bonds : [];
       rows.push(accountRow("friends", bonds.length ? bonds.map((bond) => {
         const name = String(bond.target_actor_name || "someone").trim();
@@ -6965,7 +6913,10 @@
         "a wooden box may turn up",
         "an avatar pack may turn up",
         "your first little moment is waiting",
-        "ability training will grow here",
+        "complete quests to discover a class",
+        "complete quests to unlock Skills",
+        "find an objective somewhere in the world",
+        "knowledge is scattered through the world",
         "someone new is waiting to meet you",
       ].includes(value);
       return `<div class="account-row"><span class="account-key">${escapeHtml(key)}</span><span class="account-value${empty ? " account-empty" : ""}">${escapeHtml(value)}</span></div>`;
@@ -7114,6 +7065,22 @@
       if (type === "skill.stepped") {
         const skill = abilityLabel(String(event.content || "").split(":")[0], "an ability");
         return `${actor} practices ${skill}. Its checks now come a little more easily.`;
+      }
+      if (type === "quest.started") {
+        const title = String(event.content || "").split("|")[1] || "a new objective";
+        return `${actor} chooses to carry ${title}.`;
+      }
+      if (type === "quest.completed") {
+        const title = String(event.content || "").split("|")[1] || "their objective";
+        return `${actor} completes ${title}.`;
+      }
+      if (type === "knowledge.unlocked") {
+        const knowledge = String(event.content || "").split("|")[1] || "new knowledge";
+        return `${knowledge} is now unlocked for ${actor}.`;
+      }
+      if (type === "level.gained") {
+        const className = String(event.content || "").split("|")[1]?.split(".").pop() || "a class";
+        return `${actor} reaches level 1 as a ${className}.`;
       }
       if (type === "clock.updated") {
         return `The shared work shifts beneath ${possessive(actor)} hands; ${withoutFinalPeriod(eventText(event))}.`;
@@ -7409,8 +7376,16 @@
       if (event.type === "calling.revised") return `finds a new purpose: ${withoutFinalPeriod(callingEventLabel(event))}.`;
       if (event.type === "ledger.marked") return `keeps a memory: ${ledgerEventLabel(event)}.`;
       if (event.type === "ledger.banked") return `${ledgerBankedEventLabel(event)}.`;
-      if (event.type === "advancement.spent") return "puts what they learned into practice.";
+      if (event.type === "advancement.spent") {
+        return String(event.content || "").startsWith("level_up:")
+          ? "uses what they learned to take their next level."
+          : "lets what they learned change them.";
+      }
       if (event.type === "skill.stepped") return `${skillEventLabel(event)}.`;
+      if (event.type === "quest.started") return `chooses to carry ${String(event.content || "").split("|")[1] || "a new objective"}.`;
+      if (event.type === "quest.completed") return `completes ${String(event.content || "").split("|")[1] || "their objective"}.`;
+      if (event.type === "knowledge.unlocked") return `unlocks ${String(event.content || "").split("|")[1] || "new knowledge"}.`;
+      if (event.type === "level.gained") return "takes their next level.";
       if (event.type === "bond.deepened") return `grows closer to ${event.target_actor_name || "someone"}.`;
       if (event.type === "bond.created") return `became friends with ${event.target_actor_name || "someone"}.`;
       if (event.type === "bond.revised") return `sees ${event.target_actor_name || "someone"} a little differently.`;
@@ -7457,6 +7432,8 @@
     }
 
     function advancementEventLabel(event) {
+      const parts = String(event.content || "").split(":");
+      if (parts[0] === "level_up") return parts[2] || "a new level takes shape";
       return "what you learned finds a place";
     }
 
@@ -8103,6 +8080,20 @@
           ["Then", "your new avatar arrives in The Cosy Cottage"],
         ];
       }
+      if (String(action?.command || "").trim().toLowerCase() === "quest") {
+        return [
+          ["Choose", action?.choices?.length > 1 ? "one objective to carry" : "this objective"],
+          ["Complete", friendlyActionText(action?.effect)],
+          ["Then", "its knowledge becomes unlocked for future Level Up choices"],
+        ];
+      }
+      if (String(action?.command || "").trim().toLowerCase() === "level up") {
+        return [
+          ["Choose", "one complete class package"],
+          ["Sets", "class, Hit Die, hit points, Skill proficiencies, and automatic features"],
+          ["Costs", "one banked journal memory"],
+        ];
+      }
       if (String(action?.label || "").toLowerCase() === "listen again") {
         const orbCost = Math.max(0, Number(action?.orbCost || 0));
         return [
@@ -8518,8 +8509,6 @@
       const ledger = view.ledger || {};
       const findAction = (predicate) => availableActions.find(predicate) || null;
       const banked = Number(ledger.banked_count || 0);
-      const spent = Number(ledger.spent_count || 0);
-      const growth = Number(ledger.advancement_points || 0);
       const unbankedMarks = Array.isArray(ledger.unbanked_marks) ? ledger.unbanked_marks : [];
       const unbankedListenMemory = unbankedMarks.some((mark) => mark?.category === "learned_truth");
       const hasListenMemory = Number(ledger.learned_truth_count || 0) > 0 || unbankedListenMemory;
@@ -8544,7 +8533,6 @@
         const grow = findAction((action) => (
           action.focusKey === "bank-ledger"
             || action.label === "grow"
-            || (action.label === "evolve" && action.evolveModes?.includes("grow"))
         ));
         return {
           stage: 2,
@@ -8555,29 +8543,13 @@
       }
 
       if (banked > 0) {
-        if (spent > 0 || growth <= 0) return null;
-        const bond = findAction((action) => ["grow closer", "bond"].includes(action.label));
-        const train = findAction((action) => (
-          ["practice", "train"].includes(action.label)
-            || (action.label === "evolve" && action.evolveModes?.includes("practice"))
-        ));
-        const next = bond || train;
-        const identityActionKeys = [bond, train]
-          .filter(Boolean)
-          .map((action) => actionHandKey(action))
-          .filter(Boolean);
+        if (view?.quests?.active || (view?.unlocks || []).length || Number(view?.character?.level || 0) > 0) return null;
+        const quest = findAction((action) => action.label === "quest");
         return {
           stage: 3,
           total: 3,
-          actionKey: next ? actionHandKey(next) : "",
-          actionKeys: identityActionKeys,
-          text: bond && train
-            ? "choose friendship or ability training."
-            : bond
-            ? "choose a friendship to grow."
-            : train
-              ? "choose an ability to train."
-              : "strengthen a friendship or train an ability.",
+          actionKey: quest ? actionHandKey(quest) : "",
+          text: quest ? "choose one objective to carry." : "find a place offering an objective.",
         };
       }
 

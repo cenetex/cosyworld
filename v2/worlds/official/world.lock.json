@@ -9,7 +9,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:6602bb60f078c37bf1ef148a263936c215958c3567f2c63f400286948e995515"
+      "integrity": "sha256:d6133126270a7332678bf1c5075fa9b092e69a048bfbb5531a8b8f6b2a983629"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -36,7 +36,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:3fb4a21bafa78c2a541ed5e3db8a1a34e2505cf774f259c97f0ab4909107148a"
+      "integrity": "sha256:eb04a9e6c0526f9eb17ef6c5934d0aec652b65d0b914d2a39c11fc9cdcaf80a9"
     },
     {
       "id": "cosyworld.the-holy-land",

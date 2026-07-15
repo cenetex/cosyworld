@@ -526,8 +526,6 @@ pub(super) fn command_dispatch_consumes_room_turn(dispatch: &CommandDispatch) ->
             | CommandDispatch::Say { .. }
             | CommandDispatch::Emote { .. }
             | CommandDispatch::Report { .. }
-            | CommandDispatch::BankLedger
-            | CommandDispatch::TrainSkill { .. }
     )
 }
 
@@ -941,11 +939,11 @@ mod tests {
     }
 
     #[test]
-    fn personal_growth_commands_do_not_consume_the_room_turn() {
-        assert!(!command_dispatch_consumes_room_turn(
+    fn growth_commands_consume_the_room_turn_like_other_cards() {
+        assert!(command_dispatch_consumes_room_turn(
             &CommandDispatch::BankLedger
         ));
-        assert!(!command_dispatch_consumes_room_turn(
+        assert!(command_dispatch_consumes_room_turn(
             &CommandDispatch::TrainSkill {
                 skill_id: "listening".to_string(),
             }

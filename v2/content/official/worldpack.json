@@ -5,7 +5,7 @@
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:cddcbb74cab94750ce403037ca22b0dcf2fb4972fdc2668ddf8c9a6f95957655",
+  "bundle_hash": "sha256:df51e114ca12face0fc9aa97516826e350792db5937209b6f441df0675a0e691",
   "packs": [
     {
       "id": "cosyworld.core",
@@ -32,6 +32,8 @@
         "lifecycle_hooks": 13,
         "evolution_tracks": 3,
         "recipes": 1,
+        "quests": 6,
+        "knowledge": 6,
         "external_cards": 0,
         "assets": 1,
         "rules": 0,
@@ -41,7 +43,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:6602bb60f078c37bf1ef148a263936c215958c3567f2c63f400286948e995515"
+      "integrity": "sha256:d6133126270a7332678bf1c5075fa9b092e69a048bfbb5531a8b8f6b2a983629"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -68,6 +70,8 @@
         "lifecycle_hooks": 0,
         "evolution_tracks": 0,
         "recipes": 0,
+        "quests": 0,
+        "knowledge": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 18,
@@ -106,6 +110,8 @@
         "lifecycle_hooks": 0,
         "evolution_tracks": 0,
         "recipes": 0,
+        "quests": 0,
+        "knowledge": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 18,
@@ -147,6 +153,8 @@
         "lifecycle_hooks": 8,
         "evolution_tracks": 0,
         "recipes": 0,
+        "quests": 6,
+        "knowledge": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 0,
@@ -156,7 +164,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:3fb4a21bafa78c2a541ed5e3db8a1a34e2505cf774f259c97f0ab4909107148a"
+      "integrity": "sha256:eb04a9e6c0526f9eb17ef6c5934d0aec652b65d0b914d2a39c11fc9cdcaf80a9"
     },
     {
       "id": "cosyworld.the-holy-land",
@@ -185,6 +193,8 @@
         "lifecycle_hooks": 0,
         "evolution_tracks": 0,
         "recipes": 0,
+        "quests": 0,
+        "knowledge": 0,
         "external_cards": 0,
         "assets": 1,
         "rules": 0,
@@ -223,6 +233,8 @@
         "lifecycle_hooks": 0,
         "evolution_tracks": 0,
         "recipes": 0,
+        "quests": 0,
+        "knowledge": 0,
         "external_cards": 0,
         "assets": 1,
         "rules": 0,
@@ -261,6 +273,8 @@
         "lifecycle_hooks": 0,
         "evolution_tracks": 0,
         "recipes": 0,
+        "quests": 0,
+        "knowledge": 0,
         "external_cards": 24,
         "assets": 1,
         "rules": 0,
@@ -353,7 +367,9 @@
     "cards": "cards.json",
     "lifecycle_hooks": "lifecycle_hooks.json",
     "evolution_tracks": "evolution_tracks.json",
-    "recipes": "recipes.json"
+    "recipes": "recipes.json",
+    "quests": "quests.json",
+    "knowledge": "knowledge.json"
   },
   "external_cards": "external_cards.json",
   "assets": "assets.json",

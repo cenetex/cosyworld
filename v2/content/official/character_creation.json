@@ -7,7 +7,7 @@
         "schema_version": 1,
         "id": "the-lantern-keeper",
         "name": "The Lantern Keeper",
-        "description": "Create a level-one traveler answering the last light on the Mothwood road.",
+        "description": "Create a classless level-zero traveler answering the last light on the Mothwood road.",
         "entry_location_id": 800,
         "prompt": "Who takes up the road when the beacon goes dark?",
         "default_choice_id": "lantern-warden",
