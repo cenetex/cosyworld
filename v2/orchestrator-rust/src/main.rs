@@ -15194,11 +15194,7 @@ impl RuntimeWorld {
     }
 
     fn record_autonomous_action(&mut self, record: &JournalRecord) {
-        if !matches!(
-            record.origin,
-            JournalOrigin::ActorConsequence | JournalOrigin::Speech
-        ) || record.source_world_tick.is_none()
-        {
+        if record.origin != JournalOrigin::ActorConsequence || record.source_world_tick.is_none() {
             return;
         }
         let Some(autonomy) = self.actor_autonomy.get_mut(&record.action.actor_id) else {
@@ -25149,7 +25145,7 @@ async fn chat(
     broadcast_events(&state, &events);
     if status == CW_OK {
         if state.event_store_path.is_some() {
-            state.actor_job_notify.notify_one();
+            state.actor_job_notify.notify_waiters();
         } else {
             let queue_event_id = events
                 .iter()
@@ -26880,14 +26876,14 @@ fn player_tick_observation(
 async fn complete_player_tick_observation(
     state: &AppState,
     observation: PlayerTickObservation,
-) -> Result<(), String> {
+) -> Result<Option<ResidentReplyPlan>, String> {
     let (ripple_events, reply_plan) = {
         let mut runtime = state.inner.lock().await;
         // A worker may be reclaimed after its reaction committed but before the
         // outbox row was acknowledged. The source tick is globally unique, so
         // an already-recorded autonomous result makes the retry a no-op.
         if runtime.player_tick_already_has_autonomous_result(observation.source_world_tick) {
-            return Ok(());
+            return Ok(None);
         }
         runtime.observe_player_tick_for_autonomy(&observation);
         let card_reaction_plan = if observation.allow_ordinary_speech {
@@ -26944,40 +26940,33 @@ async fn complete_player_tick_observation(
             None => (Vec::new(), card_reaction_plan),
             Some(record) => {
                 let action = record.action;
-                if card_reaction_plan
-                    .as_ref()
-                    .is_some_and(|plan| plan.npc_actor_id == action.actor_id)
-                {
-                    (Vec::new(), card_reaction_plan)
-                } else {
-                    match commit_journal_record(state, &mut runtime, record) {
-                        Ok((CW_OK, events)) if !events.is_empty() => {
-                            let ripple_reply_plan = observation
-                                .allow_ordinary_speech
-                                .then(|| runtime.resident_economy_action_reply_plan(&action))
-                                .flatten()
-                                .map(|plan| plan.with_observation(&observation));
-                            let player_was_only_available_speaker =
-                                card_reaction_plan.as_ref().is_some_and(|plan| {
-                                    runtime
-                                        .actor_by_id(plan.npc_actor_id)
-                                        .is_some_and(|actor| actor.kind == CW_ACTOR_HUMAN)
-                                });
-                            let reply = if player_was_only_available_speaker {
-                                ripple_reply_plan.or(card_reaction_plan)
-                            } else {
-                                card_reaction_plan.or(ripple_reply_plan)
-                            };
-                            (events, reply)
-                        }
-                        Ok((_status, _events)) => (Vec::new(), card_reaction_plan),
-                        Err(error) => {
-                            warn!(
-                                "failed to commit player-tick actor consequence for event {:?}: {}",
-                                observation.caused_by_event_seq, error
-                            );
-                            return Err(error.to_string());
-                        }
+                match commit_journal_record(state, &mut runtime, record) {
+                    Ok((CW_OK, events)) if !events.is_empty() => {
+                        let ripple_reply_plan = observation
+                            .allow_ordinary_speech
+                            .then(|| runtime.resident_economy_action_reply_plan(&action))
+                            .flatten()
+                            .map(|plan| plan.with_observation(&observation));
+                        let player_was_only_available_speaker =
+                            card_reaction_plan.as_ref().is_some_and(|plan| {
+                                runtime
+                                    .actor_by_id(plan.npc_actor_id)
+                                    .is_some_and(|actor| actor.kind == CW_ACTOR_HUMAN)
+                            });
+                        let reply = if player_was_only_available_speaker {
+                            ripple_reply_plan.or(card_reaction_plan)
+                        } else {
+                            card_reaction_plan.or(ripple_reply_plan)
+                        };
+                        (events, reply)
+                    }
+                    Ok((_status, _events)) => (Vec::new(), card_reaction_plan),
+                    Err(error) => {
+                        warn!(
+                            "failed to commit player-tick actor consequence for event {:?}: {}",
+                            observation.caused_by_event_seq, error
+                        );
+                        return Err(error.to_string());
                     }
                 }
             }
@@ -26986,23 +26975,32 @@ async fn complete_player_tick_observation(
     if !ripple_events.is_empty() {
         broadcast_events(state, &ripple_events);
     }
-    if let Some(plan) = reply_plan {
-        complete_resident_reply(state, plan).await?;
-    }
-    Ok(())
+    Ok(reply_plan)
+}
+
+fn spawn_resident_reply(state: &AppState, plan: ResidentReplyPlan) {
+    let state = state.clone();
+    tokio::spawn(async move {
+        if let Err(error) = complete_resident_reply(&state, plan).await {
+            warn!("asynchronous resident dialogue failed: {}", error);
+        }
+    });
 }
 
 fn schedule_player_tick_observation(state: &AppState, observation: PlayerTickObservation) {
     if state.event_store_path.is_some() {
         // The observation was inserted in the same SQLite transaction as the
         // card journal and events. This call only wakes the durable worker.
-        state.actor_job_notify.notify_one();
+        state.actor_job_notify.notify_waiters();
         return;
     }
     let state = state.clone();
     tokio::spawn(async move {
-        let _ = complete_player_tick_observation(&state, observation.clone()).await;
-        let _ = complete_player_tick_observation(&state, observation).await;
+        match complete_player_tick_observation(&state, observation).await {
+            Ok(Some(plan)) => spawn_resident_reply(&state, plan),
+            Ok(None) => {}
+            Err(error) => warn!("resident turn failed: {}", error),
+        }
     });
 }
 
@@ -27010,72 +27008,87 @@ fn start_actor_job_worker(state: AppState) {
     if state.event_store_path.is_none() {
         return;
     }
+    let gameplay_state = state.clone();
     tokio::spawn(async move {
-        loop {
-            let path = state
-                .event_store_path
-                .as_deref()
-                .expect("actor worker requires an event store");
-            match claim_next_actor_job(path) {
-                Ok(Some(job)) => {
-                    let result = match (&job.kind[..], &job.payload) {
-                        (ACTOR_JOB_KIND_PLAYER_TICK, ActorJobPayload::PlayerTick(observation))
-                            if job.actor_id == observation.source_actor_id =>
-                        {
-                            complete_player_tick_observation(&state, observation.clone()).await
-                        }
-                        (ACTOR_JOB_KIND_ORB_CHAT, ActorJobPayload::OrbChat(chat))
-                            if job.actor_id == chat.actor_id =>
-                        {
-                            complete_queued_orb_chat(
-                                &state,
-                                chat.actor_id,
-                                chat.target_actor_id,
-                                chat.plan.clone(),
-                                chat.queue_event_id,
-                                chat.source_world_tick,
-                                chat.observed_through_seq,
-                            )
-                            .await;
-                            Ok(())
-                        }
-                        _ => Err(format!(
-                            "unsupported or inconsistent actor job kind {}",
-                            job.kind
-                        )),
-                    };
-                    match result {
-                        Ok(()) => {
-                            if let Err(error) = complete_actor_job(path, job.id) {
-                                warn!("failed to complete actor job {}: {}", job.id, error);
+        run_actor_job_worker(gameplay_state, ACTOR_JOB_KIND_PLAYER_TICK).await;
+    });
+    tokio::spawn(async move {
+        run_actor_job_worker(state, ACTOR_JOB_KIND_ORB_CHAT).await;
+    });
+}
+
+async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
+    loop {
+        let path = state
+            .event_store_path
+            .as_deref()
+            .expect("actor worker requires an event store");
+        match claim_next_actor_job_of_kind(path, claimed_kind) {
+            Ok(Some(job)) => {
+                let result = match (&job.kind[..], &job.payload) {
+                    (ACTOR_JOB_KIND_PLAYER_TICK, ActorJobPayload::PlayerTick(observation))
+                        if job.actor_id == observation.source_actor_id =>
+                    {
+                        match complete_player_tick_observation(&state, observation.clone()).await {
+                            Ok(Some(plan)) => {
+                                spawn_resident_reply(&state, plan);
+                                Ok(())
                             }
-                        }
-                        Err(error) => {
-                            warn!("actor job {} failed: {}", job.id, error);
-                            if let Err(store_error) =
-                                fail_or_retry_actor_job(path, &job, &error.to_string())
-                            {
-                                warn!(
-                                    "failed to update retry state for actor job {}: {}",
-                                    job.id, store_error
-                                );
-                            }
+                            Ok(None) => Ok(()),
+                            Err(error) => Err(error),
                         }
                     }
-                }
-                Ok(None) => {
-                    tokio::select! {
-                        _ = state.actor_job_notify.notified() => {},
-                        _ = tokio::time::sleep(ACTOR_JOB_IDLE_POLL) => {},
+                    (ACTOR_JOB_KIND_ORB_CHAT, ActorJobPayload::OrbChat(chat))
+                        if job.actor_id == chat.actor_id =>
+                    {
+                        complete_queued_orb_chat(
+                            &state,
+                            chat.actor_id,
+                            chat.target_actor_id,
+                            chat.plan.clone(),
+                            chat.queue_event_id,
+                            chat.source_world_tick,
+                            chat.observed_through_seq,
+                        )
+                        .await;
+                        Ok(())
                     }
-                }
-                Err(error) => {
-                    warn!("durable actor worker could not claim a job: {}", error);
-                    tokio::time::sleep(ACTOR_JOB_IDLE_POLL).await;
+                    _ => Err(format!(
+                        "unsupported or inconsistent actor job kind {}",
+                        job.kind
+                    )),
+                };
+                match result {
+                    Ok(()) => {
+                        if let Err(error) = complete_actor_job(path, job.id) {
+                            warn!("failed to complete actor job {}: {}", job.id, error);
+                        }
+                    }
+                    Err(error) => {
+                        warn!("actor job {} failed: {}", job.id, error);
+                        if let Err(store_error) =
+                            fail_or_retry_actor_job(path, &job, &error.to_string())
+                        {
+                            warn!(
+                                "failed to update retry state for actor job {}: {}",
+                                job.id, store_error
+                            );
+                        }
+                    }
                 }
             }
+            Ok(None) => {
+                tokio::select! {
+                    _ = state.actor_job_notify.notified() => {},
+                    _ = tokio::time::sleep(ACTOR_JOB_IDLE_POLL) => {},
+                }
+            }
+            Err(error) => {
+                warn!("durable actor worker could not claim a job: {}", error);
+                tokio::time::sleep(ACTOR_JOB_IDLE_POLL).await;
+            }
         }
-    });
+    }
 }
 
 fn ripple_action_kind_from_events(actor_id: u64, events: &[EventView]) -> u8 {
@@ -28914,6 +28927,7 @@ async fn request_ai_resident_intent(
         name = plan.npc_name
     );
 
+    let response_format = serde_json::json!({ "type": "json_object" });
     let completion = request_chat_completion(
         config,
         ChatCompletionRequest {
@@ -28921,11 +28935,11 @@ async fn request_ai_resident_intent(
             system: &system,
             user: &user,
             temperature: 0.75,
-            max_tokens: 220,
-            timeout: Duration::from_secs(12),
+            max_tokens: 160,
+            timeout: Duration::from_secs(8),
             max_attempts: 2,
             referer: "http://127.0.0.1:3102",
-            response_format: None,
+            response_format: Some(&response_format),
         },
     )
     .await?;
@@ -33765,40 +33779,39 @@ fn append_actor_job(path: &Path, observation: &PlayerTickObservation) -> io::Res
 }
 
 fn claim_next_actor_job(path: &Path) -> io::Result<Option<ActorJob>> {
+    claim_next_actor_job_filtered(path, None)
+}
+
+fn claim_next_actor_job_of_kind(path: &Path, kind: &str) -> io::Result<Option<ActorJob>> {
+    claim_next_actor_job_filtered(path, Some(kind))
+}
+
+fn claim_next_actor_job_filtered(
+    path: &Path,
+    claimed_kind: Option<&str>,
+) -> io::Result<Option<ActorJob>> {
     init_event_store(path)?;
     let mut conn = open_event_store(path)?;
     let tx = conn.transaction().map_err(sqlite_error)?;
     let now = now_millis() as i64;
-    tx.execute(
-        "UPDATE actor_jobs AS older
-         SET status = 'coalesced', updated_at_ms = ?2
-         WHERE older.kind = ?1 AND older.status = 'pending'
-           AND EXISTS (
-               SELECT 1 FROM actor_jobs AS newer
-               WHERE newer.kind = older.kind
-                 AND newer.actor_id = older.actor_id
-                 AND newer.status = 'pending'
-                 AND newer.source_tick > older.source_tick
-           )",
-        params![ACTOR_JOB_KIND_PLAYER_TICK, now],
-    )
-    .map_err(sqlite_error)?;
     let row = tx
         .query_row(
             "SELECT id, kind, actor_id, attempts, context_json
              FROM actor_jobs
              WHERE ((status = 'pending' AND available_at_ms <= ?1)
                 OR (status = 'running' AND lease_until_ms IS NOT NULL AND lease_until_ms <= ?1))
+               AND (?2 IS NULL OR actor_jobs.kind = ?2)
                AND NOT EXISTS (
                    SELECT 1 FROM actor_jobs AS active
                    WHERE active.actor_id = actor_jobs.actor_id
+                     AND active.kind = actor_jobs.kind
                      AND active.id != actor_jobs.id
                      AND active.status = 'running'
                      AND active.lease_until_ms > ?1
                )
              ORDER BY source_tick ASC, id ASC
              LIMIT 1",
-            params![now],
+            params![now, claimed_kind],
             |row| {
                 Ok((
                     row.get::<_, i64>(0)?,
@@ -37755,7 +37768,7 @@ mod tests {
             "const visibleEvents = pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent));"
         ));
         assert!(INDEX_HTML.contains(
-            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${pendingConversation}${pendingCardReplies}`;"
+            "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${pendingConversation}${pendingChatReplies}`;"
         ));
         assert!(INDEX_HTML.contains(
             "return event?.type === \"message.created\" || event?.type === \"chat.failed\";"
@@ -37765,8 +37778,9 @@ mod tests {
         assert!(!INDEX_HTML.contains("visibleEvents.map(timelineEventHtml)"));
         assert!(INDEX_HTML.contains("function pendingConversationHtml"));
         assert!(INDEX_HTML.contains("finding the thread…"));
-        assert!(INDEX_HTML.contains("function pendingCardReactionsHtml"));
-        assert!(INDEX_HTML.contains("reacting to your card…"));
+        assert!(INDEX_HTML.contains("function pendingChatsHtml"));
+        assert!(INDEX_HTML.contains("if (!actorId || action?.kind !== \"orb-chat\") return 0;"));
+        assert!(!INDEX_HTML.contains("reacting to your card…"));
         assert!(!INDEX_HTML.contains("responding to your card…"));
         assert!(INDEX_HTML.contains("Your next cards are ready while"));
         assert!(INDEX_HTML.contains("return [...(events || [])].slice(-24);"));
@@ -37775,14 +37789,14 @@ mod tests {
         assert!(INDEX_HTML.contains("function backgroundImageStyle"));
         assert!(INDEX_HTML.contains("touch-action: pan-y;"));
         assert!(!INDEX_HTML.contains("scroll-behavior: smooth;"));
-        assert!(INDEX_HTML.contains("action?.kind === \"orb-chat\""));
+        assert!(INDEX_HTML.contains("pendingAction?.kind === \"orb-chat\""));
         assert!(INDEX_HTML.contains("Play Chat to start a short conversation with"));
         assert!(INDEX_HTML.contains("return [waitingAction, buildEvolveAction()].filter(Boolean);"));
         assert!(!INDEX_HTML.contains("cmd-progress"));
         assert!(INDEX_HTML.contains("if (!result.ok) void queueRefresh();"));
         assert!(INDEX_HTML.contains("event?.type !== \"action.receipt\""));
         assert!(INDEX_HTML.contains("state.state_revision"));
-        assert!(INDEX_HTML.contains("if (result?.ok === false) cancelPendingCardReaction"));
+        assert!(INDEX_HTML.contains("if (result?.ok === false) cancelPendingChat"));
         assert!(INDEX_HTML.contains("learned_truth_count"));
         assert!(INDEX_HTML.contains("function quietRoomSceneHtml"));
         assert!(INDEX_HTML.contains("the room is listening"));
@@ -39255,6 +39269,52 @@ mod tests {
     }
 
     #[test]
+    fn resident_speech_does_not_consume_the_resident_gameplay_turn() {
+        let mut runtime = RuntimeWorld::seeded();
+        let source_world_tick = runtime.world.tick.saturating_add(1);
+        let autonomy = runtime
+            .actor_autonomy
+            .get_mut(&RATI_ACTOR_ID)
+            .expect("Rati has resident autonomy");
+        autonomy.attention_credits = 2;
+        autonomy.last_acted_tick = 0;
+
+        let mut speech = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: RATI_ACTOR_ID,
+                ..CwAction::default()
+            },
+            17631,
+        );
+        speech.source_world_tick = Some(source_world_tick);
+        runtime.record_autonomous_action(&speech);
+        let autonomy = runtime
+            .actor_autonomy
+            .get(&RATI_ACTOR_ID)
+            .expect("Rati retains resident autonomy after speaking");
+        assert_eq!(autonomy.attention_credits, 2);
+        assert_eq!(autonomy.last_acted_tick, 0);
+
+        let gameplay = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: RATI_ACTOR_ID,
+                ..CwAction::default()
+            },
+            17632,
+        )
+        .into_actor_consequence(source_world_tick, Some(77));
+        runtime.record_autonomous_action(&gameplay);
+        let autonomy = runtime
+            .actor_autonomy
+            .get(&RATI_ACTOR_ID)
+            .expect("Rati retains resident autonomy after acting");
+        assert_eq!(autonomy.attention_credits, 1);
+        assert_eq!(autonomy.last_acted_tick, source_world_tick);
+    }
+
+    #[test]
     fn legacy_journal_records_preserve_historical_tick_replay() {
         let runtime = RuntimeWorld::seeded();
         let content_id = runtime.next_content_id_value();
@@ -39379,6 +39439,105 @@ mod tests {
         assert!(claim_next_actor_job(&path)
             .expect("inspect drained outbox")
             .is_none());
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn actor_outbox_keeps_every_player_card_turn_in_order() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-actor-outbox-order-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let observation = |source_world_tick, caused_by_event_seq| PlayerTickObservation {
+            source_actor_id: 5000,
+            source_world_tick,
+            caused_by_event_seq: Some(caused_by_event_seq),
+            observed_through_seq: caused_by_event_seq,
+            source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            allow_ordinary_speech: true,
+            source_events: Vec::new(),
+            ripple_source: None,
+        };
+        let first_observation = observation(41, 401);
+        let second_observation = observation(42, 402);
+        assert!(append_actor_job(&path, &first_observation).expect("queue first player card"));
+        assert!(append_actor_job(&path, &second_observation).expect("queue second player card"));
+
+        let first = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .expect("claim first player card")
+            .expect("first player card remains queued");
+        let first_tick = match first.payload {
+            ActorJobPayload::PlayerTick(observation) => observation.source_world_tick,
+            _ => panic!("player-card worker claimed another job kind"),
+        };
+        assert_eq!(first_tick, 41);
+        complete_actor_job(&path, first.id).expect("complete first player card");
+
+        let second = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .expect("claim second player card")
+            .expect("second player card remains queued");
+        let second_tick = match second.payload {
+            ActorJobPayload::PlayerTick(observation) => observation.source_world_tick,
+            _ => panic!("player-card worker claimed another job kind"),
+        };
+        assert_eq!(second_tick, 42);
+        complete_actor_job(&path, second.id).expect("complete second player card");
+        assert!(
+            claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+                .expect("inspect drained player-card lane")
+                .is_none()
+        );
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn slow_chat_job_does_not_block_the_player_card_gameplay_lane() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-actor-outbox-lanes-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize actor outbox lanes");
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Lane Player");
+        let plan = runtime
+            .avatar_chat_plan_for(5000, RATI_ACTOR_ID)
+            .expect("Rati is available for Chat");
+        let chat = OrbChatJob {
+            actor_id: 5000,
+            target_actor_id: RATI_ACTOR_ID,
+            plan,
+            queue_event_id: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+        };
+        let conn = open_event_store(&path).expect("open actor outbox lanes");
+        assert!(insert_orb_chat_job(&conn, &chat, 40, Some(400)).expect("queue slow Chat"));
+        drop(conn);
+        let observation = PlayerTickObservation {
+            source_actor_id: 5000,
+            source_world_tick: 41,
+            caused_by_event_seq: Some(401),
+            observed_through_seq: 401,
+            source_location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            allow_ordinary_speech: true,
+            source_events: Vec::new(),
+            ripple_source: None,
+        };
+        assert!(append_actor_job(&path, &observation).expect("queue gameplay turn"));
+
+        let claimed_chat = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ORB_CHAT)
+            .expect("claim Chat lane")
+            .expect("Chat is running");
+        let claimed_gameplay = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .expect("claim gameplay lane while Chat runs")
+            .expect("gameplay is not blocked by slow Chat");
+        assert_eq!(claimed_chat.actor_id, claimed_gameplay.actor_id);
+        complete_actor_job(&path, claimed_gameplay.id).expect("complete gameplay turn");
+        complete_actor_job(&path, claimed_chat.id).expect("complete Chat");
         let _ = fs::remove_file(path);
     }
 
@@ -39529,7 +39688,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn real_player_action_reserves_the_ai_reaction_speaker() {
+    async fn resident_gameplay_turn_is_independent_of_ai_reaction_speech() {
         let mut runtime = RuntimeWorld::seeded();
         hide_seed_items(&mut runtime);
         let mut create = CwAction::default();
@@ -39565,20 +39724,34 @@ mod tests {
         assert!(response.events.iter().any(|event| {
             event.type_name == "location.searched" && event.actor_id == Some(5000)
         }));
-        let resident_action = response.events.iter().find(|event| {
-            [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
-                .contains(&event.actor_id.unwrap_or_default())
-                && matches!(
-                    event.type_name.as_str(),
-                    "actor.moved"
-                        | "item.picked_up"
-                        | "item.dropped"
-                        | "item.given"
-                        | "item.traded"
-                        | "item.used"
-                )
-        });
-        assert!(resident_action.is_none());
+        let resident_action = tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                let resident_action = {
+                    let runtime = state.inner.lock().await;
+                    runtime.event_log.iter().find_map(|event| {
+                        ([RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
+                            .contains(&event.actor_id.unwrap_or_default())
+                            && matches!(
+                                event.type_name.as_str(),
+                                "actor.moved"
+                                    | "item.picked_up"
+                                    | "item.dropped"
+                                    | "item.given"
+                                    | "item.traded"
+                                    | "item.used"
+                            ))
+                        .then_some(event.actor_id.unwrap_or_default())
+                    })
+                };
+                if resident_action.is_some() {
+                    break resident_action;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("resident gameplay should not wait for dialogue inference");
+        assert!(resident_action.is_some());
         assert!(!response.events.iter().any(|event| {
             event.type_name == "message.created"
                 && [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]

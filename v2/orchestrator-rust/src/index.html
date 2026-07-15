@@ -2867,8 +2867,8 @@
     let refreshQueued = false;
     let actionBusy = false;
     let pendingAction = null;
-    let pendingCardReactions = [];
-    let nextPendingCardReactionId = 1;
+    let pendingChats = [];
+    let nextPendingChatId = 1;
     let renderedChatTailKey = "";
     let actionConfirmAction = null;
     let accountPanelPinned = false;
@@ -5539,7 +5539,7 @@
 
     function resetTranscriptAtWorldBoundary(event) {
       logEvents = [];
-      pendingCardReactions = [];
+      pendingChats = [];
       seenSeq.clear();
       if (event?.seq !== undefined && event?.seq !== null) seenSeq.add(event.seq);
     }
@@ -5621,7 +5621,7 @@
         }
         if (!event || seenSeq.has(event.seq)) continue;
         seenSeq.add(event.seq);
-        resolvePendingCardReaction(event);
+        resolvePendingChat(event);
         if (eventIsHiddenContext(event)) continue;
         if (!eventIsLowSignalStatus(event)) appendLogEvent(event);
         changed = true;
@@ -5656,57 +5656,48 @@
       return residents[(latestIndex + 1) % residents.length];
     }
 
-    function beginPendingCardReaction(action) {
-      if (!actorId || action?.kind === "avatar-arrival") return 0;
+    function beginPendingChat(action) {
+      if (!actorId || action?.kind !== "orb-chat") return 0;
       const target = reactionTargetForAction(action);
       if (!target) return 0;
-      const id = nextPendingCardReactionId++;
-      const kind = action?.kind === "orb-chat" ? "chat" : "card";
-      pendingCardReactions.push({
+      const id = nextPendingChatId++;
+      pendingChats.push({
         id,
-        kind,
-        strictTarget: kind === "chat",
         targetActorId: Number(target.id || 0),
         targetName: actorLabel(target),
         afterSeq: latestSeenSeq(),
       });
       window.setTimeout(() => {
-        if (!pendingCardReactions.some((reaction) => reaction.id === id)) return;
-        cancelPendingCardReaction(id);
+        if (!pendingChats.some((chat) => chat.id === id)) return;
+        cancelPendingChat(id);
         renderLog();
       }, 60000);
       return id;
     }
 
-    function cancelPendingCardReaction(id) {
+    function cancelPendingChat(id) {
       if (!id) return;
-      pendingCardReactions = pendingCardReactions.filter((reaction) => reaction.id !== id);
+      pendingChats = pendingChats.filter((chat) => chat.id !== id);
     }
 
-    function resolvePendingCardReaction(event) {
-      if (!event || !pendingCardReactions.length) return;
+    function resolvePendingChat(event) {
+      if (!event || !pendingChats.length) return;
       const eventSeq = Number(event.seq || 0);
       if (event.type === "chat.failed" || event.type === "chat.completed") {
-        const statusIndex = pendingCardReactions.findIndex((reaction) => (
-          reaction.kind === "chat"
-          && eventSeq > Number(reaction.afterSeq || 0)
+        const statusIndex = pendingChats.findIndex((chat) => (
+          eventSeq > Number(chat.afterSeq || 0)
           && Number(event.actor_id || 0) === Number(actorId || 0)
-          && Number(event.target_actor_id || 0) === Number(reaction.targetActorId || 0)
+          && Number(event.target_actor_id || 0) === Number(chat.targetActorId || 0)
         ));
-        if (statusIndex >= 0) pendingCardReactions.splice(statusIndex, 1);
+        if (statusIndex >= 0) pendingChats.splice(statusIndex, 1);
         return;
       }
       if (event.type !== "message.created") return;
-      let index = pendingCardReactions.findIndex((reaction) => (
-        eventSeq > Number(reaction.afterSeq || 0)
-        && Number(event.actor_id || 0) === Number(reaction.targetActorId || 0)
+      const index = pendingChats.findIndex((chat) => (
+        eventSeq > Number(chat.afterSeq || 0)
+        && Number(event.actor_id || 0) === Number(chat.targetActorId || 0)
       ));
-      if (index < 0) {
-        index = pendingCardReactions.findIndex((reaction) => (
-          !reaction.strictTarget && eventSeq > Number(reaction.afterSeq || 0)
-        ));
-      }
-      if (index >= 0) pendingCardReactions.splice(index, 1);
+      if (index >= 0) pendingChats.splice(index, 1);
     }
 
     function rebuildLog(events) {
@@ -5718,7 +5709,7 @@
           continue;
         }
         if (!event) continue;
-        resolvePendingCardReaction(event);
+        resolvePendingChat(event);
         if (eventIsHiddenContext(event)) continue;
         if (event.seq !== undefined && event.seq !== null) {
           if (seenSeq.has(event.seq)) continue;
@@ -6621,9 +6612,9 @@
       const accountPanel = accountPanelHtml();
       const visibleEvents = pacedChatTranscriptEvents(logEvents.filter(eventIsChatTranscriptEvent));
       const pendingConversation = pendingConversationHtml();
-      const pendingCardReplies = pendingCardReactionsHtml();
+      const pendingChatReplies = pendingChatsHtml();
       const pendingArrival = pendingAvatarArrivalHtml();
-      const hasChat = visibleEvents.length > 0 || Boolean(pendingConversation) || Boolean(pendingCardReplies);
+      const hasChat = visibleEvents.length > 0 || Boolean(pendingConversation) || Boolean(pendingChatReplies);
       const residentOnly = visibleEvents.length > 0 && visibleEvents.every(messageActorIsResident);
       log.classList.toggle("library-mode", Boolean(libraryPanel));
       log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
@@ -6671,11 +6662,11 @@
         tailEvent?.seq ?? "",
         tailEvent?.repeat_count ?? 1,
         pendingConversation ? "conversation" : "",
-        pendingCardReactions.map((reaction) => reaction.id).join(","),
+        pendingChats.map((chat) => chat.id).join(","),
       ].join(":");
       const tailChanged = chatTailKey !== renderedChatTailKey;
       renderedChatTailKey = chatTailKey;
-      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${pendingConversation}${pendingCardReplies}`;
+      log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${pendingConversation}${pendingChatReplies}`;
       log.scrollTop = tailChanged || wasAtBottom ? log.scrollHeight : previousScrollTop;
     }
 
@@ -6773,17 +6764,12 @@
       return `<div class="line chat npc pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: targetId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>finding the thread…</span></div>`;
     }
 
-    function pendingCardReactionsHtml() {
-      return pendingCardReactions.filter((reaction) => (
-        !(reaction.kind === "chat" && actionBusy && pendingAction?.kind === "orb-chat")
-      )).map((reaction) => {
-        const speaker = reaction.targetName || "Someone nearby";
-        const chatting = reaction.kind === "chat";
-        const aria = chatting
-          ? `${speaker} is finding the thread. Your next cards are ready while the conversation unfolds.`
-          : `${speaker} is reacting to your card. Your next cards are ready while the reply unfolds.`;
-        const text = chatting ? "finding the thread…" : "reacting to your card…";
-        return `<div class="line chat npc pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: reaction.targetActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>${escapeHtml(text)}</span></div>`;
+    function pendingChatsHtml() {
+      if (actionBusy && pendingAction?.kind === "orb-chat") return "";
+      return pendingChats.map((chat) => {
+        const speaker = chat.targetName || "Someone nearby";
+        const aria = `${speaker} is finding the thread. Your next cards are ready while the conversation unfolds.`;
+        return `<div class="line chat npc pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: chat.targetActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>finding the thread…</span></div>`;
       }).join("");
     }
 
@@ -9108,18 +9094,18 @@
       if (actionBusy) return;
       actionBusy = true;
       pendingAction = action;
-      const pendingReactionId = beginPendingCardReaction(action);
+      const pendingChatId = beginPendingChat(action);
       renderCommands();
       renderLog();
       try {
         const result = await action.run();
-        if (result?.ok === false) cancelPendingCardReaction(pendingReactionId);
+        if (result?.ok === false) cancelPendingChat(pendingChatId);
         const handKey = action.handKey || actionHandKey(action);
         if (!state?.branch && handKey && result?.ok !== false) {
           discardHandKey(handKey);
         }
       } catch (error) {
-        cancelPendingCardReaction(pendingReactionId);
+        cancelPendingChat(pendingChatId);
         setError(String(error.message || error));
       } finally {
         actionBusy = false;

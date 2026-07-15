@@ -304,6 +304,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
       "s3:GetBucketLocation",
       "s3:GetBucketPolicy",
       "s3:GetBucketPublicAccessBlock",
+      "s3:GetBucketRequestPayment",
       "s3:GetBucketAcl",
       "s3:GetBucketCORS",
       "s3:GetBucketWebsite",
