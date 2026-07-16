@@ -26,6 +26,7 @@ const expectedFiles = {
   lifecycle_hooks: "lifecycle_hooks.json",
   evolution_tracks: "evolution_tracks.json",
   recipes: "recipes.json",
+  sentences: "sentences.json",
 };
 const allowedPackKinds = new Set(["world", "campaign", "catalog", "assets", "rules"]);
 const allowedEntitlementAuthorityTypes = new Set(["asset_feed", "solana_collection", "signed_set"]);
@@ -38,6 +39,13 @@ const bannedEnvironmentTells = [
 ];
 const secondPersonPattern = /\b(?:you|your|yours|yourself)\b/i;
 const objectSentimentPattern = /\b(?:pleased|approves|approving|delights|remembers)\b/i;
+const allowedSentenceShelves = new Set([
+  "quiet-wing",
+  "great-library",
+  "restricted",
+  "drowned",
+  "hearth",
+]);
 
 const failures = [];
 const warnings = [];
@@ -123,7 +131,7 @@ function contentRowLabel(fileName, row, index, trail) {
 
 function validateWritingRegister(contentCollections) {
   for (const [collection, rows] of Object.entries(contentCollections)) {
-    if (collection === "actors" || collection === "cards") continue;
+    if (collection === "actors" || collection === "cards" || collection === "sentences") continue;
     const fileName = expectedFiles[collection];
     rows.forEach((row, index) => {
       visitStrings(row, (value, trail) => {
@@ -574,6 +582,7 @@ const cards = content.cards;
 const lifecycleHooks = content.lifecycle_hooks;
 const evolutionTracks = content.evolution_tracks;
 const recipes = content.recipes;
+const sentences = content.sentences;
 
 validateWritingRegister(content);
 reportWritingRegisterAdvisories({ actors, cards, locations });
@@ -582,6 +591,7 @@ const actorIds = idSet("actors", actors, (actor) => actor.id);
 const actorById = new Map(actors.map((actor) => [actor.id, actor]));
 const itemIds = idSet("items", items, (item) => item.id);
 const locationIds = idSet("locations", locations, (location) => location.id);
+idSet("sentences", sentences, (sentence) => sentence.id);
 const clockIds = idSet("clocks", clocks, (clock) => clock.id);
 const jobIds = idSet("jobs", jobs, (job) => job.id);
 const frontIds = idSet("fronts", fronts, (front) => front.id);
@@ -591,6 +601,30 @@ const characterCreationProfileIds = idSet(
   (profile) => profile.id,
 );
 const gateByLocationId = new Map();
+
+for (const sentence of sentences) {
+  validateRequiredStrings("sentence", sentence, ["id", "shelf", "text"]);
+  if (!allowedSentenceShelves.has(sentence.shelf)) {
+    fail(`sentence ${sentence.id} has invalid shelf ${String(sentence.shelf)}`);
+  }
+  const sentenceLocationIds = asArray(`sentence ${sentence.id} location_ids`, sentence.location_ids);
+  if (sentenceLocationIds.length === 0) {
+    fail(`sentence ${sentence.id} must declare at least one location_id`);
+  }
+  const seenLocationIds = new Set();
+  for (const locationId of sentenceLocationIds) {
+    if (!Number.isInteger(locationId) || !has(locationIds, locationId)) {
+      fail(`sentence ${sentence.id} references missing location ${String(locationId)}`);
+    } else if (seenLocationIds.has(locationId)) {
+      fail(`sentence ${sentence.id} repeats location ${locationId}`);
+    }
+    seenLocationIds.add(locationId);
+  }
+  if (typeof sentence.weight !== "number" || !Number.isFinite(sentence.weight) || sentence.weight <= 0) {
+    fail(`sentence ${sentence.id} must declare a positive weight`);
+  }
+}
+
 for (const gate of accessGates) {
   if (gateByLocationId.has(gate.location_id)) {
     fail(`duplicate access gate for location ${gate.location_id}`);

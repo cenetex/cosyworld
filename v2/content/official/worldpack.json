@@ -5,7 +5,7 @@
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:957ce4c287ee3e47189c6b1d2a6a81d264d268004dc02668092837f8a75c5205",
+  "bundle_hash": "sha256:8ca493ca7c0e131b79020c90318e20e65a0f450f0ae18837b862801cb71e8f86",
   "packs": [
     {
       "id": "cosyworld.core",
@@ -32,6 +32,7 @@
         "lifecycle_hooks": 19,
         "evolution_tracks": 3,
         "recipes": 1,
+        "sentences": 0,
         "external_cards": 0,
         "assets": 1,
         "rules": 0,
@@ -70,6 +71,7 @@
         "lifecycle_hooks": 8,
         "evolution_tracks": 0,
         "recipes": 0,
+        "sentences": 0,
         "external_cards": 0,
         "assets": 0,
         "rules": 0,
@@ -108,6 +110,7 @@
         "lifecycle_hooks": 0,
         "evolution_tracks": 0,
         "recipes": 0,
+        "sentences": 0,
         "external_cards": 0,
         "assets": 1,
         "rules": 0,
@@ -146,6 +149,7 @@
         "lifecycle_hooks": 0,
         "evolution_tracks": 0,
         "recipes": 0,
+        "sentences": 0,
         "external_cards": 24,
         "assets": 1,
         "rules": 0,
@@ -238,7 +242,8 @@
     "cards": "cards.json",
     "lifecycle_hooks": "lifecycle_hooks.json",
     "evolution_tracks": "evolution_tracks.json",
-    "recipes": "recipes.json"
+    "recipes": "recipes.json",
+    "sentences": "sentences.json"
   },
   "external_cards": "external_cards.json",
   "assets": "assets.json",
