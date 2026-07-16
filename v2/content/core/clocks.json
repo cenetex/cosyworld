@@ -46,5 +46,77 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active"
+  },
+  {
+    "id": "goblin-cave.fair-bargain",
+    "scope": "room",
+    "scope_id": 34,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Name a Fair Price",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
+  },
+  {
+    "id": "goblin-cave.leverage",
+    "scope": "room",
+    "scope_id": 34,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "The Loophole Becomes Leverage",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
+  },
+  {
+    "id": "haunted-mansion.threshold",
+    "scope": "room",
+    "scope_id": 42,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Earn the Threshold",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
+  },
+  {
+    "id": "haunted-mansion.warden-rage",
+    "scope": "room",
+    "scope_id": 42,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "The Warden Bars the Door",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
+  },
+  {
+    "id": "turgid-swamp.amends",
+    "scope": "room",
+    "scope_id": 60,
+    "kind": "progress",
+    "zone": "frontier",
+    "label": "Amend the Grudge Ledger",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
+  },
+  {
+    "id": "turgid-swamp.old-grudge",
+    "scope": "room",
+    "scope_id": 60,
+    "kind": "danger",
+    "zone": "frontier",
+    "label": "The Old Grudge Hardens",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active"
   }
 ]

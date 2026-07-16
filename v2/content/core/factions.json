@@ -88,6 +88,7 @@
     "verbs": ["archive", "cite", "bind", "restore"],
     "motif": ["brass ladders", "page numbers", "marginalia", "maps"],
     "home_location_ids": [50],
+    "player_facing": true,
     "member_actor_ids": []
   },
   {
@@ -127,7 +128,7 @@
     "verbs": ["bargain", "trick", "trade", "collect"],
     "motif": ["loose coins", "echoes", "contracts", "cave teeth"],
     "home_location_ids": [34],
-    "member_actor_ids": []
+    "member_actor_ids": [1070]
   },
   {
     "id": "solar_temple",

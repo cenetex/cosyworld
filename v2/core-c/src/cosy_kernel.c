@@ -1421,7 +1421,7 @@ static cw_status apply_combat_join(cw_world *world, const cw_action *action, uin
   return CW_OK;
 }
 
-static cw_status apply_combat_attack(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events) {
+static cw_status apply_combat_attack(cw_world *world, const cw_action *action, uint64_t seed, int finesse, cw_event_buffer *out_events) {
   cw_combat_encounter *encounter = 0;
   cw_actor *actor = 0;
   cw_status status = require_active_combat_turn(world, action, out_events, &encounter, &actor);
@@ -1444,7 +1444,12 @@ static cw_status apply_combat_attack(cw_world *world, const cw_action *action, u
       ? CW_ROLL_DISADVANTAGE
       : CW_ROLL_NORMAL;
   int16_t raw = roll_d20(seed, 1, roll_mode);
-  int16_t attack_mod = (int16_t)(ability_modifier(actor->stats.strength) + proficiency_bonus(actor));
+  int16_t strength_mod = ability_modifier(actor->stats.strength);
+  int16_t dexterity_mod = ability_modifier(actor->stats.dexterity);
+  int16_t attack_ability_mod = finesse && dexterity_mod > strength_mod
+      ? dexterity_mod
+      : strength_mod;
+  int16_t attack_mod = (int16_t)(attack_ability_mod + proficiency_bonus(actor));
   int16_t attack_total = (int16_t)(raw + attack_mod);
   int16_t ac = (int16_t)(10 + ability_modifier(target->stats.dexterity));
   int attack_hit = raw == 20 || (raw != 1 && attack_total >= ac);
@@ -1483,7 +1488,7 @@ static cw_status apply_combat_attack(cw_world *world, const cw_action *action, u
 
   int16_t damage_dice = roll_die(seed, 2, 8);
   if (raw == 20) damage_dice = (int16_t)(damage_dice + roll_die(seed, 3, 8));
-  int16_t damage = (int16_t)(damage_dice + ability_modifier(actor->stats.strength));
+  int16_t damage = (int16_t)(damage_dice + attack_ability_mod);
   if (damage < 0) damage = 0;
   int knocks_out = damage >= cw_actor_current_hp(target) && damage > 0;
   if (knocks_out) {
@@ -1582,6 +1587,7 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
   if (active_encounter
       && action->kind != CW_ACTION_SAY
       && action->kind != CW_ACTION_COMBAT_ATTACK
+      && action->kind != CW_ACTION_COMBAT_FINESSE_ATTACK
       && action->kind != CW_ACTION_COMBAT_DODGE
       && action->kind != CW_ACTION_COMBAT_ESCAPE) {
     cw_status status = reject(world, out_events, action, CW_REASON_COMBAT_ACTION_REQUIRED);
@@ -1646,7 +1652,10 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
       status = apply_combat_join(world, action, seed, out_events);
       break;
     case CW_ACTION_COMBAT_ATTACK:
-      status = apply_combat_attack(world, action, seed, out_events);
+      status = apply_combat_attack(world, action, seed, 0, out_events);
+      break;
+    case CW_ACTION_COMBAT_FINESSE_ATTACK:
+      status = apply_combat_attack(world, action, seed, 1, out_events);
       break;
     case CW_ACTION_COMBAT_DODGE:
       status = apply_combat_dodge(world, action, out_events);

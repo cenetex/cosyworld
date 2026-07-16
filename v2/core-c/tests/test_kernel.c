@@ -499,6 +499,65 @@ static void test_combat_v2_encounter_turns_dodge_targeting_and_escape(void) {
   assert(events.events[events.count - 1].total == 2);
 }
 
+static void test_combat_v3_finesse_and_v2_attack_replay_compatibility(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action create = {0};
+  create.kind = CW_ACTION_CREATE_ACTOR;
+  create.actor_id = 5001;
+  create.location_id = 3;
+  assert(cw_world_apply(&world, &create, 412, &events) == CW_OK);
+
+  cw_actor *human = &world.actors[5];
+  cw_actor *echo = &world.actors[3];
+  human->stats.strength = 6;
+  human->stats.dexterity = 18;
+  human->stats.level = 1;
+  human->stats.hp_base = 100;
+  echo->stats.dexterity = 1;
+  echo->stats.hp_base = 100;
+  echo->damage = 0;
+
+  cw_action start = {0};
+  start.kind = CW_ACTION_COMBAT_START;
+  start.actor_id = human->id;
+  start.target_actor_id = echo->id;
+  start.content_id = 9003;
+  assert(cw_world_apply(&world, &start, 413, &events) == CW_OK);
+
+  cw_combat_encounter *encounter = &world.combat_encounters[0];
+  for (size_t i = 0; i < encounter->participant_count; ++i) {
+    if (encounter->participants[i].actor_id == human->id) {
+      encounter->current_index = (uint8_t)i;
+      break;
+    }
+  }
+
+  cw_world before_attack = world;
+  cw_action attack = {0};
+  attack.kind = CW_ACTION_COMBAT_FINESSE_ATTACK;
+  attack.actor_id = human->id;
+  attack.target_actor_id = echo->id;
+  attack.content_id = encounter->id;
+  assert(cw_world_apply(&world, &attack, 415, &events) == CW_OK);
+  assert(events.events[0].type == CW_EVENT_COMBAT_ATTACK_ATTEMPT);
+  assert(events.events[0].modifier == 6);
+  assert(events.events[1].type == CW_EVENT_COMBAT_ATTACK_HIT);
+  assert(events.events[1].damage >= 5);
+  assert(events.events[1].damage <= 12);
+
+  cw_world legacy_replay = before_attack;
+  attack.kind = CW_ACTION_COMBAT_ATTACK;
+  assert(cw_world_apply(&legacy_replay, &attack, 415, &events) == CW_OK);
+  assert(events.events[0].type == CW_EVENT_COMBAT_ATTACK_ATTEMPT);
+  assert(events.events[0].modifier == 0);
+  assert(events.events[1].type == CW_EVENT_COMBAT_ATTACK_HIT);
+  assert(events.events[1].damage <= 6);
+}
+
 static void test_give_items_and_evolution(void) {
   cw_world world;
   cw_event_buffer events;
@@ -933,6 +992,7 @@ int main(void) {
   test_d20_roll_modes_bloodied_and_nonlethal_knockout();
   test_items_and_combat_gate();
   test_combat_v2_encounter_turns_dodge_targeting_and_escape();
+  test_combat_v3_finesse_and_v2_attack_replay_compatibility();
   test_give_items_and_evolution();
   test_maximum_evolution_burst_fits_event_buffer();
   test_npc_trade_items();

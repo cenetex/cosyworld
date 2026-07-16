@@ -111,6 +111,12 @@ Rules:
 - Location cards unlock entry to the shared location channel.
 - Item cards can seed item availability or crafting/evolution opportunities, but item instances used in the kernel remain explicit world objects.
 
+### Shared World Item Scarcity
+
+Each authored world-item id is one shard-local object. Resident desires, attachments, evolution requirements, and recipe inputs can deliberately overlap; they are reasons to move and negotiate over the shared object, not separate reservations or promises that every demand can be satisfied at once. Giving, trading, evolution placement, and crafting preserve their input objects, so the same singleton can support several stories in sequence. The browser shows a sought item's authoritative current availability beside the resident's fallible memory, making current contention legible.
+
+Wallet keepsakes are a separate ownership plane and never inflate this count. The worldpack inspector's `world_item_economy` audit reports only kernel-owned world supply against authored demand.
+
 ## Integration Points
 
 ### C Kernel

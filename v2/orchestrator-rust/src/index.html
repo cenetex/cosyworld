@@ -1060,6 +1060,28 @@
     }
     .library-location.accessible { color: var(--text); }
     .library-location-state { color: var(--amber); white-space: nowrap; }
+    .world-chronicle {
+      display: grid;
+      gap: 0.75rem;
+      padding: 0.9rem;
+      border: 1px solid rgba(239, 201, 107, 0.24);
+      border-radius: 0.75rem;
+      background: rgba(25, 23, 18, 0.66);
+    }
+    .world-chronicle-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: baseline;
+    }
+    .world-chronicle-head strong { color: var(--amber); font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .world-chronicle-head small { color: var(--muted); }
+    .world-chronicle-list { display: grid; gap: 0.55rem; }
+    .world-chronicle-entry { display: grid; gap: 0.12rem; padding-top: 0.55rem; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+    .world-chronicle-entry:first-child { padding-top: 0; border-top: 0; }
+    .world-chronicle-place { color: var(--amber); font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; }
+    .world-chronicle-copy { color: var(--text); line-height: 1.45; }
+    .world-faction-current { color: var(--muted); font-size: 0.76rem; }
     .account-title {
       display: flex;
       align-items: baseline;
@@ -2875,6 +2897,8 @@
     let libraryPanelPinned = false;
     let contentPacks = null;
     let contentPacksAccessKey = "";
+    let worldView = null;
+    let worldViewAccessKey = "";
     let identity = null;
     let openingBoxId = "";
     let roomCopyExpanded = false;
@@ -3321,6 +3345,12 @@
       return `/content-packs${qs ? `?${qs}` : ""}`;
     }
 
+    function worldPath() {
+      const params = requestParams();
+      const qs = params.toString();
+      return `/world${qs ? `?${qs}` : ""}`;
+    }
+
     async function ensureContentPacks() {
       const path = contentPacksPath();
       if (contentPacks && contentPacksAccessKey === path) return contentPacks;
@@ -3329,6 +3359,16 @@
       contentPacks = nextContentPacks;
       contentPacksAccessKey = path;
       return contentPacks;
+    }
+
+    async function ensureWorldView(force = false) {
+      const path = worldPath();
+      if (!force && worldView && worldViewAccessKey === path) return worldView;
+      const nextWorldView = await api(path);
+      if (path !== worldPath()) return worldView;
+      worldView = nextWorldView;
+      worldViewAccessKey = path;
+      return worldView;
     }
 
     function latestSeenSeq() {
@@ -3718,11 +3758,11 @@
           modalTitle: oneChoice ? "evolve" : "choose how to evolve",
           modalSummary: oneChoice
             ? (growAction
-              ? "Keep what mattered and let it shape what comes next."
+              ? "Keep what mattered."
               : `Put what you learned into ${(practiceAction?.abilityCandidates || [])[0]?.label || "an ability"} training.`)
             : (growAction
-              ? "Choose one of two possibilities: keep the lesson, or improve one ability's training bonus."
-              : "Choose one of two ways this lesson can strengthen your avatar."),
+              ? "Keep the lesson, or improve one ability's training bonus."
+              : "Choose how this lesson strengthens your avatar."),
           effect: oneChoice
             ? (growAction?.effect || practiceAction?.effect)
             : (growAction
@@ -3820,7 +3860,7 @@
             card: cardForLocation(view.location?.id),
             shape: "location",
             priority: 1,
-            modalSummary: "Let the room whisper its first clue to you.",
+            modalSummary: "Listen to the room.",
             effect: "the room shares one welcoming clue just for you",
             run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }),
           }];
@@ -4106,7 +4146,7 @@
             modalTitle: oneTrade ? undefined : "choose a trade",
             modalSummary: oneTrade
               ? `Swap ${firstTrade.offeredItem.name} with ${firstTrade.targetName} for ${firstTrade.targetItem.name}.`
-              : "Choose the keepsake swap that feels right.",
+              : "Choose a keepsake to swap.",
             effect: oneTrade ? (firstTrade.reason || undefined) : "both keepsakes change hands",
             ...(oneTrade ? {} : {
               choices: tradeCandidates.map((candidate) => ({
@@ -4149,7 +4189,7 @@
           priority: projectSearchPriority,
           modalSummary: clueLedSearch
             ? `Follow the room's clue and look closely at ${searchTarget}.`
-            : "Look closely and uncover one thing the room has been keeping tucked away.",
+            : "Search the room for one hidden thing.",
           effect: clueLedSearch
             ? `the clue tucked into ${searchTarget} comes to light`
             : (searchOffer?.effect || `one hidden thing in ${locationName} comes to light`),
@@ -4187,7 +4227,7 @@
                 : `Tuck ${firstItem.name} into your keeping.`)
               : (swapping
                 ? `Choose what to keep. ${heldItemName} stays here in its place.`
-                : "Choose one of the room's keepsakes to tuck into your keeping."),
+                : "Take one of the room's keepsakes."),
             effect: oneItem
               ? (swapping
                 ? `${firstItem.name} comes with you; ${heldItemName} stays in ${view.location?.name || "the room"}`
@@ -4300,10 +4340,10 @@
                   ? `Search out the first stretch toward ${firstExit.destination_location_name}.`
                   : `Follow the path to ${firstExit.destination_location_name}.`))
               : (fleeing
-                ? "Choose a way out and leave the danger behind."
+                ? "Choose a way out."
                 : (searchingPathway
-                  ? "Choose a destination and search the terrain ahead into being."
-                  : "Choose a path and follow it into the next room.")),
+                  ? "Choose a destination and search for a path."
+                  : "Choose a path.")),
             effect: onePath
               ? (searchingPathway
                 ? `a hidden first stretch toward ${firstExit.destination_location_name} is revealed`
@@ -4545,10 +4585,10 @@
           shape: "avatar",
           priority: restPriority,
           modalSummary: warmedRest
-            ? "Rest in the tonic\'s warmth and feel fresh again."
+            ? "Rest and recover."
             : (offer?.risk
-              ? "Catch your breath and feel fresh again. Trouble may draw nearer while you rest."
-              : "Catch your breath and feel fresh again."),
+              ? "Catch your breath. Trouble may draw nearer while you rest."
+              : "Catch your breath."),
           effect: offer?.effect,
           risk: offer?.risk,
           run: () => action("/actions/rest", { actor_id: actorId }),
@@ -4598,7 +4638,7 @@
           orbCost: listenAttemptedHere ? listenCost : 0,
           modalSummary: listenAttemptedHere
             ? `Spend ${repeatListenCost} to listen once more. The room may have nothing new yet.`
-            : "Let the room share what it notices.",
+            : "See what the room notices.",
           effect: listenAttemptedHere
             ? "the room may share another clue"
             : "the room shares one clue it is ready to tell",
@@ -4641,7 +4681,7 @@
             modalTitle: oneTarget ? `grow closer to ${firstTargetName}` : "choose someone to grow closer to",
             modalSummary: oneTarget
               ? `Keep ${firstTargetName} as someone who matters to you.`
-              : "Choose who you want to make room for in your story.",
+              : "Choose who to remember.",
             effect: oneTarget ? `your friendship with ${firstTargetName} begins` : "a new friendship begins",
             ...(oneTarget ? {} : {
               choices: bondTargets.map((target) => {
@@ -4704,7 +4744,7 @@
             modalTitle: oneMemory ? undefined : "choose a friendship to remember",
             modalSummary: oneMemory
               ? undefined
-              : "Choose whose shared story you want to carry forward.",
+              : "Choose whose story to carry forward.",
             effect: oneMemory ? offer?.effect : "what mattered between you stays with you",
             ...(oneMemory ? {} : {
               choices: rememberCandidates.map((candidate) => {
@@ -4853,7 +4893,7 @@
         modalTitle: sameItem ? `choose how to use ${itemNames[0]}` : "choose what to use",
         modalSummary: sameItem
           ? `Choose what ${itemNames[0]} should do here.`
-          : "Choose a keepsake and what it should do here.",
+          : "Choose a keepsake and how to use it.",
         effect: "the use you choose changes the scene",
         choices: modes.map((mode) => ({
           label: mode.label,
@@ -5895,6 +5935,11 @@
           const changed = pushEvents([event]);
           if (changed) renderTimelines();
         }
+        if (String(event.type || "").startsWith("world.") && event.type !== "world.bootstrapped") {
+          worldView = null;
+          worldViewAccessKey = "";
+          if (libraryPanelPinned) ensureWorldView(true).then(render).catch(() => render());
+        }
         const coveredByReceipt = Number(event.seq || 0) > 0
           && Number(event.seq || 0) <= Number(state?.state_revision || 0);
         if (eventShouldRefreshState(event) && !actionBusy && !coveredByReceipt) queueRefresh();
@@ -6690,7 +6735,36 @@
       const bundleDetails = bundle
         ? `<details class="library-technical"><summary>bundle details</summary><code>${escapeHtml(bundle)}</code></details>`
         : "";
-      return `<section class="account-panel library-panel" aria-labelledby="world-library-title"><div class="library-heading"><h2 id="world-library-title">world library</h2><small>${escapeHtml(`${packs.length} worlds and packs`)}</small></div><div class="library-intro">See where your story can travel. Open worlds are ready now; locked places show the card or collection that will let you enter.</div><div class="library-grid">${cards}</div>${bundleDetails}</section>`;
+      return `<section class="account-panel library-panel" aria-labelledby="world-library-title"><div class="library-heading"><h2 id="world-library-title">world library</h2><small>${escapeHtml(`${packs.length} worlds and packs`)}</small></div><div class="library-intro">See where your story can travel. Open worlds are ready now; locked places show the card or collection that will let you enter.</div>${worldChronicleHtml()}<div class="library-grid">${cards}</div>${bundleDetails}</section>`;
+    }
+
+    function worldChronicleHtml() {
+      const simulation = worldView?.simulation;
+      if (!simulation) {
+        return `<section class="world-chronicle" aria-label="World chronicle"><div class="world-chronicle-head"><strong>the world beyond</strong><small>listening for distant news…</small></div></section>`;
+      }
+      const history = Array.isArray(simulation.recent_history) ? simulation.recent_history.slice(0, 8) : [];
+      const entries = history.length
+        ? history.map((event) => {
+            const route = event.destination_location_name
+              ? `${event.location_name || "somewhere"} → ${event.destination_location_name}`
+              : (event.location_name || "somewhere beyond this room");
+            return `<div class="world-chronicle-entry"><span class="world-chronicle-place">${escapeHtml(route)}</span><span class="world-chronicle-copy">${escapeHtml(cleanStatusText(event.content || eventText(event)))}</span></div>`;
+          }).join("")
+        : `<div class="world-chronicle-entry"><span class="world-chronicle-copy">The wider world is settled. Six committed turns will carry the first distant change.</span></div>`;
+      const movingFactions = (simulation.factions || [])
+        .filter((faction) => Number(faction.momentum || 0) !== 0)
+        .sort((left, right) => Math.abs(Number(right.momentum || 0)) - Math.abs(Number(left.momentum || 0)))
+        .slice(0, 4)
+        .map((faction) => `${faction.faction_name || faction.faction_id} ${Number(faction.momentum) > 0 ? "+" : ""}${Number(faction.momentum || 0)}`)
+        .join(" · ");
+      const pulseLabel = Number(simulation.pulse_index || 0)
+        ? `history pulse ${simulation.pulse_index} · played tick ${simulation.last_advanced_tick}`
+        : `moves every ${simulation.pulse_interval_ticks || 6} committed turns`;
+      const factionLine = movingFactions
+        ? `<div class="world-faction-current">faction momentum · ${escapeHtml(movingFactions)}</div>`
+        : "";
+      return `<section class="world-chronicle" aria-label="World chronicle"><div class="world-chronicle-head"><strong>the world beyond</strong><small>${escapeHtml(pulseLabel)}</small></div><div class="world-chronicle-list">${entries}</div>${factionLine}</section>`;
     }
 
     function libraryPackHtml(pack) {
@@ -7037,8 +7111,36 @@
       return "Rain beads on broad leaves. A round patch in the grass shows where the pearled button was found.";
     }
 
+    function localWorldConditionBeat(view) {
+      const simulation = view?.location?.simulation;
+      if (!simulation || Number(simulation.last_pulse_tick || 0) <= 0) return "";
+      const pieces = [];
+      const weather = String(simulation.weather || "").trim();
+      if (weather && weather !== "settled") {
+        pieces.push(`Beyond the nearest shelter, ${weather} holds.`);
+      }
+      const conflict = Number(simulation.conflict_pressure || 0);
+      const tradePressure = Number(simulation.trade_pressure || 0);
+      if (conflict >= 3) pieces.push("Old arguments here are close to becoming open trouble.");
+      else if (conflict > 0) pieces.push("A little unease travels between the usual voices.");
+      if (tradePressure >= 4) pieces.push("Shelves and supply baskets are running thin.");
+      else if (tradePressure >= 2) pieces.push("The routes that supply this place feel strained.");
+      else {
+        const imports = Object.entries(simulation.imports || {})
+          .filter(([, amount]) => Number(amount || 0) > 0)
+          .sort((left, right) => Number(right[1] || 0) - Number(left[1] || 0));
+        if (imports.length) pieces.push(`${imports[0][0]} from elsewhere has begun to appear here.`);
+      }
+      const faction = (simulation.faction_influence || [])
+        .filter((entry) => Number(entry.influence || 0) > 0)
+        .sort((left, right) => Number(right.influence || 0) - Number(left.influence || 0))[0];
+      if (faction) pieces.push(`Signs of ${faction.faction_name || faction.faction_id} have appeared nearby.`);
+      return pieces.slice(0, 2).join(" ");
+    }
+
     function openingBeat(view) {
       const locationId = view?.location?.id;
+      let beat = "";
       if (locationId === 1) {
         const names = new Set((view.actors || []).map((actor) => actor.name));
         const pieces = ["Firelight warms The Cosy Cottage; rain taps the windows and the low doorway waits."];
@@ -7046,17 +7148,17 @@
         else pieces.push("Rati's blue scarf basket marks the chair where she often sits.");
         if (names.has("Gust")) pieces.push("Gust heckles the weather in bright little symbols.");
         if (names.has("Skull")) pieces.push("Skull watches the door like it owes him money.");
-        return pieces.join(" ");
-      }
-      if (locationId === 2) return gardenOpeningBeat(view);
-      if (locationId === 3) return "Moonlight silvers the trail. The air here is sharper, and choices carry farther.";
-      if (locationId === 10) return "Science Class hums with shared observations, bright benches, and questions waiting to be tested.";
-      if (locationId === 11) return "Homeroom waits with front-door morning light and the sense that every question gets a seat.";
-      if (locationId === 12) return "Library quiet gathers around the shelves; if it matters, someone wrote it down.";
-      if (locationId === 13) return "Cafeteria tables hold the soft thunder of commons diplomacy.";
-      if (locationId === 14) return "Greenhouse glass glows with patient leaves and experiments that grow slowly.";
-      if (locationId === 15) return "Courtyard paths cross under open sky; every hallway seems to lead back here.";
-      return copyForLocation(locationId, view);
+        beat = pieces.join(" ");
+      } else if (locationId === 2) beat = gardenOpeningBeat(view);
+      else if (locationId === 3) beat = "Moonlight silvers the trail. The air here is sharper, and choices carry farther.";
+      else if (locationId === 10) beat = "Science Class hums with shared observations, bright benches, and questions waiting to be tested.";
+      else if (locationId === 11) beat = "Homeroom waits with front-door morning light and the sense that every question gets a seat.";
+      else if (locationId === 12) beat = "Library quiet gathers around the shelves; if it matters, someone wrote it down.";
+      else if (locationId === 13) beat = "Cafeteria tables hold the soft thunder of commons diplomacy.";
+      else if (locationId === 14) beat = "Greenhouse glass glows with patient leaves and experiments that grow slowly.";
+      else if (locationId === 15) beat = "Courtyard paths cross under open sky; every hallway seems to lead back here.";
+      else beat = copyForLocation(locationId, view);
+      return [beat, localWorldConditionBeat(view)].filter(Boolean).join(" ");
     }
 
     function timelineEventHtml(event) {
@@ -7775,9 +7877,23 @@
 
     function soughtItemTags(soughtItem) {
       const tags = [];
+      const worldStatus = cleanEconomyText(soughtItem?.world_status);
+      const worldLocationName = cleanEconomyText(soughtItem?.world_location_name);
+      const worldHolderName = cleanEconomyText(soughtItem?.world_holder_actor_name);
+      if (worldStatus === "held" && worldHolderName) {
+        tags.push(Number(soughtItem?.world_holder_actor_id || 0) === Number(actorId || 0)
+          ? "you have it"
+          : `currently with ${worldHolderName}`);
+      } else if (worldStatus === "available" && worldLocationName) {
+        tags.push(`waiting in ${worldLocationName}`);
+      } else if (worldStatus === "hidden" && worldLocationName) {
+        tags.push(`not yet found near ${worldLocationName}`);
+      } else if (worldStatus === "spent") {
+        tags.push("already spent");
+      }
       const memoryLocation = cleanEconomyText(soughtItem?.memory_location_name);
       const holderName = cleanEconomyText(soughtItem?.holder_actor_name);
-      if (memoryLocation) {
+      if (tags.length === 0 && memoryLocation) {
         tags.push(holderName ? `with ${holderName} near ${memoryLocation}` : `near ${memoryLocation}`);
       }
       return tags;
@@ -7810,13 +7926,7 @@
       const request = economy.request || null;
       if (request?.item_id) {
         const matchingSought = sought.find((soughtItem) => Number(soughtItem.item_id) === Number(request.item_id));
-        const holderName = request.holder_actor_id ? actorNameForId(request.holder_actor_id) : "";
-        const holderTag = request.holder_actor_id
-          ? Number(request.holder_actor_id) === Number(actorId)
-            ? "you have it"
-            : `with ${holderName}`
-          : "";
-        const tags = [holderTag, ...soughtItemTags(matchingSought || {})].filter(Boolean);
+        const tags = soughtItemTags(matchingSought || {});
         rows.push(economyRowHtml("wants", economyItemSummaryHtml(itemNameForId(request.item_id), tags)));
         listedSoughtIds.add(Number(request.item_id));
       }
@@ -7986,7 +8096,7 @@
       return {
         count: memoryCount,
         points: growthCount,
-        summary: "Keep what mattered and let it shape what comes next.",
+        summary: "Keep what mattered.",
         rows: [
           ["What stays", "the little things you noticed this visit"],
           ["What opens", "new ways to strengthen a friendship or train an ability"],
@@ -9411,7 +9521,7 @@
       libraryPanelPinned = forceOpen === null ? !libraryPanelPinned : Boolean(forceOpen);
       if (libraryPanelPinned) {
         accountPanelPinned = false;
-        ensureContentPacks().then(render).catch(() => render());
+        Promise.all([ensureContentPacks(), ensureWorldView(true)]).then(render).catch(() => render());
       } else {
         render();
       }

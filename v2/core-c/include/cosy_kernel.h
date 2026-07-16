@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define CW_KERNEL_VERSION 2u
+#define CW_KERNEL_VERSION 3u
 
 #define CW_MAX_ACTORS 512u
 #define CW_MAX_ITEMS 1024u
@@ -110,7 +110,8 @@ typedef enum {
   CW_ACTION_COMBAT_JOIN = 16,
   CW_ACTION_COMBAT_ATTACK = 17,
   CW_ACTION_COMBAT_DODGE = 18,
-  CW_ACTION_COMBAT_ESCAPE = 19
+  CW_ACTION_COMBAT_ESCAPE = 19,
+  CW_ACTION_COMBAT_FINESSE_ATTACK = 20
 } cw_action_kind;
 
 typedef enum {

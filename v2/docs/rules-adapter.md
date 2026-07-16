@@ -38,12 +38,12 @@ an explicit versioned pack update.
 The kernel independently implements a deliberately small compatible surface:
 normal, Advantage, and Disadvantage d20 rolls; derived Bloodied state; and a
 CosyWorld nonlethal knockout that leaves an actor at 1 Hit Point. The versioned
-`cosyworld.combat/2` protocol adds explicit encounters, initiative,
-proficiency-scaled melee attacks, critical hits, Dodge, one-action turns, and
-escape through an unlocked exit. These primitives do not grant authority to
-reference-only entries or turn the adapter into a complete implementation of
-either SRD. See [combat-system.md](combat-system.md) for the exact compatibility
-profile and exclusions.
+`cosyworld.combat/3` protocol adds explicit encounters, initiative,
+proficiency-scaled finesse attacks, critical hits, Dodge, one-action turns,
+and escape through an unlocked exit. These primitives do not grant authority
+to reference-only entries or turn the adapter into a complete implementation
+of either SRD. See [combat-system.md](combat-system.md) for the exact
+compatibility profile and exclusions.
 
 ## Product boundary
 

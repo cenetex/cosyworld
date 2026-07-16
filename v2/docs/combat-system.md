@@ -1,6 +1,6 @@
 # CosyWorld combat protocol
 
-`cosyworld.combat/2` is the deterministic encounter protocol implemented by the
+`cosyworld.combat/3` is the deterministic encounter protocol implemented by the
 C kernel and projected by the Rust orchestrator. It is a deliberately bounded
 fifth-edition-compatible profile, not a complete implementation of SRD 5.1 or
 SRD 5.2.1.
@@ -17,10 +17,12 @@ participants. Later participants roll initiative when they join. Higher totals
 act first; actor id is the deterministic tie-breaker. The kernel accepts one of
 three actions from the current participant:
 
-- **Attack:** `d20 + Strength modifier + proficiency bonus` against
-  `10 + target Dexterity modifier`. A natural 1 misses and a natural 20 hits.
-  Damage is `1d8 + Strength modifier`, with a second d8 on a critical hit and a
-  minimum of zero damage.
+- **Attack:** `d20 + the better of the Strength or Dexterity modifier +
+  proficiency bonus` against `10 + target Dexterity modifier`. A natural 1
+  misses and a natural 20 hits. Damage is `1d8 + the same chosen modifier`,
+  with a second d8 on a critical hit and a minimum of zero damage. This is the
+  protocol's bounded finesse rule; every current attack may use it without an
+  authored weapon flag.
 - **Dodge:** attacks against the actor have Disadvantage until the beginning of
   that actor's next turn.
 - **Escape:** move through an existing unlocked exit and leave the encounter.
@@ -84,16 +86,17 @@ The durable kernel event vocabulary is append-only:
 - `combat.flee.success`
 - `combat.encounter.resolved`
 
-Encounters and participants are included in runtime snapshots. Historical
-journal records retain the old action codes and replay under their legacy
-mechanics; new public combat requests use the encounter action codes. This
-preserves existing journals without allowing legacy actions to bypass an
-active encounter.
+Encounters and participants are included in runtime snapshots, and their
+numeric ids remain stable across protocol revisions. Historical combat/2
+journal records retain action code 17 and replay with Strength-only attack and
+damage modifiers. New combat/3 player and NPC requests use append-only action
+code 20 for finesse attacks. This preserves deterministic legacy replay while
+preventing old action semantics from changing underneath durable journals.
 
 ## SRD boundary
 
 The embedded SRD packs remain attributed, non-authoritative references under
-`cosyworld.rules/1`. `cosyworld.combat/2` implements the compatible primitives
+`cosyworld.rules/1`. `cosyworld.combat/3` implements the compatible primitives
 listed above independently in the authoritative kernel. It does not merge the
 SRD 5.1 and SRD 5.2.1 namespaces, import reference-only monster statistics, or
 claim full rules compatibility.

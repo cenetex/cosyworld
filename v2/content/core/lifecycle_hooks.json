@@ -231,5 +231,143 @@
         "reason": "drowned_bell_danger_filled"
       }
     ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "goblin-cave.fair-bargain",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:34:fair_bargain",
+        "scope": "room",
+        "scope_id": 34,
+        "label": "a fair bargain",
+        "kind": "aspect",
+        "reason": "goblin_bargain_progress_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "goblin-cave:name-the-price",
+        "status": "completed",
+        "reason": "goblin_bargain_progress_filled"
+      }
+    ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "goblin-cave.leverage",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:34:promises_as_collateral",
+        "scope": "room",
+        "scope_id": 34,
+        "label": "promises as collateral",
+        "kind": "hook",
+        "reason": "goblin_bargain_danger_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "goblin-cave:name-the-price",
+        "status": "failed",
+        "reason": "goblin_bargain_danger_filled"
+      }
+    ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "haunted-mansion.threshold",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:42:threshold_earned",
+        "scope": "room",
+        "scope_id": 42,
+        "label": "threshold earned",
+        "kind": "aspect",
+        "reason": "haunted_threshold_progress_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "haunted-mansion:earn-the-threshold",
+        "status": "completed",
+        "reason": "haunted_threshold_progress_filled"
+      }
+    ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "haunted-mansion.warden-rage",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:42:doors_barred",
+        "scope": "room",
+        "scope_id": 42,
+        "label": "doors barred",
+        "kind": "hook",
+        "reason": "haunted_threshold_danger_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "haunted-mansion:earn-the-threshold",
+        "status": "failed",
+        "reason": "haunted_threshold_danger_filled"
+      }
+    ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "turgid-swamp.amends",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:60:ledger_amended",
+        "scope": "room",
+        "scope_id": 60,
+        "label": "grudge ledger amended",
+        "kind": "aspect",
+        "reason": "swamp_ledger_progress_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "turgid-swamp:amend-the-ledger",
+        "status": "completed",
+        "reason": "swamp_ledger_progress_filled"
+      }
+    ]
+  },
+  {
+    "hook": "on_clock_fill",
+    "target_kind": "clock",
+    "target_id": "turgid-swamp.old-grudge",
+    "claim_scope": "event_once",
+    "effects": [
+      {
+        "op": "set_tag",
+        "tag_id": "room:60:grudge_as_law",
+        "scope": "room",
+        "scope_id": 60,
+        "label": "grudge hardened into law",
+        "kind": "hook",
+        "reason": "swamp_ledger_danger_filled"
+      },
+      {
+        "op": "set_job_status",
+        "job_id": "turgid-swamp:amend-the-ledger",
+        "status": "failed",
+        "reason": "swamp_ledger_danger_filled"
+      }
+    ]
   }
 ]
