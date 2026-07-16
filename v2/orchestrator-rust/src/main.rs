@@ -44450,7 +44450,7 @@ mod tests {
                 assert_eq!(item_id, 2003);
                 assert_eq!(location_id, MOONLIT_TRAIL_LOCATION_ID);
                 assert_eq!(feature_key, "practice_circle");
-                assert!(output.contains("The charm cools against the skin."));
+                assert!(output.contains("The charm cools in your palm."));
                 (item_id, location_id, feature_key, output)
             }
             other => panic!("project feature use should resolve to use_feature, got {other:?}"),

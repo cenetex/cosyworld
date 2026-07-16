@@ -13,7 +13,7 @@
     "uses": [
       {
         "item_id": 2001,
-        "text": "The tonic warms against the skin. The hearth is warmer."
+        "text": "The tonic warms in your hand. The hearth is warmer."
       }
     ],
     "pack_id": "cosyworld.core"
@@ -112,7 +112,7 @@
       "sign"
     ],
     "look": "A silvered post with no distance marked.",
-    "search": "Three scratches read: guard, take only what is earned, leave early.",
+    "search": "Three scratches read: prove the guard, take what is earned, leave early.",
     "pack_id": "cosyworld.core"
   },
   {
@@ -129,7 +129,7 @@
     "uses": [
       {
         "item_id": 2003,
-        "text": "The charm cools against the skin."
+        "text": "The charm cools in your palm."
       }
     ],
     "pack_id": "cosyworld.core"
