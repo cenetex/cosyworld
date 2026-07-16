@@ -12,12 +12,12 @@
   "packs": [
     {
       "id": "cosyworld.core",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "source": {
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:97141fdd8061001e83cb0ef54bc8492fa368c6b0d738ef3acd0edbcb8bb61e5b",
+      "integrity": "sha256:ebd032bcb69990ab02056b45f8c8ba36600f596a3e47c3258f1bd5ff8f4f475a",
       "dependencies": [],
       "dependency_closure": [],
       "capabilities": [
@@ -29,6 +29,11 @@
         {
           "id": "cosyworld.core/assets",
           "kind": "assets",
+          "version": "1.0.0"
+        },
+        {
+          "id": "cosyworld.core/rules",
+          "kind": "rules",
           "version": "1.0.0"
         }
       ],
@@ -107,12 +112,12 @@
     },
     {
       "id": "ruby-high.first-bell",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "source": {
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:ed872af452c5facb2652079716a645e970f959c2ddbed19f0055ec6203d73da4",
+      "integrity": "sha256:dceeb174ac297b98b79d803e0a14a501775bd7a8fcdb24bfcc9257c2afe2878d",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -152,7 +157,7 @@
   "license_records": [
     {
       "pack_id": "cosyworld.core",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT",
       "provenance": {
         "source_name": "CosyWorld",
@@ -180,7 +185,7 @@
     },
     {
       "pack_id": "ruby-high.first-bell",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "MIT",
       "provenance": {
         "source_name": "Ruby High: First Bell",

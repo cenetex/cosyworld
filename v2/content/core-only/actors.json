@@ -1,0 +1,950 @@
+[
+  {
+    "id": 1001,
+    "name": "Rati",
+    "speech_mode": "prose",
+    "title": "Landlady of the Blue Cottage",
+    "description": "A brisk landlady mouse who knits aggressively, keeps the kettle loaded, and has opinions about your boots.",
+    "location_id": 1,
+    "desires": [
+      {
+        "item_id": 2005,
+        "reason": "a wooden button would finally stop the blue scarf escaping"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2001,
+        "reason": "the first warm cup is how the cottage learned to welcome frightened guests"
+      }
+    ],
+    "stats": {
+      "strength": 8,
+      "dexterity": 14,
+      "constitution": 11,
+      "intelligence": 13,
+      "wisdom": 15,
+      "charisma": 16,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1002,
+    "name": "Gust",
+    "speech_mode": "emoji_only",
+    "title": "Emoji Weather Gremlin",
+    "description": "A gusty little gremlin who heckles the room in pure emoji and considers punctuation a personal defeat.",
+    "location_id": 1,
+    "desires": [
+      {
+        "item_id": 2002,
+        "reason": "a pearled weather mark makes an excellent target for dramatic raindrops"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2003,
+        "reason": "the pawprint charm proves someone made it home without being blown into the hedge"
+      }
+    ],
+    "stats": {
+      "strength": 8,
+      "dexterity": 16,
+      "constitution": 10,
+      "intelligence": 12,
+      "wisdom": 14,
+      "charisma": 12,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1003,
+    "name": "Skull",
+    "speech_mode": "emote_only",
+    "title": "Deadpan Hearth Wolf",
+    "description": "A large wolf who answers maximum chaos with minimum movement and has never once been impressed.",
+    "location_id": 1,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "the mute bell gives the doorway a warning he can answer without words"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2006,
+        "reason": "the warm tag marks the hearth spot he has silently claimed"
+      }
+    ],
+    "stats": {
+      "strength": 14,
+      "dexterity": 13,
+      "constitution": 13,
+      "intelligence": 8,
+      "wisdom": 12,
+      "charisma": 9,
+      "hp_base": 11,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1004,
+    "name": "Coach",
+    "speech_mode": "silent",
+    "title": "Sparring Reflection",
+    "description": "A practice-double who flexes back, grades your falls out of ten, and has never awarded the ten.",
+    "location_id": 3,
+    "stats": {
+      "strength": 10,
+      "dexterity": 12,
+      "constitution": 10,
+      "intelligence": 8,
+      "wisdom": 10,
+      "charisma": 8,
+      "hp_base": 6,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1005,
+    "name": "Oak",
+    "speech_mode": "prose",
+    "title": "Elder of Root, Ring, Leaf, and Hollow",
+    "description": "An old oak whose four voices bicker like a family radio show; Hollow repeats every secret it is given, verbatim, to everyone.",
+    "location_id": 40,
+    "desires": [
+      {
+        "item_id": 2006,
+        "reason": "a warm stone tag could pin one sensible note to a very argumentative branch"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2005,
+        "reason": "a wooden tale-button gives Hollow one less excuse to repeat everyone"
+      }
+    ],
+    "stats": {
+      "strength": 16,
+      "dexterity": 6,
+      "constitution": 18,
+      "intelligence": 14,
+      "wisdom": 18,
+      "charisma": 13,
+      "hp_base": 16,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1040,
+    "name": "Warden",
+    "speech_mode": "emote_only",
+    "title": "Red-Eyed Night Warden",
+    "description": "A guard dog who is openly done with everyone, growls at the path instead of the guests, and would like credit for the restraint.",
+    "location_id": 42,
+    "attachments": [
+      {
+        "item_id": 2007,
+        "reason": "the mute bell suits a threshold watcher who dislikes wasted howls"
+      }
+    ],
+    "stats": {
+      "strength": 17,
+      "dexterity": 14,
+      "constitution": 15,
+      "intelligence": 9,
+      "wisdom": 14,
+      "charisma": 8,
+      "hp_base": 18,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1041,
+    "name": "Fern",
+    "speech_mode": "prose",
+    "title": "Meadow Gossip With Receipts",
+    "description": "A leaf-haired meadow gossip who never keeps a promise but always keeps score, and arranges flowers at you when cross.",
+    "location_id": 44,
+    "desires": [
+      {
+        "item_id": 2004,
+        "reason": "moonwool can tie a flower bundle tight enough to survive Fern's lecture"
+      }
+    ],
+    "stats": {
+      "strength": 8,
+      "dexterity": 13,
+      "constitution": 12,
+      "intelligence": 15,
+      "wisdom": 17,
+      "charisma": 15,
+      "hp_base": 12,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1042,
+    "name": "Bear",
+    "speech_mode": "prose",
+    "title": "Gentle Giant of the Root-Road",
+    "description": "A broad-shouldered neighbor who knows exactly which roots are doors because he has hit his head on every single one.",
+    "location_id": 40,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "the moss path needs a quiet warning before small travelers meet the tricky roots"
+      }
+    ],
+    "stats": {
+      "strength": 17,
+      "dexterity": 8,
+      "constitution": 16,
+      "intelligence": 10,
+      "wisdom": 14,
+      "charisma": 11,
+      "hp_base": 20,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1043,
+    "name": "Dottie",
+    "speech_mode": "prose",
+    "title": "Acorn-Bright Courier",
+    "description": "A sun-tailed courier who delivers every message at top speed, along with her personal commentary on its contents.",
+    "location_id": 44,
+    "desires": [
+      {
+        "item_id": 2002,
+        "reason": "a pearled rain button would seal a message against sudden weather"
+      }
+    ],
+    "stats": {
+      "strength": 6,
+      "dexterity": 18,
+      "constitution": 8,
+      "intelligence": 11,
+      "wisdom": 13,
+      "charisma": 14,
+      "hp_base": 8,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1044,
+    "name": "Professor",
+    "speech_mode": "prose",
+    "title": "Dusk Nut Archivist",
+    "description": "A blue-furred archivist losing a decades-long war against acorn storage capacity and filing the casualties alphabetically.",
+    "location_id": 41,
+    "attachments": [
+      {
+        "item_id": 2005,
+        "reason": "the wooden rim is just wide enough to hide a dusk record"
+      },
+      {
+        "item_id": 2008,
+        "reason": "the mended cloth marks the dusk path Professor swears is filed correctly"
+      }
+    ],
+    "stats": {
+      "strength": 5,
+      "dexterity": 17,
+      "constitution": 8,
+      "intelligence": 12,
+      "wisdom": 12,
+      "charisma": 13,
+      "hp_base": 8,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1045,
+    "name": "Pippa",
+    "speech_mode": "prose",
+    "title": "Brave Little Burrower",
+    "description": "A young badger with painty paws, terrible tunnel etiquette, and an uncle whose doormat she has never once used.",
+    "location_id": 41,
+    "desires": [
+      {
+        "item_id": 2006,
+        "reason": "a warm stone tag feels like a burrow-name small enough to carry"
+      }
+    ],
+    "stats": {
+      "strength": 8,
+      "dexterity": 10,
+      "constitution": 12,
+      "intelligence": 10,
+      "wisdom": 13,
+      "charisma": 12,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1046,
+    "name": "Theodora",
+    "speech_mode": "prose",
+    "title": "Abbey Bookkeeper",
+    "description": "A bespectacled abbey scholar who has fought the same rolling library ladder for twenty years and lost every single round.",
+    "location_id": 43,
+    "desires": [
+      {
+        "item_id": 2004,
+        "reason": "moonwool would bind a margin note without silencing the page"
+      }
+    ],
+    "stats": {
+      "strength": 7,
+      "dexterity": 8,
+      "constitution": 10,
+      "intelligence": 18,
+      "wisdom": 16,
+      "charisma": 14,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1047,
+    "name": "Peregrine",
+    "speech_mode": "prose",
+    "title": "Orange-Cloak Ending-Spoiler",
+    "description": "A small cloaked reader who has finished every book in the abbey and will cheerfully tell you exactly how yours ends.",
+    "location_id": 43,
+    "desires": [
+      {
+        "item_id": 2005,
+        "reason": "a hidden tale-button would mark the page everyone else skipped"
+      },
+      {
+        "item_id": 2009,
+        "reason": "the pressed fern keeps the skipped page from closing on its own"
+      }
+    ],
+    "stats": {
+      "strength": 5,
+      "dexterity": 13,
+      "constitution": 8,
+      "intelligence": 15,
+      "wisdom": 15,
+      "charisma": 13,
+      "hp_base": 8,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1048,
+    "name": "Marginalia",
+    "speech_mode": "prose",
+    "title": "Fernside Rules Lawyer",
+    "description": "A careful rabbit who cites the exact forest regulation she is breaking while she breaks it, with corrections in the margin.",
+    "location_id": 43,
+    "desires": [
+      {
+        "item_id": 2009,
+        "reason": "a fern bookmark would hold the next correction without pinning it down"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2004,
+        "reason": "moonwool keeps margin notes from escaping when the ink gets nervous"
+      }
+    ],
+    "stats": {
+      "strength": 6,
+      "dexterity": 15,
+      "constitution": 9,
+      "intelligence": 15,
+      "wisdom": 14,
+      "charisma": 12,
+      "hp_base": 9,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1049,
+    "name": "Septimus",
+    "speech_mode": "prose",
+    "title": "Red-Cloak Wayfarer",
+    "description": "A staff-carrying mouse who gives directions with total confidence, every one of them wrong, and keeps the complaints alphabetized.",
+    "location_id": 41,
+    "desires": [
+      {
+        "item_id": 2003,
+        "reason": "a pawprint charm helps wrong turns become maps instead of traps"
+      },
+      {
+        "item_id": 2008,
+        "reason": "a mended map scrap would prove at least one wrong turn came back kinder"
+      }
+    ],
+    "stats": {
+      "strength": 5,
+      "dexterity": 14,
+      "constitution": 9,
+      "intelligence": 12,
+      "wisdom": 13,
+      "charisma": 14,
+      "hp_base": 8,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1050,
+    "name": "Basil",
+    "speech_mode": "prose",
+    "title": "Keyhole Gardener",
+    "description": "A garden locksmith who talks to stubborn locks like misbehaving pets and takes it personally when one finally turns for somebody else.",
+    "location_id": 44,
+    "desires": [
+      {
+        "item_id": 2010,
+        "reason": "mossglass would hold meadow light for gates that open only to gentleness"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2002,
+        "reason": "the pearled button fits the keyhole that jams whenever the path gets damp"
+      }
+    ],
+    "stats": {
+      "strength": 6,
+      "dexterity": 16,
+      "constitution": 9,
+      "intelligence": 12,
+      "wisdom": 14,
+      "charisma": 13,
+      "hp_base": 9,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1051,
+    "name": "Euphemie",
+    "speech_mode": "prose",
+    "title": "Ghost of the Lying Stair",
+    "description": "A moss-draped mansion ghost who insists the dusting is overdue and the third stair is a liar.",
+    "location_id": 42,
+    "attachments": [
+      {
+        "item_id": 2005,
+        "reason": "the tucked tale is the one thing in the mansion Euphemie considers properly stored"
+      }
+    ],
+    "stats": {
+      "strength": 5,
+      "dexterity": 14,
+      "constitution": 9,
+      "intelligence": 15,
+      "wisdom": 17,
+      "charisma": 10,
+      "hp_base": 12,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1052,
+    "name": "Nightmare",
+    "speech_mode": "prose",
+    "title": "Grey Paw Bad Dream",
+    "description": "A small grey shadow with bright puppy eyes who practices being terrifying, then gets embarrassed when anyone compliments the effort.",
+    "location_id": 41,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "the silent bell is a practice warning for a small nightmare still learning which shadows are real"
+      }
+    ],
+    "stats": {
+      "strength": 9,
+      "dexterity": 15,
+      "constitution": 10,
+      "intelligence": 8,
+      "wisdom": 12,
+      "charisma": 12,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1053,
+    "name": "Ferret",
+    "speech_mode": "prose",
+    "title": "Victorian Art Critic Weasel",
+    "description": "A sharp-eyed Victorian critic with pearl manners and poisonous taste who has begun reviewing entire rooms, and their occupants.",
+    "location_id": 40,
+    "desires": [
+      {
+        "item_id": 2006,
+        "reason": "a hearthstone seal would make root-road promises harder to misplace"
+      }
+    ],
+    "stats": {
+      "strength": 6,
+      "dexterity": 14,
+      "constitution": 9,
+      "intelligence": 14,
+      "wisdom": 13,
+      "charisma": 17,
+      "hp_base": 9,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1054,
+    "name": "Aster",
+    "speech_mode": "prose",
+    "title": "Indigo Gentleman, Wide Wingspan",
+    "description": "A courteous stranger whose wings are too big for every door in the county and who apologizes to each one mid-crash.",
+    "location_id": 42,
+    "desires": [
+      {
+        "item_id": 2003,
+        "reason": "the pawprint charm anchors rift-light to a real path"
+      }
+    ],
+    "stats": {
+      "strength": 14,
+      "dexterity": 15,
+      "constitution": 13,
+      "intelligence": 14,
+      "wisdom": 12,
+      "charisma": 10,
+      "hp_base": 16,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1055,
+    "name": "Jophiel",
+    "speech_mode": "prose",
+    "title": "The Jock Angel",
+    "description": "A golden-winged athlete who counts prayers in sets, high-fives too hard, and takes it personally when an omen skips leg day.",
+    "location_id": 30,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "a mute bell can carry an omen without startling the clouds"
+      }
+    ],
+    "stats": {
+      "strength": 13,
+      "dexterity": 15,
+      "constitution": 12,
+      "intelligence": 12,
+      "wisdom": 15,
+      "charisma": 16,
+      "hp_base": 14,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1056,
+    "name": "Chamuel",
+    "speech_mode": "prose",
+    "title": "Lord Samael's Page (Self-Alphabetized)",
+    "description": "A slim, immaculate young angel with perfect hair, a laminated schedule, and forty books on courage he has read instead of having any.",
+    "location_id": 31,
+    "attachments": [
+      {
+        "item_id": 2001,
+        "reason": "warm tonic gives Chamuel something official to prescribe after overthinking"
+      }
+    ],
+    "stats": {
+      "strength": 12,
+      "dexterity": 14,
+      "constitution": 12,
+      "intelligence": 13,
+      "wisdom": 14,
+      "charisma": 13,
+      "hp_base": 13,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1057,
+    "name": "Flit",
+    "speech_mode": "prose",
+    "title": "Loud-Landing Lookout",
+    "description": "A bright-winged lookout who sees every path from above and announces her own crash landings like weather reports.",
+    "location_id": 30,
+    "desires": [
+      {
+        "item_id": 2002,
+        "reason": "dewlight on pearl makes a bright witness easier to believe"
+      }
+    ],
+    "stats": {
+      "strength": 10,
+      "dexterity": 15,
+      "constitution": 11,
+      "intelligence": 12,
+      "wisdom": 16,
+      "charisma": 15,
+      "hp_base": 12,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1058,
+    "name": "Bastian",
+    "speech_mode": "prose",
+    "title": "Hearthside Cupbearer",
+    "description": "A tavern-hearted host who judges you by your coaster usage and forgives you completely by your second cup.",
+    "location_id": 40,
+    "desires": [
+      {
+        "item_id": 2005,
+        "reason": "a tucked-away tale would give the next lonely guest something warm to carry"
+      }
+    ],
+    "stats": {
+      "strength": 8,
+      "dexterity": 13,
+      "constitution": 10,
+      "intelligence": 12,
+      "wisdom": 11,
+      "charisma": 16,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1059,
+    "name": "Samael",
+    "speech_mode": "prose",
+    "title": "First Angel of the Solar Temple",
+    "description": "A gold-armored angel-lord who runs heaven's front desk with a clipboard, signs judgments in triplicate, and wears the armor to meetings.",
+    "location_id": 36,
+    "attachments": [
+      {
+        "item_id": 2006,
+        "reason": "the warm tag is the only paperwork Samael has ever enjoyed filing"
+      }
+    ],
+    "stats": {
+      "strength": 18,
+      "dexterity": 13,
+      "constitution": 16,
+      "intelligence": 11,
+      "wisdom": 13,
+      "charisma": 15,
+      "hp_base": 20,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1060,
+    "name": "Moxie",
+    "speech_mode": "prose",
+    "title": "Bright-Stripe Glitchcat",
+    "description": "A color-slashed showoff from the Digital Realm, all teeth, swagger, and improbable kindness, whose purr runs at a frequency that fixes small machines.",
+    "location_id": 63,
+    "desires": [
+      {
+        "item_id": 2002,
+        "reason": "the pearled hum sounds like a clean glitch waiting for color"
+      }
+    ],
+    "stats": {
+      "strength": 16,
+      "dexterity": 18,
+      "constitution": 12,
+      "intelligence": 12,
+      "wisdom": 10,
+      "charisma": 15,
+      "hp_base": 16,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1061,
+    "name": "Doc",
+    "speech_mode": "prose",
+    "title": "Brass-Key Tinker",
+    "description": "A goggle-wearing inventor whose machines explode politely and whose pockets click with tiny engines, every one labeled almost.",
+    "location_id": 40,
+    "desires": [
+      {
+        "item_id": 2002,
+        "reason": "its pearled hum belongs in a tiny rain engine that has never quite started"
+      }
+    ],
+    "stats": {
+      "strength": 6,
+      "dexterity": 15,
+      "constitution": 9,
+      "intelligence": 16,
+      "wisdom": 12,
+      "charisma": 14,
+      "hp_base": 9,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1062,
+    "name": "Raziel",
+    "speech_mode": "prose",
+    "title": "Angel of Vanity, Charisma of Eight",
+    "description": "A red-winged angel of legendary self-regard. Nobody has fallen for his practiced doorframe pose; the frames have filed complaints.",
+    "location_id": 42,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "the silent bell can ring desire without waking the whole dark"
+      }
+    ],
+    "stats": {
+      "strength": 15,
+      "dexterity": 14,
+      "constitution": 12,
+      "intelligence": 13,
+      "wisdom": 10,
+      "charisma": 8,
+      "hp_base": 16,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1063,
+    "name": "Beetle",
+    "speech_mode": "emote_only",
+    "title": "Black Knight of Old Grudges",
+    "description": "A beetle-armored knight who keeps a grudge ledger in triplicate and forgets exactly one slight whenever someone is polite; Toad fills a fresh page weekly.",
+    "location_id": 60,
+    "attachments": [
+      {
+        "item_id": 2006,
+        "reason": "warm stone steadies chitin where swamp grudges knock"
+      }
+    ],
+    "stats": {
+      "strength": 18,
+      "dexterity": 8,
+      "constitution": 18,
+      "intelligence": 8,
+      "wisdom": 10,
+      "charisma": 7,
+      "hp_base": 22,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1064,
+    "name": "Seraphina",
+    "speech_mode": "prose",
+    "title": "Temple Triage Seraph",
+    "description": "A gold-winged seraph with head-nurse energy who delivers mercy like triage and will not have bleeding on the polished floor.",
+    "location_id": 36,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "a silent bell would let the temple warn without frightening the wounded"
+      }
+    ],
+    "stats": {
+      "strength": 14,
+      "dexterity": 13,
+      "constitution": 13,
+      "intelligence": 12,
+      "wisdom": 18,
+      "charisma": 17,
+      "hp_base": 18,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1065,
+    "name": "Nerissa",
+    "speech_mode": "prose",
+    "title": "Keeper of the Soggy Archive",
+    "description": "A lantern-eyed deep-sea archivist whose every possession is soggy and who is absolutely fine about it, thank you.",
+    "location_id": 64,
+    "attachments": [
+      {
+        "item_id": 2004,
+        "reason": "moonwool keeps soggy labels from peeling off when the pressure changes"
+      }
+    ],
+    "stats": {
+      "strength": 12,
+      "dexterity": 12,
+      "constitution": 18,
+      "intelligence": 14,
+      "wisdom": 18,
+      "charisma": 13,
+      "hp_base": 20,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1066,
+    "name": "Azazoth",
+    "speech_mode": "prose",
+    "title": "Mad God of the Drowned Feast",
+    "description": "A many-tentacled abyssal god who hosts a legendary feast that nobody ever attends, and takes the leftovers extremely personally.",
+    "location_id": 65,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "the mute bell can call dinner without waking the soup"
+      }
+    ],
+    "stats": {
+      "strength": 18,
+      "dexterity": 9,
+      "constitution": 18,
+      "intelligence": 13,
+      "wisdom": 15,
+      "charisma": 17,
+      "hp_base": 24,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1067,
+    "name": "Zadkiel",
+    "speech_mode": "prose",
+    "title": "Dark Angel of the Abyssal Anvil",
+    "description": "A violet-winged dark angel of tremendous formality who forges dramatic pronouncements at an anvil nobody asked for, then checks if anyone was watching.",
+    "location_id": 65,
+    "attachments": [
+      {
+        "item_id": 2006,
+        "reason": "the warm tag gives Zadkiel something official to stamp after speeches"
+      }
+    ],
+    "stats": {
+      "strength": 14,
+      "dexterity": 15,
+      "constitution": 13,
+      "intelligence": 14,
+      "wisdom": 16,
+      "charisma": 18,
+      "hp_base": 18,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1068,
+    "name": "Badger",
+    "speech_mode": "prose",
+    "title": "Grumpy Landlord of the Lower Burrow",
+    "description": "A broad, permanently unimpressed badger who owns one good chair, three shovels, and a list of everyone who has ever tracked mud past his doormat.",
+    "location_id": 41,
+    "desires": [
+      {
+        "item_id": 2007,
+        "reason": "a doorbell that cannot ring is the only doorbell worth installing"
+      }
+    ],
+    "attachments": [
+      {
+        "item_id": 2006,
+        "reason": "it keeps the good chair warm, and the good chair is his"
+      }
+    ],
+    "stats": {
+      "strength": 15,
+      "dexterity": 8,
+      "constitution": 16,
+      "intelligence": 10,
+      "wisdom": 14,
+      "charisma": 9,
+      "hp_base": 16,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1069,
+    "name": "Toad",
+    "speech_mode": "prose",
+    "title": "Reckless Swamp Daredevil, Zero Completed Jumps",
+    "description": "A stunt toad held together by confidence and swamp mud who has never once landed a jump and considers this a scheduling issue.",
+    "location_id": 60,
+    "desires": [
+      {
+        "item_id": 2003,
+        "reason": "proof of one landing, any landing, even somebody else's"
+      }
+    ],
+    "stats": {
+      "strength": 8,
+      "dexterity": 17,
+      "constitution": 14,
+      "intelligence": 7,
+      "wisdom": 6,
+      "charisma": 13,
+      "hp_base": 12,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 1070,
+    "name": "Nib",
+    "speech_mode": "prose",
+    "title": "Goblin Market Loophole Clerk",
+    "description": "A licensed goblin — a tinker and dealer in salvage, oddments, and loose coins — with an enormous receipt roll who offers three prices for everything, circles the kindest one in green, and becomes offended when nobody reads the fine print.",
+    "location_id": 34,
+    "desires": [
+      {
+        "item_id": 2005,
+        "reason": "a Story Button would make an excellent seal for the first contract whose kindest price survives the fine print"
+      }
+    ],
+    "stats": {
+      "strength": 7,
+      "dexterity": 15,
+      "constitution": 10,
+      "intelligence": 16,
+      "wisdom": 13,
+      "charisma": 17,
+      "hp_base": 10,
+      "level": 1
+    },
+    "pack_id": "cosyworld.core"
+  }
+]

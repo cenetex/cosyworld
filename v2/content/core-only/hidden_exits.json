@@ -1,0 +1,14 @@
+[
+  {
+    "id": "darkest-ocean:dark-abyss",
+    "from_location_id": 64,
+    "to_location_id": 65,
+    "feature_key": "drowned_bell",
+    "direction": "down",
+    "return_direction": "up",
+    "reveal_chance_percent": 10,
+    "source": "authored",
+    "discovery_text": "The drowned bell answers with a lower seam of black water. An entrance to the Dark Abyss opens below.",
+    "pack_id": "cosyworld.core"
+  }
+]

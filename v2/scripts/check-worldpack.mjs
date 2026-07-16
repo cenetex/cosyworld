@@ -231,6 +231,69 @@ function reportWritingRegisterAdvisories({ actors, cards, locations }) {
   }
 }
 
+function reportGenreAdvisories(content) {
+  // Case-sensitive: gothic diction is a lowercase phenomenon; capitalized
+  // matches are proper nouns (the Dark Abyss is a place, not a mood).
+  const gothicVocabulary = [
+    ["whisper", /\bwhisper\b/],
+    ["eternal", /\beternal\b/],
+    ["void", /\bvoid\b/],
+    ["abyss", /\babyss\b/],
+    ["veil", /\bveil\b/],
+    ["hush", /\bhush\b/],
+    ["sacred", /\bsacred\b/],
+  ];
+  const kernelVocabulary = [
+    ["journal", /\bjournal\b/i],
+    ["replay", /\breplay\b/i],
+    ["seed", /\bseed\b/i],
+    ["tick", /\btick\b/i],
+    ["deterministic", /\bdeterministic\b/i],
+  ];
+
+  // Both advisories scan prose fields only: enum/id fields (rarity "seed",
+  // source names) and steering fields (persona) are not player-facing prose.
+  const proseFields = new Set([
+    ...environmentRegisterFields,
+    "memory",
+    "blurb",
+    "premise",
+    "stakes",
+    "consequence",
+    "discovery_text",
+    "text",
+  ]);
+  // Accepted existing lines; the words stay watched in new content.
+  const advisoryAllowlist = new Set([
+    "Tall shelves and a deep hush.",
+    "Stone arches and a deep hush.",
+  ]);
+
+  for (const [collection, rows] of Object.entries(content)) {
+    if (collection === "sentences") continue;
+    const fileName = expectedFiles[collection];
+    rows.forEach((row, index) => {
+      visitStrings(row, (value, trail) => {
+        const field = trail.at(-1);
+        const inProse =
+          proseFields.has(field) || (typeof field === "number" && proseFields.has(trail.at(-2)));
+        if (!inProse || advisoryAllowlist.has(value.trim())) return;
+        const label = contentRowLabel(fileName, row, index, trail);
+        for (const [word, pattern] of gothicVocabulary) {
+          if (pattern.test(value)) {
+            warn(`genre advisory: ${label} uses gothic vocabulary "${word}" in prose — horror in the content, whimsy in the diction (canon rule 4)`);
+          }
+        }
+        for (const [word, pattern] of kernelVocabulary) {
+          if (pattern.test(value)) {
+            warn(`genre advisory: ${label} uses kernel vocabulary "${word}" outside sentences.json — the machinery is the mythology, not the lore (canon rule 5)`);
+          }
+        }
+      });
+    });
+  }
+}
+
 function jobRewardLabel(reward) {
   if (isNonEmptyString(reward)) {
     return reward;
@@ -289,14 +352,18 @@ if (manifest.canonical_id_mapping_version !== CANONICAL_ID_MAPPING_VERSION) {
 if (!Number.isInteger(manifest.version) || manifest.version <= 0) {
   fail("worldpack manifest version must be a positive integer");
 }
-if (!isNonEmptyString(manifest.entry_location)) {
-  fail("worldpack manifest is missing entry_location");
-}
 if (!isNonEmptyString(manifest.bundle_hash) || !/^sha256:[0-9a-f]{64}$/.test(manifest.bundle_hash)) {
   fail("worldpack manifest has an invalid bundle_hash");
 }
 const packs = asArray("worldpack manifest packs", manifest.packs);
 const packIds = idSet("worldpack manifest packs", packs, (pack) => pack.id);
+const worldBearingPacks = packs.filter((pack) => ["world", "campaign"].includes(pack.kind));
+if (worldBearingPacks.length > 0 && !isNonEmptyString(manifest.entry_location)) {
+  fail("world-bearing worldpack manifest is missing entry_location");
+}
+if (worldBearingPacks.length === 0 && manifest.entry_location !== undefined) {
+  fail("services-only worldpack manifest must not invent an entry_location");
+}
 const entitlementGrants = new Map();
 for (const pack of packs) {
   validateRequiredStrings("worldpack pack", pack, ["name", "description", "version", "kind", "license", "integrity"]);
@@ -744,6 +811,7 @@ const sentences = content.sentences;
 
 validateWritingRegister(content);
 reportWritingRegisterAdvisories({ actors, cards, locations });
+reportGenreAdvisories(content);
 
 const actorIds = idSet("actors", actors, (actor) => actor.id);
 const actorById = new Map(actors.map((actor) => [actor.id, actor]));
@@ -961,7 +1029,9 @@ for (const hiddenExit of hiddenExits) {
 const entryLocationMatch = String(manifest.entry_location).match(/location\/(\d+)$/);
 const entryLocationId = Number(entryLocationMatch?.[1] ?? 0);
 const publicReachableLocationIds = new Set();
-if (!has(locationIds, entryLocationId)) {
+if (worldBearingPacks.length === 0 && locationIds.size === 0) {
+  // A services-only composition intentionally has no playable entry point.
+} else if (!has(locationIds, entryLocationId)) {
   fail(`worldpack entry location ${manifest.entry_location} does not reference a compiled location`);
 } else if (gateByLocationId.has(entryLocationId)) {
   fail(`worldpack entry location ${entryLocationId} must not require an access gate`);

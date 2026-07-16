@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.services-fixture",
+  "name": "CosyWorld Services Fixture",
+  "version": "1.0.0",
+  "kind": "catalog",
+  "description": "A content-free fixture proving engine services do not require a world pack.",
+  "license": "MIT",
+  "engine": ">=0.0.20 <0.1.0",
+  "capabilities": [
+    {
+      "id": "cosyworld.services-fixture/reference",
+      "kind": "reference",
+      "version": "1.0.0"
+    }
+  ],
+  "dependencies": [],
+  "default_ruleset": null,
+  "entry_points": [],
+  "provenance": {
+    "source_name": "CosyWorld test fixtures",
+    "source_url": "https://github.com/cenetex/cosyworld"
+  },
+  "resources": {}
+}
