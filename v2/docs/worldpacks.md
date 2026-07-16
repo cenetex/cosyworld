@@ -6,7 +6,7 @@ CosyWorld builds one deterministic runtime bundle from independently versioned c
 
 1. A pack is an independently licensed repository or workspace checkout containing `pack.json`, optional resource arrays, external card catalogs, and assets.
 2. `worlds/official/world.json` selects the packs and their dependency order.
-3. `worlds/official/world.lock.json` pins the materialized source, version, commit when applicable, and SHA-256 integrity of every declared file.
+3. `worlds/official/pack.lock.json` pins the exact dependency closure, materialized source, version, commit when applicable, SHA-256 content integrity, capabilities, canonical-ID mapping version, and license record for every selected pack.
 4. `scripts/compile-worldpack.mjs` merges the locked inputs into `content/official/`.
 5. The Rust binary embeds the compiled JSON and reads pack assets through the compiled asset index.
 
@@ -14,7 +14,10 @@ The compiled directory is a release artifact and should not be edited by hand.
 
 ## Pack contract
 
-`pack.json` schema version 2 supports five pack kinds:
+Every authored `pack.json` implements the machine-readable
+`cosyworld.content-pack/1` contract in
+`v2/schemas/content-pack-manifest-v1.schema.json`. Manifest v1 uses
+`schema_version: 1` and supports five pack kinds:
 
 - `world`: actors, locations, items, exits, cards, jobs, fronts, and other runtime resources.
 - `campaign`: a bounded world arc that must also declare pack-owned character creation.
@@ -22,9 +25,52 @@ The compiled directory is a release artifact and should not be edited by hand.
 - `assets`: art or other static media mounted by a world or catalog pack.
 - `rules`: reusable rules reference data. Rules packs may omit world resources entirely.
 
-Resource files are JSON arrays. A pack may provide any subset; the compiler concatenates them in declared pack order and the worldpack validator checks duplicate IDs, references, capacities, and final-world invariants. Implicit overriding is not supported.
+Resource files are JSON arrays. A pack may provide any subset; the compiler concatenates them in resolved dependency order and the worldpack validator checks duplicate IDs, references, capacities, and final-world invariants. Implicit overriding is not supported.
 
-Dependencies must appear before the dependent pack in `world.json`. Cross-pack links should live in an explicit bridge pack or official-world composition pack rather than making two otherwise reusable packs own each other's topology.
+Each manifest declares:
+
+- an engine semantic-version range;
+- typed, versioned capabilities whose kinds are `world`, `rules`, `cards`,
+  `assets`, `entitlements`, or `reference`;
+- dependencies with a pack version range and the exact capabilities required
+  from that pack;
+- optional default-ruleset and typed entry-point references;
+- license and provenance metadata; and
+- resources, assets, entitlement providers, and attribution where applicable.
+
+The compiler accepts selected packs in any order and emits one deterministic
+topological order. Cycles, missing required packs or capabilities, duplicate
+pack or capability declarations, incompatible pack versions, and incompatible
+engine ranges fail before output is written. Optional dependencies may be
+absent; when present, they must satisfy the same version and capability checks.
+Cross-pack links should live in an explicit bridge pack or official-world
+composition pack rather than making two otherwise reusable packs own each
+other's topology.
+
+Manifest v1 is fail-closed: unknown fields are rejected. Forward-compatible
+metadata must live under `extensions` with a namespaced `x-...` key. Adding a
+field that changes runtime meaning requires a new manifest contract version;
+older runtimes must reject it rather than guess. Pack resources remain data
+only. A manifest cannot load pack-owned JavaScript, Rust, native code, or an
+untyped state-changing effect.
+
+## Authority boundary
+
+The engine owns execution, validation, persistence, and every typed effect that
+can change authoritative world state. A pack may provide world facts, reference
+material, cards, media, entitlement declarations, or a rules mapping through a
+supported engine adapter. A `rules` capability does not grant executable
+authority: the compiler emits typed reference resources, and the engine decides
+whether and how a supported mapping affects play. `rules_adapter` names that
+closed engine contract; it is not a plugin entry point.
+
+`pack.lock.json` is the reproducibility record used alongside saved-world bundle
+identity. For each pack it records the exact semantic version, complete content
+hash, materialized source, declared capabilities, direct requirements,
+transitive dependency closure, license, and provenance. The lock also records
+the canonical-ID mapping version and deterministic dependency order. Given the
+locked sources, the compiler emits byte-identical files and bundle identity for
+identical inputs.
 
 ## Pack-defined character creation
 
@@ -63,7 +109,7 @@ npm run v2:worldpack:inspect
 
 1. Move the pack directory, including `pack.json`, declared resources, attribution, and assets, into its repository.
 2. Publish and pin a commit.
-3. Replace the lock entry with:
+3. Replace the source coordinates in the lock entry with:
 
    ```json
    {
@@ -79,7 +125,9 @@ npm run v2:worldpack:inspect
    }
    ```
 
-4. Run `sync`, `lock`, and the full worldpack check.
+4. Run `sync`, `lock`, and the full worldpack check. The lock command regenerates
+   the version, integrity, dependency closure, capabilities, and license record
+   from the materialized manifest.
 
 No Rust source or Dockerfile change is required.
 

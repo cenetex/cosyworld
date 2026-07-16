@@ -2,12 +2,21 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  CANONICAL_ID_MAPPING_VERSION,
+  CONTENT_PACK_CONTRACT,
+  resolveContentPackGraph,
+} from "./content-pack-contract.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const reportText = args.includes("--report");
 const reportJson = args.includes("--report-json");
 const contentRootArg = args.find((arg) => !arg.startsWith("--"));
 const contentRoot = path.resolve(contentRootArg ?? path.join(scriptDir, "../content/official"));
+const engineVersion = JSON.parse(
+  fs.readFileSync(path.resolve(scriptDir, "../../package.json"), "utf8"),
+).version;
 
 const expectedFiles = {
   actors: "actors.json",
@@ -257,6 +266,14 @@ validateRequiredStrings("worldpack manifest", manifest, ["id", "name", "descript
 if (manifest.schema_version !== 2) {
   fail("worldpack manifest schema_version must be 2");
 }
+if (manifest.pack_contract !== CONTENT_PACK_CONTRACT) {
+  fail(`worldpack manifest pack_contract must be ${CONTENT_PACK_CONTRACT}`);
+}
+if (manifest.canonical_id_mapping_version !== CANONICAL_ID_MAPPING_VERSION) {
+  fail(
+    `worldpack manifest canonical_id_mapping_version must be ${CANONICAL_ID_MAPPING_VERSION}`,
+  );
+}
 if (!Number.isInteger(manifest.version) || manifest.version <= 0) {
   fail("worldpack manifest version must be a positive integer");
 }
@@ -287,6 +304,16 @@ for (const pack of packs) {
   }
   if (!Array.isArray(pack.dependencies) || !isObject(pack.resource_counts)) {
     fail(`worldpack pack ${pack.id} is missing dependencies or resource_counts`);
+  }
+  if (
+    !isNonEmptyString(pack.engine)
+    || !Array.isArray(pack.capabilities)
+    || !Array.isArray(pack.dependency_requirements)
+    || !Array.isArray(pack.dependency_closure)
+    || !Array.isArray(pack.entry_points)
+    || !isObject(pack.provenance)
+  ) {
+    fail(`worldpack pack ${pack.id} is missing Manifest v1 contract metadata`);
   }
   if (pack.distribution) {
     if (
@@ -323,6 +350,41 @@ for (const pack of packs) {
       entitlementGrants.set(grant.id, { ...grant, pack_id: pack.id });
     }
   }
+}
+
+try {
+  const resolved = resolveContentPackGraph(
+    packs.map((pack) => ({
+      schema_version: 1,
+      id: pack.id,
+      name: pack.name,
+      version: pack.version,
+      kind: pack.kind,
+      description: pack.description,
+      license: pack.license,
+      engine: pack.engine,
+      capabilities: pack.capabilities,
+      dependencies: pack.dependency_requirements,
+      default_ruleset: pack.default_ruleset,
+      entry_points: pack.entry_points,
+      provenance: pack.provenance,
+    })),
+    engineVersion,
+  );
+  const resolvedIds = resolved.ordered.map((pack) => pack.id);
+  if (JSON.stringify(resolvedIds) !== JSON.stringify(packs.map((pack) => pack.id))) {
+    fail(`worldpack packs are not in deterministic dependency order: ${resolvedIds.join(", ")}`);
+  }
+  for (const pack of packs) {
+    if (
+      JSON.stringify(pack.dependency_closure)
+      !== JSON.stringify(resolved.dependencyClosure.get(pack.id))
+    ) {
+      fail(`worldpack pack ${pack.id} has stale dependency_closure`);
+    }
+  }
+} catch (error) {
+  fail(error.message);
 }
 if (!isObject(manifest.files)) {
   fail("worldpack manifest files must be an object");

@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 1,
   "id": "cosyworld.campaign.the-lantern-keeper",
   "name": "The Lantern Keeper",
   "version": "0.1.0",
@@ -7,9 +7,38 @@
   "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
   "license": "CC-BY-4.0",
   "engine": ">=0.0.20 <0.1.0",
-  "dependencies": [
-    "cosyworld.core"
+  "capabilities": [
+    {
+      "id": "cosyworld.campaign.the-lantern-keeper/world",
+      "kind": "world",
+      "version": "0.1.0"
+    }
   ],
+  "dependencies": [
+    {
+      "id": "cosyworld.core",
+      "version": ">=1.0.0 <2.0.0",
+      "capabilities": [
+        "cosyworld.core/world"
+      ]
+    }
+  ],
+  "default_ruleset": null,
+  "entry_points": [
+    {
+      "kind": "location",
+      "id": "location/800"
+    },
+    {
+      "kind": "character_creation",
+      "id": "the-lantern-keeper"
+    }
+  ],
+  "provenance": {
+    "source_name": "CosyWorld and System Reference Document 5.1",
+    "source_url": "https://github.com/cenetex/cosyworld",
+    "license_notice": "SRD-derived references are attributed in ATTRIBUTION.md."
+  },
   "character_creation": "character_creation.json",
   "attribution": {
     "file": "ATTRIBUTION.md",

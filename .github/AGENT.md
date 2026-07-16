@@ -97,7 +97,7 @@ Do not edit or commit these directly:
 - `.env`, `.env.*`, keys, wallet files, bearer tokens, logs, or runtime SQLite
   and snapshot data;
 - `v2/content/official/**` except as output from the worldpack compiler;
-- `v2/worlds/official/world.lock.json` except through the lock command;
+- `v2/worlds/official/pack.lock.json` except through the lock command;
 - `package-lock.json` except through an intentional dependency/version update;
 - `v2/tests/visual-baselines/**` except for a reviewed UI change using the
   documented baseline update flow;
