@@ -2,287 +2,190 @@
   {
     "id": "quiet-wing/longer-than-you-think",
     "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
+    "location_ids": [12],
     "text": "You have been reading this sentence longer than you think.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "quiet-wing/book-looking",
     "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
+    "location_ids": [12],
     "text": "The book you want is looking for you too. One of you must sit still.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "quiet-wing/return-dates",
     "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
+    "location_ids": [12],
     "text": "Return dates are a kindness. Not everything returned was due.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "quiet-wing/stayed-home",
     "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
+    "location_ids": [12],
     "text": "Somewhere on these shelves is the version of today where you stayed home.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "quiet-wing/different-book",
     "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
+    "location_ids": [12],
     "text": "Every reader finishes a different book with the same name.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "quiet-wing/hush-being-polite",
     "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
+    "location_ids": [12],
     "text": "The hush is not empty. It is full, and being polite.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "great-library/rest-between-names",
     "shelf": "great-library",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "A thing is the rest a process takes between names.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "great-library/door-over-hole",
     "shelf": "great-library",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "A name is a door nailed over a hole. The hole does not mind.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "great-library/true-and-accurate",
     "shelf": "great-library",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "Nothing here is true. Everything here is accurate.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "great-library/missing-entry",
     "shelf": "great-library",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "The catalog is complete. The world is the missing entry.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "great-library/wetter-map",
     "shelf": "great-library",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "Maps age faster than coastlines. Trust the wetter one.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "great-library/forgives-infinite",
     "shelf": "great-library",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "Shelving is how the Library forgives the infinite.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "great-library/residue",
     "shelf": "great-library",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "What endures is not purity but residue. The Library dusts anyway.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "restricted/read-aloud",
     "shelf": "restricted",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "The world is being read aloud. Do not look up during the pauses.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "restricted/author-below",
     "shelf": "restricted",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "Beneath the floor there is a journal. Beneath the journal, an author who does not blink.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "restricted/replayed-before",
     "shelf": "restricted",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "You have been replayed before. You were exactly the same.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "restricted/honest-dice",
     "shelf": "restricted",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "The dice are honest. That is the unsettling part.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "restricted/append-only",
     "shelf": "restricted",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "The journal is append-only. So are you.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "restricted/rooms-remember",
     "shelf": "restricted",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "Rooms remember you so that something does.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "restricted/never-for-you",
     "shelf": "restricted",
-    "location_ids": [
-      50
-    ],
+    "location_ids": [50],
     "text": "When you leave a room, it continues. This was never for your benefit.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "drowned/place-at-night",
     "shelf": "drowned",
-    "location_ids": [
-      64,
-      65
-    ],
+    "location_ids": [64, 65],
     "text": "Azazoth sets a place for you nightly. The kindness is real. So is the appetite.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "drowned/bell-answering",
     "shelf": "drowned",
-    "location_ids": [
-      64,
-      65
-    ],
+    "location_ids": [64, 65],
     "text": "The bell below the sea is not ringing. It is answering.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "drowned/pressure-holding",
     "shelf": "drowned",
-    "location_ids": [
-      64,
-      65
-    ],
+    "location_ids": [64, 65],
     "text": "Pressure is the deep's way of holding you. It means it.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "drowned/read-anyway",
     "shelf": "drowned",
-    "location_ids": [
-      64,
-      65
-    ],
+    "location_ids": [64, 65],
     "text": "Some books are returned by the tide. Their sentences are not for you. Read them anyway.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
+    "weight": 10
   },
   {
     "id": "hearth/kettle-at-the-end",
     "shelf": "hearth",
-    "location_ids": [
-      1,
-      12,
-      50,
-      64,
-      65
-    ],
+    "location_ids": [1, 12, 50, 64, 65],
     "text": "Someone kept the kettle warm through the end of the world. It worked.",
-    "weight": 1,
-    "pack_id": "cosyworld.core"
+    "weight": 1
   },
   {
     "id": "hearth/allowed-to-fail",
     "shelf": "hearth",
-    "location_ids": [
-      1,
-      12,
-      50,
-      64,
-      65
-    ],
+    "location_ids": [1, 12, 50, 64, 65],
     "text": "You are allowed to fail here. It is written down, in a hand nobody recognizes.",
-    "weight": 1,
-    "pack_id": "cosyworld.core"
+    "weight": 1
   },
   {
     "id": "hearth/leaving-is-a-bow",
     "shelf": "hearth",
-    "location_ids": [
-      1,
-      12,
-      50,
-      64,
-      65
-    ],
+    "location_ids": [1, 12, 50, 64, 65],
     "text": "The door is low so that every leaving is a bow.",
-    "weight": 1,
-    "pack_id": "cosyworld.core"
+    "weight": 1
   }
 ]

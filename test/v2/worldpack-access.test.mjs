@@ -116,6 +116,26 @@ describe("worldpack authored relationships", () => {
       }
     }
   });
+
+  it("ships the 27-line Left Sentences corpus across all five shelves", () => {
+    const sentences = JSON.parse(
+      fs.readFileSync(path.join(compiledWorldpackRoot, "sentences.json"), "utf8"),
+    );
+
+    expect(sentences).toHaveLength(27);
+    expect(new Set(sentences.map((sentence) => sentence.shelf))).toEqual(new Set([
+      "quiet-wing",
+      "great-library",
+      "restricted",
+      "drowned",
+      "hearth",
+    ]));
+    expect(sentences.every((sentence) => sentence.pack_id === "cosyworld.core")).toBe(true);
+    expect(sentences.filter((sentence) => sentence.shelf === "hearth")).toHaveLength(3);
+    expect(sentences.filter((sentence) => sentence.shelf === "hearth").every((sentence) => (
+      sentence.weight === 1 && [1, 12, 50, 64, 65].every((id) => sentence.location_ids.includes(id))
+    ))).toBe(true);
+  });
 });
 
 describe("worldpack writing register validation", () => {
