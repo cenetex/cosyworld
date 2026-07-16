@@ -5,7 +5,7 @@
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:98f779e546f30514856fccbe21b4e65d7293a1bd15bb96c47cbceafc64f1a146",
+  "bundle_hash": "sha256:d86d0b77716eb5294508fe6a7815a96b1b571cd8beb2e5e464d387caa3a18234",
   "packs": [
     {
       "id": "cosyworld.core",
@@ -41,7 +41,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:ad745da10eb1512985551dabd6f797ad7f36fb206b5f04acef9d7f21d06d6fb1"
+      "integrity": "sha256:4623570673025701f2051dd3bc2d42e8223566d158c34ff6141bd6c0084970c3"
     },
     {
       "id": "cosyworld.rules-srd-5.1",

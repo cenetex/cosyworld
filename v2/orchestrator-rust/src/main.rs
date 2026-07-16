@@ -50047,7 +50047,7 @@ mod tests {
         match look_east.dispatch {
             CommandDispatch::Read { output } => {
                 assert!(output.contains("Rain-Soft Garden"));
-                assert!(output.contains("Garden Annex"));
+                assert!(output.contains("Rain-Pearled Annex"));
             }
             other => panic!("look direction should be read-only, got {other:?}"),
         }

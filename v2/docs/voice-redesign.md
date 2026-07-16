@@ -49,7 +49,7 @@ Every resident has a one-word name — species or homely given name, Grahame-sty
 | 1048 | **Marginalia** | Marginalia Fern | Rules-lawyer rabbit; cites the regulation while breaking it. |
 | 1049 | **Septimus** | Septimus Wrongturn | Gives directions with total confidence. All wrong. |
 | 1050 | **Basil** | Basil Keyclover | Talks to locks like misbehaving pets. "Oh, NOW you turn." |
-| 1051 | **Euphemie** | Madame Euphemie | Ghost annoyed nobody dusts; practical Creole warnings (the third stair is a liar). |
+| 1051 | **Euphemie** | Madame Euphemie | Ghost annoyed nobody dusts; insists the third stair is a liar. |
 | 1052 | **Nightmare** | Nightmare | Practices being scary, embarrassed by compliments. Untouched — already perfect. |
 | 1053 | **Ferret** | Eliza Whiskers | Victorian critic (Wild Wood species); now reviews entire rooms. |
 | 1054 | **Aster** | Aster Mirrorwing | Wings too big for every door in the county; apologizes mid-crash. |
@@ -60,7 +60,7 @@ Every resident has a one-word name — species or homely given name, Grahame-sty
 | 1059 | **Samael** | Lord Samael | Middle-management angel: clipboard, triplicate, armor worn to meetings. |
 | 1060 | **Moxie** | Moxie Glitchstripe | Cocky glitchcat. Untouched — already grounded. |
 | 1061 | **Doc** | Doctor Cogwhisker | Inventions explode politely; everything labeled *almost*. |
-| 1062 | **Raziel** | Raziel | Angel of Lust, charisma 8 — canon. Nobody has ever fallen for it. |
+| 1062 | **Raziel** | Raziel | Angel of Vanity, charisma 8. Nobody has ever fallen for the pose. |
 | 1063 | **Beetle** | Sir Grudge-Shell | Knight with a grudge ledger in triplicate; forgets one slight per politeness. |
 | 1064 | **Seraphina** | Seraphina Vowbright | Temple triage seraph. "Sit down, you're bleeding on the polished floor." |
 | 1065 | **Nerissa** | Nerissa Pearl-Deep | Deep-sea archivist; everything soggy; absolutely fine about it. |
