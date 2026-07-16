@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -22,6 +22,7 @@ env:
 jobs:
   fly:
     name: Deploy to Fly
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

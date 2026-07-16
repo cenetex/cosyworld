@@ -87,8 +87,8 @@ changing application behavior.
   unrelated baseline churn.
 - Full V2 smoke checks start local processes and use fixed runtime files; stop
   stale instances before diagnosing product failures.
-- Release tags deploy to AWS and create a GitHub release; every pushed branch is
-  deployed to Fly by the current workflow.
+- Pushes to `main` deploy the production Fly app. Release tags also deploy to
+  AWS and create a GitHub release. Feature branches never target production.
 
 ## Files requiring special handling
 
@@ -108,8 +108,8 @@ Treat these as review-sensitive rather than forbidden:
 
 - `v2/core-c/include/cosy_kernel.h` and journal action codes, because ABI or
   replay changes can invalidate history;
-- production profiles, workflows, `Dockerfile`, and `fly.toml`, because a branch
-  push deploys to Fly;
+- production profiles, workflows, `Dockerfile`, and `fly.toml`, because a merge
+  to `main` deploys to Fly;
 - authored IDs, entitlement authorities, attributions, and pack dependencies,
   because they are persisted or externally meaningful.
 
