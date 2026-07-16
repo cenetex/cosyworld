@@ -19,7 +19,7 @@ use ai_gateway::*;
 use avatar_identity::*;
 use axum::{
     extract::{ConnectInfo, Path as AxumPath, Query, State},
-    http::{header, HeaderMap, StatusCode},
+    http::{header, HeaderMap, HeaderName, StatusCode},
     response::{
         sse::{Event, KeepAlive, Sse},
         Html, IntoResponse, Redirect, Response,
@@ -953,10 +953,6 @@ struct ItemMeta {
     description: String,
 }
 
-const LONELY_FOREST_CHARACTER_MANIFEST_JSON: &str =
-    include_str!("../../content/lonely-forest/assets/characters/manifest.json");
-const LONELY_FOREST_CHARACTER_ASSET_PREFIX: &str = "/assets/lonely-forest/characters/";
-
 #[derive(Debug)]
 struct SeedContent {
     #[cfg_attr(not(test), allow(dead_code))]
@@ -980,7 +976,7 @@ struct SeedContent {
     rules: Vec<SeedRuleBundle>,
     attributions: Vec<SeedAttribution>,
     character_creation: Vec<SeedCharacterCreationBundle>,
-    external_cards: Vec<RubyHighCardSpec>,
+    external_cards: Vec<ExternalCardSpec>,
     asset_mounts: Vec<SeedAssetMount>,
 }
 
@@ -1085,6 +1081,7 @@ struct SeedPackEntitlements {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct SeedEntitlementAuthority {
+    provider: String,
     id: String,
     #[serde(rename = "type")]
     kind: String,
@@ -1225,14 +1222,39 @@ struct SeedCharacterCreationChoice {
 #[derive(Clone, Debug, Deserialize)]
 struct SeedAssetMount {
     pack_id: String,
+    pack_version: String,
+    pack_integrity: String,
+    provider: String,
     mount: String,
     root: String,
     directory: String,
     public_prefix: String,
+    content_hash: String,
     #[serde(default)]
     optional: bool,
     #[serde(default)]
     fallback: Option<String>,
+}
+
+impl SeedAssetMount {
+    fn cache_namespace(&self) -> String {
+        format!(
+            "pack://{}@{}/{}/{}?content={}",
+            self.pack_id, self.pack_version, self.provider, self.mount, self.content_hash
+        )
+    }
+
+    fn cache_key(&self, asset_path: &str) -> String {
+        format!(
+            "pack://{}@{}/{}/{}/{}?content={}",
+            self.pack_id,
+            self.pack_version,
+            self.provider,
+            self.mount,
+            asset_path.trim_start_matches('/'),
+            self.content_hash
+        )
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1545,16 +1567,6 @@ struct SeedRecipeBalanceContent {
     target_kind: String,
     target_id: u64,
     reason: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LonelyForestCharacterManifest {
-    entries: Vec<LonelyForestCharacterAsset>,
-}
-
-#[derive(Debug, Deserialize)]
-struct LonelyForestCharacterAsset {
-    file: String,
 }
 
 #[derive(Clone, Debug)]
@@ -3714,6 +3726,17 @@ impl DeploymentProfile {
     }
 }
 
+fn requires_remote_entitlement_feed() -> bool {
+    active_content().manifest.packs.iter().any(|pack| {
+        pack.entitlements.as_ref().is_some_and(|entitlements| {
+            entitlements
+                .authorities
+                .iter()
+                .any(|authority| authority.kind == "asset_feed")
+        })
+    })
+}
+
 impl DeploymentConfig {
     #[cfg(test)]
     fn local() -> Self {
@@ -3756,14 +3779,14 @@ impl DeploymentConfig {
             return Ok(());
         }
 
-        if ownership_feed.remote_url.is_none() {
+        if requires_remote_entitlement_feed() && ownership_feed.remote_url.is_none() {
             return Err(deployment_config_error(
-                "production profile requires COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL",
+                "production profile requires COSYWORLD_ENTITLEMENT_FEED_URL for the active entitlement provider",
             ));
         }
-        if ownership_feed.remote_bearer.is_none() {
+        if requires_remote_entitlement_feed() && ownership_feed.remote_bearer.is_none() {
             return Err(deployment_config_error(
-                "production profile requires COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER",
+                "production profile requires COSYWORLD_ENTITLEMENT_FEED_BEARER for the active entitlement provider",
             ));
         }
         if trust_client_card_ids {
@@ -3821,17 +3844,21 @@ fn deployment_config_error(message: impl Into<String>) -> io::Error {
 
 impl OwnershipFeedConfig {
     fn from_env() -> Self {
-        let inline_feed = std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS")
+        let inline_feed = std::env::var("COSYWORLD_ENTITLEMENT_FEED")
             .ok()
+            .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS").ok())
             .filter(|value| !value.trim().is_empty());
-        let path_feed = std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_PATH")
+        let path_feed = std::env::var("COSYWORLD_ENTITLEMENT_FEED_PATH")
             .ok()
+            .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_PATH").ok())
             .map(PathBuf::from);
-        let remote_url = std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL")
+        let remote_url = std::env::var("COSYWORLD_ENTITLEMENT_FEED_URL")
             .ok()
+            .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL").ok())
             .filter(|value| !value.trim().is_empty());
-        let remote_bearer = std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER")
+        let remote_bearer = std::env::var("COSYWORLD_ENTITLEMENT_FEED_BEARER")
             .ok()
+            .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER").ok())
             .filter(|value| !value.trim().is_empty());
         let refresh_every = ownership_refresh_interval(remote_url.is_some(), path_feed.is_some());
         Self {
@@ -3853,7 +3880,7 @@ impl OwnershipFeedConfig {
             match fs::read_to_string(path) {
                 Ok(value) => index.merge(OwnershipIndex::parse(&value)),
                 Err(error) => warn!(
-                    "failed to read Ruby High ownership feed {}: {}",
+                    "failed to read entitlement provider feed {}: {}",
                     path.display(),
                     error
                 ),
@@ -3867,7 +3894,7 @@ impl OwnershipFeedConfig {
                 }
                 Err(error) => {
                     health.record_failure(&error);
-                    warn!("failed to fetch Ruby High ownership feed {url}: {error}");
+                    warn!("failed to fetch entitlement provider feed {url}: {error}");
                 }
             }
         }
@@ -4003,37 +4030,6 @@ fn character_creation_selection(
     Some((profile.clone(), choice.clone()))
 }
 
-fn lonely_forest_character_manifest() -> &'static LonelyForestCharacterManifest {
-    static MANIFEST: OnceLock<LonelyForestCharacterManifest> = OnceLock::new();
-    MANIFEST.get_or_init(|| {
-        parse_seed_json(
-            "lonely-forest character manifest",
-            LONELY_FOREST_CHARACTER_MANIFEST_JSON,
-        )
-        .expect("embedded Lonely Forest character manifest must parse")
-    })
-}
-
-fn lonely_forest_character_asset_exists(asset_file: &str) -> bool {
-    if !safe_asset_file_name(asset_file) {
-        return false;
-    }
-    let manifest_file = format!("slices/{asset_file}");
-    lonely_forest_character_manifest()
-        .entries
-        .iter()
-        .any(|entry| entry.file == manifest_file)
-}
-
-fn safe_asset_file_name(asset_file: &str) -> bool {
-    !asset_file.is_empty()
-        && asset_file.len() <= 128
-        && asset_file.ends_with(".png")
-        && asset_file
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
-}
-
 fn configured_content_root() -> PathBuf {
     if let Ok(path) = std::env::var("COSYWORLD_CONTENT_ROOT") {
         return PathBuf::from(path);
@@ -4054,14 +4050,10 @@ fn safe_relative_asset_path(asset_path: &str) -> bool {
             .all(|component| matches!(component, std::path::Component::Normal(_)))
 }
 
-fn seed_pack_asset_path(pack_id: &str, mount_name: &str, asset_path: &str) -> Option<PathBuf> {
+fn seed_asset_mount_path(mount: &SeedAssetMount, asset_path: &str) -> Option<PathBuf> {
     if !safe_relative_asset_path(asset_path) {
         return None;
     }
-    let mount = content_registry()
-        .asset_mounts()
-        .iter()
-        .find(|mount| mount.pack_id == pack_id && mount.mount == mount_name)?;
     Some(
         configured_content_root()
             .join(&mount.root)
@@ -4179,6 +4171,9 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
         let mut authority_ids = BTreeSet::new();
         for authority in &entitlements.authorities {
             if authority.id.trim().is_empty()
+                || !pack.capabilities.iter().any(|capability| {
+                    capability.id == authority.provider && capability.kind == "entitlements"
+                })
                 || !matches!(
                     authority.kind.as_str(),
                     "asset_feed" | "solana_collection" | "signed_set"
@@ -4225,6 +4220,36 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
             {
                 return Err(format!("invalid entitlement grant {}", grant.id));
             }
+        }
+    }
+    let mut asset_mount_ids = BTreeSet::new();
+    let mut asset_public_prefixes = BTreeSet::new();
+    for mount in &content.asset_mounts {
+        let Some(pack) = packs_by_id.get(mount.pack_id.as_str()) else {
+            return Err(format!(
+                "asset mount {}:{} references an unknown pack",
+                mount.pack_id, mount.mount
+            ));
+        };
+        if mount.pack_version != pack.version
+            || mount.pack_integrity != pack.integrity
+            || !pack
+                .capabilities
+                .iter()
+                .any(|capability| capability.id == mount.provider && capability.kind == "assets")
+            || !valid_sha256_digest(&mount.content_hash)
+            || !safe_relative_asset_path(&mount.root)
+            || !safe_relative_asset_path(&mount.directory)
+            || !safe_relative_asset_path(&mount.mount)
+            || !mount.public_prefix.starts_with("/assets/")
+            || mount.public_prefix.ends_with('/')
+            || !asset_mount_ids.insert((mount.pack_id.as_str(), mount.mount.as_str()))
+            || !asset_public_prefixes.insert(mount.public_prefix.as_str())
+        {
+            return Err(format!(
+                "invalid asset provider mount {}:{}",
+                mount.pack_id, mount.mount
+            ));
         }
     }
     let mut rules_pack_ids = BTreeSet::new();
@@ -4898,16 +4923,6 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
                 "seed card {} references missing {} {}",
                 card.card_id, card.subject_kind, card.subject_id
             ));
-        }
-        if let Some(image_url) = card.image_url.as_deref() {
-            if let Some(asset_file) = image_url.strip_prefix(LONELY_FOREST_CHARACTER_ASSET_PREFIX) {
-                if !lonely_forest_character_asset_exists(asset_file) {
-                    return Err(format!(
-                        "seed card {} references missing Lonely Forest asset {}",
-                        card.card_id, asset_file
-                    ));
-                }
-            }
         }
         if let Some(art) = card.art.as_ref() {
             if art.label.trim().is_empty()
@@ -6796,7 +6811,7 @@ fn schedule_avatar_identity_refinement(
 
 fn wallet_challenge_message(wallet_address: &str, nonce: &str, issued_at_unix: u64) -> String {
     format!(
-        "CosyWorld wallet access\nWallet: {wallet_address}\nNonce: {nonce}\nIssued: {issued_at_unix}\nPurpose: unlock shared Ruby High locations"
+        "CosyWorld wallet access\nWallet: {wallet_address}\nNonce: {nonce}\nIssued: {issued_at_unix}\nPurpose: resolve pack-provided entitlements"
     )
 }
 
@@ -7142,7 +7157,7 @@ fn reveal_seed_for_pack(
 }
 
 fn avatar_pack_card_rarity(card_id: &str) -> &str {
-    ruby_high_card_spec(card_id)
+    external_card_spec(card_id)
         .map(|card| card.rarity.as_str())
         .or_else(|| seed_card_rarity_for_card_id(card_id))
         .unwrap_or("common")
@@ -22996,7 +23011,9 @@ fn is_safe_image_content_type(value: &str) -> bool {
 }
 
 fn ownership_refresh_interval(has_remote_feed: bool, _has_path_feed: bool) -> Option<Duration> {
-    if let Ok(value) = std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_REFRESH_SECS") {
+    if let Ok(value) = std::env::var("COSYWORLD_ENTITLEMENT_FEED_REFRESH_SECS")
+        .or_else(|_| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_REFRESH_SECS"))
+    {
         let secs = value.trim().parse::<u64>().unwrap_or(0);
         return (secs > 0).then(|| Duration::from_secs(secs.max(5)));
     }
@@ -23104,7 +23121,7 @@ fn access_view(access: &AccessContext, location_cards: &BTreeMap<u64, CardView>)
 
     AccessView {
         mode: if access.signed_wallet_session {
-            "signed_ruby_high_wallet".to_string()
+            "signed_wallet_entitlements".to_string()
         } else if access.unsigned_wallet_claim {
             "unsigned_dev_wallet".to_string()
         } else {
@@ -23143,7 +23160,7 @@ fn owned_account_card(card_id: &str, access: &AccessContext) -> Option<CardView>
         .iter()
         .find(|card| card.card_id == card_id || card.external_card_id.as_deref() == Some(card_id))
         .map(card_from_seed_content)
-        .or_else(|| ruby_high_card_by_id(card_id))?;
+        .or_else(|| external_card_by_id(card_id))?;
     if let Some(location_id) = location_id_for_card_id(card_id) {
         card = apply_location_access(card, location_id, access);
     } else {
@@ -23459,7 +23476,7 @@ fn search_reveal_chance_percent_for_rarity(rarity: &str) -> u8 {
 
 fn card_from_seed_content(card: &SeedCardContent) -> CardView {
     if let Some(external_card_id) = card.external_card_id.as_deref() {
-        if let Some(external_card) = ruby_high_card_by_id(external_card_id) {
+        if let Some(external_card) = external_card_by_id(external_card_id) {
             return external_card;
         }
     }
@@ -23518,7 +23535,7 @@ fn unknown_location_card(location_id: u64, name: &str, meta: Option<&LocationMet
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct RubyHighCardSpec {
+struct ExternalCardSpec {
     #[serde(default)]
     pack_id: String,
     card_id: String,
@@ -23535,21 +23552,32 @@ struct RubyHighCardSpec {
     chain_image_uri: String,
 }
 
-fn ruby_high_first_bell_catalog() -> &'static [RubyHighCardSpec] {
+fn external_card_catalog() -> &'static [ExternalCardSpec] {
     content_registry().external_cards()
 }
 
-fn ruby_high_card_by_id(card_id: &str) -> Option<CardView> {
-    ruby_high_card_spec(card_id).map(ruby_high_card)
+fn external_card_by_id(card_id: &str) -> Option<CardView> {
+    external_card_spec(card_id).map(external_card_view)
 }
 
-fn ruby_high_card_spec(card_id: &str) -> Option<&'static RubyHighCardSpec> {
-    ruby_high_first_bell_catalog()
+fn external_card_spec(card_id: &str) -> Option<&'static ExternalCardSpec> {
+    external_card_catalog()
         .iter()
         .find(|spec| spec.card_id == card_id)
 }
 
-fn ruby_high_card(spec: &RubyHighCardSpec) -> CardView {
+fn external_card_view(spec: &ExternalCardSpec) -> CardView {
+    let source = spec
+        .pack_id
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect();
     CardView {
         pack_id: non_empty_pack_id(&spec.pack_id),
         card_id: spec.card_id.clone(),
@@ -23561,7 +23589,7 @@ fn ruby_high_card(spec: &RubyHighCardSpec) -> CardView {
         level: 0,
         evolved: false,
         aspect: spec.aspect.clone(),
-        source: "ruby_high_first_bell".to_string(),
+        source,
         asset_status: "on_chain".to_string(),
         set_number: Some(spec.set_number.clone()),
         profile_id: Some(spec.profile_id.clone()),
@@ -28145,7 +28173,7 @@ fn start_ownership_refresh_scheduler(state: AppState) {
                 Ok(_) => 0,
                 Err(error) => {
                     warn!(
-                        "Ruby High ownership refresh failed; keeping last good feed: {}",
+                        "entitlement provider refresh failed; keeping last good feed: {}",
                         error
                     );
                     state
@@ -28206,7 +28234,7 @@ async fn refresh_ownership_index_once(state: &AppState) -> io::Result<bool> {
 
     if changed {
         info!(
-            "refreshed Ruby High ownership feed: {} wallet(s)",
+            "refreshed entitlement provider feed: {} wallet(s)",
             refreshed.wallet_count()
         );
     }
@@ -33100,89 +33128,150 @@ fn event_visible_to_locations(event: &EventView, location_ids: &BTreeSet<u64>) -
             .unwrap_or(false)
 }
 
-async fn cosy_cottage_asset() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "image/png"),
-            (header::CACHE_CONTROL, "public, max-age=3600"),
-        ],
-        include_bytes!("../../../src/services/web/public/images/cosy-cottage.png").as_slice(),
-    )
+fn pack_asset_headers(
+    mount: &SeedAssetMount,
+    relative_path: &str,
+    content_type: &str,
+) -> [(HeaderName, String); 4] {
+    let cache_key = mount.cache_key(relative_path);
+    [
+        (header::CONTENT_TYPE, content_type.to_string()),
+        (
+            header::CACHE_CONTROL,
+            "public, max-age=31536000, immutable".to_string(),
+        ),
+        (
+            header::ETAG,
+            format!("\"{}\"", stable_hash_hex(&[&cache_key])),
+        ),
+        (
+            HeaderName::from_static("x-cosyworld-asset-cache-key"),
+            cache_key,
+        ),
+    ]
 }
 
-async fn ruby_high_card_asset(AxumPath(card_file): AxumPath<String>) -> impl IntoResponse {
-    let Some(card_id) = card_file.strip_suffix(".png") else {
-        return (StatusCode::NOT_FOUND, "unknown card").into_response();
-    };
-    let Some(spec) = ruby_high_card_spec(card_id) else {
-        return (StatusCode::NOT_FOUND, "unknown card").into_response();
-    };
-
-    let asset_file = format!("{card_id}.png");
-    let path = seed_pack_asset_path("ruby-high.first-bell", "cards", &asset_file);
-    match path.and_then(|path| fs::read(path).ok()) {
-        Some(bytes) => (
-            StatusCode::OK,
-            [
-                (header::CONTENT_TYPE, "image/png"),
-                (header::CACHE_CONTROL, "public, max-age=3600"),
-            ],
-            bytes,
-        )
-            .into_response(),
-        None => ruby_high_card_missing_asset_response(spec),
-    }
-}
-
-async fn lonely_forest_character_asset(
-    AxumPath(asset_file): AxumPath<String>,
-) -> impl IntoResponse {
-    if !lonely_forest_character_asset_exists(&asset_file) {
-        return (StatusCode::NOT_FOUND, "unknown Lonely Forest asset").into_response();
-    }
-
-    let path = seed_pack_asset_path(
-        "cosyworld.lonely-forest.characters",
-        "characters",
-        &asset_file,
+fn optional_asset_placeholder(mount: &SeedAssetMount, relative_path: &str) -> Response {
+    let diagnostic = format!(
+        "optional asset unavailable from provider {} at {}/{}",
+        mount.provider, mount.public_prefix, relative_path
     );
-    match path.and_then(|path| fs::read(path).ok()) {
-        Some(bytes) => (
+    let svg = format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400' viewBox='0 0 640 400' role='img' aria-label='Missing pack asset'><rect width='640' height='400' fill='#161d22'/><rect x='18' y='18' width='604' height='364' rx='22' fill='none' stroke='#efc96b' stroke-width='4'/><text x='320' y='178' text-anchor='middle' font-family='ui-monospace,monospace' font-size='28' fill='#efc96b'>PACK ASSET UNAVAILABLE</text><text x='320' y='224' text-anchor='middle' font-family='ui-monospace,monospace' font-size='16' fill='#d8f7dc'>{}</text></svg>",
+        escape_xml(&format!("{}: {}", mount.pack_id, relative_path))
+    );
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "image/svg+xml; charset=utf-8"),
+            (header::CACHE_CONTROL, "public, max-age=60"),
+            (
+                HeaderName::from_static("x-cosyworld-asset-diagnostic"),
+                diagnostic.as_str(),
+            ),
+        ],
+        svg,
+    )
+        .into_response()
+}
+
+fn unavailable_asset_provider_placeholder(public_path: &str) -> Response {
+    let diagnostic = format!("no active asset provider for {public_path}");
+    let svg = format!(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400' viewBox='0 0 640 400' role='img' aria-label='Unavailable pack asset provider'><rect width='640' height='400' fill='#161d22'/><rect x='18' y='18' width='604' height='364' rx='22' fill='none' stroke='#efc96b' stroke-width='4'/><text x='320' y='178' text-anchor='middle' font-family='ui-monospace,monospace' font-size='25' fill='#efc96b'>ASSET PROVIDER NOT MOUNTED</text><text x='320' y='224' text-anchor='middle' font-family='ui-monospace,monospace' font-size='14' fill='#d8f7dc'>{}</text></svg>",
+        escape_xml(public_path)
+    );
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "image/svg+xml; charset=utf-8"),
+            (header::CACHE_CONTROL, "public, max-age=60"),
+            (
+                HeaderName::from_static("x-cosyworld-asset-diagnostic"),
+                diagnostic.as_str(),
+            ),
+        ],
+        svg,
+    )
+        .into_response()
+}
+
+fn serve_asset_mount(mount: &SeedAssetMount, relative_path: &str) -> Response {
+    let Some(path) = seed_asset_mount_path(mount, relative_path) else {
+        return (StatusCode::BAD_REQUEST, "invalid pack asset path").into_response();
+    };
+    match fs::read(path) {
+        Ok(bytes) => (
             StatusCode::OK,
-            [
-                (header::CONTENT_TYPE, "image/png"),
-                (header::CACHE_CONTROL, "public, max-age=86400"),
-            ],
+            pack_asset_headers(mount, relative_path, asset_content_type(relative_path)),
             bytes,
         )
             .into_response(),
-        None => (StatusCode::NOT_FOUND, "missing Lonely Forest asset").into_response(),
+        Err(_) if mount.optional && mount.fallback.as_deref() == Some("external_uri") => {
+            let public_path = format!(
+                "{}/{}",
+                mount.public_prefix.trim_end_matches('/'),
+                relative_path
+            );
+            content_registry()
+                .external_cards()
+                .iter()
+                .find(|card| card.image_url == public_path)
+                .map(|card| Redirect::temporary(&card.chain_image_uri).into_response())
+                .unwrap_or_else(|| optional_asset_placeholder(mount, relative_path))
+        }
+        Err(_) if mount.optional => optional_asset_placeholder(mount, relative_path),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            [(
+                HeaderName::from_static("x-cosyworld-asset-diagnostic"),
+                format!(
+                    "required asset unavailable from provider {} for {}@{}",
+                    mount.provider, mount.pack_id, mount.pack_version
+                ),
+            )],
+            format!(
+                "missing required pack asset {}/{} (provider {})",
+                mount.public_prefix, relative_path, mount.provider
+            ),
+        )
+            .into_response(),
     }
 }
 
-fn ruby_high_card_missing_asset_response(spec: &RubyHighCardSpec) -> Response {
-    Redirect::temporary(&spec.chain_image_uri).into_response()
+fn serve_public_asset_path(public_path: &str) -> Response {
+    let Some((mount, relative_path)) = content_registry().public_asset_mount(public_path) else {
+        let authored_reference = active_content()
+            .cards
+            .iter()
+            .filter_map(|card| card.image_url.as_deref())
+            .chain(
+                content_registry()
+                    .external_cards()
+                    .iter()
+                    .map(|card| card.image_url.as_str()),
+            )
+            .any(|image_url| image_url == public_path);
+        return if authored_reference {
+            unavailable_asset_provider_placeholder(public_path)
+        } else {
+            (StatusCode::NOT_FOUND, "unknown pack asset").into_response()
+        };
+    };
+    serve_asset_mount(mount, relative_path)
+}
+
+async fn public_pack_asset(AxumPath(asset_path): AxumPath<String>) -> Response {
+    serve_public_asset_path(&format!("/assets/{asset_path}"))
+}
+
+async fn legacy_cosy_cottage_asset() -> Response {
+    serve_public_asset_path("/assets/locations/cosy-cottage.png")
 }
 
 async fn generated_seed_card_asset(AxumPath(card_file): AxumPath<String>) -> impl IntoResponse {
-    if let Some((card_id, content_type)) = generated_seed_card_bitmap_request(&card_file) {
-        let path = seed_pack_asset_path("cosyworld.core", "generated/cards", &card_file);
-        return match path.and_then(|path| fs::read(path).ok()) {
-            Some(bytes) => (
-                StatusCode::OK,
-                [
-                    (header::CONTENT_TYPE, content_type),
-                    (header::CACHE_CONTROL, "public, max-age=86400"),
-                ],
-                bytes,
-            )
-                .into_response(),
-            None => (
-                StatusCode::NOT_FOUND,
-                format!("missing generated seed card asset {card_id}"),
-            )
-                .into_response(),
-        };
+    if generated_seed_card_bitmap_request(&card_file).is_some() {
+        return serve_public_asset_path(&format!("/assets/generated/cards/{card_file}"));
     }
 
     let Some(card_id) = card_file.strip_suffix(".svg") else {
@@ -33222,36 +33311,7 @@ async fn worldpack_asset(
         .strip_prefix(&mount.mount)
         .unwrap_or_default()
         .trim_start_matches('/');
-    let Some(path) = seed_pack_asset_path(&pack_id, &mount.mount, relative_path) else {
-        return (StatusCode::BAD_REQUEST, "invalid worldpack asset path").into_response();
-    };
-    match fs::read(path) {
-        Ok(bytes) => (
-            StatusCode::OK,
-            [
-                (header::CONTENT_TYPE, asset_content_type(relative_path)),
-                (header::CACHE_CONTROL, "public, max-age=86400"),
-            ],
-            bytes,
-        )
-            .into_response(),
-        Err(_) if mount.optional => {
-            let fallback = mount.fallback.as_deref().unwrap_or("none");
-            (
-                StatusCode::NOT_FOUND,
-                format!("optional worldpack asset missing; fallback={fallback}"),
-            )
-                .into_response()
-        }
-        Err(_) => (
-            StatusCode::NOT_FOUND,
-            format!(
-                "missing required worldpack asset under {}",
-                mount.public_prefix
-            ),
-        )
-            .into_response(),
-    }
+    serve_asset_mount(mount, relative_path)
 }
 
 async fn generated_pathway_asset(
@@ -33421,7 +33481,7 @@ async fn generated_box_asset(
 }
 
 async fn legacy_rati_asset() -> impl IntoResponse {
-    ruby_high_card_asset(AxumPath("rati".to_string())).await
+    serve_public_asset_path("/assets/cards/rati.png")
 }
 
 struct SeedCardArtSpec {
@@ -37415,7 +37475,7 @@ mod tests {
     }
 
     #[test]
-    fn production_deployment_requires_remote_ownership_feed() {
+    fn production_deployment_requires_active_remote_entitlement_provider() {
         let deployment = DeploymentConfig {
             profile: DeploymentProfile::Production,
             shard_id: "prod-test".to_string(),
@@ -37431,15 +37491,13 @@ mod tests {
                 true,
                 true,
             )
-            .expect_err("production should reject missing remote ownership feed");
-        assert!(error
-            .to_string()
-            .contains("COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL"));
+            .expect_err("production should reject missing remote entitlement provider");
+        assert!(error.to_string().contains("COSYWORLD_ENTITLEMENT_FEED_URL"));
 
         let error = deployment
             .validate_runtime_options(
                 &OwnershipFeedConfig {
-                    remote_url: Some("https://ruby-high.example/feed".to_string()),
+                    remote_url: Some("https://entitlements.example/feed".to_string()),
                     ..OwnershipFeedConfig::default()
                 },
                 false,
@@ -37453,7 +37511,7 @@ mod tests {
             .expect_err("production should reject missing remote bearer");
         assert!(error
             .to_string()
-            .contains("COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER"));
+            .contains("COSYWORLD_ENTITLEMENT_FEED_BEARER"));
     }
 
     #[test]
@@ -39883,7 +39941,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.1.0");
+        assert_eq!(location_reference.pack_version, "1.2.0");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");
@@ -47494,6 +47552,7 @@ mod tests {
 
     #[tokio::test]
     async fn lonely_forest_source_characters_are_seeded_with_png_cards() {
+        const CHARACTER_ASSET_PREFIX: &str = "/assets/lonely-forest/characters/";
         let content = active_content();
         let runtime = RuntimeWorld::seeded();
 
@@ -47518,29 +47577,28 @@ mod tests {
                     && card
                         .image_url
                         .as_deref()
-                        .is_some_and(|url| url.starts_with(LONELY_FOREST_CHARACTER_ASSET_PREFIX))
+                        .is_some_and(|url| url.starts_with(CHARACTER_ASSET_PREFIX))
             })
             .collect();
         assert_eq!(lonely_forest_actor_cards.len(), 25);
         for card in lonely_forest_actor_cards {
             let image_url = card.image_url.as_deref().expect("Lonely Forest image URL");
             let asset_file = image_url
-                .strip_prefix(LONELY_FOREST_CHARACTER_ASSET_PREFIX)
+                .strip_prefix(CHARACTER_ASSET_PREFIX)
                 .expect("Lonely Forest asset prefix");
-            assert!(
-                lonely_forest_character_asset_exists(asset_file),
-                "missing manifest asset for {}",
-                card.card_id
-            );
+            let (mount, relative_path) = content_registry()
+                .public_asset_mount(image_url)
+                .expect("card asset resolves through its pack provider");
+            assert_eq!(relative_path, asset_file);
+            assert!(seed_asset_mount_path(mount, relative_path).is_some_and(|path| path.exists()));
 
             let projected = card_for_actor(card.subject_id, &card.display_name, &card.title, "", 1);
             assert_eq!(projected.image_url.as_deref(), Some(image_url));
             assert_eq!(projected.asset_status, "source_art");
         }
 
-        let response = lonely_forest_character_asset(AxumPath("10-woodland-bear.png".to_string()))
-            .await
-            .into_response();
+        let response =
+            serve_public_asset_path("/assets/lonely-forest/characters/10-woodland-bear.png");
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
             response
@@ -47550,11 +47608,9 @@ mod tests {
             Some("image/png")
         );
 
-        let missing =
-            lonely_forest_character_asset(AxumPath("../10-woodland-bear.png".to_string()))
-                .await
-                .into_response();
-        assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+        let invalid =
+            serve_public_asset_path("/assets/lonely-forest/characters/../10-woodland-bear.png");
+        assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
 
         let generated = generated_seed_card_asset(AxumPath("cosy-whiskerwind.webp".to_string()))
             .await
@@ -47774,9 +47830,9 @@ mod tests {
 
     #[test]
     fn ruby_high_first_bell_live_catalog_projects_card_metadata() {
-        assert_eq!(ruby_high_first_bell_catalog().len(), 24);
+        assert_eq!(external_card_catalog().len(), 24);
 
-        let ids: BTreeSet<&str> = ruby_high_first_bell_catalog()
+        let ids: BTreeSet<&str> = external_card_catalog()
             .iter()
             .map(|spec| spec.card_id.as_str())
             .collect();
@@ -47807,7 +47863,7 @@ mod tests {
             "location-courtyard",
         ] {
             assert!(ids.contains(card_id), "missing First Bell card {card_id}");
-            let card = ruby_high_card_by_id(card_id).expect("card projects");
+            let card = external_card_by_id(card_id).expect("card projects");
             assert_eq!(card.card_id, card_id);
             assert_eq!(card.source, "ruby_high_first_bell");
             assert_eq!(card.asset_status, "on_chain");
@@ -47824,35 +47880,42 @@ mod tests {
         }
 
         assert_eq!(
-            ruby_high_card_by_id("item-lab-flask").unwrap().aspect,
+            external_card_by_id("item-lab-flask").unwrap().aspect,
             "square"
         );
         assert_eq!(
-            ruby_high_card_by_id("location-library").unwrap().aspect,
+            external_card_by_id("location-library").unwrap().aspect,
             "wide"
         );
-        assert_eq!(ruby_high_card_by_id("rati").unwrap().aspect, "tall");
+        assert_eq!(external_card_by_id("rati").unwrap().aspect, "tall");
     }
 
     #[test]
     fn compiled_worldpack_asset_index_resolves_pack_mounts_safely() {
-        assert!(content_registry().asset_mounts().len() >= 3);
+        assert!(content_registry().asset_mounts().len() >= 4);
         assert!(content_registry()
             .asset_mounts()
             .iter()
             .any(|mount| { mount.pack_id == "ruby-high.first-bell" && mount.mount == "cards" }));
-        let card_path = seed_pack_asset_path(
-            "cosyworld.core",
-            "generated/cards",
-            "cosy-hearth-tonic.webp",
-        )
-        .expect("core card mount resolves");
+        for mount in content_registry().asset_mounts() {
+            assert!(valid_sha256_digest(&mount.content_hash));
+            assert!(mount.cache_key("example.png").contains(&mount.pack_version));
+            assert!(mount.cache_key("example.png").contains(&mount.content_hash));
+        }
+        let core_cards = content_registry()
+            .asset_mounts()
+            .iter()
+            .find(|mount| mount.pack_id == "cosyworld.core" && mount.mount == "generated/cards")
+            .expect("core card mount exists");
+        let card_path = seed_asset_mount_path(core_cards, "cosy-hearth-tonic.webp")
+            .expect("core card mount resolves");
         assert!(card_path.ends_with("core/assets/generated/cards/cosy-hearth-tonic.webp"));
         assert!(card_path.exists());
-        assert!(
-            seed_pack_asset_path("cosyworld.core", "generated/cards", "../pack.json").is_none()
-        );
-        assert!(seed_pack_asset_path("missing.pack", "cards", "card.png").is_none());
+        assert!(seed_asset_mount_path(core_cards, "../pack.json").is_none());
+        assert!(content_registry()
+            .asset_mounts()
+            .iter()
+            .all(|mount| mount.pack_id != "missing.pack"));
     }
 
     #[tokio::test]
@@ -47871,12 +47934,15 @@ mod tests {
                 .and_then(|value| value.to_str().ok()),
             Some("image/webp")
         );
+        assert!(response
+            .headers()
+            .contains_key("x-cosyworld-asset-cache-key"));
     }
 
     #[test]
-    fn missing_ruby_high_card_asset_redirects_to_chain_image() {
-        let spec = ruby_high_card_spec("location-science-lab").expect("science lab card exists");
-        let response = ruby_high_card_missing_asset_response(spec);
+    fn optional_external_asset_provider_redirects_to_declared_fallback() {
+        let spec = external_card_spec("location-science-lab").expect("science lab card exists");
+        let response = serve_public_asset_path(&spec.image_url);
 
         assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
         assert_eq!(
@@ -47885,6 +47951,29 @@ mod tests {
                 .get(header::LOCATION)
                 .and_then(|value| value.to_str().ok()),
             Some(spec.chain_image_uri.as_str())
+        );
+    }
+
+    #[test]
+    fn unmounted_public_asset_provider_returns_stable_placeholder() {
+        let response = unavailable_asset_provider_placeholder("/assets/unmounted.pack/card.png");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("image/svg+xml; charset=utf-8")
+        );
+        assert!(response
+            .headers()
+            .get("x-cosyworld-asset-diagnostic")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.contains("no active asset provider")));
+        assert_eq!(
+            serve_public_asset_path("/assets/not-authored/card.png").status(),
+            StatusCode::NOT_FOUND
         );
     }
 
@@ -55860,7 +55949,7 @@ mod tests {
             .cards_for_wallet("wallet-4")
             .contains("location-science-lab"));
 
-        let ruby_high_shape = OwnershipIndex::parse(
+        let provider_shape = OwnershipIndex::parse(
             r#"[
               {
                 "walletAddress": "wallet-5",
@@ -55876,17 +55965,17 @@ mod tests {
               }
             ]"#,
         );
-        assert!(ruby_high_shape
+        assert!(provider_shape
             .cards_for_wallet("wallet-5")
             .contains("location-courtyard"));
-        assert!(!ruby_high_shape
+        assert!(!provider_shape
             .cards_for_wallet("wallet-5")
             .contains("location-library"));
-        assert!(ruby_high_shape
+        assert!(provider_shape
             .cards_for_wallet("wallet-6")
             .contains("location-homeroom"));
 
-        let ruby_high_export_envelope = OwnershipIndex::parse(
+        let provider_export_envelope = OwnershipIndex::parse(
             r#"{
               "generatedAt": "2026-06-20T20:00:00.000Z",
               "wallets": [
@@ -55944,14 +56033,14 @@ mod tests {
               ]
             }"#,
         );
-        let envelope_cards = ruby_high_export_envelope.cards_for_wallet("wallet-7");
+        let envelope_cards = provider_export_envelope.cards_for_wallet("wallet-7");
         assert!(envelope_cards.contains("location-science-lab"));
         assert!(envelope_cards.contains("rati"));
         assert!(!envelope_cards.contains("location-library"));
-        let envelope_boxes = ruby_high_export_envelope.boxes_for_wallet("wallet-7");
+        let envelope_boxes = provider_export_envelope.boxes_for_wallet("wallet-7");
         assert!(envelope_boxes.contains("box-active-1"));
         assert!(!envelope_boxes.contains("box-burned-1"));
-        let envelope_packs = ruby_high_export_envelope.packs_for_wallet("wallet-7");
+        let envelope_packs = provider_export_envelope.packs_for_wallet("wallet-7");
         assert!(envelope_packs.contains("pack-unopened-1"));
         assert!(!envelope_packs.contains("pack-opened-1"));
     }

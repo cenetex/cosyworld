@@ -11,17 +11,8 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/", get(index))
         .route("/moderation", get(moderation_console))
         .route(
-            "/assets/locations/cosy-cottage.png",
-            get(cosy_cottage_asset),
-        )
-        .route("/assets/cards/{card_file}", get(ruby_high_card_asset))
-        .route(
             "/assets/packs/{pack_id}/{*asset_path}",
             get(worldpack_asset),
-        )
-        .route(
-            "/assets/lonely-forest/characters/{asset_file}",
-            get(lonely_forest_character_asset),
         )
         .route(
             "/assets/generated/cards/{card_file}",
@@ -39,8 +30,9 @@ pub(super) fn app_router(state: AppState) -> Router {
             "/assets/generated/boxes/{box_state}/{box_file}",
             get(generated_box_asset),
         )
-        .route("/assets/cosy-cottage.png", get(cosy_cottage_asset))
+        .route("/assets/cosy-cottage.png", get(legacy_cosy_cottage_asset))
         .route("/assets/rati.png", get(legacy_rati_asset))
+        .route("/assets/{*asset_path}", get(public_pack_asset))
         .route("/health", get(health))
         .route("/meta", get(meta))
         .route("/content-packs", get(content_packs_view))

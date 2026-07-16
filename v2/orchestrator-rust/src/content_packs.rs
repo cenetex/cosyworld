@@ -17,6 +17,7 @@ struct ContentPackView {
     license: String,
     dependencies: Vec<String>,
     distribution: Option<SeedPackDistribution>,
+    asset_providers: Vec<AssetProviderView>,
     entitlement_authorities: Vec<SeedEntitlementAuthority>,
     installed: bool,
     visible: bool,
@@ -30,6 +31,16 @@ struct ContentPackView {
     required_card_ids: Vec<String>,
     owned_required_card_ids: Vec<String>,
     locations: Vec<ContentPackLocationView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct AssetProviderView {
+    provider: String,
+    mount: String,
+    public_prefix: String,
+    content_hash: String,
+    cache_namespace: String,
+    optional: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -198,6 +209,19 @@ fn content_pack_views(access: &AccessContext) -> Vec<ContentPackView> {
                 license: pack.license.clone(),
                 dependencies: pack.dependencies.clone(),
                 distribution: pack.distribution.clone(),
+                asset_providers: content_registry()
+                    .asset_mounts()
+                    .iter()
+                    .filter(|mount| mount.pack_id == pack.id)
+                    .map(|mount| AssetProviderView {
+                        provider: mount.provider.clone(),
+                        mount: mount.mount.clone(),
+                        public_prefix: mount.public_prefix.clone(),
+                        content_hash: mount.content_hash.clone(),
+                        cache_namespace: mount.cache_namespace(),
+                        optional: mount.optional,
+                    })
+                    .collect(),
                 entitlement_authorities: pack
                     .entitlements
                     .as_ref()
@@ -259,6 +283,12 @@ mod tests {
         assert_eq!(core.access_state, "public");
         assert!(core.entitled);
         assert!(core.resource_counts["locations"] > 0);
+        assert_eq!(core.asset_providers.len(), 2);
+        assert!(core.asset_providers.iter().all(|provider| {
+            provider.provider == "cosyworld.core/assets"
+                && provider.cache_namespace.contains("cosyworld.core@1.2.0")
+                && provider.content_hash.starts_with("sha256:")
+        }));
 
         let ruby = public
             .packs
@@ -271,6 +301,15 @@ mod tests {
         assert_eq!(ruby.required_grant_ids.len(), 6);
         assert_eq!(ruby.entitlement_authorities.len(), 1);
         assert_eq!(ruby.entitlement_authorities[0].kind, "asset_feed");
+        assert_eq!(
+            ruby.entitlement_authorities[0].provider,
+            "ruby-high.first-bell/entitlements"
+        );
+        assert_eq!(ruby.asset_providers.len(), 1);
+        assert_eq!(
+            ruby.asset_providers[0].provider,
+            "ruby-high.first-bell/assets"
+        );
         assert_eq!(
             ruby.distribution
                 .as_ref()

@@ -227,8 +227,10 @@ it; then start the shard with the exact target registry supplied to the tool.
 `GET /content-packs` exposes the installed bundle as a player-facing catalogue.
 It accepts the same wallet and development-card query fields as `/state`, and
 returns each visible pack's metadata, resource counts, entry location, access
-state, required grants/cards, entitlement authorities, distribution metadata,
-and accessible location summaries. The current access
+state, required grants/cards, asset providers, entitlement authorities,
+distribution metadata, and accessible location summaries. Asset-provider rows
+include the public prefix, mount, provider capability, content hash, and cache
+namespace. The current access
 states are `public`, `included`, `locked`, `partial`, and `entitled`.
 
 The compiler stamps `pack_id` onto every compiled resource and external card.
@@ -242,10 +244,44 @@ composition. The endpoint does not dynamically install packs or interpret a
 payment rail. Packs declare content and access surfaces; verified claims
 determine the current player's entitlement projection.
 
+### Asset providers
+
+Every authored asset mount names an `assets` capability declared by the same
+pack. Public URLs are resolved only through the active registry; the host does
+not infer a sibling checkout or branch on a pack name. For example:
+
+```json
+{
+  "capabilities": [
+    { "id": "example.pack/assets", "kind": "assets", "version": "1.0.0" }
+  ],
+  "assets": [
+    {
+      "provider": "example.pack/assets",
+      "mount": "cards",
+      "directory": "assets/cards",
+      "public_prefix": "/assets/example/cards",
+      "optional": false
+    }
+  ]
+}
+```
+
+The compiler stamps each mount with its owning pack id, pack version, pack
+integrity, and a content hash. Runtime cache keys include the pack id, version,
+provider capability, mount, relative path, and content hash, so two pack
+versions cannot silently share stale media. Required missing assets return an
+actionable `404`; an optional provider may declare `fallback: "external_uri"`
+for external-card metadata, otherwise the host returns a stable placeholder.
+Missing optional media never prevents unrelated public packs from loading.
+
 ### Entitlement authorities and named grants
 
 Resources depend on stable grant ids, never directly on wallet, chain, or
-payment code. A pack declares the authority that can issue each grant:
+payment code. A pack declares an `entitlements` capability and every authority
+names that provider. Missing or mismatched providers reject the composition
+before the listener opens. A denied or unavailable provider grants nothing, so
+gated content fails closed while unrelated public content remains available:
 
 ```json
 {
@@ -253,6 +289,7 @@ payment code. A pack declares the authority that can issue each grant:
     "schema_version": 1,
     "authorities": [
       {
+        "provider": "example.pack/entitlements",
         "id": "cards",
         "type": "solana_collection",
         "network": "mainnet-beta",

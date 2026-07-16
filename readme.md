@@ -63,7 +63,8 @@ production profile with `/data` mounted for generated assets and SQLite state.
 
 Production profile rejects dev shortcuts. It requires:
 
-- Remote trusted ownership feed URL and bearer token.
+- Remote trusted entitlement feed URL and bearer token when the active pack
+  registry declares an `asset_feed` authority.
 - SQLite event store.
 - Moderation token.
 - `COSYWORLD_V2_SHARD_ID` per deployed shard process.

@@ -123,6 +123,15 @@ export function validateContentPackManifest(manifest, label = "pack.json") {
   if ((manifest.assets ?? []).length > 0 && !providedKinds.has("assets")) {
     contractError(`${label}: pack ${manifest.id} declares assets without an assets capability`);
   }
+  for (const mount of manifest.assets ?? []) {
+    if (!manifest.capabilities.some(
+      (capability) => capability.id === mount.provider && capability.kind === "assets",
+    )) {
+      contractError(
+        `${label}: asset mount ${mount.mount} references unavailable provider ${mount.provider}`,
+      );
+    }
+  }
   if (manifest.external_cards && !providedKinds.has("cards")) {
     contractError(`${label}: pack ${manifest.id} declares external cards without a cards capability`);
   }
@@ -130,6 +139,15 @@ export function validateContentPackManifest(manifest, label = "pack.json") {
     contractError(
       `${label}: pack ${manifest.id} declares entitlement providers without an entitlements capability`,
     );
+  }
+  for (const authority of manifest.entitlements?.authorities ?? []) {
+    if (!manifest.capabilities.some(
+      (capability) => capability.id === authority.provider && capability.kind === "entitlements",
+    )) {
+      contractError(
+        `${label}: entitlement authority ${authority.id} references unavailable provider ${authority.provider}`,
+      );
+    }
   }
   if (manifest.default_ruleset !== undefined && manifest.default_ruleset !== null) {
     const local = manifest.capabilities.find(

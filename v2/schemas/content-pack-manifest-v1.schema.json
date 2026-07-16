@@ -154,8 +154,9 @@
     "assetMount": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mount", "directory", "public_prefix", "optional"],
+      "required": ["provider", "mount", "directory", "public_prefix", "optional"],
       "properties": {
+        "provider": { "$ref": "#/definitions/capabilityId" },
         "mount": { "type": "string", "minLength": 1 },
         "directory": { "$ref": "#/definitions/relativePath" },
         "manifest": { "$ref": "#/definitions/relativePath" },
@@ -194,9 +195,10 @@
     "entitlementAuthority": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "type"],
+      "required": ["id", "provider", "type"],
       "properties": {
         "id": { "$ref": "#/definitions/stableId" },
+        "provider": { "$ref": "#/definitions/capabilityId" },
         "type": { "enum": ["asset_feed", "solana_collection", "signed_set"] },
         "asset_kind": { "$ref": "#/definitions/nonEmptyString" },
         "issuer": { "$ref": "#/definitions/nonEmptyString" },

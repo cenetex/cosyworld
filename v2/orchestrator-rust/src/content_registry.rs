@@ -59,7 +59,7 @@ struct CompiledContentRegistry {
     #[serde(default)]
     resources: BTreeMap<String, serde_json::Value>,
     #[serde(default)]
-    external_cards: Vec<RubyHighCardSpec>,
+    external_cards: Vec<ExternalCardSpec>,
     #[serde(default)]
     assets: Vec<SeedAssetMount>,
     #[serde(default)]
@@ -233,7 +233,23 @@ impl ContentRegistry {
         &self.content.asset_mounts
     }
 
-    pub(super) fn external_cards(&self) -> &[RubyHighCardSpec] {
+    pub(super) fn public_asset_mount<'registry, 'path>(
+        &'registry self,
+        public_path: &'path str,
+    ) -> Option<(&'registry SeedAssetMount, &'path str)> {
+        self.content
+            .asset_mounts
+            .iter()
+            .filter_map(|mount| {
+                let relative = public_path
+                    .strip_prefix(&mount.public_prefix)?
+                    .strip_prefix('/')?;
+                Some((mount, relative))
+            })
+            .max_by_key(|(mount, _)| mount.public_prefix.len())
+    }
+
+    pub(super) fn external_cards(&self) -> &[ExternalCardSpec] {
         &self.content.external_cards
     }
 
@@ -1033,13 +1049,13 @@ mod tests {
         )
         .expect("official registry loads");
         assert_eq!(registry.content().locations.len(), 33);
-        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.1.0");
+        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.2.0");
         assert_eq!(
             registry.capability_provider("cosyworld.core/world"),
             Some("cosyworld.core")
         );
         assert_eq!(registry.external_cards().len(), 24);
-        assert!(registry.asset_mounts().len() >= 3);
+        assert!(registry.asset_mounts().len() >= 4);
         assert!(registry.additional_resource("sentences").is_some());
         let actor = registry
             .content_reference("actor", 1001)
