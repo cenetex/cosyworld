@@ -22,6 +22,15 @@ function writeJson(root, fileName, value) {
   fs.writeFileSync(path.join(root, fileName), `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function writeSentences(root, sentences) {
+  const packId = "cosyworld.core";
+  const compiledSentences = sentences.map((sentence) => ({ ...sentence, pack_id: packId }));
+  writeJson(root, "sentences.json", compiledSentences);
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
+  manifest.packs.find((pack) => pack.id === packId).resource_counts.sentences = compiledSentences.length;
+  writeJson(root, "worldpack.json", manifest);
+}
+
 function runChecker(root) {
   return spawnSync(process.execPath, [checkerPath, root], { encoding: "utf8" });
 }
@@ -167,19 +176,57 @@ describe("worldpack writing register validation", () => {
     expect(failResult.stderr).toContain("uses second person outside the sentences register");
   });
 
-  it("leaves the sentences register exempt", () => {
+  it("exempts valid sentences from the world-prose register only", () => {
     const root = worldpackFixture();
-    writeJson(root, "sentences.json", [{
+    writeSentences(root, [{
       id: "quiet-wing/first",
       shelf: "quiet-wing",
       location_ids: [12],
-      text: "You have been reading this sentence longer than you think.",
+      text: "You read as if the shelf remembers your name.",
       weight: 1,
     }]);
 
+    const passResult = runChecker(root);
+
+    expect(passResult.status, passResult.stderr).toBe(0);
+    expect(passResult.stdout).toContain("worldpack ok");
+
+    const locations = JSON.parse(fs.readFileSync(path.join(root, "locations.json"), "utf8"));
+    locations[0].description = "You read as if the shelf remembers your name.";
+    writeJson(root, "locations.json", locations);
+
+    const failResult = runChecker(root);
+
+    expect(failResult.status).toBe(1);
+    expect(failResult.stderr).toContain('uses banned environment tell "as if"');
+  });
+
+  it("validates sentence ids, text, shelves, locations, and weights", () => {
+    const root = worldpackFixture();
+    writeSentences(root, [
+      {
+        id: "broken/entry",
+        shelf: "moon-shelf",
+        location_ids: [999999],
+        text: "",
+        weight: 0,
+      },
+      {
+        id: "broken/entry",
+        shelf: "hearth",
+        location_ids: [1],
+        text: "The kettle stayed warm.",
+        weight: 1,
+      },
+    ]);
+
     const result = runChecker(root);
 
-    expect(result.status, result.stderr).toBe(0);
-    expect(result.stderr).toContain("writing register advisory");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("sentences has missing or duplicate id broken/entry");
+    expect(result.stderr).toContain("sentence broken/entry is missing text");
+    expect(result.stderr).toContain("sentence broken/entry has invalid shelf moon-shelf");
+    expect(result.stderr).toContain("sentence broken/entry references missing location 999999");
+    expect(result.stderr).toContain("sentence broken/entry must declare a positive weight");
   });
 });
