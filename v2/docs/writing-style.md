@@ -94,3 +94,7 @@ in `v2/content/core/sentences.json`.
 
 The lint conforms to this document. When lint and doc disagree, the doc wins
 and the lint changes.
+
+Register governs sound; canon governs meaning. See `canon.md` for the
+whimsical-cosmic-horror doctrine that defines what the world is allowed to
+mean.

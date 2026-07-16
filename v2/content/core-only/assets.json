@@ -2,20 +2,20 @@
   {
     "pack_id": "cosyworld.core",
     "pack_version": "1.2.0",
-    "pack_integrity": "sha256:14f7976daed07ff1010b78d63590728ffdbcf901fe912d2585aebd74b0ee882b",
+    "pack_integrity": "sha256:8589985b1e4d14d9058604028a5e38fa022c1936564c27b621d86a1532c19425",
     "provider": "cosyworld.core/assets",
     "mount": "generated/cards",
     "root": "core",
     "directory": "assets/generated/cards",
     "public_prefix": "/assets/generated/cards",
-    "content_hash": "sha256:1fa7ac44830ea55dd66119f3614ee57b6f60b2f4f3ca72ba9ddad49e7da01ee9",
+    "content_hash": "sha256:b701388ab6b1d5a7a34b638d7fefb3eebbfdd386fb16de6b572bc8574694c6f3",
     "optional": false,
     "fallback": null
   },
   {
     "pack_id": "cosyworld.core",
     "pack_version": "1.2.0",
-    "pack_integrity": "sha256:14f7976daed07ff1010b78d63590728ffdbcf901fe912d2585aebd74b0ee882b",
+    "pack_integrity": "sha256:8589985b1e4d14d9058604028a5e38fa022c1936564c27b621d86a1532c19425",
     "provider": "cosyworld.core/assets",
     "mount": "locations",
     "root": "core",

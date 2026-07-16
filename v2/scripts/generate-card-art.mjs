@@ -38,13 +38,16 @@ function parseArgs(argv) {
   const options = {
     dryRun: false,
     force: false,
+    syncPrompts: false,
     testSet: false,
     ids: null,
     limit: null,
     seedSalt: "",
   };
   for (const arg of argv) {
-    if (arg === "--dry-run") {
+    if (arg === "--sync-prompts") {
+      options.syncPrompts = true;
+    } else if (arg === "--dry-run") {
       options.dryRun = true;
     } else if (arg === "--force") {
       options.force = true;
@@ -344,6 +347,28 @@ async function writePromptManifest(generated) {
   await fs.writeFile(PROMPTS_PATH, `${JSON.stringify(existing, null, 2)}\n`);
 }
 
+async function syncPrompts(cards, indexes) {
+  let existing = {};
+  try {
+    existing = JSON.parse(await fs.readFile(PROMPTS_PATH, "utf8"));
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  let updated = 0;
+  for (const card of cards) {
+    const entry = existing[card.card_id];
+    if (!entry) continue;
+    const prompt = buildPrompt(card, indexes);
+    if (entry.prompt !== prompt) {
+      entry.prompt = prompt;
+      updated++;
+    }
+  }
+  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  await fs.writeFile(PROMPTS_PATH, `${JSON.stringify(existing, null, 2)}\n`);
+  console.log(`Synced ${updated} prompt(s) from current content.`);
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const [cards, actors, items, locations] = await Promise.all([
@@ -357,6 +382,13 @@ async function main() {
     items: byId(items),
     locations: byId(locations),
   };
+
+  if (options.syncPrompts) {
+    await syncPrompts(cards, indexes);
+    console.log("Prompt sync complete.");
+    return;
+  }
+
   const selected = selectCards(cards, options);
   if (!selected.length) {
     console.log("No matching missing Cosyworld seed cards found.");

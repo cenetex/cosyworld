@@ -7,7 +7,7 @@
   "version": 1,
   "description": "The first-party cosy exploration experience with no expansion packs mounted.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:353790cecca257f6eac3d8d1719309936ca0b58b73fbc4455d9cbee0367a4698",
+  "bundle_hash": "sha256:c242f366d33b63a2b5bd12ff626e654cc7caff0cd05133fc37aebee01b57c3e7",
   "packs": [
     {
       "id": "cosyworld.core",
@@ -75,7 +75,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:14f7976daed07ff1010b78d63590728ffdbcf901fe912d2585aebd74b0ee882b"
+      "integrity": "sha256:8589985b1e4d14d9058604028a5e38fa022c1936564c27b621d86a1532c19425"
     }
   ],
   "files": {
