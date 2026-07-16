@@ -8,12 +8,12 @@
       "fireplace",
       "ashes"
     ],
-    "look": "A steady amber fire keeps the room kind without making it sleepy.",
+    "look": "A low, steady amber fire.",
     "search": "The ashes have been swept into a small arrow pointing from the hearth toward the low doorway.",
     "uses": [
       {
         "item_id": 2001,
-        "text": "The Hearth Tonic warms in your hand, but the hearth is already doing its gentlest work."
+        "text": "The tonic warms in your hand. The hearth is warmer."
       }
     ],
     "pack_id": "cosyworld.core"
@@ -32,7 +32,7 @@
     "uses": [
       {
         "item_id": 2007,
-        "text": "The Watch Bell gives one felt chime. Skull's silence seems to approve of checking the threshold."
+        "text": "The bell gives one silent chime. Skull lifts his head."
       }
     ],
     "pack_id": "cosyworld.core"
@@ -47,12 +47,12 @@
       "wool",
       "knitting"
     ],
-    "look": "Blue wool curls over the basket rim like a quiet sentence waiting for a verb.",
+    "look": "Blue wool curls over the basket rim.",
     "search": "Under the top skein is a round notch exactly the size of a warm wooden button.",
     "uses": [
       {
         "item_id": 2005,
-        "text": "The Story Button nestles into the notch. The scarf basket clicks once, as if Rati's next tale found its first word."
+        "text": "The Story Button fits the notch. The basket clicks once."
       }
     ],
     "pack_id": "cosyworld.core"
@@ -66,8 +66,8 @@
       "rain",
       "glass"
     ],
-    "look": "Rain threads down the glass in patient silver lines.",
-    "search": "The droplets draw a route: garden first, trail second, school after the kettle.",
+    "look": "Rain runs down the glass.",
+    "search": "Through the glass: the garden first, the trail beyond it, the school past both.",
     "pack_id": "cosyworld.core"
   },
   {
@@ -84,7 +84,7 @@
     "uses": [
       {
         "item_id": 2002,
-        "text": "The Dewbright Button matches the leaf's shine and hums toward Gust."
+        "text": "The button matches the leaf's shine. Gust would notice it."
       }
     ],
     "pack_id": "cosyworld.core"
@@ -111,8 +111,8 @@
       "post",
       "sign"
     ],
-    "look": "A silvered post marks the trail without naming the distance.",
-    "search": "Three scratches read like advice: test your guard, take what is earned, leave before pride gets loud.",
+    "look": "A silvered post with no distance marked.",
+    "search": "Three scratches read: test your guard, take what is earned, leave early.",
     "pack_id": "cosyworld.core"
   },
   {
@@ -125,11 +125,11 @@
       "clearing"
     ],
     "look": "Moonlight makes a pale circle where Coach waits.",
-    "search": "The dust shows careful footwork and no blood. This place is meant for practice, not cruelty.",
+    "search": "The dust shows careful footwork and no blood.",
     "uses": [
       {
         "item_id": 2003,
-        "text": "The Wolfprint Charm cools in your palm, pleased by the circle's restraint."
+        "text": "The charm cools in your palm."
       }
     ],
     "pack_id": "cosyworld.core"
@@ -144,8 +144,8 @@
       "sun bell",
       "temple bell"
     ],
-    "look": "A clean arch waits where a noon bell should hang. Sunlight outlines the absence in gold.",
-    "search": "The empty bracket hums downward, as if the bell fell through sky, sea, and certainty.",
+    "look": "A clean arch where a noon bell should hang.",
+    "search": "The empty bracket hums a low note. The hum points down.",
     "uses": [],
     "pack_id": "cosyworld.core"
   },
@@ -159,8 +159,8 @@
       "abyssal bell",
       "pearl bell"
     ],
-    "look": "A white-gold bell rests in black water, its rim crusted with pearls and patient songs.",
-    "search": "The bell has not gone silent. It has learned a lower note the Solar Temple never wrote down.",
+    "look": "A white-gold bell rests in black water, its rim crusted with pearls.",
+    "search": "The bell is not silent. It rings a lower note than the Solar Temple ever wrote down.",
     "uses": [],
     "pack_id": "cosyworld.core"
   },
@@ -174,7 +174,7 @@
       "dark anvil"
     ],
     "look": "A cold anvil waits beside the impossible feast, polished by pronouncements and bad timing.",
-    "search": "The anvil rings without being struck, as if every route here expects a witness before it becomes real.",
+    "search": "The anvil rings without being struck.",
     "uses": [],
     "pack_id": "cosyworld.core"
   },
@@ -187,7 +187,7 @@
       "table",
       "apparatus"
     ],
-    "look": "A bright bench holds clean questions, small instruments, and room for a second try.",
+    "look": "A bright bench of small instruments, with room for a second try.",
     "search": "A note under the bench says: observe first, listen second, revise always.",
     "pack_id": "cosyworld.core"
   },

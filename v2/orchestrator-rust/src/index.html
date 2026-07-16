@@ -3758,11 +3758,11 @@
           modalTitle: oneChoice ? "evolve" : "choose how to evolve",
           modalSummary: oneChoice
             ? (growAction
-              ? "Keep what mattered and let it shape what comes next."
+              ? "Keep what mattered."
               : `Put what you learned into ${(practiceAction?.abilityCandidates || [])[0]?.label || "an ability"} training.`)
             : (growAction
-              ? "Choose one of two possibilities: keep the lesson, or improve one ability's training bonus."
-              : "Choose one of two ways this lesson can strengthen your avatar."),
+              ? "Keep the lesson, or improve one ability's training bonus."
+              : "Choose how this lesson strengthens your avatar."),
           effect: oneChoice
             ? (growAction?.effect || practiceAction?.effect)
             : (growAction
@@ -3860,7 +3860,7 @@
             card: cardForLocation(view.location?.id),
             shape: "location",
             priority: 1,
-            modalSummary: "Let the room whisper its first clue to you.",
+            modalSummary: "Listen to the room.",
             effect: "the room shares one welcoming clue just for you",
             run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }),
           }];
@@ -4146,7 +4146,7 @@
             modalTitle: oneTrade ? undefined : "choose a trade",
             modalSummary: oneTrade
               ? `Swap ${firstTrade.offeredItem.name} with ${firstTrade.targetName} for ${firstTrade.targetItem.name}.`
-              : "Choose the keepsake swap that feels right.",
+              : "Choose a keepsake to swap.",
             effect: oneTrade ? (firstTrade.reason || undefined) : "both keepsakes change hands",
             ...(oneTrade ? {} : {
               choices: tradeCandidates.map((candidate) => ({
@@ -4189,7 +4189,7 @@
           priority: projectSearchPriority,
           modalSummary: clueLedSearch
             ? `Follow the room's clue and look closely at ${searchTarget}.`
-            : "Look closely and uncover one thing the room has been keeping tucked away.",
+            : "Search the room for one hidden thing.",
           effect: clueLedSearch
             ? `the clue tucked into ${searchTarget} comes to light`
             : (searchOffer?.effect || `one hidden thing in ${locationName} comes to light`),
@@ -4227,7 +4227,7 @@
                 : `Tuck ${firstItem.name} into your keeping.`)
               : (swapping
                 ? `Choose what to keep. ${heldItemName} stays here in its place.`
-                : "Choose one of the room's keepsakes to tuck into your keeping."),
+                : "Take one of the room's keepsakes."),
             effect: oneItem
               ? (swapping
                 ? `${firstItem.name} comes with you; ${heldItemName} stays in ${view.location?.name || "the room"}`
@@ -4340,10 +4340,10 @@
                   ? `Search out the first stretch toward ${firstExit.destination_location_name}.`
                   : `Follow the path to ${firstExit.destination_location_name}.`))
               : (fleeing
-                ? "Choose a way out and leave the danger behind."
+                ? "Choose a way out."
                 : (searchingPathway
-                  ? "Choose a destination and search the terrain ahead into being."
-                  : "Choose a path and follow it into the next room.")),
+                  ? "Choose a destination and search for a path."
+                  : "Choose a path.")),
             effect: onePath
               ? (searchingPathway
                 ? `a hidden first stretch toward ${firstExit.destination_location_name} is revealed`
@@ -4585,10 +4585,10 @@
           shape: "avatar",
           priority: restPriority,
           modalSummary: warmedRest
-            ? "Rest in the tonic\'s warmth and feel fresh again."
+            ? "Rest and recover."
             : (offer?.risk
-              ? "Catch your breath and feel fresh again. Trouble may draw nearer while you rest."
-              : "Catch your breath and feel fresh again."),
+              ? "Catch your breath. Trouble may draw nearer while you rest."
+              : "Catch your breath."),
           effect: offer?.effect,
           risk: offer?.risk,
           run: () => action("/actions/rest", { actor_id: actorId }),
@@ -4638,7 +4638,7 @@
           orbCost: listenAttemptedHere ? listenCost : 0,
           modalSummary: listenAttemptedHere
             ? `Spend ${repeatListenCost} to listen once more. The room may have nothing new yet.`
-            : "Let the room share what it notices.",
+            : "See what the room notices.",
           effect: listenAttemptedHere
             ? "the room may share another clue"
             : "the room shares one clue it is ready to tell",
@@ -4681,7 +4681,7 @@
             modalTitle: oneTarget ? `grow closer to ${firstTargetName}` : "choose someone to grow closer to",
             modalSummary: oneTarget
               ? `Keep ${firstTargetName} as someone who matters to you.`
-              : "Choose who you want to make room for in your story.",
+              : "Choose who to remember.",
             effect: oneTarget ? `your friendship with ${firstTargetName} begins` : "a new friendship begins",
             ...(oneTarget ? {} : {
               choices: bondTargets.map((target) => {
@@ -4744,7 +4744,7 @@
             modalTitle: oneMemory ? undefined : "choose a friendship to remember",
             modalSummary: oneMemory
               ? undefined
-              : "Choose whose shared story you want to carry forward.",
+              : "Choose whose story to carry forward.",
             effect: oneMemory ? offer?.effect : "what mattered between you stays with you",
             ...(oneMemory ? {} : {
               choices: rememberCandidates.map((candidate) => {
@@ -4893,7 +4893,7 @@
         modalTitle: sameItem ? `choose how to use ${itemNames[0]}` : "choose what to use",
         modalSummary: sameItem
           ? `Choose what ${itemNames[0]} should do here.`
-          : "Choose a keepsake and what it should do here.",
+          : "Choose a keepsake and how to use it.",
         effect: "the use you choose changes the scene",
         choices: modes.map((mode) => ({
           label: mode.label,
@@ -8096,7 +8096,7 @@
       return {
         count: memoryCount,
         points: growthCount,
-        summary: "Keep what mattered and let it shape what comes next.",
+        summary: "Keep what mattered.",
         rows: [
           ["What stays", "the little things you noticed this visit"],
           ["What opens", "new ways to strengthen a friendship or train an ability"],

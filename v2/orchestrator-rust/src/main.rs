@@ -38986,7 +38986,7 @@ mod tests {
         assert!(INDEX_HTML.contains("the room shares one welcoming clue just for you"));
         assert!(INDEX_HTML.contains("id=\"turn-ping-pill\""));
         assert!(INDEX_HTML.contains("the room is waiting for your choice"));
-        assert!(INDEX_HTML.contains("Let the room whisper its first clue to you."));
+        assert!(INDEX_HTML.contains("Listen to the room."));
         assert!(!INDEX_HTML.contains("temporary Dex priority boost"));
         assert!(INDEX_HTML.contains("class=\"roll-symbol\""));
         assert!(INDEX_HTML.contains("class=\"roll-result\""));
@@ -39058,15 +39058,14 @@ mod tests {
         assert!(INDEX_HTML.contains("the room may share another clue"));
         assert!(INDEX_HTML.contains("[\"Costs\", orbCost === 1 ? \"one Orb\""));
         assert!(!INDEX_HTML.contains("to listen again"));
-        assert!(INDEX_HTML.contains("Let the room share what it notices."));
+        assert!(INDEX_HTML.contains("See what the room notices."));
         assert!(INDEX_HTML.contains("one Orb"));
         assert!(INDEX_HTML.contains("function orbChangeText"));
         assert!(!INDEX_HTML.contains("flashEconomy(`+${delta}`"));
         assert!(!INDEX_HTML.contains("flashEconomy(`-${spent}`"));
         assert!(INDEX_HTML.contains("Play Chat to start a short conversation with"));
         assert!(INDEX_HTML.contains("one Orb for the whole exchange"));
-        assert!(INDEX_HTML
-            .contains("Look closely and uncover one thing the room has been keeping tucked away."));
+        assert!(INDEX_HTML.contains("Search the room for one hidden thing."));
         assert!(INDEX_HTML.contains("into your keeping"));
         assert!(INDEX_HTML.contains("function smallNumberWord"));
         assert!(INDEX_HTML.contains("choose who receives it"));
@@ -39114,7 +39113,7 @@ mod tests {
         assert!(INDEX_HTML.contains("/actions/create-bond"));
         assert!(INDEX_HTML.contains("label: \"grow closer\""));
         assert!(INDEX_HTML.contains("choose someone to grow closer to"));
-        assert!(INDEX_HTML.contains("Choose who you want to make room for in your story."));
+        assert!(INDEX_HTML.contains("Choose who to remember."));
         assert!(INDEX_HTML.contains("Keep ${firstTargetName} as someone who matters to you."));
         assert!(INDEX_HTML.contains("your friendship with ${firstTargetName} begins"));
         assert!(INDEX_HTML.contains("const giftCandidates = []"));
@@ -44451,7 +44450,7 @@ mod tests {
                 assert_eq!(item_id, 2003);
                 assert_eq!(location_id, MOONLIT_TRAIL_LOCATION_ID);
                 assert_eq!(feature_key, "practice_circle");
-                assert!(output.contains("Wolfprint Charm"));
+                assert!(output.contains("The charm cools in your palm."));
                 (item_id, location_id, feature_key, output)
             }
             other => panic!("project feature use should resolve to use_feature, got {other:?}"),
@@ -50222,7 +50221,7 @@ mod tests {
                 assert_eq!(location_id, 1);
                 assert_eq!(feature_key, "scarf_basket");
                 assert!(output.contains("Story Button"));
-                assert!(output.contains("first word"));
+                assert!(output.contains("fits the notch"));
                 let mut feature_record = JournalRecord::new(
                     CwAction {
                         kind: CW_ACTION_NONE,
@@ -50284,7 +50283,7 @@ mod tests {
                 assert_eq!(rati_bond.strength, 1);
                 let output = command_response_output(Some(output.clone()), &events)
                     .expect("feature use has command output");
-                assert!(output.contains("first word"));
+                assert!(output.contains("fits the notch"));
             }
             other => panic!("feature use should map to projected item use, got {other:?}"),
         }

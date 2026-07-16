@@ -3,7 +3,7 @@
     "id": 1,
     "name": "The Cosy Cottage",
     "title": "Rainlit Hearth",
-    "description": "A warm room of firelight, knitting needles, quiet symbols, and watchful silence.",
+    "description": "A warm room of firelight and knitting needles. The kettle is always loaded.",
     "persona": "The cottage is a careful host: warm, observant, and protective of small beginnings.",
     "memory": [
       "Rati's blue scarf began here.",
@@ -16,12 +16,12 @@
     "id": 2,
     "name": "Rain-Soft Garden",
     "title": "Garden Annex",
-    "description": "Rain beads on broad leaves. Round marks in the grass remember small pearled discoveries.",
+    "description": "Rain beads on broad leaves. Round marks dot the grass.",
     "persona": "The garden answers in damp patience, leaf-taps, and tiny useful discoveries.",
     "biome": "rain garden",
     "terrain": ["wet grass", "broad leaves", "soft garden soil"],
     "memory": [
-      "A dewbright button once caught the first gray light.",
+      "A dewbright button was found here at first light.",
       "The path from the cottage arrives smelling of tea and wet wool."
     ],
     "allow_combat": false
@@ -30,13 +30,13 @@
     "id": 3,
     "name": "Moonlit Trail",
     "title": "Moonlit Route",
-    "description": "The path shines under cold moonlight. The air permits sharper choices.",
+    "description": "The path shines under cold moonlight. Wolf tracks cross it.",
     "persona": "The trail is a silver test: honest, spare, and just dangerous enough to reveal courage.",
     "biome": "moonlit woodland",
     "terrain": ["silver pine", "cold earth", "wolf-worn trail"],
     "memory": [
-      "Coach waits here as a practice shape.",
-      "Wolfprint Charm and Watch Bell stories tend to pass this way."
+      "Coach waits here.",
+      "The Wolfprint Charm and the Watch Bell have both passed this way."
     ],
     "allow_combat": true
   },
@@ -44,10 +44,10 @@
     "id": 10,
     "name": "Science Class",
     "title": "STEM Wing",
-    "description": "Shared benches hum with bright observations and questions waiting to be tested.",
+    "description": "Shared benches, small instruments, and questions waiting to be tested.",
     "persona": "Science Class prefers evidence, clean questions, and answers brave enough to be revised.",
     "memory": [
-      "The lab remembers every surprising result.",
+      "Surprising results get written down here.",
       "Rati sometimes follows signal-study questions here."
     ],
     "allow_combat": false
@@ -56,11 +56,11 @@
     "id": 11,
     "name": "Homeroom",
     "title": "Front Door",
-    "description": "Morning light crosses desks where every question gets a seat.",
+    "description": "Morning light crosses rows of desks.",
     "persona": "Homeroom keeps attendance for beginnings, detours, and people trying again.",
     "memory": [
-      "The cottage door opens here when the school day calls.",
-      "Most Ruby High paths can find their way back to this room."
+      "The cottage door opens here.",
+      "Most Ruby High paths lead back to this room."
     ],
     "allow_combat": false
   },
@@ -68,11 +68,11 @@
     "id": 12,
     "name": "Library",
     "title": "Quiet Wing",
-    "description": "Shelves gather around a hush where important things have usually been written down.",
+    "description": "Tall shelves and a deep hush.",
     "persona": "The Library is exact, generous, and faintly amused by people who whisper to books.",
     "memory": [
-      "The Great Library can be reached through its deeper stacks.",
-      "Every returned book leaves one sentence behind."
+      "The Great Library can be reached through the deeper stacks.",
+      "Some stacks go deeper than the school map shows."
     ],
     "allow_combat": false
   },
@@ -80,11 +80,11 @@
     "id": 13,
     "name": "Cafeteria",
     "title": "Commons",
-    "description": "Tables hold the soft thunder of lunch trays, bargains, and commons diplomacy.",
+    "description": "Long tables, lunch trays, and running bargains.",
     "persona": "The Cafeteria speaks in offers, side-eyes, and the social physics of shared tables.",
     "memory": [
-      "Half the school day happens between bites.",
-      "The courtyard breeze carries rumors through the serving line."
+      "Deals get made over lunch.",
+      "Rumors travel from the courtyard through the serving line."
     ],
     "allow_combat": false
   },
@@ -92,11 +92,11 @@
     "id": 14,
     "name": "Greenhouse",
     "title": "Garden Annex",
-    "description": "Glass glows with patient leaves and experiments that grow slowly.",
+    "description": "Glass walls, damp air, and slow experiments in labeled pots.",
     "persona": "The Greenhouse thinks in tendrils, careful timing, and second chances rooted in soil.",
     "memory": [
-      "The Flower Meadow trades pollen-bright news with this room.",
-      "Some lessons only answer after watering."
+      "Pollen drifts in from the Flower Meadow.",
+      "The watering schedule is strict."
     ],
     "allow_combat": false
   },
@@ -104,12 +104,12 @@
     "id": 15,
     "name": "Courtyard",
     "title": "Central Grounds",
-    "description": "Open paths cross under sky, sending every hallway back toward someone.",
+    "description": "Open paths cross under the sky. Every hallway ends here.",
     "persona": "The Courtyard is public, breezy, and good at making accidental meetings feel arranged.",
     "biome": "school grounds",
     "terrain": ["courtyard stone", "open lawn", "windy steps"],
     "memory": [
-      "Summit Trail begins at the far edge when the air turns thin.",
+      "Summit Trail begins at the far edge.",
       "Students cut through here when they need a new route."
     ],
     "allow_combat": false
@@ -118,11 +118,11 @@
     "id": 30,
     "name": "The Heavens",
     "title": "Forbidden Mountain",
-    "description": "A high bright threshold where cloud paths gather above the mountain.",
+    "description": "A bright threshold where cloud paths gather above the mountain.",
     "persona": "The Heavens speak in distance, weather-glow, and the discipline of looking down kindly.",
     "memory": [
-      "Lofty Peak is the last stone before the sky changes its mind.",
-      "Clouds remember footsteps differently than dirt does."
+      "Lofty Peak sits just below.",
+      "Footsteps leave no prints here."
     ],
     "allow_combat": false
   },
@@ -130,7 +130,7 @@
     "id": 31,
     "name": "Lofty Peak",
     "title": "Forbidden Mountain",
-    "description": "Thin air, ringing stone, and a summit wind that listens back.",
+    "description": "Thin air, bare stone, and a hard summit wind.",
     "persona": "Lofty Peak is blunt, wind-scoured, and allergic to pretending the climb was easy.",
     "memory": [
       "The Heavens lean close above it.",
@@ -142,13 +142,13 @@
     "id": 32,
     "name": "Summit Trail",
     "title": "Forbidden Mountain",
-    "description": "A switchback path between cold scree and stubborn lantern light.",
+    "description": "A switchback path through cold scree, marked by lanterns.",
     "persona": "Summit Trail encourages one more step and remembers every almost-turnaround.",
     "biome": "alpine mountain",
     "terrain": ["cold scree", "switchback stone", "thin grass"],
     "memory": [
       "The Courtyard is warmer than it looks from here.",
-      "Alpine Forest waits where the stone gives way to trees."
+      "Alpine Forest begins where the stone gives way to trees."
     ],
     "allow_combat": false
   },
@@ -168,11 +168,11 @@
     "id": 34,
     "name": "Goblin Cave",
     "title": "Forbidden Mountain",
-    "description": "A low cave mouth full of echoes, loose coins, and sharper choices.",
+    "description": "A low cave mouth full of echoes and loose coins.",
     "persona": "Goblin Cave is twitchy, tempting, and fond of bargains that reveal the bargainer.",
     "memory": [
       "Alpine Forest muffles the cave mouth.",
-      "Circle of the Moon can silver even this dark."
+      "The Circle of the Moon sits directly above."
     ],
     "allow_combat": false
   },
@@ -180,11 +180,11 @@
     "id": 35,
     "name": "Circle of the Moon",
     "title": "Forbidden Mountain",
-    "description": "Silver stones mark a quiet circle where night keeps perfect time.",
+    "description": "Silver stones mark a quiet circle.",
     "persona": "The Circle listens ceremonially, as if every sentence should arrive barefoot.",
     "memory": [
-      "Moonlit Trail knows the older path here.",
-      "Goblin Cave sounds softer under the moon."
+      "An older path leads in from the Moonlit Trail.",
+      "Goblin Cave lies below."
     ],
     "allow_combat": false
   },
@@ -192,11 +192,11 @@
     "id": 36,
     "name": "Solar Temple",
     "title": "Solar Temple",
-    "description": "White stone terraces hold noon-bright bells, gold wings, and vows sharp enough to cast shadows.",
+    "description": "White stone terraces, noon bells, and gold wings overhead.",
     "persona": "The Solar Temple is radiant, exacting, and careful not to confuse witness with mercy.",
     "memory": [
       "The Heavens open upward into its white terraces.",
-      "A drowned bell below the Darkest Ocean still remembers the noon rite."
+      "One of its bells is missing. It lies below the Darkest Ocean."
     ],
     "allow_combat": false
   },
@@ -204,7 +204,7 @@
     "id": 40,
     "name": "Old Oak Tree",
     "title": "Lonely Forest",
-    "description": "A vast oak with roots like roads and leaves that remember names.",
+    "description": "A vast oak with roots as wide as roads.",
     "persona": "The Old Oak is both place and stranger: Root, Ring, Leaf, and Hollow each remember a different truth.",
     "memory": [
       "Root remembers every footstep that circled back.",
@@ -218,11 +218,11 @@
     "id": 41,
     "name": "Lost Woods",
     "title": "Lonely Forest",
-    "description": "Soft moss, repeating paths, and birdsong that refuses to point north.",
+    "description": "Soft moss and paths that repeat themselves.",
     "persona": "The Lost Woods are evasive but not cruel; they teach by making certainty walk in circles.",
     "memory": [
       "The Old Oak marks one path that does not move.",
-      "Haunted Mansion and Quiet Abbey both borrow this silence."
+      "The Haunted Mansion and Quiet Abbey lie beyond."
     ],
     "allow_combat": false
   },
@@ -230,11 +230,11 @@
     "id": 42,
     "name": "Haunted Mansion",
     "title": "Lonely Forest",
-    "description": "A leaning house with lit windows, patient dust, and doors that sigh.",
+    "description": "A leaning house with lit windows and doors that sigh.",
     "persona": "The Mansion is theatrical, lonely, and delighted when anyone knocks instead of sneaking.",
     "memory": [
       "Lost Woods keeps leading visitors to its porch.",
-      "Quiet Abbey hears the windows sigh at night."
+      "The windows sigh at night."
     ],
     "allow_combat": true
   },
@@ -242,11 +242,11 @@
     "id": 43,
     "name": "Quiet Abbey",
     "title": "Lonely Forest",
-    "description": "Stone arches hold a hush deep enough to hear small vows.",
+    "description": "Stone arches and a deep hush.",
     "persona": "The Abbey is spare, kind, and severe about saying only the sentence that matters.",
     "memory": [
-      "Haunted Mansion leaves candle smoke in its prayers.",
-      "Flower Meadow brightens the path beyond the arch."
+      "Candle smoke drifts in from the Haunted Mansion.",
+      "The Flower Meadow lies beyond the arch."
     ],
     "allow_combat": false
   },
@@ -258,7 +258,7 @@
     "persona": "The Meadow is open-hearted, sunlit, and prone to answering sorrow with color.",
     "memory": [
       "The Old Oak drops leaves here in autumn.",
-      "The Greenhouse recognizes half these flowers by cousin-name."
+      "Half these flowers also grow in the Greenhouse."
     ],
     "allow_combat": false
   },
@@ -269,8 +269,8 @@
     "description": "Endless shelves, brass ladders, and marginalia from travelers before you.",
     "persona": "The Great Library is vast, procedural, and fond of answers that arrive with page numbers.",
     "memory": [
-      "The school Library opens into this larger silence.",
-      "The Farthest Mists have misfiled several maps here."
+      "The school Library opens into these stacks.",
+      "Several maps of the Farthest Mists are misfiled here."
     ],
     "allow_combat": false
   },
@@ -278,10 +278,10 @@
     "id": 60,
     "name": "Turgid Swamp",
     "title": "Farthest Mists",
-    "description": "Black water shifts under reeds while bubbles spell unfinished warnings.",
+    "description": "Black water shifts under the reeds.",
     "persona": "The Swamp is murky, practical, and entirely willing to make wisdom smell bad.",
     "memory": [
-      "Great Library maps become damp here.",
+      "Great Library maps come back damp.",
       "Wilting Jungle leans over its far bank."
     ],
     "allow_combat": true
@@ -290,7 +290,7 @@
     "id": 61,
     "name": "Wilting Jungle",
     "title": "Farthest Mists",
-    "description": "Heavy leaves droop over hot paths where every vine seems tired.",
+    "description": "Heavy leaves droop over hot, narrow paths.",
     "persona": "The Jungle is overheated, stubborn, and full of life refusing to quit elegantly.",
     "memory": [
       "Turgid Swamp feeds its roots with dark water.",
@@ -317,7 +317,7 @@
     "description": "Green cursors blink across a world made of doors, echoes, and code.",
     "persona": "The Digital Realm is precise, uncanny, and always half a step from becoming a spell.",
     "memory": [
-      "Great Library indexes cannot decide whether this place is a room or a language.",
+      "The Great Library has not finished indexing this place.",
       "Endless Ocean reflects in its black glass."
     ],
     "allow_combat": false
@@ -330,7 +330,7 @@
     "persona": "The Darkest Ocean remembers without hurrying and mistrusts every truth that cannot survive depth.",
     "memory": [
       "Endless Ocean is only its surface.",
-      "The Solar Temple hears one of its bells singing from below."
+      "One of the Solar Temple's bells lies here."
     ],
     "allow_combat": false
   },
