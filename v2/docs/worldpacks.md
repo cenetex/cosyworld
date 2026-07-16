@@ -8,9 +8,39 @@ CosyWorld builds one deterministic runtime bundle from independently versioned c
 2. `worlds/official/world.json` selects the packs and their dependency order.
 3. `worlds/official/pack.lock.json` pins the exact dependency closure, materialized source, version, commit when applicable, SHA-256 content integrity, capabilities, canonical-ID mapping version, and license record for every selected pack.
 4. `scripts/compile-worldpack.mjs` merges the locked inputs into `content/official/`.
-5. The Rust binary embeds the compiled JSON and reads pack assets through the compiled asset index.
+5. The Rust host loads `content/official/registry.json` (or the path in
+   `COSYWORLD_CONTENT_REGISTRY_PATH`) before gameplay and reads pack assets
+   through the registry-owned mount index.
 
 The compiled directory is a release artifact and should not be edited by hand.
+
+## Runtime registry
+
+`registry.json` is the runtime boundary for a mounted pack set. It contains the
+resolved Manifest v1 worldpack, every compiled resource collection, external
+cards, asset mounts, rules, attributions, and character-creation profiles in one
+self-contained document. The per-resource JSON files remain deterministic
+compatibility artifacts for validators and other tooling; the orchestrator no
+longer has a compile-time list of embedded content files.
+
+At process startup, `ContentRegistry` validates the registry schema and pack
+contract, engine and dependency version ranges, required capabilities,
+duplicate pack IDs and capability providers, optional dependencies, and the
+deterministic topological order. It then owns the active pack set, typed content,
+capability/pack indexes, and asset mounts. Invalid composition fails before the
+world is seeded or a network listener opens. Resource kinds that this engine
+does not yet project into gameplay remain available as opaque registry data,
+which lets compatible packs carry reference resources without teaching callers
+about files or directories.
+
+The default registry is `v2/content/official/registry.json`. Deployments may
+mount another compiler-produced registry and set
+`COSYWORLD_CONTENT_REGISTRY_PATH` to its absolute path. One, two, or many packs
+use the same load path; missing optional dependencies do not block unrelated
+packs, while missing required dependencies and incompatible or duplicate packs
+fail closed. Changing the active registry still changes bundle identity and is
+subject to the persistence rules below. Runtime unmount and ruleset switching
+are not part of this contract.
 
 ## Pack contract
 

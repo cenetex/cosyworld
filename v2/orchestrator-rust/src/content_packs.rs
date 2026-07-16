@@ -45,7 +45,7 @@ struct ContentPackLocationView {
 }
 
 fn entitlement_pack_id_for_gate(gate: &SeedAccessGateContent) -> Option<String> {
-    seed_content()
+    active_content()
         .manifest
         .packs
         .iter()
@@ -62,7 +62,7 @@ fn entitlement_pack_id_for_gate(gate: &SeedAccessGateContent) -> Option<String> 
 }
 
 fn location_name(location_id: u64) -> String {
-    seed_content()
+    active_content()
         .locations
         .iter()
         .find(|location| location.id == location_id)
@@ -92,7 +92,7 @@ fn location_view(
 }
 
 fn pack_entry_location(pack_id: &str, authored_location_ids: &[u64]) -> Option<u64> {
-    seed_content()
+    active_content()
         .character_creation
         .iter()
         .find(|bundle| bundle.pack_id == pack_id)
@@ -102,18 +102,13 @@ fn pack_entry_location(pack_id: &str, authored_location_ids: &[u64]) -> Option<u
 }
 
 fn content_pack_views(access: &AccessContext) -> Vec<ContentPackView> {
-    let content = seed_content();
+    let content = active_content();
     content
         .manifest
         .packs
         .iter()
         .map(|pack| {
-            let mut authored_location_ids = content
-                .locations
-                .iter()
-                .filter(|location| location.pack_id == pack.id)
-                .map(|location| location.id)
-                .collect::<Vec<_>>();
+            let mut authored_location_ids = content_registry().location_ids_for_pack(&pack.id);
             authored_location_ids.sort_unstable();
 
             let controlled_gates = content
@@ -227,8 +222,8 @@ fn content_pack_views(access: &AccessContext) -> Vec<ContentPackView> {
 
 pub(super) fn content_packs_response(access: &AccessContext) -> ContentPacksResponse {
     ContentPacksResponse {
-        worldpack_id: seed_content().manifest.id.clone(),
-        bundle_hash: seed_content().manifest.bundle_hash.clone(),
+        worldpack_id: active_content().manifest.id.clone(),
+        bundle_hash: active_content().manifest.bundle_hash.clone(),
         packs: content_pack_views(access),
     }
 }
@@ -296,7 +291,7 @@ mod tests {
             .expect("Ruby High pack");
         assert_eq!(ruby.access_state, "partial");
 
-        let all_cards = seed_content()
+        let all_cards = active_content()
             .access_gates
             .iter()
             .filter_map(|gate| gate.required_card_id.as_deref())

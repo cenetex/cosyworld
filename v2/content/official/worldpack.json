@@ -389,5 +389,6 @@
   "assets": "assets.json",
   "rules": "rules.json",
   "attributions": "attributions.json",
-  "character_creation": "character_creation.json"
+  "character_creation": "character_creation.json",
+  "registry": "registry.json"
 }
