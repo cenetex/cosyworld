@@ -250,7 +250,8 @@ query = urllib.parse.urlencode(
     }
 )
 with urllib.request.urlopen(f"{base_url}/events?{query}", timeout=5) as response:
-    events = json.loads(response.read().decode("utf-8"))
+    replay = json.loads(response.read().decode("utf-8"))
+events = replay.get("events", [])
 if not any(
     event.get("type") == "actor.presence"
     and event.get("actor_id") == actor_id
