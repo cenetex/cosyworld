@@ -486,6 +486,8 @@ cargo run --release
 
 `COSYWORLD_DEPLOY_PROFILE=production` makes startup require a protected remote feed and bearer only when the active registry declares an `asset_feed` entitlement authority. It still aborts if that provider is unavailable, the SQLite event store is disabled, moderation is not configured, or local dev shortcuts such as unsigned wallet hints, dev reset, trusted client card ids, or avatar chat delay are enabled. A public pack with no entitlement provider can boot independently. Configure Box burn verification with `COSYWORLD_BOX_BURN_SOLANA_RPC_URL` and `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; until those are present, production Box burn endpoints stay closed with `501` responses. `/meta` exposes the active deployment profile and `nft.box_burn_verifier_configured` so deploy smoke checks can confirm whether chain verification is enabled.
 
+Runtime event-store health is exposed at `/meta.persistence.event_store` and in the moderation console. Failed secondary appends are retained by sequence and retried every five seconds; SQLite insertion is idempotent, so recovery drains the queue without duplicating events. A `degraded` status, nonzero pending count, or consecutive read/append failures is an operator incident: restore volume capacity/permissions before restarting the process, then confirm the status returns to `healthy` and the pending count reaches zero. Journal-backed player mutations already fail atomically when their SQLite transaction cannot commit.
+
 The local production-profile smoke uses the same guardrails without real Ruby High credentials:
 
 ```sh
