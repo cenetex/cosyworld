@@ -104,7 +104,7 @@ async function assertSignedWalletSession() {
   const world = await fetch(`${baseUrl}/world?wallet_session=${encodeURIComponent(session.wallet_session)}`)
     .then((response) => response.json());
   const library = (world.locations || []).find((location) => location.name === "Library");
-  assert(state.access?.mode === "signed_ruby_high_wallet", `expected signed wallet mode, got ${JSON.stringify(state.access)}`);
+  assert(state.access?.mode === "signed_wallet_entitlements", `expected signed wallet mode, got ${JSON.stringify(state.access)}`);
   assert(state.access?.owner_wallet_address === signedSmokeWalletAddress, "signed wallet owner did not round-trip");
   assert(homeroomCard?.owned === true && homeroomCard?.accessible === true, `signed wallet should list its owned Homeroom card before route discovery: ${JSON.stringify(state.account)}`);
   assert(libraryCard?.owned === true && libraryCard?.accessible === true, `signed wallet should list its owned Library card before route discovery: ${JSON.stringify(state.account)}`);
@@ -7144,7 +7144,7 @@ async function main() {
       signedSmokeWalletAddress,
     );
     await page.waitForFunction(() => (
-      state?.access?.mode === "signed_ruby_high_wallet"
+      state?.access?.mode === "signed_wallet_entitlements"
         && !document.querySelector("#primary")?.disabled
     ));
     await focusAccountInventory();
@@ -7183,7 +7183,7 @@ async function main() {
         && Boolean(localStorage.getItem("cosyworld.walletSession")),
       signedSmokeWalletAddress,
     );
-    await page.waitForFunction(() => state?.access?.mode === "signed_ruby_high_wallet" && !document.querySelector("#primary")?.disabled);
+    await page.waitForFunction(() => state?.access?.mode === "signed_wallet_entitlements" && !document.querySelector("#primary")?.disabled);
     const beforeBoxOpen = await page.evaluate(async () => {
       const walletSession = localStorage.getItem("cosyworld.walletSession") || "";
       return fetch(`/state?wallet_session=${encodeURIComponent(walletSession)}`).then((response) => response.json());

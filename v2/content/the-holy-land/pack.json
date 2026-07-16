@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.the-holy-land",
   "name": "The Holy Land",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kind": "world",
   "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
   "license": "MIT",
@@ -53,6 +53,7 @@
   },
   "assets": [
     {
+      "provider": "cosyworld.the-holy-land/assets",
       "mount": "cards",
       "directory": "assets/cards",
       "public_prefix": "/assets/the-holy-land/cards",

@@ -70,6 +70,64 @@ describe("Content Pack Manifest v1", () => {
     }))).toThrow(/additional properties/);
   });
 
+  it("requires asset mounts to name a declared asset provider", () => {
+    expect(() => validateContentPackManifest(manifest("fixture.assets", {
+      assets: [{
+        provider: "fixture.assets/assets",
+        mount: "cards",
+        directory: "assets/cards",
+        public_prefix: "/assets/fixture/cards",
+        optional: true,
+      }],
+    }))).not.toThrow();
+    expect(() => validateContentPackManifest(manifest("fixture.missing-provider", {
+      assets: [{
+        mount: "cards",
+        directory: "assets/cards",
+        public_prefix: "/assets/fixture/cards",
+        optional: true,
+      }],
+    }))).toThrow(/required property 'provider'/);
+    expect(() => validateContentPackManifest(manifest("fixture.wrong-provider", {
+      assets: [{
+        provider: "fixture.other/assets",
+        mount: "cards",
+        directory: "assets/cards",
+        public_prefix: "/assets/fixture/cards",
+        optional: true,
+      }],
+    }))).toThrow(/unavailable provider fixture\.other\/assets/);
+  });
+
+  it("requires entitlement authorities to name a declared entitlement provider", () => {
+    const entitlements = {
+      schema_version: 1,
+      authorities: [{
+        provider: "fixture.entitled/entitlements",
+        id: "private-set",
+        type: "signed_set",
+        algorithm: "ed25519",
+        public_key: "11111111111111111111111111111111",
+      }],
+      grants: [{ id: "fixture.entitled:library", authority_id: "private-set" }],
+    };
+    const capabilities = [
+      { id: "fixture.entitled/assets", kind: "assets", version: "1.0.0" },
+      { id: "fixture.entitled/entitlements", kind: "entitlements", version: "1.0.0" },
+    ];
+    expect(() => validateContentPackManifest(manifest("fixture.entitled", {
+      capabilities,
+      entitlements,
+    }))).not.toThrow();
+    expect(() => validateContentPackManifest(manifest("fixture.entitled", {
+      capabilities,
+      entitlements: {
+        ...entitlements,
+        authorities: [{ ...entitlements.authorities[0], provider: "fixture.other/entitlements" }],
+      },
+    }))).toThrow(/unavailable provider fixture\.other\/entitlements/);
+  });
+
   it("resolves dependencies in deterministic topological order", () => {
     const base = manifest("fixture.base");
     const feature = manifest("fixture.feature", {

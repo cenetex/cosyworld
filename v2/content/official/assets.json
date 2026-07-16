@@ -1,29 +1,54 @@
 [
   {
     "pack_id": "cosyworld.core",
+    "pack_version": "1.2.0",
+    "pack_integrity": "sha256:14f7976daed07ff1010b78d63590728ffdbcf901fe912d2585aebd74b0ee882b",
+    "provider": "cosyworld.core/assets",
     "mount": "generated/cards",
     "root": "core",
     "directory": "assets/generated/cards",
     "public_prefix": "/assets/generated/cards",
+    "content_hash": "sha256:1fa7ac44830ea55dd66119f3614ee57b6f60b2f4f3ca72ba9ddad49e7da01ee9",
+    "optional": false,
+    "fallback": null
+  },
+  {
+    "pack_id": "cosyworld.core",
+    "pack_version": "1.2.0",
+    "pack_integrity": "sha256:14f7976daed07ff1010b78d63590728ffdbcf901fe912d2585aebd74b0ee882b",
+    "provider": "cosyworld.core/assets",
+    "mount": "locations",
+    "root": "core",
+    "directory": "assets/locations",
+    "public_prefix": "/assets/locations",
+    "content_hash": "sha256:656d332e4a10235b882f187db185869072987cece36fe78218c8ac4039d2d144",
     "optional": false,
     "fallback": null
   },
   {
     "pack_id": "cosyworld.lonely-forest.characters",
+    "pack_version": "1.1.0",
+    "pack_integrity": "sha256:a5d1a25b1070d070411bdd7cf7a8eeab5a4be8f9a4943ba0c84ae55fdf0ba4e6",
+    "provider": "cosyworld.lonely-forest.characters/assets",
     "mount": "characters",
     "root": "lonely-forest",
     "directory": "assets/characters/slices",
     "public_prefix": "/assets/lonely-forest/characters",
+    "content_hash": "sha256:d45eb30a962de236ddba913834e8bdaa7b9c530bc6b66383e272118218797d93",
     "optional": false,
     "fallback": null
   },
   {
     "pack_id": "ruby-high.first-bell",
+    "pack_version": "1.2.0",
+    "pack_integrity": "sha256:2f35708b8c5a049187e060920dbacf994337d124d898e0f779ef038528746f7b",
+    "provider": "ruby-high.first-bell/assets",
     "mount": "cards",
     "root": "ruby-high-first-bell",
     "directory": "assets/cards",
     "public_prefix": "/assets/cards",
+    "content_hash": "sha256:c6028b77e9871b567178efa708ca03cb6e731fe18b01afe20efd1e0dc05e1c44",
     "optional": true,
-    "fallback": "chain_image_uri"
+    "fallback": "external_uri"
   }
 ]

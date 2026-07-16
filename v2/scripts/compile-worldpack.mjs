@@ -119,6 +119,18 @@ function packIntegrity(packRoot, manifest) {
   return sha256(parts);
 }
 
+function assetMountIntegrity(packRoot, mount) {
+  const files = [
+    ...(mount.manifest ? [path.join(packRoot, mount.manifest)] : []),
+    ...filesBelow(path.join(packRoot, mount.directory)),
+  ];
+  if (files.length === 0) return sha256([mount.mount, "missing-optional-provider"]);
+  return sha256(files.flatMap((filePath) => [
+    path.relative(packRoot, filePath).split(path.sep).join("/"),
+    fs.readFileSync(filePath),
+  ]));
+}
+
 function validateDistribution(packId, distribution) {
   if (!distribution) return;
   assert(distribution.media_type === "application/vnd.cosyworld.pack+json", `pack ${packId} has unsupported distribution media_type`);
@@ -129,7 +141,7 @@ function validateDistribution(packId, distribution) {
   }
 }
 
-function validateEntitlements(packId, entitlements) {
+function validateEntitlements(packId, entitlements, capabilities) {
   if (!entitlements) return;
   assert(entitlements.schema_version === 1, `pack ${packId} entitlements schema_version must be 1`);
   assert(Array.isArray(entitlements.authorities), `pack ${packId} entitlements authorities must be an array`);
@@ -139,6 +151,10 @@ function validateEntitlements(packId, entitlements) {
     assert(typeof authority.id === "string" && /^[a-z0-9][a-z0-9.-]*$/.test(authority.id), `pack ${packId} has invalid entitlement authority id`);
     assert(!authorityIds.has(authority.id), `pack ${packId} has duplicate entitlement authority ${authority.id}`);
     assert(allowedEntitlementAuthorityTypes.has(authority.type), `pack ${packId} authority ${authority.id} has unsupported type ${authority.type}`);
+    assert(
+      capabilities.some((capability) => capability.id === authority.provider && capability.kind === "entitlements"),
+      `pack ${packId} authority ${authority.id} references unavailable entitlement provider ${authority.provider}`,
+    );
     if (authority.type === "solana_collection") {
       assert(authority.network === "mainnet-beta" || authority.network === "devnet", `pack ${packId} authority ${authority.id} has invalid Solana network`);
       assert(authority.standard === "metaplex_core" || authority.standard === "metaplex_token_metadata", `pack ${packId} authority ${authority.id} has invalid Solana standard`);
@@ -194,7 +210,13 @@ for (const packId of world.packs) {
   }
   assert(allowedPackKinds.has(manifest.kind), `pack ${packId} has unsupported kind ${manifest.kind}`);
   validateDistribution(packId, manifest.distribution);
-  validateEntitlements(packId, manifest.entitlements);
+  validateEntitlements(packId, manifest.entitlements, manifest.capabilities);
+  for (const mount of manifest.assets ?? []) {
+    assert(
+      manifest.capabilities.some((capability) => capability.id === mount.provider && capability.kind === "assets"),
+      `pack ${packId} asset mount ${mount.mount} references unavailable asset provider ${mount.provider}`,
+    );
+  }
   if (manifest.kind === "rules") {
     assert(manifest.rules_adapter === rulesAdapter, `rules pack ${packId} must use ${rulesAdapter}`);
     assert(
@@ -349,10 +371,14 @@ for (const pack of packs) {
     assert(mount.optional || fs.existsSync(directory), `required asset directory is missing: ${directory}`);
     assets.push({
       pack_id: pack.manifest.id,
+      pack_version: pack.manifest.version,
+      pack_integrity: pack.integrity,
+      provider: mount.provider,
       mount: mount.mount,
       root: relativeRoot,
       directory: mount.directory,
       public_prefix: mount.public_prefix,
+      content_hash: assetMountIntegrity(pack.packRoot, mount),
       optional: Boolean(mount.optional),
       fallback: mount.fallback ?? null,
     });

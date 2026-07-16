@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "ruby-high.first-bell",
   "name": "Ruby High: First Bell",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "kind": "catalog",
   "description": "The live First Bell card catalog consumed by the official CosyWorld shard.",
   "license": "MIT",
@@ -55,8 +55,9 @@
   "entitlements": {
     "schema_version": 1,
     "authorities": [
-      {
-        "id": "first-bell-card-feed",
+    {
+      "provider": "ruby-high.first-bell/entitlements",
+      "id": "first-bell-card-feed",
         "type": "asset_feed",
         "asset_kind": "nft",
         "issuer": "ruby-high.ai",
@@ -105,11 +106,12 @@
   "external_cards": "external_cards.json",
   "assets": [
     {
+      "provider": "ruby-high.first-bell/assets",
       "mount": "cards",
       "directory": "assets/cards",
       "public_prefix": "/assets/cards",
       "optional": true,
-      "fallback": "chain_image_uri"
+      "fallback": "external_uri"
     }
   ]
 }

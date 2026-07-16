@@ -350,6 +350,9 @@ for (const pack of packs) {
     if (pack.entitlements.schema_version !== 1) fail(`pack ${pack.id} entitlements schema_version must be 1`);
     for (const authority of authorities) {
       if (!allowedEntitlementAuthorityTypes.has(authority.type)) fail(`pack ${pack.id} authority ${authority.id} has invalid type`);
+      if (!pack.capabilities.some((capability) => capability.id === authority.provider && capability.kind === "entitlements")) {
+        fail(`pack ${pack.id} authority ${authority.id} has unavailable provider ${authority.provider}`);
+      }
       if (authority.type === "solana_collection" && (!isNonEmptyString(authority.collection_address) || !isNonEmptyString(authority.network) || !isNonEmptyString(authority.standard))) {
         fail(`pack ${pack.id} authority ${authority.id} has incomplete Solana collection metadata`);
       }
@@ -478,9 +481,29 @@ if (JSON.stringify(registry?.assets) !== JSON.stringify(assetMounts)) {
 idSet("asset mounts", assetMounts, (mount) => `${mount.pack_id}:${mount.mount}`);
 idSet("asset public prefixes", assetMounts, (mount) => mount.public_prefix);
 for (const mount of assetMounts) {
-  validateRequiredStrings("asset mount", mount, ["pack_id", "mount", "root", "directory", "public_prefix"]);
+  validateRequiredStrings("asset mount", mount, [
+    "pack_id",
+    "pack_version",
+    "pack_integrity",
+    "provider",
+    "mount",
+    "root",
+    "directory",
+    "public_prefix",
+    "content_hash",
+  ]);
   if (!has(packIds, mount.pack_id)) {
     fail(`asset mount ${mount.pack_id}:${mount.mount} references a pack outside this bundle`);
+  }
+  const pack = packs.find((candidate) => candidate.id === mount.pack_id);
+  if (mount.pack_version !== pack?.version || mount.pack_integrity !== pack?.integrity) {
+    fail(`asset mount ${mount.pack_id}:${mount.mount} has stale pack identity`);
+  }
+  if (!pack?.capabilities.some((capability) => capability.id === mount.provider && capability.kind === "assets")) {
+    fail(`asset mount ${mount.pack_id}:${mount.mount} has unavailable provider ${mount.provider}`);
+  }
+  if (!/^sha256:[0-9a-f]{64}$/.test(mount.content_hash)) {
+    fail(`asset mount ${mount.pack_id}:${mount.mount} has invalid content_hash`);
   }
   if (mount.root.includes("..") || mount.directory.includes("..") || !mount.public_prefix.startsWith("/assets/")) {
     fail(`asset mount ${mount.pack_id}:${mount.mount} has an unsafe path`);

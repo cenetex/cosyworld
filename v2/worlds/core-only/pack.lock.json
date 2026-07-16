@@ -9,12 +9,12 @@
   "packs": [
     {
       "id": "cosyworld.core",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "source": {
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:ebd032bcb69990ab02056b45f8c8ba36600f596a3e47c3258f1bd5ff8f4f475a",
+      "integrity": "sha256:14f7976daed07ff1010b78d63590728ffdbcf901fe912d2585aebd74b0ee882b",
       "dependencies": [],
       "dependency_closure": [],
       "capabilities": [
@@ -44,7 +44,7 @@
   "license_records": [
     {
       "pack_id": "cosyworld.core",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "license": "MIT",
       "provenance": {
         "source_name": "CosyWorld",

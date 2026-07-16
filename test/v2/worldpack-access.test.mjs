@@ -114,8 +114,33 @@ describe("worldpack Manifest v1 validation", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "requires missing capability cosyworld.core/missing from cosyworld.core@1.1.0",
+      "requires missing capability cosyworld.core/missing from cosyworld.core@1.2.0",
     );
+  });
+
+  it("rejects an asset mount whose provider is unavailable", () => {
+    const root = worldpackFixture();
+    const assets = JSON.parse(fs.readFileSync(path.join(root, "assets.json"), "utf8"));
+    assets[0].provider = "fixture.missing/assets";
+    writeJson(root, "assets.json", assets);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("has unavailable provider fixture.missing/assets");
+  });
+
+  it("rejects an entitlement authority whose provider is unavailable", () => {
+    const root = worldpackFixture();
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
+    const gatedPack = manifest.packs.find((pack) => pack.entitlements?.authorities?.length);
+    gatedPack.entitlements.authorities[0].provider = "fixture.missing/entitlements";
+    writeJson(root, "worldpack.json", manifest);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("has unavailable provider fixture.missing/entitlements");
   });
 });
 

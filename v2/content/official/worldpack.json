@@ -7,13 +7,13 @@
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:fb08c711c0167919f262baeeabdb435bac249eb690824e1b031241af756b343c",
+  "bundle_hash": "sha256:16dbeb4a2efcca005d5c4efc01aba507da57353c19dfccd61ddd0fd697421448",
   "packs": [
     {
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "kind": "world",
       "license": "MIT",
       "engine": ">=0.0.20 <0.1.0",
@@ -67,7 +67,7 @@
         "recipes": 1,
         "sentences": 27,
         "external_cards": 0,
-        "assets": 1,
+        "assets": 2,
         "rules": 0,
         "character_creation": 0
       },
@@ -75,7 +75,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:ebd032bcb69990ab02056b45f8c8ba36600f596a3e47c3258f1bd5ff8f4f475a"
+      "integrity": "sha256:14f7976daed07ff1010b78d63590728ffdbcf901fe912d2585aebd74b0ee882b"
     },
     {
       "id": "cosyworld.campaign.the-lantern-keeper",
@@ -156,7 +156,7 @@
       "id": "cosyworld.lonely-forest.characters",
       "name": "Lonely Forest Character Art",
       "description": "Character source art and reviewed slices used by the Lonely Forest residents.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "kind": "assets",
       "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
       "engine": ">=0.0.20 <0.1.0",
@@ -220,13 +220,13 @@
         "type": "workspace",
         "path": "../../content/lonely-forest"
       },
-      "integrity": "sha256:c42cfafe59f937b23d2389a0b63e725cba414f25e2b1651c7a17e82c9540da4a"
+      "integrity": "sha256:a5d1a25b1070d070411bdd7cf7a8eeab5a4be8f9a4943ba0c84ae55fdf0ba4e6"
     },
     {
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
       "description": "The live First Bell card catalog consumed by the official CosyWorld shard.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "kind": "catalog",
       "license": "MIT",
       "engine": ">=0.0.20 <0.1.0",
@@ -309,6 +309,7 @@
         "schema_version": 1,
         "authorities": [
           {
+            "provider": "ruby-high.first-bell/entitlements",
             "id": "first-bell-card-feed",
             "type": "asset_feed",
             "asset_kind": "nft",
@@ -368,7 +369,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:dceeb174ac297b98b79d803e0a14a501775bd7a8fcdb24bfcc9257c2afe2878d"
+      "integrity": "sha256:2f35708b8c5a049187e060920dbacf994337d124d898e0f779ef038528746f7b"
     }
   ],
   "files": {

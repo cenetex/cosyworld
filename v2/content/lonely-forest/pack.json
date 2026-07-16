@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.lonely-forest.characters",
   "name": "Lonely Forest Character Art",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kind": "assets",
   "description": "Character source art and reviewed slices used by the Lonely Forest residents.",
   "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
@@ -36,6 +36,7 @@
   "resources": {},
   "assets": [
     {
+      "provider": "cosyworld.lonely-forest.characters/assets",
       "mount": "characters",
       "directory": "assets/characters/slices",
       "manifest": "assets/characters/manifest.json",

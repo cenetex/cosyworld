@@ -12,12 +12,12 @@
   "packs": [
     {
       "id": "cosyworld.core",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "source": {
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:ebd032bcb69990ab02056b45f8c8ba36600f596a3e47c3258f1bd5ff8f4f475a",
+      "integrity": "sha256:14f7976daed07ff1010b78d63590728ffdbcf901fe912d2585aebd74b0ee882b",
       "dependencies": [],
       "dependency_closure": [],
       "capabilities": [
@@ -79,12 +79,12 @@
     },
     {
       "id": "cosyworld.lonely-forest.characters",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "source": {
         "type": "workspace",
         "path": "../../content/lonely-forest"
       },
-      "integrity": "sha256:c42cfafe59f937b23d2389a0b63e725cba414f25e2b1651c7a17e82c9540da4a",
+      "integrity": "sha256:a5d1a25b1070d070411bdd7cf7a8eeab5a4be8f9a4943ba0c84ae55fdf0ba4e6",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -112,12 +112,12 @@
     },
     {
       "id": "ruby-high.first-bell",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "source": {
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:dceeb174ac297b98b79d803e0a14a501775bd7a8fcdb24bfcc9257c2afe2878d",
+      "integrity": "sha256:2f35708b8c5a049187e060920dbacf994337d124d898e0f779ef038528746f7b",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -157,7 +157,7 @@
   "license_records": [
     {
       "pack_id": "cosyworld.core",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "license": "MIT",
       "provenance": {
         "source_name": "CosyWorld",
@@ -176,7 +176,7 @@
     },
     {
       "pack_id": "cosyworld.lonely-forest.characters",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
       "provenance": {
         "source_name": "Cenetex Lonely Forest character art",
@@ -185,7 +185,7 @@
     },
     {
       "pack_id": "ruby-high.first-bell",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "license": "MIT",
       "provenance": {
         "source_name": "Ruby High: First Bell",

@@ -203,11 +203,11 @@ The server listens on `127.0.0.1:3102` by default.
 
 The repository root `Dockerfile` builds the V2 release binary and runs `cosyworld-orchestrator`. The root `fly.toml` points at that Dockerfile, mounts `/data`, and runs the orchestrator on port `3000`.
 
-The production Fly profile expects the protected Ruby High ownership feed, moderation token, and event store to be configured before boot:
+The production Fly profile expects the active pack's protected entitlement feed, moderation token, and event store to be configured before boot:
 
 ```sh
 fly secrets set COSYWORLD_V2_SHARD_ID=public-1
-fly secrets set COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER=...
+fly secrets set COSYWORLD_ENTITLEMENT_FEED_BEARER=...
 fly secrets set COSYWORLD_MODERATION_TOKEN=...
 fly deploy
 ```
@@ -266,7 +266,7 @@ For the current browser MVP smoke, run the shard with a dev wallet that can reac
 ```sh
 COSYWORLD_ENABLE_DEV_RESET=1 \
 COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET=1 \
-COSYWORLD_RUBY_HIGH_WALLET_CARDS='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab|DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES:location-homeroom,location-library' \
+COSYWORLD_ENTITLEMENT_FEED='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab|DcfmEZ6tw7BGJo1a7TozkCoGJZNFJxCBJS5axj7oy4ES:location-homeroom,location-library' \
 cargo run
 ```
 
@@ -432,12 +432,12 @@ Visible actors, items, and locations now resolve through `state.cards`:
 - Ruby High cards carry First Bell catalog/on-chain metadata;
 - CosyWorld seed cards use the same shape with generated mini art served from `/assets/generated/cards/{card_id}.webp` until the card pipeline adds full NFT records.
 
-The `ruby-high.first-bell` pack supplies the 24 live Ruby High: First Bell card profiles, covering students, teachers, special cards, items, and locations. Exposed First Bell cards use `/assets/cards/{card_id}.png`; a materialized pack asset is served locally when present, otherwise the compatibility route redirects to the catalog's pinned chain image URI. The runtime projects the matching set number, profile id, subject, rarity, aspect, and Arweave image URI into `state.cards` without reading a sibling repository.
+The `ruby-high.first-bell` pack supplies the 24 live Ruby High: First Bell card profiles, covering students, teachers, special cards, items, and locations. Exposed First Bell cards use `/assets/cards/{card_id}.png`; the active registry resolves that prefix through the pack's `ruby-high.first-bell/assets` capability. A materialized asset is served locally when present, otherwise the mount's declared `external_uri` fallback redirects to the catalog's pinned chain image URI. The runtime projects the matching set number, profile id, subject, rarity, aspect, and Arweave image URI into `state.cards` without reading a sibling repository.
 
 For the current dev slice, the server owns wallet/card access through an ownership snapshot:
 
 ```sh
-COSYWORLD_RUBY_HIGH_WALLET_CARDS='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab' cargo run
+COSYWORLD_ENTITLEMENT_FEED='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab' cargo run
 ```
 
 By default, a browser can only claim a wallet after signing a Solana wallet challenge:
@@ -452,7 +452,7 @@ For local smoke/demo only, enable unsigned wallet hints explicitly, then open `h
 
 ```sh
 COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET=1 \
-COSYWORLD_RUBY_HIGH_WALLET_CARDS='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab' \
+COSYWORLD_ENTITLEMENT_FEED='dev-wallet:cosy-rain-soft-garden,cosy-moonlit-trail,location-homeroom,location-science-lab|rati-wallet:rati,location-science-lab' \
 cargo run
 ```
 
@@ -461,30 +461,30 @@ cargo run
 The same snapshot can be loaded from a file:
 
 ```sh
-COSYWORLD_RUBY_HIGH_WALLET_CARDS_PATH=.runtime/ruby-high-wallet-cards.txt cargo run
+COSYWORLD_ENTITLEMENT_FEED_PATH=.runtime/entitlements.txt cargo run
 ```
 
 Production-style deployments can point at a trusted server-owned JSON feed:
 
 ```sh
-COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL=https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards \
-COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER=... \
+COSYWORLD_ENTITLEMENT_FEED_URL=https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards \
+COSYWORLD_ENTITLEMENT_FEED_BEARER=... \
 cargo run
 ```
 
-Ruby High protects that endpoint with `RUBY_HIGH_COSYWORLD_EXPORT_TOKEN` and exports only active, minted Hall Pass card NFTs with an owner wallet address. The remote feed is fetched on v2 startup, merged with inline/path feeds, and refreshed every 60 seconds by default. Startup and refresh both merge durable local Box/pack receipts into the effective ownership index, so opened-pack card grants stay visible between Ruby High feed updates. Refresh failures keep the last good ownership index so a transient Ruby High/network outage does not lock players out. Tune the loop with `COSYWORLD_RUBY_HIGH_WALLET_CARDS_REFRESH_SECS`; set it to `0` to disable background refresh.
+Ruby High protects that endpoint with `RUBY_HIGH_COSYWORLD_EXPORT_TOKEN` and exports only active, minted Hall Pass card NFTs with an owner wallet address. The remote feed is fetched on v2 startup, merged with inline/path feeds, and refreshed every 60 seconds by default. Startup and refresh both merge durable local Box/pack receipts into the effective ownership index, so opened-pack card grants stay visible between provider updates. Refresh failures keep the last good ownership index so a transient provider/network outage does not lock players out. Tune the loop with `COSYWORLD_ENTITLEMENT_FEED_REFRESH_SECS`; set it to `0` to disable background refresh. The former `COSYWORLD_RUBY_HIGH_WALLET_CARDS*` names remain accepted as deployment-compatibility aliases.
 
 For a public deployment, turn on the explicit production profile:
 
 ```sh
 COSYWORLD_DEPLOY_PROFILE=production \
-COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL=https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards \
-COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER=... \
+COSYWORLD_ENTITLEMENT_FEED_URL=https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards \
+COSYWORLD_ENTITLEMENT_FEED_BEARER=... \
 COSYWORLD_MODERATION_TOKEN=... \
 cargo run --release
 ```
 
-`COSYWORLD_DEPLOY_PROFILE=production` makes startup use the strict ownership-feed path and aborts if the protected remote feed or bearer token is missing, the SQLite event store is disabled, moderation is not configured, or local dev shortcuts such as unsigned wallet hints, dev reset, trusted client card ids, or avatar chat delay are enabled. Configure Box burn verification with `COSYWORLD_BOX_BURN_SOLANA_RPC_URL` and `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; until those are present, production Box burn endpoints stay closed with `501` responses. `/meta` exposes the active deployment profile and `nft.box_burn_verifier_configured` so deploy smoke checks can confirm whether chain verification is enabled.
+`COSYWORLD_DEPLOY_PROFILE=production` makes startup require a protected remote feed and bearer only when the active registry declares an `asset_feed` entitlement authority. It still aborts if that provider is unavailable, the SQLite event store is disabled, moderation is not configured, or local dev shortcuts such as unsigned wallet hints, dev reset, trusted client card ids, or avatar chat delay are enabled. A public pack with no entitlement provider can boot independently. Configure Box burn verification with `COSYWORLD_BOX_BURN_SOLANA_RPC_URL` and `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; until those are present, production Box burn endpoints stay closed with `501` responses. `/meta` exposes the active deployment profile and `nft.box_burn_verifier_configured` so deploy smoke checks can confirm whether chain verification is enabled.
 
 The local production-profile smoke uses the same guardrails without real Ruby High credentials:
 
@@ -564,7 +564,7 @@ Those factions now move through played-time world pulses rather than remaining m
 Resident placement can be simulated with an aggregate ownership snapshot:
 
 ```sh
-COSYWORLD_RUBY_HIGH_WALLET_CARDS='w1:rati,location-science-lab|w2:rati,cosy-rain-soft-garden' cargo run
+COSYWORLD_ENTITLEMENT_FEED='w1:rati,location-science-lab|w2:rati,cosy-rain-soft-garden' cargo run
 ```
 
 Each wallet holding a resident avatar card contributes the unique location cards in that wallet. The resident appears in the highest-scoring shared location, with deterministic tie rotation based on world-tick placement seasons rather than wall-clock days. With no overlap, residents default to The Cosy Cottage. Placement is recomputed from the server-owned ownership index on boot, reset, and ownership refresh, so stale snapshots cannot strand a resident in a gated room after ownership changes.

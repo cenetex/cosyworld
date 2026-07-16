@@ -5988,7 +5988,7 @@
       const orbs = Number.isFinite(Number(economy.orbs)) ? Number(economy.orbs) : 0;
       const boxes = state?.access?.owned_box_ids?.length || 0;
       const packs = state?.access?.unopened_pack_ids?.length || 0;
-      const signed = state?.access?.mode === "signed_ruby_high_wallet" && Boolean(walletSession);
+      const signed = state?.access?.mode === "signed_wallet_entitlements" && Boolean(walletSession);
       const parts = [`<strong>${orbs}</strong> orbs`];
       const compact = window.matchMedia("(max-width: 900px)").matches;
       if (economyFlash) {
@@ -6895,7 +6895,7 @@
       const packs = Array.isArray(account.unopened_pack_ids) ? account.unopened_pack_ids : [];
       const receipts = Array.isArray(account.recent_box_receipts) ? account.recent_box_receipts : [];
       const openings = Array.isArray(account.recent_pack_openings) ? account.recent_pack_openings : [];
-      const signed = state?.access?.mode === "signed_ruby_high_wallet" && Boolean(walletSession);
+      const signed = state?.access?.mode === "signed_wallet_entitlements" && Boolean(walletSession);
       const assets = [];
       const displayedCards = ownedCards
         .slice()

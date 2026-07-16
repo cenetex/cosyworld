@@ -7,13 +7,13 @@
   "version": 1,
   "description": "The first-party cosy exploration experience with no expansion packs mounted.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:226f9f2dd1cdc5a0cd54b3d8c4b50fc5e6dbf5d0bfa901033fb5e35db9ed00ca",
+  "bundle_hash": "sha256:353790cecca257f6eac3d8d1719309936ca0b58b73fbc4455d9cbee0367a4698",
   "packs": [
     {
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "kind": "world",
       "license": "MIT",
       "engine": ">=0.0.20 <0.1.0",
@@ -67,7 +67,7 @@
         "recipes": 1,
         "sentences": 27,
         "external_cards": 0,
-        "assets": 1,
+        "assets": 2,
         "rules": 0,
         "character_creation": 0
       },
@@ -75,7 +75,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:ebd032bcb69990ab02056b45f8c8ba36600f596a3e47c3258f1bd5ff8f4f475a"
+      "integrity": "sha256:14f7976daed07ff1010b78d63590728ffdbcf901fe912d2585aebd74b0ee882b"
     }
   ],
   "files": {
