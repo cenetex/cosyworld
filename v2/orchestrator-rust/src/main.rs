@@ -46445,7 +46445,7 @@ mod tests {
                 && exit.to_location_id == MOONLIT_TRAIL_LOCATION_ID
         }));
         assert_eq!(content.hidden_exits.len(), 1);
-        assert_eq!(content.room_features.len(), 21);
+        assert_eq!(content.room_features.len(), 22);
         assert_eq!(content.room_sheets.len(), 33);
         assert_eq!(content.clocks.len(), 12);
         assert_eq!(content.jobs.len(), 6);

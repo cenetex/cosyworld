@@ -5,7 +5,7 @@
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:fbe91073919deecc17a1abec85de9db7ac8be99f762e004d9320b125386b4ea5",
+  "bundle_hash": "sha256:957ce4c287ee3e47189c6b1d2a6a81d264d268004dc02668092837f8a75c5205",
   "packs": [
     {
       "id": "cosyworld.core",
@@ -23,7 +23,7 @@
         "locations": 28,
         "exits": 70,
         "hidden_exits": 1,
-        "room_features": 16,
+        "room_features": 17,
         "room_sheets": 28,
         "clocks": 10,
         "jobs": 5,
@@ -41,7 +41,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:ed77f07031157898a81475fc218c92510f44d7a6d2c79d6e19954c9a0361b084"
+      "integrity": "sha256:377b4cbbccf59376b53f8a5b0bacdff94b8c40ac282f2e0889b4a9c9ebb68152"
     },
     {
       "id": "cosyworld.campaign.the-lantern-keeper",
