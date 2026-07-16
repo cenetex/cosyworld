@@ -248,6 +248,20 @@
     "pack_id": "cosyworld.core"
   },
   {
+    "location_id": 34,
+    "key": "nibs_stall",
+    "name": "Nib's Stall",
+    "aliases": [
+      "stall",
+      "counter",
+      "receipt roll",
+      "roll"
+    ],
+    "look": "A plank counter stacked with salvage, oddments, and a receipt roll wider than the stall itself.",
+    "search": "Three prices are inked beside each item. The kindest one is circled in green. The fine print is very fine.",
+    "pack_id": "cosyworld.core"
+  },
+  {
     "location_id": 800,
     "key": "failing_lantern",
     "name": "Failing Lantern",
