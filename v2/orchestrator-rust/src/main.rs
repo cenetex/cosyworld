@@ -2193,6 +2193,23 @@ struct EventsQuery {
     cards: Option<String>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+struct EventsResponse {
+    events: Vec<EventView>,
+    next_after: u64,
+    through_seq: u64,
+    caught_up: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct EventReplayGap {
+    after: u64,
+    next_after: u64,
+    through_seq: u64,
+    replay_limit: usize,
+    reason: &'static str,
+}
+
 #[derive(Debug, Deserialize)]
 struct ModerationEventsQuery {
     after: Option<u64>,
@@ -19374,20 +19391,6 @@ impl RuntimeWorld {
         locations
     }
 
-    fn visible_events<'a>(
-        &self,
-        events: impl IntoIterator<Item = &'a EventView>,
-        client_actor_id: Option<u64>,
-        access: &AccessContext,
-    ) -> Vec<EventView> {
-        let visible_locations = self.visible_event_locations(client_actor_id, access);
-        events
-            .into_iter()
-            .filter(|event| event_visible_to_locations(event, &visible_locations))
-            .cloned()
-            .collect()
-    }
-
     fn card_registry_for(
         &self,
         location: &LocationView,
@@ -25194,11 +25197,8 @@ async fn world_view(
 async fn events_view(
     State(state): State<AppState>,
     Query(query): Query<EventsQuery>,
-) -> Json<Vec<EventView>> {
+) -> Json<EventsResponse> {
     let replay_limit = event_replay_limit(query.limit);
-    if replay_limit == 0 {
-        return Json(Vec::new());
-    }
     let ownership = state.ownership_snapshot().await;
     let access = AccessContext::from_events_query(
         &query,
@@ -25207,28 +25207,47 @@ async fn events_view(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let runtime = state.inner.lock().await;
-    let actor_id = query.actor_id.filter(|id| {
-        client_actor_read_authorized_for_state(
-            &runtime,
-            &state,
-            *id,
-            query.actor_session.as_deref(),
-            &access,
+    let (visible_locations, through_seq, fallback_events) = {
+        let runtime = state.inner.lock().await;
+        let actor_id = query.actor_id.filter(|id| {
+            client_actor_read_authorized_for_state(
+                &runtime,
+                &state,
+                *id,
+                query.actor_session.as_deref(),
+                &access,
+            )
+        });
+        (
+            runtime.visible_event_locations(actor_id, &access),
+            runtime.world.next_event_seq.saturating_sub(1),
+            runtime.event_log.iter().cloned().collect::<Vec<_>>(),
         )
-    });
+    };
+    let after = query.after.unwrap_or(0);
+    if replay_limit == 0 {
+        return Json(EventsResponse {
+            events: Vec::new(),
+            next_after: after,
+            through_seq,
+            caught_up: after >= through_seq,
+        });
+    }
     if let Some(path) = state.event_store_path.as_deref() {
-        match read_event_store(
-            path,
-            query.after,
-            event_store_scan_limit(query.after, replay_limit),
-        ) {
+        let stored = if query.after.is_some() {
+            read_event_store_forward_between(path, after, through_seq, MAX_EVENT_STORE_SCAN)
+        } else {
+            read_event_store(path, None, MAX_EVENT_STORE_SCAN)
+        };
+        match stored {
             Ok(events) => {
-                let filtered = tail_event_replay(
-                    runtime.visible_events(events.iter(), actor_id, &access),
+                return Json(event_replay_response(
+                    events,
+                    query.after,
+                    through_seq,
                     replay_limit,
-                );
-                return Json(filtered);
+                    &visible_locations,
+                ));
             }
             Err(error) => warn!(
                 "failed to read CosyWorld v2 event store {}: {}",
@@ -25238,13 +25257,13 @@ async fn events_view(
         }
     }
 
-    let events = runtime
-        .event_log
-        .iter()
-        .filter(|event| query.after.map(|after| event.seq > after).unwrap_or(true))
-        .collect::<Vec<_>>();
-    let events = runtime.visible_events(events, actor_id, &access);
-    Json(tail_event_replay(events, replay_limit))
+    Json(event_replay_response(
+        fallback_events,
+        query.after,
+        through_seq,
+        replay_limit,
+        &visible_locations,
+    ))
 }
 
 async fn moderation_events_view(
@@ -25809,6 +25828,74 @@ fn event_store_scan_limit(after: Option<u64>, replay_limit: usize) -> usize {
         replay_limit.min(MAX_EVENT_STORE_SCAN)
     } else {
         MAX_EVENT_STORE_SCAN
+    }
+}
+
+fn event_replay_response(
+    raw_events: Vec<EventView>,
+    after: Option<u64>,
+    through_seq: u64,
+    replay_limit: usize,
+    visible_locations: &BTreeSet<u64>,
+) -> EventsResponse {
+    let after_seq = after.unwrap_or(0);
+    if replay_limit == 0 {
+        return EventsResponse {
+            events: Vec::new(),
+            next_after: after_seq,
+            through_seq,
+            caught_up: after_seq >= through_seq,
+        };
+    }
+
+    if after.is_none() {
+        let next_after = raw_events
+            .last()
+            .map(|event| event.seq)
+            .unwrap_or(through_seq);
+        let visible = raw_events
+            .into_iter()
+            .filter(|event| event_visible_to_locations(event, visible_locations))
+            .collect();
+        return EventsResponse {
+            events: tail_event_replay(visible, replay_limit),
+            next_after,
+            through_seq,
+            caught_up: next_after >= through_seq,
+        };
+    }
+
+    let mut events = Vec::new();
+    let mut next_after = after_seq;
+    let mut scanned = 0;
+    let mut history_complete = true;
+    for event in raw_events
+        .into_iter()
+        .filter(|event| event.seq > after_seq && event.seq <= through_seq)
+    {
+        if event.seq != next_after.saturating_add(1) {
+            history_complete = false;
+        }
+        next_after = event.seq;
+        scanned += 1;
+        if event_visible_to_locations(&event, visible_locations) {
+            events.push(event);
+            if events.len() >= replay_limit {
+                break;
+            }
+        }
+        if scanned >= MAX_EVENT_STORE_SCAN {
+            break;
+        }
+    }
+    if scanned == 0 && after_seq < through_seq {
+        history_complete = false;
+    }
+    EventsResponse {
+        events,
+        next_after,
+        through_seq,
+        caught_up: history_complete && next_after >= through_seq,
     }
 }
 
@@ -33190,7 +33277,10 @@ async fn stream(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let visible_locations = {
+    let replay_after = stream_replay_after(&headers, query.after);
+    let replay_limit = event_replay_limit(query.limit);
+    let rx = state.tx.subscribe();
+    let (visible_locations, through_seq) = {
         let runtime = state.inner.lock().await;
         let actor_id = query.actor_id.filter(|id| {
             client_actor_read_authorized_for_state(
@@ -33201,14 +33291,36 @@ async fn stream(
                 &access,
             )
         });
-        runtime.visible_event_locations(actor_id, &access)
+        (
+            runtime.visible_event_locations(actor_id, &access),
+            runtime.world.next_event_seq.saturating_sub(1),
+        )
     };
-    let replay_after = stream_replay_after(&headers, query.after);
-    let replay_limit = event_replay_limit(query.limit);
-    let rx = state.tx.subscribe();
-    let replay_events =
-        stream_replay_events(&state, replay_after, replay_limit, &visible_locations).await;
-    let replay_stream = tokio_stream::iter(replay_events.into_iter().filter_map(sse_world_event));
+    let replay = stream_replay_events(
+        &state,
+        replay_after,
+        through_seq,
+        replay_limit,
+        &visible_locations,
+    )
+    .await;
+    let mut replay_messages = replay
+        .events
+        .into_iter()
+        .filter_map(sse_world_event)
+        .collect::<Vec<_>>();
+    if replay_after.is_some() && !replay.caught_up {
+        if let Some(gap) = sse_gap_event(EventReplayGap {
+            after: replay_after.unwrap_or(0),
+            next_after: replay.next_after,
+            through_seq: replay.through_seq,
+            replay_limit,
+            reason: "replay_window_exhausted",
+        }) {
+            replay_messages.push(gap);
+        }
+    }
+    let replay_stream = tokio_stream::iter(replay_messages);
     let live_stream = BroadcastStream::new(rx).filter_map(move |event| match event {
         Ok(view) if event_visible_to_locations(&view, &visible_locations) => sse_world_event(view),
         Ok(_) => None,
@@ -33230,14 +33342,26 @@ fn stream_replay_after(headers: &HeaderMap, query_after: Option<u64>) -> Option<
 async fn stream_replay_events(
     state: &AppState,
     after: Option<u64>,
+    through_seq: u64,
     replay_limit: usize,
     visible_locations: &BTreeSet<u64>,
-) -> Vec<EventView> {
+) -> EventsResponse {
     if after.is_none() || replay_limit == 0 {
-        return Vec::new();
+        let after_seq = after.unwrap_or(0);
+        return EventsResponse {
+            events: Vec::new(),
+            next_after: after_seq,
+            through_seq,
+            caught_up: after_seq >= through_seq || after.is_none(),
+        };
     }
     let events = if let Some(path) = state.event_store_path.as_deref() {
-        match read_event_store(path, after, event_store_scan_limit(after, replay_limit)) {
+        match read_event_store_forward_between(
+            path,
+            after.unwrap_or(0),
+            through_seq,
+            MAX_EVENT_STORE_SCAN,
+        ) {
             Ok(events) => events,
             Err(error) => {
                 warn!(
@@ -33257,13 +33381,7 @@ async fn stream_replay_events(
             .cloned()
             .collect()
     };
-    tail_event_replay(
-        events
-            .into_iter()
-            .filter(|event| event_visible_to_locations(event, visible_locations))
-            .collect(),
-        replay_limit,
-    )
+    event_replay_response(events, after, through_seq, replay_limit, visible_locations)
 }
 
 fn sse_world_event(view: EventView) -> Option<Result<Event, Infallible>> {
@@ -33271,6 +33389,15 @@ fn sse_world_event(view: EventView) -> Option<Result<Event, Infallible>> {
         .event("world")
         .id(view.seq.to_string())
         .json_data(view)
+        .ok()
+        .map(Ok)
+}
+
+fn sse_gap_event(gap: EventReplayGap) -> Option<Result<Event, Infallible>> {
+    Event::default()
+        .event("gap")
+        .id(gap.through_seq.to_string())
+        .json_data(gap)
         .ok()
         .map(Ok)
 }
@@ -36297,6 +36424,45 @@ fn read_event_store_between(
     Ok(events)
 }
 
+fn read_event_store_forward_between(
+    path: &Path,
+    after_seq: u64,
+    through_seq: u64,
+    limit: usize,
+) -> io::Result<Vec<EventView>> {
+    if through_seq <= after_seq || limit == 0 {
+        return Ok(Vec::new());
+    }
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let limit = limit.min(MAX_EVENT_STORE_SCAN) as i64;
+    let mut stmt = conn
+        .prepare(
+            "SELECT payload_json FROM world_events
+             WHERE seq > ?1 AND seq <= ?2
+             ORDER BY seq ASC
+             LIMIT ?3",
+        )
+        .map_err(sqlite_error)?;
+    let rows = stmt
+        .query_map(
+            params![after_seq as i64, through_seq as i64, limit],
+            |row| row.get::<_, String>(0),
+        )
+        .map_err(sqlite_error)?;
+    let mut events = Vec::new();
+    for row in rows {
+        let payload = row.map_err(sqlite_error)?;
+        let mut event: EventView = serde_json::from_str(&payload)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if content_reference_context_is_empty(&event.content_context) {
+            event.refresh_content_context();
+        }
+        events.push(event);
+    }
+    Ok(events)
+}
+
 fn record_economy_reconciliation(
     path: &Path,
     external: &OwnershipIndex,
@@ -37361,7 +37527,7 @@ mod tests {
         )
         .await
         .0;
-        assert!(events.iter().any(|event| {
+        assert!(events.events.iter().any(|event| {
             event.type_name == "message.created"
                 && event.actor_id == Some(actor_id)
                 && event.content.as_deref() == Some("agent loop is playable")
@@ -55312,16 +55478,122 @@ mod tests {
         let state = test_app_state(runtime, None);
         let visible_locations = BTreeSet::from([1]);
 
-        let replay = stream_replay_events(&state, Some(1), 10, &visible_locations).await;
-        let seqs: Vec<_> = replay.iter().map(|event| event.seq).collect();
+        let replay = stream_replay_events(&state, Some(1), 4, 10, &visible_locations).await;
+        let seqs: Vec<_> = replay.events.iter().map(|event| event.seq).collect();
         assert_eq!(seqs, vec![2, 4]);
+        assert_eq!(replay.next_after, 4);
+        assert!(replay.caught_up);
 
-        assert!(stream_replay_events(&state, None, 10, &visible_locations)
-            .await
-            .is_empty());
-        assert!(stream_replay_events(&state, Some(1), 0, &visible_locations)
-            .await
-            .is_empty());
+        assert!(
+            stream_replay_events(&state, None, 4, 10, &visible_locations)
+                .await
+                .events
+                .is_empty()
+        );
+        assert!(
+            stream_replay_events(&state, Some(1), 4, 0, &visible_locations)
+                .await
+                .events
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn event_replay_cursor_advances_across_gated_bursts() {
+        let raw_events = (1..=501)
+            .map(|seq| EventView {
+                seq,
+                type_name: "message.created".to_string(),
+                success: true,
+                location_id: Some(if seq == 501 { 1 } else { 12 }),
+                content: Some(format!("event {seq}")),
+                ..EventView::default()
+            })
+            .collect();
+        let replay = event_replay_response(raw_events, Some(0), 501, 1, &BTreeSet::from([1]));
+
+        assert_eq!(replay.events.len(), 1);
+        assert_eq!(replay.events[0].seq, 501);
+        assert_eq!(replay.next_after, 501);
+        assert!(replay.caught_up);
+    }
+
+    #[test]
+    fn event_replay_pages_interleaved_visible_events_without_skipping() {
+        let raw_events = (1..=12)
+            .map(|seq| EventView {
+                seq,
+                type_name: "message.created".to_string(),
+                success: true,
+                location_id: Some(if seq % 2 == 0 { 1 } else { 12 }),
+                content: Some(format!("event {seq}")),
+                ..EventView::default()
+            })
+            .collect::<Vec<_>>();
+        let first = event_replay_response(raw_events.clone(), Some(0), 12, 3, &BTreeSet::from([1]));
+        let second = event_replay_response(
+            raw_events,
+            Some(first.next_after),
+            12,
+            3,
+            &BTreeSet::from([1]),
+        );
+
+        assert_eq!(
+            first
+                .events
+                .iter()
+                .map(|event| event.seq)
+                .collect::<Vec<_>>(),
+            vec![2, 4, 6]
+        );
+        assert_eq!(first.next_after, 6);
+        assert!(!first.caught_up);
+        assert_eq!(
+            second
+                .events
+                .iter()
+                .map(|event| event.seq)
+                .collect::<Vec<_>>(),
+            vec![8, 10, 12]
+        );
+        assert_eq!(second.next_after, 12);
+        assert!(second.caught_up);
+    }
+
+    #[test]
+    fn incomplete_stream_replay_produces_explicit_gap_payload() {
+        let replay = event_replay_response(
+            (1..=200)
+                .map(|seq| EventView {
+                    seq,
+                    type_name: "message.created".to_string(),
+                    success: true,
+                    location_id: Some(1),
+                    ..EventView::default()
+                })
+                .collect(),
+            Some(0),
+            200,
+            80,
+            &BTreeSet::from([1]),
+        );
+        assert_eq!(replay.events.len(), 80);
+        assert_eq!(replay.next_after, 80);
+        assert!(!replay.caught_up);
+
+        let gap = EventReplayGap {
+            after: 0,
+            next_after: replay.next_after,
+            through_seq: replay.through_seq,
+            replay_limit: 80,
+            reason: "replay_window_exhausted",
+        };
+        let payload = serde_json::to_value(&gap).expect("serialize replay gap");
+        assert_eq!(payload["next_after"], 80);
+        assert_eq!(payload["through_seq"], 200);
+        assert!(sse_gap_event(gap).is_some());
+        assert!(INDEX_HTML.contains("stream.addEventListener(\"gap\""));
     }
 
     #[test]

@@ -4935,7 +4935,8 @@ async function main() {
         actor_session: actorSession,
         wallet_address: "dev-wallet",
       });
-      const events = await fetch(`/events?${params}`).then((response) => response.json());
+      const replay = await fetch(`/events?${params}`).then((response) => response.json());
+      const events = replay.events || [];
       const gustLine = [...events].reverse().find((event) => (
         event.type === "message.created"
           && Number(event.actor_id || 0) === 1002
@@ -7305,7 +7306,8 @@ async function main() {
         wallet_address: "dev-wallet",
         limit: "200",
       });
-      const events = await fetch(`/events?${params}`).then((response) => response.json());
+      const replay = await fetch(`/events?${params}`).then((response) => response.json());
+      const events = replay.events || [];
       const messages = events.filter((event) => event.type === "message.created");
       return {
         actorId,
@@ -7335,9 +7337,11 @@ async function main() {
       const zero = await fetch(`/events?${paramsFor(0)}`).then((response) => response.json());
       const standard = await fetch(`/events?${paramsFor(null)}`).then((response) => response.json());
       return {
-        limitedSeqs: limited.map((event) => event.seq),
-        zeroCount: zero.length,
-        standardCount: standard.length,
+        limitedSeqs: (limited.events || []).map((event) => event.seq),
+        zeroCount: (zero.events || []).length,
+        standardCount: (standard.events || []).length,
+        nextAfter: limited.next_after,
+        throughSeq: limited.through_seq,
       };
     });
     assert(replay.limitedSeqs.length <= 3, `event replay limit should cap response length: ${JSON.stringify(replay)}`);
@@ -7364,7 +7368,7 @@ async function main() {
         limit: "1",
       });
       const before = await fetch(`/events?${params}`).then((response) => response.json());
-      const after = before.at(-1)?.seq || 0;
+      const after = before.next_after || before.events?.at(-1)?.seq || 0;
       const line = `stream replay ${Date.now()}`;
       const said = await fetch("/commands", {
         method: "POST",
@@ -7547,7 +7551,8 @@ async function main() {
           wallet_address: "dev-wallet",
           limit: "200",
         });
-        const events = await fetch(`/events?${params}`).then((response) => response.json());
+        const replay = await fetch(`/events?${params}`).then((response) => response.json());
+        const events = replay.events || [];
         const lines = events
           .filter((event) => event.type === "message.created" && Number(event.seq || 0) > afterSeq)
           .filter((event) => event.actor_id === actorId || event.actor_id === targetActorId)
@@ -8106,7 +8111,8 @@ async function main() {
       limit: "500",
     });
     const state = await fetch(`/state?${params}`).then((response) => response.json());
-    const events = await fetch(`/events?${params}`).then((response) => response.json());
+    const replay = await fetch(`/events?${params}`).then((response) => response.json());
+    const events = replay.events || [];
     const evolved = events
       .filter((event) => event.type === "avatar.evolved")
       .map((event) => event.target_actor_name);

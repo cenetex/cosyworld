@@ -462,12 +462,16 @@ class Game:
         if self.actor_session:
             query["actor_session"] = self.actor_session
         response = self.client.get("/events", query)
-        if not isinstance(response, list):
-            raise ClientError("events response was not a list")
-        if not response:
+        if not isinstance(response, dict):
+            raise ClientError("events response was not an object")
+        events = response.get("events") or []
+        if not isinstance(events, list):
+            raise ClientError("events response did not contain an event list")
+        self.last_seq = max(self.last_seq, int(response.get("next_after") or 0))
+        if not events:
             print("No new room events.")
             return
-        self.print_events(response)
+        self.print_events(events)
 
     def run_command(self, command: str) -> None:
         if self.actor_id is None:

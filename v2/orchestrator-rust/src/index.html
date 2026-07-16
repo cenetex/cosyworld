@@ -2884,6 +2884,7 @@
     let recoveryPromptPending = false;
     let logEvents = [];
     const seenSeq = new Set();
+    let streamReplayFloorSeq = 0;
     let stream = null;
     let refreshInFlight = null;
     let refreshQueued = false;
@@ -3372,7 +3373,7 @@
     }
 
     function latestSeenSeq() {
-      let latest = 0;
+      let latest = streamReplayFloorSeq;
       for (const seq of seenSeq) {
         latest = Math.max(latest, Number(seq) || 0);
       }
@@ -5590,6 +5591,7 @@
       logEvents = [];
       pendingChats = [];
       seenSeq.clear();
+      streamReplayFloorSeq = 0;
       if (event?.seq !== undefined && event?.seq !== null) seenSeq.add(event.seq);
     }
 
@@ -5949,6 +5951,24 @@
         const coveredByReceipt = Number(event.seq || 0) > 0
           && Number(event.seq || 0) <= Number(state?.state_revision || 0);
         if (eventShouldRefreshState(event) && !actionBusy && !coveredByReceipt) queueRefresh();
+      });
+      stream.addEventListener("gap", (message) => {
+        let gap = null;
+        try {
+          gap = JSON.parse(message.data);
+        } catch {
+          return;
+        }
+        streamReplayFloorSeq = Math.max(
+          streamReplayFloorSeq,
+          Number(gap?.through_seq || message.lastEventId || 0),
+        );
+        pendingChats = [];
+        logEvents = [];
+        seenSeq.clear();
+        renderTimelines();
+        setError("The room changed while you were away. Catching up from the latest state.");
+        queueRefresh();
       });
       stream.onerror = () => setError("The live room is reconnecting.");
       startPresenceHeartbeat();
