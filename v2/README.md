@@ -599,6 +599,8 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 
 - `GET /health`
 - `GET /meta`
+- `GET /licenses`
+- `GET /content-packs`
 - `GET /state`
 - `GET /state?actor_id=5000&actor_session=<session>`
 - `GET /state?actor_id=5000&actor_session=<session>&wallet_session=<wallet-session>`
@@ -647,7 +649,7 @@ journaled as append-only lifecycle events, and persisted in snapshots. See
 [`docs/combat-system.md`](docs/combat-system.md) for the exact SRD-compatible
 surface and deliberate exclusions.
 
-`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, shard id/model, non-secret feature flags such as server-authored Chat and enabled client-authored speech, persistence mode, moderation report retention, ownership-feed mode, current world counters, and compiled kernel capacities. `./v2/mvp.sh status` prints a one-line summary from it.
+`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, shard id/model, non-secret feature flags such as server-authored Chat and enabled client-authored speech, persistence mode, moderation report retention, ownership-feed mode, current world counters, compiled kernel capacities, and the mounted packs' exact license records. `GET /licenses` exposes those pack versions, license links, provenance, modification notices, and bundled attribution text without authentication. `./v2/mvp.sh status` prints a one-line summary from `/meta`.
 
 Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, `/moderation/activation` returns first-session and day-seven retention evidence from the activation event table, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, Wooden Box receipt, and avatar pack opening rows without exposing player OpenRouter keys.
 

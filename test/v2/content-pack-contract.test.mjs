@@ -20,10 +20,15 @@ function manifest(id, overrides = {}) {
     kind: "assets",
     description: `${id} fixture`,
     license: "MIT",
+    license_url: "https://opensource.org/license/mit",
     engine: ">=0.0.20 <0.1.0",
     capabilities: [{ id: `${id}/assets`, kind: "assets", version: "1.0.0" }],
     dependencies: [],
-    provenance: { source_name: "contract test" },
+    provenance: {
+      author: "Contract Test",
+      source_name: "contract test",
+      source_url: "https://example.com/contract-test",
+    },
     ...overrides,
   };
 }
@@ -54,11 +59,37 @@ describe("Content Pack Manifest v1", () => {
     expect(lock.canonical_id_mapping_version).toBe(1);
     expect(lock.dependency_order).toEqual(lock.packs.map((pack) => pack.id));
     expect(lock.license_records.map((record) => record.pack_id)).toEqual(lock.dependency_order);
+    expect(lock.license_records.every((record) => (
+      record.license_identifier
+      && record.license_url.startsWith("https://")
+      && record.provenance.author
+      && Array.isArray(record.notices)
+    ))).toBe(true);
+    const lantern = lock.license_records.find(
+      (record) => record.pack_id === "cosyworld.campaign.the-lantern-keeper",
+    );
+    expect(lantern.provenance.modification_notice).toMatch(/SRD 5\.1/);
+    expect(lantern.notices[0].text).toContain("System Reference Document 5.1");
+    expect(lantern.notices[0].text).toContain(
+      "creativecommons.org/licenses/by/4.0/legalcode",
+    );
     expect(lock.packs.every((pack) => (
       /^sha256:[0-9a-f]{64}$/.test(pack.integrity)
       && Array.isArray(pack.dependency_closure)
       && pack.capabilities.length > 0
     ))).toBe(true);
+  });
+
+  it("requires complete license and provenance coordinates", () => {
+    expect(() => validateContentPackManifest(manifest("fixture.no-license-url", {
+      license_url: undefined,
+    }))).toThrow(/license_url/);
+    expect(() => validateContentPackManifest(manifest("fixture.no-author", {
+      provenance: {
+        source_name: "contract test",
+        source_url: "https://example.com/contract-test",
+      },
+    }))).toThrow(/author/);
   });
 
   it("rejects unknown fields but preserves namespaced extensions", () => {

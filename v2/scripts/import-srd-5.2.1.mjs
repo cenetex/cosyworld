@@ -53,6 +53,8 @@ function writeOrCheck(fileName, value) {
 }
 
 const source = JSON.parse(fs.readFileSync(sourcePath, "utf8"));
+const packManifest = JSON.parse(fs.readFileSync(path.join(packRoot, "pack.json"), "utf8"));
+const packAttribution = fs.readFileSync(path.join(packRoot, "ATTRIBUTION.md"), "utf8");
 if (
   source.document !== "System Reference Document 5.2.1"
   || source.source_url !== "https://www.dndbeyond.com/srd"
@@ -60,6 +62,18 @@ if (
   || !source.attribution?.includes("creativecommons.org/licenses/by/4.0/legalcode")
 ) {
   throw new Error("SRD 5.2.1 selected source metadata is invalid");
+}
+if (
+  packManifest.license !== "CC-BY-4.0"
+  || packManifest.license_url !== "https://creativecommons.org/licenses/by/4.0/"
+  || packManifest.provenance?.author !== "Wizards of the Coast LLC"
+  || !packManifest.provenance?.modification_notice
+  || packManifest.attribution?.file !== "ATTRIBUTION.md"
+  || !packAttribution.includes("System Reference Document 5.2.1")
+  || !packAttribution.includes("Wizards of the Coast LLC")
+  || !packAttribution.includes("creativecommons.org/licenses/by/4.0/legalcode")
+) {
+  throw new Error("SRD 5.2.1 pack is missing its required CC-BY-4.0 attribution record");
 }
 
 const conditions = conditionNames.map((name) => {

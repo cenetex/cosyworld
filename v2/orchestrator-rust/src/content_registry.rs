@@ -67,6 +67,8 @@ struct CompiledContentRegistry {
     #[serde(default)]
     attributions: Vec<SeedAttribution>,
     #[serde(default)]
+    licenses: Vec<SeedLicenseRecord>,
+    #[serde(default)]
     character_creation: Vec<SeedCharacterCreationBundle>,
     content_references: ContentReferenceDocument,
 }
@@ -137,6 +139,7 @@ impl ContentRegistry {
             recipes: take_resource(&mut resources, "recipes")?,
             rules: document.rules,
             attributions: document.attributions,
+            licenses: document.licenses,
             character_creation: document.character_creation,
             external_cards: document.external_cards,
             asset_mounts: document.assets,
@@ -693,7 +696,11 @@ fn resolve_pack_graph(
                 pack.id, pack.version, pack.engine, engine_version
             ));
         }
-        if pack.capabilities.is_empty() || !pack.provenance.is_object() {
+        if pack.capabilities.is_empty()
+            || pack.provenance.author.trim().is_empty()
+            || pack.provenance.source_name.trim().is_empty()
+            || pack.provenance.source_url.trim().is_empty()
+        {
             return Err(format!(
                 "pack {}@{} is missing capabilities or provenance",
                 pack.id, pack.version
@@ -879,6 +886,7 @@ mod tests {
             version: "1.0.0".to_string(),
             kind: "world".to_string(),
             license: "MIT".to_string(),
+            license_url: "https://opensource.org/license/mit".to_string(),
             integrity: format!("sha256:{}", "0".repeat(64)),
             engine: ">=0.1.0 <1.0.0".to_string(),
             capabilities: vec![capability(&format!("{id}.world"))],
@@ -890,7 +898,12 @@ mod tests {
             dependency_closure: Vec::new(),
             default_ruleset: None,
             entry_points: Vec::new(),
-            provenance: serde_json::json!({"source":"test"}),
+            provenance: SeedPackProvenance {
+                author: "Fixture Author".to_string(),
+                source_name: "Fixture Source".to_string(),
+                source_url: "https://example.com/fixture".to_string(),
+                modification_notice: None,
+            },
             resource_counts: BTreeMap::new(),
             distribution: None,
             entitlements: None,
@@ -904,6 +917,18 @@ mod tests {
         let has_world_pack = packs
             .iter()
             .any(|pack| matches!(pack.kind.as_str(), "world" | "campaign"));
+        let licenses = packs
+            .iter()
+            .map(|pack| SeedLicenseRecord {
+                pack_id: pack.id.clone(),
+                name: pack.name.clone(),
+                version: pack.version.clone(),
+                license_identifier: pack.license.clone(),
+                license_url: pack.license_url.clone(),
+                provenance: pack.provenance.clone(),
+                notices: Vec::new(),
+            })
+            .collect::<Vec<_>>();
         let mut value = serde_json::json!({
             "schema_version": 1,
             "manifest": {
@@ -917,13 +942,15 @@ mod tests {
                 "bundle_hash": format!("sha256:{}", "0".repeat(64)),
                 "packs": packs,
                 "registry": "registry.json",
-                "content_references": "content_refs.json"
+                "content_references": "content_refs.json",
+                "licenses": "licenses.json"
             },
             "resources": {},
             "external_cards": [],
             "assets": [],
             "rules": [],
             "attributions": [],
+            "licenses": licenses,
             "character_creation": [],
             "content_references": {
                 "schema_version": 1,
@@ -1052,7 +1079,7 @@ mod tests {
         )
         .expect("official registry loads");
         assert_eq!(registry.content().locations.len(), 33);
-        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.3.0");
+        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.3.1");
         assert_eq!(
             registry.capability_provider("cosyworld.core/world"),
             Some("cosyworld.core")

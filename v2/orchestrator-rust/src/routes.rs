@@ -35,6 +35,7 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/assets/{*asset_path}", get(public_pack_asset))
         .route("/health", get(health))
         .route("/meta", get(meta))
+        .route("/licenses", get(licenses_view))
         .route("/content-packs", get(content_packs_view))
         .route("/auth/account", get(account_identity))
         .route("/auth/logout", post(account_logout))

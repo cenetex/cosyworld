@@ -1042,6 +1042,7 @@ struct SeedContent {
     recipes: Vec<SeedRecipeContent>,
     rules: Vec<SeedRuleBundle>,
     attributions: Vec<SeedAttribution>,
+    licenses: Vec<SeedLicenseRecord>,
     character_creation: Vec<SeedCharacterCreationBundle>,
     external_cards: Vec<ExternalCardSpec>,
     asset_mounts: Vec<SeedAssetMount>,
@@ -1073,6 +1074,8 @@ struct SeedWorldpackManifest {
     registry: String,
     #[serde(default)]
     content_references: String,
+    #[serde(default)]
+    licenses: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1084,6 +1087,7 @@ struct SeedWorldpackPack {
     version: String,
     kind: String,
     license: String,
+    license_url: String,
     integrity: String,
     #[serde(default)]
     engine: String,
@@ -1099,8 +1103,7 @@ struct SeedWorldpackPack {
     default_ruleset: Option<String>,
     #[serde(default)]
     entry_points: Vec<serde_json::Value>,
-    #[serde(default)]
-    provenance: serde_json::Value,
+    provenance: SeedPackProvenance,
     #[serde(default)]
     resource_counts: BTreeMap<String, usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1258,6 +1261,38 @@ struct SeedAttribution {
     source_name: String,
     source_url: String,
     text: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedPackProvenance {
+    author: String,
+    source_name: String,
+    source_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    modification_notice: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedLicenseNotice {
+    kind: String,
+    title: String,
+    file: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_url: Option<String>,
+    text: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedLicenseRecord {
+    pack_id: String,
+    name: String,
+    version: String,
+    license_identifier: String,
+    license_url: String,
+    provenance: SeedPackProvenance,
+    notices: Vec<SeedLicenseNotice>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -2154,6 +2189,7 @@ struct MetaWorldpack {
     packs: Vec<SeedWorldpackPack>,
     rules: Vec<MetaRulesBundle>,
     attributions: Vec<SeedAttribution>,
+    licenses: Vec<SeedLicenseRecord>,
 }
 
 #[derive(Debug, Serialize)]
@@ -4231,6 +4267,10 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
                 "world" | "campaign" | "catalog" | "assets" | "rules"
             )
             || pack.license.trim().is_empty()
+            || !pack.license_url.starts_with("https://")
+            || pack.provenance.author.trim().is_empty()
+            || pack.provenance.source_name.trim().is_empty()
+            || !pack.provenance.source_url.starts_with("https://")
             || !valid_sha256_digest(&pack.integrity)
             || !pack_ids.insert(pack.id.as_str())
         {
@@ -4246,7 +4286,10 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
             return Err(format!("invalid rules pack metadata for {}", pack.id));
         }
     }
-    if manifest.registry != "registry.json" || manifest.content_references != "content_refs.json" {
+    if manifest.registry != "registry.json"
+        || manifest.content_references != "content_refs.json"
+        || manifest.licenses != "licenses.json"
+    {
         return Err(
             "worldpack manifest does not identify its compiled registry and content references"
                 .to_string(),
@@ -4271,6 +4314,70 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
         .iter()
         .map(|pack| (pack.id.as_str(), pack))
         .collect::<BTreeMap<_, _>>();
+    let mut licensed_pack_ids = BTreeSet::new();
+    for record in &content.licenses {
+        let Some(pack) = packs_by_id.get(record.pack_id.as_str()) else {
+            return Err(format!(
+                "license record {} references an unknown pack",
+                record.pack_id
+            ));
+        };
+        if record.name != pack.name
+            || record.version != pack.version
+            || record.license_identifier != pack.license
+            || record.license_url != pack.license_url
+            || record.provenance.author != pack.provenance.author
+            || record.provenance.source_name != pack.provenance.source_name
+            || record.provenance.source_url != pack.provenance.source_url
+            || record.provenance.modification_notice != pack.provenance.modification_notice
+            || !licensed_pack_ids.insert(record.pack_id.as_str())
+        {
+            return Err(format!("invalid license record for {}", record.pack_id));
+        }
+        for notice in &record.notices {
+            if !matches!(notice.kind.as_str(), "attribution" | "license" | "notice")
+                || notice.title.trim().is_empty()
+                || notice.file.trim().is_empty()
+                || notice.text.trim().is_empty()
+                || notice
+                    .source_url
+                    .as_deref()
+                    .is_some_and(|url| !url.starts_with("https://"))
+            {
+                return Err(format!("invalid bundled notice for {}", record.pack_id));
+            }
+        }
+        let source = format!(
+            "{} {}",
+            record.provenance.source_name,
+            record
+                .notices
+                .iter()
+                .filter_map(|notice| notice.source_name.as_deref())
+                .collect::<Vec<_>>()
+                .join(" ")
+        )
+        .to_ascii_lowercase();
+        if (source.contains("system reference document") || source.contains("srd"))
+            && (record.license_identifier != "CC-BY-4.0"
+                || record.provenance.modification_notice.is_none()
+                || !record.notices.iter().any(|notice| {
+                    notice.kind == "attribution"
+                        && notice.text.contains("Wizards of the Coast LLC")
+                        && notice
+                            .text
+                            .contains("creativecommons.org/licenses/by/4.0/legalcode")
+                }))
+        {
+            return Err(format!(
+                "SRD-derived pack {} has incomplete attribution",
+                record.pack_id
+            ));
+        }
+    }
+    if licensed_pack_ids.len() != content.manifest.packs.len() {
+        return Err("not every mounted pack has a license record".to_string());
+    }
     let mut entitlement_grant_ids = BTreeSet::new();
     for pack in &content.manifest.packs {
         if let Some(distribution) = pack.distribution.as_ref() {
@@ -24148,6 +24255,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
                 })
                 .collect(),
             attributions: active_content().attributions.clone(),
+            licenses: active_content().licenses.clone(),
         },
         world: MetaWorldCounters {
             tick,
@@ -40643,7 +40751,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.3.0");
+        assert_eq!(location_reference.pack_version, "1.3.1");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");

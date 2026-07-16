@@ -7,6 +7,28 @@ pub(super) struct ContentPacksResponse {
     packs: Vec<ContentPackView>,
 }
 
+#[derive(Debug, Serialize)]
+pub(super) struct LicensesResponse {
+    worldpack_id: String,
+    bundle_hash: String,
+    compatibility_notice: &'static str,
+    packs: Vec<SeedLicenseRecord>,
+}
+
+pub(super) fn licenses_response() -> LicensesResponse {
+    LicensesResponse {
+        worldpack_id: active_content().manifest.id.clone(),
+        bundle_hash: active_content().manifest.bundle_hash.clone(),
+        compatibility_notice:
+            "5E compatible. Not affiliated with or endorsed by Wizards of the Coast.",
+        packs: active_content().licenses.clone(),
+    }
+}
+
+pub(super) async fn licenses_view() -> Json<LicensesResponse> {
+    Json(licenses_response())
+}
+
 #[derive(Clone, Debug, Serialize)]
 struct ContentPackView {
     id: String,
@@ -291,6 +313,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn public_licenses_include_every_mounted_pack_and_exact_srd_notice() {
+        let response = licenses_response();
+        assert_eq!(response.packs.len(), active_content().manifest.packs.len());
+        let lantern = response
+            .packs
+            .iter()
+            .find(|pack| pack.pack_id == "cosyworld.campaign.the-lantern-keeper")
+            .expect("Lantern Keeper license record");
+        assert_eq!(lantern.license_identifier, "CC-BY-4.0");
+        assert_eq!(
+            lantern.license_url,
+            "https://creativecommons.org/licenses/by/4.0/"
+        );
+        assert!(lantern.notices.iter().any(|notice| {
+            notice.kind == "attribution"
+                && notice.text.contains("System Reference Document 5.1")
+                && notice
+                    .text
+                    .contains("creativecommons.org/licenses/by/4.0/legalcode")
+        }));
+    }
+
+    #[test]
     fn catalog_projects_public_locked_partial_and_entitled_access() {
         let public = content_packs_response(&AccessContext::default());
         assert_eq!(public.packs.len(), 4);
@@ -305,7 +350,7 @@ mod tests {
         assert_eq!(core.asset_providers.len(), 2);
         assert!(core.asset_providers.iter().all(|provider| {
             provider.provider == "cosyworld.core/assets"
-                && provider.cache_namespace.contains("cosyworld.core@1.3.0")
+                && provider.cache_namespace.contains("cosyworld.core@1.3.1")
                 && provider.content_hash.starts_with("sha256:")
         }));
 

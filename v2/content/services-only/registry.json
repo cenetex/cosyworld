@@ -8,15 +8,16 @@
     "name": "CosyWorld Services Only",
     "version": 1,
     "description": "A non-world composition for health, metadata, identity, and moderation services.",
-    "bundle_hash": "sha256:897cae42c89bb31ba177649077f4c0273110c9b2b9bc4a587a92ba31aeb85281",
+    "bundle_hash": "sha256:cc112c288ecb34aa44ada803a167d2194857f52de3d257044a63f533e651fc75",
     "packs": [
       {
         "id": "cosyworld.services-fixture",
         "name": "CosyWorld Services Fixture",
         "description": "A content-free fixture proving engine services do not require a world pack.",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "kind": "catalog",
         "license": "MIT",
+        "license_url": "https://opensource.org/license/mit",
         "engine": ">=0.0.20 <0.1.0",
         "capabilities": [
           {
@@ -31,6 +32,7 @@
         "default_ruleset": null,
         "entry_points": [],
         "provenance": {
+          "author": "Cenetex",
           "source_name": "CosyWorld test fixtures",
           "source_url": "https://github.com/cenetex/cosyworld"
         },
@@ -63,7 +65,7 @@
           "type": "workspace",
           "path": "../../content/services-fixture"
         },
-        "integrity": "sha256:c3aecc47979c68ba0b77a407d83d9eb043c5b676d92dacf3148d5a4df052a9e2"
+        "integrity": "sha256:cf8cbdacd4ecaccf03a5245c4e6edf71e52cbfbb7469c1366c2740378100be39"
       }
     ],
     "files": {
@@ -91,6 +93,7 @@
     "assets": "assets.json",
     "rules": "rules.json",
     "attributions": "attributions.json",
+    "licenses": "licenses.json",
     "character_creation": "character_creation.json",
     "content_references": "content_refs.json",
     "registry": "registry.json"
@@ -120,6 +123,21 @@
   "assets": [],
   "rules": [],
   "attributions": [],
+  "licenses": [
+    {
+      "pack_id": "cosyworld.services-fixture",
+      "name": "CosyWorld Services Fixture",
+      "version": "1.0.1",
+      "license_identifier": "MIT",
+      "license_url": "https://opensource.org/license/mit",
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "CosyWorld test fixtures",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
+      "notices": []
+    }
+  ],
   "character_creation": [],
   "content_references": {
     "schema_version": 1,

@@ -2,10 +2,11 @@
   "schema_version": 1,
   "id": "cosyworld.the-holy-land",
   "name": "The Holy Land",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "kind": "world",
   "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
   "license": "MIT",
+  "license_url": "https://opensource.org/license/mit",
   "engine": ">=0.0.20 <0.1.0",
   "capabilities": [
     {
@@ -40,6 +41,7 @@
     }
   ],
   "provenance": {
+    "author": "Cenetex",
     "source_name": "CosyWorld: The Holy Land",
     "source_url": "https://github.com/cenetex/cosyworld"
   },

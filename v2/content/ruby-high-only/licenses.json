@@ -1,0 +1,15 @@
+[
+  {
+    "pack_id": "ruby-high.first-bell",
+    "name": "Ruby High: First Bell",
+    "version": "1.3.1",
+    "license_identifier": "MIT",
+    "license_url": "https://opensource.org/license/mit",
+    "provenance": {
+      "author": "Ruby High",
+      "source_name": "Ruby High: First Bell",
+      "source_url": "https://ruby-high.ai"
+    },
+    "notices": []
+  }
+]
