@@ -193,3 +193,18 @@ pack's namespace. See `docs/rules-adapter.md` for the mapping boundary.
 depends on Core and SRD 5.1, adds a five-room adventure with one progress/danger
 arc, and owns four level-one character archetypes through the character-creation
 contract above.
+
+## Factions
+
+A faction is either **resident-anchored** or **player-facing**.
+
+- A resident-anchored faction lists one or more authored resident actors in
+  `member_actor_ids`. Those actors carry the faction's presence in the world.
+- A player-facing faction has an empty `member_actor_ids` array and sets
+  `player_facing: true`. Its membership is avatars, not authored residents;
+  players join and represent the faction through play.
+
+An empty `member_actor_ids` is valid when `player_facing` is `true`. The
+worldpack validator warns about factions that have no member actors and are not
+marked player-facing, so the lint tightening from #58/#59 does not flag
+deliberately avatar-recruited factions such as the Great Library.
