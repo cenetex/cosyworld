@@ -227,14 +227,16 @@ function reportWritingRegisterAdvisories({ actors, cards, locations }) {
 }
 
 function reportGenreAdvisories(content) {
+  // Case-sensitive: gothic diction is a lowercase phenomenon; capitalized
+  // matches are proper nouns (the Dark Abyss is a place, not a mood).
   const gothicVocabulary = [
-    ["whisper", /\bwhisper\b/i],
-    ["eternal", /\beternal\b/i],
-    ["void", /\bvoid\b/i],
-    ["abyss", /\babyss\b/i],
-    ["veil", /\bveil\b/i],
-    ["hush", /\bhush\b/i],
-    ["sacred", /\bsacred\b/i],
+    ["whisper", /\bwhisper\b/],
+    ["eternal", /\beternal\b/],
+    ["void", /\bvoid\b/],
+    ["abyss", /\babyss\b/],
+    ["veil", /\bveil\b/],
+    ["hush", /\bhush\b/],
+    ["sacred", /\bsacred\b/],
   ];
   const kernelVocabulary = [
     ["journal", /\bjournal\b/i],
@@ -244,18 +246,37 @@ function reportGenreAdvisories(content) {
     ["deterministic", /\bdeterministic\b/i],
   ];
 
+  // Both advisories scan prose fields only: enum/id fields (rarity "seed",
+  // source names) and steering fields (persona) are not player-facing prose.
+  const proseFields = new Set([
+    ...environmentRegisterFields,
+    "memory",
+    "blurb",
+    "premise",
+    "stakes",
+    "consequence",
+    "discovery_text",
+    "text",
+  ]);
+  // Accepted existing lines; the words stay watched in new content.
+  const advisoryAllowlist = new Set([
+    "Tall shelves and a deep hush.",
+    "Stone arches and a deep hush.",
+  ]);
+
   for (const [collection, rows] of Object.entries(content)) {
     if (collection === "sentences") continue;
     const fileName = expectedFiles[collection];
     rows.forEach((row, index) => {
       visitStrings(row, (value, trail) => {
-        const label = contentRowLabel(fileName, row, index, trail);
         const field = trail.at(-1);
-        if (environmentRegisterFields.has(field)) {
-          for (const [word, pattern] of gothicVocabulary) {
-            if (pattern.test(value)) {
-              warn(`genre advisory: ${label} uses gothic vocabulary "${word}" in environment field — horror in the content, whimsy in the diction (canon rule 4)`);
-            }
+        const inProse =
+          proseFields.has(field) || (typeof field === "number" && proseFields.has(trail.at(-2)));
+        if (!inProse || advisoryAllowlist.has(value.trim())) return;
+        const label = contentRowLabel(fileName, row, index, trail);
+        for (const [word, pattern] of gothicVocabulary) {
+          if (pattern.test(value)) {
+            warn(`genre advisory: ${label} uses gothic vocabulary "${word}" in prose — horror in the content, whimsy in the diction (canon rule 4)`);
           }
         }
         for (const [word, pattern] of kernelVocabulary) {
