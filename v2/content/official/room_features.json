@@ -13,7 +13,7 @@
     "uses": [
       {
         "item_id": 2001,
-        "text": "The tonic warms in your hand. The hearth is warmer."
+        "text": "The tonic warms against the skin. The hearth is warmer."
       }
     ],
     "pack_id": "cosyworld.core"
@@ -112,7 +112,7 @@
       "sign"
     ],
     "look": "A silvered post with no distance marked.",
-    "search": "Three scratches read: test your guard, take what is earned, leave early.",
+    "search": "Three scratches read: guard, take only what is earned, leave early.",
     "pack_id": "cosyworld.core"
   },
   {
@@ -129,7 +129,7 @@
     "uses": [
       {
         "item_id": 2003,
-        "text": "The charm cools in your palm."
+        "text": "The charm cools against the skin."
       }
     ],
     "pack_id": "cosyworld.core"
@@ -358,7 +358,7 @@
       "lamp"
     ],
     "look": "A sheltered courtyard holds a clay lamp, a manger-shaped feeding trough, and the hush of arriving travelers.",
-    "search": "You find a cool corner where someone has left clean straw and a cup of water for the next guest.",
+    "search": "A cool corner holds clean straw and a cup of water for the next guest.",
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -370,7 +370,7 @@
       "tools"
     ],
     "look": "Wood shavings curl beside well-used tools in an open-fronted village workshop.",
-    "search": "You notice that every repaired yoke bears the patient marks of hands adjusting it to a particular burden.",
+    "search": "Every repaired yoke bears the patient marks of hands adjusting it to a particular burden.",
     "pack_id": "cosyworld.the-holy-land"
   },
   {
@@ -502,7 +502,7 @@
       "city gate"
     ],
     "look": "Travelers, animals, merchants, and families pass beneath a limestone gate toward the festival city.",
-    "search": "Among the noise, you hear many accents sharing the same brief prayers for a safe arrival.",
+    "search": "Among the noise, many accents share the same brief prayers for a safe arrival.",
     "pack_id": "cosyworld.the-holy-land"
   },
   {
