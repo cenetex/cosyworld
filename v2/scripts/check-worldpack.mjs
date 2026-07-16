@@ -30,6 +30,14 @@ const expectedFiles = {
 const allowedPackKinds = new Set(["world", "campaign", "catalog", "assets", "rules"]);
 const allowedEntitlementAuthorityTypes = new Set(["asset_feed", "solana_collection", "signed_set"]);
 const supportedRuleResources = new Set(["conditions", "monster_seeds"]);
+const environmentRegisterFields = new Set(["description", "look", "search"]);
+const bannedEnvironmentTells = [
+  ["as if", /\bas if\b/i],
+  ["seems to", /\bseems to\b/i],
+  ["meant for", /\bmeant for\b/i],
+];
+const secondPersonPattern = /\b(?:you|your|yours|yourself)\b/i;
+const objectSentimentPattern = /\b(?:pleased|approves|approving|delights|remembers)\b/i;
 
 const failures = [];
 const warnings = [];
@@ -90,6 +98,113 @@ function validateRequiredStrings(label, row, fields) {
     if (!isNonEmptyString(row[field])) {
       fail(`${label} ${String(row.id ?? row.card_id ?? row.location_id ?? "")} is missing ${field}`);
     }
+  }
+}
+
+function visitStrings(value, visitor, trail = []) {
+  if (typeof value === "string") {
+    visitor(value, trail);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => visitStrings(entry, visitor, [...trail, index]));
+    return;
+  }
+  if (!isObject(value)) return;
+  for (const [key, entry] of Object.entries(value)) {
+    visitStrings(entry, visitor, [...trail, key]);
+  }
+}
+
+function contentRowLabel(fileName, row, index, trail) {
+  const rowId = row.id ?? row.card_id ?? row.location_id ?? index;
+  return `${fileName} row ${String(rowId)} ${trail.join(".")}`;
+}
+
+function validateWritingRegister(contentCollections) {
+  for (const [collection, rows] of Object.entries(contentCollections)) {
+    if (collection === "actors" || collection === "cards") continue;
+    const fileName = expectedFiles[collection];
+    rows.forEach((row, index) => {
+      visitStrings(row, (value, trail) => {
+        const label = contentRowLabel(fileName, row, index, trail);
+        const field = trail.at(-1);
+        if (environmentRegisterFields.has(field)) {
+          for (const [tell, pattern] of bannedEnvironmentTells) {
+            if (pattern.test(value)) fail(`${label} uses banned environment tell "${tell}"`);
+          }
+        }
+        if (secondPersonPattern.test(value)) {
+          fail(`${label} uses second person outside the sentences register`);
+        }
+      });
+    });
+  }
+
+  for (const [index, location] of contentCollections.locations.entries()) {
+    for (const [memoryIndex, memory] of (location.memory ?? []).entries()) {
+      const label = contentRowLabel("locations.json", location, index, ["memory", memoryIndex]);
+      for (const [tell, pattern] of bannedEnvironmentTells) {
+        if (pattern.test(memory)) fail(`${label} uses banned environment tell "${tell}"`);
+      }
+    }
+  }
+
+  for (const feature of contentCollections.room_features) {
+    for (const use of feature.uses ?? []) {
+      if (objectSentimentPattern.test(use.text ?? "")) {
+        fail(
+          `room_features.json location ${feature.location_id} feature ${feature.key} item ${use.item_id} use text assigns sentiment to an object`,
+        );
+      }
+    }
+  }
+}
+
+function reportWritingRegisterAdvisories({ actors, cards, locations }) {
+  const formulaByPack = new Map();
+  const formulaPattern = /\b(?:is|are)\s+[^.!?]*,\s+[^.!?]*,\s+and\b/i;
+  for (const entry of [
+    ...actors.map((actor) => ({ pack_id: actor.pack_id, text: actor.description })),
+    ...cards.map((card) => ({ pack_id: card.pack_id, text: card.blurb })),
+    ...locations.map((location) => ({ pack_id: location.pack_id, text: location.persona })),
+  ]) {
+    if (!formulaPattern.test(entry.text ?? "")) continue;
+    formulaByPack.set(entry.pack_id, (formulaByPack.get(entry.pack_id) ?? 0) + 1);
+  }
+  for (const [packId, count] of formulaByPack) {
+    if (count > 4) {
+      warn(`writing register advisory: pack ${packId} uses the "X is A, B, and ..." formula ${count} times (threshold 4)`);
+    }
+  }
+
+  const indexPath = path.join(scriptDir, "../orchestrator-rust/src/index.html");
+  let indexSource = "";
+  try {
+    indexSource = fs.readFileSync(indexPath, "utf8");
+  } catch (error) {
+    warn(`writing register advisory: could not inspect browser chrome: ${error.message}`);
+    return;
+  }
+  const longChrome = [];
+  for (const [index, line] of indexSource.split("\n").entries()) {
+    const assignment = line.match(/\bmodalSummary:(.*)$/);
+    if (!assignment) continue;
+    const literal = assignment[1].match(/"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|`([^`]*)`/);
+    if (literal) {
+      const text = (literal[1] ?? literal[2] ?? literal[3])
+        .replace(/\$\{[^}]+\}/g, "value")
+        .trim();
+      const words = text.split(/\s+/).filter(Boolean).length;
+      if (words > 8) longChrome.push({ line: index + 1, words, text });
+    }
+  }
+  if (longChrome.length) {
+    const examples = longChrome
+      .slice(0, 8)
+      .map((entry) => `${entry.line} (${entry.words} words): ${entry.text}`)
+      .join(" | ");
+    warn(`writing register advisory: ${longChrome.length} static modal summaries exceed 8 words; ${examples}`);
   }
 }
 
@@ -458,6 +573,9 @@ const cards = content.cards;
 const lifecycleHooks = content.lifecycle_hooks;
 const evolutionTracks = content.evolution_tracks;
 const recipes = content.recipes;
+
+validateWritingRegister(content);
+reportWritingRegisterAdvisories({ actors, cards, locations });
 
 const actorIds = idSet("actors", actors, (actor) => actor.id);
 const actorById = new Map(actors.map((actor) => [actor.id, actor]));
