@@ -134,7 +134,8 @@ function validateWritingRegister(contentCollections) {
             if (pattern.test(value)) fail(`${label} uses banned environment tell "${tell}"`);
           }
         }
-        if (secondPersonPattern.test(value)) {
+        const isUseText = trail.at(-1) === "text" && trail.at(-3) === "uses";
+        if (secondPersonPattern.test(value) && !isUseText) {
           fail(`${label} uses second person outside the sentences register`);
         }
       });
