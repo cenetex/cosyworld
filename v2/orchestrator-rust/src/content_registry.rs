@@ -2,6 +2,54 @@ use super::*;
 
 const CONTENT_REGISTRY_SCHEMA_VERSION: u32 = 1;
 const CONTENT_PACK_CONTRACT: &str = "cosyworld.content-pack/1";
+const CONTENT_REFERENCE_SCHEMA_VERSION: u32 = 1;
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct ContentReferenceEntry {
+    pub(super) canonical_ref: String,
+    pub(super) pack_id: String,
+    pub(super) pack_version: String,
+    pub(super) kind: String,
+    pub(super) local_id: String,
+    pub(super) runtime_handle: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) legacy_runtime_id: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ContentReferenceDocument {
+    schema_version: u32,
+    mapping_version: u32,
+    entries: Vec<ContentReferenceEntry>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct ActiveRulesetContext {
+    pub(super) selected_by_pack_id: String,
+    pub(super) capability_id: String,
+    pub(super) provider_pack_id: String,
+    pub(super) provider_pack_version: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct ContentReferenceContext {
+    pub(super) mapping_version: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) references: Vec<ContentReferenceEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) active_rulesets: Vec<ActiveRulesetContext>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum ContentReferenceStatus {
+    Available,
+    MissingPack,
+    VersionMismatch,
+    UnknownReference,
+    Remapped,
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -20,6 +68,7 @@ struct CompiledContentRegistry {
     attributions: Vec<SeedAttribution>,
     #[serde(default)]
     character_creation: Vec<SeedCharacterCreationBundle>,
+    content_references: ContentReferenceDocument,
 }
 
 #[derive(Debug)]
@@ -27,6 +76,11 @@ pub(super) struct ContentRegistry {
     content: SeedContent,
     packs_by_id: BTreeMap<String, usize>,
     capability_providers: BTreeMap<String, String>,
+    content_reference_mapping_version: u32,
+    content_references_by_canonical: BTreeMap<String, ContentReferenceEntry>,
+    content_references_by_handle: BTreeMap<u64, String>,
+    legacy_content_references: BTreeMap<(String, u64), String>,
+    active_rulesets: Vec<ActiveRulesetContext>,
     // Kept mounted for pack-aware consumers added by later engine versions.
     #[allow(dead_code)]
     additional_resources: BTreeMap<String, serde_json::Value>,
@@ -60,6 +114,7 @@ impl ContentRegistry {
         document.manifest.packs = ordered_packs;
 
         let mut resources = document.resources;
+        let content_references = document.content_references;
         let content = SeedContent {
             manifest: document.manifest,
             actors: take_resource(&mut resources, "actors")?,
@@ -92,10 +147,41 @@ impl ContentRegistry {
             .enumerate()
             .map(|(index, pack)| (pack.id.clone(), index))
             .collect();
+        let (
+            content_reference_mapping_version,
+            content_references_by_canonical,
+            content_references_by_handle,
+            legacy_content_references,
+        ) = validate_content_references(&content, content_references)?;
+        let active_rulesets = content
+            .manifest
+            .packs
+            .iter()
+            .filter_map(|pack| {
+                let capability_id = pack.default_ruleset.as_ref()?;
+                let provider_id = capability_providers.get(capability_id)?;
+                let provider = content
+                    .manifest
+                    .packs
+                    .iter()
+                    .find(|candidate| &candidate.id == provider_id)?;
+                Some(ActiveRulesetContext {
+                    selected_by_pack_id: pack.id.clone(),
+                    capability_id: capability_id.clone(),
+                    provider_pack_id: provider.id.clone(),
+                    provider_pack_version: provider.version.clone(),
+                })
+            })
+            .collect();
         let registry = Self {
             content,
             packs_by_id,
             capability_providers,
+            content_reference_mapping_version,
+            content_references_by_canonical,
+            content_references_by_handle,
+            legacy_content_references,
+            active_rulesets,
             additional_resources: resources,
         };
         for pack in &registry.content.manifest.packs {
@@ -151,6 +237,69 @@ impl ContentRegistry {
         &self.content.external_cards
     }
 
+    pub(super) fn content_reference_mapping_version(&self) -> u32 {
+        self.content_reference_mapping_version
+    }
+
+    pub(super) fn content_reference(
+        &self,
+        kind: &str,
+        runtime_handle: u64,
+    ) -> Option<&ContentReferenceEntry> {
+        self.content_references_by_handle
+            .get(&runtime_handle)
+            .and_then(|canonical| self.content_references_by_canonical.get(canonical))
+            .filter(|entry| entry.kind == kind)
+            .or_else(|| {
+                self.legacy_content_references
+                    .get(&(kind.to_string(), runtime_handle))
+                    .and_then(|canonical| self.content_references_by_canonical.get(canonical))
+            })
+    }
+
+    pub(super) fn content_reference_context<'a>(
+        &self,
+        handles: impl IntoIterator<Item = (&'a str, u64)>,
+    ) -> ContentReferenceContext {
+        let mut references = BTreeMap::new();
+        for (kind, handle) in handles {
+            if handle == 0 {
+                continue;
+            }
+            if let Some(entry) = self.content_reference(kind, handle) {
+                references.insert(entry.canonical_ref.clone(), entry.clone());
+            }
+        }
+        ContentReferenceContext {
+            mapping_version: self.content_reference_mapping_version,
+            references: references.into_values().collect(),
+            active_rulesets: self.active_rulesets.clone(),
+        }
+    }
+
+    pub(super) fn inspect_content_reference(
+        &self,
+        persisted: &ContentReferenceEntry,
+    ) -> ContentReferenceStatus {
+        let Some(pack) = self.pack(&persisted.pack_id) else {
+            return ContentReferenceStatus::MissingPack;
+        };
+        if pack.version != persisted.pack_version {
+            return ContentReferenceStatus::VersionMismatch;
+        }
+        let Some(current) = self
+            .content_references_by_canonical
+            .get(&persisted.canonical_ref)
+        else {
+            return ContentReferenceStatus::UnknownReference;
+        };
+        if current.runtime_handle != persisted.runtime_handle {
+            ContentReferenceStatus::Remapped
+        } else {
+            ContentReferenceStatus::Available
+        }
+    }
+
     #[cfg(test)]
     fn additional_resource(&self, kind: &str) -> Option<&serde_json::Value> {
         self.additional_resources.get(kind)
@@ -167,6 +316,176 @@ impl ContentRegistry {
             .map(|location| location.id)
             .collect()
     }
+}
+
+fn valid_pack_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.bytes().enumerate().all(|(index, byte)| {
+            byte.is_ascii_lowercase()
+                || byte.is_ascii_digit()
+                || (index > 0 && matches!(byte, b'.' | b'-'))
+        })
+}
+
+fn valid_content_kind(value: &str) -> bool {
+    !value.is_empty()
+        && value.bytes().enumerate().all(|(index, byte)| {
+            byte.is_ascii_lowercase() || (index > 0 && (byte.is_ascii_digit() || byte == b'-'))
+        })
+}
+
+fn encode_content_local_id(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric()
+            || matches!(
+                byte,
+                b'-' | b'_' | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')'
+            )
+        {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
+}
+
+fn canonical_content_reference(
+    pack_id: &str,
+    kind: &str,
+    local_id: &str,
+) -> Result<String, String> {
+    if !valid_pack_id(pack_id) || !valid_content_kind(kind) || local_id.is_empty() {
+        return Err(format!(
+            "invalid content reference identity {pack_id}/{kind}/{local_id}"
+        ));
+    }
+    Ok(format!(
+        "pack://{pack_id}/{kind}/{}",
+        encode_content_local_id(local_id)
+    ))
+}
+
+fn validate_content_references(
+    content: &SeedContent,
+    document: ContentReferenceDocument,
+) -> Result<
+    (
+        u32,
+        BTreeMap<String, ContentReferenceEntry>,
+        BTreeMap<u64, String>,
+        BTreeMap<(String, u64), String>,
+    ),
+    String,
+> {
+    if document.schema_version != CONTENT_REFERENCE_SCHEMA_VERSION
+        || document.mapping_version != content.manifest.canonical_id_mapping_version
+    {
+        return Err(format!(
+            "content reference schema/mapping version {}/{} does not match supported {}/{}",
+            document.schema_version,
+            document.mapping_version,
+            CONTENT_REFERENCE_SCHEMA_VERSION,
+            content.manifest.canonical_id_mapping_version
+        ));
+    }
+    let packs = content
+        .manifest
+        .packs
+        .iter()
+        .map(|pack| (pack.id.as_str(), pack.version.as_str()))
+        .collect::<BTreeMap<_, _>>();
+    let mut by_canonical = BTreeMap::new();
+    let mut by_handle = BTreeMap::new();
+    let mut by_legacy = BTreeMap::new();
+    let mut previous = None::<String>;
+    for entry in document.entries {
+        let expected = canonical_content_reference(&entry.pack_id, &entry.kind, &entry.local_id)?;
+        if entry.canonical_ref != expected {
+            return Err(format!(
+                "content reference {} is not canonical; expected {}",
+                entry.canonical_ref, expected
+            ));
+        }
+        if previous
+            .as_deref()
+            .is_some_and(|value| value >= entry.canonical_ref.as_str())
+        {
+            return Err("content references are not in deterministic canonical order".to_string());
+        }
+        previous = Some(entry.canonical_ref.clone());
+        if packs.get(entry.pack_id.as_str()).copied() != Some(entry.pack_version.as_str()) {
+            return Err(format!(
+                "content reference {} names unavailable pack version {}@{}",
+                entry.canonical_ref, entry.pack_id, entry.pack_version
+            ));
+        }
+        if entry.runtime_handle == 0 {
+            return Err(format!(
+                "content reference {} has zero runtime handle",
+                entry.canonical_ref
+            ));
+        }
+        if let Some(legacy) = entry.legacy_runtime_id {
+            if legacy != entry.runtime_handle {
+                return Err(format!(
+                    "legacy content reference {} remaps {} to {}",
+                    entry.canonical_ref, legacy, entry.runtime_handle
+                ));
+            }
+            if by_legacy
+                .insert((entry.kind.clone(), legacy), entry.canonical_ref.clone())
+                .is_some()
+            {
+                return Err(format!("duplicate legacy {} handle {}", entry.kind, legacy));
+            }
+        }
+        if let Some(existing) = by_handle.insert(entry.runtime_handle, entry.canonical_ref.clone())
+        {
+            return Err(format!(
+                "runtime handle {} collides between {} and {}",
+                entry.runtime_handle, existing, entry.canonical_ref
+            ));
+        }
+        let canonical = entry.canonical_ref.clone();
+        if by_canonical.insert(canonical.clone(), entry).is_some() {
+            return Err(format!("duplicate canonical content reference {canonical}"));
+        }
+    }
+    for (kind, pack_id, runtime_handle) in content
+        .actors
+        .iter()
+        .map(|row| ("actor", row.pack_id.as_str(), row.id))
+        .chain(
+            content
+                .items
+                .iter()
+                .map(|row| ("item", row.pack_id.as_str(), row.id)),
+        )
+        .chain(
+            content
+                .locations
+                .iter()
+                .map(|row| ("location", row.pack_id.as_str(), row.id)),
+        )
+    {
+        let Some(canonical) = by_legacy.get(&(kind.to_string(), runtime_handle)) else {
+            return Err(format!(
+                "compiled {kind} {runtime_handle} has no legacy content reference"
+            ));
+        };
+        if by_canonical
+            .get(canonical)
+            .map(|entry| entry.pack_id.as_str())
+            != Some(pack_id)
+        {
+            return Err(format!(
+                "compiled {kind} {runtime_handle} content reference has the wrong pack"
+            ));
+        }
+    }
+    Ok((document.mapping_version, by_canonical, by_handle, by_legacy))
 }
 
 fn take_resource<T: DeserializeOwned>(
@@ -560,14 +879,20 @@ mod tests {
                 "entry_location": "fixture-entry",
                 "bundle_hash": format!("sha256:{}", "0".repeat(64)),
                 "packs": packs,
-                "registry": "registry.json"
+                "registry": "registry.json",
+                "content_references": "content_refs.json"
             },
             "resources": {},
             "external_cards": [],
             "assets": [],
             "rules": [],
             "attributions": [],
-            "character_creation": []
+            "character_creation": [],
+            "content_references": {
+                "schema_version": 1,
+                "mapping_version": 1,
+                "entries": []
+            }
         })
         .to_string()
     }
@@ -695,5 +1020,101 @@ mod tests {
         assert_eq!(registry.external_cards().len(), 24);
         assert!(registry.asset_mounts().len() >= 3);
         assert!(registry.additional_resource("sentences").is_some());
+        let actor = registry
+            .content_reference("actor", 1001)
+            .expect("legacy actor has a canonical reference");
+        assert_eq!(actor.canonical_ref, "pack://cosyworld.core/actor/1001");
+        assert_eq!(actor.legacy_runtime_id, Some(1001));
+        assert_eq!(actor.runtime_handle, 1001);
+        let context = registry
+            .content_reference_context([("actor", 1001), ("location", COSY_COTTAGE_LOCATION_ID)]);
+        assert_eq!(context.mapping_version, 1);
+        assert_eq!(context.references.len(), 2);
+
+        let mut unavailable = actor.clone();
+        unavailable.pack_id = "missing.pack".to_string();
+        unavailable.canonical_ref = "pack://missing.pack/actor/1001".to_string();
+        assert_eq!(
+            registry.inspect_content_reference(&unavailable),
+            ContentReferenceStatus::MissingPack
+        );
+        unavailable = actor.clone();
+        unavailable.pack_version = "99.0.0".to_string();
+        assert_eq!(
+            registry.inspect_content_reference(&unavailable),
+            ContentReferenceStatus::VersionMismatch
+        );
+        unavailable = actor.clone();
+        unavailable.canonical_ref = "pack://cosyworld.core/actor/not-present".to_string();
+        assert_eq!(
+            registry.inspect_content_reference(&unavailable),
+            ContentReferenceStatus::UnknownReference
+        );
+        unavailable = actor.clone();
+        unavailable.runtime_handle += 1;
+        assert_eq!(
+            registry.inspect_content_reference(&unavailable),
+            ContentReferenceStatus::Remapped
+        );
+    }
+
+    #[test]
+    fn runtime_handle_collisions_fail_before_mounting() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&registry_json(vec![pack("a-pack", Vec::new())])).unwrap();
+        value["content_references"]["entries"] = serde_json::json!([
+            {
+                "canonical_ref": "pack://a-pack/creature/first",
+                "pack_id": "a-pack",
+                "pack_version": "1.0.0",
+                "kind": "creature",
+                "local_id": "first",
+                "runtime_handle": 1000000000000_u64
+            },
+            {
+                "canonical_ref": "pack://a-pack/creature/second",
+                "pack_id": "a-pack",
+                "pack_version": "1.0.0",
+                "kind": "creature",
+                "local_id": "second",
+                "runtime_handle": 1000000000000_u64
+            }
+        ]);
+        let error = ContentRegistry::from_json(&value.to_string(), "0.1.0").unwrap_err();
+        assert!(error.contains("runtime handle 1000000000000 collides"));
+        assert!(error.contains("first") && error.contains("second"));
+    }
+
+    #[test]
+    fn active_ruleset_is_embedded_in_persistence_context() {
+        let mut rules = pack("rules-pack", Vec::new());
+        rules.kind = "rules".to_string();
+        rules.capabilities[0].id = "rules-pack/core".to_string();
+        rules.capabilities[0].kind = "rules".to_string();
+        rules.default_ruleset = Some("rules-pack/core".to_string());
+        rules.rules_adapter = Some("cosyworld.rules/1".to_string());
+        rules.rules_namespace = Some("rules-pack".to_string());
+        let mut value: serde_json::Value =
+            serde_json::from_str(&registry_json(vec![rules])).unwrap();
+        value["rules"] = serde_json::json!([{
+            "pack_id": "rules-pack",
+            "pack_version": "1.0.0",
+            "adapter": "cosyworld.rules/1",
+            "namespace": "rules-pack",
+            "resources": {}
+        }]);
+        value["attributions"] = serde_json::json!([{
+            "pack_id": "rules-pack",
+            "license": "MIT",
+            "source_name": "Fixture",
+            "source_url": "https://example.com",
+            "text": "Fixture attribution"
+        }]);
+        let registry =
+            ContentRegistry::from_json(&value.to_string(), "0.1.0").expect("rules registry loads");
+        let context = registry.content_reference_context([]);
+        assert_eq!(context.active_rulesets.len(), 1);
+        assert_eq!(context.active_rulesets[0].capability_id, "rules-pack/core");
+        assert_eq!(context.active_rulesets[0].provider_pack_version, "1.0.0");
     }
 }

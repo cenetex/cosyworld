@@ -1006,6 +1006,8 @@ struct SeedWorldpackManifest {
     packs: Vec<SeedWorldpackPack>,
     #[serde(default)]
     registry: String,
+    #[serde(default)]
+    content_references: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1595,6 +1597,8 @@ struct RuntimeSnapshot {
     version: u32,
     #[serde(default)]
     worldpack_bundle_hash: String,
+    #[serde(default, skip_serializing_if = "content_reference_context_is_empty")]
+    content_context: ContentReferenceContext,
     world_version: u32,
     tick: u64,
     next_event_seq: u64,
@@ -1688,6 +1692,8 @@ struct JournalRecord {
     version: u32,
     #[serde(default)]
     worldpack_bundle_hash: String,
+    #[serde(default, skip_serializing_if = "content_reference_context_is_empty")]
+    content_context: ContentReferenceContext,
     #[serde(default)]
     origin: JournalOrigin,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1730,8 +1736,10 @@ impl JournalRecord {
             _ => JournalOrigin::PlayerCard,
         };
         Self {
-            version: 3,
+            version: 4,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
+            content_context: content_registry()
+                .content_reference_context(action_content_handles(&action)),
             origin,
             caused_by_event_seq: None,
             source_world_tick: None,
@@ -1750,6 +1758,37 @@ impl JournalRecord {
             projection_mutations: Vec::new(),
             orb_deltas: Vec::new(),
         }
+    }
+
+    fn refresh_content_context(&mut self) {
+        let mut handles = action_content_handles(&self.action);
+        if let Some(location_id) = self.source_location_id {
+            handles.push(("location", location_id));
+        }
+        let mut refreshed = content_registry().content_reference_context(handles);
+        if self.content_context.mapping_version != 0
+            && self.content_context.mapping_version != refreshed.mapping_version
+        {
+            return;
+        }
+        let mut references = self
+            .content_context
+            .references
+            .iter()
+            .cloned()
+            .map(|reference| (reference.canonical_ref.clone(), reference))
+            .collect::<BTreeMap<_, _>>();
+        references.extend(
+            refreshed
+                .references
+                .drain(..)
+                .map(|reference| (reference.canonical_ref.clone(), reference)),
+        );
+        refreshed.references = references.into_values().collect();
+        if !self.content_context.active_rulesets.is_empty() {
+            refreshed.active_rulesets = self.content_context.active_rulesets.clone();
+        }
+        self.content_context = refreshed;
     }
 
     fn into_player_card(mut self) -> Self {
@@ -3085,6 +3124,8 @@ struct EventView {
     observed_through_seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     source_location_id: Option<u64>,
+    #[serde(default, skip_serializing_if = "content_reference_context_is_empty")]
+    content_context: ContentReferenceContext,
 }
 
 impl Default for EventView {
@@ -3131,6 +3172,7 @@ impl Default for EventView {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         }
     }
 }
@@ -3142,6 +3184,97 @@ impl EventView {
         self.observed_through_seq = record.observed_through_seq;
         self.source_location_id = record.source_location_id;
     }
+
+    fn refresh_content_context(&mut self) {
+        let mut handles = Vec::new();
+        for (kind, handle) in [
+            ("actor", self.actor_id),
+            ("actor", self.target_actor_id),
+            ("location", self.location_id),
+            ("location", self.destination_location_id),
+            ("location", self.source_location_id),
+            ("item", self.item_id),
+            ("item", self.target_item_id),
+        ] {
+            if let Some(handle) = handle {
+                handles.push((kind, handle));
+            }
+        }
+        let mut refreshed = content_registry().content_reference_context(handles);
+        if self.content_context.mapping_version != 0
+            && self.content_context.mapping_version != refreshed.mapping_version
+        {
+            return;
+        }
+        let mut references = self
+            .content_context
+            .references
+            .iter()
+            .cloned()
+            .map(|reference| (reference.canonical_ref.clone(), reference))
+            .collect::<BTreeMap<_, _>>();
+        references.extend(
+            refreshed
+                .references
+                .drain(..)
+                .map(|reference| (reference.canonical_ref.clone(), reference)),
+        );
+        refreshed.references = references.into_values().collect();
+        if !self.content_context.active_rulesets.is_empty() {
+            refreshed.active_rulesets = self.content_context.active_rulesets.clone();
+        }
+        self.content_context = refreshed;
+    }
+}
+
+fn content_reference_context_is_empty(context: &ContentReferenceContext) -> bool {
+    context.mapping_version == 0
+        && context.references.is_empty()
+        && context.active_rulesets.is_empty()
+}
+
+fn action_content_handles(action: &CwAction) -> Vec<(&'static str, u64)> {
+    let mut handles = vec![
+        ("actor", action.actor_id),
+        ("actor", action.target_actor_id),
+        ("location", action.location_id),
+        ("location", action.destination_location_id),
+        ("item", action.item_id),
+        ("item", action.target_item_id),
+        ("item", action.output_item_id),
+    ];
+    match action.output_target_kind {
+        CW_PLACEMENT_ACTOR_HAND => handles.push(("actor", action.output_target_id)),
+        CW_PLACEMENT_LOCATION_FLOOR => handles.push(("location", action.output_target_id)),
+        _ => {}
+    }
+    handles
+}
+
+fn validate_persisted_content_context(
+    context: &ContentReferenceContext,
+    label: &str,
+) -> io::Result<()> {
+    if context.mapping_version == 0 {
+        return Ok(());
+    }
+    if context.mapping_version != content_registry().content_reference_mapping_version() {
+        return Err(snapshot_error(format!(
+            "{label} content mapping {} does not match active mapping {}",
+            context.mapping_version,
+            content_registry().content_reference_mapping_version()
+        )));
+    }
+    for reference in &context.references {
+        let status = content_registry().inspect_content_reference(reference);
+        if status != ContentReferenceStatus::Available {
+            return Err(snapshot_error(format!(
+                "{label} content reference {} is not replayable: {status:?}",
+                reference.canonical_ref
+            )));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Serialize)]
@@ -3987,8 +4120,11 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
             return Err(format!("invalid rules pack metadata for {}", pack.id));
         }
     }
-    if manifest.registry.trim().is_empty() {
-        return Err("worldpack manifest does not identify its compiled registry".to_string());
+    if manifest.registry != "registry.json" || manifest.content_references != "content_refs.json" {
+        return Err(
+            "worldpack manifest does not identify its compiled registry and content references"
+                .to_string(),
+        );
     }
     Ok(())
 }
@@ -7698,9 +7834,24 @@ impl AmbientConfig {
 
 impl RuntimeSnapshot {
     fn from_runtime(runtime: &RuntimeWorld) -> Self {
+        let content_handles = runtime.world.actors[..runtime.world.actor_count]
+            .iter()
+            .map(|actor| ("actor", actor.id))
+            .chain(
+                runtime.world.items[..runtime.world.item_count]
+                    .iter()
+                    .map(|item| ("item", item.id)),
+            )
+            .chain(
+                runtime.world.locations[..runtime.world.location_count]
+                    .iter()
+                    .map(|location| ("location", location.id)),
+            )
+            .collect::<Vec<_>>();
         Self {
-            version: 1,
+            version: 2,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
+            content_context: content_registry().content_reference_context(content_handles),
             world_version: runtime.world.version,
             tick: runtime.world.tick,
             next_event_seq: runtime.world.next_event_seq,
@@ -7757,6 +7908,7 @@ impl RuntimeSnapshot {
                 active_content().manifest.bundle_hash
             )));
         }
+        validate_persisted_content_context(&self.content_context, "snapshot")?;
         if self.world_actors.len() > CW_MAX_ACTORS {
             return Err(snapshot_error("too many actors in snapshot"));
         }
@@ -7953,6 +8105,7 @@ impl RuntimeWorld {
                     active_content().manifest.bundle_hash
                 )));
             }
+            validate_persisted_content_context(&record.content_context, "action journal")?;
             let _ = runtime.apply_journal_record(&record);
         }
         runtime.recompute_counters();
@@ -8530,6 +8683,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8579,6 +8733,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8633,6 +8788,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8693,6 +8849,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8746,6 +8903,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8805,6 +8963,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8861,6 +9020,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8917,6 +9077,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -8972,6 +9133,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9027,6 +9189,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9082,6 +9245,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9139,6 +9303,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9199,6 +9364,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9290,6 +9456,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9350,6 +9517,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9410,6 +9578,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9467,6 +9636,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9524,6 +9694,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9581,6 +9752,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9637,6 +9809,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9697,6 +9870,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -9750,6 +9924,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -12355,6 +12530,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         }
     }
 
@@ -17811,6 +17987,7 @@ impl RuntimeWorld {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            content_context: ContentReferenceContext::default(),
         };
         self.world.next_event_seq += 1;
         self.push_projected_event(event.clone());
@@ -34741,7 +34918,9 @@ fn append_action_journal(path: &Path, record: &JournalRecord) -> io::Result<()> 
 }
 
 fn insert_action_journal(conn: &Connection, record: &JournalRecord) -> io::Result<()> {
-    let payload = serde_json::to_string(record)
+    let mut persisted = record.clone();
+    persisted.refresh_content_context();
+    let payload = serde_json::to_string(&persisted)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     conn.execute(
         "INSERT INTO action_journal (action_kind, seed, record_json, created_at_ms)
@@ -35002,8 +35181,11 @@ fn read_action_journal(path: &Path) -> io::Result<Vec<JournalRecord>> {
     let mut records = Vec::new();
     for row in rows {
         let payload = row.map_err(sqlite_error)?;
-        let record = serde_json::from_str(&payload)
+        let mut record: JournalRecord = serde_json::from_str(&payload)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if content_reference_context_is_empty(&record.content_context) {
+            record.refresh_content_context();
+        }
         records.push(record);
     }
     Ok(records)
@@ -35229,7 +35411,9 @@ fn insert_world_events(conn: &Connection, events: &[EventView]) -> io::Result<()
         .map_err(sqlite_error)?;
     let now = now_millis();
     for event in events {
-        let payload = serde_json::to_string(event)
+        let mut persisted = event.clone();
+        persisted.refresh_content_context();
+        let payload = serde_json::to_string(&persisted)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         stmt.execute(params![
             event.seq as i64,
@@ -35792,8 +35976,11 @@ fn read_event_store(path: &Path, after: Option<u64>, limit: usize) -> io::Result
     let mut events = Vec::new();
     for row in rows {
         let payload = row.map_err(sqlite_error)?;
-        let event = serde_json::from_str(&payload)
+        let mut event: EventView = serde_json::from_str(&payload)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if content_reference_context_is_empty(&event.content_context) {
+            event.refresh_content_context();
+        }
         events.push(event);
     }
     Ok(events)
@@ -35831,8 +36018,11 @@ fn read_event_store_between(
     let mut events = Vec::new();
     for row in rows {
         let payload = row.map_err(sqlite_error)?;
-        let event = serde_json::from_str(&payload)
+        let mut event: EventView = serde_json::from_str(&payload)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if content_reference_context_is_empty(&event.content_context) {
+            event.refresh_content_context();
+        }
         events.push(event);
     }
     Ok(events)
@@ -39210,6 +39400,12 @@ mod tests {
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].seq, 2);
         assert_eq!(loaded[0].content.as_deref(), Some("hello"));
+        assert_eq!(loaded[0].content_context.mapping_version, 1);
+        assert!(loaded[0]
+            .content_context
+            .references
+            .iter()
+            .any(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1"));
 
         let _ = fs::remove_file(path);
     }
@@ -39662,6 +39858,16 @@ mod tests {
         assert!(action_journal_has_records(&path).expect("has records"));
         let records = read_action_journal(&path).expect("read records");
         assert_eq!(records.len(), 2);
+        assert_eq!(records[0].version, 4);
+        assert_eq!(records[0].content_context.mapping_version, 1);
+        let location_reference = records[0]
+            .content_context
+            .references
+            .iter()
+            .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
+            .expect("journal persists its canonical location reference");
+        assert_eq!(location_reference.pack_version, "1.0.0");
+        assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");
         assert_eq!(replayed.actor_name(5000).as_deref(), Some("Replay"));
@@ -39674,6 +39880,48 @@ mod tests {
             .event_log
             .iter()
             .any(|event| event.type_name == "message.created" && event.content_id == Some(9001)));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn unavailable_pack_journal_is_inspectable_but_not_replayable() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-missing-pack-journal-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut record = JournalRecord::new(CwAction::default(), 44);
+        record
+            .content_context
+            .references
+            .push(ContentReferenceEntry {
+                canonical_ref: "pack://unavailable.pack/creature/goblin".to_string(),
+                pack_id: "unavailable.pack".to_string(),
+                pack_version: "1.0.0".to_string(),
+                kind: "creature".to_string(),
+                local_id: "goblin".to_string(),
+                runtime_handle: 1_000_000_000_001,
+                legacy_runtime_id: None,
+            });
+        append_action_journal(&path, &record).expect("journal remains writable for inspection");
+
+        let records = read_action_journal(&path).expect("missing-pack journal remains readable");
+        assert_eq!(records.len(), 1);
+        let unavailable = records[0]
+            .content_context
+            .references
+            .iter()
+            .find(|reference| reference.pack_id == "unavailable.pack")
+            .expect("self-contained missing-pack identity survives");
+        assert_eq!(unavailable.local_id, "goblin");
+        assert_eq!(
+            content_registry().inspect_content_reference(unavailable),
+            ContentReferenceStatus::MissingPack
+        );
+        let error = RuntimeWorld::from_action_journal(&path).unwrap_err();
+        assert!(error.to_string().contains("MissingPack"));
 
         let _ = fs::remove_file(path);
     }
@@ -54000,6 +54248,8 @@ mod tests {
             .expect("resident continuity artifact saves");
         let world_json = fs::read_to_string(&snapshot_path).expect("world snapshot readable");
         assert!(!world_json.contains("\"resident_continuities\""));
+        assert!(world_json.contains("\"content_context\""));
+        assert!(world_json.contains("pack://cosyworld.core/actor/1001"));
         let continuity_json =
             fs::read_to_string(&continuity_path).expect("continuity artifact readable");
         assert!(continuity_json.contains("\"version\": 1"));

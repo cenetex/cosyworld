@@ -19,7 +19,8 @@ The compiled directory is a release artifact and should not be edited by hand.
 `registry.json` is the runtime boundary for a mounted pack set. It contains the
 resolved Manifest v1 worldpack, every compiled resource collection, external
 cards, asset mounts, rules, attributions, and character-creation profiles in one
-self-contained document. The per-resource JSON files remain deterministic
+self-contained document. It also embeds the exact `content_refs.json` mapping
+described below. The per-resource JSON files remain deterministic
 compatibility artifacts for validators and other tooling; the orchestrator no
 longer has a compile-time list of embedded content files.
 
@@ -129,6 +130,7 @@ npm run v2:worldpack:lock
 npm run v2:worldpack:compile
 npm run v2:worldpack
 npm run v2:worldpack:inspect
+npm run v2:content-refs:migrate -- --input legacy.json --output migrated.json
 ```
 
 `sync` skips workspace packs and materializes Git-backed packs below `v2/content/imports`. Git sources must use an HTTPS GitHub URL and a full 40-character commit. It never follows a branch or tag at build time.
@@ -167,7 +169,38 @@ The compiler gives every official bundle a SHA-256 identity derived from the wor
 
 Changing the selected pack set therefore starts a new shard history. Before launch, archive the old snapshot and action-journal database, deploy the new bundle, and allow the orchestrator to seed a fresh world; startup already fails closed on the old identities and falls back to that fresh seed. Do not blank a recorded bundle hash by hand. After launch, preserving state across a composition change requires an explicit migration that projects only still-mounted pack state and writes the new identity.
 
-The current kernel ABI still uses numeric actor, item, and location IDs. The validator therefore treats those IDs as bundle-global and rejects collisions. A later schema can compile namespaced authoring IDs into a stable numeric ID map without changing the kernel ABI.
+Pack content has a canonical, version-independent identity of the form
+`pack://<pack-id>/<kind>/<local-id>`. For example,
+`pack://five-e-commons/creature/goblin-warrior` and
+`pack://homebrew.example/creature/goblin-warrior` are distinct even though both
+packs chose the same local slug. Reserved characters in the local id use the
+canonical `encodeURIComponent` spelling.
+
+The compiler writes the complete, canonical-order mapping to
+`content_refs.json` and embeds it in `registry.json`. Existing numeric actor,
+item, and location ids appear as `legacy_runtime_id` and keep that exact value
+as their compact `runtime_handle`; no existing save changes which content it
+names. New string identities receive deterministic JavaScript-safe integer
+handles from their canonical reference. The allocator sorts references before
+resolving the vanishingly unlikely hash collision, so rebuilding the same
+pinned `pack.lock.json` produces the same handles regardless of mount order.
+Duplicate canonical references, handles, legacy ids, missing pack versions, or
+non-canonical URI spellings fail before the listener opens.
+
+Snapshots, action-journal records, and stored world events now carry a
+`content_context` containing the mapping version, every relevant canonical
+reference, owning pack version, runtime handle, legacy id when applicable, and
+the active ruleset selections. The C ABI continues to receive compact numeric
+handles. Persistence and inspection use the canonical context, so an exported
+journal remains intelligible when its pack is unavailable; replay still fails
+closed for a missing pack, version mismatch, unknown reference, or remap.
+
+Legacy JSON snapshots, journal exports, and event exports remain readable.
+The runtime enriches legacy database rows in memory, while the explicit
+`v2:content-refs:migrate` command writes a durable migrated copy. Use
+`--in-place` instead of `--output` only after archiving the original; `--force`
+rebuilds contexts that are already present. The tool never changes the numeric
+ids themselves and preserves self-contained contexts for unavailable packs.
 
 ## Runtime discovery and access
 
