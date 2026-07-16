@@ -9,6 +9,10 @@ import {
   resolveContentPackGraph,
   validateContentPackManifest,
 } from "./content-pack-contract.mjs";
+import {
+  buildContentReferenceMapping,
+  collectContentReferenceCandidates,
+} from "./content-references.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
@@ -372,6 +376,16 @@ const packSummary = packs.map(({ locked, manifest, integrity }) => ({
   source: locked.source,
   integrity,
 }));
+const contentReferences = buildContentReferenceMapping(
+  collectContentReferenceCandidates({
+    resources,
+    packs: packSummary,
+    externalCards,
+    ruleBundles,
+    characterCreationBundles,
+  }),
+  CANONICAL_ID_MAPPING_VERSION,
+);
 const bundleHash = sha256([
   json(world),
   json(packSummary),
@@ -381,6 +395,7 @@ const bundleHash = sha256([
   json(ruleBundles),
   json(attributions),
   json(characterCreationBundles),
+  json(contentReferences),
 ]);
 const manifest = {
   schema_version: 2,
@@ -399,6 +414,7 @@ const manifest = {
   rules: "rules.json",
   attributions: "attributions.json",
   character_creation: "character_creation.json",
+  content_references: "content_refs.json",
   registry: "registry.json",
 };
 
@@ -411,6 +427,7 @@ const registry = {
   rules: ruleBundles,
   attributions,
   character_creation: characterCreationBundles,
+  content_references: contentReferences,
 };
 
 const outputs = new Map([
@@ -421,6 +438,7 @@ const outputs = new Map([
   ["rules.json", json(ruleBundles)],
   ["attributions.json", json(attributions)],
   ["character_creation.json", json(characterCreationBundles)],
+  ["content_refs.json", json(contentReferences)],
   ...Object.entries(resourceFiles).map(([resource, fileName]) => [fileName, json(resources[resource])]),
 ]);
 const artifactDigest = sha256(
