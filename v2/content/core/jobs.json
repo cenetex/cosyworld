@@ -43,5 +43,65 @@
     },
     "consequence": "solar-abyssal schism",
     "memory_summary": "The same bell rings differently in noon light and abyssal pressure."
+  },
+  {
+    "id": "goblin-cave:name-the-price",
+    "premise": "Nib has three prices for every useful thing and trusts none of them yet.",
+    "stakes": "If nobody names what the bargain is really for, the cave will turn every promise into leverage.",
+    "location_ids": [
+      34
+    ],
+    "participant_ids": [
+      1070
+    ],
+    "progress_clock_id": "goblin-cave.fair-bargain",
+    "danger_clock_id": "goblin-cave.leverage",
+    "status": "active",
+    "reward": {
+      "label": "a loophole freely closed",
+      "orbs": 2
+    },
+    "consequence": "every promise becomes collateral",
+    "memory_summary": "A fair price names the wanting without owning the wanter."
+  },
+  {
+    "id": "haunted-mansion:earn-the-threshold",
+    "premise": "The Warden will not let another careless guest cross the Mansion's threshold.",
+    "stakes": "If nobody proves they can enter without taking, the Warden will bar every door and call the house safe.",
+    "location_ids": [
+      42
+    ],
+    "participant_ids": [
+      1040
+    ],
+    "progress_clock_id": "haunted-mansion.threshold",
+    "danger_clock_id": "haunted-mansion.warden-rage",
+    "status": "active",
+    "reward": {
+      "label": "the Warden's wary welcome",
+      "orbs": 2
+    },
+    "consequence": "the Mansion seals its doors",
+    "memory_summary": "The Warden respects restraint more than force."
+  },
+  {
+    "id": "turgid-swamp:amend-the-ledger",
+    "premise": "Beetle's grudge ledger has turned one bad landing into a feud with the whole swamp.",
+    "stakes": "If nobody amends the record, Beetle will defend an old slight long after everyone forgets what happened.",
+    "location_ids": [
+      60
+    ],
+    "participant_ids": [
+      1063
+    ],
+    "progress_clock_id": "turgid-swamp.amends",
+    "danger_clock_id": "turgid-swamp.old-grudge",
+    "status": "active",
+    "reward": {
+      "label": "a grudge struck through",
+      "orbs": 2
+    },
+    "consequence": "the old grudge hardens into law",
+    "memory_summary": "One honest amendment can outweigh a ledger full of slights."
   }
 ]

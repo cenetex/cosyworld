@@ -10,6 +10,7 @@ mod mud;
 mod rate_limit;
 mod routes;
 mod turns;
+mod world_simulation;
 
 use account_auth::*;
 use activation::*;
@@ -56,6 +57,7 @@ use tokio::{
 use tokio_stream::{wrappers::BroadcastStream, StreamExt};
 use tracing::{info, warn};
 use turns::*;
+use world_simulation::*;
 
 #[derive(Clone)]
 struct AppState {
@@ -1247,6 +1249,8 @@ struct SeedFactionContent {
     #[serde(default)]
     home_location_ids: Vec<u64>,
     #[serde(default)]
+    player_facing: bool,
+    #[serde(default)]
     member_actor_ids: Vec<u64>,
 }
 
@@ -1565,6 +1569,7 @@ struct RuntimeWorld {
     search_memories: BTreeMap<String, SearchMemoryState>,
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
+    world_simulation: WorldSimulationState,
     rpg_claims: BTreeSet<String>,
     orb_balances: BTreeMap<u64, i32>,
     orb_reward_claims: BTreeSet<String>,
@@ -1630,6 +1635,8 @@ struct RuntimeSnapshot {
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     #[serde(default)]
     actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
+    #[serde(default)]
+    world_simulation: WorldSimulationState,
     #[serde(default)]
     rpg_claims: BTreeSet<String>,
     #[serde(default)]
@@ -2341,7 +2348,45 @@ struct WorldResponse {
     current_location_id: Option<u64>,
     access: AccessView,
     factions: Vec<FactionView>,
+    simulation: WorldSimulationView,
     locations: Vec<WorldLocationView>,
+}
+
+#[derive(Debug, Serialize)]
+struct WorldSimulationView {
+    pulse_interval_ticks: u64,
+    pulse_index: u64,
+    last_advanced_tick: u64,
+    factions: Vec<FactionSimulationView>,
+    recent_history: Vec<EventView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct LocationSimulationView {
+    weather: String,
+    weather_intensity: u8,
+    trade_stock: i16,
+    trade_pressure: i8,
+    imports: BTreeMap<String, u8>,
+    conflict_pressure: u8,
+    faction_influence: Vec<FactionInfluenceView>,
+    last_pulse_tick: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct FactionInfluenceView {
+    faction_id: String,
+    faction_name: String,
+    influence: u8,
+}
+
+#[derive(Debug, Serialize)]
+struct FactionSimulationView {
+    faction_id: String,
+    faction_name: String,
+    momentum: i16,
+    last_action_tick: u64,
+    influenced_location_ids: Vec<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -2354,6 +2399,7 @@ struct WorldLocationView {
     persona: String,
     memory: Vec<String>,
     factions: Vec<FactionRefView>,
+    simulation: LocationSimulationView,
     public: bool,
     accessible: bool,
     required_grant_id: Option<String>,
@@ -2379,6 +2425,7 @@ struct LocationView {
     persona: String,
     memory: Vec<String>,
     factions: Vec<FactionRefView>,
+    simulation: LocationSimulationView,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -2386,6 +2433,7 @@ struct FactionRefView {
     id: String,
     name: String,
     axis: String,
+    player_facing: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -2400,6 +2448,7 @@ struct FactionView {
     verbs: Vec<String>,
     motif: Vec<String>,
     home_location_ids: Vec<u64>,
+    player_facing: bool,
     member_actor_ids: Vec<u64>,
 }
 
@@ -2466,6 +2515,11 @@ struct ResidentSoughtItemView {
     item_id: u64,
     source: String,
     reason: String,
+    world_status: String,
+    world_location_id: Option<u64>,
+    world_location_name: Option<String>,
+    world_holder_actor_id: Option<u64>,
+    world_holder_actor_name: Option<String>,
     memory_location_id: Option<u64>,
     memory_location_name: Option<String>,
     holder_actor_id: Option<u64>,
@@ -5345,6 +5399,7 @@ fn faction_ref_from_seed(faction: &SeedFactionContent) -> FactionRefView {
         id: faction.id.clone(),
         name: faction.name.clone(),
         axis: faction.axis.clone(),
+        player_facing: faction.player_facing,
     }
 }
 
@@ -5360,6 +5415,7 @@ fn faction_view_from_seed(faction: &SeedFactionContent) -> FactionView {
         verbs: faction.verbs.clone(),
         motif: faction.motif.clone(),
         home_location_ids: faction.home_location_ids.clone(),
+        player_facing: faction.player_facing,
         member_actor_ids: faction.member_actor_ids.clone(),
     }
 }
@@ -7737,6 +7793,7 @@ impl RuntimeSnapshot {
             search_memories: runtime.search_memories.clone(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: runtime.actor_autonomy.clone(),
+            world_simulation: runtime.world_simulation.clone(),
             rpg_claims: runtime.rpg_claims.clone(),
             orb_balances: runtime.orb_balances.clone(),
             orb_reward_claims: runtime.orb_reward_claims.clone(),
@@ -7890,6 +7947,7 @@ impl RuntimeSnapshot {
             search_memories: self.search_memories,
             resident_continuities: self.resident_continuities,
             actor_autonomy: self.actor_autonomy,
+            world_simulation: self.world_simulation,
             rpg_claims: self.rpg_claims,
             orb_balances: self.orb_balances,
             orb_reward_claims: self.orb_reward_claims,
@@ -7906,6 +7964,7 @@ impl RuntimeSnapshot {
             runtime.backfill_listen_attempt_claims_from_events();
             runtime.refresh_all_resident_continuities();
             runtime.ensure_actor_autonomy();
+            runtime.ensure_world_simulation();
             runtime
         })
     }
@@ -7992,6 +8051,7 @@ impl RuntimeWorld {
             search_memories: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: BTreeMap::new(),
+            world_simulation: WorldSimulationState::default(),
             rpg_claims: BTreeSet::new(),
             orb_balances: BTreeMap::new(),
             orb_reward_claims: BTreeSet::new(),
@@ -8008,6 +8068,7 @@ impl RuntimeWorld {
         runtime.backfill_generated_avatar_flavor();
         runtime.refresh_all_resident_continuities();
         runtime.ensure_actor_autonomy();
+        runtime.ensure_world_simulation();
         runtime
     }
 
@@ -8072,6 +8133,60 @@ impl RuntimeWorld {
                 .entry(job.id.clone())
                 .or_insert_with(|| job.clone());
         }
+    }
+
+    fn world_simulation_seed(&self) -> WorldSimulationSeed {
+        let locations = self
+            .room_sheets
+            .values()
+            .map(|sheet| {
+                let meta = self.location_meta_for(sheet.location_id);
+                let mut front_ids = seed_content()
+                    .fronts
+                    .iter()
+                    .filter(|front| front.status == "active")
+                    .filter(|front| front.location_ids.contains(&sheet.location_id))
+                    .map(|front| front.id.clone())
+                    .collect::<Vec<_>>();
+                front_ids.sort();
+                SimulationLocationSeed {
+                    id: sheet.location_id,
+                    zone: sheet.zone.clone(),
+                    safety: sheet.safety.clone(),
+                    biome: meta.biome,
+                    resources: sheet.resources.clone(),
+                    front_ids,
+                }
+            })
+            .collect();
+        let factions = seed_content()
+            .factions
+            .iter()
+            .map(|faction| SimulationFactionSeed {
+                id: faction.id.clone(),
+                name: faction.name.clone(),
+                opposes: faction.opposes.clone(),
+                home_location_ids: faction.home_location_ids.clone(),
+            })
+            .collect();
+        let routes = self.world.exits[..self.world.exit_count]
+            .iter()
+            .filter(|exit| exit.flags & CW_EXIT_LOCKED == 0)
+            .map(|exit| SimulationRoute {
+                from_location_id: exit.from_location_id,
+                to_location_id: exit.to_location_id,
+            })
+            .collect();
+        WorldSimulationSeed {
+            locations,
+            factions,
+            routes,
+        }
+    }
+
+    fn ensure_world_simulation(&mut self) {
+        let seed = self.world_simulation_seed();
+        self.world_simulation.ensure_seed(&seed);
     }
 
     fn ensure_seed_metadata(&mut self) {
@@ -9148,6 +9263,36 @@ impl RuntimeWorld {
         event
     }
 
+    fn append_world_history_event(
+        &mut self,
+        type_name: &str,
+        location_id: u64,
+        destination_location_id: Option<u64>,
+        content: String,
+        source_world_tick: u64,
+        source_location_id: Option<u64>,
+        caused_by_event_seq: Option<u64>,
+    ) -> EventView {
+        let event = EventView {
+            seq: self.world.next_event_seq,
+            type_name: type_name.to_string(),
+            success: true,
+            location_id: Some(location_id),
+            location_name: self.location_name(location_id),
+            destination_location_id,
+            destination_location_name: destination_location_id
+                .and_then(|id| self.location_name(id)),
+            content: Some(content),
+            caused_by_event_seq,
+            source_world_tick: Some(source_world_tick),
+            source_location_id,
+            ..EventView::default()
+        };
+        self.world.next_event_seq = self.world.next_event_seq.saturating_add(1);
+        self.push_projected_event(event.clone());
+        event
+    }
+
     fn append_clock_event(
         &mut self,
         type_name: &str,
@@ -9877,6 +10022,12 @@ impl RuntimeWorld {
             if advances_world_tick {
                 let committed_events = events.clone();
                 events.extend(self.apply_player_tick_frontier_resets(&action, &committed_events));
+                let committed_events = events.clone();
+                events.extend(self.apply_played_time_world_simulation(
+                    &action,
+                    record.seed,
+                    &committed_events,
+                ));
             }
             self.record_autonomous_action(record);
             if record.source_world_tick.is_some() {
@@ -12310,6 +12461,115 @@ impl RuntimeWorld {
             persona: meta.persona,
             memory: meta.memory,
             factions: faction_refs_for_location(location_id),
+            simulation: self.location_simulation_view(location_id),
+        }
+    }
+
+    fn location_simulation_view(&self, location_id: u64) -> LocationSimulationView {
+        let state = self
+            .world_simulation
+            .locations
+            .get(&location_id)
+            .cloned()
+            .unwrap_or_default();
+        let mut faction_influence = state
+            .faction_influence
+            .iter()
+            .filter(|(_, influence)| **influence > 0)
+            .map(|(faction_id, influence)| FactionInfluenceView {
+                faction_id: faction_id.clone(),
+                faction_name: seed_content()
+                    .factions
+                    .iter()
+                    .find(|faction| faction.id == *faction_id)
+                    .map(|faction| faction.name.clone())
+                    .unwrap_or_else(|| faction_id.clone()),
+                influence: *influence,
+            })
+            .collect::<Vec<_>>();
+        faction_influence.sort_by(|left, right| {
+            right
+                .influence
+                .cmp(&left.influence)
+                .then_with(|| left.faction_id.cmp(&right.faction_id))
+        });
+        LocationSimulationView {
+            weather: state.weather,
+            weather_intensity: state.weather_intensity,
+            trade_stock: state.trade_stock,
+            trade_pressure: state.trade_pressure,
+            imports: state.imports,
+            conflict_pressure: state.conflict_pressure,
+            faction_influence,
+            last_pulse_tick: state.last_pulse_tick,
+        }
+    }
+
+    fn world_simulation_view(&self) -> WorldSimulationView {
+        let mut factions = seed_content()
+            .factions
+            .iter()
+            .map(|seed_faction| {
+                let state = self
+                    .world_simulation
+                    .factions
+                    .get(&seed_faction.id)
+                    .cloned()
+                    .unwrap_or_default();
+                let mut influenced_location_ids = self
+                    .world_simulation
+                    .locations
+                    .iter()
+                    .filter(|(_, location)| {
+                        location
+                            .faction_influence
+                            .get(&seed_faction.id)
+                            .is_some_and(|influence| *influence > 0)
+                    })
+                    .map(|(location_id, _)| *location_id)
+                    .collect::<Vec<_>>();
+                influenced_location_ids.sort_unstable();
+                FactionSimulationView {
+                    faction_id: seed_faction.id.clone(),
+                    faction_name: seed_faction.name.clone(),
+                    momentum: state.momentum,
+                    last_action_tick: state.last_action_tick,
+                    influenced_location_ids,
+                }
+            })
+            .collect::<Vec<_>>();
+        factions.sort_by(|left, right| left.faction_id.cmp(&right.faction_id));
+        let mut recent_history = self
+            .event_log
+            .iter()
+            .rev()
+            .filter(|event| {
+                matches!(
+                    event.type_name.as_str(),
+                    "world.weather.shifted"
+                        | "world.trade.flowed"
+                        | "world.trade.disrupted"
+                        | "world.faction.influence_shifted"
+                        | "world.conflict.pressure_grew"
+                        | "world.conflict.pressure_eased"
+                        | "world.conflict.escalated"
+                )
+            })
+            .take(48)
+            .cloned()
+            .collect::<Vec<_>>();
+        recent_history.sort_by(|left, right| {
+            right
+                .source_world_tick
+                .cmp(&left.source_world_tick)
+                .then_with(|| left.seq.cmp(&right.seq))
+        });
+        WorldSimulationView {
+            pulse_interval_ticks: WORLD_PULSE_INTERVAL_TICKS,
+            pulse_index: self.world_simulation.pulse_index,
+            last_advanced_tick: self.world_simulation.last_advanced_tick,
+            factions,
+            recent_history,
         }
     }
 
@@ -14522,12 +14782,50 @@ impl RuntimeWorld {
 
     fn resident_sought_item_view(&self, resident: CwActor, item_id: u64) -> ResidentSoughtItemView {
         let memory = self.resident_best_item_memory(resident.id, item_id);
+        let world_item = self.item_by_id(item_id);
+        let world_status = world_item
+            .map(|item| {
+                if item.charges == 0 {
+                    "spent"
+                } else if item.holder_actor_id != 0 {
+                    "held"
+                } else if item.location_id != 0 {
+                    "available"
+                } else {
+                    "hidden"
+                }
+            })
+            .unwrap_or("missing")
+            .to_string();
+        let world_holder_actor_id = world_item.and_then(|item| opt_id(item.holder_actor_id));
+        let world_location_id = world_item.and_then(|item| {
+            world_holder_actor_id
+                .and_then(|holder_actor_id| self.actor_by_id(holder_actor_id))
+                .map(|holder| holder.location_id)
+                .or_else(|| opt_id(item.location_id))
+                .or_else(|| {
+                    (item.charges > 0).then(|| {
+                        seed_content()
+                            .items
+                            .iter()
+                            .find(|seed_item| seed_item.id == item_id)
+                            .map(|seed_item| seed_item.location_id)
+                    })?
+                })
+        });
         ResidentSoughtItemView {
             item_id,
             source: self
                 .resident_sought_item_source(resident, item_id)
                 .to_string(),
             reason: self.resident_item_request_reason(resident, item_id),
+            world_status,
+            world_location_id,
+            world_location_name: world_location_id
+                .and_then(|location_id| self.location_name(location_id)),
+            world_holder_actor_id,
+            world_holder_actor_name: world_holder_actor_id
+                .and_then(|holder_actor_id| self.actor_name(holder_actor_id)),
             memory_location_id: memory.as_ref().map(|memory| memory.location_id),
             memory_location_name: memory
                 .as_ref()
@@ -16998,7 +17296,7 @@ impl RuntimeWorld {
             })
             .collect();
         Some(CombatView {
-            protocol: "cosyworld.combat/2",
+            protocol: "cosyworld.combat/3",
             encounter_id: encounter.id,
             location_id: encounter.location_id,
             round: encounter.round,
@@ -17029,6 +17327,262 @@ impl RuntimeWorld {
             })
             .find(|(_, clock)| clock.filled < clock.segments)
             .map(|(job, _)| job.danger_clock_id.clone())
+    }
+
+    fn world_stakes_consent(
+        &self,
+        actor_id: u64,
+        events: &[EventView],
+    ) -> Option<(WorldStakesConsent, u64, String)> {
+        events
+            .iter()
+            .filter(|event| event.success && event.actor_id == Some(actor_id))
+            .filter_map(|event| {
+                let (location_id, danger_clock_id) = match event.type_name.as_str() {
+                    "clock.updated" if event.clock_kind.as_deref() == Some("progress") => {
+                        let location_id = event.location_id?;
+                        let progress_clock_id = event.clock_id.as_deref()?;
+                        let danger_clock_id = self
+                            .jobs
+                            .values()
+                            .filter(|job| job.location_ids.contains(&location_id))
+                            .filter(|job| job.progress_clock_id == progress_clock_id)
+                            .filter(|job| self.job_status(job) == "active")
+                            .find_map(|job| {
+                                self.clocks
+                                    .get(&job.danger_clock_id)
+                                    .filter(|clock| clock.filled < clock.segments)
+                                    .map(|_| job.danger_clock_id.clone())
+                            })?;
+                        (location_id, danger_clock_id)
+                    }
+                    "combat.attack.attempt" | "combat.dodge" => {
+                        let location_id = event.location_id?;
+                        let danger_clock_id = event
+                            .content_id
+                            .and_then(|encounter_id| self.combat_job_id_for_encounter(encounter_id))
+                            .and_then(|job_id| self.jobs.get(&job_id))
+                            .filter(|job| self.job_status(job) == "active")
+                            .map(|job| job.danger_clock_id.clone())
+                            .or_else(|| self.active_danger_clock_id_for_location(location_id))?;
+                        (location_id, danger_clock_id)
+                    }
+                    "combat.defend" => {
+                        let location_id = event.location_id?;
+                        (
+                            location_id,
+                            self.active_danger_clock_id_for_location(location_id)?,
+                        )
+                    }
+                    "actor.moved" => {
+                        let location_id = event.destination_location_id?;
+                        (
+                            location_id,
+                            self.active_danger_clock_id_for_location(location_id)?,
+                        )
+                    }
+                    _ => return None,
+                };
+                self.location_is_frontier(location_id).then_some((
+                    WorldStakesConsent { location_id },
+                    event.seq,
+                    danger_clock_id,
+                ))
+            })
+            .next_back()
+    }
+
+    fn apply_played_time_world_simulation(
+        &mut self,
+        action: &CwAction,
+        entropy: u64,
+        source_events: &[EventView],
+    ) -> Vec<EventView> {
+        let Some(actor) = self.actor_by_id(action.actor_id) else {
+            return Vec::new();
+        };
+        if actor.kind != CW_ACTOR_HUMAN
+            || actor.status != CW_ACTOR_ACTIVE
+            || !source_events
+                .iter()
+                .any(|event| event.actor_id == Some(action.actor_id))
+        {
+            return Vec::new();
+        }
+
+        let source_location_id = Some(actor.location_id);
+        let caused_by_event_seq = source_events
+            .iter()
+            .filter(|event| event.actor_id == Some(action.actor_id))
+            .map(|event| event.seq)
+            .max();
+        let stakes_consent = self.world_stakes_consent(action.actor_id, source_events);
+        let seed = self.world_simulation_seed();
+        let Some(pulse) = self.world_simulation.advance_if_due(
+            &seed,
+            self.world.tick,
+            entropy,
+            source_location_id,
+            stakes_consent.as_ref().map(|(consent, _, _)| *consent),
+        ) else {
+            return Vec::new();
+        };
+
+        let mut events = Vec::new();
+        let weather_location = self
+            .location_name(pulse.weather.location_id)
+            .unwrap_or_else(|| format!("Location {}", pulse.weather.location_id));
+        events.push(self.append_world_history_event(
+            "world.weather.shifted",
+            pulse.weather.location_id,
+            None,
+            format!(
+                "{} — {weather_location}: {} gives way to {} (intensity {}). Travel there to witness the changed atmosphere; nothing is at risk.",
+                pulse.weather.class.as_str(),
+                pulse.weather.before,
+                pulse.weather.after,
+                pulse.weather.intensity
+            ),
+            pulse.source_world_tick,
+            source_location_id,
+            caused_by_event_seq,
+        ));
+
+        let trade_origin = self
+            .location_name(pulse.trade.from_location_id)
+            .unwrap_or_else(|| format!("Location {}", pulse.trade.from_location_id));
+        let trade_destination = self
+            .location_name(pulse.trade.to_location_id)
+            .unwrap_or_else(|| format!("Location {}", pulse.trade.to_location_id));
+        let (trade_type, trade_content) = if pulse.trade.moved {
+            (
+                "world.trade.flowed",
+                format!(
+                    "{} — A caravan carries {} {} from {trade_origin} to {trade_destination}; {}. Travelers can follow the route while stock is moving.",
+                    pulse.trade.class.as_str(),
+                    pulse.trade.amount,
+                    pulse.trade.resource,
+                    pulse.trade.reason
+                ),
+            )
+        } else {
+            (
+                "world.trade.disrupted",
+                format!(
+                    "{} — The {} route from {trade_origin} to {trade_destination} fails: {}. Travelers can visit either end to answer the shortage.",
+                    pulse.trade.class.as_str(),
+                    pulse.trade.resource,
+                    pulse.trade.reason
+                ),
+            )
+        };
+        events.push(self.append_world_history_event(
+            trade_type,
+            pulse.trade.from_location_id,
+            Some(pulse.trade.to_location_id),
+            trade_content,
+            pulse.source_world_tick,
+            source_location_id,
+            caused_by_event_seq,
+        ));
+
+        if let Some(faction) = pulse.faction.as_ref() {
+            let from_name = self
+                .location_name(faction.from_location_id)
+                .unwrap_or_else(|| format!("Location {}", faction.from_location_id));
+            let to_name = self
+                .location_name(faction.to_location_id)
+                .unwrap_or_else(|| format!("Location {}", faction.to_location_id));
+            let opposition = if faction.opposed_faction_ids.is_empty() {
+                "no rival answers yet".to_string()
+            } else {
+                format!(
+                    "opposition answers from {}",
+                    faction.opposed_faction_ids.join(", ")
+                )
+            };
+            events.push(self.append_world_history_event(
+                "world.faction.influence_shifted",
+                faction.from_location_id,
+                Some(faction.to_location_id),
+                format!(
+                    "{} — {} carries its doctrine from {from_name} to {to_name}; influence rises {}→{}, and {opposition}. Travelers can answer the claim at {to_name}.",
+                    faction.class.as_str(),
+                    faction.faction_name,
+                    faction.influence_before,
+                    faction.influence_after
+                ),
+                pulse.source_world_tick,
+                source_location_id,
+                caused_by_event_seq,
+            ));
+        }
+
+        if pulse.conflict.after != pulse.conflict.before || pulse.conflict.escalated {
+            let conflict_location = self
+                .location_name(pulse.conflict.location_id)
+                .unwrap_or_else(|| format!("Location {}", pulse.conflict.location_id));
+            let event_type = if pulse.conflict.escalated {
+                "world.conflict.escalated"
+            } else if pulse.conflict.after > pulse.conflict.before {
+                "world.conflict.pressure_grew"
+            } else {
+                "world.conflict.pressure_eased"
+            };
+            let front_note = if pulse.conflict.front_ids.is_empty() {
+                " Travelers can visit and watch for a local response.".to_string()
+            } else {
+                format!(
+                    " Travelers can answer {} before pressure grows again.",
+                    pulse.conflict.front_ids.join(", ")
+                )
+            };
+            let conflict_cause = if pulse.conflict.class == PulseEffectClass::Stakes {
+                stakes_consent.as_ref().map(|(_, event_seq, _)| *event_seq)
+            } else {
+                caused_by_event_seq
+            };
+            events.push(self.append_world_history_event(
+                event_type,
+                pulse.conflict.location_id,
+                None,
+                format!(
+                    "{} — {conflict_location}: conflict pressure shifts {}→{} because {}.{front_note}",
+                    pulse.conflict.class.as_str(),
+                    pulse.conflict.before,
+                    pulse.conflict.after,
+                    pulse.conflict.reason
+                ),
+                pulse.source_world_tick,
+                source_location_id,
+                conflict_cause,
+            ));
+        }
+
+        if pulse.conflict.escalated && pulse.conflict.class == PulseEffectClass::Stakes {
+            if let Some((consent, stakes_event_seq, clock_id)) = stakes_consent
+                .as_ref()
+                .filter(|(consent, _, _)| consent.location_id == pulse.conflict.location_id)
+            {
+                let mut clock_events =
+                    self.advance_clock(clock_id, 1, action.actor_id, "consented_world_stakes");
+                for event in &mut clock_events {
+                    event.caused_by_event_seq = Some(*stakes_event_seq);
+                    event.source_world_tick = Some(pulse.source_world_tick);
+                    event.source_location_id = Some(consent.location_id);
+                    if let Some(logged) = self
+                        .event_log
+                        .iter_mut()
+                        .rev()
+                        .find(|logged| logged.seq == event.seq)
+                    {
+                        *logged = event.clone();
+                    }
+                }
+                events.extend(clock_events);
+            }
+        }
+        events
     }
 
     fn apply_player_tick_frontier_resets(
@@ -18447,6 +19001,7 @@ impl RuntimeWorld {
                     persona: meta.persona,
                     memory: meta.memory,
                     factions: faction_refs_for_location(location.id),
+                    simulation: self.location_simulation_view(location.id),
                     public: access_rule.required_grant_id.is_none()
                         && access_rule.required_card_id.is_none(),
                     accessible,
@@ -18475,6 +19030,7 @@ impl RuntimeWorld {
             current_location_id,
             access: access_view,
             factions: faction_views(),
+            simulation: self.world_simulation_view(),
             locations,
         }
     }
@@ -23063,7 +23619,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             box_burn_verifier_configured: state.box_burn_verifier.as_ref().is_some(),
         },
         combat: MetaCombat {
-            protocol: "cosyworld.combat/2",
+            protocol: "cosyworld.combat/3",
             kernel_version: CW_KERNEL_VERSION,
             action_economy: "one_action_per_turn",
             resolution: "nonlethal_subdual_at_1_hp",
@@ -28763,9 +29319,9 @@ async fn request_ai_avatar_chat(
         .map(|subject| format!("Fresh conversation subject: {subject}. Stay on it."))
         .unwrap_or_else(|| "Follow only the freshest resident line.".to_string());
     let system = if followup {
-        "You write the player avatar's brief follow-up in an ongoing cozy conversation. Respond directly to the freshest resident line and continue only its current subject. Never introduce an item, request, goal, or place that is absent from the two freshest lines. Keep one concrete room detail in play and leave a small closing hook. Do not restart the conversation. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Keep it under 28 words."
+        "You write the player avatar's brief follow-up in an ongoing cozy conversation. Respond directly to the freshest resident line and continue only its current subject. Never introduce an item, request, goal, or place that is absent from the two freshest lines. Keep one concrete room detail in play and leave a small closing hook. Do not restart the conversation. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Plain words and concrete nouns; no lyric flourishes; never attribute feelings or memories to objects. Keep it under 28 words."
     } else {
-        "You write one in-character line for the player avatar after the human presses Chat. Make the line feel intentionally authored: use one concrete detail from the room, recent dialogue, or the target resident's continuity/current need, and give the resident an easy hook to answer. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Keep it under 34 words."
+        "You write one in-character line for the player avatar after the human presses Chat. Make the line feel intentionally authored: use one concrete detail from the room, recent dialogue, or the target resident's continuity/current need, and give the resident an easy hook to answer. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Plain words and concrete nouns; no lyric flourishes; never attribute feelings or memories to objects. Keep it under 34 words."
     };
     let user = format!(
         "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nTarget resident: {target} / {target_title}\nTarget continuity:\n{target_continuity}\nTarget economy:\n{target_economy}\nCast present: {cast}\n{need}\n{fresh_subject}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
@@ -30605,7 +31161,7 @@ fn drive_combat_npc_turns(
         };
         let record = JournalRecord::new(
             CwAction {
-                kind: CW_ACTION_COMBAT_ATTACK,
+                kind: CW_ACTION_COMBAT_FINESSE_ATTACK,
                 actor_id,
                 target_actor_id,
                 content_id: encounter_id,
@@ -30787,7 +31343,7 @@ async fn apply_combat_choice(
 
     let action = match choice {
         CombatChoice::Attack { target_actor_id } => CwAction {
-            kind: CW_ACTION_COMBAT_ATTACK,
+            kind: CW_ACTION_COMBAT_FINESSE_ATTACK,
             actor_id,
             target_actor_id,
             content_id: encounter_id,
@@ -32940,7 +33496,7 @@ fn automatic_orb_reward_for_action(
                     })
             }
         }
-        CW_ACTION_COMBAT_ATTACK => events
+        CW_ACTION_COMBAT_ATTACK | CW_ACTION_COMBAT_FINESSE_ATTACK => events
             .iter()
             .find(|event| {
                 event.type_name == "combat.encounter.resolved"
@@ -33475,6 +34031,8 @@ fn normalize_job_status(value: &str) -> Option<&'static str> {
 
 fn combat_encounter_id(job_id: &str) -> u64 {
     let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    // Encounter identity predates the finesse rules and remains stable across
+    // protocol revisions so restored snapshots still map back to their jobs.
     for byte in b"cosyworld.combat/2:"
         .iter()
         .copied()
@@ -38300,6 +38858,10 @@ mod tests {
         assert!(INDEX_HTML.contains("id=\"economy\""));
         assert!(INDEX_HTML.contains("aria-expanded=\"false\" aria-controls=\"log\""));
         assert!(INDEX_HTML.contains("function toggleAccountPanel"));
+        assert!(INDEX_HTML.contains("function ensureWorldView"));
+        assert!(INDEX_HTML.contains("function worldChronicleHtml"));
+        assert!(INDEX_HTML.contains("the world beyond"));
+        assert!(INDEX_HTML.contains("function localWorldConditionBeat"));
         assert!(INDEX_HTML.contains("accountPanelPinned ? \"close\" : \"account\""));
         assert!(INDEX_HTML.contains("Close your collection and return to room chat"));
         assert!(INDEX_HTML.contains("accountPanelPinned && event.key === \"Escape\""));
@@ -38578,6 +39140,8 @@ mod tests {
         assert!(INDEX_HTML.contains("economy.inventory_capacity"));
         assert!(INDEX_HTML.contains("economy.held_items"));
         assert!(INDEX_HTML.contains("economy.sought_items"));
+        assert!(INDEX_HTML.contains("soughtItem?.world_status"));
+        assert!(INDEX_HTML.contains("currently with ${worldHolderName}"));
         assert!(INDEX_HTML.contains("card-modal-economy"));
         assert!(INDEX_HTML.contains("class=\"account-card-open\""));
         assert!(INDEX_HTML.contains("class=\"account-asset-effect\""));
@@ -44669,7 +45233,7 @@ mod tests {
     }
 
     #[test]
-    fn combat_v2_state_snapshot_and_projection_gate_follow_encounter_turns() {
+    fn combat_v3_state_snapshot_and_projection_gate_follow_encounter_turns() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -44700,7 +45264,7 @@ mod tests {
             .combat
             .as_ref()
             .expect("active encounter is public state");
-        assert_eq!(combat.protocol, "cosyworld.combat/2");
+        assert_eq!(combat.protocol, "cosyworld.combat/3");
         assert_eq!(combat.encounter_id, encounter_id);
         assert_eq!(combat.round, 1);
         assert_eq!(combat.participants.len(), 2);
@@ -44776,7 +45340,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn combat_v2_route_filters_targets_and_drives_npc_turns_to_resolution() {
+    async fn combat_v3_route_filters_targets_and_drives_npc_turns_to_resolution() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -44790,8 +45354,8 @@ mod tests {
             .iter_mut()
             .find(|actor| actor.id == 5000)
             .expect("test human exists");
-        human.stats.strength = 100;
-        human.stats.dexterity = 1;
+        human.stats.strength = 1;
+        human.stats.dexterity = 100;
         human.stats.hp_base = 100;
         human.damage = 0;
         let echo = runtime
@@ -44802,7 +45366,7 @@ mod tests {
             .expect("Moonlit encounter target exists");
         echo.stats.strength = 1;
         echo.stats.dexterity = 50;
-        echo.stats.hp_base = 2;
+        echo.stats.hp_base = 100;
         echo.damage = 0;
         let unrelated = runtime
             .world
@@ -45885,7 +46449,7 @@ mod tests {
         assert_eq!(content.manifest.packs.len(), 7);
         assert!(content.manifest.bundle_hash.starts_with("sha256:"));
         assert!(content.manifest.description.contains("seed world"));
-        assert_eq!(content.actors.len(), 55);
+        assert_eq!(content.actors.len(), 56);
         assert_eq!(content.access_gates.len(), 6);
         assert_eq!(content.factions.len(), 12);
         assert_eq!(content.items.len(), 14);
@@ -45902,18 +46466,60 @@ mod tests {
         assert_eq!(content.hidden_exits.len(), 1);
         assert_eq!(content.room_features.len(), 36);
         assert_eq!(content.room_sheets.len(), 48);
-        assert_eq!(content.clocks.len(), 6);
-        assert_eq!(content.jobs.len(), 3);
+        assert_eq!(content.clocks.len(), 12);
+        assert_eq!(content.jobs.len(), 6);
         assert!(content
             .jobs
             .iter()
             .all(|job| job.reward.orbs() == 2 && !job.reward.label().is_empty()));
-        assert_eq!(content.fronts.len(), 3);
+        assert_eq!(content.fronts.len(), 6);
         assert_eq!(content.cards.len(), 115);
-        assert_eq!(content.lifecycle_hooks.len(), 21);
+        assert_eq!(content.lifecycle_hooks.len(), 27);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 1);
         assert_eq!(content.rules.len(), 2);
+        let nib = content
+            .actors
+            .iter()
+            .find(|actor| actor.id == 1070)
+            .expect("Goblin Market resident");
+        assert_eq!(nib.location_id, Some(34));
+        let goblin_market = content
+            .factions
+            .iter()
+            .find(|faction| faction.id == "goblin_market")
+            .expect("Goblin Market faction");
+        assert_eq!(goblin_market.member_actor_ids, vec![1070]);
+        let great_library = content
+            .factions
+            .iter()
+            .find(|faction| faction.id == "great_library")
+            .expect("Great Library faction");
+        assert!(great_library.player_facing);
+        assert!(great_library.member_actor_ids.is_empty());
+        for (location_id, allow_combat) in
+            [(3, true), (34, false), (42, true), (60, true), (61, false)]
+        {
+            assert_eq!(
+                content
+                    .locations
+                    .iter()
+                    .find(|location| location.id == location_id)
+                    .map(|location| location.allow_combat),
+                Some(allow_combat),
+                "combat affordance for location {location_id}"
+            );
+        }
+        for (job_id, participant_id) in [
+            ("haunted-mansion:earn-the-threshold", 1040),
+            ("turgid-swamp:amend-the-ledger", 1063),
+        ] {
+            assert!(content.jobs.iter().any(|job| {
+                job.id == job_id
+                    && job.status == "active"
+                    && job.participant_ids == vec![participant_id]
+            }));
+        }
         for namespace in ["srd5.1", "srd5.2.1"] {
             let srd = content
                 .rules
@@ -46714,7 +47320,7 @@ mod tests {
             .iter()
             .filter(|actor| actor.location_id.is_some())
             .collect();
-        assert_eq!(placed_seed_actors.len(), 55);
+        assert_eq!(placed_seed_actors.len(), 56);
         for actor in placed_seed_actors {
             let world_actor = runtime.actor_by_id(actor.id).expect("placed seed actor");
             assert_eq!(world_actor.location_id, actor.location_id.unwrap());
@@ -47646,6 +48252,20 @@ mod tests {
         assert_eq!(sought_story.source, "personal");
         assert!(sought_story.reason.contains("Rati wants Story Button"));
         assert!(sought_story.reason.contains("blue scarf"));
+        assert_eq!(sought_story.world_status, "held");
+        assert_eq!(sought_story.world_holder_actor_id, Some(5000));
+        assert_eq!(
+            sought_story.world_holder_actor_name.as_deref(),
+            Some("Trader Guest")
+        );
+        assert_eq!(
+            sought_story.world_location_id,
+            Some(COSY_COTTAGE_LOCATION_ID)
+        );
+        assert_eq!(
+            sought_story.world_location_name.as_deref(),
+            Some("The Cosy Cottage")
+        );
         assert_eq!(
             sought_story.memory_location_id,
             Some(COSY_COTTAGE_LOCATION_ID)
@@ -47709,6 +48329,73 @@ mod tests {
             .find(|offer| offer.kind == "trade_item")
             .and_then(|offer| offer.effect.as_deref())
             .is_some_and(|effect| effect.contains("wants Story Button")));
+    }
+
+    #[test]
+    fn sought_item_availability_tracks_the_single_world_object() {
+        let mut runtime = RuntimeWorld::seeded();
+        let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+
+        {
+            let story_button = runtime
+                .world
+                .items
+                .iter_mut()
+                .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+                .expect("Story Button exists");
+            story_button.location_id = 0;
+            story_button.holder_actor_id = 1002;
+            story_button.charges = 1;
+        }
+        let held = runtime.resident_sought_item_view(rati, STORY_BUTTON_ITEM_ID);
+        assert_eq!(held.world_status, "held");
+        assert_eq!(held.world_holder_actor_id, Some(1002));
+        assert_eq!(held.world_holder_actor_name.as_deref(), Some("Gust"));
+        assert_eq!(held.world_location_id, Some(COSY_COTTAGE_LOCATION_ID));
+
+        {
+            let story_button = runtime
+                .world
+                .items
+                .iter_mut()
+                .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+                .expect("Story Button exists");
+            story_button.location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+            story_button.holder_actor_id = 0;
+        }
+        let available = runtime.resident_sought_item_view(rati, STORY_BUTTON_ITEM_ID);
+        assert_eq!(available.world_status, "available");
+        assert_eq!(
+            available.world_location_name.as_deref(),
+            Some("Rain-Soft Garden")
+        );
+        assert_eq!(available.world_holder_actor_id, None);
+
+        {
+            let story_button = runtime
+                .world
+                .items
+                .iter_mut()
+                .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+                .expect("Story Button exists");
+            story_button.location_id = 0;
+        }
+        let hidden = runtime.resident_sought_item_view(rati, STORY_BUTTON_ITEM_ID);
+        assert_eq!(hidden.world_status, "hidden");
+        assert_eq!(hidden.world_location_id, Some(COSY_COTTAGE_LOCATION_ID));
+
+        {
+            let story_button = runtime
+                .world
+                .items
+                .iter_mut()
+                .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+                .expect("Story Button exists");
+            story_button.charges = 0;
+        }
+        let spent = runtime.resident_sought_item_view(rati, STORY_BUTTON_ITEM_ID);
+        assert_eq!(spent.world_status, "spent");
+        assert_eq!(spent.world_location_id, None);
     }
 
     #[test]
@@ -56111,6 +56798,241 @@ mod tests {
         let unrelated_ownership = OwnershipIndex::parse("w1:location-science-lab|w2:cosy-skull");
         runtime.apply_wallet_overlap_placements(&unrelated_ownership, 0);
         assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 1);
+    }
+
+    #[test]
+    fn played_time_pulse_mutates_and_records_distant_world_history() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Distant Witness",
+        );
+
+        let ticks_until_pulse =
+            WORLD_PULSE_INTERVAL_TICKS - (runtime.world.tick % WORLD_PULSE_INTERVAL_TICKS);
+        let mut pulse_events = Vec::new();
+        for offset in 0..ticks_until_pulse {
+            let action = CwAction {
+                kind: CW_ACTION_ABILITY_CHECK,
+                actor_id: 5000,
+                ability: LISTEN_ABILITY,
+                dc: LISTEN_DC,
+                ..CwAction::default()
+            };
+            let (status, events) =
+                runtime.apply_journal_record(&JournalRecord::new(action, 80_001 + offset));
+            assert_eq!(status, CW_OK);
+            if events
+                .iter()
+                .any(|event| event.type_name == "world.weather.shifted")
+            {
+                pulse_events = events;
+            }
+        }
+
+        assert_eq!(runtime.world.tick % WORLD_PULSE_INTERVAL_TICKS, 0);
+        assert_eq!(runtime.world_simulation.pulse_index, 1);
+        assert_eq!(
+            runtime.world_simulation.last_advanced_tick,
+            runtime.world.tick
+        );
+        assert!(pulse_events
+            .iter()
+            .any(|event| event.type_name == "world.weather.shifted"));
+        assert!(pulse_events.iter().any(|event| matches!(
+            event.type_name.as_str(),
+            "world.trade.flowed" | "world.trade.disrupted"
+        )));
+        assert!(!pulse_events
+            .iter()
+            .any(|event| event.type_name == "world.conflict.escalated"));
+        assert!(!pulse_events.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.content.as_deref() == Some("consented_world_stakes")
+        }));
+        assert!(pulse_events
+            .iter()
+            .filter(|event| event.type_name.starts_with("world."))
+            .all(|event| {
+                event.location_id != Some(COSY_COTTAGE_LOCATION_ID)
+                    && event.destination_location_id != Some(COSY_COTTAGE_LOCATION_ID)
+                    && event.source_location_id == Some(COSY_COTTAGE_LOCATION_ID)
+                    && event.source_world_tick == Some(runtime.world.tick)
+            }));
+
+        let world = runtime.world_response(Some(5000), &AccessContext::default());
+        assert_eq!(world.simulation.pulse_index, 1);
+        assert!(!world.simulation.recent_history.is_empty());
+        assert!(world.simulation.recent_history.windows(2).all(|pair| {
+            pair[0].source_world_tick > pair[1].source_world_tick
+                || (pair[0].source_world_tick == pair[1].source_world_tick
+                    && pair[0].seq < pair[1].seq)
+        }));
+        assert!(runtime
+            .world_simulation
+            .locations
+            .values()
+            .any(|location| location.last_pulse_tick > 0));
+    }
+
+    #[test]
+    fn world_simulation_survives_snapshot_and_journal_style_replay() {
+        let mut records = Vec::new();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let mut create_record = JournalRecord::new(create, 81_000);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "History Keeper".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Replay Witness".to_string(),
+                description: "A test avatar watching the far world move.".to_string(),
+            },
+        );
+        records.push(create_record);
+        for seed in 81_001..=81_011 {
+            records.push(JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_ABILITY_CHECK,
+                    actor_id: 5000,
+                    ability: LISTEN_ABILITY,
+                    dc: LISTEN_DC,
+                    ..CwAction::default()
+                },
+                seed,
+            ));
+        }
+
+        let mut first = RuntimeWorld::seeded();
+        let mut replay = RuntimeWorld::seeded();
+        for record in &records {
+            assert_eq!(first.apply_journal_record(record).0, CW_OK);
+            assert_eq!(replay.apply_journal_record(record).0, CW_OK);
+        }
+        assert_eq!(first.world_simulation, replay.world_simulation);
+        let first_history = first
+            .event_log
+            .iter()
+            .filter(|event| event.type_name.starts_with("world."))
+            .map(|event| (event.type_name.clone(), event.content.clone()))
+            .collect::<Vec<_>>();
+        let replay_history = replay
+            .event_log
+            .iter()
+            .filter(|event| event.type_name.starts_with("world."))
+            .map(|event| (event.type_name.clone(), event.content.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(first_history, replay_history);
+
+        let snapshot = RuntimeSnapshot::from_runtime(&first);
+        let restored = snapshot
+            .into_runtime()
+            .expect("simulation snapshot restores");
+        assert_eq!(restored.world_simulation, first.world_simulation);
+        assert_eq!(
+            restored.world_simulation_view().recent_history.len(),
+            first.world_simulation_view().recent_history.len()
+        );
+    }
+
+    #[test]
+    fn consented_frontier_pulse_classifies_beats_and_advances_only_the_local_clock() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Front Participant",
+        );
+        runtime.world.tick = WORLD_PULSE_INTERVAL_TICKS;
+        runtime.world_simulation.last_advanced_tick = 0;
+        runtime
+            .world_simulation
+            .locations
+            .get_mut(&MOONLIT_TRAIL_LOCATION_ID)
+            .expect("moonlit frontier simulation")
+            .conflict_pressure = 3;
+        let danger_before = runtime
+            .clocks
+            .get(MOONLIT_DANGER_CLOCK_ID)
+            .expect("moonlit danger clock")
+            .filled;
+        let source_event = EventView {
+            seq: runtime.world.next_event_seq,
+            type_name: "clock.updated".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            actor_name: Some("Front Participant".to_string()),
+            location_id: Some(MOONLIT_TRAIL_LOCATION_ID),
+            location_name: runtime.location_name(MOONLIT_TRAIL_LOCATION_ID),
+            clock_id: Some(MOONLIT_PROGRESS_CLOCK_ID.to_string()),
+            clock_kind: Some("progress".to_string()),
+            content: Some("work".to_string()),
+            ..EventView::default()
+        };
+        runtime.world.next_event_seq += 1;
+        runtime.push_projected_event(source_event.clone());
+
+        let events = runtime.apply_played_time_world_simulation(
+            &CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            91_337,
+            std::slice::from_ref(&source_event),
+        );
+        let weather = events
+            .iter()
+            .find(|event| event.type_name == "world.weather.shifted")
+            .expect("ambient beat is public history");
+        assert!(weather
+            .content
+            .as_deref()
+            .is_some_and(|content| content.starts_with("ambient —")));
+        let trade = events
+            .iter()
+            .find(|event| event.type_name.starts_with("world.trade."))
+            .expect("opportunity beat is public history");
+        assert!(trade
+            .content
+            .as_deref()
+            .is_some_and(|content| content.starts_with("opportunity —")));
+        let escalation = events
+            .iter()
+            .find(|event| event.type_name == "world.conflict.escalated")
+            .expect("consented stakes beat is public history");
+        assert_eq!(escalation.location_id, Some(MOONLIT_TRAIL_LOCATION_ID));
+        assert_eq!(escalation.caused_by_event_seq, Some(source_event.seq));
+        assert!(escalation
+            .content
+            .as_deref()
+            .is_some_and(|content| content.starts_with("stakes —")));
+        let danger = events
+            .iter()
+            .find(|event| {
+                event.type_name == "clock.updated"
+                    && event.content.as_deref() == Some("consented_world_stakes")
+            })
+            .expect("stakes advances the relevant danger clock");
+        assert_eq!(danger.location_id, Some(MOONLIT_TRAIL_LOCATION_ID));
+        assert_eq!(danger.caused_by_event_seq, Some(source_event.seq));
+        assert_eq!(danger.source_world_tick, Some(WORLD_PULSE_INTERVAL_TICKS));
+        assert_eq!(danger.source_location_id, Some(MOONLIT_TRAIL_LOCATION_ID));
+        assert_eq!(danger.clock_delta, Some(1));
+        assert_eq!(
+            runtime
+                .clocks
+                .get(MOONLIT_DANGER_CLOCK_ID)
+                .expect("moonlit danger clock")
+                .filled,
+            danger_before + 1
+        );
     }
 }
 #[derive(Debug, Serialize)]

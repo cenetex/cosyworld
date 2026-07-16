@@ -307,7 +307,9 @@
       "echoes": 3,
       "glitter": 2
     },
-    "projects": []
+    "projects": [
+      "goblin-cave:name-the-price"
+    ]
   },
   {
     "id": "room:35",
@@ -419,7 +421,9 @@
       "candles": 3,
       "dust": 2
     },
-    "projects": []
+    "projects": [
+      "haunted-mansion:earn-the-threshold"
+    ]
   },
   {
     "id": "room:43",
@@ -507,7 +511,9 @@
       "reeds": 3,
       "murk": 2
     },
-    "projects": []
+    "projects": [
+      "turgid-swamp:amend-the-ledger"
+    ]
   },
   {
     "id": "room:61",

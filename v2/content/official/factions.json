@@ -232,6 +232,7 @@
     "home_location_ids": [
       50
     ],
+    "player_facing": true,
     "member_actor_ids": [],
     "pack_id": "cosyworld.core"
   },
@@ -322,7 +323,9 @@
     "home_location_ids": [
       34
     ],
-    "member_actor_ids": [],
+    "member_actor_ids": [
+      1070
+    ],
     "pack_id": "cosyworld.core"
   },
   {

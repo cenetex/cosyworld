@@ -5,7 +5,7 @@
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:b58fc657fe588a52d25bfa2755a570b3c5df5a33f62e9f286847397c352324db",
+  "bundle_hash": "sha256:80c9223e73a4cc2a8103f3c8dc4c5f60a6b54189a7b2e95dcea21844ad742fb1",
   "packs": [
     {
       "id": "cosyworld.core",
@@ -16,7 +16,7 @@
       "license": "MIT",
       "dependencies": [],
       "resource_counts": {
-        "actors": 35,
+        "actors": 36,
         "access_gates": 6,
         "factions": 12,
         "items": 10,
@@ -25,11 +25,11 @@
         "hidden_exits": 1,
         "room_features": 16,
         "room_sheets": 28,
-        "clocks": 4,
-        "jobs": 2,
-        "fronts": 2,
+        "clocks": 10,
+        "jobs": 5,
+        "fronts": 5,
         "cards": 71,
-        "lifecycle_hooks": 13,
+        "lifecycle_hooks": 19,
         "evolution_tracks": 3,
         "recipes": 1,
         "external_cards": 0,
@@ -41,7 +41,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:5d98b183981abf92cd0c506aa2dd81a3db8cf1db4dacb525d56c804cc3b05008"
+      "integrity": "sha256:40fad378a8b89b4923f5722abae8bc31188b7be67de221298af1723442e58280"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -194,7 +194,7 @@
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:b6a36cc1ec92fb8844ceb4777b838377ce309464300045adce8206b94805d236"
+      "integrity": "sha256:2240e3270ea02d49bf4a9d8ddcf2baf297452ba8935379afeb3ccbb1e109c151"
     },
     {
       "id": "cosyworld.lonely-forest.characters",

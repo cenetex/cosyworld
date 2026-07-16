@@ -320,7 +320,9 @@
       "echoes": 3,
       "glitter": 2
     },
-    "projects": [],
+    "projects": [
+      "goblin-cave:name-the-price"
+    ],
     "pack_id": "cosyworld.core"
   },
   {
@@ -437,7 +439,9 @@
       "candles": 3,
       "dust": 2
     },
-    "projects": [],
+    "projects": [
+      "haunted-mansion:earn-the-threshold"
+    ],
     "pack_id": "cosyworld.core"
   },
   {
@@ -529,7 +533,9 @@
       "reeds": 3,
       "murk": 2
     },
-    "projects": [],
+    "projects": [
+      "turgid-swamp:amend-the-ledger"
+    ],
     "pack_id": "cosyworld.core"
   },
   {

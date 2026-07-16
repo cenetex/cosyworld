@@ -17,7 +17,7 @@ pub const CW_MAX_COMBAT_ENCOUNTERS: usize = 32;
 pub const CW_MAX_COMBAT_PARTICIPANTS: usize = 16;
 pub const CW_INVENTORY_BASE_SLOTS: usize = 1;
 
-pub const CW_KERNEL_VERSION: u32 = 2;
+pub const CW_KERNEL_VERSION: u32 = 3;
 
 pub const CW_OK: u32 = 0;
 
@@ -71,6 +71,7 @@ pub const CW_ACTION_COMBAT_JOIN: u8 = 16;
 pub const CW_ACTION_COMBAT_ATTACK: u8 = 17;
 pub const CW_ACTION_COMBAT_DODGE: u8 = 18;
 pub const CW_ACTION_COMBAT_ESCAPE: u8 = 19;
+pub const CW_ACTION_COMBAT_FINESSE_ATTACK: u8 = 20;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;

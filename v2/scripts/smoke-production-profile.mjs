@@ -203,6 +203,8 @@ async function main() {
     COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER: feedToken,
     COSYWORLD_RUBY_HIGH_WALLET_CARDS_REFRESH_SECS: "0",
     COSYWORLD_MODERATION_TOKEN: "production-profile-smoke-moderator",
+    COSYWORLD_WEBAUTHN_RP_ID: "localhost",
+    COSYWORLD_WEBAUTHN_ORIGIN: `http://localhost:${port}`,
     COSYWORLD_BOX_BURN_SOLANA_RPC_URL: rpc.url,
     COSYWORLD_BOX_CORE_COLLECTION_ADDRESS: boxCollectionAddress,
     COSYWORLD_V2_SNAPSHOT_PATH: resolve(tempDir, "snapshot.json"),

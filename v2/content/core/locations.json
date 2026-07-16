@@ -174,7 +174,7 @@
       "Alpine Forest muffles the cave mouth.",
       "Circle of the Moon can silver even this dark."
     ],
-    "allow_combat": true
+    "allow_combat": false
   },
   {
     "id": 35,
@@ -296,7 +296,7 @@
       "Turgid Swamp feeds its roots with dark water.",
       "Endless Ocean can be heard before it is seen."
     ],
-    "allow_combat": true
+    "allow_combat": false
   },
   {
     "id": 62,

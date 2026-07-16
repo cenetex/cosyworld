@@ -886,5 +886,29 @@
       "hp_base": 12,
       "level": 1
     }
+  },
+  {
+    "id": 1070,
+    "name": "Nib",
+    "speech_mode": "prose",
+    "title": "Goblin Market Loophole Clerk",
+    "description": "A small goblin with an enormous receipt roll who offers three prices for everything, circles the kindest one in green, and becomes offended when nobody reads the fine print.",
+    "location_id": 34,
+    "desires": [
+      {
+        "item_id": 2005,
+        "reason": "a Story Button would make an excellent seal for the first contract whose kindest price survives the fine print"
+      }
+    ],
+    "stats": {
+      "strength": 7,
+      "dexterity": 15,
+      "constitution": 10,
+      "intelligence": 16,
+      "wisdom": 13,
+      "charisma": 17,
+      "hp_base": 10,
+      "level": 1
+    }
   }
 ]

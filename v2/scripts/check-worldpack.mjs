@@ -32,9 +32,14 @@ const allowedEntitlementAuthorityTypes = new Set(["asset_feed", "solana_collecti
 const supportedRuleResources = new Set(["conditions", "monster_seeds"]);
 
 const failures = [];
+const warnings = [];
 
 function fail(message) {
   failures.push(message);
+}
+
+function warn(message) {
+  warnings.push(message);
 }
 
 function readJson(fileName) {
@@ -455,6 +460,7 @@ const evolutionTracks = content.evolution_tracks;
 const recipes = content.recipes;
 
 const actorIds = idSet("actors", actors, (actor) => actor.id);
+const actorById = new Map(actors.map((actor) => [actor.id, actor]));
 const itemIds = idSet("items", items, (item) => item.id);
 const locationIds = idSet("locations", locations, (location) => location.id);
 const clockIds = idSet("clocks", clocks, (clock) => clock.id);
@@ -772,6 +778,19 @@ for (const job of jobs) {
   }
 }
 
+for (const location of locations) {
+  if (!location.allow_combat) continue;
+  const hasLocalEncounter = jobs.some((job) => {
+    const active = !isNonEmptyString(job.status) || job.status === "active";
+    return active
+      && (job.location_ids ?? []).includes(location.id)
+      && (job.participant_ids ?? []).some((actorId) => actorById.get(actorId)?.location_id === location.id);
+  });
+  if (!hasLocalEncounter) {
+    warn(`combat-capable location ${location.id} (${location.name}) has no active job with a participant in the room`);
+  }
+}
+
 for (const front of fronts) {
   validateRequiredStrings("front", front, ["id", "premise", "zone", "status", "portent_clock_id", "impending_outcome"]);
   if (!["frontier"].includes(front.zone)) {
@@ -869,6 +888,12 @@ for (const gate of accessGates) {
 const factionIds = idSet("factions", factions, (faction) => faction.id);
 for (const faction of factions) {
   validateRequiredStrings("faction", faction, ["id", "name", "axis", "truth", "shadow", "doctrine"]);
+  if (faction.player_facing !== undefined && typeof faction.player_facing !== "boolean") {
+    fail(`faction ${faction.id} player_facing must be a boolean`);
+  }
+  if ((faction.member_actor_ids ?? []).length === 0 && faction.player_facing !== true) {
+    warn(`faction ${faction.id} has no member actors and is not marked player_facing`);
+  }
   for (const locationId of faction.home_location_ids ?? []) {
     if (!has(locationIds, locationId)) {
       fail(`faction ${faction.id} references missing home location ${locationId}`);
@@ -1173,6 +1198,33 @@ function buildWorldpackReport() {
     }
   }
   const hooksByTarget = groupBy(lifecycleHooks, (hook) => `${hook.target_kind}:${hook.target_id}`);
+  const worldItemEconomy = sorted(items, byNumberThenName).map((item) => {
+    const desires = actors
+      .filter((actor) => (actor.desires ?? []).some((desire) => desire.item_id === item.id))
+      .map((actor) => ({ actor_id: actor.id, actor_name: actor.name }));
+    const attachments = actors
+      .filter((actor) => (actor.attachments ?? []).some((attachment) => attachment.item_id === item.id))
+      .map((actor) => ({ actor_id: actor.id, actor_name: actor.name }));
+    const evolutionRequirements = evolutionTracks
+      .filter((track) => (track.requirements ?? []).some((requirement) => requirement.item_id === item.id))
+      .map((track) => ({ actor_id: track.actor_id, actor_name: actors.find((actor) => actor.id === track.actor_id)?.name ?? null }));
+    const recipeInputs = recipes
+      .filter((recipe) => (recipe.input_item_ids ?? []).includes(item.id))
+      .map((recipe) => ({ recipe_id: recipe.id, recipe_name: recipe.name }));
+    const demand = desires.length + attachments.length + evolutionRequirements.length + recipeInputs.length;
+    return {
+      item_id: item.id,
+      item_name: item.name,
+      pack_id: item.pack_id ?? null,
+      world_supply: 1,
+      demand,
+      contested: demand > 1,
+      desires,
+      attachments,
+      evolution_requirements: evolutionRequirements,
+      recipe_inputs: recipeInputs,
+    };
+  });
 
   const locationReports = sorted(locations, byNumberThenName).map((location) => {
     const sheet = sheetByLocation.get(location.id) ?? null;
@@ -1282,6 +1334,7 @@ function buildWorldpackReport() {
       reward_orbs: jobRewardOrbs(job.reward),
       consequence: job.consequence,
     })),
+    world_item_economy: worldItemEconomy,
     fronts: sorted(fronts, (a, b) => a.id.localeCompare(b.id)).map((front) => ({
       id: front.id,
       status: front.status,
@@ -1343,6 +1396,15 @@ function printWorldpackReport(report) {
       console.log(`- ${front.id} ${front.status} portent=${front.portent_clock_id} jobs=${front.job_ids.join(",")}`);
     }
   }
+  const demandedItems = report.world_item_economy.filter((item) => item.demand > 0);
+  if (demandedItems.length) {
+    console.log("world item economy (shard-local supply only):");
+    for (const item of demandedItems) {
+      console.log(
+        `- ${item.item_id} ${item.item_name} supply=${item.world_supply} demand=${item.demand} desires=${item.desires.length} attachments=${item.attachments.length} evolution=${item.evolution_requirements.length} recipes=${item.recipe_inputs.length}${item.contested ? " contested" : ""}`
+      );
+    }
+  }
   if (report.lifecycle_hooks.length) {
     console.log("lifecycle hooks:");
     for (const hook of report.lifecycle_hooks) {
@@ -1369,6 +1431,10 @@ if (failures.length > 0) {
     console.error(`- ${failure}`);
   }
   process.exit(1);
+}
+
+for (const warning of warnings) {
+  console.warn(`worldpack warning: ${warning}`);
 }
 
 if (reportText || reportJson) {

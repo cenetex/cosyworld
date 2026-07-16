@@ -9,7 +9,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:5d98b183981abf92cd0c506aa2dd81a3db8cf1db4dacb525d56c804cc3b05008"
+      "integrity": "sha256:40fad378a8b89b4923f5722abae8bc31188b7be67de221298af1723442e58280"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -45,7 +45,7 @@
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:b6a36cc1ec92fb8844ceb4777b838377ce309464300045adce8206b94805d236"
+      "integrity": "sha256:2240e3270ea02d49bf4a9d8ddcf2baf297452ba8935379afeb3ccbb1e109c151"
     },
     {
       "id": "cosyworld.lonely-forest.characters",

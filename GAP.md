@@ -398,12 +398,13 @@ Implemented (per the RPG Bible's own tracking):
 - Visit Ledger accrual and banking into advancement points; Calling revision; six starter skill steps as spendable choices.
 - Prepare/Rest/Work/Help as projection verbs for the Moonlit job loop.
 - Seed job schema/projection and the first content-backed frontier Front records.
+- Deterministic frontier pulses on every sixth committed player tick: explicitly classified ambient weather, opportunity-level route stock/imports and faction influence/momentum, capped conflict pressure, public response-oriented history, snapshot/journal replay, and same-location consented danger-clock escalation. Sanctuary state and unrelated players are excluded from stakes.
 
 Gap (per the RPG Bible's own tracking):
 
 - Covenant contribution as a banked-advancement spend, and additional banked-advancement choices beyond skill/bond/calling.
 - Migrating generated quests into the new job schema; letting Use/Give/combat move job clocks; job rewards/consequences/completion memory.
-- Offscreen portent-clock movement on the frontier (Fronts currently seed content, not yet a live offscreen-advancing system).
+- The live off-screen reducer can advance an existing danger clock, but it does not yet spawn new Jobs, create physical trade goods, or move residents as consequences.
 - Covenant sheets (boons/hooks/resources/reputation/loyalty), room-owning covenants, and covenant-spawned jobs (RPG Bible Phase 5, not started).
 - Objective clocks in danger rooms, durability-absorbs-harm, and the skill step-up ladder beyond the six starter steps (RPG Bible Phase 6, not started).
 
