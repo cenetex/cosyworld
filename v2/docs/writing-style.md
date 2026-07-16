@@ -65,6 +65,20 @@ discovery text, evolution completion, clock-fill aspects, the deepest zones
 (Dark Abyss keeps its banquet). One poetic line at a real event reads as an
 event. The same line on a doorknob reads as wallpaper.
 
+### 6. Left Sentences (the authored lyric register)
+
+Sentences are where the remaining magic budget is spent. If a lyric line wants
+to exist somewhere else, it is probably a sentence. The canonical corpus lives
+in `v2/content/core/sentences.json`.
+
+- Second person is permitted only here.
+- Use present-tense declarations without hedging. The turn happens once, then
+  stops.
+- Keep whimsy and ontological unease together; avoid bodily horror and gore.
+- No despair without hospitality. Every dark shelf keeps one lit window.
+- "As if" and "seems to" remain authorially banned even though this collection
+  is exempt from ordinary world-prose lint.
+
 ## Review checklist
 
 - [ ] Could this sentence appear on a button a player reads 200 times?
