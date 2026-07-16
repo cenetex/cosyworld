@@ -28,7 +28,7 @@
       "threshold"
     ],
     "look": "The doorway is low enough that even brave guests bow before leaving.",
-    "search": "Old scratch marks near the frame point toward Rain-Soft Garden, Homeroom, and a shadow small enough for Skull.",
+    "search": "Old scratch marks near the frame point toward Rain-Soft Garden and a shadow small enough for Skull.",
     "uses": [
       {
         "item_id": 2007,
@@ -176,19 +176,6 @@
     "look": "A cold anvil waits beside the impossible feast, polished by pronouncements and bad timing.",
     "search": "The anvil rings without being struck.",
     "uses": [],
-    "pack_id": "cosyworld.core"
-  },
-  {
-    "location_id": 10,
-    "key": "lab_bench",
-    "name": "Lab Bench",
-    "aliases": [
-      "bench",
-      "table",
-      "apparatus"
-    ],
-    "look": "A bright bench of small instruments, with room for a second try.",
-    "search": "A note under the bench says: observe first, listen second, revise always.",
     "pack_id": "cosyworld.core"
   },
   {
@@ -362,5 +349,18 @@
       }
     ],
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "location_id": 10,
+    "key": "lab_bench",
+    "name": "Lab Bench",
+    "aliases": [
+      "bench",
+      "table",
+      "apparatus"
+    ],
+    "look": "A bright bench of small instruments, with room for a second try.",
+    "search": "A note under the bench says: observe first, listen second, revise always.",
+    "pack_id": "ruby-high.first-bell"
   }
 ]

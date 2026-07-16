@@ -958,6 +958,7 @@ struct SeedContent {
     #[cfg_attr(not(test), allow(dead_code))]
     manifest: SeedWorldpackManifest,
     actors: Vec<SeedActorContent>,
+    actor_facets: Vec<SeedActorFacetContent>,
     access_gates: Vec<SeedAccessGateContent>,
     factions: Vec<SeedFactionContent>,
     items: Vec<SeedItemContent>,
@@ -970,6 +971,7 @@ struct SeedContent {
     jobs: Vec<JobState>,
     fronts: Vec<SeedFrontContent>,
     cards: Vec<SeedCardContent>,
+    card_bindings: Vec<SeedCardBindingContent>,
     lifecycle_hooks: Vec<SeedLifecycleHookContent>,
     evolution_tracks: Vec<SeedEvolutionTrack>,
     recipes: Vec<SeedRecipeContent>,
@@ -996,6 +998,8 @@ struct SeedWorldpackManifest {
     description: String,
     #[serde(default)]
     entry_location: String,
+    #[serde(default)]
+    entry_grant_id: Option<String>,
     #[serde(default)]
     bundle_hash: String,
     #[serde(default)]
@@ -1042,6 +1046,8 @@ struct SeedWorldpackPack {
     rules_adapter: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rules_namespace: Option<String>,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    extensions: serde_json::Value,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1310,6 +1316,19 @@ struct SeedActorContent {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+struct SeedActorFacetContent {
+    #[serde(default)]
+    pack_id: String,
+    id: String,
+    actor_id: u64,
+    actor_ref: String,
+    #[serde(default)]
+    faction_ids: Vec<String>,
+    #[serde(default)]
+    vocabulary: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 struct SeedResidentDesireContent {
     item_id: u64,
     reason: String,
@@ -1488,6 +1507,18 @@ struct SeedCardContent {
     requires_ownership: bool,
     #[serde(default)]
     art: Option<SeedCardArtContent>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SeedCardBindingContent {
+    #[serde(default)]
+    pack_id: String,
+    id: String,
+    entity_ref: String,
+    subject_kind: String,
+    subject_id: u64,
+    seed_card_id: String,
+    external_card_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -4586,6 +4617,39 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
             }
         }
     }
+    let mut actor_facet_ids = BTreeSet::new();
+    let mut actor_faction_facets = BTreeSet::new();
+    for facet in &content.actor_facets {
+        let Some(actor) = content
+            .actors
+            .iter()
+            .find(|actor| actor.id == facet.actor_id)
+        else {
+            return Err(format!(
+                "actor facet {} references missing actor {}",
+                facet.id, facet.actor_id
+            ));
+        };
+        let expected_ref = format!("pack://{}/actor/{}", actor.pack_id, actor.id);
+        if facet.id.trim().is_empty()
+            || facet.pack_id.trim().is_empty()
+            || facet.actor_ref != expected_ref
+            || facet.vocabulary.iter().any(|term| term.trim().is_empty())
+            || !actor_facet_ids.insert(facet.id.as_str())
+        {
+            return Err(format!("invalid actor facet {}", facet.id));
+        }
+        for faction_id in &facet.faction_ids {
+            if !faction_ids.contains(faction_id)
+                || !actor_faction_facets.insert((facet.actor_id, faction_id.as_str()))
+            {
+                return Err(format!(
+                    "actor facet {} has invalid faction {}",
+                    facet.id, faction_id
+                ));
+            }
+        }
+    }
     for faction in &content.factions {
         for opposed_id in &faction.opposes {
             if opposed_id == &faction.id || !faction_ids.contains(opposed_id) {
@@ -4941,6 +5005,79 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
         }
     }
 
+    for card in &content.cards {
+        let Some(external_card_id) = card.external_card_id.as_deref() else {
+            continue;
+        };
+        let Some(external_card) = content
+            .external_cards
+            .iter()
+            .find(|external| external.card_id == external_card_id)
+        else {
+            return Err(format!(
+                "seed card {} references missing external card {}",
+                card.card_id, external_card_id
+            ));
+        };
+        if external_card.pack_id != card.pack_id {
+            return Err(format!(
+                "seed card {} may not bind external card owned by {}",
+                card.card_id, external_card.pack_id
+            ));
+        }
+    }
+    let mut card_binding_ids = BTreeSet::new();
+    let mut bound_seed_cards = BTreeSet::new();
+    for binding in &content.card_bindings {
+        let Some(seed_card) = content.cards.iter().find(|card| {
+            card.card_id == binding.seed_card_id
+                && card.subject_kind == binding.subject_kind
+                && card.subject_id == binding.subject_id
+        }) else {
+            return Err(format!(
+                "card binding {} does not resolve seed card {}",
+                binding.id, binding.seed_card_id
+            ));
+        };
+        let subject_pack_id = match binding.subject_kind.as_str() {
+            "actor" => content
+                .actors
+                .iter()
+                .find(|actor| actor.id == binding.subject_id)
+                .map(|actor| actor.pack_id.as_str()),
+            "item" => content
+                .items
+                .iter()
+                .find(|item| item.id == binding.subject_id)
+                .map(|item| item.pack_id.as_str()),
+            "location" => content
+                .locations
+                .iter()
+                .find(|location| location.id == binding.subject_id)
+                .map(|location| location.pack_id.as_str()),
+            _ => None,
+        };
+        let expected_ref = subject_pack_id.map(|pack_id| {
+            format!(
+                "pack://{pack_id}/{}/{}",
+                binding.subject_kind, binding.subject_id
+            )
+        });
+        let external_card = content
+            .external_cards
+            .iter()
+            .find(|external| external.card_id == binding.external_card_id);
+        if binding.id.trim().is_empty()
+            || binding.pack_id.trim().is_empty()
+            || expected_ref.as_deref() != Some(binding.entity_ref.as_str())
+            || external_card.map(|card| card.pack_id.as_str()) != Some(binding.pack_id.as_str())
+            || !card_binding_ids.insert(binding.id.as_str())
+            || !bound_seed_cards.insert(seed_card.card_id.as_str())
+        {
+            return Err(format!("invalid card binding {}", binding.id));
+        }
+    }
+
     let mut access_gate_locations = BTreeSet::new();
     for gate in &content.access_gates {
         if !location_ids.contains(&gate.location_id)
@@ -4982,6 +5119,34 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
                 "access gate for location {} references non-matching card {}",
                 gate.location_id, required_card_id
             ));
+        }
+    }
+    if let Some(entry_location_id) = content
+        .manifest
+        .entry_location
+        .rsplit('/')
+        .next()
+        .and_then(|value| value.parse::<u64>().ok())
+    {
+        let entry_gate = content
+            .access_gates
+            .iter()
+            .find(|gate| gate.location_id == entry_location_id);
+        match (entry_gate, content.manifest.entry_grant_id.as_deref()) {
+            (Some(gate), Some(entry_grant_id)) if gate.required_grant_id == entry_grant_id => {}
+            (Some(gate), _) => {
+                return Err(format!(
+                    "gated entry location {} requires entry grant {}",
+                    entry_location_id, gate.required_grant_id
+                ));
+            }
+            (None, Some(entry_grant_id)) => {
+                return Err(format!(
+                    "public entry location {} declares unexpected entry grant {}",
+                    entry_location_id, entry_grant_id
+                ));
+            }
+            (None, None) => {}
         }
     }
 
@@ -5513,8 +5678,24 @@ fn faction_view_from_seed(faction: &SeedFactionContent) -> FactionView {
         motif: faction.motif.clone(),
         home_location_ids: faction.home_location_ids.clone(),
         player_facing: faction.player_facing,
-        member_actor_ids: faction.member_actor_ids.clone(),
+        member_actor_ids: effective_faction_member_actor_ids(faction),
     }
+}
+
+fn effective_faction_member_actor_ids(faction: &SeedFactionContent) -> Vec<u64> {
+    let mut actor_ids = faction
+        .member_actor_ids
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    actor_ids.extend(
+        active_content()
+            .actor_facets
+            .iter()
+            .filter(|facet| facet.faction_ids.contains(&faction.id))
+            .map(|facet| facet.actor_id),
+    );
+    actor_ids.into_iter().collect()
 }
 
 fn faction_views() -> Vec<FactionView> {
@@ -5529,7 +5710,7 @@ fn faction_refs_for_actor(actor_id: u64) -> Vec<FactionRefView> {
     active_content()
         .factions
         .iter()
-        .filter(|faction| faction.member_actor_ids.contains(&actor_id))
+        .filter(|faction| effective_faction_member_actor_ids(faction).contains(&actor_id))
         .map(faction_ref_from_seed)
         .collect()
 }
@@ -23475,7 +23656,18 @@ fn search_reveal_chance_percent_for_rarity(rarity: &str) -> u8 {
 }
 
 fn card_from_seed_content(card: &SeedCardContent) -> CardView {
-    if let Some(external_card_id) = card.external_card_id.as_deref() {
+    let external_card_id = card.external_card_id.as_deref().or_else(|| {
+        active_content()
+            .card_bindings
+            .iter()
+            .find(|binding| {
+                binding.seed_card_id == card.card_id
+                    && binding.subject_kind == card.subject_kind
+                    && binding.subject_id == card.subject_id
+            })
+            .map(|binding| binding.external_card_id.as_str())
+    });
+    if let Some(external_card_id) = external_card_id {
         if let Some(external_card) = external_card_by_id(external_card_id) {
             return external_card;
         }
@@ -39941,7 +40133,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.2.0");
+        assert_eq!(location_reference.pack_version, "1.3.0");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");

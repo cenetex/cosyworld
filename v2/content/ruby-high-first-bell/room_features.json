@@ -1,0 +1,14 @@
+[
+  {
+    "location_id": 10,
+    "key": "lab_bench",
+    "name": "Lab Bench",
+    "aliases": [
+      "bench",
+      "table",
+      "apparatus"
+    ],
+    "look": "A bright bench of small instruments, with room for a second try.",
+    "search": "A note under the bench says: observe first, listen second, revise always."
+  }
+]

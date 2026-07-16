@@ -1,0 +1,1569 @@
+{
+  "schema_version": 1,
+  "manifest": {
+    "schema_version": 2,
+    "pack_contract": "cosyworld.content-pack/1",
+    "canonical_id_mapping_version": 1,
+    "id": "ruby-high.first-bell-only",
+    "name": "Ruby High: First Bell Only",
+    "version": 1,
+    "description": "A standalone First Bell boot fixture with no CosyWorld Core pack mounted.",
+    "entry_location": "ruby-high.first-bell:location/11",
+    "entry_grant_id": "ruby-high.first-bell:location-homeroom",
+    "bundle_hash": "sha256:d345555f23cc25aa708642dc928ed74f304d105d379243054de94fe984c4d2dd",
+    "packs": [
+      {
+        "id": "ruby-high.first-bell",
+        "name": "Ruby High: First Bell",
+        "description": "An independently bootable school world, card catalog, and entitlement-gated First Bell experience.",
+        "version": "1.3.0",
+        "kind": "world",
+        "license": "MIT",
+        "engine": ">=0.0.20 <0.1.0",
+        "capabilities": [
+          {
+            "id": "ruby-high.first-bell/world",
+            "kind": "world",
+            "version": "1.0.0"
+          },
+          {
+            "id": "ruby-high.first-bell/rules",
+            "kind": "rules",
+            "version": "1.0.0"
+          },
+          {
+            "id": "ruby-high.first-bell/cards",
+            "kind": "cards",
+            "version": "1.0.0"
+          },
+          {
+            "id": "ruby-high.first-bell/assets",
+            "kind": "assets",
+            "version": "1.0.0"
+          },
+          {
+            "id": "ruby-high.first-bell/entitlements",
+            "kind": "entitlements",
+            "version": "1.0.0"
+          }
+        ],
+        "dependencies": [
+          "cosyworld.core"
+        ],
+        "dependency_requirements": [
+          {
+            "id": "cosyworld.core",
+            "version": ">=1.3.0 <2.0.0",
+            "capabilities": [
+              "cosyworld.core/world"
+            ],
+            "optional": true
+          }
+        ],
+        "dependency_closure": [],
+        "default_ruleset": "ruby-high.first-bell/rules",
+        "entry_points": [
+          {
+            "kind": "location",
+            "id": "location/11"
+          },
+          {
+            "kind": "card_catalog",
+            "id": "first-bell"
+          },
+          {
+            "kind": "asset_mount",
+            "id": "cards"
+          }
+        ],
+        "provenance": {
+          "source_name": "Ruby High: First Bell",
+          "source_url": "https://ruby-high.ai"
+        },
+        "resource_counts": {
+          "actors": 0,
+          "actor_facets": 0,
+          "access_gates": 6,
+          "factions": 1,
+          "items": 0,
+          "locations": 6,
+          "exits": 16,
+          "hidden_exits": 0,
+          "room_features": 1,
+          "room_sheets": 6,
+          "clocks": 0,
+          "jobs": 0,
+          "fronts": 0,
+          "cards": 6,
+          "card_bindings": 0,
+          "lifecycle_hooks": 0,
+          "evolution_tracks": 0,
+          "recipes": 0,
+          "sentences": 6,
+          "external_cards": 24,
+          "assets": 1,
+          "rules": 0,
+          "character_creation": 0
+        },
+        "distribution": {
+          "media_type": "application/vnd.cosyworld.pack+json",
+          "canonicalization": "jcs",
+          "permanence": "content-addressed"
+        },
+        "entitlements": {
+          "schema_version": 1,
+          "authorities": [
+            {
+              "provider": "ruby-high.first-bell/entitlements",
+              "id": "first-bell-card-feed",
+              "type": "asset_feed",
+              "asset_kind": "nft",
+              "issuer": "ruby-high.ai",
+              "chain": "solana",
+              "network": "mainnet-beta",
+              "standard": "metaplex_core",
+              "collection_binding": "RUBY_HIGH_SOLANA_CORE_CARD_COLLECTION_ADDRESS"
+            }
+          ],
+          "grants": [
+            {
+              "id": "ruby-high.first-bell:location-science-lab",
+              "authority_id": "first-bell-card-feed",
+              "match": {
+                "asset_id": "location-science-lab"
+              }
+            },
+            {
+              "id": "ruby-high.first-bell:location-homeroom",
+              "authority_id": "first-bell-card-feed",
+              "match": {
+                "asset_id": "location-homeroom"
+              }
+            },
+            {
+              "id": "ruby-high.first-bell:location-library",
+              "authority_id": "first-bell-card-feed",
+              "match": {
+                "asset_id": "location-library"
+              }
+            },
+            {
+              "id": "ruby-high.first-bell:location-cafeteria",
+              "authority_id": "first-bell-card-feed",
+              "match": {
+                "asset_id": "location-cafeteria"
+              }
+            },
+            {
+              "id": "ruby-high.first-bell:location-greenhouse",
+              "authority_id": "first-bell-card-feed",
+              "match": {
+                "asset_id": "location-greenhouse"
+              }
+            },
+            {
+              "id": "ruby-high.first-bell:location-courtyard",
+              "authority_id": "first-bell-card-feed",
+              "match": {
+                "asset_id": "location-courtyard"
+              }
+            }
+          ]
+        },
+        "extensions": {
+          "x-cosyworld-rules-context": {
+            "vocabulary": {
+              "actions": [
+                "study",
+                "test",
+                "revise",
+                "attend"
+              ],
+              "narration": [
+                "first bell",
+                "hall pass",
+                "evidence",
+                "homeroom"
+              ]
+            }
+          }
+        },
+        "source": {
+          "type": "workspace",
+          "path": "../../content/ruby-high-first-bell"
+        },
+        "integrity": "sha256:e26e2923a1dbe049ed4d35a6ca8ca475e27d58dad8bc5882ff5b38103303a216"
+      }
+    ],
+    "files": {
+      "actors": "actors.json",
+      "actor_facets": "actor_facets.json",
+      "access_gates": "access_gates.json",
+      "factions": "factions.json",
+      "items": "items.json",
+      "locations": "locations.json",
+      "exits": "exits.json",
+      "hidden_exits": "hidden_exits.json",
+      "room_features": "room_features.json",
+      "room_sheets": "room_sheets.json",
+      "clocks": "clocks.json",
+      "jobs": "jobs.json",
+      "fronts": "fronts.json",
+      "cards": "cards.json",
+      "card_bindings": "card_bindings.json",
+      "lifecycle_hooks": "lifecycle_hooks.json",
+      "evolution_tracks": "evolution_tracks.json",
+      "recipes": "recipes.json",
+      "sentences": "sentences.json"
+    },
+    "external_cards": "external_cards.json",
+    "assets": "assets.json",
+    "rules": "rules.json",
+    "attributions": "attributions.json",
+    "character_creation": "character_creation.json",
+    "content_references": "content_refs.json",
+    "registry": "registry.json"
+  },
+  "resources": {
+    "actors": [],
+    "actor_facets": [],
+    "access_gates": [
+      {
+        "location_id": 10,
+        "required_grant_id": "ruby-high.first-bell:location-science-lab",
+        "required_card_id": "location-science-lab",
+        "reason": "Ruby High: First Bell location card required.",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "location_id": 11,
+        "required_grant_id": "ruby-high.first-bell:location-homeroom",
+        "required_card_id": "location-homeroom",
+        "reason": "Ruby High: First Bell location card required.",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "location_id": 12,
+        "required_grant_id": "ruby-high.first-bell:location-library",
+        "required_card_id": "location-library",
+        "reason": "Ruby High: First Bell location card required.",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "location_id": 13,
+        "required_grant_id": "ruby-high.first-bell:location-cafeteria",
+        "required_card_id": "location-cafeteria",
+        "reason": "Ruby High: First Bell location card required.",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "location_id": 14,
+        "required_grant_id": "ruby-high.first-bell:location-greenhouse",
+        "required_card_id": "location-greenhouse",
+        "reason": "Ruby High: First Bell location card required.",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "location_id": 15,
+        "required_grant_id": "ruby-high.first-bell:location-courtyard",
+        "required_card_id": "location-courtyard",
+        "reason": "Ruby High: First Bell location card required.",
+        "pack_id": "ruby-high.first-bell"
+      }
+    ],
+    "factions": [
+      {
+        "id": "ruby_high",
+        "name": "Ruby High",
+        "axis": "Institution vs Wild Law",
+        "opposes": [],
+        "truth": "People grow through structure.",
+        "shadow": "Structure can become permission-hoarding.",
+        "doctrine": "Attend, test, revise, and let every question have a seat.",
+        "verbs": [
+          "study",
+          "prove",
+          "attend",
+          "graduate"
+        ],
+        "motif": [
+          "hall passes",
+          "desks",
+          "greenhouse glass",
+          "courtyard rumors"
+        ],
+        "home_location_ids": [
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "member_actor_ids": [],
+        "player_facing": true,
+        "pack_id": "ruby-high.first-bell"
+      }
+    ],
+    "items": [],
+    "locations": [
+      {
+        "id": 10,
+        "name": "Science Class",
+        "title": "STEM Wing",
+        "description": "Shared benches, small instruments, and questions waiting to be tested.",
+        "persona": "Science Class prefers evidence, clean questions, and answers brave enough to be revised.",
+        "memory": [
+          "Surprising results get written down here.",
+          "Signal-study questions return here for a second test."
+        ],
+        "allow_combat": false,
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": 11,
+        "name": "Homeroom",
+        "title": "Front Door",
+        "description": "Morning light crosses rows of desks.",
+        "persona": "Homeroom keeps attendance for beginnings, detours, and people trying again.",
+        "memory": [
+          "First bell opens every morning route here.",
+          "Most First Bell paths lead back to this room."
+        ],
+        "allow_combat": false,
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": 12,
+        "name": "Library",
+        "title": "Quiet Wing",
+        "description": "Tall shelves and a deep hush.",
+        "persona": "The Library is exact, generous, and faintly amused by people who whisper to books.",
+        "memory": [
+          "The deeper stacks keep an index of roads beyond the school map.",
+          "Some shelves are longer than the building."
+        ],
+        "allow_combat": false,
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": 13,
+        "name": "Cafeteria",
+        "title": "Commons",
+        "description": "Long tables, lunch trays, and running bargains.",
+        "persona": "The Cafeteria speaks in offers, side-eyes, and the social physics of shared tables.",
+        "memory": [
+          "Deals get made over lunch.",
+          "Rumors travel from the courtyard through the serving line."
+        ],
+        "allow_combat": false,
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": 14,
+        "name": "Greenhouse",
+        "title": "Garden Annex",
+        "description": "Glass walls, damp air, and slow experiments in labeled pots.",
+        "persona": "The Greenhouse thinks in tendrils, careful timing, and second chances rooted in soil.",
+        "memory": [
+          "Pollen settles on every carefully labeled pot.",
+          "The watering schedule is strict."
+        ],
+        "allow_combat": false,
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": 15,
+        "name": "Courtyard",
+        "title": "Central Grounds",
+        "description": "Open paths cross under the sky. Every hallway ends here.",
+        "persona": "The Courtyard is public, breezy, and good at making accidental meetings feel arranged.",
+        "biome": "school grounds",
+        "terrain": [
+          "courtyard stone",
+          "open lawn",
+          "windy steps"
+        ],
+        "memory": [
+          "A high trail begins at the far edge.",
+          "Students cut through here when they need a new route."
+        ],
+        "allow_combat": false,
+        "pack_id": "ruby-high.first-bell"
+      }
+    ],
+    "exits": [
+      {
+        "from_location_id": 10,
+        "to_location_id": 11,
+        "flags": 0,
+        "direction": "south",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 11,
+        "to_location_id": 10,
+        "flags": 0,
+        "direction": "north",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 11,
+        "to_location_id": 12,
+        "flags": 0,
+        "direction": "east",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 12,
+        "to_location_id": 11,
+        "flags": 0,
+        "direction": "west",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 11,
+        "to_location_id": 13,
+        "flags": 0,
+        "direction": "south",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 13,
+        "to_location_id": 11,
+        "flags": 0,
+        "direction": "north",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 11,
+        "to_location_id": 15,
+        "flags": 0,
+        "direction": "west",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 15,
+        "to_location_id": 11,
+        "flags": 0,
+        "direction": "east",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 10,
+        "to_location_id": 14,
+        "flags": 0,
+        "direction": "east",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 14,
+        "to_location_id": 10,
+        "flags": 0,
+        "direction": "west",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 10,
+        "to_location_id": 15,
+        "flags": 0,
+        "direction": "southwest",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 15,
+        "to_location_id": 10,
+        "flags": 0,
+        "direction": "northeast",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 13,
+        "to_location_id": 15,
+        "flags": 0,
+        "direction": "northwest",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 15,
+        "to_location_id": 13,
+        "flags": 0,
+        "direction": "southeast",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 14,
+        "to_location_id": 15,
+        "flags": 0,
+        "direction": "south",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "from_location_id": 15,
+        "to_location_id": 14,
+        "flags": 0,
+        "direction": "north",
+        "pack_id": "ruby-high.first-bell"
+      }
+    ],
+    "hidden_exits": [],
+    "room_features": [
+      {
+        "location_id": 10,
+        "key": "lab_bench",
+        "name": "Lab Bench",
+        "aliases": [
+          "bench",
+          "table",
+          "apparatus"
+        ],
+        "look": "A bright bench of small instruments, with room for a second try.",
+        "search": "A note under the bench says: observe first, listen second, revise always.",
+        "pack_id": "ruby-high.first-bell"
+      }
+    ],
+    "room_sheets": [
+      {
+        "id": "room:10",
+        "location_id": 10,
+        "name": "Science Class",
+        "safety": "safe",
+        "zone": "sanctuary",
+        "aspects": [
+          "bright evidence",
+          "questions tested"
+        ],
+        "boons": [
+          "experiments turn uncertainty into clues"
+        ],
+        "hooks": [
+          "the benches remember every surprising result"
+        ],
+        "resources": {
+          "evidence": 3,
+          "curiosity": 2
+        },
+        "projects": [],
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": "room:11",
+        "location_id": 11,
+        "name": "Homeroom",
+        "safety": "safe",
+        "zone": "sanctuary",
+        "aspects": [
+          "morning threshold",
+          "every question seated"
+        ],
+        "boons": [
+          "new routes can begin without losing the way back"
+        ],
+        "hooks": [
+          "attendance remembers who is trying again"
+        ],
+        "resources": {
+          "attention": 3,
+          "pencils": 2
+        },
+        "projects": [],
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": "room:12",
+        "location_id": 12,
+        "name": "Library",
+        "safety": "safe",
+        "zone": "sanctuary",
+        "aspects": [
+          "shelved hush",
+          "answers with page numbers"
+        ],
+        "boons": [
+          "research can turn rumors into named facts"
+        ],
+        "hooks": [
+          "every returned book leaves one sentence behind"
+        ],
+        "resources": {
+          "indexes": 3,
+          "quiet": 2
+        },
+        "projects": [],
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": "room:13",
+        "location_id": 13,
+        "name": "Cafeteria",
+        "safety": "safe",
+        "zone": "sanctuary",
+        "aspects": [
+          "commons diplomacy",
+          "tray-table thunder"
+        ],
+        "boons": [
+          "shared meals soften tense introductions"
+        ],
+        "hooks": [
+          "rumors move faster than lunch lines"
+        ],
+        "resources": {
+          "snacks": 3,
+          "gossip": 2
+        },
+        "projects": [],
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": "room:14",
+        "location_id": 14,
+        "name": "Greenhouse",
+        "safety": "safe",
+        "zone": "sanctuary",
+        "aspects": [
+          "patient leaves",
+          "slow experiments"
+        ],
+        "boons": [
+          "careful tending makes second chances visible"
+        ],
+        "hooks": [
+          "some lessons only answer after watering"
+        ],
+        "resources": {
+          "water": 3,
+          "cuttings": 2
+        },
+        "projects": [],
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": "room:15",
+        "location_id": 15,
+        "name": "Courtyard",
+        "safety": "safe",
+        "zone": "sanctuary",
+        "aspects": [
+          "crossing paths",
+          "open sky"
+        ],
+        "boons": [
+          "accidental meetings can become useful choices"
+        ],
+        "hooks": [
+          "every hallway returns here with a little weather"
+        ],
+        "resources": {
+          "breeze": 3,
+          "routes": 2
+        },
+        "projects": [],
+        "pack_id": "ruby-high.first-bell"
+      }
+    ],
+    "clocks": [],
+    "jobs": [],
+    "fronts": [],
+    "cards": [
+      {
+        "subject_kind": "location",
+        "subject_id": 10,
+        "card_id": "location-science-lab",
+        "display_name": "Science Class",
+        "role": "location",
+        "rarity": "common",
+        "title": "STEM Wing",
+        "blurb": "Shared benches, small instruments, and questions waiting to be tested.",
+        "aspect": "wide",
+        "source": "ruby_high_first_bell",
+        "asset_status": "on_chain",
+        "external_card_id": "location-science-lab",
+        "subject": "STEM Wing",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "subject_kind": "location",
+        "subject_id": 11,
+        "card_id": "location-homeroom",
+        "display_name": "Homeroom",
+        "role": "location",
+        "rarity": "common",
+        "title": "Front Door",
+        "blurb": "Morning light crosses rows of desks.",
+        "aspect": "wide",
+        "source": "ruby_high_first_bell",
+        "asset_status": "on_chain",
+        "external_card_id": "location-homeroom",
+        "subject": "Front Door",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "subject_kind": "location",
+        "subject_id": 12,
+        "card_id": "location-library",
+        "display_name": "Library",
+        "role": "location",
+        "rarity": "common",
+        "title": "Quiet Wing",
+        "blurb": "Tall shelves and a deep hush.",
+        "aspect": "wide",
+        "source": "ruby_high_first_bell",
+        "asset_status": "on_chain",
+        "external_card_id": "location-library",
+        "subject": "Quiet Wing",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "subject_kind": "location",
+        "subject_id": 13,
+        "card_id": "location-cafeteria",
+        "display_name": "Cafeteria",
+        "role": "location",
+        "rarity": "common",
+        "title": "Commons",
+        "blurb": "Long tables, lunch trays, and running bargains.",
+        "aspect": "wide",
+        "source": "ruby_high_first_bell",
+        "asset_status": "on_chain",
+        "external_card_id": "location-cafeteria",
+        "subject": "Commons",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "subject_kind": "location",
+        "subject_id": 14,
+        "card_id": "location-greenhouse",
+        "display_name": "Greenhouse",
+        "role": "location",
+        "rarity": "common",
+        "title": "Garden Annex",
+        "blurb": "Glass walls, damp air, and slow experiments in labeled pots.",
+        "aspect": "wide",
+        "source": "ruby_high_first_bell",
+        "asset_status": "on_chain",
+        "external_card_id": "location-greenhouse",
+        "subject": "Garden Annex",
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "subject_kind": "location",
+        "subject_id": 15,
+        "card_id": "location-courtyard",
+        "display_name": "Courtyard",
+        "role": "location",
+        "rarity": "common",
+        "title": "Central Grounds",
+        "blurb": "Open paths cross under the sky. Every hallway ends here.",
+        "aspect": "wide",
+        "source": "ruby_high_first_bell",
+        "asset_status": "on_chain",
+        "external_card_id": "location-courtyard",
+        "subject": "Central Grounds",
+        "pack_id": "ruby-high.first-bell"
+      }
+    ],
+    "card_bindings": [],
+    "lifecycle_hooks": [],
+    "evolution_tracks": [],
+    "recipes": [],
+    "sentences": [
+      {
+        "id": "quiet-wing/longer-than-you-think",
+        "shelf": "quiet-wing",
+        "location_ids": [
+          12
+        ],
+        "text": "You have been reading this sentence longer than you think.",
+        "weight": 10,
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": "quiet-wing/book-looking",
+        "shelf": "quiet-wing",
+        "location_ids": [
+          12
+        ],
+        "text": "The book you want is looking for you too. One of you must sit still.",
+        "weight": 10,
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": "quiet-wing/return-dates",
+        "shelf": "quiet-wing",
+        "location_ids": [
+          12
+        ],
+        "text": "Return dates are a kindness. Not everything returned was due.",
+        "weight": 10,
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": "quiet-wing/stayed-home",
+        "shelf": "quiet-wing",
+        "location_ids": [
+          12
+        ],
+        "text": "Somewhere on these shelves is the version of today where you stayed home.",
+        "weight": 10,
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": "quiet-wing/different-book",
+        "shelf": "quiet-wing",
+        "location_ids": [
+          12
+        ],
+        "text": "Every reader finishes a different book with the same name.",
+        "weight": 10,
+        "pack_id": "ruby-high.first-bell"
+      },
+      {
+        "id": "quiet-wing/hush-being-polite",
+        "shelf": "quiet-wing",
+        "location_ids": [
+          12
+        ],
+        "text": "The hush is not empty. It is full, and being polite.",
+        "weight": 10,
+        "pack_id": "ruby-high.first-bell"
+      }
+    ]
+  },
+  "external_cards": [
+    {
+      "card_id": "lyra",
+      "display_name": "Lyra",
+      "role": "student",
+      "rarity": "common",
+      "title": "Color-Coded Spare",
+      "blurb": "Lyra made three backups and labeled this one urgent.",
+      "aspect": "tall",
+      "set_number": "FB-001",
+      "profile_id": "lyra-color-coded-spare",
+      "subject": "Homeroom",
+      "image_url": "/assets/cards/lyra.png",
+      "chain_image_uri": "https://gateway.irys.xyz/7BGwmo5bhDKDhhKVcoUaKfNcaWcVU5ifHQfPqQNVyYrP",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "sami",
+      "display_name": "Sami",
+      "role": "student",
+      "rarity": "common",
+      "title": "Side Door Whatever",
+      "blurb": "Sami says it works if you look bored enough.",
+      "aspect": "tall",
+      "set_number": "FB-002",
+      "profile_id": "sami-side-door-whatever",
+      "subject": "Homeroom",
+      "image_url": "/assets/cards/sami.png",
+      "chain_image_uri": "https://gateway.irys.xyz/Fmhr5NjuA3ZLpWJPzRcPeAT7wfaXepxSemWBCLj4eDT3",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "ravi",
+      "display_name": "Ravi",
+      "role": "student",
+      "rarity": "common",
+      "title": "Field Trip Fact Slip",
+      "blurb": "Ravi has a tangent ready for the entire walk.",
+      "aspect": "tall",
+      "set_number": "FB-003",
+      "profile_id": "ravi-field-trip-fact-slip",
+      "subject": "Field Trip",
+      "image_url": "/assets/cards/ravi.png",
+      "chain_image_uri": "https://gateway.irys.xyz/9gsNxRKPyeZ4AyB8Vi31VoPgxYNFapMFhkQN7TbU17AK",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "indra",
+      "display_name": "Indra",
+      "role": "student",
+      "rarity": "rare",
+      "title": "Quiet Perfect Exit",
+      "blurb": "Indra noticed the pattern and left before anyone clapped.",
+      "aspect": "tall",
+      "set_number": "FB-004",
+      "profile_id": "indra-quiet-perfect-exit",
+      "subject": "Strategy",
+      "image_url": "/assets/cards/indra.png",
+      "chain_image_uri": "https://gateway.irys.xyz/6S94Fzxaos9mpWeRhjfaJ9ce8c6HHCSdNuBVRHie5LFy",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "mika",
+      "display_name": "Mika",
+      "role": "student",
+      "rarity": "rare",
+      "title": "Locker Room Shortcut",
+      "blurb": "Mika says you are absolutely cleared for this.",
+      "aspect": "tall",
+      "set_number": "FB-005",
+      "profile_id": "mika-locker-room-shortcut",
+      "subject": "Social",
+      "image_url": "/assets/cards/mika.png",
+      "chain_image_uri": "https://gateway.irys.xyz/8AZLNaZdJDYx1jbdqFCKpS8JM12PGQD5b2U16P2pjAy5",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "noor",
+      "display_name": "Noor",
+      "role": "student",
+      "rarity": "rare",
+      "title": "Deadpan Detour",
+      "blurb": "Noor called it a plot hole and walked through it.",
+      "aspect": "tall",
+      "set_number": "FB-006",
+      "profile_id": "noor-deadpan-detour",
+      "subject": "Literature",
+      "image_url": "/assets/cards/noor.png",
+      "chain_image_uri": "https://gateway.irys.xyz/3Mt6b11iNvuBHXKoqRTmDQcouwxpmzaSimWyDM6EYUAH",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "ruby",
+      "display_name": "Ruby",
+      "role": "teacher",
+      "rarity": "common",
+      "title": "Homeroom Card",
+      "blurb": "Ruby stamped this one before the late bell could object.",
+      "aspect": "tall",
+      "set_number": "FB-007",
+      "profile_id": "ruby-homeroom-card",
+      "subject": "Homeroom",
+      "image_url": "/assets/cards/ruby.png",
+      "chain_image_uri": "https://gateway.irys.xyz/3N7c6M2wjZa456uHysFisgmRwnV9MshJFLzgDrLY8xYB",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "sally-science",
+      "display_name": "Sally Science",
+      "role": "teacher",
+      "rarity": "common",
+      "title": "Lab Sink Shortcut",
+      "blurb": "Good for one escape from sloppy variables.",
+      "aspect": "tall",
+      "set_number": "FB-008",
+      "profile_id": "sally-lab-sink-shortcut",
+      "subject": "Science",
+      "image_url": "/assets/cards/sally-science.png",
+      "chain_image_uri": "https://gateway.irys.xyz/9EEyhSHwH3k4Mm4TyAhJNSSren9ZYF7XZE8RhJ9SfGX",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "professor-edward",
+      "display_name": "Professor Edward",
+      "role": "teacher",
+      "rarity": "common",
+      "title": "Library Corridor Pass",
+      "blurb": "Please return before the footnotes start breeding.",
+      "aspect": "tall",
+      "set_number": "FB-009",
+      "profile_id": "professor-edward-library-corridor",
+      "subject": "Literature",
+      "image_url": "/assets/cards/professor-edward.png",
+      "chain_image_uri": "https://gateway.irys.xyz/63VTMvTDzdPbK8T4y1naQBwk5by43kYbpRn6wtiVyXPe",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "eliza",
+      "display_name": "Eliza",
+      "role": "teacher",
+      "rarity": "super-rare",
+      "title": "Systems Lab Override",
+      "blurb": "Eliza makes the system legible, then makes it sing.",
+      "aspect": "tall",
+      "set_number": "FB-010",
+      "profile_id": "eliza-systems-lab-override",
+      "subject": "Systems",
+      "image_url": "/assets/cards/eliza.png",
+      "chain_image_uri": "https://gateway.irys.xyz/G4mYFb2JgHjsCYdWLtYrhYQL1GGYUPvqaeUi4xao9cpL",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "rati",
+      "display_name": "Rati",
+      "role": "teacher",
+      "rarity": "super-rare",
+      "title": "Signal Studies Pass",
+      "blurb": "Hold the signal. Build the world.",
+      "aspect": "tall",
+      "set_number": "FB-011",
+      "profile_id": "rati-signal-studies-pass",
+      "subject": "Signal Studies",
+      "image_url": "/assets/cards/rati.png",
+      "chain_image_uri": "https://gateway.irys.xyz/4gDnEdkgqayZGDQ9sSFoHuY5LSgwfuDDWmwSJR2QPbVX",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "captain-null",
+      "display_name": "Captain Null",
+      "role": "special",
+      "rarity": "ultra-rare",
+      "title": "Page 10 Shadow Pass",
+      "blurb": "Find page 10 and the hallway forgets your name.",
+      "aspect": "tall",
+      "set_number": "FB-012",
+      "profile_id": "captain-null-page-10-shadow",
+      "subject": "First Bell",
+      "image_url": "/assets/cards/captain-null.png",
+      "chain_image_uri": "https://gateway.irys.xyz/FQXsSJ4gJWj9pM4Fc2RcEAcomoPSyPaRyd19ghpxVdLv",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "item-hall-pass",
+      "display_name": "Hall Pass",
+      "role": "item",
+      "rarity": "common",
+      "title": "Front Office Reset",
+      "blurb": "Sometimes the smartest move is stepping out and coming back better.",
+      "aspect": "square",
+      "set_number": "FB-013",
+      "profile_id": "item-hall-pass",
+      "subject": "Administration",
+      "image_url": "/assets/cards/item-hall-pass.png",
+      "chain_image_uri": "https://gateway.irys.xyz/9EsaWqjWaWKvb9a62iKr1dYSMRPGRQVaA1fpLFjWfk4q",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "item-flashcards",
+      "display_name": "Flashcards",
+      "role": "item",
+      "rarity": "common",
+      "title": "Study Kit",
+      "blurb": "Shuffle. Repeat. Survive.",
+      "aspect": "square",
+      "set_number": "FB-014",
+      "profile_id": "item-flashcards",
+      "subject": "Study",
+      "image_url": "/assets/cards/item-flashcards.png",
+      "chain_image_uri": "https://gateway.irys.xyz/H38mBQgXzZZK6vEni77FShD8Lh7vX9QVsDd6C3yL4tVQ",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "item-library-card",
+      "display_name": "Library Card",
+      "role": "item",
+      "rarity": "common",
+      "title": "Quiet Wing Access",
+      "blurb": "If the answer exists, this helps you find it.",
+      "aspect": "square",
+      "set_number": "FB-015",
+      "profile_id": "item-library-card",
+      "subject": "Library",
+      "image_url": "/assets/cards/item-library-card.png",
+      "chain_image_uri": "https://gateway.irys.xyz/GW7DcPRJMum61q73hfynntUJ3zUje7yjwE7xVesLSNgU",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "item-lab-flask",
+      "display_name": "Lab Flask",
+      "role": "item",
+      "rarity": "rare",
+      "title": "Science Lab Evidence",
+      "blurb": "Observe first. Guess later.",
+      "aspect": "square",
+      "set_number": "FB-016",
+      "profile_id": "item-lab-flask",
+      "subject": "Science",
+      "image_url": "/assets/cards/item-lab-flask.png",
+      "chain_image_uri": "https://gateway.irys.xyz/4rAuX9pMMUMfveZ9rL9yBKQD7dcPAcfgoiQzL71pr5Nr",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "item-lunch-tray",
+      "display_name": "Lunch Tray",
+      "role": "item",
+      "rarity": "rare",
+      "title": "Commons Diplomacy",
+      "blurb": "Half the social game happens between bites.",
+      "aspect": "square",
+      "set_number": "FB-017",
+      "profile_id": "item-lunch-tray",
+      "subject": "Cafeteria",
+      "image_url": "/assets/cards/item-lunch-tray.png",
+      "chain_image_uri": "https://gateway.irys.xyz/6tvAmcFPM8cXAmxmZNciN6iYQkj5C1J84bjnFiXuoyrV",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "item-notebook",
+      "display_name": "Notebook",
+      "role": "item",
+      "rarity": "rare",
+      "title": "Daily Carry",
+      "blurb": "Messy notes still count as evidence of life.",
+      "aspect": "square",
+      "set_number": "FB-018",
+      "profile_id": "item-notebook",
+      "subject": "Homeroom",
+      "image_url": "/assets/cards/item-notebook.png",
+      "chain_image_uri": "https://gateway.irys.xyz/3U8K8YGe1nEhvVjuV7ThDkLLsLZViRsAdKDKGeLV1mDS",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "location-homeroom",
+      "display_name": "Homeroom",
+      "role": "location",
+      "rarity": "common",
+      "title": "Front Door",
+      "blurb": "Where every day begins, and every question gets a room.",
+      "aspect": "wide",
+      "set_number": "FB-019",
+      "profile_id": "location-homeroom",
+      "subject": "Homeroom",
+      "image_url": "/assets/cards/location-homeroom.png",
+      "chain_image_uri": "https://gateway.irys.xyz/D4o7VmayTktEbx7HivEeWTzVvjnmbp4JrDgNzkvUwVQ",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "location-science-lab",
+      "display_name": "Science Class",
+      "role": "location",
+      "rarity": "common",
+      "title": "STEM Wing",
+      "blurb": "Observe. Test. Explain. Repeat.",
+      "aspect": "wide",
+      "set_number": "FB-020",
+      "profile_id": "location-science-lab",
+      "subject": "Science",
+      "image_url": "/assets/cards/location-science-lab.png",
+      "chain_image_uri": "https://gateway.irys.xyz/DDmgnZHAZ3WPqvyNVjU57ayQMY6y2WYSL7Fu1jkjbJMu",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "location-library",
+      "display_name": "Library",
+      "role": "location",
+      "rarity": "common",
+      "title": "Quiet Wing",
+      "blurb": "If it matters, someone wrote it down.",
+      "aspect": "wide",
+      "set_number": "FB-021",
+      "profile_id": "location-library",
+      "subject": "Literature",
+      "image_url": "/assets/cards/location-library.png",
+      "chain_image_uri": "https://gateway.irys.xyz/44eAXJkBYuXjrV2ctE8PurKnHQ4Zg29LdzeNm1Sh5PLR",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "location-cafeteria",
+      "display_name": "Cafeteria",
+      "role": "location",
+      "rarity": "rare",
+      "title": "Commons",
+      "blurb": "Half the school day happens between bites.",
+      "aspect": "wide",
+      "set_number": "FB-022",
+      "profile_id": "location-cafeteria",
+      "subject": "Cafeteria",
+      "image_url": "/assets/cards/location-cafeteria.png",
+      "chain_image_uri": "https://gateway.irys.xyz/FXSukeq8KPmaZ2tBPqRMmRhruTEFSiE4mTrCThiVpCen",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "location-greenhouse",
+      "display_name": "Greenhouse",
+      "role": "location",
+      "rarity": "rare",
+      "title": "Garden Annex",
+      "blurb": "Some lessons grow slowly.",
+      "aspect": "wide",
+      "set_number": "FB-023",
+      "profile_id": "location-greenhouse",
+      "subject": "Science",
+      "image_url": "/assets/cards/location-greenhouse.png",
+      "chain_image_uri": "https://gateway.irys.xyz/6V6TeKMCmD6kDJHkPHeJdqcNySzXJyov7b9QtsfVw8W8",
+      "pack_id": "ruby-high.first-bell"
+    },
+    {
+      "card_id": "location-courtyard",
+      "display_name": "Courtyard",
+      "role": "location",
+      "rarity": "rare",
+      "title": "Central Grounds",
+      "blurb": "Every hallway leads somewhere. Every path leads to someone.",
+      "aspect": "wide",
+      "set_number": "FB-024",
+      "profile_id": "location-courtyard",
+      "subject": "Campus",
+      "image_url": "/assets/cards/location-courtyard.png",
+      "chain_image_uri": "https://gateway.irys.xyz/5uestScY6q33FLjFY8gfSr9k2ZDMsZzYuXLvnVCtaz6G",
+      "pack_id": "ruby-high.first-bell"
+    }
+  ],
+  "assets": [
+    {
+      "pack_id": "ruby-high.first-bell",
+      "pack_version": "1.3.0",
+      "pack_integrity": "sha256:e26e2923a1dbe049ed4d35a6ca8ca475e27d58dad8bc5882ff5b38103303a216",
+      "provider": "ruby-high.first-bell/assets",
+      "mount": "cards",
+      "root": "ruby-high-first-bell",
+      "directory": "assets/cards",
+      "public_prefix": "/assets/cards",
+      "content_hash": "sha256:c6028b77e9871b567178efa708ca03cb6e731fe18b01afe20efd1e0dc05e1c44",
+      "optional": true,
+      "fallback": "external_uri"
+    }
+  ],
+  "rules": [],
+  "attributions": [],
+  "character_creation": [],
+  "content_references": {
+    "schema_version": 1,
+    "mapping_version": 1,
+    "entries": [
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/card/location-cafeteria",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "card",
+        "local_id": "location-cafeteria",
+        "runtime_handle": 3107528363911865
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/card/location-courtyard",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "card",
+        "local_id": "location-courtyard",
+        "runtime_handle": 4782402674832957
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/card/location-greenhouse",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "card",
+        "local_id": "location-greenhouse",
+        "runtime_handle": 3662976131116729
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/card/location-homeroom",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "card",
+        "local_id": "location-homeroom",
+        "runtime_handle": 7084902207358373
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/card/location-library",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "card",
+        "local_id": "location-library",
+        "runtime_handle": 6785800264541047
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/card/location-science-lab",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "card",
+        "local_id": "location-science-lab",
+        "runtime_handle": 8201462675675638
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/captain-null",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "captain-null",
+        "runtime_handle": 3843573141933674
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/eliza",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "eliza",
+        "runtime_handle": 4124553834845258
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/indra",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "indra",
+        "runtime_handle": 8687099168741216
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/item-flashcards",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "item-flashcards",
+        "runtime_handle": 6148366931632609
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/item-hall-pass",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "item-hall-pass",
+        "runtime_handle": 6154026517662833
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/item-lab-flask",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "item-lab-flask",
+        "runtime_handle": 7444186363202775
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/item-library-card",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "item-library-card",
+        "runtime_handle": 27821797810153
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/item-lunch-tray",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "item-lunch-tray",
+        "runtime_handle": 3064948555071770
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/item-notebook",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "item-notebook",
+        "runtime_handle": 5906680647268123
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/location-cafeteria",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "location-cafeteria",
+        "runtime_handle": 232928798345453
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/location-courtyard",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "location-courtyard",
+        "runtime_handle": 1017422828753302
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/location-greenhouse",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "location-greenhouse",
+        "runtime_handle": 1874830250433117
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/location-homeroom",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "location-homeroom",
+        "runtime_handle": 6928775784641985
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/location-library",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "location-library",
+        "runtime_handle": 8204365461548708
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/location-science-lab",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "location-science-lab",
+        "runtime_handle": 57115334800243
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/lyra",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "lyra",
+        "runtime_handle": 7094866015162716
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/mika",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "mika",
+        "runtime_handle": 4809241939115652
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/noor",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "noor",
+        "runtime_handle": 6643976235743711
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/professor-edward",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "professor-edward",
+        "runtime_handle": 1211962163801060
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/rati",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "rati",
+        "runtime_handle": 8508280633539606
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/ravi",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "ravi",
+        "runtime_handle": 3914282740523084
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/ruby",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "ruby",
+        "runtime_handle": 442578259385801
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/sally-science",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "sally-science",
+        "runtime_handle": 692877066368845
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/external-card/sami",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "external-card",
+        "local_id": "sami",
+        "runtime_handle": 5798756249869747
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/faction/ruby_high",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "faction",
+        "local_id": "ruby_high",
+        "runtime_handle": 2919627811514647
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/location/10",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "location",
+        "local_id": "10",
+        "legacy_runtime_id": 10,
+        "runtime_handle": 10
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/location/11",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "location",
+        "local_id": "11",
+        "legacy_runtime_id": 11,
+        "runtime_handle": 11
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/location/12",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "location",
+        "local_id": "12",
+        "legacy_runtime_id": 12,
+        "runtime_handle": 12
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/location/13",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "location",
+        "local_id": "13",
+        "legacy_runtime_id": 13,
+        "runtime_handle": 13
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/location/14",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "location",
+        "local_id": "14",
+        "legacy_runtime_id": 14,
+        "runtime_handle": 14
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/location/15",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "location",
+        "local_id": "15",
+        "legacy_runtime_id": 15,
+        "runtime_handle": 15
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A10",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "room-sheet",
+        "local_id": "room:10",
+        "runtime_handle": 2574024258005683
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A11",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "room-sheet",
+        "local_id": "room:11",
+        "runtime_handle": 944777926762018
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A12",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "room-sheet",
+        "local_id": "room:12",
+        "runtime_handle": 8925253377010016
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A13",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "room-sheet",
+        "local_id": "room:13",
+        "runtime_handle": 1954150505527197
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A14",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "room-sheet",
+        "local_id": "room:14",
+        "runtime_handle": 9002247914113905
+      },
+      {
+        "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A15",
+        "pack_id": "ruby-high.first-bell",
+        "pack_version": "1.3.0",
+        "kind": "room-sheet",
+        "local_id": "room:15",
+        "runtime_handle": 8772787069788936
+      }
+    ]
+  }
+}

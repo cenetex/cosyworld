@@ -1,65 +1,5 @@
 [
   {
-    "id": "quiet-wing/longer-than-you-think",
-    "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
-    "text": "You have been reading this sentence longer than you think.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
-  },
-  {
-    "id": "quiet-wing/book-looking",
-    "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
-    "text": "The book you want is looking for you too. One of you must sit still.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
-  },
-  {
-    "id": "quiet-wing/return-dates",
-    "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
-    "text": "Return dates are a kindness. Not everything returned was due.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
-  },
-  {
-    "id": "quiet-wing/stayed-home",
-    "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
-    "text": "Somewhere on these shelves is the version of today where you stayed home.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
-  },
-  {
-    "id": "quiet-wing/different-book",
-    "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
-    "text": "Every reader finishes a different book with the same name.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
-  },
-  {
-    "id": "quiet-wing/hush-being-polite",
-    "shelf": "quiet-wing",
-    "location_ids": [
-      12
-    ],
-    "text": "The hush is not empty. It is full, and being polite.",
-    "weight": 10,
-    "pack_id": "cosyworld.core"
-  },
-  {
     "id": "great-library/rest-between-names",
     "shelf": "great-library",
     "location_ids": [
@@ -248,7 +188,6 @@
     "shelf": "hearth",
     "location_ids": [
       1,
-      12,
       50,
       64,
       65
@@ -262,7 +201,6 @@
     "shelf": "hearth",
     "location_ids": [
       1,
-      12,
       50,
       64,
       65
@@ -276,7 +214,6 @@
     "shelf": "hearth",
     "location_ids": [
       1,
-      12,
       50,
       64,
       65
@@ -284,5 +221,65 @@
     "text": "The door is low so that every leaving is a bow.",
     "weight": 1,
     "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "quiet-wing/longer-than-you-think",
+    "shelf": "quiet-wing",
+    "location_ids": [
+      12
+    ],
+    "text": "You have been reading this sentence longer than you think.",
+    "weight": 10,
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": "quiet-wing/book-looking",
+    "shelf": "quiet-wing",
+    "location_ids": [
+      12
+    ],
+    "text": "The book you want is looking for you too. One of you must sit still.",
+    "weight": 10,
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": "quiet-wing/return-dates",
+    "shelf": "quiet-wing",
+    "location_ids": [
+      12
+    ],
+    "text": "Return dates are a kindness. Not everything returned was due.",
+    "weight": 10,
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": "quiet-wing/stayed-home",
+    "shelf": "quiet-wing",
+    "location_ids": [
+      12
+    ],
+    "text": "Somewhere on these shelves is the version of today where you stayed home.",
+    "weight": 10,
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": "quiet-wing/different-book",
+    "shelf": "quiet-wing",
+    "location_ids": [
+      12
+    ],
+    "text": "Every reader finishes a different book with the same name.",
+    "weight": 10,
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": "quiet-wing/hush-being-polite",
+    "shelf": "quiet-wing",
+    "location_ids": [
+      12
+    ],
+    "text": "The hush is not empty. It is full, and being polite.",
+    "weight": 10,
+    "pack_id": "ruby-high.first-bell"
   }
 ]

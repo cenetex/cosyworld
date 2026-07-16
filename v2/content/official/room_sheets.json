@@ -71,144 +71,6 @@
     "pack_id": "cosyworld.core"
   },
   {
-    "id": "room:10",
-    "location_id": 10,
-    "name": "Science Class",
-    "safety": "safe",
-    "zone": "sanctuary",
-    "aspects": [
-      "bright evidence",
-      "questions tested"
-    ],
-    "boons": [
-      "experiments turn uncertainty into clues"
-    ],
-    "hooks": [
-      "the benches remember every surprising result"
-    ],
-    "resources": {
-      "evidence": 3,
-      "curiosity": 2
-    },
-    "projects": [],
-    "pack_id": "cosyworld.core"
-  },
-  {
-    "id": "room:11",
-    "location_id": 11,
-    "name": "Homeroom",
-    "safety": "safe",
-    "zone": "sanctuary",
-    "aspects": [
-      "morning threshold",
-      "every question seated"
-    ],
-    "boons": [
-      "new routes can begin without losing the way back"
-    ],
-    "hooks": [
-      "attendance remembers who is trying again"
-    ],
-    "resources": {
-      "attention": 3,
-      "pencils": 2
-    },
-    "projects": [],
-    "pack_id": "cosyworld.core"
-  },
-  {
-    "id": "room:12",
-    "location_id": 12,
-    "name": "Library",
-    "safety": "safe",
-    "zone": "sanctuary",
-    "aspects": [
-      "shelved hush",
-      "answers with page numbers"
-    ],
-    "boons": [
-      "research can turn rumors into named facts"
-    ],
-    "hooks": [
-      "every returned book leaves one sentence behind"
-    ],
-    "resources": {
-      "indexes": 3,
-      "quiet": 2
-    },
-    "projects": [],
-    "pack_id": "cosyworld.core"
-  },
-  {
-    "id": "room:13",
-    "location_id": 13,
-    "name": "Cafeteria",
-    "safety": "safe",
-    "zone": "sanctuary",
-    "aspects": [
-      "commons diplomacy",
-      "tray-table thunder"
-    ],
-    "boons": [
-      "shared meals soften tense introductions"
-    ],
-    "hooks": [
-      "rumors move faster than lunch lines"
-    ],
-    "resources": {
-      "snacks": 3,
-      "gossip": 2
-    },
-    "projects": [],
-    "pack_id": "cosyworld.core"
-  },
-  {
-    "id": "room:14",
-    "location_id": 14,
-    "name": "Greenhouse",
-    "safety": "safe",
-    "zone": "sanctuary",
-    "aspects": [
-      "patient leaves",
-      "slow experiments"
-    ],
-    "boons": [
-      "careful tending makes second chances visible"
-    ],
-    "hooks": [
-      "some lessons only answer after watering"
-    ],
-    "resources": {
-      "water": 3,
-      "cuttings": 2
-    },
-    "projects": [],
-    "pack_id": "cosyworld.core"
-  },
-  {
-    "id": "room:15",
-    "location_id": 15,
-    "name": "Courtyard",
-    "safety": "safe",
-    "zone": "sanctuary",
-    "aspects": [
-      "crossing paths",
-      "open sky"
-    ],
-    "boons": [
-      "accidental meetings can become useful choices"
-    ],
-    "hooks": [
-      "every hallway returns here with a little weather"
-    ],
-    "resources": {
-      "breeze": 3,
-      "routes": 2
-    },
-    "projects": [],
-    "pack_id": "cosyworld.core"
-  },
-  {
     "id": "room:30",
     "location_id": 30,
     "name": "The Heavens",
@@ -780,5 +642,143 @@
       "lantern-keeper:rekindle-the-beacon"
     ],
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
+  },
+  {
+    "id": "room:10",
+    "location_id": 10,
+    "name": "Science Class",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "bright evidence",
+      "questions tested"
+    ],
+    "boons": [
+      "experiments turn uncertainty into clues"
+    ],
+    "hooks": [
+      "the benches remember every surprising result"
+    ],
+    "resources": {
+      "evidence": 3,
+      "curiosity": 2
+    },
+    "projects": [],
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": "room:11",
+    "location_id": 11,
+    "name": "Homeroom",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "morning threshold",
+      "every question seated"
+    ],
+    "boons": [
+      "new routes can begin without losing the way back"
+    ],
+    "hooks": [
+      "attendance remembers who is trying again"
+    ],
+    "resources": {
+      "attention": 3,
+      "pencils": 2
+    },
+    "projects": [],
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": "room:12",
+    "location_id": 12,
+    "name": "Library",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "shelved hush",
+      "answers with page numbers"
+    ],
+    "boons": [
+      "research can turn rumors into named facts"
+    ],
+    "hooks": [
+      "every returned book leaves one sentence behind"
+    ],
+    "resources": {
+      "indexes": 3,
+      "quiet": 2
+    },
+    "projects": [],
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": "room:13",
+    "location_id": 13,
+    "name": "Cafeteria",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "commons diplomacy",
+      "tray-table thunder"
+    ],
+    "boons": [
+      "shared meals soften tense introductions"
+    ],
+    "hooks": [
+      "rumors move faster than lunch lines"
+    ],
+    "resources": {
+      "snacks": 3,
+      "gossip": 2
+    },
+    "projects": [],
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": "room:14",
+    "location_id": 14,
+    "name": "Greenhouse",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "patient leaves",
+      "slow experiments"
+    ],
+    "boons": [
+      "careful tending makes second chances visible"
+    ],
+    "hooks": [
+      "some lessons only answer after watering"
+    ],
+    "resources": {
+      "water": 3,
+      "cuttings": 2
+    },
+    "projects": [],
+    "pack_id": "ruby-high.first-bell"
+  },
+  {
+    "id": "room:15",
+    "location_id": 15,
+    "name": "Courtyard",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "crossing paths",
+      "open sky"
+    ],
+    "boons": [
+      "accidental meetings can become useful choices"
+    ],
+    "hooks": [
+      "every hallway returns here with a little weather"
+    ],
+    "resources": {
+      "breeze": 3,
+      "routes": 2
+    },
+    "projects": [],
+    "pack_id": "ruby-high.first-bell"
   }
 ]

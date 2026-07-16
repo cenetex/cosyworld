@@ -1,0 +1,174 @@
+[
+  {
+    "from_location_id": 1,
+    "to_location_id": 11,
+    "flags": 0,
+    "direction": "south",
+    "requires_packs": [
+      "cosyworld.core"
+    ]
+  },
+  {
+    "from_location_id": 11,
+    "to_location_id": 1,
+    "flags": 0,
+    "direction": "out",
+    "requires_packs": [
+      "cosyworld.core"
+    ]
+  },
+  {
+    "from_location_id": 10,
+    "to_location_id": 11,
+    "flags": 0,
+    "direction": "south"
+  },
+  {
+    "from_location_id": 11,
+    "to_location_id": 10,
+    "flags": 0,
+    "direction": "north"
+  },
+  {
+    "from_location_id": 11,
+    "to_location_id": 12,
+    "flags": 0,
+    "direction": "east"
+  },
+  {
+    "from_location_id": 12,
+    "to_location_id": 11,
+    "flags": 0,
+    "direction": "west"
+  },
+  {
+    "from_location_id": 11,
+    "to_location_id": 13,
+    "flags": 0,
+    "direction": "south"
+  },
+  {
+    "from_location_id": 13,
+    "to_location_id": 11,
+    "flags": 0,
+    "direction": "north"
+  },
+  {
+    "from_location_id": 11,
+    "to_location_id": 15,
+    "flags": 0,
+    "direction": "west"
+  },
+  {
+    "from_location_id": 15,
+    "to_location_id": 11,
+    "flags": 0,
+    "direction": "east"
+  },
+  {
+    "from_location_id": 10,
+    "to_location_id": 14,
+    "flags": 0,
+    "direction": "east"
+  },
+  {
+    "from_location_id": 14,
+    "to_location_id": 10,
+    "flags": 0,
+    "direction": "west"
+  },
+  {
+    "from_location_id": 10,
+    "to_location_id": 15,
+    "flags": 0,
+    "direction": "southwest"
+  },
+  {
+    "from_location_id": 15,
+    "to_location_id": 10,
+    "flags": 0,
+    "direction": "northeast"
+  },
+  {
+    "from_location_id": 13,
+    "to_location_id": 15,
+    "flags": 0,
+    "direction": "northwest"
+  },
+  {
+    "from_location_id": 15,
+    "to_location_id": 13,
+    "flags": 0,
+    "direction": "southeast"
+  },
+  {
+    "from_location_id": 14,
+    "to_location_id": 15,
+    "flags": 0,
+    "direction": "south"
+  },
+  {
+    "from_location_id": 15,
+    "to_location_id": 14,
+    "flags": 0,
+    "direction": "north"
+  },
+  {
+    "from_location_id": 12,
+    "to_location_id": 50,
+    "flags": 0,
+    "distance": 3,
+    "direction": "down",
+    "requires_packs": [
+      "cosyworld.core"
+    ]
+  },
+  {
+    "from_location_id": 50,
+    "to_location_id": 12,
+    "flags": 0,
+    "distance": 3,
+    "direction": "up",
+    "requires_packs": [
+      "cosyworld.core"
+    ]
+  },
+  {
+    "from_location_id": 15,
+    "to_location_id": 32,
+    "flags": 0,
+    "distance": 4,
+    "direction": "up",
+    "requires_packs": [
+      "cosyworld.core"
+    ]
+  },
+  {
+    "from_location_id": 32,
+    "to_location_id": 15,
+    "flags": 0,
+    "distance": 4,
+    "direction": "down",
+    "requires_packs": [
+      "cosyworld.core"
+    ]
+  },
+  {
+    "from_location_id": 44,
+    "to_location_id": 14,
+    "flags": 0,
+    "direction": "south",
+    "requires_packs": [
+      "cosyworld.core"
+    ]
+  },
+  {
+    "from_location_id": 14,
+    "to_location_id": 44,
+    "flags": 0,
+    "direction": "north",
+    "requires_packs": [
+      "cosyworld.core"
+    ]
+  }
+]

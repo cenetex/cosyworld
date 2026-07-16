@@ -1,0 +1,34 @@
+[
+  {
+    "id": "ruby_high",
+    "name": "Ruby High",
+    "axis": "Institution vs Wild Law",
+    "opposes": [],
+    "truth": "People grow through structure.",
+    "shadow": "Structure can become permission-hoarding.",
+    "doctrine": "Attend, test, revise, and let every question have a seat.",
+    "verbs": [
+      "study",
+      "prove",
+      "attend",
+      "graduate"
+    ],
+    "motif": [
+      "hall passes",
+      "desks",
+      "greenhouse glass",
+      "courtyard rumors"
+    ],
+    "home_location_ids": [
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "member_actor_ids": [],
+    "player_facing": true,
+    "pack_id": "ruby-high.first-bell"
+  }
+]

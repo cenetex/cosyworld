@@ -48,10 +48,11 @@ this contract.
 CosyWorld Core is the independently mountable `cosyworld.core` world pack. Its
 manifest declares its default `cosyworld.core/rules` capability and all of its
 world resources, lifecycle hooks, typed effects, characters, cards, vocabulary,
-and assets. Ruby High owns the access gates that consume Ruby High grants; Core
-does not depend on Ruby High or an SRD rules pack. The checked-in `core-only`
-composition proves Core can boot and remain playable as the sole experience
-pack, while `services-only` proves the host accepts a composition with no world
+and assets. `ruby-high.first-bell` is a peer `world` pack with its own rules
+context, school vocabulary, locations, faction, cards, gates, and providers.
+Core does not depend on Ruby High or an SRD rules pack. The checked-in
+`core-only` and `ruby-high-only` compositions prove each world can boot without
+the other; `services-only` proves the host accepts a composition with no world
 pack at all.
 
 ## Pack contract
@@ -67,7 +68,7 @@ Every authored `pack.json` implements the machine-readable
 - `assets`: art or other static media mounted by a world or catalog pack.
 - `rules`: reusable rules reference data. Rules packs may omit world resources entirely.
 
-Resource files are JSON arrays. A pack may provide any subset; the compiler concatenates them in resolved dependency order and the worldpack validator checks duplicate IDs, references, capacities, and final-world invariants. Implicit overriding is not supported.
+Resource files are JSON arrays. A pack may provide any subset; the compiler concatenates them in resolved dependency order and the worldpack validator checks duplicate IDs, references, capacities, and final-world invariants. Implicit overriding is not supported. An authored row may declare `requires_packs`; every named pack must be a declared dependency. The compiler includes the row only when all of those dependencies are selected and strips the authoring-only condition from the compiled registry. This supports optional, one-way bridges without leaving dangling references in a standalone composition.
 
 Each manifest declares:
 
@@ -85,9 +86,19 @@ topological order. Cycles, missing required packs or capabilities, duplicate
 pack or capability declarations, incompatible pack versions, and incompatible
 engine ranges fail before output is written. Optional dependencies may be
 absent; when present, they must satisfy the same version and capability checks.
-Cross-pack links should live in an explicit bridge pack or official-world
-composition pack rather than making two otherwise reusable packs own each
-other's topology.
+Cross-pack links should live in an explicit bridge pack, an official-world
+composition pack, or dependency-guarded rows owned by the extending pack. They
+must never make the depended-on pack point back into optional content.
+
+Two compiled resources preserve the entity/card boundary for expansion-owned
+metadata. `card_bindings` associates a pack-owned external card with a canonical
+entity reference while leaving the seed entity in its authoring pack.
+`actor_facets` contributes removable faction membership and vocabulary to a
+canonical actor. Bindings and facets must be owned by the extending pack and may
+use `requires_packs` when their entity lives in an optional dependency. In the
+official composition, First Bell binds its Rati card and school facet to
+`pack://cosyworld.core/actor/1001`; both resources disappear from the standalone
+Ruby registry, while Core's Rati remains valid and uses its local card surface.
 
 Manifest v1 is fail-closed: unknown fields are rejected. Forward-compatible
 metadata must live under `extensions` with a namespaced `x-...` key. Adding a
@@ -236,8 +247,8 @@ states are `public`, `included`, `locked`, `partial`, and `entitled`.
 The compiler stamps `pack_id` onto every compiled resource and external card.
 Runtime actor, item, location, and card projections retain that provenance.
 This records who authored a resource without making the authoring pack the
-authorization boundary: a location may be authored in Core while its access is
-delegated to a card catalog such as Ruby High: First Bell.
+authorization boundary. Ruby High owns both its school locations and their
+access gates; Core remains playable with the entire peer pack absent.
 
 All packs in this endpoint are already installed by the shard's locked world
 composition. The endpoint does not dynamically install packs or interpret a
