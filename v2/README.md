@@ -591,6 +591,8 @@ Locations are live channels:
 
 This keeps AI output one-to-many: a resident reply is committed as a world event and broadcast to everyone present, not regenerated as a private response for each player.
 
+Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot-backed buffer. Heavy activity elsewhere can rotate out the global event replay window without erasing a quieter room's recent conversational context.
+
 ## Endpoints
 
 - `GET /health`

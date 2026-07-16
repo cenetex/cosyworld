@@ -246,6 +246,7 @@ const MAX_SKILL_RANK: u8 = 3;
 const DEFAULT_EVENT_REPLAY_LIMIT: usize = 80;
 const MAX_EVENT_REPLAY_LIMIT: usize = 500;
 const MAX_EVENT_STORE_SCAN: usize = 1000;
+const RECENT_ROOM_LINE_CAPACITY: usize = 16;
 const STARTING_ORBS: i32 = 3;
 const CHAT_ORB_COST: i32 = 1;
 const CORE_PROGRAM_ID: &str = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
@@ -1633,6 +1634,7 @@ struct RuntimeWorld {
     orb_reward_claims: BTreeSet<String>,
     listen_attempt_claims: BTreeSet<String>,
     event_log: Vec<EventView>,
+    recent_room_lines: BTreeMap<u64, Vec<EventView>>,
     next_actor_id: u64,
     next_content_id: u64,
     next_seed: u64,
@@ -1706,6 +1708,8 @@ struct RuntimeSnapshot {
     #[serde(default)]
     listen_attempt_claims: BTreeSet<String>,
     event_log: Vec<EventView>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    recent_room_lines: BTreeMap<u64, Vec<EventView>>,
     next_actor_id: u64,
     next_content_id: u64,
     next_seed: u64,
@@ -8113,6 +8117,7 @@ impl RuntimeSnapshot {
             orb_reward_claims: runtime.orb_reward_claims.clone(),
             listen_attempt_claims: runtime.listen_attempt_claims.clone(),
             event_log: runtime.event_log.clone(),
+            recent_room_lines: runtime.recent_room_lines.clone(),
             next_actor_id: runtime.next_actor_id,
             next_content_id: runtime.next_content_id,
             next_seed: runtime.next_seed,
@@ -8268,11 +8273,13 @@ impl RuntimeSnapshot {
             orb_reward_claims: self.orb_reward_claims,
             listen_attempt_claims: self.listen_attempt_claims,
             event_log: self.event_log,
+            recent_room_lines: self.recent_room_lines,
             next_actor_id: self.next_actor_id,
             next_content_id: self.next_content_id,
             next_seed: self.next_seed,
         })
         .map(|mut runtime| {
+            runtime.backfill_recent_room_lines();
             runtime.ensure_seed_topology();
             runtime.ensure_seed_rpg_projection();
             runtime.backfill_generated_avatar_flavor();
@@ -8373,6 +8380,7 @@ impl RuntimeWorld {
             orb_reward_claims: BTreeSet::new(),
             listen_attempt_claims: BTreeSet::new(),
             event_log: Vec::new(),
+            recent_room_lines: BTreeMap::new(),
             next_actor_id: 5000,
             next_content_id: 9000,
             next_seed: now_seed(),
@@ -10155,10 +10163,38 @@ impl RuntimeWorld {
     }
 
     fn push_projected_event(&mut self, event: EventView) {
+        if event.type_name == "message.created" && event.content.is_some() {
+            if let Some(location_id) = event.location_id {
+                let room_lines = self.recent_room_lines.entry(location_id).or_default();
+                room_lines.push(event.clone());
+                if room_lines.len() > RECENT_ROOM_LINE_CAPACITY {
+                    room_lines.drain(0..room_lines.len() - RECENT_ROOM_LINE_CAPACITY);
+                }
+            }
+        }
         self.event_log.push(event);
         if self.event_log.len() > 512 {
             let excess = self.event_log.len() - 512;
             self.event_log.drain(0..excess);
+        }
+    }
+
+    fn backfill_recent_room_lines(&mut self) {
+        if !self.recent_room_lines.is_empty() {
+            return;
+        }
+        for event in &self.event_log {
+            if event.type_name != "message.created" || event.content.is_none() {
+                continue;
+            }
+            let Some(location_id) = event.location_id else {
+                continue;
+            };
+            let room_lines = self.recent_room_lines.entry(location_id).or_default();
+            room_lines.push(event.clone());
+            if room_lines.len() > RECENT_ROOM_LINE_CAPACITY {
+                room_lines.drain(0..room_lines.len() - RECENT_ROOM_LINE_CAPACITY);
+            }
         }
     }
 
@@ -21285,15 +21321,14 @@ impl RuntimeWorld {
     }
 
     fn recent_room_lines(&self, location_id: u64, limit: usize) -> Vec<String> {
-        let mut recent_lines: Vec<String> = self
-            .event_log
+        let room_lines = self
+            .recent_room_lines
+            .get(&location_id)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        room_lines
             .iter()
             .rev()
-            .filter(|event| {
-                event.location_id == Some(location_id)
-                    && event.type_name == "message.created"
-                    && event.content.is_some()
-            })
             .take(limit)
             .map(|event| {
                 format!(
@@ -21305,9 +21340,10 @@ impl RuntimeWorld {
                     event.content.clone().unwrap_or_default()
                 )
             })
-            .collect();
-        recent_lines.reverse();
-        recent_lines
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect()
     }
 
     fn narrative_goal_lines(&self, actor_id: Option<u64>, location_id: u64) -> Vec<String> {
@@ -55296,6 +55332,73 @@ mod tests {
             .collect();
         assert!(garden_text.contains(&"garden only"));
         assert!(!garden_text.contains(&"cottage only"));
+    }
+
+    #[test]
+    fn recent_room_lines_survive_global_event_churn_and_snapshot_round_trip() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.push_projected_event(EventView {
+            seq: 10_000,
+            type_name: "message.created".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            actor_name: Some("Library Guest".to_string()),
+            location_id: Some(12),
+            location_name: Some("Library".to_string()),
+            content: Some("Keep the blue margin note.".to_string()),
+            ..EventView::default()
+        });
+        for seq in 10_001..=10_600 {
+            runtime.push_projected_event(EventView {
+                seq,
+                type_name: "message.created".to_string(),
+                success: true,
+                actor_id: Some(1001),
+                actor_name: Some("Rati".to_string()),
+                location_id: Some(1),
+                location_name: Some("The Cosy Cottage".to_string()),
+                content: Some(format!("busy cottage line {seq}")),
+                ..EventView::default()
+            });
+        }
+
+        assert_eq!(runtime.event_log.len(), 512);
+        assert!(runtime
+            .event_log
+            .iter()
+            .all(|event| event.location_id != Some(12)));
+        assert_eq!(
+            runtime.recent_room_lines(12, 8),
+            vec!["Library Guest: Keep the blue margin note."]
+        );
+        assert_eq!(
+            runtime
+                .recent_room_lines(1, RECENT_ROOM_LINE_CAPACITY + 10)
+                .len(),
+            RECENT_ROOM_LINE_CAPACITY
+        );
+
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-room-lines-{}-{}.json",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        runtime
+            .save_snapshot(&path)
+            .expect("save room-line snapshot");
+        let restored = RuntimeWorld::load_snapshot(&path).expect("restore room-line snapshot");
+        assert_eq!(
+            restored.recent_room_lines(12, 8),
+            vec!["Library Guest: Keep the blue margin note."]
+        );
+        assert_eq!(
+            restored
+                .recent_room_lines(1, RECENT_ROOM_LINE_CAPACITY + 10)
+                .len(),
+            RECENT_ROOM_LINE_CAPACITY
+        );
+        let _ = fs::remove_file(path);
     }
 
     #[test]
