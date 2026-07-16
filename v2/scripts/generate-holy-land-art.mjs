@@ -30,9 +30,10 @@ const TARGET_SIZES = {
 };
 
 function parseArgs(argv) {
-  const options = { dryRun: false, force: false, ids: null, limit: null, seedSalt: "" };
+  const options = { dryRun: false, force: false, syncPrompts: false, ids: null, limit: null, seedSalt: "" };
   for (const arg of argv) {
-    if (arg === "--dry-run") options.dryRun = true;
+    if (arg === "--sync-prompts") options.syncPrompts = true;
+    else if (arg === "--dry-run") options.dryRun = true;
     else if (arg === "--force") options.force = true;
     else if (arg.startsWith("--ids=")) {
       options.ids = new Set(arg.slice(6).split(",").map((value) => value.trim()).filter(Boolean));
@@ -245,6 +246,28 @@ async function persistResult(cards, entry, model) {
   await fs.writeFile(PROMPTS_PATH, `${JSON.stringify(prompts, null, 2)}\n`);
 }
 
+async function syncPrompts(cards, actors, locations) {
+  let prompts = {};
+  try {
+    prompts = await readJson(PROMPTS_PATH);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  let updated = 0;
+  for (const card of cards) {
+    const entry = prompts[card.card_id];
+    if (!entry) continue;
+    const prompt = buildPrompt(card, actors, locations);
+    if (entry.prompt !== prompt) {
+      entry.prompt = prompt;
+      updated++;
+    }
+  }
+  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  await fs.writeFile(PROMPTS_PATH, `${JSON.stringify(prompts, null, 2)}\n`);
+  console.log(`Synced ${updated} prompt(s) from current content.`);
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const [cards, actorRows, locationRows] = await Promise.all([
@@ -254,6 +277,13 @@ async function main() {
   ]);
   const actors = new Map(actorRows.map((actor) => [actor.id, actor]));
   const locations = new Map(locationRows.map((location) => [location.id, location]));
+
+  if (options.syncPrompts) {
+    await syncPrompts(cards, actors, locations);
+    console.log("Prompt sync complete.");
+    return;
+  }
+
   const selected = selectCards(cards, options);
   if (!selected.length) {
     console.log("No matching Holy Land cards need art.");
