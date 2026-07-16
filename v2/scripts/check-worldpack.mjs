@@ -226,6 +226,48 @@ function reportWritingRegisterAdvisories({ actors, cards, locations }) {
   }
 }
 
+function reportGenreAdvisories(content) {
+  const gothicVocabulary = [
+    ["whisper", /\bwhisper\b/i],
+    ["eternal", /\beternal\b/i],
+    ["void", /\bvoid\b/i],
+    ["abyss", /\babyss\b/i],
+    ["veil", /\bveil\b/i],
+    ["hush", /\bhush\b/i],
+    ["sacred", /\bsacred\b/i],
+  ];
+  const kernelVocabulary = [
+    ["journal", /\bjournal\b/i],
+    ["replay", /\breplay\b/i],
+    ["seed", /\bseed\b/i],
+    ["tick", /\btick\b/i],
+    ["deterministic", /\bdeterministic\b/i],
+  ];
+
+  for (const [collection, rows] of Object.entries(content)) {
+    if (collection === "sentences") continue;
+    const fileName = expectedFiles[collection];
+    rows.forEach((row, index) => {
+      visitStrings(row, (value, trail) => {
+        const label = contentRowLabel(fileName, row, index, trail);
+        const field = trail.at(-1);
+        if (environmentRegisterFields.has(field)) {
+          for (const [word, pattern] of gothicVocabulary) {
+            if (pattern.test(value)) {
+              warn(`genre advisory: ${label} uses gothic vocabulary "${word}" in environment field — horror in the content, whimsy in the diction (canon rule 4)`);
+            }
+          }
+        }
+        for (const [word, pattern] of kernelVocabulary) {
+          if (pattern.test(value)) {
+            warn(`genre advisory: ${label} uses kernel vocabulary "${word}" outside sentences.json — the machinery is the mythology, not the lore (canon rule 5)`);
+          }
+        }
+      });
+    });
+  }
+}
+
 function jobRewardLabel(reward) {
   if (isNonEmptyString(reward)) {
     return reward;
@@ -674,6 +716,7 @@ const sentences = content.sentences;
 
 validateWritingRegister(content);
 reportWritingRegisterAdvisories({ actors, cards, locations });
+reportGenreAdvisories(content);
 
 const actorIds = idSet("actors", actors, (actor) => actor.id);
 const actorById = new Map(actors.map((actor) => [actor.id, actor]));
