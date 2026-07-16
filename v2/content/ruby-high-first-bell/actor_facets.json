@@ -1,0 +1,19 @@
+[
+  {
+    "id": "rati-first-bell",
+    "actor_id": 1001,
+    "actor_ref": "pack://cosyworld.core/actor/1001",
+    "faction_ids": [
+      "ruby_high"
+    ],
+    "vocabulary": [
+      "attendance",
+      "signal studies",
+      "first bell",
+      "hall pass"
+    ],
+    "requires_packs": [
+      "cosyworld.core"
+    ]
+  }
+]

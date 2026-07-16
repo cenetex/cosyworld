@@ -66,47 +66,10 @@
     "pack_id": "cosyworld.core"
   },
   {
-    "id": "ruby_high",
-    "name": "Ruby High",
-    "axis": "Institution vs Wild Law",
-    "opposes": [
-      "lonely_forest_court"
-    ],
-    "truth": "People grow through structure.",
-    "shadow": "Structure can become permission-hoarding.",
-    "doctrine": "Attend, test, revise, and let every question have a seat.",
-    "verbs": [
-      "study",
-      "prove",
-      "attend",
-      "graduate"
-    ],
-    "motif": [
-      "hall passes",
-      "desks",
-      "greenhouse glass",
-      "courtyard rumors"
-    ],
-    "home_location_ids": [
-      10,
-      11,
-      12,
-      13,
-      14,
-      15
-    ],
-    "member_actor_ids": [
-      1001
-    ],
-    "pack_id": "cosyworld.core"
-  },
-  {
     "id": "lonely_forest_court",
     "name": "Lonely Forest Court",
     "axis": "Institution vs Wild Law",
-    "opposes": [
-      "ruby_high"
-    ],
+    "opposes": [],
     "truth": "Old paths teach without asking permission.",
     "shadow": "Being lost can become an identity.",
     "doctrine": "Find a way, then remember who waited along the path.",
@@ -393,5 +356,37 @@
       1067
     ],
     "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "ruby_high",
+    "name": "Ruby High",
+    "axis": "Institution vs Wild Law",
+    "opposes": [],
+    "truth": "People grow through structure.",
+    "shadow": "Structure can become permission-hoarding.",
+    "doctrine": "Attend, test, revise, and let every question have a seat.",
+    "verbs": [
+      "study",
+      "prove",
+      "attend",
+      "graduate"
+    ],
+    "motif": [
+      "hall passes",
+      "desks",
+      "greenhouse glass",
+      "courtyard rumors"
+    ],
+    "home_location_ids": [
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "member_actor_ids": [],
+    "player_facing": true,
+    "pack_id": "ruby-high.first-bell"
   }
 ]

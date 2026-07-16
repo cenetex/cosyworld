@@ -6,7 +6,7 @@
   "name": "CosyWorld Services Only",
   "version": 1,
   "description": "A non-world composition for health, metadata, identity, and moderation services.",
-  "bundle_hash": "sha256:c39953a857c8eba393e6de55456a8a4e43780f3aaf38beb914dd27238c137689",
+  "bundle_hash": "sha256:897cae42c89bb31ba177649077f4c0273110c9b2b9bc4a587a92ba31aeb85281",
   "packs": [
     {
       "id": "cosyworld.services-fixture",
@@ -34,6 +34,7 @@
       },
       "resource_counts": {
         "actors": 0,
+        "actor_facets": 0,
         "access_gates": 0,
         "factions": 0,
         "items": 0,
@@ -46,6 +47,7 @@
         "jobs": 0,
         "fronts": 0,
         "cards": 0,
+        "card_bindings": 0,
         "lifecycle_hooks": 0,
         "evolution_tracks": 0,
         "recipes": 0,
@@ -64,6 +66,7 @@
   ],
   "files": {
     "actors": "actors.json",
+    "actor_facets": "actor_facets.json",
     "access_gates": "access_gates.json",
     "factions": "factions.json",
     "items": "items.json",
@@ -76,6 +79,7 @@
     "jobs": "jobs.json",
     "fronts": "fronts.json",
     "cards": "cards.json",
+    "card_bindings": "card_bindings.json",
     "lifecycle_hooks": "lifecycle_hooks.json",
     "evolution_tracks": "evolution_tracks.json",
     "recipes": "recipes.json",

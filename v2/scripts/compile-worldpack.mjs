@@ -33,6 +33,7 @@ const printArtifactDigest = args.has("--artifact-digest");
 
 const resourceFiles = {
   actors: "actors.json",
+  actor_facets: "actor_facets.json",
   access_gates: "access_gates.json",
   factions: "factions.json",
   items: "items.json",
@@ -45,6 +46,7 @@ const resourceFiles = {
   jobs: "jobs.json",
   fronts: "fronts.json",
   cards: "cards.json",
+  card_bindings: "card_bindings.json",
   lifecycle_hooks: "lifecycle_hooks.json",
   evolution_tracks: "evolution_tracks.json",
   recipes: "recipes.json",
@@ -301,6 +303,7 @@ const ruleBundles = [];
 const attributions = [];
 const characterCreationBundles = [];
 const resourceCountsByPack = new Map();
+const selectedPackIds = new Set(packs.map((pack) => pack.manifest.id));
 for (const pack of packs) {
   const resourceCounts = Object.fromEntries(Object.keys(resourceFiles).map((key) => [key, 0]));
   resourceCounts.external_cards = 0;
@@ -315,9 +318,21 @@ for (const pack of packs) {
     for (const row of rows) {
       assert(row && typeof row === "object" && !Array.isArray(row), `pack ${pack.manifest.id} resource ${resource} contains a non-object row`);
       assert(!row.pack_id || row.pack_id === pack.manifest.id, `pack ${pack.manifest.id} resource ${resource} contains conflicting pack_id ${row.pack_id}`);
-      resources[resource].push({ ...row, pack_id: pack.manifest.id });
+      const { requires_packs: requiresPacks = [], ...compiledRow } = row;
+      assert(Array.isArray(requiresPacks), `pack ${pack.manifest.id} resource ${resource} requires_packs must be an array`);
+      assert(new Set(requiresPacks).size === requiresPacks.length, `pack ${pack.manifest.id} resource ${resource} repeats a requires_packs id`);
+      const dependencyIds = new Set(pack.manifest.dependencies.map((dependency) => dependency.id));
+      for (const requiredPackId of requiresPacks) {
+        assert(
+          typeof requiredPackId === "string" && dependencyIds.has(requiredPackId),
+          `pack ${pack.manifest.id} resource ${resource} condition references undeclared dependency ${requiredPackId}`,
+        );
+      }
+      if (requiresPacks.every((requiredPackId) => selectedPackIds.has(requiredPackId))) {
+        resources[resource].push({ ...compiledRow, pack_id: pack.manifest.id });
+        resourceCounts[resource] += 1;
+      }
     }
-    resourceCounts[resource] += rows.length;
   }
   if (pack.manifest.rules) {
     const ruleResources = {};
@@ -406,6 +421,7 @@ const packSummary = packs.map(({ locked, manifest, integrity }) => ({
   ...(manifest.entitlements ? { entitlements: manifest.entitlements } : {}),
   ...(manifest.rules_adapter ? { rules_adapter: manifest.rules_adapter } : {}),
   ...(manifest.rules_namespace ? { rules_namespace: manifest.rules_namespace } : {}),
+  ...(manifest.extensions ? { extensions: manifest.extensions } : {}),
   source: locked.source,
   integrity,
 }));
@@ -439,6 +455,7 @@ const manifest = {
   version: world.version,
   description: world.description,
   entry_location: world.entry_location,
+  ...(world.entry_grant_id ? { entry_grant_id: world.entry_grant_id } : {}),
   bundle_hash: bundleHash,
   packs: packSummary,
   files: resourceFiles,

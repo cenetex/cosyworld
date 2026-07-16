@@ -19,7 +19,11 @@
     "description": "Rain beads on broad leaves. Round marks dot the grass.",
     "persona": "The garden answers in damp patience, leaf-taps, and tiny useful discoveries.",
     "biome": "rain garden",
-    "terrain": ["wet grass", "broad leaves", "soft garden soil"],
+    "terrain": [
+      "wet grass",
+      "broad leaves",
+      "soft garden soil"
+    ],
     "memory": [
       "A dewbright button was found here at first light.",
       "The path from the cottage arrives smelling of tea and wet wool."
@@ -33,86 +37,16 @@
     "description": "The path shines under cold moonlight. Wolf tracks cross it.",
     "persona": "The trail is a silver test: honest, spare, and just dangerous enough to reveal courage.",
     "biome": "moonlit woodland",
-    "terrain": ["silver pine", "cold earth", "wolf-worn trail"],
+    "terrain": [
+      "silver pine",
+      "cold earth",
+      "wolf-worn trail"
+    ],
     "memory": [
       "Coach waits here.",
       "The Wolfprint Charm and the Watch Bell have both passed this way."
     ],
     "allow_combat": true
-  },
-  {
-    "id": 10,
-    "name": "Science Class",
-    "title": "STEM Wing",
-    "description": "Shared benches, small instruments, and questions waiting to be tested.",
-    "persona": "Science Class prefers evidence, clean questions, and answers brave enough to be revised.",
-    "memory": [
-      "Surprising results get written down here.",
-      "Rati sometimes follows signal-study questions here."
-    ],
-    "allow_combat": false
-  },
-  {
-    "id": 11,
-    "name": "Homeroom",
-    "title": "Front Door",
-    "description": "Morning light crosses rows of desks.",
-    "persona": "Homeroom keeps attendance for beginnings, detours, and people trying again.",
-    "memory": [
-      "The cottage door opens here.",
-      "Most Ruby High paths lead back to this room."
-    ],
-    "allow_combat": false
-  },
-  {
-    "id": 12,
-    "name": "Library",
-    "title": "Quiet Wing",
-    "description": "Tall shelves and a deep hush.",
-    "persona": "The Library is exact, generous, and faintly amused by people who whisper to books.",
-    "memory": [
-      "The Great Library can be reached through the deeper stacks.",
-      "Some stacks go deeper than the school map shows."
-    ],
-    "allow_combat": false
-  },
-  {
-    "id": 13,
-    "name": "Cafeteria",
-    "title": "Commons",
-    "description": "Long tables, lunch trays, and running bargains.",
-    "persona": "The Cafeteria speaks in offers, side-eyes, and the social physics of shared tables.",
-    "memory": [
-      "Deals get made over lunch.",
-      "Rumors travel from the courtyard through the serving line."
-    ],
-    "allow_combat": false
-  },
-  {
-    "id": 14,
-    "name": "Greenhouse",
-    "title": "Garden Annex",
-    "description": "Glass walls, damp air, and slow experiments in labeled pots.",
-    "persona": "The Greenhouse thinks in tendrils, careful timing, and second chances rooted in soil.",
-    "memory": [
-      "Pollen drifts in from the Flower Meadow.",
-      "The watering schedule is strict."
-    ],
-    "allow_combat": false
-  },
-  {
-    "id": 15,
-    "name": "Courtyard",
-    "title": "Central Grounds",
-    "description": "Open paths cross under the sky. Every hallway ends here.",
-    "persona": "The Courtyard is public, breezy, and good at making accidental meetings feel arranged.",
-    "biome": "school grounds",
-    "terrain": ["courtyard stone", "open lawn", "windy steps"],
-    "memory": [
-      "Summit Trail begins at the far edge.",
-      "Students cut through here when they need a new route."
-    ],
-    "allow_combat": false
   },
   {
     "id": 30,
@@ -145,9 +79,13 @@
     "description": "A switchback path through cold scree, marked by lanterns.",
     "persona": "Summit Trail encourages one more step and remembers every almost-turnaround.",
     "biome": "alpine mountain",
-    "terrain": ["cold scree", "switchback stone", "thin grass"],
+    "terrain": [
+      "cold scree",
+      "switchback stone",
+      "thin grass"
+    ],
     "memory": [
-      "The Courtyard is warmer than it looks from here.",
+      "The lower trail is warmer than it looks from here.",
       "Alpine Forest begins where the stone gives way to trees."
     ],
     "allow_combat": false
@@ -258,7 +196,7 @@
     "persona": "The Meadow is open-hearted, sunlit, and prone to answering sorrow with color.",
     "memory": [
       "The Old Oak drops leaves here in autumn.",
-      "Half these flowers also grow in the Greenhouse."
+      "Half these flowers return after the first warm rain."
     ],
     "allow_combat": false
   },
@@ -269,7 +207,7 @@
     "description": "Endless shelves, brass ladders, and marginalia from earlier travelers.",
     "persona": "The Great Library is vast, procedural, and fond of answers that arrive with page numbers.",
     "memory": [
-      "The school Library opens into these stacks.",
+      "Moonlit Trail opens into these stacks by a long northern route.",
       "Several maps of the Farthest Mists are misfiled here."
     ],
     "allow_combat": false

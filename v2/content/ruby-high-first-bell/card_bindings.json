@@ -1,0 +1,13 @@
+[
+  {
+    "id": "rati-first-bell-card",
+    "entity_ref": "pack://cosyworld.core/actor/1001",
+    "subject_kind": "actor",
+    "subject_id": 1001,
+    "seed_card_id": "rati",
+    "external_card_id": "rati",
+    "requires_packs": [
+      "cosyworld.core"
+    ]
+  }
+]

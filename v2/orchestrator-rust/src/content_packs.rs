@@ -109,6 +109,25 @@ fn pack_entry_location(pack_id: &str, authored_location_ids: &[u64]) -> Option<u
         .find(|bundle| bundle.pack_id == pack_id)
         .and_then(|bundle| bundle.profiles.first())
         .map(|profile| profile.entry_location_id)
+        .or_else(|| {
+            content_registry()
+                .pack(pack_id)?
+                .entry_points
+                .iter()
+                .find_map(|entry| {
+                    (entry.get("kind")?.as_str()? == "location").then_some(())?;
+                    let location_id = entry
+                        .get("id")?
+                        .as_str()?
+                        .rsplit('/')
+                        .next()?
+                        .parse::<u64>()
+                        .ok()?;
+                    authored_location_ids
+                        .contains(&location_id)
+                        .then_some(location_id)
+                })
+        })
         .or_else(|| authored_location_ids.first().copied())
 }
 
@@ -286,7 +305,7 @@ mod tests {
         assert_eq!(core.asset_providers.len(), 2);
         assert!(core.asset_providers.iter().all(|provider| {
             provider.provider == "cosyworld.core/assets"
-                && provider.cache_namespace.contains("cosyworld.core@1.2.0")
+                && provider.cache_namespace.contains("cosyworld.core@1.3.0")
                 && provider.content_hash.starts_with("sha256:")
         }));
 
@@ -295,6 +314,8 @@ mod tests {
             .iter()
             .find(|pack| pack.id == "ruby-high.first-bell")
             .expect("Ruby High pack");
+        assert_eq!(ruby.kind, "world");
+        assert_eq!(ruby.entry_location_id, Some(11));
         assert_eq!(ruby.access_state, "locked");
         assert!(!ruby.entitled);
         assert_eq!(ruby.locations.len(), 6);

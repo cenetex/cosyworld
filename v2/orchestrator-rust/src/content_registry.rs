@@ -118,6 +118,7 @@ impl ContentRegistry {
         let content = SeedContent {
             manifest: document.manifest,
             actors: take_resource(&mut resources, "actors")?,
+            actor_facets: take_resource(&mut resources, "actor_facets")?,
             access_gates: take_resource(&mut resources, "access_gates")?,
             factions: take_resource(&mut resources, "factions")?,
             items: take_resource(&mut resources, "items")?,
@@ -130,6 +131,7 @@ impl ContentRegistry {
             jobs: take_resource(&mut resources, "jobs")?,
             fronts: take_resource(&mut resources, "fronts")?,
             cards: take_resource(&mut resources, "cards")?,
+            card_bindings: take_resource(&mut resources, "card_bindings")?,
             lifecycle_hooks: take_resource(&mut resources, "lifecycle_hooks")?,
             evolution_tracks: take_resource(&mut resources, "evolution_tracks")?,
             recipes: take_resource(&mut resources, "recipes")?,
@@ -894,6 +896,7 @@ mod tests {
             entitlements: None,
             rules_adapter: None,
             rules_namespace: None,
+            extensions: serde_json::Value::Null,
         }
     }
 
@@ -1049,7 +1052,7 @@ mod tests {
         )
         .expect("official registry loads");
         assert_eq!(registry.content().locations.len(), 33);
-        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.2.0");
+        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.3.0");
         assert_eq!(
             registry.capability_provider("cosyworld.core/world"),
             Some("cosyworld.core")

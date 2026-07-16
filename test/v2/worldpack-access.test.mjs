@@ -48,7 +48,11 @@ function writeSentences(root, sentences) {
   const compiledSentences = sentences.map((sentence) => ({ ...sentence, pack_id: packId }));
   writeJson(root, "sentences.json", compiledSentences);
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
-  manifest.packs.find((pack) => pack.id === packId).resource_counts.sentences = compiledSentences.length;
+  for (const pack of manifest.packs) {
+    pack.resource_counts.sentences = compiledSentences.filter(
+      (sentence) => sentence.pack_id === pack.id,
+    ).length;
+  }
   writeJson(root, "worldpack.json", manifest);
 }
 
@@ -114,7 +118,7 @@ describe("worldpack Manifest v1 validation", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "requires missing capability cosyworld.core/missing from cosyworld.core@1.2.0",
+      "requires missing capability cosyworld.core/missing from cosyworld.core@1.3.0",
     );
   });
 
@@ -195,10 +199,11 @@ describe("worldpack authored relationships", () => {
       "drowned",
       "hearth",
     ]));
-    expect(sentences.every((sentence) => sentence.pack_id === "cosyworld.core")).toBe(true);
+    expect(sentences.filter((sentence) => sentence.pack_id === "cosyworld.core")).toHaveLength(21);
+    expect(sentences.filter((sentence) => sentence.pack_id === "ruby-high.first-bell")).toHaveLength(6);
     expect(sentences.filter((sentence) => sentence.shelf === "hearth")).toHaveLength(3);
     expect(sentences.filter((sentence) => sentence.shelf === "hearth").every((sentence) => (
-      sentence.weight === 1 && [1, 12, 50, 64, 65].every((id) => sentence.location_ids.includes(id))
+      sentence.weight === 1 && [1, 50, 64, 65].every((id) => sentence.location_ids.includes(id))
     ))).toBe(true);
   });
 });

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "ruby-high.first-bell-only",
+  "name": "Ruby High: First Bell Only",
+  "version": 1,
+  "description": "A standalone First Bell boot fixture with no CosyWorld Core pack mounted.",
+  "entry_location": "ruby-high.first-bell:location/11",
+  "entry_grant_id": "ruby-high.first-bell:location-homeroom",
+  "packs": [
+    "ruby-high.first-bell"
+  ]
+}

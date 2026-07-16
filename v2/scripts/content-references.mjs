@@ -94,6 +94,7 @@ export function buildContentReferenceMapping(candidates, mappingVersion, options
 
 const resourceIdentities = new Map([
   ["actors", { kind: "actor", identity: "id", legacy: true }],
+  ["actor_facets", { kind: "actor-facet", identity: "id" }],
   ["items", { kind: "item", identity: "id", legacy: true }],
   ["locations", { kind: "location", identity: "id", legacy: true }],
   ["factions", { kind: "faction", identity: "id" }],
@@ -103,6 +104,7 @@ const resourceIdentities = new Map([
   ["jobs", { kind: "job", identity: "id" }],
   ["fronts", { kind: "front", identity: "id" }],
   ["cards", { kind: "card", identity: "card_id" }],
+  ["card_bindings", { kind: "card-binding", identity: "id" }],
   ["recipes", { kind: "recipe", identity: "id" }],
 ]);
 

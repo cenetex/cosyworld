@@ -50,11 +50,13 @@ multiple shard processes with isolated state stores and routing players to the
 correct shard. Set `COSYWORLD_V2_SHARD_ID` to name each process in `/meta`;
 cross-shard routing is not part of the current MVP.
 
-The current public world includes CosyWorld Core rooms plus Ruby High expansion
-rooms gated by official location cards. Players can create avatars, chat through
-server-authored avatar lines, use moderated room speech, move, collect and trade
-items, earn and spend Orbs, report players, and unlock avatar cards through the
-Wooden Box and pack flow.
+The current public world composes two peer worlds: independently bootable
+CosyWorld Core and Ruby High: First Bell. Ruby owns its school rooms, rules
+context, cards, faction, assets, and location-card gates; optional bridge rows
+connect it to Core only when both packs are mounted. Players can create avatars,
+chat through server-authored avatar lines, use moderated room speech, move,
+collect and trade items, earn and spend Orbs, report players, and unlock avatar
+cards through the Wooden Box and pack flow.
 
 ## Production Runtime
 

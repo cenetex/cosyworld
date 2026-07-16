@@ -25,6 +25,7 @@ const engineVersion = JSON.parse(
 
 const expectedFiles = {
   actors: "actors.json",
+  actor_facets: "actor_facets.json",
   access_gates: "access_gates.json",
   factions: "factions.json",
   items: "items.json",
@@ -37,6 +38,7 @@ const expectedFiles = {
   jobs: "jobs.json",
   fronts: "fronts.json",
   cards: "cards.json",
+  card_bindings: "card_bindings.json",
   lifecycle_hooks: "lifecycle_hooks.json",
   evolution_tracks: "evolution_tracks.json",
   recipes: "recipes.json",
@@ -815,6 +817,7 @@ for (const pack of packs.filter((candidate) => candidate.kind === "campaign")) {
 }
 
 const actors = content.actors;
+const actorFacets = content.actor_facets;
 const accessGates = content.access_gates;
 const factions = content.factions;
 const items = content.items;
@@ -827,6 +830,7 @@ const clocks = content.clocks;
 const jobs = content.jobs;
 const fronts = content.fronts;
 const cards = content.cards;
+const cardBindings = content.card_bindings;
 const lifecycleHooks = content.lifecycle_hooks;
 const evolutionTracks = content.evolution_tracks;
 const recipes = content.recipes;
@@ -1057,8 +1061,16 @@ if (worldBearingPacks.length === 0 && locationIds.size === 0) {
 } else if (!has(locationIds, entryLocationId)) {
   fail(`worldpack entry location ${manifest.entry_location} does not reference a compiled location`);
 } else if (gateByLocationId.has(entryLocationId)) {
-  fail(`worldpack entry location ${entryLocationId} must not require an access gate`);
+  const entryGate = gateByLocationId.get(entryLocationId);
+  if (manifest.entry_grant_id !== entryGate.required_grant_id) {
+    fail(`worldpack entry location ${entryLocationId} must be public or declare entry_grant_id ${entryGate.required_grant_id}`);
+  } else {
+    publicReachableLocationIds.add(entryLocationId);
+  }
 } else {
+  if (manifest.entry_grant_id !== undefined) {
+    fail(`worldpack public entry location ${entryLocationId} must not declare entry_grant_id`);
+  }
   publicReachableLocationIds.add(entryLocationId);
   const pendingLocations = [entryLocationId];
   const traversableExits = [
@@ -1266,6 +1278,53 @@ for (const card of cards) {
   }
 }
 
+const externalCardById = new Map(externalCards.map((card) => [card.card_id, card]));
+for (const card of cards) {
+  if (!card.external_card_id) continue;
+  const externalCard = externalCardById.get(card.external_card_id);
+  if (!externalCard) {
+    fail(`card ${card.card_id} references missing external card ${card.external_card_id}`);
+  } else if (externalCard.pack_id !== card.pack_id) {
+    fail(`card ${card.card_id} may not bind an external card owned by ${externalCard.pack_id}`);
+  }
+}
+
+idSet("card bindings", cardBindings, (binding) => binding.id);
+const boundSeedCards = new Set();
+for (const binding of cardBindings) {
+  validateRequiredStrings("card binding", binding, [
+    "id",
+    "entity_ref",
+    "subject_kind",
+    "seed_card_id",
+    "external_card_id",
+  ]);
+  const seedCard = cards.find((card) => card.card_id === binding.seed_card_id);
+  if (!seedCard || seedCard.subject_kind !== binding.subject_kind || seedCard.subject_id !== binding.subject_id) {
+    fail(`card binding ${binding.id} does not resolve seed card ${binding.seed_card_id}`);
+    continue;
+  }
+  const subject = binding.subject_kind === "actor"
+    ? actorById.get(binding.subject_id)
+    : binding.subject_kind === "location"
+      ? locations.find((location) => location.id === binding.subject_id)
+      : binding.subject_kind === "item"
+        ? items.find((item) => item.id === binding.subject_id)
+        : null;
+  if (!subject) {
+    fail(`card binding ${binding.id} references missing ${binding.subject_kind} ${binding.subject_id}`);
+  } else {
+    const expectedRef = `pack://${subject.pack_id}/${binding.subject_kind}/${binding.subject_id}`;
+    if (binding.entity_ref !== expectedRef) fail(`card binding ${binding.id} must use entity_ref ${expectedRef}`);
+  }
+  const externalCard = externalCardById.get(binding.external_card_id);
+  if (!externalCard || externalCard.pack_id !== binding.pack_id) {
+    fail(`card binding ${binding.id} must bind an external card owned by ${binding.pack_id}`);
+  }
+  if (boundSeedCards.has(binding.seed_card_id)) fail(`seed card ${binding.seed_card_id} has more than one external binding`);
+  boundSeedCards.add(binding.seed_card_id);
+}
+
 for (const gate of accessGates) {
   if (!has(locationIds, gate.location_id) || !isNonEmptyString(gate.required_grant_id) || !isNonEmptyString(gate.reason)) {
     fail(`invalid access gate for location ${gate.location_id}`);
@@ -1312,6 +1371,30 @@ for (const faction of factions) {
     if (opposedId === faction.id || !has(factionIds, opposedId)) {
       fail(`faction ${faction.id} has invalid opposition ${opposedId}`);
     }
+  }
+}
+
+idSet("actor facets", actorFacets, (facet) => facet.id);
+const actorFacetKeys = new Set();
+for (const facet of actorFacets) {
+  validateRequiredStrings("actor facet", facet, ["id", "actor_ref"]);
+  const actor = actorById.get(facet.actor_id);
+  if (!actor) {
+    fail(`actor facet ${facet.id} references missing actor ${facet.actor_id}`);
+    continue;
+  }
+  const expectedRef = `pack://${actor.pack_id}/actor/${facet.actor_id}`;
+  if (facet.actor_ref !== expectedRef) fail(`actor facet ${facet.id} must use actor_ref ${expectedRef}`);
+  for (const factionId of asArray(`actor facet ${facet.id} faction_ids`, facet.faction_ids)) {
+    if (!factions.some((faction) => faction.id === factionId)) {
+      fail(`actor facet ${facet.id} references missing faction ${factionId}`);
+    }
+    const key = `${facet.actor_id}:${factionId}`;
+    if (actorFacetKeys.has(key)) fail(`actor ${facet.actor_id} repeats faction facet ${factionId}`);
+    actorFacetKeys.add(key);
+  }
+  if (!Array.isArray(facet.vocabulary) || facet.vocabulary.some((term) => !isNonEmptyString(term))) {
+    fail(`actor facet ${facet.id} has invalid vocabulary`);
   }
 }
 
@@ -1715,6 +1798,8 @@ function buildWorldpackReport() {
       jobs: jobs.length,
       fronts: fronts.length,
       cards: cards.length,
+      actor_facets: actorFacets.length,
+      card_bindings: cardBindings.length,
       external_cards: externalCards.length,
       asset_mounts: assetMounts.length,
       rules_bundles: ruleBundles.length,
