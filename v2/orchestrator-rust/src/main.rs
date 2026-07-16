@@ -56,7 +56,10 @@ use tokio::{
     signal,
     sync::{broadcast, Mutex, Notify, RwLock},
 };
-use tokio_stream::{wrappers::BroadcastStream, StreamExt};
+use tokio_stream::{
+    wrappers::{errors::BroadcastStreamRecvError, BroadcastStream},
+    StreamExt,
+};
 use tracing::{info, warn};
 use turns::*;
 use world_simulation::*;
@@ -33321,14 +33324,38 @@ async fn stream(
         }
     }
     let replay_stream = tokio_stream::iter(replay_messages);
-    let live_stream = BroadcastStream::new(rx).filter_map(move |event| match event {
-        Ok(view) if event_visible_to_locations(&view, &visible_locations) => sse_world_event(view),
-        Ok(_) => None,
-        Err(_) => None,
-    });
+    let live_stream = live_event_stream(rx, visible_locations);
     let stream = replay_stream.chain(live_stream);
 
     Sse::new(stream).keep_alive(KeepAlive::default())
+}
+
+fn live_event_stream(
+    rx: broadcast::Receiver<EventView>,
+    visible_locations: BTreeSet<u64>,
+) -> impl tokio_stream::Stream<Item = Result<Event, Infallible>> {
+    BroadcastStream::new(rx)
+        .take_while(live_stream_is_current)
+        .filter_map(move |event| match event {
+            Ok(view) if event_visible_to_locations(&view, &visible_locations) => {
+                sse_world_event(view)
+            }
+            Ok(_) => None,
+            Err(_) => None,
+        })
+}
+
+fn live_stream_is_current(event: &Result<EventView, BroadcastStreamRecvError>) -> bool {
+    match event {
+        Ok(_) => true,
+        Err(BroadcastStreamRecvError::Lagged(skipped)) => {
+            warn!(
+                "closing lagged CosyWorld SSE stream after {} skipped broadcast events",
+                skipped
+            );
+            false
+        }
+    }
 }
 
 fn stream_replay_after(headers: &HeaderMap, query_after: Option<u64>) -> Option<u64> {
@@ -55496,6 +55523,53 @@ mod tests {
                 .events
                 .is_empty()
         );
+    }
+
+    #[tokio::test]
+    async fn lagged_live_stream_ends_and_reconnect_replays_from_last_event_id() {
+        let (tx, rx) = broadcast::channel(2);
+        let mut live = Box::pin(live_event_stream(rx, BTreeSet::from([1])));
+        for seq in 1..=3 {
+            tx.send(EventView {
+                seq,
+                type_name: "message.created".to_string(),
+                success: true,
+                location_id: Some(1),
+                content: Some(format!("event {seq}")),
+                ..EventView::default()
+            })
+            .expect("send broadcast event");
+        }
+        assert!(
+            live.next().await.is_none(),
+            "a lagged receiver must end instead of silently continuing"
+        );
+
+        let mut headers = HeaderMap::new();
+        headers.insert("last-event-id", "1".parse().unwrap());
+        let after = stream_replay_after(&headers, None);
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.event_log = (1..=3)
+            .map(|seq| EventView {
+                seq,
+                type_name: "message.created".to_string(),
+                success: true,
+                location_id: Some(1),
+                content: Some(format!("event {seq}")),
+                ..EventView::default()
+            })
+            .collect();
+        let state = test_app_state(runtime, None);
+        let replay = stream_replay_events(&state, after, 3, 10, &BTreeSet::from([1])).await;
+        assert_eq!(
+            replay
+                .events
+                .iter()
+                .map(|event| event.seq)
+                .collect::<Vec<_>>(),
+            vec![2, 3]
+        );
+        assert!(replay.caught_up);
     }
 
     #[test]
