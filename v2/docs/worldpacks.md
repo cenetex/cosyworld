@@ -78,7 +78,10 @@ Each manifest declares:
 - dependencies with a pack version range and the exact capabilities required
   from that pack;
 - optional default-ruleset and typed entry-point references;
-- license and provenance metadata; and
+- a license identifier and canonical license URL;
+- provenance with author, source name, source URL, and a modification notice
+  whenever source material was adapted;
+- an attribution file plus any additional bundled license/notice files; and
 - resources, assets, entitlement providers, and attribution where applicable.
 
 The compiler accepts selected packs in any order and emits one deterministic
@@ -120,7 +123,8 @@ closed engine contract; it is not a plugin entry point.
 `pack.lock.json` is the reproducibility record used alongside saved-world bundle
 identity. For each pack it records the exact semantic version, complete content
 hash, materialized source, declared capabilities, direct requirements,
-transitive dependency closure, license, and provenance. The lock also records
+transitive dependency closure, license identifier/URL, provenance, and the exact
+text of every bundled notice. The lock also records
 the canonical-ID mapping version and deterministic dependency order. Given the
 locked sources, the compiler emits byte-identical files and bundle identity for
 identical inputs.
@@ -255,6 +259,13 @@ composition. The endpoint does not dynamically install packs or interpret a
 payment rail. Packs declare content and access surfaces; verified claims
 determine the current player's entitlement projection.
 
+`GET /licenses` is the unauthenticated attribution surface. It returns one
+record for every mounted pack with its pinned version, license identifier and
+URL, author/source/modification provenance, and the exact text of each bundled
+notice. `/meta.worldpack.licenses` carries the same records for administrative
+diagnostics. Both surfaces are compiled from the lock inputs; they never read a
+mutable source checkout at request time.
+
 ### Asset providers
 
 Every authored asset mount names an `assets` capability declared by the same
@@ -367,6 +378,13 @@ carried into `attributions.json`.
 The official world includes both packs as reference data. Neither pack adds
 world entities, gains authority over monster behavior, or overlays the other
 pack's namespace. See `docs/rules-adapter.md` for the mapping boundary.
+
+SRD-derived product copy may say **“5E compatible.”** It must not describe the
+product as official, affiliated with, sponsored by, or endorsed by Wizards of
+the Coast. Every SRD-derived manifest must use `CC-BY-4.0`, link the canonical
+license URL, name Wizards of the Coast LLC as the source author, describe its
+modifications, and bundle the version-appropriate attribution statement. The
+compiler and runtime registry reject an incomplete record.
 
 ## Campaign packs
 

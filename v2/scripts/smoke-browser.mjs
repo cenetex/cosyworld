@@ -166,6 +166,7 @@ async function assertSignedWalletAvatarRecovery(signedWallet) {
 async function assertRuntimeMeta() {
   const baseUrl = new URL(targetUrl).origin;
   const meta = await fetch(`${baseUrl}/meta`).then((response) => response.json());
+  const licenses = await fetch(`${baseUrl}/licenses`).then((response) => response.json());
   assert(meta.ok === true, `runtime meta should be ok: ${JSON.stringify(meta)}`);
   assert(meta.service === "cosyworld-orchestrator", `runtime meta should name the service: ${JSON.stringify(meta)}`);
   assert(typeof meta.version === "string" && meta.version.length > 0, `runtime meta should expose package version: ${JSON.stringify(meta)}`);
@@ -185,6 +186,24 @@ async function assertRuntimeMeta() {
   assert(typeof meta.ownership_feed?.wallet_count === "number", `runtime meta should expose ownership wallet count: ${JSON.stringify(meta.ownership_feed)}`);
   assert((meta.world?.actor_count || 0) >= 4, `runtime meta should expose seeded world counters: ${JSON.stringify(meta.world)}`);
   assert((meta.world?.location_count || 0) >= 3, `runtime meta should expose location counters: ${JSON.stringify(meta.world)}`);
+  assert(
+    licenses.worldpack_id === meta.worldpack?.id
+      && licenses.bundle_hash === meta.worldpack?.bundle_hash
+      && licenses.packs?.length === meta.worldpack?.packs?.length,
+    `public licenses should cover every mounted pack: ${JSON.stringify(licenses)}`,
+  );
+  assert(
+    JSON.stringify(licenses.packs) === JSON.stringify(meta.worldpack?.licenses),
+    "public licenses and administrative diagnostics should expose the same pinned records",
+  );
+  assert(
+    licenses.packs.every((pack) => (
+      pack.license_identifier
+        && pack.license_url?.startsWith("https://")
+        && pack.provenance?.author
+    )),
+    `public licenses should expose complete coordinates: ${JSON.stringify(licenses.packs)}`,
+  );
   return meta;
 }
 

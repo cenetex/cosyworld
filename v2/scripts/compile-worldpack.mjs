@@ -103,12 +103,48 @@ function declaredPackFiles(packRoot, manifest) {
   }
   if (manifest.character_creation) files.push(path.join(packRoot, manifest.character_creation));
   if (manifest.attribution?.file) files.push(path.join(packRoot, manifest.attribution.file));
+  for (const notice of manifest.notices ?? []) files.push(path.join(packRoot, notice.file));
   if (manifest.external_cards) files.push(path.join(packRoot, manifest.external_cards));
   for (const mount of manifest.assets ?? []) {
     if (mount.manifest) files.push(path.join(packRoot, mount.manifest));
     files.push(...filesBelow(path.join(packRoot, mount.directory)));
   }
   return [...new Set(files)].sort();
+}
+
+function bundledNotices(packRoot, manifest) {
+  const notices = [];
+  if (manifest.attribution) {
+    notices.push({
+      kind: "attribution",
+      title: `${manifest.attribution.source_name} attribution`,
+      file: manifest.attribution.file,
+      source_name: manifest.attribution.source_name,
+      source_url: manifest.attribution.source_url,
+      text: fs.readFileSync(path.join(packRoot, manifest.attribution.file), "utf8").trim(),
+    });
+  }
+  for (const notice of manifest.notices ?? []) {
+    notices.push({
+      kind: notice.kind,
+      title: notice.title,
+      file: notice.file,
+      text: fs.readFileSync(path.join(packRoot, notice.file), "utf8").trim(),
+    });
+  }
+  return notices;
+}
+
+function licenseRecord(packRoot, manifest) {
+  return {
+    pack_id: manifest.id,
+    name: manifest.name,
+    version: manifest.version,
+    license_identifier: manifest.license,
+    license_url: manifest.license_url,
+    provenance: manifest.provenance,
+    notices: bundledNotices(packRoot, manifest),
+  };
 }
 
 function packIntegrity(packRoot, manifest) {
@@ -236,6 +272,18 @@ for (const packId of world.packs) {
   } else {
     assert(!manifest.rules, `only rules packs may declare rules resources (${packId})`);
   }
+  const srdDerived = /(?:system reference document|\bsrd\b)/i.test(
+    `${manifest.provenance.source_name} ${manifest.attribution?.source_name ?? ""}`,
+  );
+  if (srdDerived) {
+    assert(manifest.license === "CC-BY-4.0", `SRD-derived pack ${packId} must use CC-BY-4.0`);
+    assert(manifest.license_url === "https://creativecommons.org/licenses/by/4.0/", `SRD-derived pack ${packId} has the wrong license URL`);
+    assert(manifest.attribution?.file, `SRD-derived pack ${packId} must bundle its required attribution`);
+    assert(manifest.provenance.modification_notice, `SRD-derived pack ${packId} must identify its modifications`);
+    const attributionText = fs.readFileSync(path.join(packRoot, manifest.attribution.file), "utf8");
+    assert(attributionText.includes("Wizards of the Coast LLC"), `SRD-derived pack ${packId} attribution is missing the source author`);
+    assert(attributionText.includes("creativecommons.org/licenses/by/4.0/legalcode"), `SRD-derived pack ${packId} attribution is missing the CC-BY-4.0 legal-code URL`);
+  }
   if (manifest.kind === "campaign") {
     assert(manifest.character_creation, `campaign pack ${packId} must declare character_creation`);
   }
@@ -277,14 +325,10 @@ const nextLock = {
     dependency_closure: resolved.dependencyClosure.get(manifest.id),
     capabilities: manifest.capabilities,
     license: manifest.license,
+    license_url: manifest.license_url,
     provenance: manifest.provenance,
   })),
-  license_records: packs.map(({ manifest }) => ({
-    pack_id: manifest.id,
-    version: manifest.version,
-    license: manifest.license,
-    provenance: manifest.provenance,
-  })),
+  license_records: packs.map(({ manifest, packRoot }) => licenseRecord(packRoot, manifest)),
 };
 
 if (writeLock) {
@@ -301,6 +345,7 @@ const externalCards = [];
 const assets = [];
 const ruleBundles = [];
 const attributions = [];
+const licenseRecords = [];
 const characterCreationBundles = [];
 const resourceCountsByPack = new Map();
 const selectedPackIds = new Set(packs.map((pack) => pack.manifest.id));
@@ -311,6 +356,7 @@ for (const pack of packs) {
   resourceCounts.rules = 0;
   resourceCounts.character_creation = 0;
   resourceCountsByPack.set(pack.manifest.id, resourceCounts);
+  licenseRecords.push(licenseRecord(pack.packRoot, pack.manifest));
   for (const [resource, relativePath] of Object.entries(pack.manifest.resources ?? {})) {
     assert(resource in resources, `pack ${pack.manifest.id} declares unknown resource ${resource}`);
     const rows = readJson(path.join(pack.packRoot, relativePath));
@@ -408,6 +454,7 @@ const packSummary = packs.map(({ locked, manifest, integrity }) => ({
   version: manifest.version,
   kind: manifest.kind,
   license: manifest.license,
+  license_url: manifest.license_url,
   engine: manifest.engine,
   capabilities: manifest.capabilities,
   dependencies: manifest.dependencies.map((dependency) => dependency.id),
@@ -443,6 +490,7 @@ const bundleHash = sha256([
   json(assets),
   json(ruleBundles),
   json(attributions),
+  json(licenseRecords),
   json(characterCreationBundles),
   json(contentReferences),
 ]);
@@ -463,6 +511,7 @@ const manifest = {
   assets: "assets.json",
   rules: "rules.json",
   attributions: "attributions.json",
+  licenses: "licenses.json",
   character_creation: "character_creation.json",
   content_references: "content_refs.json",
   registry: "registry.json",
@@ -476,6 +525,7 @@ const registry = {
   assets,
   rules: ruleBundles,
   attributions,
+  licenses: licenseRecords,
   character_creation: characterCreationBundles,
   content_references: contentReferences,
 };
@@ -487,6 +537,7 @@ const outputs = new Map([
   ["assets.json", json(assets)],
   ["rules.json", json(ruleBundles)],
   ["attributions.json", json(attributions)],
+  ["licenses.json", json(licenseRecords)],
   ["character_creation.json", json(characterCreationBundles)],
   ["content_refs.json", json(contentReferences)],
   ...Object.entries(resourceFiles).map(([resource, fileName]) => [fileName, json(resources[resource])]),

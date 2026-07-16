@@ -2,10 +2,11 @@
   "schema_version": 1,
   "id": "cosyworld.lonely-forest.characters",
   "name": "Lonely Forest Character Art",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "kind": "assets",
   "description": "Character source art and reviewed slices used by the Lonely Forest residents.",
   "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
+  "license_url": "https://github.com/cenetex/cosyworld/tree/main/v2/content/lonely-forest",
   "engine": ">=0.0.20 <0.1.0",
   "capabilities": [
     {
@@ -30,6 +31,7 @@
     }
   ],
   "provenance": {
+    "author": "Cenetex",
     "source_name": "Cenetex Lonely Forest character art",
     "source_url": "https://github.com/cenetex/cosyworld"
   },

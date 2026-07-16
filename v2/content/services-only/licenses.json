@@ -1,0 +1,15 @@
+[
+  {
+    "pack_id": "cosyworld.services-fixture",
+    "name": "CosyWorld Services Fixture",
+    "version": "1.0.1",
+    "license_identifier": "MIT",
+    "license_url": "https://opensource.org/license/mit",
+    "provenance": {
+      "author": "Cenetex",
+      "source_name": "CosyWorld test fixtures",
+      "source_url": "https://github.com/cenetex/cosyworld"
+    },
+    "notices": []
+  }
+]

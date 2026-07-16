@@ -393,6 +393,10 @@ for (const pack of packs) {
     || !Array.isArray(pack.dependency_closure)
     || !Array.isArray(pack.entry_points)
     || !isObject(pack.provenance)
+    || !isNonEmptyString(pack.license_url)
+    || !isNonEmptyString(pack.provenance.author)
+    || !isNonEmptyString(pack.provenance.source_name)
+    || !isNonEmptyString(pack.provenance.source_url)
   ) {
     fail(`worldpack pack ${pack.id} is missing Manifest v1 contract metadata`);
   }
@@ -446,6 +450,7 @@ try {
       kind: pack.kind,
       description: pack.description,
       license: pack.license,
+      license_url: pack.license_url,
       engine: pack.engine,
       capabilities: pack.capabilities,
       dependencies: pack.dependency_requirements,
@@ -478,6 +483,7 @@ if (
   || manifest.assets !== "assets.json"
   || manifest.rules !== "rules.json"
   || manifest.attributions !== "attributions.json"
+  || manifest.licenses !== "licenses.json"
   || manifest.character_creation !== "character_creation.json"
   || manifest.content_references !== "content_refs.json"
   || manifest.registry !== "registry.json"
@@ -702,6 +708,70 @@ for (const attribution of attributions) {
 }
 for (const pack of packs.filter((candidate) => candidate.kind === "rules")) {
   if (!has(attributedPackIds, pack.id)) fail(`rules pack ${pack.id} has no compiled attribution`);
+}
+
+const licenses = asArray("licenses.json", readJson("licenses.json"));
+if (JSON.stringify(registry?.licenses) !== JSON.stringify(licenses)) {
+  fail("registry.json licenses do not match licenses.json");
+}
+const licensedPackIds = idSet("license records", licenses, (record) => record.pack_id);
+for (const record of licenses) {
+  validateRequiredStrings("license record", record, [
+    "name",
+    "version",
+    "license_identifier",
+    "license_url",
+  ]);
+  const pack = packs.find((candidate) => candidate.id === record.pack_id);
+  if (!pack) {
+    fail(`license record references pack outside this bundle: ${record.pack_id}`);
+    continue;
+  }
+  if (
+    record.name !== pack.name
+    || record.version !== pack.version
+    || record.license_identifier !== pack.license
+    || record.license_url !== pack.license_url
+    || JSON.stringify(record.provenance) !== JSON.stringify(pack.provenance)
+  ) {
+    fail(`license record does not match mounted pack ${record.pack_id}`);
+  }
+  validateRequiredStrings(`license record ${record.pack_id} provenance`, record.provenance, [
+    "author",
+    "source_name",
+    "source_url",
+  ]);
+  const notices = asArray(`license record ${record.pack_id} notices`, record.notices);
+  for (const notice of notices) {
+    validateRequiredStrings(`license record ${record.pack_id} notice`, notice, [
+      "kind",
+      "title",
+      "file",
+      "text",
+    ]);
+    if (!["attribution", "license", "notice"].includes(notice.kind)) {
+      fail(`license record ${record.pack_id} has unsupported notice kind ${notice.kind}`);
+    }
+  }
+  const sourceNames = [
+    record.provenance?.source_name,
+    ...notices.map((notice) => notice.source_name),
+  ].filter(Boolean).join(" ");
+  if (/(?:system reference document|\bsrd\b)/i.test(sourceNames)) {
+    const requiredAttribution = notices.find((notice) => notice.kind === "attribution");
+    if (
+      record.license_identifier !== "CC-BY-4.0"
+      || record.license_url !== "https://creativecommons.org/licenses/by/4.0/"
+      || !isNonEmptyString(record.provenance?.modification_notice)
+      || !requiredAttribution?.text?.includes("Wizards of the Coast LLC")
+      || !requiredAttribution?.text?.includes("creativecommons.org/licenses/by/4.0/legalcode")
+    ) {
+      fail(`SRD-derived pack ${record.pack_id} has incomplete license or attribution metadata`);
+    }
+  }
+}
+for (const pack of packs) {
+  if (!has(licensedPackIds, pack.id)) fail(`pack ${pack.id} has no compiled license record`);
 }
 const srdPack = packs.find((pack) => pack.id === "cosyworld.rules-srd-5.1");
 if (srdPack) {

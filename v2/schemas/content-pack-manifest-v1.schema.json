@@ -13,6 +13,7 @@
     "kind",
     "description",
     "license",
+    "license_url",
     "engine",
     "capabilities",
     "dependencies",
@@ -28,6 +29,7 @@
     },
     "description": { "$ref": "#/definitions/nonEmptyString" },
     "license": { "$ref": "#/definitions/nonEmptyString" },
+    "license_url": { "type": "string", "format": "uri" },
     "engine": { "$ref": "#/definitions/versionRange" },
     "capabilities": {
       "type": "array",
@@ -67,6 +69,10 @@
       "additionalProperties": { "$ref": "#/definitions/relativePath" }
     },
     "attribution": { "$ref": "#/definitions/attribution" },
+    "notices": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/bundledNotice" }
+    },
     "character_creation": { "$ref": "#/definitions/relativePath" },
     "extensions": {
       "description": "Namespaced forward-compatible metadata ignored by Manifest v1 runtimes.",
@@ -144,11 +150,12 @@
     "provenance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_name"],
+      "required": ["author", "source_name", "source_url"],
       "properties": {
+        "author": { "$ref": "#/definitions/nonEmptyString" },
         "source_name": { "$ref": "#/definitions/nonEmptyString" },
         "source_url": { "type": "string", "format": "uri" },
-        "license_notice": { "$ref": "#/definitions/nonEmptyString" }
+        "modification_notice": { "$ref": "#/definitions/nonEmptyString" }
       }
     },
     "assetMount": {
@@ -235,6 +242,16 @@
         "file": { "$ref": "#/definitions/relativePath" },
         "source_name": { "$ref": "#/definitions/nonEmptyString" },
         "source_url": { "type": "string", "format": "uri" }
+      }
+    },
+    "bundledNotice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "title", "file"],
+      "properties": {
+        "kind": { "enum": ["attribution", "license", "notice"] },
+        "title": { "$ref": "#/definitions/nonEmptyString" },
+        "file": { "$ref": "#/definitions/relativePath" }
       }
     }
   }

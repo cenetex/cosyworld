@@ -9,12 +9,12 @@
   "packs": [
     {
       "id": "cosyworld.services-fixture",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": {
         "type": "workspace",
         "path": "../../content/services-fixture"
       },
-      "integrity": "sha256:c3aecc47979c68ba0b77a407d83d9eb043c5b676d92dacf3148d5a4df052a9e2",
+      "integrity": "sha256:cf8cbdacd4ecaccf03a5245c4e6edf71e52cbfbb7469c1366c2740378100be39",
       "dependencies": [],
       "dependency_closure": [],
       "capabilities": [
@@ -25,7 +25,9 @@
         }
       ],
       "license": "MIT",
+      "license_url": "https://opensource.org/license/mit",
       "provenance": {
+        "author": "Cenetex",
         "source_name": "CosyWorld test fixtures",
         "source_url": "https://github.com/cenetex/cosyworld"
       }
@@ -34,12 +36,16 @@
   "license_records": [
     {
       "pack_id": "cosyworld.services-fixture",
-      "version": "1.0.0",
-      "license": "MIT",
+      "name": "CosyWorld Services Fixture",
+      "version": "1.0.1",
+      "license_identifier": "MIT",
+      "license_url": "https://opensource.org/license/mit",
       "provenance": {
+        "author": "Cenetex",
         "source_name": "CosyWorld test fixtures",
         "source_url": "https://github.com/cenetex/cosyworld"
-      }
+      },
+      "notices": []
     }
   ]
 }

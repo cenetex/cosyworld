@@ -8,15 +8,16 @@
   "description": "A standalone First Bell boot fixture with no CosyWorld Core pack mounted.",
   "entry_location": "ruby-high.first-bell:location/11",
   "entry_grant_id": "ruby-high.first-bell:location-homeroom",
-  "bundle_hash": "sha256:d345555f23cc25aa708642dc928ed74f304d105d379243054de94fe984c4d2dd",
+  "bundle_hash": "sha256:fdf45cd5b2c99a0f0c8b113bee55acbcfc375a826cdedab11fb717b425483c93",
   "packs": [
     {
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
       "description": "An independently bootable school world, card catalog, and entitlement-gated First Bell experience.",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "kind": "world",
       "license": "MIT",
+      "license_url": "https://opensource.org/license/mit",
       "engine": ">=0.0.20 <0.1.0",
       "capabilities": [
         {
@@ -75,6 +76,7 @@
         }
       ],
       "provenance": {
+        "author": "Ruby High",
         "source_name": "Ruby High: First Bell",
         "source_url": "https://ruby-high.ai"
       },
@@ -190,7 +192,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:e26e2923a1dbe049ed4d35a6ca8ca475e27d58dad8bc5882ff5b38103303a216"
+      "integrity": "sha256:c5ae11c98841738ded0d4516f2496911bf9b1982fd5b756b693afa8d91ed305e"
     }
   ],
   "files": {
@@ -218,6 +220,7 @@
   "assets": "assets.json",
   "rules": "rules.json",
   "attributions": "attributions.json",
+  "licenses": "licenses.json",
   "character_creation": "character_creation.json",
   "content_references": "content_refs.json",
   "registry": "registry.json"
