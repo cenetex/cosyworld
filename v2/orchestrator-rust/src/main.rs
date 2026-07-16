@@ -4083,13 +4083,18 @@ fn asset_content_type(asset_path: &str) -> &'static str {
 }
 
 fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), String> {
+    let has_world_pack = manifest
+        .packs
+        .iter()
+        .any(|pack| matches!(pack.kind.as_str(), "world" | "campaign"));
     if manifest.schema_version != 2
         || manifest.pack_contract != "cosyworld.content-pack/1"
         || manifest.canonical_id_mapping_version != 1
         || manifest.id.trim().is_empty()
         || manifest.name.trim().is_empty()
         || manifest.version == 0
-        || manifest.entry_location.trim().is_empty()
+        || (has_world_pack && manifest.entry_location.trim().is_empty())
+        || (!has_world_pack && !manifest.entry_location.trim().is_empty())
         || !valid_sha256_digest(&manifest.bundle_hash)
         || manifest.packs.is_empty()
     {
@@ -8641,6 +8646,7 @@ impl RuntimeWorld {
     }
 
     fn append_world_reset_event(&mut self) -> EventView {
+        let entry_location_id = content_registry().entry_location_id();
         let event = EventView {
             seq: self.world.next_event_seq,
             type_name: "world.reset".to_string(),
@@ -8650,8 +8656,8 @@ impl RuntimeWorld {
             actor_name: None,
             target_actor_id: None,
             target_actor_name: None,
-            location_id: Some(1),
-            location_name: self.location_name(1),
+            location_id: entry_location_id,
+            location_name: entry_location_id.and_then(|id| self.location_name(id)),
             destination_location_id: None,
             destination_location_name: None,
             content_id: None,
@@ -8691,6 +8697,7 @@ impl RuntimeWorld {
     }
 
     fn append_world_bootstrapped_event(&mut self) -> EventView {
+        let entry_location_id = content_registry().entry_location_id();
         let event = EventView {
             seq: self.world.next_event_seq,
             type_name: "world.bootstrapped".to_string(),
@@ -8700,8 +8707,8 @@ impl RuntimeWorld {
             actor_name: None,
             target_actor_id: None,
             target_actor_name: None,
-            location_id: Some(1),
-            location_name: self.location_name(1),
+            location_id: entry_location_id,
+            location_name: entry_location_id.and_then(|id| self.location_name(id)),
             destination_location_id: None,
             destination_location_name: None,
             content_id: None,
@@ -8920,7 +8927,7 @@ impl RuntimeWorld {
         let location_id = self
             .actor_by_id(actor_id)
             .map(|actor| actor.location_id)
-            .unwrap_or(COSY_COTTAGE_LOCATION_ID);
+            .or_else(|| content_registry().entry_location_id());
         let event = EventView {
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
@@ -8930,8 +8937,8 @@ impl RuntimeWorld {
             actor_name: self.actor_name(actor_id),
             target_actor_id,
             target_actor_name: target_actor_id.and_then(|id| self.actor_name(id)),
-            location_id: Some(location_id),
-            location_name: self.location_name(location_id),
+            location_id,
+            location_name: location_id.and_then(|id| self.location_name(id)),
             destination_location_id: None,
             destination_location_name: None,
             content_id: None,
@@ -19009,8 +19016,8 @@ impl RuntimeWorld {
             .iter()
             .filter_map(|location| {
                 let is_current = current_location_id == Some(location.id);
-                let default_start =
-                    current_location_id.is_none() && location.id == COSY_COTTAGE_LOCATION_ID;
+                let default_start = current_location_id.is_none()
+                    && content_registry().entry_location_id() == Some(location.id);
                 let discovered = self.location_discovered_by_search(location.id);
                 let generated = self.generated_location_is_revealed(location.id);
                 (is_current || default_start || discovered || generated).then_some(location.id)
@@ -25762,7 +25769,17 @@ async fn create_avatar(
     let entry_location_id = character_selection
         .as_ref()
         .map(|(profile, _)| profile.entry_location_id)
-        .unwrap_or(COSY_COTTAGE_LOCATION_ID);
+        .or_else(|| content_registry().entry_location_id());
+    let Some(entry_location_id) = entry_location_id else {
+        return Json(AvatarResponse {
+            ok: false,
+            status: 503,
+            actor: None,
+            actor_session: None,
+            actor_session_expires_at_unix: None,
+            events: Vec::new(),
+        });
+    };
     // Avatar creation is a card action, so it commits with a deterministic
     // identity immediately. Unnamed avatars are refined by AI after the
     // response has returned and announced over the event stream.
@@ -39866,7 +39883,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.0.0");
+        assert_eq!(location_reference.pack_version, "1.1.0");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");

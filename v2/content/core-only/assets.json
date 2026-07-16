@@ -1,0 +1,11 @@
+[
+  {
+    "pack_id": "cosyworld.core",
+    "mount": "generated/cards",
+    "root": "core",
+    "directory": "assets/generated/cards",
+    "public_prefix": "/assets/generated/cards",
+    "optional": false,
+    "fallback": null
+  }
+]

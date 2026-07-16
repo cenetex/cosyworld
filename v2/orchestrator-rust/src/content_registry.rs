@@ -237,6 +237,22 @@ impl ContentRegistry {
         &self.content.external_cards
     }
 
+    pub(super) fn entry_location_id(&self) -> Option<u64> {
+        let location_id = self
+            .content
+            .manifest
+            .entry_location
+            .rsplit('/')
+            .next()?
+            .parse::<u64>()
+            .ok()?;
+        self.content
+            .locations
+            .iter()
+            .any(|location| location.id == location_id)
+            .then_some(location_id)
+    }
+
     pub(super) fn content_reference_mapping_version(&self) -> u32 {
         self.content_reference_mapping_version
     }
@@ -866,7 +882,10 @@ mod tests {
     }
 
     fn registry_json(packs: Vec<SeedWorldpackPack>) -> String {
-        serde_json::json!({
+        let has_world_pack = packs
+            .iter()
+            .any(|pack| matches!(pack.kind.as_str(), "world" | "campaign"));
+        let mut value = serde_json::json!({
             "schema_version": 1,
             "manifest": {
                 "schema_version": 2,
@@ -876,7 +895,6 @@ mod tests {
                 "name": "Fixture World",
                 "version": 1,
                 "description": "Registry fixture",
-                "entry_location": "fixture-entry",
                 "bundle_hash": format!("sha256:{}", "0".repeat(64)),
                 "packs": packs,
                 "registry": "registry.json",
@@ -893,8 +911,11 @@ mod tests {
                 "mapping_version": 1,
                 "entries": []
             }
-        })
-        .to_string()
+        });
+        if has_world_pack {
+            value["manifest"]["entry_location"] = serde_json::json!("fixture-entry");
+        }
+        value.to_string()
     }
 
     #[test]
@@ -1012,7 +1033,7 @@ mod tests {
         )
         .expect("official registry loads");
         assert_eq!(registry.content().locations.len(), 33);
-        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.0.0");
+        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.1.0");
         assert_eq!(
             registry.capability_provider("cosyworld.core/world"),
             Some("cosyworld.core")
@@ -1056,6 +1077,41 @@ mod tests {
             registry.inspect_content_reference(&unavailable),
             ContentReferenceStatus::Remapped
         );
+    }
+
+    #[test]
+    fn core_and_non_world_compositions_mount_without_implicit_packs() {
+        let content_root = configured_content_root();
+        let core = ContentRegistry::from_json(
+            &fs::read_to_string(content_root.join("core-only/registry.json"))
+                .expect("Core-only registry reads"),
+            env!("CARGO_PKG_VERSION"),
+        )
+        .expect("Core-only registry mounts");
+        assert_eq!(core.content().manifest.packs.len(), 1);
+        assert_eq!(core.content().manifest.packs[0].id, "cosyworld.core");
+        assert_eq!(core.entry_location_id(), Some(COSY_COTTAGE_LOCATION_ID));
+        assert_eq!(
+            core.capability_provider("cosyworld.core/rules"),
+            Some("cosyworld.core")
+        );
+        assert!(!core.content().locations.is_empty());
+
+        let services = ContentRegistry::from_json(
+            &fs::read_to_string(content_root.join("services-only/registry.json"))
+                .expect("services-only registry reads"),
+            env!("CARGO_PKG_VERSION"),
+        )
+        .expect("services-only registry mounts");
+        assert_eq!(services.content().manifest.packs.len(), 1);
+        assert_eq!(
+            services.content().manifest.packs[0].id,
+            "cosyworld.services-fixture"
+        );
+        assert!(services.pack("cosyworld.core").is_none());
+        assert_eq!(services.entry_location_id(), None);
+        assert!(services.content().locations.is_empty());
+        assert!(services.content().actors.is_empty());
     }
 
     #[test]

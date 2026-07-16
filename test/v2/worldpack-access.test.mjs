@@ -114,7 +114,7 @@ describe("worldpack Manifest v1 validation", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "requires missing capability cosyworld.core/missing from cosyworld.core@1.0.0",
+      "requires missing capability cosyworld.core/missing from cosyworld.core@1.1.0",
     );
   });
 });
