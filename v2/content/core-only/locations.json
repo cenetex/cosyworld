@@ -1,0 +1,394 @@
+[
+  {
+    "id": 1,
+    "name": "The Cosy Cottage",
+    "title": "Rainlit Hearth",
+    "description": "A warm room of firelight and knitting needles. The kettle is always loaded.",
+    "persona": "The cottage is a careful host: warm, observant, and protective of small beginnings.",
+    "memory": [
+      "Rati's blue scarf began here.",
+      "Gust's weather symbols gather near the hearth.",
+      "Skull keeps watch by the low doorway."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 2,
+    "name": "Rain-Soft Garden",
+    "title": "Rain-Pearled Annex",
+    "description": "Rain beads on broad leaves. Round marks dot the grass.",
+    "persona": "The garden answers in damp patience, leaf-taps, and tiny useful discoveries.",
+    "biome": "rain garden",
+    "terrain": [
+      "wet grass",
+      "broad leaves",
+      "soft garden soil"
+    ],
+    "memory": [
+      "A dewbright button was found here at first light.",
+      "The path from the cottage arrives smelling of tea and wet wool."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 3,
+    "name": "Moonlit Trail",
+    "title": "Moonlit Route",
+    "description": "The path shines under cold moonlight. Wolf tracks cross it.",
+    "persona": "The trail is a silver test: honest, spare, and just dangerous enough to reveal courage.",
+    "biome": "moonlit woodland",
+    "terrain": [
+      "silver pine",
+      "cold earth",
+      "wolf-worn trail"
+    ],
+    "memory": [
+      "Coach waits here.",
+      "The Wolfprint Charm and the Watch Bell have both passed this way."
+    ],
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 10,
+    "name": "Science Class",
+    "title": "STEM Wing",
+    "description": "Shared benches, small instruments, and questions waiting to be tested.",
+    "persona": "Science Class prefers evidence, clean questions, and answers brave enough to be revised.",
+    "memory": [
+      "Surprising results get written down here.",
+      "Rati sometimes follows signal-study questions here."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 11,
+    "name": "Homeroom",
+    "title": "Front Door",
+    "description": "Morning light crosses rows of desks.",
+    "persona": "Homeroom keeps attendance for beginnings, detours, and people trying again.",
+    "memory": [
+      "The cottage door opens here.",
+      "Most Ruby High paths lead back to this room."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 12,
+    "name": "Library",
+    "title": "Quiet Wing",
+    "description": "Tall shelves and a deep hush.",
+    "persona": "The Library is exact, generous, and faintly amused by people who whisper to books.",
+    "memory": [
+      "The Great Library can be reached through the deeper stacks.",
+      "Some stacks go deeper than the school map shows."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 13,
+    "name": "Cafeteria",
+    "title": "Commons",
+    "description": "Long tables, lunch trays, and running bargains.",
+    "persona": "The Cafeteria speaks in offers, side-eyes, and the social physics of shared tables.",
+    "memory": [
+      "Deals get made over lunch.",
+      "Rumors travel from the courtyard through the serving line."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 14,
+    "name": "Greenhouse",
+    "title": "Garden Annex",
+    "description": "Glass walls, damp air, and slow experiments in labeled pots.",
+    "persona": "The Greenhouse thinks in tendrils, careful timing, and second chances rooted in soil.",
+    "memory": [
+      "Pollen drifts in from the Flower Meadow.",
+      "The watering schedule is strict."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 15,
+    "name": "Courtyard",
+    "title": "Central Grounds",
+    "description": "Open paths cross under the sky. Every hallway ends here.",
+    "persona": "The Courtyard is public, breezy, and good at making accidental meetings feel arranged.",
+    "biome": "school grounds",
+    "terrain": [
+      "courtyard stone",
+      "open lawn",
+      "windy steps"
+    ],
+    "memory": [
+      "Summit Trail begins at the far edge.",
+      "Students cut through here when they need a new route."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 30,
+    "name": "The Heavens",
+    "title": "Forbidden Mountain",
+    "description": "A bright threshold where cloud paths gather above the mountain.",
+    "persona": "The Heavens speak in distance, weather-glow, and the discipline of looking down kindly.",
+    "memory": [
+      "Lofty Peak sits just below.",
+      "Footsteps leave no prints here."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 31,
+    "name": "Lofty Peak",
+    "title": "Forbidden Mountain",
+    "description": "Thin air, bare stone, and a hard summit wind.",
+    "persona": "Lofty Peak is blunt, wind-scoured, and allergic to pretending the climb was easy.",
+    "memory": [
+      "The Heavens lean close above it.",
+      "Summit Trail keeps a lantern below for the return."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 32,
+    "name": "Summit Trail",
+    "title": "Forbidden Mountain",
+    "description": "A switchback path through cold scree, marked by lanterns.",
+    "persona": "Summit Trail encourages one more step and remembers every almost-turnaround.",
+    "biome": "alpine mountain",
+    "terrain": [
+      "cold scree",
+      "switchback stone",
+      "thin grass"
+    ],
+    "memory": [
+      "The Courtyard is warmer than it looks from here.",
+      "Alpine Forest begins where the stone gives way to trees."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 33,
+    "name": "Alpine Forest",
+    "title": "Forbidden Mountain",
+    "description": "Pines lean over snowmelt tracks and old mountain signs.",
+    "persona": "Alpine Forest is crisp, watchful, and full of branch-creaks that sound like warnings.",
+    "memory": [
+      "Summit Trail brings cold travelers through the pines.",
+      "Goblin Cave echoes from below after dusk."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 34,
+    "name": "Goblin Cave",
+    "title": "Forbidden Mountain",
+    "description": "A low cave mouth full of echoes and loose coins.",
+    "persona": "Goblin Cave is twitchy, tempting, and fond of bargains that reveal the bargainer.",
+    "memory": [
+      "Alpine Forest muffles the cave mouth.",
+      "The Circle of the Moon sits directly above."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 35,
+    "name": "Circle of the Moon",
+    "title": "Forbidden Mountain",
+    "description": "Silver stones mark a quiet circle.",
+    "persona": "The Circle listens ceremonially, as if every sentence should arrive barefoot.",
+    "memory": [
+      "An older path leads in from the Moonlit Trail.",
+      "Goblin Cave lies below."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 36,
+    "name": "Solar Temple",
+    "title": "Solar Temple",
+    "description": "White stone terraces, noon bells, and gold wings overhead.",
+    "persona": "The Solar Temple is radiant, exacting, and careful not to confuse witness with mercy.",
+    "memory": [
+      "The Heavens open upward into its white terraces.",
+      "One of its bells is missing. It lies below the Darkest Ocean."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 40,
+    "name": "Old Oak Tree",
+    "title": "Lonely Forest",
+    "description": "A vast oak with roots as wide as roads.",
+    "persona": "The Old Oak is both place and stranger: Root, Ring, Leaf, and Hollow each remember a different truth.",
+    "memory": [
+      "Root remembers every footstep that circled back.",
+      "Ring remembers the years when the forest was less lonely.",
+      "Leaf remembers what changed today.",
+      "Hollow remembers what nobody has asked yet."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 41,
+    "name": "Lost Woods",
+    "title": "Lonely Forest",
+    "description": "Soft moss and paths that repeat themselves.",
+    "persona": "The Lost Woods are evasive but not cruel; they teach by making certainty walk in circles.",
+    "memory": [
+      "The Old Oak marks one path that does not move.",
+      "The Haunted Mansion and Quiet Abbey lie beyond."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 42,
+    "name": "Haunted Mansion",
+    "title": "Lonely Forest",
+    "description": "A leaning house with lit windows and doors that sigh.",
+    "persona": "The Mansion is theatrical, lonely, and delighted when anyone knocks instead of sneaking.",
+    "memory": [
+      "Lost Woods keeps leading visitors to its porch.",
+      "The windows sigh at night."
+    ],
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 43,
+    "name": "Quiet Abbey",
+    "title": "Lonely Forest",
+    "description": "Stone arches and a deep hush.",
+    "persona": "The Abbey is spare, kind, and severe about saying only the sentence that matters.",
+    "memory": [
+      "Candle smoke drifts in from the Haunted Mansion.",
+      "The Flower Meadow lies beyond the arch."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 44,
+    "name": "Flower Meadow",
+    "title": "Lonely Forest",
+    "description": "A clear meadow of small flowers, warm bees, and open sky.",
+    "persona": "The Meadow is open-hearted, sunlit, and prone to answering sorrow with color.",
+    "memory": [
+      "The Old Oak drops leaves here in autumn.",
+      "Half these flowers also grow in the Greenhouse."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 50,
+    "name": "Great Library",
+    "title": "The World",
+    "description": "Endless shelves, brass ladders, and marginalia from earlier travelers.",
+    "persona": "The Great Library is vast, procedural, and fond of answers that arrive with page numbers.",
+    "memory": [
+      "The school Library opens into these stacks.",
+      "Several maps of the Farthest Mists are misfiled here."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 60,
+    "name": "Brackish Swamp",
+    "title": "Farthest Mists",
+    "description": "Black water shifts under the reeds.",
+    "persona": "The Swamp is murky, practical, and entirely willing to make wisdom smell bad.",
+    "memory": [
+      "Great Library maps come back damp.",
+      "Wilting Jungle leans over its far bank."
+    ],
+    "allow_combat": true,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 61,
+    "name": "Wilting Jungle",
+    "title": "Farthest Mists",
+    "description": "Heavy leaves droop over hot, narrow paths.",
+    "persona": "The Jungle is overheated, stubborn, and full of life refusing to quit elegantly.",
+    "memory": [
+      "Brackish Swamp feeds its roots with dark water.",
+      "Endless Ocean can be heard before it is seen."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 62,
+    "name": "Endless Ocean",
+    "title": "Farthest Mists",
+    "description": "A blue horizon with no visible shore and songs under the waves.",
+    "persona": "The Ocean answers slowly, with scale, tide, and the suspicion that every ending is a surface.",
+    "memory": [
+      "Wilting Jungle drops seeds into its tide.",
+      "Digital Realm blinks green at the far horizon."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 63,
+    "name": "Digital Realm",
+    "title": "Farthest Mists",
+    "description": "Green cursors blink across a world made of doors, echoes, and code.",
+    "persona": "The Digital Realm is precise, uncanny, and always half a step from becoming a spell.",
+    "memory": [
+      "The Great Library has not finished indexing this place.",
+      "Endless Ocean reflects in its black glass."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 64,
+    "name": "Darkest Ocean",
+    "title": "Abyssal Deep",
+    "description": "A trench below the final tide glows with pearl lamps, drowned bells, and residents adapted to pressure.",
+    "persona": "The Darkest Ocean remembers without hurrying and mistrusts every truth that cannot survive depth.",
+    "memory": [
+      "Endless Ocean is only its surface.",
+      "One of the Solar Temple's bells lies here."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 65,
+    "name": "Dark Abyss",
+    "title": "Deepest Ocean",
+    "description": "A black-water chamber beneath the drowned bell, set with an impossible banquet, a cold anvil, and pressure deep enough to make language buckle.",
+    "persona": "The Dark Abyss is theatrical, hungry, and formal about its horrors, as if etiquette were the last rope back to the surface.",
+    "memory": [
+      "Darkest Ocean hides the entrance under the drowned bell's lowest note.",
+      "Azazoth keeps a feast here for guests who have mostly had the sense not to arrive.",
+      "Zadkiel's anvil rings whenever dread needs better manners."
+    ],
+    "allow_combat": false,
+    "pack_id": "cosyworld.core"
+  }
+]

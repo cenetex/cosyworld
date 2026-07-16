@@ -7,13 +7,13 @@
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:abb0d1a95daeebaffa917369e9c73ddfe495f8861934c71e912da1417f27afdf",
+  "bundle_hash": "sha256:fb08c711c0167919f262baeeabdb435bac249eb690824e1b031241af756b343c",
   "packs": [
     {
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "kind": "world",
       "license": "MIT",
       "engine": ">=0.0.20 <0.1.0",
@@ -27,12 +27,17 @@
           "id": "cosyworld.core/assets",
           "kind": "assets",
           "version": "1.0.0"
+        },
+        {
+          "id": "cosyworld.core/rules",
+          "kind": "rules",
+          "version": "1.0.0"
         }
       ],
       "dependencies": [],
       "dependency_requirements": [],
       "dependency_closure": [],
-      "default_ruleset": null,
+      "default_ruleset": "cosyworld.core/rules",
       "entry_points": [
         {
           "kind": "location",
@@ -45,7 +50,7 @@
       },
       "resource_counts": {
         "actors": 36,
-        "access_gates": 6,
+        "access_gates": 0,
         "factions": 12,
         "items": 10,
         "locations": 28,
@@ -70,7 +75,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:97141fdd8061001e83cb0ef54bc8492fa368c6b0d738ef3acd0edbcb8bb61e5b"
+      "integrity": "sha256:ebd032bcb69990ab02056b45f8c8ba36600f596a3e47c3258f1bd5ff8f4f475a"
     },
     {
       "id": "cosyworld.campaign.the-lantern-keeper",
@@ -221,7 +226,7 @@
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
       "description": "The live First Bell card catalog consumed by the official CosyWorld shard.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "kind": "catalog",
       "license": "MIT",
       "engine": ">=0.0.20 <0.1.0",
@@ -274,7 +279,7 @@
       },
       "resource_counts": {
         "actors": 0,
-        "access_gates": 0,
+        "access_gates": 6,
         "factions": 0,
         "items": 0,
         "locations": 0,
@@ -363,7 +368,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:ed872af452c5facb2652079716a645e970f959c2ddbed19f0055ec6203d73da4"
+      "integrity": "sha256:dceeb174ac297b98b79d803e0a14a501775bd7a8fcdb24bfcc9257c2afe2878d"
     }
   ],
   "files": {
@@ -390,5 +395,6 @@
   "rules": "rules.json",
   "attributions": "attributions.json",
   "character_creation": "character_creation.json",
+  "content_references": "content_refs.json",
   "registry": "registry.json"
 }

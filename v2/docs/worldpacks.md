@@ -19,7 +19,8 @@ The compiled directory is a release artifact and should not be edited by hand.
 `registry.json` is the runtime boundary for a mounted pack set. It contains the
 resolved Manifest v1 worldpack, every compiled resource collection, external
 cards, asset mounts, rules, attributions, and character-creation profiles in one
-self-contained document. The per-resource JSON files remain deterministic
+self-contained document. It also embeds the exact `content_refs.json` mapping
+described below. The per-resource JSON files remain deterministic
 compatibility artifacts for validators and other tooling; the orchestrator no
 longer has a compile-time list of embedded content files.
 
@@ -39,8 +40,19 @@ mount another compiler-produced registry and set
 use the same load path; missing optional dependencies do not block unrelated
 packs, while missing required dependencies and incompatible or duplicate packs
 fail closed. Changing the active registry still changes bundle identity and is
-subject to the persistence rules below. Runtime unmount and ruleset switching
-are not part of this contract.
+subject to the persistence rules below. The engine also accepts a non-world
+registry with no entry location, which lets API and persistence services start
+without silently mounting CosyWorld Core. Live ruleset switching is not part of
+this contract.
+
+CosyWorld Core is the independently mountable `cosyworld.core` world pack. Its
+manifest declares its default `cosyworld.core/rules` capability and all of its
+world resources, lifecycle hooks, typed effects, characters, cards, vocabulary,
+and assets. Ruby High owns the access gates that consume Ruby High grants; Core
+does not depend on Ruby High or an SRD rules pack. The checked-in `core-only`
+composition proves Core can boot and remain playable as the sole experience
+pack, while `services-only` proves the host accepts a composition with no world
+pack at all.
 
 ## Pack contract
 
@@ -129,6 +141,8 @@ npm run v2:worldpack:lock
 npm run v2:worldpack:compile
 npm run v2:worldpack
 npm run v2:worldpack:inspect
+npm run v2:content-refs:migrate -- --input legacy.json --output migrated.json
+npm run v2:pack:unmount -- --input snapshot.json --output migrated.json --registry v2/content/core-only/registry.json --target-registry v2/content/services-only/registry.json --pack cosyworld.core
 ```
 
 `sync` skips workspace packs and materializes Git-backed packs below `v2/content/imports`. Git sources must use an HTTPS GitHub URL and a full 40-character commit. It never follows a branch or tag at build time.
@@ -167,7 +181,46 @@ The compiler gives every official bundle a SHA-256 identity derived from the wor
 
 Changing the selected pack set therefore starts a new shard history. Before launch, archive the old snapshot and action-journal database, deploy the new bundle, and allow the orchestrator to seed a fresh world; startup already fails closed on the old identities and falls back to that fresh seed. Do not blank a recorded bundle hash by hand. After launch, preserving state across a composition change requires an explicit migration that projects only still-mounted pack state and writes the new identity.
 
-The current kernel ABI still uses numeric actor, item, and location IDs. The validator therefore treats those IDs as bundle-global and rejects collisions. A later schema can compile namespaced authoring IDs into a stable numeric ID map without changing the kernel ABI.
+Pack content has a canonical, version-independent identity of the form
+`pack://<pack-id>/<kind>/<local-id>`. For example,
+`pack://five-e-commons/creature/goblin-warrior` and
+`pack://homebrew.example/creature/goblin-warrior` are distinct even though both
+packs chose the same local slug. Reserved characters in the local id use the
+canonical `encodeURIComponent` spelling.
+
+The compiler writes the complete, canonical-order mapping to
+`content_refs.json` and embeds it in `registry.json`. Existing numeric actor,
+item, and location ids appear as `legacy_runtime_id` and keep that exact value
+as their compact `runtime_handle`; no existing save changes which content it
+names. New string identities receive deterministic JavaScript-safe integer
+handles from their canonical reference. The allocator sorts references before
+resolving the vanishingly unlikely hash collision, so rebuilding the same
+pinned `pack.lock.json` produces the same handles regardless of mount order.
+Duplicate canonical references, handles, legacy ids, missing pack versions, or
+non-canonical URI spellings fail before the listener opens.
+
+Snapshots, action-journal records, and stored world events now carry a
+`content_context` containing the mapping version, every relevant canonical
+reference, owning pack version, runtime handle, legacy id when applicable, and
+the active ruleset selections. The C ABI continues to receive compact numeric
+handles. Persistence and inspection use the canonical context, so an exported
+journal remains intelligible when its pack is unavailable; replay still fails
+closed for a missing pack, version mismatch, unknown reference, or remap.
+
+Legacy JSON snapshots, journal exports, and event exports remain readable.
+The runtime enriches legacy database rows in memory, while the explicit
+`v2:content-refs:migrate` command writes a durable migrated copy. Use
+`--in-place` instead of `--output` only after archiving the original; `--force`
+rebuilds contexts that are already present. The tool never changes the numeric
+ids themselves and preserves self-contained contexts for unavailable packs.
+
+Unmounting a world pack is an explicit offline migration, never an implicit
+runtime fallback. `v2:pack:unmount` refuses to proceed while a human actor still
+occupies a location owned by the pack. Once vacant, it removes the pack-owned
+runtime projection, retains historical journal/event context, filters the live
+snapshot's canonical references, and records the target registry identity and
+ruleset selection. Archive the source snapshot and stop writers before running
+it; then start the shard with the exact target registry supplied to the tool.
 
 ## Runtime discovery and access
 

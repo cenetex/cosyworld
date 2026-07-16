@@ -9,13 +9,24 @@ import {
   resolveContentPackGraph,
   validateContentPackManifest,
 } from "./content-pack-contract.mjs";
+import {
+  buildContentReferenceMapping,
+  collectContentReferenceCandidates,
+} from "./content-references.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
 const contentRoot = path.join(v2Root, "content");
-const worldDir = path.join(v2Root, "worlds", "official");
-const outputDir = path.join(contentRoot, "official");
-const args = new Set(process.argv.slice(2));
+const rawArgs = process.argv.slice(2);
+const args = new Set(rawArgs);
+function optionValue(name) {
+  const index = rawArgs.indexOf(name);
+  if (index < 0) return undefined;
+  assert(rawArgs[index + 1] && !rawArgs[index + 1].startsWith("--"), `${name} requires a path`);
+  return path.resolve(rawArgs[index + 1]);
+}
+const worldDir = optionValue("--world-dir") ?? path.join(v2Root, "worlds", "official");
+const outputDir = optionValue("--output-dir") ?? path.join(contentRoot, "official");
 const checkOnly = args.has("--check");
 const writeLock = args.has("--write-lock");
 const printArtifactDigest = args.has("--artifact-digest");
@@ -159,12 +170,12 @@ const legacyLockPath = path.join(worldDir, "world.lock.json");
 const lock = readJson(
   fs.existsSync(lockPath) ? lockPath : writeLock ? legacyLockPath : lockPath,
 );
-assert(world.schema_version === 1, "official world schema_version must be 1");
-assert(lock.lock_version === 1, "official pack lock_version must be 1");
+assert(world.schema_version === 1, "world composition schema_version must be 1");
+assert(lock.lock_version === 1, "world composition pack lock_version must be 1");
 assert(lock.world_id === world.id, "pack lock does not belong to the official world");
-assert(Array.isArray(world.packs) && world.packs.length > 0, "official world has no packs");
-assert(Array.isArray(lock.packs), "official pack lock has no packs array");
-assert(new Set(world.packs).size === world.packs.length, "official world has duplicate pack ids");
+assert(Array.isArray(world.packs) && world.packs.length > 0, "world composition has no packs");
+assert(Array.isArray(lock.packs), "world composition pack lock has no packs array");
+assert(new Set(world.packs).size === world.packs.length, "world composition has duplicate pack ids");
 
 const lockById = new Map(lock.packs.map((entry) => [entry.id, entry]));
 assert(lockById.size === lock.packs.length, "pack lock has duplicate pack ids");
@@ -372,6 +383,16 @@ const packSummary = packs.map(({ locked, manifest, integrity }) => ({
   source: locked.source,
   integrity,
 }));
+const contentReferences = buildContentReferenceMapping(
+  collectContentReferenceCandidates({
+    resources,
+    packs: packSummary,
+    externalCards,
+    ruleBundles,
+    characterCreationBundles,
+  }),
+  CANONICAL_ID_MAPPING_VERSION,
+);
 const bundleHash = sha256([
   json(world),
   json(packSummary),
@@ -381,6 +402,7 @@ const bundleHash = sha256([
   json(ruleBundles),
   json(attributions),
   json(characterCreationBundles),
+  json(contentReferences),
 ]);
 const manifest = {
   schema_version: 2,
@@ -399,6 +421,7 @@ const manifest = {
   rules: "rules.json",
   attributions: "attributions.json",
   character_creation: "character_creation.json",
+  content_references: "content_refs.json",
   registry: "registry.json",
 };
 
@@ -411,6 +434,7 @@ const registry = {
   rules: ruleBundles,
   attributions,
   character_creation: characterCreationBundles,
+  content_references: contentReferences,
 };
 
 const outputs = new Map([
@@ -421,6 +445,7 @@ const outputs = new Map([
   ["rules.json", json(ruleBundles)],
   ["attributions.json", json(attributions)],
   ["character_creation.json", json(characterCreationBundles)],
+  ["content_refs.json", json(contentReferences)],
   ...Object.entries(resourceFiles).map(([resource, fileName]) => [fileName, json(resources[resource])]),
 ]);
 const artifactDigest = sha256(

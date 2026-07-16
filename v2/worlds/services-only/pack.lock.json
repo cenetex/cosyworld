@@ -1,0 +1,45 @@
+{
+  "lock_version": 1,
+  "manifest_contract": "cosyworld.content-pack/1",
+  "canonical_id_mapping_version": 1,
+  "world_id": "cosyworld.services-only",
+  "dependency_order": [
+    "cosyworld.services-fixture"
+  ],
+  "packs": [
+    {
+      "id": "cosyworld.services-fixture",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/services-fixture"
+      },
+      "integrity": "sha256:c3aecc47979c68ba0b77a407d83d9eb043c5b676d92dacf3148d5a4df052a9e2",
+      "dependencies": [],
+      "dependency_closure": [],
+      "capabilities": [
+        {
+          "id": "cosyworld.services-fixture/reference",
+          "kind": "reference",
+          "version": "1.0.0"
+        }
+      ],
+      "license": "MIT",
+      "provenance": {
+        "source_name": "CosyWorld test fixtures",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      }
+    }
+  ],
+  "license_records": [
+    {
+      "pack_id": "cosyworld.services-fixture",
+      "version": "1.0.0",
+      "license": "MIT",
+      "provenance": {
+        "source_name": "CosyWorld test fixtures",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      }
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "schema_version": 2,
+  "pack_contract": "cosyworld.content-pack/1",
+  "canonical_id_mapping_version": 1,
+  "id": "cosyworld.services-only",
+  "name": "CosyWorld Services Only",
+  "version": 1,
+  "description": "A non-world composition for health, metadata, identity, and moderation services.",
+  "bundle_hash": "sha256:c39953a857c8eba393e6de55456a8a4e43780f3aaf38beb914dd27238c137689",
+  "packs": [
+    {
+      "id": "cosyworld.services-fixture",
+      "name": "CosyWorld Services Fixture",
+      "description": "A content-free fixture proving engine services do not require a world pack.",
+      "version": "1.0.0",
+      "kind": "catalog",
+      "license": "MIT",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.services-fixture/reference",
+          "kind": "reference",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [],
+      "dependency_requirements": [],
+      "dependency_closure": [],
+      "default_ruleset": null,
+      "entry_points": [],
+      "provenance": {
+        "source_name": "CosyWorld test fixtures",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
+      "resource_counts": {
+        "actors": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "fronts": 0,
+        "cards": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 0,
+        "character_creation": 0
+      },
+      "source": {
+        "type": "workspace",
+        "path": "../../content/services-fixture"
+      },
+      "integrity": "sha256:c3aecc47979c68ba0b77a407d83d9eb043c5b676d92dacf3148d5a4df052a9e2"
+    }
+  ],
+  "files": {
+    "actors": "actors.json",
+    "access_gates": "access_gates.json",
+    "factions": "factions.json",
+    "items": "items.json",
+    "locations": "locations.json",
+    "exits": "exits.json",
+    "hidden_exits": "hidden_exits.json",
+    "room_features": "room_features.json",
+    "room_sheets": "room_sheets.json",
+    "clocks": "clocks.json",
+    "jobs": "jobs.json",
+    "fronts": "fronts.json",
+    "cards": "cards.json",
+    "lifecycle_hooks": "lifecycle_hooks.json",
+    "evolution_tracks": "evolution_tracks.json",
+    "recipes": "recipes.json",
+    "sentences": "sentences.json"
+  },
+  "external_cards": "external_cards.json",
+  "assets": "assets.json",
+  "rules": "rules.json",
+  "attributions": "attributions.json",
+  "character_creation": "character_creation.json",
+  "content_references": "content_refs.json",
+  "registry": "registry.json"
+}

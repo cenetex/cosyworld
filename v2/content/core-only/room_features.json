@@ -1,0 +1,264 @@
+[
+  {
+    "location_id": 1,
+    "key": "hearth",
+    "name": "Hearth",
+    "aliases": [
+      "fire",
+      "fireplace",
+      "ashes"
+    ],
+    "look": "A low, steady amber fire.",
+    "search": "The ashes have been swept into a small arrow pointing from the hearth toward the low doorway.",
+    "uses": [
+      {
+        "item_id": 2001,
+        "text": "The tonic warms in your hand. The hearth is warmer."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 1,
+    "key": "low_doorway",
+    "name": "Low Doorway",
+    "aliases": [
+      "door",
+      "doorway",
+      "threshold"
+    ],
+    "look": "The doorway is low enough that even brave guests bow before leaving.",
+    "search": "Old scratch marks near the frame point toward Rain-Soft Garden, Homeroom, and a shadow small enough for Skull.",
+    "uses": [
+      {
+        "item_id": 2007,
+        "text": "The bell gives one silent chime. Skull lifts his head."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 1,
+    "key": "scarf_basket",
+    "name": "Scarf Basket",
+    "aliases": [
+      "basket",
+      "blue scarf",
+      "wool",
+      "knitting"
+    ],
+    "look": "Blue wool curls over the basket rim.",
+    "search": "Under the top skein is a round notch exactly the size of a warm wooden button.",
+    "uses": [
+      {
+        "item_id": 2005,
+        "text": "The Story Button fits the notch. The basket clicks once."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 1,
+    "key": "rain_window",
+    "name": "Rain Window",
+    "aliases": [
+      "window",
+      "rain",
+      "glass"
+    ],
+    "look": "Rain runs down the glass.",
+    "search": "Through the glass: the garden first, the trail beyond it, the school past both.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 2,
+    "key": "broad_leaves",
+    "name": "Broad Leaves",
+    "aliases": [
+      "leaves",
+      "leaf",
+      "plants"
+    ],
+    "look": "Wide leaves hold rain in neat, trembling beads.",
+    "search": "One leaf has been turned over recently. Its underside shines with button-bright dew.",
+    "uses": [
+      {
+        "item_id": 2002,
+        "text": "The button matches the leaf's shine. Gust would notice it."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 2,
+    "key": "puddle_path",
+    "name": "Puddle Path",
+    "aliases": [
+      "puddle",
+      "path",
+      "mud"
+    ],
+    "look": "Small puddles reflect the cottage window and a sliver of moonlit trail.",
+    "search": "The puddles are shallow, but their reflections make the trail look closer than it is.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 3,
+    "key": "silver_milepost",
+    "name": "Silver Milepost",
+    "aliases": [
+      "milepost",
+      "post",
+      "sign"
+    ],
+    "look": "A silvered post with no distance marked.",
+    "search": "Three scratches read: prove the guard, take what is earned, leave early.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 3,
+    "key": "practice_circle",
+    "name": "Practice Circle",
+    "aliases": [
+      "circle",
+      "sparring circle",
+      "clearing"
+    ],
+    "look": "Moonlight makes a pale circle where Coach waits.",
+    "search": "The dust shows careful footwork and no blood.",
+    "uses": [
+      {
+        "item_id": 2003,
+        "text": "The charm cools in your palm."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 36,
+    "key": "sun_bell",
+    "name": "Missing Sun Bell",
+    "aliases": [
+      "bell",
+      "drowned bell",
+      "sun bell",
+      "temple bell"
+    ],
+    "look": "A clean arch where a noon bell should hang.",
+    "search": "The empty bracket hums a low note. The hum points down.",
+    "uses": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 64,
+    "key": "drowned_bell",
+    "name": "Drowned Bell",
+    "aliases": [
+      "bell",
+      "sun bell",
+      "abyssal bell",
+      "pearl bell"
+    ],
+    "look": "A white-gold bell rests in black water, its rim crusted with pearls.",
+    "search": "The bell is not silent. It rings a lower note than the Solar Temple ever wrote down.",
+    "uses": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 65,
+    "key": "abyssal_anvil",
+    "name": "Abyssal Anvil",
+    "aliases": [
+      "anvil",
+      "forge",
+      "dark anvil"
+    ],
+    "look": "A cold anvil waits beside the impossible feast, polished by pronouncements and bad timing.",
+    "search": "The anvil rings without being struck.",
+    "uses": [],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 10,
+    "key": "lab_bench",
+    "name": "Lab Bench",
+    "aliases": [
+      "bench",
+      "table",
+      "apparatus"
+    ],
+    "look": "A bright bench of small instruments, with room for a second try.",
+    "search": "A note under the bench says: observe first, listen second, revise always.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 40,
+    "key": "root_voice",
+    "name": "Root Voice",
+    "aliases": [
+      "root",
+      "roots"
+    ],
+    "look": "The roots braid through the soil like roads that decided to stay.",
+    "search": "Root remembers every footstep that circled back and every traveler who pretended not to be lost.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 40,
+    "key": "ring_voice",
+    "name": "Ring Voice",
+    "aliases": [
+      "ring",
+      "rings",
+      "bark"
+    ],
+    "look": "The trunk's rings press time into a patient spiral.",
+    "search": "Ring remembers the years when the forest was less lonely and the paths still argued about names.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 40,
+    "key": "leaf_voice",
+    "name": "Leaf Voice",
+    "aliases": [
+      "leaf",
+      "leaves"
+    ],
+    "look": "Leaves turn their small green faces toward the newest sound.",
+    "search": "Leaf remembers what changed today, which is nearly always more than the rest of the tree admits.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 40,
+    "key": "hollow_voice",
+    "name": "Hollow Voice",
+    "aliases": [
+      "hollow",
+      "secret",
+      "secrets"
+    ],
+    "look": "A dark hollow opens in the trunk, quiet enough to make questions lower their voices.",
+    "search": "Hollow remembers what nobody has asked yet. It is waiting for a better question.",
+    "uses": [
+      {
+        "item_id": 2005,
+        "text": "The Story Button clicks inside the hollow. Old Oak answers with a story it had kept for a kinder listener."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "location_id": 34,
+    "key": "nibs_stall",
+    "name": "Nib's Stall",
+    "aliases": [
+      "stall",
+      "counter",
+      "receipt roll",
+      "roll"
+    ],
+    "look": "A plank counter stacked with salvage, oddments, and a receipt roll wider than the stall itself.",
+    "search": "Three prices are inked beside each item. The kindest one is circled in green. The fine print is very fine.",
+    "pack_id": "cosyworld.core"
+  }
+]

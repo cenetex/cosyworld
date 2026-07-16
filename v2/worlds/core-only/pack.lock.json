@@ -1,0 +1,55 @@
+{
+  "lock_version": 1,
+  "manifest_contract": "cosyworld.content-pack/1",
+  "canonical_id_mapping_version": 1,
+  "world_id": "cosyworld.core-only",
+  "dependency_order": [
+    "cosyworld.core"
+  ],
+  "packs": [
+    {
+      "id": "cosyworld.core",
+      "version": "1.1.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/core"
+      },
+      "integrity": "sha256:ebd032bcb69990ab02056b45f8c8ba36600f596a3e47c3258f1bd5ff8f4f475a",
+      "dependencies": [],
+      "dependency_closure": [],
+      "capabilities": [
+        {
+          "id": "cosyworld.core/world",
+          "kind": "world",
+          "version": "1.0.0"
+        },
+        {
+          "id": "cosyworld.core/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        },
+        {
+          "id": "cosyworld.core/rules",
+          "kind": "rules",
+          "version": "1.0.0"
+        }
+      ],
+      "license": "MIT",
+      "provenance": {
+        "source_name": "CosyWorld",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      }
+    }
+  ],
+  "license_records": [
+    {
+      "pack_id": "cosyworld.core",
+      "version": "1.1.0",
+      "license": "MIT",
+      "provenance": {
+        "source_name": "CosyWorld",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      }
+    }
+  ]
+}

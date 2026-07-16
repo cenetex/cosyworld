@@ -7,6 +7,11 @@ import {
   CONTENT_PACK_CONTRACT,
   resolveContentPackGraph,
 } from "./content-pack-contract.mjs";
+import {
+  buildContentReferenceMapping,
+  collectContentReferenceCandidates,
+  parseCanonicalContentReference,
+} from "./content-references.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -347,14 +352,18 @@ if (manifest.canonical_id_mapping_version !== CANONICAL_ID_MAPPING_VERSION) {
 if (!Number.isInteger(manifest.version) || manifest.version <= 0) {
   fail("worldpack manifest version must be a positive integer");
 }
-if (!isNonEmptyString(manifest.entry_location)) {
-  fail("worldpack manifest is missing entry_location");
-}
 if (!isNonEmptyString(manifest.bundle_hash) || !/^sha256:[0-9a-f]{64}$/.test(manifest.bundle_hash)) {
   fail("worldpack manifest has an invalid bundle_hash");
 }
 const packs = asArray("worldpack manifest packs", manifest.packs);
 const packIds = idSet("worldpack manifest packs", packs, (pack) => pack.id);
+const worldBearingPacks = packs.filter((pack) => ["world", "campaign"].includes(pack.kind));
+if (worldBearingPacks.length > 0 && !isNonEmptyString(manifest.entry_location)) {
+  fail("world-bearing worldpack manifest is missing entry_location");
+}
+if (worldBearingPacks.length === 0 && manifest.entry_location !== undefined) {
+  fail("services-only worldpack manifest must not invent an entry_location");
+}
 const entitlementGrants = new Map();
 for (const pack of packs) {
   validateRequiredStrings("worldpack pack", pack, ["name", "description", "version", "kind", "license", "integrity"]);
@@ -465,6 +474,7 @@ if (
   || manifest.rules !== "rules.json"
   || manifest.attributions !== "attributions.json"
   || manifest.character_creation !== "character_creation.json"
+  || manifest.content_references !== "content_refs.json"
   || manifest.registry !== "registry.json"
 ) {
   fail("worldpack manifest must map the registry and compatibility artifacts to compiled files");
@@ -711,6 +721,70 @@ for (const bundle of characterCreationBundles) {
   const profiles = asArray(`character creation bundle ${bundle.pack_id} profiles`, bundle.profiles);
   for (const profile of profiles) characterCreationProfiles.push({ ...profile, pack_id: bundle.pack_id });
 }
+
+const contentReferences = readJson("content_refs.json");
+if (JSON.stringify(registry?.content_references) !== JSON.stringify(contentReferences)) {
+  fail("registry.json content_references do not match content_refs.json");
+}
+if (
+  !isObject(contentReferences)
+  || contentReferences.schema_version !== 1
+  || contentReferences.mapping_version !== CANONICAL_ID_MAPPING_VERSION
+  || !Array.isArray(contentReferences.entries)
+) {
+  fail("content_refs.json has an unsupported schema or mapping version");
+} else {
+  const canonicalRefs = new Set();
+  const runtimeHandles = new Set();
+  let previousReference = "";
+  for (const entry of contentReferences.entries) {
+    let parsed;
+    try {
+      parsed = parseCanonicalContentReference(entry.canonical_ref);
+    } catch (error) {
+      fail(error.message);
+      continue;
+    }
+    if (
+      entry.pack_id !== parsed.pack_id
+      || entry.kind !== parsed.kind
+      || entry.local_id !== parsed.local_id
+      || packs.find((pack) => pack.id === entry.pack_id)?.version !== entry.pack_version
+    ) {
+      fail(`content reference ${entry.canonical_ref} has inconsistent identity or pack version`);
+    }
+    if (entry.canonical_ref <= previousReference) {
+      fail("content_refs.json entries are not in deterministic canonical order");
+    }
+    previousReference = entry.canonical_ref;
+    if (canonicalRefs.has(entry.canonical_ref)) fail(`duplicate canonical content reference ${entry.canonical_ref}`);
+    if (!Number.isSafeInteger(entry.runtime_handle) || entry.runtime_handle <= 0 || runtimeHandles.has(entry.runtime_handle)) {
+      fail(`content reference ${entry.canonical_ref} has an invalid or duplicate runtime handle`);
+    }
+    if (entry.legacy_runtime_id !== undefined && entry.legacy_runtime_id !== entry.runtime_handle) {
+      fail(`legacy content reference ${entry.canonical_ref} changed runtime handle`);
+    }
+    canonicalRefs.add(entry.canonical_ref);
+    runtimeHandles.add(entry.runtime_handle);
+  }
+  try {
+    const expectedContentReferences = buildContentReferenceMapping(
+      collectContentReferenceCandidates({
+        resources: content,
+        packs,
+        externalCards,
+        ruleBundles,
+        characterCreationBundles,
+      }),
+      CANONICAL_ID_MAPPING_VERSION,
+    );
+    if (JSON.stringify(contentReferences) !== JSON.stringify(expectedContentReferences)) {
+      fail("content_refs.json is not the deterministic mapping for the compiled content");
+    }
+  } catch (error) {
+    fail(error.message);
+  }
+}
 for (const pack of packs.filter((candidate) => candidate.kind === "campaign")) {
   if (!has(characterCreationPackIds, pack.id)) {
     fail(`campaign pack ${pack.id} has no compiled character creation profile`);
@@ -955,7 +1029,9 @@ for (const hiddenExit of hiddenExits) {
 const entryLocationMatch = String(manifest.entry_location).match(/location\/(\d+)$/);
 const entryLocationId = Number(entryLocationMatch?.[1] ?? 0);
 const publicReachableLocationIds = new Set();
-if (!has(locationIds, entryLocationId)) {
+if (worldBearingPacks.length === 0 && locationIds.size === 0) {
+  // A services-only composition intentionally has no playable entry point.
+} else if (!has(locationIds, entryLocationId)) {
   fail(`worldpack entry location ${manifest.entry_location} does not reference a compiled location`);
 } else if (gateByLocationId.has(entryLocationId)) {
   fail(`worldpack entry location ${entryLocationId} must not require an access gate`);
