@@ -44292,6 +44292,90 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn solar_abyss_project_supports_solo_work_and_rest_danger() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, 36, "Solo Bell Listener");
+
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+
+        let first_work = work(
+            ConnectInfo("127.0.0.1:43113".parse().expect("client address")),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session.clone()),
+            }),
+        )
+        .await
+        .0;
+        assert!(first_work.ok);
+        assert!(first_work.events.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.clock_id.as_deref() == Some("solar-abyss.drowned-bell")
+                && event.clock_delta == Some(2)
+        }));
+
+        {
+            let mut runtime = state.inner.lock().await;
+            assert!(runtime.tired_tag_active(5000));
+            move_test_actor(&mut runtime, 5000, 30, 71511);
+            move_test_actor(&mut runtime, 5000, 36, 71512);
+            assert!(runtime.rest_available(5000));
+        }
+
+        let rest_response = rest(
+            ConnectInfo("127.0.0.1:43114".parse().expect("client address")),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session.clone()),
+            }),
+        )
+        .await
+        .0;
+        assert!(rest_response.ok);
+        assert!(rest_response.events.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.clock_id.as_deref() == Some("solar-abyss.schism")
+                && event.clock_delta == Some(1)
+        }));
+
+        let finishing_work = work(
+            ConnectInfo("127.0.0.1:43115".parse().expect("client address")),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+            }),
+        )
+        .await
+        .0;
+        assert!(finishing_work.ok);
+        assert!(finishing_work.events.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.clock_id.as_deref() == Some("solar-abyss.drowned-bell")
+                && event.clock_filled == Some(4)
+        }));
+
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime
+                .jobs
+                .get("solar-abyss:drowned-bell")
+                .map(|job| runtime.job_status(job)),
+            Some("completed".to_string())
+        );
+        assert_eq!(
+            runtime
+                .clocks
+                .get("solar-abyss.schism")
+                .map(|clock| clock.filled),
+            Some(1)
+        );
+    }
+
+    #[tokio::test]
     async fn hearth_tonic_warmth_spends_to_block_frontier_rest_danger() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
