@@ -70,6 +70,15 @@ describe("worldpack progression access validation", () => {
   });
 });
 
+describe("worldpack authored relationships", () => {
+  it("keeps the Heavens above Lofty Peak", () => {
+    const exits = JSON.parse(fs.readFileSync(path.join(compiledWorldpackRoot, "exits.json"), "utf8"));
+
+    expect(exits.find((exit) => exit.from_location_id === 30 && exit.to_location_id === 31)?.direction).toBe("down");
+    expect(exits.find((exit) => exit.from_location_id === 31 && exit.to_location_id === 30)?.direction).toBe("up");
+  });
+});
+
 describe("worldpack writing register validation", () => {
   it("rejects banned tells in environment descriptions", () => {
     const root = worldpackFixture();

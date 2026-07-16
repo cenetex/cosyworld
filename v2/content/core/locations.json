@@ -15,7 +15,7 @@
   {
     "id": 2,
     "name": "Rain-Soft Garden",
-    "title": "Garden Annex",
+    "title": "Rain-Pearled Annex",
     "description": "Rain beads on broad leaves. Round marks dot the grass.",
     "persona": "The garden answers in damp patience, leaf-taps, and tiny useful discoveries.",
     "biome": "rain garden",
@@ -276,7 +276,7 @@
   },
   {
     "id": 60,
-    "name": "Turgid Swamp",
+    "name": "Brackish Swamp",
     "title": "Farthest Mists",
     "description": "Black water shifts under the reeds.",
     "persona": "The Swamp is murky, practical, and entirely willing to make wisdom smell bad.",
@@ -293,7 +293,7 @@
     "description": "Heavy leaves droop over hot, narrow paths.",
     "persona": "The Jungle is overheated, stubborn, and full of life refusing to quit elegantly.",
     "memory": [
-      "Turgid Swamp feeds its roots with dark water.",
+      "Brackish Swamp feeds its roots with dark water.",
       "Endless Ocean can be heard before it is seen."
     ],
     "allow_combat": false

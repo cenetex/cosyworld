@@ -235,14 +235,14 @@
     "from_location_id": 30,
     "to_location_id": 31,
     "flags": 0,
-    "direction": "up",
+    "direction": "down",
     "pack_id": "cosyworld.core"
   },
   {
     "from_location_id": 31,
     "to_location_id": 30,
     "flags": 0,
-    "direction": "down",
+    "direction": "up",
     "pack_id": "cosyworld.core"
   },
   {

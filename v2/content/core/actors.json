@@ -429,8 +429,8 @@
     "id": 1051,
     "name": "Euphemie",
     "speech_mode": "prose",
-    "title": "Dusty Creole Ghost",
-    "description": "A moss-draped mansion ghost mostly annoyed that nobody dusts, whose Creole warnings are strictly practical: the third stair is a liar.",
+    "title": "Ghost of the Lying Stair",
+    "description": "A moss-draped mansion ghost who insists the dusting is overdue and the third stair is a liar.",
     "location_id": 42,
     "attachments": [
       {
@@ -693,8 +693,8 @@
     "id": 1062,
     "name": "Raziel",
     "speech_mode": "prose",
-    "title": "Angel of Lust, Charisma of Eight",
-    "description": "A red-winged flirt of legendary self-regard whom nobody has ever actually fallen for; the doorframes he leans on have filed complaints.",
+    "title": "Angel of Vanity, Charisma of Eight",
+    "description": "A red-winged angel of legendary self-regard. Nobody has fallen for his practiced doorframe pose; the frames have filed complaints.",
     "location_id": 42,
     "desires": [
       {
