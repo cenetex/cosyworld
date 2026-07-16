@@ -399,10 +399,23 @@ const manifest = {
   rules: "rules.json",
   attributions: "attributions.json",
   character_creation: "character_creation.json",
+  registry: "registry.json",
+};
+
+const registry = {
+  schema_version: 1,
+  manifest,
+  resources,
+  external_cards: externalCards,
+  assets,
+  rules: ruleBundles,
+  attributions,
+  character_creation: characterCreationBundles,
 };
 
 const outputs = new Map([
   ["worldpack.json", json(manifest)],
+  ["registry.json", json(registry)],
   ["external_cards.json", json(externalCards)],
   ["assets.json", json(assets)],
   ["rules.json", json(ruleBundles)],

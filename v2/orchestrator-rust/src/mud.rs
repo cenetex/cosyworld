@@ -1088,7 +1088,7 @@ impl RuntimeWorld {
                     self.default_craft_recipe(actor.id)
                 } else {
                     let query_key = command_key(rest);
-                    seed_content().recipes.iter().find(|recipe| {
+                    active_content().recipes.iter().find(|recipe| {
                         recipe.id.to_string() == query_key
                             || command_key(&recipe.key) == query_key
                             || command_key(&recipe.name) == query_key

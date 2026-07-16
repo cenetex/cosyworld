@@ -261,6 +261,13 @@ const manifest = readJson("worldpack.json");
 if (!isObject(manifest)) {
   throw new Error("worldpack.json could not be parsed");
 }
+const registry = readJson("registry.json");
+if (!isObject(registry) || registry.schema_version !== 1) {
+  fail("registry.json must be a schema-version-1 object");
+}
+if (JSON.stringify(registry?.manifest) !== JSON.stringify(manifest)) {
+  fail("registry.json manifest does not match worldpack.json");
+}
 
 validateRequiredStrings("worldpack manifest", manifest, ["id", "name", "description"]);
 if (manifest.schema_version !== 2) {
@@ -395,8 +402,9 @@ if (
   || manifest.rules !== "rules.json"
   || manifest.attributions !== "attributions.json"
   || manifest.character_creation !== "character_creation.json"
+  || manifest.registry !== "registry.json"
 ) {
-  fail("worldpack manifest must map external_cards, assets, rules, attributions, and character_creation to compiled files");
+  fail("worldpack manifest must map the registry and compatibility artifacts to compiled files");
 }
 
 for (const [key, fileName] of Object.entries(expectedFiles)) {
@@ -420,8 +428,14 @@ for (const [key, fileName] of Object.entries(expectedFiles)) {
     }
   }
 }
+if (JSON.stringify(registry?.resources) !== JSON.stringify(content)) {
+  fail("registry.json resources do not match the compatibility resource files");
+}
 
 const externalCards = asArray("external_cards.json", readJson("external_cards.json"));
+if (JSON.stringify(registry?.external_cards) !== JSON.stringify(externalCards)) {
+  fail("registry.json external_cards do not match external_cards.json");
+}
 idSet("external cards", externalCards, (card) => card.card_id);
 for (const card of externalCards) {
   if (!isNonEmptyString(card.pack_id) || !has(packIds, card.pack_id)) {
@@ -448,6 +462,9 @@ for (const pack of packs) {
   }
 }
 const assetMounts = asArray("assets.json", readJson("assets.json"));
+if (JSON.stringify(registry?.assets) !== JSON.stringify(assetMounts)) {
+  fail("registry.json assets do not match assets.json");
+}
 idSet("asset mounts", assetMounts, (mount) => `${mount.pack_id}:${mount.mount}`);
 idSet("asset public prefixes", assetMounts, (mount) => mount.public_prefix);
 for (const mount of assetMounts) {
@@ -465,6 +482,9 @@ for (const mount of assetMounts) {
 }
 
 const ruleBundles = asArray("rules.json", readJson("rules.json"));
+if (JSON.stringify(registry?.rules) !== JSON.stringify(ruleBundles)) {
+  fail("registry.json rules do not match rules.json");
+}
 const rulePackIds = new Set();
 const ruleNamespaces = new Set();
 let ruleConditionCount = 0;
@@ -569,6 +589,9 @@ for (const pack of packs.filter((candidate) => candidate.kind === "rules")) {
 }
 
 const attributions = asArray("attributions.json", readJson("attributions.json"));
+if (JSON.stringify(registry?.attributions) !== JSON.stringify(attributions)) {
+  fail("registry.json attributions do not match attributions.json");
+}
 const attributedPackIds = idSet("attributions", attributions, (attribution) => attribution.pack_id);
 for (const attribution of attributions) {
   validateRequiredStrings("attribution", attribution, ["license", "source_name", "source_url", "text"]);
@@ -607,6 +630,9 @@ if (revisedSrdPack) {
 }
 
 const characterCreationBundles = asArray("character_creation.json", readJson("character_creation.json"));
+if (JSON.stringify(registry?.character_creation) !== JSON.stringify(characterCreationBundles)) {
+  fail("registry.json character_creation does not match character_creation.json");
+}
 const characterCreationPackIds = new Set();
 const characterCreationProfiles = [];
 for (const bundle of characterCreationBundles) {

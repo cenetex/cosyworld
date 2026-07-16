@@ -20,6 +20,27 @@ function worldpackFixture() {
 
 function writeJson(root, fileName, value) {
   fs.writeFileSync(path.join(root, fileName), `${JSON.stringify(value, null, 2)}\n`);
+  if (fileName === "registry.json") return;
+  const registryPath = path.join(root, "registry.json");
+  if (!fs.existsSync(registryPath)) return;
+  const registry = JSON.parse(fs.readFileSync(registryPath, "utf8"));
+  if (fileName === "worldpack.json") {
+    registry.manifest = value;
+  } else {
+    const resource = Object.entries(registry.manifest.files ?? {})
+      .find(([, compiledFile]) => compiledFile === fileName)?.[0];
+    if (resource) registry.resources[resource] = value;
+    for (const [field, manifestField] of [
+      ["external_cards", "external_cards"],
+      ["assets", "assets"],
+      ["rules", "rules"],
+      ["attributions", "attributions"],
+      ["character_creation", "character_creation"],
+    ]) {
+      if (registry.manifest[manifestField] === fileName) registry[field] = value;
+    }
+  }
+  fs.writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`);
 }
 
 function writeSentences(root, sentences) {

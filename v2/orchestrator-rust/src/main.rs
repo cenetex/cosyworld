@@ -4,6 +4,7 @@ mod ai_gateway;
 mod avatar_identity;
 mod content_packs;
 mod content_policy;
+mod content_registry;
 mod kernel;
 mod moderation;
 mod mud;
@@ -28,6 +29,7 @@ use axum::{
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use content_packs::*;
 use content_policy::*;
+use content_registry::*;
 use cosyworld_ai_model::ResidentReplyModelInput;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use kernel::*;
@@ -951,30 +953,6 @@ struct ItemMeta {
     description: String,
 }
 
-const SEED_CONTENT_JSON: &str = include_str!("../../content/official/worldpack.json");
-const SEED_ACTORS_JSON: &str = include_str!("../../content/official/actors.json");
-const SEED_ACCESS_GATES_JSON: &str = include_str!("../../content/official/access_gates.json");
-const SEED_FACTIONS_JSON: &str = include_str!("../../content/official/factions.json");
-const SEED_ITEMS_JSON: &str = include_str!("../../content/official/items.json");
-const SEED_LOCATIONS_JSON: &str = include_str!("../../content/official/locations.json");
-const SEED_EXITS_JSON: &str = include_str!("../../content/official/exits.json");
-const SEED_HIDDEN_EXITS_JSON: &str = include_str!("../../content/official/hidden_exits.json");
-const SEED_ROOM_FEATURES_JSON: &str = include_str!("../../content/official/room_features.json");
-const SEED_ROOM_SHEETS_JSON: &str = include_str!("../../content/official/room_sheets.json");
-const SEED_CLOCKS_JSON: &str = include_str!("../../content/official/clocks.json");
-const SEED_JOBS_JSON: &str = include_str!("../../content/official/jobs.json");
-const SEED_FRONTS_JSON: &str = include_str!("../../content/official/fronts.json");
-const SEED_CARDS_JSON: &str = include_str!("../../content/official/cards.json");
-const SEED_LIFECYCLE_HOOKS_JSON: &str = include_str!("../../content/official/lifecycle_hooks.json");
-const SEED_EVOLUTION_TRACKS_JSON: &str =
-    include_str!("../../content/official/evolution_tracks.json");
-const SEED_RECIPES_JSON: &str = include_str!("../../content/official/recipes.json");
-const SEED_EXTERNAL_CARDS_JSON: &str = include_str!("../../content/official/external_cards.json");
-const SEED_ASSET_MOUNTS_JSON: &str = include_str!("../../content/official/assets.json");
-const SEED_RULES_JSON: &str = include_str!("../../content/official/rules.json");
-const SEED_ATTRIBUTIONS_JSON: &str = include_str!("../../content/official/attributions.json");
-const SEED_CHARACTER_CREATION_JSON: &str =
-    include_str!("../../content/official/character_creation.json");
 const LONELY_FOREST_CHARACTER_MANIFEST_JSON: &str =
     include_str!("../../content/lonely-forest/assets/characters/manifest.json");
 const LONELY_FOREST_CHARACTER_ASSET_PREFIX: &str = "/assets/lonely-forest/characters/";
@@ -1002,12 +980,18 @@ struct SeedContent {
     rules: Vec<SeedRuleBundle>,
     attributions: Vec<SeedAttribution>,
     character_creation: Vec<SeedCharacterCreationBundle>,
+    external_cards: Vec<RubyHighCardSpec>,
+    asset_mounts: Vec<SeedAssetMount>,
 }
 
 #[derive(Debug, Deserialize)]
 struct SeedWorldpackManifest {
     #[serde(default)]
     schema_version: u32,
+    #[serde(default)]
+    pack_contract: String,
+    #[serde(default)]
+    canonical_id_mapping_version: u32,
     id: String,
     name: String,
     version: u32,
@@ -1020,13 +1004,8 @@ struct SeedWorldpackManifest {
     bundle_hash: String,
     #[serde(default)]
     packs: Vec<SeedWorldpackPack>,
-    files: BTreeMap<String, String>,
     #[serde(default)]
-    rules: String,
-    #[serde(default)]
-    attributions: String,
-    #[serde(default)]
-    character_creation: String,
+    registry: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1040,7 +1019,21 @@ struct SeedWorldpackPack {
     license: String,
     integrity: String,
     #[serde(default)]
+    engine: String,
+    #[serde(default)]
+    capabilities: Vec<SeedPackCapability>,
+    #[serde(default)]
     dependencies: Vec<String>,
+    #[serde(default)]
+    dependency_requirements: Vec<SeedPackDependency>,
+    #[serde(default)]
+    dependency_closure: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    default_ruleset: Option<String>,
+    #[serde(default)]
+    entry_points: Vec<serde_json::Value>,
+    #[serde(default)]
+    provenance: serde_json::Value,
     #[serde(default)]
     resource_counts: BTreeMap<String, usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1051,6 +1044,23 @@ struct SeedWorldpackPack {
     rules_adapter: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rules_namespace: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedPackCapability {
+    id: String,
+    kind: String,
+    version: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct SeedPackDependency {
+    id: String,
+    version: String,
+    #[serde(default)]
+    capabilities: Vec<String>,
+    #[serde(default)]
+    optional: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1721,7 +1731,7 @@ impl JournalRecord {
         };
         Self {
             version: 3,
-            worldpack_bundle_hash: seed_content().manifest.bundle_hash.clone(),
+            worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             origin,
             caused_by_event_seq: None,
             source_world_tick: None,
@@ -3794,52 +3804,12 @@ async fn load_effective_ownership_index_strict(state: &AppState) -> io::Result<O
     Ok(ownership)
 }
 
-fn seed_content() -> &'static SeedContent {
-    static CONTENT: OnceLock<SeedContent> = OnceLock::new();
-    CONTENT.get_or_init(|| {
-        parse_seed_content(SEED_CONTENT_JSON)
-            .expect("embedded CosyWorld seed content must parse and validate")
-    })
-}
-
-fn parse_seed_content(manifest_json: &str) -> Result<SeedContent, String> {
-    let manifest: SeedWorldpackManifest = parse_seed_json("worldpack.json", manifest_json)?;
-    validate_worldpack_manifest(&manifest)?;
-    let content = SeedContent {
-        manifest,
-        actors: parse_seed_json("actors.json", SEED_ACTORS_JSON)?,
-        access_gates: parse_seed_json("access_gates.json", SEED_ACCESS_GATES_JSON)?,
-        factions: parse_seed_json("factions.json", SEED_FACTIONS_JSON)?,
-        items: parse_seed_json("items.json", SEED_ITEMS_JSON)?,
-        locations: parse_seed_json("locations.json", SEED_LOCATIONS_JSON)?,
-        exits: parse_seed_json("exits.json", SEED_EXITS_JSON)?,
-        hidden_exits: parse_seed_json("hidden_exits.json", SEED_HIDDEN_EXITS_JSON)?,
-        room_features: parse_seed_json("room_features.json", SEED_ROOM_FEATURES_JSON)?,
-        room_sheets: parse_seed_json("room_sheets.json", SEED_ROOM_SHEETS_JSON)?,
-        clocks: parse_seed_json("clocks.json", SEED_CLOCKS_JSON)?,
-        jobs: parse_seed_json("jobs.json", SEED_JOBS_JSON)?,
-        fronts: parse_seed_json("fronts.json", SEED_FRONTS_JSON)?,
-        cards: parse_seed_json("cards.json", SEED_CARDS_JSON)?,
-        lifecycle_hooks: parse_seed_json("lifecycle_hooks.json", SEED_LIFECYCLE_HOOKS_JSON)?,
-        evolution_tracks: parse_seed_json("evolution_tracks.json", SEED_EVOLUTION_TRACKS_JSON)?,
-        recipes: parse_seed_json("recipes.json", SEED_RECIPES_JSON)?,
-        rules: parse_seed_json("rules.json", SEED_RULES_JSON)?,
-        attributions: parse_seed_json("attributions.json", SEED_ATTRIBUTIONS_JSON)?,
-        character_creation: parse_seed_json(
-            "character_creation.json",
-            SEED_CHARACTER_CREATION_JSON,
-        )?,
-    };
-    validate_seed_content(&content)?;
-    Ok(content)
-}
-
 fn parse_seed_json<T: DeserializeOwned>(label: &str, value: &str) -> Result<T, String> {
     serde_json::from_str(value).map_err(|error| format!("{label}: {error}"))
 }
 
 fn character_creation_views() -> Vec<CharacterCreationProfileView> {
-    seed_content()
+    active_content()
         .character_creation
         .iter()
         .flat_map(|bundle| {
@@ -3852,7 +3822,7 @@ fn character_creation_views() -> Vec<CharacterCreationProfileView> {
                     name: profile.name.clone(),
                     description: profile.description.clone(),
                     entry_location_id: profile.entry_location_id,
-                    entry_location_name: seed_content()
+                    entry_location_name: active_content()
                         .locations
                         .iter()
                         .find(|location| location.id == profile.entry_location_id)
@@ -3882,7 +3852,7 @@ fn character_creation_selection(
     profile_id: Option<&str>,
     choice_id: Option<&str>,
 ) -> Option<(SeedCharacterCreationProfile, SeedCharacterCreationChoice)> {
-    let profiles = seed_content()
+    let profiles = active_content()
         .character_creation
         .iter()
         .flat_map(|bundle| bundle.profiles.iter());
@@ -3931,7 +3901,7 @@ fn safe_asset_file_name(asset_file: &str) -> bool {
             .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
 }
 
-fn seed_content_root() -> PathBuf {
+fn configured_content_root() -> PathBuf {
     if let Ok(path) = std::env::var("COSYWORLD_CONTENT_ROOT") {
         return PathBuf::from(path);
     }
@@ -3941,16 +3911,6 @@ fn seed_content_root() -> PathBuf {
     } else {
         PathBuf::from("/app/v2/content")
     }
-}
-
-fn seed_asset_mounts() -> &'static [SeedAssetMount] {
-    static MOUNTS: OnceLock<Vec<SeedAssetMount>> = OnceLock::new();
-    MOUNTS
-        .get_or_init(|| {
-            parse_seed_json("assets.json", SEED_ASSET_MOUNTS_JSON)
-                .expect("embedded worldpack asset index must parse")
-        })
-        .as_slice()
 }
 
 fn safe_relative_asset_path(asset_path: &str) -> bool {
@@ -3965,11 +3925,12 @@ fn seed_pack_asset_path(pack_id: &str, mount_name: &str, asset_path: &str) -> Op
     if !safe_relative_asset_path(asset_path) {
         return None;
     }
-    let mount = seed_asset_mounts()
+    let mount = content_registry()
+        .asset_mounts()
         .iter()
         .find(|mount| mount.pack_id == pack_id && mount.mount == mount_name)?;
     Some(
-        seed_content_root()
+        configured_content_root()
             .join(&mount.root)
             .join(&mount.directory)
             .join(asset_path),
@@ -3990,11 +3951,13 @@ fn asset_content_type(asset_path: &str) -> &'static str {
 
 fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), String> {
     if manifest.schema_version != 2
+        || manifest.pack_contract != "cosyworld.content-pack/1"
+        || manifest.canonical_id_mapping_version != 1
         || manifest.id.trim().is_empty()
         || manifest.name.trim().is_empty()
         || manifest.version == 0
         || manifest.entry_location.trim().is_empty()
-        || !manifest.bundle_hash.starts_with("sha256:")
+        || !valid_sha256_digest(&manifest.bundle_hash)
         || manifest.packs.is_empty()
     {
         return Err("worldpack manifest is missing id, name, or version".to_string());
@@ -4004,9 +3967,12 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
         if pack.id.trim().is_empty()
             || pack.name.trim().is_empty()
             || pack.version.trim().is_empty()
-            || pack.kind.trim().is_empty()
+            || !matches!(
+                pack.kind.as_str(),
+                "world" | "campaign" | "catalog" | "assets" | "rules"
+            )
             || pack.license.trim().is_empty()
-            || !pack.integrity.starts_with("sha256:")
+            || !valid_sha256_digest(&pack.integrity)
             || !pack_ids.insert(pack.id.as_str())
         {
             return Err(format!("invalid or duplicate worldpack pack {}", pack.id));
@@ -4021,44 +3987,19 @@ fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), S
             return Err(format!("invalid rules pack metadata for {}", pack.id));
         }
     }
-    for (key, expected_file) in [
-        ("actors", "actors.json"),
-        ("access_gates", "access_gates.json"),
-        ("factions", "factions.json"),
-        ("items", "items.json"),
-        ("locations", "locations.json"),
-        ("exits", "exits.json"),
-        ("hidden_exits", "hidden_exits.json"),
-        ("room_features", "room_features.json"),
-        ("room_sheets", "room_sheets.json"),
-        ("clocks", "clocks.json"),
-        ("jobs", "jobs.json"),
-        ("fronts", "fronts.json"),
-        ("cards", "cards.json"),
-        ("lifecycle_hooks", "lifecycle_hooks.json"),
-        ("evolution_tracks", "evolution_tracks.json"),
-        ("recipes", "recipes.json"),
-    ] {
-        match manifest.files.get(key).map(String::as_str) {
-            Some(actual) if actual == expected_file => {}
-            Some(actual) => {
-                return Err(format!(
-                    "worldpack manifest maps {key} to {actual}, expected {expected_file}"
-                ));
-            }
-            None => return Err(format!("worldpack manifest is missing {key} file entry")),
-        }
-    }
-    if manifest.rules != "rules.json"
-        || manifest.attributions != "attributions.json"
-        || manifest.character_creation != "character_creation.json"
-    {
-        return Err(
-            "worldpack manifest is missing rules, attribution, or character creation files"
-                .to_string(),
-        );
+    if manifest.registry.trim().is_empty() {
+        return Err("worldpack manifest does not identify its compiled registry".to_string());
     }
     Ok(())
+}
+
+fn valid_sha256_digest(value: &str) -> bool {
+    value.strip_prefix("sha256:").is_some_and(|digest| {
+        digest.len() == 64
+            && digest
+                .chars()
+                .all(|character| character.is_ascii_digit() || ('a'..='f').contains(&character))
+    })
 }
 
 fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
@@ -5222,7 +5163,7 @@ fn validate_seed_effect_descriptor(
 }
 
 fn seed_actor_meta() -> BTreeMap<u64, ActorMeta> {
-    seed_content()
+    active_content()
         .actors
         .iter()
         .map(|actor| {
@@ -5266,7 +5207,7 @@ fn seed_stat_block(stats: SeedStatBlockContent) -> CwStatBlock {
 }
 
 fn seed_item_meta() -> BTreeMap<u64, ItemMeta> {
-    let mut items: BTreeMap<u64, ItemMeta> = seed_content()
+    let mut items: BTreeMap<u64, ItemMeta> = active_content()
         .items
         .iter()
         .map(|item| {
@@ -5279,7 +5220,7 @@ fn seed_item_meta() -> BTreeMap<u64, ItemMeta> {
             )
         })
         .collect();
-    for recipe in &seed_content().recipes {
+    for recipe in &active_content().recipes {
         if let Some(output) = recipe.output.as_ref() {
             items.entry(output.item_id).or_insert_with(|| ItemMeta {
                 name: output.name.clone(),
@@ -5312,7 +5253,7 @@ fn placement_target_kind_from_str(kind: &str) -> Option<u8> {
 }
 
 fn seed_location_names() -> BTreeMap<u64, String> {
-    seed_content()
+    active_content()
         .locations
         .iter()
         .map(|location| (location.id, location.name.clone()))
@@ -5363,7 +5304,7 @@ fn inferred_location_terrain(biome: &str) -> Vec<String> {
 }
 
 fn seed_location_meta() -> BTreeMap<u64, LocationMeta> {
-    seed_content()
+    active_content()
         .locations
         .iter()
         .map(|location| {
@@ -5421,7 +5362,7 @@ fn faction_view_from_seed(faction: &SeedFactionContent) -> FactionView {
 }
 
 fn faction_views() -> Vec<FactionView> {
-    seed_content()
+    active_content()
         .factions
         .iter()
         .map(faction_view_from_seed)
@@ -5429,7 +5370,7 @@ fn faction_views() -> Vec<FactionView> {
 }
 
 fn faction_refs_for_actor(actor_id: u64) -> Vec<FactionRefView> {
-    seed_content()
+    active_content()
         .factions
         .iter()
         .filter(|faction| faction.member_actor_ids.contains(&actor_id))
@@ -5438,7 +5379,7 @@ fn faction_refs_for_actor(actor_id: u64) -> Vec<FactionRefView> {
 }
 
 fn faction_refs_for_location(location_id: u64) -> Vec<FactionRefView> {
-    seed_content()
+    active_content()
         .factions
         .iter()
         .filter(|faction| faction.home_location_ids.contains(&location_id))
@@ -7067,7 +7008,7 @@ fn avatar_pack_card_rarity(card_id: &str) -> &str {
 }
 
 fn seed_card_rarity_for_card_id(card_id: &str) -> Option<&'static str> {
-    seed_content()
+    active_content()
         .cards
         .iter()
         .find(|card| card.card_id == card_id)
@@ -7152,6 +7093,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .init();
 
+    configured_content_registry().map_err(io::Error::other)?;
     let state = AppState::bootstrap().await?;
     start_actor_job_worker(state.clone());
     start_ownership_refresh_scheduler(state.clone());
@@ -7758,7 +7700,7 @@ impl RuntimeSnapshot {
     fn from_runtime(runtime: &RuntimeWorld) -> Self {
         Self {
             version: 1,
-            worldpack_bundle_hash: seed_content().manifest.bundle_hash.clone(),
+            worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             world_version: runtime.world.version,
             tick: runtime.world.tick,
             next_event_seq: runtime.world.next_event_seq,
@@ -7807,12 +7749,12 @@ impl RuntimeSnapshot {
 
     fn into_runtime(self) -> io::Result<RuntimeWorld> {
         if !self.worldpack_bundle_hash.is_empty()
-            && self.worldpack_bundle_hash != seed_content().manifest.bundle_hash
+            && self.worldpack_bundle_hash != active_content().manifest.bundle_hash
         {
             return Err(snapshot_error(format!(
                 "snapshot worldpack {} does not match active worldpack {}",
                 self.worldpack_bundle_hash,
-                seed_content().manifest.bundle_hash
+                active_content().manifest.bundle_hash
             )));
         }
         if self.world_actors.len() > CW_MAX_ACTORS {
@@ -7974,7 +7916,7 @@ impl ResidentContinuitySnapshot {
     fn from_runtime(runtime: &RuntimeWorld) -> Self {
         Self {
             version: 1,
-            worldpack_bundle_hash: seed_content().manifest.bundle_hash.clone(),
+            worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             world_tick: runtime.world.tick,
             latest_event_seq: runtime.world.next_event_seq.saturating_sub(1),
             residents: runtime.resident_continuities.clone(),
@@ -8003,12 +7945,12 @@ impl RuntimeWorld {
         let records = read_action_journal(path)?;
         for record in records {
             if !record.worldpack_bundle_hash.is_empty()
-                && record.worldpack_bundle_hash != seed_content().manifest.bundle_hash
+                && record.worldpack_bundle_hash != active_content().manifest.bundle_hash
             {
                 return Err(snapshot_error(format!(
                     "action journal worldpack {} does not match active worldpack {}",
                     record.worldpack_bundle_hash,
-                    seed_content().manifest.bundle_hash
+                    active_content().manifest.bundle_hash
                 )));
             }
             let _ = runtime.apply_journal_record(&record);
@@ -8074,7 +8016,7 @@ impl RuntimeWorld {
 
     fn ensure_seed_topology(&mut self) {
         self.ensure_seed_metadata();
-        for location in &seed_content().locations {
+        for location in &active_content().locations {
             let flags = if location.allow_combat {
                 CW_LOCATION_ALLOW_COMBAT
             } else {
@@ -8090,7 +8032,7 @@ impl RuntimeWorld {
         // away from the cottage-as-global-hub layout.
         self.world.exit_count = 0;
 
-        for exit in &seed_content().exits {
+        for exit in &active_content().exits {
             self.ensure_exit(exit.from_location_id, exit.to_location_id, exit.flags);
         }
         self.ensure_discovered_hidden_exits();
@@ -8101,7 +8043,7 @@ impl RuntimeWorld {
     }
 
     fn ensure_seed_rpg_projection(&mut self) {
-        for sheet in &seed_content().room_sheets {
+        for sheet in &active_content().room_sheets {
             self.room_sheets
                 .entry(sheet.location_id)
                 .or_insert_with(|| sheet.clone());
@@ -8111,7 +8053,7 @@ impl RuntimeWorld {
                 }
             }
         }
-        for clock in &seed_content().clocks {
+        for clock in &active_content().clocks {
             let mut seeded_clock = clock.clone();
             if seeded_clock.on_fill.is_empty() {
                 seeded_clock.on_fill = lifecycle_effects_for("on_clock_fill", "clock", &clock.id);
@@ -8128,7 +8070,7 @@ impl RuntimeWorld {
                 }
             }
         }
-        for job in &seed_content().jobs {
+        for job in &active_content().jobs {
             self.jobs
                 .entry(job.id.clone())
                 .or_insert_with(|| job.clone());
@@ -8141,7 +8083,7 @@ impl RuntimeWorld {
             .values()
             .map(|sheet| {
                 let meta = self.location_meta_for(sheet.location_id);
-                let mut front_ids = seed_content()
+                let mut front_ids = active_content()
                     .fronts
                     .iter()
                     .filter(|front| front.status == "active")
@@ -8159,7 +8101,7 @@ impl RuntimeWorld {
                 }
             })
             .collect();
-        let factions = seed_content()
+        let factions = active_content()
             .factions
             .iter()
             .map(|faction| SimulationFactionSeed {
@@ -8196,7 +8138,7 @@ impl RuntimeWorld {
         for (item_id, meta) in seed_item_meta() {
             self.items.entry(item_id).or_insert(meta);
         }
-        for location in &seed_content().locations {
+        for location in &active_content().locations {
             self.locations
                 .entry(location.id)
                 .or_insert_with(|| location.name.clone());
@@ -8207,7 +8149,7 @@ impl RuntimeWorld {
     }
 
     fn ensure_seed_residents(&mut self) {
-        for actor in &seed_content().actors {
+        for actor in &active_content().actors {
             let Some(location_id) = actor.location_id else {
                 continue;
             };
@@ -8216,7 +8158,7 @@ impl RuntimeWorld {
     }
 
     fn ensure_seed_items(&mut self) {
-        for item in &seed_content().items {
+        for item in &active_content().items {
             let Some(kind) = seed_item_kind(item) else {
                 continue;
             };
@@ -8226,7 +8168,7 @@ impl RuntimeWorld {
     }
 
     fn ensure_seed_evolution_tracks(&mut self) {
-        for track in &seed_content().evolution_tracks {
+        for track in &active_content().evolution_tracks {
             if track.requirements.is_empty()
                 || track.requirements.len() > CW_MAX_EVOLUTION_REQUIREMENTS
             {
@@ -8370,7 +8312,7 @@ impl RuntimeWorld {
     }
 
     fn ensure_discovered_hidden_exits(&mut self) {
-        for hidden_exit in &seed_content().hidden_exits {
+        for hidden_exit in &active_content().hidden_exits {
             if !self.hidden_exit_discovered(hidden_exit) {
                 continue;
             }
@@ -9855,12 +9797,12 @@ impl RuntimeWorld {
             ));
         }
         if !snapshot.worldpack_bundle_hash.is_empty()
-            && snapshot.worldpack_bundle_hash != seed_content().manifest.bundle_hash
+            && snapshot.worldpack_bundle_hash != active_content().manifest.bundle_hash
         {
             return Err(snapshot_error(format!(
                 "resident continuity worldpack {} does not match active worldpack {}",
                 snapshot.worldpack_bundle_hash,
-                seed_content().manifest.bundle_hash
+                active_content().manifest.bundle_hash
             )));
         }
         Ok(self.apply_resident_continuity_snapshot(snapshot))
@@ -12478,7 +12420,7 @@ impl RuntimeWorld {
             .filter(|(_, influence)| **influence > 0)
             .map(|(faction_id, influence)| FactionInfluenceView {
                 faction_id: faction_id.clone(),
-                faction_name: seed_content()
+                faction_name: active_content()
                     .factions
                     .iter()
                     .find(|faction| faction.id == *faction_id)
@@ -12506,7 +12448,7 @@ impl RuntimeWorld {
     }
 
     fn world_simulation_view(&self) -> WorldSimulationView {
-        let mut factions = seed_content()
+        let mut factions = active_content()
             .factions
             .iter()
             .map(|seed_faction| {
@@ -12686,7 +12628,7 @@ impl RuntimeWorld {
     }
 
     fn pathway_distance(&self, from_location_id: u64, to_location_id: u64) -> u8 {
-        seed_content()
+        active_content()
             .exits
             .iter()
             .find(|exit| {
@@ -13251,7 +13193,7 @@ impl RuntimeWorld {
         from_location_id: u64,
         to_location_id: u64,
     ) -> Option<&'static SeedExitContent> {
-        seed_content().exits.iter().find(|exit| {
+        active_content().exits.iter().find(|exit| {
             exit.from_location_id == from_location_id && exit.to_location_id == to_location_id
         })
     }
@@ -13266,7 +13208,7 @@ impl RuntimeWorld {
     }
 
     fn seed_exit_candidate_for_search(&self, location_id: u64) -> Option<&'static SeedExitContent> {
-        let mut candidates = seed_content()
+        let mut candidates = active_content()
             .exits
             .iter()
             .filter(|exit| exit.from_location_id == location_id)
@@ -13297,7 +13239,7 @@ impl RuntimeWorld {
             })
             .collect::<Vec<_>>();
         hidden.sort_by_key(|item| {
-            let home_rank = seed_content()
+            let home_rank = active_content()
                 .items
                 .iter()
                 .find(|seed_item| seed_item.id == item.id)
@@ -13319,7 +13261,7 @@ impl RuntimeWorld {
     }
 
     fn hidden_exit_by_id(&self, hidden_exit_id: &str) -> Option<&'static SeedHiddenExitContent> {
-        seed_content()
+        active_content()
             .hidden_exits
             .iter()
             .find(|hidden_exit| hidden_exit.id == hidden_exit_id)
@@ -13339,7 +13281,7 @@ impl RuntimeWorld {
         from_location_id: u64,
         to_location_id: u64,
     ) -> Option<&'static SeedHiddenExitContent> {
-        seed_content().hidden_exits.iter().find(|hidden_exit| {
+        active_content().hidden_exits.iter().find(|hidden_exit| {
             (hidden_exit.from_location_id == from_location_id
                 && hidden_exit.to_location_id == to_location_id)
                 || (hidden_exit.from_location_id == to_location_id
@@ -13348,10 +13290,10 @@ impl RuntimeWorld {
     }
 
     fn location_discovered_by_search(&self, location_id: u64) -> bool {
-        seed_content().exits.iter().any(|exit| {
+        active_content().exits.iter().any(|exit| {
             (exit.from_location_id == location_id || exit.to_location_id == location_id)
                 && self.seed_exit_discovered(exit.from_location_id, exit.to_location_id)
-        }) || seed_content().hidden_exits.iter().any(|hidden_exit| {
+        }) || active_content().hidden_exits.iter().any(|hidden_exit| {
             (hidden_exit.from_location_id == location_id
                 || hidden_exit.to_location_id == location_id)
                 && self.hidden_exit_discovered(hidden_exit)
@@ -13376,7 +13318,7 @@ impl RuntimeWorld {
         location_id: u64,
         feature_key: &str,
     ) -> Option<&'static SeedHiddenExitContent> {
-        seed_content().hidden_exits.iter().find(|hidden_exit| {
+        active_content().hidden_exits.iter().find(|hidden_exit| {
             hidden_exit.from_location_id == location_id
                 && hidden_exit.feature_key == feature_key
                 && !self.hidden_exit_discovered(hidden_exit)
@@ -13387,7 +13329,7 @@ impl RuntimeWorld {
         &self,
         location_id: u64,
     ) -> Option<&'static SeedHiddenExitContent> {
-        seed_content().hidden_exits.iter().find(|hidden_exit| {
+        active_content().hidden_exits.iter().find(|hidden_exit| {
             hidden_exit.from_location_id == location_id && !self.hidden_exit_discovered(hidden_exit)
         })
     }
@@ -13727,14 +13669,14 @@ impl RuntimeWorld {
 
     fn avatar_hidden_until_discovered(&self, actor: CwActor) -> bool {
         if actor.kind != CW_ACTOR_NPC
-            || !seed_content()
+            || !active_content()
                 .actors
                 .iter()
                 .any(|seed_actor| seed_actor.id == actor.id)
         {
             return false;
         }
-        let hidden_location = seed_content()
+        let hidden_location = active_content()
             .hidden_exits
             .iter()
             .any(|hidden_exit| hidden_exit.to_location_id == actor.location_id);
@@ -13961,7 +13903,7 @@ impl RuntimeWorld {
     }
 
     fn recipe_by_id(&self, recipe_id: u64) -> Option<&'static SeedRecipeContent> {
-        seed_content()
+        active_content()
             .recipes
             .iter()
             .find(|recipe| recipe.id == recipe_id)
@@ -14029,7 +13971,7 @@ impl RuntimeWorld {
     }
 
     fn default_craft_recipe(&self, actor_id: u64) -> Option<&'static SeedRecipeContent> {
-        seed_content()
+        active_content()
             .recipes
             .iter()
             .find(|recipe| self.craft_action_for_recipe(actor_id, recipe.id).is_some())
@@ -14053,7 +13995,7 @@ impl RuntimeWorld {
         actor_id: u64,
         target_kind: &str,
     ) -> Vec<u64> {
-        seed_content()
+        active_content()
             .evolution_tracks
             .iter()
             .find(|track| track.actor_id == actor_id)
@@ -14083,7 +14025,7 @@ impl RuntimeWorld {
     }
 
     fn resident_personal_desires(&self, resident_id: u64) -> Vec<SeedResidentDesireContent> {
-        seed_content()
+        active_content()
             .actors
             .iter()
             .find(|actor| actor.id == resident_id)
@@ -14105,7 +14047,7 @@ impl RuntimeWorld {
         &self,
         resident_id: u64,
     ) -> Vec<SeedResidentAttachmentContent> {
-        seed_content()
+        active_content()
             .actors
             .iter()
             .find(|actor| actor.id == resident_id)
@@ -14805,7 +14747,7 @@ impl RuntimeWorld {
                 .or_else(|| opt_id(item.location_id))
                 .or_else(|| {
                     (item.charges > 0).then(|| {
-                        seed_content()
+                        active_content()
                             .items
                             .iter()
                             .find(|seed_item| seed_item.id == item_id)
@@ -16703,7 +16645,7 @@ impl RuntimeWorld {
     }
 
     fn exit_direction(&self, from_location_id: u64, to_location_id: u64) -> Option<String> {
-        if let Some(direction) = seed_content()
+        if let Some(direction) = active_content()
             .exits
             .iter()
             .find(|exit| {
@@ -16714,7 +16656,7 @@ impl RuntimeWorld {
         {
             return Some(direction.to_string());
         }
-        seed_content()
+        active_content()
             .hidden_exits
             .iter()
             .filter(|hidden_exit| self.hidden_exit_discovered(hidden_exit))
@@ -17909,7 +17851,7 @@ impl RuntimeWorld {
     }
 
     fn room_features(&self, location_id: u64) -> Vec<&'static SeedRoomFeatureContent> {
-        seed_content()
+        active_content()
             .room_features
             .iter()
             .filter(|feature| feature.location_id == location_id)
@@ -18309,7 +18251,7 @@ impl RuntimeWorld {
     }
 
     fn front_views(&self, location_id: u64) -> Vec<FrontView> {
-        seed_content()
+        active_content()
             .fronts
             .iter()
             .filter(|front| front.location_ids.contains(&location_id))
@@ -18567,7 +18509,7 @@ impl RuntimeWorld {
             .filter(|clock| clock.scope == "room" && clock.scope_id == location_id)
             .map(|clock| clock.id.clone())
             .collect();
-        seed_content()
+        active_content()
             .lifecycle_hooks
             .iter()
             .filter(|hook| match hook.target_kind.as_str() {
@@ -20888,7 +20830,7 @@ impl RuntimeWorld {
     }
 
     fn first_missing_evolution_item_name(&self, actor_id: u64) -> Option<String> {
-        let track = seed_content()
+        let track = active_content()
             .evolution_tracks
             .iter()
             .find(|track| track.actor_id == actor_id)?;
@@ -21003,7 +20945,7 @@ impl RuntimeWorld {
                 "Project goal: {} Stakes: {}{}",
                 job.premise, job.stakes, clock_note
             ));
-            if let Some(question) = seed_content()
+            if let Some(question) = active_content()
                 .fronts
                 .iter()
                 .find(|front| {
@@ -21014,7 +20956,7 @@ impl RuntimeWorld {
             {
                 goals.push(format!("Open story question: {question}"));
             }
-        } else if let Some(front) = seed_content()
+        } else if let Some(front) = active_content()
             .fronts
             .iter()
             .find(|front| front.status == "active" && front.location_ids.contains(&location_id))
@@ -21371,7 +21313,7 @@ impl RuntimeWorld {
             })
             .collect::<Vec<_>>();
         residents.sort_by_key(|actor| {
-            let dex = seed_content()
+            let dex = active_content()
                 .cards
                 .iter()
                 .position(|card| card.subject_kind == "actor" && card.subject_id == actor.id)
@@ -22600,7 +22542,7 @@ struct LocationAccessRule {
 }
 
 fn seed_entitlement_grant(grant_id: &str) -> Option<&'static SeedEntitlementGrant> {
-    seed_content()
+    active_content()
         .manifest
         .packs
         .iter()
@@ -22618,7 +22560,7 @@ fn entitlement_grant_asset_id(grant_id: &str) -> Option<&'static str> {
 }
 
 fn entitlement_grants_for_assets(asset_ids: &BTreeSet<String>) -> BTreeSet<String> {
-    seed_content()
+    active_content()
         .manifest
         .packs
         .iter()
@@ -22640,7 +22582,7 @@ fn non_empty_pack_id(pack_id: &str) -> Option<String> {
 }
 
 fn seed_pack_id_for_actor(actor_id: u64) -> Option<String> {
-    seed_content()
+    active_content()
         .actors
         .iter()
         .find(|actor| actor.id == actor_id)
@@ -22648,7 +22590,7 @@ fn seed_pack_id_for_actor(actor_id: u64) -> Option<String> {
 }
 
 fn seed_pack_id_for_item(item_id: u64) -> Option<String> {
-    seed_content()
+    active_content()
         .items
         .iter()
         .find(|item| item.id == item_id)
@@ -22656,7 +22598,7 @@ fn seed_pack_id_for_item(item_id: u64) -> Option<String> {
 }
 
 fn seed_pack_id_for_location(location_id: u64) -> Option<String> {
-    seed_content()
+    active_content()
         .locations
         .iter()
         .find(|location| location.id == location_id)
@@ -22664,7 +22606,7 @@ fn seed_pack_id_for_location(location_id: u64) -> Option<String> {
 }
 
 fn location_access_rule(location_id: u64) -> LocationAccessRule {
-    seed_content()
+    active_content()
         .access_gates
         .iter()
         .find(|gate| gate.location_id == location_id)
@@ -22699,7 +22641,7 @@ fn location_access_allowed(location_id: u64, access: &AccessContext) -> bool {
 }
 
 fn evolution_track_item_ids(actor_id: u64) -> Option<Vec<u64>> {
-    seed_content()
+    active_content()
         .evolution_tracks
         .iter()
         .find(|track| track.actor_id == actor_id)
@@ -22713,7 +22655,7 @@ fn evolution_track_item_ids(actor_id: u64) -> Option<Vec<u64>> {
 }
 
 fn seed_actor_allows_ambient_autonomy(actor_id: u64) -> bool {
-    seed_content()
+    active_content()
         .actors
         .iter()
         .find(|actor| actor.id == actor_id)
@@ -22729,7 +22671,7 @@ fn evolution_item_matches_resident(item_id: u64, actor_id: u64) -> bool {
 
 fn evolution_item_belongs_to_another_resident(item_id: u64, actor_id: u64) -> bool {
     !evolution_item_matches_resident(item_id, actor_id)
-        && seed_content().evolution_tracks.iter().any(|track| {
+        && active_content().evolution_tracks.iter().any(|track| {
             track
                 .requirements
                 .iter()
@@ -22775,7 +22717,7 @@ fn actor_location_from_overlap(
 }
 
 fn location_id_for_card_id(card_id: &str) -> Option<u64> {
-    seed_content()
+    active_content()
         .cards
         .iter()
         .find(|card| {
@@ -23012,7 +22954,7 @@ fn account_view(access: &AccessContext) -> AccountView {
 }
 
 fn owned_account_card(card_id: &str, access: &AccessContext) -> Option<CardView> {
-    let mut card = seed_content()
+    let mut card = active_content()
         .cards
         .iter()
         .find(|card| card.card_id == card_id || card.external_card_id.as_deref() == Some(card_id))
@@ -23297,7 +23239,7 @@ fn card_transaction_view(
 }
 
 fn seed_card_for_subject(subject_kind: &str, subject_id: u64) -> Option<CardView> {
-    seed_content()
+    active_content()
         .cards
         .iter()
         .find(|card| card.subject_kind == subject_kind && card.subject_id == subject_id)
@@ -23305,7 +23247,7 @@ fn seed_card_for_subject(subject_kind: &str, subject_id: u64) -> Option<CardView
 }
 
 fn seed_card_rarity_for_subject(subject_kind: &str, subject_id: u64) -> Option<&'static str> {
-    seed_content()
+    active_content()
         .cards
         .iter()
         .find(|card| card.subject_kind == subject_kind && card.subject_id == subject_id)
@@ -23410,13 +23352,7 @@ struct RubyHighCardSpec {
 }
 
 fn ruby_high_first_bell_catalog() -> &'static [RubyHighCardSpec] {
-    static CATALOG: OnceLock<Vec<RubyHighCardSpec>> = OnceLock::new();
-    CATALOG
-        .get_or_init(|| {
-            parse_seed_json("external_cards.json", SEED_EXTERNAL_CARDS_JSON)
-                .expect("embedded external card catalog must parse")
-        })
-        .as_slice()
+    content_registry().external_cards()
 }
 
 fn ruby_high_card_by_id(card_id: &str) -> Option<CardView> {
@@ -23626,13 +23562,13 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             actions: ["attack", "dodge", "escape"],
         },
         worldpack: MetaWorldpack {
-            id: seed_content().manifest.id.clone(),
-            name: seed_content().manifest.name.clone(),
-            version: seed_content().manifest.version,
-            bundle_hash: seed_content().manifest.bundle_hash.clone(),
-            entry_location: seed_content().manifest.entry_location.clone(),
-            packs: seed_content().manifest.packs.clone(),
-            rules: seed_content()
+            id: active_content().manifest.id.clone(),
+            name: active_content().manifest.name.clone(),
+            version: active_content().manifest.version,
+            bundle_hash: active_content().manifest.bundle_hash.clone(),
+            entry_location: active_content().manifest.entry_location.clone(),
+            packs: active_content().manifest.packs.clone(),
+            rules: active_content()
                 .rules
                 .iter()
                 .map(|bundle| MetaRulesBundle {
@@ -23643,7 +23579,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
                     monster_seeds: bundle.resources.monster_seeds.len(),
                 })
                 .collect(),
-            attributions: seed_content().attributions.clone(),
+            attributions: active_content().attributions.clone(),
         },
         world: MetaWorldCounters {
             tick,
@@ -33075,7 +33011,8 @@ async fn generated_seed_card_asset(AxumPath(card_file): AxumPath<String>) -> imp
 async fn worldpack_asset(
     AxumPath((pack_id, asset_path)): AxumPath<(String, String)>,
 ) -> impl IntoResponse {
-    let Some(mount) = seed_asset_mounts()
+    let Some(mount) = content_registry()
+        .asset_mounts()
         .iter()
         .filter(|mount| {
             mount.pack_id == pack_id
@@ -33201,7 +33138,7 @@ fn generated_seed_card_bitmap_request(card_file: &str) -> Option<(&str, &'static
     {
         return None;
     }
-    if !seed_content()
+    if !active_content()
         .cards
         .iter()
         .any(|card| card.card_id == card_id)
@@ -33305,7 +33242,7 @@ struct SeedCardArtSpec {
 }
 
 fn seed_card_art_spec(card_id: &str) -> Option<SeedCardArtSpec> {
-    seed_content()
+    active_content()
         .cards
         .iter()
         .find(|card| card.card_id == card_id)
@@ -33550,7 +33487,7 @@ fn job_completion_orb_rewards(events: &[EventView]) -> Vec<AutomaticOrbReward> {
         .filter_map(|event| {
             let actor_id = event.actor_id?;
             let job_id = completed_job_id_from_event(event)?;
-            let job = seed_content().jobs.iter().find(|job| job.id == job_id)?;
+            let job = active_content().jobs.iter().find(|job| job.id == job_id)?;
             let orbs = job.reward.orbs();
             (orbs > 0).then(|| AutomaticOrbReward {
                 claim_key: format!("job_completed:{actor_id}:{job_id}:{}", event.seq),
@@ -33595,7 +33532,7 @@ fn lifecycle_hooks_for(
     target_kind: &str,
     target_id: &str,
 ) -> Vec<&'static SeedLifecycleHookContent> {
-    seed_content()
+    active_content()
         .lifecycle_hooks
         .iter()
         .filter(|hook| {
@@ -36514,7 +36451,7 @@ mod tests {
     }
 
     fn discover_all_seed_exits_for_test(runtime: &mut RuntimeWorld) {
-        for exit in &seed_content().exits {
+        for exit in &active_content().exits {
             discover_seed_exit_for_test(runtime, exit.from_location_id, exit.to_location_id);
         }
     }
@@ -46337,7 +46274,7 @@ mod tests {
             (63, "location-digital-realm"),
             (64, "location-darkest-ocean"),
         ] {
-            let name = seed_content()
+            let name = active_content()
                 .locations
                 .iter()
                 .find(|location| location.id == location_id)
@@ -46389,11 +46326,8 @@ mod tests {
 
     #[test]
     fn official_composition_omits_reference_only_srd_rule_packs() {
-        let rules: Vec<SeedRuleBundle> =
-            parse_seed_json("rules.json", SEED_RULES_JSON).expect("embedded rules parse");
-        let attributions: Vec<SeedAttribution> =
-            parse_seed_json("attributions.json", SEED_ATTRIBUTIONS_JSON)
-                .expect("embedded attributions parse");
+        let rules = &active_content().rules;
+        let attributions = &active_content().attributions;
 
         assert!(rules.is_empty());
         assert_eq!(attributions.len(), 1);
@@ -46409,7 +46343,7 @@ mod tests {
 
     #[test]
     fn seed_content_manifest_drives_runtime_metadata_and_evolution_tracks() {
-        let content = parse_seed_content(SEED_CONTENT_JSON).expect("seed content parses");
+        let content = active_content();
         assert_eq!(content.manifest.id, "cosyworld.official");
         assert_eq!(content.manifest.version, 1);
         assert_eq!(content.manifest.schema_version, 2);
@@ -46778,14 +46712,17 @@ mod tests {
         let runtime = load_snapshot_or_seed(Some(&path));
         let _ = fs::remove_file(path);
 
-        assert_eq!(runtime.world.location_count, seed_content().locations.len());
-        assert_eq!(runtime.world.actor_count, seed_content().actors.len());
+        assert_eq!(
+            runtime.world.location_count,
+            active_content().locations.len()
+        );
+        assert_eq!(runtime.world.actor_count, active_content().actors.len());
         assert_eq!(runtime.world.tick, RuntimeWorld::seeded().world.tick);
     }
 
     #[test]
     fn solar_abyss_factions_project_opposing_forces() {
-        let content = parse_seed_content(SEED_CONTENT_JSON).expect("seed content parses");
+        let content = active_content();
         let solar = content
             .factions
             .iter()
@@ -47292,7 +47229,7 @@ mod tests {
 
     #[tokio::test]
     async fn lonely_forest_source_characters_are_seeded_with_png_cards() {
-        let content = parse_seed_content(SEED_CONTENT_JSON).expect("seed content parses");
+        let content = active_content();
         let runtime = RuntimeWorld::seeded();
 
         let placed_seed_actors: Vec<&SeedActorContent> = content
@@ -47634,8 +47571,9 @@ mod tests {
 
     #[test]
     fn compiled_worldpack_asset_index_resolves_pack_mounts_safely() {
-        assert!(seed_asset_mounts().len() >= 3);
-        assert!(seed_asset_mounts()
+        assert!(content_registry().asset_mounts().len() >= 3);
+        assert!(content_registry()
+            .asset_mounts()
             .iter()
             .any(|mount| { mount.pack_id == "ruby-high.first-bell" && mount.mount == "cards" }));
         let card_path = seed_pack_asset_path(
@@ -54839,7 +54777,7 @@ mod tests {
     }
 
     #[test]
-    fn location_access_rules_are_loaded_from_seed_content() {
+    fn location_access_rules_are_loaded_from_content_registry() {
         let public = AccessContext::default();
         let homeroom_rule = location_access_rule(11);
         assert_eq!(homeroom_rule.required_card_id, Some("location-homeroom"));
