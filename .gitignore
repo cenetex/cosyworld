@@ -31,7 +31,6 @@ attached_assets/*
 
 # Generated files
 src/config/user.config.json
-CLAUDE.md
 .lore-*
 .runtime/
 v2/orchestrator-rust/.runtime/
