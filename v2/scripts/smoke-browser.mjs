@@ -4352,6 +4352,9 @@ async function main() {
       const previousSeen = new Set(seenSeq);
       const previousActorId = actorId;
       const previousAccountPanelPinned = accountPanelPinned;
+      const previousState = state;
+      const previousActions = actions;
+      const previousPendingChats = pendingChats.slice();
       const message = (seq, actorIdValue, actorName, content) => ({
         seq,
         type: "message.created",
@@ -4438,6 +4441,36 @@ async function main() {
         const acceptsForwardTimeline = !transcriptTimelineRewound({
           recent_events: [message(93, 5000, "Moss Stitch", "new history")],
         }, 92);
+        const oldRoomLine = message(300, 5000, "Moss Stitch", "old room history");
+        const newRoomLine = {
+          ...message(301, 5000, "Moss Stitch", "new room history"),
+          location_id: 2,
+          location_name: "New Room",
+        };
+        state = {
+          ...state,
+          location: { ...(state?.location || {}), id: 1, name: "Old Room" },
+          recent_events: [oldRoomLine],
+        };
+        logEvents = [oldRoomLine];
+        pendingChats = [{ id: "pending-old-room-chat" }];
+        const travelReceiptApplied = applyActionReceipt({
+          type: "action.receipt",
+          content: JSON.stringify({
+            state: {
+              ...state,
+              location: { ...state.location, id: 2, name: "New Room" },
+              recent_events: [newRoomLine],
+            },
+            world_tick: 12,
+            state_revision: 34,
+          }),
+        });
+        const afterTravelReceipt = {
+          applied: travelReceiptApplied,
+          pendingCount: pendingChats.length,
+          events: logEvents.map((event) => ({ seq: event.seq, content: event.content })),
+        };
         return {
           collapsed,
           collapsedHtml,
@@ -4454,6 +4487,7 @@ async function main() {
           afterReplayReset,
           detectsServerTimelineRewind,
           acceptsForwardTimeline,
+          afterTravelReceipt,
         };
       } finally {
         logEvents = previousLogEvents;
@@ -4461,6 +4495,9 @@ async function main() {
         for (const seq of previousSeen) seenSeq.add(seq);
         actorId = previousActorId;
         accountPanelPinned = previousAccountPanelPinned;
+        state = previousState;
+        actions = previousActions;
+        pendingChats = previousPendingChats;
         renderTimelines();
       }
     });
@@ -4478,6 +4515,7 @@ async function main() {
     assert(result.afterLiveReset.length === 1 && result.afterLiveReset[0]?.content === "*the new room begins quietly*", `a live world reset should clear the previous transcript: ${JSON.stringify(result)}`);
     assert(result.afterReplayReset.length === 1 && result.afterReplayReset[0]?.content === "fresh firelight", `rebuilding replay should keep only unique chat after the latest world reset: ${JSON.stringify(result)}`);
     assert(result.detectsServerTimelineRewind && result.acceptsForwardTimeline, `a reconnect should replace rewound server history without mistaking a forward timeline for a reset: ${JSON.stringify(result)}`);
+    assert(result.afterTravelReceipt?.applied && result.afterTravelReceipt.pendingCount === 0 && result.afterTravelReceipt.events.length === 1 && result.afterTravelReceipt.events[0]?.content === "new room history", `a live travel receipt should clear pending chat and replace the old room transcript: ${JSON.stringify(result)}`);
   }
 
   async function assertCardBeatsStayInSceneAndBookkeepingStaysOut() {
