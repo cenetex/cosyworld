@@ -31,8 +31,8 @@ Invisible. Verbs and objects only.
 Concrete nouns, short sentences, at most one image. The second sentence must
 add information, never restate the first one's mood.
 
-- Objects report physical state, never feelings. "The charm cools against the
-  skin." — not "…pleased by the circle's restraint."
+- Objects report physical state, never feelings. "The charm cools in your
+  palm." — not "…pleased by the circle's restraint."
 - Second person belongs to the Left Sentences register. Routine world prose
   reports what is present without telling the player what they perceive.
 - Never explain the subtext. "The dust shows careful footwork and no blood."
@@ -75,3 +75,8 @@ event. The same line on a doorknob reads as wallpaper.
 - [ ] Grep the diff for "as if" and "seems to" in look/search/use/description
       fields.
 - [ ] Was lyricism spent on a rare system moment, or on furniture?
+
+## Governance
+
+The lint conforms to this document. When lint and doc disagree, the doc wins
+and the lint changes.

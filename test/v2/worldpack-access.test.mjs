@@ -116,6 +116,27 @@ describe("worldpack writing register validation", () => {
     expect(result.stderr).toContain("use text assigns sentiment to an object");
   });
 
+  it("allows second person in use-texts but rejects it in location descriptions", () => {
+    const root = worldpackFixture();
+    const features = JSON.parse(fs.readFileSync(path.join(root, "room_features.json"), "utf8"));
+    features.find((feature) => feature.uses?.length).uses[0].text = "The tonic warms in your hand.";
+    writeJson(root, "room_features.json", features);
+
+    const passResult = runChecker(root);
+
+    expect(passResult.status, passResult.stderr).toBe(0);
+    expect(passResult.stdout).toContain("worldpack ok");
+
+    const locations = JSON.parse(fs.readFileSync(path.join(root, "locations.json"), "utf8"));
+    locations[0].description = "You see a warm hearth.";
+    writeJson(root, "locations.json", locations);
+
+    const failResult = runChecker(root);
+
+    expect(failResult.status).toBe(1);
+    expect(failResult.stderr).toContain("uses second person outside the sentences register");
+  });
+
   it("leaves the sentences register exempt", () => {
     const root = worldpackFixture();
     writeJson(root, "sentences.json", [{
