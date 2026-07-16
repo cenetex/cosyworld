@@ -104,17 +104,22 @@ describe('MetricsService', () => {
   });
 
   describe('startTimer', () => {
-    it('should measure operation duration', async () => {
-      const endTimer = metricsService.startTimer('testService', 'operation');
-      
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      const duration = endTimer();
-      
-      expect(duration).toBeGreaterThanOrEqual(50);
-      
-      const metrics = metricsService.getServiceMetrics('testService');
-      expect(metrics.operation.count).toBe(1);
+    it('should measure operation duration', () => {
+      vi.useFakeTimers();
+
+      try {
+        const endTimer = metricsService.startTimer('testService', 'operation');
+        vi.advanceTimersByTime(50);
+
+        const duration = endTimer();
+
+        expect(duration).toBe(50);
+
+        const metrics = metricsService.getServiceMetrics('testService');
+        expect(metrics.operation.count).toBe(1);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

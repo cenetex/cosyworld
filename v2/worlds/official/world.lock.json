@@ -12,40 +12,13 @@
       "integrity": "sha256:4623570673025701f2051dd3bc2d42e8223566d158c34ff6141bd6c0084970c3"
     },
     {
-      "id": "cosyworld.rules-srd-5.1",
-      "version": "0.1.0",
-      "source": {
-        "type": "workspace",
-        "path": "../../content/rules-srd-5.1"
-      },
-      "integrity": "sha256:16db09e1541eb29fff3bc28cd93b1884b35c539710bf54409ca694a1e00cec1b"
-    },
-    {
-      "id": "cosyworld.rules-srd-5.2.1",
-      "version": "0.1.0",
-      "source": {
-        "type": "workspace",
-        "path": "../../content/rules-srd-5.2.1"
-      },
-      "integrity": "sha256:6ffc9f8c84825f631986d51e23dcb58e94f12d1ac0cf57fdae83891a8203ba88"
-    },
-    {
       "id": "cosyworld.campaign.the-lantern-keeper",
       "version": "0.1.0",
       "source": {
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:3fb4a21bafa78c2a541ed5e3db8a1a34e2505cf774f259c97f0ab4909107148a"
-    },
-    {
-      "id": "cosyworld.the-holy-land",
-      "version": "1.0.0",
-      "source": {
-        "type": "workspace",
-        "path": "../../content/the-holy-land"
-      },
-      "integrity": "sha256:1e5c51f85e7687f94654380b6a28fc97349b76175f4fa8813e551a4c0c8dd5a7"
+      "integrity": "sha256:3ccc8a7820ad1c1bedd596d9b969568a86af186bf446856d318618027d704f86"
     },
     {
       "id": "cosyworld.lonely-forest.characters",

@@ -5,7 +5,7 @@
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:d86d0b77716eb5294508fe6a7815a96b1b571cd8beb2e5e464d387caa3a18234",
+  "bundle_hash": "sha256:61a5ba1795f37f1307dd9668f0112508c6955809cf77873d496a8600b2b47e56",
   "packs": [
     {
       "id": "cosyworld.core",
@@ -44,82 +44,6 @@
       "integrity": "sha256:4623570673025701f2051dd3bc2d42e8223566d158c34ff6141bd6c0084970c3"
     },
     {
-      "id": "cosyworld.rules-srd-5.1",
-      "name": "CosyWorld Rules: SRD 5.1",
-      "description": "An attributed, non-authoritative SRD 5.1 adapter pack for CosyWorld conversion seeds.",
-      "version": "0.1.0",
-      "kind": "rules",
-      "license": "CC-BY-4.0",
-      "dependencies": [],
-      "resource_counts": {
-        "actors": 0,
-        "access_gates": 0,
-        "factions": 0,
-        "items": 0,
-        "locations": 0,
-        "exits": 0,
-        "hidden_exits": 0,
-        "room_features": 0,
-        "room_sheets": 0,
-        "clocks": 0,
-        "jobs": 0,
-        "fronts": 0,
-        "cards": 0,
-        "lifecycle_hooks": 0,
-        "evolution_tracks": 0,
-        "recipes": 0,
-        "external_cards": 0,
-        "assets": 0,
-        "rules": 18,
-        "character_creation": 0
-      },
-      "rules_adapter": "cosyworld.rules/1",
-      "rules_namespace": "srd5.1",
-      "source": {
-        "type": "workspace",
-        "path": "../../content/rules-srd-5.1"
-      },
-      "integrity": "sha256:16db09e1541eb29fff3bc28cd93b1884b35c539710bf54409ca694a1e00cec1b"
-    },
-    {
-      "id": "cosyworld.rules-srd-5.2.1",
-      "name": "CosyWorld Rules: SRD 5.2.1",
-      "description": "An attributed, non-authoritative SRD 5.2.1 adapter pack for CosyWorld conversion seeds.",
-      "version": "0.1.0",
-      "kind": "rules",
-      "license": "CC-BY-4.0",
-      "dependencies": [],
-      "resource_counts": {
-        "actors": 0,
-        "access_gates": 0,
-        "factions": 0,
-        "items": 0,
-        "locations": 0,
-        "exits": 0,
-        "hidden_exits": 0,
-        "room_features": 0,
-        "room_sheets": 0,
-        "clocks": 0,
-        "jobs": 0,
-        "fronts": 0,
-        "cards": 0,
-        "lifecycle_hooks": 0,
-        "evolution_tracks": 0,
-        "recipes": 0,
-        "external_cards": 0,
-        "assets": 0,
-        "rules": 18,
-        "character_creation": 0
-      },
-      "rules_adapter": "cosyworld.rules/1",
-      "rules_namespace": "srd5.2.1",
-      "source": {
-        "type": "workspace",
-        "path": "../../content/rules-srd-5.2.1"
-      },
-      "integrity": "sha256:6ffc9f8c84825f631986d51e23dcb58e94f12d1ac0cf57fdae83891a8203ba88"
-    },
-    {
       "id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
       "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
@@ -127,8 +51,7 @@
       "kind": "campaign",
       "license": "CC-BY-4.0",
       "dependencies": [
-        "cosyworld.core",
-        "cosyworld.rules-srd-5.1"
+        "cosyworld.core"
       ],
       "resource_counts": {
         "actors": 4,
@@ -156,45 +79,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:3fb4a21bafa78c2a541ed5e3db8a1a34e2505cf774f259c97f0ab4909107148a"
-    },
-    {
-      "id": "cosyworld.the-holy-land",
-      "name": "The Holy Land",
-      "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
-      "version": "1.0.0",
-      "kind": "world",
-      "license": "MIT",
-      "dependencies": [
-        "cosyworld.core"
-      ],
-      "resource_counts": {
-        "actors": 16,
-        "access_gates": 0,
-        "factions": 0,
-        "items": 0,
-        "locations": 15,
-        "exits": 32,
-        "hidden_exits": 0,
-        "room_features": 15,
-        "room_sheets": 15,
-        "clocks": 0,
-        "jobs": 0,
-        "fronts": 0,
-        "cards": 31,
-        "lifecycle_hooks": 0,
-        "evolution_tracks": 0,
-        "recipes": 0,
-        "external_cards": 0,
-        "assets": 1,
-        "rules": 0,
-        "character_creation": 0
-      },
-      "source": {
-        "type": "workspace",
-        "path": "../../content/the-holy-land"
-      },
-      "integrity": "sha256:1e5c51f85e7687f94654380b6a28fc97349b76175f4fa8813e551a4c0c8dd5a7"
+      "integrity": "sha256:3ccc8a7820ad1c1bedd596d9b969568a86af186bf446856d318618027d704f86"
     },
     {
       "id": "cosyworld.lonely-forest.characters",
