@@ -1,0 +1,239 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cosyworld.org/schemas/content-pack-manifest-v1.schema.json",
+  "title": "CosyWorld Content Pack Manifest v1",
+  "description": "Declarative, data-only contract for a CosyWorld content pack.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "version",
+    "kind",
+    "description",
+    "license",
+    "engine",
+    "capabilities",
+    "dependencies",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "$ref": "#/definitions/stableId" },
+    "name": { "$ref": "#/definitions/nonEmptyString" },
+    "version": { "$ref": "#/definitions/semver" },
+    "kind": {
+      "enum": ["world", "campaign", "catalog", "assets", "rules"]
+    },
+    "description": { "$ref": "#/definitions/nonEmptyString" },
+    "license": { "$ref": "#/definitions/nonEmptyString" },
+    "engine": { "$ref": "#/definitions/versionRange" },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/capability" }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/dependency" }
+    },
+    "default_ruleset": {
+      "oneOf": [
+        { "$ref": "#/definitions/capabilityId" },
+        { "type": "null" }
+      ]
+    },
+    "entry_points": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/entryPoint" }
+    },
+    "provenance": { "$ref": "#/definitions/provenance" },
+    "resources": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/relativePath" }
+    },
+    "external_cards": { "$ref": "#/definitions/relativePath" },
+    "assets": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/assetMount" }
+    },
+    "distribution": { "$ref": "#/definitions/distribution" },
+    "entitlements": { "$ref": "#/definitions/entitlements" },
+    "rules_adapter": { "$ref": "#/definitions/capabilityId" },
+    "rules_namespace": { "$ref": "#/definitions/stableId" },
+    "rules": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/relativePath" }
+    },
+    "attribution": { "$ref": "#/definitions/attribution" },
+    "character_creation": { "$ref": "#/definitions/relativePath" },
+    "extensions": {
+      "description": "Namespaced forward-compatible metadata ignored by Manifest v1 runtimes.",
+      "type": "object",
+      "propertyNames": { "pattern": "^x-[a-z0-9][a-z0-9.-]*$" },
+      "additionalProperties": true
+    }
+  },
+  "definitions": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stableId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]*$"
+    },
+    "capabilityId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]*/[a-z0-9][a-z0-9./-]*$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "versionRange": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:[<>]=?|=)?[0-9]+\\.[0-9]+\\.[0-9]+(?: (?:[<>]=?|=)?[0-9]+\\.[0-9]+\\.[0-9]+)*$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "version"],
+      "properties": {
+        "id": { "$ref": "#/definitions/capabilityId" },
+        "kind": {
+          "enum": ["world", "rules", "cards", "assets", "entitlements", "reference"]
+        },
+        "version": { "$ref": "#/definitions/semver" }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "capabilities"],
+      "properties": {
+        "id": { "$ref": "#/definitions/stableId" },
+        "version": { "$ref": "#/definitions/versionRange" },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/capabilityId" }
+        },
+        "optional": { "type": "boolean", "default": false }
+      }
+    },
+    "entryPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "enum": ["location", "character_creation", "rules_namespace", "card_catalog", "asset_mount"]
+        },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_name"],
+      "properties": {
+        "source_name": { "$ref": "#/definitions/nonEmptyString" },
+        "source_url": { "type": "string", "format": "uri" },
+        "license_notice": { "$ref": "#/definitions/nonEmptyString" }
+      }
+    },
+    "assetMount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mount", "directory", "public_prefix", "optional"],
+      "properties": {
+        "mount": { "type": "string", "minLength": 1 },
+        "directory": { "$ref": "#/definitions/relativePath" },
+        "manifest": { "$ref": "#/definitions/relativePath" },
+        "public_prefix": { "type": "string", "pattern": "^/" },
+        "optional": { "type": "boolean" },
+        "fallback": { "$ref": "#/definitions/nonEmptyString" }
+      }
+    },
+    "distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["media_type", "canonicalization", "permanence"],
+      "properties": {
+        "media_type": { "const": "application/vnd.cosyworld.pack+json" },
+        "canonicalization": { "const": "jcs" },
+        "permanence": { "enum": ["content-addressed", "arweave"] },
+        "permanent_uri": { "type": "string", "pattern": "^ar://[A-Za-z0-9_-]{43}$" }
+      }
+    },
+    "entitlements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "authorities", "grants"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "authorities": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/entitlementAuthority" }
+        },
+        "grants": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/entitlementGrant" }
+        }
+      }
+    },
+    "entitlementAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "$ref": "#/definitions/stableId" },
+        "type": { "enum": ["asset_feed", "solana_collection", "signed_set"] },
+        "asset_kind": { "$ref": "#/definitions/nonEmptyString" },
+        "issuer": { "$ref": "#/definitions/nonEmptyString" },
+        "chain": { "$ref": "#/definitions/nonEmptyString" },
+        "network": { "$ref": "#/definitions/nonEmptyString" },
+        "standard": { "$ref": "#/definitions/nonEmptyString" },
+        "collection_address": { "$ref": "#/definitions/nonEmptyString" },
+        "collection_binding": { "$ref": "#/definitions/nonEmptyString" },
+        "algorithm": { "$ref": "#/definitions/nonEmptyString" },
+        "public_key": { "$ref": "#/definitions/nonEmptyString" }
+      }
+    },
+    "entitlementGrant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "authority_id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "authority_id": { "$ref": "#/definitions/stableId" },
+        "match": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "asset_id": { "$ref": "#/definitions/nonEmptyString" }
+          }
+        }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "source_name", "source_url"],
+      "properties": {
+        "file": { "$ref": "#/definitions/relativePath" },
+        "source_name": { "$ref": "#/definitions/nonEmptyString" },
+        "source_url": { "type": "string", "format": "uri" }
+      }
+    }
+  }
+}

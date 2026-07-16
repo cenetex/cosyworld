@@ -7,7 +7,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
 const worldDir = path.join(v2Root, "worlds", "official");
 const importsRoot = path.join(v2Root, "content", "imports");
-const lock = JSON.parse(fs.readFileSync(path.join(worldDir, "world.lock.json"), "utf8"));
+const lock = JSON.parse(fs.readFileSync(path.join(worldDir, "pack.lock.json"), "utf8"));
 
 function run(command, args) {
   const result = spawnSync(command, args, { stdio: "inherit" });

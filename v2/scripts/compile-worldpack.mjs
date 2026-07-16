@@ -3,6 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  CANONICAL_ID_MAPPING_VERSION,
+  CONTENT_PACK_CONTRACT,
+  resolveContentPackGraph,
+  validateContentPackManifest,
+} from "./content-pack-contract.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
 const contentRoot = path.join(v2Root, "content");
@@ -11,6 +18,7 @@ const outputDir = path.join(contentRoot, "official");
 const args = new Set(process.argv.slice(2));
 const checkOnly = args.has("--check");
 const writeLock = args.has("--write-lock");
+const printArtifactDigest = args.has("--artifact-digest");
 
 const resourceFiles = {
   actors: "actors.json",
@@ -144,29 +152,35 @@ function validateEntitlements(packId, entitlements) {
   }
 }
 
+const engineVersion = readJson(path.resolve(v2Root, "../package.json")).version;
 const world = readJson(path.join(worldDir, "world.json"));
-const lockPath = path.join(worldDir, "world.lock.json");
-const lock = readJson(lockPath);
+const lockPath = path.join(worldDir, "pack.lock.json");
+const legacyLockPath = path.join(worldDir, "world.lock.json");
+const lock = readJson(
+  fs.existsSync(lockPath) ? lockPath : writeLock ? legacyLockPath : lockPath,
+);
 assert(world.schema_version === 1, "official world schema_version must be 1");
-assert(lock.lock_version === 1, "official world lock_version must be 1");
-assert(lock.world_id === world.id, "world lock does not belong to the official world");
+assert(lock.lock_version === 1, "official pack lock_version must be 1");
+assert(lock.world_id === world.id, "pack lock does not belong to the official world");
 assert(Array.isArray(world.packs) && world.packs.length > 0, "official world has no packs");
-assert(Array.isArray(lock.packs), "official world lock has no packs array");
+assert(Array.isArray(lock.packs), "official pack lock has no packs array");
+assert(new Set(world.packs).size === world.packs.length, "official world has duplicate pack ids");
 
 const lockById = new Map(lock.packs.map((entry) => [entry.id, entry]));
-assert(lockById.size === lock.packs.length, "world lock has duplicate pack ids");
+assert(lockById.size === lock.packs.length, "pack lock has duplicate pack ids");
 
-const packs = [];
-const available = new Set();
+const selectedPacks = [];
 for (const packId of world.packs) {
   const locked = lockById.get(packId);
   assert(locked, `world pack ${packId} is missing from the lockfile`);
   assert(locked.source?.path, `world pack ${packId} has no materialized source path`);
   const packRoot = path.resolve(worldDir, locked.source.path);
   const manifest = readJson(path.join(packRoot, "pack.json"));
-  assert(manifest.schema_version === 2, `pack ${packId} must use schema_version 2`);
+  validateContentPackManifest(manifest, `${packId}/pack.json`);
   assert(manifest.id === packId, `pack path for ${packId} contains ${manifest.id}`);
-  assert(manifest.version === locked.version, `pack ${packId} version does not match lockfile`);
+  if (!writeLock) {
+    assert(manifest.version === locked.version, `pack ${packId} version does not match lockfile`);
+  }
   assert(allowedPackKinds.has(manifest.kind), `pack ${packId} has unsupported kind ${manifest.kind}`);
   validateDistribution(packId, manifest.distribution);
   validateEntitlements(packId, manifest.entitlements);
@@ -199,20 +213,53 @@ for (const packId of world.packs) {
   for (const resource of Object.keys(manifest.rules ?? {})) {
     assert(supportedRuleResources.has(resource), `rules pack ${packId} declares unknown rules resource ${resource}`);
   }
-  for (const dependency of manifest.dependencies ?? []) {
-    assert(available.has(dependency), `pack ${packId} dependency ${dependency} must appear earlier`);
-  }
   const integrity = packIntegrity(packRoot, manifest);
   if (!writeLock) {
     assert(locked.integrity === integrity, `pack ${packId} integrity changed; run npm run v2:worldpack:lock`);
   }
-  locked.integrity = integrity;
-  available.add(packId);
-  packs.push({ locked, manifest, packRoot, integrity });
+  selectedPacks.push({ locked, manifest, packRoot, integrity });
 }
-assert(lock.packs.length === packs.length, "world lock contains packs not selected by world.json");
+assert(lock.packs.length === selectedPacks.length, "pack lock contains packs not selected by world.json");
 
-if (writeLock) fs.writeFileSync(lockPath, json(lock));
+const resolved = resolveContentPackGraph(
+  selectedPacks.map((pack) => pack.manifest),
+  engineVersion,
+);
+const selectedById = new Map(selectedPacks.map((pack) => [pack.manifest.id, pack]));
+const packs = resolved.ordered.map((manifest) => selectedById.get(manifest.id));
+const nextLock = {
+  lock_version: 1,
+  manifest_contract: CONTENT_PACK_CONTRACT,
+  canonical_id_mapping_version: CANONICAL_ID_MAPPING_VERSION,
+  world_id: world.id,
+  dependency_order: packs.map((pack) => pack.manifest.id),
+  packs: packs.map(({ locked, manifest, integrity }) => ({
+    id: manifest.id,
+    version: manifest.version,
+    source: locked.source,
+    integrity,
+    dependencies: manifest.dependencies,
+    dependency_closure: resolved.dependencyClosure.get(manifest.id),
+    capabilities: manifest.capabilities,
+    license: manifest.license,
+    provenance: manifest.provenance,
+  })),
+  license_records: packs.map(({ manifest }) => ({
+    pack_id: manifest.id,
+    version: manifest.version,
+    license: manifest.license,
+    provenance: manifest.provenance,
+  })),
+};
+
+if (writeLock) {
+  fs.writeFileSync(lockPath, json(nextLock));
+} else {
+  assert(
+    json(lock) === json(nextLock),
+    "pack.lock.json metadata is stale; run npm run v2:worldpack:lock",
+  );
+}
 
 const resources = Object.fromEntries(Object.keys(resourceFiles).map((key) => [key, []]));
 const externalCards = [];
@@ -309,7 +356,14 @@ const packSummary = packs.map(({ locked, manifest, integrity }) => ({
   version: manifest.version,
   kind: manifest.kind,
   license: manifest.license,
-  dependencies: manifest.dependencies ?? [],
+  engine: manifest.engine,
+  capabilities: manifest.capabilities,
+  dependencies: manifest.dependencies.map((dependency) => dependency.id),
+  dependency_requirements: manifest.dependencies,
+  dependency_closure: resolved.dependencyClosure.get(manifest.id),
+  default_ruleset: manifest.default_ruleset ?? null,
+  entry_points: manifest.entry_points ?? [],
+  provenance: manifest.provenance,
   resource_counts: resourceCountsByPack.get(manifest.id),
   ...(manifest.distribution ? { distribution: manifest.distribution } : {}),
   ...(manifest.entitlements ? { entitlements: manifest.entitlements } : {}),
@@ -330,6 +384,8 @@ const bundleHash = sha256([
 ]);
 const manifest = {
   schema_version: 2,
+  pack_contract: CONTENT_PACK_CONTRACT,
+  canonical_id_mapping_version: CANONICAL_ID_MAPPING_VERSION,
   id: world.id,
   name: world.name,
   version: world.version,
@@ -354,6 +410,9 @@ const outputs = new Map([
   ["character_creation.json", json(characterCreationBundles)],
   ...Object.entries(resourceFiles).map(([resource, fileName]) => [fileName, json(resources[resource])]),
 ]);
+const artifactDigest = sha256(
+  [...outputs].flatMap(([fileName, contents]) => [fileName, contents]),
+);
 
 if (checkOnly) {
   const stale = [];
@@ -368,3 +427,4 @@ if (checkOnly) {
   for (const [fileName, contents] of outputs) fs.writeFileSync(path.join(outputDir, fileName), contents);
   console.log(`compiled worldpack: ${world.id} ${bundleHash} (${packs.length} packs)`);
 }
+if (printArtifactDigest) console.log(`artifact digest ${artifactDigest}`);

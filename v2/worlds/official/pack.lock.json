@@ -1,0 +1,191 @@
+{
+  "lock_version": 1,
+  "manifest_contract": "cosyworld.content-pack/1",
+  "canonical_id_mapping_version": 1,
+  "world_id": "cosyworld.official",
+  "dependency_order": [
+    "cosyworld.core",
+    "cosyworld.campaign.the-lantern-keeper",
+    "cosyworld.lonely-forest.characters",
+    "ruby-high.first-bell"
+  ],
+  "packs": [
+    {
+      "id": "cosyworld.core",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/core"
+      },
+      "integrity": "sha256:97141fdd8061001e83cb0ef54bc8492fa368c6b0d738ef3acd0edbcb8bb61e5b",
+      "dependencies": [],
+      "dependency_closure": [],
+      "capabilities": [
+        {
+          "id": "cosyworld.core/world",
+          "kind": "world",
+          "version": "1.0.0"
+        },
+        {
+          "id": "cosyworld.core/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        }
+      ],
+      "license": "MIT",
+      "provenance": {
+        "source_name": "CosyWorld",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      }
+    },
+    {
+      "id": "cosyworld.campaign.the-lantern-keeper",
+      "version": "0.1.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/the-lantern-keeper"
+      },
+      "integrity": "sha256:91198689bfa981b3faac2ad1bb5a5806b68a0fcc52a688ea37cc3e0eb5f8576e",
+      "dependencies": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.core"
+      ],
+      "capabilities": [
+        {
+          "id": "cosyworld.campaign.the-lantern-keeper/world",
+          "kind": "world",
+          "version": "0.1.0"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "provenance": {
+        "source_name": "CosyWorld and System Reference Document 5.1",
+        "source_url": "https://github.com/cenetex/cosyworld",
+        "license_notice": "SRD-derived references are attributed in ATTRIBUTION.md."
+      }
+    },
+    {
+      "id": "cosyworld.lonely-forest.characters",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/lonely-forest"
+      },
+      "integrity": "sha256:c42cfafe59f937b23d2389a0b63e725cba414f25e2b1651c7a17e82c9540da4a",
+      "dependencies": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.core"
+      ],
+      "capabilities": [
+        {
+          "id": "cosyworld.lonely-forest.characters/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        }
+      ],
+      "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
+      "provenance": {
+        "source_name": "Cenetex Lonely Forest character art",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      }
+    },
+    {
+      "id": "ruby-high.first-bell",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/ruby-high-first-bell"
+      },
+      "integrity": "sha256:ed872af452c5facb2652079716a645e970f959c2ddbed19f0055ec6203d73da4",
+      "dependencies": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.core"
+      ],
+      "capabilities": [
+        {
+          "id": "ruby-high.first-bell/cards",
+          "kind": "cards",
+          "version": "1.0.0"
+        },
+        {
+          "id": "ruby-high.first-bell/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        },
+        {
+          "id": "ruby-high.first-bell/entitlements",
+          "kind": "entitlements",
+          "version": "1.0.0"
+        }
+      ],
+      "license": "MIT",
+      "provenance": {
+        "source_name": "Ruby High: First Bell",
+        "source_url": "https://ruby-high.ai"
+      }
+    }
+  ],
+  "license_records": [
+    {
+      "pack_id": "cosyworld.core",
+      "version": "1.0.0",
+      "license": "MIT",
+      "provenance": {
+        "source_name": "CosyWorld",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      }
+    },
+    {
+      "pack_id": "cosyworld.campaign.the-lantern-keeper",
+      "version": "0.1.0",
+      "license": "CC-BY-4.0",
+      "provenance": {
+        "source_name": "CosyWorld and System Reference Document 5.1",
+        "source_url": "https://github.com/cenetex/cosyworld",
+        "license_notice": "SRD-derived references are attributed in ATTRIBUTION.md."
+      }
+    },
+    {
+      "pack_id": "cosyworld.lonely-forest.characters",
+      "version": "1.0.0",
+      "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
+      "provenance": {
+        "source_name": "Cenetex Lonely Forest character art",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      }
+    },
+    {
+      "pack_id": "ruby-high.first-bell",
+      "version": "1.0.0",
+      "license": "MIT",
+      "provenance": {
+        "source_name": "Ruby High: First Bell",
+        "source_url": "https://ruby-high.ai"
+      }
+    }
+  ]
+}

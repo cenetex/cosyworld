@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 1,
   "id": "cosyworld.rules-srd-5.2.1",
   "name": "CosyWorld Rules: SRD 5.2.1",
   "version": "0.1.0",
@@ -7,7 +7,30 @@
   "description": "An attributed, non-authoritative SRD 5.2.1 adapter pack for CosyWorld conversion seeds.",
   "license": "CC-BY-4.0",
   "engine": ">=0.0.20 <0.1.0",
+  "capabilities": [
+    {
+      "id": "cosyworld.rules-srd-5.2.1/rules",
+      "kind": "rules",
+      "version": "0.1.0"
+    },
+    {
+      "id": "cosyworld.rules-srd-5.2.1/reference",
+      "kind": "reference",
+      "version": "0.1.0"
+    }
+  ],
   "dependencies": [],
+  "entry_points": [
+    {
+      "kind": "rules_namespace",
+      "id": "srd5.2.1"
+    }
+  ],
+  "provenance": {
+    "source_name": "System Reference Document 5.2.1",
+    "source_url": "https://www.dndbeyond.com/srd",
+    "license_notice": "CC-BY-4.0 attribution is carried in ATTRIBUTION.md."
+  },
   "rules_adapter": "cosyworld.rules/1",
   "rules_namespace": "srd5.2.1",
   "rules": {

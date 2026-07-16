@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 1,
   "id": "cosyworld.lonely-forest.characters",
   "name": "Lonely Forest Character Art",
   "version": "1.0.0",
@@ -7,9 +7,32 @@
   "description": "Character source art and reviewed slices used by the Lonely Forest residents.",
   "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
   "engine": ">=0.0.20 <0.1.0",
-  "dependencies": [
-    "cosyworld.core"
+  "capabilities": [
+    {
+      "id": "cosyworld.lonely-forest.characters/assets",
+      "kind": "assets",
+      "version": "1.0.0"
+    }
   ],
+  "dependencies": [
+    {
+      "id": "cosyworld.core",
+      "version": ">=1.0.0 <2.0.0",
+      "capabilities": [
+        "cosyworld.core/world"
+      ]
+    }
+  ],
+  "entry_points": [
+    {
+      "kind": "asset_mount",
+      "id": "characters"
+    }
+  ],
+  "provenance": {
+    "source_name": "Cenetex Lonely Forest character art",
+    "source_url": "https://github.com/cenetex/cosyworld"
+  },
   "resources": {},
   "assets": [
     {

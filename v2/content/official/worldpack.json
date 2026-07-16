@@ -1,11 +1,13 @@
 {
   "schema_version": 2,
+  "pack_contract": "cosyworld.content-pack/1",
+  "canonical_id_mapping_version": 1,
   "id": "cosyworld.official",
   "name": "CosyWorld Official",
   "version": 1,
   "description": "The reproducible seed world for the official CosyWorld shard.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:c97e16400c0aee830e0b1823120b6a8820601e9a476a22d1a8a2fa68c57caa1f",
+  "bundle_hash": "sha256:abb0d1a95daeebaffa917369e9c73ddfe495f8861934c71e912da1417f27afdf",
   "packs": [
     {
       "id": "cosyworld.core",
@@ -14,7 +16,33 @@
       "version": "1.0.0",
       "kind": "world",
       "license": "MIT",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.core/world",
+          "kind": "world",
+          "version": "1.0.0"
+        },
+        {
+          "id": "cosyworld.core/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        }
+      ],
       "dependencies": [],
+      "dependency_requirements": [],
+      "dependency_closure": [],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "location",
+          "id": "location/1"
+        }
+      ],
+      "provenance": {
+        "source_name": "CosyWorld",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
       "resource_counts": {
         "actors": 36,
         "access_gates": 6,
@@ -42,7 +70,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:1be3f52cfd1a6238fd30d5c2ff90a43c1888b1f51e2c27ca4dabac719007658c"
+      "integrity": "sha256:97141fdd8061001e83cb0ef54bc8492fa368c6b0d738ef3acd0edbcb8bb61e5b"
     },
     {
       "id": "cosyworld.campaign.the-lantern-keeper",
@@ -51,9 +79,45 @@
       "version": "0.1.0",
       "kind": "campaign",
       "license": "CC-BY-4.0",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.campaign.the-lantern-keeper/world",
+          "kind": "world",
+          "version": "0.1.0"
+        }
+      ],
       "dependencies": [
         "cosyworld.core"
       ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.core"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "location",
+          "id": "location/800"
+        },
+        {
+          "kind": "character_creation",
+          "id": "the-lantern-keeper"
+        }
+      ],
+      "provenance": {
+        "source_name": "CosyWorld and System Reference Document 5.1",
+        "source_url": "https://github.com/cenetex/cosyworld",
+        "license_notice": "SRD-derived references are attributed in ATTRIBUTION.md."
+      },
       "resource_counts": {
         "actors": 4,
         "access_gates": 0,
@@ -81,7 +145,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:3ccc8a7820ad1c1bedd596d9b969568a86af186bf446856d318618027d704f86"
+      "integrity": "sha256:91198689bfa981b3faac2ad1bb5a5806b68a0fcc52a688ea37cc3e0eb5f8576e"
     },
     {
       "id": "cosyworld.lonely-forest.characters",
@@ -90,9 +154,40 @@
       "version": "1.0.0",
       "kind": "assets",
       "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.lonely-forest.characters/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        }
+      ],
       "dependencies": [
         "cosyworld.core"
       ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.core"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "asset_mount",
+          "id": "characters"
+        }
+      ],
+      "provenance": {
+        "source_name": "Cenetex Lonely Forest character art",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
       "resource_counts": {
         "actors": 0,
         "access_gates": 0,
@@ -120,7 +215,7 @@
         "type": "workspace",
         "path": "../../content/lonely-forest"
       },
-      "integrity": "sha256:7f1d74740f17a88053f0d8f1f0f2e320b6365f37d96f5f2fb85f6d84b4e579fe"
+      "integrity": "sha256:c42cfafe59f937b23d2389a0b63e725cba414f25e2b1651c7a17e82c9540da4a"
     },
     {
       "id": "ruby-high.first-bell",
@@ -129,9 +224,54 @@
       "version": "1.0.0",
       "kind": "catalog",
       "license": "MIT",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "ruby-high.first-bell/cards",
+          "kind": "cards",
+          "version": "1.0.0"
+        },
+        {
+          "id": "ruby-high.first-bell/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        },
+        {
+          "id": "ruby-high.first-bell/entitlements",
+          "kind": "entitlements",
+          "version": "1.0.0"
+        }
+      ],
       "dependencies": [
         "cosyworld.core"
       ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.core"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "card_catalog",
+          "id": "first-bell"
+        },
+        {
+          "kind": "asset_mount",
+          "id": "cards"
+        }
+      ],
+      "provenance": {
+        "source_name": "Ruby High: First Bell",
+        "source_url": "https://ruby-high.ai"
+      },
       "resource_counts": {
         "actors": 0,
         "access_gates": 0,
@@ -223,7 +363,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:6c9e3961eefc89ab32ce41c258755b01d81d69af38ae331c4c7f201f24a333fe"
+      "integrity": "sha256:ed872af452c5facb2652079716a645e970f959c2ddbed19f0055ec6203d73da4"
     }
   ],
   "files": {

@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 1,
   "id": "cosyworld.the-holy-land",
   "name": "The Holy Land",
   "version": "1.0.0",
@@ -7,9 +7,42 @@
   "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
   "license": "MIT",
   "engine": ">=0.0.20 <0.1.0",
-  "dependencies": [
-    "cosyworld.core"
+  "capabilities": [
+    {
+      "id": "cosyworld.the-holy-land/world",
+      "kind": "world",
+      "version": "1.0.0"
+    },
+    {
+      "id": "cosyworld.the-holy-land/assets",
+      "kind": "assets",
+      "version": "1.0.0"
+    }
   ],
+  "dependencies": [
+    {
+      "id": "cosyworld.core",
+      "version": ">=1.0.0 <2.0.0",
+      "capabilities": [
+        "cosyworld.core/world"
+      ]
+    }
+  ],
+  "default_ruleset": null,
+  "entry_points": [
+    {
+      "kind": "location",
+      "id": "location/700"
+    },
+    {
+      "kind": "asset_mount",
+      "id": "cards"
+    }
+  ],
+  "provenance": {
+    "source_name": "CosyWorld: The Holy Land",
+    "source_url": "https://github.com/cenetex/cosyworld"
+  },
   "resources": {
     "actors": "actors.json",
     "locations": "locations.json",

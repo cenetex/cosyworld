@@ -79,6 +79,25 @@ describe("worldpack progression access validation", () => {
   });
 });
 
+describe("worldpack Manifest v1 validation", () => {
+  it("rejects a compiled pack whose required capability is absent", () => {
+    const root = worldpackFixture();
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
+    const campaign = manifest.packs.find(
+      (pack) => pack.id === "cosyworld.campaign.the-lantern-keeper",
+    );
+    campaign.dependency_requirements[0].capabilities = ["cosyworld.core/missing"];
+    writeJson(root, "worldpack.json", manifest);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "requires missing capability cosyworld.core/missing from cosyworld.core@1.0.0",
+    );
+  });
+});
+
 describe("worldpack authored relationships", () => {
   it("keeps the Heavens above Lofty Peak", () => {
     const exits = JSON.parse(fs.readFileSync(path.join(compiledWorldpackRoot, "exits.json"), "utf8"));
