@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.services-only",
+  "name": "CosyWorld Services Only",
+  "version": 1,
+  "description": "A non-world composition for health, metadata, identity, and moderation services.",
+  "packs": [
+    "cosyworld.services-fixture"
+  ]
+}

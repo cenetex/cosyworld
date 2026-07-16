@@ -1,0 +1,107 @@
+{
+  "schema_version": 2,
+  "pack_contract": "cosyworld.content-pack/1",
+  "canonical_id_mapping_version": 1,
+  "id": "cosyworld.core-only",
+  "name": "CosyWorld Core Only",
+  "version": 1,
+  "description": "The first-party cosy exploration experience with no expansion packs mounted.",
+  "entry_location": "cosyworld.core:location/1",
+  "bundle_hash": "sha256:226f9f2dd1cdc5a0cd54b3d8c4b50fc5e6dbf5d0bfa901033fb5e35db9ed00ca",
+  "packs": [
+    {
+      "id": "cosyworld.core",
+      "name": "CosyWorld Core",
+      "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
+      "version": "1.1.0",
+      "kind": "world",
+      "license": "MIT",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.core/world",
+          "kind": "world",
+          "version": "1.0.0"
+        },
+        {
+          "id": "cosyworld.core/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        },
+        {
+          "id": "cosyworld.core/rules",
+          "kind": "rules",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [],
+      "dependency_requirements": [],
+      "dependency_closure": [],
+      "default_ruleset": "cosyworld.core/rules",
+      "entry_points": [
+        {
+          "kind": "location",
+          "id": "location/1"
+        }
+      ],
+      "provenance": {
+        "source_name": "CosyWorld",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
+      "resource_counts": {
+        "actors": 36,
+        "access_gates": 0,
+        "factions": 12,
+        "items": 10,
+        "locations": 28,
+        "exits": 70,
+        "hidden_exits": 1,
+        "room_features": 17,
+        "room_sheets": 28,
+        "clocks": 10,
+        "jobs": 5,
+        "fronts": 5,
+        "cards": 71,
+        "lifecycle_hooks": 19,
+        "evolution_tracks": 3,
+        "recipes": 1,
+        "sentences": 27,
+        "external_cards": 0,
+        "assets": 1,
+        "rules": 0,
+        "character_creation": 0
+      },
+      "source": {
+        "type": "workspace",
+        "path": "../../content/core"
+      },
+      "integrity": "sha256:ebd032bcb69990ab02056b45f8c8ba36600f596a3e47c3258f1bd5ff8f4f475a"
+    }
+  ],
+  "files": {
+    "actors": "actors.json",
+    "access_gates": "access_gates.json",
+    "factions": "factions.json",
+    "items": "items.json",
+    "locations": "locations.json",
+    "exits": "exits.json",
+    "hidden_exits": "hidden_exits.json",
+    "room_features": "room_features.json",
+    "room_sheets": "room_sheets.json",
+    "clocks": "clocks.json",
+    "jobs": "jobs.json",
+    "fronts": "fronts.json",
+    "cards": "cards.json",
+    "lifecycle_hooks": "lifecycle_hooks.json",
+    "evolution_tracks": "evolution_tracks.json",
+    "recipes": "recipes.json",
+    "sentences": "sentences.json"
+  },
+  "external_cards": "external_cards.json",
+  "assets": "assets.json",
+  "rules": "rules.json",
+  "attributions": "attributions.json",
+  "character_creation": "character_creation.json",
+  "content_references": "content_refs.json",
+  "registry": "registry.json"
+}

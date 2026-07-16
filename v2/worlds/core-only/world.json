@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.core-only",
+  "name": "CosyWorld Core Only",
+  "version": 1,
+  "description": "The first-party cosy exploration experience with no expansion packs mounted.",
+  "entry_location": "cosyworld.core:location/1",
+  "packs": [
+    "cosyworld.core"
+  ]
+}

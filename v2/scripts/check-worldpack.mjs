@@ -289,14 +289,18 @@ if (manifest.canonical_id_mapping_version !== CANONICAL_ID_MAPPING_VERSION) {
 if (!Number.isInteger(manifest.version) || manifest.version <= 0) {
   fail("worldpack manifest version must be a positive integer");
 }
-if (!isNonEmptyString(manifest.entry_location)) {
-  fail("worldpack manifest is missing entry_location");
-}
 if (!isNonEmptyString(manifest.bundle_hash) || !/^sha256:[0-9a-f]{64}$/.test(manifest.bundle_hash)) {
   fail("worldpack manifest has an invalid bundle_hash");
 }
 const packs = asArray("worldpack manifest packs", manifest.packs);
 const packIds = idSet("worldpack manifest packs", packs, (pack) => pack.id);
+const worldBearingPacks = packs.filter((pack) => ["world", "campaign"].includes(pack.kind));
+if (worldBearingPacks.length > 0 && !isNonEmptyString(manifest.entry_location)) {
+  fail("world-bearing worldpack manifest is missing entry_location");
+}
+if (worldBearingPacks.length === 0 && manifest.entry_location !== undefined) {
+  fail("services-only worldpack manifest must not invent an entry_location");
+}
 const entitlementGrants = new Map();
 for (const pack of packs) {
   validateRequiredStrings("worldpack pack", pack, ["name", "description", "version", "kind", "license", "integrity"]);
@@ -961,7 +965,9 @@ for (const hiddenExit of hiddenExits) {
 const entryLocationMatch = String(manifest.entry_location).match(/location\/(\d+)$/);
 const entryLocationId = Number(entryLocationMatch?.[1] ?? 0);
 const publicReachableLocationIds = new Set();
-if (!has(locationIds, entryLocationId)) {
+if (worldBearingPacks.length === 0 && locationIds.size === 0) {
+  // A services-only composition intentionally has no playable entry point.
+} else if (!has(locationIds, entryLocationId)) {
   fail(`worldpack entry location ${manifest.entry_location} does not reference a compiled location`);
 } else if (gateByLocationId.has(entryLocationId)) {
   fail(`worldpack entry location ${entryLocationId} must not require an access gate`);

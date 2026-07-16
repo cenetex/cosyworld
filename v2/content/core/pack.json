@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.core",
   "name": "CosyWorld Core",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kind": "world",
   "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
   "license": "MIT",
@@ -17,10 +17,15 @@
       "id": "cosyworld.core/assets",
       "kind": "assets",
       "version": "1.0.0"
+    },
+    {
+      "id": "cosyworld.core/rules",
+      "kind": "rules",
+      "version": "1.0.0"
     }
   ],
   "dependencies": [],
-  "default_ruleset": null,
+  "default_ruleset": "cosyworld.core/rules",
   "entry_points": [
     {
       "kind": "location",
@@ -33,7 +38,6 @@
   },
   "resources": {
     "actors": "actors.json",
-    "access_gates": "access_gates.json",
     "factions": "factions.json",
     "items": "items.json",
     "locations": "locations.json",
