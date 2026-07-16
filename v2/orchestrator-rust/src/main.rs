@@ -46388,55 +46388,23 @@ mod tests {
     }
 
     #[test]
-    fn embedded_srd_rules_are_attributed_and_non_authoritative_by_default() {
+    fn official_composition_omits_reference_only_srd_rule_packs() {
         let rules: Vec<SeedRuleBundle> =
             parse_seed_json("rules.json", SEED_RULES_JSON).expect("embedded rules parse");
         let attributions: Vec<SeedAttribution> =
             parse_seed_json("attributions.json", SEED_ATTRIBUTIONS_JSON)
                 .expect("embedded attributions parse");
 
-        assert_eq!(rules.len(), 2);
-        for (pack_id, namespace) in [
-            ("cosyworld.rules-srd-5.1", "srd5.1"),
-            ("cosyworld.rules-srd-5.2.1", "srd5.2.1"),
-        ] {
-            let srd = rules
-                .iter()
-                .find(|bundle| bundle.pack_id == pack_id)
-                .expect("versioned SRD bundle");
-            assert_eq!(srd.adapter, "cosyworld.rules/1");
-            assert_eq!(srd.namespace, namespace);
-            assert_eq!(srd.resources.conditions.len(), 15);
-            assert_eq!(srd.resources.monster_seeds.len(), 3);
-            assert!(srd.resources.conditions.iter().all(|condition| {
-                condition.mapping.status == "reference_only"
-                    || (condition.id == "condition/unconscious"
-                        && condition.mapping.status == "kernel"
-                        && condition.mapping.kernel_condition.as_deref() == Some("unconscious"))
-            }));
-            assert!(srd
-                .resources
-                .monster_seeds
-                .iter()
-                .all(|monster| monster.mapping.status == "reference_only"));
-        }
-
-        assert!(attributions.len() >= 2);
-        for (pack_id, document_name) in [
-            ("cosyworld.rules-srd-5.1", "System Reference Document 5.1"),
-            (
-                "cosyworld.rules-srd-5.2.1",
-                "System Reference Document 5.2.1",
-            ),
-        ] {
-            let attribution = attributions
-                .iter()
-                .find(|attribution| attribution.pack_id == pack_id)
-                .expect("versioned SRD attribution");
-            assert_eq!(attribution.license, "CC-BY-4.0");
-            assert!(attribution.text.contains(document_name));
-            assert!(!attribution.text.contains("CC-BY-SA"));
-        }
+        assert!(rules.is_empty());
+        assert_eq!(attributions.len(), 1);
+        assert_eq!(
+            attributions[0].pack_id,
+            "cosyworld.campaign.the-lantern-keeper"
+        );
+        assert_eq!(attributions[0].license, "CC-BY-4.0");
+        assert!(attributions[0]
+            .text
+            .contains("System Reference Document 5.1"));
     }
 
     #[test]
@@ -46445,15 +46413,29 @@ mod tests {
         assert_eq!(content.manifest.id, "cosyworld.official");
         assert_eq!(content.manifest.version, 1);
         assert_eq!(content.manifest.schema_version, 2);
-        assert_eq!(content.manifest.packs.len(), 7);
+        assert_eq!(content.manifest.packs.len(), 4);
+        assert_eq!(
+            content
+                .manifest
+                .packs
+                .iter()
+                .map(|pack| pack.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "cosyworld.core",
+                "cosyworld.campaign.the-lantern-keeper",
+                "cosyworld.lonely-forest.characters",
+                "ruby-high.first-bell",
+            ]
+        );
         assert!(content.manifest.bundle_hash.starts_with("sha256:"));
         assert!(content.manifest.description.contains("seed world"));
-        assert_eq!(content.actors.len(), 56);
+        assert_eq!(content.actors.len(), 40);
         assert_eq!(content.access_gates.len(), 6);
         assert_eq!(content.factions.len(), 12);
         assert_eq!(content.items.len(), 14);
-        assert_eq!(content.locations.len(), 48);
-        assert_eq!(content.exits.len(), 110);
+        assert_eq!(content.locations.len(), 33);
+        assert_eq!(content.exits.len(), 78);
         assert!(content.exits.iter().any(|exit| {
             exit.from_location_id == MOONLIT_TRAIL_LOCATION_ID
                 && exit.to_location_id == GREAT_LIBRARY_LOCATION_ID
@@ -46463,8 +46445,8 @@ mod tests {
                 && exit.to_location_id == MOONLIT_TRAIL_LOCATION_ID
         }));
         assert_eq!(content.hidden_exits.len(), 1);
-        assert_eq!(content.room_features.len(), 36);
-        assert_eq!(content.room_sheets.len(), 48);
+        assert_eq!(content.room_features.len(), 21);
+        assert_eq!(content.room_sheets.len(), 33);
         assert_eq!(content.clocks.len(), 12);
         assert_eq!(content.jobs.len(), 6);
         assert!(content
@@ -46472,11 +46454,11 @@ mod tests {
             .iter()
             .all(|job| job.reward.orbs() == 2 && !job.reward.label().is_empty()));
         assert_eq!(content.fronts.len(), 6);
-        assert_eq!(content.cards.len(), 115);
+        assert_eq!(content.cards.len(), 84);
         assert_eq!(content.lifecycle_hooks.len(), 27);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 1);
-        assert_eq!(content.rules.len(), 2);
+        assert!(content.rules.is_empty());
         let nib = content
             .actors
             .iter()
@@ -46519,39 +46501,15 @@ mod tests {
                     && job.participant_ids == vec![participant_id]
             }));
         }
-        for namespace in ["srd5.1", "srd5.2.1"] {
-            let srd = content
-                .rules
-                .iter()
-                .find(|bundle| bundle.namespace == namespace)
-                .expect("versioned SRD bundle");
-            assert_eq!(srd.adapter, "cosyworld.rules/1");
-            assert_eq!(srd.resources.conditions.len(), 15);
-            assert_eq!(srd.resources.monster_seeds.len(), 3);
-            assert!(srd.resources.conditions.iter().any(|condition| {
-                condition.id == "condition/unconscious"
-                    && condition.mapping.status == "kernel"
-                    && condition.mapping.kernel_condition.as_deref() == Some("unconscious")
-            }));
-            assert!(srd
-                .resources
-                .monster_seeds
-                .iter()
-                .all(|monster| monster.mapping.status == "reference_only"));
-        }
-        assert_eq!(content.attributions.len(), 3);
+        assert_eq!(content.attributions.len(), 1);
         assert!(content
             .attributions
             .iter()
             .all(|attribution| attribution.license == "CC-BY-4.0"));
-        assert!(content
-            .attributions
-            .iter()
-            .any(|attribution| attribution.text.contains("System Reference Document 5.1")));
-        assert!(content
-            .attributions
-            .iter()
-            .any(|attribution| attribution.text.contains("System Reference Document 5.2.1")));
+        assert_eq!(
+            content.attributions[0].pack_id,
+            "cosyworld.campaign.the-lantern-keeper"
+        );
         assert_eq!(content.character_creation.len(), 1);
         let creation = &content.character_creation[0];
         assert_eq!(creation.pack_id, "cosyworld.campaign.the-lantern-keeper");
@@ -46800,6 +46758,29 @@ mod tests {
         assert!(error
             .to_string()
             .contains("does not match active worldpack"));
+    }
+
+    #[test]
+    fn prelaunch_bundle_change_falls_back_to_a_fresh_seed() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-worldpack-mismatch-{}-{}.json",
+            std::process::id(),
+            now_seed()
+        ));
+        let mut snapshot = RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded());
+        snapshot.worldpack_bundle_hash = format!("sha256:{}", "0".repeat(64));
+        fs::write(
+            &path,
+            serde_json::to_vec(&snapshot).expect("snapshot serializes"),
+        )
+        .expect("mismatched snapshot writes");
+
+        let runtime = load_snapshot_or_seed(Some(&path));
+        let _ = fs::remove_file(path);
+
+        assert_eq!(runtime.world.location_count, seed_content().locations.len());
+        assert_eq!(runtime.world.actor_count, seed_content().actors.len());
+        assert_eq!(runtime.world.tick, RuntimeWorld::seeded().world.tick);
     }
 
     #[test]
@@ -47319,7 +47300,7 @@ mod tests {
             .iter()
             .filter(|actor| actor.location_id.is_some())
             .collect();
-        assert_eq!(placed_seed_actors.len(), 56);
+        assert_eq!(placed_seed_actors.len(), 40);
         for actor in placed_seed_actors {
             let world_actor = runtime.actor_by_id(actor.id).expect("placed seed actor");
             assert_eq!(world_actor.location_id, actor.location_id.unwrap());

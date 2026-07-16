@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn catalog_projects_public_locked_partial_and_entitled_access() {
         let public = content_packs_response(&AccessContext::default());
-        assert_eq!(public.packs.len(), 7);
+        assert_eq!(public.packs.len(), 4);
         let core = public
             .packs
             .iter()

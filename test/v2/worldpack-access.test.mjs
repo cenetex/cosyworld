@@ -77,6 +77,36 @@ describe("worldpack authored relationships", () => {
     expect(exits.find((exit) => exit.from_location_id === 30 && exit.to_location_id === 31)?.direction).toBe("down");
     expect(exits.find((exit) => exit.from_location_id === 31 && exit.to_location_id === 30)?.direction).toBe("up");
   });
+
+  it("keeps the official shard dense without deleting unmounted source packs", () => {
+    const world = JSON.parse(
+      fs.readFileSync(path.join(repoRoot, "v2/worlds/official/world.json"), "utf8"),
+    );
+    const locations = JSON.parse(fs.readFileSync(path.join(compiledWorldpackRoot, "locations.json"), "utf8"));
+    const rules = JSON.parse(fs.readFileSync(path.join(compiledWorldpackRoot, "rules.json"), "utf8"));
+
+    expect(world.packs).toEqual([
+      "cosyworld.core",
+      "cosyworld.campaign.the-lantern-keeper",
+      "cosyworld.lonely-forest.characters",
+      "ruby-high.first-bell",
+    ]);
+    expect(locations).toHaveLength(33);
+    expect(rules).toEqual([]);
+
+    for (const [directory, id] of [
+      ["the-holy-land", "cosyworld.the-holy-land"],
+      ["rules-srd-5.1", "cosyworld.rules-srd-5.1"],
+      ["rules-srd-5.2.1", "cosyworld.rules-srd-5.2.1"],
+    ]) {
+      const packRoot = path.join(repoRoot, "v2/content", directory);
+      const manifest = JSON.parse(fs.readFileSync(path.join(packRoot, "pack.json"), "utf8"));
+      expect(manifest.id).toBe(id);
+      for (const resource of Object.values({ ...manifest.resources, ...manifest.rules })) {
+        expect(() => JSON.parse(fs.readFileSync(path.join(packRoot, resource), "utf8"))).not.toThrow();
+      }
+    }
+  });
 });
 
 describe("worldpack writing register validation", () => {

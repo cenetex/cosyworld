@@ -87,6 +87,8 @@ No Rust source or Dockerfile change is required.
 
 The compiler gives every official bundle a SHA-256 identity derived from the world definition, locked packs, merged resources, external catalogs, and asset index. `/meta` exposes that identity and the included packs. New snapshots record it and refuse to load under a different bundle; legacy snapshots without an identity remain readable for migration.
 
+Changing the selected pack set therefore starts a new shard history. Before launch, archive the old snapshot and action-journal database, deploy the new bundle, and allow the orchestrator to seed a fresh world; startup already fails closed on the old identities and falls back to that fresh seed. Do not blank a recorded bundle hash by hand. After launch, preserving state across a composition change requires an explicit migration that projects only still-mounted pack state and writes the new identity.
+
 The current kernel ABI still uses numeric actor, item, and location IDs. The validator therefore treats those IDs as bundle-global and rejects collisions. A later schema can compile namespaced authoring IDs into a stable numeric ID map without changing the kernel ABI.
 
 ## Runtime discovery and access

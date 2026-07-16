@@ -9,15 +9,6 @@
     "fallback": null
   },
   {
-    "pack_id": "cosyworld.the-holy-land",
-    "mount": "cards",
-    "root": "the-holy-land",
-    "directory": "assets/cards",
-    "public_prefix": "/assets/the-holy-land/cards",
-    "optional": false,
-    "fallback": null
-  },
-  {
     "pack_id": "cosyworld.lonely-forest.characters",
     "mount": "characters",
     "root": "lonely-forest",

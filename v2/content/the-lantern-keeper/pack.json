@@ -8,8 +8,7 @@
   "license": "CC-BY-4.0",
   "engine": ">=0.0.20 <0.1.0",
   "dependencies": [
-    "cosyworld.core",
-    "cosyworld.rules-srd-5.1"
+    "cosyworld.core"
   ],
   "character_creation": "character_creation.json",
   "attribution": {
