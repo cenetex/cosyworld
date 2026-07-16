@@ -15,12 +15,12 @@
       "kind": "keepsake",
       "charges": 1,
       "target_kind": "location_floor",
-      "target_id": 11
+      "target_id": 2
     },
     "balance": {
       "kind": "location",
       "target_kind": "location_floor",
-      "target_id": 11,
+      "target_id": 2,
       "reason": "The crafted lantern anchors a new floor slot in the Rain-Soft Garden route instead of adding an orphan item."
     }
   }

@@ -465,6 +465,14 @@ const characterCreationProfileIds = idSet(
   characterCreationProfiles,
   (profile) => profile.id,
 );
+const gateByLocationId = new Map();
+for (const gate of accessGates) {
+  if (gateByLocationId.has(gate.location_id)) {
+    fail(`duplicate access gate for location ${gate.location_id}`);
+  } else {
+    gateByLocationId.set(gate.location_id, gate);
+  }
+}
 
 for (const profile of characterCreationProfiles) {
   validateRequiredStrings("character creation profile", profile, [
@@ -630,6 +638,60 @@ for (const hiddenExit of hiddenExits) {
   const returnDirection = `${hiddenExit.to_location_id}:${String(hiddenExit.return_direction || "").trim().toLowerCase()}`;
   if (exitDirections.has(returnDirection)) {
     fail(`hidden exit ${hiddenExit.id} duplicates visible direction ${hiddenExit.return_direction} from location ${hiddenExit.to_location_id}`);
+  }
+}
+
+const entryLocationMatch = String(manifest.entry_location).match(/location\/(\d+)$/);
+const entryLocationId = Number(entryLocationMatch?.[1] ?? 0);
+const publicReachableLocationIds = new Set();
+if (!has(locationIds, entryLocationId)) {
+  fail(`worldpack entry location ${manifest.entry_location} does not reference a compiled location`);
+} else if (gateByLocationId.has(entryLocationId)) {
+  fail(`worldpack entry location ${entryLocationId} must not require an access gate`);
+} else {
+  publicReachableLocationIds.add(entryLocationId);
+  const pendingLocations = [entryLocationId];
+  const traversableExits = [
+    ...exits,
+    ...hiddenExits.map((hiddenExit) => ({
+      from_location_id: hiddenExit.from_location_id,
+      to_location_id: hiddenExit.to_location_id,
+    })),
+  ];
+  while (pendingLocations.length > 0) {
+    const fromLocationId = pendingLocations.shift();
+    for (const exit of traversableExits) {
+      if (
+        exit.from_location_id !== fromLocationId
+        || gateByLocationId.has(exit.to_location_id)
+        || publicReachableLocationIds.has(exit.to_location_id)
+      ) {
+        continue;
+      }
+      publicReachableLocationIds.add(exit.to_location_id);
+      pendingLocations.push(exit.to_location_id);
+    }
+  }
+}
+
+function validateProgressionLocationAccess(owner, locationId, requiredGrantId) {
+  if (publicReachableLocationIds.has(locationId)) {
+    if (requiredGrantId !== undefined && !entitlementGrants.has(requiredGrantId)) {
+      fail(`${owner} declares missing required_grant_id ${requiredGrantId}`);
+    }
+    return;
+  }
+
+  const directGate = gateByLocationId.get(locationId);
+  if (!isNonEmptyString(requiredGrantId)) {
+    fail(`${owner} uses gated or unreachable location ${locationId} without required_grant_id`);
+    return;
+  }
+  if (!entitlementGrants.has(requiredGrantId)) {
+    fail(`${owner} declares missing required_grant_id ${requiredGrantId}`);
+  }
+  if (directGate && directGate.required_grant_id !== requiredGrantId) {
+    fail(`${owner} required_grant_id ${requiredGrantId} does not match location ${locationId} gate ${directGate.required_grant_id}`);
   }
 }
 
@@ -959,6 +1021,13 @@ for (const recipe of recipes) {
     } else if (outputTargetKind === "location_floor" && !has(locationIds, recipe.output.target_id)) {
       fail(`recipe ${recipe.id} output references missing location ${recipe.output.target_id}`);
     }
+    if (outputTargetKind === "location_floor" && has(locationIds, recipe.output.target_id)) {
+      validateProgressionLocationAccess(
+        `recipe ${recipe.id} output`,
+        recipe.output.target_id,
+        recipe.output.required_grant_id,
+      );
+    }
     if (isObject(recipe.balance) && (recipe.output.target_kind !== recipe.balance.target_kind || recipe.output.target_id !== recipe.balance.target_id)) {
       fail(`recipe ${recipe.id} output slot must match its balance declaration`);
     }
@@ -984,6 +1053,14 @@ for (const track of evolutionTracks) {
       fail(`evolution track ${track.actor_id} references missing item ${requirement.item_id}`);
     }
     trackItemIds.add(requirement.item_id);
+    const sourceItem = itemById.get(requirement.item_id);
+    if (sourceItem && has(locationIds, sourceItem.location_id)) {
+      validateProgressionLocationAccess(
+        `evolution track ${track.actor_id} requirement item ${requirement.item_id}`,
+        sourceItem.location_id,
+        requirement.required_grant_id,
+      );
+    }
     const targetKind = placementTargetKind(requirement.target_kind);
     if (!targetKind) {
       fail(`evolution track ${track.actor_id} has invalid target kind ${requirement.target_kind}`);
@@ -991,6 +1068,22 @@ for (const track of evolutionTracks) {
       fail(`evolution track ${track.actor_id} references missing actor target ${requirement.target_id}`);
     } else if (targetKind === "location_floor" && !has(locationIds, requirement.target_id)) {
       fail(`evolution track ${track.actor_id} references missing location target ${requirement.target_id}`);
+    }
+    if (targetKind === "location_floor" && has(locationIds, requirement.target_id)) {
+      validateProgressionLocationAccess(
+        `evolution track ${track.actor_id} requirement target`,
+        requirement.target_id,
+        requirement.required_grant_id,
+      );
+    } else if (targetKind === "actor_hand" && has(actorIds, requirement.target_id)) {
+      const targetActor = actors.find((actor) => actor.id === requirement.target_id);
+      if (targetActor && has(locationIds, targetActor.location_id)) {
+        validateProgressionLocationAccess(
+          `evolution track ${track.actor_id} requirement target actor ${requirement.target_id}`,
+          targetActor.location_id,
+          requirement.required_grant_id,
+        );
+      }
     }
   }
 }

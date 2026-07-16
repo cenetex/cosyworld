@@ -3635,7 +3635,7 @@ async function main() {
           items: [
             { id: 2002, location_id: 2, holder_actor_id: 0 },
             { id: 2003, location_id: 3, holder_actor_id: 0 },
-            { id: 2004, location_id: 10, holder_actor_id: 0 },
+            { id: 2004, location_id: 43, holder_actor_id: 0 },
           ],
         };
         const focusedListenHints = [1, 2, 3, 10, 11, 12, 13, 14, 15]
@@ -7994,16 +7994,16 @@ async function main() {
     }
     await exerciseFrontierRecovery();
     await leaveTrailTo("Rain-Soft Garden");
-    await travelTo("The Cosy Cottage");
-    await travelTo("Homeroom");
-    await discoverRoute("The Cosy Cottage");
-    await discoverRoute("Science Class");
-    await travelTo("Science Class");
+    await discoverRoute("Old Oak Tree");
+    await travelTo("Old Oak Tree");
+    await discoverRoute("Lost Woods");
+    await travelTo("Lost Woods");
+    await discoverRoute("Quiet Abbey");
+    await travelTo("Quiet Abbey");
     assert(
-      (await currentLocation()) === "Science Class",
-      "Science Class should be a shared reachable Ruby High room",
+      (await currentLocation()) === "Quiet Abbey",
+      "Quiet Abbey should be reachable without a Ruby High entitlement",
     );
-    await discoverRoute("Homeroom");
     const ratiHasMoonwool = await page.evaluate(async () => {
       const currentActorId = localStorage.getItem("cosyworld.actorId");
       const actorSession = localStorage.getItem("cosyworld.actorSession");
@@ -8047,6 +8047,9 @@ async function main() {
       } else {
         steps.push({ label: "Rati's Moonwool wish already changed", location: await currentLocation() });
       }
+    }
+    if ((await currentLocation()) !== "The Cosy Cottage") {
+      await travelTo("The Cosy Cottage");
     }
     await travelTo("Homeroom");
     await travelTo("The Cosy Cottage");
