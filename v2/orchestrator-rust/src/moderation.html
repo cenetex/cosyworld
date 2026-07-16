@@ -290,6 +290,7 @@
       <button class="secondary" type="button" id="refresh" data-refresh-reports>Refresh</button>
     </div>
     <div class="status" id="status" data-console-status></div>
+    <div class="status" id="store-health" data-store-health role="status"></div>
 
     <section class="grid" aria-label="Moderation reports">
       <section class="panel" aria-label="Report queue">
@@ -314,6 +315,7 @@
     const tokenInput = document.getElementById("token");
     const authForm = document.getElementById("auth-form");
     const statusNode = document.getElementById("status");
+    const storeHealthNode = document.getElementById("store-health");
     const reportList = document.getElementById("report-list");
     const reportDetail = document.getElementById("report-detail");
     const queueTitle = document.getElementById("queue-title");
@@ -329,6 +331,7 @@
     let selectedReportId = 0;
     let statusFilter = "open";
     let busy = false;
+    let runtimeMeta = null;
 
     tokenInput.value = localStorage.getItem(storageKey) || "";
 
@@ -359,6 +362,27 @@
       const body = await response.json();
       if (!body.ok) throw new Error(body.error || `Request failed with ${body.status || response.status}`);
       return body;
+    }
+
+    async function loadStoreHealth() {
+      try {
+        runtimeMeta = await api("/meta");
+        const health = runtimeMeta?.persistence?.event_store || {};
+        const status = String(health.status || "pending");
+        if (status === "degraded") {
+          storeHealthNode.textContent = `Event store degraded: ${Number(health.pending_event_count || 0)} event(s) awaiting retry; ${Number(health.consecutive_append_failures || 0)} append and ${Number(health.consecutive_read_failures || 0)} read failure(s).`;
+          storeHealthNode.className = "status error";
+        } else if (status === "healthy") {
+          storeHealthNode.textContent = "Event store healthy.";
+          storeHealthNode.className = "status ok";
+        } else {
+          storeHealthNode.textContent = `Event store ${status}.`;
+          storeHealthNode.className = "status";
+        }
+      } catch (error) {
+        storeHealthNode.textContent = `Event store health unavailable: ${error.message || String(error)}`;
+        storeHealthNode.className = "status error";
+      }
     }
 
     function reportTitle(report) {
@@ -399,6 +423,7 @@
     }
 
     async function loadReports() {
+      loadStoreHealth();
       const token = tokenInput.value.trim();
       if (!token) {
         setStatus("Bearer token required.", "error");
@@ -654,6 +679,7 @@
       event.preventDefault();
       loadReports();
     });
+    loadStoreHealth();
     refreshButton.addEventListener("click", () => loadReports());
     document.querySelector(".filters").addEventListener("click", (event) => {
       const button = event.target.closest("[data-status-filter]");

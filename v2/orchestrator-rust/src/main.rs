@@ -60,7 +60,7 @@ use tokio_stream::{
     wrappers::{errors::BroadcastStreamRecvError, BroadcastStream},
     StreamExt,
 };
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use turns::*;
 use world_simulation::*;
 
@@ -72,6 +72,7 @@ struct AppState {
     snapshot_path: Option<Arc<PathBuf>>,
     resident_continuity_path: Option<Arc<PathBuf>>,
     event_store_path: Option<Arc<PathBuf>>,
+    event_store_health: Arc<StdMutex<EventStoreHealth>>,
     account_auth: Arc<AccountAuth>,
     ownership_index: Arc<RwLock<OwnershipIndex>>,
     trust_client_card_ids: bool,
@@ -102,6 +103,66 @@ struct AppState {
     moderation_token: Option<Arc<String>>,
     moderation_report_retention: ModerationReportRetention,
     allow_unsigned_wallet_claims: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+struct EventStoreHealth {
+    last_append_success_at_unix: Option<u64>,
+    last_read_success_at_unix: Option<u64>,
+    last_failure_at_unix: Option<u64>,
+    consecutive_append_failures: u32,
+    consecutive_read_failures: u32,
+    last_error_code: Option<String>,
+    pending_events: BTreeMap<u64, EventView>,
+}
+
+impl EventStoreHealth {
+    fn status(&self, configured: bool) -> &'static str {
+        if !configured {
+            "disabled"
+        } else if self.consecutive_append_failures > 0
+            || self.consecutive_read_failures > 0
+            || !self.pending_events.is_empty()
+        {
+            "degraded"
+        } else if self.last_append_success_at_unix.is_some()
+            || self.last_read_success_at_unix.is_some()
+        {
+            "healthy"
+        } else {
+            "pending"
+        }
+    }
+
+    fn record_append_success(&mut self) {
+        self.last_append_success_at_unix = Some(now_unix_secs());
+        self.consecutive_append_failures = 0;
+        self.refresh_error_code();
+    }
+
+    fn record_read_success(&mut self) {
+        self.last_read_success_at_unix = Some(now_unix_secs());
+        self.consecutive_read_failures = 0;
+        self.refresh_error_code();
+    }
+
+    fn record_append_failure(&mut self, error: &io::Error) {
+        self.last_failure_at_unix = Some(now_unix_secs());
+        self.consecutive_append_failures = self.consecutive_append_failures.saturating_add(1);
+        self.last_error_code = Some(event_store_error_code(error).to_string());
+    }
+
+    fn record_read_failure(&mut self, error: &io::Error) {
+        self.last_failure_at_unix = Some(now_unix_secs());
+        self.consecutive_read_failures = self.consecutive_read_failures.saturating_add(1);
+        self.last_error_code = Some(event_store_error_code(error).to_string());
+    }
+
+    fn refresh_error_code(&mut self) {
+        if self.consecutive_append_failures == 0 && self.consecutive_read_failures == 0 {
+            self.last_error_code = None;
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -2125,7 +2186,20 @@ struct MetaFeatureFlags {
 struct MetaPersistence {
     snapshot_enabled: bool,
     event_store_enabled: bool,
+    event_store: MetaEventStoreHealth,
     moderation_report_retention_days: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+struct MetaEventStoreHealth {
+    status: &'static str,
+    last_append_success_at_unix: Option<u64>,
+    last_read_success_at_unix: Option<u64>,
+    last_failure_at_unix: Option<u64>,
+    consecutive_append_failures: u32,
+    consecutive_read_failures: u32,
+    pending_event_count: usize,
+    last_error_code: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -7457,6 +7531,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     configured_content_registry().map_err(io::Error::other)?;
     let state = AppState::bootstrap().await?;
     start_actor_job_worker(state.clone());
+    start_event_store_retry_scheduler(state.clone());
     start_ownership_refresh_scheduler(state.clone());
     start_moderation_retention_scheduler(state.clone());
     let app = routes::app_router(state);
@@ -7637,6 +7712,7 @@ impl AppState {
         }
         let ownership_index = Arc::new(RwLock::new(ownership_index));
 
+        let mut event_store_health = EventStoreHealth::default();
         if let Some(path) = event_store_path.as_deref() {
             match init_event_store(path)
                 .and_then(|_| event_store_is_empty(path))
@@ -7647,7 +7723,10 @@ impl AppState {
                         Ok(())
                     }
                 }) {
-                Ok(()) => info!("CosyWorld v2 event store ready at {}", path.display()),
+                Ok(()) => {
+                    event_store_health.record_append_success();
+                    info!("CosyWorld v2 event store ready at {}", path.display());
+                }
                 Err(error) if deployment.profile.is_production() => {
                     return Err(io::Error::other(format!(
                         "production profile failed to initialize CosyWorld event store at {}: {}",
@@ -7655,11 +7734,14 @@ impl AppState {
                         error
                     )));
                 }
-                Err(error) => warn!(
-                    "CosyWorld v2 event store disabled for this run; failed to initialize {}: {}",
-                    path.display(),
-                    error
-                ),
+                Err(error) => {
+                    event_store_health.record_append_failure(&error);
+                    error!(
+                        "CosyWorld v2 event store degraded; failed to initialize {}: {}",
+                        path.display(),
+                        error
+                    );
+                }
             }
             if let Err(error) =
                 purge_expired_moderation_reports_for_retention(path, moderation_report_retention)
@@ -7726,6 +7808,7 @@ impl AppState {
             snapshot_path,
             resident_continuity_path,
             event_store_path,
+            event_store_health: Arc::new(StdMutex::new(event_store_health)),
             account_auth,
             ownership_index,
             trust_client_card_ids,
@@ -7766,6 +7849,30 @@ impl AppState {
     fn mark_activity(&self) {
         if let Ok(mut last) = self.last_world_event_at.lock() {
             *last = Instant::now();
+        }
+    }
+
+    fn record_event_store_read_success(&self) {
+        if let Ok(mut health) = self.event_store_health.lock() {
+            health.record_read_success();
+        }
+    }
+
+    fn record_event_store_read_failure(&self, error: &io::Error) {
+        if let Ok(mut health) = self.event_store_health.lock() {
+            health.record_read_failure(error);
+        }
+    }
+
+    fn record_event_store_append_success(&self) {
+        if let Ok(mut health) = self.event_store_health.lock() {
+            health.record_append_success();
+        }
+    }
+
+    fn record_event_store_append_failure(&self, error: &io::Error) {
+        if let Ok(mut health) = self.event_store_health.lock() {
+            health.record_append_failure(error);
         }
     }
 
@@ -23946,6 +24053,11 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
     } else {
         "pending"
     };
+    let event_store_health = state
+        .event_store_health
+        .lock()
+        .map(|health| health.clone())
+        .unwrap_or_default();
 
     Json(MetaResponse {
         ok: true,
@@ -23980,6 +24092,16 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         persistence: MetaPersistence {
             snapshot_enabled: state.snapshot_path.is_some(),
             event_store_enabled: state.event_store_path.is_some(),
+            event_store: MetaEventStoreHealth {
+                status: event_store_health.status(state.event_store_path.is_some()),
+                last_append_success_at_unix: event_store_health.last_append_success_at_unix,
+                last_read_success_at_unix: event_store_health.last_read_success_at_unix,
+                last_failure_at_unix: event_store_health.last_failure_at_unix,
+                consecutive_append_failures: event_store_health.consecutive_append_failures,
+                consecutive_read_failures: event_store_health.consecutive_read_failures,
+                pending_event_count: event_store_health.pending_events.len(),
+                last_error_code: event_store_health.last_error_code,
+            },
             moderation_report_retention_days: state.moderation_report_retention.days,
         },
         ownership_feed: MetaOwnershipFeed {
@@ -25280,6 +25402,7 @@ async fn events_view(
         };
         match stored {
             Ok(events) => {
+                state.record_event_store_read_success();
                 return Json(event_replay_response(
                     events,
                     query.after,
@@ -25288,11 +25411,14 @@ async fn events_view(
                     &visible_locations,
                 ));
             }
-            Err(error) => warn!(
-                "failed to read CosyWorld v2 event store {}: {}",
-                path.display(),
-                error
-            ),
+            Err(error) => {
+                state.record_event_store_read_failure(&error);
+                error!(
+                    "failed to read CosyWorld v2 event store {}: {}",
+                    path.display(),
+                    error
+                );
+            }
         }
     }
 
@@ -25332,17 +25458,21 @@ async fn moderation_events_view(
             event_store_scan_limit(query.after, replay_limit),
         ) {
             Ok(events) => {
+                state.record_event_store_read_success();
                 return Json(ModerationEventsResponse {
                     ok: true,
                     status: 200,
                     events: tail_event_replay(events, replay_limit),
                 });
             }
-            Err(error) => warn!(
-                "failed to read CosyWorld v2 moderation event store {}: {}",
-                path.display(),
-                error
-            ),
+            Err(error) => {
+                state.record_event_store_read_failure(&error);
+                error!(
+                    "failed to read CosyWorld v2 moderation event store {}: {}",
+                    path.display(),
+                    error
+                );
+            }
         }
     }
 
@@ -28375,6 +28505,18 @@ fn start_actor_job_worker(state: AppState) {
     });
     tokio::spawn(async move {
         run_actor_job_worker(state, ACTOR_JOB_KIND_ORB_CHAT).await;
+    });
+}
+
+fn start_event_store_retry_scheduler(state: AppState) {
+    if state.event_store_path.is_none() {
+        return;
+    }
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            persist_events(&state, &[]);
+        }
     });
 }
 
@@ -33425,9 +33567,13 @@ async fn stream_replay_events(
             through_seq,
             MAX_EVENT_STORE_SCAN,
         ) {
-            Ok(events) => events,
+            Ok(events) => {
+                state.record_event_store_read_success();
+                events
+            }
             Err(error) => {
-                warn!(
+                state.record_event_store_read_failure(&error);
+                error!(
                     "failed to read CosyWorld v2 stream replay store {}: {}",
                     path.display(),
                     error
@@ -34878,9 +35024,24 @@ fn commit_journal_record(
     let (status, events, _actor_job_inserted) = if let Some(path) =
         state.event_store_path.as_deref()
     {
-        init_event_store(path)?;
-        let mut conn = open_event_store(path)?;
-        let tx = conn.transaction().map_err(sqlite_error)?;
+        if let Err(error) = init_event_store(path) {
+            state.record_event_store_append_failure(&error);
+            return Err(error);
+        }
+        let mut conn = match open_event_store(path) {
+            Ok(conn) => conn,
+            Err(error) => {
+                state.record_event_store_append_failure(&error);
+                return Err(error);
+            }
+        };
+        let tx = match conn.transaction().map_err(sqlite_error) {
+            Ok(tx) => tx,
+            Err(error) => {
+                state.record_event_store_append_failure(&error);
+                return Err(error);
+            }
+        };
         let committed = (|| -> io::Result<(u32, Vec<EventView>, bool)> {
             insert_action_journal(&tx, &record)?;
             let (status, events) = runtime.apply_journal_record(&record);
@@ -34934,17 +35095,18 @@ fn commit_journal_record(
             Err(error) => {
                 let rollback_error = tx.rollback().map_err(sqlite_error).err();
                 let restore_error = restore_runtime_from_durable_state(state, runtime, path).err();
-                return Err(journal_commit_recovery_error(
-                    error,
-                    rollback_error,
-                    restore_error,
-                ));
+                let error = journal_commit_recovery_error(error, rollback_error, restore_error);
+                state.record_event_store_append_failure(&error);
+                return Err(error);
             }
         };
         if let Err(error) = tx.commit().map_err(sqlite_error) {
             let restore_error = restore_runtime_from_durable_state(state, runtime, path).err();
-            return Err(journal_commit_recovery_error(error, None, restore_error));
+            let error = journal_commit_recovery_error(error, None, restore_error);
+            state.record_event_store_append_failure(&error);
+            return Err(error);
         }
+        state.record_event_store_append_success();
         committed
     } else {
         let (status, events) = runtime.apply_journal_record(&record);
@@ -35020,12 +35182,31 @@ fn persist_events(state: &AppState, events: &[EventView]) {
     let Some(path) = state.event_store_path.as_deref() else {
         return;
     };
-    if let Err(error) = append_event_store(path, events) {
-        warn!(
-            "failed to append CosyWorld v2 events to {}: {}",
-            path.display(),
-            error
-        );
+    let Ok(mut health) = state.event_store_health.lock() else {
+        error!("CosyWorld event-store health lock is poisoned; append retry is unavailable");
+        return;
+    };
+    for event in events.iter().filter(|event| event.seq > 0) {
+        health.pending_events.insert(event.seq, event.clone());
+    }
+    if health.pending_events.is_empty() {
+        return;
+    }
+    let pending = health.pending_events.values().cloned().collect::<Vec<_>>();
+    match append_event_store(path, &pending) {
+        Ok(()) => {
+            health.pending_events.clear();
+            health.record_append_success();
+        }
+        Err(append_error) => {
+            health.record_append_failure(&append_error);
+            error!(
+                "failed to append {} CosyWorld v2 event(s) to {}; buffered for retry: {}",
+                pending.len(),
+                path.display(),
+                append_error
+            );
+        }
     }
 }
 
@@ -36902,6 +37083,18 @@ fn sqlite_error(error: rusqlite::Error) -> io::Error {
     io::Error::other(error)
 }
 
+fn event_store_error_code(error: &io::Error) -> &'static str {
+    match error.kind() {
+        io::ErrorKind::NotFound => "not_found",
+        io::ErrorKind::PermissionDenied => "permission_denied",
+        io::ErrorKind::OutOfMemory => "out_of_memory",
+        io::ErrorKind::InvalidData => "invalid_data",
+        io::ErrorKind::StorageFull => "storage_full",
+        io::ErrorKind::ReadOnlyFilesystem => "read_only_filesystem",
+        _ => "sqlite_io_error",
+    }
+}
+
 fn event_type_name(type_: u8) -> String {
     unsafe {
         let ptr = cw_event_type_name(type_);
@@ -37030,6 +37223,7 @@ mod tests {
             snapshot_path: None,
             resident_continuity_path: None,
             event_store_path: event_store_path.clone().map(Arc::new),
+            event_store_health: Arc::new(StdMutex::new(EventStoreHealth::default())),
             account_auth: AccountAuth::for_test(event_store_path.map(Arc::new)),
             ownership_index: Arc::new(RwLock::new(OwnershipIndex::default())),
             trust_client_card_ids: false,
@@ -39819,12 +40013,99 @@ mod tests {
         assert!(MODERATION_HTML.contains("/moderation/actors/"));
         assert!(MODERATION_HTML.contains("data-economy-summary"));
         assert!(MODERATION_HTML.contains("data-reconciliation-list"));
+        assert!(MODERATION_HTML.contains("data-store-health"));
+        assert!(MODERATION_HTML.contains("pending_event_count"));
         assert!(MODERATION_HTML.contains("data-resolve-reconciliation"));
         assert!(MODERATION_HTML.contains("/moderation/economy?"));
         assert!(MODERATION_HTML.contains("/moderation/economy/reconciliations/"));
         assert!(MODERATION_HTML.contains("/resolve"));
         assert!(MODERATION_HTML.contains("/delete"));
         assert!(MODERATION_HTML.contains("/suspend"));
+    }
+
+    #[tokio::test]
+    async fn event_store_health_buffers_failed_appends_and_recovers_without_sequence_holes() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-store-health-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir_all(&path);
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        fs::remove_file(&path).expect("remove initialized test database");
+        fs::create_dir_all(&path).expect("create path that SQLite cannot open as a file");
+        let query = EventsQuery {
+            after: Some(0),
+            limit: Some(10),
+            actor_id: None,
+            actor_session: None,
+            wallet_address: None,
+            wallet: None,
+            wallet_session: None,
+            owned_card_ids: None,
+            cards: None,
+        };
+
+        let _ = events_view(State(state.clone()), Query(query)).await;
+        persist_events(
+            &state,
+            &[EventView {
+                seq: 1,
+                type_name: "actor.presence".to_string(),
+                success: true,
+                location_id: Some(1),
+                content: Some("active".to_string()),
+                ..EventView::default()
+            }],
+        );
+        let degraded = meta(State(state.clone())).await.0.persistence.event_store;
+        assert_eq!(degraded.status, "degraded");
+        assert_eq!(degraded.pending_event_count, 1);
+        assert_eq!(degraded.consecutive_append_failures, 1);
+        assert_eq!(degraded.consecutive_read_failures, 1);
+        assert!(degraded.last_failure_at_unix.is_some());
+        assert!(degraded.last_error_code.is_some());
+
+        fs::remove_dir(&path).expect("remove failing event-store directory");
+        persist_events(
+            &state,
+            &[EventView {
+                seq: 2,
+                type_name: "actor.presence".to_string(),
+                success: true,
+                location_id: Some(1),
+                content: Some("inactive".to_string()),
+                ..EventView::default()
+            }],
+        );
+        let query = EventsQuery {
+            after: Some(0),
+            limit: Some(10),
+            actor_id: None,
+            actor_session: None,
+            wallet_address: None,
+            wallet: None,
+            wallet_session: None,
+            owned_card_ids: None,
+            cards: None,
+        };
+        let _ = events_view(State(state.clone()), Query(query)).await;
+
+        let stored = read_event_store(&path, Some(0), 10).expect("read recovered event store");
+        assert_eq!(
+            stored.iter().map(|event| event.seq).collect::<Vec<_>>(),
+            vec![1, 2]
+        );
+        let healthy = meta(State(state)).await.0.persistence.event_store;
+        assert_eq!(healthy.status, "healthy");
+        assert_eq!(healthy.pending_event_count, 0);
+        assert_eq!(healthy.consecutive_append_failures, 0);
+        assert_eq!(healthy.consecutive_read_failures, 0);
+        assert!(healthy.last_append_success_at_unix.is_some());
+        assert!(healthy.last_read_success_at_unix.is_some());
+        assert!(healthy.last_error_code.is_none());
+        let _ = fs::remove_file(path);
     }
 
     #[test]
@@ -57508,6 +57789,7 @@ mod tests {
             snapshot_path: None,
             resident_continuity_path: None,
             event_store_path: None,
+            event_store_health: Arc::new(StdMutex::new(EventStoreHealth::default())),
             account_auth: AccountAuth::for_test(None),
             ownership_index: Arc::new(RwLock::new(initial)),
             trust_client_card_ids: false,
