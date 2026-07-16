@@ -5638,6 +5638,7 @@
       try {
         const receipt = JSON.parse(event.content);
         if (!receipt?.state) return false;
+        const previousLocationId = state?.location?.id || null;
         const previousAccess = state?.access || null;
         const previousAccount = state?.account || null;
         state = receipt.state;
@@ -5648,6 +5649,11 @@
         }
         if (previousAccount && !state.account?.authenticated) {
           state.account = previousAccount;
+        }
+        const locationChanged = previousLocationId && previousLocationId !== state.location?.id;
+        if (locationChanged) {
+          pendingChats = [];
+          rebuildLog([...(state.recent_events || [])].reverse());
         }
         actions = buildActions(state);
         return true;
