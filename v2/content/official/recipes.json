@@ -24,5 +24,56 @@
       "reason": "The crafted lantern anchors a new floor slot in the Rain-Soft Garden route instead of adding an orphan item."
     },
     "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 3002,
+    "key": "bank-the-cottage-hearth",
+    "name": "Bank the Cottage Hearth",
+    "description": "Set the hearth tonic beside the story button and bank the cottage fire for whoever arrives next.",
+    "input_item_ids": [
+      2001,
+      2005
+    ],
+    "balance": {
+      "kind": "covenant",
+      "target_kind": "location_floor",
+      "target_id": 1,
+      "reason": "This repeatable care beat leaves the shared home ready for another arrival while both persistent ingredients remain in circulation."
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 3003,
+    "key": "tend-the-rain-soft-garden",
+    "name": "Tend the Rain-Soft Garden",
+    "description": "Set the dewbright button beside the watch bell and clear the puddle path for the next visitor.",
+    "input_item_ids": [
+      2002,
+      2007
+    ],
+    "balance": {
+      "kind": "covenant",
+      "target_kind": "location_floor",
+      "target_id": 2,
+      "reason": "This repeatable care beat keeps the first shared route legible while both persistent ingredients remain in circulation."
+    },
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": 3004,
+    "key": "reset-the-practice-circle",
+    "name": "Reset the Practice Circle",
+    "description": "Set the wolfprint charm beside the hearthstone tag and smooth the practice circle after a hard crossing.",
+    "input_item_ids": [
+      2003,
+      2006
+    ],
+    "balance": {
+      "kind": "covenant",
+      "target_kind": "location_floor",
+      "target_id": 3,
+      "reason": "This repeatable care beat makes frontier practice useful to the next traveler while both persistent ingredients remain in circulation."
+    },
+    "pack_id": "cosyworld.core"
   }
 ]
