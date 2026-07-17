@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.cottage-pact-proof",
+  "name": "Cosy Cottage Pact Proof",
+  "entry_location_id": 1,
+  "pact_location_id": 1,
+  "location_ids": [1, 2, 3, 40, 41, 42, 43, 44],
+  "minimum_location_count": 5,
+  "maximum_location_count": 8,
+  "minimum_loop_kinds_per_location": 2,
+  "minimum_production_loops": 3,
+  "required_front_ids": [
+    "moonlit-trail:echo-front",
+    "haunted-mansion:barred-threshold"
+  ]
+}

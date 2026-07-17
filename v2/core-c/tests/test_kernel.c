@@ -902,18 +902,29 @@ static void test_search_and_craft_create_without_consuming_inputs(void) {
   assert(events.events[0].item_id == 2005);
   assert(test_find_item(&world, 2005)->location_id == 1);
 
-  cw_action craft = {0};
-  craft.kind = CW_ACTION_CRAFT;
-  craft.actor_id = 5001;
+  cw_action care = {0};
+  care.kind = CW_ACTION_CRAFT;
+  care.actor_id = 5001;
+  care.content_id = 3002;
+  care.item_id = 2001;
+  care.target_item_id = 2005;
+  assert(cw_world_apply(&world, &care, 74, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_CRAFTED);
+  assert(cw_world_apply(&world, &care, 75, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_CRAFTED);
+  assert(test_find_item(&world, 2001)->holder_actor_id == 5001);
+  assert(test_find_item(&world, 2005)->location_id == 1);
+
+  cw_action craft = care;
   craft.content_id = 3001;
-  craft.item_id = 2001;
-  craft.target_item_id = 2005;
   craft.output_item_id = 2011;
   craft.output_target_kind = CW_PLACEMENT_LOCATION_FLOOR;
   craft.output_target_id = 11;
   craft.output_item_kind = CW_ITEM_KEEPSAKE;
   craft.output_item_charges = 1;
-  assert(cw_world_apply(&world, &craft, 74, &events) == CW_OK);
+  assert(cw_world_apply(&world, &craft, 76, &events) == CW_OK);
   assert(events.count == 2);
   assert(events.events[0].type == CW_EVENT_ITEM_CRAFTED);
   assert(events.events[0].item_id == 2001);
@@ -924,7 +935,7 @@ static void test_search_and_craft_create_without_consuming_inputs(void) {
   assert(test_find_item(&world, 2005)->location_id == 1);
   assert(test_find_item(&world, 2011)->location_id == 11);
 
-  assert(cw_world_apply(&world, &craft, 75, &events) == CW_ERR_RULE);
+  assert(cw_world_apply(&world, &craft, 77, &events) == CW_ERR_RULE);
   assert(events.count == 1);
   assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
 }
