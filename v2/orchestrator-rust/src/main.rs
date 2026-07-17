@@ -25097,6 +25097,15 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
                 .as_deref()
                 .unwrap_or("another keepsake")
         ),
+        "item.crafted" => {
+            let contribution = event
+                .content
+                .as_deref()
+                .map(str::trim)
+                .filter(|content| !content.is_empty())
+                .unwrap_or("a shared care task");
+            format!("{actor_name} completed {contribution}")
+        }
         _ => command_event_output(event).unwrap_or_else(|| event.type_name.replace('.', " ")),
     };
     room_memory_text(Some(&text))
@@ -34243,6 +34252,18 @@ mod tests {
                     ..EventView::default()
                 },
                 "Quiet the Moonlit Trail draws closer.",
+            ),
+            (
+                EventView {
+                    type_name: "item.crafted".to_string(),
+                    success: true,
+                    actor_name: Some("Moss Lantern".to_string()),
+                    content: Some(
+                        "Bank the Cottage Hearth: Hearth Tonic met Story Button.".to_string(),
+                    ),
+                    ..EventView::default()
+                },
+                "Moss Lantern completed Bank the Cottage Hearth: Hearth Tonic met Story Button.",
             ),
         ];
 
@@ -44558,6 +44579,31 @@ mod tests {
                 .expect("serialize pre-snapshot hand"),
             serde_json::to_value(&restored_state.action_hand).expect("serialize restored hand")
         );
+    }
+
+    #[test]
+    fn pact_proof_fronts_offer_solo_and_cooperative_paths() {
+        for (actor_id, location_id, job_id) in [
+            (5_100, MOONLIT_TRAIL_LOCATION_ID, MOONLIT_JOB_ID),
+            (5_101, 42, "haunted-mansion:earn-the-threshold"),
+        ] {
+            let mut runtime = RuntimeWorld::seeded();
+            create_test_human(&mut runtime, actor_id, location_id, "Pact Proof Tester");
+
+            let state = runtime.state_response(Some(actor_id), &AccessContext::default());
+            for action_kind in ["work", "help"] {
+                assert!(
+                    state.action_offers.iter().any(|offer| {
+                        offer.kind == action_kind
+                            && offer
+                                .project
+                                .as_ref()
+                                .is_some_and(|project| project.id == job_id)
+                    }),
+                    "{job_id} must expose the {action_kind} proof-world path"
+                );
+            }
+        }
     }
 
     #[test]

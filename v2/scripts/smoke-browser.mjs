@@ -5961,7 +5961,7 @@ async function main() {
     }
   }
 
-  async function takeItem(name) {
+  async function takeItem(name, { allowContention = false } = {}) {
     const nameLower = name.toLowerCase();
     steps.push({
       label: `focus ${name}`,
@@ -5969,21 +5969,21 @@ async function main() {
     });
     assert(/\b(take|swap)\b/.test((await primaryText()).toLowerCase()), `${name} focus should take or swap the item`);
     await clickPrimary(`take ${name}`);
-    await page.waitForFunction(
-      (itemName) => {
-        const currentActorId = Number(actorId || 0);
-        return (state?.items || []).some((item) => (
-          item.name === itemName
-          && Number(item.holder_actor_id || 0) === currentActorId
-        ));
-      },
-      name,
-    );
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
+    const held = await page.evaluate((itemName) => {
+      const currentActorId = Number(actorId || 0);
+      return (state?.items || []).some((item) => (
+        item.name === itemName
+          && Number(item.holder_actor_id || 0) === currentActorId
+      ));
+    }, name);
+    if (!held && allowContention) return false;
+    assert(held, `${name} should be held after its take or swap action settles`);
+    return true;
   }
 
   async function revealBySearchIfNeeded(itemName, searchNeedles, label) {
@@ -6337,7 +6337,13 @@ async function main() {
           ))?.name || "";
         }, [...itemToResident.keys()].filter((name) => !delivered.has(name)));
         if (blockingItem) {
-          await takeItem(blockingItem);
+          const cleared = await takeItem(blockingItem, {
+            allowContention: runLivingWorldStress,
+          });
+          if (!cleared) {
+            steps.push({ label: "garden item race", item: blockingItem });
+            continue;
+          }
           await discoverRoute("The Cosy Cottage");
           await travelTo("The Cosy Cottage");
           await placeHeldItemHere(blockingItem);
@@ -6351,7 +6357,10 @@ async function main() {
         await clickSearchAndAssertProgress(`garden keepsake search ${attempt}`);
         continue;
       }
-      await takeItem(itemName);
+      const taken = await takeItem(itemName, {
+        allowContention: runLivingWorldStress,
+      });
+      if (!taken) steps.push({ label: "garden item race", item: itemName });
     }
     assert(delivered.size === itemToResident.size, `both garden keepsakes should reach their residents: ${JSON.stringify([...delivered])}`);
   }
@@ -7940,12 +7949,18 @@ async function main() {
   await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 10_000 });
   await page.waitForSelector("#primary");
   await page.waitForFunction(() => (document.querySelector("#primary")?.innerText || "").trim().length > 0);
-  const quietRoomScene = await page.locator("#log .room-scene").evaluate((node) => ({
-    text: node.textContent.trim().replace(/\s+/g, " "),
-    aria: node.getAttribute("aria-label") || "",
-    centered: getComputedStyle(node.parentElement).justifyContent === "center",
-    width: node.getBoundingClientRect().width,
-  }));
+  const quietRoomScene = await page.evaluate(() => {
+    const node = document.querySelector("#log .room-scene");
+    const parent = node?.parentElement;
+    if (!node || !parent) return null;
+    return {
+      text: node.textContent.trim().replace(/\s+/g, " "),
+      aria: node.getAttribute("aria-label") || "",
+      centered: getComputedStyle(parent).justifyContent === "center",
+      width: node.getBoundingClientRect().width,
+    };
+  });
+  assert(quietRoomScene, "a quiet-room vignette should remain mounted while it is inspected");
   assert(
     /a new tale is waiting/i.test(quietRoomScene.text)
       && /begin with the trouble you can't resist/i.test(quietRoomScene.text)
@@ -7955,9 +7970,12 @@ async function main() {
   assert(quietRoomScene.centered && quietRoomScene.width > 220, `quiet-room vignette should occupy the story stage: ${JSON.stringify(quietRoomScene)}`);
   const quietRoomDesktopViewport = page.viewportSize();
   await page.setViewportSize({ width: 430, height: 860 });
-  const quietRoomMobile = await page.locator("#log .room-scene").evaluate((node) => {
+  const quietRoomMobile = await page.evaluate(() => {
+    const node = document.querySelector("#log .room-scene");
+    const parent = node?.parentElement;
+    if (!node || !parent) return null;
     const rect = node.getBoundingClientRect();
-    const logRect = node.parentElement.getBoundingClientRect();
+    const logRect = parent.getBoundingClientRect();
     return {
       left: rect.left,
       right: rect.right,
@@ -7970,6 +7988,7 @@ async function main() {
       viewportHeight: window.innerHeight,
     };
   });
+  assert(quietRoomMobile, "a quiet-room vignette should remain mounted at the mobile viewport");
   assert(
     quietRoomMobile.left >= 0
       && quietRoomMobile.right <= quietRoomMobile.viewportWidth
@@ -8026,12 +8045,44 @@ async function main() {
   assert(coreSmokeAvatar.ok && coreSmokeAvatar.actor?.id && coreSmokeAvatar.actor_session, `core smoke avatar should be created after the campaign-entry probe: ${JSON.stringify(coreSmokeAvatar)}`);
   const coreSmokeUrl = new URL(targetUrl);
   coreSmokeUrl.searchParams.delete("reset");
-  await page.goto(coreSmokeUrl.toString(), { waitUntil: "domcontentloaded", timeout: 10_000 });
-  await page.waitForFunction(
-    () => state?.location?.name === "The Cosy Cottage" && actorId > 0,
-    null,
-    { timeout: 35_000 },
-  );
+  let coreSmokeHydrated = false;
+  let coreSmokeHydrationState = null;
+  for (let attempt = 1; attempt <= 2 && !coreSmokeHydrated; attempt += 1) {
+    await page.evaluate(({ actorId: id, actorSession }) => {
+      localStorage.setItem("cosyworld.actorId", String(id));
+      localStorage.setItem("cosyworld.actorSession", actorSession);
+    }, {
+      actorId: coreSmokeAvatar.actor.id,
+      actorSession: coreSmokeAvatar.actor_session,
+    });
+    await page.goto(coreSmokeUrl.toString(), { waitUntil: "domcontentloaded", timeout: 10_000 });
+    try {
+      await page.waitForFunction(
+        () => state?.location?.name === "The Cosy Cottage" && actorId > 0,
+        null,
+        { timeout: 35_000 },
+      );
+      coreSmokeHydrated = true;
+    } catch (error) {
+      coreSmokeHydrationState = await page.evaluate(() => ({
+        actorId,
+        localActorId: localStorage.getItem("cosyworld.actorId"),
+        location: state?.location?.name || null,
+        primary: document.querySelector("#primary")?.innerText?.trim() || null,
+      }));
+      if (attempt === 2) {
+        throw new Error(
+          `core smoke avatar did not hydrate at the Cottage: ${JSON.stringify(coreSmokeHydrationState)}`,
+          { cause: error },
+        );
+      }
+      steps.push({
+        label: "retry core smoke hydration",
+        state: coreSmokeHydrationState,
+      });
+    }
+  }
+  assert(coreSmokeHydrated, `core smoke avatar should hydrate at the Cottage: ${JSON.stringify(coreSmokeHydrationState)}`);
   steps.push({ label: "core smoke avatar", actor: coreSmokeAvatar.actor.id, location: "The Cosy Cottage" });
   await assertActionBarCapped("normal play", 2);
   await assertFirstThreadGuide();
