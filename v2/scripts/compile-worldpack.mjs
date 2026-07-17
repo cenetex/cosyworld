@@ -231,6 +231,28 @@ assert(lock.world_id === world.id, "pack lock does not belong to the official wo
 assert(Array.isArray(world.packs) && world.packs.length > 0, "world composition has no packs");
 assert(Array.isArray(lock.packs), "world composition pack lock has no packs array");
 assert(new Set(world.packs).size === world.packs.length, "world composition has duplicate pack ids");
+const persistenceCompatibility = world.persistence_compatibility ?? null;
+if (persistenceCompatibility) {
+  assert(
+    persistenceCompatibility.schema_version === 1,
+    "world persistence compatibility schema_version must be 1",
+  );
+  assert(
+    Array.isArray(persistenceCompatibility.replay_compatible_bundle_hashes),
+    "world persistence compatibility must declare replay_compatible_bundle_hashes",
+  );
+  assert(
+    persistenceCompatibility.replay_compatible_bundle_hashes.every(
+      (value) => /^sha256:[0-9a-f]{64}$/.test(value),
+    ),
+    "world persistence compatibility contains an invalid bundle hash",
+  );
+  assert(
+    new Set(persistenceCompatibility.replay_compatible_bundle_hashes).size
+      === persistenceCompatibility.replay_compatible_bundle_hashes.length,
+    "world persistence compatibility contains duplicate bundle hashes",
+  );
+}
 
 const lockById = new Map(lock.packs.map((entry) => [entry.id, entry]));
 assert(lockById.size === lock.packs.length, "pack lock has duplicate pack ids");
@@ -484,8 +506,9 @@ const contentReferences = buildContentReferenceMapping(
   }),
   CANONICAL_ID_MAPPING_VERSION,
 );
+const { persistence_compatibility: _persistenceCompatibility, ...worldIdentity } = world;
 const bundleHash = sha256([
-  json(world),
+  json(worldIdentity),
   json(packSummary),
   ...Object.values(resources).map(json),
   json(externalCards),
@@ -496,6 +519,10 @@ const bundleHash = sha256([
   json(characterCreationBundles),
   json(contentReferences),
 ]);
+assert(
+  !persistenceCompatibility?.replay_compatible_bundle_hashes.includes(bundleHash),
+  "world persistence compatibility must not list the active bundle hash",
+);
 const manifest = {
   schema_version: 2,
   pack_contract: CONTENT_PACK_CONTRACT,
@@ -506,6 +533,7 @@ const manifest = {
   description: world.description,
   entry_location: world.entry_location,
   ...(world.entry_grant_id ? { entry_grant_id: world.entry_grant_id } : {}),
+  ...(persistenceCompatibility ? { persistence_compatibility: persistenceCompatibility } : {}),
   bundle_hash: bundleHash,
   packs: packSummary,
   files: resourceFiles,

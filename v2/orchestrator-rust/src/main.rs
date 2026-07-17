@@ -2258,9 +2258,10 @@ fn action_content_handles(action: &CwAction) -> Vec<(&'static str, u64)> {
     handles
 }
 
-fn validate_persisted_content_context(
+fn validate_persisted_content_context_for_replay(
     context: &ContentReferenceContext,
     label: &str,
+    declared_worldpack_migration: bool,
 ) -> io::Result<()> {
     if context.mapping_version == 0 {
         return Ok(());
@@ -2273,7 +2274,11 @@ fn validate_persisted_content_context(
         )));
     }
     for reference in &context.references {
-        let status = content_registry().inspect_content_reference(reference);
+        let status = if declared_worldpack_migration {
+            content_registry().inspect_content_reference_for_declared_migration(reference)
+        } else {
+            content_registry().inspect_content_reference(reference)
+        };
         if status != ContentReferenceStatus::Available {
             return Err(snapshot_error(format!(
                 "{label} content reference {} is not replayable: {status:?}",
@@ -2282,6 +2287,38 @@ fn validate_persisted_content_context(
         }
     }
     Ok(())
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WorldpackReplayCompatibility {
+    LegacyUnversioned,
+    Exact,
+    DeclaredMigration,
+}
+
+fn persisted_worldpack_replay_compatibility(
+    persisted_bundle_hash: &str,
+    label: &str,
+) -> io::Result<WorldpackReplayCompatibility> {
+    let active_bundle_hash = active_content().manifest.bundle_hash.as_str();
+    if persisted_bundle_hash.is_empty() {
+        return Ok(WorldpackReplayCompatibility::LegacyUnversioned);
+    }
+    if persisted_bundle_hash == active_bundle_hash {
+        return Ok(WorldpackReplayCompatibility::Exact);
+    }
+    if active_content()
+        .manifest
+        .persistence_compatibility
+        .replay_compatible_bundle_hashes
+        .iter()
+        .any(|hash| hash == persisted_bundle_hash)
+    {
+        return Ok(WorldpackReplayCompatibility::DeclaredMigration);
+    }
+    Err(snapshot_error(format!(
+        "{label} worldpack {persisted_bundle_hash} does not match active worldpack {active_bundle_hash} and is not declared replay-compatible"
+    )))
 }
 
 #[derive(Debug, Serialize)]
@@ -4071,33 +4108,69 @@ impl AppState {
         let resident_continuity_path =
             resident_continuity_path_from_env(snapshot_path.as_deref()).map(Arc::new);
         let event_store_path = event_store_path_from_env().map(Arc::new);
+        let fail_closed_on_continuity_error = deployment.profile.is_production();
         let mut runtime = match event_store_path.as_deref() {
-            Some(path) => match init_event_store(path)
-                .and_then(|_| action_journal_has_records(path))
-                .and_then(|has_records| {
-                    if has_records {
-                        RuntimeWorld::from_action_journal(path)
-                    } else {
-                        Err(snapshot_error("action journal is empty"))
+            Some(path) => {
+                match init_event_store(path).and_then(|_| action_journal_has_records(path)) {
+                    Ok(true) => match RuntimeWorld::from_action_journal(path) {
+                        Ok(runtime) => {
+                            info!(
+                                "replayed CosyWorld v2 action journal from {}",
+                                path.display()
+                            );
+                            runtime
+                        }
+                        Err(error) if fail_closed_on_continuity_error => {
+                            return Err(io::Error::new(
+                                error.kind(),
+                                format!(
+                                "production continuity cannot replay action journal {}: {error}",
+                                path.display()
+                            ),
+                            ));
+                        }
+                        Err(error) => {
+                            warn!(
+                            "action journal unavailable at {}; falling back to snapshot/seed: {}",
+                            path.display(),
+                            error
+                        );
+                            load_snapshot_or_seed_with_policy(
+                                snapshot_path.as_deref(),
+                                fail_closed_on_continuity_error,
+                            )?
+                        }
+                    },
+                    Ok(false) => load_snapshot_or_seed_with_policy(
+                        snapshot_path.as_deref(),
+                        fail_closed_on_continuity_error,
+                    )?,
+                    Err(error) if fail_closed_on_continuity_error => {
+                        return Err(io::Error::new(
+                            error.kind(),
+                            format!(
+                                "production continuity cannot read action journal {}: {error}",
+                                path.display()
+                            ),
+                        ));
                     }
-                }) {
-                Ok(runtime) => {
-                    info!(
-                        "replayed CosyWorld v2 action journal from {}",
-                        path.display()
-                    );
-                    runtime
+                    Err(error) => {
+                        warn!(
+                            "action journal unavailable at {}; falling back to snapshot/seed: {}",
+                            path.display(),
+                            error
+                        );
+                        load_snapshot_or_seed_with_policy(
+                            snapshot_path.as_deref(),
+                            fail_closed_on_continuity_error,
+                        )?
+                    }
                 }
-                Err(error) => {
-                    warn!(
-                        "action journal unavailable at {}; falling back to snapshot/seed: {}",
-                        path.display(),
-                        error
-                    );
-                    load_snapshot_or_seed(snapshot_path.as_deref())
-                }
-            },
-            None => load_snapshot_or_seed(snapshot_path.as_deref()),
+            }
+            None => load_snapshot_or_seed_with_policy(
+                snapshot_path.as_deref(),
+                fail_closed_on_continuity_error,
+            )?,
         };
         if let Some(path) = event_store_path.as_deref() {
             if let Err(error) = advance_runtime_next_event_seq_from_store(&mut runtime, path) {
@@ -4732,16 +4805,20 @@ impl RuntimeSnapshot {
     }
 
     fn into_runtime(self) -> io::Result<RuntimeWorld> {
-        if !self.worldpack_bundle_hash.is_empty()
-            && self.worldpack_bundle_hash != active_content().manifest.bundle_hash
-        {
-            return Err(snapshot_error(format!(
-                "snapshot worldpack {} does not match active worldpack {}",
+        let compatibility =
+            persisted_worldpack_replay_compatibility(&self.worldpack_bundle_hash, "snapshot")?;
+        if compatibility == WorldpackReplayCompatibility::DeclaredMigration {
+            warn!(
+                "loading snapshot through declared worldpack migration: {} -> {}",
                 self.worldpack_bundle_hash,
                 active_content().manifest.bundle_hash
-            )));
+            );
         }
-        validate_persisted_content_context(&self.content_context, "snapshot")?;
+        validate_persisted_content_context_for_replay(
+            &self.content_context,
+            "snapshot",
+            compatibility == WorldpackReplayCompatibility::DeclaredMigration,
+        )?;
         if self.world_actors.len() > CW_MAX_ACTORS {
             return Err(snapshot_error("too many actors in snapshot"));
         }
@@ -4930,18 +5007,31 @@ impl RuntimeWorld {
     fn from_action_journal(path: &Path) -> io::Result<Self> {
         let mut runtime = Self::seeded();
         let records = read_action_journal(path)?;
+        let mut migrated_bundle_hashes = BTreeSet::new();
         for record in records {
-            if !record.worldpack_bundle_hash.is_empty()
-                && record.worldpack_bundle_hash != active_content().manifest.bundle_hash
-            {
-                return Err(snapshot_error(format!(
-                    "action journal worldpack {} does not match active worldpack {}",
-                    record.worldpack_bundle_hash,
-                    active_content().manifest.bundle_hash
-                )));
+            let compatibility = persisted_worldpack_replay_compatibility(
+                &record.worldpack_bundle_hash,
+                "action journal",
+            )?;
+            if compatibility == WorldpackReplayCompatibility::DeclaredMigration {
+                migrated_bundle_hashes.insert(record.worldpack_bundle_hash.clone());
             }
-            validate_persisted_content_context(&record.content_context, "action journal")?;
+            validate_persisted_content_context_for_replay(
+                &record.content_context,
+                "action journal",
+                compatibility == WorldpackReplayCompatibility::DeclaredMigration,
+            )?;
             let _ = runtime.apply_journal_record(&record);
+        }
+        if !migrated_bundle_hashes.is_empty() {
+            warn!(
+                "replayed action journal through declared worldpack migration(s) from [{}] to {}",
+                migrated_bundle_hashes
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                active_content().manifest.bundle_hash
+            );
         }
         runtime.recompute_counters();
         runtime.ensure_seed_topology();
@@ -6837,14 +6927,16 @@ impl RuntimeWorld {
                 "unsupported resident continuity snapshot version",
             ));
         }
-        if !snapshot.worldpack_bundle_hash.is_empty()
-            && snapshot.worldpack_bundle_hash != active_content().manifest.bundle_hash
-        {
-            return Err(snapshot_error(format!(
-                "resident continuity worldpack {} does not match active worldpack {}",
+        let compatibility = persisted_worldpack_replay_compatibility(
+            &snapshot.worldpack_bundle_hash,
+            "resident continuity",
+        )?;
+        if compatibility == WorldpackReplayCompatibility::DeclaredMigration {
+            warn!(
+                "loading resident continuity through declared worldpack migration: {} -> {}",
                 snapshot.worldpack_bundle_hash,
                 active_content().manifest.bundle_hash
-            )));
+            );
         }
         Ok(self.apply_resident_continuity_snapshot(snapshot))
     }
@@ -30181,23 +30273,40 @@ fn default_resident_continuity_path(snapshot_path: Option<&PathBuf>) -> PathBuf 
     snapshot_path.with_file_name(format!("{base}-resident-continuity.json"))
 }
 
+#[cfg(test)]
 fn load_snapshot_or_seed(snapshot_path: Option<&PathBuf>) -> RuntimeWorld {
+    load_snapshot_or_seed_with_policy(snapshot_path, false)
+        .expect("local snapshot fallback must always seed on failure")
+}
+
+fn load_snapshot_or_seed_with_policy(
+    snapshot_path: Option<&PathBuf>,
+    fail_closed_on_continuity_error: bool,
+) -> io::Result<RuntimeWorld> {
     match snapshot_path {
         Some(path) => match RuntimeWorld::load_snapshot(path) {
             Ok(runtime) => {
                 info!("loaded CosyWorld v2 snapshot from {}", path.display());
-                runtime
+                Ok(runtime)
             }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(RuntimeWorld::seeded()),
+            Err(error) if fail_closed_on_continuity_error => Err(io::Error::new(
+                error.kind(),
+                format!(
+                    "production continuity cannot load snapshot {}: {error}",
+                    path.display()
+                ),
+            )),
             Err(error) => {
                 warn!(
                     "starting fresh CosyWorld v2 world; failed to load snapshot {}: {}",
                     path.display(),
                     error
                 );
-                RuntimeWorld::seeded()
+                Ok(RuntimeWorld::seeded())
             }
         },
-        None => RuntimeWorld::seeded(),
+        None => Ok(RuntimeWorld::seeded()),
     }
 }
 
@@ -35536,6 +35645,69 @@ mod tests {
             .event_log
             .iter()
             .any(|event| event.type_name == "message.created" && event.content_id == Some(9001)));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn action_journal_replays_declared_worldpack_epochs_in_order() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-migrated-journal-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let compatible_hashes = &active_content()
+            .manifest
+            .persistence_compatibility
+            .replay_compatible_bundle_hashes;
+
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let mut create_record = JournalRecord::new(create, 9911);
+        create_record.worldpack_bundle_hash = compatible_hashes[0].clone();
+        for reference in &mut create_record.content_context.references {
+            if reference.pack_id == "cosyworld.core" {
+                reference.pack_version = "1.0.0".to_string();
+            }
+        }
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Migrated Traveler".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Epoch Walker".to_string(),
+                description: "A continuity migration fixture.".to_string(),
+            },
+        );
+
+        let mut say = CwAction::default();
+        say.kind = CW_ACTION_SAY;
+        say.actor_id = 5000;
+        say.content_id = 9001;
+        let mut say_record = JournalRecord::new(say, 9912);
+        say_record.worldpack_bundle_hash = compatible_hashes[1].clone();
+        say_record.content_context = ContentReferenceContext::default();
+        say_record
+            .content_upserts
+            .insert(9001, "hello across worldpack epochs".to_string());
+
+        append_action_journal(&path, &create_record).expect("append migrated create");
+        append_action_journal(&path, &say_record).expect("append migrated speech");
+
+        let replayed = RuntimeWorld::from_action_journal(&path)
+            .expect("declared journal epochs replay against current content");
+        assert_eq!(
+            replayed.actor_name(5000).as_deref(),
+            Some("Migrated Traveler")
+        );
+        assert_eq!(
+            replayed.content.get(&9001).map(String::as_str),
+            Some("hello across worldpack epochs")
+        );
+        assert!(replayed.actor_by_id(5000).is_some());
 
         let _ = fs::remove_file(path);
     }
@@ -42614,6 +42786,33 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_accepts_an_explicitly_declared_worldpack_migration() {
+        let compatible_hashes = &active_content()
+            .manifest
+            .persistence_compatibility
+            .replay_compatible_bundle_hashes;
+        assert_eq!(compatible_hashes.len(), 4);
+        assert!(!compatible_hashes.contains(&active_content().manifest.bundle_hash));
+
+        let mut snapshot = RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded());
+        snapshot.version = 1;
+        snapshot.worldpack_bundle_hash = compatible_hashes[0].clone();
+        snapshot.content_context = ContentReferenceContext::default();
+        snapshot.tick = 57;
+        snapshot.next_event_seq = 736;
+
+        let runtime = snapshot
+            .into_runtime()
+            .expect("declared production snapshot epoch migrates");
+        assert_eq!(runtime.world.tick, 57);
+        assert_eq!(runtime.world.next_event_seq, 736);
+        assert_eq!(
+            runtime.world.location_count,
+            active_content().locations.len()
+        );
+    }
+
+    #[test]
     fn prelaunch_bundle_change_falls_back_to_a_fresh_seed() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-worldpack-mismatch-{}-{}.json",
@@ -42637,6 +42836,31 @@ mod tests {
         );
         assert_eq!(runtime.world.actor_count, active_content().actors.len());
         assert_eq!(runtime.world.tick, RuntimeWorld::seeded().world.tick);
+    }
+
+    #[test]
+    fn production_bundle_change_fails_closed_instead_of_seeding() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-production-worldpack-mismatch-{}-{}.json",
+            std::process::id(),
+            now_seed()
+        ));
+        let mut snapshot = RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded());
+        snapshot.worldpack_bundle_hash = format!("sha256:{}", "0".repeat(64));
+        fs::write(
+            &path,
+            serde_json::to_vec(&snapshot).expect("snapshot serializes"),
+        )
+        .expect("mismatched snapshot writes");
+
+        let error = load_snapshot_or_seed_with_policy(Some(&path), true)
+            .expect_err("production continuity must fail closed");
+        let _ = fs::remove_file(path);
+
+        assert!(error
+            .to_string()
+            .contains("production continuity cannot load snapshot"));
+        assert!(error.to_string().contains("not declared replay-compatible"));
     }
 
     #[test]

@@ -51,6 +51,8 @@ pub(super) struct SeedWorldpackManifest {
     #[serde(default)]
     pub(super) bundle_hash: String,
     #[serde(default)]
+    pub(super) persistence_compatibility: SeedPersistenceCompatibility,
+    #[serde(default)]
     pub(super) packs: Vec<SeedWorldpackPack>,
     #[serde(default)]
     pub(super) registry: String,
@@ -58,6 +60,14 @@ pub(super) struct SeedWorldpackManifest {
     pub(super) content_references: String,
     #[serde(default)]
     pub(super) licenses: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(super) struct SeedPersistenceCompatibility {
+    #[serde(default)]
+    pub(super) schema_version: u32,
+    #[serde(default)]
+    pub(super) replay_compatible_bundle_hashes: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -742,6 +752,24 @@ pub(super) fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> R
             "worldpack manifest does not identify its compiled registry and content references"
                 .to_string(),
         );
+    }
+    let compatibility = &manifest.persistence_compatibility;
+    if compatibility.schema_version == 0 {
+        if !compatibility.replay_compatible_bundle_hashes.is_empty() {
+            return Err(
+                "worldpack persistence compatibility hashes require schema version 1".to_string(),
+            );
+        }
+    } else {
+        let mut compatible_hashes = BTreeSet::new();
+        if compatibility.schema_version != 1
+            || compatibility
+                .replay_compatible_bundle_hashes
+                .iter()
+                .any(|hash| !valid_sha256_digest(hash) || !compatible_hashes.insert(hash.as_str()))
+        {
+            return Err("invalid worldpack persistence compatibility policy".to_string());
+        }
     }
     Ok(())
 }

@@ -337,6 +337,26 @@ impl ContentRegistry {
         }
     }
 
+    pub(super) fn inspect_content_reference_for_declared_migration(
+        &self,
+        persisted: &ContentReferenceEntry,
+    ) -> ContentReferenceStatus {
+        if self.pack(&persisted.pack_id).is_none() {
+            return ContentReferenceStatus::MissingPack;
+        }
+        let Some(current) = self
+            .content_references_by_canonical
+            .get(&persisted.canonical_ref)
+        else {
+            return ContentReferenceStatus::UnknownReference;
+        };
+        if current.runtime_handle != persisted.runtime_handle {
+            ContentReferenceStatus::Remapped
+        } else {
+            ContentReferenceStatus::Available
+        }
+    }
+
     #[cfg(test)]
     fn additional_resource(&self, kind: &str) -> Option<&serde_json::Value> {
         self.additional_resources.get(kind)
