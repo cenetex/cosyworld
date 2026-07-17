@@ -30,18 +30,22 @@ For the OpenRouter player payer, Orb-paid Chat, real AI media, combat rewards, a
 
 ## Current Capabilities
 
-The runtime boots one shard per orchestrator process:
+The official service has one canonical player world. The current runtime boots
+one single-writer orchestrator for it:
 
-- The process owns one authoritative world, one SQLite action/event store, one
-  ownership projection, and one SSE stream.
-- `COSYWORLD_V2_SHARD_ID` names the process in `/meta`; it defaults to `local`
-  for local profile and `public-1` for production profile.
+- The process owns the current authoritative projection, one SQLite
+  action/event store, one ownership projection, and one SSE stream.
+- `COSYWORLD_V2_SHARD_ID` is a temporary compatibility name for the process
+  label in `/meta`; it defaults to `local` for local profile and `public-1` for
+  production profile. It is not world, room, actor, or save identity.
 - The C kernel is built with fixed in-process capacities of 512 actors, 1024
   items, 256 locations, 1024 exits, 256 emitted events per kernel call, and 128
   evolution tracks. `/meta` exposes the live counters and these compiled caps.
-- Horizontal scale is a process/deployment boundary: run separate shard
-  processes with isolated stores and route players to the right shard.
-  Cross-shard routing is intentionally outside the MVP.
+- Production remains one writer while SQLite owns the journal. Horizontal
+  capacity may be enabled only after processes share the canonical journal,
+  fenced partition ownership, stable routing, and the cross-process/failover
+  tests in [`docs/canonical-world.md`](docs/canonical-world.md). Starting
+  isolated public-world copies behind a load balancer is forbidden.
 
 Seed world content:
 
@@ -49,7 +53,7 @@ Seed world content:
 - Location `2`: Rain-Soft Garden.
 - Location `3`: Moonlit Trail.
 - Locations `2` and `3`: Rain-Soft Garden and Moonlit Trail, public CosyWorld Core rooms.
-- Locations `10`-`15`: Ruby High: First Bell expansion rooms. Science Class, Homeroom, Library, Cafeteria, Greenhouse, and Courtyard require their matching Ruby High location cards on the official shard.
+- Locations `10`-`15`: Ruby High: First Bell expansion rooms. Science Class, Homeroom, Library, Cafeteria, Greenhouse, and Courtyard require their matching Ruby High location cards in the official world.
 - Locations `30`-`36`, `40`-`44`, `50`, and `60`-`65`: public CosyWorld Core seed rooms for free-world breadth.
 - Exits: `1 <-> 2 <-> 3`, plus Cottage hub doors to public seed rooms and locked Ruby High expansion doors.
 - Default public room: everyone can enter The Cosy Cottage without an NFT.
@@ -73,7 +77,7 @@ CosyWorld Core is free and should feel complete: players can create an avatar, c
 Official NFTs unlock official expansions, not the base game. Pack resources
 name grants rather than chains: the pack maps verified NFT assets or private
 set claims to those grants, and movement checks the resulting grant. The first
-expansion is **Ruby High: First Bell**. On the official shard, Ruby High rooms
+expansion is **Ruby High: First Bell**. In the official world, Ruby High rooms
 use the trusted ownership feed and require their matching Ruby High location
 card grants:
 
@@ -84,7 +88,7 @@ card grants:
 - `location-greenhouse` unlocks Greenhouse.
 - `location-courtyard` unlocks Courtyard.
 
-Locked expansion doors can be shown as previews in the room state, but `/actions/move` and `/actions/flee` enforce access on the server. Self-hosted shards can define their own public rooms, gated rooms, and ownership adapters, while the official hosted shard only trusts official collection feeds.
+Locked expansion doors can be shown as previews in the room state, but `/actions/move` and `/actions/flee` enforce access on the server. Self-hosted installations can define a separate world with their own public rooms, gated rooms, and ownership adapters, while the official hosted world only trusts official collection feeds.
 
 The C kernel currently resolves:
 
@@ -261,7 +265,7 @@ After `Your first tale` finishes, one grounded **room thread** is still selected
 
 Choice-bearing cards keep one confirmation flow while making the selected option feel concrete. Avatar, Item, Location, Give, Trade, Travel, Take, Attack, friendship, and mixed Use choices carry their corresponding cards; selecting another option immediately swaps the preview and accessible image name. Portrait and square art use a contained preview instead of being cropped into the wide action frame.
 
-For the current browser MVP smoke, run the shard with a dev wallet that can reach the Garden, Trail, Homeroom, and Science. `./v2/mvp.sh check` also seeds a deterministic throwaway signed smoke wallet with `location-library` so the smoke can verify the production-style wallet challenge/session path:
+For the current browser MVP smoke, run the single-writer service with a dev wallet that can reach the Garden, Trail, Homeroom, and Science. `./v2/mvp.sh check` also seeds a deterministic throwaway signed smoke wallet with `location-library` so the smoke can verify the production-style wallet challenge/session path:
 
 ```sh
 COSYWORLD_ENABLE_DEV_RESET=1 \
@@ -555,13 +559,13 @@ Items can now drive resident evolution through the C kernel:
 - The C kernel rejects wrong-resident gifts before transfer. In the current seed, Rati needs `Moonwool Thread` plus `Story Button`; Whiskerwind needs `Dewbright Button` plus `Wolfprint Charm`; Skull needs `Hearthstone Tag` plus `Watch Bell`.
 - Evolved residents project into the same card system with `level`, `evolved`, evolved rarity, and updated title/blurb. The browser reflects this in compact room chips and action details instead of a stats table.
 
-World items use explicit shared scarcity. Each authored item id is one shard-local object, so overlapping desires are competing social hooks rather than private quest reservations. Pickup, gifting, trade, evolution placement, and crafting move or reference that same object; evolution and crafting do not consume their inputs. A resident's economy panel reports the item's authoritative current state—waiting in a room, not yet found near its seed room, currently held by someone, or already spent—in addition to the resident's fallible memory. Wallet keepsakes remain a separate ownership plane and are not counted as world supply. `npm run v2:worldpack:inspect` prints demand against the single world instance for every desired, attached, evolution, or recipe input item, and `--report-json` exposes the same audit as `world_item_economy`.
+World items use explicit shared scarcity. Each canonical item id is one world object regardless of which capacity process serves a player, so overlapping desires are competing social hooks rather than private quest reservations. Pickup, gifting, trade, evolution placement, and crafting move or reference that same object; evolution and crafting do not consume their inputs. A resident's economy panel reports the item's authoritative current state—waiting in a room, not yet found near its seed room, currently held by someone, or already spent—in addition to the resident's fallible memory. Wallet keepsakes remain a separate ownership plane and are not counted as world supply. `npm run v2:worldpack:inspect` prints demand against the canonical world for every desired, attached, evolution, or recipe input item, and `--report-json` exposes the same audit as `world_item_economy`.
 
 The Rust host loads seed actor placement/stats, faction definitions, item descriptions/placement/kinds, location labels, directed exits, combat flags, access gates, complete room RPG sheets, jobs/fronts, lifecycle/effect descriptors, and level-2 evolution tracks from the compiled `content/official/` worldpack. `worlds/official/world.json` selects independently versioned source packs and `pack.lock.json` pins their exact versions, hashes, dependency closure, capabilities, ID-mapping version, licenses, and provenance. The compiler also emits deterministic `pack://` content references and compact runtime handles in `content_refs.json`; snapshots, journals, and stored events persist those canonical identities with pack and ruleset context while the C ABI continues to use numeric handles. Startup tests and `npm run v2:worldpack` validate the Manifest v1 contract, a current lock and byte-deterministic bundle, unique ids, valid references, canonical one-direction-per-room exits, every location having a complete room sheet, seeded kernel parity, faction opposition links, frontier-only front links to jobs and danger clocks, lifecycle hook and clock-fill effect descriptors with reasons, and exactly two unique items for each evolution track. The validator also warns when a combat-capable room has no active local encounter or when a faction has neither seeded members nor an explicit player-facing role. The C kernel still owns rule enforcement for movement, speech event emission, item transfer, and evolution, with its evolution track table configured from the worldpack at boot.
 
 Factions are content-backed opposing forces rather than hard-coded teams. `content/core/factions.json` defines each faction's axis, mirrored opposition, protected truth, shadow failure mode, verbs, motifs, home locations, member actors, and whether players can embody a faction that intentionally has no seeded resident. `/state` and `/world` expose that `player_facing` designation in the global faction list and compact faction refs, so clients can render allegiance without inferring it from names. The Great Library is the first explicitly player-facing faction; its empty member roster is intentional. The first mythic axis is also live in content: Solar Temple and Vowbright Angel mirror the Darkest Ocean and Pearl-Deep Listener through the shared `solar-abyss:drowned-bell` project.
 
-Those factions now move through played-time world pulses rather than remaining metadata. A pulse changes ambient weather and opportunity-level trade on a distant frontier route, lets influence propagate, and derives visible conflict pressure from the combined result. The World Library shows each beat's class and response, and entering an affected room reveals its present weather, supplies, faction signs, or tension in story language. Automatic pulses never mutate sanctuary state, never create stakes from an unrelated action, and never run while the shard is idle.
+Those factions now move through played-time world pulses rather than remaining metadata. A pulse changes ambient weather and opportunity-level trade on a distant frontier route, lets influence propagate, and derives visible conflict pressure from the combined result. The World Library shows each beat's class and response, and entering an affected room reveals its present weather, supplies, faction signs, or tension in story language. Automatic pulses never mutate sanctuary state, never create stakes from an unrelated action, and never run while the world is idle.
 
 Resident placement can be simulated with an aggregate ownership snapshot:
 
@@ -672,8 +676,8 @@ Public mutation endpoints also pass through lightweight in-memory rate limits be
 Client-submitted `/actions/say` and typed command emotes enter the action journal only after actor-session authorization and text moderation. They use the same C `SAY` event shape as server-authored Chat and resident replies, so room speech, action narration, AI dialogue, replay, and SSE broadcast all share one event contract.
 
 Rate limits are intentionally generous for normal play and local smoke tests.
-They are abuse guardrails for one shard process, not a replacement for full
-moderation or cross-shard routing.
+They are abuse guardrails for the current single-writer process, not a
+replacement for full moderation or canonical cross-process routing.
 
 ## Moderation
 

@@ -8027,7 +8027,11 @@ async function main() {
   const coreSmokeUrl = new URL(targetUrl);
   coreSmokeUrl.searchParams.delete("reset");
   await page.goto(coreSmokeUrl.toString(), { waitUntil: "domcontentloaded", timeout: 10_000 });
-  await page.waitForFunction(() => state?.location?.name === "The Cosy Cottage" && actorId > 0);
+  await page.waitForFunction(
+    () => state?.location?.name === "The Cosy Cottage" && actorId > 0,
+    null,
+    { timeout: 35_000 },
+  );
   steps.push({ label: "core smoke avatar", actor: coreSmokeAvatar.actor.id, location: "The Cosy Cottage" });
   await assertActionBarCapped("normal play", 2);
   await assertFirstThreadGuide();

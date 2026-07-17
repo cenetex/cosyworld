@@ -94,7 +94,12 @@ variable "task_memory" {
 variable "desired_count" {
   type        = number
   default     = 1
-  description = "Number of orchestrator tasks to run. Keep this at 1 while SQLite/EFS is the event store."
+  description = "Number of orchestrator tasks. MUST remain 1 while SQLite/EFS is the event store; multiple isolated kernels would fork the canonical world."
+
+  validation {
+    condition     = var.desired_count == 1
+    error_message = "desired_count must remain 1 until canonical journal, fenced ownership, and multi-process convergence gates are implemented."
+  }
 }
 
 variable "deploy_profile" {
@@ -111,7 +116,7 @@ variable "deploy_profile" {
 variable "shard_id" {
   type        = string
   default     = "public-1"
-  description = "COSYWORLD_V2_SHARD_ID for the public shard."
+  description = "Legacy COSYWORLD_V2_SHARD_ID compatibility label for this capacity process; never canonical world identity."
 }
 
 variable "ruby_high_wallet_cards_url" {

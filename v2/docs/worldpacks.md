@@ -200,7 +200,19 @@ No Rust source or Dockerfile change is required.
 
 The compiler gives every official bundle a SHA-256 identity derived from the world definition, locked packs, merged resources, external catalogs, and asset index. `/meta` exposes that identity and the included packs. New snapshots record it and refuse to load under a different bundle; legacy snapshots without an identity remain readable for migration.
 
-Changing the selected pack set therefore starts a new shard history. Before launch, archive the old snapshot and action-journal database, deploy the new bundle, and allow the orchestrator to seed a fresh world; startup already fails closed on the old identities and falls back to that fresh seed. Do not blank a recorded bundle hash by hand. After launch, preserving state across a composition change requires an explicit migration that projects only still-mounted pack state and writes the new identity.
+Changing the selected pack set is not production-safe until the canonical
+composition migration is implemented. The current runtime may reject the old
+snapshot and seed fresh state after a bundle mismatch; that behavior is allowed
+only for isolated local/test installations. For the official world, abort the
+deployment and keep the old bundle authoritative. Do not blank a recorded
+bundle hash by hand.
+
+The target migration archives the old snapshot and action journal, compiles and
+validates the new bundle, then projects only still-mounted state while recording
+old/new hashes and identity mappings. It commits atomically or leaves the old
+composition authoritative; it never seeds a fresh public history under the same
+world id or runs mixed-composition writers. See
+[`canonical-world.md`](canonical-world.md) for the migration and failover gate.
 
 Pack content has a canonical, version-independent identity of the form
 `pack://<pack-id>/<kind>/<local-id>`. For example,
@@ -241,7 +253,8 @@ occupies a location owned by the pack. Once vacant, it removes the pack-owned
 runtime projection, retains historical journal/event context, filters the live
 snapshot's canonical references, and records the target registry identity and
 ruleset selection. Archive the source snapshot and stop writers before running
-it; then start the shard with the exact target registry supplied to the tool.
+it; then start the single authoritative writer with the exact target registry
+supplied to the tool.
 
 ## Runtime discovery and access
 
@@ -260,7 +273,7 @@ This records who authored a resource without making the authoring pack the
 authorization boundary. Ruby High owns both its school locations and their
 access gates; Core remains playable with the entire peer pack absent.
 
-All packs in this endpoint are already installed by the shard's locked world
+All packs in this endpoint are already installed by the canonical world's locked
 composition. The endpoint does not dynamically install packs or interpret a
 payment rail. Packs declare content and access surfaces; verified claims
 determine the current player's entitlement projection.
@@ -341,7 +354,7 @@ optional compatibility/display hint and must match the grant's `asset_id`.
 The Rust host resolves verified assets to grants before movement; the C kernel
 continues to receive only an allowed/denied action.
 
-Authority type `asset_feed` accepts claims from the shard's protected ownership
+Authority type `asset_feed` accepts claims from the world's protected ownership
 adapter. This is how the current Ruby High bridge works while its collection
 address remains owned by the upstream deployment. `solana_collection` pins a
 specific collection address in the permanent pack. `signed_set` pins an Ed25519

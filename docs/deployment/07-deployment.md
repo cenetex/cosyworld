@@ -6,7 +6,15 @@
 
 CosyWorld 2.0 is the canonical player runtime. Deploy the V2 orchestrator in `v2/orchestrator-rust` as the game service and route player traffic to it. The root `Dockerfile` and `fly.toml` build and run this V2 runtime.
 
-The Node service remains the companion service for admin pages, auth, integrations, AI/provider configuration, migration utilities, and legacy experiments. If it is exposed, configure it with `COSYWORLD_V2_PUBLIC_URL` so its launch bridge can point at the deployed V2 shard.
+The Node service remains the companion service for admin pages, auth, integrations, AI/provider configuration, migration utilities, and legacy experiments. If it is exposed, configure it with `COSYWORLD_V2_PUBLIC_URL` so its launch bridge can point at the deployed V2 world service.
+
+The official product has one canonical world. A process, AWS task, Fly machine,
+region, or room owner is capacity infrastructure and must not create a separate
+player history. The current SQLite deployment is intentionally one writer.
+Before increasing instance count, implement and pass the identity, durable
+journal, fenced ownership, routing, and failover gates in
+[`../../v2/docs/canonical-world.md`](../../v2/docs/canonical-world.md). Never put
+multiple isolated SQLite saves behind a load balancer.
 
 Local defaults:
 
@@ -84,6 +92,9 @@ Create a `.env` file with:
 - **V2 Production:** `COSYWORLD_DEPLOY_PROFILE=production`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER`, `COSYWORLD_MODERATION_TOKEN`
 - **V2 Passkeys:** `COSYWORLD_WEBAUTHN_RP_ID`, `COSYWORLD_WEBAUTHN_ORIGIN`, and optional comma-separated `COSYWORLD_WEBAUTHN_EXTRA_ORIGINS`. Production refuses to boot without the RP ID and origin.
 - **V2 Box Burns:** `COSYWORLD_BOX_BURN_SOLANA_RPC_URL`, `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; until these are configured, production Box burn endpoints stay closed.
+- **V2 Process Label:** `COSYWORLD_V2_SHARD_ID` is the legacy environment name
+  for the unique process label shown in `/meta`. It must not be used as a world,
+  room, actor, invitation, claim, or save namespace.
 
 ---
 
@@ -141,7 +152,9 @@ NODE_OPTIONS="--max-old-space-size=4096"
 
 ## Scaling Tips
 
-- Attach a persistent volume for SQLite, or select an external database backend for multi-writer deployments
-- Multiple app instances + load balancer
+- Attach a persistent volume for SQLite and keep exactly one writer.
+- For multiple app instances, first provide a shared canonical journal,
+  versioned entities, fenced partition ownership, stable routing, and the
+  required two-process/failover test harness. A load balancer alone is unsafe.
 - Redis cache
 - Containerize with Docker/Kubernetes

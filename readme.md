@@ -43,20 +43,23 @@ npm run dev:node
 
 ## Current Product Shape
 
-The V2 runtime serves a single shard per orchestrator process. That process owns
-the authoritative world state, SQLite event/action persistence, browser state
-views, and SSE event replay. Horizontal scale is intended to happen by running
-multiple shard processes with isolated state stores and routing players to the
-correct shard. Set `COSYWORLD_V2_SHARD_ID` to name each process in `/meta`;
-cross-shard routing is not part of the current MVP.
+The official service is one canonical, persistent world. Today one V2
+orchestrator process owns its authoritative state, SQLite event/action
+persistence, browser projections, and SSE replay. Capacity processes and
+deployment regions are replaceable entrances to that same world, never
+player-facing copies. Production stays single-writer until the fenced ownership,
+durable journal, routing, and failover gates in
+[`v2/docs/canonical-world.md`](v2/docs/canonical-world.md) are implemented.
+`COSYWORLD_V2_SHARD_ID` is temporarily retained as a compatibility name for the
+process label exposed by `/meta`; it is not world identity.
 
-The current public world composes two peer worlds: independently bootable
-CosyWorld Core and Ruby High: First Bell. Ruby owns its school rooms, rules
-context, cards, faction, assets, and location-card gates; optional bridge rows
-connect it to Core only when both packs are mounted. Players can create avatars,
-chat through server-authored avatar lines, use moderated room speech, move,
-collect and trade items, earn and spend Orbs, report players, and unlock avatar
-cards through the Wooden Box and pack flow.
+The current public world mounts CosyWorld Core and Ruby High: First Bell as peer
+world packs. Ruby owns its school rooms, rules context, cards, faction, assets,
+and location-card gates; optional bridge rows connect its resources to Core
+when both packs are mounted. Players can create avatars, chat through
+server-authored avatar lines, use moderated room speech, move, collect and trade
+items, earn and spend Orbs, report players, and unlock avatar cards through the
+Wooden Box and pack flow.
 
 ## Production Runtime
 
@@ -69,7 +72,8 @@ Production profile rejects dev shortcuts. It requires:
   registry declares an `asset_feed` authority.
 - SQLite event store.
 - Moderation token.
-- `COSYWORLD_V2_SHARD_ID` per deployed shard process.
+- A unique `COSYWORLD_V2_SHARD_ID` compatibility label per deployed process;
+  never use it as world, player, room, or save identity.
 - Signed wallet sessions for account-sensitive endpoints.
 - Solana/Core Box burn verifier before production Box burns can create receipts.
 
