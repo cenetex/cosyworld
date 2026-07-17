@@ -131,6 +131,7 @@ impl ContentRegistry {
             room_sheets: take_resource(&mut resources, "room_sheets")?,
             clocks: take_resource(&mut resources, "clocks")?,
             jobs: take_resource(&mut resources, "jobs")?,
+            action_vocabulary: take_resource(&mut resources, "action_vocabulary")?,
             fronts: take_resource(&mut resources, "fronts")?,
             cards: take_resource(&mut resources, "cards")?,
             card_bindings: take_resource(&mut resources, "card_bindings")?,
@@ -1099,7 +1100,7 @@ mod tests {
         )
         .expect("official registry loads");
         assert_eq!(registry.content().locations.len(), 33);
-        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.3.2");
+        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.3.3");
         assert_eq!(
             registry.capability_provider("cosyworld.core/world"),
             Some("cosyworld.core")

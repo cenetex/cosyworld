@@ -17,7 +17,11 @@
       "orbs": 2
     },
     "consequence": "echo-fractured trail",
-    "memory_summary": ""
+    "memory_summary": "",
+    "action_copy": {
+      "label": "Quiet the echo",
+      "summary": "Choose how to steady the Moonlit Trail before its echoes grow louder."
+    }
   },
   {
     "id": "solar-abyss:drowned-bell",
@@ -42,7 +46,11 @@
       "orbs": 2
     },
     "consequence": "solar-abyssal schism",
-    "memory_summary": "The same bell rings differently in noon light and abyssal pressure."
+    "memory_summary": "The same bell rings differently in noon light and abyssal pressure.",
+    "action_copy": {
+      "label": "Hear both songs",
+      "summary": "Choose how to bring the drowned bell's two songs into accord."
+    }
   },
   {
     "id": "goblin-cave:name-the-price",
@@ -62,7 +70,11 @@
       "orbs": 2
     },
     "consequence": "every promise becomes collateral",
-    "memory_summary": "A fair price names the wanting without owning the wanter."
+    "memory_summary": "A fair price names the wanting without owning the wanter.",
+    "action_copy": {
+      "label": "Name the fair price",
+      "summary": "Choose how to help Nib name a bargain everyone can trust."
+    }
   },
   {
     "id": "haunted-mansion:earn-the-threshold",
@@ -82,7 +94,11 @@
       "orbs": 2
     },
     "consequence": "the Mansion seals its doors",
-    "memory_summary": "The Warden respects restraint more than force."
+    "memory_summary": "The Warden respects restraint more than force.",
+    "action_copy": {
+      "label": "Earn the threshold",
+      "summary": "Choose how to prove the Mansion can welcome a careful guest."
+    }
   },
   {
     "id": "turgid-swamp:amend-the-ledger",
@@ -102,6 +118,10 @@
       "orbs": 2
     },
     "consequence": "the old grudge hardens into law",
-    "memory_summary": "One honest amendment can outweigh a ledger full of slights."
+    "memory_summary": "One honest amendment can outweigh a ledger full of slights.",
+    "action_copy": {
+      "label": "Amend the ledger",
+      "summary": "Choose how to turn one old slight into an honest amendment."
+    }
   }
 ]

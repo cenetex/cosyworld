@@ -6,7 +6,7 @@
   "name": "CosyWorld Services Only",
   "version": 1,
   "description": "A non-world composition for health, metadata, identity, and moderation services.",
-  "bundle_hash": "sha256:cc112c288ecb34aa44ada803a167d2194857f52de3d257044a63f533e651fc75",
+  "bundle_hash": "sha256:aaed7ccba6138249cb705ee3b4b3c071cee0de452ad479be63e9e2d35e1f66c5",
   "packs": [
     {
       "id": "cosyworld.services-fixture",
@@ -47,6 +47,7 @@
         "room_sheets": 0,
         "clocks": 0,
         "jobs": 0,
+        "action_vocabulary": 0,
         "fronts": 0,
         "cards": 0,
         "card_bindings": 0,
@@ -79,6 +80,7 @@
     "room_sheets": "room_sheets.json",
     "clocks": "clocks.json",
     "jobs": "jobs.json",
+    "action_vocabulary": "action_vocabulary.json",
     "fronts": "fronts.json",
     "cards": "cards.json",
     "card_bindings": "card_bindings.json",

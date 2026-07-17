@@ -379,6 +379,8 @@ pub(super) struct JobView {
     pub(super) danger_clock_id: String,
     pub(super) reward: String,
     pub(super) consequence: String,
+    pub(super) action_label: String,
+    pub(super) action_summary: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -1465,6 +1467,8 @@ impl RuntimeWorld {
                 danger_clock_id: job.danger_clock_id.clone(),
                 reward: job.reward.label().to_string(),
                 consequence: job.consequence.clone(),
+                action_label: self.job_action_label(job),
+                action_summary: self.job_action_summary(job),
             })
             .collect()
     }

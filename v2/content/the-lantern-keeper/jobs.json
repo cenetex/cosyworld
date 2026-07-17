@@ -10,6 +10,10 @@
     "status": "active",
     "reward": { "label": "the Mothwood road relit", "orbs": 2 },
     "consequence": "the beacon becomes a lantern for borrowed shadows",
-    "memory_summary": "Travelers followed the last lamps north to find Rowan Vale and restore the Mothwood beacon."
+    "memory_summary": "Travelers followed the last lamps north to find Rowan Vale and restore the Mothwood beacon.",
+    "action_copy": {
+      "label": "Rekindle the beacon",
+      "summary": "Choose how to restore the Mothwood beacon before borrowed shadows learn the road."
+    }
   }
 ]

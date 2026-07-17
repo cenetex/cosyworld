@@ -14,6 +14,7 @@
       "sha256:2a9b9fb5c049a0b06dcd02131e2b74be5f5e106e6e8d78b891e40f7b093eb49a",
       "sha256:338f4d9a5eefc75d832f7cc48c40600263dc49c89a2e6aa7365ea0d6a361d960",
       "sha256:388e3aff0bd03abc7b5362bc17323f097784d61c8b15f0b0206aa46500c16ad3",
+      "sha256:3a06264db7ff974bf3ff94cb60bc74e5e9e7dd3e52dfc82024140d81b0d2d997",
       "sha256:3bcecba1646a5fd6c0d1c2c0c435a35b58f1910ac50a0ea3422245fe78a22802",
       "sha256:499302d175bf38df6eadf7810afea8f98b039bead76cc27f0383c490ae668672",
       "sha256:609b2c2ab823e073450c2477cbc885d8d2c327c7cf443bc8c772a20c9f43b101",
@@ -24,13 +25,13 @@
       "sha256:f97d77e008a46d79d9c9d83e607b257a16ef66d591b037297495b99f21fdafa5"
     ]
   },
-  "bundle_hash": "sha256:3a06264db7ff974bf3ff94cb60bc74e5e9e7dd3e52dfc82024140d81b0d2d997",
+  "bundle_hash": "sha256:a613a3ec525fc08e10794a775ee0baeb9239733da1c65779ab4dc1df481f9718",
   "packs": [
     {
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -80,6 +81,7 @@
         "room_sheets": 22,
         "clocks": 10,
         "jobs": 5,
+        "action_vocabulary": 1,
         "fronts": 5,
         "cards": 65,
         "card_bindings": 0,
@@ -96,13 +98,13 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:e14197b83e6fd0bf855b001ea84fb009d8a600c313ed69a8fcdb7ec80f8f5bd4"
+      "integrity": "sha256:e3202c108bcc2acb1fa3d222342d96491e29089c1a30ea18d073449430c83507"
     },
     {
       "id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
       "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "kind": "campaign",
       "license": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -159,6 +161,7 @@
         "room_sheets": 5,
         "clocks": 2,
         "jobs": 1,
+        "action_vocabulary": 0,
         "fronts": 1,
         "cards": 13,
         "card_bindings": 0,
@@ -175,7 +178,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:8dc3f02c0c407cf828b1acee48eab50a4e0c17d5fe3e41bf9ed9dfd7f88c3f48"
+      "integrity": "sha256:9ae8d9546a1dd548069d14b3155616f14087d68d3d5b2c7cd12ee152af185fab"
     },
     {
       "id": "cosyworld.lonely-forest.characters",
@@ -233,6 +236,7 @@
         "room_sheets": 0,
         "clocks": 0,
         "jobs": 0,
+        "action_vocabulary": 0,
         "fronts": 0,
         "cards": 0,
         "card_bindings": 0,
@@ -255,7 +259,7 @@
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
       "description": "An independently bootable school world, card catalog, and entitlement-gated First Bell experience.",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -336,6 +340,7 @@
         "room_sheets": 6,
         "clocks": 0,
         "jobs": 0,
+        "action_vocabulary": 1,
         "fronts": 0,
         "cards": 6,
         "card_bindings": 1,
@@ -435,7 +440,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:dcdf2f0ad7394df1e74a36d881c84369aac5de73e6e12f8d41ac7530500da0ab"
+      "integrity": "sha256:26e54710278c0881b808dbc4dff78ad51cd496f6dd342ffa1d80f19fcfb3cd39"
     }
   ],
   "files": {
@@ -451,6 +456,7 @@
     "room_sheets": "room_sheets.json",
     "clocks": "clocks.json",
     "jobs": "jobs.json",
+    "action_vocabulary": "action_vocabulary.json",
     "fronts": "fronts.json",
     "cards": "cards.json",
     "card_bindings": "card_bindings.json",

@@ -7,13 +7,13 @@
   "version": 1,
   "description": "The first-party cosy exploration experience with no expansion packs mounted.",
   "entry_location": "cosyworld.core:location/1",
-  "bundle_hash": "sha256:b20c88dd3f886473e2e44695f53c9d4b6778ab0a649e5b433c137a4d8a33b945",
+  "bundle_hash": "sha256:a41a312408563ea37dfdaec064220d3e4faaa1a05c12879755f601b5c037e792",
   "packs": [
     {
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -63,6 +63,7 @@
         "room_sheets": 22,
         "clocks": 10,
         "jobs": 5,
+        "action_vocabulary": 1,
         "fronts": 5,
         "cards": 65,
         "card_bindings": 0,
@@ -79,7 +80,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:e14197b83e6fd0bf855b001ea84fb009d8a600c313ed69a8fcdb7ec80f8f5bd4"
+      "integrity": "sha256:e3202c108bcc2acb1fa3d222342d96491e29089c1a30ea18d073449430c83507"
     }
   ],
   "files": {
@@ -95,6 +96,7 @@
     "room_sheets": "room_sheets.json",
     "clocks": "clocks.json",
     "jobs": "jobs.json",
+    "action_vocabulary": "action_vocabulary.json",
     "fronts": "fronts.json",
     "cards": "cards.json",
     "card_bindings": "card_bindings.json",

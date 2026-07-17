@@ -18,6 +18,10 @@
     },
     "consequence": "echo-fractured trail",
     "memory_summary": "",
+    "action_copy": {
+      "label": "Quiet the echo",
+      "summary": "Choose how to steady the Moonlit Trail before its echoes grow louder."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -44,6 +48,10 @@
     },
     "consequence": "solar-abyssal schism",
     "memory_summary": "The same bell rings differently in noon light and abyssal pressure.",
+    "action_copy": {
+      "label": "Hear both songs",
+      "summary": "Choose how to bring the drowned bell's two songs into accord."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -65,6 +73,10 @@
     },
     "consequence": "every promise becomes collateral",
     "memory_summary": "A fair price names the wanting without owning the wanter.",
+    "action_copy": {
+      "label": "Name the fair price",
+      "summary": "Choose how to help Nib name a bargain everyone can trust."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -86,6 +98,10 @@
     },
     "consequence": "the Mansion seals its doors",
     "memory_summary": "The Warden respects restraint more than force.",
+    "action_copy": {
+      "label": "Earn the threshold",
+      "summary": "Choose how to prove the Mansion can welcome a careful guest."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -107,6 +123,10 @@
     },
     "consequence": "the old grudge hardens into law",
     "memory_summary": "One honest amendment can outweigh a ledger full of slights.",
+    "action_copy": {
+      "label": "Amend the ledger",
+      "summary": "Choose how to turn one old slight into an honest amendment."
+    },
     "pack_id": "cosyworld.core"
   }
 ]
