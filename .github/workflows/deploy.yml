@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  group: deploy-${{ github.repository }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -40,7 +40,6 @@ jobs:
     name: Deploy tagged version to AWS
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    needs: fly
     permissions:
       contents: read
       id-token: write
