@@ -1126,6 +1126,49 @@ mod tests {
     }
 
     #[test]
+    fn runtime_rejects_wallet_identity_embedded_in_world_entity_state() {
+        let path = configured_content_root().join("official/registry.json");
+        let mut value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(path).expect("compiled registry reads"))
+                .expect("compiled registry parses");
+        value["resources"]["items"][0]["external_card_id"] =
+            serde_json::json!("wallet-copy-of-world-item");
+
+        let error = ContentRegistry::from_json(&value.to_string(), env!("CARGO_PKG_VERSION"))
+            .expect_err("world entities must reject wallet identity fields");
+
+        assert!(
+            error.contains("unknown field `external_card_id`"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn runtime_allows_one_external_card_to_describe_only_one_world_entity() {
+        let path = configured_content_root().join("official/registry.json");
+        let mut value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(path).expect("compiled registry reads"))
+                .expect("compiled registry parses");
+        let mut duplicate = value["resources"]["card_bindings"][0].clone();
+        duplicate["id"] = serde_json::json!("rati-card-duplicate-subject");
+        duplicate["entity_ref"] = serde_json::json!("pack://cosyworld.core/actor/1002");
+        duplicate["subject_id"] = serde_json::json!(1002);
+        duplicate["seed_card_id"] = serde_json::json!("cosy-whiskerwind");
+        value["resources"]["card_bindings"]
+            .as_array_mut()
+            .expect("card bindings are an array")
+            .push(duplicate);
+
+        let error = ContentRegistry::from_json(&value.to_string(), env!("CARGO_PKG_VERSION"))
+            .expect_err("one wallet card cannot describe two entities");
+
+        assert!(
+            error.contains("external card rati binds more than one world entity"),
+            "{error}"
+        );
+    }
+
+    #[test]
     fn core_and_non_world_compositions_mount_without_implicit_packs() {
         let content_root = configured_content_root();
         let core = ContentRegistry::from_json(

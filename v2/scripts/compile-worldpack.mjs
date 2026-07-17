@@ -8,6 +8,7 @@ import {
   CONTENT_PACK_CONTRACT,
   resolveContentPackGraph,
   validateContentPackManifest,
+  validateWorldEntityResource,
 } from "./content-pack-contract.mjs";
 import {
   buildContentReferenceMapping,
@@ -363,6 +364,7 @@ for (const pack of packs) {
     assert(Array.isArray(rows), `pack ${pack.manifest.id} resource ${resource} must be an array`);
     for (const row of rows) {
       assert(row && typeof row === "object" && !Array.isArray(row), `pack ${pack.manifest.id} resource ${resource} contains a non-object row`);
+      validateWorldEntityResource(pack.manifest.id, resource, row);
       assert(!row.pack_id || row.pack_id === pack.manifest.id, `pack ${pack.manifest.id} resource ${resource} contains conflicting pack_id ${row.pack_id}`);
       const { requires_packs: requiresPacks = [], ...compiledRow } = row;
       assert(Array.isArray(requiresPacks), `pack ${pack.manifest.id} resource ${resource} requires_packs must be an array`);

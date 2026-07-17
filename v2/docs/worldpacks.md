@@ -102,6 +102,8 @@ use `requires_packs` when their entity lives in an optional dependency. In the
 official composition, First Bell binds its Rati card and school facet to
 `pack://cosyworld.core/actor/1001`; both resources disappear from the standalone
 Ruby registry, while Core's Rati remains valid and uses its local card surface.
+The accepted identity, cardinality, persistence, and one-plane item rules are
+recorded in [ADR 0001](../../docs/decisions/0001-cards-are-entitlements.md).
 
 Manifest v1 is fail-closed: unknown fields are rejected. Forward-compatible
 metadata must live under `extensions` with a namespaced `x-...` key. Adding a

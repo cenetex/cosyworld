@@ -16,6 +16,46 @@ export const CAPABILITY_KINDS = Object.freeze([
   "reference",
 ]);
 
+const WORLD_ENTITY_FIELDS = Object.freeze({
+  actors: new Set([
+    "pack_id",
+    "requires_packs",
+    "id",
+    "name",
+    "speech_mode",
+    "title",
+    "description",
+    "ambient_autonomy",
+    "location_id",
+    "stats",
+    "desires",
+    "attachments",
+  ]),
+  items: new Set([
+    "pack_id",
+    "requires_packs",
+    "id",
+    "name",
+    "description",
+    "kind",
+    "charges",
+    "location_id",
+  ]),
+  locations: new Set([
+    "pack_id",
+    "requires_packs",
+    "id",
+    "name",
+    "title",
+    "description",
+    "persona",
+    "memory",
+    "biome",
+    "terrain",
+    "allow_combat",
+  ]),
+});
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const schemaPath = path.resolve(scriptDir, "../schemas/content-pack-manifest-v1.schema.json");
 const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
@@ -31,6 +71,23 @@ function formatSchemaErrors(errors) {
   return errors
     .map((error) => `${error.instancePath || "/"} ${error.message}`)
     .join("; ");
+}
+
+export function validateWorldEntityResource(packId, resource, row) {
+  const allowedFields = WORLD_ENTITY_FIELDS[resource];
+  if (!allowedFields) return row;
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    contractError(`pack ${packId} ${resource} resource must be an object`);
+  }
+  for (const field of Object.keys(row)) {
+    if (!allowedFields.has(field)) {
+      contractError(
+        `pack ${packId} ${resource} resource ${String(row.id ?? "unknown")} has unknown field ${field}; `
+        + "wallet cards and entitlements must use card_bindings and entitlement grants, not world entity state",
+      );
+    }
+  }
+  return row;
 }
 
 export function parseSemver(version, label = "version") {
