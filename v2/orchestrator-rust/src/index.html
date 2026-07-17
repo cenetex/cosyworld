@@ -2702,8 +2702,8 @@
 <body>
   <div class="shell">
     <header class="topbar">
-      <button class="brand" id="brand" type="button" aria-label="Open World Library" aria-expanded="false" aria-controls="log">world library</button>
-      <button class="economy" id="economy" type="button" aria-label="Open your collection" aria-expanded="false" aria-controls="log"></button>
+      <button class="brand" id="brand" type="button" aria-label="Open World Library" aria-expanded="false" aria-controls="log" data-player-concept="world-pack" data-analytics-event="world_pack.library.open">world library</button>
+      <button class="economy" id="economy" type="button" aria-label="Open your keepsake collection" aria-expanded="false" aria-controls="log" data-player-concept="keepsake" data-analytics-event="keepsake.collection.open"></button>
       <button class="location-pill" type="button" aria-label="Focus current location">
         <img id="location-image" alt="" />
         <span id="subtitle">booting</span>
@@ -2712,7 +2712,7 @@
     <main class="terminal">
       <section class="room">
         <div class="room-hero" id="room-hero">
-          <button class="room-hero-card" id="room-hero-card" type="button" aria-label="Open current location card">
+          <button class="room-hero-card" id="room-hero-card" type="button" aria-label="Open current location keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open">
             <img id="room-hero-image" alt="" />
           </button>
           <div class="room-avatar-rail" id="room-avatar-rail" aria-label="Avatars in this location"></div>
@@ -2732,10 +2732,10 @@
     <footer class="prompt">
       <div class="turn-ping-pill" id="turn-ping-pill" aria-live="assertive" hidden></div>
       <div class="caret">&gt;</div>
-      <button class="cmd primary" id="primary"></button>
-      <button class="cmd secondary" id="secondary"></button>
-      <button class="cmd secondary" id="tertiary"></button>
-      <button class="cmd shuffle" id="shuffle" type="button"></button>
+      <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
+      <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
+      <button class="cmd secondary" id="tertiary" data-player-concept="action" data-analytics-event="action.select"></button>
+      <button class="cmd shuffle" id="shuffle" type="button" data-player-concept="action" data-analytics-event="action.redeal"></button>
     </footer>
   </div>
   <div class="command-palette" id="command-palette" hidden>
@@ -2745,8 +2745,8 @@
     </form>
   </div>
   <div class="card-modal" id="card-modal" hidden>
-    <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-modal-name" tabindex="-1">
-      <button class="card-close" type="button" data-card-close aria-label="Close card">x</button>
+    <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-modal-name" tabindex="-1" data-player-concept="keepsake">
+      <button class="card-close" type="button" data-card-close aria-label="Close keepsake details">x</button>
       <div class="card-art"><img id="card-modal-image" alt="" /></div>
       <div class="card-copy">
         <h2 class="card-name" id="card-modal-name"></h2>
@@ -2759,13 +2759,13 @@
     </section>
   </div>
   <div class="action-modal" id="action-modal" hidden>
-    <section class="action-dialog" role="dialog" aria-modal="true" aria-labelledby="action-modal-title" tabindex="-1">
+    <section class="action-dialog" role="dialog" aria-modal="true" aria-labelledby="action-modal-title" tabindex="-1" data-player-concept="action">
       <div class="action-art"><img id="action-modal-image" alt="" /></div>
       <h2 class="action-title" id="action-modal-title"></h2>
       <div class="action-summary" id="action-modal-summary"></div>
       <div class="action-meta" id="action-modal-meta"></div>
       <div class="action-choice-list" id="action-modal-choices" hidden></div>
-      <button class="action-confirm" id="action-modal-confirm" type="button">confirm</button>
+      <button class="action-confirm" id="action-modal-confirm" type="button" data-analytics-event="action.confirm">confirm</button>
       <button class="action-cancel" type="button" data-action-close>cancel</button>
     </section>
   </div>
@@ -3818,8 +3818,8 @@
           targetName: oneChat ? firstTargetName : "",
           orbCost: chatUsesOrbs ? chatCostValue : 0,
           modalSummary: oneChat
-            ? `Play Chat to start a short conversation with ${firstTargetName}. The card passes the room turn immediately while the conversation unfolds.`
-            : "Choose someone nearby, then play Chat. The card passes the room turn immediately while the conversation unfolds.",
+            ? `Play Chat to start a short conversation with ${firstTargetName}. The action passes the room turn immediately while the conversation unfolds.`
+            : "Choose someone nearby, then play Chat. The action passes the room turn immediately while the conversation unfolds.",
           effect: oneChat
             ? `you and ${firstTargetName} trade a few lines after the room turn passes`
             : "the chosen conversation unfolds after the room turn passes",
@@ -5258,7 +5258,7 @@
           }
           packId = confirmed.receipt?.pack_id || packId;
         }
-        if (!packId) throw new Error("Box did not create a pack.");
+        if (!packId) throw new Error("Box did not create an avatar bundle.");
         await openPack(packId);
       } finally {
         openingBoxId = "";
@@ -5270,21 +5270,21 @@
       if (!walletSession) {
         const connected = await connectWallet();
         if (!connected) {
-          setError("Connect a wallet to open this pack.");
+          setError("Connect a wallet to open this avatar bundle.");
           return;
         }
       }
       setError("");
-      setStatus("Opening pack...", "ok");
+      setStatus("Opening avatar bundle...", "ok");
       const opened = await post("/nft/packs/open", {
         wallet_session: walletSession,
         pack_id: packId,
       });
       if (!opened.ok) {
-        throw new Error(opened.error || "Pack could not be opened.");
+        throw new Error(opened.error || "Avatar bundle could not be opened.");
       }
       const cards = opened.opening?.card_ids || [];
-      setStatus(cards.length ? `Opened pack: ${cards.join(", ")}` : "Opened pack.", "ok");
+      setStatus(cards.length ? `Opened avatar bundle: ${cards.join(", ")}` : "Opened avatar bundle.", "ok");
       focusIndex = 0;
       focusedKey = "";
       accountPanelPinned = true;
@@ -5986,7 +5986,7 @@
       const roomHeroImage = $("room-hero-image");
       roomHeroImage.src = locationArt;
       roomHeroImage.alt = locationCard?.display_name || location.name || "";
-      roomHeroCard.setAttribute("aria-label", `Open ${locationCard?.display_name || location.name || "current location"} card`);
+      roomHeroCard.setAttribute("aria-label", `Open ${locationCard?.display_name || location.name || "current location"} keepsake`);
       setCardTarget(roomHeroCard, locationCard);
       $("room-avatar-rail").innerHTML = roomAvatarRailHtml(state);
       $("subtitle").textContent = location.name || "Unknown";
@@ -6022,7 +6022,7 @@
       }
       if (!compact) {
         if (boxes) parts.push(`${boxes} ${boxes === 1 ? "box" : "boxes"}`);
-        if (packs) parts.push(`${packs} ${packs === 1 ? "pack" : "packs"}`);
+        if (packs) parts.push(`${packs} ${packs === 1 ? "bundle" : "bundles"}`);
       }
       parts.push(accountPanelPinned ? "close" : "account");
       const economyNode = $("economy");
@@ -6030,8 +6030,8 @@
       economyNode.setAttribute(
         "aria-label",
         accountPanelPinned
-          ? "Close your collection and return to room chat"
-          : `Open your collection: ${orbs} Orbs, ${boxes} Boxes, and ${packs} unopened packs`
+          ? "Close your keepsake collection and return to room chat"
+          : `Open your keepsake collection: ${orbs} Orbs, ${boxes} Boxes, and ${packs} unopened avatar bundles`
       );
       economyNode.setAttribute("aria-expanded", accountPanelPinned ? "true" : "false");
       economyNode.classList.toggle("focused", Boolean(accountPanelPinned));
@@ -6072,7 +6072,11 @@
         exit.access_reason,
         exit.kicker,
       ].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean).join(" ");
-      return text.includes("card locked") || text.includes("wallet needed") || text.includes("card required");
+      return text.includes("pass required")
+        || text.includes("access required")
+        || text.includes("card locked")
+        || text.includes("wallet needed")
+        || text.includes("card required");
     }
 
     function cardForLocationInView(view, id) {
@@ -6097,7 +6101,7 @@
         const you = actor.id === actorId;
         const evolved = Number(actor.stats?.level || 1) > 1;
         const label = you ? `${actorLabel(actor)} (you)` : actorLabel(actor);
-        return `<button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} card"${backgroundImageStyle(image)}></button>`;
+        return `<button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open"${backgroundImageStyle(image)}></button>`;
       });
       const remaining = actors.length - visible.length;
       if (remaining > 0) {
@@ -6484,7 +6488,7 @@
         return finishSentence(actor ? `${actor}: ${text}` : text);
       }
       if (kind === "hand") {
-        if (/^new cards$/i.test(text)) return "A fresh hand of cards is ready.";
+        if (/^new cards$/i.test(text)) return "A fresh hand of actions is ready.";
         return finishSentence(text);
       }
       if (kind === "search") {
@@ -6598,7 +6602,7 @@
         return { kind: "move", label: "locked", text: event.destination_location_name || "path blocked" };
       }
       if (event.type === "hand.shuffled") {
-        return { kind: "hand", label: "hand", text: "new cards" };
+        return { kind: "hand", label: "hand", text: "new actions" };
       }
       if (event.type === "turn.ping_started") {
         const actor = event.actor_name || "someone";
@@ -6761,7 +6765,7 @@
       const bundleDetails = bundle
         ? `<details class="library-technical"><summary>bundle details</summary><code>${escapeHtml(bundle)}</code></details>`
         : "";
-      return `<section class="account-panel library-panel" aria-labelledby="world-library-title"><div class="library-heading"><h2 id="world-library-title">world library</h2><small>${escapeHtml(`${packs.length} worlds and packs`)}</small></div><div class="library-intro">See where your story can travel. Open worlds are ready now; locked places show the card or collection that will let you enter.</div>${worldChronicleHtml()}<div class="library-grid">${cards}</div>${bundleDetails}</section>`;
+      return `<section class="account-panel library-panel" aria-labelledby="world-library-title"><div class="library-heading"><h2 id="world-library-title">world library</h2><small>${escapeHtml(`${packs.length} world packs mounted`)}</small></div><div class="library-intro">See where your story can travel. Open worlds are ready now; locked places name the pass or access they need.</div>${worldChronicleHtml()}<div class="library-grid">${cards}</div>${bundleDetails}</section>`;
     }
 
     function worldChronicleHtml() {
@@ -6798,8 +6802,11 @@
       const locations = Array.isArray(pack.locations) ? pack.locations : [];
       const shownLocations = locations.slice(0, 6).map((location) => {
         const open = location.accessible !== false;
-        const stateLabel = open ? "open" : (location.required_card_id ? "card required" : "access required");
-        return `<div class="library-location${open ? " accessible" : ""}"><span>${escapeHtml(location.name || `Location ${location.id}`)}</span><span class="library-location-state">${escapeHtml(stateLabel)}</span></div>`;
+        const stateLabel = open ? "open" : (location.required_card_id ? "pass required" : "access required");
+        const conceptAttr = open
+          ? 'data-player-concept="world-pack"'
+          : 'data-player-concept="pass"';
+        return `<div class="library-location${open ? " accessible" : ""}" ${conceptAttr}><span>${escapeHtml(location.name || `Location ${location.id}`)}</span><span class="library-location-state">${escapeHtml(stateLabel)}</span></div>`;
       }).join("");
       const remaining = Math.max(0, locations.length - 6);
       const locationList = shownLocations
@@ -6811,13 +6818,13 @@
       const authority = libraryPackAuthoritySummary(pack);
       const badgeLabel = stateName === "partial" ? "some open" : (stateName === "included" ? "included" : stateName);
       const technical = [
-        `${pack.kind || "pack"} · v${pack.version || "?"} · ${pack.license || "unlicensed"}${dependencies}`,
+        `${pack.kind || "world pack"} · v${pack.version || "?"} · ${pack.license || "unlicensed"}${dependencies}`,
         authority,
       ].filter(Boolean).join(" · ");
       const technicalDetails = technical
         ? `<details class="library-technical"><summary>technical details</summary><div>${escapeHtml(technical)}</div></details>`
         : "";
-      return `<article class="library-pack"><div class="library-pack-top"><div><div class="library-pack-name">${escapeHtml(pack.name || pack.id)}</div><div class="library-pack-meta">${escapeHtml(pack.kind || "pack")}</div></div><span class="library-access-badge ${escapeAttr(stateName)}">${escapeHtml(badgeLabel)}</span></div><div class="library-pack-copy">${escapeHtml(pack.description || "No description yet.")}</div><div class="library-pack-counts">${escapeHtml(libraryPackCountSummary(pack.resource_counts || {}))}</div><div class="library-pack-access">${escapeHtml(pack.access_summary || "Included with this world.")}</div>${locationList}${technicalDetails}</article>`;
+      return `<article class="library-pack" data-player-concept="world-pack"><div class="library-pack-top"><div><div class="library-pack-name">${escapeHtml(pack.name || pack.id)}</div><div class="library-pack-meta">${escapeHtml(pack.kind || "world pack")}</div></div><span class="library-access-badge ${escapeAttr(stateName)}">${escapeHtml(badgeLabel)}</span></div><div class="library-pack-copy">${escapeHtml(pack.description || "No description yet.")}</div><div class="library-pack-counts">${escapeHtml(libraryPackCountSummary(pack.resource_counts || {}))}</div><div class="library-pack-access">${escapeHtml(pack.access_summary || "Included with this world.")}</div>${locationList}${technicalDetails}</article>`;
     }
 
     function libraryPackAuthoritySummary(pack) {
@@ -6847,8 +6854,8 @@
         ["locations", "places"],
         ["actors", "residents"],
         ["items", "items"],
-        ["cards", "cards"],
-        ["external_cards", "catalog cards"],
+        ["cards", "keepsakes"],
+        ["external_cards", "catalog keepsakes"],
         ["character_creation", "character paths"],
         ["rules", "rules references"],
         ["assets", "asset collections"],
@@ -6857,7 +6864,7 @@
         .map(([key, label]) => [Number(counts[key] || 0), label])
         .filter(([count]) => count > 0)
         .map(([count, label]) => `${count} ${label}`);
-      return visible.length ? visible.join(" · ") : "metadata-only pack";
+      return visible.length ? visible.join(" · ") : "metadata-only world pack";
     }
 
     function pendingConversationHtml() {
@@ -6877,7 +6884,7 @@
       if (actionBusy && pendingAction?.kind === "orb-chat") return "";
       return pendingChats.map((chat) => {
         const speaker = chat.targetName || "Someone nearby";
-        const aria = `${speaker} is finding the thread. Your next cards are ready while the conversation unfolds.`;
+        const aria = `${speaker} is finding the thread. Your next actions are ready while the conversation unfolds.`;
         return `<div class="line chat npc pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: chat.targetActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>finding the thread…</span></div>`;
       }).join("");
     }
@@ -6898,7 +6905,7 @@
       const hasAvatar = Boolean(actorId && state?.primary_action?.kind !== "create_avatar");
       const kicker = hasAvatar ? "the room is listening" : "a new tale is waiting";
       const cue = hasAvatar
-        ? "Choose a card below. Someone here will answer."
+        ? "Choose an action below. Someone here will answer."
         : "Begin with the trouble you can't resist.";
       const aria = `${kicker}. ${beat} ${cue}`;
       return `<div class="room-scene" role="note" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(beat)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
@@ -6944,16 +6951,16 @@
             ? "all three kept close"
             : `room for ${smallNumberWord(keepsakeCapacity - equippedCardIds.length)} more`}`
           : "choose a few to keep close"),
-        accountRow("cards", ownedCards.length ? `${smallNumberWord(ownedCards.length)} in your collection` : "waiting to be found"),
+        accountRow("collection", ownedCards.length ? `${smallNumberWord(ownedCards.length)} keepsakes gathered` : "waiting to be found"),
         accountRow("boxes", boxes.length ? `${smallNumberWord(boxes.length)} waiting to open` : "a wooden box may turn up"),
-        accountRow("packs", packs.length ? `${smallNumberWord(packs.length)} waiting to open` : "an avatar pack may turn up"),
+        accountRow("bundles", packs.length ? `${smallNumberWord(packs.length)} waiting to open` : "an avatar bundle may turn up"),
       ];
       for (const receipt of receipts.slice(0, 3)) {
-        inventoryRows.push(accountRow("opened box", "a wooden box became an avatar pack"));
+        inventoryRows.push(accountRow("opened box", "a wooden box became an avatar bundle"));
       }
       for (const opening of openings.slice(0, 3)) {
         const cards = (opening.card_ids || []).map(cardDisplayName).join(", ");
-        inventoryRows.push(accountRow("opened pack", cards || "a few new cards"));
+        inventoryRows.push(accountRow("opened bundle", cards || "a few new keepsakes"));
       }
       const actions = [];
       if (signed) {
@@ -6961,15 +6968,15 @@
           actions.push(`<button class="account-button secondary" type="button" data-account-open-box="first">open box</button>`);
         }
         if (packs.length) {
-          actions.push(`<button class="account-button secondary" type="button" data-account-open-pack="first">open pack</button>`);
+          actions.push(`<button class="account-button secondary" type="button" data-account-open-pack="first" data-player-concept="bundle" data-analytics-event="bundle.open">open bundle</button>`);
         }
       }
       const inventory = assets.length
         ? `<div class="account-assets">${assets.join("")}</div>`
-        : `<div class="account-empty">your collection is waiting for its first card</div>`;
+        : `<div class="account-empty">your collection is waiting for its first keepsake</div>`;
       const accountActions = actions.length ? `<div class="account-actions">${actions.join("")}</div>` : "";
       const keepsakeNote = ownedCards.length
-        ? `<div class="keepsake-note">Keep a few cards close—up to three. They help the choices they care about turn up sooner in your hand.</div>`
+        ? `<div class="keepsake-note">Keep a few keepsakes close—up to three. They help the choices they care about turn up sooner in your hand.</div>`
         : "";
       const accountName = identity?.authenticated
         ? "CosyWorld account"
@@ -7005,7 +7012,7 @@
       const avatarBlurb = String(avatarCard?.blurb || avatar?.description || "").trim();
       const avatarImage = cardImage(avatarCard);
       const portrait = avatarImage
-        ? `<button class="account-portrait" type="button"${cardDataAttr(avatarCard)} aria-label="Open ${escapeAttr(avatarName)} card"><img src="${escapeAttr(avatarImage)}" alt="" /></button>`
+        ? `<button class="account-portrait" type="button"${cardDataAttr(avatarCard)} aria-label="Open ${escapeAttr(avatarName)} keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open"><img src="${escapeAttr(avatarImage)}" alt="" /></button>`
         : "";
       const identity = `<div class="account-identity${portrait ? "" : " no-portrait"}">${portrait}<div class="account-identity-copy"><span class="account-identity-name">${escapeHtml(avatarName)}</span>${avatarTitle ? `<span class="account-identity-title">${escapeHtml(avatarTitle)}</span>` : ""}${avatarBlurb ? `<span class="account-identity-blurb">${escapeHtml(avatarBlurb)}</span>` : ""}</div></div>`;
       const purpose = String(state?.calling?.statement || "").trim() || "still choosing what trouble to get into";
@@ -7048,8 +7055,8 @@
     }
 
     function accountPackCard(packId) {
-      const image = fallbackCardImage(accountCard("Avatar Pack"));
-      return `<div class="account-asset"><img src="${escapeAttr(image)}" alt="Avatar Pack" data-card-key="pack:${escapeAttr(packId)}" /><div class="account-asset-title">${emojiHtml("🎴")}Avatar Pack</div><div class="account-asset-subtitle">${escapeHtml(compactAssetId(packId))}</div><button class="account-button secondary" type="button" data-account-open-pack="${escapeAttr(packId)}">open pack</button></div>`;
+      const image = fallbackCardImage(accountCard("Avatar Bundle"));
+      return `<div class="account-asset" data-player-concept="bundle"><img src="${escapeAttr(image)}" alt="Avatar Bundle" data-card-key="pack:${escapeAttr(packId)}" /><div class="account-asset-title">${emojiHtml("🎴")}Avatar Bundle</div><div class="account-asset-subtitle">${escapeHtml(compactAssetId(packId))}</div><button class="account-button secondary" type="button" data-account-open-pack="${escapeAttr(packId)}" data-analytics-event="bundle.open">open bundle</button></div>`;
     }
 
     function accountOwnedCard(card) {
@@ -7059,9 +7066,9 @@
       const full = equippedCardIds.length >= keepsakeCapacity;
       const rarity = friendlyCardRarity(card.rarity);
       const buttonLabel = equipped ? "put away" : "keep close";
-      const cardName = card.display_name || card.card_id || "Owned card";
+      const cardName = card.display_name || card.card_id || "Owned keepsake";
       const cardNameHtml = `${emojiHtml(cardEmoji(card, shape))}${escapeHtml(cardName)}`;
-      return `<div class="account-asset owned-card ${escapeAttr(shape)}${equipped ? " kept-close" : ""}"><button class="account-card-open" type="button"${cardDataAttr(card)} aria-label="Open ${escapeAttr(cardName)} card details"><img src="${escapeAttr(image)}" alt="" /></button><div class="account-asset-title">${cardNameHtml}</div><div class="account-asset-subtitle">${escapeHtml(rarity)} · ${escapeHtml(card.title || card.role || "card")}</div><div class="account-asset-effect"><span>when kept close</span>${escapeHtml(keepsakePromise(card))}</div><button class="account-button secondary" type="button" data-account-toggle-keepsake="${escapeAttr(card.card_id || "")}"${!equipped && full ? " disabled" : ""}>${buttonLabel}</button></div>`;
+      return `<div class="account-asset owned-card ${escapeAttr(shape)}${equipped ? " kept-close" : ""}" data-player-concept="keepsake"><button class="account-card-open" type="button"${cardDataAttr(card)} aria-label="Open ${escapeAttr(cardName)} keepsake details" data-analytics-event="keepsake.open"><img src="${escapeAttr(image)}" alt="" /></button><div class="account-asset-title">${cardNameHtml}</div><div class="account-asset-subtitle">${escapeHtml(rarity)} · ${escapeHtml(card.title || card.role || "keepsake")}</div><div class="account-asset-effect"><span>when kept close</span>${escapeHtml(keepsakePromise(card))}</div><button class="account-button secondary" type="button" data-account-toggle-keepsake="${escapeAttr(card.card_id || "")}" data-analytics-event="keepsake.toggle"${!equipped && full ? " disabled" : ""}>${buttonLabel}</button></div>`;
     }
 
     function boxImageUrl(boxId, stateName = "closed") {
@@ -7072,7 +7079,7 @@
       const empty = [
         "waiting to be found",
         "a wooden box may turn up",
-        "an avatar pack may turn up",
+        "an avatar bundle may turn up",
         "your first little moment is waiting",
         "ability training will grow here",
         "someone new is waiting to meet you",
@@ -7742,7 +7749,7 @@
           card_id: boxId,
           display_name: "Intricately Carved Wooden Box",
           title: "sealed world seed",
-          blurb: "A little wooden box with a fresh pack of avatar cards tucked inside.",
+          blurb: "A little wooden box with a fresh bundle of avatar keepsakes tucked inside.",
           rarity: "mystery",
           role: "item",
           aspect: "square",
@@ -7755,15 +7762,15 @@
         const packId = key.slice(5);
         return {
           card_id: packId,
-          display_name: "Avatar Pack",
-          title: "unopened card pack",
-          blurb: "A fresh pack of avatar cards waiting to be opened.",
+          display_name: "Avatar Bundle",
+          title: "unopened keepsake bundle",
+          blurb: "A fresh bundle of avatar keepsakes waiting to be opened.",
           rarity: "pack",
           role: "item",
           aspect: "square",
           source: "cosyworld_pack",
           owned: true,
-          image_url: fallbackCardImage(accountCard("Avatar Pack")),
+          image_url: fallbackCardImage(accountCard("Avatar Bundle")),
         };
       }
       for (const group of [state?.cards?.actors, state?.cards?.items, state?.cards?.locations, state?.account?.owned_cards]) {
@@ -7987,8 +7994,8 @@
       const dialog = $("card-modal").querySelector(".card-dialog");
       dialog?.classList.toggle("portrait-card", shapeForCard(card) === "avatar");
       $("card-modal-image").src = image;
-      $("card-modal-image").alt = card.display_name || "CosyWorld card";
-      $("card-modal-name").innerHTML = `${emojiHtml(cardEmoji(card))}${escapeHtml(card.display_name || "CosyWorld Card")}`;
+      $("card-modal-image").alt = card.display_name || "CosyWorld keepsake";
+      $("card-modal-name").innerHTML = `${emojiHtml(cardEmoji(card))}${escapeHtml(card.display_name || "CosyWorld Keepsake")}`;
       $("card-modal-title").textContent = card.title || card.role || "";
       $("card-modal-blurb").textContent = card.blurb || "";
       const meta = [
@@ -8059,7 +8066,7 @@
 
     function keepsakePromise(card) {
       if (["cosyworld_box", "cosyworld_pack"].includes(card?.source)) return "";
-      const name = String(card?.display_name || card?.card_id || "This card").trim();
+      const name = String(card?.display_name || card?.card_id || "This keepsake").trim();
       if (shapeForCard(card) === "avatar") {
         return `${name} and other chats, friendships, and trades turn up sooner.`;
       }
@@ -8514,7 +8521,7 @@
         : role === "item"
           ? "<circle cx='160' cy='88' r='44' fill='#efc96b' opacity='.28'/><path d='M121 99 C134 65 186 65 199 99 C183 116 137 116 121 99 Z' fill='#d8f7dc' opacity='.72'/><circle cx='160' cy='91' r='18' fill='#efc96b' opacity='.82'/>"
           : "<circle cx='160' cy='74' r='36' fill='#d8f7dc' opacity='.72'/><path d='M88 150 C102 108 128 95 160 95 C192 95 218 108 232 150 Z' fill='#65e68a' opacity='.38'/><path d='M112 78 C130 45 190 45 208 78' fill='none' stroke='#efc96b' stroke-width='8' stroke-linecap='round' opacity='.82'/>";
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" role="img" aria-label="CosyWorld mini card art"><defs><radialGradient id="glow" cx="50%" cy="35%" r="65%"><stop offset="0" stop-color="#efc96b" stop-opacity=".24"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient></defs><rect width="320" height="180" fill="${color}"/><rect width="320" height="180" fill="url(#glow)"/><rect x="10" y="10" width="300" height="160" fill="none" stroke="#efc96b" stroke-width="4" opacity=".82"/>${motif}</svg>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" role="img" aria-label="CosyWorld keepsake art"><defs><radialGradient id="glow" cx="50%" cy="35%" r="65%"><stop offset="0" stop-color="#efc96b" stop-opacity=".24"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient></defs><rect width="320" height="180" fill="${color}"/><rect width="320" height="180" fill="url(#glow)"/><rect x="10" y="10" width="300" height="160" fill="none" stroke="#efc96b" stroke-width="4" opacity=".82"/>${motif}</svg>`;
       return `data:image/svg+xml,${encodeURIComponent(svg).replaceAll("'", "%27")}`;
     }
 
@@ -9091,7 +9098,7 @@
       return {
         label: "more",
         detail: actorId
-          ? `${otherCardCount} other ${otherCardCount === 1 ? "card" : "cards"}`
+          ? `${otherCardCount} other ${otherCardCount === 1 ? "action" : "actions"}`
           : "after avatar",
         focusKey: "shuffle-hand",
         cardType: "shuffle",
@@ -9157,7 +9164,7 @@
         if (canShowShuffleAction()) {
           renderButton("shuffle", {
             label: "more",
-            detail: "new cards",
+            detail: "new actions",
             cardType: "shuffle",
             busy: true,
           });
@@ -9416,7 +9423,7 @@
         event.preventDefault();
         const cardId = keepsake.getAttribute("data-account-toggle-keepsake") || "";
         if (!toggleKeepsakeCard(cardId)) {
-          setError(`Keep at most ${keepsakeCapacity} cards close.`);
+          setError(`Keep at most ${keepsakeCapacity} keepsakes close.`);
         } else {
           setError("");
         }
@@ -9448,8 +9455,8 @@
           card: cardByKey(`box:${boxId}`),
           shape: "item",
           modalTitle: "burn this Box?",
-          modalSummary: "This permanently destroys the on-chain Box. After confirmation, it becomes one avatar-card pack.",
-          effect: "one unopened avatar-card pack joins this account",
+          modalSummary: "This permanently destroys the on-chain Box. After confirmation, it becomes one avatar keepsake bundle.",
+          effect: "one unopened avatar keepsake bundle joins this account",
           risk: "the Box burn is irreversible",
           run: () => openBox(boxId),
         });
@@ -9463,7 +9470,7 @@
         if (!packId) return;
         accountPanelPinned = true;
         runAction({
-          label: "open pack",
+          label: "open bundle",
           detail: compactAssetId(packId),
           card: cardByKey(`pack:${packId}`),
           shape: "item",

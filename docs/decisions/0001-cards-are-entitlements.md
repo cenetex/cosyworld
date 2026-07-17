@@ -100,9 +100,10 @@ Core and Ruby extraction (#24 and #27) implement and test the migration above.
 Location-scoped rules (#26) must call the removable records *facets* and must
 not persist expansion membership into the Core actor. The action hand (#48)
 must call wallet-owned influences *keepsakes* or *passes*, not actors/items in
-the scene. The terminology work (#51) must reserve *action card* for a scene
-choice, *keepsake/pass* for an entitlement surface, *world item* for kernel
-state, and *world pack* for mounted content.
+the scene. The [player lexicon](../../v2/docs/player-lexicon.md) reserves
+*action* for a scene choice, *keepsake/pass* for collection and entitlement
+surfaces, *world item* for kernel state, *bundle* for a collectible reveal, and
+*world pack* for mounted content.
 
 The trade-off is deliberate indirection. Packs must declare bindings, facets,
 and grants instead of copying wallet coordinates onto entity rows. In return,

@@ -104,6 +104,10 @@ official composition, First Bell binds its Rati card and school facet to
 Ruby registry, while Core's Rati remains valid and uses its local card surface.
 The accepted identity, cardinality, persistence, and one-plane item rules are
 recorded in [ADR 0001](../../docs/decisions/0001-cards-are-entitlements.md).
+Player copy calls these collection representations **keepsakes**, location
+entitlements **passes**, collectible reveals **bundles**, and mounted content
+**world packs**; see the [player lexicon](player-lexicon.md). Stable manifest
+and API fields retain their existing `card` and `pack` names.
 
 Manifest v1 is fail-closed: unknown fields are rejected. Forward-compatible
 metadata must live under `extensions` with a namespaced `x-...` key. Adding a
