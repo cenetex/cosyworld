@@ -911,6 +911,10 @@ static void test_search_and_craft_create_without_consuming_inputs(void) {
   assert(cw_world_apply(&world, &care, 74, &events) == CW_OK);
   assert(events.count == 1);
   assert(events.events[0].type == CW_EVENT_ITEM_CRAFTED);
+  assert(events.events[0].actor_id == 5001);
+  assert(events.events[0].content_id == 3002);
+  assert(events.events[0].item_id == 2001);
+  assert(events.events[0].target_item_id == 2005);
   assert(cw_world_apply(&world, &care, 75, &events) == CW_OK);
   assert(events.count == 1);
   assert(events.events[0].type == CW_EVENT_ITEM_CRAFTED);

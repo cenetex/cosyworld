@@ -12,5 +12,99 @@
   "required_front_ids": [
     "moonlit-trail:echo-front",
     "haunted-mansion:barred-threshold"
+  ],
+  "pact": {
+    "id": "cosyworld.cottage-pact",
+    "name": "The Cottage Pact",
+    "home_location_id": 1,
+    "join_requires_entitlement": false,
+    "first_visit_contribution_recipe_id": 3002,
+    "care_recipe_ids": [3002, 3003, 3004],
+    "public_trace_event": "item.crafted",
+    "return_beat_projection": "room_memory"
+  },
+  "front_paths": [
+    {
+      "front_id": "moonlit-trail:echo-front",
+      "job_id": "moonlit-trail:quiet-the-echo",
+      "solo_action": "work",
+      "cooperative_action": "help",
+      "minimum_cooperative_players": 2
+    },
+    {
+      "front_id": "haunted-mansion:barred-threshold",
+      "job_id": "haunted-mansion:earn-the-threshold",
+      "solo_action": "work",
+      "cooperative_action": "help",
+      "minimum_cooperative_players": 2
+    }
+  ],
+  "visit_scripts": [
+    {
+      "visit": 1,
+      "label": "Join the Cottage Pact",
+      "location_ids": [1],
+      "action_kinds": ["arrive", "notice", "take", "care", "grow"],
+      "recipe_ids": [3002],
+      "required_item_ids": [2001, 2005],
+      "front_ids": []
+    },
+    {
+      "visit": 2,
+      "label": "Tend the first shared path",
+      "location_ids": [1, 2, 1],
+      "action_kinds": ["travel", "trade", "care", "remember"],
+      "recipe_ids": [3003],
+      "required_item_ids": [2002, 2007],
+      "front_ids": []
+    },
+    {
+      "visit": 3,
+      "label": "Answer the Moonlit echo",
+      "location_ids": [1, 2, 3, 2, 1],
+      "action_kinds": ["travel", "notice", "work", "help", "care"],
+      "recipe_ids": [3004],
+      "required_item_ids": [2003, 2006],
+      "front_ids": ["moonlit-trail:echo-front"]
+    },
+    {
+      "visit": 4,
+      "label": "Earn the Mansion threshold",
+      "location_ids": [1, 2, 40, 41, 42, 41, 40, 2, 1],
+      "action_kinds": ["travel", "notice", "work", "help", "remember"],
+      "recipe_ids": [],
+      "required_item_ids": [],
+      "front_ids": ["haunted-mansion:barred-threshold"]
+    },
+    {
+      "visit": 5,
+      "label": "Carry a promise through the Abbey and Meadow",
+      "location_ids": [1, 2, 40, 44, 43, 44, 40, 2, 1],
+      "action_kinds": ["travel", "take", "trade", "remember"],
+      "recipe_ids": [],
+      "required_item_ids": [2004, 2009],
+      "front_ids": []
+    },
+    {
+      "visit": 6,
+      "label": "Bring two shared troubles closer to rest",
+      "location_ids": [1, 2, 3, 2, 40, 41, 42, 41, 40, 2, 1],
+      "action_kinds": ["travel", "work", "help", "trade", "grow"],
+      "recipe_ids": [],
+      "required_item_ids": [],
+      "front_ids": [
+        "moonlit-trail:echo-front",
+        "haunted-mansion:barred-threshold"
+      ]
+    },
+    {
+      "visit": 7,
+      "label": "Return to the hearth that remembers",
+      "location_ids": [1],
+      "action_kinds": ["arrive", "care", "remember", "grow"],
+      "recipe_ids": [3002],
+      "required_item_ids": [2001, 2005],
+      "front_ids": []
+    }
   ]
 }

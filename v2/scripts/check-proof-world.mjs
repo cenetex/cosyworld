@@ -21,7 +21,21 @@ const contentFiles = [
   "locations",
   "recipes",
   "room_features",
+  "room_sheets",
 ];
+
+const supportedVisitActions = new Set([
+  "arrive",
+  "care",
+  "grow",
+  "help",
+  "notice",
+  "remember",
+  "take",
+  "trade",
+  "travel",
+  "work",
+]);
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -92,6 +106,12 @@ export function analyzeProofWorld(spec, content) {
   const clockById = new Map(content.clocks.map((clock) => [clock.id, clock]));
   const jobById = new Map(content.jobs.map((job) => [job.id, job]));
   const frontById = new Map(content.fronts.map((front) => [front.id, front]));
+  const recipeById = new Map(
+    content.recipes.map((recipe) => [recipe.id, recipe]),
+  );
+  const roomSheetByLocationId = new Map(
+    content.room_sheets.map((sheet) => [sheet.location_id, sheet]),
+  );
   const gatedLocationIds = new Set(
     content.access_gates.map((gate) => gate.location_id),
   );
@@ -321,6 +341,189 @@ export function analyzeProofWorld(spec, content) {
     })
     .map((recipe) => recipe.id);
 
+  const pactIssues = [];
+  const pact = spec.pact;
+  if (!pact || typeof pact !== "object") {
+    pactIssues.push("missing pact definition");
+  } else {
+    if (!pact.id || !pact.name) pactIssues.push("pact identity is incomplete");
+    if (pact.home_location_id !== spec.pact_location_id) {
+      pactIssues.push("pact home does not match pact_location_id");
+    }
+    if (!sliceIds.has(pact.home_location_id)) {
+      pactIssues.push(`pact home ${pact.home_location_id} is outside the slice`);
+    }
+    if (gatedLocationIds.has(pact.home_location_id)) {
+      pactIssues.push(`pact home ${pact.home_location_id} is entitlement gated`);
+    }
+    if (pact.join_requires_entitlement !== false) {
+      pactIssues.push("joining the pact must not require an entitlement");
+    }
+    const homeSheet = roomSheetByLocationId.get(pact.home_location_id);
+    if (!homeSheet || homeSheet.zone !== "sanctuary") {
+      pactIssues.push("pact home must have a sanctuary room sheet");
+    }
+    const careRecipeIds = pact.care_recipe_ids ?? [];
+    if (careRecipeIds.length < spec.minimum_production_loops) {
+      pactIssues.push(
+        `pact has ${careRecipeIds.length}/${spec.minimum_production_loops} care recipes`,
+      );
+    }
+    for (const recipeId of careRecipeIds) {
+      if (!productionLoops.includes(recipeId)) {
+        pactIssues.push(`care recipe ${recipeId} is not repeatable in the slice`);
+      }
+    }
+    if (!careRecipeIds.includes(pact.first_visit_contribution_recipe_id)) {
+      pactIssues.push("first-visit contribution is not one of the pact care recipes");
+    }
+    if (pact.public_trace_event !== "item.crafted") {
+      pactIssues.push("pact care must emit the public item.crafted trace");
+    }
+    if (pact.return_beat_projection !== "room_memory") {
+      pactIssues.push("pact care must return through the room-memory projection");
+    }
+  }
+
+  const frontPathIssues = [];
+  const frontPaths = new Map(
+    (spec.front_paths ?? []).map((pathSpec) => [pathSpec.front_id, pathSpec]),
+  );
+  for (const frontId of spec.required_front_ids ?? []) {
+    const pathSpec = frontPaths.get(frontId);
+    const front = frontById.get(frontId);
+    const problems = [];
+    if (!pathSpec) {
+      problems.push("missing front play path");
+    } else {
+      const job = jobById.get(pathSpec.job_id);
+      if (!job || !active(job)) problems.push(`missing active job ${pathSpec.job_id}`);
+      if (front && !(front.job_ids ?? []).includes(pathSpec.job_id)) {
+        problems.push(`job ${pathSpec.job_id} does not belong to the front`);
+      }
+      if (pathSpec.solo_action !== "work") {
+        problems.push("solo path must use the authoritative work action");
+      }
+      if (pathSpec.cooperative_action !== "help") {
+        problems.push("cooperative path must use the authoritative help action");
+      }
+      if (pathSpec.minimum_cooperative_players < 2) {
+        problems.push("cooperative path must exercise at least two players");
+      }
+    }
+    if (problems.length > 0) frontPathIssues.push({ front_id: frontId, problems });
+  }
+
+  const visitScriptIssues = [];
+  const visitScripts = [...(spec.visit_scripts ?? [])].sort(
+    (left, right) => left.visit - right.visit,
+  );
+  const expectedVisitNumbers = [1, 2, 3, 4, 5, 6, 7];
+  if (
+    visitScripts.length !== expectedVisitNumbers.length ||
+    visitScripts.some((visit, index) => visit.visit !== expectedVisitNumbers[index])
+  ) {
+    visitScriptIssues.push({
+      visit: null,
+      problems: ["visit scripts must define visits 1 through 7 exactly once"],
+    });
+  }
+  const exitPairs = new Set(
+    content.exits.map(
+      (exit) => `${exit.from_location_id}:${exit.to_location_id}`,
+    ),
+  );
+  const coveredRecipeIds = new Set();
+  const coveredFrontIds = new Set();
+  for (const visit of visitScripts) {
+    const problems = [];
+    const locationIds = visit.location_ids ?? [];
+    if (!visit.label) problems.push("missing visit label");
+    if (locationIds.length === 0) {
+      problems.push("visit has no route");
+    } else if (
+      pact &&
+      (locationIds[0] !== pact.home_location_id ||
+        locationIds.at(-1) !== pact.home_location_id)
+    ) {
+      problems.push("visit must begin and end at the pact home");
+    }
+    for (const locationId of locationIds) {
+      if (!sliceIds.has(locationId))
+        problems.push(`room ${locationId} is outside the slice`);
+      else if (!reachable.has(locationId))
+        problems.push(`room ${locationId} is unreachable`);
+      if (gatedLocationIds.has(locationId))
+        problems.push(`room ${locationId} is entitlement gated`);
+    }
+    for (let index = 1; index < locationIds.length; index += 1) {
+      const from = locationIds[index - 1];
+      const to = locationIds[index];
+      if (!exitPairs.has(`${from}:${to}`)) {
+        problems.push(`route step ${from} -> ${to} has no authored exit`);
+      }
+    }
+    const actionKinds = visit.action_kinds ?? [];
+    for (const action of actionKinds) {
+      if (!supportedVisitActions.has(action))
+        problems.push(`unsupported action ${action}`);
+    }
+    for (const recipeId of visit.recipe_ids ?? []) {
+      coveredRecipeIds.add(recipeId);
+      if (!productionLoops.includes(recipeId))
+        problems.push(`recipe ${recipeId} is not a repeatable slice loop`);
+    }
+    for (const itemId of visit.required_item_ids ?? []) {
+      const item = itemById.get(itemId);
+      if (!item) problems.push(`missing required item ${itemId}`);
+      else if (!sliceIds.has(item.location_id) || !reachable.has(item.location_id))
+        problems.push(`required item ${itemId} starts outside the reachable slice`);
+      else if (gatedLocationIds.has(item.location_id))
+        problems.push(`required item ${itemId} starts behind an entitlement gate`);
+    }
+    for (const frontId of visit.front_ids ?? []) {
+      coveredFrontIds.add(frontId);
+      const pathSpec = frontPaths.get(frontId);
+      if (!pathSpec) {
+        problems.push(`front ${frontId} has no play path`);
+      } else {
+        if (!actionKinds.includes(pathSpec.solo_action))
+          problems.push(`front ${frontId} visit omits its solo action`);
+        if (!actionKinds.includes(pathSpec.cooperative_action))
+          problems.push(`front ${frontId} visit omits its cooperative action`);
+      }
+    }
+    if (problems.length > 0)
+      visitScriptIssues.push({ visit: visit.visit ?? null, problems });
+  }
+  if (
+    pact &&
+    !visitScripts
+      .find((visit) => visit.visit === 1)
+      ?.recipe_ids?.includes(pact.first_visit_contribution_recipe_id)
+  ) {
+    visitScriptIssues.push({
+      visit: 1,
+      problems: ["first visit does not contribute to the pact"],
+    });
+  }
+  for (const recipeId of pact?.care_recipe_ids ?? []) {
+    if (!coveredRecipeIds.has(recipeId)) {
+      visitScriptIssues.push({
+        visit: null,
+        problems: [`care recipe ${recipeId} is absent from the seven visits`],
+      });
+    }
+  }
+  for (const frontId of spec.required_front_ids ?? []) {
+    if (!coveredFrontIds.has(frontId)) {
+      visitScriptIssues.push({
+        visit: null,
+        problems: [`front ${frontId} is absent from the seven visits`],
+      });
+    }
+  }
+
   const roomCount = sliceIds.size;
   const checks = {
     room_count:
@@ -338,6 +541,12 @@ export function analyzeProofWorld(spec, content) {
     critical_inputs_are_renewable: nonrenewableCriticalInputs.length === 0,
     enough_production_loops:
       productionLoops.length >= spec.minimum_production_loops,
+    pact_is_playable: pactIssues.length === 0,
+    fronts_have_solo_and_cooperative_paths: frontPathIssues.length === 0,
+    seven_visit_path_works: visitScriptIssues.length === 0,
+    public_contribution_has_return_beat:
+      pact?.public_trace_event === "item.crafted" &&
+      pact?.return_beat_projection === "room_memory",
   };
   const gaps = [];
   if (!checks.room_count)
@@ -372,6 +581,18 @@ export function analyzeProofWorld(spec, content) {
     gaps.push(
       `only ${productionLoops.length}/${spec.minimum_production_loops} production loops are defined`,
     );
+  if (!checks.pact_is_playable)
+    gaps.push(`pact gaps: ${pactIssues.join("; ")}`);
+  if (!checks.fronts_have_solo_and_cooperative_paths)
+    gaps.push(
+      `front play gaps: ${frontPathIssues.map((issue) => issue.front_id).join(", ")}`,
+    );
+  if (!checks.seven_visit_path_works)
+    gaps.push(
+      `visit path gaps: ${visitScriptIssues.map((issue) => issue.visit ?? "shared").join(", ")}`,
+    );
+  if (!checks.public_contribution_has_return_beat)
+    gaps.push("pact contribution has no public trace and return-beat projection");
 
   return {
     id: spec.id,
@@ -390,6 +611,10 @@ export function analyzeProofWorld(spec, content) {
     critical_inputs: criticalInputs,
     nonrenewable_critical_inputs: nonrenewableCriticalInputs,
     production_loop_ids: productionLoops,
+    pact_issues: pactIssues,
+    front_path_issues: frontPathIssues,
+    visit_script_issues: visitScriptIssues,
+    visit_scripts: visitScripts,
   };
 }
 
@@ -406,6 +631,9 @@ function printReport(report) {
   );
   console.log(
     `nonrenewable critical inputs: ${report.nonrenewable_critical_inputs.length ? report.nonrenewable_critical_inputs.map((input) => input.item_id).join(", ") : "none"}`,
+  );
+  console.log(
+    `pact/front/visit gaps: ${report.pact_issues.length}/${report.front_path_issues.length}/${report.visit_script_issues.length}`,
   );
   for (const gap of report.gaps) console.log(`gap: ${gap}`);
 }
