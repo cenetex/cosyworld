@@ -737,6 +737,7 @@ enum ProjectionMutation {
     UseFeature {
         item_id: u64,
         location_id: u64,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
         feature_key: String,
         content: String,
         reason: String,
@@ -7597,6 +7598,9 @@ impl RuntimeWorld {
                         reason,
                     );
                     events.push(event.clone());
+                    if feature_key.is_empty() {
+                        continue;
+                    }
                     let item_name = self
                         .item_name(*item_id)
                         .unwrap_or_else(|| format!("Item {item_id}"));
@@ -36515,6 +36519,68 @@ mod tests {
         let before = replay.world.tick;
         assert_eq!(replay.apply_journal_record(&legacy).0, CW_OK);
         assert_eq!(replay.world.tick, before + 1);
+    }
+
+    #[test]
+    fn legacy_use_feature_records_replay_without_inventing_a_feature_identity() {
+        let runtime = RuntimeWorld::seeded();
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: RATI_ACTOR_ID,
+                ..CwAction::default()
+            },
+            17632,
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::UseFeature {
+                item_id: WATCH_BELL_ITEM_ID,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                feature_key: LOW_DOORWAY_FEATURE_KEY.to_string(),
+                content: "The Watch Bell answered the room.".to_string(),
+                reason: "use_feature".to_string(),
+            });
+
+        let mut legacy_json = serde_json::to_value(record).expect("serialize journal record");
+        let mutations = legacy_json
+            .get_mut("projection_mutations")
+            .and_then(serde_json::Value::as_array_mut)
+            .expect("projection mutation array");
+        mutations[0]
+            .as_object_mut()
+            .expect("use feature mutation")
+            .remove("feature_key");
+
+        let legacy: JournalRecord =
+            serde_json::from_value(legacy_json).expect("deserialize legacy use feature record");
+        assert!(matches!(
+            legacy.projection_mutations.as_slice(),
+            [ProjectionMutation::UseFeature { feature_key, .. }] if feature_key.is_empty()
+        ));
+
+        let mut replay = runtime;
+        let (status, events) = replay.apply_journal_record(&legacy);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "item.used"
+                && event.actor_id == Some(RATI_ACTOR_ID)
+                && event.item_id == Some(WATCH_BELL_ITEM_ID)
+        }));
+        assert!(!replay.tags.contains_key(&feature_use_tag_id(
+            RATI_ACTOR_ID,
+            COSY_COTTAGE_LOCATION_ID,
+            "",
+            WATCH_BELL_ITEM_ID,
+        )));
+        assert!(!replay.ledger_marks.contains_key(&visit_ledger_mark_id(
+            RATI_ACTOR_ID,
+            "feature",
+            &format!(
+                "feature_use:{}::{WATCH_BELL_ITEM_ID}",
+                COSY_COTTAGE_LOCATION_ID
+            ),
+        )));
     }
 
     #[test]
