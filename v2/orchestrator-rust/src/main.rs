@@ -35710,6 +35710,28 @@ mod tests {
 
         append_action_journal(&path, &create_record).expect("append migrated create");
         append_action_journal(&path, &say_record).expect("append migrated speech");
+        for (index, bundle_hash) in compatible_hashes.iter().enumerate().skip(2) {
+            let content_id = 9000 + index as u64;
+            let mut say = CwAction::default();
+            say.kind = CW_ACTION_SAY;
+            say.actor_id = 5000;
+            say.content_id = content_id;
+            let mut epoch_record = JournalRecord::new(say, 9912 + index as u64);
+            epoch_record.worldpack_bundle_hash = bundle_hash.clone();
+            epoch_record.content_context = ContentReferenceContext::default();
+            epoch_record.content_upserts.insert(
+                content_id,
+                format!("hello from declared worldpack epoch {index}"),
+            );
+            append_action_journal(&path, &epoch_record).expect("append declared worldpack epoch");
+        }
+
+        let replay_hashes = read_action_journal(&path)
+            .expect("read migrated journal")
+            .into_iter()
+            .map(|record| record.worldpack_bundle_hash)
+            .collect::<Vec<_>>();
+        assert_eq!(replay_hashes, *compatible_hashes);
 
         let replayed = RuntimeWorld::from_action_journal(&path)
             .expect("declared journal epochs replay against current content");
@@ -42905,25 +42927,27 @@ mod tests {
             .manifest
             .persistence_compatibility
             .replay_compatible_bundle_hashes;
-        assert_eq!(compatible_hashes.len(), 4);
+        assert!(!compatible_hashes.is_empty());
         assert!(!compatible_hashes.contains(&active_content().manifest.bundle_hash));
 
-        let mut snapshot = RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded());
-        snapshot.version = 1;
-        snapshot.worldpack_bundle_hash = compatible_hashes[0].clone();
-        snapshot.content_context = ContentReferenceContext::default();
-        snapshot.tick = 57;
-        snapshot.next_event_seq = 736;
+        for bundle_hash in compatible_hashes {
+            let mut snapshot = RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded());
+            snapshot.version = 1;
+            snapshot.worldpack_bundle_hash = bundle_hash.clone();
+            snapshot.content_context = ContentReferenceContext::default();
+            snapshot.tick = 57;
+            snapshot.next_event_seq = 736;
 
-        let runtime = snapshot
-            .into_runtime()
-            .expect("declared production snapshot epoch migrates");
-        assert_eq!(runtime.world.tick, 57);
-        assert_eq!(runtime.world.next_event_seq, 736);
-        assert_eq!(
-            runtime.world.location_count,
-            active_content().locations.len()
-        );
+            let runtime = snapshot
+                .into_runtime()
+                .expect("declared production snapshot epoch migrates");
+            assert_eq!(runtime.world.tick, 57);
+            assert_eq!(runtime.world.next_event_seq, 736);
+            assert_eq!(
+                runtime.world.location_count,
+                active_content().locations.len()
+            );
+        }
     }
 
     #[test]
