@@ -6,6 +6,7 @@ import {
   CANONICAL_ID_MAPPING_VERSION,
   CONTENT_PACK_CONTRACT,
   resolveContentPackGraph,
+  validateWorldEntityResource,
 } from "./content-pack-contract.mjs";
 import {
   buildContentReferenceMapping,
@@ -993,6 +994,11 @@ for (const profile of characterCreationProfiles) {
 }
 
 for (const actor of actors) {
+  try {
+    validateWorldEntityResource(actor.pack_id, "actors", actor);
+  } catch (error) {
+    fail(error.message);
+  }
   validateRequiredStrings("actor", actor, ["name", "speech_mode", "title", "description"]);
   if (actor.ambient_autonomy !== undefined && typeof actor.ambient_autonomy !== "boolean") {
     fail(`actor ${actor.id} has invalid ambient_autonomy`);
@@ -1032,6 +1038,11 @@ for (const actor of actors) {
 }
 
 for (const item of items) {
+  try {
+    validateWorldEntityResource(item.pack_id, "items", item);
+  } catch (error) {
+    fail(error.message);
+  }
   validateRequiredStrings("item", item, ["name", "description", "kind"]);
   if (!["potion", "evolution", "keepsake"].includes(item.kind)) {
     fail(`item ${item.id} has invalid kind ${item.kind}`);
@@ -1046,6 +1057,11 @@ for (const item of items) {
 const itemById = new Map(items.map((item) => [item.id, item]));
 
 for (const location of locations) {
+  try {
+    validateWorldEntityResource(location.pack_id, "locations", location);
+  } catch (error) {
+    fail(error.message);
+  }
   validateRequiredStrings("location", location, ["name", "title", "description", "persona"]);
   if (!Array.isArray(location.memory) || location.memory.some((entry) => !isNonEmptyString(entry))) {
     fail(`location ${location.id} must have non-empty memory strings`);
@@ -1361,6 +1377,7 @@ for (const card of cards) {
 
 idSet("card bindings", cardBindings, (binding) => binding.id);
 const boundSeedCards = new Set();
+const boundExternalCards = new Set();
 for (const binding of cardBindings) {
   validateRequiredStrings("card binding", binding, [
     "id",
@@ -1393,6 +1410,8 @@ for (const binding of cardBindings) {
   }
   if (boundSeedCards.has(binding.seed_card_id)) fail(`seed card ${binding.seed_card_id} has more than one external binding`);
   boundSeedCards.add(binding.seed_card_id);
+  if (boundExternalCards.has(binding.external_card_id)) fail(`external card ${binding.external_card_id} binds more than one world entity`);
+  boundExternalCards.add(binding.external_card_id);
 }
 
 for (const gate of accessGates) {

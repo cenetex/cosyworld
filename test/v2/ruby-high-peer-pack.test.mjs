@@ -55,6 +55,9 @@ describe("Ruby High: First Bell peer pack", () => {
       external_card_id: "rati",
     })]);
     const coreRati = coreOnly.resources.cards.find((card) => card.card_id === "rati");
+    expect(coreOnly.resources.actors.find((actor) => actor.id === 1001)).toEqual(
+      expect.objectContaining({ pack_id: "cosyworld.core", name: "Rati" }),
+    );
     expect(coreRati.external_card_id).toBeUndefined();
     expect(coreRati.source).toBe("cosyworld_core");
   });

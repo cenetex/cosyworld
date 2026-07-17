@@ -1395,6 +1395,7 @@ struct SeedFactionContent {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SeedActorContent {
     #[serde(default)]
     pack_id: String,
@@ -1453,6 +1454,7 @@ struct SeedStatBlockContent {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SeedItemContent {
     #[serde(default)]
     pack_id: String,
@@ -1465,6 +1467,7 @@ struct SeedItemContent {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SeedLocationContent {
     #[serde(default)]
     pack_id: String,
@@ -5233,6 +5236,7 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
     }
     let mut card_binding_ids = BTreeSet::new();
     let mut bound_seed_cards = BTreeSet::new();
+    let mut bound_external_cards = BTreeSet::new();
     for binding in &content.card_bindings {
         let Some(seed_card) = content.cards.iter().find(|card| {
             card.card_id == binding.seed_card_id
@@ -5277,9 +5281,20 @@ fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
             || expected_ref.as_deref() != Some(binding.entity_ref.as_str())
             || external_card.map(|card| card.pack_id.as_str()) != Some(binding.pack_id.as_str())
             || !card_binding_ids.insert(binding.id.as_str())
-            || !bound_seed_cards.insert(seed_card.card_id.as_str())
         {
             return Err(format!("invalid card binding {}", binding.id));
+        }
+        if !bound_seed_cards.insert(seed_card.card_id.as_str()) {
+            return Err(format!(
+                "seed card {} has more than one external binding",
+                seed_card.card_id
+            ));
+        }
+        if !bound_external_cards.insert(binding.external_card_id.as_str()) {
+            return Err(format!(
+                "external card {} binds more than one world entity",
+                binding.external_card_id
+            ));
         }
     }
 

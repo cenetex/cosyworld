@@ -146,6 +146,36 @@ describe("worldpack Manifest v1 validation", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("has unavailable provider fixture.missing/entitlements");
   });
+
+  it("rejects wallet identity embedded in a world item", () => {
+    const root = worldpackFixture();
+    const items = JSON.parse(fs.readFileSync(path.join(root, "items.json"), "utf8"));
+    items[0].external_card_id = "wallet-copy-of-world-item";
+    writeJson(root, "items.json", items);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("wallet cards and entitlements must use card_bindings");
+  });
+
+  it("allows one external card to describe only one world entity", () => {
+    const root = worldpackFixture();
+    const bindings = JSON.parse(fs.readFileSync(path.join(root, "card_bindings.json"), "utf8"));
+    bindings.push({
+      ...bindings[0],
+      id: "rati-card-duplicate-subject",
+      entity_ref: "pack://cosyworld.core/actor/1002",
+      subject_id: 1002,
+      seed_card_id: "cosy-whiskerwind",
+    });
+    writeJson(root, "card_bindings.json", bindings);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("external card rati binds more than one world entity");
+  });
 });
 
 describe("worldpack authored relationships", () => {

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   resolveContentPackGraph,
   validateContentPackManifest,
+  validateWorldEntityResource,
 } from "../../v2/scripts/content-pack-contract.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -157,6 +158,26 @@ describe("Content Pack Manifest v1", () => {
         authorities: [{ ...entitlements.authorities[0], provider: "fixture.other/entitlements" }],
       },
     }))).toThrow(/unavailable provider fixture\.other\/entitlements/);
+  });
+
+  it("keeps wallet identity fields out of authoritative world entities", () => {
+    expect(() => validateWorldEntityResource("fixture.world", "actors", {
+      id: 1,
+      name: "Ada",
+      speech_mode: "server_authored",
+      title: "Keeper",
+      description: "Keeps the local truth.",
+      external_card_id: "ada-wallet-card",
+    })).toThrow(/wallet cards and entitlements must use card_bindings/);
+    expect(() => validateWorldEntityResource("fixture.world", "items", {
+      id: 2,
+      name: "Brass Key",
+      description: "A shard-local key.",
+      kind: "keepsake",
+      charges: 1,
+      location_id: 1,
+      wallet_asset_id: "portable-key",
+    })).toThrow(/unknown field wallet_asset_id/);
   });
 
   it("resolves dependencies in deterministic topological order", () => {
