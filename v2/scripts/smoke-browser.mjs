@@ -1938,12 +1938,12 @@ async function main() {
     assert(result.multiResident?.length === 1, `nearby residents should share one choice-bearing Chat card: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.detail === "choose someone · one Orb", `multi-resident Chat should advertise its in-card choice and whole-conversation cost: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.title === "choose someone to talk with", `multi-resident Chat should open a clear target picker: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.summary === "Choose someone nearby, then play Chat. The card passes the room turn immediately while the conversation unfolds.", `multi-resident Chat should explain the card commit and asynchronous conversation: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.summary === "Choose someone nearby, then play Chat. The action passes the room turn immediately while the conversation unfolds.", `multi-resident Chat should explain the action commit and asynchronous conversation: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.choices?.map((choice) => choice.label).join(",") === "Rati,Skull", `the Chat card should carry every eligible resident choice: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.alternateTargetId === 1003, `confirming an alternate Chat choice should address that resident: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.focusKeys?.includes("actor:1001") && result.multiResident[0]?.focusKeys?.includes("actor:1003"), `one Chat card should retain affinity for every resident it can reach: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.title === "talk with Skull", `chat confirmation should name the conversation partner: ${JSON.stringify(result)}`);
-    assert(result.serverPaid?.summary === "Play Chat to start a short conversation with Skull. The card passes the room turn immediately while the conversation unfolds.", `chat confirmation should explain the ordinary card and asynchronous conversation: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.summary === "Play Chat to start a short conversation with Skull. The action passes the room turn immediately while the conversation unfolds.", `chat confirmation should explain the ordinary action and asynchronous conversation: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.rows?.some((row) => row[0] === "Costs" && row[1] === "one Orb for the whole exchange"), `chat confirmation should spell out the single cost for every line: ${JSON.stringify(result)}`);
     assert(result.serverPaid?.rows?.some((row) => row[0] === "Conversation" && row[1].includes("one more line")), `chat confirmation should explain the back-and-forth cadence: ${JSON.stringify(result)}`);
     assert(!/reply hook|authors a line|-[0-9]+ Orb/i.test(JSON.stringify(result.serverPaid)), `chat confirmation should hide implementation and subtraction jargon: ${JSON.stringify(result)}`);
@@ -2440,7 +2440,7 @@ async function main() {
         .every((promise) => result.cardPromises.some((copy) => copy.includes(promise))),
       `each Avatar, Item, and Location should explain its own keepsake promise: ${JSON.stringify(result)}`,
     );
-    assert(result.modalPromise.includes("Homeroom, nearby paths, clues, and shared work turn up sooner"), `card details should repeat the keepsake promise: ${JSON.stringify(result)}`);
+    assert(result.modalPromise.includes("Homeroom, nearby paths, clues, and shared work turn up sooner"), `keepsake details should repeat the keepsake promise: ${JSON.stringify(result)}`);
     assert(
       result.guidedButton.highlighted
         && result.guidedButton.guide === "Gust"
@@ -2452,7 +2452,7 @@ async function main() {
     assert(
       result.cardButtons.length === 4
         && result.cardButtons.every((button) => button.tag === "BUTTON" && button.type === "button" && button.label.startsWith("Open ") && button.imageAlt === ""),
-      `owned card art should be a labelled button with decorative nested art: ${JSON.stringify(result)}`,
+      `owned keepsake art should be a labelled button with decorative nested art: ${JSON.stringify(result)}`,
     );
   }
 
@@ -4139,8 +4139,8 @@ async function main() {
     await page.locator("#location-image[data-card-key]").click();
     await page.waitForSelector("#card-modal:not([hidden])");
     const locationCardName = await page.locator("#card-modal-name").innerText();
-    assert(locationCardName.includes("Cosy Cottage"), `location image should open location card modal: ${locationCardName}`);
-    steps.push({ label: "location card modal", card: locationCardName });
+    assert(locationCardName.includes("Cosy Cottage"), `location image should open location keepsake details: ${locationCardName}`);
+    steps.push({ label: "location keepsake details", card: locationCardName });
     await closeCardModal();
 
     await page.locator(".room-avatar-pfp[data-card-key]").first().click();
@@ -5239,7 +5239,7 @@ async function main() {
     });
     const pendingCopy = await page.locator("#log .line.chat.pending").getAttribute("aria-label");
     assert(
-      /is finding the thread\. Your next cards are ready while the conversation unfolds\./.test(pendingCopy || ""),
+      /is finding the thread\. Your next actions are ready while the conversation unfolds\./.test(pendingCopy || ""),
       `queued Orb Chat should announce that play can continue: ${pendingCopy}`,
     );
     steps.push({ label, pending: "queued", cards: "ready" });
@@ -7138,7 +7138,7 @@ async function main() {
       `an empty avatar sheet should point warmly toward what comes next: ${guestSheetText}`,
     );
     assert(!/quiet for now|nothing yet|no one yet|\bnone\b|\b\d+ of \d+\b|dev-wallet/i.test(guestSheetText), `avatar sheet should avoid cold empty-state and account shorthand: ${guestSheetText}`);
-    assert(guestSheetText.includes("a wooden box may turn up") && guestSheetText.includes("an avatar pack may turn up"), `empty collection slots should suggest possibility instead of absence: ${guestSheetText}`);
+    assert(guestSheetText.includes("a wooden box may turn up") && guestSheetText.includes("an avatar bundle may turn up"), `empty collection slots should suggest possibility instead of absence: ${guestSheetText}`);
     assert(guestSheetText.includes("local tale") && guestSheetText.includes("choose a few to keep close"), `local tale and empty keepsake capacity should read naturally: ${guestSheetText}`);
     assert(guestSheetText.includes("purpose") && !guestSheetText.includes("calling"), `avatar sheet should use purpose rather than Calling terminology: ${guestSheetText}`);
     assert(guestSheetText.indexOf("purpose") < guestSheetText.indexOf("link account"), `character identity should appear before account controls: ${guestSheetText}`);
@@ -7160,7 +7160,7 @@ async function main() {
     await page.keyboard.press("Enter");
     await page.waitForFunction(() => document.querySelector("#economy")?.getAttribute("aria-expanded") === "true");
     assert((await page.locator("#economy").innerText()).toLowerCase().includes("close"), "open collection toggle should visibly say close");
-    assert((await page.locator("#economy").getAttribute("aria-label")) === "Close your collection and return to room chat", "open collection toggle should announce its close action");
+    assert((await page.locator("#economy").getAttribute("aria-label")) === "Close your keepsake collection and return to room chat", "open keepsake collection toggle should announce its close action");
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector("#economy")?.getAttribute("aria-expanded") === "false");
     assert(await page.evaluate(() => document.activeElement?.id === "economy"), "Escape should close the collection and return focus to its toggle");
@@ -7207,8 +7207,8 @@ async function main() {
     ));
     await focusAccountInventory();
     const signedCollectionText = await page.locator(".account-panel").innerText();
-    assert(signedCollectionText.includes("Homeroom") && signedCollectionText.includes("Library"), `signed collection should show owned location cards before their paths are found: ${signedCollectionText}`);
-    assert(await page.locator(".account-panel .owned-card .account-card-open[data-card-key]").count() >= 2, "signed collection should render owned card art as detail buttons");
+    assert(signedCollectionText.includes("Homeroom") && signedCollectionText.includes("Library"), `signed collection should show owned location keepsakes before their paths are found: ${signedCollectionText}`);
+    assert(await page.locator(".account-panel .owned-card .account-card-open[data-card-key]").count() >= 2, "signed collection should render owned keepsake art as detail buttons");
     assert(await page.locator(".account-panel .owned-card .account-asset-effect").count() >= 2, "signed collection should explain what each kept-close card changes");
     await page.evaluate(() => {
       localStorage.removeItem("cosyworld.wallet");
@@ -7265,7 +7265,7 @@ async function main() {
       accountBeforeText.includes("box-smoke-1") && accountBeforeText.toLowerCase().includes("intricately carved wooden box"),
       `account panel should show active Box before opening: ${accountBeforeText}`,
     );
-    assert(accountBeforeText.includes("Homeroom") && accountBeforeText.includes("Library"), `account panel should show signed location cards alongside the Box: ${accountBeforeText}`);
+    assert(accountBeforeText.includes("Homeroom") && accountBeforeText.includes("Library"), `account panel should show signed location keepsakes alongside the Box: ${accountBeforeText}`);
     const boxArtProbe = await page.evaluate(async () => {
       const image = document.querySelector(".account-panel [data-card-key^='box:']");
       const response = await fetch(image?.getAttribute("src") || "");
@@ -7283,7 +7283,7 @@ async function main() {
     await page.locator(".account-panel [data-account-open-box='box-smoke-1']").click();
     await page.waitForFunction(() => {
       const status = document.querySelector("#error");
-      return status?.classList.contains("ok") && status.textContent.includes("Opened pack");
+      return status?.classList.contains("ok") && status.textContent.includes("Opened avatar bundle");
     });
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
     await page.waitForSelector(".account-panel", { state: "visible" });
@@ -7293,7 +7293,7 @@ async function main() {
       return fetch(`/state?wallet_session=${encodeURIComponent(walletSession)}`).then((response) => response.json());
     });
     assert(!(afterBoxOpen.access?.owned_box_ids || []).includes("box-smoke-1"), `opened Box should leave trusted access: ${JSON.stringify(afterBoxOpen.access)}`);
-    assert((afterBoxOpen.access?.unopened_pack_ids || []).length === 0, `opened pack should not remain unopened: ${JSON.stringify(afterBoxOpen.access)}`);
+    assert((afterBoxOpen.access?.unopened_pack_ids || []).length === 0, `opened bundle should not remain unopened: ${JSON.stringify(afterBoxOpen.access)}`);
     assert(
       (afterBoxOpen.access?.owned_card_ids || []).length > (beforeBoxOpen.access?.owned_card_ids || []).length,
       `pack opening should grant avatar cards: ${JSON.stringify({ before: beforeBoxOpen.access, after: afterBoxOpen.access })}`,
@@ -7304,7 +7304,7 @@ async function main() {
       .filter((card) => newlyGrantedIds.includes(card.card_id))
       .map((card) => card.display_name || card.card_id);
     assert(
-      accountAfterText.toLowerCase().includes("opened pack")
+      accountAfterText.toLowerCase().includes("opened bundle")
         && newlyGrantedNames.length === 3
         && newlyGrantedNames.every((name) => accountAfterText.includes(name)),
       `account panel should show every card the weighted pack held: ${JSON.stringify({ newlyGrantedIds, newlyGrantedNames, accountAfterText })}`,

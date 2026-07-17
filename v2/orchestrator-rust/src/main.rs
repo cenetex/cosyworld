@@ -10843,7 +10843,7 @@ impl RuntimeWorld {
                         if let Some(ledger_event) = self.mark_visit_ledger(
                             action.actor_id,
                             "feature",
-                            "You recorded a card observation.",
+                            "You recorded a room detail.",
                             event.seq,
                             &format!("feature_search:{location_id}:{feature_key}"),
                         ) {
@@ -10900,7 +10900,7 @@ impl RuntimeWorld {
                         if let Some(ledger_event) = self.mark_visit_ledger(
                             action.actor_id,
                             "location",
-                            "You observed the location card.",
+                            "You noticed what this place keeps.",
                             event.seq,
                             &format!("location_search:{location_id}"),
                         ) {
@@ -21928,7 +21928,7 @@ impl RuntimeWorld {
             "tag.cleared" if event.tag_label.as_deref() == Some("tired") => {
                 format!("{actor_name} took a proper breath.")
             }
-            _ => format!("{actor_name} played a card and changed the room a little."),
+            _ => format!("{actor_name} chose an action and changed the room a little."),
         }
     }
 
@@ -25197,7 +25197,7 @@ async fn pack_open(
             ok: false,
             status: 503,
             opening: None,
-            error: Some("event store is required for pack opening".to_string()),
+            error: Some("event store is required for avatar bundle opening".to_string()),
         });
     };
     let Some(wallet_address) = payload
@@ -25217,7 +25217,7 @@ async fn pack_open(
             ok: false,
             status: 400,
             opening: None,
-            error: Some("pack id is required".to_string()),
+            error: Some("avatar bundle id is required".to_string()),
         });
     };
 
@@ -25238,7 +25238,7 @@ async fn pack_open(
                 ok: false,
                 status: 409,
                 opening: None,
-                error: Some("pack already opened by another wallet".to_string()),
+                error: Some("avatar bundle already opened by another wallet".to_string()),
             });
         }
         Ok(None) => {}
@@ -25273,7 +25273,7 @@ async fn pack_open(
                 ok: false,
                 status: 403,
                 opening: None,
-                error: Some("pack receipt belongs to another wallet".to_string()),
+                error: Some("avatar bundle receipt belongs to another wallet".to_string()),
             });
         }
         if receipt.status != "burned" {
@@ -25281,7 +25281,7 @@ async fn pack_open(
                 ok: false,
                 status: 409,
                 opening: None,
-                error: Some("pack is not unopened".to_string()),
+                error: Some("avatar bundle is not unopened".to_string()),
             });
         }
     } else if !trusted_pack {
@@ -25289,7 +25289,7 @@ async fn pack_open(
             ok: false,
             status: 403,
             opening: None,
-            error: Some("pack is not active in the trusted ownership feed".to_string()),
+            error: Some("avatar bundle is not active in the trusted ownership feed".to_string()),
         });
     }
 
@@ -30768,7 +30768,7 @@ fn resident_system_prompt(plan: &ResidentReplyPlan) -> String {
         .starts_with("This is the player avatar's own immediate")
     {
         return format!(
-            "You are {}, the player avatar in CosyWorld. Write their immediate first-person in-character response to the card they just played. React to the concrete outcome instead of narrating the rules or inventing another action. Keep it under 34 words. {base}",
+            "You are {}, the player avatar in CosyWorld. Write their immediate first-person in-character response to the action they just chose. React to the concrete outcome instead of narrating the rules or inventing another action. Keep it under 34 words. {base}",
             plan.npc_name
         );
     }
@@ -33808,7 +33808,7 @@ fn optional_asset_placeholder(mount: &SeedAssetMount, relative_path: &str) -> Re
         mount.provider, mount.public_prefix, relative_path
     );
     let svg = format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400' viewBox='0 0 640 400' role='img' aria-label='Missing pack asset'><rect width='640' height='400' fill='#161d22'/><rect x='18' y='18' width='604' height='364' rx='22' fill='none' stroke='#efc96b' stroke-width='4'/><text x='320' y='178' text-anchor='middle' font-family='ui-monospace,monospace' font-size='28' fill='#efc96b'>PACK ASSET UNAVAILABLE</text><text x='320' y='224' text-anchor='middle' font-family='ui-monospace,monospace' font-size='16' fill='#d8f7dc'>{}</text></svg>",
+        "<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400' viewBox='0 0 640 400' role='img' aria-label='Missing world pack asset'><rect width='640' height='400' fill='#161d22'/><rect x='18' y='18' width='604' height='364' rx='22' fill='none' stroke='#efc96b' stroke-width='4'/><text x='320' y='178' text-anchor='middle' font-family='ui-monospace,monospace' font-size='28' fill='#efc96b'>WORLD PACK ASSET UNAVAILABLE</text><text x='320' y='224' text-anchor='middle' font-family='ui-monospace,monospace' font-size='16' fill='#d8f7dc'>{}</text></svg>",
         escape_xml(&format!("{}: {}", mount.pack_id, relative_path))
     );
     (
@@ -33829,7 +33829,7 @@ fn optional_asset_placeholder(mount: &SeedAssetMount, relative_path: &str) -> Re
 fn unavailable_asset_provider_placeholder(public_path: &str) -> Response {
     let diagnostic = format!("no active asset provider for {public_path}");
     let svg = format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400' viewBox='0 0 640 400' role='img' aria-label='Unavailable pack asset provider'><rect width='640' height='400' fill='#161d22'/><rect x='18' y='18' width='604' height='364' rx='22' fill='none' stroke='#efc96b' stroke-width='4'/><text x='320' y='178' text-anchor='middle' font-family='ui-monospace,monospace' font-size='25' fill='#efc96b'>ASSET PROVIDER NOT MOUNTED</text><text x='320' y='224' text-anchor='middle' font-family='ui-monospace,monospace' font-size='14' fill='#d8f7dc'>{}</text></svg>",
+        "<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400' viewBox='0 0 640 400' role='img' aria-label='Unavailable world pack asset provider'><rect width='640' height='400' fill='#161d22'/><rect x='18' y='18' width='604' height='364' rx='22' fill='none' stroke='#efc96b' stroke-width='4'/><text x='320' y='178' text-anchor='middle' font-family='ui-monospace,monospace' font-size='25' fill='#efc96b'>WORLD PACK PROVIDER NOT MOUNTED</text><text x='320' y='224' text-anchor='middle' font-family='ui-monospace,monospace' font-size='14' fill='#d8f7dc'>{}</text></svg>",
         escape_xml(public_path)
     );
     (
@@ -34185,7 +34185,7 @@ fn generated_seed_card_svg(spec: &SeedCardArtSpec) -> String {
     let card_id = escape_xml(&spec.card_id);
 
     format!(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' viewBox='0 0 {width} {height}' role='img' aria-label='{label} seed card art' data-card-id='{card_id}'><defs><radialGradient id='glow' cx='50%' cy='26%' r='62%'><stop offset='0' stop-color='{accent}' stop-opacity='.36'/><stop offset='1' stop-color='{bg}' stop-opacity='0'/></radialGradient><pattern id='grain' width='12' height='12' patternUnits='userSpaceOnUse'><path d='M0 12L12 0' stroke='{ink}' stroke-opacity='.045' stroke-width='2'/></pattern></defs><rect width='{width}' height='{height}' rx='18' fill='{bg}'/><rect width='{width}' height='{height}' fill='url(#glow)'/><rect width='{width}' height='{height}' fill='url(#grain)'/><rect x='10' y='10' width='{inner_w}' height='{inner_h}' rx='14' fill='none' stroke='{accent}' stroke-width='4' opacity='.78'/><circle cx='{mid_x}' cy='{mid_y}' r='{circle_r}' fill='{accent}' opacity='.16'/><circle cx='{mid_x}' cy='{mid_y}' r='{circle_r2}' fill='none' stroke='{accent}' stroke-width='5' opacity='.75'/><text x='{mid_x}' y='{glyph_y}' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='{glyph_size}' font-weight='900' fill='{ink}'>{glyph}</text><text x='{mid_x}' y='{label_y}' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='22' font-weight='850' fill='{accent}'>{label}</text><text x='22' y='34' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='14' font-weight='800' fill='{ink}' opacity='.72'>{role}</text></svg>",
+        "<svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' viewBox='0 0 {width} {height}' role='img' aria-label='{label} keepsake art' data-card-id='{card_id}'><defs><radialGradient id='glow' cx='50%' cy='26%' r='62%'><stop offset='0' stop-color='{accent}' stop-opacity='.36'/><stop offset='1' stop-color='{bg}' stop-opacity='0'/></radialGradient><pattern id='grain' width='12' height='12' patternUnits='userSpaceOnUse'><path d='M0 12L12 0' stroke='{ink}' stroke-opacity='.045' stroke-width='2'/></pattern></defs><rect width='{width}' height='{height}' rx='18' fill='{bg}'/><rect width='{width}' height='{height}' fill='url(#glow)'/><rect width='{width}' height='{height}' fill='url(#grain)'/><rect x='10' y='10' width='{inner_w}' height='{inner_h}' rx='14' fill='none' stroke='{accent}' stroke-width='4' opacity='.78'/><circle cx='{mid_x}' cy='{mid_y}' r='{circle_r}' fill='{accent}' opacity='.16'/><circle cx='{mid_x}' cy='{mid_y}' r='{circle_r2}' fill='none' stroke='{accent}' stroke-width='5' opacity='.75'/><text x='{mid_x}' y='{glyph_y}' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='{glyph_size}' font-weight='900' fill='{ink}'>{glyph}</text><text x='{mid_x}' y='{label_y}' text-anchor='middle' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='22' font-weight='850' fill='{accent}'>{label}</text><text x='22' y='34' font-family='ui-monospace, SFMono-Regular, Menlo, monospace' font-size='14' font-weight='800' fill='{ink}' opacity='.72'>{role}</text></svg>",
         inner_w = width - 20,
         inner_h = height - 20,
         circle_r = width.min(height) / 4,
@@ -36915,7 +36915,7 @@ fn record_economy_reconciliation(
                 asset_id: asset_id.clone(),
                 external_wallet_address: owners.iter().cloned().collect::<Vec<_>>().join(","),
                 local_wallet_address: None,
-                detail: "The trusted snapshot reports one unopened pack under multiple wallets."
+                detail: "The trusted snapshot reports one unopened avatar bundle under multiple wallets."
                     .to_string(),
             });
         }
@@ -36926,7 +36926,7 @@ fn record_economy_reconciliation(
                 external_wallet_address: owners.iter().next().cloned().unwrap_or_default(),
                 local_wallet_address: Some(local_owner.clone()),
                 detail:
-                    "A pack with a durable opening record is still unopened in the trusted snapshot."
+                    "An avatar bundle with a durable opening record is still unopened in the trusted snapshot."
                         .to_string(),
             });
         }
@@ -39803,7 +39803,7 @@ mod tests {
         assert!(INDEX_HTML.contains("the world beyond"));
         assert!(INDEX_HTML.contains("function localWorldConditionBeat"));
         assert!(INDEX_HTML.contains("accountPanelPinned ? \"close\" : \"account\""));
-        assert!(INDEX_HTML.contains("Close your collection and return to room chat"));
+        assert!(INDEX_HTML.contains("Close your keepsake collection and return to room chat"));
         assert!(INDEX_HTML.contains("accountPanelPinned && event.key === \"Escape\""));
         assert!(!INDEX_HTML.contains("connect ai"));
         assert!(!INDEX_HTML.contains("openrouter_api_key"));
@@ -39882,7 +39882,7 @@ mod tests {
         assert!(INDEX_HTML.contains("if (!actorId || action?.kind !== \"orb-chat\") return 0;"));
         assert!(!INDEX_HTML.contains("reacting to your card…"));
         assert!(!INDEX_HTML.contains("responding to your card…"));
-        assert!(INDEX_HTML.contains("Your next cards are ready while"));
+        assert!(INDEX_HTML.contains("Your next actions are ready while"));
         assert!(INDEX_HTML.contains("return [...(events || [])].slice(-24);"));
         assert!(INDEX_HTML.contains("const tailChanged = chatTailKey !== renderedChatTailKey;"));
         assert!(INDEX_HTML.contains("tailChanged || wasAtBottom"));
@@ -39901,7 +39901,7 @@ mod tests {
         assert!(INDEX_HTML.contains("function quietRoomSceneHtml"));
         assert!(INDEX_HTML.contains("the room is listening"));
         assert!(INDEX_HTML.contains("a new tale is waiting"));
-        assert!(INDEX_HTML.contains("Choose a card below. Someone here will answer."));
+        assert!(INDEX_HTML.contains("Choose an action below. Someone here will answer."));
         assert!(INDEX_HTML.contains("options.has(\"check\") || listenKnownUnattempted"));
         assert!(INDEX_HTML.contains("data-story-guide"));
         assert!(INDEX_HTML.contains("const storyGuideLabel"));
@@ -39958,7 +39958,7 @@ mod tests {
         assert!(INDEX_HTML.contains("button.classList.add(\"has-copy\");"));
         assert!(INDEX_HTML.contains("<span class=\"cmd-copy\"><span class=\"cmd-label\">"));
         assert!(INDEX_HTML.contains("cardImage(card) || fallbackCardImage(fallback)"));
-        assert!(INDEX_HTML.contains("CosyWorld mini card art"));
+        assert!(INDEX_HTML.contains("CosyWorld keepsake art"));
         assert!(INDEX_HTML.contains("function gardenHasDewbright"));
         assert!(INDEX_HTML.contains("A small pearled button catches the light."));
         assert!(INDEX_HTML.contains("where something pearled was lifted away"));
@@ -56184,7 +56184,7 @@ mod tests {
         assert_eq!(homeroom_rule.required_card_id, Some("location-homeroom"));
         assert_eq!(
             homeroom_rule.reason,
-            Some("Ruby High: First Bell location card required.")
+            Some("Ruby High: First Bell location pass required.")
         );
         assert!(!location_access_allowed(11, &public));
         assert!(location_access_allowed(2, &public));
@@ -56247,7 +56247,7 @@ mod tests {
         assert!(!state.cards.locations[&11].accessible);
         assert_eq!(
             state.cards.locations[&11].access_reason.as_deref(),
-            Some("Ruby High: First Bell location card required.")
+            Some("Ruby High: First Bell location pass required.")
         );
 
         let world = runtime.world_response(None, &no_wallet);
