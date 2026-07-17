@@ -44,6 +44,7 @@ pub(super) struct StateResponse {
     pub(super) room_memory: RoomMemoryView,
     pub(super) primary_action: PrimaryAction,
     pub(super) action_offers: Vec<RankedActionOffer>,
+    pub(super) action_hand: ActionHandView,
     pub(super) inspector: InspectorView,
     pub(super) character_creation: Vec<CharacterCreationProfileView>,
 }
@@ -1216,6 +1217,7 @@ impl RuntimeWorld {
             .unwrap_or_default();
         let primary_action = self.primary_action(client_actor_id, access);
         let action_offers = self.ranked_action_offers(client_actor_id, access, &primary_action);
+        let action_hand = compose_action_hand(&action_offers);
         let inspector = self.inspector_view(location_id, &primary_action, &action_offers);
         let recent_events = self
             .event_log
@@ -1282,6 +1284,7 @@ impl RuntimeWorld {
             room_memory,
             primary_action,
             action_offers,
+            action_hand,
             inspector,
             character_creation: character_creation_views(),
         }

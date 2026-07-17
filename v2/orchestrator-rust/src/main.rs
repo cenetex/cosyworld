@@ -2083,6 +2083,7 @@ struct RankedActionOffer {
     disabled_reason: Option<String>,
     zone: String,
     source: String,
+    provider: ActionProviderView,
     target: Option<ActionTargetView>,
     project: Option<ActionProjectView>,
     cost: Option<ActionCostView>,
@@ -2091,6 +2092,30 @@ struct RankedActionOffer {
     progress: Option<u8>,
     claim_key: Option<String>,
     reason: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ActionProviderView {
+    kind: String,
+    id: String,
+    label: String,
+    reason: String,
+    priority: u8,
+}
+
+#[derive(Debug, Serialize)]
+struct ActionHandView {
+    schema_version: u8,
+    capacity: u8,
+    entries: Vec<ActionHandEntryView>,
+}
+
+#[derive(Debug, Serialize)]
+struct ActionHandEntryView {
+    offer_id: String,
+    kind: String,
+    intention: String,
+    provider: ActionProviderView,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -15321,6 +15346,12 @@ impl RuntimeWorld {
                 let effect = self.action_offer_effect(&option.kind, actor_id);
                 let progress = self.action_offer_progress(&option.kind, actor_id);
                 let claim_key = self.action_offer_claim_key(&option.kind, actor_id);
+                let provider = self.action_offer_provider(
+                    &option.kind,
+                    actor_id,
+                    target.as_ref(),
+                    project.as_ref(),
+                );
                 RankedActionOffer {
                     id: format!(
                         "{}:{}",
@@ -15341,6 +15372,7 @@ impl RuntimeWorld {
                         .then(|| "primary action is currently unavailable".to_string()),
                     zone: zone.clone(),
                     source: "kernel_flags+rpg_projection".to_string(),
+                    provider,
                     target,
                     project,
                     cost,
@@ -15359,6 +15391,7 @@ impl RuntimeWorld {
             let label = self.action_offer_label(kind, &verb, "Scout", Some(&target), None);
             let accessible_label =
                 self.action_offer_accessible_label(kind, &verb, &label, Some(&target), None);
+            let provider = self.action_offer_provider(kind, actor_id, Some(&target), None);
             offers.push(RankedActionOffer {
                 id: format!("explore_path:{}", target.id.unwrap_or_default()),
                 kind: kind.to_string(),
@@ -15373,6 +15406,7 @@ impl RuntimeWorld {
                 disabled_reason: None,
                 zone: zone.clone(),
                 source: "journey+exit_projection".to_string(),
+                provider,
                 target: Some(target),
                 project: None,
                 cost: None,
@@ -15473,6 +15507,13 @@ impl RuntimeWorld {
             disabled_reason,
             zone: default_zone(),
             source: "server".to_string(),
+            provider: action_provider(
+                "system",
+                format!("system:{kind}"),
+                "World rules",
+                "Available from the current world rules",
+                70,
+            ),
             target,
             project: None,
             cost,
@@ -15482,6 +15523,174 @@ impl RuntimeWorld {
             claim_key,
             reason: reason.to_string(),
         }
+    }
+
+    fn action_offer_provider(
+        &self,
+        kind: &str,
+        actor_id: u64,
+        target: Option<&ActionTargetView>,
+        project: Option<&ActionProjectView>,
+    ) -> ActionProviderView {
+        let actor = self.actor_by_id(actor_id);
+
+        if matches!(kind, "attack" | "defend" | "flee") {
+            return action_provider(
+                "rules",
+                "rules:danger",
+                "Immediate danger",
+                "Because danger is pressing",
+                0,
+            );
+        }
+        if kind == "rest" && actor.is_some_and(|_| self.tired_tag_active(actor_id)) {
+            return action_provider(
+                "rules",
+                "rules:recovery",
+                "Your condition",
+                "Because you need to recover",
+                0,
+            );
+        }
+
+        if matches!(kind, "bank_ledger" | "train_skill" | "create_bond") {
+            let reason = match kind {
+                "bank_ledger" => "From what your Journal remembers",
+                "train_skill" => "From growth recorded in your Journal",
+                "create_bond" => "From growth recorded in your Journal",
+                _ => unreachable!(),
+            };
+            return action_provider(
+                "journal",
+                format!("journal:{actor_id}"),
+                "Your Journal",
+                reason,
+                10,
+            );
+        }
+
+        if matches!(
+            kind,
+            "chat" | "help" | "give_item" | "trade_item" | "resolve_bond"
+        ) {
+            if let Some(target_actor_id) = target.and_then(|target| target.id) {
+                if let Some(bond) = self.active_bond(actor_id, target_actor_id) {
+                    let target_name = self
+                        .actor_name(target_actor_id)
+                        .unwrap_or_else(|| format!("Friend {target_actor_id}"));
+                    let reason = if bond.strength >= 2 {
+                        format!("Because {target_name} trusts you")
+                    } else {
+                        format!("Because you know {target_name}")
+                    };
+                    return action_provider("friendship", bond.id.clone(), target_name, reason, 20);
+                }
+            }
+        }
+
+        let held_item = match kind {
+            "use_feature" => self
+                .default_player_feature_use_candidate(actor_id)
+                .map(|candidate| (candidate.item_id, candidate.item_name)),
+            "use_item" => self
+                .actor_held_items(actor_id)
+                .into_iter()
+                .filter(|item| item.kind == CW_ITEM_POTION && item.charges > 0)
+                .min_by_key(|item| item.id)
+                .map(|item| {
+                    let name = self
+                        .item_name(item.id)
+                        .unwrap_or_else(|| format!("Item {}", item.id));
+                    (item.id, name)
+                }),
+            "give_item" => self
+                .default_resident_gift_candidate(actor_id)
+                .map(|candidate| {
+                    let item = candidate.offered_item;
+                    let name = self
+                        .item_name(item.id)
+                        .unwrap_or_else(|| format!("Item {}", item.id));
+                    (item.id, name)
+                }),
+            "trade_item" => self
+                .default_item_trade_candidate(actor_id)
+                .map(|candidate| {
+                    let item = candidate.offered_item;
+                    let name = self
+                        .item_name(item.id)
+                        .unwrap_or_else(|| format!("Item {}", item.id));
+                    (item.id, name)
+                }),
+            "craft" => self
+                .actor_held_items(actor_id)
+                .into_iter()
+                .min_by_key(|item| item.id)
+                .map(|item| {
+                    let name = self
+                        .item_name(item.id)
+                        .unwrap_or_else(|| format!("Item {}", item.id));
+                    (item.id, name)
+                }),
+            _ => None,
+        };
+        if let Some((item_id, item_name)) = held_item {
+            return action_provider(
+                "held_item",
+                format!("item:{item_id}"),
+                item_name.clone(),
+                format!("From {item_name} in your hand"),
+                30,
+            );
+        }
+
+        if let Some(calling) = self.callings.get(&actor_id) {
+            let calling_matches = match kind {
+                "check" => calling_matches_listen(&calling.statement),
+                "search" => calling_matches_inspect(&calling.statement),
+                "explore_path" | "move" => calling_statement_is_explorer(&calling.statement),
+                _ => false,
+            };
+            if calling_matches {
+                return action_provider(
+                    "calling",
+                    format!("calling:{actor_id}"),
+                    "Your Calling",
+                    "From your Calling",
+                    40,
+                );
+            }
+        }
+
+        if let Some(project) = project {
+            return action_provider(
+                "job",
+                format!("job:{}", project.id),
+                project.label.clone(),
+                format!("From {}", project.label),
+                50,
+            );
+        }
+
+        if let Some(actor) = actor {
+            let location_name = self
+                .location_name(actor.location_id)
+                .unwrap_or_else(|| format!("Location {}", actor.location_id));
+            return action_provider(
+                "location",
+                format!("location:{}", actor.location_id),
+                location_name.clone(),
+                format!("From {location_name}"),
+                60,
+            );
+        }
+
+        action_provider(
+            "rules",
+            "rules:foundation",
+            "World rules",
+            "Available from the current world rules",
+            70,
+        )
     }
 
     fn action_vocabulary_for_actor(&self, actor_id: u64) -> Option<&SeedActionVocabulary> {
@@ -15713,6 +15922,14 @@ impl RuntimeWorld {
                     id: Some(candidate.location_id),
                     label: Some(candidate.feature_name),
                 }),
+            "use_item" => self.world.actors[..self.world.actor_count]
+                .iter()
+                .find(|target| self.healing_target_is_offerable(&actor, target))
+                .map(|target| ActionTargetView {
+                    kind: "actor".to_string(),
+                    id: Some(target.id),
+                    label: self.actor_name(target.id),
+                }),
             "give_item" => self
                 .default_resident_gift_candidate(actor_id)
                 .map(|candidate| ActionTargetView {
@@ -15738,6 +15955,15 @@ impl RuntimeWorld {
                         self.actor_name(target.id)
                             .unwrap_or_else(|| format!("Resident {}", target.id))
                     )),
+                }),
+            "pick_up" => self.world.items[..self.world.item_count]
+                .iter()
+                .filter(|item| item.location_id == actor.location_id)
+                .min_by_key(|item| item.id)
+                .map(|item| ActionTargetView {
+                    kind: "item".to_string(),
+                    id: Some(item.id),
+                    label: self.item_name(item.id),
                 }),
             "search" => self
                 .default_search_target(actor_id)
@@ -30089,6 +30315,174 @@ fn action_is_listen_check(action: &CwAction) -> bool {
         && action.dc == LISTEN_DC
 }
 
+fn action_provider(
+    kind: impl Into<String>,
+    id: impl Into<String>,
+    label: impl Into<String>,
+    reason: impl Into<String>,
+    priority: u8,
+) -> ActionProviderView {
+    ActionProviderView {
+        kind: kind.into(),
+        id: id.into(),
+        label: label.into(),
+        reason: reason.into(),
+        priority,
+    }
+}
+
+fn calling_matches_inspect(statement: &str) -> bool {
+    let statement = statement.to_ascii_lowercase();
+    [
+        "clue", "lost", "stuck", "shy room", "strange", "warning", "errand",
+    ]
+    .iter()
+    .any(|needle| statement.contains(needle))
+}
+
+fn action_offer_requires_target(kind: &str) -> bool {
+    matches!(
+        kind,
+        "chat"
+            | "attack"
+            | "defend"
+            | "flee"
+            | "pick_up"
+            | "use_item"
+            | "use_feature"
+            | "give_item"
+            | "trade_item"
+            | "search"
+            | "craft"
+            | "move"
+            | "create_bond"
+            | "resolve_bond"
+            | "explore_path"
+    )
+}
+
+fn action_offer_is_reachable(offer: &RankedActionOffer) -> bool {
+    if offer.disabled {
+        return false;
+    }
+    if action_offer_requires_target(&offer.kind) && offer.target.is_none() {
+        return false;
+    }
+    if matches!(offer.kind.as_str(), "prepare" | "work" | "help") && offer.project.is_none() {
+        return false;
+    }
+    true
+}
+
+fn action_offer_hand_group(offer: &RankedActionOffer) -> String {
+    if offer.intention == "contribute" {
+        return offer
+            .project
+            .as_ref()
+            .map(|project| format!("contribute:{}", project.progress_clock_id))
+            .unwrap_or_else(|| "contribute".to_string());
+    }
+    if matches!(offer.kind.as_str(), "use_item" | "use_feature") {
+        return "use".to_string();
+    }
+    offer.id.clone()
+}
+
+fn action_offer_is_generally_useful(offer: &RankedActionOffer) -> bool {
+    matches!(
+        offer.kind.as_str(),
+        "check" | "search" | "move" | "chat" | "rest" | "bank_ledger"
+    )
+}
+
+fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandView {
+    const CAPACITY: usize = 3;
+    let mut candidates: Vec<_> = offers
+        .iter()
+        .filter(|offer| action_offer_is_reachable(offer))
+        .collect();
+    candidates.sort_by(|left, right| {
+        left.provider
+            .priority
+            .cmp(&right.provider.priority)
+            .then_with(|| left.rank.cmp(&right.rank))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+
+    let mut grouped = Vec::new();
+    let mut seen_groups = BTreeSet::new();
+    for offer in candidates {
+        if seen_groups.insert(action_offer_hand_group(offer)) {
+            grouped.push(offer);
+        }
+    }
+
+    let mut selected = Vec::new();
+    let mut provider_counts = BTreeMap::<String, u8>::new();
+    for offer in &grouped {
+        let provider_key = format!("{}:{}", offer.provider.kind, offer.provider.id);
+        let count = provider_counts.entry(provider_key).or_default();
+        if *count < 2 {
+            selected.push(*offer);
+            *count += 1;
+        }
+        if selected.len() == CAPACITY {
+            break;
+        }
+    }
+    if selected.len() < CAPACITY {
+        for offer in &grouped {
+            if selected.iter().any(|selected| selected.id == offer.id) {
+                continue;
+            }
+            selected.push(*offer);
+            if selected.len() == CAPACITY {
+                break;
+            }
+        }
+    }
+
+    if !selected
+        .iter()
+        .any(|offer| action_offer_is_generally_useful(offer))
+    {
+        if let Some(general) = grouped
+            .iter()
+            .copied()
+            .find(|offer| action_offer_is_generally_useful(offer))
+        {
+            if selected.len() < CAPACITY {
+                selected.push(general);
+            } else if let Some(last) = selected.last_mut() {
+                *last = general;
+            }
+        }
+    }
+
+    selected.sort_by(|left, right| {
+        left.provider
+            .priority
+            .cmp(&right.provider.priority)
+            .then_with(|| left.rank.cmp(&right.rank))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    selected.dedup_by(|left, right| left.id == right.id);
+
+    ActionHandView {
+        schema_version: 1,
+        capacity: CAPACITY as u8,
+        entries: selected
+            .into_iter()
+            .map(|offer| ActionHandEntryView {
+                offer_id: offer.id.clone(),
+                kind: offer.kind.clone(),
+                intention: offer.intention.clone(),
+                provider: offer.provider.clone(),
+            })
+            .collect(),
+    }
+}
+
 fn action_offer_rank(kind: &str) -> u16 {
     match kind {
         "give_item" => 10,
@@ -35149,7 +35543,9 @@ mod tests {
         assert!(!INDEX_HTML.contains("scroll-behavior: smooth;"));
         assert!(INDEX_HTML.contains("pendingAction?.kind === \"orb-chat\""));
         assert!(INDEX_HTML.contains("Play Chat to start a short conversation with"));
-        assert!(INDEX_HTML.contains("return [waitingAction, buildEvolveAction()].filter(Boolean);"));
+        assert!(INDEX_HTML.contains(
+            "return [waitingAction, buildEvolveAction()].filter(Boolean).map(decorateActionHand);"
+        ));
         assert!(!INDEX_HTML.contains("cmd-progress"));
         assert!(INDEX_HTML.contains("if (!result.ok) void queueRefresh();"));
         assert!(INDEX_HTML.contains("event?.type !== \"action.receipt\""));
@@ -35178,7 +35574,9 @@ mod tests {
         assert!(INDEX_HTML.contains("your first tale is yours"));
         assert!(INDEX_HTML.contains("firstTaleCelebration"));
         assert!(INDEX_HTML.contains("function dealtStoryGuide"));
-        assert!(INDEX_HTML.contains("storyGuideActionKeys"));
+        assert!(!INDEX_HTML.contains("storyGuideActionKeys"));
+        assert!(INDEX_HTML.contains("view.action_hand?.entries"));
+        assert!(INDEX_HTML.contains("handProviderReason(action)"));
         assert!(INDEX_HTML.contains("const buildGrowAction"));
         assert!(INDEX_HTML.contains("const buildTrainAction"));
         assert!(INDEX_HTML.contains("the room shares one welcoming clue just for you"));
@@ -35349,15 +35747,21 @@ mod tests {
         assert!(INDEX_HTML.contains("class=\"account-card-open\""));
         assert!(INDEX_HTML.contains("class=\"account-asset-effect\""));
         assert!(INDEX_HTML.contains("class=\"keepsake-call\""));
+        assert!(INDEX_HTML.contains("class=\"provider-call\""));
         assert!(INDEX_HTML.contains("data-keepsake-guide"));
-        assert!(INDEX_HTML.contains("called forward by kept-close"));
-        assert!(INDEX_HTML.contains("called this</span>"));
+        assert!(INDEX_HTML.contains("matching kept-close art:"));
+        assert!(INDEX_HTML.contains("kept close</span>"));
         assert!(INDEX_HTML.contains("id=\"card-modal-keepsake\""));
         assert!(INDEX_HTML.contains("function keepsakePromise"));
-        assert!(INDEX_HTML
-            .contains("They help the choices they care about turn up sooner in your hand."));
-        assert!(INDEX_HTML.contains("and other chats, friendships, and trades turn up sooner."));
-        assert!(INDEX_HTML.contains("nearby paths, clues, and shared work turn up sooner."));
+        assert!(INDEX_HTML.contains(
+            "Their art can appear beside matching choices without changing actions or odds."
+        ));
+        assert!(INDEX_HTML.contains(
+            "can appear beside matching choices. It does not change available actions or odds."
+        ));
+        assert!(INDEX_HTML.contains("function authoritativeHandSignature"));
+        assert!(INDEX_HTML.contains("function actionMatchesProjectedHandEntry"));
+        assert!(!INDEX_HTML.contains("function handHash"));
         assert!(INDEX_HTML.contains(
             "priority: useCandidates.some((candidate) => candidate.requested) ? 10 : undefined"
         ));
@@ -43997,6 +44401,163 @@ mod tests {
         assert_eq!(runtime.action_offer_verb("move", 5000), "Head to");
         assert_eq!(runtime.action_offer_verb("work", 5000), "Take point");
         assert_eq!(runtime.action_offer_verb("help", 5000), "Back up");
+    }
+
+    #[test]
+    fn action_hand_is_deterministic_reachable_identity_driven_and_replayable() {
+        let mut calling_runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut calling_runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Hand Tester",
+        );
+        let calling_state = calling_runtime.state_response(Some(5000), &AccessContext::default());
+        let repeated_calling_state =
+            calling_runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(calling_state.action_hand.schema_version, 1);
+        assert_eq!(calling_state.action_hand.capacity, 3);
+        assert!(!calling_state.action_hand.entries.is_empty());
+        assert!(calling_state.action_hand.entries.len() <= 3);
+        assert_eq!(
+            serde_json::to_value(&calling_state.action_hand).expect("serialize action hand"),
+            serde_json::to_value(&repeated_calling_state.action_hand)
+                .expect("serialize repeated action hand")
+        );
+        assert!(calling_state.action_hand.entries.iter().any(|entry| {
+            entry.provider.kind == "calling" && entry.provider.reason == "From your Calling"
+        }));
+        assert!(calling_state.action_hand.entries.iter().all(|entry| {
+            let offer = calling_state
+                .action_offers
+                .iter()
+                .find(|offer| offer.id == entry.offer_id)
+                .expect("projected hand entry references an offer");
+            offer.kind == entry.kind
+                && action_offer_is_reachable(offer)
+                && (!action_offer_requires_target(&offer.kind) || offer.target.is_some())
+                && !entry.provider.id.is_empty()
+                && !entry.provider.reason.is_empty()
+        }));
+        assert!(calling_state.action_hand.entries.iter().any(|entry| {
+            calling_state
+                .action_offers
+                .iter()
+                .find(|offer| offer.id == entry.offer_id)
+                .is_some_and(action_offer_is_generally_useful)
+        }));
+
+        let baseline_calling_hand =
+            serde_json::to_value(&calling_state.action_hand).expect("serialize baseline hand");
+        assert!(calling_runtime
+            .mark_visit_ledger(
+                5000,
+                "learned_truth",
+                "The cottage keeps a patient light.",
+                90_001,
+                "action_hand_fixture",
+            )
+            .is_some());
+        let journal_state = calling_runtime.state_response(Some(5000), &AccessContext::default());
+        assert_ne!(
+            serde_json::to_value(&journal_state.action_hand).expect("serialize journal hand"),
+            baseline_calling_hand
+        );
+        assert!(journal_state.action_hand.entries.iter().any(|entry| {
+            entry.kind == "bank_ledger"
+                && entry.provider.kind == "journal"
+                && entry.provider.reason == "From what your Journal remembers"
+        }));
+        assert!(calling_runtime
+            .bank_visit_ledger(5000, "action_hand_fixture")
+            .is_some());
+        let growth_state = calling_runtime.state_response(Some(5000), &AccessContext::default());
+        let growth_kinds = growth_state
+            .action_hand
+            .entries
+            .iter()
+            .map(|entry| entry.kind.as_str())
+            .collect::<BTreeSet<_>>();
+        assert!(growth_kinds.contains("train_skill"));
+        assert!(growth_kinds.contains("create_bond"));
+
+        let mut friendship_runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut friendship_runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Friend Tester",
+        );
+        let friend = friendship_runtime
+            .default_chat_target(5000)
+            .expect("the cottage has a resident to befriend");
+        let friend_name = friendship_runtime
+            .actor_name(friend.id)
+            .expect("resident has a name");
+        let friendship_id = bond_id(5000, friend.id);
+        friendship_runtime.bonds.insert(
+            friendship_id.clone(),
+            BondState {
+                id: friendship_id,
+                actor_id: 5000,
+                target_actor_id: friend.id,
+                statement: format!("I trust {friend_name}."),
+                strength: 2,
+                status: "active".to_string(),
+                source_event_seq: Some(90_002),
+                updated_event_seq: Some(90_002),
+            },
+        );
+        let friendship_state =
+            friendship_runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(friendship_state.action_hand.entries.iter().any(|entry| {
+            entry.provider.kind == "friendship"
+                && entry.provider.reason == format!("Because {friend_name} trusts you")
+        }));
+
+        let mut held_item_runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut held_item_runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Tonic Tester",
+        );
+        let before_item_state =
+            held_item_runtime.state_response(Some(5000), &AccessContext::default());
+        let item_count = held_item_runtime.world.item_count;
+        let tonic = held_item_runtime.world.items[..item_count]
+            .iter_mut()
+            .find(|item| item.id == HEARTH_TONIC_ITEM_ID)
+            .expect("Hearth Tonic exists");
+        tonic.holder_actor_id = 5000;
+        tonic.location_id = 0;
+        let held_item_state =
+            held_item_runtime.state_response(Some(5000), &AccessContext::default());
+        assert_ne!(
+            serde_json::to_value(&before_item_state.action_hand)
+                .expect("serialize hand before held item"),
+            serde_json::to_value(&held_item_state.action_hand)
+                .expect("serialize hand after held item")
+        );
+        assert!(
+            held_item_state.action_hand.entries.iter().any(|entry| {
+                entry.provider.kind == "held_item"
+                    && entry.provider.reason == "From Hearth Tonic in your hand"
+            }),
+            "held-item hand: {}",
+            serde_json::to_string_pretty(&held_item_state.action_hand)
+                .expect("serialize held-item hand for failure")
+        );
+
+        let restored = RuntimeSnapshot::from_runtime(&held_item_runtime)
+            .into_runtime()
+            .expect("restore held-item action hand snapshot");
+        let restored_state = restored.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(
+            serde_json::to_value(&held_item_state.action_hand)
+                .expect("serialize pre-snapshot hand"),
+            serde_json::to_value(&restored_state.action_hand).expect("serialize restored hand")
+        );
     }
 
     #[test]
