@@ -15,8 +15,16 @@ archive/library site at `lonelyforestlibrary.com`.
 - S3 private bucket plus CloudFront distribution for the archive site in
   `sites/lonelyforestlibrary`.
 
-The ECS service is intentionally `desired_count = 1` by default because the app
-uses SQLite/EFS as the event store.
+The ECS service is intentionally `desired_count = 1` because the app uses
+SQLite/EFS as the canonical event store. Do not increase it to obtain
+horizontal write capacity: two independently booted kernels can fork room
+history even when they see the same EFS path. Multi-process production requires
+the journal, fencing, routing, and failover gates in
+[`../../v2/docs/canonical-world.md`](../../v2/docs/canonical-world.md).
+
+`COSYWORLD_V2_SHARD_ID` is retained as a legacy environment-variable name. Its
+value labels this ECS process in `/meta`; it is not the official world id and
+must not namespace persistent game state.
 
 `deployment.auto.tfvars` captures the current deployed shape:
 

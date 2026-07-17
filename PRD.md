@@ -85,7 +85,7 @@ Consequences the design accepts on purpose: evolution becomes ceremony and logis
 - **The returning regular.** The retention audience. Needs bonds that deepen, a Journal worth settling, a covenant that is theirs, and a frontier that visibly changed because players spent turns there.
 - **The collector and supporter.** Holds cards, opens packs, unlocks expansions, gifts, trades, and crafts. Must always feel additive: their money makes the world fancier for everyone, never gates another player's progression.
 - **The world designer.** Authors rooms, residents, jobs, fronts, recipes, and evolution tracks as worldpack data with a validation gate — not by editing runtime code.
-- **The operator.** Runs the official shard: moderation queue, suspension, economy audit, deployment guardrails. Later: self-hosted shard operators with their own content and gates.
+- **The operator.** Runs the official canonical world: moderation queue, suspension, economy audit, deployment guardrails. Later: self-hosted installation operators with their own world identity, content, and gates.
 
 ## Product Direction
 
@@ -112,7 +112,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 ### Later — many hearths
 
 - The federation dial: from operator-signed authority (quorum 1) toward P2P quorum signing; messaging stays honest — "verifiable and permanent" until it is actually trustless.
-- Self-hosted shard kit: own worldpacks, own gates, own ownership adapters; the official shard trusts only official feeds.
+- Self-hosted installation kit: own world identity, world packs, gates, and ownership adapters; the official world trusts only official feeds. A self-hosted world is not a capacity shard or fork of official history.
 - A second official expansion beyond Ruby High: First Bell, proving the expansion pipeline is repeatable content work, not bespoke engineering.
 - Designer tooling and community content packs over the worldpack format.
 - Additional transports as thin adapters over the same world API — Discord first, with cards projected as reactions (the v1 swarm's home ground).
@@ -149,7 +149,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 - Crafting live: recipes.json, tag-keyed combination, AI-decorated names within rails, crafted items, crafted exits/unlocks, recipe balance declarations, and non-consuming craft-event card mints.
 - Native provenance log live: native mints, gifting, world-bound trading, one-time poem claims and world-gate incantations (repeatable).
 - Covenant-spawned jobs and played-time seasonal cadence.
-- Self-hosted shard configuration surface.
+- Self-hosted installation configuration surface.
 - Higher-level evolution tracks.
 
 ## Non-Goals
@@ -161,7 +161,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 - No consumable world items — use, craft, and evolution may exhaust or transform meaning, but must not delete physical items from the world.
 - No dashboard/admin chrome in the player surface; operator tools live behind protected routes.
 - No wall-clock world simulation; the world's pulse is its players.
-- No cross-shard routing or global presence in this era; shards scale as isolated processes.
+- No player-facing capacity shards or isolated official-world copies. The current release stays one writer; later capacity processes must share canonical identity, history, routing, and presence under [ADR 0003](docs/decisions/0003-one-canonical-world.md).
 - No poem-derived keys, ever: poems are tickets and incantations, keys are keys.
 
 ## Success Metrics
@@ -212,4 +212,4 @@ A release of the current era is acceptable when:
 - Killing the AI provider leaves every core world action functional; explicit dialogue fails visibly without spending Orbs or emitting substitute speech, and incidental dialogue is skipped.
 - A waiting player in a shared room can always see whose turn it is, ping them, watch the countdown, and never waits on a ghost.
 - An operator can go from player report to resolution (including suspension) inside the console, and the queue reflects it.
-- No client-supplied claim (card ids, affordability, outcomes) changes world state on the official shard.
+- No client-supplied claim (card ids, affordability, outcomes) changes state in the official world.

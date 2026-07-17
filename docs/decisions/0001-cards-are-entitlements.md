@@ -11,24 +11,26 @@ Rati has three legitimate owners. Core authors the resident who runs the Blue
 Cottage. Ruby High: First Bell minted a Rati collectible. Ruby High also adds
 school membership and vocabulary when it is mounted. Treating any one of these
 records as the other two would either make Core depend on an optional pack or
-let wallet state replace shared-shard truth.
+let wallet state replace canonical world truth.
 
 The same ambiguity applies to locations and items. A wallet can prove access or
 provenance, but it cannot authoritatively say that a shared NPC disappeared, a
-door moved, or a shard-local item changed hands.
+door moved, or a canonical world item changed hands.
 
 ## Decision
 
-The chain records what a player is entitled to everywhere. The kernel records
-what is true in this shard. A card is an entitlement about an entity, never the
-entity itself.
+The chain records what a player is entitled to everywhere. The canonical
+journal and deterministic kernel record what is true in the world. A card is an
+entitlement about an entity, never the entity itself. Capacity-process identity
+does not participate in entity identity; see
+[ADR 0003](0003-one-canonical-world.md).
 
 The persisted concepts are separate:
 
 | Concept | Canonical identity | Authoritative record | Lifetime |
 | --- | --- | --- | --- |
-| World entity | `pack://<authoring-pack>/<actor|item|location>/<local-id>` | compiled world resource plus shard snapshot | while its authoring pack is mounted |
-| External card | owning `pack_id` plus string `card_id` | pack card catalogue; wallet ownership feed projects possession | independent of a shard |
+| World entity | `pack://<authoring-pack>/<actor|item|location>/<local-id>` | compiled world resource plus canonical snapshot/journal | while its authoring pack is mounted |
+| External card | owning `pack_id` plus string `card_id` | pack card catalogue; wallet ownership feed projects possession | independent of a world installation |
 | Actor facet | `pack://<applying-pack>/actor-facet/<facet-id>` | applying pack's `actor_facets` resource | only while the applying pack is mounted |
 | Entitlement grant | namespaced grant string such as `ruby-high.first-bell:location-homeroom` | pack manifest authority and grant declaration | dormant when no mounted resource consumes it |
 
@@ -52,7 +54,7 @@ all fail closed on an attempted overlap.
 
 Items consequently have one plane at a time:
 
-- a world item is a numeric `items` resource projected into kernel/shard state;
+- a world item is a numeric `items` resource projected into canonical kernel state;
 - a wallet keepsake is an asset from the ownership provider and is not inserted
   into `world_items`;
 - moving between planes requires a typed, durable receipt that consumes the
@@ -91,7 +93,7 @@ world identity, location, dialogue authority, or Core availability.
 - `/content-packs` reports mounted pack access and resource counts; mount state,
   not wallet possession, decides whether a facet exists.
 - Server-authored shared-resident lines remain authoritative. A play-as license
-  can only apply in a separately instanced campaign shard that explicitly
+  can only apply in a separate world installation that explicitly
   creates its own actor state.
 
 ## Consequences and follow-ups
@@ -108,4 +110,4 @@ surfaces, *world item* for kernel state, *bundle* for a collectible reveal, and
 The trade-off is deliberate indirection. Packs must declare bindings, facets,
 and grants instead of copying wallet coordinates onto entity rows. In return,
 optional packs can unmount safely, shared-world continuity cannot be bought or
-disconnected, and item portability cannot duplicate shard-local supply.
+disconnected, and item portability cannot duplicate canonical world supply.
