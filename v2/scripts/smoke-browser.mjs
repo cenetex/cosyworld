@@ -184,6 +184,7 @@ async function assertRuntimeMeta() {
     `runtime meta should expose default report retention: ${JSON.stringify(meta.persistence)}`,
   );
   assert(typeof meta.ownership_feed?.wallet_count === "number", `runtime meta should expose ownership wallet count: ${JSON.stringify(meta.ownership_feed)}`);
+  assert(Number.isInteger(meta.ownership_feed?.timeout_secs), `runtime meta should expose ownership timeout: ${JSON.stringify(meta.ownership_feed)}`);
   assert((meta.world?.actor_count || 0) >= 4, `runtime meta should expose seeded world counters: ${JSON.stringify(meta.world)}`);
   assert((meta.world?.location_count || 0) >= 3, `runtime meta should expose location counters: ${JSON.stringify(meta.world)}`);
   assert(

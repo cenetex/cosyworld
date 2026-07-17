@@ -29,6 +29,12 @@ async function inspectTarget(value) {
   assert(meta.ownership_feed?.remote_configured === true, `${baseUrl.origin} has no remote Ruby High feed`);
   assert(meta.ownership_feed?.bearer_configured === true, `${baseUrl.origin} has no Ruby High feed bearer`);
   assert(
+    Number.isInteger(meta.ownership_feed?.timeout_secs)
+      && meta.ownership_feed.timeout_secs >= 1
+      && meta.ownership_feed.timeout_secs <= 60,
+    `${baseUrl.origin} has no bounded Ruby High feed timeout`,
+  );
+  assert(
     meta.ownership_feed?.status === "healthy",
     `${baseUrl.origin} Ruby High feed is ${meta.ownership_feed?.status ?? "unobservable"}`
       + ` (failures=${meta.ownership_feed?.consecutive_failures ?? "unknown"},`

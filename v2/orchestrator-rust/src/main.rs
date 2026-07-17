@@ -1608,6 +1608,7 @@ struct MetaOwnershipFeed {
     path_configured: bool,
     remote_configured: bool,
     bearer_configured: bool,
+    timeout_secs: u64,
     refresh_secs: Option<u64>,
     wallet_count: usize,
     status: &'static str,
@@ -19236,6 +19237,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             path_configured: ownership_feed.path_feed.is_some(),
             remote_configured: ownership_feed.remote_url.is_some(),
             bearer_configured: ownership_feed.remote_bearer.is_some(),
+            timeout_secs: ownership_feed.remote_timeout.as_secs(),
             refresh_secs: ownership_feed
                 .refresh_every
                 .map(|duration| duration.as_secs()),
@@ -52999,6 +53001,98 @@ mod tests {
         );
 
         server.abort();
+    }
+
+    #[tokio::test]
+    async fn ownership_feed_classifies_transport_timeouts() {
+        let app = Router::new().route(
+            "/ownership",
+            get(|| async {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                Json(serde_json::json!({"wallets": []}))
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind slow ownership test server");
+        let addr = listener
+            .local_addr()
+            .expect("slow ownership test server address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let feed = OwnershipFeedConfig {
+            remote_url: Some(format!("http://{addr}/ownership")),
+            remote_timeout: Duration::from_millis(10),
+            ..OwnershipFeedConfig::default()
+        };
+        let (_, health) = feed.load_best_effort_with_health().await;
+        assert_eq!(health.last_error_code.as_deref(), Some("timeout"));
+
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn ownership_feed_rejects_non_json_remote_responses() {
+        let app = Router::new().route(
+            "/ownership",
+            get(|| async { (StatusCode::OK, "upstream returned an HTML error page") }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind invalid ownership test server");
+        let addr = listener
+            .local_addr()
+            .expect("invalid ownership test server address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let feed = OwnershipFeedConfig {
+            remote_url: Some(format!("http://{addr}/ownership")),
+            ..OwnershipFeedConfig::default()
+        };
+        let (_, health) = feed.load_best_effort_with_health().await;
+        assert_eq!(health.last_error_code.as_deref(), Some("invalid_response"));
+
+        server.abort();
+    }
+
+    #[test]
+    fn ownership_feed_timeout_is_bounded_for_slow_authenticated_providers() {
+        assert_eq!(
+            ownership_feed_timeout(None),
+            Duration::from_secs(DEFAULT_OWNERSHIP_FEED_TIMEOUT_SECS)
+        );
+        assert_eq!(ownership_feed_timeout(Some("9")), Duration::from_secs(9));
+        assert_eq!(ownership_feed_timeout(Some("0")), Duration::from_secs(1));
+        assert_eq!(
+            ownership_feed_timeout(Some("600")),
+            Duration::from_secs(MAX_OWNERSHIP_FEED_TIMEOUT_SECS)
+        );
+        assert_eq!(
+            ownership_feed_timeout(Some("invalid")),
+            Duration::from_secs(DEFAULT_OWNERSHIP_FEED_TIMEOUT_SECS)
+        );
+    }
+
+    #[test]
+    fn ownership_feed_error_codes_preserve_transport_stage() {
+        for (message, expected) in [
+            ("ownership feed request timed out", "timeout"),
+            ("ownership feed DNS resolution failed", "dns"),
+            ("ownership feed TLS negotiation failed", "tls"),
+            ("ownership feed connection failed", "connect"),
+            ("ownership feed response decode failed", "invalid_response"),
+            ("ownership feed returned HTTP 502 Bad Gateway", "http_502"),
+            ("ownership feed request failed", "request_failed"),
+        ] {
+            assert_eq!(
+                ownership_feed_error_code(&io::Error::other(message)),
+                expected
+            );
+        }
     }
 
     #[tokio::test]
