@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -279,5 +280,53 @@ describe("Content Pack Manifest v1", () => {
     expect(second.status, second.stderr).toBe(0);
     expect(first.stdout).toBe(second.stdout);
     expect(first.stdout).toMatch(/artifact digest sha256:[0-9a-f]{64}/);
+  });
+
+  it("keeps persistence migration policy outside the content bundle identity", () => {
+    const officialWorldDir = path.join(repoRoot, "v2/worlds/official");
+    const authoredWorld = JSON.parse(fs.readFileSync(
+      path.join(officialWorldDir, "world.json"),
+      "utf8",
+    ));
+    const authoredLock = JSON.parse(fs.readFileSync(
+      path.join(officialWorldDir, "pack.lock.json"),
+      "utf8",
+    ));
+    const compile = (world) => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "cosyworld-persistence-policy-"));
+      const worldDir = path.join(root, "world");
+      const outputDir = path.join(root, "output");
+      fs.mkdirSync(worldDir, { recursive: true });
+      const lock = structuredClone(authoredLock);
+      for (const pack of lock.packs) {
+        pack.source.path = path.resolve(officialWorldDir, pack.source.path);
+      }
+      fs.writeFileSync(path.join(worldDir, "world.json"), JSON.stringify(world, null, 2));
+      fs.writeFileSync(path.join(worldDir, "pack.lock.json"), JSON.stringify(lock, null, 2));
+      const result = spawnSync(process.execPath, [
+        compilerPath,
+        "--world-dir",
+        worldDir,
+        "--output-dir",
+        outputDir,
+      ], { cwd: repoRoot, encoding: "utf8" });
+      expect(result.status, result.stderr).toBe(0);
+      const compiled = JSON.parse(fs.readFileSync(
+        path.join(outputDir, "worldpack.json"),
+        "utf8",
+      ));
+      fs.rmSync(root, { recursive: true, force: true });
+      return compiled;
+    };
+
+    const withoutPolicy = structuredClone(authoredWorld);
+    delete withoutPolicy.persistence_compatibility;
+    const baseline = compile(withoutPolicy);
+    const withPolicy = compile(authoredWorld);
+
+    expect(withPolicy.bundle_hash).toBe(baseline.bundle_hash);
+    expect(withPolicy.persistence_compatibility).toEqual(
+      authoredWorld.persistence_compatibility,
+    );
   });
 });
