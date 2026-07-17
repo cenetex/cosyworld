@@ -3073,23 +3073,77 @@ async function main() {
     assert(trainIndex < travelIndex, `train action should appear before wandering away with spendable progress: ${JSON.stringify(result)}`);
     assert(result.firstStep[trainIndex]?.detail === "choose one of two knacks", `Evolve should make its two dealt knack choices visible without token language: ${JSON.stringify(result)}`);
     assert(result.firstStep[trainIndex]?.title === "choose how to evolve" && result.firstStep[trainIndex]?.summary === "Choose one of two ways this lesson can strengthen your avatar.", `Evolve should explain the identity choice warmly: ${JSON.stringify(result)}`);
-    assert(result.firstStep[trainIndex]?.choices.length === 2 && result.firstStep[trainIndex]?.choices.every((choice) => choice.startsWith("practice ")), `Evolve should deal exactly two random trainable knacks inside one card: ${JSON.stringify(result)}`);
+    assert(result.firstStep[trainIndex]?.choices.length === 2 && result.firstStep[trainIndex]?.choices.every((choice) => /^(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) \+1$/.test(choice)), `Evolve should label each dealt ability as its exact +1 change: ${JSON.stringify(result)}`);
     assert(result.firstStep[trainIndex]?.choiceDetails.every((detail) => /\+1 to .+ checks/i.test(detail)), `each Evolve option should name the exact check bonus it changes: ${JSON.stringify(result)}`);
     assert(/^practice:/.test(result.firstStep[trainIndex]?.selectedChoice || ""), `Evolve should select one of its two dealt knacks by default: ${JSON.stringify(result)}`);
     const combinedIndex = result.combinedLesson.findIndex((action) => action.label === "evolve");
     assert(result.combinedLesson[combinedIndex]?.detail === "choose one of two lessons", `Learn and Evolve should surface as one two-choice card: ${JSON.stringify(result)}`);
-    assert(result.combinedLesson[combinedIndex]?.choices.length === 2 && result.combinedLesson[combinedIndex]?.choices.includes("keep the lesson") && result.combinedLesson[combinedIndex]?.choices.some((choice) => choice.startsWith("practice ")), `the combined card should keep the lesson beside one randomly dealt knack: ${JSON.stringify(result)}`);
+    assert(result.combinedLesson[combinedIndex]?.choices.length === 2 && result.combinedLesson[combinedIndex]?.choices.includes("keep the lesson") && result.combinedLesson[combinedIndex]?.choices.some((choice) => / \+1$/.test(choice)), `the combined card should keep the lesson beside one explicit ability increase: ${JSON.stringify(result)}`);
     const contextualIndex = result.contextual.findIndex((action) => action.label === "evolve");
     assert(contextualIndex >= 0, `contextual train action should use the offered skill: ${JSON.stringify(result)}`);
     assert(result.contextual[contextualIndex]?.choices.length === 2, `contextual Evolve should still deal only two choices: ${JSON.stringify(result)}`);
     const directPractice = result.onlyListening.find((action) => action.focusKey === "train-listening");
-    assert(directPractice?.label === "evolve" && directPractice?.detail === "choose a knack to practice" && directPractice?.command === "evolve", `a lone trainable knack should stay inside the unified Evolve card: ${JSON.stringify(result)}`);
+    assert(directPractice?.label === "evolve" && directPractice?.detail === "Wisdom +1" && directPractice?.command === "evolve", `a lone trainable ability should name its exact +1 change inside the unified Evolve card: ${JSON.stringify(result)}`);
     const repeatTrainIndex = result.repeatWithBond.findIndex((action) => action.label === "evolve");
     const bondIndex = result.repeatWithBond.findIndex((action) => action.focusKey === "bond:1001");
     assert(bondIndex >= 0 && repeatTrainIndex >= 0 && bondIndex < repeatTrainIndex, `growing closer should interrupt repeat practice when both are available: ${JSON.stringify(result)}`);
     assert(result.repeatWithBond[repeatTrainIndex]?.detail === "choose one of two knacks", `repeat Evolve should retain two dealt knack choices: ${JSON.stringify(result)}`);
     assert(!/one growth|growth spent/i.test(JSON.stringify(result)), `practice should not expose growth as a counted token: ${JSON.stringify(result)}`);
     assert(![...result.firstStep, ...result.contextual, ...result.onlyListening, ...result.repeatWithBond].some((action) => String(action.detail || "").includes(" / ")), `train copy should avoid slash-heavy detail: ${JSON.stringify(result)}`);
+  }
+
+  async function assertPlayerDefeatTransitionIsExplicit() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousTransition = defeatTransition;
+      const previousStoredTransition = sessionStorage.getItem(defeatTransitionStorageKey);
+      try {
+        actorId = 5000;
+        state = {
+          location: { id: 3, name: "Moonlit Trail" },
+          actors: [
+            { id: 5000, name: "Lantern Stitch", kind: "human", status: "active" },
+            { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active" },
+          ],
+          primary_action: { kind: "attack", options: [{ kind: "attack" }] },
+          cards: { actors: {}, items: {}, locations: {} },
+        };
+        clearDefeatTransition();
+        const captured = captureDefeatTransition({
+          seq: 99,
+          type: "combat.knockout",
+          actor_id: 1004,
+          actor_name: "Moonlit Echo",
+          target_actor_id: 5000,
+          target_actor_name: "Lantern Stitch",
+        });
+        state = {
+          ...state,
+          primary_action: { kind: "create_avatar", options: [] },
+          character_creation: [],
+        };
+        const restart = buildActions(state)[0];
+        return {
+          captured,
+          html: defeatTransitionHtml(),
+          restartLabel: restart?.label || "",
+          restartDetail: restart?.detail || "",
+          restartTitle: restart?.modalTitle || "",
+          restartConfirm: actionConfirmLabel(restart),
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        defeatTransition = previousTransition;
+        if (previousStoredTransition === null) sessionStorage.removeItem(defeatTransitionStorageKey);
+        else sessionStorage.setItem(defeatTransitionStorageKey, previousStoredTransition);
+      }
+    });
+    assert(result.captured, `the player's knockout should capture an explicit defeat transition: ${JSON.stringify(result)}`);
+    assert(/this tale has ended/i.test(result.html) && /Lantern Stitch was defeated by Moonlit Echo/i.test(result.html), `the defeat scene should name the outcome and both combatants: ${JSON.stringify(result)}`);
+    assert(/This avatar is gone/i.test(result.html) && /linked account and keepsakes are still here/i.test(result.html), `the defeat scene should explain what was lost and what remains: ${JSON.stringify(result)}`);
+    assert(result.restartLabel === "begin again" && result.restartDetail === "make a new avatar" && result.restartTitle === "begin another tale" && result.restartConfirm === "begin again", `the post-defeat action should be a deliberate restart rather than a silent reset: ${JSON.stringify(result)}`);
   }
 
   async function assertBondSurfacesAsCompactRelationshipAction() {
@@ -7760,6 +7814,7 @@ async function main() {
   await assertGiveTradeCanBeDrawnFromShuffledDeck();
   await assertBankLedgerSurfacesAsCompactProgressAction();
   await assertTrainSkillSurfacesAsCompactAdvancementAction();
+  await assertPlayerDefeatTransitionIsExplicit();
   await assertBondSurfacesAsCompactRelationshipAction();
   await assertMatureBondSurfacesAsCompactSettlementAction();
   await assertPreparedProgressLabelsAreRoomScoped();
