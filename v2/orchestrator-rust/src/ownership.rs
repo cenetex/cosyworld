@@ -25,13 +25,30 @@ pub(super) struct WalletCardSet {
     pub(super) pack_ids: BTreeSet<String>,
 }
 
-#[derive(Clone, Debug, Default)]
+pub(super) const DEFAULT_OWNERSHIP_FEED_TIMEOUT_SECS: u64 = 15;
+pub(super) const MAX_OWNERSHIP_FEED_TIMEOUT_SECS: u64 = 60;
+
+#[derive(Clone, Debug)]
 pub(super) struct OwnershipFeedConfig {
     pub(super) inline_feed: Option<String>,
     pub(super) path_feed: Option<PathBuf>,
     pub(super) remote_url: Option<String>,
     pub(super) remote_bearer: Option<String>,
+    pub(super) remote_timeout: Duration,
     pub(super) refresh_every: Option<Duration>,
+}
+
+impl Default for OwnershipFeedConfig {
+    fn default() -> Self {
+        Self {
+            inline_feed: None,
+            path_feed: None,
+            remote_url: None,
+            remote_bearer: None,
+            remote_timeout: Duration::from_secs(DEFAULT_OWNERSHIP_FEED_TIMEOUT_SECS),
+            refresh_every: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -76,12 +93,17 @@ impl OwnershipFeedConfig {
             .ok()
             .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER").ok())
             .filter(|value| !value.trim().is_empty());
+        let remote_timeout = std::env::var("COSYWORLD_ENTITLEMENT_FEED_TIMEOUT_SECS")
+            .ok()
+            .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_TIMEOUT_SECS").ok());
+        let remote_timeout = ownership_feed_timeout(remote_timeout.as_deref());
         let refresh_every = ownership_refresh_interval(remote_url.is_some(), path_feed.is_some());
         Self {
             inline_feed,
             path_feed,
             remote_url,
             remote_bearer,
+            remote_timeout,
             refresh_every,
         }
     }
@@ -105,7 +127,13 @@ impl OwnershipFeedConfig {
             }
         }
         if let Some(url) = self.remote_url.as_deref() {
-            match OwnershipIndex::fetch_remote(url, self.remote_bearer.as_deref()).await {
+            match OwnershipIndex::fetch_remote(
+                url,
+                self.remote_bearer.as_deref(),
+                self.remote_timeout,
+            )
+            .await
+            {
                 Ok(remote) => {
                     index.merge(remote);
                     health.record_success();
@@ -132,7 +160,14 @@ impl OwnershipFeedConfig {
             index.merge(OwnershipIndex::parse(&fs::read_to_string(path)?));
         }
         if let Some(url) = self.remote_url.as_deref() {
-            index.merge(OwnershipIndex::fetch_remote(url, self.remote_bearer.as_deref()).await?);
+            index.merge(
+                OwnershipIndex::fetch_remote(
+                    url,
+                    self.remote_bearer.as_deref(),
+                    self.remote_timeout,
+                )
+                .await?,
+            );
         }
         Ok(index)
     }
@@ -147,11 +182,76 @@ pub(super) fn ownership_feed_error_code(error: &io::Error) -> String {
     }
     if message.contains("timed out") || message.contains("timeout") {
         "timeout".to_string()
+    } else if message.contains("dns") || message.contains("name resolution") {
+        "dns".to_string()
+    } else if message.contains("tls") || message.contains("certificate") {
+        "tls".to_string()
+    } else if message.contains("connect") {
+        "connect".to_string()
     } else if message.contains("json") || message.contains("decode") {
         "invalid_response".to_string()
     } else {
         "request_failed".to_string()
     }
+}
+
+pub(super) fn ownership_feed_timeout(value: Option<&str>) -> Duration {
+    let seconds = value
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .unwrap_or(DEFAULT_OWNERSHIP_FEED_TIMEOUT_SECS)
+        .clamp(1, MAX_OWNERSHIP_FEED_TIMEOUT_SECS);
+    Duration::from_secs(seconds)
+}
+
+fn ownership_reqwest_error(error: reqwest::Error) -> io::Error {
+    let detail = if error.is_timeout() {
+        "request timed out"
+    } else if error.is_connect() {
+        let causes = reqwest_error_causes(&error);
+        if [
+            "dns error",
+            "failed to lookup address",
+            "name or service not known",
+            "nodename nor servname",
+            "name resolution",
+        ]
+        .iter()
+        .any(|marker| causes.contains(marker))
+        {
+            "DNS resolution failed"
+        } else if [
+            "tls",
+            "certificate",
+            "handshake",
+            "invalid peer",
+            "unknown issuer",
+            "rustls",
+        ]
+        .iter()
+        .any(|marker| causes.contains(marker))
+        {
+            "TLS negotiation failed"
+        } else {
+            "connection failed"
+        }
+    } else if error.is_decode() || error.is_body() {
+        "response decode failed"
+    } else if let Some(status) = error.status() {
+        return io::Error::other(format!("ownership feed returned HTTP {status}"));
+    } else {
+        "request failed"
+    };
+    io::Error::other(format!("ownership feed {detail}"))
+}
+
+fn reqwest_error_causes(error: &reqwest::Error) -> String {
+    let mut messages = Vec::new();
+    let mut source = std::error::Error::source(error);
+    while let Some(cause) = source {
+        messages.push(cause.to_string().to_ascii_lowercase());
+        source = cause.source();
+    }
+    messages.join(" ")
 }
 
 pub(super) async fn load_base_ownership_index(state: &AppState) -> io::Result<OwnershipIndex> {
@@ -185,25 +285,40 @@ pub(super) async fn load_effective_ownership_index_strict(
 }
 
 impl OwnershipIndex {
-    pub(super) async fn fetch_remote(url: &str, bearer: Option<&str>) -> io::Result<Self> {
+    pub(super) async fn fetch_remote(
+        url: &str,
+        bearer: Option<&str>,
+        timeout: Duration,
+    ) -> io::Result<Self> {
         let mut request = reqwest::Client::builder()
-            .timeout(Duration::from_secs(5))
+            .timeout(timeout)
             .build()
-            .map_err(io::Error::other)?
+            .map_err(ownership_reqwest_error)?
             .get(url);
         if let Some(token) = bearer.map(str::trim).filter(|value| !value.is_empty()) {
             request = request.bearer_auth(token);
         }
 
-        let response = request.send().await.map_err(io::Error::other)?;
+        let response = request.send().await.map_err(ownership_reqwest_error)?;
         let status = response.status();
         if !status.is_success() {
             return Err(io::Error::other(format!(
                 "ownership feed returned HTTP {status}"
             )));
         }
-        let body = response.text().await.map_err(io::Error::other)?;
-        Ok(Self::parse(&body))
+        let body = response.text().await.map_err(ownership_reqwest_error)?;
+        Self::parse_remote(&body)
+    }
+
+    fn parse_remote(value: &str) -> io::Result<Self> {
+        let trimmed = value.trim();
+        if !matches!(trimmed.as_bytes().first(), Some(b'[' | b'{')) {
+            return Err(io::Error::other(
+                "ownership feed response decode failed: expected JSON",
+            ));
+        }
+        Self::parse_json(trimmed)
+            .ok_or_else(|| io::Error::other("ownership feed response decode failed: invalid JSON"))
     }
 
     pub(super) fn parse(value: &str) -> Self {

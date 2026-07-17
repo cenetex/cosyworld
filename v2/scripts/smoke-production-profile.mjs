@@ -228,6 +228,7 @@ async function main() {
     assert(meta.deployment?.production === true, `expected production=true: ${JSON.stringify(meta.deployment)}`);
     assert(meta.ownership_feed?.remote_configured === true, `expected remote feed: ${JSON.stringify(meta.ownership_feed)}`);
     assert(meta.ownership_feed?.bearer_configured === true, `expected bearer feed: ${JSON.stringify(meta.ownership_feed)}`);
+    assert(meta.ownership_feed?.timeout_secs === 15, `expected bounded remote timeout: ${JSON.stringify(meta.ownership_feed)}`);
     assert(meta.ownership_feed?.wallet_count === 1, `expected remote wallet count: ${JSON.stringify(meta.ownership_feed)}`);
     assert(meta.ownership_feed?.status === "healthy", `expected healthy remote feed: ${JSON.stringify(meta.ownership_feed)}`);
     assert(Number.isInteger(meta.ownership_feed?.last_success_at_unix), `expected remote feed success timestamp: ${JSON.stringify(meta.ownership_feed)}`);
