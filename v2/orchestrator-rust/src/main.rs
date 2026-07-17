@@ -760,6 +760,11 @@ enum ProjectionMutation {
         status: String,
         reason: String,
     },
+    #[serde(rename = "accept_quest")]
+    LegacyAcceptQuest {
+        quest_id: String,
+        reason: String,
+    },
     BankVisitLedger {
         reason: String,
     },
@@ -7658,6 +7663,11 @@ impl RuntimeWorld {
                         action.actor_id,
                         reason,
                     ));
+                }
+                ProjectionMutation::LegacyAcceptQuest { .. } => {
+                    // The pre-worldpack prototype required explicit quest acceptance.
+                    // Mounted jobs are active by construction now, so replay only needs
+                    // to preserve this retired record's tick and causality.
                 }
                 ProjectionMutation::BankVisitLedger { reason } => {
                     if let Some(event) = self.bank_visit_ledger(action.actor_id, reason) {
@@ -36581,6 +36591,44 @@ mod tests {
                 COSY_COTTAGE_LOCATION_ID
             ),
         )));
+    }
+
+    #[test]
+    fn legacy_accept_quest_records_replay_as_an_explicit_retired_no_op() {
+        let runtime = RuntimeWorld::seeded();
+        let mut legacy_json = serde_json::to_value(JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: RATI_ACTOR_ID,
+                ..CwAction::default()
+            },
+            17633,
+        ))
+        .expect("serialize journal record");
+        legacy_json["projection_mutations"] = serde_json::json!([{
+            "kind": "accept_quest",
+            "quest_id": "quest",
+            "reason": "accepted",
+        }]);
+
+        let legacy: JournalRecord = serde_json::from_value(legacy_json.clone())
+            .expect("deserialize legacy accept quest record");
+        assert!(matches!(
+            legacy.projection_mutations.as_slice(),
+            [ProjectionMutation::LegacyAcceptQuest { quest_id, reason }]
+                if quest_id == "quest" && reason == "accepted"
+        ));
+
+        let mut replay = runtime;
+        let before = replay.world.tick;
+        let (status, events) = replay.apply_journal_record(&legacy);
+        assert_eq!(status, CW_OK);
+        assert_eq!(replay.world.tick, before);
+        assert!(events.is_empty());
+
+        legacy_json["projection_mutations"][0]["kind"] =
+            serde_json::json!("unknown_future_mutation");
+        assert!(serde_json::from_value::<JournalRecord>(legacy_json).is_err());
     }
 
     #[test]
