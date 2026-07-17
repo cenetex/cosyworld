@@ -37,6 +37,7 @@ const expectedFiles = {
   room_sheets: "room_sheets.json",
   clocks: "clocks.json",
   jobs: "jobs.json",
+  action_vocabulary: "action_vocabulary.json",
   fronts: "fronts.json",
   cards: "cards.json",
   card_bindings: "card_bindings.json",
@@ -899,6 +900,7 @@ const roomFeatures = content.room_features;
 const roomSheets = content.room_sheets;
 const clocks = content.clocks;
 const jobs = content.jobs;
+const actionVocabulary = content.action_vocabulary;
 const fronts = content.fronts;
 const cards = content.cards;
 const cardBindings = content.card_bindings;
@@ -925,6 +927,17 @@ const characterCreationProfileIds = idSet(
   (profile) => profile.id,
 );
 const gateByLocationId = new Map();
+
+const vocabularyPackIds = new Set();
+for (const vocabulary of actionVocabulary) {
+  const labels = ["notice", "inspect", "scout", "travel", "contribute", "push", "help"];
+  if (!packs.some((pack) => pack.id === vocabulary.pack_id)
+      || vocabularyPackIds.has(vocabulary.pack_id)
+      || labels.some((label) => !isNonEmptyString(vocabulary[label]))) {
+    fail(`invalid action vocabulary for pack ${vocabulary.pack_id || "unknown"}`);
+  }
+  vocabularyPackIds.add(vocabulary.pack_id);
+}
 
 for (const sentence of sentences) {
   validateRequiredStrings("sentence", sentence, ["id", "shelf", "text"]);
@@ -1265,6 +1278,12 @@ for (const clock of clocks) {
 for (const job of jobs) {
   validateRequiredStrings("job", job, ["id", "premise", "stakes", "progress_clock_id", "danger_clock_id", "consequence"]);
   validateJobReward(job);
+  if (job.action_copy !== undefined
+      && (!isObject(job.action_copy)
+        || !isNonEmptyString(job.action_copy.label)
+        || !isNonEmptyString(job.action_copy.summary))) {
+    fail(`job ${job.id} has invalid action_copy`);
+  }
   if (!has(clockIds, job.progress_clock_id) || !has(clockIds, job.danger_clock_id)) {
     fail(`job ${job.id} references missing clock`);
   }
@@ -1885,6 +1904,7 @@ function buildWorldpackReport() {
       room_sheets: roomSheets.length,
       clocks: clocks.length,
       jobs: jobs.length,
+      action_vocabulary: actionVocabulary.length,
       fronts: fronts.length,
       cards: cards.length,
       actor_facets: actorFacets.length,

@@ -16,6 +16,7 @@ pub(super) struct SeedContent {
     pub(super) room_sheets: Vec<RoomSheetState>,
     pub(super) clocks: Vec<ClockState>,
     pub(super) jobs: Vec<JobState>,
+    pub(super) action_vocabulary: Vec<SeedActionVocabulary>,
     pub(super) fronts: Vec<SeedFrontContent>,
     pub(super) cards: Vec<SeedCardContent>,
     pub(super) card_bindings: Vec<SeedCardBindingContent>,
@@ -28,6 +29,19 @@ pub(super) struct SeedContent {
     pub(super) character_creation: Vec<SeedCharacterCreationBundle>,
     pub(super) external_cards: Vec<ExternalCardSpec>,
     pub(super) asset_mounts: Vec<SeedAssetMount>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedActionVocabulary {
+    #[serde(default)]
+    pub(super) pack_id: String,
+    pub(super) notice: String,
+    pub(super) inspect: String,
+    pub(super) scout: String,
+    pub(super) travel: String,
+    pub(super) contribute: String,
+    pub(super) push: String,
+    pub(super) help: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -790,6 +804,28 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
         .iter()
         .map(|pack| (pack.id.as_str(), pack))
         .collect::<BTreeMap<_, _>>();
+    let mut vocabulary_pack_ids = BTreeSet::new();
+    for vocabulary in &content.action_vocabulary {
+        if !packs_by_id.contains_key(vocabulary.pack_id.as_str())
+            || !vocabulary_pack_ids.insert(vocabulary.pack_id.as_str())
+            || [
+                &vocabulary.notice,
+                &vocabulary.inspect,
+                &vocabulary.scout,
+                &vocabulary.travel,
+                &vocabulary.contribute,
+                &vocabulary.push,
+                &vocabulary.help,
+            ]
+            .into_iter()
+            .any(|label| label.trim().is_empty())
+        {
+            return Err(format!(
+                "invalid action vocabulary for pack {}",
+                vocabulary.pack_id
+            ));
+        }
+    }
     let mut licensed_pack_ids = BTreeSet::new();
     for record in &content.licenses {
         let Some(pack) = packs_by_id.get(record.pack_id.as_str()) else {
@@ -1511,6 +1547,8 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             || !job_ids.insert(job.id.clone())
             || !clock_ids.contains(&job.progress_clock_id)
             || !clock_ids.contains(&job.danger_clock_id)
+            || (job.action_copy.label.trim().is_empty()
+                != job.action_copy.summary.trim().is_empty())
         {
             return Err(format!("invalid seed job {}", job.id));
         }

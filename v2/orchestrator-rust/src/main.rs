@@ -633,6 +633,8 @@ impl JobReward {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct JobState {
+    #[serde(default)]
+    pack_id: String,
     id: String,
     premise: String,
     stakes: String,
@@ -646,6 +648,16 @@ struct JobState {
     consequence: String,
     #[serde(default)]
     memory_summary: String,
+    #[serde(default)]
+    action_copy: JobActionCopy,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+struct JobActionCopy {
+    #[serde(default)]
+    label: String,
+    #[serde(default)]
+    summary: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2060,8 +2072,11 @@ struct ActionOption {
 struct RankedActionOffer {
     id: String,
     kind: String,
+    intention: String,
     category: String,
+    verb: String,
     label: String,
+    accessible_label: String,
     command: String,
     rank: u16,
     disabled: bool,
@@ -2069,12 +2084,22 @@ struct RankedActionOffer {
     zone: String,
     source: String,
     target: Option<ActionTargetView>,
+    project: Option<ActionProjectView>,
     cost: Option<ActionCostView>,
     risk: Option<String>,
     effect: Option<String>,
     progress: Option<u8>,
     claim_key: Option<String>,
     reason: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ActionProjectView {
+    id: String,
+    verb: String,
+    label: String,
+    summary: String,
+    progress_clock_id: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -5502,6 +5527,7 @@ impl RuntimeWorld {
                 updated_event_seq: None,
             });
         self.jobs.entry(job_id.clone()).or_insert_with(|| JobState {
+            pack_id: String::new(),
             id: job_id,
             premise: "Make the newly found way familiar.".to_string(),
             stakes: "Until enough travelers help, the route stays wild and changeable.".to_string(),
@@ -5525,6 +5551,11 @@ impl RuntimeWorld {
             consequence: "The route remains a wild frontier.".to_string(),
             memory_summary: "Travelers worked together until the new way felt familiar."
                 .to_string(),
+            action_copy: JobActionCopy {
+                label: "Make this way familiar".to_string(),
+                summary: "Choose how to help this newly found route settle into a familiar way."
+                    .to_string(),
+            },
         });
     }
 
@@ -15268,6 +15299,23 @@ impl RuntimeWorld {
             .map(|option| {
                 let rank = self.action_offer_rank_for_actor(&option.kind, actor_id);
                 let target = self.action_offer_target(&option.kind, actor_id, access);
+                let project = self.action_offer_project(&option.kind, actor_id);
+                let intention = action_offer_intention(&option.kind).to_string();
+                let verb = self.action_offer_verb(&option.kind, actor_id);
+                let label = self.action_offer_label(
+                    &option.kind,
+                    &verb,
+                    &option.label,
+                    target.as_ref(),
+                    project.as_ref(),
+                );
+                let accessible_label = self.action_offer_accessible_label(
+                    &option.kind,
+                    &verb,
+                    &label,
+                    target.as_ref(),
+                    project.as_ref(),
+                );
                 let cost = self.action_offer_cost(&option.kind, actor_id);
                 let risk = self.action_offer_risk(&option.kind, actor_id);
                 let effect = self.action_offer_effect(&option.kind, actor_id);
@@ -15280,8 +15328,11 @@ impl RuntimeWorld {
                         normalize_command_text(&option.command)
                     ),
                     category: action_offer_category(&option.kind).to_string(),
+                    intention,
                     kind: option.kind,
-                    label: option.label,
+                    verb,
+                    label,
+                    accessible_label,
                     command: option.command,
                     rank,
                     disabled: primary_action.disabled,
@@ -15291,6 +15342,7 @@ impl RuntimeWorld {
                     zone: zone.clone(),
                     source: "kernel_flags+rpg_projection".to_string(),
                     target,
+                    project,
                     cost,
                     risk,
                     effect,
@@ -15300,6 +15352,37 @@ impl RuntimeWorld {
                 }
             })
             .collect();
+        if let Some(target) = self.scout_action_offer_target(actor_id, access) {
+            let kind = "explore_path";
+            let intention = action_offer_intention(kind).to_string();
+            let verb = self.action_offer_verb(kind, actor_id);
+            let label = self.action_offer_label(kind, &verb, "Scout", Some(&target), None);
+            let accessible_label =
+                self.action_offer_accessible_label(kind, &verb, &label, Some(&target), None);
+            offers.push(RankedActionOffer {
+                id: format!("explore_path:{}", target.id.unwrap_or_default()),
+                kind: kind.to_string(),
+                intention,
+                category: action_offer_category(kind).to_string(),
+                verb,
+                label,
+                accessible_label,
+                command: "explore path".to_string(),
+                rank: action_offer_rank(kind),
+                disabled: false,
+                disabled_reason: None,
+                zone: zone.clone(),
+                source: "journey+exit_projection".to_string(),
+                target: Some(target),
+                project: None,
+                cost: None,
+                risk: None,
+                effect: Some("reveals the next adjacent route segment without moving".to_string()),
+                progress: None,
+                claim_key: None,
+                reason: "ranked from an unrevealed journey edge or long route".to_string(),
+            });
+        }
         offers.sort_by_key(|offer| offer.rank);
         offers
     }
@@ -15379,8 +15462,11 @@ impl RuntimeWorld {
         RankedActionOffer {
             id: format!("{kind}:{}", normalize_command_text(command)),
             kind: kind.to_string(),
+            intention: action_offer_intention(kind).to_string(),
             category: action_offer_category(kind).to_string(),
+            verb: label.to_string(),
             label: label.to_string(),
+            accessible_label: label.to_string(),
             command: normalize_command_text(command),
             rank,
             disabled,
@@ -15388,6 +15474,7 @@ impl RuntimeWorld {
             zone: default_zone(),
             source: "server".to_string(),
             target,
+            project: None,
             cost,
             risk,
             effect,
@@ -15395,6 +15482,193 @@ impl RuntimeWorld {
             claim_key,
             reason: reason.to_string(),
         }
+    }
+
+    fn action_vocabulary_for_actor(&self, actor_id: u64) -> Option<&SeedActionVocabulary> {
+        let location_id = self.actor_by_id(actor_id)?.location_id;
+        let pack_id = active_content()
+            .locations
+            .iter()
+            .find(|location| location.id == location_id)
+            .map(|location| location.pack_id.as_str())
+            .unwrap_or_default();
+        active_content()
+            .action_vocabulary
+            .iter()
+            .find(|vocabulary| vocabulary.pack_id == pack_id)
+            .or_else(|| {
+                active_content()
+                    .action_vocabulary
+                    .iter()
+                    .find(|vocabulary| vocabulary.pack_id == "cosyworld.core")
+            })
+            .or_else(|| active_content().action_vocabulary.first())
+    }
+
+    fn action_offer_verb(&self, kind: &str, actor_id: u64) -> String {
+        let vocabulary = self.action_vocabulary_for_actor(actor_id);
+        let authored = match action_offer_intention(kind) {
+            "notice" => vocabulary.map(|value| value.notice.as_str()),
+            "inspect" => vocabulary.map(|value| value.inspect.as_str()),
+            "scout" => vocabulary.map(|value| value.scout.as_str()),
+            "travel" => vocabulary.map(|value| value.travel.as_str()),
+            "contribute" if kind == "work" => vocabulary.map(|value| value.push.as_str()),
+            "contribute" if kind == "help" => vocabulary.map(|value| value.help.as_str()),
+            "contribute" => vocabulary.map(|value| value.contribute.as_str()),
+            _ => None,
+        };
+        authored
+            .unwrap_or_else(|| default_action_offer_verb(kind))
+            .to_string()
+    }
+
+    fn job_action_label(&self, job: &JobState) -> String {
+        non_empty_text(&job.action_copy.label)
+            .map(str::to_string)
+            .unwrap_or_else(|| fallback_job_action_label(&job.id))
+    }
+
+    fn job_action_summary(&self, job: &JobState) -> String {
+        non_empty_text(&job.action_copy.summary)
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("Choose how to help: {}", job.premise))
+    }
+
+    fn action_offer_project(&self, kind: &str, actor_id: u64) -> Option<ActionProjectView> {
+        if !matches!(kind, "prepare" | "work" | "help") {
+            return None;
+        }
+        let actor = self.actor_by_id(actor_id)?;
+        let progress_clock_id = self.active_progress_clock_id_for_location(actor.location_id)?;
+        let verb = self
+            .action_vocabulary_for_actor(actor_id)
+            .map(|vocabulary| vocabulary.contribute.clone())
+            .unwrap_or_else(|| "Contribute".to_string());
+        if let Some(job) = self
+            .active_job_for_location(actor.location_id)
+            .filter(|job| job.progress_clock_id == progress_clock_id)
+        {
+            return Some(ActionProjectView {
+                id: job.id.clone(),
+                verb,
+                label: self.job_action_label(job),
+                summary: self.job_action_summary(job),
+                progress_clock_id,
+            });
+        }
+        let label = self
+            .clocks
+            .get(&progress_clock_id)
+            .map(|clock| clock.label.trim())
+            .filter(|label| !label.is_empty())
+            .unwrap_or("Help the shared work")
+            .to_string();
+        Some(ActionProjectView {
+            id: progress_clock_id.clone(),
+            verb,
+            summary: format!("Choose how to help with {label}."),
+            label,
+            progress_clock_id,
+        })
+    }
+
+    fn action_offer_label(
+        &self,
+        kind: &str,
+        verb: &str,
+        fallback: &str,
+        target: Option<&ActionTargetView>,
+        project: Option<&ActionProjectView>,
+    ) -> String {
+        let target_label = target.and_then(|value| value.label.as_deref());
+        match action_offer_intention(kind) {
+            "notice" => verb.to_string(),
+            "inspect" => action_target_phrase(verb, "", target_label),
+            "scout" => action_target_phrase(verb, "toward", target_label),
+            "travel" => action_target_phrase(verb, "to", target_label),
+            "contribute" if kind == "help" => match (target_label, project) {
+                (Some(target), Some(project)) => {
+                    format!("{verb} {target} with {}", project.label)
+                }
+                (Some(target), None) => format!("{verb} {target}"),
+                (None, Some(project)) => format!("{verb} with {}", project.label),
+                (None, None) => verb.to_string(),
+            },
+            "contribute" => project
+                .map(|project| format!("{verb} {}", project.label))
+                .unwrap_or_else(|| verb.to_string()),
+            _ => fallback.to_string(),
+        }
+    }
+
+    fn action_offer_accessible_label(
+        &self,
+        kind: &str,
+        verb: &str,
+        label: &str,
+        target: Option<&ActionTargetView>,
+        project: Option<&ActionProjectView>,
+    ) -> String {
+        match action_offer_intention(kind) {
+            "notice" => {
+                action_target_phrase(verb, "at", target.and_then(|value| value.label.as_deref()))
+            }
+            "inspect" | "scout" | "travel" | "contribute" => label.to_string(),
+            _ => project
+                .map(|project| format!("{label}: {}", project.label))
+                .unwrap_or_else(|| label.to_string()),
+        }
+    }
+
+    fn scout_action_offer_target(
+        &self,
+        actor_id: u64,
+        access: &AccessContext,
+    ) -> Option<ActionTargetView> {
+        let actor = self.actor_by_id(actor_id)?;
+        let exits = self.exit_views(actor.location_id, access);
+        if let Some(journey) = self.journey_view(actor_id) {
+            let next_is_revealed = journey.next_location_id.is_some_and(|next_id| {
+                exits.iter().any(|exit| {
+                    exit.destination_location_id == next_id && exit.accessible && !exit.locked
+                })
+            });
+            if journey.next_location_id.is_some() && !next_is_revealed {
+                return Some(ActionTargetView {
+                    kind: "location".to_string(),
+                    id: Some(journey.destination_location_id),
+                    label: Some(journey.destination_name),
+                });
+            }
+            return None;
+        }
+        exits
+            .into_iter()
+            .find(|exit| exit.distance > 1 && exit.accessible && !exit.locked)
+            .map(|exit| ActionTargetView {
+                kind: "location".to_string(),
+                id: Some(exit.destination_location_id),
+                label: Some(exit.destination_location_name),
+            })
+            .or_else(|| {
+                active_content()
+                    .exits
+                    .iter()
+                    .find(|exit| {
+                        exit.from_location_id == actor.location_id
+                            && exit.distance > 1
+                            && exit.flags & CW_EXIT_LOCKED == 0
+                            && location_access_allowed(exit.to_location_id, access)
+                            && self
+                                .pathway_for_anchors(actor.location_id, exit.to_location_id)
+                                .is_none()
+                    })
+                    .map(|exit| ActionTargetView {
+                        kind: "location".to_string(),
+                        id: Some(exit.to_location_id),
+                        label: self.location_name(exit.to_location_id),
+                    })
+            })
     }
 
     fn action_offer_target(
@@ -15405,6 +15679,11 @@ impl RuntimeWorld {
     ) -> Option<ActionTargetView> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
+            "check" => Some(ActionTargetView {
+                kind: "location".to_string(),
+                id: Some(actor.location_id),
+                label: self.location_name(actor.location_id),
+            }),
             "chat" => self
                 .default_chat_target(actor_id)
                 .map(|target| ActionTargetView {
@@ -29823,6 +30102,7 @@ fn action_offer_rank(kind: &str) -> u16 {
         "work" => 48,
         "help" => 49,
         "flee" => 50,
+        "explore_path" => 55,
         "search" => 58,
         "check" => 60,
         "chat" => 70,
@@ -29836,10 +30116,75 @@ fn action_offer_rank(kind: &str) -> u16 {
     }
 }
 
+fn action_offer_intention(kind: &str) -> &str {
+    match kind {
+        "check" => "notice",
+        "search" => "inspect",
+        "explore_path" => "scout",
+        "move" => "travel",
+        "work" | "help" => "contribute",
+        _ => kind,
+    }
+}
+
+fn default_action_offer_verb(kind: &str) -> &str {
+    match kind {
+        "check" => "Notice",
+        "search" => "Inspect",
+        "explore_path" => "Scout",
+        "move" => "Travel",
+        "work" => "Push",
+        "help" => "Help",
+        "flee" => "Flee",
+        "prepare" => "Prepare",
+        _ => "Act",
+    }
+}
+
+fn non_empty_text(value: &str) -> Option<&str> {
+    let value = value.trim();
+    (!value.is_empty()).then_some(value)
+}
+
+fn action_target_phrase(verb: &str, preposition: &str, target: Option<&str>) -> String {
+    let Some(target) = target.and_then(non_empty_text) else {
+        return verb.to_string();
+    };
+    if preposition.is_empty()
+        || verb
+            .to_ascii_lowercase()
+            .ends_with(&format!(" {preposition}"))
+    {
+        format!("{verb} {target}")
+    } else {
+        format!("{verb} {preposition} {target}")
+    }
+}
+
+fn fallback_job_action_label(job_id: &str) -> String {
+    let words = job_id
+        .rsplit_once(':')
+        .map(|(_, suffix)| suffix)
+        .unwrap_or(job_id)
+        .split(['-', '_'])
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>();
+    let fallback = if words.is_empty() {
+        "Contribute".to_string()
+    } else {
+        words.join(" ")
+    };
+    let mut characters = fallback.chars();
+    characters
+        .next()
+        .map(|first| first.to_uppercase().collect::<String>() + characters.as_str())
+        .unwrap_or_else(|| "Contribute".to_string())
+}
+
 fn action_offer_category(kind: &str) -> &'static str {
     match kind {
         "create_avatar" => "system",
-        "move" | "flee" => "travel",
+        "move" | "flee" | "explore_path" => "travel",
         "attack" | "defend" => "danger",
         "pick_up" | "use_item" | "use_feature" | "give_item" | "trade_item" => "inventory",
         "craft" => "craft",
@@ -34103,6 +34448,21 @@ mod tests {
                 source_event_seq: None,
             },
         );
+
+        let initial_state = runtime.state_response(Some(5000), &AccessContext::default());
+        let initial_scout = initial_state
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "explore_path")
+            .expect("the long route has a semantic Scout offer");
+        assert_eq!(initial_scout.intention, "scout");
+        assert_eq!(initial_scout.verb, "Scout");
+        assert_eq!(initial_scout.label, "Scout toward Moonlit Trail");
+        assert_eq!(initial_scout.accessible_label, initial_scout.label);
+        assert!(initial_scout.target.as_ref().is_some_and(|target| {
+            target.id == Some(MOONLIT_TRAIL_LOCATION_ID)
+                && target.label.as_deref() == Some("Moonlit Trail")
+        }));
         let mut state = test_app_state(runtime, None);
         state.ai_config = Arc::new(Some(AiConfig {
             api_key: "test".to_string(),
@@ -34252,6 +34612,19 @@ mod tests {
             .exits
             .iter()
             .any(|exit| exit.destination_location_id == second_waypoint_id));
+        assert!(!after_first_search
+            .action_offers
+            .iter()
+            .any(|offer| offer.kind == "explore_path"));
+        let first_travel_offer = after_first_search
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "move")
+            .expect("the revealed adjacent segment has a Travel offer");
+        assert_eq!(first_travel_offer.intention, "travel");
+        assert!(first_travel_offer
+            .accessible_label
+            .starts_with("Travel to "));
 
         let (first_travel, mut first_travel_mutation, first_travel_narration) = runtime
             .plan_journey_move(5000, first_waypoint_id)
@@ -34293,6 +34666,16 @@ mod tests {
             .clocks
             .iter()
             .any(|clock| clock.label == "Make this way familiar"));
+        let next_scout = frontier_state
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "explore_path")
+            .expect("the unrevealed next segment restores Scout");
+        assert_eq!(next_scout.intention, "scout");
+        assert_eq!(
+            next_scout.target.as_ref().and_then(|target| target.id),
+            Some(MOONLIT_TRAIL_LOCATION_ID)
+        );
 
         let (second_search, mut second_search_mutation, second_search_narration) = runtime
             .plan_pathway_search(5000)
@@ -34733,7 +35116,7 @@ mod tests {
         assert!(INDEX_HTML.contains("your first tale"));
         assert!(INDEX_HTML.contains("Your first tale. Next:"));
         assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
-        assert!(INDEX_HTML.contains("listen for one little clue."));
+        assert!(INDEX_HTML.contains("notice one little clue."));
         assert!(INDEX_HTML.contains("ledger.banked_count"));
         assert!(INDEX_HTML.contains("choose a friendship to grow."));
         assert!(INDEX_HTML.contains("choose an ability to train."));
@@ -34801,7 +35184,7 @@ mod tests {
         assert!(INDEX_HTML.contains("the room shares one welcoming clue just for you"));
         assert!(INDEX_HTML.contains("id=\"turn-ping-pill\""));
         assert!(INDEX_HTML.contains("the room is waiting for your choice"));
-        assert!(INDEX_HTML.contains("Listen to the room."));
+        assert!(INDEX_HTML.contains("Receive one ambient lead from this room."));
         assert!(!INDEX_HTML.contains("temporary Dex priority boost"));
         assert!(INDEX_HTML.contains("class=\"roll-symbol\""));
         assert!(INDEX_HTML.contains("class=\"roll-result\""));
@@ -34818,14 +35201,14 @@ mod tests {
         assert!(INDEX_HTML.contains("action-mini-card"));
         assert!(INDEX_HTML.contains("class=\"shuffle-glyph\""));
         assert!(INDEX_HTML.contains("more</span>"));
-        assert!(INDEX_HTML.contains("search for the next path"));
+        assert!(INDEX_HTML.contains("Reveal one stretch toward"));
         assert!(INDEX_HTML
             .contains("the hidden next stretch toward ${journey.destination_name} is revealed"));
         assert!(INDEX_HTML.contains("const built = [];"));
         assert!(INDEX_HTML.contains("if (!nextStretchRevealed)"));
-        assert!(INDEX_HTML.contains("function mergeDuplicateSearchCards"));
+        assert!(!INDEX_HTML.contains("function mergeDuplicateSearchCards"));
         assert!(!INDEX_HTML.contains("Follow the revealed path into ${nextName}."));
-        assert!(INDEX_HTML.contains("Search out the first stretch toward"));
+        assert!(INDEX_HTML.contains("Reveal the first adjacent stretch toward"));
         assert!(!INDEX_HTML.contains("journey-step:"));
         assert!(!INDEX_HTML.contains("travel turn"));
         assert!(INDEX_HTML
@@ -34877,18 +35260,18 @@ mod tests {
         assert!(INDEX_HTML.contains("the room may share another clue"));
         assert!(INDEX_HTML.contains("[\"Costs\", orbCost === 1 ? \"one Orb\""));
         assert!(!INDEX_HTML.contains("to listen again"));
-        assert!(INDEX_HTML.contains("See what the room notices."));
+        assert!(INDEX_HTML.contains("Receive one ambient lead from the room."));
         assert!(INDEX_HTML.contains("one Orb"));
         assert!(INDEX_HTML.contains("function orbChangeText"));
         assert!(!INDEX_HTML.contains("flashEconomy(`+${delta}`"));
         assert!(!INDEX_HTML.contains("flashEconomy(`-${spent}`"));
         assert!(INDEX_HTML.contains("Play Chat to start a short conversation with"));
         assert!(INDEX_HTML.contains("one Orb for the whole exchange"));
-        assert!(INDEX_HTML.contains("Search the room for one hidden thing."));
+        assert!(INDEX_HTML.contains("Inspect ${searchTarget} for one hidden thing."));
         assert!(INDEX_HTML.contains("into your keeping"));
         assert!(INDEX_HTML.contains("function smallNumberWord"));
         assert!(INDEX_HTML.contains("choose who receives it"));
-        assert!(INDEX_HTML.contains("Follow the path to"));
+        assert!(INDEX_HTML.contains("Travel to ${firstExit.destination_location_name}."));
         assert!(INDEX_HTML.contains("catch your breath"));
         assert!(!INDEX_HTML.contains("reply hook"));
         assert!(!INDEX_HTML.contains("authors a line"));
@@ -34934,7 +35317,7 @@ mod tests {
         assert!(INDEX_HTML.contains("/actions/create-bond"));
         assert!(INDEX_HTML.contains("label: \"grow closer\""));
         assert!(INDEX_HTML.contains("choose someone to grow closer to"));
-        assert!(INDEX_HTML.contains("Choose who to remember."));
+        assert!(INDEX_HTML.contains("Choose whose story to carry forward."));
         assert!(INDEX_HTML.contains("Keep ${firstTargetName} as someone who matters to you."));
         assert!(INDEX_HTML.contains("your friendship with ${firstTargetName} begins"));
         assert!(INDEX_HTML.contains("const giftCandidates = []"));
@@ -35647,7 +36030,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.3.2");
+        assert_eq!(location_reference.pack_version, "1.3.3");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");
@@ -40223,7 +40606,8 @@ mod tests {
             .iter()
             .find(|offer| offer.kind == "work")
             .expect("finish-ready work offer is exposed");
-        assert_eq!(finish_offer.label, "Finish");
+        assert_eq!(finish_offer.label, "Push Quiet the echo");
+        assert_eq!(finish_offer.intention, "contribute");
         assert_eq!(finish_offer.command, "work");
         assert_eq!(finish_offer.rank, 36);
         assert!(finish_offer
@@ -43592,6 +43976,30 @@ mod tests {
     }
 
     #[test]
+    fn semantic_action_roles_keep_pack_authored_vocabulary() {
+        assert_eq!(action_offer_intention("check"), "notice");
+        assert_eq!(action_offer_intention("search"), "inspect");
+        assert_eq!(action_offer_intention("explore_path"), "scout");
+        assert_eq!(action_offer_intention("move"), "travel");
+        assert_eq!(action_offer_intention("work"), "contribute");
+        assert_eq!(action_offer_intention("help"), "contribute");
+        assert_eq!(default_action_offer_verb("flee"), "Flee");
+        assert_eq!(
+            fallback_job_action_label("older-pack:mend-the-trail"),
+            "Mend the trail"
+        );
+
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, 11, "Ruby Listener");
+        assert_eq!(runtime.action_offer_verb("check", 5000), "Tune in");
+        assert_eq!(runtime.action_offer_verb("search", 5000), "Investigate");
+        assert_eq!(runtime.action_offer_verb("explore_path", 5000), "Scope out");
+        assert_eq!(runtime.action_offer_verb("move", 5000), "Head to");
+        assert_eq!(runtime.action_offer_verb("work", 5000), "Take point");
+        assert_eq!(runtime.action_offer_verb("help", 5000), "Back up");
+    }
+
+    #[test]
     fn ranked_action_offers_and_inspector_explain_room_state() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
@@ -43648,6 +44056,15 @@ mod tests {
             .find(|offer| offer.kind == "check")
             .expect("listen offer is exposed");
         assert_eq!(listen_offer.category, "discovery");
+        assert_eq!(listen_offer.intention, "notice");
+        assert_eq!(listen_offer.verb, "Notice");
+        assert_eq!(listen_offer.label, "Notice");
+        assert_eq!(listen_offer.accessible_label, "Notice at Moonlit Trail");
+        assert!(listen_offer.target.as_ref().is_some_and(|target| {
+            target.kind == "location"
+                && target.id == Some(MOONLIT_TRAIL_LOCATION_ID)
+                && target.label.as_deref() == Some("Moonlit Trail")
+        }));
         assert_eq!(listen_offer.zone, ZONE_FRONTIER);
         assert!(listen_offer
             .effect
@@ -43670,6 +44087,8 @@ mod tests {
             .find(|offer| offer.kind == "help")
             .expect("help offer is exposed");
         assert_eq!(help_offer.category, "social");
+        assert_eq!(help_offer.intention, "contribute");
+        assert_eq!(help_offer.verb, "Help");
         assert_eq!(help_offer.command, "assist");
         assert!(help_offer.risk.is_none());
         assert!(help_offer
@@ -43677,12 +44096,22 @@ mod tests {
             .as_deref()
             .is_some_and(|effect| effect.contains("first help brings you closer")));
         assert_eq!(help_offer.progress, Some(1));
+        assert!(help_offer.project.as_ref().is_some_and(|project| {
+            project.id == MOONLIT_JOB_ID
+                && project.verb == "Contribute"
+                && project.label == "Quiet the echo"
+                && project.progress_clock_id == MOONLIT_PROGRESS_CLOCK_ID
+        }));
+        assert!(help_offer.accessible_label.contains("with Quiet the echo"));
         let work_offer = state
             .action_offers
             .iter()
             .find(|offer| offer.kind == "work")
             .expect("work offer is exposed");
         assert_eq!(work_offer.category, "project");
+        assert_eq!(work_offer.intention, "contribute");
+        assert_eq!(work_offer.verb, "Push");
+        assert_eq!(work_offer.accessible_label, "Push Quiet the echo");
         assert_eq!(work_offer.effect.as_deref(), Some("makes good headway"));
         assert_eq!(work_offer.progress, Some(2));
         assert!(work_offer
@@ -43710,6 +44139,9 @@ mod tests {
             .find(|offer| offer.kind == "move")
             .expect("move offer is exposed");
         assert_eq!(move_offer.category, "travel");
+        assert_eq!(move_offer.intention, "travel");
+        assert_eq!(move_offer.verb, "Travel");
+        assert!(move_offer.accessible_label.starts_with("Travel to "));
         assert!(
             move_offer.rank < chat_offer.rank,
             "chat should not outrank concrete room travel without a bond payoff"
@@ -46099,6 +46531,10 @@ mod tests {
             .iter()
             .find(|offer| offer.kind == "search")
             .expect("search offer");
+        assert_eq!(search_offer.intention, "inspect");
+        assert_eq!(search_offer.verb, "Inspect");
+        assert_eq!(search_offer.label, "Inspect Scarf Basket");
+        assert_eq!(search_offer.accessible_label, "Inspect Scarf Basket");
         assert_eq!(search_offer.command, "search Scarf Basket");
         assert_eq!(
             search_offer

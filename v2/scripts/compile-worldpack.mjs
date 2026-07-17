@@ -45,6 +45,7 @@ const resourceFiles = {
   room_sheets: "room_sheets.json",
   clocks: "clocks.json",
   jobs: "jobs.json",
+  action_vocabulary: "action_vocabulary.json",
   fronts: "fronts.json",
   cards: "cards.json",
   card_bindings: "card_bindings.json",

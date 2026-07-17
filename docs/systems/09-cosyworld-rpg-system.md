@@ -132,13 +132,13 @@ CosyWorld plays as a warm, shared-world MUD:
 5. Gain, spend, use, or change something visible — and accrue toward your Visit Ledger.
 6. See the room, residents, items, bonds, and clocks remember what happened.
 
-The visible verbs are ordinary words: Chat, Listen, Travel, Take, Give, Use, Prepare, Rest, Work, Help, Attack, Defend, Flee. The player never needs to know which idea came from where.
+The visible verbs are ordinary words: Chat, Notice, Inspect, Scout, Travel, Take, Give, Use, Prepare, Rest, Contribute, Attack, Defend, Flee. Notice receives an ambient lead; Inspect names its target; Scout reveals the next segment toward a named destination without moving; Travel moves; and Contribute presents job-specific Push and Help strategies in one project card. Packs may author different displayed words while these semantic roles remain stable. The player never needs to know which idea came from where.
 
 ## Authoritative Loop
 
 1. Rust builds authoritative room context from kernel state, access context, projection state, and economy state.
 2. Rust asks the kernel which rule actions are legal.
-3. Rust chooses the primary action and exposes optional commands, adding risk/effect metadata where that rule surface exists.
+3. Rust chooses the primary action and exposes optional commands, adding stable intention, verb, target, accessible-label, project/clock, and risk/effect metadata where that rule surface exists.
 4. The player chooses an action.
 5. Rust validates session, access, cost, rate limit, and target.
 6. Rust submits a rule action to the C kernel or schedules a validated projection-only action.
@@ -293,7 +293,9 @@ Create Actor, Say, Move, Ability Check, Pick Up Item, Use Item, Attack, Defend, 
 | Product verb | Kernel or projection | Purpose |
 | --- | --- | --- |
 | Chat | kernel Say plus AI generation | Public in-character line and resident response; deepens bonds. |
-| Listen | kernel Ability Check | Learn room truth, mark the ledger, advance memory. |
+| Notice | kernel Ability Check | Receive an ambient room lead, mark the ledger, advance memory. |
+| Inspect | kernel Ability Check | Examine a named target to reveal hidden content. |
+| Scout | projection pathway action | Reveal the next adjacent route segment toward a named destination without moving. |
 | Travel | kernel Move | Move through legal, accessible exits; crossing into frontier is explicit. |
 | Take | kernel Pick Up Item | Move item to inventory. |
 | Give | kernel Give Item | Resident evolution, bonds, job delivery, covenant contribution. |
@@ -303,10 +305,9 @@ Create Actor, Say, Move, Ability Check, Pick Up Item, Use Item, Attack, Defend, 
 | Flee | kernel Flee | A valid success path out of danger. |
 | Prepare | projection action now; kernel later only if needed | Create advantage, lower next risk, add a temporary tag. |
 | Rest | projection action now; kernel later only if needed | Reset fatigue/skill step-downs; in the frontier, costs a danger/season tick. |
-| Work | projection clock action | Advance a project, job, or covenant clock. |
-| Help | projection clock or assist action | Assist another actor or project, forming and deepening bonds. |
+| Contribute | projection clock action | Advance one named job or covenant clock through job-specific Push and, when available, Help strategies. |
 
-Generated long-distance pathways use these same verbs and UI rules. Search reveals one adjacent stretch as shared geography, but it never replaces the rest of the hand or locks future movement. When an Explorer first opens a route, bounded structured generation may create every hidden waypoint's narrative identity from its deterministic biome and terrain; each identity remains concealed until its Explore edge is revealed. Invalid or disabled generation keeps the deterministic identity, and neither form may change topology or rules. Generated waypoint rooms begin risky and frontier-zoned. Every generated route receives one shared familiarity job and progress clock across its waypoint rooms; Work and Help advance it. Filling that clock settles the route into sanctuary rules and unlocks generated landscape art, while the deterministic SVG remains available throughout discovery and as the inference fallback.
+Generated long-distance pathways use these same verbs and UI rules. Scout reveals one adjacent stretch as shared geography without moving, but it never replaces the rest of the hand or locks future movement. When an Explorer first opens a route, bounded structured generation may create every hidden waypoint's narrative identity from its deterministic biome and terrain; each identity remains concealed until its Scout edge is revealed. Invalid or disabled generation keeps the deterministic identity, and neither form may change topology or rules. Generated waypoint rooms begin risky and frontier-zoned. Every generated route receives one shared familiarity job and progress clock across its waypoint rooms; Push and Help are strategies on one contribution card and advance that same clock. Filling the clock settles the route into sanctuary rules and unlocks generated landscape art, while the deterministic SVG remains available throughout discovery and as the inference fallback.
 
 ### Primary Action Priority
 
@@ -321,7 +322,7 @@ The primary action is helpful, not exhaustive. As risk/effect metadata lands, it
 7. Use a meaningful held item.
 8. Take a useful visible item.
 9. Chat with the best target.
-10. Listen, Travel, Work, or Help.
+10. Notice, Inspect, Scout, Travel, or Contribute.
 
 The primary action may vary by context, but the result is always public.
 

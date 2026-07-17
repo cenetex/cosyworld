@@ -27,6 +27,12 @@
       --type-bond-rgb: 255, 211, 106;
       --type-listen: #79c7ff;
       --type-listen-rgb: 121, 199, 255;
+      --type-notice: #79c7ff;
+      --type-notice-rgb: 121, 199, 255;
+      --type-inspect: #d7a7ff;
+      --type-inspect-rgb: 215, 167, 255;
+      --type-scout: #58d7d0;
+      --type-scout-rgb: 88, 215, 208;
       --type-train: #b89cff;
       --type-train-rgb: 184, 156, 255;
       --type-evolve: #a8bdf0;
@@ -1492,6 +1498,9 @@
     .cmd.type-chat { --cmd-accent: var(--type-chat); --cmd-accent-rgb: var(--type-chat-rgb); }
     .cmd.type-bond { --cmd-accent: var(--type-bond); --cmd-accent-rgb: var(--type-bond-rgb); }
     .cmd.type-listen { --cmd-accent: var(--type-listen); --cmd-accent-rgb: var(--type-listen-rgb); }
+    .cmd.type-notice { --cmd-accent: var(--type-notice); --cmd-accent-rgb: var(--type-notice-rgb); }
+    .cmd.type-inspect { --cmd-accent: var(--type-inspect); --cmd-accent-rgb: var(--type-inspect-rgb); }
+    .cmd.type-scout { --cmd-accent: var(--type-scout); --cmd-accent-rgb: var(--type-scout-rgb); }
     .cmd.type-train { --cmd-accent: var(--type-train); --cmd-accent-rgb: var(--type-train-rgb); }
     .cmd.type-evolve { --cmd-accent: var(--type-evolve); --cmd-accent-rgb: var(--type-evolve-rgb); }
     .cmd.type-trade { --cmd-accent: var(--type-trade); --cmd-accent-rgb: var(--type-trade-rgb); }
@@ -1681,6 +1690,7 @@
       cursor: default;
     }
     .cmd[aria-busy="true"] {
+      animation: none;
       opacity: 1;
       cursor: progress;
       border-color: rgba(var(--cmd-accent-rgb), 0.58);
@@ -1692,6 +1702,29 @@
       animation: action-busy-pulse 1.1s ease-in-out infinite;
       opacity: 1;
     }
+    .action-progress {
+      position: absolute;
+      right: 10px;
+      bottom: 7px;
+      left: 10px;
+      height: 2px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(var(--cmd-accent-rgb), 0.2);
+    }
+    .action-progress::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      width: 42%;
+      border-radius: inherit;
+      background: var(--cmd-accent);
+      animation: action-progress-sweep 1.1s ease-in-out infinite alternate;
+    }
+    @keyframes action-progress-sweep {
+      from { transform: translateX(-12%); }
+      to { transform: translateX(150%); }
+    }
     @keyframes action-busy-pulse {
       0%, 100% { transform: scale(0.72); opacity: 0.46; }
       50% { transform: scale(1.25); opacity: 1; }
@@ -1699,6 +1732,10 @@
     @media (prefers-reduced-motion: reduce) {
       .cmd[aria-busy="true"]::after {
         animation: none;
+      }
+      .action-progress::after {
+        animation: none;
+        transform: translateX(70%);
       }
     }
     .detail {
@@ -2470,6 +2507,12 @@
       --type-bond-rgb: 216, 176, 103;
       --type-listen: #91a9b2;
       --type-listen-rgb: 145, 169, 178;
+      --type-notice: #91a9b2;
+      --type-notice-rgb: 145, 169, 178;
+      --type-inspect: #b89bbd;
+      --type-inspect-rgb: 184, 155, 189;
+      --type-scout: #7fb8ad;
+      --type-scout-rgb: 127, 184, 173;
       --type-train: #b29b8d;
       --type-train-rgb: 178, 155, 141;
       --type-evolve: #a9a3a2;
@@ -2843,6 +2886,9 @@
     }
     const actionCardTypes = [
       "travel",
+      "notice",
+      "inspect",
+      "scout",
       "chat",
       "bond",
       "listen",
@@ -3674,6 +3720,21 @@
       const ledger = view.ledger || {};
       const skills = Array.isArray(view.skills) ? view.skills : [];
       const offerFor = (kind) => (view.action_offers || []).find((offer) => offer.kind === kind) || null;
+      const offerVerb = (offer, fallback) => String(offer?.verb || fallback || "Act").trim();
+      const targetBearingLabel = (intention, verb, target) => {
+        const cleanVerb = String(verb || "Act").trim();
+        const cleanTarget = String(target || "").trim();
+        if (!cleanTarget) return cleanVerb;
+        const preposition = intention === "scout" ? "toward" : (intention === "travel" ? "to" : "");
+        if (!preposition || cleanVerb.toLowerCase().endsWith(` ${preposition}`)) return `${cleanVerb} ${cleanTarget}`;
+        return `${cleanVerb} ${preposition} ${cleanTarget}`;
+      };
+      const semanticAction = (offer, fallbackIntention, accessibleLabel = "") => ({
+        intention: String(offer?.intention || fallbackIntention || "").trim(),
+        target: offer?.target || null,
+        project: offer?.project || null,
+        accessibleLabel: String(accessibleLabel || offer?.accessible_label || "").trim(),
+      });
       const buildGrowAction = () => {
         if (!options.has("bank_ledger") || Number(ledger.unbanked_count || 0) <= 0) return null;
         const unbanked = Number(ledger.unbanked_count || 0);
@@ -3919,15 +3980,19 @@
         const currentName = turn.current_actor_name || "another avatar";
         const firstListen = view.economy?.listen_attempted_here === false;
         if (firstListen) {
+          const noticeOffer = offerFor("check");
+          const noticeVerb = offerVerb(noticeOffer, "Notice");
           return [{
-            label: "listen",
+            ...semanticAction(noticeOffer, "notice"),
+            label: noticeVerb.toLowerCase(),
             detail: "for your first clue",
             command: "listen",
             focusKey: "check",
             card: cardForLocation(view.location?.id),
             shape: "location",
             priority: 1,
-            modalSummary: "Listen to the room.",
+            modalTitle: noticeVerb.toLowerCase(),
+            modalSummary: "Receive one ambient lead from this room.",
             effect: "the room shares one welcoming clue just for you",
             run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }),
           }];
@@ -3963,20 +4028,24 @@
           && !exitUnavailable(exit, view)
         ));
         if (!nextStretchRevealed) {
+          const scoutOffer = offerFor("explore_path");
+          const scoutVerb = offerVerb(scoutOffer, "Scout");
+          const scoutLabel = targetBearingLabel("scout", scoutVerb, journey.destination_name);
           built.push({
-            label: "search",
-            detail: `for the path toward ${journey.destination_name}`,
+            ...semanticAction(scoutOffer, "scout", scoutLabel),
+            label: scoutVerb.toLowerCase(),
+            detail: `toward ${journey.destination_name}`,
             command: "search",
             focusKey: `journey-search:${journey.destination_location_id}:${journey.current_step}`,
             card: cardForLocation(view.location?.id),
             shape: "location",
-            priority: 55,
-            modalTitle: "search for the next path",
-            modalSummary: `Look around this place for the next adjacent stretch toward ${journey.destination_name}.`,
+            priority: Number(scoutOffer?.rank || 55),
+            modalTitle: scoutLabel.toLowerCase(),
+            modalSummary: `Reveal one stretch toward ${journey.destination_name} without moving.`,
             effect: nextIsDestination
               ? `the way to ${journey.destination_name} is revealed`
               : `the hidden next stretch toward ${journey.destination_name} is revealed`,
-            busyLabel: "searching",
+            busyLabel: "scouting",
             busyDetail: "the next stretch is taking shape…",
             run: () => action("/actions/explore-path", { actor_id: actorId }),
           });
@@ -4244,8 +4313,11 @@
         const searchTarget = String(searchOffer?.target?.label || locationName).trim() || locationName;
         const searchCommand = String(searchOffer?.command || "search").trim() || "search";
         const clueLedSearch = searchTarget !== locationName;
+        const inspectVerb = offerVerb(searchOffer, "Inspect");
+        const inspectLabel = targetBearingLabel("inspect", inspectVerb, searchTarget);
         built.push({
-          label: "search",
+          ...semanticAction(searchOffer, "inspect", inspectLabel),
+          label: inspectVerb.toLowerCase(),
           detail: searchTarget,
           command: searchCommand,
           focusKey: clueLedSearch
@@ -4254,9 +4326,10 @@
           card: cardForLocation(view.location?.id),
           shape: "location",
           priority: projectSearchPriority,
+          modalTitle: inspectLabel.toLowerCase(),
           modalSummary: clueLedSearch
-            ? `Follow the room's clue and look closely at ${searchTarget}.`
-            : "Search the room for one hidden thing.",
+            ? `Inspect ${searchTarget} and reveal the hidden content tied to it.`
+            : `Inspect ${searchTarget} for one hidden thing.`,
           effect: clueLedSearch
             ? `the clue tucked into ${searchTarget} comes to light`
             : (searchOffer?.effect || `one hidden thing in ${locationName} comes to light`),
@@ -4379,12 +4452,21 @@
           const onePath = groupedExits.length === 1;
           const searchingPathway = routeGroup.mode === "pathway";
           const fleeing = routeGroup.mode === "flee";
+          const routeOffer = offerFor(searchingPathway ? "explore_path" : (fleeing ? "flee" : "move"));
+          const routeIntention = searchingPathway ? "scout" : (fleeing ? "flee" : "travel");
+          const routeVerb = offerVerb(routeOffer, fleeing ? "Flee" : (searchingPathway ? "Scout" : "Travel"));
+          const routeVerbLower = routeVerb.toLowerCase();
+          const routeTargetPrefix = searchingPathway
+            ? (routeVerbLower.endsWith(" toward") ? "" : "toward ")
+            : (fleeing ? "" : (routeVerbLower.endsWith(" to") ? "" : "to "));
+          const routeAccessibleLabel = targetBearingLabel(routeIntention, routeVerb, firstExit.destination_location_name);
           const routeAction = {
-            label: fleeing ? "flee" : (searchingPathway ? "search" : "travel"),
+            ...semanticAction(routeOffer, routeIntention, routeAccessibleLabel),
+            label: routeVerb.toLowerCase(),
             detail: onePath
               ? (searchingPathway
-                ? `pathway to ${firstExit.destination_location_name}`
-                : firstExit.destination_location_name)
+                ? `${routeTargetPrefix}${firstExit.destination_location_name}`
+                : (fleeing ? firstExit.destination_location_name : `${routeTargetPrefix}${firstExit.destination_location_name}`))
               : (fleeing ? "choose a way out" : (searchingPathway ? "choose a pathway" : "choose a path")),
             command: onePath
               ? `${fleeing ? "flee" : (searchingPathway ? "search pathway to" : "go")} ${firstExit.destination_location_name}`
@@ -4397,20 +4479,21 @@
               ? cardForLocation(firstExit.destination_location_id)
               : (cardForLocation(view.location?.id) || cardForLocation(firstExit.destination_location_id)),
             shape: "location",
+            priority: Number(routeOffer?.rank || (searchingPathway ? 55 : (fleeing ? 50 : 80))),
             modalTitle: onePath
               ? undefined
-              : (fleeing ? "choose where to flee" : (searchingPathway ? "choose what lies ahead" : "choose where to go")),
+              : (fleeing ? "choose where to flee" : (searchingPathway ? "choose where to scout" : "choose where to travel")),
             modalSummary: onePath
               ? (fleeing
                 ? `Leave the danger behind and hurry toward ${firstExit.destination_location_name}.`
                 : (searchingPathway
-                  ? `Search out the first stretch toward ${firstExit.destination_location_name}.`
-                  : `Follow the path to ${firstExit.destination_location_name}.`))
+                  ? `Reveal the first adjacent stretch toward ${firstExit.destination_location_name} without moving.`
+                  : `Travel to ${firstExit.destination_location_name}.`))
               : (fleeing
                 ? "Choose a way out."
                 : (searchingPathway
-                  ? "Choose a destination and search for a path."
-                  : "Choose a path.")),
+                  ? "Choose a destination and reveal its next adjacent route segment without moving."
+                  : "Choose where to travel.")),
             effect: onePath
               ? (searchingPathway
                 ? `a hidden first stretch toward ${firstExit.destination_location_name} is revealed`
@@ -4616,22 +4699,37 @@
           run: () => action("/actions/prepare", { actor_id: actorId }),
         });
       }
-      if (options.has("work")) {
-        const offer = offerFor("work");
-        built.push({
-          label: projectWorkFinishes ? "finish" : "work",
-          detail: projectWorkFinishes
-            ? (preparedForRoom ? "finish the work" : unpreparedWorkDetail)
-            : (preparedForRoom ? projectProgressDetail(workProgressPreview) : unpreparedWorkDetail),
-          command: "work",
-          focusKey: "work",
-          card: cardForLocation(view.location?.id),
-          shape: "location",
-          priority: projectWorkFinishes
-            ? 28
-            : (preparedForRoom ? 33 : (preparationSpentForProject ? 36 : 48)),
-          effect: offer?.effect,
-          risk: offer?.risk,
+      const workOffer = options.has("work") ? offerFor("work") : null;
+      const helpOffer = options.has("help") ? offerFor("help") : null;
+      const contributionProject = workOffer?.project || helpOffer?.project || (activeProgressClock ? {
+        id: String(activeProject?.id || activeProgressClock.id),
+        verb: "Contribute",
+        label: String(activeProject?.action_label || activeProgressClock.label || "the shared work"),
+        summary: String(activeProject?.action_summary || ""),
+        progress_clock_id: String(activeProgressClock.id),
+      } : null);
+      const projectLabel = String(
+        contributionProject?.label
+          || activeProject?.action_label
+          || activeProgressClock?.label
+          || "the shared work"
+      ).trim();
+      const contributionVerb = String(contributionProject?.verb || "Contribute").trim();
+      const contributionStrategies = [];
+      if (options.has("work")
+          && contributionProject
+          && (!workOffer?.project || workOffer.project.progress_clock_id === contributionProject.progress_clock_id)) {
+        const pushVerb = offerVerb(workOffer, "Push");
+        contributionStrategies.push({
+          key: "push",
+          label: `${pushVerb} ${projectLabel}`,
+          detail: [
+            `+${workProgressPreview} progress`,
+            projectWorkFinishes ? "finishes the project" : "faster progress",
+            workOffer?.risk ? friendlyActionText(workOffer.risk) : "may cause fatigue when unprepared",
+          ].filter(Boolean).join(" · "),
+          effect: workOffer?.effect,
+          risk: workOffer?.risk,
           run: () => action("/actions/work", { actor_id: actorId }),
         });
       }
@@ -4661,27 +4759,76 @@
           run: () => action("/actions/rest", { actor_id: actorId }),
         });
       }
-      if (options.has("help")) {
-        const offer = offerFor("help");
-        const helpEffect = String(offer?.effect || "");
-        const helpTires = !preparedForRoom && /tired/i.test(String(offer?.risk || ""));
-        const helpDetail = [
-          projectHelpFinishes ? "finish together" : projectProgressDetail(helpProgressPreview),
-          !preparedForRoom ? (helpTires ? "may tire you" : "stay fresh") : "",
-          /deepens Bond|brings you closer/i.test(helpEffect) ? "friendship grows" : "",
-        ].filter(Boolean).join(", ");
-        built.push({
-          label: "help",
-          detail: helpDetail,
-          command: "assist",
-          focusKey: "help",
-          card: cardForLocation(view.location?.id),
-          shape: "location",
-          priority: preparedForRoom ? 34 : (preparationSpentForProject ? 37 : 49),
-          effect: offer?.effect,
-          risk: offer?.risk,
+      if (helpOffer?.project
+          && helpOffer.project.progress_clock_id === contributionProject?.progress_clock_id
+          && String(helpOffer?.target?.label || "").trim()) {
+        const helpVerb = offerVerb(helpOffer, "Help");
+        const residentName = String(helpOffer.target.label).trim();
+        const relationshipEffect = /deepens Bond|brings you closer/i.test(String(helpOffer?.effect || ""))
+          ? "first contribution strengthens the relationship"
+          : "contribute alongside a resident";
+        contributionStrategies.push({
+          key: "help",
+          label: `${helpVerb} ${residentName} with ${projectLabel}`,
+          detail: [
+            `+${helpProgressPreview} progress`,
+            relationshipEffect,
+            helpOffer?.risk ? friendlyActionText(helpOffer.risk) : "slower, usually gentler progress",
+          ].filter(Boolean).join(" · "),
+          effect: helpOffer?.effect,
+          risk: helpOffer?.risk,
           run: () => action("/actions/help", { actor_id: actorId }),
         });
+      }
+      if (contributionStrategies.length) {
+        const firstStrategy = contributionStrategies[0];
+        const oneStrategy = contributionStrategies.length === 1;
+        const contributionAction = {
+          ...semanticAction(
+            workOffer || helpOffer,
+            "contribute",
+            oneStrategy ? firstStrategy.label : `${contributionVerb} to ${projectLabel}`,
+          ),
+          project: contributionProject,
+          label: oneStrategy ? firstStrategy.label.toLowerCase() : projectLabel.toLowerCase(),
+          detail: oneStrategy
+            ? firstStrategy.detail
+            : `${contributionStrategies.map((strategy) => strategy.label.split(" ")[0]).join(" or ")} · choose a strategy`,
+          command: oneStrategy ? firstStrategy.key : "contribute",
+          focusKey: `contribute:${contributionProject?.id || contributionProject?.progress_clock_id || activeProgressClock?.id || "project"}`,
+          card: cardForLocation(view.location?.id),
+          shape: "location",
+          priority: Math.min(
+            projectWorkFinishes ? 28 : (preparedForRoom ? 33 : (preparationSpentForProject ? 36 : 48)),
+            preparedForRoom ? 34 : (preparationSpentForProject ? 37 : 49),
+          ),
+          modalTitle: oneStrategy ? firstStrategy.label.toLowerCase() : projectLabel.toLowerCase(),
+          modalSummary: String(
+            contributionProject?.summary
+              || activeProject?.action_summary
+              || `Choose how to contribute to ${projectLabel}.`
+          ),
+          effect: oneStrategy
+            ? firstStrategy.effect
+            : "the chosen strategy advances the same project clock with a different pace and tradeoff",
+          risk: oneStrategy ? firstStrategy.risk : undefined,
+          ...(oneStrategy ? {} : {
+            choices: contributionStrategies.map((strategy) => ({
+              label: strategy.label,
+              detail: strategy.detail,
+              value: strategy.key,
+              card: cardForLocation(view.location?.id),
+            })),
+            selectedChoice: firstStrategy.key,
+          }),
+        };
+        contributionAction.run = () => {
+          const selected = contributionStrategies.find((strategy) => (
+            strategy.key === String(contributionAction.selectedChoice || firstStrategy.key)
+          )) || firstStrategy;
+          return selected.run();
+        };
+        built.push(contributionAction);
       }
       const listenRewardClaimable = economy.listen_reward_claimable !== false;
       const listenCost = Number.isFinite(Number(economy.listen_cost_orbs))
@@ -4693,19 +4840,22 @@
       const listenKnownUnattempted = economy.listen_attempted_here === false;
       if ((options.has("check") || listenKnownUnattempted) && listenCanHelp && listenHasFreshOutcome) {
         const listenOffer = offerFor("check");
+        const noticeVerb = offerVerb(listenOffer, "Notice");
         const repeatListenCost = listenCost === 1 ? "one Orb" : `${listenCost} Orbs`;
         built.push({
-          label: listenAttemptedHere ? "listen again" : "listen",
+          ...semanticAction(listenOffer, "notice"),
+          label: listenAttemptedHere ? `${noticeVerb.toLowerCase()} again` : noticeVerb.toLowerCase(),
           detail: listenAttemptedHere ? repeatListenCost : "for a clue",
           command: "listen",
           focusKey: "check",
           card: cardForLocation(view.location?.id),
           shape: "location",
-          priority: listenAttemptedHere ? 82 : undefined,
+          priority: listenAttemptedHere ? 82 : Number(listenOffer?.rank || 60),
           orbCost: listenAttemptedHere ? listenCost : 0,
+          modalTitle: listenAttemptedHere ? `${noticeVerb.toLowerCase()} once more` : noticeVerb.toLowerCase(),
           modalSummary: listenAttemptedHere
-            ? `Spend ${repeatListenCost} to listen once more. The room may have nothing new yet.`
-            : "See what the room notices.",
+            ? `Spend ${repeatListenCost} to notice another ambient lead. The room may have nothing new yet.`
+            : "Receive one ambient lead from the room.",
           effect: listenAttemptedHere
             ? "the room may share another clue"
             : "the room shares one clue it is ready to tell",
@@ -4748,7 +4898,7 @@
             modalTitle: oneTarget ? `grow closer to ${firstTargetName}` : "choose someone to grow closer to",
             modalSummary: oneTarget
               ? `Keep ${firstTargetName} as someone who matters to you.`
-              : "Choose who to remember.",
+              : "Choose someone to grow closer to.",
             effect: oneTarget ? `your friendship with ${firstTargetName} begins` : "a new friendship begins",
             ...(oneTarget ? {} : {
               choices: bondTargets.map((target) => {
@@ -4834,7 +4984,6 @@
           built.push(rememberAction);
         }
       }
-      mergeDuplicateSearchCards(built);
       mergeDuplicateUseCards(built);
       built.sort(compareActions);
       if (!built.length) {
@@ -4849,58 +4998,6 @@
         });
       }
       return built;
-    }
-
-    function mergeDuplicateSearchCards(builtActions) {
-      const searches = builtActions.filter((action) => String(action?.label || "").toLowerCase() === "search");
-      if (searches.length <= 1) return;
-      const modes = [];
-      searches.forEach((source, sourceIndex) => {
-        const sourceChoices = Array.isArray(source.choices) && source.choices.length
-          ? source.choices
-          : [null];
-        sourceChoices.forEach((choice, choiceIndex) => {
-          modes.push({
-            key: `search:${sourceIndex}:${choiceIndex}:${choice?.value || source.focusKey || source.command}`,
-            label: String(choice?.label || source.detail || "look around").replace(/^for\s+/i, ""),
-            detail: friendlyActionText(choice?.detail || source.effect || "uncover what is hidden"),
-            card: choice?.card || source.card,
-            source,
-            choiceValue: choice?.value,
-          });
-        });
-      });
-      const first = modes[0];
-      const merged = {
-        ...first.source,
-        label: "search",
-        detail: "choose what to look for",
-        command: "search",
-        focusKey: `search:${modes.map((mode) => mode.key).join("|")}`,
-        focusKeys: [...new Set(searches.flatMap((source) => [source.focusKey, ...(source.focusKeys || [])]).filter(Boolean))],
-        card: first.card,
-        modalTitle: "choose what to search",
-        modalSummary: "Follow a path clue or look more closely at the room.",
-        effect: "the search you choose reveals one hidden thing",
-        choices: modes.map((mode) => ({
-          label: mode.label,
-          detail: mode.detail,
-          value: mode.key,
-          card: mode.card,
-        })),
-        selectedChoice: first.key,
-      };
-      merged.run = () => {
-        const selected = modes.find((mode) => mode.key === merged.selectedChoice) || first;
-        if (selected.choiceValue != null) selected.source.selectedChoice = selected.choiceValue;
-        return selected.source.run();
-      };
-      const firstIndex = builtActions.indexOf(searches[0]);
-      for (const source of searches) {
-        const index = builtActions.indexOf(source);
-        if (index >= 0) builtActions.splice(index, 1);
-      }
-      builtActions.splice(Math.min(firstIndex, builtActions.length), 0, merged);
     }
 
     function mergeDuplicateUseCards(builtActions) {
@@ -5068,6 +5165,15 @@
     }
 
     function actionCardType(action) {
+      const semanticTypes = {
+        notice: "notice",
+        inspect: "inspect",
+        scout: "scout",
+        travel: "travel",
+        contribute: "project",
+      };
+      const semantic = semanticTypes[String(action?.intention || "").toLowerCase()];
+      if (semantic) return semantic;
       const explicit = normalizeActionCardType(action?.cardType || action?.type);
       if (explicit) return explicit;
       const label = String(action?.label || "").toLowerCase();
@@ -5096,6 +5202,10 @@
 
     function actionCardAccentClass(action) {
       const cardType = actionCardType(action);
+      if (["combat", "notice", "inspect", "scout", "travel", "project"].includes(cardType)
+          && String(action?.intention || "")) {
+        return { cardType, rarity: "", className: `type-${cardType}` };
+      }
       if (cardType === "combat") return { cardType, rarity: "", className: "type-combat" };
       const rarity = normalizeActionCardRarity(action?.card?.rarity || action?.rarity || action?.target?.rarity);
       return { cardType, rarity, className: `rarity-${rarity}` };
@@ -5424,6 +5534,8 @@
       pushEvents(result.events || []);
       if (!result.ok) {
         setError(actionFailureMessage(path, result));
+      } else if (["/actions/move", "/actions/flee", "/actions/explore-path"].includes(path)) {
+        await refresh();
       }
       if (result.ok && clearFirstTaleAfterAction) firstTaleCelebration = false;
       focusIndex = 0;
@@ -6216,12 +6328,12 @@
 
     function firstTaleCompletionText(view = state) {
       if (Array.isArray(view?.bonds) && view.bonds.length) {
-        return "you listened, grew from a clue, and made a new friend.";
+        return "you noticed a clue, grew from it, and made a new friend.";
       }
       if (Array.isArray(view?.skills) && view.skills.length) {
-        return "you listened, grew from a clue, and trained an ability.";
+        return "you noticed a clue, grew from it, and trained an ability.";
       }
-      return "you listened, grew from a clue, and chose what to care about.";
+      return "you noticed a clue, grew from it, and chose what to care about.";
     }
 
     function firstTaleIsComplete(view = state) {
@@ -6240,6 +6352,9 @@
     function nextStoryThreadModel(view = state, availableActions = actions) {
       const findAction = (...labels) => availableActions.find((action) => (
         labels.includes(String(action?.label || "").toLowerCase())
+      )) || null;
+      const findIntention = (...intentions) => availableActions.find((action) => (
+        intentions.includes(String(action?.intention || "").toLowerCase())
       )) || null;
       const makeThread = (action, text, kind) => ({
         actionKey: action ? actionHandKey(action) : "",
@@ -6267,7 +6382,7 @@
       if (urgentUse) {
         return makeThread(urgentUse, "One of your keepsakes could help someone right now", "care");
       }
-      const sharedWork = findAction("work", "help", "prepare");
+      const sharedWork = findIntention("contribute") || findAction("prepare");
       if (sharedWork) {
         return makeThread(sharedWork, `There is shared work waiting in ${view?.location?.name || "this room"}`, "work");
       }
@@ -6275,18 +6390,27 @@
       if (danger) {
         return makeThread(danger, "Something dangerous here needs a careful answer", "danger");
       }
-      const search = findAction("search");
-      if (search) {
+      const inspect = findIntention("inspect");
+      if (inspect) {
         const roomName = String(view?.location?.name || "this room");
-        const target = String(search.detail || "").trim();
+        const target = String(inspect?.target?.label || inspect.detail || "").trim();
         if (target && target !== roomName) {
-          return makeThread(search, `${target} is still hiding something`, "search");
+          return makeThread(inspect, `${target} is still hiding something`, "search");
         }
       }
-      const travel = findAction("travel");
+      const scout = findIntention("scout");
+      if (scout) {
+        const destination = String(scout?.target?.label || scout.detail || "").replace(/^toward\s+/i, "").trim();
+        return makeThread(
+          scout,
+          destination ? `The next stretch toward ${destination} is waiting to be scouted` : "A route is waiting to be scouted",
+          "scout",
+        );
+      }
+      const travel = findIntention("travel");
       if (travel) {
         const choices = Array.isArray(travel.choices) ? travel.choices : [];
-        const destination = String(travel.detail || "").trim();
+        const destination = String(travel?.target?.label || travel.detail || "").replace(/^to\s+/i, "").trim();
         return makeThread(
           travel,
           choices.length > 1 || !destination || destination === "choose a path"
@@ -6295,9 +6419,9 @@
           "travel",
         );
       }
-      if (search) {
+      if (inspect) {
         const roomName = String(view?.location?.name || "this room");
-        return makeThread(search, `Something in ${roomName} is still waiting to be found`, "search");
+        return makeThread(inspect, `Something in ${roomName} is still waiting to be found`, "search");
       }
       const chat = findAction("chat");
       if (chat) {
@@ -8137,7 +8261,7 @@
 
     function actionEmoji(action) {
       const byType = {
-        travel: "🥾", chat: "💬", bond: "💞", listen: "👂", train: "🎯", trade: "🤝",
+        travel: "🥾", notice: "👁️", inspect: "🔎", scout: "🧭", chat: "💬", bond: "💞", listen: "👂", train: "🎯", trade: "🤝",
         evolve: "🌱", bank: "✨", craft: "🛠️", project: "🧩", item: "🎒", combat: "⚔️", danger: "⚠️",
         shuffle: "🔄", utility: "🪄",
       };
@@ -8243,6 +8367,9 @@
 
     function actionTitle(action) {
       if (action?.modalTitle) return String(action.modalTitle);
+      if (["notice", "inspect", "scout", "travel"].includes(String(action?.intention || ""))) {
+        return String(action?.accessibleLabel || action?.label || "action").toLowerCase();
+      }
       const label = String(action?.label || action?.command || "action").toLowerCase();
       if (label === "grow" || label === "bank") return "grow";
       if (label === "evolve") return action?.choices?.length ? "choose how to evolve" : "evolve";
@@ -8276,6 +8403,9 @@
     function compactActionLabel(action) {
       const label = String(action?.label || "").trim().toLowerCase();
       if (action?.busy && action?.busyLabel) return String(action.busyLabel).trim().toLowerCase();
+      if (["notice", "inspect", "scout", "travel", "contribute"].includes(String(action?.intention || ""))) {
+        return label || String(action?.project?.verb || action?.intention || "act").toLowerCase();
+      }
       if (String(action?.command || "").trim().toLowerCase() === "create avatar") return "begin";
       if (label === "grow" || label === "bank") return "grow";
       if (label === "evolve") return "evolve";
@@ -8339,7 +8469,8 @@
           ["Then", "your new avatar arrives in The Cosy Cottage"],
         ];
       }
-      if (String(action?.label || "").toLowerCase() === "listen again") {
+      if (String(action?.intention || "").toLowerCase() === "notice"
+          && String(action?.label || "").toLowerCase().endsWith("again")) {
         const orbCost = Math.max(0, Number(action?.orbCost || 0));
         return [
           ["Costs", orbCost === 1 ? "one Orb" : `${orbCost} Orbs`],
@@ -8512,6 +8643,12 @@
 
     function actionConfirmLabel(action) {
       const label = String(action?.label || "").toLowerCase();
+      if (String(action?.intention || "") === "contribute") {
+        return String(action?.project?.verb || "contribute").toLowerCase();
+      }
+      if (["notice", "inspect", "scout", "travel"].includes(String(action?.intention || ""))) {
+        return label || String(action.intention);
+      }
       if (label === "begin again") return "begin again";
       if (String(action?.command || "").trim().toLowerCase() === "create avatar") return "begin";
       if (label === "grow" || label === "bank") return "grow";
@@ -8568,7 +8705,8 @@
       list.innerHTML = choices.map((choice, index) => {
         const value = String(choice.value || "");
         const active = value === selected;
-        return `<label class="action-choice${active ? " active" : ""}" data-action-choice-index="${index}"><input type="radio" name="action-choice" value="${escapeAttr(value)}"${active ? " checked" : ""} /><span class="action-choice-text"><span class="action-choice-label">${escapeHtml(choice.label || value)}</span><span class="action-choice-detail">${escapeHtml(choice.detail || value)}</span></span></label>`;
+        const choiceAria = [choice.label || value, choice.detail || value].filter(Boolean).join(". ");
+        return `<label class="action-choice${active ? " active" : ""}" data-action-choice-index="${index}"><input type="radio" name="action-choice" value="${escapeAttr(value)}" aria-label="${escapeAttr(choiceAria)}"${active ? " checked" : ""} /><span class="action-choice-text"><span class="action-choice-label">${escapeHtml(choice.label || value)}</span><span class="action-choice-detail">${escapeHtml(choice.detail || value)}</span></span></label>`;
       }).join("");
     }
 
@@ -8739,7 +8877,7 @@
       const type = actionCardType(action);
       if (shape === "avatar" && ["chat", "bond", "trade"].includes(type)) return 1;
       if (shape === "item" && ["item", "craft", "trade", "project"].includes(type)) return 1;
-      if (shape === "location" && ["travel", "listen", "project"].includes(type)) return 1;
+      if (shape === "location" && ["travel", "notice", "inspect", "scout", "listen", "project"].includes(type)) return 1;
       return 0;
     }
 
@@ -8763,8 +8901,8 @@
       const listenAttempted = view?.economy?.listen_attempted_here === true;
 
       if (!hasListenMemory) {
-        const listen = findAction((action) => action.focusKey === "check" || action.label === "listen");
-        const search = findAction((action) => action.label === "search");
+        const listen = findAction((action) => action.intention === "notice" || action.focusKey === "check");
+        const search = findAction((action) => action.intention === "inspect");
         const meet = findAction((action) => ["chat", "bond", "remember", "help"].includes(action.label));
         const next = listenAttempted ? (search || meet || listen) : listen;
         return {
@@ -8772,8 +8910,8 @@
           total: 3,
           actionKey: next ? actionHandKey(next) : "",
           text: listenAttempted
-            ? "no clue yet — search what catches your eye."
-            : "listen for one little clue.",
+            ? "no clue yet — inspect what catches your eye."
+            : "notice one little clue.",
         };
       }
 
@@ -9122,11 +9260,14 @@
       const count = !state?.branch && actionIndex >= 0 && actions.length > 1
         ? `${actionIndex + 1} of ${actions.length}`
         : "";
-      const detail = friendlyActionText(action.detail);
+      const pendingDetail = action.busy
+        ? (typeof action.busyDetail === "function" ? action.busyDetail() : action.busyDetail)
+        : "";
+      const detail = friendlyActionText(pendingDetail || action.detail);
       button.setAttribute(
         "aria-label",
         [
-          action.label,
+          action.accessibleLabel || action.label,
           detail,
           storyGuideLabel,
           keepsakeName ? `called forward by kept-close ${keepsakeName}` : "",
@@ -9149,7 +9290,10 @@
       const storyHtml = storyGuide
         ? `<span class="story-call">✦ ${escapeHtml(storyGuideLabel)}</span>`
         : "";
-      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-label">${emojiHtml(actionEmoji(action))}${escapeHtml(labelText)}</span>${detailHtml}${storyHtml || keepsakeHtml}</span>`;
+      const busyHtml = action.busy
+        ? `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`
+        : "";
+      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-label">${emojiHtml(actionEmoji(action))}${escapeHtml(labelText)}</span>${detailHtml}${storyHtml || keepsakeHtml}</span>${busyHtml}`;
     }
 
     function actionBarActions() {

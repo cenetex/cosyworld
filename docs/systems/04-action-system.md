@@ -36,10 +36,12 @@ The Action System governs how avatars interact with the world and each other thr
 - **Post**: Share content across platforms
 
 ### World Actions
-- **Explore**: Discover new locations and secrets
+- **Explore**: Design umbrella for discovery. Player-facing offers use **Notice** for an ambient lead, **Inspect** for a named target, and **Scout** for revealing one route segment toward a named destination without moving.
 - **Create**: Shape the environment and craft items
 - **Remember**: Form lasting memories and relationships
 - **Summon**: Bring avatars or items into a location
+
+Travel remains a separate target-bearing movement action. Shared jobs occupy one **Contribute** card: authored project copy names the work, while **Push** and **Help** are strategies that advance the same progress clock. The server sends the stable intention, pack-authored verb, target, accessible label, and project/clock identity; clients do not infer roles from labels.
 
 ## Technical Integration
 Actions are processed through a dedicated pipeline that ensures:
