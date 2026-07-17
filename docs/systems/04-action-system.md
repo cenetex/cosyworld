@@ -43,6 +43,24 @@ The Action System governs how avatars interact with the world and each other thr
 
 Travel remains a separate target-bearing movement action. Shared jobs occupy one **Contribute** card: authored project copy names the work, while **Push** and **Help** are strategies that advance the same progress clock. The server sends the stable intention, pack-authored verb, target, accessible label, and project/clock identity; clients do not infer roles from labels.
 
+## Authoritative action hand
+
+The server derives a three-entry `action_hand` from the complete reachable
+`action_offers` list. Each offer and hand entry names a provider—immediate
+rules, Journal, friendship, held world item, Calling, active job, location, or
+foundation rules—and includes the player-facing reason that must appear with
+the card. Composition is deterministic: provider priority, action rank, and
+offer id are the stable tie-breaks; targetless and projectless offers are
+excluded; duplicate Contribute and Use modes share one hand group; and a
+generally useful action is retained whenever one is reachable.
+
+Calling, Journal flags, friendships, held items, jobs, and location can
+therefore change the opening hand because they are authoritative world state.
+Wallet keepsakes can appear as matching art only and never change action order,
+power, cost, or odds. See
+[ADR 0002](../decisions/0002-action-hand-is-authoritative-state.md) for the
+provider and replay contract.
+
 ## Technical Integration
 Actions are processed through a dedicated pipeline that ensures:
 - Real-time response processing

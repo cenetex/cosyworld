@@ -1463,6 +1463,17 @@
       white-space: nowrap;
       opacity: 0.96;
     }
+    .provider-call {
+      display: block;
+      min-width: 0;
+      color: rgba(221, 235, 215, 0.82);
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1.15;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .cmd.primary {
       background:
         linear-gradient(180deg, rgba(var(--cmd-accent-rgb), 0.14), rgba(16, 25, 18, 0.88)),
@@ -2937,7 +2948,7 @@
     let focusedKey = "";
     let handKeys = [];
     let discardedHandKeys = [];
-    let handDealNonce = 1;
+    let handCompositionSignature = "";
     let recoveryPromptPending = false;
     let logEvents = [];
     const seenSeq = new Set();
@@ -3339,7 +3350,7 @@
       await pingPresence();
       handKeys = [];
       discardedHandKeys = [];
-      handDealNonce = 1;
+      handCompositionSignature = "";
       focusIndex = 0;
       focusedKey = "";
       await refresh();
@@ -3369,11 +3380,12 @@
       await contentPacksRequest;
       const timelineRewound = transcriptTimelineRewound(nextState);
       state = nextState;
-      const keepsakeLoadoutChanged = reconcileKeepsakeLoadout();
-      if (keepsakeLoadoutChanged) {
+      reconcileKeepsakeLoadout();
+      const nextHandCompositionSignature = authoritativeHandSignature(state);
+      if (nextHandCompositionSignature !== handCompositionSignature) {
         handKeys = [];
         discardedHandKeys = [];
-        handDealNonce += 1;
+        handCompositionSignature = nextHandCompositionSignature;
       }
       if (actorId && state.primary_action?.kind === "create_avatar") {
         actorId = 0;
@@ -3387,7 +3399,6 @@
       if (locationChanged) {
         handKeys = [];
         discardedHandKeys = [];
-        handDealNonce += 1;
         focusIndex = 0;
         focusedKey = "";
       }
@@ -3629,10 +3640,6 @@
         equippedCardIds = [...equippedCardIds, normalized];
       }
       saveKeepsakeLoadout();
-      handKeys = [];
-      discardedHandKeys = [];
-      handDealNonce += 1;
-      reconcileHand();
       render();
       return true;
     }
@@ -3683,6 +3690,13 @@
             }));
         const defaultChoice = creationProfile?.default_choice_id || authoredCallingChoices[0].statement;
         const action = {
+          handProvider: {
+            kind: "rules",
+            id: "rules:create-avatar",
+            label: "World rules",
+            reason: "From the campaign beginning",
+            priority: 0,
+          },
           kind: "avatar-arrival",
           label: beginningAgain ? "begin again" : "begin",
           detail: beginningAgain
@@ -3720,6 +3734,68 @@
       const ledger = view.ledger || {};
       const skills = Array.isArray(view.skills) ? view.skills : [];
       const offerFor = (kind) => (view.action_offers || []).find((offer) => offer.kind === kind) || null;
+      const offerHand = (...candidateOffers) => {
+        const offers = candidateOffers.flat().filter(Boolean);
+        const offerKinds = [...new Set(offers.map((offer) => String(offer.kind || "")).filter(Boolean))];
+        const projectedKinds = (view.action_hand?.entries || []).map((entry) => String(entry.kind || ""));
+        const selected = offers.find((offer) => projectedKinds.includes(String(offer.kind || "")))
+          || offers.slice().sort((left, right) => (
+            Number(left?.provider?.priority ?? 255) - Number(right?.provider?.priority ?? 255)
+            || Number(left?.rank ?? 500) - Number(right?.rank ?? 500)
+            || String(left?.id || "").localeCompare(String(right?.id || ""))
+          ))[0]
+          || null;
+        return {
+          offerKinds,
+          handProvider: selected?.provider || null,
+        };
+      };
+      const inferredOfferKinds = (action) => {
+        const kinds = [...(Array.isArray(action?.offerKinds) ? action.offerKinds : [])];
+        const intention = String(action?.intention || "").toLowerCase();
+        const label = String(action?.label || "").toLowerCase();
+        const focusKey = String(action?.focusKey || "").toLowerCase();
+        const add = (...values) => values.forEach((value) => {
+          if (value && !kinds.includes(value)) kinds.push(value);
+        });
+        if (intention === "notice") add("check");
+        if (intention === "inspect") add("search");
+        if (intention === "scout") add("explore_path");
+        if (intention === "travel") add("move");
+        if (intention === "flee") add("flee");
+        if (intention === "contribute") add("work", "help");
+        if (action?.evolveModes?.includes("grow") || focusKey === "bank-ledger") add("bank_ledger");
+        if (action?.evolveModes?.includes("practice") || focusKey.startsWith("train")) add("train_skill");
+        if (action?.kind === "orb-chat" || label === "chat") add("chat");
+        if (label === "give") add("give_item");
+        if (label === "trade") add("trade_item");
+        if (["take", "swap"].includes(label)) add("pick_up");
+        if (label === "use") {
+          if (action?.useChoiceKind !== "feature") add("use_item");
+          if (action?.useChoiceKind !== "care") add("use_feature");
+        }
+        if (label === "attack") add("attack");
+        if (label === "defend") add("defend");
+        if (label === "prepare") add("prepare");
+        if (label === "rest") add("rest");
+        if (["grow closer", "bond"].includes(label)) add("create_bond");
+        if (label === "remember") add("resolve_bond");
+        return kinds;
+      };
+      const decorateActionHand = (action) => {
+        if (!action) return action;
+        const kinds = inferredOfferKinds(action);
+        const providerProjection = offerHand(kinds.map(offerFor));
+        action.offerKinds = [...new Set([...kinds, ...providerProjection.offerKinds])];
+        action.handProvider = action.handProvider || providerProjection.handProvider || {
+          kind: "location",
+          id: `location:${view.location?.id || "current"}`,
+          label: String(view.location?.name || "This room"),
+          reason: `From ${view.location?.name || "this room"}`,
+          priority: 60,
+        };
+        return action;
+      };
       const offerVerb = (offer, fallback) => String(offer?.verb || fallback || "Act").trim();
       const targetBearingLabel = (intention, verb, target) => {
         const cleanVerb = String(verb || "Act").trim();
@@ -3730,6 +3806,7 @@
         return `${cleanVerb} ${preposition} ${cleanTarget}`;
       };
       const semanticAction = (offer, fallbackIntention, accessibleLabel = "") => ({
+        ...offerHand(offer),
         intention: String(offer?.intention || fallbackIntention || "").trim(),
         target: offer?.target || null,
         project: offer?.project || null,
@@ -3823,14 +3900,6 @@
           skill.skill_id === ability.id
           || String(skill.label || "").toLowerCase() === ability.label.toLowerCase()
         ))?.rank || 0);
-        const choiceSeed = [
-          actorId,
-          Number(view.world_tick || 0),
-          Number(ledger.unbanked_count || 0),
-          Number(ledger.banked_count || 0),
-          Number(ledger.spent_count || 0),
-          skills.map((skill) => `${skill.skill_id}:${skill.rank}`).sort().join(","),
-        ].join(":");
         const practiceChoices = (practiceAction?.abilityCandidates || [])
           .map((ability) => ({
             label: `${ability.label} +1`,
@@ -3839,12 +3908,7 @@
             card: practiceAction.card,
             rankBefore: rankForAbility(ability),
             rankAfter: rankForAbility(ability) + 1,
-          }))
-          .sort((left, right) => (
-            handHash(`${choiceSeed}:${left.value}`, handDealNonce)
-              - handHash(`${choiceSeed}:${right.value}`, handDealNonce)
-            || left.value.localeCompare(right.value)
-          ));
+          }));
         const evolutionChoices = [];
         if (growAction) {
           evolutionChoices.push({
@@ -3995,12 +4059,19 @@
             modalSummary: "Receive one ambient lead from this room.",
             effect: "the room shares one welcoming clue just for you",
             run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }),
-          }];
+          }].map(decorateActionHand);
         }
         const pingActive = turn.ping_active === true;
         const alreadyPonged = (turn.ping_responder_ids || []).map(Number).includes(Number(actorId));
         const countdown = pingActive ? turnPingRemainingLabel(turn) : "";
         const waitingAction = {
+          handProvider: {
+            kind: "rules",
+            id: "rules:shared-turn",
+            label: "Shared turn",
+            reason: "From the shared turn rules",
+            priority: 0,
+          },
           label: pingActive ? "I'm here" : "nudge",
           detail: pingActive
             ? (alreadyPonged ? `waiting together · ${countdown}` : `next choice in ${countdown}`)
@@ -4015,7 +4086,7 @@
             : `gives ${currentName} a moment, then passes the choice if they're away`,
           run: () => action("/actions/timeout", { actor_id: actorId }),
         };
-        return [waitingAction, buildEvolveAction()].filter(Boolean);
+        return [waitingAction, buildEvolveAction()].filter(Boolean).map(decorateActionHand);
       }
 
       const built = [];
@@ -4984,7 +5055,9 @@
           built.push(rememberAction);
         }
       }
+      built.forEach(decorateActionHand);
       mergeDuplicateUseCards(built);
+      built.forEach(decorateActionHand);
       built.sort(compareActions);
       if (!built.length) {
         built.push({
@@ -4996,6 +5069,7 @@
           shape: "location",
           run: () => runCommandText("look"),
         });
+        built.forEach(decorateActionHand);
       }
       return built;
     }
@@ -7184,7 +7258,7 @@
         : `<div class="account-empty">your collection is waiting for its first keepsake</div>`;
       const accountActions = actions.length ? `<div class="account-actions">${actions.join("")}</div>` : "";
       const keepsakeNote = ownedCards.length
-        ? `<div class="keepsake-note">Keep a few keepsakes close—up to three. They help the choices they care about turn up sooner in your hand.</div>`
+        ? `<div class="keepsake-note">Keep a few keepsakes close—up to three. Their art can appear beside matching choices without changing actions or odds.</div>`
         : "";
       const accountName = identity?.authenticated
         ? "CosyWorld account"
@@ -8275,13 +8349,11 @@
     function keepsakePromise(card) {
       if (["cosyworld_box", "cosyworld_pack"].includes(card?.source)) return "";
       const name = String(card?.display_name || card?.card_id || "This keepsake").trim();
-      if (shapeForCard(card) === "avatar") {
-        return `${name} and other chats, friendships, and trades turn up sooner.`;
-      }
-      if (shapeForCard(card) === "location") {
-        return `${name}, nearby paths, clues, and shared work turn up sooner.`;
-      }
-      return `${name} and other hands-on choices turn up sooner.`;
+      return `${name} can appear beside matching choices. It does not change available actions or odds.`;
+    }
+
+    function handProviderReason(action) {
+      return String(action?.handProvider?.reason || "").trim();
     }
 
     function thumbnailHtml(action, interactive = true, extraClass = "") {
@@ -8682,7 +8754,10 @@
       syncActionChoicePreview(action, selectedChoice);
       $("action-modal-title").textContent = label;
       $("action-modal-summary").textContent = actionSummary(action);
-      $("action-modal-meta").innerHTML = actionModalRows(action).map(([key, value]) => {
+      const modalRows = actionModalRows(action);
+      const providerReason = handProviderReason(action);
+      if (providerReason) modalRows.unshift(["Why this action", providerReason]);
+      $("action-modal-meta").innerHTML = modalRows.map(([key, value]) => {
         const rowClass = key === "Watch for" ? " risk" : "";
         return `<div class="action-row${rowClass}"><span class="action-row-key">${escapeHtml(key)}</span><span class="action-row-value">${escapeHtml(value)}</span></div>`;
       }).join("");
@@ -8988,14 +9063,18 @@
       };
     }
 
-    function handHash(value, nonce) {
-      let hash = 2166136261 ^ (Number(nonce) || 0);
-      const text = String(value || "");
-      for (let index = 0; index < text.length; index += 1) {
-        hash ^= text.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-      }
-      return hash >>> 0;
+    function authoritativeHandSignature(view = state) {
+      return JSON.stringify((view?.action_hand?.entries || []).map((entry) => [
+        String(entry?.offer_id || ""),
+        String(entry?.kind || ""),
+        String(entry?.provider?.kind || ""),
+        String(entry?.provider?.id || ""),
+      ]));
+    }
+
+    function actionMatchesProjectedHandEntry(action, entry) {
+      const kinds = Array.isArray(action?.offerKinds) ? action.offerKinds : [];
+      return kinds.includes(String(entry?.kind || ""));
     }
 
     function actionIndexForHandKey(key) {
@@ -9009,24 +9088,25 @@
     function orderedActionIndexesForHand() {
       const indexes = actions.map((_, index) => index);
       if (state?.branch) return indexes;
-      const shuffled = indexes.sort((left, right) => {
-        const leftHash = handHash(actionHandKey(actions[left]), handDealNonce);
-        const rightHash = handHash(actionHandKey(actions[right]), handDealNonce);
-        return leftHash - rightHash || left - right;
-      });
-      const preferred = [];
+      const ordered = [];
       const chosen = new Set();
-      for (const card of equippedCollectionCards()) {
-        const next = shuffled
-          .filter((index) => !chosen.has(index))
-          .map((index) => ({ index, score: keepsakeMatchScore(card, actions[index]) }))
-          .filter((entry) => entry.score > 0)
-          .sort((left, right) => right.score - left.score)[0];
-        if (!next) continue;
-        preferred.push(next.index);
-        chosen.add(next.index);
+      for (const entry of state?.action_hand?.entries || []) {
+        const index = indexes.find((candidate) => (
+          !chosen.has(candidate) && actionMatchesProjectedHandEntry(actions[candidate], entry)
+        ));
+        if (index < 0 || index === undefined) continue;
+        ordered.push(index);
+        chosen.add(index);
       }
-      return [...preferred, ...shuffled.filter((index) => !chosen.has(index))];
+      const remaining = indexes
+        .filter((index) => !chosen.has(index))
+        .sort((left, right) => (
+          Number(actions[left]?.handProvider?.priority ?? 255)
+            - Number(actions[right]?.handProvider?.priority ?? 255)
+          || actionRank(actions[left]) - actionRank(actions[right])
+          || actionHandKey(actions[left]).localeCompare(actionHandKey(actions[right]))
+        ));
+      return [...ordered, ...remaining];
     }
 
     function handCapacity() {
@@ -9085,19 +9165,12 @@
         kept.push(key);
         seen.add(key);
       };
-      const storyGuide = dealtStoryGuide();
-      const storyGuideActionKeys = (storyGuide?.actionKeys || []).slice(0, capacity);
-      if (storyGuideActionKeys.length) {
-        const guided = new Set(storyGuideActionKeys);
-        discardedHandKeys = discardedHandKeys.filter((key) => !guided.has(key));
-      }
       const focusedActionIndex = focusedKey ? actionIndexForKey(focusedKey) : -1;
       const focusedActionHandKey = focusedActionIndex >= 0
         ? actionHandKey(actions[focusedActionIndex])
         : "";
       const playerPromotedFocus = focusedActionHandKey && handKeys[0] === focusedActionHandKey;
       if (playerPromotedFocus) pushHandKey(focusedActionHandKey);
-      for (const key of storyGuideActionKeys) pushHandKey(key);
       for (const key of handKeys) {
         if (kept.length >= capacity) break;
         pushHandKey(key);
@@ -9105,7 +9178,6 @@
       dealHandKeys(kept, seen, capacity);
       if (!kept.length && validKeys.size && discardedHandKeys.length) {
         discardedHandKeys = [];
-        handDealNonce += 1;
         dealHandKeys(kept, seen, capacity);
       }
       handKeys = kept.slice(0, capacity);
@@ -9250,9 +9322,10 @@
       }
       const title = [
         action.command,
+        handProviderReason(action),
         friendlyActionText(action.effect),
         friendlyActionText(action.risk),
-        keepsakeName ? `${keepsakeName} called this forward` : "",
+        keepsakeName ? `${keepsakeName} appears as matching art` : "",
       ].filter(Boolean).join("; ");
       if (title) button.title = title;
       else button.removeAttribute("title");
@@ -9269,8 +9342,9 @@
         [
           action.accessibleLabel || action.label,
           detail,
+          handProviderReason(action),
           storyGuideLabel,
-          keepsakeName ? `called forward by kept-close ${keepsakeName}` : "",
+          keepsakeName ? `matching kept-close art: ${keepsakeName}` : "",
           count ? `action ${count}` : "",
           action.busy ? "in progress" : "",
         ].filter(Boolean).join(", ")
@@ -9285,15 +9359,19 @@
       const labelText = compactActionLabel(action) || String(action.command || "action").toLowerCase();
       const detailHtml = detail ? `<span class="detail">${escapeHtml(detail)}</span>` : "";
       const keepsakeHtml = keepsakeName
-        ? `<span class="keepsake-call">✦ ${escapeHtml(keepsakeName)} called this</span>`
+        ? `<span class="keepsake-call">✦ ${escapeHtml(keepsakeName)} kept close</span>`
         : "";
       const storyHtml = storyGuide
         ? `<span class="story-call">✦ ${escapeHtml(storyGuideLabel)}</span>`
         : "";
+      const providerReason = handProviderReason(action);
+      const providerHtml = providerReason
+        ? `<span class="provider-call">↳ ${escapeHtml(providerReason)}</span>`
+        : "";
       const busyHtml = action.busy
         ? `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`
         : "";
-      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-label">${emojiHtml(actionEmoji(action))}${escapeHtml(labelText)}</span>${detailHtml}${storyHtml || keepsakeHtml}</span>${busyHtml}`;
+      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-label">${emojiHtml(actionEmoji(action))}${escapeHtml(labelText)}</span>${detailHtml}${providerHtml}${storyHtml || keepsakeHtml}</span>${busyHtml}`;
     }
 
     function actionBarActions() {
@@ -9349,14 +9427,11 @@
     function advanceHandPage() {
       discardVisibleHand(false);
       const validKeys = validActionHandKeySet();
-      const storyGuide = dealtStoryGuide();
-      const guidedKeys = new Set(storyGuide?.actionKeys || []);
       const hasUndrawnCard = [...validKeys].some((key) => (
-        !guidedKeys.has(key) && !discardedHandKeys.includes(key)
+        !discardedHandKeys.includes(key)
       ));
       if (!hasUndrawnCard) {
         discardedHandKeys = [];
-        handDealNonce += 1;
       }
       reconcileHand();
     }

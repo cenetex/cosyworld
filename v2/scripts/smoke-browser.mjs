@@ -748,7 +748,7 @@ async function main() {
       const previousFirstTaleCompletionSeen = firstTaleCompletionSeen;
       const previousHandKeys = handKeys;
       const previousDiscardedHandKeys = discardedHandKeys;
-      const previousHandDealNonce = handDealNonce;
+      const previousHandCompositionSignature = handCompositionSignature;
       const previousFocusedKey = focusedKey;
       try {
         const syntheticListenAction = { label: "notice", focusKey: "check", command: "listen" };
@@ -771,15 +771,24 @@ async function main() {
           primary_action: { kind: "create_bond" },
           economy: { listen_attempted_here: true },
           ledger: { unbanked_count: 0, banked_count: 2, spent_count: 0, advancement_points: 2, learned_truth_count: 1 },
+          action_hand: {
+            schema_version: 1,
+            capacity: 3,
+            entries: [
+              { offer_id: "train_skill:skill", kind: "train_skill", provider: { kind: "journal", id: "journal:5000" } },
+              { offer_id: "create_bond:bond", kind: "create_bond", provider: { kind: "journal", id: "journal:5000" } },
+              { offer_id: "search:search", kind: "search", provider: { kind: "location", id: "location:1" } },
+            ],
+          },
         };
         actions = [
-          trainAction,
-          bondAction,
-          { label: "search", focusKey: "search", command: "search" },
+          { ...trainAction, offerKinds: ["train_skill"], handProvider: { priority: 10, reason: "From growth recorded in your Journal" } },
+          { ...bondAction, offerKinds: ["create_bond"], handProvider: { priority: 10, reason: "From growth recorded in your Journal" } },
+          { label: "search", focusKey: "search", command: "search", offerKinds: ["search"], handProvider: { priority: 60, reason: "From The Cosy Cottage" } },
         ];
-        handKeys = ["search"];
-        discardedHandKeys = ["bond:1001", "train-listening"];
-        handDealNonce = 1;
+        handKeys = [];
+        discardedHandKeys = [];
+        handCompositionSignature = authoritativeHandSignature(state);
         focusedKey = "";
         result.identityHand = actionBarActions().map((action) => ({
           label: action.label,
@@ -844,7 +853,7 @@ async function main() {
         firstTaleCompletionSeen = previousFirstTaleCompletionSeen;
         handKeys = previousHandKeys;
         discardedHandKeys = previousDiscardedHandKeys;
-        handDealNonce = previousHandDealNonce;
+        handCompositionSignature = previousHandCompositionSignature;
         focusedKey = previousFocusedKey;
         renderStatusUpdates();
         renderCommands();
@@ -858,7 +867,7 @@ async function main() {
     assert(/notice one little clue/i.test(guide.text), `fresh first-tale guide should explain the first goal simply: ${JSON.stringify(guide)}`);
     assert(guide.layout?.whiteSpace !== "nowrap" && guide.layout?.overflow !== "hidden" && guide.layout?.clipped === false, `mobile first-tale guidance should wrap instead of ellipsizing its instruction: ${JSON.stringify(guide)}`);
     assert(guide.primary.toLowerCase().startsWith("notice"), `first-thread guidance should keep Notice in the dealt hand: ${JSON.stringify(guide)}`);
-    assert(guide.storyGuide === "next tale beat", `the pinned first-tale card should say why it stays in hand: ${JSON.stringify(guide)}`);
+    assert(guide.storyGuide === "next tale beat", `the projected first-tale card should explain its guide marker: ${JSON.stringify(guide)}`);
     assert(guide.growStep?.stage === 2 && guide.growStep?.total === 3, `ready memories should advance the guide to Grow: ${JSON.stringify(guide)}`);
     assert(
       guide.identityStep?.stage === 3
@@ -868,7 +877,7 @@ async function main() {
     );
     assert(
       guide.identityHand?.slice(0, 2).map((action) => `${action.label}:${action.storyGuide}`).join(",")
-        === "grow closer:true,practice:true",
+        === "practice:true,grow closer:true",
       `Grow Closer and Practice should both stay visibly guided at the final first-tale choice: ${JSON.stringify(guide)}`,
     );
     assert(
@@ -894,11 +903,11 @@ async function main() {
       `the redundant room-thread strip should stay removed after the first tale: ${JSON.stringify(guide)}`,
     );
     assert(
-      guide.roomThreadHand?.labels?.[0] === "travel"
-        && guide.roomThreadHand.guided?.[0] === "travel:room thread"
-        && guide.roomThreadHand.buttonGuide === "room thread"
-        && guide.roomThreadHand.buttonCue === "✦ room thread",
-      `the matching room-thread card should deal itself into the hand with a visible reason: ${JSON.stringify(guide.roomThreadHand)}`,
+      guide.roomThreadHand?.labels?.join(",") === "practice,chat"
+        && guide.roomThreadHand.guided?.every((entry) => !entry.endsWith(":room thread"))
+        && guide.roomThreadHand.buttonGuide === ""
+        && guide.roomThreadHand.buttonCue === "",
+      `a client-only room guide must not override the authoritative projected hand: ${JSON.stringify(guide.roomThreadHand)}`,
     );
     assert(guide.arrivalActions.length === 1 && guide.arrivalActions[0]?.label === "notice", `a newcomer should receive one welcoming Notice before joining room turns: ${JSON.stringify(guide)}`);
     assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "check"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
@@ -2331,7 +2340,7 @@ async function main() {
         focusedKey,
         handKeys,
         discardedHandKeys,
-        handDealNonce,
+        handCompositionSignature,
         walletAddress,
         equippedCardIds,
         accountPanelPinned,
@@ -2361,21 +2370,32 @@ async function main() {
           actors: [{ id: 5000, name: "Moss Stitch", kind: "human", status: "active", stats: { level: 1 } }],
           skills: [],
           bonds: [],
+          action_hand: {
+            schema_version: 1,
+            capacity: 3,
+            entries: [
+              { offer_id: "move:go", kind: "move", provider: { kind: "location", id: "location:1" } },
+              { offer_id: "rest:rest", kind: "rest", provider: { kind: "rules", id: "rules:recovery" } },
+              { offer_id: "chat:chat", kind: "chat", provider: { kind: "friendship", id: "bond:5000:1002" } },
+            ],
+          },
         };
         actorId = 5000;
-        equippedCardIds = [gust.card_id, tonic.card_id, homeroom.card_id];
-        saveKeepsakeLoadout();
         actions = [
-          { label: "rest", detail: "feel fresh", command: "rest", focusKey: "rest" },
-          { label: "travel", detail: "choose a path", command: "go", focusKey: "travel:11", focusKeys: ["exit:11"], card: state.cards.locations[1] },
-          { label: "take", detail: "Hearth Tonic", command: "take Hearth Tonic", focusKey: "item:2001", card: tonic },
-          { label: "chat", detail: "Gust", command: "chat Gust", focusKey: "actor:1002", card: gust },
+          { label: "rest", detail: "feel fresh", command: "rest", focusKey: "rest", offerKinds: ["rest"], handProvider: { priority: 0, reason: "Because you need to recover" } },
+          { label: "travel", detail: "choose a path", command: "go", focusKey: "travel:11", focusKeys: ["exit:11"], card: state.cards.locations[1], offerKinds: ["move"], handProvider: { priority: 60, reason: "From The Cosy Cottage" } },
+          { label: "take", detail: "Hearth Tonic", command: "take Hearth Tonic", focusKey: "item:2001", card: tonic, offerKinds: ["pick_up"], handProvider: { priority: 60, reason: "From The Cosy Cottage" } },
+          { label: "chat", detail: "Gust", command: "chat Gust", focusKey: "actor:1002", card: gust, offerKinds: ["chat"], handProvider: { priority: 20, reason: "Because Gust trusts you" } },
         ];
         handKeys = [];
         discardedHandKeys = [];
-        handDealNonce = 7;
+        handCompositionSignature = authoritativeHandSignature(state);
         focusIndex = 0;
         focusedKey = "";
+        equippedCardIds = [];
+        const unequippedLabels = orderedActionIndexesForHand().slice(0, 3).map((index) => actions[index].label);
+        equippedCardIds = [gust.card_id, tonic.card_id, homeroom.card_id];
+        saveKeepsakeLoadout();
         const orderedLabels = orderedActionIndexesForHand().slice(0, 3).map((index) => actions[index].label);
         const guides = Object.fromEntries(actions.map((action) => [
           action.label,
@@ -2409,6 +2429,7 @@ async function main() {
           visibleCue: document.querySelector("#primary .keepsake-call")?.textContent.replace(/\s+/g, " ").trim() || "",
         };
         return {
+          unequippedLabels,
           orderedLabels,
           guides,
           keptClose: wrapper.querySelectorAll(".account-asset.kept-close").length,
@@ -2430,7 +2451,7 @@ async function main() {
         focusedKey = previous.focusedKey;
         handKeys = previous.handKeys;
         discardedHandKeys = previous.discardedHandKeys;
-        handDealNonce = previous.handDealNonce;
+        handCompositionSignature = previous.handCompositionSignature;
         walletAddress = previous.walletAddress;
         equippedCardIds = previous.equippedCardIds;
         accountPanelPinned = previous.accountPanelPinned;
@@ -2438,8 +2459,9 @@ async function main() {
       }
     });
     assert(
-      JSON.stringify(result.orderedLabels) === JSON.stringify(["chat", "take", "travel"]),
-      `each equipped keepsake should call one matching scene action forward: ${JSON.stringify(result)}`,
+      JSON.stringify(result.orderedLabels) === JSON.stringify(["travel", "rest", "chat"])
+        && JSON.stringify(result.orderedLabels) === JSON.stringify(result.unequippedLabels),
+      `equipped keepsakes must not change the authoritative scene-action order: ${JSON.stringify(result)}`,
     );
     assert(
       result.guides.chat === "Gust" && result.guides.take === "Hearth Tonic" && result.guides.travel === "Homeroom",
@@ -2447,20 +2469,20 @@ async function main() {
     );
     assert(result.keptClose === 3 && result.disabledChoices === 1, `the account should enforce a visible three-keepsake limit: ${JSON.stringify(result)}`);
     assert(result.friendlyRarity === "storybook" && result.copy.includes("storybook"), `player-facing rarity should use the compact cosy tier: ${JSON.stringify(result)}`);
-    assert(result.copy.includes("They help the choices they care about turn up sooner in your hand"), `the keepsake hand should explain its shared rule plainly: ${JSON.stringify(result)}`);
+    assert(result.copy.includes("Their art can appear beside matching choices without changing actions or odds"), `the keepsake hand should explain its cosmetic rule plainly: ${JSON.stringify(result)}`);
     assert(
-      ["Gust and other chats, friendships, and trades turn up sooner", "Hearth Tonic and other hands-on choices turn up sooner", "Homeroom, nearby paths, clues, and shared work turn up sooner"]
+      ["Gust can appear beside matching choices. It does not change available actions or odds", "Hearth Tonic can appear beside matching choices. It does not change available actions or odds", "Homeroom can appear beside matching choices. It does not change available actions or odds"]
         .every((promise) => result.cardPromises.some((copy) => copy.includes(promise))),
-      `each Avatar, Item, and Location should explain its own keepsake promise: ${JSON.stringify(result)}`,
+      `each Avatar, Item, and Location should explain its cosmetic keepsake promise: ${JSON.stringify(result)}`,
     );
-    assert(result.modalPromise.includes("Homeroom, nearby paths, clues, and shared work turn up sooner"), `keepsake details should repeat the keepsake promise: ${JSON.stringify(result)}`);
+    assert(result.modalPromise.includes("Homeroom can appear beside matching choices. It does not change available actions or odds"), `keepsake details should repeat the cosmetic keepsake promise: ${JSON.stringify(result)}`);
     assert(
       result.guidedButton.highlighted
         && result.guidedButton.guide === "Gust"
-        && result.guidedButton.visibleCue === "✦ Gust called this"
-        && result.guidedButton.text.includes("Gust called this")
-        && result.guidedButton.aria.includes("called forward by kept-close Gust"),
-      `a guided scene card should visibly and accessibly name the keepsake that called it forward: ${JSON.stringify(result)}`,
+        && result.guidedButton.visibleCue === "✦ Gust kept close"
+        && result.guidedButton.text.includes("Because Gust trusts you")
+        && result.guidedButton.aria.includes("matching kept-close art: Gust"),
+      `a scene card should separate authoritative provenance from cosmetic kept-close art: ${JSON.stringify(result)}`,
     );
     assert(
       result.cardButtons.length === 4
@@ -2654,7 +2676,7 @@ async function main() {
       const previousDiscardedHandKeys = discardedHandKeys.slice();
       const previousFocusedKey = focusedKey;
       const previousFocusIndex = focusIndex;
-      const previousHandDealNonce = handDealNonce;
+      const previousHandCompositionSignature = handCompositionSignature;
       const fakeState = {
         location: { id: 1, name: "The Cosy Cottage" },
         primary_action: {
@@ -2709,7 +2731,7 @@ async function main() {
       discardedHandKeys = [];
       focusedKey = "";
       focusIndex = 0;
-      handDealNonce = 1;
+      handCompositionSignature = authoritativeHandSignature(state);
       renderCommands();
       try {
         const tradeAction = actions.find((action) => action.label === "trade") || null;
@@ -2805,7 +2827,7 @@ async function main() {
         discardedHandKeys = [];
         focusedKey = "";
         focusIndex = 0;
-        handDealNonce = 1;
+        handCompositionSignature = authoritativeHandSignature(state);
         reconcileHand();
         const deckPages = [];
         const seenDeckKeys = new Set();
@@ -2868,7 +2890,7 @@ async function main() {
         discardedHandKeys = previousDiscardedHandKeys;
         focusedKey = previousFocusedKey;
         focusIndex = previousFocusIndex;
-        handDealNonce = previousHandDealNonce;
+        handCompositionSignature = previousHandCompositionSignature;
         render();
       }
     });
@@ -2885,8 +2907,8 @@ async function main() {
     assert(!/eager|willingness|accepted/i.test(JSON.stringify(result.tradeCopy)), `trade copy should hide resident-economy state tags: ${JSON.stringify(result)}`);
     assert(result.moreLabel.endsWith("more"), `redraw control should visibly say more instead of looking like a blank card: ${JSON.stringify(result)}`);
     assert(
-      result.beforeShuffle.every((label) => !result.afterShuffle.includes(label) || label.startsWith("notice")),
-      `shuffle should discard visible cards while preserving the guided first-thread action: ${JSON.stringify(result)}`,
+      result.beforeShuffle.every((label) => !result.afterShuffle.includes(label)),
+      `More should page past every visible card without client-side guide pinning: ${JSON.stringify(result)}`,
     );
     assert(result.seenExchangeLabels.includes("give"), `give should be drawable through the deck: ${JSON.stringify(result)}`);
     assert(result.seenExchangeLabels.includes("trade"), `trade should be drawable through the deck: ${JSON.stringify(result)}`);
@@ -5324,7 +5346,41 @@ async function main() {
   }
 
   async function confirmRouteTo(name, label) {
-    await page.locator("#primary").click();
+    const selected = await page.evaluate((destination) => {
+      const normalizedDestination = destination.toLowerCase();
+      const index = actions.findIndex((action) => {
+        const intention = String(action?.intention || "").toLowerCase();
+        const actionLabel = String(action?.label || "").toLowerCase();
+        if (!["travel", "scout", "flee"].includes(intention) && actionLabel !== "flee") return false;
+        const choiceText = (action.choices || []).map((choice) => `${choice.label || ""} ${choice.detail || ""}`);
+        return [action.detail, action.command, ...choiceText]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedDestination);
+      });
+      if (index < 0) {
+        return {
+          ok: false,
+          routes: actions
+            .filter((action) => ["travel", "scout", "flee"].includes(String(action?.intention || "").toLowerCase()))
+            .map((action) => ({
+              label: action.label,
+              detail: action.detail,
+              choices: (action.choices || []).map((choice) => choice.label),
+            })),
+        };
+      }
+      const route = actions[index];
+      const choice = (route.choices || []).find((candidate) => (
+        `${candidate.label || ""} ${candidate.detail || ""}`.toLowerCase().includes(normalizedDestination)
+      ));
+      if (choice) route.selectedChoice = choice.value;
+      focusAction(index);
+      document.querySelector("#primary")?.click();
+      return { ok: true, choice: choice?.label || "" };
+    }, name);
+    assert(selected.ok, `${name} route was not atomically selectable: ${JSON.stringify(selected)}`);
     await page.waitForSelector("#action-modal:not([hidden])");
     const choices = page.locator("#action-modal-choices .action-choice");
     const choiceCount = await choices.count();
@@ -5377,6 +5433,34 @@ async function main() {
     await page.locator("#primary").click();
     await confirmActionModalIfOpen();
     await page.waitForTimeout(200);
+    await assertNoVisibleOverflow();
+    steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
+  }
+
+  async function clickActionMatching(label, needles) {
+    const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
+    const selected = await page.evaluate((terms) => {
+      const actionText = (action) => [
+        compactActionLabel(action),
+        action?.detail,
+        action?.command,
+        action?.cost,
+        action?.risk,
+        action?.effect,
+      ].filter(Boolean).join(" ").toLowerCase();
+      const index = actions.findIndex((action) => terms.every((term) => actionText(action).includes(term)));
+      if (index < 0) return { ok: false, actions: actions.map(actionText) };
+      focusAction(index);
+      document.querySelector("#primary")?.click();
+      return { ok: true, action: actionText(actions[index]) };
+    }, normalizedNeedles);
+    assert(selected.ok, `${label} card was not atomically selectable: ${JSON.stringify(selected)}`);
+    await confirmActionModalIfOpen();
+    await page.waitForFunction(() => (
+      actionBusy === false
+        && refreshInFlight === null
+        && document.querySelector("#action-modal")?.hidden === true
+    ), null, { timeout: 35_000 });
     await assertNoVisibleOverflow();
     steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
   }
@@ -5788,17 +5872,31 @@ async function main() {
 
   async function exerciseFrontierRecovery() {
     assert((await currentLocation()) === "Moonlit Trail", "frontier recovery should begin on Moonlit Trail");
+    const startingState = await fetchCurrentState();
+    if ((startingState.tags || []).some((tag) => tag.label === "tired")) {
+      const startingRestAvailable = await page.evaluate(() => (
+        actions.some((action) => String(action.label || "").toLowerCase() === "rest")
+      ));
+      if (!startingRestAvailable) {
+        await leaveTrailTo("Rain-Soft Garden");
+        await travelTo("Moonlit Trail");
+      }
+      const startingRest = await drawPrimaryMatching("pre-existing frontier rest", ["rest", "feel fresh"]);
+      steps.push({ label: "pre-existing frontier rest", primary: startingRest, location: await currentLocation() });
+      await clickPrimary("pre-existing frontier rest");
+      await page.waitForFunction(() => !(state?.tags || []).some((tag) => tag.label === "tired"));
+    }
     await bankCurrentMemories("evolve before frontier recovery");
 
     const firstNotice = await drawPrimaryMatching("first frontier notice", ["notice", "for a clue"]);
     steps.push({ label: "first frontier notice", primary: firstNotice, location: await currentLocation() });
-    await clickPrimary("first frontier notice");
-    await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
+    await clickActionMatching("first frontier notice", ["notice", "for a clue"]);
+    await page.waitForFunction(() => state?.economy?.listen_attempted_here === true);
     await bankCurrentMemories("evolve after frontier listen");
 
     const repeatNotice = await drawPrimaryMatching("tiring frontier notice", ["notice", "one orb"]);
     steps.push({ label: "tiring frontier notice", primary: repeatNotice, location: await currentLocation() });
-    await clickPrimary("tiring frontier notice");
+    await clickActionMatching("tiring frontier notice", ["notice", "one orb"]);
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
@@ -6657,10 +6755,19 @@ async function main() {
           && afterFirstListen.labels.some((label) => label === "nudge" || label === "I'm here"),
         `waiting first-tale progress should offer Evolve beside the room-turn response: ${JSON.stringify(afterFirstListen)}`,
       );
-      assert(afterFirstListen.primary.toLowerCase().startsWith("evolve"), `the first tale should keep Evolve in front while waiting: ${JSON.stringify(afterFirstListen)}`);
+      assert(
+        ["evolve", "nudge", "i'm here"].some((label) => (
+          afterFirstListen.primary.toLowerCase().startsWith(label)
+        )),
+        `the authoritative waiting hand should keep both personal growth and the room response reachable: ${JSON.stringify(afterFirstListen)}`,
+      );
       assert(/earned one/i.test(afterFirstListen.economy) && !/\+1/.test(afterFirstListen.economy), `the Listen reward should read as a small event rather than arithmetic: ${JSON.stringify(afterFirstListen)}`);
 
       const sharedTurnOwner = afterFirstListen.currentActorId;
+      await other.evaluate(() => {
+        const index = actions.findIndex((action) => action.label === "evolve");
+        if (index >= 0) focusAction(index);
+      });
       await other.locator("#primary").click();
       await other.waitForSelector("#action-modal:not([hidden])");
       await other.locator("#action-modal-confirm").click();
@@ -6681,8 +6788,17 @@ async function main() {
           && afterWaitingGrow.labels.some((label) => label === "nudge" || label === "I'm here"),
         `waiting first-tale progress should keep the remaining Evolve choice beside the room-turn response: ${JSON.stringify(afterWaitingGrow)}`,
       );
-      assert(afterWaitingGrow.primary.toLowerCase().startsWith("evolve"), `the first tale should keep Evolve in front while waiting: ${JSON.stringify(afterWaitingGrow)}`);
+      assert(
+        ["evolve", "nudge", "i'm here"].some((label) => (
+          afterWaitingGrow.primary.toLowerCase().startsWith(label)
+        )),
+        `the authoritative waiting hand should keep the remaining personal growth and room response reachable: ${JSON.stringify(afterWaitingGrow)}`,
+      );
 
+      await other.evaluate(() => {
+        const index = actions.findIndex((action) => action.label === "evolve");
+        if (index >= 0) focusAction(index);
+      });
       await other.locator("#primary").click();
       await other.waitForSelector("#action-modal:not([hidden])");
       await other.locator("#action-modal-confirm").click();
@@ -7154,19 +7270,23 @@ async function main() {
     const slug = snapshotSlug(label);
     await mkdir(visualSnapshotDir, { recursive: true });
     await mkdir(visualBaselineDir, { recursive: true });
+    const snapshotMotionStyle = await page.addStyleTag({
+      content: "*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }",
+    });
+    await page.waitForTimeout(50);
     const screenshot = await page.screenshot({
       fullPage: false,
-      ...(shell.chatLineCount > 0 ? {
-        mask: [page.locator("#log")],
-        maskColor: "#11100d",
-      } : {}),
+      mask: [page.locator("#log")],
+      maskColor: "#11100d",
     });
+    await snapshotMotionStyle.evaluate((node) => node.remove());
     const screenshotSha256 = createHash("sha256").update(screenshot).digest("hex");
     assert(screenshot.length > 1000, `${label}: screenshot should contain rendered UI bytes`);
     assert(screenshotSha256.length === 64, `${label}: screenshot hash should be sha256`);
     const screenshotPath = resolve(visualSnapshotDir, `${slug}.png`);
     const metadataPath = resolve(visualSnapshotDir, `${slug}.json`);
     const baselinePath = resolve(visualBaselineDir, `${slug}.png`);
+    await writeFile(screenshotPath, screenshot);
     let visualBaseline;
     if (updateVisualBaselines) {
       await writeFile(baselinePath, screenshot);
@@ -7272,7 +7392,6 @@ async function main() {
       visual_baseline: visualBaseline,
       shell,
     };
-    await writeFile(screenshotPath, screenshot);
     await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`);
     steps.push({
       label,
@@ -8003,35 +8122,47 @@ async function main() {
   await assertActivationTracksFirstSettledGrowth();
   await discoverRoute("Rain-Soft Garden");
   await page.waitForFunction(() => {
-    const thread = nextStoryThreadModel(state, actions);
-    if (!thread?.actionKey) return false;
-    return [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
-      .some((candidate) => candidate.getAttribute("data-hand-key") === thread.actionKey);
+    const projected = state?.action_hand?.entries || [];
+    const visible = [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
+      .filter((button) => !button.disabled && button.id !== "shuffle");
+    return projected.length > 0 && visible.length > 0;
   });
-  const dealtRoomThread = await page.evaluate(() => {
+  const projectedRoomHand = await page.evaluate(() => {
     const thread = nextStoryThreadModel(state, actions);
-    const key = thread?.actionKey || "";
-    const button = [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
-      .find((candidate) => candidate.getAttribute("data-hand-key") === key);
+    const projected = state?.action_hand?.entries || [];
+    const buttons = [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
+      .filter((button) => !button.disabled && button.id !== "shuffle");
+    const visible = buttons.map((button) => {
+      const actionIndex = Number(button.getAttribute("data-action-index"));
+      const action = actions[actionIndex] || null;
+      const reason = handProviderReason(action);
+      return {
+        label: action?.label || "",
+        offerKinds: action?.offerKinds || [],
+        reason,
+        providerCopy: button.querySelector(".provider-call")?.textContent.trim() || "",
+        aria: button.getAttribute("aria-label") || "",
+      };
+    });
     return {
-      key,
+      projectedKinds: projected.map((entry) => entry.kind),
+      visible,
       thread: thread?.text || "",
-      found: Boolean(button),
-      guide: button?.getAttribute("data-story-guide") || "",
-      text: button?.innerText?.trim().replace(/\s+/g, " ") || "",
       redundantSurface: Boolean(document.querySelector("#updates .update-pill.story-thread")),
     };
   });
   assert(
-    dealtRoomThread.found
-      && dealtRoomThread.guide === "room thread"
-      && /path to Rain-Soft Garden is waiting/i.test(dealtRoomThread.thread)
-      && /room thread/i.test(dealtRoomThread.text)
-      && dealtRoomThread.redundantSurface === false,
-    `the matching card should be dealt without rendering a redundant room-thread strip: ${JSON.stringify(dealtRoomThread)}`,
+    projectedRoomHand.visible.every((action, index) => (
+      action.offerKinds.includes(projectedRoomHand.projectedKinds[index])
+        && action.reason
+        && action.providerCopy.includes(action.reason)
+        && action.aria.includes(action.reason)
+    ))
+      && /path to Rain-Soft Garden is waiting/i.test(projectedRoomHand.thread)
+      && projectedRoomHand.redundantSurface === false,
+    `the visible hand should follow the authoritative projection and explain every provider: ${JSON.stringify(projectedRoomHand)}`,
   );
-  assert((await primaryText()).toLowerCase().startsWith("travel"), `the dealt room-thread Travel card should lead without a second control: ${await primaryText()}`);
-  steps.push({ label: "first room-thread card", thread: dealtRoomThread.thread, primary: await primaryText() });
+  steps.push({ label: "authoritative room hand", thread: projectedRoomHand.thread, primary: await primaryText() });
   await discoverRoute("Homeroom");
   await assertWorldProjectionAvailable();
   await revealBySearchIfNeeded("Story Button", ["scarf"], "reveal Story Button");
