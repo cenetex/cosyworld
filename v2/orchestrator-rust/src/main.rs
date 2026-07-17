@@ -39980,7 +39980,11 @@ mod tests {
         assert!(INDEX_HTML.contains("arrive as"));
         assert!(INDEX_HTML.contains("What draws you in:"));
         assert!(INDEX_HTML.contains("`enter ${creationProfile.name}`"));
-        assert!(INDEX_HTML.contains("modalTitle: creationProfile?.prompt"));
+        assert!(INDEX_HTML.contains(": (creationProfile?.prompt || \"what draws you in?\")"));
+        assert!(INDEX_HTML.contains("function captureDefeatTransition"));
+        assert!(INDEX_HTML.contains("this tale has ended"));
+        assert!(INDEX_HTML.contains("Choose begin again below when you are ready."));
+        assert!(INDEX_HTML.contains("label: beginningAgain ? \"begin again\" : \"begin\""));
         assert!(INDEX_HTML.contains("character_creation_id"));
         assert!(INDEX_HTML.contains("character_choice_id"));
         assert!(INDEX_HTML.contains("accountRow(\"purpose\", purpose)"));
@@ -40048,6 +40052,8 @@ mod tests {
         assert!(INDEX_HTML.contains("choose how to evolve"));
         assert!(INDEX_HTML.contains("choose one of two lessons"));
         assert!(INDEX_HTML.contains("practiceChoices.slice(0, growAction ? 1 : 2)"));
+        assert!(INDEX_HTML.contains("label: `${ability.label} +1`"));
+        assert!(!INDEX_HTML.contains("label: `practice ${ability.label}`"));
         assert!(INDEX_HTML.contains("+1 training bonus to ${ability.label} checks"));
         assert!(INDEX_HTML.contains("action.evolveModes?.includes(\"practice\")"));
         assert!(INDEX_HTML.contains("/actions/create-bond"));

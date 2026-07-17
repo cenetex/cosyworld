@@ -684,6 +684,17 @@
     .arrival-scene::before {
       animation: arrival-glow 1.6s ease-in-out infinite;
     }
+    .defeat-scene {
+      border-color: rgba(255, 125, 125, 0.24);
+      background:
+        linear-gradient(180deg, rgba(255, 125, 125, 0.055), rgba(239, 201, 107, 0.025)),
+        rgba(8, 14, 10, 0.54);
+    }
+    .defeat-scene::before {
+      content: "◇";
+      color: var(--red);
+    }
+    .defeat-scene .room-scene-cue { color: var(--amber); }
     @keyframes arrival-glow {
       0%, 100% { opacity: 0.45; transform: translateX(-50%) scale(0.88); }
       50% { opacity: 1; transform: translateX(-50%) scale(1.08); }
@@ -2918,6 +2929,9 @@
     let firstTaleStageSeen = 0;
     let firstTaleCelebration = false;
     let firstTaleCompletionSeen = false;
+    const defeatTransitionStorageKey = "cosyworld.defeatTransition";
+    let defeatTransition = wantsReset ? null : loadDefeatTransition();
+    if (wantsReset) sessionStorage.removeItem(defeatTransitionStorageKey);
     const $ = (id) => document.getElementById(id);
     const modalReturnFocus = new Map();
     let walletAddress = bootParams.get("wallet") || bootParams.get("wallet_address") || localStorage.getItem("cosyworld.wallet") || "";
@@ -2939,6 +2953,48 @@
       localStorage.removeItem("cosyworld.actorId");
       localStorage.removeItem("cosyworld.actorSession");
       localStorage.removeItem("cosyworld.avatarGateVersion");
+    }
+
+    function loadDefeatTransition() {
+      try {
+        const stored = JSON.parse(sessionStorage.getItem(defeatTransitionStorageKey) || "null");
+        return stored && typeof stored === "object" ? stored : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveDefeatTransition() {
+      try {
+        if (defeatTransition) {
+          sessionStorage.setItem(defeatTransitionStorageKey, JSON.stringify(defeatTransition));
+        } else {
+          sessionStorage.removeItem(defeatTransitionStorageKey);
+        }
+      } catch {
+        // The transition remains visible for this page even when storage is unavailable.
+      }
+    }
+
+    function clearDefeatTransition() {
+      defeatTransition = null;
+      saveDefeatTransition();
+    }
+
+    function captureDefeatTransition(event) {
+      if (
+        !["combat.knockout", "combat.death"].includes(String(event?.type || ""))
+        || !actorId
+        || Number(event.target_actor_id || 0) !== Number(actorId)
+      ) return false;
+      const defeated = actorForId(actorId);
+      defeatTransition = {
+        actorName: event.target_actor_name || defeated?.name || "Your avatar",
+        opponentName: event.actor_name || "the danger",
+        eventSeq: Number(event.seq || 0),
+      };
+      saveDefeatTransition();
+      return true;
     }
 
     function setModalBackgroundInert(inert) {
@@ -3232,6 +3288,7 @@
       localStorage.setItem("cosyworld.actorId", String(actorId));
       if (actorSession) localStorage.setItem("cosyworld.actorSession", actorSession);
       localStorage.setItem("cosyworld.avatarGateVersion", avatarGateVersion);
+      clearDefeatTransition();
       pushEvents(avatar.events || []);
       await pingPresence();
       handKeys = [];
@@ -3565,6 +3622,7 @@
 
     function buildActions(view) {
       if (view.primary_action?.kind === "create_avatar") {
+        const beginningAgain = Boolean(defeatTransition);
         const creationProfile = (view.character_creation || [])[0] || null;
         const creationChoices = creationProfile?.choices?.length
           ? creationProfile.choices.map((choice) => ({
@@ -3580,17 +3638,25 @@
         const defaultChoice = creationProfile?.default_choice_id || authoredCallingChoices[0].statement;
         const action = {
           kind: "avatar-arrival",
-          label: "begin",
-          detail: creationProfile ? `enter ${creationProfile.name}` : "choose what draws you in",
+          label: beginningAgain ? "begin again" : "begin",
+          detail: beginningAgain
+            ? "make a new avatar"
+            : (creationProfile ? `enter ${creationProfile.name}` : "choose what draws you in"),
           command: "create avatar",
           focusKey: "create-avatar",
           card: cardForLocation(view.location?.id),
           shape: "location",
-          modalTitle: creationProfile?.prompt || "what draws you in?",
-          modalSummary: creationProfile?.description || "Pick the sort of trouble your avatar can't resist.",
-          effect: creationProfile
-            ? `begins ${creationProfile.name}`
-            : "brings your new avatar into The Cosy Cottage",
+          modalTitle: beginningAgain
+            ? "begin another tale"
+            : (creationProfile?.prompt || "what draws you in?"),
+          modalSummary: beginningAgain
+            ? "Choose what draws your next avatar into the world."
+            : (creationProfile?.description || "Pick the sort of trouble your avatar can't resist."),
+          effect: beginningAgain
+            ? "starts a new avatar's tale"
+            : (creationProfile
+              ? `begins ${creationProfile.name}`
+              : "brings your new avatar into The Cosy Cottage"),
           choices: creationChoices,
           selectedChoice: defaultChoice,
           busyLabel: "arriving",
@@ -3665,7 +3731,7 @@
           card: cardForActor(actorId) || cardForLocation(view.location?.id),
           shape: "avatar",
           priority: currentRank > 0 && options.has("create_bond") ? 78 : 76,
-          modalTitle: oneAbility ? `practice ${firstAbility.label}` : "choose an ability to practice",
+          modalTitle: oneAbility ? `${firstAbility.label} +1` : "choose an ability",
           modalSummary: oneAbility
             ? `Add +1 to your training bonus for ${firstAbility.label} checks. The ability score itself does not change.`
             : "Choose which ability gets +1 to its check training bonus. The ability score itself does not change.",
@@ -3706,7 +3772,7 @@
         ].join(":");
         const practiceChoices = (practiceAction?.abilityCandidates || [])
           .map((ability) => ({
-            label: `practice ${ability.label}`,
+            label: `${ability.label} +1`,
             detail: `${ability.detail || "use what you learned"} · +1 training bonus to ${ability.label} checks`,
             value: `practice:${ability.id}`,
             card: practiceAction.card,
@@ -3737,7 +3803,7 @@
             ? "choose one of two lessons"
             : (growAction
               ? "from what you learned"
-              : (oneChoice ? "choose an ability to practice" : "choose one of two abilities")),
+              : (oneChoice ? `${(practiceAction?.abilityCandidates || [])[0]?.label || "ability"} +1` : "choose one of two abilities")),
           command: "evolve",
           focusKey: growAction?.focusKey || practiceAction?.focusKey || "evolve",
           focusKeys: [...new Set([
@@ -5667,6 +5733,7 @@
     function pushEvents(events) {
       let changed = false;
       for (const event of events) {
+        if (captureDefeatTransition(event)) changed = true;
         if (applyActionReceipt(event)) {
           changed = true;
           continue;
@@ -6698,13 +6765,14 @@
       const pendingConversation = pendingConversationHtml();
       const pendingChatReplies = pendingChatsHtml();
       const pendingArrival = pendingAvatarArrivalHtml();
+      const defeatScene = defeatTransitionHtml();
       const hasChat = visibleEvents.length > 0 || Boolean(pendingConversation) || Boolean(pendingChatReplies);
       const residentOnly = visibleEvents.length > 0 && visibleEvents.every(messageActorIsResident);
       log.classList.toggle("library-mode", Boolean(libraryPanel));
       log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
       log.classList.toggle("chat-mode", !libraryPanel && !accountPanel && hasChat);
-      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasChat && !pendingArrival);
-      log.classList.toggle("arrival-mode", !libraryPanel && !accountPanel && Boolean(pendingArrival));
+      log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasChat && !pendingArrival && !defeatScene);
+      log.classList.toggle("arrival-mode", !libraryPanel && !accountPanel && Boolean(pendingArrival || defeatScene));
       log.classList.toggle("quiet-mode", !libraryPanel && !accountPanel && residentOnly);
       const panelMode = libraryPanel ? "library" : (accountPanel ? "account" : "");
       document.querySelector(".terminal")?.classList.toggle("panel-open", Boolean(panelMode));
@@ -6727,6 +6795,11 @@
       }
       if (accountPanel) {
         log.innerHTML = accountPanel;
+        log.scrollTop = 0;
+        return;
+      }
+      if (defeatScene) {
+        log.innerHTML = defeatScene;
         log.scrollTop = 0;
         return;
       }
@@ -6898,6 +6971,17 @@
       const cue = `Drawn in by ${calling}. Someone here is getting ready to say hello.`;
       const aria = `${kicker}. ${text} ${cue}`;
       return `<div class="room-scene arrival-scene" role="status" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
+    }
+
+    function defeatTransitionHtml() {
+      if (!defeatTransition) return "";
+      const actor = defeatTransition.actorName || "Your avatar";
+      const opponent = defeatTransition.opponentName || "the danger";
+      const kicker = "this tale has ended";
+      const text = `${actor} was defeated by ${opponent}.`;
+      const cue = "This avatar is gone. Any linked account and keepsakes are still here. Choose begin again below when you are ready.";
+      const aria = `${kicker}. ${text} ${cue}`;
+      return `<div class="room-scene defeat-scene" role="alert" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
     }
 
     function quietRoomSceneHtml() {
@@ -8326,7 +8410,7 @@
       }
       if (["practice", "train"].includes(String(action?.label || "").toLowerCase()) && action?.choices?.length) {
         return [
-          ["Choose", "the ability you want to practice"],
+          ["Choose", "the ability that gets +1"],
           ["Then", "its check training bonus increases by +1"],
           ["Score", "the ability score itself does not change"],
         ];
@@ -8339,7 +8423,7 @@
             ? [
                 ["Choose", "one of two lessons"],
                 ["Keep it", "save this visit as growth you can use later"],
-                ["Practice it", "add +1 to that ability's check training bonus"],
+                ["Ability +1", "add +1 to that ability's check training bonus"],
                 ["Score", "the ability score itself does not change"],
               ]
             : [
@@ -8428,6 +8512,7 @@
 
     function actionConfirmLabel(action) {
       const label = String(action?.label || "").toLowerCase();
+      if (label === "begin again") return "begin again";
       if (String(action?.command || "").trim().toLowerCase() === "create avatar") return "begin";
       if (label === "grow" || label === "bank") return "grow";
       if (label === "evolve") return "evolve";
