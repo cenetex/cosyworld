@@ -226,6 +226,10 @@ async function main() {
     assert(meta.ok === true, `production meta should be ok: ${JSON.stringify(meta)}`);
     assert(meta.deployment?.profile === "production", `expected production profile: ${JSON.stringify(meta.deployment)}`);
     assert(meta.deployment?.production === true, `expected production=true: ${JSON.stringify(meta.deployment)}`);
+    assert(meta.deployment?.world_id === "world://cosyworld/official", `expected canonical world id: ${JSON.stringify(meta.deployment)}`);
+    assert(meta.deployment?.world_epoch === 1, `expected canonical world epoch: ${JSON.stringify(meta.deployment)}`);
+    assert(meta.deployment?.process_id === "public-1", `expected production process id: ${JSON.stringify(meta.deployment)}`);
+    assert(meta.deployment?.shard_id === meta.deployment?.process_id, `expected matching shard compatibility alias: ${JSON.stringify(meta.deployment)}`);
     assert(meta.ownership_feed?.remote_configured === true, `expected remote feed: ${JSON.stringify(meta.ownership_feed)}`);
     assert(meta.ownership_feed?.bearer_configured === true, `expected bearer feed: ${JSON.stringify(meta.ownership_feed)}`);
     assert(meta.ownership_feed?.timeout_secs === 15, `expected bounded remote timeout: ${JSON.stringify(meta.ownership_feed)}`);

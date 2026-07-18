@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use crate::*;
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct CommandResponse {
     pub(crate) ok: bool,
     pub(crate) status: u32,
@@ -12,10 +12,12 @@ pub(crate) struct CommandResponse {
     pub(crate) verb: String,
     pub(crate) output: Option<String>,
     pub(crate) action: Option<CommandActionView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) receipt: Option<CanonicalCommandReceipt>,
     pub(crate) events: Vec<EventView>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct CommandRequest {
     pub(crate) actor_id: u64,
     pub(crate) actor_session: Option<String>,
@@ -25,9 +27,11 @@ pub(crate) struct CommandRequest {
     pub(crate) wallet_session: Option<String>,
     pub(crate) owned_card_ids: Option<String>,
     pub(crate) cards: Option<String>,
+    #[serde(default)]
+    pub(crate) envelope: Option<CanonicalCommandEnvelope>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct CommandActionView {
     pub(crate) kind: String,
     pub(crate) label: String,
@@ -345,6 +349,7 @@ pub(crate) fn command_action_response_with_prefix_and_events(
         verb: resolved.verb,
         output,
         action: resolved.action,
+        receipt: None,
         events: response.events,
     })
 }
@@ -416,6 +421,7 @@ pub(crate) fn command_rate_limited_response_with_events(
         verb: resolved.verb,
         output: Some("The room needs a breath. Try again in a moment.".to_string()),
         action: resolved.action,
+        receipt: None,
         events,
     })
 }

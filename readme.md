@@ -50,8 +50,9 @@ deployment regions are replaceable entrances to that same world, never
 player-facing copies. Production stays single-writer until the fenced ownership,
 durable journal, routing, and failover gates in
 [`v2/docs/canonical-world.md`](v2/docs/canonical-world.md) are implemented.
-`COSYWORLD_V2_SHARD_ID` is temporarily retained as a compatibility name for the
-process label exposed by `/meta`; it is not world identity.
+`COSYWORLD_PROCESS_ID` names the replaceable capacity process. The old
+`COSYWORLD_V2_SHARD_ID` setting and `/meta.deployment.shard_id` remain matching
+compatibility aliases; neither value is world identity.
 
 The current public world mounts CosyWorld Core and Ruby High: First Bell as peer
 world packs. Ruby owns its school rooms, rules context, cards, faction, assets,
@@ -72,8 +73,9 @@ Production profile rejects dev shortcuts. It requires:
   registry declares an `asset_feed` authority.
 - SQLite event store.
 - Moderation token.
-- A unique `COSYWORLD_V2_SHARD_ID` compatibility label per deployed process;
-  never use it as world, player, room, or save identity.
+- A unique `COSYWORLD_PROCESS_ID` per deployed process. If the legacy
+  `COSYWORLD_V2_SHARD_ID` alias is also set, it must have the same value. Never
+  use either label as world, player, room, or save identity.
 - Signed wallet sessions for account-sensitive endpoints.
 - Solana/Core Box burn verifier before production Box burns can create receipts.
 

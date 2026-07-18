@@ -173,6 +173,10 @@ async function assertRuntimeMeta() {
   assert(["debug", "release"].includes(meta.build_profile), `runtime meta should expose build profile: ${JSON.stringify(meta)}`);
   assert(meta.deployment?.profile === "local", `runtime meta should expose local deploy profile for MVP smoke: ${JSON.stringify(meta.deployment)}`);
   assert(meta.deployment?.production === false, `runtime meta should expose non-production MVP smoke profile: ${JSON.stringify(meta.deployment)}`);
+  assert(meta.deployment?.world_id === "world://cosyworld/official", `runtime meta should expose canonical world identity: ${JSON.stringify(meta.deployment)}`);
+  assert(meta.deployment?.world_epoch === 1, `runtime meta should expose canonical world epoch: ${JSON.stringify(meta.deployment)}`);
+  assert(meta.deployment?.process_id === "local", `runtime meta should expose the local process label: ${JSON.stringify(meta.deployment)}`);
+  assert(meta.deployment?.shard_id === meta.deployment?.process_id, `runtime shard alias should match process id: ${JSON.stringify(meta.deployment)}`);
   assert(meta.features?.server_authored_chat === true, `runtime meta should expose server-authored Chat: ${JSON.stringify(meta.features)}`);
   assert(meta.features?.client_authored_speech === true, `runtime meta should expose enabled client speech: ${JSON.stringify(meta.features)}`);
   assert(meta.features?.moderation_audit_enabled === true, `runtime meta should expose enabled moderation audit for MVP smoke: ${JSON.stringify(meta.features)}`);

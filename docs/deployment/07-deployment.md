@@ -92,9 +92,10 @@ Create a `.env` file with:
 - **V2 Production:** `COSYWORLD_DEPLOY_PROFILE=production`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL`, `COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER`, `COSYWORLD_MODERATION_TOKEN`
 - **V2 Passkeys:** `COSYWORLD_WEBAUTHN_RP_ID`, `COSYWORLD_WEBAUTHN_ORIGIN`, and optional comma-separated `COSYWORLD_WEBAUTHN_EXTRA_ORIGINS`. Production refuses to boot without the RP ID and origin.
 - **V2 Box Burns:** `COSYWORLD_BOX_BURN_SOLANA_RPC_URL`, `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`; until these are configured, production Box burn endpoints stay closed.
-- **V2 Process Label:** `COSYWORLD_V2_SHARD_ID` is the legacy environment name
-  for the unique process label shown in `/meta`. It must not be used as a world,
-  room, actor, invitation, claim, or save namespace.
+- **V2 Process Label:** `COSYWORLD_PROCESS_ID` is the unique replaceable process
+  label shown in `/meta`. `COSYWORLD_V2_SHARD_ID` remains a matching legacy
+  alias during migration. Neither may be used as a world, room, actor,
+  invitation, claim, or save namespace.
 
 ---
 
