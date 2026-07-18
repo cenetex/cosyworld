@@ -2,6 +2,7 @@ mod account_auth;
 mod activation;
 mod ai_gateway;
 mod avatar_identity;
+mod canonical_journal;
 mod canonical_world;
 mod content_load;
 mod content_packs;
@@ -31,6 +32,7 @@ use axum::{
     Json,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use canonical_journal::*;
 use canonical_world::*;
 use content_load::*;
 use content_packs::*;
@@ -55,7 +57,10 @@ use std::{
     fs, io,
     net::SocketAddr,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex as StdMutex, OnceLock},
+    sync::{
+        atomic::{AtomicU8, Ordering as AtomicOrdering},
+        Arc, Mutex as StdMutex, OnceLock,
+    },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use tokio::{
@@ -103,6 +108,8 @@ struct AppState {
     rate_limiter: Arc<StdMutex<RateLimiter>>,
     actor_chat_locks: Arc<StdMutex<BTreeSet<u64>>>,
     canonical_command_lock: Arc<Mutex<()>>,
+    canonical_owner_id: Arc<String>,
+    canonical_lease_ttl: Duration,
     room_turns: Arc<StdMutex<RoomTurns>>,
     room_memory_cache: Arc<StdMutex<BTreeMap<u64, RoomMemoryCacheEntry>>>,
     room_memory_jobs: Arc<StdMutex<BTreeSet<(u64, u64, u64)>>>,
@@ -112,6 +119,46 @@ struct AppState {
     moderation_token: Option<Arc<String>>,
     moderation_report_retention: ModerationReportRetention,
     allow_unsigned_wallet_claims: bool,
+}
+
+const CANONICAL_WORLD_PARTITION: &str = "world";
+const DEFAULT_CANONICAL_LEASE_TTL: Duration = Duration::from_secs(30);
+
+struct CanonicalCommandCommitContext {
+    envelope: CanonicalCommandEnvelope,
+    request_hash: String,
+    normalized_command: String,
+    compatibility_envelope: bool,
+    leases: BTreeMap<String, AuthorityLease>,
+    phase: AtomicU8,
+}
+
+impl CanonicalCommandCommitContext {
+    fn try_begin_commit(&self) -> bool {
+        self.phase
+            .compare_exchange(0, 1, AtomicOrdering::AcqRel, AtomicOrdering::Acquire)
+            .is_ok()
+    }
+
+    fn abort_commit(&self) {
+        self.phase.store(0, AtomicOrdering::Release);
+    }
+
+    fn finish_commit(&self) {
+        self.phase.store(2, AtomicOrdering::Release);
+    }
+
+    fn committed(&self) -> bool {
+        self.phase.load(AtomicOrdering::Acquire) == 2
+    }
+
+    fn owner_fencing_epoch(&self) -> Option<u64> {
+        self.leases.values().map(|lease| lease.fencing_epoch).max()
+    }
+}
+
+tokio::task_local! {
+    static CANONICAL_COMMAND_COMMIT_CONTEXT: Arc<CanonicalCommandCommitContext>;
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1110,6 +1157,7 @@ struct RuntimeWorld {
     orb_balances: BTreeMap<u64, i32>,
     orb_reward_claims: BTreeSet<String>,
     listen_attempt_claims: BTreeSet<String>,
+    presence_states: BTreeMap<u64, bool>,
     event_log: Vec<EventView>,
     recent_room_lines: BTreeMap<u64, Vec<EventView>>,
     next_actor_id: u64,
@@ -4482,6 +4530,7 @@ impl AppState {
             event_store_path.clone(),
             deployment.profile.is_production(),
         )?);
+        let canonical_owner_id = Arc::new(format!("{}:{}", deployment.process_id, random_hex(16)));
 
         Ok(Self {
             inner: Arc::new(Mutex::new(runtime)),
@@ -4513,6 +4562,8 @@ impl AppState {
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
+            canonical_owner_id,
+            canonical_lease_ttl: canonical_lease_ttl_from_env()?,
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
@@ -5066,6 +5117,7 @@ impl RuntimeSnapshot {
             orb_balances: self.orb_balances,
             orb_reward_claims: self.orb_reward_claims,
             listen_attempt_claims: self.listen_attempt_claims,
+            presence_states: BTreeMap::new(),
             event_log: self.event_log,
             recent_room_lines: self.recent_room_lines,
             next_actor_id: self.next_actor_id,
@@ -5383,6 +5435,7 @@ impl RuntimeWorld {
             orb_balances: BTreeMap::new(),
             orb_reward_claims: BTreeSet::new(),
             listen_attempt_claims: BTreeSet::new(),
+            presence_states: BTreeMap::new(),
             event_log: Vec::new(),
             recent_room_lines: BTreeMap::new(),
             next_actor_id: 5000,
@@ -6115,7 +6168,9 @@ impl RuntimeWorld {
         let event = EventView {
             world_id: official_world_id(),
             world_epoch: official_world_epoch(),
-            seq: self.world.next_event_seq,
+            // Presence is regional fan-out, not canonical world history. Sequence
+            // zero deliberately excludes it from durable cursors and resume.
+            seq: 0,
             type_name: "actor.presence".to_string(),
             success: true,
             reason: if active { 1 } else { 0 },
@@ -6158,8 +6213,7 @@ impl RuntimeWorld {
             source_location_id: None,
             content_context: ContentReferenceContext::default(),
         };
-        self.world.next_event_seq += 1;
-        self.push_projected_event(event.clone());
+        self.presence_states.insert(actor_id, active);
         event
     }
 
@@ -6578,13 +6632,7 @@ impl RuntimeWorld {
     }
 
     fn latest_actor_presence_state(&self, actor_id: u64) -> Option<bool> {
-        self.event_log.iter().rev().find_map(|event| {
-            if event.type_name == "actor.presence" && event.actor_id == Some(actor_id) {
-                Some(event.content.as_deref() == Some("active") || event.reason == 1)
-            } else {
-                None
-            }
-        })
+        self.presence_states.get(&actor_id).copied()
     }
 
     fn append_hand_shuffled_event(&mut self, actor_id: u64, reason: &str) -> EventView {
@@ -22308,25 +22356,10 @@ async fn commit_presence_event(state: &AppState, actor_id: u64, active: bool) ->
     if runtime.latest_actor_presence_state(actor_id) == Some(active) {
         return Vec::new();
     }
-    let mut event = runtime.append_actor_presence_event(actor_id, active);
-    if active {
-        let action = CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id,
-            ..CwAction::default()
-        };
-        runtime.apply_resident_memory_projection(&action, std::slice::from_ref(&event));
-    }
-    let mint_seed = runtime.next_seed;
-    runtime.ensure_canonical_identities(mint_seed);
-    runtime.bump_entity_versions_for_events(std::slice::from_ref(&event));
-    runtime.refresh_canonical_events(std::slice::from_mut(&mut event));
-    persist_runtime(state, &runtime);
+    let event = runtime.append_actor_presence_event(actor_id, active);
     drop(runtime);
 
     let events = vec![event];
-    state.mark_activity();
-    persist_events(state, &events);
     broadcast_events(state, &events);
     events
 }
@@ -23192,6 +23225,58 @@ fn canonical_command_error(
     })
 }
 
+fn canonical_room_partition_key(location_ref: &str) -> String {
+    format!("room:{location_ref}")
+}
+
+fn authority_lease_ttl_ms(state: &AppState) -> u64 {
+    u64::try_from(state.canonical_lease_ttl.as_millis()).unwrap_or(u64::MAX)
+}
+
+fn acquire_command_authority_leases(
+    state: &AppState,
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+) -> io::Result<BTreeMap<String, AuthorityLease>> {
+    let mut partitions = BTreeSet::new();
+    if let Some(location_ref) = runtime
+        .actor_by_id(actor_id)
+        .and_then(|actor| runtime.canonical_ref("location", actor.location_id))
+    {
+        partitions.insert(canonical_room_partition_key(location_ref));
+    }
+    if partitions.is_empty() {
+        partitions.insert(CANONICAL_WORLD_PARTITION.to_string());
+    }
+    let now = now_millis();
+    let ttl = authority_lease_ttl_ms(state);
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Ok(partitions
+            .into_iter()
+            .map(|partition_key| {
+                let lease = AuthorityLease {
+                    world_id: OFFICIAL_WORLD_ID.to_string(),
+                    partition_key: partition_key.clone(),
+                    owner_id: state.canonical_owner_id.as_ref().clone(),
+                    fencing_epoch: SINGLE_WRITER_FENCING_EPOCH,
+                    lease_expires_at_ms: now.saturating_add(ttl),
+                };
+                (partition_key, lease)
+            })
+            .collect());
+    };
+    init_event_store(path)?;
+    acquire_partition_leases(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        &partitions,
+        state.canonical_owner_id.as_str(),
+        now,
+        ttl,
+    )
+}
+
 async fn command(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -23369,13 +23454,78 @@ async fn command(
         }
     }
 
+    let leases = {
+        let runtime = state.inner.lock().await;
+        match acquire_command_authority_leases(&state, &runtime, payload.actor_id) {
+            Ok(leases) => leases,
+            Err(error) => {
+                warn!("canonical command authority is unavailable: {}", error);
+                return canonical_command_error(
+                    &payload.command,
+                    503,
+                    "Canonical write authority is unavailable. Refresh and retry.",
+                );
+            }
+        }
+    };
+    let command_context = Arc::new(CanonicalCommandCommitContext {
+        envelope: envelope.clone(),
+        request_hash: request_hash.clone(),
+        normalized_command: normalize_command_text(&payload.command),
+        compatibility_envelope,
+        leases,
+        phase: AtomicU8::new(0),
+    });
     payload.envelope = Some(envelope.clone());
-    let Json(mut response) = command_inner(
-        ConnectInfo(client_addr),
-        State(state.clone()),
-        Json(payload.clone()),
-    )
-    .await;
+    let Json(mut response) = CANONICAL_COMMAND_COMMIT_CONTEXT
+        .scope(
+            command_context.clone(),
+            command_inner(
+                ConnectInfo(client_addr),
+                State(state.clone()),
+                Json(payload.clone()),
+            ),
+        )
+        .await;
+
+    if !command_context.committed() {
+        if let Some(path) = state.event_store_path.as_deref() {
+            match read_canonical_command_response(path, &envelope.world_id, &envelope.intent_id) {
+                Ok(Some(stored)) if stored.request_hash == request_hash => {
+                    return match serde_json::from_str::<CommandResponse>(&stored.response_json) {
+                        Ok(response) => Json(response),
+                        Err(error) => {
+                            error!("stored concurrent command receipt is invalid: {}", error);
+                            canonical_command_error(
+                                &payload.command,
+                                500,
+                                "The committed command receipt could not be read.",
+                            )
+                        }
+                    };
+                }
+                Ok(Some(_)) => {
+                    return canonical_command_error(
+                        &payload.command,
+                        409,
+                        "That intent_id is already bound to a different command envelope.",
+                    );
+                }
+                Ok(None) => {}
+                Err(error) => warn!(
+                    "failed to reconcile a concurrent canonical command receipt: {}",
+                    error
+                ),
+            }
+        }
+        if response.status >= 500 {
+            return canonical_command_error(
+                &payload.command,
+                503,
+                "Canonical write authority is unavailable. Refresh and retry with the same intent_id.",
+            );
+        }
+    }
 
     let stored = {
         let mut runtime = state.inner.lock().await;
@@ -23414,7 +23564,9 @@ async fn command(
             intent_id: envelope.intent_id.clone(),
             actor_ref: envelope.actor_ref.clone(),
             entity_versions,
-            owner_fencing_epoch: SINGLE_WRITER_FENCING_EPOCH,
+            owner_fencing_epoch: command_context
+                .owner_fencing_epoch()
+                .unwrap_or(SINGLE_WRITER_FENCING_EPOCH),
             compatibility_envelope,
         });
         let response_json = match serde_json::to_string(&response) {
@@ -23438,9 +23590,24 @@ async fn command(
     };
 
     if let Some(path) = state.event_store_path.as_deref() {
-        if let Err(error) =
+        let persisted = if command_context.committed() {
+            finalize_atomic_command_receipt(
+                path,
+                &envelope.world_id,
+                &envelope.intent_id,
+                &stored.request_hash,
+                &stored.response_json,
+                response
+                    .receipt
+                    .as_ref()
+                    .map(|receipt| receipt.world_seq)
+                    .unwrap_or_default(),
+                now_millis(),
+            )
+        } else {
             write_canonical_command_response(path, &envelope.world_id, &envelope.intent_id, &stored)
-        {
+        };
+        if let Err(error) = persisted {
             warn!(
                 "failed to persist canonical command receipt to {}: {}",
                 path.display(),
@@ -31420,6 +31587,174 @@ fn record_ai_usage(
     }
 }
 
+fn canonical_claim_snapshot(runtime: &RuntimeWorld) -> BTreeMap<String, BTreeSet<String>> {
+    BTreeMap::from([
+        ("rpg".to_string(), runtime.rpg_claims.clone()),
+        ("orb_reward".to_string(), runtime.orb_reward_claims.clone()),
+        (
+            "listen_attempt".to_string(),
+            runtime.listen_attempt_claims.clone(),
+        ),
+    ])
+}
+
+fn canonical_partitions_for_location_ids(
+    runtime: &RuntimeWorld,
+    location_ids: impl IntoIterator<Item = u64>,
+) -> BTreeSet<String> {
+    let mut partitions = BTreeSet::new();
+    for location_id in location_ids
+        .into_iter()
+        .filter(|location_id| *location_id > 0)
+    {
+        if let Some(location_ref) = runtime.canonical_ref("location", location_id) {
+            partitions.insert(canonical_room_partition_key(location_ref));
+        }
+    }
+    if partitions.is_empty() {
+        partitions.insert(CANONICAL_WORLD_PARTITION.to_string());
+    }
+    partitions
+}
+
+fn canonical_partitions_for_record(
+    runtime: &RuntimeWorld,
+    record: &JournalRecord,
+) -> BTreeSet<String> {
+    let actor_location_id = runtime
+        .actor_by_id(record.action.actor_id)
+        .map(|actor| actor.location_id)
+        .unwrap_or_default();
+    let target_location_id = runtime
+        .actor_by_id(record.action.target_actor_id)
+        .map(|actor| actor.location_id)
+        .unwrap_or_default();
+    canonical_partitions_for_location_ids(
+        runtime,
+        [
+            actor_location_id,
+            target_location_id,
+            record.action.location_id,
+            record.action.destination_location_id,
+            record.source_location_id.unwrap_or_default(),
+        ],
+    )
+}
+
+fn canonical_partitions_for_events(
+    runtime: &RuntimeWorld,
+    events: &[EventView],
+) -> BTreeSet<String> {
+    canonical_partitions_for_location_ids(
+        runtime,
+        events.iter().flat_map(|event| {
+            [
+                event.location_id,
+                event.destination_location_id,
+                event.source_location_id,
+            ]
+            .into_iter()
+            .flatten()
+        }),
+    )
+}
+
+fn acquire_record_authority_leases(
+    state: &AppState,
+    runtime: &RuntimeWorld,
+    record: &JournalRecord,
+) -> io::Result<BTreeMap<String, AuthorityLease>> {
+    let partitions = canonical_partitions_for_record(runtime, record);
+    let now = now_millis();
+    let ttl = authority_lease_ttl_ms(state);
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Ok(partitions
+            .into_iter()
+            .map(|partition_key| {
+                let lease = AuthorityLease {
+                    world_id: OFFICIAL_WORLD_ID.to_string(),
+                    partition_key: partition_key.clone(),
+                    owner_id: state.canonical_owner_id.as_ref().clone(),
+                    fencing_epoch: SINGLE_WRITER_FENCING_EPOCH,
+                    lease_expires_at_ms: now.saturating_add(ttl),
+                };
+                (partition_key, lease)
+            })
+            .collect());
+    };
+    acquire_partition_leases(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        &partitions,
+        state.canonical_owner_id.as_str(),
+        now,
+        ttl,
+    )
+}
+
+fn canonical_receipt_entity_versions(
+    runtime: &RuntimeWorld,
+    context: &CanonicalCommandCommitContext,
+    events: &[EventView],
+    changed_versions: &BTreeMap<String, u64>,
+) -> BTreeMap<String, u64> {
+    let mut versions = changed_versions.clone();
+    for canonical_ref in events
+        .iter()
+        .flat_map(|event| runtime.event_entity_refs(event))
+    {
+        versions.insert(
+            canonical_ref.clone(),
+            runtime.entity_version(&canonical_ref),
+        );
+    }
+    versions.insert(
+        context.envelope.actor_ref.clone(),
+        runtime.entity_version(&context.envelope.actor_ref),
+    );
+    versions
+}
+
+fn canonical_fallback_command_response(
+    runtime: &RuntimeWorld,
+    context: &CanonicalCommandCommitContext,
+    status: u32,
+    events: &[EventView],
+    changed_versions: &BTreeMap<String, u64>,
+    world_seq: u64,
+    owner_fencing_epoch: u64,
+) -> io::Result<String> {
+    serde_json::to_string(&CommandResponse {
+        ok: status == CW_OK,
+        status,
+        command: context.normalized_command.clone(),
+        verb: String::new(),
+        output: Some(
+            "The command committed before its full response was delivered. Refresh to continue."
+                .to_string(),
+        ),
+        action: None,
+        receipt: Some(CanonicalCommandReceipt {
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            world_epoch: OFFICIAL_WORLD_EPOCH,
+            world_seq,
+            intent_id: context.envelope.intent_id.clone(),
+            actor_ref: context.envelope.actor_ref.clone(),
+            entity_versions: canonical_receipt_entity_versions(
+                runtime,
+                context,
+                events,
+                changed_versions,
+            ),
+            owner_fencing_epoch,
+            compatibility_envelope: context.compatibility_envelope,
+        }),
+        events: events.to_vec(),
+    })
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+}
+
 fn commit_journal_record(
     state: &AppState,
     runtime: &mut RuntimeWorld,
@@ -31427,30 +31762,127 @@ fn commit_journal_record(
 ) -> io::Result<(u32, Vec<EventView>)> {
     let pre_orb_balances = runtime.orb_balances.clone();
     let pre_orb_reward_claims = runtime.orb_reward_claims.clone();
-    let (status, events, _actor_job_inserted) = if let Some(path) =
-        state.event_store_path.as_deref()
-    {
+    let pre_entity_versions = runtime.canonical_identities.entity_versions.clone();
+    let pre_claims = canonical_claim_snapshot(runtime);
+    let initial_record_partitions = canonical_partitions_for_record(runtime, &record);
+    let command_context = CANONICAL_COMMAND_COMMIT_CONTEXT
+        .try_with(Arc::clone)
+        .ok()
+        .filter(|context| context.try_begin_commit());
+    if let Some(path) = state.event_store_path.as_deref() {
         if let Err(error) = init_event_store(path) {
+            if let Some(context) = command_context.as_ref() {
+                context.abort_commit();
+            }
             state.record_event_store_append_failure(&error);
             return Err(error);
         }
-        let mut conn = match open_event_store(path) {
-            Ok(conn) => conn,
+    }
+    let mut authority_leases = match command_context.as_ref() {
+        Some(context) => context.leases.clone(),
+        None => match acquire_record_authority_leases(state, runtime, &record) {
+            Ok(leases) => leases,
             Err(error) => {
                 state.record_event_store_append_failure(&error);
                 return Err(error);
             }
+        },
+    };
+    let (status, events, _actor_job_inserted) = if let Some(path) =
+        state.event_store_path.as_deref()
+    {
+        let mut conn = match open_event_store(path) {
+            Ok(conn) => conn,
+            Err(error) => {
+                if let Some(context) = command_context.as_ref() {
+                    context.abort_commit();
+                }
+                state.record_event_store_append_failure(&error);
+                return Err(error);
+            }
         };
-        let tx = match conn.transaction().map_err(sqlite_error) {
+        let tx = match conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(sqlite_error)
+        {
             Ok(tx) => tx,
             Err(error) => {
+                if let Some(context) = command_context.as_ref() {
+                    context.abort_commit();
+                }
                 state.record_event_store_append_failure(&error);
                 return Err(error);
             }
         };
         let committed = (|| -> io::Result<(u32, Vec<EventView>, bool)> {
+            let commit_time = now_millis();
+            let lease_ttl = authority_lease_ttl_ms(state);
+            for lease in authority_leases.values_mut() {
+                *lease = validate_and_renew_partition_lease(&tx, lease, commit_time, lease_ttl)?;
+            }
             insert_action_journal(&tx, &record)?;
+            let action_journal_seq = u64::try_from(tx.last_insert_rowid()).map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "action journal returned a negative sequence",
+                )
+            })?;
             let (status, events) = runtime.apply_journal_record(&record);
+            let mut required_partitions = initial_record_partitions.clone();
+            required_partitions.extend(canonical_partitions_for_events(runtime, &events));
+            for partition_key in required_partitions {
+                if authority_leases.contains_key(&partition_key) {
+                    continue;
+                }
+                let lease = acquire_partition_lease_in_transaction(
+                    &tx,
+                    OFFICIAL_WORLD_ID,
+                    &partition_key,
+                    state.canonical_owner_id.as_str(),
+                    commit_time,
+                    lease_ttl,
+                )?;
+                authority_leases.insert(partition_key, lease);
+            }
+            let event_seqs = events
+                .iter()
+                .filter(|event| event.seq > 0)
+                .map(|event| event.seq)
+                .collect::<Vec<_>>();
+            let mut previous_world_seq = current_world_seq(&tx, OFFICIAL_WORLD_ID)?;
+            if previous_world_seq == 0 {
+                if let Some(first_world_seq) = event_seqs.first().copied().filter(|seq| *seq > 1) {
+                    let baseline = first_world_seq.saturating_sub(1);
+                    if bootstrap_legacy_world_sequence(
+                        &tx,
+                        OFFICIAL_WORLD_ID,
+                        baseline,
+                        commit_time,
+                    )? {
+                        previous_world_seq = baseline;
+                    }
+                }
+            }
+            let (first_world_seq, last_world_seq) =
+                validate_next_world_sequence(&tx, OFFICIAL_WORLD_ID, &event_seqs)?;
+            let changed_versions = reconcile_entity_versions(
+                &tx,
+                OFFICIAL_WORLD_ID,
+                &pre_entity_versions,
+                &runtime.canonical_identities.entity_versions,
+                commit_time,
+            )?;
+            let claims = insert_new_claims(
+                &tx,
+                OFFICIAL_WORLD_ID,
+                &pre_claims,
+                &canonical_claim_snapshot(runtime),
+                command_context
+                    .as_ref()
+                    .map(|context| context.envelope.intent_id.as_str()),
+                last_world_seq,
+                commit_time,
+            )?;
             let ledger_entries = orb_ledger_entries_for_record(
                 &record,
                 &events,
@@ -31460,7 +31892,7 @@ fn commit_journal_record(
             if status == CW_OK {
                 insert_orb_ledger_entries(&tx, &ledger_entries)?;
             }
-            insert_world_events(&tx, &events)?;
+            insert_world_events_strict(&tx, &events)?;
             let observation_job_inserted =
                 if status == CW_OK && record.origin == JournalOrigin::PlayerCard {
                     player_tick_observation(runtime, None, record.action.actor_id, status, &events)
@@ -31490,6 +31922,79 @@ fn commit_journal_record(
             } else {
                 false
             };
+            let owner_fencing_epoch = authority_leases
+                .values()
+                .map(|lease| lease.fencing_epoch)
+                .max()
+                .ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "canonical partition lease is missing",
+                    )
+                })?;
+            let commit_id = format!("{}:journal:{}", OFFICIAL_WORLD_ID, action_journal_seq);
+            let partitions_json = serde_json::to_string(&authority_leases)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+            let entity_versions_json = serde_json::to_string(&changed_versions)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+            let claims_json = serde_json::to_string(&claims)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+            insert_canonical_commit(
+                &tx,
+                &CanonicalCommitRow {
+                    commit_id: &commit_id,
+                    world_id: OFFICIAL_WORLD_ID,
+                    world_epoch: OFFICIAL_WORLD_EPOCH,
+                    first_world_seq,
+                    last_world_seq,
+                    intent_id: command_context
+                        .as_ref()
+                        .map(|context| context.envelope.intent_id.as_str()),
+                    request_hash: command_context
+                        .as_ref()
+                        .map(|context| context.request_hash.as_str()),
+                    owner_id: state.canonical_owner_id.as_str(),
+                    owner_fencing_epoch,
+                    partitions_json: &partitions_json,
+                    entity_versions_json: &entity_versions_json,
+                    claims_json: &claims_json,
+                    action_journal_seq,
+                    created_at_ms: commit_time,
+                },
+            )?;
+            if let Some(context) = command_context.as_ref() {
+                let fallback_response = canonical_fallback_command_response(
+                    runtime,
+                    context,
+                    status,
+                    &events,
+                    &changed_versions,
+                    last_world_seq,
+                    owner_fencing_epoch,
+                )?;
+                insert_atomic_command_receipt(
+                    &tx,
+                    &CanonicalReceiptRow {
+                        world_id: OFFICIAL_WORLD_ID,
+                        intent_id: &context.envelope.intent_id,
+                        request_hash: &context.request_hash,
+                        response_json: &fallback_response,
+                        commit_id: &commit_id,
+                        world_epoch: OFFICIAL_WORLD_EPOCH,
+                        world_seq: last_world_seq,
+                        owner_id: state.canonical_owner_id.as_str(),
+                        owner_fencing_epoch,
+                        created_at_ms: commit_time,
+                    },
+                )?;
+            }
+            advance_world_sequence(
+                &tx,
+                OFFICIAL_WORLD_ID,
+                previous_world_seq,
+                last_world_seq,
+                commit_time,
+            )?;
             Ok((
                 status,
                 events,
@@ -31502,6 +32007,9 @@ fn commit_journal_record(
                 let rollback_error = tx.rollback().map_err(sqlite_error).err();
                 let restore_error = restore_runtime_from_durable_state(state, runtime, path).err();
                 let error = journal_commit_recovery_error(error, rollback_error, restore_error);
+                if let Some(context) = command_context.as_ref() {
+                    context.abort_commit();
+                }
                 state.record_event_store_append_failure(&error);
                 return Err(error);
             }
@@ -31509,13 +32017,22 @@ fn commit_journal_record(
         if let Err(error) = tx.commit().map_err(sqlite_error) {
             let restore_error = restore_runtime_from_durable_state(state, runtime, path).err();
             let error = journal_commit_recovery_error(error, None, restore_error);
+            if let Some(context) = command_context.as_ref() {
+                context.abort_commit();
+            }
             state.record_event_store_append_failure(&error);
             return Err(error);
+        }
+        if let Some(context) = command_context.as_ref() {
+            context.finish_commit();
         }
         state.record_event_store_append_success();
         committed
     } else {
         let (status, events) = runtime.apply_journal_record(&record);
+        if let Some(context) = command_context.as_ref() {
+            context.finish_commit();
+        }
         (status, events, false)
     };
     if !events.is_empty() {
@@ -31531,6 +32048,7 @@ fn restore_runtime_from_durable_state(
     event_store_path: &Path,
 ) -> io::Result<()> {
     let mut restored = RuntimeWorld::from_action_journal(event_store_path)?;
+    advance_runtime_next_event_seq_from_store(&mut restored, event_store_path)?;
     if let Some(path) = state.resident_continuity_path.as_deref() {
         match restored.load_resident_continuity_snapshot(path) {
             Ok(_) => {}
@@ -31702,6 +32220,23 @@ fn event_store_path_from_env() -> Option<PathBuf> {
     }
 }
 
+fn canonical_lease_ttl_from_env() -> io::Result<Duration> {
+    let Some(value) = std::env::var("COSYWORLD_CANONICAL_LEASE_TTL_MS").ok() else {
+        return Ok(DEFAULT_CANONICAL_LEASE_TTL);
+    };
+    let millis = value.trim().parse::<u64>().map_err(|_| {
+        deployment_config_error(
+            "COSYWORLD_CANONICAL_LEASE_TTL_MS must be an integer between 1000 and 300000",
+        )
+    })?;
+    if !(1_000..=300_000).contains(&millis) {
+        return Err(deployment_config_error(
+            "COSYWORLD_CANONICAL_LEASE_TTL_MS must be between 1000 and 300000",
+        ));
+    }
+    Ok(Duration::from_millis(millis))
+}
+
 fn init_event_store(path: &Path) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -31712,6 +32247,8 @@ fn init_event_store(path: &Path) -> io::Result<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS world_events (
             seq INTEGER PRIMARY KEY,
+            world_id TEXT NOT NULL DEFAULT 'world://cosyworld/official',
+            world_epoch INTEGER NOT NULL DEFAULT 1,
             event_type TEXT NOT NULL,
             payload_json TEXT NOT NULL,
             created_at_ms INTEGER NOT NULL
@@ -31879,6 +32416,25 @@ fn init_event_store(path: &Path) -> io::Result<()> {
             ON economy_reconciliation_runs(created_at_ms);",
     )
     .map_err(sqlite_error)?;
+    ensure_sqlite_column(
+        &conn,
+        "world_events",
+        "world_id",
+        "ALTER TABLE world_events ADD COLUMN world_id TEXT NOT NULL DEFAULT 'world://cosyworld/official'",
+    )?;
+    ensure_sqlite_column(
+        &conn,
+        "world_events",
+        "world_epoch",
+        "ALTER TABLE world_events ADD COLUMN world_epoch INTEGER NOT NULL DEFAULT 1",
+    )?;
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_world_events_canonical_identity
+         ON world_events(world_id, world_epoch, seq)",
+        [],
+    )
+    .map_err(sqlite_error)?;
+    init_canonical_journal(&conn, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH)?;
     init_activation_store(&conn)?;
     ensure_sqlite_column(
         &conn,
@@ -32468,8 +33024,39 @@ fn append_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
     }
     init_event_store(path)?;
     let mut conn = open_event_store(path)?;
-    let tx = conn.transaction().map_err(sqlite_error)?;
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
+    let previous_world_seq = current_world_seq(&tx, OFFICIAL_WORLD_ID)?;
+    let new_event_seqs = events
+        .iter()
+        .filter(|event| event.seq > previous_world_seq)
+        .map(|event| event.seq)
+        .collect::<Vec<_>>();
+    let next_world_seq =
+        if previous_world_seq == 0 && new_event_seqs.first().is_some_and(|first| *first > 1) {
+            for pair in new_event_seqs.windows(2) {
+                if pair[1] != pair[0].saturating_add(1) {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "legacy event-store bootstrap is not a contiguous suffix",
+                    ));
+                }
+            }
+            new_event_seqs.last().copied().unwrap_or_default()
+        } else {
+            validate_next_world_sequence(&tx, OFFICIAL_WORLD_ID, &new_event_seqs)?.1
+        };
     insert_world_events(&tx, events)?;
+    if !new_event_seqs.is_empty() {
+        advance_world_sequence(
+            &tx,
+            OFFICIAL_WORLD_ID,
+            previous_world_seq,
+            next_world_seq,
+            now_millis(),
+        )?;
+    }
     tx.commit().map_err(sqlite_error)?;
     Ok(())
 }
@@ -32478,23 +33065,71 @@ fn insert_world_events(conn: &Connection, events: &[EventView]) -> io::Result<()
     let mut stmt = conn
         .prepare(
             "INSERT OR IGNORE INTO world_events
-             (seq, event_type, payload_json, created_at_ms)
-             VALUES (?1, ?2, ?3, ?4)",
+             (seq, world_id, world_epoch, event_type, payload_json, created_at_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         )
         .map_err(sqlite_error)?;
     let now = now_millis();
-    for event in events {
+    for event in events.iter().filter(|event| event.seq > 0) {
+        if event.world_id != OFFICIAL_WORLD_ID || event.world_epoch != OFFICIAL_WORLD_EPOCH {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "world event does not belong to the active canonical epoch",
+            ));
+        }
         let mut persisted = event.clone();
         persisted.refresh_content_context();
         let payload = serde_json::to_string(&persisted)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         stmt.execute(params![
             event.seq as i64,
+            event.world_id,
+            event.world_epoch as i64,
             event.type_name,
             payload,
-            now as i64
+            now as i64,
         ])
         .map_err(sqlite_error)?;
+    }
+    Ok(())
+}
+
+fn insert_world_events_strict(conn: &Connection, events: &[EventView]) -> io::Result<()> {
+    let mut stmt = conn
+        .prepare(
+            "INSERT INTO world_events
+             (seq, world_id, world_epoch, event_type, payload_json, created_at_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        )
+        .map_err(sqlite_error)?;
+    let now = now_millis();
+    for event in events.iter().filter(|event| event.seq > 0) {
+        if event.world_id != OFFICIAL_WORLD_ID || event.world_epoch != OFFICIAL_WORLD_EPOCH {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "world event does not belong to the active canonical epoch",
+            ));
+        }
+        let mut persisted = event.clone();
+        persisted.refresh_content_context();
+        let payload = serde_json::to_string(&persisted)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        let inserted = stmt
+            .execute(params![
+                event.seq as i64,
+                event.world_id,
+                event.world_epoch as i64,
+                event.type_name,
+                payload,
+                now as i64,
+            ])
+            .map_err(sqlite_error)?;
+        if inserted != 1 {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!("canonical world event {} already exists", event.seq),
+            ));
+        }
     }
     Ok(())
 }
@@ -32939,6 +33574,11 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
     let conn = open_event_store(path)?;
     conn.execute_batch(
         "DELETE FROM world_events;
+         DELETE FROM canonical_commits;
+         DELETE FROM canonical_claims;
+         DELETE FROM canonical_entity_versions;
+         DELETE FROM canonical_partition_leases;
+         DELETE FROM canonical_world_state;
          DELETE FROM action_journal;
          DELETE FROM canonical_command_receipts;
          DELETE FROM actor_jobs;
@@ -32957,6 +33597,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
     )
     .map_err(sqlite_error)?;
     drop(conn);
+    init_event_store(path)?;
     append_event_store(path, events)
 }
 
@@ -33690,6 +34331,8 @@ mod tests {
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
+            canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
+            canonical_lease_ttl: DEFAULT_CANONICAL_LEASE_TTL,
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
@@ -33856,8 +34499,13 @@ mod tests {
         assert!(first.events.iter().all(|event| {
             event.world_id == OFFICIAL_WORLD_ID
                 && event.world_epoch == OFFICIAL_WORLD_EPOCH
-                && event.seq > 0
+                && (event.seq > 0 || event.type_name == "actor.presence")
         }));
+        assert!(first
+            .events
+            .iter()
+            .filter(|event| event.type_name == "actor.presence")
+            .all(|event| event.seq == 0));
         assert_eq!(first.receipt, second.receipt);
         assert_eq!(
             serde_json::to_value(&first).unwrap(),
@@ -33876,6 +34524,122 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[tokio::test]
+    async fn committed_command_survives_response_loss_and_replays_once() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-canonical-command-restart-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let actor_id = 5000;
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        {
+            let mut runtime = state.inner.lock().await;
+            let mut create = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_CREATE_ACTOR,
+                    actor_id,
+                    location_id: COSY_COTTAGE_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                71_000,
+            );
+            create.actor_meta_upserts.insert(
+                actor_id,
+                ActorMeta {
+                    name: "Restart Neighbour".to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Receipt Witness".to_string(),
+                    description: "A test avatar surviving response loss.".to_string(),
+                },
+            );
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, create)
+                    .expect("commit restart actor")
+                    .0,
+                CW_OK
+            );
+        }
+        let actor_session = create_actor_session(&state.actor_sessions, actor_id).0;
+        let request = {
+            let runtime = state.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_id,
+                &actor_session,
+                "test:response-loss",
+                "say this lands exactly once",
+            )
+        };
+        let client = ConnectInfo("127.0.0.1:45131".parse().unwrap());
+        let first = command(client, State(state.clone()), Json(request.clone()))
+            .await
+            .0;
+        assert!(first.ok, "{first:?}");
+
+        let (journal_after_first, events_after_first, receipt_finalized, committed_seq) = {
+            let conn = open_event_store(&path).expect("inspect committed command");
+            let journal = conn
+                .query_row("SELECT COUNT(*) FROM action_journal", [], |row| {
+                    row.get::<_, i64>(0)
+                })
+                .unwrap();
+            let events = conn
+                .query_row("SELECT COUNT(*) FROM world_events", [], |row| {
+                    row.get::<_, i64>(0)
+                })
+                .unwrap();
+            let finalized = conn
+                .query_row(
+                    "SELECT finalized FROM canonical_command_receipts
+                     WHERE world_id = ?1 AND intent_id = ?2",
+                    params![OFFICIAL_WORLD_ID, "test:response-loss"],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap();
+            let committed_seq = current_world_seq(&conn, OFFICIAL_WORLD_ID).unwrap();
+            (journal, events, finalized, committed_seq)
+        };
+        assert_eq!(receipt_finalized, 1);
+        assert_eq!(
+            first.receipt.as_ref().map(|receipt| receipt.world_seq),
+            Some(committed_seq)
+        );
+
+        state.inner.lock().await.command_receipts.clear();
+        let second = command(client, State(state), Json(request)).await.0;
+        assert_eq!(
+            serde_json::to_value(&first).unwrap(),
+            serde_json::to_value(&second).unwrap()
+        );
+
+        let conn = open_event_store(&path).expect("inspect idempotent replay");
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM action_journal", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            journal_after_first
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM world_events", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            events_after_first
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM canonical_command_receipts",
+                [],
+                |row| row.get::<_, i64>(0)
+            )
+            .unwrap(),
+            1
+        );
+        drop(conn);
+        let _ = fs::remove_file(path);
     }
 
     #[tokio::test]
@@ -36816,6 +37580,103 @@ mod tests {
     }
 
     #[test]
+    fn legacy_single_writer_store_migrates_in_place_to_canonical_journal() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-v2-canonical-migration-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let legacy_event = EventView {
+            seq: 42,
+            type_name: "world.legacy_checkpoint".to_string(),
+            success: true,
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            ..EventView::default()
+        };
+        let conn = Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE world_events (
+                seq INTEGER PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at_ms INTEGER NOT NULL
+             );",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO world_events (seq, event_type, payload_json, created_at_ms)
+             VALUES (?1, ?2, ?3, 1)",
+            params![
+                legacy_event.seq as i64,
+                legacy_event.type_name,
+                serde_json::to_string(&legacy_event).unwrap()
+            ],
+        )
+        .unwrap();
+        drop(conn);
+
+        init_event_store(&path).expect("migrate legacy single-writer store");
+        let conn = open_event_store(&path).unwrap();
+        let event_columns = conn
+            .prepare("PRAGMA table_info(world_events)")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .collect::<Result<BTreeSet<_>, _>>()
+            .unwrap();
+        assert!(event_columns.contains("world_id"));
+        assert!(event_columns.contains("world_epoch"));
+        assert_eq!(current_world_seq(&conn, OFFICIAL_WORLD_ID).unwrap(), 42);
+        assert_eq!(
+            conn.query_row(
+                "SELECT world_id, world_epoch FROM world_events WHERE seq = 42",
+                [],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            )
+            .unwrap(),
+            (OFFICIAL_WORLD_ID.to_string(), OFFICIAL_WORLD_EPOCH as i64)
+        );
+        for table in [
+            "canonical_world_state",
+            "canonical_partition_leases",
+            "canonical_entity_versions",
+            "canonical_claims",
+            "canonical_commits",
+        ] {
+            let exists = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                    params![table],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap();
+            assert_eq!(exists, 1, "{table} should be migrated in place");
+        }
+        drop(conn);
+
+        append_event_store(
+            &path,
+            &[EventView {
+                seq: 43,
+                type_name: "world.after_migration".to_string(),
+                success: true,
+                ..EventView::default()
+            }],
+        )
+        .expect("append after canonical migration");
+        assert_eq!(
+            read_event_store(&path, Some(42), 10)
+                .unwrap()
+                .iter()
+                .map(|event| event.seq)
+                .collect::<Vec<_>>(),
+            vec![43]
+        );
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
     fn event_store_appends_and_reads_after_seq() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-events-{}-{}.sqlite",
@@ -38466,6 +39327,140 @@ mod tests {
         assert!(claim_next_actor_job(&path)
             .expect("inspect drained outbox")
             .is_none());
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn cross_room_move_is_one_fenced_commit_or_no_effect() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-canonical-cross-room-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let actor_id = 5000;
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        {
+            let mut runtime = state.inner.blocking_lock();
+            let mut create = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_CREATE_ACTOR,
+                    actor_id,
+                    location_id: COSY_COTTAGE_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                71_100,
+            );
+            create.actor_meta_upserts.insert(
+                actor_id,
+                ActorMeta {
+                    name: "Atomic Traveller".to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Boundary Tester".to_string(),
+                    description: "A test avatar crossing one durable boundary.".to_string(),
+                },
+            );
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, create)
+                    .expect("commit cross-room actor")
+                    .0,
+                CW_OK
+            );
+        }
+        let baseline_counts = {
+            let conn = open_event_store(&path).unwrap();
+            [
+                "action_journal",
+                "world_events",
+                "canonical_commits",
+                "canonical_entity_versions",
+            ]
+            .into_iter()
+            .map(|table| {
+                let count = conn
+                    .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                        row.get::<_, i64>(0)
+                    })
+                    .unwrap();
+                (table, count)
+            })
+            .collect::<BTreeMap<_, _>>()
+        };
+        let conn = open_event_store(&path).unwrap();
+        conn.execute_batch(
+            "CREATE TRIGGER reject_cross_room_commit
+             BEFORE INSERT ON canonical_commits
+             BEGIN SELECT RAISE(ABORT, 'injected canonical commit failure'); END;",
+        )
+        .unwrap();
+        drop(conn);
+
+        let move_record = || {
+            JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_MOVE,
+                    actor_id,
+                    destination_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                71_101,
+            )
+            .into_player_card()
+        };
+        {
+            let mut runtime = state.inner.blocking_lock();
+            assert!(commit_journal_record(&state, &mut runtime, move_record()).is_err());
+            assert_eq!(
+                runtime.actor_by_id(actor_id).map(|actor| actor.location_id),
+                Some(COSY_COTTAGE_LOCATION_ID)
+            );
+        }
+        let conn = open_event_store(&path).unwrap();
+        for (table, expected) in &baseline_counts {
+            let count = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get::<_, i64>(0)
+                })
+                .unwrap();
+            assert_eq!(count, *expected, "{table} must roll back with the move");
+        }
+        conn.execute_batch("DROP TRIGGER reject_cross_room_commit;")
+            .unwrap();
+        drop(conn);
+
+        {
+            let mut runtime = state.inner.blocking_lock();
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, move_record())
+                    .expect("commit cross-room move")
+                    .0,
+                CW_OK
+            );
+            assert_eq!(
+                runtime.actor_by_id(actor_id).map(|actor| actor.location_id),
+                Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+            );
+        }
+        let conn = open_event_store(&path).unwrap();
+        let partitions_json = conn
+            .query_row(
+                "SELECT partitions_json FROM canonical_commits
+                 ORDER BY action_journal_seq DESC LIMIT 1",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap();
+        let partitions =
+            serde_json::from_str::<BTreeMap<String, AuthorityLease>>(&partitions_json).unwrap();
+        let runtime = state.inner.blocking_lock();
+        for location_id in [COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID] {
+            let location_ref = runtime
+                .canonical_ref("location", location_id)
+                .expect("canonical room ref");
+            assert!(partitions.contains_key(&canonical_room_partition_key(location_ref)));
+        }
+        drop(runtime);
+        drop(conn);
         let _ = fs::remove_file(path);
     }
 
@@ -55116,6 +56111,8 @@ mod tests {
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
+            canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
+            canonical_lease_ttl: DEFAULT_CANONICAL_LEASE_TTL,
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),

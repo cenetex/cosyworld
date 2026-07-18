@@ -90,12 +90,37 @@ envelope. Legacy callers without one receive a server-minted compatibility
 intent and a receipt marked `compatibility_envelope`; this bridge must not be
 used for transport retries.
 
-The single-writer runtime serializes canonical commands and persists receipts
-by `(world_id, intent_id)` in SQLite (or in the snapshot when SQLite is off).
-Reusing an intent with a different envelope fails closed, exact retries return
-the stored response, and stale observed versions return `409` before dispatch.
-Issue #128 moves the receipt, event append, versions, and fencing authority into
-one durable atomic transaction before horizontal writers are permitted.
+SQLite is now the durable canonical commit point. Every journal mutation
+atomically writes its action record, globally ordered events, affected entity
+versions, newly claimed idempotency keys, command receipt, owner fences, and
+outbox jobs. Reusing an intent with a different envelope fails closed, exact
+retries return the stored response, and stale observed versions return `409`
+before dispatch. A response lost after append can therefore be recovered from
+the receipt without executing the effect again.
+
+Each process has a boot-scoped authority owner id. Before mutation it acquires
+the current room partition (or the world partition for an unscoped system
+mutation); the commit transaction validates the exact owner and fencing epoch,
+renews unexpired leases, and acquires every additional affected room (for
+example both sides of a move). The global event cursor is a separate atomic
+compare-and-set, so different room owners cannot allocate conflicting history.
+Lease takeover only occurs after expiry and increments the fencing epoch. A
+stale owner, an expired owner, a discontinuous world cursor, or an entity
+compare-and-set failure aborts the whole transaction and reloads the committed
+journal. The optional `COSYWORLD_CANONICAL_LEASE_TTL_MS` setting accepts
+1000–300000 ms and defaults to 30000 ms.
+
+`canonical_world_state`, `canonical_partition_leases`,
+`canonical_entity_versions`, `canonical_claims`, and `canonical_commits` are
+created alongside the existing SQLite tables. Existing single-writer saves are
+backfilled from their durable event suffix on first open. The action journal
+remains the replay and rollback source, so this migration does not introduce a
+second save format or require an isolated-world merge.
+
+Presence is deliberately outside this commit protocol. `actor.presence` is an
+ephemeral fan-out event with `seq: 0`; it is not persisted, does not advance an
+entity version, and is not part of SSE resume. All events with `seq > 0` form
+the gap-free durable suffix ordered by `(world_epoch, world_seq)`.
 
 ## Routing and rendezvous
 
@@ -151,10 +176,10 @@ acknowledged event.
 ## Rollout order
 
 1. Add canonical identity and command/receipt envelopes while remaining one
-   process.
+   process. (Complete in #129.)
 2. Move the journal, idempotency receipts, entity versions, and fencing
-   authority to durable multi-process storage.
-3. Add stable routing, presence fan-out, invite rendezvous, and the pinned
+   authority to durable multi-process storage. (Complete in #128.)
+3. Add stable routing, regional presence fan-out, invite rendezvous, and the pinned
    two-process harness.
 4. Add partition handoff, hot-room fan-out, and process-loss tests.
 5. Add replicated regional recovery and prove the failover gate.
