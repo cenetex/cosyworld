@@ -30,11 +30,12 @@ For the OpenRouter player payer, Orb-paid Chat, real AI media, combat rewards, a
 
 ## Current Capabilities
 
-The official service has one canonical player world. The current runtime boots
-one single-writer orchestrator for it:
+The official service has one canonical player world. The current production
+shape still boots one orchestrator, backed by a durable fenced commit point:
 
-- The process owns the current authoritative projection, one SQLite
-  action/event store, one ownership projection, and one SSE stream.
+- SQLite atomically commits actions, globally ordered events, command receipts,
+  entity versions, claims, partition fences, and outbox jobs. The process owns
+  a replayable projection and one SSE fan-out, not an independent world save.
 - `COSYWORLD_PROCESS_ID` is the process label in `/meta`; it defaults to
   `local` for local profile and `public-1` for production profile.
   `COSYWORLD_V2_SHARD_ID` remains a compatibility input/output alias and must
@@ -43,11 +44,11 @@ one single-writer orchestrator for it:
 - The C kernel is built with fixed in-process capacities of 512 actors, 1024
   items, 256 locations, 1024 exits, 256 emitted events per kernel call, and 128
   evolution tracks. `/meta` exposes the live counters and these compiled caps.
-- Production remains one writer while SQLite owns the journal. Horizontal
-  capacity may be enabled only after processes share the canonical journal,
-  fenced partition ownership, stable routing, and the cross-process/failover
-  tests in [`docs/canonical-world.md`](docs/canonical-world.md). Starting
-  isolated public-world copies behind a load balancer is forbidden.
+- Production remains one writer while routing and failover gates are unfinished.
+  The journal and room leases are now storage-fenced, but horizontal capacity
+  may be enabled only after stable routing plus the cross-process/failover tests
+  in [`docs/canonical-world.md`](docs/canonical-world.md). Starting isolated
+  public-world copies behind a load balancer is forbidden.
 
 Seed world content:
 
@@ -378,6 +379,10 @@ COSYWORLD_V2_EVENT_DB_PATH=/tmp/cosyworld-v2-events.sqlite cargo run
 COSYWORLD_V2_SNAPSHOT_PATH=off cargo run
 COSYWORLD_V2_EVENT_DB_PATH=off cargo run
 ```
+
+The canonical lease defaults to 30 seconds. Local failure tests may override it
+with `COSYWORLD_CANONICAL_LEASE_TTL_MS` (1000–300000). An expired or superseded
+owner is rejected by SQLite; mutations are never buffered for a later merge.
 
 ## Play In A Terminal
 
