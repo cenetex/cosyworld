@@ -26,6 +26,10 @@ async function inspectTarget(value) {
   assert(health.ok === true, `${baseUrl.origin} health is not ok`);
   assert(meta.ok === true, `${baseUrl.origin} meta is not ok`);
   assert(meta.deployment?.profile === "production", `${baseUrl.origin} is not in production mode`);
+  assert(meta.deployment?.world_id === "world://cosyworld/official", `${baseUrl.origin} has the wrong canonical world id`);
+  assert(meta.deployment?.world_epoch === 1, `${baseUrl.origin} has the wrong canonical world epoch`);
+  assert(typeof meta.deployment?.process_id === "string" && meta.deployment.process_id.length > 0, `${baseUrl.origin} has no process id`);
+  assert(meta.deployment?.shard_id === meta.deployment?.process_id, `${baseUrl.origin} shard alias differs from process id`);
   assert(meta.ownership_feed?.remote_configured === true, `${baseUrl.origin} has no remote Ruby High feed`);
   assert(meta.ownership_feed?.bearer_configured === true, `${baseUrl.origin} has no Ruby High feed bearer`);
   assert(

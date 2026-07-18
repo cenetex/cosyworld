@@ -116,7 +116,24 @@ variable "deploy_profile" {
 variable "shard_id" {
   type        = string
   default     = "public-1"
-  description = "Legacy COSYWORLD_V2_SHARD_ID compatibility label for this capacity process; never canonical world identity."
+  description = "Legacy fallback process label retained for existing tfvars; never canonical world identity."
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9_-]{1,64}$", var.shard_id))
+    error_message = "shard_id must be 1-64 ASCII letters, numbers, '-' or '_'."
+  }
+}
+
+variable "process_id" {
+  type        = string
+  default     = null
+  nullable    = true
+  description = "COSYWORLD_PROCESS_ID capacity-process label. When null, the legacy shard_id input is used."
+
+  validation {
+    condition     = var.process_id == null || can(regex("^[A-Za-z0-9_-]{1,64}$", var.process_id))
+    error_message = "process_id must be null or 1-64 ASCII letters, numbers, '-' or '_'."
+  }
 }
 
 variable "ruby_high_wallet_cards_url" {

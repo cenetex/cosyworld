@@ -5643,6 +5643,23 @@
       return "The room did not catch that. Look around and try another choice.";
     }
 
+    function canonicalCommandEnvelope() {
+      const actor = (state?.actors || []).find((candidate) => Number(candidate?.id) === Number(actorId));
+      const location = state?.location || {};
+      const randomIntent = globalThis.crypto?.randomUUID?.()
+        || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      return {
+        world_id: state?.world_id || "world://cosyworld/official",
+        intent_id: `web:${randomIntent}`,
+        actor_ref: actor?.canonical_ref || "",
+        observed: {
+          ...(Number(actor?.entity_version) > 0 ? { actor_version: Number(actor.entity_version) } : {}),
+          ...(Number(location?.entity_version) > 0 ? { location_version: Number(location.entity_version) } : {}),
+        },
+        last_world_seq: Math.max(0, Number(state?.world_seq) || latestSeenSeq() || 0),
+      };
+    }
+
     async function runCommandText(commandText) {
       const command = String(commandText || "").trim();
       if (!command) return;
@@ -5663,6 +5680,7 @@
       const result = await post("/commands", withAccess({
         actor_id: actorId,
         command,
+        envelope: canonicalCommandEnvelope(),
       }));
       const resultEvents = result.events || [];
       pushEvents(resultEvents);

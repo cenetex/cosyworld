@@ -33,9 +33,11 @@ room owner  room owner  account owner     (fenced leases)
 - A **partition owner** is a fenced writer for a bounded entity set.
 - A **pack composition** is one version-locked content input to the world.
 
-The legacy `COSYWORLD_V2_SHARD_ID` setting currently labels a process in
-`/meta`. Do not use it in URLs, persistence keys, actor identity, invitations,
-claims, or player copy.
+`COSYWORLD_PROCESS_ID` labels a replaceable process in `/meta`.
+`COSYWORLD_V2_SHARD_ID` and `/meta.deployment.shard_id` remain compatibility
+aliases with the same value; startup fails if both environment variables are
+set differently. Do not use either label in URLs, persistence keys, actor
+identity, invitations, claims, or player copy.
 
 ## Consistency classes
 
@@ -75,6 +77,25 @@ The committed receipt adds `world_epoch`, `world_seq`, affected entity versions,
 and the owner fencing epoch. Transport retries reuse `intent_id`. A capacity
 process cannot replace or infer the authenticated actor reference from a local
 session alone.
+
+The current `POST /commands` request carries this object under `envelope` and
+returns it as a top-level `receipt`. `/state` and `/world` expose `world_id`,
+`world_epoch`, `world_seq`, canonical entity references, and entity versions;
+each public event carries its own `world_id`, `world_epoch`, and `seq` tuple;
+numeric ids remain compatibility handles for the in-process kernel. Authored
+entities keep their `pack://` references. Runtime actors, items, locations,
+journals, and pacts use opaque `world://cosyworld/official/...` references that
+survive snapshot and action-journal replay. Browser commands always send the
+envelope. Legacy callers without one receive a server-minted compatibility
+intent and a receipt marked `compatibility_envelope`; this bridge must not be
+used for transport retries.
+
+The single-writer runtime serializes canonical commands and persists receipts
+by `(world_id, intent_id)` in SQLite (or in the snapshot when SQLite is off).
+Reusing an intent with a different envelope fails closed, exact retries return
+the stored response, and stale observed versions return `409` before dispatch.
+Issue #128 moves the receipt, event append, versions, and fencing authority into
+one durable atomic transaction before horizontal writers are permitted.
 
 ## Routing and rendezvous
 

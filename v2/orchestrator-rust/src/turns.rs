@@ -584,6 +584,7 @@ pub(super) fn command_turn_rejected_response(
             "{current} has the room. Send a gentle nudge if they seem away."
         )),
         action: resolved.action,
+        receipt: None,
         events,
     })
 }

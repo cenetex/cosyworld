@@ -634,10 +634,12 @@ resource "aws_iam_role_policy" "ecs_secret_read" {
 }
 
 locals {
+  capacity_process_id = coalesce(var.process_id, var.shard_id)
   app_environment = concat([
     { name = "COSYWORLD_DEPLOY_PROFILE", value = var.deploy_profile },
     { name = "COSYWORLD_V2_ADDR", value = "0.0.0.0:3000" },
-    { name = "COSYWORLD_V2_SHARD_ID", value = var.shard_id },
+    { name = "COSYWORLD_PROCESS_ID", value = local.capacity_process_id },
+    { name = "COSYWORLD_V2_SHARD_ID", value = local.capacity_process_id },
     { name = "COSYWORLD_V2_SNAPSHOT_PATH", value = "/data/cosyworld-v2-snapshot.json" },
     { name = "COSYWORLD_V2_EVENT_DB_PATH", value = "/data/cosyworld-v2-events.sqlite" },
     { name = "COSYWORLD_GENERATED_ASSET_DIR", value = "/data/generated" },

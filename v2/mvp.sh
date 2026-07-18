@@ -91,6 +91,8 @@ print(
     "meta: "
     f"{meta.get('service')} {meta.get('version')} {meta.get('build_profile')} "
     f"profile={deployment.get('profile')} "
+    f"world={deployment.get('world_id')} "
+    f"process={deployment.get('process_id')} "
     f"chat={'server' if features.get('server_authored_chat') else 'unknown'} "
     f"client_speech={'on' if features.get('client_authored_speech') else 'off'} "
     f"actors={world.get('actor_count')} events={world.get('event_count')} "

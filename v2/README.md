@@ -35,9 +35,11 @@ one single-writer orchestrator for it:
 
 - The process owns the current authoritative projection, one SQLite
   action/event store, one ownership projection, and one SSE stream.
-- `COSYWORLD_V2_SHARD_ID` is a temporary compatibility name for the process
-  label in `/meta`; it defaults to `local` for local profile and `public-1` for
-  production profile. It is not world, room, actor, or save identity.
+- `COSYWORLD_PROCESS_ID` is the process label in `/meta`; it defaults to
+  `local` for local profile and `public-1` for production profile.
+  `COSYWORLD_V2_SHARD_ID` remains a compatibility input/output alias and must
+  match when both settings are present. Neither is world, room, actor, or save
+  identity.
 - The C kernel is built with fixed in-process capacities of 512 actors, 1024
   items, 256 locations, 1024 exits, 256 emitted events per kernel call, and 128
   evolution tracks. `/meta` exposes the live counters and these compiled caps.
@@ -210,6 +212,8 @@ The repository root `Dockerfile` builds the V2 release binary and runs `cosyworl
 The production Fly profile expects the active pack's protected entitlement feed, moderation token, and event store to be configured before boot:
 
 ```sh
+fly secrets set COSYWORLD_PROCESS_ID=public-1
+# During migration the old alias may remain, but must match:
 fly secrets set COSYWORLD_V2_SHARD_ID=public-1
 fly secrets set COSYWORLD_ENTITLEMENT_FEED_BEARER=...
 fly secrets set COSYWORLD_MODERATION_TOKEN=...
@@ -588,7 +592,7 @@ Locations are live channels:
 - `/state?actor_id=...` returns the actor's current location, visible presence, available actions, active-human room turn state, and room-scoped recent events.
 - `/world?actor_id=...&actor_session=...&wallet_session=...` returns the shared room map, gated/public status, accessible room contents, and locked-room summaries without exposing locked actor/item details.
 - `/stream?actor_id=...&actor_session=...&wallet_session=...` broadcasts accepted world events over SSE after filtering to public Cottage events plus rooms visible to that actor/wallet. SSE messages include the world event sequence as their event id, and reconnects can replay missed visible events with `after=<seq>` or the native `Last-Event-ID` header. A lagged broadcast receiver is closed so EventSource reconnects from its last delivered id instead of silently skipping room lines. If the bounded replay cannot reach the subscribe-time sequence, the stream emits a named `gap` event and the browser reloads `/state` before continuing live updates.
-- `/events` uses the same visibility query parameters for replay; walletless requests only receive public Cottage-visible events. The response is `{ "events": [...], "next_after": 123, "through_seq": 123, "caught_up": true }`. Replay defaults to the latest 80 visible events, accepts `limit=...`, and caps explicit requests at 500. Polling clients pass `next_after` into the next request so the cursor advances across events hidden by room or card visibility; each request scans at most 1,000 raw events.
+- `/events` uses the same visibility query parameters for replay; walletless requests only receive public Cottage-visible events. The response is `{ "world_id": "world://cosyworld/official", "world_epoch": 1, "events": [...], "next_after": 123, "through_seq": 123, "caught_up": true }`, so each event's `seq` completes its canonical public identity tuple. Replay defaults to the latest 80 visible events, accepts `limit=...`, and caps explicit requests at 500. Polling clients pass `next_after` into the next request so the cursor advances across events hidden by room or card visibility; each request scans at most 1,000 raw events.
 - Human presence in `/state` and `/world` is filtered to the current actor plus recently touched actor sessions; durable old avatars are not treated as online occupants.
 - `/presence/ping` and `/presence/leave` require the matching actor session and emit hidden `actor.presence` events only when the active-presence state changes.
 - When two or more active human avatars share a room, `/state.turn` names the human whose card play is live. A newcomer still receives one welcoming Listen card before joining the room rhythm, and that courtesy action does not steal or advance the current player's place. Personal first-tale choices remain available while waiting: Grow can keep a new memory and Practice can shape a knack without taking or passing the shared room turn. The gentle Nudge / I'm here handoff remains beside those personal choices instead of exposing technical timeout or initiative language. A nudge opens an eight-second room wait; players who answer are eligible for the next choice if the current player is away.
@@ -623,6 +627,7 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `GET /stream`
 - `POST /dev/reset` when `COSYWORLD_ENABLE_DEV_RESET=1`
 - `POST /avatar`
+- `POST /commands`
 - `POST /presence/ping`
 - `POST /presence/leave`
 - `POST /actions/chat`
@@ -637,6 +642,31 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /actions/attack`
 - `POST /actions/defend`
 - `POST /actions/flee`
+
+`POST /commands` is the canonical mutation gateway. New callers send the
+authenticated numeric actor handle plus the stable envelope advertised by
+`/state`:
+
+```json
+{
+  "actor_id": 5000,
+  "actor_session": "...",
+  "command": "go east",
+  "envelope": {
+    "world_id": "world://cosyworld/official",
+    "intent_id": "client:018f...",
+    "actor_ref": "world://cosyworld/official/actor/opaque-id",
+    "observed": { "actor_version": 18, "location_version": 402 },
+    "last_world_seq": 92811
+  }
+}
+```
+
+The response includes a durable `receipt` with the same world/intent/actor,
+the committed `world_epoch` and `world_seq`, affected canonical entity
+versions, and the current fencing epoch. Retry the exact envelope after a lost
+transport response. Reusing its `intent_id` for different content or sending a
+stale version returns `409` without another effect.
 
 `POST /actions/check` is the public Listen action, not a generic client-authored
 roll: the server always resolves Wisdom against DC 12, accepts only `wis` or
@@ -653,7 +683,7 @@ journaled as append-only lifecycle events, and persisted in snapshots. See
 [`docs/combat-system.md`](docs/combat-system.md) for the exact SRD-compatible
 surface and deliberate exclusions.
 
-`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, shard id/model, non-secret feature flags such as server-authored Chat and enabled client-authored speech, persistence mode, moderation report retention, ownership-feed mode, current world counters, compiled kernel capacities, and the mounted packs' exact license records. `GET /licenses` exposes those pack versions, license links, provenance, modification notices, and bundled attribution text without authentication. `./v2/mvp.sh status` prints a one-line summary from `/meta`.
+`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, canonical `world_id`/`world_epoch`, capacity `process_id`, matching legacy `shard_id`, non-secret feature flags such as server-authored Chat and enabled client-authored speech, persistence mode, moderation report retention, ownership-feed mode, current world counters, compiled kernel capacities, and the mounted packs' exact license records. `GET /licenses` exposes those pack versions, license links, provenance, modification notices, and bundled attribution text without authentication. `./v2/mvp.sh status` prints a one-line summary from `/meta`.
 
 Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, `/moderation/activation` returns first-session and day-seven retention evidence from the activation event table, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, Wooden Box receipt, and avatar pack opening rows without exposing player OpenRouter keys.
 

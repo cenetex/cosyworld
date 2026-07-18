@@ -2,6 +2,7 @@ mod account_auth;
 mod activation;
 mod ai_gateway;
 mod avatar_identity;
+mod canonical_world;
 mod content_load;
 mod content_packs;
 mod content_policy;
@@ -30,6 +31,7 @@ use axum::{
     Json,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use canonical_world::*;
 use content_load::*;
 use content_packs::*;
 use content_policy::*;
@@ -100,6 +102,7 @@ struct AppState {
     actor_suspensions: Arc<StdMutex<BTreeMap<u64, ActorSuspension>>>,
     rate_limiter: Arc<StdMutex<RateLimiter>>,
     actor_chat_locks: Arc<StdMutex<BTreeSet<u64>>>,
+    canonical_command_lock: Arc<Mutex<()>>,
     room_turns: Arc<StdMutex<RoomTurns>>,
     room_memory_cache: Arc<StdMutex<BTreeMap<u64, RoomMemoryCacheEntry>>>,
     room_memory_jobs: Arc<StdMutex<BTreeSet<(u64, u64, u64)>>>,
@@ -1079,6 +1082,8 @@ enum SearchRevealCandidate {
 #[derive(Clone, Debug)]
 struct RuntimeWorld {
     world: CwWorld,
+    canonical_identities: CanonicalIdentityState,
+    command_receipts: BTreeMap<String, StoredCommandResponse>,
     actors: BTreeMap<u64, ActorMeta>,
     items: BTreeMap<u64, ItemMeta>,
     locations: BTreeMap<u64, String>,
@@ -1122,6 +1127,10 @@ struct RuntimeSnapshot {
     world_version: u32,
     tick: u64,
     next_event_seq: u64,
+    #[serde(default)]
+    canonical_identities: CanonicalIdentityState,
+    #[serde(default)]
+    command_receipts: BTreeMap<String, StoredCommandResponse>,
     world_actors: Vec<CwActor>,
     world_items: Vec<CwItem>,
     world_locations: Vec<CwLocation>,
@@ -1689,6 +1698,8 @@ struct EventsQuery {
 
 #[derive(Clone, Debug, Serialize)]
 struct EventsResponse {
+    world_id: String,
+    world_epoch: u64,
     events: Vec<EventView>,
     next_after: u64,
     through_seq: u64,
@@ -2142,6 +2153,10 @@ struct ActionCostView {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct EventView {
+    #[serde(default = "official_world_id")]
+    world_id: String,
+    #[serde(default = "official_world_epoch")]
+    world_epoch: u64,
     seq: u64,
     #[serde(rename = "type")]
     type_name: String,
@@ -2195,6 +2210,8 @@ struct EventView {
 impl Default for EventView {
     fn default() -> Self {
         Self {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: 0,
             type_name: String::new(),
             success: false,
@@ -2773,7 +2790,8 @@ impl DeploymentConfig {
     fn local() -> Self {
         Self {
             profile: DeploymentProfile::Local,
-            shard_id: "local".to_string(),
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            process_id: "local".to_string(),
         }
     }
 
@@ -2784,15 +2802,23 @@ impl DeploymentConfig {
             .map(DeploymentProfile::parse)
             .transpose()?
             .unwrap_or(DeploymentProfile::Local);
-        let default_shard_id = if profile.is_production() {
+        let default_process_id = if profile.is_production() {
             "public-1"
         } else {
             "local"
         };
-        let shard_id =
-            std::env::var("COSYWORLD_V2_SHARD_ID").unwrap_or_else(|_| default_shard_id.to_string());
-        let shard_id = normalize_shard_id(&shard_id)?;
-        Ok(Self { profile, shard_id })
+        let configured_process_id = std::env::var("COSYWORLD_PROCESS_ID").ok();
+        let legacy_shard_id = std::env::var("COSYWORLD_V2_SHARD_ID").ok();
+        let process_id = resolve_process_id(
+            configured_process_id.as_deref(),
+            legacy_shard_id.as_deref(),
+            default_process_id,
+        )?;
+        Ok(Self {
+            profile,
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            process_id,
+        })
     }
 
     fn validate_runtime_options(
@@ -2854,19 +2880,26 @@ impl DeploymentConfig {
     }
 }
 
-fn normalize_shard_id(value: &str) -> io::Result<String> {
-    let shard_id = value.trim();
-    if shard_id.is_empty()
-        || shard_id.len() > 64
-        || !shard_id
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_'))
-    {
-        return Err(deployment_config_error(
-            "COSYWORLD_V2_SHARD_ID must be 1-64 ASCII letters, numbers, '-' or '_'",
-        ));
+fn resolve_process_id(
+    configured_process_id: Option<&str>,
+    legacy_shard_id: Option<&str>,
+    default_process_id: &str,
+) -> io::Result<String> {
+    match (configured_process_id, legacy_shard_id) {
+        (Some(process_id), Some(shard_id)) => {
+            let process_id = normalize_process_id(process_id, "COSYWORLD_PROCESS_ID")?;
+            let shard_id = normalize_process_id(shard_id, "COSYWORLD_V2_SHARD_ID")?;
+            if process_id != shard_id {
+                return Err(deployment_config_error(
+                    "COSYWORLD_PROCESS_ID and compatibility alias COSYWORLD_V2_SHARD_ID must match when both are set",
+                ));
+            }
+            Ok(process_id)
+        }
+        (Some(process_id), None) => normalize_process_id(process_id, "COSYWORLD_PROCESS_ID"),
+        (None, Some(shard_id)) => normalize_process_id(shard_id, "COSYWORLD_V2_SHARD_ID"),
+        (None, None) => normalize_process_id(default_process_id, "default process id"),
     }
-    Ok(shard_id.to_string())
 }
 
 fn deployment_config_error(message: impl Into<String>) -> io::Error {
@@ -3457,6 +3490,21 @@ fn client_actor_authorized_for_state(
 ) -> bool {
     !actor_is_suspended(state, actor_id)
         && client_actor_authorized(runtime, &state.actor_sessions, actor_id, actor_session)
+}
+
+fn client_actor_session_matches_for_state(
+    runtime: &RuntimeWorld,
+    state: &AppState,
+    actor_id: u64,
+    actor_session: Option<&str>,
+) -> bool {
+    !actor_is_suspended(state, actor_id)
+        && runtime.client_actor_can_submit(actor_id)
+        && actor_session
+            .and_then(|token| {
+                actor_session_active_for_actor(&state.actor_sessions, actor_id, token)
+            })
+            .is_some()
 }
 
 fn wallet_session_authorizes_actor_read(
@@ -4464,6 +4512,7 @@ impl AppState {
             actor_suspensions: Arc::new(StdMutex::new(actor_suspensions)),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
+            canonical_command_lock: Arc::new(Mutex::new(())),
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
@@ -4811,12 +4860,14 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 2,
+            version: 3,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             world_version: runtime.world.version,
             tick: runtime.world.tick,
             next_event_seq: runtime.world.next_event_seq,
+            canonical_identities: runtime.canonical_identities.clone(),
+            command_receipts: runtime.command_receipts.clone(),
             world_actors: runtime.world.actors[..runtime.world.actor_count].to_vec(),
             world_items: runtime.world.items[..runtime.world.item_count].to_vec(),
             world_locations: runtime.world.locations[..runtime.world.location_count].to_vec(),
@@ -4987,6 +5038,8 @@ impl RuntimeSnapshot {
 
         Ok(RuntimeWorld {
             world,
+            canonical_identities: self.canonical_identities,
+            command_receipts: self.command_receipts,
             actors: self.actor_meta,
             items: self.item_meta,
             locations: self.location_names,
@@ -5028,6 +5081,9 @@ impl RuntimeSnapshot {
             runtime.refresh_all_resident_continuities();
             runtime.ensure_actor_autonomy();
             runtime.ensure_world_simulation();
+            let mint_seed = runtime.next_seed;
+            runtime.ensure_canonical_identities(mint_seed);
+            runtime.refresh_all_canonical_events();
             runtime
         })
     }
@@ -5061,6 +5117,195 @@ fn zone_for_safety(safety: &str) -> &'static str {
 }
 
 impl RuntimeWorld {
+    fn ensure_canonical_identities(&mut self, mint_seed: u64) {
+        let actor_ids = self.world.actors[..self.world.actor_count]
+            .iter()
+            .map(|actor| actor.id)
+            .collect::<Vec<_>>();
+        let item_ids = self.world.items[..self.world.item_count]
+            .iter()
+            .map(|item| item.id)
+            .collect::<Vec<_>>();
+        let location_ids = self.world.locations[..self.world.location_count]
+            .iter()
+            .map(|location| location.id)
+            .chain(
+                self.generated_pathways
+                    .values()
+                    .flat_map(|pathway| pathway.waypoints.iter().map(|waypoint| waypoint.id)),
+            )
+            .collect::<BTreeSet<_>>();
+
+        for actor_id in actor_ids {
+            let canonical_ref = content_registry()
+                .content_reference("actor", actor_id)
+                .map(|entry| entry.canonical_ref.clone())
+                .unwrap_or_else(|| opaque_runtime_ref("actor", &format!("{actor_id}:{mint_seed}")));
+            self.canonical_identities
+                .actor_refs
+                .entry(actor_id)
+                .or_insert_with(|| canonical_ref.clone());
+            self.canonical_identities
+                .entity_versions
+                .entry(canonical_ref.clone())
+                .or_insert(1);
+            let journal_ref = opaque_runtime_ref("journal", &canonical_ref);
+            self.canonical_identities
+                .journal_refs
+                .entry(actor_id)
+                .or_insert_with(|| journal_ref.clone());
+            self.canonical_identities
+                .entity_versions
+                .entry(journal_ref)
+                .or_insert(1);
+        }
+        for item_id in item_ids {
+            let canonical_ref = content_registry()
+                .content_reference("item", item_id)
+                .map(|entry| entry.canonical_ref.clone())
+                .unwrap_or_else(|| opaque_runtime_ref("item", &format!("{item_id}:{mint_seed}")));
+            self.canonical_identities
+                .item_refs
+                .entry(item_id)
+                .or_insert_with(|| canonical_ref.clone());
+            self.canonical_identities
+                .entity_versions
+                .entry(canonical_ref)
+                .or_insert(1);
+        }
+        for location_id in location_ids {
+            let canonical_ref = content_registry()
+                .content_reference("location", location_id)
+                .map(|entry| entry.canonical_ref.clone())
+                .unwrap_or_else(|| {
+                    opaque_runtime_ref("location", &format!("{location_id}:{mint_seed}"))
+                });
+            self.canonical_identities
+                .location_refs
+                .entry(location_id)
+                .or_insert_with(|| canonical_ref.clone());
+            self.canonical_identities
+                .entity_versions
+                .entry(canonical_ref)
+                .or_insert(1);
+        }
+        for bond_id in self.bonds.keys() {
+            let canonical_ref = opaque_runtime_ref("pact", bond_id);
+            self.canonical_identities
+                .pact_refs
+                .entry(bond_id.clone())
+                .or_insert_with(|| canonical_ref.clone());
+            self.canonical_identities
+                .entity_versions
+                .entry(canonical_ref)
+                .or_insert(1);
+        }
+    }
+
+    fn canonical_ref(&self, kind: &str, runtime_handle: u64) -> Option<&str> {
+        match kind {
+            "actor" => self.canonical_identities.actor_refs.get(&runtime_handle),
+            "item" => self.canonical_identities.item_refs.get(&runtime_handle),
+            "location" => self.canonical_identities.location_refs.get(&runtime_handle),
+            "journal" => self.canonical_identities.journal_refs.get(&runtime_handle),
+            _ => None,
+        }
+        .map(String::as_str)
+    }
+
+    fn canonical_pact_ref(&self, bond_id: &str) -> Option<&str> {
+        self.canonical_identities
+            .pact_refs
+            .get(bond_id)
+            .map(String::as_str)
+    }
+
+    fn entity_version(&self, canonical_ref: &str) -> u64 {
+        self.canonical_identities
+            .entity_versions
+            .get(canonical_ref)
+            .copied()
+            .unwrap_or(0)
+    }
+
+    fn event_entity_refs(&self, event: &EventView) -> BTreeSet<String> {
+        [
+            ("actor", event.actor_id),
+            ("actor", event.target_actor_id),
+            ("location", event.location_id),
+            ("location", event.destination_location_id),
+            ("location", event.source_location_id),
+            ("item", event.item_id),
+            ("item", event.target_item_id),
+        ]
+        .into_iter()
+        .filter_map(|(kind, handle)| handle.and_then(|handle| self.canonical_ref(kind, handle)))
+        .map(ToString::to_string)
+        .collect()
+    }
+
+    fn bump_entity_versions_for_events(&mut self, events: &[EventView]) {
+        let mut affected = events
+            .iter()
+            .filter(|event| event.success)
+            .flat_map(|event| self.event_entity_refs(event))
+            .collect::<BTreeSet<_>>();
+        for actor_id in events
+            .iter()
+            .filter(|event| event.success)
+            .flat_map(|event| {
+                [event.actor_id, event.target_actor_id]
+                    .into_iter()
+                    .flatten()
+            })
+        {
+            if let Some(journal_ref) = self.canonical_ref("journal", actor_id) {
+                affected.insert(journal_ref.to_string());
+            }
+        }
+        if events.iter().any(|event| {
+            event.success
+                && matches!(
+                    event.type_name.as_str(),
+                    "bond.created" | "bond.revised" | "bond.deepened" | "bond.resolved"
+                )
+        }) {
+            affected.extend(self.canonical_identities.pact_refs.values().cloned());
+        }
+        for canonical_ref in affected {
+            let version = self
+                .canonical_identities
+                .entity_versions
+                .entry(canonical_ref)
+                .or_insert(1);
+            *version = version.saturating_add(1);
+        }
+    }
+
+    fn refresh_canonical_events(&mut self, events: &mut [EventView]) {
+        for event in events.iter_mut() {
+            event.world_id = official_world_id();
+            event.world_epoch = official_world_epoch();
+        }
+        for event in events.iter().filter(|event| event.seq > 0) {
+            if let Some(logged) = self
+                .event_log
+                .iter_mut()
+                .rev()
+                .find(|logged| logged.seq == event.seq)
+            {
+                *logged = event.clone();
+            }
+        }
+    }
+
+    fn refresh_all_canonical_events(&mut self) {
+        for event in &mut self.event_log {
+            event.world_id = official_world_id();
+            event.world_epoch = official_world_epoch();
+        }
+    }
+
     fn from_action_journal(path: &Path) -> io::Result<Self> {
         let mut runtime = Self::seeded();
         let records = read_action_journal(path)?;
@@ -5095,6 +5340,9 @@ impl RuntimeWorld {
         runtime.ensure_seed_rpg_projection();
         runtime.backfill_generated_avatar_flavor();
         runtime.ensure_actor_autonomy();
+        let mint_seed = runtime.next_seed;
+        runtime.ensure_canonical_identities(mint_seed);
+        runtime.refresh_all_canonical_events();
         Ok(runtime)
     }
 
@@ -5107,6 +5355,8 @@ impl RuntimeWorld {
 
         let mut runtime = RuntimeWorld {
             world,
+            canonical_identities: CanonicalIdentityState::default(),
+            command_receipts: BTreeMap::new(),
             actors: seed_actor_meta(),
             items: seed_item_meta(),
             locations: seed_location_names(),
@@ -5141,8 +5391,10 @@ impl RuntimeWorld {
         };
 
         runtime.ensure_seed_topology();
+        runtime.ensure_canonical_identities(0);
         runtime.append_world_bootstrapped_event();
         runtime.ensure_seed_rpg_projection();
+        runtime.refresh_all_canonical_events();
         runtime.backfill_generated_avatar_flavor();
         runtime.refresh_all_resident_continuities();
         runtime.ensure_actor_autonomy();
@@ -5632,6 +5884,8 @@ impl RuntimeWorld {
     fn append_world_reset_event(&mut self) -> EventView {
         let entry_location_id = content_registry().entry_location_id();
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "world.reset".to_string(),
             success: true,
@@ -5683,6 +5937,8 @@ impl RuntimeWorld {
     fn append_world_bootstrapped_event(&mut self) -> EventView {
         let entry_location_id = content_registry().entry_location_id();
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "world.bootstrapped".to_string(),
             success: true,
@@ -5738,6 +5994,8 @@ impl RuntimeWorld {
         to_location_id: u64,
     ) -> EventView {
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "actor.moved".to_string(),
             success: true,
@@ -5798,6 +6056,8 @@ impl RuntimeWorld {
             .map(|actor| actor.location_id)
             .unwrap_or(0);
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: event_type.to_string(),
             success: true,
@@ -5853,6 +6113,8 @@ impl RuntimeWorld {
             .map(|actor| actor.location_id)
             .unwrap_or(1);
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "actor.presence".to_string(),
             success: true,
@@ -5913,6 +6175,8 @@ impl RuntimeWorld {
             .map(|actor| actor.location_id)
             .or_else(|| content_registry().entry_location_id());
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
             success: !type_name.ends_with(".failed"),
@@ -5970,6 +6234,8 @@ impl RuntimeWorld {
         _reason: &str,
     ) -> EventView {
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "item.used".to_string(),
             success: true,
@@ -6027,6 +6293,8 @@ impl RuntimeWorld {
         reason: &str,
     ) -> EventView {
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "feature.searched".to_string(),
             success: true,
@@ -6083,6 +6351,8 @@ impl RuntimeWorld {
         reason: &str,
     ) -> EventView {
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "location.searched".to_string(),
             success: true,
@@ -6139,6 +6409,8 @@ impl RuntimeWorld {
         content: String,
     ) -> EventView {
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "exit.discovered".to_string(),
             success: true,
@@ -6195,6 +6467,8 @@ impl RuntimeWorld {
         content: String,
     ) -> EventView {
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "avatar.discovered".to_string(),
             success: true,
@@ -6253,6 +6527,8 @@ impl RuntimeWorld {
             .or_else(|| self.actor_by_id(branch.target_actor_id))
             .map(|actor| actor.location_id);
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
             success: true,
@@ -6314,6 +6590,8 @@ impl RuntimeWorld {
     fn append_hand_shuffled_event(&mut self, actor_id: u64, reason: &str) -> EventView {
         let location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "hand.shuffled".to_string(),
             success: true,
@@ -6373,6 +6651,8 @@ impl RuntimeWorld {
         caused_by_event_seq: Option<u64>,
     ) -> EventView {
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
             success: true,
@@ -6406,6 +6686,8 @@ impl RuntimeWorld {
             self.actor_by_id(actor_id).map(|actor| actor.location_id)
         };
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
             success: true,
@@ -6467,6 +6749,8 @@ impl RuntimeWorld {
             self.actor_by_id(actor_id).map(|actor| actor.location_id)
         };
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
             success: true,
@@ -6528,6 +6812,8 @@ impl RuntimeWorld {
             .copied()
             .or_else(|| self.actor_by_id(actor_id).map(|actor| actor.location_id));
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
             success: true,
@@ -6586,6 +6872,8 @@ impl RuntimeWorld {
             .actor_by_id(calling.actor_id)
             .map(|actor| actor.location_id);
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
             success: true,
@@ -6644,6 +6932,8 @@ impl RuntimeWorld {
             .actor_by_id(skill.actor_id)
             .map(|actor| actor.location_id);
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
             success: true,
@@ -6702,6 +6992,8 @@ impl RuntimeWorld {
             .actor_by_id(mark.actor_id)
             .map(|actor| actor.location_id);
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
             success: true,
@@ -6759,6 +7051,8 @@ impl RuntimeWorld {
     ) -> EventView {
         let location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "ledger.banked".to_string(),
             success: true,
@@ -6817,6 +7111,8 @@ impl RuntimeWorld {
             .actor_by_id(spend.actor_id)
             .map(|actor| actor.location_id);
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
             success: true,
@@ -6874,6 +7170,8 @@ impl RuntimeWorld {
             .or_else(|| self.actor_by_id(bond.target_actor_id))
             .map(|actor| actor.location_id);
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: type_name.to_string(),
             success: true,
@@ -7184,6 +7482,11 @@ impl RuntimeWorld {
                 }
             }
         }
+        self.ensure_canonical_identities(record.seed);
+        if status == CW_OK {
+            self.bump_entity_versions_for_events(&events);
+        }
+        self.refresh_canonical_events(&mut events);
         (status, events)
     }
 
@@ -9518,6 +9821,8 @@ impl RuntimeWorld {
 
     fn event_view(&self, event: &CwEvent) -> EventView {
         EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: event.seq,
             type_name: event_type_name(event.type_),
             success: event.success != 0,
@@ -14254,6 +14559,8 @@ impl RuntimeWorld {
         location_id: u64,
     ) -> EventView {
         let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
             seq: self.world.next_event_seq,
             type_name: "encounter.reset".to_string(),
             success: true,
@@ -19704,7 +20011,10 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         deployment: MetaDeployment {
             profile: state.deployment.profile.as_str(),
             production: state.deployment.profile.is_production(),
-            shard_id: state.deployment.shard_id.clone(),
+            world_id: state.deployment.world_id.clone(),
+            world_epoch: OFFICIAL_WORLD_EPOCH,
+            process_id: state.deployment.process_id.clone(),
+            shard_id: state.deployment.process_id.clone(),
             shard_model: "single_process",
         },
         features: MetaFeatureFlags {
@@ -21023,6 +21333,8 @@ async fn events_view(
     let after = query.after.unwrap_or(0);
     if replay_limit == 0 {
         return Json(EventsResponse {
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            world_epoch: OFFICIAL_WORLD_EPOCH,
             events: Vec::new(),
             next_after: after,
             through_seq,
@@ -21645,6 +21957,8 @@ fn event_replay_response(
     let after_seq = after.unwrap_or(0);
     if replay_limit == 0 {
         return EventsResponse {
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            world_epoch: OFFICIAL_WORLD_EPOCH,
             events: Vec::new(),
             next_after: after_seq,
             through_seq,
@@ -21662,6 +21976,8 @@ fn event_replay_response(
             .filter(|event| event_visible_to_locations(event, visible_locations))
             .collect();
         return EventsResponse {
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            world_epoch: OFFICIAL_WORLD_EPOCH,
             events: tail_event_replay(visible, replay_limit),
             next_after,
             through_seq,
@@ -21696,6 +22012,8 @@ fn event_replay_response(
         history_complete = false;
     }
     EventsResponse {
+        world_id: OFFICIAL_WORLD_ID.to_string(),
+        world_epoch: OFFICIAL_WORLD_EPOCH,
         events,
         next_after,
         through_seq,
@@ -21990,7 +22308,7 @@ async fn commit_presence_event(state: &AppState, actor_id: u64, active: bool) ->
     if runtime.latest_actor_presence_state(actor_id) == Some(active) {
         return Vec::new();
     }
-    let event = runtime.append_actor_presence_event(actor_id, active);
+    let mut event = runtime.append_actor_presence_event(actor_id, active);
     if active {
         let action = CwAction {
             kind: CW_ACTION_NONE,
@@ -21999,6 +22317,10 @@ async fn commit_presence_event(state: &AppState, actor_id: u64, active: bool) ->
         };
         runtime.apply_resident_memory_projection(&action, std::slice::from_ref(&event));
     }
+    let mint_seed = runtime.next_seed;
+    runtime.ensure_canonical_identities(mint_seed);
+    runtime.bump_entity_versions_for_events(std::slice::from_ref(&event));
+    runtime.refresh_canonical_events(std::slice::from_mut(&mut event));
     persist_runtime(state, &runtime);
     drop(runtime);
 
@@ -22678,6 +23000,7 @@ fn narrative_move_rejected_response(
         verb: String::new(),
         output: Some(output.into()),
         action: None,
+        receipt: None,
         events: Vec::new(),
     })
 }
@@ -22846,12 +23169,289 @@ async fn submit_narrative_move(
             wallet_session: Some(session_id),
             owned_card_ids: None,
             cards: None,
+            envelope: None,
         }),
     )
     .await
 }
 
+fn canonical_command_error(
+    command: &str,
+    status: u32,
+    output: impl Into<String>,
+) -> Json<CommandResponse> {
+    Json(CommandResponse {
+        ok: false,
+        status,
+        command: normalize_command_text(command),
+        verb: String::new(),
+        output: Some(output.into()),
+        action: None,
+        receipt: None,
+        events: Vec::new(),
+    })
+}
+
 async fn command(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(mut payload): Json<CommandRequest>,
+) -> Json<CommandResponse> {
+    // #128 moves this serialization and the receipt/event append into the
+    // durable authority. While production remains one process, this lock makes
+    // the canonical intent check and command execution one local critical section.
+    let _command_guard = state.canonical_command_lock.lock().await;
+    let compatibility_envelope = payload.envelope.is_none();
+    let envelope = {
+        let mut runtime = state.inner.lock().await;
+        let mint_seed = runtime.next_seed;
+        runtime.ensure_canonical_identities(mint_seed);
+        let Some(actor_ref) = runtime
+            .canonical_ref("actor", payload.actor_id)
+            .map(ToString::to_string)
+        else {
+            return canonical_command_error(
+                &payload.command,
+                404,
+                "The canonical actor could not be found.",
+            );
+        };
+        match payload.envelope.clone() {
+            Some(mut envelope) => {
+                if envelope.world_id != OFFICIAL_WORLD_ID {
+                    return canonical_command_error(
+                        &payload.command,
+                        409,
+                        "This command names a different canonical world.",
+                    );
+                }
+                let intent_id = match validate_intent_id(&envelope.intent_id) {
+                    Ok(intent_id) => intent_id,
+                    Err(error) => return canonical_command_error(&payload.command, 400, error),
+                };
+                if envelope.actor_ref != actor_ref {
+                    return canonical_command_error(
+                        &payload.command,
+                        409,
+                        "The canonical actor reference does not match the authenticated avatar.",
+                    );
+                }
+                envelope.intent_id = intent_id;
+                envelope
+            }
+            None => CanonicalCommandEnvelope {
+                world_id: OFFICIAL_WORLD_ID.to_string(),
+                intent_id: format!("compat:{}", random_hex(16)),
+                actor_ref,
+                observed: CanonicalObservedVersions::default(),
+                last_world_seq: runtime.world.next_event_seq.saturating_sub(1),
+            },
+        }
+    };
+
+    let request_hash = command_request_hash(
+        &envelope.actor_ref,
+        &normalize_command_text(&payload.command),
+        &envelope.observed,
+        envelope.last_world_seq,
+    );
+    let receipt_key = canonical_command_receipt_key(&envelope.world_id, &envelope.intent_id);
+
+    {
+        let runtime = state.inner.lock().await;
+        if !client_actor_session_matches_for_state(
+            &runtime,
+            &state,
+            payload.actor_id,
+            payload.actor_session.as_deref(),
+        ) {
+            return canonical_command_error(
+                &payload.command,
+                403,
+                "Your avatar slipped out of reach. Begin again or reconnect your account.",
+            );
+        }
+    }
+
+    let stored = {
+        let runtime = state.inner.lock().await;
+        runtime.command_receipts.get(&receipt_key).cloned()
+    }
+    .or_else(|| {
+        state.event_store_path.as_deref().and_then(|path| {
+            match read_canonical_command_response(path, &envelope.world_id, &envelope.intent_id) {
+                Ok(stored) => stored,
+                Err(error) => {
+                    warn!(
+                        "failed to read canonical command receipt from {}: {}",
+                        path.display(),
+                        error
+                    );
+                    None
+                }
+            }
+        })
+    });
+    if let Some(stored) = stored {
+        if stored.request_hash != request_hash {
+            return canonical_command_error(
+                &payload.command,
+                409,
+                "That intent_id is already bound to a different command envelope.",
+            );
+        }
+        return match serde_json::from_str::<CommandResponse>(&stored.response_json) {
+            Ok(response) => Json(response),
+            Err(error) => {
+                error!("stored canonical command receipt is invalid: {}", error);
+                canonical_command_error(
+                    &payload.command,
+                    500,
+                    "The committed command receipt could not be read.",
+                )
+            }
+        };
+    }
+
+    {
+        let runtime = state.inner.lock().await;
+        let current_world_seq = runtime.world.next_event_seq.saturating_sub(1);
+        if envelope.last_world_seq > current_world_seq {
+            return canonical_command_error(
+                &payload.command,
+                409,
+                "The command observes a public event cursor ahead of this world.",
+            );
+        }
+        if let Some(observed) = envelope.observed.actor_version {
+            let current = runtime.entity_version(&envelope.actor_ref);
+            if observed != current {
+                return canonical_command_error(
+                    &payload.command,
+                    409,
+                    format!(
+                        "Stale actor version: observed {observed}, current {current}. Refresh before retrying."
+                    ),
+                );
+            }
+        }
+        if let Some(observed) = envelope.observed.location_version {
+            let current = runtime
+                .actor_by_id(payload.actor_id)
+                .and_then(|actor| runtime.canonical_ref("location", actor.location_id))
+                .map(|canonical_ref| runtime.entity_version(canonical_ref))
+                .unwrap_or_default();
+            if observed != current {
+                return canonical_command_error(
+                    &payload.command,
+                    409,
+                    format!(
+                        "Stale location version: observed {observed}, current {current}. Refresh before retrying."
+                    ),
+                );
+            }
+        }
+        for (canonical_ref, observed) in &envelope.observed.entities {
+            let current = runtime
+                .canonical_identities
+                .entity_versions
+                .get(canonical_ref)
+                .copied();
+            if current != Some(*observed) {
+                return canonical_command_error(
+                    &payload.command,
+                    409,
+                    format!(
+                        "Stale or unknown entity version for {canonical_ref}. Refresh before retrying."
+                    ),
+                );
+            }
+        }
+    }
+
+    payload.envelope = Some(envelope.clone());
+    let Json(mut response) = command_inner(
+        ConnectInfo(client_addr),
+        State(state.clone()),
+        Json(payload.clone()),
+    )
+    .await;
+
+    let stored = {
+        let mut runtime = state.inner.lock().await;
+        let mint_seed = runtime.next_seed;
+        runtime.ensure_canonical_identities(mint_seed);
+        let mut entity_versions = response
+            .events
+            .iter()
+            .flat_map(|event| runtime.event_entity_refs(event))
+            .map(|canonical_ref| {
+                let version = runtime.entity_version(&canonical_ref);
+                (canonical_ref, version)
+            })
+            .collect::<BTreeMap<_, _>>();
+        for kind in ["actor", "journal"] {
+            if let Some(canonical_ref) = runtime.canonical_ref(kind, payload.actor_id) {
+                entity_versions.insert(
+                    canonical_ref.to_string(),
+                    runtime.entity_version(canonical_ref),
+                );
+            }
+        }
+        if let Some(location_ref) = runtime
+            .actor_by_id(payload.actor_id)
+            .and_then(|actor| runtime.canonical_ref("location", actor.location_id))
+        {
+            entity_versions.insert(
+                location_ref.to_string(),
+                runtime.entity_version(location_ref),
+            );
+        }
+        response.receipt = Some(CanonicalCommandReceipt {
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            world_epoch: OFFICIAL_WORLD_EPOCH,
+            world_seq: runtime.world.next_event_seq.saturating_sub(1),
+            intent_id: envelope.intent_id.clone(),
+            actor_ref: envelope.actor_ref.clone(),
+            entity_versions,
+            owner_fencing_epoch: SINGLE_WRITER_FENCING_EPOCH,
+            compatibility_envelope,
+        });
+        let response_json = match serde_json::to_string(&response) {
+            Ok(response_json) => response_json,
+            Err(error) => {
+                error!("failed to serialize canonical command receipt: {}", error);
+                return canonical_command_error(
+                    &payload.command,
+                    500,
+                    "The canonical command receipt could not be written.",
+                );
+            }
+        };
+        let stored = StoredCommandResponse {
+            request_hash,
+            response_json,
+        };
+        runtime.command_receipts.insert(receipt_key, stored.clone());
+        persist_runtime(&state, &runtime);
+        stored
+    };
+
+    if let Some(path) = state.event_store_path.as_deref() {
+        if let Err(error) =
+            write_canonical_command_response(path, &envelope.world_id, &envelope.intent_id, &stored)
+        {
+            warn!(
+                "failed to persist canonical command receipt to {}: {}",
+                path.display(),
+                error
+            );
+        }
+    }
+    Json(response)
+}
+
+async fn command_inner(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
     Json(payload): Json<CommandRequest>,
@@ -22911,6 +23511,7 @@ async fn command(
             verb: "nudge".to_string(),
             output: Some(output.to_string()),
             action: None,
+            receipt: None,
             events: response.events,
         });
     }
@@ -22932,6 +23533,7 @@ async fn command(
                         .to_string(),
                 ),
                 action: None,
+                receipt: None,
                 events: Vec::new(),
             });
         }
@@ -22955,6 +23557,7 @@ async fn command(
                 verb: error.verb,
                 output: Some(error.output),
                 action: None,
+                receipt: None,
                 events: presence_events,
             });
         }
@@ -22977,6 +23580,7 @@ async fn command(
             verb: resolved.verb,
             output: Some(output),
             action: resolved.action,
+            receipt: None,
             events: presence_events,
         }),
         CommandDispatch::Disabled { status, output } => Json(CommandResponse {
@@ -22986,6 +23590,7 @@ async fn command(
             verb: resolved.verb,
             output: Some(output),
             action: resolved.action,
+            receipt: None,
             events: presence_events,
         }),
         CommandDispatch::Move {
@@ -23122,6 +23727,7 @@ async fn command(
                             .to_string(),
                     ),
                     action: resolved.action,
+                    receipt: None,
                     events: presence_events,
                 });
             }
@@ -23136,6 +23742,7 @@ async fn command(
                     verb: resolved.verb,
                     output: Some("You are no longer in that room.".to_string()),
                     action: resolved.action,
+                    receipt: None,
                     events: presence_events,
                 });
             }
@@ -23160,6 +23767,7 @@ async fn command(
                     verb: resolved.verb,
                     output: Some(output.to_string()),
                     action: resolved.action,
+                    receipt: None,
                     events: presence_events,
                 });
             }
@@ -23269,6 +23877,7 @@ async fn command(
                             .to_string(),
                     ),
                     action: resolved.action,
+                    receipt: None,
                     events: presence_events,
                 });
             };
@@ -23329,6 +23938,7 @@ async fn command(
                             .to_string(),
                     ),
                     action: resolved.action,
+                    receipt: None,
                     events: presence_events,
                 });
             }
@@ -23352,6 +23962,7 @@ async fn command(
                     verb: resolved.verb,
                     output: Some("That room feature has already answered this item.".to_string()),
                     action: resolved.action,
+                    receipt: None,
                     events: presence_events,
                 });
             }
@@ -23385,6 +23996,7 @@ async fn command(
                             .to_string(),
                     ),
                     action: resolved.action,
+                    receipt: None,
                     events: presence_events,
                 });
             };
@@ -23681,6 +24293,7 @@ async fn command(
                 verb: resolved.verb,
                 output,
                 action: resolved.action,
+                receipt: None,
                 events: presence_events,
             })
         }
@@ -29109,6 +29722,8 @@ async fn stream_replay_events(
     if after.is_none() || replay_limit == 0 {
         let after_seq = after.unwrap_or(0);
         return EventsResponse {
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            world_epoch: OFFICIAL_WORLD_EPOCH,
             events: Vec::new(),
             next_after: after_seq,
             through_seq,
@@ -30232,6 +30847,8 @@ fn calling_matches_listen(statement: &str) -> bool {
 
 fn empty_visit_ledger_view() -> VisitLedgerView {
     VisitLedgerView {
+        journal_ref: None,
+        entity_version: 0,
         unbanked_count: 0,
         banked_count: 0,
         spent_count: 0,
@@ -31119,6 +31736,16 @@ fn init_event_store(path: &Path) -> io::Result<()> {
             created_at_ms INTEGER NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_action_journal_kind ON action_journal(action_kind);
+        CREATE TABLE IF NOT EXISTS canonical_command_receipts (
+            world_id TEXT NOT NULL,
+            intent_id TEXT NOT NULL,
+            request_hash TEXT NOT NULL,
+            response_json TEXT NOT NULL,
+            created_at_ms INTEGER NOT NULL,
+            PRIMARY KEY (world_id, intent_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_canonical_command_receipts_created
+            ON canonical_command_receipts(created_at_ms);
         CREATE TABLE IF NOT EXISTS actor_jobs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             kind TEXT NOT NULL,
@@ -32313,6 +32940,7 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
     conn.execute_batch(
         "DELETE FROM world_events;
          DELETE FROM action_journal;
+         DELETE FROM canonical_command_receipts;
          DELETE FROM actor_jobs;
          DELETE FROM actor_sessions;
          DELETE FROM wallet_avatar_links;
@@ -32821,6 +33449,58 @@ fn open_event_store(path: &Path) -> io::Result<Connection> {
     Connection::open(path).map_err(sqlite_error)
 }
 
+fn canonical_command_receipt_key(world_id: &str, intent_id: &str) -> String {
+    format!("{world_id}\u{0}{intent_id}")
+}
+
+fn read_canonical_command_response(
+    path: &Path,
+    world_id: &str,
+    intent_id: &str,
+) -> io::Result<Option<StoredCommandResponse>> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    conn.query_row(
+        "SELECT request_hash, response_json
+         FROM canonical_command_receipts
+         WHERE world_id = ?1 AND intent_id = ?2",
+        params![world_id, intent_id],
+        |row| {
+            Ok(StoredCommandResponse {
+                request_hash: row.get(0)?,
+                response_json: row.get(1)?,
+            })
+        },
+    )
+    .optional()
+    .map_err(sqlite_error)
+}
+
+fn write_canonical_command_response(
+    path: &Path,
+    world_id: &str,
+    intent_id: &str,
+    stored: &StoredCommandResponse,
+) -> io::Result<bool> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let inserted = conn
+        .execute(
+            "INSERT OR IGNORE INTO canonical_command_receipts
+             (world_id, intent_id, request_hash, response_json, created_at_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                world_id,
+                intent_id,
+                stored.request_hash,
+                stored.response_json,
+                now_millis() as i64
+            ],
+        )
+        .map_err(sqlite_error)?;
+    Ok(inserted == 1)
+}
+
 fn snapshot_error(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
@@ -32960,6 +33640,23 @@ mod tests {
         assert_eq!(canonical_direction("home"), Some("out"));
     }
 
+    #[test]
+    fn process_id_prefers_the_new_name_and_validates_the_shard_alias() {
+        assert_eq!(
+            resolve_process_id(Some("api-west-2"), None, "local").unwrap(),
+            "api-west-2"
+        );
+        assert_eq!(
+            resolve_process_id(None, Some("legacy-east"), "local").unwrap(),
+            "legacy-east"
+        );
+        assert_eq!(
+            resolve_process_id(Some("same"), Some("same"), "local").unwrap(),
+            "same"
+        );
+        assert!(resolve_process_id(Some("api-a"), Some("api-b"), "local").is_err());
+    }
+
     fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<PathBuf>) -> AppState {
         let (tx, _) = broadcast::channel(32);
         AppState {
@@ -32992,6 +33689,7 @@ mod tests {
             actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
+            canonical_command_lock: Arc::new(Mutex::new(())),
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
@@ -33016,6 +33714,7 @@ mod tests {
             wallet_session: None,
             owned_card_ids: None,
             cards: None,
+            envelope: None,
         }
     }
 
@@ -33036,6 +33735,199 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    }
+
+    fn canonical_test_command_request(
+        runtime: &RuntimeWorld,
+        actor_id: u64,
+        actor_session: &str,
+        intent_id: &str,
+        command: &str,
+    ) -> CommandRequest {
+        let actor = runtime.actor_by_id(actor_id).expect("canonical test actor");
+        let actor_ref = runtime
+            .canonical_ref("actor", actor_id)
+            .expect("canonical actor ref")
+            .to_string();
+        let location_ref = runtime
+            .canonical_ref("location", actor.location_id)
+            .expect("canonical location ref");
+        CommandRequest {
+            actor_id,
+            actor_session: Some(actor_session.to_string()),
+            command: command.to_string(),
+            wallet_address: None,
+            wallet: None,
+            wallet_session: None,
+            owned_card_ids: None,
+            cards: None,
+            envelope: Some(CanonicalCommandEnvelope {
+                world_id: OFFICIAL_WORLD_ID.to_string(),
+                intent_id: intent_id.to_string(),
+                actor_ref: actor_ref.clone(),
+                observed: CanonicalObservedVersions {
+                    actor_version: Some(runtime.entity_version(&actor_ref)),
+                    location_version: Some(runtime.entity_version(location_ref)),
+                    entities: BTreeMap::new(),
+                },
+                last_world_seq: runtime.world.next_event_seq.saturating_sub(1),
+            }),
+        }
+    }
+
+    #[test]
+    fn snapshot_canonical_refs_ignore_capacity_process_names() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Process Neutral",
+        );
+        let expected_ref = runtime
+            .canonical_ref("actor", 5000)
+            .expect("runtime actor ref")
+            .to_string();
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-canonical-process-neutral-{}.json",
+            random_hex(8)
+        ));
+        runtime
+            .save_snapshot(&path)
+            .expect("save canonical snapshot");
+
+        let west = DeploymentConfig {
+            profile: DeploymentProfile::Local,
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            process_id: "api-west".to_string(),
+        };
+        let east = DeploymentConfig {
+            profile: DeploymentProfile::Local,
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            process_id: "api-east".to_string(),
+        };
+        let west_runtime = RuntimeWorld::load_snapshot(&path).expect("west snapshot replay");
+        let east_runtime = RuntimeWorld::load_snapshot(&path).expect("east snapshot replay");
+        fs::remove_file(&path).expect("remove canonical snapshot fixture");
+
+        assert_ne!(west.process_id, east.process_id);
+        assert_eq!(west.world_id, east.world_id);
+        assert_eq!(
+            west_runtime.canonical_ref("actor", 5000),
+            Some(expected_ref.as_str())
+        );
+        assert_eq!(
+            east_runtime.canonical_ref("actor", 5000),
+            Some(expected_ref.as_str())
+        );
+    }
+
+    #[tokio::test]
+    async fn duplicate_canonical_intent_returns_the_same_receipt_and_one_effect() {
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Idempotent Neighbour",
+        );
+        let state = test_app_state(runtime, None);
+        let actor_session = create_actor_session(&state.actor_sessions, actor_id).0;
+        let request = {
+            let runtime = state.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_id,
+                &actor_session,
+                "test:same-intent",
+                "say one warm hello",
+            )
+        };
+        let client = ConnectInfo("127.0.0.1:45129".parse().expect("client address"));
+
+        let first = command(client, State(state.clone()), Json(request.clone()))
+            .await
+            .0;
+        let second = command(client, State(state.clone()), Json(request)).await.0;
+
+        assert!(first.ok, "{first:?}");
+        assert!(!first.events.is_empty());
+        assert!(first.events.iter().all(|event| {
+            event.world_id == OFFICIAL_WORLD_ID
+                && event.world_epoch == OFFICIAL_WORLD_EPOCH
+                && event.seq > 0
+        }));
+        assert_eq!(first.receipt, second.receipt);
+        assert_eq!(
+            serde_json::to_value(&first).unwrap(),
+            serde_json::to_value(&second).unwrap()
+        );
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == "message.created"
+                        && event.actor_id == Some(actor_id)
+                        && event.content.as_deref() == Some("one warm hello")
+                })
+                .count(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_canonical_entity_versions_fail_closed() {
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Versioned Neighbour",
+        );
+        let state = test_app_state(runtime, None);
+        let actor_session = create_actor_session(&state.actor_sessions, actor_id).0;
+        let first_request = {
+            let runtime = state.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_id,
+                &actor_session,
+                "test:advance-version",
+                "say versions move forward",
+            )
+        };
+        let mut stale_request = first_request.clone();
+        stale_request.command = "say stale history must not land".to_string();
+        stale_request
+            .envelope
+            .as_mut()
+            .expect("canonical envelope")
+            .intent_id = "test:stale-version".to_string();
+        let client = ConnectInfo("127.0.0.1:45130".parse().expect("client address"));
+
+        let first = command(client, State(state.clone()), Json(first_request))
+            .await
+            .0;
+        assert!(first.ok, "{first:?}");
+        let stale = command(client, State(state.clone()), Json(stale_request))
+            .await
+            .0;
+
+        assert!(!stale.ok);
+        assert_eq!(stale.status, 409);
+        assert!(stale
+            .output
+            .as_deref()
+            .is_some_and(|output| output.contains("Stale actor version")));
+        let runtime = state.inner.lock().await;
+        assert!(!runtime.event_log.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.content.as_deref() == Some("stale history must not land")
+        }));
     }
 
     fn discover_seed_exit_for_test(
@@ -33796,10 +34688,10 @@ mod tests {
         );
         assert!(DeploymentProfile::parse("staging").is_err());
         assert_eq!(
-            normalize_shard_id(" public-1 ").expect("valid shard id"),
+            normalize_process_id(" public-1 ", "COSYWORLD_PROCESS_ID").expect("valid process id"),
             "public-1"
         );
-        assert!(normalize_shard_id("public shard").is_err());
+        assert!(normalize_process_id("public shard", "COSYWORLD_PROCESS_ID").is_err());
     }
 
     #[test]
@@ -33839,7 +34731,8 @@ mod tests {
     fn production_deployment_requires_active_remote_entitlement_provider() {
         let deployment = DeploymentConfig {
             profile: DeploymentProfile::Production,
-            shard_id: "prod-test".to_string(),
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            process_id: "prod-test".to_string(),
         };
         let error = deployment
             .validate_runtime_options(
@@ -33879,7 +34772,8 @@ mod tests {
     fn production_deployment_rejects_dev_shortcuts() {
         let deployment = DeploymentConfig {
             profile: DeploymentProfile::Production,
-            shard_id: "prod-test".to_string(),
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            process_id: "prod-test".to_string(),
         };
         let feed = production_feed_config();
         for (trust_client_cards, dev_reset, unsigned_wallets, delay, expected) in [
@@ -33935,7 +34829,8 @@ mod tests {
     fn production_deployment_requires_persistence_and_moderation() {
         let deployment = DeploymentConfig {
             profile: DeploymentProfile::Production,
-            shard_id: "prod-test".to_string(),
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            process_id: "prod-test".to_string(),
         };
         let feed = production_feed_config();
         let no_store = deployment
@@ -36156,6 +37051,17 @@ mod tests {
         .expect("append ai usage ledger");
         assert_eq!(table_count(&path, "orb_ledger"), 1);
         assert_eq!(table_count(&path, "ai_usage_ledger"), 1);
+        write_canonical_command_response(
+            &path,
+            OFFICIAL_WORLD_ID,
+            "reset:test-intent",
+            &StoredCommandResponse {
+                request_hash: "sha256:reset".to_string(),
+                response_json: "{}".to_string(),
+            },
+        )
+        .expect("insert reset command receipt");
+        assert_eq!(table_count(&path, "canonical_command_receipts"), 1);
         insert_wooden_box_receipt(
             &path,
             "wallet-reset",
@@ -36229,6 +37135,7 @@ mod tests {
             .is_empty());
         assert_eq!(table_count(&path, "orb_ledger"), 0);
         assert_eq!(table_count(&path, "ai_usage_ledger"), 0);
+        assert_eq!(table_count(&path, "canonical_command_receipts"), 0);
         assert_eq!(table_count(&path, "wooden_box_receipts"), 0);
         assert_eq!(table_count(&path, "avatar_pack_openings"), 0);
         assert_eq!(table_count(&path, "room_memory_chapters"), 0);
@@ -53612,7 +54519,8 @@ mod tests {
         let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
         state.deployment = DeploymentConfig {
             profile: DeploymentProfile::Production,
-            shard_id: "prod-test".to_string(),
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            process_id: "prod-test".to_string(),
         };
         *state.ownership_index.write().await = OwnershipIndex::parse(
             r#"{"wallets":[{"walletAddress":"wallet-prod","boxes":["box-prod"]}]}"#,
@@ -53740,7 +54648,8 @@ mod tests {
         let mut state = test_app_state(RuntimeWorld::seeded(), None);
         state.deployment = DeploymentConfig {
             profile: DeploymentProfile::Production,
-            shard_id: "prod-test".to_string(),
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            process_id: "prod-test".to_string(),
         };
         state.box_burn_verifier = Arc::new(Some(BoxBurnVerifierConfig {
             rpc_url: format!("http://{addr}/rpc"),
@@ -53854,7 +54763,8 @@ mod tests {
         let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
         state.deployment = DeploymentConfig {
             profile: DeploymentProfile::Production,
-            shard_id: "prod-test".to_string(),
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            process_id: "prod-test".to_string(),
         };
         state.box_burn_verifier = Arc::new(Some(BoxBurnVerifierConfig {
             rpc_url: format!("http://{addr}/rpc"),
@@ -54205,6 +55115,7 @@ mod tests {
             actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
+            canonical_command_lock: Arc::new(Mutex::new(())),
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
@@ -54629,6 +55540,9 @@ mod tests {
 struct MetaDeployment {
     profile: &'static str,
     production: bool,
+    world_id: String,
+    world_epoch: u64,
+    process_id: String,
     shard_id: String,
     shard_model: &'static str,
 }
@@ -54642,5 +55556,6 @@ enum DeploymentProfile {
 #[derive(Clone, Debug)]
 struct DeploymentConfig {
     profile: DeploymentProfile,
-    shard_id: String,
+    world_id: String,
+    process_id: String,
 }

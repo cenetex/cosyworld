@@ -22,9 +22,11 @@ history even when they see the same EFS path. Multi-process production requires
 the journal, fencing, routing, and failover gates in
 [`../../v2/docs/canonical-world.md`](../../v2/docs/canonical-world.md).
 
-`COSYWORLD_V2_SHARD_ID` is retained as a legacy environment-variable name. Its
-value labels this ECS process in `/meta`; it is not the official world id and
-must not namespace persistent game state.
+`COSYWORLD_PROCESS_ID` labels this ECS capacity process in `/meta`.
+`COSYWORLD_V2_SHARD_ID` is emitted with the same value as a legacy alias. Set
+the Terraform `process_id` input for new deployments; the older `shard_id`
+input remains the fallback. Neither label is the official world id or a valid
+persistent-state namespace.
 
 `deployment.auto.tfvars` captures the current deployed shape:
 

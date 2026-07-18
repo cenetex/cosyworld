@@ -14,6 +14,9 @@ pub(super) struct JourneyView {
 
 #[derive(Debug, Serialize)]
 pub(super) struct StateResponse {
+    pub(super) world_id: String,
+    pub(super) world_epoch: u64,
+    pub(super) world_seq: u64,
     pub(super) location: LocationView,
     pub(super) exits: Vec<ExitView>,
     pub(super) actors: Vec<ActorView>,
@@ -94,6 +97,9 @@ pub(super) struct EconomyView {
 
 #[derive(Debug, Serialize)]
 pub(super) struct WorldResponse {
+    pub(super) world_id: String,
+    pub(super) world_epoch: u64,
+    pub(super) world_seq: u64,
     pub(super) shared_world: bool,
     pub(super) current_actor_id: Option<u64>,
     pub(super) current_location_id: Option<u64>,
@@ -143,6 +149,8 @@ pub(super) struct FactionSimulationView {
 #[derive(Debug, Serialize)]
 pub(super) struct WorldLocationView {
     pub(super) id: u64,
+    pub(super) canonical_ref: String,
+    pub(super) entity_version: u64,
     pub(super) pack_id: Option<String>,
     pub(super) name: String,
     pub(super) title: String,
@@ -169,6 +177,8 @@ pub(super) struct WorldLocationView {
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct LocationView {
     pub(super) id: u64,
+    pub(super) canonical_ref: String,
+    pub(super) entity_version: u64,
     pub(super) pack_id: Option<String>,
     pub(super) name: String,
     pub(super) title: String,
@@ -219,6 +229,8 @@ pub(super) struct ExitView {
 #[derive(Debug, Serialize)]
 pub(super) struct ActorView {
     pub(super) id: u64,
+    pub(super) canonical_ref: String,
+    pub(super) entity_version: u64,
     pub(super) pack_id: Option<String>,
     pub(super) name: String,
     pub(super) title: String,
@@ -318,6 +330,8 @@ pub(super) struct StatView {
 #[derive(Debug, Serialize)]
 pub(super) struct ItemView {
     pub(super) id: u64,
+    pub(super) canonical_ref: String,
+    pub(super) entity_version: u64,
     pub(super) pack_id: Option<String>,
     pub(super) name: String,
     pub(super) description: String,
@@ -430,6 +444,8 @@ pub(super) struct SkillView {
 
 #[derive(Debug, Serialize)]
 pub(super) struct VisitLedgerView {
+    pub(super) journal_ref: Option<String>,
+    pub(super) entity_version: u64,
     pub(super) unbanked_count: usize,
     pub(super) banked_count: usize,
     pub(super) spent_count: usize,
@@ -449,6 +465,8 @@ pub(super) struct VisitLedgerMarkView {
 #[derive(Debug, Serialize)]
 pub(super) struct BondView {
     pub(super) id: String,
+    pub(super) canonical_ref: String,
+    pub(super) entity_version: u64,
     pub(super) actor_id: u64,
     pub(super) target_actor_id: u64,
     pub(super) target_actor_name: Option<String>,
@@ -603,6 +621,14 @@ impl RuntimeWorld {
         let meta = self.location_meta_for(location_id);
         LocationView {
             id: location_id,
+            canonical_ref: self
+                .canonical_ref("location", location_id)
+                .unwrap_or_default()
+                .to_string(),
+            entity_version: self
+                .canonical_ref("location", location_id)
+                .map(|canonical_ref| self.entity_version(canonical_ref))
+                .unwrap_or_default(),
             pack_id: seed_pack_id_for_location(location_id),
             name,
             title: meta.title,
@@ -782,6 +808,14 @@ impl RuntimeWorld {
         let meta = self.actors.get(&actor.id);
         ActorView {
             id: actor.id,
+            canonical_ref: self
+                .canonical_ref("actor", actor.id)
+                .unwrap_or_default()
+                .to_string(),
+            entity_version: self
+                .canonical_ref("actor", actor.id)
+                .map(|canonical_ref| self.entity_version(canonical_ref))
+                .unwrap_or_default(),
             pack_id: seed_pack_id_for_actor(actor.id),
             name: meta
                 .map(|m| m.name.clone())
@@ -815,6 +849,14 @@ impl RuntimeWorld {
         let meta = self.items.get(&item.id);
         ItemView {
             id: item.id,
+            canonical_ref: self
+                .canonical_ref("item", item.id)
+                .unwrap_or_default()
+                .to_string(),
+            entity_version: self
+                .canonical_ref("item", item.id)
+                .map(|canonical_ref| self.entity_version(canonical_ref))
+                .unwrap_or_default(),
             pack_id: seed_pack_id_for_item(item.id),
             name: meta
                 .map(|m| m.name.clone())
@@ -1229,6 +1271,9 @@ impl RuntimeWorld {
             .collect::<Vec<_>>();
         let room_memory = fallback_room_memory_view(&location, &recent_events);
         StateResponse {
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            world_epoch: OFFICIAL_WORLD_EPOCH,
+            world_seq: self.world.next_event_seq.saturating_sub(1),
             location,
             exits,
             actors,
@@ -1808,6 +1853,13 @@ impl RuntimeWorld {
             .filter(|mark| mark.actor_id == actor_id && mark.category == "learned_truth")
             .count();
         VisitLedgerView {
+            journal_ref: self
+                .canonical_ref("journal", actor_id)
+                .map(ToString::to_string),
+            entity_version: self
+                .canonical_ref("journal", actor_id)
+                .map(|canonical_ref| self.entity_version(canonical_ref))
+                .unwrap_or_default(),
             unbanked_count: marks.len(),
             banked_count,
             spent_count,
@@ -1824,6 +1876,14 @@ impl RuntimeWorld {
             .filter(|bond| bond.actor_id == actor_id && bond.status != "resolved")
             .map(|bond| BondView {
                 id: bond.id.clone(),
+                canonical_ref: self
+                    .canonical_pact_ref(&bond.id)
+                    .unwrap_or_default()
+                    .to_string(),
+                entity_version: self
+                    .canonical_pact_ref(&bond.id)
+                    .map(|canonical_ref| self.entity_version(canonical_ref))
+                    .unwrap_or_default(),
                 actor_id: bond.actor_id,
                 target_actor_id: bond.target_actor_id,
                 target_actor_name: self.actor_name(bond.target_actor_id),
@@ -1985,6 +2045,14 @@ impl RuntimeWorld {
 
                 WorldLocationView {
                     id: location.id,
+                    canonical_ref: self
+                        .canonical_ref("location", location.id)
+                        .unwrap_or_default()
+                        .to_string(),
+                    entity_version: self
+                        .canonical_ref("location", location.id)
+                        .map(|canonical_ref| self.entity_version(canonical_ref))
+                        .unwrap_or_default(),
                     pack_id: seed_pack_id_for_location(location.id),
                     name,
                     title: meta.title,
@@ -2016,6 +2084,9 @@ impl RuntimeWorld {
             .collect();
 
         WorldResponse {
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            world_epoch: OFFICIAL_WORLD_EPOCH,
+            world_seq: self.world.next_event_seq.saturating_sub(1),
             shared_world: true,
             current_actor_id: client_actor_id,
             current_location_id,
