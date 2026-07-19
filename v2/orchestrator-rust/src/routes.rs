@@ -75,6 +75,10 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/inspect", get(inspect_view))
         .route("/world", get(world_view))
         .route("/events", get(events_view))
+        .route("/profiles", get(canonical_profile))
+        .route("/invites", post(create_canonical_invite))
+        .route("/invites/{invite_id}", get(canonical_invite))
+        .route("/invites/{invite_id}/follow", post(follow_canonical_invite))
         .route("/moderation/activation", get(activation_metrics_view))
         .route("/moderation/events", get(moderation_events_view))
         .route("/moderation/reports", get(moderation_reports_view))
@@ -131,6 +135,18 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/resolve-bond", post(resolve_bond))
         .route("/actions/flee", post(flee))
         .route("/commands", post(command))
+        .route(
+            "/internal/canonical/commands",
+            post(internal_canonical_command),
+        )
+        .route(
+            "/internal/canonical/presence",
+            post(internal_canonical_presence),
+        )
+        .route(
+            "/internal/canonical/invites/follow",
+            post(internal_follow_canonical_invite),
+        )
         .route("/stream", get(stream))
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())

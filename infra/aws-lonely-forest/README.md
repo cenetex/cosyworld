@@ -15,11 +15,12 @@ archive/library site at `lonelyforestlibrary.com`.
 - S3 private bucket plus CloudFront distribution for the archive site in
   `sites/lonelyforestlibrary`.
 
-The ECS service is intentionally `desired_count = 1` because the app uses
-SQLite/EFS as the canonical event store. Do not increase it to obtain
-horizontal write capacity: two independently booted kernels can fork room
-history even when they see the same EFS path. Multi-process production requires
-the journal, fencing, routing, and failover gates in
+The ECS service is intentionally `desired_count = 1`. Shared journal fencing,
+cross-process routing, projection/presence convergence, invite rendezvous, and
+the pinned two-process harness are implemented, but ECS still lacks an exact
+per-task owner route and the #130 hot-room migration/failover gate. Do not
+increase it to obtain horizontal write capacity. Multi-process production must
+pass the remaining gates in
 [`../../v2/docs/canonical-world.md`](../../v2/docs/canonical-world.md).
 
 `COSYWORLD_PROCESS_ID` labels this ECS capacity process in `/meta`.
@@ -27,6 +28,10 @@ the journal, fencing, routing, and failover gates in
 the Terraform `process_id` input for new deployments; the older `shard_id`
 input remains the fallback. Neither label is the official world id or a valid
 persistent-state namespace.
+
+The task definition intentionally leaves `COSYWORLD_CANONICAL_ROUTE_URL` and
+`COSYWORLD_CANONICAL_ROUTER_TOKEN` unset. A normal ALB origin is not an exact
+task route and must not be placed in the process route registry.
 
 `deployment.auto.tfvars` captures the current deployed shape:
 

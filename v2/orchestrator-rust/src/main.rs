@@ -58,7 +58,7 @@ use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicU8, Ordering as AtomicOrdering},
+        atomic::{AtomicU64, AtomicU8, Ordering as AtomicOrdering},
         Arc, Mutex as StdMutex, OnceLock,
     },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -110,6 +110,11 @@ struct AppState {
     canonical_command_lock: Arc<Mutex<()>>,
     canonical_owner_id: Arc<String>,
     canonical_lease_ttl: Duration,
+    canonical_applied_journal_seq: Arc<AtomicU64>,
+    canonical_fanout_seq: Arc<AtomicU64>,
+    canonical_fanout_lock: Arc<StdMutex<()>>,
+    canonical_routing: Arc<CanonicalRoutingConfig>,
+    regional_presence: Arc<StdMutex<BTreeMap<u64, RegionalPresence>>>,
     room_turns: Arc<StdMutex<RoomTurns>>,
     room_memory_cache: Arc<StdMutex<BTreeMap<u64, RoomMemoryCacheEntry>>>,
     room_memory_jobs: Arc<StdMutex<BTreeSet<(u64, u64, u64)>>>,
@@ -123,6 +128,40 @@ struct AppState {
 
 const CANONICAL_WORLD_PARTITION: &str = "world";
 const DEFAULT_CANONICAL_LEASE_TTL: Duration = Duration::from_secs(30);
+const DEFAULT_CANONICAL_CONVERGENCE_POLL: Duration = Duration::from_millis(100);
+const CANONICAL_ROUTE_HEARTBEAT_MULTIPLIER: u32 = 3;
+const CANONICAL_INVITE_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+
+#[derive(Clone, Debug, Default)]
+struct CanonicalRoutingConfig {
+    base_url: Option<String>,
+    token: Option<String>,
+}
+
+impl CanonicalRoutingConfig {
+    fn enabled(&self) -> bool {
+        self.base_url.is_some() && self.token.is_some()
+    }
+}
+
+#[derive(Clone, Debug)]
+struct RegionalPresence {
+    active: bool,
+    last_seen_at: Instant,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct CanonicalPresenceRelay {
+    source_owner_id: String,
+    events: Vec<EventView>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ForwardedCanonicalCommand {
+    source_process_id: String,
+    client_addr: String,
+    payload: CommandRequest,
+}
 
 struct CanonicalCommandCommitContext {
     envelope: CanonicalCommandEnvelope,
@@ -753,6 +792,11 @@ enum ProjectionMutation {
         actor_id: u64,
         location_id: u64,
         reason: String,
+    },
+    RendezvousActor {
+        actor_id: u64,
+        location_id: u64,
+        invite_id: String,
     },
     JourneyTransition {
         pathway: GeneratedPathwayState,
@@ -1744,7 +1788,87 @@ struct EventsQuery {
     cards: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Debug, Deserialize)]
+struct CanonicalProfileQuery {
+    actor_ref: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct CanonicalProfileView {
+    world_id: String,
+    world_epoch: u64,
+    actor_ref: String,
+    actor_id: u64,
+    actor_version: u64,
+    name: String,
+    location_ref: String,
+    location_id: u64,
+    location_version: u64,
+    location_name: String,
+    through_seq: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct CanonicalProfileResponse {
+    ok: bool,
+    status: u32,
+    process_id: String,
+    profile: Option<CanonicalProfileView>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct CreateCanonicalInviteRequest {
+    actor_id: u64,
+    actor_session: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct FollowCanonicalInviteRequest {
+    actor_id: u64,
+    actor_session: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct CanonicalInviteView {
+    invite_id: String,
+    invite_url: String,
+    world_id: String,
+    world_epoch: u64,
+    inviter: CanonicalProfileView,
+    created_location_ref: String,
+    created_world_seq: u64,
+    expires_at_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct CanonicalInviteResponse {
+    ok: bool,
+    status: u32,
+    process_id: String,
+    invite: Option<CanonicalInviteView>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct CanonicalInviteFollowResponse {
+    ok: bool,
+    status: u32,
+    process_id: String,
+    invite_id: String,
+    actor_ref: Option<String>,
+    rendezvous_location_ref: Option<String>,
+    through_seq: u64,
+    events: Vec<EventView>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ForwardedCanonicalInviteFollow {
+    source_process_id: String,
+    client_addr: String,
+    invite_id: String,
+    payload: FollowCanonicalInviteRequest,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct EventsResponse {
     world_id: String,
     world_epoch: u64,
@@ -2954,6 +3078,57 @@ fn deployment_config_error(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, message.into())
 }
 
+fn canonical_routing_config_from_env() -> io::Result<CanonicalRoutingConfig> {
+    let base_url = std::env::var("COSYWORLD_CANONICAL_ROUTE_URL")
+        .ok()
+        .map(|value| value.trim().trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty());
+    let token = std::env::var("COSYWORLD_CANONICAL_ROUTER_TOKEN")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    canonical_routing_config(base_url, token)
+}
+
+fn canonical_routing_config(
+    base_url: Option<String>,
+    token: Option<String>,
+) -> io::Result<CanonicalRoutingConfig> {
+    if base_url.is_some() != token.is_some() {
+        return Err(deployment_config_error(
+            "COSYWORLD_CANONICAL_ROUTE_URL and COSYWORLD_CANONICAL_ROUTER_TOKEN must be configured together",
+        ));
+    }
+    if let Some(base_url) = base_url.as_deref() {
+        let parsed = reqwest::Url::parse(base_url).map_err(|error| {
+            deployment_config_error(format!("COSYWORLD_CANONICAL_ROUTE_URL is invalid: {error}"))
+        })?;
+        if !matches!(parsed.scheme(), "http" | "https")
+            || parsed.host_str().is_none()
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+            || parsed.path() != "/"
+        {
+            return Err(deployment_config_error(
+                "COSYWORLD_CANONICAL_ROUTE_URL must be an http(s) origin without credentials, path, query, or fragment",
+            ));
+        }
+    }
+    if token.as_deref().is_some_and(|token| token.len() < 16) {
+        return Err(deployment_config_error(
+            "COSYWORLD_CANONICAL_ROUTER_TOKEN must contain at least 16 characters",
+        ));
+    }
+    Ok(CanonicalRoutingConfig { base_url, token })
+}
+
+fn canonical_route_heartbeat_expiry(now_ms: u64, lease_ttl: Duration) -> u64 {
+    let ttl_ms = u64::try_from(lease_ttl.as_millis()).unwrap_or(u64::MAX);
+    now_ms.saturating_add(ttl_ms.saturating_mul(u64::from(CANONICAL_ROUTE_HEARTBEAT_MULTIPLIER)))
+}
+
 fn character_creation_views() -> Vec<CharacterCreationProfileView> {
     active_content()
         .character_creation
@@ -3516,6 +3691,17 @@ fn actor_is_suspended(state: &AppState, actor_id: u64) -> bool {
 
 fn active_actor_ids_for_state(state: &AppState) -> BTreeSet<u64> {
     let mut ids = active_actor_ids(&state.actor_sessions);
+    if let Ok(mut presence) = state.regional_presence.lock() {
+        let now = Instant::now();
+        presence.retain(|_, state| {
+            now.saturating_duration_since(state.last_seen_at) <= ACTIVE_ACTOR_WINDOW
+        });
+        ids.extend(
+            presence
+                .iter()
+                .filter_map(|(actor_id, state)| state.active.then_some(*actor_id)),
+        );
+    }
     if let Ok(suspensions) = state.actor_suspensions.lock() {
         ids.retain(|id| !suspensions.contains_key(id));
     }
@@ -4224,6 +4410,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     configured_content_registry().map_err(io::Error::other)?;
     let state = AppState::bootstrap().await?;
+    let _canonical_capacity_scheduler = start_canonical_capacity_scheduler(state.clone());
     start_actor_job_worker(state.clone());
     start_event_store_retry_scheduler(state.clone());
     start_ownership_refresh_scheduler(state.clone());
@@ -4261,6 +4448,12 @@ impl AppState {
         let resident_continuity_path =
             resident_continuity_path_from_env(snapshot_path.as_deref()).map(Arc::new);
         let event_store_path = event_store_path_from_env().map(Arc::new);
+        let canonical_routing = Arc::new(canonical_routing_config_from_env()?);
+        if canonical_routing.enabled() && event_store_path.is_none() {
+            return Err(deployment_config_error(
+                "canonical process routing requires COSYWORLD_V2_EVENT_DB_PATH",
+            ));
+        }
         let fail_closed_on_continuity_error = deployment.profile.is_production();
         let mut runtime = match event_store_path.as_deref() {
             Some(path) => {
@@ -4531,6 +4724,37 @@ impl AppState {
             deployment.profile.is_production(),
         )?);
         let canonical_owner_id = Arc::new(format!("{}:{}", deployment.process_id, random_hex(16)));
+        let canonical_lease_ttl = canonical_lease_ttl_from_env()?;
+        let (canonical_applied_journal_seq, canonical_fanout_seq) =
+            if let Some(path) = event_store_path.as_deref() {
+                (
+                    latest_action_journal_seq(path)?,
+                    current_world_seq(&open_event_store(path)?, OFFICIAL_WORLD_ID)?,
+                )
+            } else {
+                (0, runtime.world.next_event_seq.saturating_sub(1))
+            };
+        if let (Some(path), Some(base_url)) = (
+            event_store_path.as_deref(),
+            canonical_routing.base_url.as_deref(),
+        ) {
+            let now = now_millis();
+            upsert_process_route(
+                path,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                &CanonicalProcessRoute {
+                    owner_id: canonical_owner_id.as_ref().clone(),
+                    process_id: deployment.process_id.clone(),
+                    base_url: base_url.to_string(),
+                    heartbeat_expires_at_ms: canonical_route_heartbeat_expiry(
+                        now,
+                        canonical_lease_ttl,
+                    ),
+                },
+                now,
+            )?;
+        }
 
         Ok(Self {
             inner: Arc::new(Mutex::new(runtime)),
@@ -4563,7 +4787,12 @@ impl AppState {
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id,
-            canonical_lease_ttl: canonical_lease_ttl_from_env()?,
+            canonical_lease_ttl,
+            canonical_applied_journal_seq: Arc::new(AtomicU64::new(canonical_applied_journal_seq)),
+            canonical_fanout_seq: Arc::new(AtomicU64::new(canonical_fanout_seq)),
+            canonical_fanout_lock: Arc::new(StdMutex::new(())),
+            canonical_routing,
+            regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
@@ -5263,6 +5492,18 @@ impl RuntimeWorld {
             _ => None,
         }
         .map(String::as_str)
+    }
+
+    fn runtime_handle_for_canonical_ref(&self, kind: &str, canonical_ref: &str) -> Option<u64> {
+        let refs = match kind {
+            "actor" => &self.canonical_identities.actor_refs,
+            "item" => &self.canonical_identities.item_refs,
+            "location" => &self.canonical_identities.location_refs,
+            "journal" => &self.canonical_identities.journal_refs,
+            _ => return None,
+        };
+        refs.iter()
+            .find_map(|(runtime_handle, value)| (value == canonical_ref).then_some(*runtime_handle))
     }
 
     fn canonical_pact_ref(&self, bond_id: &str) -> Option<&str> {
@@ -7607,6 +7848,19 @@ impl RuntimeWorld {
                         actor.kind == CW_ACTOR_NPC && actor.status == CW_ACTOR_ACTIVE
                     });
                     if valid_resident {
+                        if let Some(event) =
+                            self.place_actor_location(*actor_id, *location_id, true)
+                        {
+                            events.push(event);
+                        }
+                    }
+                }
+                ProjectionMutation::RendezvousActor {
+                    actor_id,
+                    location_id,
+                    invite_id: _,
+                } => {
+                    if self.actor_by_id(*actor_id).is_some() {
                         if let Some(event) =
                             self.place_actor_location(*actor_id, *location_id, true)
                         {
@@ -21219,10 +21473,27 @@ async fn pack_open(
     }
 }
 
+async fn converge_capacity_for_read(state: &AppState, actor_session: Option<&str>) {
+    if let Some(token) = actor_session {
+        if let Err(error) = refresh_actor_session_from_store(state, token) {
+            warn!(
+                "failed to refresh actor session for canonical read: {}",
+                error
+            );
+        }
+    }
+    match sync_canonical_capacity_once(state).await {
+        Ok(events) if !events.is_empty() => broadcast_events(state, &events),
+        Ok(_) => {}
+        Err(error) => warn!("canonical read convergence failed: {}", error),
+    }
+}
+
 async fn state_view(
     State(state): State<AppState>,
     Query(query): Query<StateQuery>,
 ) -> Json<StateResponse> {
+    converge_capacity_for_read(&state, query.actor_session.as_deref()).await;
     let ownership = state.ownership_snapshot().await;
     let access = AccessContext::from_query(
         &query,
@@ -21283,6 +21554,7 @@ async fn inspect_view(
     State(state): State<AppState>,
     Query(query): Query<StateQuery>,
 ) -> Json<InspectorView> {
+    converge_capacity_for_read(&state, query.actor_session.as_deref()).await;
     let ownership = state.ownership_snapshot().await;
     let access = AccessContext::from_query(
         &query,
@@ -21320,6 +21592,7 @@ async fn world_view(
     State(state): State<AppState>,
     Query(query): Query<StateQuery>,
 ) -> Json<WorldResponse> {
+    converge_capacity_for_read(&state, query.actor_session.as_deref()).await;
     let ownership = state.ownership_snapshot().await;
     let access = AccessContext::from_query(
         &query,
@@ -21352,6 +21625,7 @@ async fn events_view(
     State(state): State<AppState>,
     Query(query): Query<EventsQuery>,
 ) -> Json<EventsResponse> {
+    converge_capacity_for_read(&state, query.actor_session.as_deref()).await;
     let replay_limit = event_replay_limit(query.limit);
     let ownership = state.ownership_snapshot().await;
     let access = AccessContext::from_events_query(
@@ -23208,6 +23482,467 @@ async fn submit_narrative_move(
     .await
 }
 
+fn canonical_profile_view(runtime: &RuntimeWorld, actor_ref: &str) -> Option<CanonicalProfileView> {
+    let actor_id = runtime.runtime_handle_for_canonical_ref("actor", actor_ref)?;
+    let actor = runtime.actor_by_id(actor_id)?;
+    let location_ref = runtime
+        .canonical_ref("location", actor.location_id)?
+        .to_string();
+    Some(CanonicalProfileView {
+        world_id: OFFICIAL_WORLD_ID.to_string(),
+        world_epoch: OFFICIAL_WORLD_EPOCH,
+        actor_ref: actor_ref.to_string(),
+        actor_id,
+        actor_version: runtime.entity_version(actor_ref),
+        name: runtime.actor_name(actor_id)?,
+        location_ref: location_ref.clone(),
+        location_id: actor.location_id,
+        location_version: runtime.entity_version(&location_ref),
+        location_name: runtime.location_name(actor.location_id)?,
+        through_seq: runtime.world.next_event_seq.saturating_sub(1),
+    })
+}
+
+fn canonical_profile_error(state: &AppState, status: u32) -> Json<CanonicalProfileResponse> {
+    Json(CanonicalProfileResponse {
+        ok: false,
+        status,
+        process_id: state.deployment.process_id.clone(),
+        profile: None,
+    })
+}
+
+async fn canonical_profile(
+    State(state): State<AppState>,
+    Query(query): Query<CanonicalProfileQuery>,
+) -> Json<CanonicalProfileResponse> {
+    converge_capacity_for_read(&state, None).await;
+    let actor_ref = query.actor_ref.trim();
+    if actor_ref.is_empty() || actor_ref.len() > 512 {
+        return canonical_profile_error(&state, 400);
+    }
+    let runtime = state.inner.lock().await;
+    let Some(profile) = canonical_profile_view(&runtime, actor_ref) else {
+        return canonical_profile_error(&state, 404);
+    };
+    Json(CanonicalProfileResponse {
+        ok: true,
+        status: 200,
+        process_id: state.deployment.process_id.clone(),
+        profile: Some(profile),
+    })
+}
+
+fn canonical_invite_response_error(state: &AppState, status: u32) -> Json<CanonicalInviteResponse> {
+    Json(CanonicalInviteResponse {
+        ok: false,
+        status,
+        process_id: state.deployment.process_id.clone(),
+        invite: None,
+    })
+}
+
+fn canonical_invite_id_valid(invite_id: &str) -> bool {
+    (8..=128).contains(&invite_id.len())
+        && invite_id
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_'))
+}
+
+fn canonical_invite_view(
+    runtime: &RuntimeWorld,
+    invite: &CanonicalInvite,
+) -> Option<CanonicalInviteView> {
+    Some(CanonicalInviteView {
+        invite_id: invite.invite_id.clone(),
+        invite_url: format!("/invites/{}", invite.invite_id),
+        world_id: invite.world_id.clone(),
+        world_epoch: OFFICIAL_WORLD_EPOCH,
+        inviter: canonical_profile_view(runtime, &invite.actor_ref)?,
+        created_location_ref: invite.created_location_ref.clone(),
+        created_world_seq: invite.created_world_seq,
+        expires_at_ms: invite.expires_at_ms,
+    })
+}
+
+async fn create_canonical_invite(
+    State(state): State<AppState>,
+    Json(payload): Json<CreateCanonicalInviteRequest>,
+) -> Json<CanonicalInviteResponse> {
+    converge_capacity_for_read(&state, Some(&payload.actor_session)).await;
+    let Some(path) = state.event_store_path.as_deref() else {
+        return canonical_invite_response_error(&state, 503);
+    };
+    let (actor_ref, location_ref, world_seq) = {
+        let runtime = state.inner.lock().await;
+        if !client_actor_session_matches_for_state(
+            &runtime,
+            &state,
+            payload.actor_id,
+            Some(&payload.actor_session),
+        ) {
+            return canonical_invite_response_error(&state, 403);
+        }
+        let Some(actor_ref) = runtime.canonical_ref("actor", payload.actor_id) else {
+            return canonical_invite_response_error(&state, 404);
+        };
+        let Some(location_ref) = runtime
+            .actor_by_id(payload.actor_id)
+            .and_then(|actor| runtime.canonical_ref("location", actor.location_id))
+        else {
+            return canonical_invite_response_error(&state, 404);
+        };
+        (
+            actor_ref.to_string(),
+            location_ref.to_string(),
+            runtime.world.next_event_seq.saturating_sub(1),
+        )
+    };
+    let now = now_millis();
+    let invite = CanonicalInvite {
+        invite_id: format!("cw_{}", random_hex(16)),
+        world_id: OFFICIAL_WORLD_ID.to_string(),
+        actor_ref,
+        created_location_ref: location_ref,
+        created_world_seq: world_seq,
+        created_at_ms: now,
+        expires_at_ms: now
+            .saturating_add(u64::try_from(CANONICAL_INVITE_TTL.as_millis()).unwrap_or(u64::MAX)),
+    };
+    match insert_canonical_invite(path, OFFICIAL_WORLD_EPOCH, &invite) {
+        Ok(true) => {}
+        Ok(false) => return canonical_invite_response_error(&state, 409),
+        Err(error) => {
+            warn!("failed to persist canonical invite: {}", error);
+            return canonical_invite_response_error(&state, 503);
+        }
+    }
+    let runtime = state.inner.lock().await;
+    let Some(invite) = canonical_invite_view(&runtime, &invite) else {
+        return canonical_invite_response_error(&state, 500);
+    };
+    Json(CanonicalInviteResponse {
+        ok: true,
+        status: 201,
+        process_id: state.deployment.process_id.clone(),
+        invite: Some(invite),
+    })
+}
+
+async fn canonical_invite(
+    State(state): State<AppState>,
+    AxumPath(invite_id): AxumPath<String>,
+) -> Json<CanonicalInviteResponse> {
+    converge_capacity_for_read(&state, None).await;
+    if !canonical_invite_id_valid(&invite_id) {
+        return canonical_invite_response_error(&state, 400);
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return canonical_invite_response_error(&state, 503);
+    };
+    let invite = match read_canonical_invite(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        &invite_id,
+        now_millis(),
+    ) {
+        Ok(Some(invite)) => invite,
+        Ok(None) => return canonical_invite_response_error(&state, 404),
+        Err(error) => {
+            warn!("failed to read canonical invite: {}", error);
+            return canonical_invite_response_error(&state, 503);
+        }
+    };
+    let runtime = state.inner.lock().await;
+    let Some(invite) = canonical_invite_view(&runtime, &invite) else {
+        return canonical_invite_response_error(&state, 404);
+    };
+    Json(CanonicalInviteResponse {
+        ok: true,
+        status: 200,
+        process_id: state.deployment.process_id.clone(),
+        invite: Some(invite),
+    })
+}
+
+fn canonical_invite_follow_error(
+    state: &AppState,
+    invite_id: &str,
+    status: u32,
+) -> Json<CanonicalInviteFollowResponse> {
+    Json(CanonicalInviteFollowResponse {
+        ok: false,
+        status,
+        process_id: state.deployment.process_id.clone(),
+        invite_id: invite_id.to_string(),
+        actor_ref: None,
+        rendezvous_location_ref: None,
+        through_seq: 0,
+        events: Vec::new(),
+    })
+}
+
+async fn forward_canonical_invite_follow(
+    state: &AppState,
+    route: &CanonicalProcessRoute,
+    client_addr: SocketAddr,
+    invite_id: &str,
+    payload: &FollowCanonicalInviteRequest,
+) -> io::Result<CanonicalInviteFollowResponse> {
+    let token =
+        state.canonical_routing.token.as_deref().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::PermissionDenied, "router token missing")
+        })?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(io::Error::other)?;
+    let response = client
+        .post(format!(
+            "{}/internal/canonical/invites/follow",
+            route.base_url
+        ))
+        .bearer_auth(token)
+        .json(&ForwardedCanonicalInviteFollow {
+            source_process_id: state.deployment.process_id.clone(),
+            client_addr: client_addr.to_string(),
+            invite_id: invite_id.to_string(),
+            payload: payload.clone(),
+        })
+        .send()
+        .await
+        .map_err(io::Error::other)?;
+    if !response.status().is_success() {
+        return Err(io::Error::other(format!(
+            "canonical owner {} returned HTTP {}",
+            route.process_id,
+            response.status()
+        )));
+    }
+    response.json().await.map_err(io::Error::other)
+}
+
+async fn follow_canonical_invite(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    AxumPath(invite_id): AxumPath<String>,
+    Json(payload): Json<FollowCanonicalInviteRequest>,
+) -> Json<CanonicalInviteFollowResponse> {
+    follow_canonical_invite_with_forwarding(client_addr, state, invite_id, payload, true).await
+}
+
+async fn follow_canonical_invite_with_forwarding(
+    client_addr: SocketAddr,
+    state: AppState,
+    invite_id: String,
+    payload: FollowCanonicalInviteRequest,
+    allow_forward: bool,
+) -> Json<CanonicalInviteFollowResponse> {
+    if !canonical_invite_id_valid(&invite_id) {
+        return canonical_invite_follow_error(&state, &invite_id, 400);
+    }
+    converge_capacity_for_read(&state, Some(&payload.actor_session)).await;
+    let _command_guard = state.canonical_command_lock.lock().await;
+    let Some(path) = state.event_store_path.as_deref() else {
+        return canonical_invite_follow_error(&state, &invite_id, 503);
+    };
+    let invite = match read_canonical_invite(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        &invite_id,
+        now_millis(),
+    ) {
+        Ok(Some(invite)) => invite,
+        Ok(None) => return canonical_invite_follow_error(&state, &invite_id, 404),
+        Err(error) => {
+            warn!("failed to resolve canonical invite: {}", error);
+            return canonical_invite_follow_error(&state, &invite_id, 503);
+        }
+    };
+    let access = AccessContext::for_linked_actor_receipt(&state, payload.actor_id);
+    let (actor_ref, origin_location_id, target_location_id, target_location_ref, partitions) = {
+        let runtime = state.inner.lock().await;
+        if !client_actor_session_matches_for_state(
+            &runtime,
+            &state,
+            payload.actor_id,
+            Some(&payload.actor_session),
+        ) {
+            return canonical_invite_follow_error(&state, &invite_id, 403);
+        }
+        let Some(actor_ref) = runtime.canonical_ref("actor", payload.actor_id) else {
+            return canonical_invite_follow_error(&state, &invite_id, 404);
+        };
+        let Some(origin_location_id) = runtime
+            .actor_by_id(payload.actor_id)
+            .map(|actor| actor.location_id)
+        else {
+            return canonical_invite_follow_error(&state, &invite_id, 404);
+        };
+        let Some(inviter_id) = runtime.runtime_handle_for_canonical_ref("actor", &invite.actor_ref)
+        else {
+            return canonical_invite_follow_error(&state, &invite_id, 404);
+        };
+        let Some(target_location_id) = runtime
+            .actor_by_id(inviter_id)
+            .map(|actor| actor.location_id)
+        else {
+            return canonical_invite_follow_error(&state, &invite_id, 404);
+        };
+        if !location_access_allowed(target_location_id, &access) {
+            return canonical_invite_follow_error(&state, &invite_id, 403);
+        }
+        let Some(target_location_ref) = runtime.canonical_ref("location", target_location_id)
+        else {
+            return canonical_invite_follow_error(&state, &invite_id, 404);
+        };
+        (
+            actor_ref.to_string(),
+            origin_location_id,
+            target_location_id,
+            target_location_ref.to_string(),
+            canonical_partitions_for_location_ids(
+                &runtime,
+                [origin_location_id, target_location_id],
+            ),
+        )
+    };
+    if origin_location_id == target_location_id {
+        let through_seq = state
+            .inner
+            .lock()
+            .await
+            .world
+            .next_event_seq
+            .saturating_sub(1);
+        return Json(CanonicalInviteFollowResponse {
+            ok: true,
+            status: 200,
+            process_id: state.deployment.process_id.clone(),
+            invite_id,
+            actor_ref: Some(actor_ref),
+            rendezvous_location_ref: Some(target_location_ref),
+            through_seq,
+            events: Vec::new(),
+        });
+    }
+    let lease_result = acquire_partition_leases(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        &partitions,
+        state.canonical_owner_id.as_str(),
+        now_millis(),
+        authority_lease_ttl_ms(&state),
+    );
+    if let Err(error) = lease_result {
+        if allow_forward
+            && error.kind() == io::ErrorKind::WouldBlock
+            && state.canonical_routing.enabled()
+        {
+            match canonical_route_for_partitions(&state, &partitions) {
+                Ok(Some(route)) => {
+                    match forward_canonical_invite_follow(
+                        &state,
+                        &route,
+                        client_addr,
+                        &invite_id,
+                        &payload,
+                    )
+                    .await
+                    {
+                        Ok(response) => {
+                            match sync_canonical_capacity_once(&state).await {
+                                Ok(events) if !events.is_empty() => {
+                                    broadcast_events(&state, &events)
+                                }
+                                Ok(_) => {}
+                                Err(sync_error) => warn!(
+                                    "invite rendezvous committed but local convergence failed: {}",
+                                    sync_error
+                                ),
+                            }
+                            return Json(response);
+                        }
+                        Err(route_error) => warn!(
+                            "failed to route invite rendezvous to {}: {}",
+                            route.process_id, route_error
+                        ),
+                    }
+                }
+                Ok(None) => {}
+                Err(route_error) => warn!("invite owner route lookup failed: {}", route_error),
+            }
+        }
+        warn!(
+            "canonical invite rendezvous authority unavailable: {}",
+            error
+        );
+        return canonical_invite_follow_error(&state, &invite_id, 503);
+    }
+
+    let (status, events, through_seq, rendezvous_location_ref) = {
+        let mut runtime = state.inner.lock().await;
+        let Some(inviter_id) = runtime.runtime_handle_for_canonical_ref("actor", &invite.actor_ref)
+        else {
+            return canonical_invite_follow_error(&state, &invite_id, 404);
+        };
+        let Some(current_target_location_id) = runtime
+            .actor_by_id(inviter_id)
+            .map(|actor| actor.location_id)
+        else {
+            return canonical_invite_follow_error(&state, &invite_id, 404);
+        };
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: payload.actor_id,
+                destination_location_id: current_target_location_id,
+                ..CwAction::default()
+            },
+            runtime.next_seed_value(),
+        );
+        record.source_location_id = Some(origin_location_id);
+        record
+            .projection_mutations
+            .push(ProjectionMutation::RendezvousActor {
+                actor_id: payload.actor_id,
+                location_id: current_target_location_id,
+                invite_id: invite_id.clone(),
+            });
+        let (status, events) = match commit_journal_record(&state, &mut runtime, record) {
+            Ok(committed) => committed,
+            Err(error) => {
+                warn!("canonical invite rendezvous commit failed: {}", error);
+                return canonical_invite_follow_error(&state, &invite_id, 503);
+            }
+        };
+        let rendezvous_location_ref = runtime
+            .canonical_ref("location", current_target_location_id)
+            .map(ToString::to_string);
+        (
+            status,
+            events,
+            runtime.world.next_event_seq.saturating_sub(1),
+            rendezvous_location_ref,
+        )
+    };
+    broadcast_events(&state, &events);
+    Json(CanonicalInviteFollowResponse {
+        ok: status == CW_OK,
+        status,
+        process_id: state.deployment.process_id.clone(),
+        invite_id,
+        actor_ref: Some(actor_ref),
+        rendezvous_location_ref,
+        through_seq,
+        events,
+    })
+}
+
 fn canonical_command_error(
     command: &str,
     status: u32,
@@ -23238,16 +23973,7 @@ fn acquire_command_authority_leases(
     runtime: &RuntimeWorld,
     actor_id: u64,
 ) -> io::Result<BTreeMap<String, AuthorityLease>> {
-    let mut partitions = BTreeSet::new();
-    if let Some(location_ref) = runtime
-        .actor_by_id(actor_id)
-        .and_then(|actor| runtime.canonical_ref("location", actor.location_id))
-    {
-        partitions.insert(canonical_room_partition_key(location_ref));
-    }
-    if partitions.is_empty() {
-        partitions.insert(CANONICAL_WORLD_PARTITION.to_string());
-    }
+    let partitions = canonical_command_partitions(runtime, actor_id);
     let now = now_millis();
     let ttl = authority_lease_ttl_ms(state);
     let Some(path) = state.event_store_path.as_deref() else {
@@ -23277,14 +24003,135 @@ fn acquire_command_authority_leases(
     )
 }
 
+fn canonical_command_partitions(runtime: &RuntimeWorld, actor_id: u64) -> BTreeSet<String> {
+    let mut partitions = BTreeSet::new();
+    if let Some(location_ref) = runtime
+        .actor_by_id(actor_id)
+        .and_then(|actor| runtime.canonical_ref("location", actor.location_id))
+    {
+        partitions.insert(canonical_room_partition_key(location_ref));
+    }
+    if partitions.is_empty() {
+        partitions.insert(CANONICAL_WORLD_PARTITION.to_string());
+    }
+    partitions
+}
+
+fn canonical_route_for_partitions(
+    state: &AppState,
+    partitions: &BTreeSet<String>,
+) -> io::Result<Option<CanonicalProcessRoute>> {
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Ok(None);
+    };
+    let now = now_millis();
+    let mut owner_id = None;
+    for partition_key in partitions {
+        let Some(lease) = current_partition_lease(
+            path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            partition_key,
+            now,
+        )?
+        else {
+            continue;
+        };
+        if owner_id
+            .as_ref()
+            .is_some_and(|owner: &String| owner != &lease.owner_id)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::WouldBlock,
+                "canonical partitions currently have different owners",
+            ));
+        }
+        owner_id = Some(lease.owner_id);
+    }
+    let Some(owner_id) = owner_id else {
+        return Ok(None);
+    };
+    if owner_id == *state.canonical_owner_id {
+        return Ok(None);
+    }
+    process_route_for_owner(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        &owner_id,
+        now,
+    )
+}
+
+async fn forward_canonical_command(
+    state: &AppState,
+    route: &CanonicalProcessRoute,
+    client_addr: SocketAddr,
+    payload: &CommandRequest,
+) -> io::Result<CommandResponse> {
+    let token =
+        state.canonical_routing.token.as_deref().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::PermissionDenied, "router token missing")
+        })?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(io::Error::other)?;
+    let response = client
+        .post(format!("{}/internal/canonical/commands", route.base_url))
+        .bearer_auth(token)
+        .json(&ForwardedCanonicalCommand {
+            source_process_id: state.deployment.process_id.clone(),
+            client_addr: client_addr.to_string(),
+            payload: payload.clone(),
+        })
+        .send()
+        .await
+        .map_err(io::Error::other)?;
+    if !response.status().is_success() {
+        return Err(io::Error::other(format!(
+            "canonical owner {} returned HTTP {}",
+            route.process_id,
+            response.status()
+        )));
+    }
+    response.json().await.map_err(io::Error::other)
+}
+
 async fn command(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
-    Json(mut payload): Json<CommandRequest>,
+    Json(payload): Json<CommandRequest>,
 ) -> Json<CommandResponse> {
-    // #128 moves this serialization and the receipt/event append into the
-    // durable authority. While production remains one process, this lock makes
-    // the canonical intent check and command execution one local critical section.
+    command_with_forwarding(client_addr, state, payload, true).await
+}
+
+async fn command_with_forwarding(
+    client_addr: SocketAddr,
+    state: AppState,
+    mut payload: CommandRequest,
+    allow_forward: bool,
+) -> Json<CommandResponse> {
+    match sync_canonical_capacity_once(&state).await {
+        Ok(events) if !events.is_empty() => broadcast_events(&state, &events),
+        Ok(_) => {}
+        Err(error) => {
+            warn!("canonical command convergence failed: {}", error);
+            return canonical_command_error(
+                &payload.command,
+                503,
+                "Canonical history is temporarily unavailable. Refresh and retry.",
+            );
+        }
+    }
+    if let Some(token) = payload.actor_session.as_deref() {
+        if let Err(error) = refresh_actor_session_from_store(&state, token) {
+            warn!("failed to refresh canonical actor session: {}", error);
+        }
+    }
+    // The local lock serializes validation for commands that route to this
+    // process. Cross-process serialization and idempotency live in SQLite.
     let _command_guard = state.canonical_command_lock.lock().await;
     let compatibility_envelope = payload.envelope.is_none();
     let envelope = {
@@ -23454,18 +24301,54 @@ async fn command(
         }
     }
 
-    let leases = {
+    payload.envelope = Some(envelope.clone());
+    let (partitions, lease_result) = {
         let runtime = state.inner.lock().await;
-        match acquire_command_authority_leases(&state, &runtime, payload.actor_id) {
-            Ok(leases) => leases,
-            Err(error) => {
-                warn!("canonical command authority is unavailable: {}", error);
-                return canonical_command_error(
-                    &payload.command,
-                    503,
-                    "Canonical write authority is unavailable. Refresh and retry.",
-                );
+        (
+            canonical_command_partitions(&runtime, payload.actor_id),
+            acquire_command_authority_leases(&state, &runtime, payload.actor_id),
+        )
+    };
+    let leases = match lease_result {
+        Ok(leases) => leases,
+        Err(error) => {
+            if allow_forward
+                && error.kind() == io::ErrorKind::WouldBlock
+                && state.canonical_routing.enabled()
+            {
+                match canonical_route_for_partitions(&state, &partitions) {
+                    Ok(Some(route)) => {
+                        match forward_canonical_command(&state, &route, client_addr, &payload).await
+                        {
+                            Ok(response) => {
+                                match sync_canonical_capacity_once(&state).await {
+                                    Ok(events) if !events.is_empty() => {
+                                        broadcast_events(&state, &events)
+                                    }
+                                    Ok(_) => {}
+                                    Err(sync_error) => warn!(
+                                        "forwarded command committed but local convergence failed: {}",
+                                        sync_error
+                                    ),
+                                }
+                                return Json(response);
+                            }
+                            Err(route_error) => warn!(
+                                "failed to route canonical command from {} to {}: {}",
+                                state.deployment.process_id, route.process_id, route_error
+                            ),
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(route_error) => warn!("canonical route lookup failed: {}", route_error),
+                }
             }
+            warn!("canonical command authority is unavailable: {}", error);
+            return canonical_command_error(
+                &payload.command,
+                503,
+                "Canonical write authority is unavailable. Refresh and retry.",
+            );
         }
     };
     let command_context = Arc::new(CanonicalCommandCommitContext {
@@ -23476,7 +24359,6 @@ async fn command(
         leases,
         phase: AtomicU8::new(0),
     });
-    payload.envelope = Some(envelope.clone());
     let Json(mut response) = CANONICAL_COMMAND_COMMIT_CONTEXT
         .scope(
             command_context.clone(),
@@ -23616,6 +24498,88 @@ async fn command(
         }
     }
     Json(response)
+}
+
+fn canonical_internal_authorized(state: &AppState, headers: &HeaderMap) -> bool {
+    let Some(expected) = state.canonical_routing.token.as_deref() else {
+        return false;
+    };
+    headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .is_some_and(|provided| provided == expected)
+}
+
+async fn internal_canonical_command(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(forwarded): Json<ForwardedCanonicalCommand>,
+) -> Response {
+    if !canonical_internal_authorized(&state, &headers) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let client_addr = forwarded
+        .client_addr
+        .parse::<SocketAddr>()
+        .unwrap_or_else(|_| "127.0.0.1:0".parse().expect("loopback socket"));
+    let response = command_with_forwarding(client_addr, state, forwarded.payload, false).await;
+    (StatusCode::OK, response).into_response()
+}
+
+async fn internal_canonical_presence(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(relay): Json<CanonicalPresenceRelay>,
+) -> Response {
+    if !canonical_internal_authorized(&state, &headers) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    if relay.source_owner_id == *state.canonical_owner_id
+        || relay.events.iter().any(|event| {
+            event.world_id != OFFICIAL_WORLD_ID
+                || event.world_epoch != OFFICIAL_WORLD_EPOCH
+                || event.seq != 0
+                || event.type_name != "actor.presence"
+        })
+    {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    {
+        let mut runtime = state.inner.lock().await;
+        for event in &relay.events {
+            if let Some(actor_id) = event.actor_id {
+                runtime
+                    .presence_states
+                    .insert(actor_id, event.content.as_deref() == Some("active"));
+            }
+        }
+    }
+    broadcast_events_without_presence_relay(&state, &relay.events);
+    StatusCode::NO_CONTENT.into_response()
+}
+
+async fn internal_follow_canonical_invite(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(forwarded): Json<ForwardedCanonicalInviteFollow>,
+) -> Response {
+    if !canonical_internal_authorized(&state, &headers) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let client_addr = forwarded
+        .client_addr
+        .parse::<SocketAddr>()
+        .unwrap_or_else(|_| "127.0.0.1:0".parse().expect("loopback socket"));
+    let response = follow_canonical_invite_with_forwarding(
+        client_addr,
+        state,
+        forwarded.invite_id,
+        forwarded.payload,
+        false,
+    )
+    .await;
+    (StatusCode::OK, response).into_response()
 }
 
 async fn command_inner(
@@ -24921,6 +25885,96 @@ fn start_actor_job_worker(state: AppState) {
     tokio::spawn(async move {
         run_actor_job_worker(state, ACTOR_JOB_KIND_ORB_CHAT).await;
     });
+}
+
+fn refresh_canonical_process_route(state: &AppState) -> io::Result<()> {
+    let (Some(path), Some(base_url)) = (
+        state.event_store_path.as_deref(),
+        state.canonical_routing.base_url.as_deref(),
+    ) else {
+        return Ok(());
+    };
+    let now = now_millis();
+    upsert_process_route(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        &CanonicalProcessRoute {
+            owner_id: state.canonical_owner_id.as_ref().clone(),
+            process_id: state.deployment.process_id.clone(),
+            base_url: base_url.to_string(),
+            heartbeat_expires_at_ms: canonical_route_heartbeat_expiry(
+                now,
+                state.canonical_lease_ttl,
+            ),
+        },
+        now,
+    )
+}
+
+async fn sync_canonical_capacity_once(state: &AppState) -> io::Result<Vec<EventView>> {
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Ok(Vec::new());
+    };
+    let latest_journal_seq = latest_action_journal_seq(path)?;
+    if latest_journal_seq
+        > state
+            .canonical_applied_journal_seq
+            .load(AtomicOrdering::Acquire)
+    {
+        let mut runtime = state.inner.lock().await;
+        let applied = state
+            .canonical_applied_journal_seq
+            .load(AtomicOrdering::Acquire);
+        if latest_journal_seq > applied {
+            let presence_states = runtime.presence_states.clone();
+            restore_runtime_from_durable_state(state, &mut runtime, path)?;
+            runtime.presence_states = presence_states;
+            state
+                .canonical_applied_journal_seq
+                .store(latest_journal_seq, AtomicOrdering::Release);
+        }
+    }
+
+    let through_seq = current_world_seq(&open_event_store(path)?, OFFICIAL_WORLD_ID)?;
+    let after = state.canonical_fanout_seq.load(AtomicOrdering::Acquire);
+    if through_seq <= after {
+        return Ok(Vec::new());
+    }
+    let events = read_event_store_forward_between(path, after, through_seq, MAX_EVENT_STORE_SCAN)?;
+    Ok(events)
+}
+
+fn start_canonical_capacity_scheduler(state: AppState) -> Option<tokio::task::JoinHandle<()>> {
+    state.event_store_path.as_ref()?;
+    Some(tokio::spawn(async move {
+        let heartbeat_interval = state
+            .canonical_lease_ttl
+            .checked_div(2)
+            .unwrap_or(Duration::from_secs(1))
+            .max(Duration::from_secs(1));
+        let mut next_heartbeat = Instant::now();
+        loop {
+            if Instant::now() >= next_heartbeat {
+                if let Err(error) = refresh_canonical_process_route(&state) {
+                    warn!(
+                        "failed to refresh canonical route for process {}: {}",
+                        state.deployment.process_id, error
+                    );
+                }
+                next_heartbeat = Instant::now() + heartbeat_interval;
+            }
+            match sync_canonical_capacity_once(&state).await {
+                Ok(events) if !events.is_empty() => broadcast_events(&state, &events),
+                Ok(_) => {}
+                Err(error) => warn!(
+                    "canonical convergence poll failed for process {}: {}",
+                    state.deployment.process_id, error
+                ),
+            }
+            tokio::time::sleep(DEFAULT_CANONICAL_CONVERGENCE_POLL).await;
+        }
+    }))
 }
 
 fn start_event_store_retry_scheduler(state: AppState) {
@@ -29785,6 +30839,7 @@ async fn stream(
     State(state): State<AppState>,
     Query(query): Query<EventsQuery>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
+    converge_capacity_for_read(&state, query.actor_session.as_deref()).await;
     let ownership = state.ownership_snapshot().await;
     let access = AccessContext::from_events_query(
         &query,
@@ -29949,12 +31004,101 @@ fn sse_gap_event(gap: EventReplayGap) -> Option<Result<Event, Infallible>> {
 }
 
 fn broadcast_events(state: &AppState, events: &[EventView]) {
+    broadcast_events_inner(state, events, true);
+}
+
+fn broadcast_events_without_presence_relay(state: &AppState, events: &[EventView]) {
+    broadcast_events_inner(state, events, false);
+}
+
+fn broadcast_events_inner(state: &AppState, events: &[EventView], relay_presence: bool) {
+    let _fanout_guard = state
+        .canonical_fanout_lock
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut presence_events = Vec::new();
     for event in events
         .iter()
         .filter(|event| event.type_name != "action.receipt")
     {
+        if event.seq > 0 {
+            let current = state.canonical_fanout_seq.load(AtomicOrdering::Acquire);
+            if event.seq <= current {
+                continue;
+            }
+            if event.seq != current.saturating_add(1) {
+                warn!(
+                    "delaying durable fan-out seq {} until process {} catches up from {}",
+                    event.seq, state.deployment.process_id, current
+                );
+                continue;
+            }
+            state
+                .canonical_fanout_seq
+                .store(event.seq, AtomicOrdering::Release);
+        } else if event.type_name == "actor.presence" {
+            if let Some(actor_id) = event.actor_id {
+                if let Ok(mut presence) = state.regional_presence.lock() {
+                    presence.insert(
+                        actor_id,
+                        RegionalPresence {
+                            active: event.content.as_deref() == Some("active"),
+                            last_seen_at: Instant::now(),
+                        },
+                    );
+                }
+            }
+            presence_events.push(event.clone());
+        }
         let _ = state.tx.send(event.clone());
     }
+    if relay_presence && !presence_events.is_empty() && state.canonical_routing.enabled() {
+        let state = state.clone();
+        tokio::spawn(async move {
+            if let Err(error) = fanout_capacity_presence(&state, presence_events).await {
+                warn!("canonical presence fan-out failed: {}", error);
+            }
+        });
+    }
+}
+
+async fn fanout_capacity_presence(state: &AppState, events: Vec<EventView>) -> io::Result<()> {
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Ok(());
+    };
+    let Some(token) = state.canonical_routing.token.as_deref() else {
+        return Ok(());
+    };
+    let routes =
+        active_process_routes(path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH, now_millis())?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .map_err(io::Error::other)?;
+    let payload = CanonicalPresenceRelay {
+        source_owner_id: state.canonical_owner_id.as_ref().clone(),
+        events,
+    };
+    for route in routes
+        .into_iter()
+        .filter(|route| route.owner_id != *state.canonical_owner_id)
+    {
+        let url = format!("{}/internal/canonical/presence", route.base_url);
+        if let Err(error) = client
+            .post(url)
+            .bearer_auth(token)
+            .json(&payload)
+            .send()
+            .await
+            .and_then(reqwest::Response::error_for_status)
+        {
+            warn!(
+                "presence relay from {} to {} failed: {}",
+                state.deployment.process_id, route.process_id, error
+            );
+        }
+    }
+    Ok(())
 }
 
 fn index_etag() -> &'static str {
@@ -31788,7 +32932,7 @@ fn commit_journal_record(
             }
         },
     };
-    let (status, events, _actor_job_inserted) = if let Some(path) =
+    let (status, events, _actor_job_inserted, _committed_journal_seq) = if let Some(path) =
         state.event_store_path.as_deref()
     {
         let mut conn = match open_event_store(path) {
@@ -31814,7 +32958,7 @@ fn commit_journal_record(
                 return Err(error);
             }
         };
-        let committed = (|| -> io::Result<(u32, Vec<EventView>, bool)> {
+        let committed = (|| -> io::Result<(u32, Vec<EventView>, bool, u64)> {
             let commit_time = now_millis();
             let lease_ttl = authority_lease_ttl_ms(state);
             for lease in authority_leases.values_mut() {
@@ -31999,6 +33143,7 @@ fn commit_journal_record(
                 status,
                 events,
                 observation_job_inserted || queued_job_inserted,
+                action_journal_seq,
             ))
         })();
         let committed = match committed {
@@ -32026,6 +33171,9 @@ fn commit_journal_record(
         if let Some(context) = command_context.as_ref() {
             context.finish_commit();
         }
+        state
+            .canonical_applied_journal_seq
+            .store(committed.3, AtomicOrdering::Release);
         state.record_event_store_append_success();
         committed
     } else {
@@ -32033,7 +33181,7 @@ fn commit_journal_record(
         if let Some(context) = command_context.as_ref() {
             context.finish_commit();
         }
-        (status, events, false)
+        (status, events, false, 0)
     };
     if !events.is_empty() {
         state.mark_activity();
@@ -32539,6 +33687,19 @@ fn action_journal_has_records(path: &Path) -> io::Result<bool> {
     Ok(count > 0)
 }
 
+fn latest_action_journal_seq(path: &Path) -> io::Result<u64> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let value = conn
+        .query_row(
+            "SELECT COALESCE(MAX(journal_seq), 0) FROM action_journal",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(sqlite_error)?;
+    u64::try_from(value).map_err(|_| snapshot_error("action journal returned a negative sequence"))
+}
+
 #[cfg(test)]
 fn append_action_journal(path: &Path, record: &JournalRecord) -> io::Result<()> {
     init_event_store(path)?;
@@ -32867,6 +34028,57 @@ fn load_actor_sessions(path: &Path) -> io::Result<ActorSessions> {
         );
     }
     Ok(sessions)
+}
+
+fn refresh_actor_session_from_store(state: &AppState, session_token: &str) -> io::Result<()> {
+    let token = session_token.trim();
+    if token.is_empty() {
+        return Ok(());
+    }
+    if state
+        .actor_sessions
+        .lock()
+        .map(|sessions| sessions.sessions.contains_key(token))
+        .unwrap_or(false)
+    {
+        return Ok(());
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Ok(());
+    };
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let now_unix = now_unix_secs();
+    let stored = conn
+        .query_row(
+            "SELECT actor_id, expires_at_unix
+             FROM actor_sessions
+             WHERE session_token = ?1 AND expires_at_unix > ?2",
+            params![token, now_unix as i64],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+        )
+        .optional()
+        .map_err(sqlite_error)?;
+    let Some((actor_id, expires_at_unix)) = stored else {
+        return Ok(());
+    };
+    if actor_id <= 0 || expires_at_unix <= now_unix as i64 {
+        return Ok(());
+    }
+    let now = Instant::now();
+    if let Ok(mut sessions) = state.actor_sessions.lock() {
+        sessions
+            .sessions
+            .entry(token.to_string())
+            .or_insert(ActorSession {
+                actor_id: actor_id as u64,
+                expires_at: now + Duration::from_secs(expires_at_unix as u64 - now_unix),
+                expires_at_unix: expires_at_unix as u64,
+                last_seen_at: inactive_presence_seen_at(now),
+                explicitly_inactive: true,
+            });
+    }
+    Ok(())
 }
 
 fn persist_actor_session(path: &Path, token: &str, session: &ActorSession) -> io::Result<()> {
@@ -34087,7 +35299,10 @@ fn read_economy_audit(path: &Path, limit: usize) -> io::Result<ModerationEconomy
 }
 
 fn open_event_store(path: &Path) -> io::Result<Connection> {
-    Connection::open(path).map_err(sqlite_error)
+    let conn = Connection::open(path).map_err(sqlite_error)?;
+    conn.busy_timeout(Duration::from_secs(5))
+        .map_err(sqlite_error)?;
+    Ok(conn)
 }
 
 fn canonical_command_receipt_key(world_id: &str, intent_id: &str) -> String {
@@ -34104,7 +35319,7 @@ fn read_canonical_command_response(
     conn.query_row(
         "SELECT request_hash, response_json
          FROM canonical_command_receipts
-         WHERE world_id = ?1 AND intent_id = ?2",
+         WHERE world_id = ?1 AND intent_id = ?2 AND finalized = 1",
         params![world_id, intent_id],
         |row| {
             Ok(StoredCommandResponse {
@@ -34300,6 +35515,7 @@ mod tests {
 
     fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<PathBuf>) -> AppState {
         let (tx, _) = broadcast::channel(32);
+        let canonical_fanout_seq = runtime.world.next_event_seq.saturating_sub(1);
         AppState {
             inner: Arc::new(Mutex::new(runtime)),
             tx,
@@ -34333,6 +35549,11 @@ mod tests {
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
             canonical_lease_ttl: DEFAULT_CANONICAL_LEASE_TTL,
+            canonical_applied_journal_seq: Arc::new(AtomicU64::new(0)),
+            canonical_fanout_seq: Arc::new(AtomicU64::new(canonical_fanout_seq)),
+            canonical_fanout_lock: Arc::new(StdMutex::new(())),
+            canonical_routing: Arc::new(CanonicalRoutingConfig::default()),
+            regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
@@ -34345,6 +35566,78 @@ mod tests {
             },
             allow_unsigned_wallet_claims: false,
         }
+    }
+
+    fn configure_capacity_test_state(
+        mut state: AppState,
+        process_id: &str,
+        owner_id: &str,
+        base_url: &str,
+        router_token: &str,
+        lease_ttl: Duration,
+    ) -> AppState {
+        state.deployment = DeploymentConfig {
+            profile: DeploymentProfile::Local,
+            world_id: OFFICIAL_WORLD_ID.to_string(),
+            process_id: process_id.to_string(),
+        };
+        state.canonical_owner_id = Arc::new(owner_id.to_string());
+        state.canonical_lease_ttl = lease_ttl;
+        state.canonical_routing = Arc::new(CanonicalRoutingConfig {
+            base_url: Some(base_url.to_string()),
+            token: Some(router_token.to_string()),
+        });
+        if let Some(path) = state.event_store_path.as_deref() {
+            state.canonical_applied_journal_seq.store(
+                latest_action_journal_seq(path).expect("capacity test journal sequence"),
+                AtomicOrdering::Release,
+            );
+            state.canonical_fanout_seq.store(
+                current_world_seq(
+                    &open_event_store(path).expect("capacity test store"),
+                    OFFICIAL_WORLD_ID,
+                )
+                .expect("capacity test world sequence"),
+                AtomicOrdering::Release,
+            );
+            state.actor_sessions = Arc::new(StdMutex::new(
+                load_actor_sessions(path).expect("capacity test actor sessions"),
+            ));
+        }
+        refresh_canonical_process_route(&state).expect("register capacity test route");
+        state
+    }
+
+    async fn commit_capacity_test_human(
+        state: &AppState,
+        actor_id: u64,
+        location_id: u64,
+        name: &str,
+    ) -> String {
+        let events = {
+            let mut runtime = state.inner.lock().await;
+            let mut create = CwAction::default();
+            create.kind = CW_ACTION_CREATE_ACTOR;
+            create.actor_id = actor_id;
+            create.location_id = location_id;
+            let mut record = JournalRecord::new(create, 90_000 + actor_id);
+            record.actor_meta_upserts.insert(
+                actor_id,
+                ActorMeta {
+                    name: name.to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Capacity Test Avatar".to_string(),
+                    description: "A pinned client in the canonical convergence harness."
+                        .to_string(),
+                },
+            );
+            let (status, events) =
+                commit_journal_record(state, &mut runtime, record).expect("commit test avatar");
+            assert_eq!(status, CW_OK);
+            events
+        };
+        broadcast_events(state, &events);
+        issue_actor_session(state, actor_id).0
     }
 
     fn command_request(actor_id: u64, command: &str) -> CommandRequest {
@@ -34465,6 +35758,140 @@ mod tests {
         );
     }
 
+    #[test]
+    fn canonical_routing_requires_a_safe_origin_and_paired_secret() {
+        assert!(!canonical_routing_config(None, None).unwrap().enabled());
+        assert!(
+            canonical_routing_config(Some("https://capacity.example".to_string()), None,).is_err()
+        );
+        assert!(canonical_routing_config(
+            Some("https://capacity.example/internal".to_string()),
+            Some("0123456789abcdef".to_string()),
+        )
+        .is_err());
+        assert!(canonical_routing_config(
+            Some("https://capacity.example".to_string()),
+            Some("too-short".to_string()),
+        )
+        .is_err());
+
+        let config = canonical_routing_config(
+            Some("https://capacity.example".to_string()),
+            Some("0123456789abcdef".to_string()),
+        )
+        .unwrap();
+        assert!(config.enabled());
+        assert_eq!(config.base_url.as_deref(), Some("https://capacity.example"));
+    }
+
+    #[test]
+    fn canonical_internal_auth_is_hidden_without_the_exact_bearer_secret() {
+        let mut state = test_app_state(RuntimeWorld::seeded(), None);
+        state.canonical_routing = Arc::new(CanonicalRoutingConfig {
+            base_url: Some("http://127.0.0.1:4101".to_string()),
+            token: Some("0123456789abcdef".to_string()),
+        });
+        let mut headers = HeaderMap::new();
+        assert!(!canonical_internal_authorized(&state, &headers));
+        headers.insert(
+            header::AUTHORIZATION,
+            "Bearer wrong-secret".parse().unwrap(),
+        );
+        assert!(!canonical_internal_authorized(&state, &headers));
+        headers.insert(
+            header::AUTHORIZATION,
+            "Bearer 0123456789abcdef".parse().unwrap(),
+        );
+        assert!(canonical_internal_authorized(&state, &headers));
+    }
+
+    #[test]
+    fn provisional_atomic_command_receipts_are_not_client_visible() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-provisional-receipt-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize receipt store");
+        let conn = open_event_store(&path).expect("open receipt store");
+        init_canonical_journal(&conn, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH)
+            .expect("initialize canonical receipt schema");
+        insert_atomic_command_receipt(
+            &conn,
+            &CanonicalReceiptRow {
+                world_id: OFFICIAL_WORLD_ID,
+                intent_id: "test:provisional",
+                request_hash: "hash",
+                response_json: r#"{"receipt":null}"#,
+                commit_id: "commit:1",
+                world_epoch: OFFICIAL_WORLD_EPOCH,
+                world_seq: 1,
+                owner_id: "process-a:boot-a",
+                owner_fencing_epoch: 1,
+                created_at_ms: 10,
+            },
+        )
+        .expect("insert provisional receipt");
+        drop(conn);
+
+        assert!(
+            read_canonical_command_response(&path, OFFICIAL_WORLD_ID, "test:provisional",)
+                .unwrap()
+                .is_none()
+        );
+        assert!(finalize_atomic_command_receipt(
+            &path,
+            OFFICIAL_WORLD_ID,
+            "test:provisional",
+            "hash",
+            r#"{"receipt":{"world_seq":1}}"#,
+            1,
+            11,
+        )
+        .unwrap());
+        assert_eq!(
+            read_canonical_command_response(&path, OFFICIAL_WORLD_ID, "test:provisional",)
+                .unwrap()
+                .map(|stored| stored.response_json),
+            Some(r#"{"receipt":{"world_seq":1}}"#.to_string())
+        );
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn durable_process_fanout_is_ordered_and_exactly_once() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Fanout Neighbour",
+        );
+        let event = runtime
+            .event_log
+            .iter()
+            .find(|event| event.seq > 0 && event.type_name != "action.receipt")
+            .cloned()
+            .expect("durable actor event");
+        let mut delayed = event.clone();
+        delayed.seq = event.seq + 1;
+        delayed.type_name = "test.delayed".to_string();
+        let state = test_app_state(runtime, None);
+        state
+            .canonical_fanout_seq
+            .store(event.seq.saturating_sub(1), AtomicOrdering::Release);
+        let mut receiver = state.tx.subscribe();
+
+        broadcast_events(&state, &[delayed.clone()]);
+        assert!(receiver.try_recv().is_err(), "a durable gap must wait");
+        broadcast_events(&state, &[event.clone(), delayed.clone()]);
+        assert_eq!(receiver.try_recv().unwrap().seq, event.seq);
+        assert_eq!(receiver.try_recv().unwrap().seq, delayed.seq);
+        broadcast_events(&state, &[event, delayed]);
+        assert!(receiver.try_recv().is_err(), "a durable retry must dedupe");
+    }
+
     #[tokio::test]
     async fn duplicate_canonical_intent_returns_the_same_receipt_and_one_effect() {
         let actor_id = 5000;
@@ -34524,6 +35951,480 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn divergent_capacity_processes_converge_without_affinity() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-capacity-convergence-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize convergence store");
+
+        let listener_a = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind process A");
+        let listener_b = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind process B");
+        let addr_a = listener_a.local_addr().expect("process A address");
+        let addr_b = listener_b.local_addr().expect("process B address");
+        let url_a = format!("http://{addr_a}");
+        let url_b = format!("http://{addr_b}");
+        let router_token = "capacity-test-router-token";
+        let lease_ttl = Duration::from_secs(1);
+
+        let state_a = configure_capacity_test_state(
+            test_app_state(RuntimeWorld::seeded(), Some(path.clone())),
+            "process-a",
+            "process-a:boot-a",
+            &url_a,
+            router_token,
+            lease_ttl,
+        );
+        let actor_a = 5000;
+        let actor_b = 5001;
+        let session_a =
+            commit_capacity_test_human(&state_a, actor_a, COSY_COTTAGE_LOCATION_ID, "Pinned A")
+                .await;
+        let session_b =
+            commit_capacity_test_human(&state_a, actor_b, RAIN_SOFT_GARDEN_LOCATION_ID, "Pinned B")
+                .await;
+        let baseline_seq = current_world_seq(
+            &open_event_store(&path).expect("baseline store"),
+            OFFICIAL_WORLD_ID,
+        )
+        .expect("baseline cursor");
+
+        let mut runtime_b = RuntimeWorld::from_action_journal(&path).expect("replay process B");
+        advance_runtime_next_event_seq_from_store(&mut runtime_b, &path)
+            .expect("advance process B cursor");
+        let state_b = configure_capacity_test_state(
+            test_app_state(runtime_b, Some(path.clone())),
+            "process-b",
+            "process-b:boot-b",
+            &url_b,
+            router_token,
+            lease_ttl,
+        );
+
+        let app_a = routes::app_router(state_a.clone());
+        let app_b = routes::app_router(state_b.clone());
+        let server_a = tokio::spawn(async move {
+            axum::serve(
+                listener_a,
+                app_a.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .expect("serve process A");
+        });
+        let server_b = tokio::spawn(async move {
+            axum::serve(
+                listener_b,
+                app_b.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .expect("serve process B");
+        });
+        let convergence_a =
+            start_canonical_capacity_scheduler(state_a.clone()).expect("process A convergence");
+        let convergence_b =
+            start_canonical_capacity_scheduler(state_b.clone()).expect("process B convergence");
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .expect("capacity test client");
+
+        // Presence crosses the real process routes but stays outside durable history.
+        let mut presence_rx_b = state_b.tx.subscribe();
+        let ping: serde_json::Value = client
+            .post(format!("{url_a}/presence/ping"))
+            .json(&serde_json::json!({
+                "actor_id": actor_a,
+                "actor_session": session_a,
+            }))
+            .send()
+            .await
+            .expect("ping through process A")
+            .json()
+            .await
+            .expect("presence response");
+        assert_eq!(ping["ok"], true);
+        let relayed_presence = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                let event = presence_rx_b
+                    .recv()
+                    .await
+                    .expect("process B presence event");
+                if event.type_name == "actor.presence" && event.actor_id == Some(actor_a) {
+                    break event;
+                }
+            }
+        })
+        .await
+        .expect("presence fan-out timeout");
+        assert_eq!(relayed_presence.seq, 0);
+        assert_eq!(relayed_presence.content.as_deref(), Some("active"));
+        assert_eq!(
+            current_world_seq(
+                &open_event_store(&path).expect("presence cursor store"),
+                OFFICIAL_WORLD_ID,
+            )
+            .expect("presence cursor"),
+            baseline_seq,
+            "presence must not advance canonical history"
+        );
+
+        // Refresh process A's room lease immediately before B follows the invite.
+        let warmup_request = {
+            let runtime = state_a.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_a,
+                &session_a,
+                "test:capacity-warmup",
+                "say the same hearth is ready",
+            )
+        };
+        let warmup: CommandResponse = client
+            .post(format!("{url_a}/commands"))
+            .json(&warmup_request)
+            .send()
+            .await
+            .expect("warmup command")
+            .json()
+            .await
+            .expect("warmup response");
+        assert!(warmup.ok, "{warmup:?}");
+
+        let invite: CanonicalInviteResponse = client
+            .post(format!("{url_a}/invites"))
+            .json(&CreateCanonicalInviteRequest {
+                actor_id: actor_a,
+                actor_session: session_a.clone(),
+            })
+            .send()
+            .await
+            .expect("create invite through A")
+            .json()
+            .await
+            .expect("invite response");
+        assert!(invite.ok, "{invite:?}");
+        assert_eq!(invite.process_id, "process-a");
+        let invite = invite.invite.expect("canonical invite");
+        let resolved_on_b: CanonicalInviteResponse = client
+            .get(format!("{url_b}/invites/{}", invite.invite_id))
+            .send()
+            .await
+            .expect("resolve invite through B")
+            .json()
+            .await
+            .expect("resolved invite response");
+        assert!(resolved_on_b.ok, "{resolved_on_b:?}");
+        assert_eq!(resolved_on_b.process_id, "process-b");
+        assert_eq!(
+            resolved_on_b
+                .invite
+                .as_ref()
+                .map(|view| view.inviter.actor_ref.as_str()),
+            Some(invite.inviter.actor_ref.as_str())
+        );
+
+        let followed: CanonicalInviteFollowResponse = client
+            .post(format!("{url_b}/invites/{}/follow", invite.invite_id))
+            .json(&FollowCanonicalInviteRequest {
+                actor_id: actor_b,
+                actor_session: session_b.clone(),
+            })
+            .send()
+            .await
+            .expect("follow invite through B")
+            .json()
+            .await
+            .expect("follow response");
+        assert!(followed.ok, "{followed:?}");
+        assert_eq!(
+            followed.rendezvous_location_ref.as_deref(),
+            Some(invite.inviter.location_ref.as_str())
+        );
+        assert!(followed.events.iter().any(|event| {
+            event.type_name == "actor.moved"
+                && event.actor_id == Some(actor_b)
+                && event.destination_location_id == Some(COSY_COTTAGE_LOCATION_ID)
+        }));
+
+        let actor_b_ref = followed.actor_ref.clone().expect("actor B canonical ref");
+        let profile_a: CanonicalProfileResponse = client
+            .get(format!("{url_a}/profiles"))
+            .query(&[("actor_ref", actor_b_ref.as_str())])
+            .send()
+            .await
+            .expect("profile through A")
+            .json()
+            .await
+            .expect("profile A response");
+        let profile_b: CanonicalProfileResponse = client
+            .get(format!("{url_b}/profiles"))
+            .query(&[("actor_ref", actor_b_ref.as_str())])
+            .send()
+            .await
+            .expect("profile through B")
+            .json()
+            .await
+            .expect("profile B response");
+        assert_eq!(profile_a.profile, profile_b.profile);
+        assert_eq!(
+            profile_b.profile.as_ref().map(|view| view.location_id),
+            Some(COSY_COTTAGE_LOCATION_ID)
+        );
+
+        // One intent enters through both processes concurrently and commits once.
+        let retry_request = {
+            let runtime = state_a.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_a,
+                &session_a,
+                "test:cross-process-retry",
+                "say this arrives exactly once",
+            )
+        };
+        let request_a = client
+            .post(format!("{url_a}/commands"))
+            .json(&retry_request)
+            .send();
+        let request_b = client
+            .post(format!("{url_b}/commands"))
+            .json(&retry_request)
+            .send();
+        let (response_a, response_b) = tokio::join!(request_a, request_b);
+        let response_a: CommandResponse = response_a
+            .expect("retry through A")
+            .json()
+            .await
+            .expect("retry A response");
+        let response_b: CommandResponse = response_b
+            .expect("retry through B")
+            .json()
+            .await
+            .expect("retry B response");
+        assert!(response_a.ok, "{response_a:?}");
+        assert!(response_b.ok, "{response_b:?}");
+        assert_eq!(response_a.receipt, response_b.receipt);
+        assert_eq!(
+            serde_json::to_value(&response_a).unwrap(),
+            serde_json::to_value(&response_b).unwrap()
+        );
+        let receipt_count = open_event_store(&path)
+            .expect("receipt store")
+            .query_row(
+                "SELECT COUNT(*) FROM canonical_command_receipts
+                 WHERE world_id = ?1 AND intent_id = ?2",
+                params![OFFICIAL_WORLD_ID, "test:cross-process-retry"],
+                |row| row.get::<_, i64>(0),
+            )
+            .expect("receipt count");
+        assert_eq!(receipt_count, 1);
+        for state in [&state_a, &state_b] {
+            converge_capacity_for_read(state, None).await;
+            assert_eq!(
+                state
+                    .inner
+                    .lock()
+                    .await
+                    .event_log
+                    .iter()
+                    .filter(|event| {
+                        event.type_name == "message.created"
+                            && event.actor_id == Some(actor_a)
+                            && event.content.as_deref() == Some("this arrives exactly once")
+                    })
+                    .count(),
+                1
+            );
+        }
+
+        // A command entering through B mutates the item once on A's fenced room.
+        let (loose_item_id, loose_item_name) = {
+            let runtime = state_a.inner.lock().await;
+            let item = runtime.world.items[..runtime.world.item_count]
+                .iter()
+                .find(|item| {
+                    item.location_id == COSY_COTTAGE_LOCATION_ID && item.holder_actor_id == 0
+                })
+                .copied()
+                .expect("loose cottage item");
+            (
+                item.id,
+                runtime.item_name(item.id).expect("loose item name"),
+            )
+        };
+        let take_request = {
+            let runtime = state_a.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_a,
+                &session_a,
+                "test:cross-process-item",
+                &format!("take {loose_item_name}"),
+            )
+        };
+        let take: CommandResponse = client
+            .post(format!("{url_b}/commands"))
+            .json(&take_request)
+            .send()
+            .await
+            .expect("take through B")
+            .json()
+            .await
+            .expect("take response");
+        assert!(take.ok, "{take:?}");
+        for state in [&state_a, &state_b] {
+            converge_capacity_for_read(state, None).await;
+            assert_eq!(
+                state
+                    .inner
+                    .lock()
+                    .await
+                    .item_by_id(loose_item_id)
+                    .map(|item| item.holder_actor_id),
+                Some(actor_a)
+            );
+        }
+
+        let state_url = |base: &str| format!("{base}/state");
+        let state_a_view: serde_json::Value = client
+            .get(state_url(&url_a))
+            .query(&[
+                ("actor_id", actor_b.to_string()),
+                ("actor_session", session_b.clone()),
+            ])
+            .send()
+            .await
+            .expect("state through A")
+            .json()
+            .await
+            .expect("state A json");
+        let state_b_view: serde_json::Value = client
+            .get(state_url(&url_b))
+            .query(&[
+                ("actor_id", actor_b.to_string()),
+                ("actor_session", session_b.clone()),
+            ])
+            .send()
+            .await
+            .expect("state through B")
+            .json()
+            .await
+            .expect("state B json");
+        for field in ["location", "actors", "items", "action_hand"] {
+            assert_eq!(
+                state_a_view[field], state_b_view[field],
+                "pinned clients diverged at {field}"
+            );
+        }
+
+        let events_a: EventsResponse = client
+            .get(format!("{url_a}/events"))
+            .query(&[
+                ("after", baseline_seq.to_string()),
+                ("limit", "500".to_string()),
+                ("actor_id", actor_b.to_string()),
+                ("actor_session", session_b.clone()),
+            ])
+            .send()
+            .await
+            .expect("events through A")
+            .json()
+            .await
+            .expect("events A response");
+        let events_b: EventsResponse = client
+            .get(format!("{url_b}/events"))
+            .query(&[
+                ("after", baseline_seq.to_string()),
+                ("limit", "500".to_string()),
+                ("actor_id", actor_b.to_string()),
+                ("actor_session", session_b.clone()),
+            ])
+            .send()
+            .await
+            .expect("events through B")
+            .json()
+            .await
+            .expect("events B response");
+        assert_eq!(
+            serde_json::to_value(&events_a.events).unwrap(),
+            serde_json::to_value(&events_b.events).unwrap()
+        );
+        assert!(events_a.caught_up && events_b.caught_up);
+        assert!(events_a
+            .events
+            .windows(2)
+            .all(|events| events[0].seq + 1 == events[1].seq));
+
+        // Kill the owner entrance. B waits for lease expiry, takes a higher fence,
+        // and continues from the same actor identity and committed prefix.
+        convergence_a.abort();
+        server_a.abort();
+        tokio::time::sleep(lease_ttl + Duration::from_millis(250)).await;
+        converge_capacity_for_read(&state_b, Some(&session_a)).await;
+        let failover_request = {
+            let runtime = state_b.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_a,
+                &session_a,
+                "test:owner-process-loss",
+                "say history stayed with us",
+            )
+        };
+        let failover: CommandResponse = client
+            .post(format!("{url_b}/commands"))
+            .json(&failover_request)
+            .send()
+            .await
+            .expect("command after owner loss")
+            .json()
+            .await
+            .expect("failover response");
+        assert!(failover.ok, "{failover:?}");
+        assert!(
+            failover
+                .receipt
+                .as_ref()
+                .map(|receipt| receipt.owner_fencing_epoch)
+                > response_a
+                    .receipt
+                    .as_ref()
+                    .map(|receipt| receipt.owner_fencing_epoch)
+        );
+        let profile_after_loss: CanonicalProfileResponse = client
+            .get(format!("{url_b}/profiles"))
+            .query(&[("actor_ref", invite.inviter.actor_ref.as_str())])
+            .send()
+            .await
+            .expect("profile after owner loss")
+            .json()
+            .await
+            .expect("profile after loss response");
+        assert_eq!(
+            profile_after_loss
+                .profile
+                .as_ref()
+                .map(|profile| profile.actor_ref.as_str()),
+            Some(invite.inviter.actor_ref.as_str())
+        );
+        assert!(state_b.inner.lock().await.event_log.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.content.as_deref() == Some("this arrives exactly once")
+        }));
+
+        convergence_b.abort();
+        server_b.abort();
+        drop(client);
+        let _ = fs::remove_file(path);
     }
 
     #[tokio::test]
@@ -56078,6 +57979,7 @@ mod tests {
         let mut runtime = RuntimeWorld::seeded();
         runtime.apply_wallet_overlap_placements(&initial, 0);
         assert_eq!(runtime.actor_by_id(1001).unwrap().location_id, 1);
+        let canonical_fanout_seq = runtime.world.next_event_seq.saturating_sub(1);
 
         let (tx, _) = broadcast::channel(8);
         let state = AppState {
@@ -56113,6 +58015,11 @@ mod tests {
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
             canonical_lease_ttl: DEFAULT_CANONICAL_LEASE_TTL,
+            canonical_applied_journal_seq: Arc::new(AtomicU64::new(0)),
+            canonical_fanout_seq: Arc::new(AtomicU64::new(canonical_fanout_seq)),
+            canonical_fanout_lock: Arc::new(StdMutex::new(())),
+            canonical_routing: Arc::new(CanonicalRoutingConfig::default()),
+            regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),

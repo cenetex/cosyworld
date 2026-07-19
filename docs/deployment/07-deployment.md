@@ -10,9 +10,10 @@ The Node service remains the companion service for admin pages, auth, integratio
 
 The official product has one canonical world. A process, AWS task, Fly machine,
 region, or room owner is capacity infrastructure and must not create a separate
-player history. The current SQLite deployment is intentionally one writer.
-Before increasing instance count, implement and pass the identity, durable
-journal, fenced ownership, routing, and failover gates in
+player history. The current SQLite deployment is intentionally one production
+task. Identity, durable journal, fencing, routing, presence fan-out, invite
+rendezvous, and the pinned two-process convergence harness are complete. Before
+increasing instance count, pass the hot-room migration and failover gates in
 [`../../v2/docs/canonical-world.md`](../../v2/docs/canonical-world.md). Never put
 multiple isolated SQLite saves behind a load balancer.
 
@@ -96,6 +97,11 @@ Create a `.env` file with:
   label shown in `/meta`. `COSYWORLD_V2_SHARD_ID` remains a matching legacy
   alias during migration. Neither may be used as a world, room, actor,
   invitation, claim, or save namespace.
+- **V2 Capacity Routing:** `COSYWORLD_CANONICAL_ROUTE_URL` and
+  `COSYWORLD_CANONICAL_ROUTER_TOKEN` are optional but must be set together. The
+  URL must target that exact process rather than the shared player load
+  balancer; the token must be a secret of at least 16 characters. Keep both
+  unset while AWS/Fly remains at one task/machine.
 
 ---
 
@@ -153,9 +159,8 @@ NODE_OPTIONS="--max-old-space-size=4096"
 
 ## Scaling Tips
 
-- Attach a persistent volume for SQLite and keep exactly one writer.
-- For multiple app instances, first provide a shared canonical journal,
-  versioned entities, fenced partition ownership, stable routing, and the
-  required two-process/failover test harness. A load balancer alone is unsafe.
+- Attach a persistent volume for SQLite and keep exactly one production task.
+- Multiple app instances require exact per-process routes and the remaining
+  hot-room migration/process-loss gate in #130. A load balancer alone is unsafe.
 - Redis cache
 - Containerize with Docker/Kubernetes

@@ -94,11 +94,11 @@ variable "task_memory" {
 variable "desired_count" {
   type        = number
   default     = 1
-  description = "Number of orchestrator tasks. MUST remain 1 while SQLite/EFS is the event store; multiple isolated kernels would fork the canonical world."
+  description = "Number of orchestrator tasks. MUST remain 1 until exact ECS task routing and the #130 hot-room migration/failover gate are complete."
 
   validation {
     condition     = var.desired_count == 1
-    error_message = "desired_count must remain 1 until canonical journal, fenced ownership, and multi-process convergence gates are implemented."
+    error_message = "desired_count must remain 1 until exact task routing and the #130 hot-room migration/failover gate are implemented."
   }
 }
 
