@@ -109,11 +109,14 @@ struct AppState {
     actor_chat_locks: Arc<StdMutex<BTreeSet<u64>>>,
     canonical_command_lock: Arc<Mutex<()>>,
     canonical_owner_id: Arc<String>,
+    canonical_store_id: Arc<String>,
+    canonical_region_id: Arc<String>,
     canonical_lease_ttl: Duration,
     canonical_applied_journal_seq: Arc<AtomicU64>,
     canonical_fanout_seq: Arc<AtomicU64>,
     canonical_fanout_lock: Arc<StdMutex<()>>,
     canonical_routing: Arc<CanonicalRoutingConfig>,
+    canonical_recovery: Arc<Option<CanonicalRecoveryConfig>>,
     regional_presence: Arc<StdMutex<BTreeMap<u64, RegionalPresence>>>,
     room_turns: Arc<StdMutex<RoomTurns>>,
     room_memory_cache: Arc<StdMutex<BTreeMap<u64, RoomMemoryCacheEntry>>>,
@@ -129,6 +132,7 @@ struct AppState {
 const CANONICAL_WORLD_PARTITION: &str = "world";
 const DEFAULT_CANONICAL_LEASE_TTL: Duration = Duration::from_secs(30);
 const DEFAULT_CANONICAL_CONVERGENCE_POLL: Duration = Duration::from_millis(100);
+const DEFAULT_CANONICAL_REGION_ID: &str = "local";
 const CANONICAL_ROUTE_HEARTBEAT_MULTIPLIER: u32 = 3;
 const CANONICAL_INVITE_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
@@ -136,6 +140,12 @@ const CANONICAL_INVITE_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 struct CanonicalRoutingConfig {
     base_url: Option<String>,
     token: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+struct CanonicalRecoveryConfig {
+    replica_path: PathBuf,
+    region_id: String,
 }
 
 impl CanonicalRoutingConfig {
@@ -161,6 +171,23 @@ struct ForwardedCanonicalCommand {
     source_process_id: String,
     client_addr: String,
     payload: CommandRequest,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CanonicalHandoffRequest {
+    partition_keys: Vec<String>,
+    target_owner_id: String,
+    expected_world_seq: u64,
+    reason: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CanonicalRecoveryPromotionRequest {
+    source_region_id: String,
+    expected_promotion_epoch: u64,
+    expected_prefix_hash: String,
 }
 
 struct CanonicalCommandCommitContext {
@@ -3090,6 +3117,38 @@ fn canonical_routing_config_from_env() -> io::Result<CanonicalRoutingConfig> {
     canonical_routing_config(base_url, token)
 }
 
+fn canonical_recovery_config_from_env(
+    event_store_path: Option<&Path>,
+) -> io::Result<Option<CanonicalRecoveryConfig>> {
+    let replica_path = std::env::var("COSYWORLD_CANONICAL_RECOVERY_DB_PATH")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from);
+    let region_id = std::env::var("COSYWORLD_CANONICAL_RECOVERY_REGION_ID")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    if replica_path.is_some() != region_id.is_some() {
+        return Err(deployment_config_error(
+            "COSYWORLD_CANONICAL_RECOVERY_DB_PATH and COSYWORLD_CANONICAL_RECOVERY_REGION_ID must be configured together",
+        ));
+    }
+    let (Some(replica_path), Some(region_id)) = (replica_path, region_id) else {
+        return Ok(None);
+    };
+    let region_id = normalize_process_id(&region_id, "COSYWORLD_CANONICAL_RECOVERY_REGION_ID")?;
+    if event_store_path.is_some_and(|primary| primary == replica_path.as_path()) {
+        return Err(deployment_config_error(
+            "COSYWORLD_CANONICAL_RECOVERY_DB_PATH must differ from COSYWORLD_V2_EVENT_DB_PATH",
+        ));
+    }
+    Ok(Some(CanonicalRecoveryConfig {
+        replica_path,
+        region_id,
+    }))
+}
+
 fn canonical_routing_config(
     base_url: Option<String>,
     token: Option<String>,
@@ -3127,6 +3186,15 @@ fn canonical_routing_config(
 fn canonical_route_heartbeat_expiry(now_ms: u64, lease_ttl: Duration) -> u64 {
     let ttl_ms = u64::try_from(lease_ttl.as_millis()).unwrap_or(u64::MAX);
     now_ms.saturating_add(ttl_ms.saturating_mul(u64::from(CANONICAL_ROUTE_HEARTBEAT_MULTIPLIER)))
+}
+
+fn canonical_region_id_from_env() -> io::Result<String> {
+    std::env::var("COSYWORLD_CANONICAL_REGION_ID")
+        .ok()
+        .as_deref()
+        .map(|value| normalize_process_id(value, "COSYWORLD_CANONICAL_REGION_ID"))
+        .transpose()
+        .map(|region| region.unwrap_or_else(|| DEFAULT_CANONICAL_REGION_ID.to_string()))
 }
 
 fn character_creation_views() -> Vec<CharacterCreationProfileView> {
@@ -4449,9 +4517,17 @@ impl AppState {
             resident_continuity_path_from_env(snapshot_path.as_deref()).map(Arc::new);
         let event_store_path = event_store_path_from_env().map(Arc::new);
         let canonical_routing = Arc::new(canonical_routing_config_from_env()?);
+        let canonical_recovery = Arc::new(canonical_recovery_config_from_env(
+            event_store_path.as_deref().map(PathBuf::as_path),
+        )?);
         if canonical_routing.enabled() && event_store_path.is_none() {
             return Err(deployment_config_error(
                 "canonical process routing requires COSYWORLD_V2_EVENT_DB_PATH",
+            ));
+        }
+        if canonical_recovery.is_some() && event_store_path.is_none() {
+            return Err(deployment_config_error(
+                "canonical regional recovery requires COSYWORLD_V2_EVENT_DB_PATH",
             ));
         }
         let fail_closed_on_continuity_error = deployment.profile.is_production();
@@ -4677,6 +4753,27 @@ impl AppState {
             }
         }
 
+        let canonical_region_id = Arc::new(canonical_region_id_from_env()?);
+        let canonical_store_id = Arc::new(if let Some(path) = event_store_path.as_deref() {
+            let store_id = ensure_canonical_store_identity(
+                path,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                &format!("store:{}", random_hex(16)),
+                now_millis(),
+            )?;
+            ensure_region_authority(
+                path,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                canonical_region_id.as_str(),
+                now_millis(),
+            )?;
+            store_id
+        } else {
+            format!("memory:{}", random_hex(16))
+        });
+
         let actor_sessions = event_store_path
             .as_deref()
             .map(|path| match load_actor_sessions(path) {
@@ -4746,6 +4843,7 @@ impl AppState {
                 &CanonicalProcessRoute {
                     owner_id: canonical_owner_id.as_ref().clone(),
                     process_id: deployment.process_id.clone(),
+                    region_id: canonical_region_id.as_ref().clone(),
                     base_url: base_url.to_string(),
                     heartbeat_expires_at_ms: canonical_route_heartbeat_expiry(
                         now,
@@ -4787,11 +4885,14 @@ impl AppState {
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id,
+            canonical_store_id,
+            canonical_region_id,
             canonical_lease_ttl,
             canonical_applied_journal_seq: Arc::new(AtomicU64::new(canonical_applied_journal_seq)),
             canonical_fanout_seq: Arc::new(AtomicU64::new(canonical_fanout_seq)),
             canonical_fanout_lock: Arc::new(StdMutex::new(())),
             canonical_routing,
+            canonical_recovery,
             regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
@@ -20300,6 +20401,9 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         .lock()
         .map(|health| health.clone())
         .unwrap_or_default();
+    let region_authority = state.event_store_path.as_deref().and_then(|path| {
+        current_region_authority(path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH).ok()
+    });
 
     Json(MetaResponse {
         ok: true,
@@ -20316,8 +20420,22 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             world_id: state.deployment.world_id.clone(),
             world_epoch: OFFICIAL_WORLD_EPOCH,
             process_id: state.deployment.process_id.clone(),
+            region_id: state.canonical_region_id.as_ref().clone(),
+            active_region_id: region_authority
+                .as_ref()
+                .map(|authority| authority.active_region_id.clone())
+                .unwrap_or_else(|| state.canonical_region_id.as_ref().clone()),
+            promotion_epoch: region_authority
+                .as_ref()
+                .map(|authority| authority.promotion_epoch)
+                .unwrap_or(1),
+            canonical_store_id: state.canonical_store_id.as_ref().clone(),
             shard_id: state.deployment.process_id.clone(),
-            shard_model: "single_process",
+            shard_model: if state.canonical_routing.enabled() {
+                "canonical_capacity"
+            } else {
+                "single_process"
+            },
         },
         features: MetaFeatureFlags {
             server_authored_chat: true,
@@ -23829,10 +23947,12 @@ async fn follow_canonical_invite_with_forwarding(
             events: Vec::new(),
         });
     }
-    let lease_result = acquire_partition_leases(
+    let lease_result = acquire_partition_leases_for_region(
         path,
         OFFICIAL_WORLD_ID,
         OFFICIAL_WORLD_EPOCH,
+        state.canonical_store_id.as_str(),
+        state.canonical_region_id.as_str(),
         &partitions,
         state.canonical_owner_id.as_str(),
         now_millis(),
@@ -23840,7 +23960,10 @@ async fn follow_canonical_invite_with_forwarding(
     );
     if let Err(error) = lease_result {
         if allow_forward
-            && error.kind() == io::ErrorKind::WouldBlock
+            && matches!(
+                error.kind(),
+                io::ErrorKind::WouldBlock | io::ErrorKind::PermissionDenied
+            )
             && state.canonical_routing.enabled()
         {
             match canonical_route_for_partitions(&state, &partitions) {
@@ -23992,10 +24115,12 @@ fn acquire_command_authority_leases(
             .collect());
     };
     init_event_store(path)?;
-    acquire_partition_leases(
+    acquire_partition_leases_for_region(
         path,
         OFFICIAL_WORLD_ID,
         OFFICIAL_WORLD_EPOCH,
+        state.canonical_store_id.as_str(),
+        state.canonical_region_id.as_str(),
         &partitions,
         state.canonical_owner_id.as_str(),
         now,
@@ -24313,7 +24438,10 @@ async fn command_with_forwarding(
         Ok(leases) => leases,
         Err(error) => {
             if allow_forward
-                && error.kind() == io::ErrorKind::WouldBlock
+                && matches!(
+                    error.kind(),
+                    io::ErrorKind::WouldBlock | io::ErrorKind::PermissionDenied
+                )
                 && state.canonical_routing.enabled()
             {
                 match canonical_route_for_partitions(&state, &partitions) {
@@ -24580,6 +24708,269 @@ async fn internal_follow_canonical_invite(
     )
     .await;
     (StatusCode::OK, response).into_response()
+}
+
+fn canonical_internal_result<T: Serialize>(
+    result: io::Result<T>,
+    success_status: StatusCode,
+) -> Response {
+    match result {
+        Ok(value) => (
+            success_status,
+            Json(serde_json::json!({
+                "ok": true,
+                "result": value,
+            })),
+        )
+            .into_response(),
+        Err(error) => {
+            let status = match error.kind() {
+                io::ErrorKind::InvalidData | io::ErrorKind::InvalidInput => StatusCode::BAD_REQUEST,
+                io::ErrorKind::PermissionDenied => StatusCode::CONFLICT,
+                io::ErrorKind::WouldBlock => StatusCode::CONFLICT,
+                io::ErrorKind::NotFound => StatusCode::NOT_FOUND,
+                _ => StatusCode::SERVICE_UNAVAILABLE,
+            };
+            (
+                status,
+                Json(serde_json::json!({
+                    "ok": false,
+                    "error": error.to_string(),
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn internal_canonical_ownership_handoff(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(payload): Json<CanonicalHandoffRequest>,
+) -> Response {
+    if !canonical_internal_authorized(&state, &headers) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    let partition_keys = payload
+        .partition_keys
+        .iter()
+        .map(|value| value.trim().to_string())
+        .collect::<BTreeSet<_>>();
+    if partition_keys.is_empty()
+        || partition_keys.len() != payload.partition_keys.len()
+        || partition_keys.len() > 64
+        || partition_keys.iter().any(|partition| {
+            partition.is_empty()
+                || partition.len() > 256
+                || !(partition == CANONICAL_WORLD_PARTITION || partition.starts_with("room:"))
+        })
+    {
+        return canonical_internal_result::<CanonicalOwnershipCheckpoint>(
+            Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "partition_keys must contain 1-64 unique canonical room/world partitions",
+            )),
+            StatusCode::OK,
+        );
+    }
+    let now = now_millis();
+    let route = match process_route_for_owner(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        payload.target_owner_id.trim(),
+        now,
+    ) {
+        Ok(Some(route)) if route.region_id == *state.canonical_region_id => route,
+        Ok(Some(_)) => {
+            return canonical_internal_result::<CanonicalOwnershipCheckpoint>(
+                Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "target owner is not in the active source region",
+                )),
+                StatusCode::OK,
+            );
+        }
+        Ok(None) => {
+            return canonical_internal_result::<CanonicalOwnershipCheckpoint>(
+                Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "target owner has no live exact process route",
+                )),
+                StatusCode::OK,
+            );
+        }
+        Err(error) => {
+            return canonical_internal_result::<CanonicalOwnershipCheckpoint>(
+                Err(error),
+                StatusCode::OK,
+            );
+        }
+    };
+    let transfers = partition_keys
+        .iter()
+        .map(|partition_key| {
+            let lease = current_partition_lease(
+                path,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                partition_key,
+                now,
+            )?
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::WouldBlock,
+                    format!("partition {partition_key} has no live source owner"),
+                )
+            })?;
+            Ok((
+                partition_key.clone(),
+                CanonicalOwnershipTransfer {
+                    source: lease,
+                    target_owner_id: route.owner_id.clone(),
+                },
+            ))
+        })
+        .collect::<io::Result<BTreeMap<_, _>>>();
+    let result = transfers.and_then(|transfers| {
+        handoff_partition_leases(
+            path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            state.canonical_store_id.as_str(),
+            state.canonical_region_id.as_str(),
+            &transfers,
+            payload.expected_world_seq,
+            &payload.reason,
+            now,
+            authority_lease_ttl_ms(&state),
+        )
+    });
+    if let Ok(checkpoint) = &result {
+        info!(
+            checkpoint_id = %checkpoint.checkpoint_id,
+            world_seq = checkpoint.world_seq,
+            target_owner_id = %route.owner_id,
+            partition_count = checkpoint.leases.len(),
+            "committed canonical ownership handoff"
+        );
+    }
+    canonical_internal_result(result, StatusCode::OK)
+}
+
+async fn internal_canonical_region_checkpoint(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> Response {
+    if !canonical_internal_authorized(&state, &headers) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let (Some(primary_path), Some(recovery)) = (
+        state.event_store_path.as_deref(),
+        state.canonical_recovery.as_ref().as_ref(),
+    ) else {
+        return canonical_internal_result::<CanonicalReplicaCheckpoint>(
+            Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "canonical recovery replica is not configured",
+            )),
+            StatusCode::CREATED,
+        );
+    };
+    let authority = current_region_authority(primary_path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH);
+    let result = authority.and_then(|authority| {
+        if authority.active_region_id != *state.canonical_region_id {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "only the active canonical region may checkpoint recovery storage",
+            ));
+        }
+        replicate_canonical_store(
+            primary_path,
+            &recovery.replica_path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &recovery.region_id,
+            now_millis(),
+        )
+    });
+    if let Ok(checkpoint) = &result {
+        info!(
+            recovery_region_id = %checkpoint.region_id,
+            durable_world_seq = checkpoint.durable_world_seq,
+            action_journal_seq = checkpoint.action_journal_seq,
+            prefix_hash = %checkpoint.prefix_hash,
+            "checkpointed canonical recovery prefix"
+        );
+    }
+    canonical_internal_result(result, StatusCode::CREATED)
+}
+
+async fn internal_canonical_region_promote(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(payload): Json<CanonicalRecoveryPromotionRequest>,
+) -> Response {
+    if !canonical_internal_authorized(&state, &headers) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Some(recovery_path) = state.event_store_path.as_deref() else {
+        return canonical_internal_result::<CanonicalRegionPromotion>(
+            Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "canonical event storage is not configured",
+            )),
+            StatusCode::OK,
+        );
+    };
+    let result = read_region_replica_checkpoint(
+        recovery_path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        state.canonical_region_id.as_str(),
+    )
+    .and_then(|checkpoint| {
+        checkpoint.ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                "recovery region has no durable checkpoint",
+            )
+        })
+    })
+    .and_then(|checkpoint| {
+        if checkpoint.prefix_hash != payload.expected_prefix_hash {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "recovery prefix hash does not match the operator-approved checkpoint",
+            ));
+        }
+        promote_recovery_region(
+            recovery_path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            state.canonical_store_id.as_str(),
+            payload.source_region_id.trim(),
+            state.canonical_region_id.as_str(),
+            payload.expected_promotion_epoch,
+            &checkpoint,
+            now_millis(),
+        )
+    });
+    if let Ok(promotion) = &result {
+        warn!(
+            promotion_id = %promotion.promotion_id,
+            source_region_id = %promotion.source_region_id,
+            target_region_id = %promotion.target_region_id,
+            promotion_epoch = promotion.promotion_epoch,
+            durable_world_seq = promotion.durable_world_seq,
+            prefix_hash = %promotion.prefix_hash,
+            "promoted canonical recovery region"
+        );
+    }
+    canonical_internal_result(result, StatusCode::OK)
 }
 
 async fn command_inner(
@@ -25902,6 +26293,7 @@ fn refresh_canonical_process_route(state: &AppState) -> io::Result<()> {
         &CanonicalProcessRoute {
             owner_id: state.canonical_owner_id.as_ref().clone(),
             process_id: state.deployment.process_id.clone(),
+            region_id: state.canonical_region_id.as_ref().clone(),
             base_url: base_url.to_string(),
             heartbeat_expires_at_ms: canonical_route_heartbeat_expiry(
                 now,
@@ -32826,10 +33218,12 @@ fn acquire_record_authority_leases(
             })
             .collect());
     };
-    acquire_partition_leases(
+    acquire_partition_leases_for_region(
         path,
         OFFICIAL_WORLD_ID,
         OFFICIAL_WORLD_EPOCH,
+        state.canonical_store_id.as_str(),
+        state.canonical_region_id.as_str(),
         &partitions,
         state.canonical_owner_id.as_str(),
         now,
@@ -32961,6 +33355,18 @@ fn commit_journal_record(
         let committed = (|| -> io::Result<(u32, Vec<EventView>, bool, u64)> {
             let commit_time = now_millis();
             let lease_ttl = authority_lease_ttl_ms(state);
+            validate_canonical_store_identity(
+                &tx,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                state.canonical_store_id.as_str(),
+            )?;
+            validate_active_region(
+                &tx,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                state.canonical_region_id.as_str(),
+            )?;
             for lease in authority_leases.values_mut() {
                 *lease = validate_and_renew_partition_lease(&tx, lease, commit_time, lease_ttl)?;
             }
@@ -35516,6 +35922,29 @@ mod tests {
     fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<PathBuf>) -> AppState {
         let (tx, _) = broadcast::channel(32);
         let canonical_fanout_seq = runtime.world.next_event_seq.saturating_sub(1);
+        let canonical_region_id = DEFAULT_CANONICAL_REGION_ID.to_string();
+        let canonical_store_id = if let Some(path) = event_store_path.as_deref() {
+            init_event_store(path).expect("initialize canonical test store");
+            let store_id = ensure_canonical_store_identity(
+                path,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                &format!("test-store:{}", random_hex(8)),
+                now_millis(),
+            )
+            .expect("canonical test store identity");
+            ensure_region_authority(
+                path,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                &canonical_region_id,
+                now_millis(),
+            )
+            .expect("canonical test region authority");
+            store_id
+        } else {
+            format!("test-memory:{}", random_hex(8))
+        };
         AppState {
             inner: Arc::new(Mutex::new(runtime)),
             tx,
@@ -35524,7 +35953,7 @@ mod tests {
             resident_continuity_path: None,
             event_store_path: event_store_path.clone().map(Arc::new),
             event_store_health: Arc::new(StdMutex::new(EventStoreHealth::default())),
-            account_auth: AccountAuth::for_test(event_store_path.map(Arc::new)),
+            account_auth: AccountAuth::for_test(event_store_path.clone().map(Arc::new)),
             ownership_index: Arc::new(RwLock::new(OwnershipIndex::default())),
             trust_client_card_ids: false,
             dev_reset_enabled: false,
@@ -35548,11 +35977,14 @@ mod tests {
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
+            canonical_store_id: Arc::new(canonical_store_id),
+            canonical_region_id: Arc::new(canonical_region_id),
             canonical_lease_ttl: DEFAULT_CANONICAL_LEASE_TTL,
             canonical_applied_journal_seq: Arc::new(AtomicU64::new(0)),
             canonical_fanout_seq: Arc::new(AtomicU64::new(canonical_fanout_seq)),
             canonical_fanout_lock: Arc::new(StdMutex::new(())),
             canonical_routing: Arc::new(CanonicalRoutingConfig::default()),
+            canonical_recovery: Arc::new(None),
             regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
@@ -36425,6 +36857,755 @@ mod tests {
         server_b.abort();
         drop(client);
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn hot_room_and_regional_chaos_preserve_one_committed_world() {
+        std::thread::Builder::new()
+            .name("hot-room-regional-chaos".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(|| {
+                tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(2)
+                    .enable_all()
+                    .build()
+                    .expect("build hot-room regional chaos runtime")
+                    .block_on(run_hot_room_and_regional_chaos());
+            })
+            .expect("spawn hot-room regional chaos thread")
+            .join()
+            .expect("hot-room regional chaos thread");
+    }
+
+    async fn run_hot_room_and_regional_chaos() {
+        let primary_path = std::env::temp_dir().join(format!(
+            "cosyworld-hot-room-primary-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let recovery_path = std::env::temp_dir().join(format!(
+            "cosyworld-hot-room-recovery-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let quarantine_path = primary_path.with_extension("isolated.sqlite");
+        for path in [&primary_path, &recovery_path, &quarantine_path] {
+            let _ = fs::remove_file(path);
+        }
+
+        let listener_a = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind hot-room process A");
+        let listener_b = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind hot-room process B");
+        let addr_a = listener_a.local_addr().expect("hot-room process A address");
+        let addr_b = listener_b.local_addr().expect("hot-room process B address");
+        let url_a = format!("http://{addr_a}");
+        let url_b = format!("http://{addr_b}");
+        let router_token = "hot-room-regional-router-token";
+        let lease_ttl = Duration::from_millis(1_500);
+        let actor_hot = 5100;
+        let actor_cold = 5101;
+
+        let state_a = configure_capacity_test_state(
+            test_app_state(RuntimeWorld::seeded(), Some(primary_path.clone())),
+            "hot-a",
+            "hot-a:boot-a",
+            &url_a,
+            router_token,
+            lease_ttl,
+        );
+        let session_hot = commit_capacity_test_human(
+            &state_a,
+            actor_hot,
+            COSY_COTTAGE_LOCATION_ID,
+            "Hot Room Neighbour",
+        )
+        .await;
+        let session_cold = commit_capacity_test_human(
+            &state_a,
+            actor_cold,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Cold Room Neighbour",
+        )
+        .await;
+        let baseline_seq = current_world_seq(
+            &open_event_store(&primary_path).expect("hot-room baseline store"),
+            OFFICIAL_WORLD_ID,
+        )
+        .expect("hot-room baseline cursor");
+
+        let mut runtime_b =
+            RuntimeWorld::from_action_journal(&primary_path).expect("replay hot-room process B");
+        advance_runtime_next_event_seq_from_store(&mut runtime_b, &primary_path)
+            .expect("advance hot-room process B cursor");
+        let state_b = configure_capacity_test_state(
+            test_app_state(runtime_b, Some(primary_path.clone())),
+            "hot-b",
+            "hot-b:boot-b",
+            &url_b,
+            router_token,
+            lease_ttl,
+        );
+        let store_id = state_a.canonical_store_id.as_ref().clone();
+        assert_eq!(state_b.canonical_store_id.as_str(), store_id);
+
+        let app_a = routes::app_router(state_a.clone());
+        let app_b = routes::app_router(state_b.clone());
+        let server_a = tokio::spawn(async move {
+            axum::serve(
+                listener_a,
+                app_a.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .expect("serve hot-room process A");
+        });
+        let server_b = tokio::spawn(async move {
+            axum::serve(
+                listener_b,
+                app_b.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .expect("serve hot-room process B");
+        });
+        let convergence_a =
+            start_canonical_capacity_scheduler(state_a.clone()).expect("hot-room convergence A");
+        let convergence_b =
+            start_canonical_capacity_scheduler(state_b.clone()).expect("hot-room convergence B");
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .expect("hot-room client");
+
+        let (actor_ref, hot_partition, cold_partition) = {
+            let runtime = state_a.inner.lock().await;
+            let actor_ref = runtime
+                .canonical_ref("actor", actor_hot)
+                .expect("hot actor ref")
+                .to_string();
+            let hot_location_ref = runtime
+                .canonical_ref("location", COSY_COTTAGE_LOCATION_ID)
+                .expect("hot location ref");
+            let cold_location_ref = runtime
+                .canonical_ref("location", RAIN_SOFT_GARDEN_LOCATION_ID)
+                .expect("cold location ref");
+            (
+                actor_ref,
+                canonical_room_partition_key(hot_location_ref),
+                canonical_room_partition_key(cold_location_ref),
+            )
+        };
+
+        // Hot-room load may enter through either edge, but one fenced owner
+        // serializes every effect and entity versions only move forward.
+        let mut actor_versions = Vec::new();
+        let mut hot_messages = Vec::new();
+        for index in 0..16_u64 {
+            converge_capacity_for_read(&state_a, Some(&session_hot)).await;
+            let content = format!("hot-room-load-{index}");
+            let request = {
+                let runtime = state_a.inner.lock().await;
+                canonical_test_command_request(
+                    &runtime,
+                    actor_hot,
+                    &session_hot,
+                    &format!("test:hot-room-load:{index}"),
+                    &format!("say {content}"),
+                )
+            };
+            let base = if index % 2 == 0 { &url_a } else { &url_b };
+            let response: CommandResponse = client
+                .post(format!("{base}/commands"))
+                .json(&request)
+                .send()
+                .await
+                .expect("hot-room load command")
+                .json()
+                .await
+                .expect("hot-room load response");
+            assert!(response.ok, "{response:?}");
+            converge_capacity_for_read(&state_a, Some(&session_hot)).await;
+            let version = state_a.inner.lock().await.entity_version(&actor_ref);
+            actor_versions.push(version);
+            hot_messages.push(content);
+        }
+        assert!(actor_versions.windows(2).all(|pair| pair[1] > pair[0]));
+
+        let source_hot_lease = current_partition_lease(
+            &primary_path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &hot_partition,
+            now_millis(),
+        )
+        .expect("read hot-room source lease")
+        .expect("hot-room source owner");
+        assert_eq!(source_hot_lease.owner_id, "hot-a:boot-a");
+        let handoff_seq = current_world_seq(
+            &open_event_store(&primary_path).expect("handoff store"),
+            OFFICIAL_WORLD_ID,
+        )
+        .expect("handoff cursor");
+        let handoff = handoff_partition_leases(
+            &primary_path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &store_id,
+            DEFAULT_CANONICAL_REGION_ID,
+            &BTreeMap::from([(
+                hot_partition.clone(),
+                CanonicalOwnershipTransfer {
+                    source: source_hot_lease.clone(),
+                    target_owner_id: "hot-b:boot-b".to_string(),
+                },
+            )]),
+            handoff_seq,
+            "hot-room load rebalance",
+            now_millis(),
+            authority_lease_ttl_ms(&state_a),
+        )
+        .expect("commit hot-room handoff");
+        let target_hot_lease = handoff
+            .leases
+            .get(&hot_partition)
+            .expect("target hot-room lease")
+            .clone();
+        assert_eq!(handoff.world_seq, handoff_seq);
+        assert_eq!(target_hot_lease.owner_id, "hot-b:boot-b");
+        assert_eq!(
+            target_hot_lease.fencing_epoch,
+            source_hot_lease.fencing_epoch + 1
+        );
+
+        let stale_rejected = {
+            let mut conn = open_event_store(&primary_path).expect("stale handoff store");
+            let tx = conn
+                .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+                .expect("stale handoff transaction");
+            let result = validate_and_renew_partition_lease(
+                &tx,
+                &source_hot_lease,
+                now_millis(),
+                authority_lease_ttl_ms(&state_a),
+            );
+            tx.rollback().expect("rollback stale handoff probe");
+            result
+        };
+        assert_eq!(
+            stale_rejected
+                .expect_err("stale pre-handoff owner must fail")
+                .kind(),
+            io::ErrorKind::PermissionDenied
+        );
+
+        let post_handoff_request = {
+            let runtime = state_a.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_hot,
+                &session_hot,
+                "test:after-hot-room-handoff",
+                "say handoff stayed contiguous",
+            )
+        };
+        let post_handoff: CommandResponse = client
+            .post(format!("{url_a}/commands"))
+            .json(&post_handoff_request)
+            .send()
+            .await
+            .expect("post-handoff command through stale edge")
+            .json()
+            .await
+            .expect("post-handoff response");
+        assert!(post_handoff.ok, "{post_handoff:?}");
+        assert!(post_handoff
+            .receipt
+            .as_ref()
+            .is_some_and(|receipt| receipt.owner_fencing_epoch >= target_hot_lease.fencing_epoch));
+
+        // Refresh the cold room, then checkpoint two independently owned
+        // ranges at one exact global sequence boundary.
+        converge_capacity_for_read(&state_a, Some(&session_cold)).await;
+        let cold_request = {
+            let runtime = state_a.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_cold,
+                &session_cold,
+                "test:cold-range-checkpoint",
+                "say cold range is ready",
+            )
+        };
+        let cold_response: CommandResponse = client
+            .post(format!("{url_a}/commands"))
+            .json(&cold_request)
+            .send()
+            .await
+            .expect("cold range command")
+            .json()
+            .await
+            .expect("cold range response");
+        assert!(cold_response.ok, "{cold_response:?}");
+        let split_now = now_millis();
+        let hot_before_split = current_partition_lease(
+            &primary_path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &hot_partition,
+            split_now,
+        )
+        .unwrap()
+        .expect("hot owner before split");
+        let cold_before_split = current_partition_lease(
+            &primary_path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &cold_partition,
+            split_now,
+        )
+        .unwrap()
+        .expect("cold owner before split");
+        assert_ne!(hot_before_split.owner_id, cold_before_split.owner_id);
+        let split_seq =
+            current_world_seq(&open_event_store(&primary_path).unwrap(), OFFICIAL_WORLD_ID)
+                .unwrap();
+        let split = handoff_partition_leases(
+            &primary_path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &store_id,
+            DEFAULT_CANONICAL_REGION_ID,
+            &BTreeMap::from([
+                (
+                    hot_partition.clone(),
+                    CanonicalOwnershipTransfer {
+                        target_owner_id: hot_before_split.owner_id.clone(),
+                        source: hot_before_split,
+                    },
+                ),
+                (
+                    cold_partition.clone(),
+                    CanonicalOwnershipTransfer {
+                        target_owner_id: cold_before_split.owner_id.clone(),
+                        source: cold_before_split,
+                    },
+                ),
+            ]),
+            split_seq,
+            "split hot and cold ownership ranges",
+            split_now,
+            authority_lease_ttl_ms(&state_a),
+        )
+        .expect("commit ownership split checkpoint");
+        assert_eq!(split.world_seq, split_seq);
+        assert_eq!(split.leases.len(), 2);
+        assert_ne!(
+            split.leases[&hot_partition].owner_id,
+            split.leases[&cold_partition].owner_id
+        );
+
+        // A cross-range mutation cannot partially apply while the children
+        // have different owners.
+        converge_capacity_for_read(&state_b, Some(&session_hot)).await;
+        let before_cross_seq = latest_action_journal_seq(&primary_path).unwrap();
+        let before_cross_location = state_b
+            .inner
+            .lock()
+            .await
+            .actor_by_id(actor_hot)
+            .unwrap()
+            .location_id;
+        let cross_result = {
+            let mut runtime = state_b.inner.lock().await;
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: actor_hot,
+                    destination_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            );
+            record.source_location_id = Some(COSY_COTTAGE_LOCATION_ID);
+            record
+                .projection_mutations
+                .push(ProjectionMutation::RendezvousActor {
+                    actor_id: actor_hot,
+                    location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                    invite_id: "test:split-range".to_string(),
+                });
+            commit_journal_record(&state_b, &mut runtime, record)
+        };
+        assert_eq!(
+            cross_result
+                .expect_err("cross-owner mutation must fail closed")
+                .kind(),
+            io::ErrorKind::WouldBlock
+        );
+        assert_eq!(
+            latest_action_journal_seq(&primary_path).unwrap(),
+            before_cross_seq
+        );
+        assert_eq!(
+            state_b
+                .inner
+                .lock()
+                .await
+                .actor_by_id(actor_hot)
+                .unwrap()
+                .location_id,
+            before_cross_location
+        );
+
+        // Network isolation cannot bootstrap a second world at the same path:
+        // a fresh file has no pinned store identity and every mutation rejects.
+        convergence_a.abort();
+        convergence_b.abort();
+        fs::rename(&primary_path, &quarantine_path).expect("isolate primary store");
+        let isolated_request = {
+            let runtime = state_b.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_hot,
+                &session_hot,
+                "test:network-isolation",
+                "say this must not fork",
+            )
+        };
+        let isolated: CommandResponse = client
+            .post(format!("{url_b}/commands"))
+            .json(&isolated_request)
+            .send()
+            .await
+            .expect("isolated command response")
+            .json()
+            .await
+            .expect("isolated command json");
+        assert!(!isolated.ok);
+        assert_eq!(isolated.status, 503);
+        let isolated_conn = open_event_store(&primary_path).expect("fresh isolated store");
+        let isolated_actions: i64 = isolated_conn
+            .query_row("SELECT COUNT(*) FROM action_journal", [], |row| row.get(0))
+            .unwrap();
+        let isolated_identity: i64 = isolated_conn
+            .query_row("SELECT COUNT(*) FROM canonical_store_identity", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!((isolated_actions, isolated_identity), (0, 0));
+        drop(isolated_conn);
+        fs::remove_file(&primary_path).expect("remove isolated empty store");
+        fs::rename(&quarantine_path, &primary_path).expect("restore primary store");
+        let convergence_a =
+            start_canonical_capacity_scheduler(state_a.clone()).expect("restart convergence A");
+        let convergence_b =
+            start_canonical_capacity_scheduler(state_b.clone()).expect("restart convergence B");
+        converge_capacity_for_read(&state_a, Some(&session_hot)).await;
+
+        // Kill the hot-room owner. The surviving process takes the expired
+        // range at a higher fence without changing actor identity or history.
+        convergence_b.abort();
+        server_b.abort();
+        tokio::time::sleep(lease_ttl + Duration::from_millis(250)).await;
+        let process_loss_request = {
+            let runtime = state_a.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_hot,
+                &session_hot,
+                "test:hot-owner-loss",
+                "say process loss kept one history",
+            )
+        };
+        let process_loss: CommandResponse = client
+            .post(format!("{url_a}/commands"))
+            .json(&process_loss_request)
+            .send()
+            .await
+            .expect("command after hot owner loss")
+            .json()
+            .await
+            .expect("process loss response");
+        assert!(process_loss.ok, "{process_loss:?}");
+        let process_loss_fence = process_loss
+            .receipt
+            .as_ref()
+            .expect("process loss receipt")
+            .owner_fencing_epoch;
+        assert!(process_loss_fence > split.leases[&hot_partition].fencing_epoch);
+
+        // Replicate one exact committed prefix, lose the source region, and
+        // promote only the verified copy under a higher regional epoch/fence.
+        let source_authority =
+            current_region_authority(&primary_path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH)
+                .expect("source region authority");
+        assert_eq!(
+            source_authority.active_region_id,
+            DEFAULT_CANONICAL_REGION_ID
+        );
+        let pre_promotion_lease = current_partition_lease(
+            &primary_path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &hot_partition,
+            now_millis(),
+        )
+        .unwrap()
+        .expect("pre-promotion hot lease");
+        let checkpoint = replicate_canonical_store(
+            &primary_path,
+            &recovery_path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            "recovery",
+            now_millis(),
+        )
+        .expect("replicate recovery prefix");
+        assert_eq!(
+            checkpoint.durable_world_seq,
+            current_world_seq(&open_event_store(&primary_path).unwrap(), OFFICIAL_WORLD_ID)
+                .unwrap()
+        );
+        assert!(checkpoint.prefix_hash.starts_with("sha256:"));
+        convergence_a.abort();
+        server_a.abort();
+        let promotion = promote_recovery_region(
+            &recovery_path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &store_id,
+            DEFAULT_CANONICAL_REGION_ID,
+            "recovery",
+            source_authority.promotion_epoch,
+            &checkpoint,
+            now_millis(),
+        )
+        .expect("promote recovery region");
+        assert_eq!(
+            promotion.promotion_epoch,
+            source_authority.promotion_epoch + 1
+        );
+        assert_eq!(promotion.durable_world_seq, checkpoint.durable_world_seq);
+        assert_eq!(promotion.prefix_hash, checkpoint.prefix_hash);
+        let promoted_authority =
+            current_region_authority(&recovery_path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH)
+                .unwrap();
+        assert_eq!(promoted_authority.active_region_id, "recovery");
+        let stale_region_rejected = {
+            let mut conn = open_event_store(&recovery_path).unwrap();
+            let tx = conn
+                .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+                .unwrap();
+            let result = validate_and_renew_partition_lease(
+                &tx,
+                &pre_promotion_lease,
+                now_millis(),
+                authority_lease_ttl_ms(&state_a),
+            );
+            tx.rollback().unwrap();
+            result
+        };
+        assert_eq!(
+            stale_region_rejected
+                .expect_err("pre-promotion owner must be fenced")
+                .kind(),
+            io::ErrorKind::PermissionDenied
+        );
+
+        let listener_recovery = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind recovery writer");
+        let recovery_addr = listener_recovery.local_addr().unwrap();
+        let recovery_url = format!("http://{recovery_addr}");
+        let mut recovery_runtime =
+            RuntimeWorld::from_action_journal(&recovery_path).expect("replay recovery writer");
+        advance_runtime_next_event_seq_from_store(&mut recovery_runtime, &recovery_path).unwrap();
+        let mut recovery_state = test_app_state(recovery_runtime, Some(recovery_path.clone()));
+        recovery_state.canonical_region_id = Arc::new("recovery".to_string());
+        let recovery_state = configure_capacity_test_state(
+            recovery_state,
+            "recovery-writer",
+            "recovery-writer:boot-r",
+            &recovery_url,
+            router_token,
+            lease_ttl,
+        );
+        let recovery_app = routes::app_router(recovery_state.clone());
+        let recovery_server = tokio::spawn(async move {
+            axum::serve(
+                listener_recovery,
+                recovery_app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .expect("serve recovery writer");
+        });
+        let recovery_convergence = start_canonical_capacity_scheduler(recovery_state.clone())
+            .expect("recovery convergence");
+        converge_capacity_for_read(&recovery_state, Some(&session_hot)).await;
+        let recovery_request = {
+            let runtime = recovery_state.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_hot,
+                &session_hot,
+                "test:regional-promotion",
+                "say recovery kept the committed prefix",
+            )
+        };
+        let recovery_response: CommandResponse = client
+            .post(format!("{recovery_url}/commands"))
+            .json(&recovery_request)
+            .send()
+            .await
+            .expect("recovery region command")
+            .json()
+            .await
+            .expect("recovery command response");
+        assert!(recovery_response.ok, "{recovery_response:?}");
+        assert!(
+            recovery_response.receipt.as_ref().is_some_and(
+                |receipt| receipt.owner_fencing_epoch > pre_promotion_lease.fencing_epoch
+            )
+        );
+
+        // A client reconnecting through the former region reads the promoted
+        // prefix and forwards writes to the active recovery owner.
+        let listener_reconnect = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind reconnect edge");
+        let reconnect_addr = listener_reconnect.local_addr().unwrap();
+        let reconnect_url = format!("http://{reconnect_addr}");
+        let mut reconnect_runtime =
+            RuntimeWorld::from_action_journal(&recovery_path).expect("replay reconnect edge");
+        advance_runtime_next_event_seq_from_store(&mut reconnect_runtime, &recovery_path).unwrap();
+        let reconnect_state = configure_capacity_test_state(
+            test_app_state(reconnect_runtime, Some(recovery_path.clone())),
+            "former-region-edge",
+            "former-region-edge:boot-e",
+            &reconnect_url,
+            router_token,
+            lease_ttl,
+        );
+        let reconnect_app = routes::app_router(reconnect_state.clone());
+        let reconnect_server = tokio::spawn(async move {
+            axum::serve(
+                listener_reconnect,
+                reconnect_app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .expect("serve reconnect edge");
+        });
+        let reconnect_convergence = start_canonical_capacity_scheduler(reconnect_state.clone())
+            .expect("reconnect convergence");
+        converge_capacity_for_read(&reconnect_state, Some(&session_hot)).await;
+        let reconnect_request = {
+            let runtime = reconnect_state.inner.lock().await;
+            canonical_test_command_request(
+                &runtime,
+                actor_hot,
+                &session_hot,
+                "test:cross-region-reconnect",
+                "say both regions rejoined one world",
+            )
+        };
+        let reconnect_response: CommandResponse = client
+            .post(format!("{reconnect_url}/commands"))
+            .json(&reconnect_request)
+            .send()
+            .await
+            .expect("reconnected region command")
+            .json()
+            .await
+            .expect("reconnected command response");
+        assert!(reconnect_response.ok, "{reconnect_response:?}");
+        converge_capacity_for_read(&recovery_state, Some(&session_hot)).await;
+        converge_capacity_for_read(&reconnect_state, Some(&session_hot)).await;
+
+        let recovery_view: serde_json::Value = client
+            .get(format!("{recovery_url}/state"))
+            .query(&[
+                ("actor_id", actor_hot.to_string()),
+                ("actor_session", session_hot.clone()),
+            ])
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let reconnect_view: serde_json::Value = client
+            .get(format!("{reconnect_url}/state"))
+            .query(&[
+                ("actor_id", actor_hot.to_string()),
+                ("actor_session", session_hot.clone()),
+            ])
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        for field in ["world_seq", "location", "actors", "items", "action_hand"] {
+            assert_eq!(
+                recovery_view[field], reconnect_view[field],
+                "regional reconnect diverged at {field}"
+            );
+        }
+
+        let final_seq = current_world_seq(
+            &open_event_store(&recovery_path).unwrap(),
+            OFFICIAL_WORLD_ID,
+        )
+        .unwrap();
+        let suffix = read_event_store_forward_between(
+            &recovery_path,
+            baseline_seq,
+            final_seq,
+            MAX_EVENT_STORE_SCAN,
+        )
+        .expect("read regional recovery suffix");
+        assert!(suffix.windows(2).all(|pair| pair[1].seq == pair[0].seq + 1));
+        assert_eq!(
+            suffix
+                .iter()
+                .map(|event| event.seq)
+                .collect::<BTreeSet<_>>()
+                .len(),
+            suffix.len(),
+            "regional suffix contains duplicate event ids"
+        );
+        for content in hot_messages.iter().map(String::as_str).chain([
+            "handoff stayed contiguous",
+            "process loss kept one history",
+            "recovery kept the committed prefix",
+            "both regions rejoined one world",
+        ]) {
+            assert_eq!(
+                suffix
+                    .iter()
+                    .filter(|event| {
+                        event.type_name == "message.created"
+                            && event.content.as_deref() == Some(content)
+                    })
+                    .count(),
+                1,
+                "message {content:?} was lost or duplicated"
+            );
+        }
+        assert!(!suffix.iter().any(|event| {
+            event.type_name == "message.created"
+                && event.content.as_deref() == Some("this must not fork")
+        }));
+
+        recovery_convergence.abort();
+        reconnect_convergence.abort();
+        recovery_server.abort();
+        reconnect_server.abort();
+        drop(client);
+        for path in [&primary_path, &recovery_path, &quarantine_path] {
+            let _ = fs::remove_file(path);
+        }
     }
 
     #[tokio::test]
@@ -58014,11 +59195,14 @@ mod tests {
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
+            canonical_store_id: Arc::new(format!("test-memory:{}", random_hex(8))),
+            canonical_region_id: Arc::new(DEFAULT_CANONICAL_REGION_ID.to_string()),
             canonical_lease_ttl: DEFAULT_CANONICAL_LEASE_TTL,
             canonical_applied_journal_seq: Arc::new(AtomicU64::new(0)),
             canonical_fanout_seq: Arc::new(AtomicU64::new(canonical_fanout_seq)),
             canonical_fanout_lock: Arc::new(StdMutex::new(())),
             canonical_routing: Arc::new(CanonicalRoutingConfig::default()),
+            canonical_recovery: Arc::new(None),
             regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
@@ -58447,6 +59631,10 @@ struct MetaDeployment {
     world_id: String,
     world_epoch: u64,
     process_id: String,
+    region_id: String,
+    active_region_id: String,
+    promotion_epoch: u64,
+    canonical_store_id: String,
     shard_id: String,
     shard_model: &'static str,
 }

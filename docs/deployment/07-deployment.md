@@ -160,7 +160,8 @@ NODE_OPTIONS="--max-old-space-size=4096"
 ## Scaling Tips
 
 - Attach a persistent volume for SQLite and keep exactly one production task.
-- Multiple app instances require exact per-process routes and the remaining
-  hot-room migration/process-loss gate in #130. A load balancer alone is unsafe.
+- Hot-room handoff and regional failover are covered by the #130 chaos harness,
+  but multiple production instances still require exact per-task routes and a
+  successful release-specific operator drill. A load balancer alone is unsafe.
 - Redis cache
 - Containerize with Docker/Kubernetes

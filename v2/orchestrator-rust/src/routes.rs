@@ -147,6 +147,18 @@ pub(super) fn app_router(state: AppState) -> Router {
             "/internal/canonical/invites/follow",
             post(internal_follow_canonical_invite),
         )
+        .route(
+            "/internal/canonical/ownership/handoff",
+            post(internal_canonical_ownership_handoff),
+        )
+        .route(
+            "/internal/canonical/regions/checkpoint",
+            post(internal_canonical_region_checkpoint),
+        )
+        .route(
+            "/internal/canonical/regions/promote",
+            post(internal_canonical_region_promote),
+        )
         .route("/stream", get(stream))
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())

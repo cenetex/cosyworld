@@ -44,11 +44,14 @@ shape still boots one orchestrator, backed by a durable fenced commit point:
 - The C kernel is built with fixed in-process capacities of 512 actors, 1024
   items, 256 locations, 1024 exits, 256 emitted events per kernel call, and 128
   evolution tracks. `/meta` exposes the live counters and these compiled caps.
-- Capacity processes can now register exact routes, forward canonical commands,
-  converge durable projections, relay ephemeral presence, and rendezvous stable
-  profile/invite references. Production remains one task until the hot-room
-  migration and failover gate in #130 passes. Starting isolated public-world
-  copies—or using a shared load balancer URL as an owner route—is forbidden.
+- Capacity processes can register exact routes, forward canonical commands,
+  converge durable projections, relay ephemeral presence, rendezvous stable
+  profile/invite references, atomically hand off hot rooms, checkpoint split
+  ownership ranges, and promote a hash-verified recovery prefix under higher
+  regional and partition fences. Production remains one task until AWS has
+  exact per-task routes and a release-specific recovery drill passes. Starting
+  isolated public-world copies—or using a shared load balancer URL as an owner
+  route—is forbidden. See `docs/canonical-world.md` for the operator contract.
 
 Seed world content:
 
