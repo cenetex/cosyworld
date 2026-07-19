@@ -17,7 +17,7 @@ pub(crate) struct CommandResponse {
     pub(crate) events: Vec<EventView>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct CommandRequest {
     pub(crate) actor_id: u64,
     pub(crate) actor_session: Option<String>,

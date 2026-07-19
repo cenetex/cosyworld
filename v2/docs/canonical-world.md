@@ -7,10 +7,16 @@ normative decision; this page turns it into rollout and test gates.
 
 ## Current and target shapes
 
-Today, one Rust orchestrator owns the in-memory C kernel and one SQLite event
-store. It is a valid single-writer seed of the canonical world, but it is not a
-horizontal multi-writer design. Production must keep one task/machine while
-this storage mode is active.
+The Rust orchestrator can now run divergent capacity processes over one shared
+SQLite journal. Each process keeps a replayable C-kernel projection, advertises
+an exact boot-scoped route, forwards writes to the current fenced room owner,
+polls the durable suffix, and relays ephemeral presence without advancing the
+world cursor. The pinned two-process harness proves this convergence path.
+
+Production still keeps one task/machine. Hot-room ownership migration and the
+full process-loss/failover gate remain in #130, and a normal shared load
+balancer is not an exact process route. Passing the #127 harness does not by
+itself authorize raising production capacity.
 
 The target separates five responsibilities without changing player identity:
 
@@ -124,15 +130,38 @@ the gap-free durable suffix ordered by `(world_epoch, world_seq)`.
 
 ## Routing and rendezvous
 
-- `/play`, profile, invite, and pact routes resolve stable canonical refs.
-- The router resolves the current owner; the URL never embeds an instance,
-  region, lease, or process id.
-- Two users may keep HTTP/SSE connections to different capacity processes and
-  still share one room projection and event cursor.
-- Reconnect sends the last acknowledged public cursor, replays committed
-  events, refreshes entity versions, and then accepts new commands.
-- Session affinity is an optimization only. Correctness tests must deliberately
-  disable it.
+Each routed process must set both of these values or neither:
+
+- `COSYWORLD_CANONICAL_ROUTE_URL`: an HTTP(S) origin that targets that exact
+  process, with no credentials, path, query, or fragment;
+- `COSYWORLD_CANONICAL_ROUTER_TOKEN`: a shared secret of at least 16 characters
+  used only for authenticated process-to-process requests.
+
+Routing also requires `COSYWORLD_V2_EVENT_DB_PATH`. A boot registers its exact
+`owner_id`, `process_id`, origin, and heartbeat expiry in
+`canonical_process_routes`. The current room lease names the owner; ingress
+looks up that owner's live route and forwards the original command envelope.
+Internal routes return `404` without the exact bearer secret. Do not configure
+the ordinary shared player load balancer as a process route: it can select the
+wrong owner and recurse into an unavailable write.
+
+Durable projections poll the shared action journal every 100 ms and also catch
+up before `/state`, `/inspect`, `/world`, `/events`, `/stream`, `/profiles`,
+invite, and command handling. Reconnect resumes from the caller's acknowledged
+event cursor. Stable actor lookups use `GET /profiles?actor_ref=...` and never
+derive identity from a process label.
+
+`POST /invites` creates a seven-day durable invite for an authenticated actor,
+`GET /invites/{invite_id}` resolves the inviter's current canonical profile,
+and `POST /invites/{invite_id}/follow` moves an authenticated follower to the
+inviter's current canonical location. The follow is fenced across origin and
+destination rooms and is forwarded to the current owner when necessary.
+
+Presence uses the same live route registry but remains explicitly ephemeral.
+Capacity processes relay `actor.presence` with `seq: 0`, keep a bounded regional
+view for active-room projections, and never insert it into replay history.
+Session affinity is therefore an optimization only, not a correctness
+requirement.
 
 ## Failure and migration gates
 
@@ -147,31 +176,28 @@ the gap-free durable suffix ordered by `(world_epoch, world_seq)`.
 | Pack migration | all writers change from old hash to new hash as one audited operation |
 | Save import | source is namespaced and hashed; rerun is idempotent; conflicts create no world mutation |
 
-## Two-process integration test plan
+## Two-process integration harness
 
-The required harness starts two API processes with different `process_id`
-values and one canonical test authority. It pins client A to process A and
-client B to process B, with affinity disabled.
+`divergent_capacity_processes_converge_without_affinity` starts two real
+loopback API servers with different `process_id` and boot-scoped owner values,
+one shared journal, and affinity disabled. It pins client A to process A and
+client B to process B.
 
 1. Both clients enter the same location and compare location/actor/item ids and
    versions.
 2. A takes the floor item; B observes the same disposition and ordered event.
 3. Both retry A’s `intent_id`; the journal contains one receipt and one effect.
-4. A moves while B acts in the origin room; the result is serialized without a
-   duplicated actor or half-moved item.
-5. Kill the owner between validation and append, then after append but before
-   response. Each case converges to zero or one committed effect.
-6. Isolate the old owner, grant a higher fence, and prove the old owner cannot
-   write.
-7. Reconnect both clients from earlier cursors and compare the full public event
-   suffix and projected action hands.
-8. Follow an invite generated on A through B and prove both clients rendezvous
-   in the same canonical location.
+4. An invite generated on A is resolved and followed through B; both profiles
+   rendezvous at the inviter's current stable location reference.
+5. Both clients compare location, actors, items, action hand, and the complete
+   ordered public suffix from an earlier cursor.
+6. The owner process and its convergence worker are killed; after lease expiry,
+   B commits with a higher fence while preserving identity and history.
 
-The failover suite repeats this with ownership migration, a hot room under SSE
-fan-out, and a promoted second region. It verifies monotonically increasing
-`world_seq` and `entity_version`, no duplicate identity, and no lost
-acknowledged event.
+The harness also proves cross-process session refresh and `seq: 0` presence
+fan-out. The remaining #130 failover suite adds ownership migration during an
+active hot room, stale-owner isolation at the append boundary, and promoted
+region recovery.
 
 ## Rollout order
 
@@ -179,8 +205,8 @@ acknowledged event.
    process. (Complete in #129.)
 2. Move the journal, idempotency receipts, entity versions, and fencing
    authority to durable multi-process storage. (Complete in #128.)
-3. Add stable routing, regional presence fan-out, invite rendezvous, and the pinned
-   two-process harness.
+3. Add stable routing, regional presence fan-out, invite rendezvous, and the
+   pinned two-process harness. (Complete in #127.)
 4. Add partition handoff, hot-room fan-out, and process-loss tests.
 5. Add replicated regional recovery and prove the failover gate.
 6. Raise production capacity only after every gate passes.

@@ -44,11 +44,11 @@ shape still boots one orchestrator, backed by a durable fenced commit point:
 - The C kernel is built with fixed in-process capacities of 512 actors, 1024
   items, 256 locations, 1024 exits, 256 emitted events per kernel call, and 128
   evolution tracks. `/meta` exposes the live counters and these compiled caps.
-- Production remains one writer while routing and failover gates are unfinished.
-  The journal and room leases are now storage-fenced, but horizontal capacity
-  may be enabled only after stable routing plus the cross-process/failover tests
-  in [`docs/canonical-world.md`](docs/canonical-world.md). Starting isolated
-  public-world copies behind a load balancer is forbidden.
+- Capacity processes can now register exact routes, forward canonical commands,
+  converge durable projections, relay ephemeral presence, and rendezvous stable
+  profile/invite references. Production remains one task until the hot-room
+  migration and failover gate in #130 passes. Starting isolated public-world
+  copies—or using a shared load balancer URL as an owner route—is forbidden.
 
 Seed world content:
 
@@ -383,6 +383,14 @@ COSYWORLD_V2_EVENT_DB_PATH=off cargo run
 The canonical lease defaults to 30 seconds. Local failure tests may override it
 with `COSYWORLD_CANONICAL_LEASE_TTL_MS` (1000–300000). An expired or superseded
 owner is rejected by SQLite; mutations are never buffered for a later merge.
+
+Multi-process convergence additionally requires a shared event DB and both
+`COSYWORLD_CANONICAL_ROUTE_URL` and `COSYWORLD_CANONICAL_ROUTER_TOKEN`. The URL
+must be a directly targetable origin for that exact process, not the ordinary
+shared player load balancer; the token must be a shared secret of at least 16
+characters. Leave both unset for the supported one-task production shape. See
+[`docs/canonical-world.md`](docs/canonical-world.md) for the routing, invite,
+presence, and remaining scale gates.
 
 ## Play In A Terminal
 

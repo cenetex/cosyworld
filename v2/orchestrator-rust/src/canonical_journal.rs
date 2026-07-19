@@ -4,7 +4,10 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     io,
     path::Path,
+    time::Duration,
 };
+
+const SQLITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct AuthorityLease {
@@ -45,6 +48,25 @@ pub(super) struct CanonicalReceiptRow<'a> {
     pub(super) owner_id: &'a str,
     pub(super) owner_fencing_epoch: u64,
     pub(super) created_at_ms: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct CanonicalProcessRoute {
+    pub(super) owner_id: String,
+    pub(super) process_id: String,
+    pub(super) base_url: String,
+    pub(super) heartbeat_expires_at_ms: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct CanonicalInvite {
+    pub(super) invite_id: String,
+    pub(super) world_id: String,
+    pub(super) actor_ref: String,
+    pub(super) created_location_ref: String,
+    pub(super) created_world_seq: u64,
+    pub(super) created_at_ms: u64,
+    pub(super) expires_at_ms: u64,
 }
 
 pub(super) fn init_canonical_journal(
@@ -105,7 +127,29 @@ pub(super) fn init_canonical_journal(
         CREATE INDEX IF NOT EXISTS idx_canonical_commits_world_seq
             ON canonical_commits(world_id, world_epoch, last_world_seq);
         CREATE INDEX IF NOT EXISTS idx_canonical_commits_intent
-            ON canonical_commits(world_id, intent_id);",
+            ON canonical_commits(world_id, intent_id);
+        CREATE TABLE IF NOT EXISTS canonical_process_routes (
+            world_id TEXT NOT NULL,
+            owner_id TEXT NOT NULL,
+            process_id TEXT NOT NULL,
+            base_url TEXT NOT NULL,
+            heartbeat_expires_at_ms INTEGER NOT NULL,
+            updated_at_ms INTEGER NOT NULL,
+            PRIMARY KEY (world_id, owner_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_canonical_process_routes_live
+            ON canonical_process_routes(world_id, heartbeat_expires_at_ms, process_id);
+        CREATE TABLE IF NOT EXISTS canonical_invites (
+            invite_id TEXT PRIMARY KEY,
+            world_id TEXT NOT NULL,
+            actor_ref TEXT NOT NULL,
+            created_location_ref TEXT NOT NULL,
+            created_world_seq INTEGER NOT NULL,
+            created_at_ms INTEGER NOT NULL,
+            expires_at_ms INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_canonical_invites_actor
+            ON canonical_invites(world_id, actor_ref, expires_at_ms);",
     )
     .map_err(sqlite_error)?;
 
@@ -161,11 +205,26 @@ pub(super) fn init_canonical_journal(
         params![world_id, as_i64(world_epoch)?, max_seq],
     )
     .map_err(sqlite_error)?;
-    let stored_epoch = conn
+    // Read the cursor, durable suffix, and commit count in one SQLite snapshot.
+    // Separate autocommit SELECTs can straddle another process's commit and
+    // briefly pair the new cursor with the old event maximum.
+    let (stored_epoch, committed_seq, durable_max_seq, commit_count) = conn
         .query_row(
-            "SELECT world_epoch FROM canonical_world_state WHERE world_id = ?1",
+            "SELECT state.world_epoch,
+                    state.committed_seq,
+                    (SELECT COALESCE(MAX(seq), 0) FROM world_events),
+                    (SELECT COUNT(*) FROM canonical_commits WHERE world_id = ?1)
+             FROM canonical_world_state AS state
+             WHERE state.world_id = ?1",
             params![world_id],
-            |row| row.get::<_, i64>(0),
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?,
+                ))
+            },
         )
         .map_err(sqlite_error)?;
     if stored_epoch != as_i64(world_epoch)? {
@@ -173,27 +232,20 @@ pub(super) fn init_canonical_journal(
             "canonical world epoch mismatch: storage has {stored_epoch}, runtime expects {world_epoch}"
         )));
     }
-    let commit_count = conn
-        .query_row(
-            "SELECT COUNT(*) FROM canonical_commits WHERE world_id = ?1",
-            params![world_id],
-            |row| row.get::<_, i64>(0),
-        )
-        .map_err(sqlite_error)?;
     if commit_count == 0 {
         conn.execute(
             "UPDATE canonical_world_state
              SET committed_seq = MAX(committed_seq, ?2)
              WHERE world_id = ?1",
-            params![world_id, max_seq],
+            params![world_id, durable_max_seq],
         )
         .map_err(sqlite_error)?;
     } else {
-        let committed_seq = current_world_seq(conn, world_id)?;
-        let max_seq = as_u64(max_seq, "maximum world event sequence")?;
-        if committed_seq != max_seq {
+        let committed_seq = as_u64(committed_seq, "committed world sequence")?;
+        let durable_max_seq = as_u64(durable_max_seq, "maximum world event sequence")?;
+        if committed_seq != durable_max_seq {
             return Err(invalid_data(format!(
-                "canonical world cursor {committed_seq} does not match durable event suffix {max_seq}"
+                "canonical world cursor {committed_seq} does not match durable event suffix {durable_max_seq}"
             )));
         }
     }
@@ -210,7 +262,7 @@ pub(super) fn acquire_partition_lease(
     now_ms: u64,
     ttl_ms: u64,
 ) -> io::Result<AuthorityLease> {
-    let mut conn = Connection::open(path).map_err(sqlite_error)?;
+    let mut conn = open_canonical_store(path)?;
     init_canonical_journal(&conn, world_id, world_epoch)?;
     let tx = conn
         .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -236,7 +288,7 @@ pub(super) fn acquire_partition_leases(
     now_ms: u64,
     ttl_ms: u64,
 ) -> io::Result<BTreeMap<String, AuthorityLease>> {
-    let mut conn = Connection::open(path).map_err(sqlite_error)?;
+    let mut conn = open_canonical_store(path)?;
     init_canonical_journal(&conn, world_id, world_epoch)?;
     let tx = conn
         .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -327,6 +379,233 @@ pub(super) fn acquire_partition_lease_in_transaction(
         fencing_epoch,
         lease_expires_at_ms: next_expiry,
     })
+}
+
+pub(super) fn current_partition_lease(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    partition_key: &str,
+    now_ms: u64,
+) -> io::Result<Option<AuthorityLease>> {
+    let conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    conn.query_row(
+        "SELECT owner_id, fencing_epoch, lease_expires_at_ms
+         FROM canonical_partition_leases
+         WHERE world_id = ?1 AND partition_key = ?2 AND lease_expires_at_ms > ?3",
+        params![world_id, partition_key, as_i64(now_ms)?],
+        |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        },
+    )
+    .optional()
+    .map_err(sqlite_error)?
+    .map(|(owner_id, fencing_epoch, lease_expires_at_ms)| {
+        Ok(AuthorityLease {
+            world_id: world_id.to_string(),
+            partition_key: partition_key.to_string(),
+            owner_id,
+            fencing_epoch: as_u64(fencing_epoch, "fencing_epoch")?,
+            lease_expires_at_ms: as_u64(lease_expires_at_ms, "lease_expires_at_ms")?,
+        })
+    })
+    .transpose()
+}
+
+pub(super) fn upsert_process_route(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    route: &CanonicalProcessRoute,
+    updated_at_ms: u64,
+) -> io::Result<()> {
+    let conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    conn.execute(
+        "INSERT INTO canonical_process_routes
+            (world_id, owner_id, process_id, base_url, heartbeat_expires_at_ms, updated_at_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(world_id, owner_id) DO UPDATE SET
+            process_id = excluded.process_id,
+            base_url = excluded.base_url,
+            heartbeat_expires_at_ms = excluded.heartbeat_expires_at_ms,
+            updated_at_ms = excluded.updated_at_ms",
+        params![
+            world_id,
+            route.owner_id,
+            route.process_id,
+            route.base_url,
+            as_i64(route.heartbeat_expires_at_ms)?,
+            as_i64(updated_at_ms)?
+        ],
+    )
+    .map_err(sqlite_error)?;
+    Ok(())
+}
+
+pub(super) fn process_route_for_owner(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    owner_id: &str,
+    now_ms: u64,
+) -> io::Result<Option<CanonicalProcessRoute>> {
+    let conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    conn.query_row(
+        "SELECT owner_id, process_id, base_url, heartbeat_expires_at_ms
+         FROM canonical_process_routes
+         WHERE world_id = ?1 AND owner_id = ?2 AND heartbeat_expires_at_ms > ?3",
+        params![world_id, owner_id, as_i64(now_ms)?],
+        |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)?,
+            ))
+        },
+    )
+    .optional()
+    .map_err(sqlite_error)?
+    .map(
+        |(owner_id, process_id, base_url, heartbeat_expires_at_ms)| {
+            Ok(CanonicalProcessRoute {
+                owner_id,
+                process_id,
+                base_url,
+                heartbeat_expires_at_ms: as_u64(
+                    heartbeat_expires_at_ms,
+                    "heartbeat_expires_at_ms",
+                )?,
+            })
+        },
+    )
+    .transpose()
+}
+
+pub(super) fn active_process_routes(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    now_ms: u64,
+) -> io::Result<Vec<CanonicalProcessRoute>> {
+    let conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT owner_id, process_id, base_url, heartbeat_expires_at_ms
+             FROM canonical_process_routes
+             WHERE world_id = ?1 AND heartbeat_expires_at_ms > ?2
+             ORDER BY process_id, owner_id",
+        )
+        .map_err(sqlite_error)?;
+    let rows = stmt
+        .query_map(params![world_id, as_i64(now_ms)?], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)?,
+            ))
+        })
+        .map_err(sqlite_error)?;
+    rows.map(|row| {
+        let (owner_id, process_id, base_url, heartbeat_expires_at_ms) =
+            row.map_err(sqlite_error)?;
+        Ok(CanonicalProcessRoute {
+            owner_id,
+            process_id,
+            base_url,
+            heartbeat_expires_at_ms: as_u64(heartbeat_expires_at_ms, "heartbeat_expires_at_ms")?,
+        })
+    })
+    .collect()
+}
+
+pub(super) fn insert_canonical_invite(
+    path: &Path,
+    world_epoch: u64,
+    invite: &CanonicalInvite,
+) -> io::Result<bool> {
+    let conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, &invite.world_id, world_epoch)?;
+    let inserted = conn
+        .execute(
+            "INSERT OR IGNORE INTO canonical_invites
+                (invite_id, world_id, actor_ref, created_location_ref,
+                 created_world_seq, created_at_ms, expires_at_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                invite.invite_id,
+                invite.world_id,
+                invite.actor_ref,
+                invite.created_location_ref,
+                as_i64(invite.created_world_seq)?,
+                as_i64(invite.created_at_ms)?,
+                as_i64(invite.expires_at_ms)?
+            ],
+        )
+        .map_err(sqlite_error)?;
+    Ok(inserted == 1)
+}
+
+pub(super) fn read_canonical_invite(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    invite_id: &str,
+    now_ms: u64,
+) -> io::Result<Option<CanonicalInvite>> {
+    let conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    conn.query_row(
+        "SELECT invite_id, world_id, actor_ref, created_location_ref,
+                created_world_seq, created_at_ms, expires_at_ms
+         FROM canonical_invites
+         WHERE invite_id = ?1 AND world_id = ?2 AND expires_at_ms > ?3",
+        params![invite_id, world_id, as_i64(now_ms)?],
+        |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, i64>(6)?,
+            ))
+        },
+    )
+    .optional()
+    .map_err(sqlite_error)?
+    .map(
+        |(
+            invite_id,
+            world_id,
+            actor_ref,
+            created_location_ref,
+            created_world_seq,
+            created_at_ms,
+            expires_at_ms,
+        )| {
+            Ok(CanonicalInvite {
+                invite_id,
+                world_id,
+                actor_ref,
+                created_location_ref,
+                created_world_seq: as_u64(created_world_seq, "created_world_seq")?,
+                created_at_ms: as_u64(created_at_ms, "created_at_ms")?,
+                expires_at_ms: as_u64(expires_at_ms, "expires_at_ms")?,
+            })
+        },
+    )
+    .transpose()
 }
 
 pub(super) fn validate_and_renew_partition_lease(
@@ -692,7 +971,7 @@ pub(super) fn finalize_atomic_command_receipt(
     world_seq: u64,
     updated_at_ms: u64,
 ) -> io::Result<bool> {
-    let conn = Connection::open(path).map_err(sqlite_error)?;
+    let conn = open_canonical_store(path)?;
     let updated = conn
         .execute(
             "UPDATE canonical_command_receipts
@@ -724,6 +1003,13 @@ fn ensure_column(conn: &Connection, table: &str, column: &str, alter_sql: &str) 
     }
     conn.execute(alter_sql, []).map_err(sqlite_error)?;
     Ok(())
+}
+
+fn open_canonical_store(path: &Path) -> io::Result<Connection> {
+    let conn = Connection::open(path).map_err(sqlite_error)?;
+    conn.busy_timeout(SQLITE_BUSY_TIMEOUT)
+        .map_err(sqlite_error)?;
+    Ok(conn)
 }
 
 fn as_i64(value: u64) -> io::Result<i64> {
@@ -836,6 +1122,65 @@ mod tests {
         assert_eq!(
             validate_next_world_sequence(&conn, "world://test", &[3, 4]).unwrap(),
             (3, 4)
+        );
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn process_routes_only_resolve_while_the_exact_owner_is_live() {
+        let path = temp_db("process-route");
+        initialize(&path);
+        let route = CanonicalProcessRoute {
+            owner_id: "process-a:boot-1".to_string(),
+            process_id: "process-a".to_string(),
+            base_url: "http://127.0.0.1:4101".to_string(),
+            heartbeat_expires_at_ms: 50,
+        };
+        upsert_process_route(&path, "world://test", 1, &route, 10).unwrap();
+
+        assert_eq!(
+            process_route_for_owner(&path, "world://test", 1, "process-a:boot-1", 49,).unwrap(),
+            Some(route.clone())
+        );
+        assert_eq!(
+            active_process_routes(&path, "world://test", 1, 49).unwrap(),
+            vec![route]
+        );
+        assert!(
+            process_route_for_owner(&path, "world://test", 1, "process-a:boot-1", 50,)
+                .unwrap()
+                .is_none()
+        );
+        assert!(active_process_routes(&path, "world://test", 1, 50)
+            .unwrap()
+            .is_empty());
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn canonical_invites_are_durable_unique_and_expire_at_the_boundary() {
+        let path = temp_db("invite");
+        initialize(&path);
+        let invite = CanonicalInvite {
+            invite_id: "cw_test_invite".to_string(),
+            world_id: "world://test".to_string(),
+            actor_ref: "world://test/actor/alice".to_string(),
+            created_location_ref: "world://test/location/cottage".to_string(),
+            created_world_seq: 42,
+            created_at_ms: 100,
+            expires_at_ms: 200,
+        };
+
+        assert!(insert_canonical_invite(&path, 1, &invite).unwrap());
+        assert!(!insert_canonical_invite(&path, 1, &invite).unwrap());
+        assert_eq!(
+            read_canonical_invite(&path, "world://test", 1, &invite.invite_id, 199).unwrap(),
+            Some(invite.clone())
+        );
+        assert!(
+            read_canonical_invite(&path, "world://test", 1, &invite.invite_id, 200)
+                .unwrap()
+                .is_none()
         );
         let _ = fs::remove_file(path);
     }
