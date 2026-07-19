@@ -33,6 +33,7 @@ pub(super) struct ActivationMetricsResponse {
     status: u32,
     summary: ActivationMetricsSummary,
     recent_events: Vec<ActivationEventView>,
+    story_metrics: StoryMetricsReport,
     error: Option<String>,
 }
 
@@ -80,6 +81,7 @@ pub(super) fn record_daily_visit(state: &AppState, actor_id: u64) {
         serde_json::json!({ "day_index": day_index }),
         now,
     );
+    record_story_visit(state, actor_id);
 }
 
 pub(super) fn record_first_ledger_banked(state: &AppState, actor_id: u64, event_seq: u64) {
@@ -336,6 +338,7 @@ pub(super) async fn activation_metrics_view(
             status: 403,
             summary: ActivationMetricsSummary::default(),
             recent_events: Vec::new(),
+            story_metrics: StoryMetricsReport::default(),
             error: Some("moderation bearer token required".to_string()),
         });
     }
@@ -345,11 +348,36 @@ pub(super) async fn activation_metrics_view(
             status: 503,
             summary: ActivationMetricsSummary::default(),
             recent_events: Vec::new(),
+            story_metrics: StoryMetricsReport::default(),
             error: Some("event store is required for activation metrics".to_string()),
         });
     };
     match read_activation_metrics(path, event_replay_limit(query.limit)) {
-        Ok(response) => Json(response),
+        Ok(mut response) => {
+            let runtime = state.inner.lock().await;
+            match read_story_metrics_report(
+                path,
+                &runtime,
+                event_replay_limit(query.limit),
+                now_millis(),
+            ) {
+                Ok(story) => {
+                    response.story_metrics = story;
+                    Json(response)
+                }
+                Err(error) => {
+                    warn!(
+                        "failed to read CosyWorld story metrics from {}: {}",
+                        path.display(),
+                        error
+                    );
+                    response.ok = false;
+                    response.status = 500;
+                    response.error = Some(error.to_string());
+                    Json(response)
+                }
+            }
+        }
         Err(error) => {
             warn!(
                 "failed to read CosyWorld v2 activation metrics from {}: {}",
@@ -361,6 +389,7 @@ pub(super) async fn activation_metrics_view(
                 status: 500,
                 summary: ActivationMetricsSummary::default(),
                 recent_events: Vec::new(),
+                story_metrics: StoryMetricsReport::default(),
                 error: Some(error.to_string()),
             })
         }
@@ -400,6 +429,7 @@ fn read_activation_metrics(path: &Path, limit: usize) -> io::Result<ActivationMe
             median_time_to_first_banked_ledger_ms,
         },
         recent_events,
+        story_metrics: StoryMetricsReport::default(),
         error: None,
     })
 }

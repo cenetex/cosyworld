@@ -16,6 +16,7 @@ mod mud;
 mod ownership;
 mod rate_limit;
 mod routes;
+mod story_metrics;
 mod turns;
 mod views;
 mod world_simulation;
@@ -67,6 +68,7 @@ use std::{
     },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
+use story_metrics::*;
 use tokio::{
     net::TcpListener,
     signal,
@@ -131,6 +133,7 @@ struct AppState {
     avatar_chat_delay: Duration,
     moderation_token: Option<Arc<String>>,
     moderation_report_retention: ModerationReportRetention,
+    story_metrics_retention: StoryMetricsRetention,
     allow_unsigned_wallet_claims: bool,
 }
 
@@ -1736,6 +1739,7 @@ struct MetaPersistence {
     event_store_enabled: bool,
     event_store: MetaEventStoreHealth,
     moderation_report_retention_days: Option<u64>,
+    story_metrics_retention_days: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -4535,6 +4539,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     start_ownership_refresh_scheduler(state.clone());
     start_hosted_access_scheduler(state.clone());
     start_moderation_retention_scheduler(state.clone());
+    start_story_metrics_retention_scheduler(state.clone());
     let app = routes::app_router(state);
 
     let addr: SocketAddr = std::env::var("COSYWORLD_V2_ADDR")
@@ -4676,6 +4681,7 @@ impl AppState {
             .filter(|value| !value.is_empty())
             .map(Arc::new);
         let moderation_report_retention = ModerationReportRetention::from_env()?;
+        let story_metrics_retention = StoryMetricsRetention::from_env()?;
         let ai_config = Arc::new(AiConfig::from_env());
         let generation_controls =
             Arc::new(GenerationControls::from_env().map_err(deployment_config_error)?);
@@ -4802,6 +4808,15 @@ impl AppState {
             {
                 warn!(
                     "failed to purge expired CosyWorld moderation reports from {}: {}",
+                    path.display(),
+                    error
+                );
+            }
+            if let Err(error) =
+                purge_expired_story_metrics_for_retention(path, story_metrics_retention)
+            {
+                warn!(
+                    "failed to purge expired CosyWorld story metrics from {}: {}",
                     path.display(),
                     error
                 );
@@ -4958,6 +4973,7 @@ impl AppState {
             avatar_chat_delay,
             moderation_token,
             moderation_report_retention,
+            story_metrics_retention,
             allow_unsigned_wallet_claims,
         })
     }
@@ -19619,7 +19635,9 @@ fn location_access_allowed(location_id: u64, access: &AccessContext) -> bool {
 struct ResolvedMovementAccess {
     view: MovementAccessView,
     hosted_candidate: Option<HostedAccessCandidate>,
+    guest_actor_id: u64,
     guest_actor_ref: String,
+    location_id: u64,
     location_ref: String,
     required_grant_id: Option<String>,
     reason_code: &'static str,
@@ -19695,7 +19713,9 @@ fn resolve_movement_access(
         return ResolvedMovementAccess {
             view: MovementAccessView::public(),
             hosted_candidate: None,
+            guest_actor_id: actor_id,
             guest_actor_ref,
+            location_id: destination_location_id,
             location_ref,
             required_grant_id,
             reason_code: "public_location",
@@ -19705,7 +19725,9 @@ fn resolve_movement_access(
         return ResolvedMovementAccess {
             view: MovementAccessView::solo(rule.required_grant_id),
             hosted_candidate: None,
+            guest_actor_id: actor_id,
             guest_actor_ref,
+            location_id: destination_location_id,
             location_ref,
             required_grant_id,
             reason_code: "direct_entitlement",
@@ -19718,7 +19740,9 @@ fn resolve_movement_access(
                 "Hosted access is unavailable without canonical persistence.",
             ),
             hosted_candidate: None,
+            guest_actor_id: actor_id,
             guest_actor_ref,
+            location_id: destination_location_id,
             location_ref,
             required_grant_id,
             reason_code: "canonical_store_unavailable",
@@ -19740,7 +19764,9 @@ fn resolve_movement_access(
                     "Hosted access could not be verified.",
                 ),
                 hosted_candidate: None,
+                guest_actor_id: actor_id,
                 guest_actor_ref,
+                location_id: destination_location_id,
                 location_ref,
                 required_grant_id,
                 reason_code: "hosted_verification_error",
@@ -19789,7 +19815,9 @@ fn resolve_movement_access(
         return ResolvedMovementAccess {
             view: MovementAccessView::hosted(&candidate, &shared_grant),
             hosted_candidate: Some(candidate),
+            guest_actor_id: actor_id,
             guest_actor_ref,
+            location_id: destination_location_id,
             location_ref,
             required_grant_id: Some(shared_grant),
             reason_code: "active_entitled_host",
@@ -19798,7 +19826,9 @@ fn resolve_movement_access(
     ResolvedMovementAccess {
         view: MovementAccessView::denied(rule.required_grant_id, denial_reason),
         hosted_candidate: None,
+        guest_actor_id: actor_id,
         guest_actor_ref,
+        location_id: destination_location_id,
         location_ref,
         required_grant_id,
         reason_code: denial_reason_code,
@@ -19848,6 +19878,16 @@ fn record_movement_access_outcome(
     };
     if let Err(error) = result {
         warn!("failed to persist gated access telemetry: {}", error);
+    }
+    if let Err(error) = record_story_access_outcome(
+        path,
+        resolved.guest_actor_id,
+        resolved.location_id,
+        &resolved.view.mode,
+        outcome,
+        now_millis(),
+    ) {
+        warn!("failed to persist story access metric: {}", error);
     }
 }
 
@@ -21100,6 +21140,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
                 last_error_code: event_store_health.last_error_code,
             },
             moderation_report_retention_days: state.moderation_report_retention.days,
+            story_metrics_retention_days: state.story_metrics_retention.days,
         },
         ownership_feed: MetaOwnershipFeed {
             inline_configured: ownership_feed.inline_feed.is_some(),
@@ -22299,6 +22340,9 @@ async fn state_view(
     }
     response.room_memory =
         room_memory_view_for_state(&state, &response.location, &response.recent_events);
+    if let Some(actor_id) = actor_id {
+        record_visible_world_beats(&state, actor_id, &response.recent_events);
+    }
     Json(response)
 }
 
@@ -27543,6 +27587,29 @@ fn start_moderation_retention_scheduler(state: AppState) {
                 ) {
                     warn!(
                         "failed to purge expired CosyWorld moderation reports from {}: {}",
+                        path.display(),
+                        error
+                    );
+                }
+            }
+            tokio::time::sleep(MODERATION_RETENTION_SWEEP_INTERVAL).await;
+        }
+    });
+}
+
+fn start_story_metrics_retention_scheduler(state: AppState) {
+    if state.story_metrics_retention.days.is_none() {
+        return;
+    }
+    tokio::spawn(async move {
+        tokio::time::sleep(MODERATION_RETENTION_SWEEP_INTERVAL).await;
+        loop {
+            if let Some(path) = state.event_store_path.as_deref() {
+                if let Err(error) =
+                    purge_expired_story_metrics_for_retention(path, state.story_metrics_retention)
+                {
+                    warn!(
+                        "failed to purge expired CosyWorld story metrics from {}: {}",
                         path.display(),
                         error
                     );
@@ -34572,6 +34639,36 @@ fn commit_journal_record(
                         commit_time,
                     )?;
                 }
+                let active_actor_ids = active_actor_ids_for_state(state);
+                let actor_location_id = runtime
+                    .actor_by_id(record.action.actor_id)
+                    .map(|actor| actor.location_id);
+                let co_present_human_count = actor_location_id
+                    .map(|location_id| {
+                        runtime.world.actors[..runtime.world.actor_count]
+                            .iter()
+                            .filter(|actor| {
+                                actor.kind == CW_ACTOR_HUMAN
+                                    && actor.status == CW_ACTOR_ACTIVE
+                                    && actor.location_id == location_id
+                                    && active_actor_ids.contains(&actor.id)
+                            })
+                            .count()
+                    })
+                    .unwrap_or_default();
+                if let Err(error) = record_story_metrics_for_journal_in_transaction(
+                    &tx,
+                    runtime,
+                    &record,
+                    &events,
+                    co_present_human_count,
+                    commit_time,
+                ) {
+                    warn!(
+                        "failed to append story metrics for canonical journal: {}",
+                        error
+                    );
+                }
             }
             let mut required_partitions = initial_record_partitions.clone();
             required_partitions.extend(canonical_partitions_for_events(runtime, &events));
@@ -35185,6 +35282,7 @@ fn init_event_store(path: &Path) -> io::Result<()> {
     .map_err(sqlite_error)?;
     init_canonical_journal(&conn, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH)?;
     init_hosted_access_store(&conn)?;
+    init_story_metrics_store(&conn)?;
     init_legacy_import_store(&conn)?;
     init_activation_store(&conn)?;
     ensure_sqlite_column(
@@ -36408,7 +36506,9 @@ fn reset_event_store(path: &Path, events: &[EventView]) -> io::Result<()> {
          DELETE FROM economy_reconciliation_runs;
          DELETE FROM room_memory_chapters;
          DELETE FROM activation_events;
-         DELETE FROM activation_backfills;",
+         DELETE FROM activation_backfills;
+         DELETE FROM story_metric_events;
+         DELETE FROM story_metric_backfills;",
     )
     .map_err(sqlite_error)?;
     drop(conn);
@@ -37194,6 +37294,7 @@ mod tests {
             moderation_report_retention: ModerationReportRetention {
                 days: Some(DEFAULT_MODERATION_REPORT_RETENTION_DAYS),
             },
+            story_metrics_retention: StoryMetricsRetention::default(),
             allow_unsigned_wallet_claims: false,
         }
     }
@@ -37304,6 +37405,59 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn canonical_journal_commits_privacy_safe_story_metrics_atomically() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-story-journal-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Private Name");
+        let state = test_app_state(runtime, Some(path.clone()));
+        let _ = issue_actor_session(&state, 5000);
+
+        let events = {
+            let mut runtime = state.inner.lock().await;
+            let content_id = runtime.next_content_id;
+            runtime.next_content_id = runtime.next_content_id.saturating_add(1);
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_SAY,
+                    actor_id: 5000,
+                    content_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            );
+            record
+                .content_upserts
+                .insert(content_id, "private prose is not analytics".to_string());
+            let (status, events) = commit_journal_record(&state, &mut runtime, record).unwrap();
+            assert_eq!(status, CW_OK);
+            events
+        };
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "message.created"));
+
+        let conn = open_event_store(&path).unwrap();
+        let metrics = read_recent_story_metrics(&conn, 20).unwrap();
+        assert!(metrics
+            .iter()
+            .any(|event| event.event_kind == "meaningful_action_completed"));
+        assert!(metrics
+            .iter()
+            .any(|event| event.event_kind == "public_trace_created"));
+        let serialized = serde_json::to_string(&metrics).unwrap();
+        assert!(!serialized.contains("Private Name"));
+        assert!(!serialized.contains("private prose"));
+        assert!(serialized.contains(&story_player_ref(5000)));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
     async fn hosted_party_entry_is_server_verified_restricted_and_evacuated_on_revocation() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-hosted-party-route-{}-{}.sqlite",
@@ -37363,6 +37517,7 @@ mod tests {
             )
         };
         assert_eq!(denied_without_party.view.mode, "denied");
+        record_movement_access_outcome(&state, &denied_without_party, "denied");
 
         join_hosted_party(
             &path,
@@ -37525,6 +37680,13 @@ mod tests {
             .unwrap(),
             1
         );
+        let story_metrics = read_recent_story_metrics(&conn, 100).unwrap();
+        assert!(story_metrics
+            .iter()
+            .any(|event| event.event_kind == "entitlement_denial"));
+        assert!(story_metrics
+            .iter()
+            .any(|event| event.event_kind == "hosted_guest_entry"));
         drop(conn);
         fs::remove_file(path).unwrap();
     }
@@ -60767,6 +60929,7 @@ mod tests {
             moderation_report_retention: ModerationReportRetention {
                 days: Some(DEFAULT_MODERATION_REPORT_RETENTION_DAYS),
             },
+            story_metrics_retention: StoryMetricsRetention::default(),
             allow_unsigned_wallet_claims: false,
         };
         let mut rx = state.tx.subscribe();

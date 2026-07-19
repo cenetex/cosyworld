@@ -651,6 +651,7 @@ locals {
     { name = "COSYWORLD_HOSTED_PARTY_MAX_ACTIVE_PER_GUEST", value = tostring(var.hosted_party_max_active_per_guest) },
     { name = "COSYWORLD_HOSTED_ACCESS_TTL_SECS", value = tostring(var.hosted_access_ttl_seconds) },
     { name = "COSYWORLD_HOSTED_ACCESS_GRACE_SECS", value = tostring(var.hosted_access_grace_seconds) },
+    { name = "COSYWORLD_STORY_METRICS_RETENTION_DAYS", value = tostring(var.story_metrics_retention_days) },
     { name = "COSYWORLD_GENERATION_DEFAULT_MODE", value = var.generation_default_mode },
     { name = "COSYWORLD_GENERATION_FEATURE_MODES_JSON", value = jsonencode(var.generation_feature_modes) },
     { name = "RUST_LOG", value = "cosyworld_orchestrator=info,tower_http=warn" },

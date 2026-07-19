@@ -192,6 +192,17 @@ variable "hosted_access_grace_seconds" {
   }
 }
 
+variable "story_metrics_retention_days" {
+  type        = number
+  default     = 400
+  description = "Days to retain pseudonymous seventh-visit and story-response metrics."
+
+  validation {
+    condition     = var.story_metrics_retention_days >= 1 && var.story_metrics_retention_days <= 3650 && floor(var.story_metrics_retention_days) == var.story_metrics_retention_days
+    error_message = "story_metrics_retention_days must be an integer from 1 through 3650."
+  }
+}
+
 variable "moderation_token_secret_arn" {
   type        = string
   default     = ""
