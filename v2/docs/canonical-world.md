@@ -167,6 +167,10 @@ derive identity from a process label.
 and `POST /invites/{invite_id}/follow` moves an authenticated follower to the
 inviter's current canonical location. The follow is fenced across origin and
 destination rooms and is forwarded to the current owner when necessary.
+Public-room invites also expose their bounded hosted-access terms before
+acceptance and may form a durable party. An entitled host can then share
+location-scoped entry without transferring ownership; see the
+[hosted group access contract](hosted-group-access.md).
 
 Presence uses the same live route registry but remains explicitly ephemeral.
 Capacity processes relay `actor.presence` with `seq: 0`, keep a bounded regional

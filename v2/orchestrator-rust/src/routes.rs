@@ -79,6 +79,15 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/invites", post(create_canonical_invite))
         .route("/invites/{invite_id}", get(canonical_invite))
         .route("/invites/{invite_id}/follow", post(follow_canonical_invite))
+        .route("/parties/{party_id}/leave", post(leave_hosted_party))
+        .route(
+            "/parties/{party_id}/members/{guest_actor_id}/remove",
+            post(remove_hosted_party_member_action),
+        )
+        .route(
+            "/parties/{party_id}/revoke",
+            post(revoke_hosted_party_action),
+        )
         .route("/moderation/activation", get(activation_metrics_view))
         .route("/moderation/events", get(moderation_events_view))
         .route("/moderation/reports", get(moderation_reports_view))

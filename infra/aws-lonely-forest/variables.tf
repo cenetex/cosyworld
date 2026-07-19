@@ -148,6 +148,50 @@ variable "ruby_high_wallet_cards_bearer_secret_arn" {
   description = "Secrets Manager ARN containing COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER."
 }
 
+variable "hosted_party_max_guests" {
+  type        = number
+  default     = 4
+  description = "Maximum sponsored guests in one hosted party."
+
+  validation {
+    condition     = var.hosted_party_max_guests >= 1 && var.hosted_party_max_guests <= 16 && floor(var.hosted_party_max_guests) == var.hosted_party_max_guests
+    error_message = "hosted_party_max_guests must be an integer from 1 through 16."
+  }
+}
+
+variable "hosted_party_max_active_per_guest" {
+  type        = number
+  default     = 4
+  description = "Maximum simultaneous hosted parties a guest may join."
+
+  validation {
+    condition     = var.hosted_party_max_active_per_guest >= 1 && var.hosted_party_max_active_per_guest <= 16 && floor(var.hosted_party_max_active_per_guest) == var.hosted_party_max_active_per_guest
+    error_message = "hosted_party_max_active_per_guest must be an integer from 1 through 16."
+  }
+}
+
+variable "hosted_access_ttl_seconds" {
+  type        = number
+  default     = 7200
+  description = "Maximum lifetime of a hosted access session, bounded to five minutes through one day."
+
+  validation {
+    condition     = var.hosted_access_ttl_seconds >= 300 && var.hosted_access_ttl_seconds <= 86400 && floor(var.hosted_access_ttl_seconds) == var.hosted_access_ttl_seconds
+    error_message = "hosted_access_ttl_seconds must be an integer from 300 through 86400."
+  }
+}
+
+variable "hosted_access_grace_seconds" {
+  type        = number
+  default     = 60
+  description = "Grace before a sponsored guest is returned to the party's public formation room."
+
+  validation {
+    condition     = var.hosted_access_grace_seconds >= 0 && var.hosted_access_grace_seconds <= 300 && floor(var.hosted_access_grace_seconds) == var.hosted_access_grace_seconds
+    error_message = "hosted_access_grace_seconds must be an integer from 0 through 300."
+  }
+}
+
 variable "moderation_token_secret_arn" {
   type        = string
   default     = ""

@@ -8,6 +8,7 @@ mod content_load;
 mod content_packs;
 mod content_policy;
 mod content_registry;
+mod hosted_access;
 mod kernel;
 mod legacy_import;
 mod moderation;
@@ -41,6 +42,7 @@ use content_policy::*;
 use content_registry::*;
 use cosyworld_ai_model::ResidentReplyModelInput;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use hosted_access::*;
 use kernel::*;
 use legacy_import::*;
 use moderation::*;
@@ -101,6 +103,7 @@ struct AppState {
     box_burn_verifier: Arc<Option<BoxBurnVerifierConfig>>,
     ownership_feed: Arc<OwnershipFeedConfig>,
     ownership_feed_health: Arc<StdMutex<OwnershipFeedHealth>>,
+    hosted_access_config: Arc<HostedAccessConfig>,
     last_world_event_at: Arc<StdMutex<Instant>>,
     wallet_sessions: Arc<StdMutex<WalletSessions>>,
     qr_wallet_logins: Arc<StdMutex<QrWalletLogins>>,
@@ -1363,6 +1366,8 @@ struct JournalRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     queued_actor_job: Option<ActorJobPayload>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    hosted_access_grant: Option<HostedAccessJournalGrant>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     initial_calling: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     initial_skill: Option<String>,
@@ -1401,6 +1406,7 @@ impl JournalRecord {
             seed,
             ripple_source: None,
             queued_actor_job: None,
+            hosted_access_grant: None,
             initial_calling: None,
             initial_skill: None,
             actor_meta_upserts: BTreeMap::new(),
@@ -1867,6 +1873,7 @@ struct CanonicalInviteView {
     created_location_ref: String,
     created_world_seq: u64,
     expires_at_ms: u64,
+    hosted_access: HostedAccessTerms,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1886,6 +1893,21 @@ struct CanonicalInviteFollowResponse {
     actor_ref: Option<String>,
     rendezvous_location_ref: Option<String>,
     through_seq: u64,
+    events: Vec<EventView>,
+    party: Option<HostedPartyView>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct HostedPartyActionRequest {
+    actor_id: u64,
+    actor_session: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct HostedPartyActionResponse {
+    ok: bool,
+    status: u32,
+    party_id: String,
     events: Vec<EventView>,
 }
 
@@ -2601,6 +2623,33 @@ struct ActionResponse {
     ok: bool,
     status: u32,
     events: Vec<EventView>,
+}
+
+#[derive(Debug, Serialize)]
+struct MoveActionResponse {
+    ok: bool,
+    status: u32,
+    events: Vec<EventView>,
+    access: MovementAccessView,
+}
+
+impl MoveActionResponse {
+    fn from_action(response: ActionResponse, access: MovementAccessView) -> Self {
+        Self {
+            ok: response.ok,
+            status: response.status,
+            events: response.events,
+            access,
+        }
+    }
+
+    fn into_action(self) -> ActionResponse {
+        ActionResponse {
+            ok: self.ok,
+            status: self.status,
+            events: self.events,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -4484,6 +4533,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     start_actor_job_worker(state.clone());
     start_event_store_retry_scheduler(state.clone());
     start_ownership_refresh_scheduler(state.clone());
+    start_hosted_access_scheduler(state.clone());
     start_moderation_retention_scheduler(state.clone());
     let app = routes::app_router(state);
 
@@ -4609,6 +4659,7 @@ impl AppState {
         }
 
         let ownership_feed = OwnershipFeedConfig::from_env();
+        let hosted_access_config = Arc::new(HostedAccessConfig::from_env());
         let trust_client_card_ids = std::env::var("COSYWORLD_DEV_TRUST_CLIENT_CARD_IDS")
             .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
             .unwrap_or(false);
@@ -4879,6 +4930,7 @@ impl AppState {
             box_burn_verifier: Arc::new(box_burn_verifier),
             ownership_feed: Arc::new(ownership_feed),
             ownership_feed_health: Arc::new(StdMutex::new(ownership_feed_health)),
+            hosted_access_config,
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
@@ -19563,6 +19615,584 @@ fn location_access_allowed(location_id: u64, access: &AccessContext) -> bool {
         .unwrap_or(true)
 }
 
+#[derive(Clone, Debug)]
+struct ResolvedMovementAccess {
+    view: MovementAccessView,
+    hosted_candidate: Option<HostedAccessCandidate>,
+    guest_actor_ref: String,
+    location_ref: String,
+    required_grant_id: Option<String>,
+    reason_code: &'static str,
+}
+
+impl ResolvedMovementAccess {
+    fn hosted_journal_grant(&self) -> Option<HostedAccessJournalGrant> {
+        self.hosted_candidate
+            .as_ref()
+            .map(|candidate| HostedAccessJournalGrant {
+                candidate: candidate.clone(),
+                guest_actor_ref: self.guest_actor_ref.clone(),
+                location_ref: self.location_ref.clone(),
+                required_grant_id: self.required_grant_id.clone().unwrap_or_default(),
+            })
+    }
+}
+
+fn hosted_access_grant_runtime_valid(
+    state: &AppState,
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    destination_location_id: u64,
+    grant: &HostedAccessJournalGrant,
+) -> bool {
+    if runtime.canonical_ref("actor", actor_id) != Some(grant.guest_actor_ref.as_str())
+        || runtime.runtime_handle_for_canonical_ref("location", &grant.location_ref)
+            != Some(destination_location_id)
+    {
+        return false;
+    }
+    let Some(host_actor_id) =
+        runtime.runtime_handle_for_canonical_ref("actor", &grant.candidate.host_actor_ref)
+    else {
+        return false;
+    };
+    if !active_actor_ids_for_state(state).contains(&host_actor_id)
+        || runtime
+            .actor_by_id(host_actor_id)
+            .is_none_or(|actor| actor.location_id != destination_location_id)
+    {
+        return false;
+    }
+    let Ok(ownership) = state.ownership_index.try_read() else {
+        return false;
+    };
+    let host_access =
+        AccessContext::for_linked_actor_with_ownership(state, host_actor_id, &ownership);
+    location_access_allowed(destination_location_id, &host_access)
+}
+
+fn resolve_movement_access(
+    state: &AppState,
+    runtime: &RuntimeWorld,
+    ownership: &OwnershipIndex,
+    actor_id: u64,
+    destination_location_id: u64,
+    direct_access: &AccessContext,
+    now_ms: u64,
+) -> ResolvedMovementAccess {
+    let rule = location_access_rule(destination_location_id);
+    let guest_actor_ref = runtime
+        .canonical_ref("actor", actor_id)
+        .map(ToString::to_string)
+        .unwrap_or_else(|| format!("runtime://actor/{actor_id}"));
+    let location_ref = runtime
+        .canonical_ref("location", destination_location_id)
+        .map(ToString::to_string)
+        .unwrap_or_else(|| format!("runtime://location/{destination_location_id}"));
+    let required_grant_id = rule.required_grant_id.map(ToString::to_string);
+    let gated = rule.required_grant_id.is_some() || rule.required_card_id.is_some();
+    if !gated {
+        return ResolvedMovementAccess {
+            view: MovementAccessView::public(),
+            hosted_candidate: None,
+            guest_actor_ref,
+            location_ref,
+            required_grant_id,
+            reason_code: "public_location",
+        };
+    }
+    if location_access_allowed(destination_location_id, direct_access) {
+        return ResolvedMovementAccess {
+            view: MovementAccessView::solo(rule.required_grant_id),
+            hosted_candidate: None,
+            guest_actor_ref,
+            location_ref,
+            required_grant_id,
+            reason_code: "direct_entitlement",
+        };
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return ResolvedMovementAccess {
+            view: MovementAccessView::denied(
+                rule.required_grant_id,
+                "Hosted access is unavailable without canonical persistence.",
+            ),
+            hosted_candidate: None,
+            guest_actor_ref,
+            location_ref,
+            required_grant_id,
+            reason_code: "canonical_store_unavailable",
+        };
+    };
+    let candidates = match active_hosted_access_candidates(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        &guest_actor_ref,
+        now_ms,
+    ) {
+        Ok(candidates) => candidates,
+        Err(error) => {
+            warn!("failed to resolve hosted access candidates: {}", error);
+            return ResolvedMovementAccess {
+                view: MovementAccessView::denied(
+                    rule.required_grant_id,
+                    "Hosted access could not be verified.",
+                ),
+                hosted_candidate: None,
+                guest_actor_ref,
+                location_ref,
+                required_grant_id,
+                reason_code: "hosted_verification_error",
+            };
+        }
+    };
+    let active_actors = active_actor_ids_for_state(state);
+    let mut denial_reason = "No active hosted party grants entry to this location.";
+    let mut denial_reason_code = "no_eligible_hosted_party";
+    for candidate in candidates {
+        let Some(host_actor_id) =
+            runtime.runtime_handle_for_canonical_ref("actor", &candidate.host_actor_ref)
+        else {
+            denial_reason = "The party host is unavailable.";
+            denial_reason_code = "host_identity_unavailable";
+            continue;
+        };
+        if !active_actors.contains(&host_actor_id) {
+            denial_reason = "The party host is disconnected or inactive.";
+            denial_reason_code = "host_inactive";
+            continue;
+        }
+        if runtime
+            .actor_by_id(host_actor_id)
+            .is_none_or(|actor| actor.location_id != destination_location_id)
+        {
+            denial_reason = "The party host must be present in the gated location.";
+            denial_reason_code = "host_not_present";
+            continue;
+        }
+        let host_access =
+            AccessContext::for_linked_actor_with_ownership(state, host_actor_id, ownership);
+        if !location_access_allowed(destination_location_id, &host_access) {
+            denial_reason = "The host entitlement is missing or has been revoked.";
+            denial_reason_code = "host_entitlement_missing";
+            continue;
+        }
+        let shared_grant = rule
+            .required_grant_id
+            .map(ToString::to_string)
+            .or_else(|| {
+                rule.required_card_id
+                    .map(|card_id| format!("card:{card_id}"))
+            })
+            .unwrap_or_else(|| "public".to_string());
+        return ResolvedMovementAccess {
+            view: MovementAccessView::hosted(&candidate, &shared_grant),
+            hosted_candidate: Some(candidate),
+            guest_actor_ref,
+            location_ref,
+            required_grant_id: Some(shared_grant),
+            reason_code: "active_entitled_host",
+        };
+    }
+    ResolvedMovementAccess {
+        view: MovementAccessView::denied(rule.required_grant_id, denial_reason),
+        hosted_candidate: None,
+        guest_actor_ref,
+        location_ref,
+        required_grant_id,
+        reason_code: denial_reason_code,
+    }
+}
+
+fn record_movement_access_outcome(
+    state: &AppState,
+    resolved: &ResolvedMovementAccess,
+    outcome: &str,
+) {
+    let Some(path) = state.event_store_path.as_deref() else {
+        return;
+    };
+    let result = if resolved.hosted_candidate.is_some() {
+        if outcome == "allowed" {
+            Ok(())
+        } else {
+            record_gated_access_outcome(
+                path,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                &resolved.guest_actor_ref,
+                &resolved.location_ref,
+                resolved.required_grant_id.as_deref(),
+                "hosted_guest",
+                outcome,
+                "movement_failed",
+                now_millis(),
+            )
+        }
+    } else if resolved.view.mode == "solo_entitled" || resolved.view.mode == "denied" {
+        record_gated_access_outcome(
+            path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &resolved.guest_actor_ref,
+            &resolved.location_ref,
+            resolved.required_grant_id.as_deref(),
+            &resolved.view.mode,
+            outcome,
+            resolved.reason_code,
+            now_millis(),
+        )
+    } else {
+        Ok(())
+    };
+    if let Err(error) = result {
+        warn!("failed to persist gated access telemetry: {}", error);
+    }
+}
+
+fn hosted_guest_action_restricted(
+    state: &AppState,
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    action_kind: u8,
+) -> bool {
+    if !matches!(
+        action_kind,
+        CW_ACTION_PICK_UP_ITEM
+            | CW_ACTION_USE_ITEM
+            | CW_ACTION_GIVE_ITEM
+            | CW_ACTION_DROP_ITEM
+            | CW_ACTION_TRADE_ITEM
+            | CW_ACTION_CRAFT
+            | CW_ACTION_SEARCH
+            | CW_ACTION_ATTACK
+            | CW_ACTION_COMBAT_START
+            | CW_ACTION_COMBAT_JOIN
+            | CW_ACTION_COMBAT_ATTACK
+            | CW_ACTION_COMBAT_FINESSE_ATTACK
+    ) {
+        return false;
+    }
+    actor_is_restricted_hosted_guest(state, runtime, actor_id)
+}
+
+fn actor_is_restricted_hosted_guest(
+    state: &AppState,
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+) -> bool {
+    let Some(path) = state.event_store_path.as_deref() else {
+        return false;
+    };
+    let Some(actor_ref) = runtime.canonical_ref("actor", actor_id) else {
+        return false;
+    };
+    let Some(location_id) = runtime.actor_by_id(actor_id).map(|actor| actor.location_id) else {
+        return false;
+    };
+    let Some(location_ref) = runtime.canonical_ref("location", location_id) else {
+        return false;
+    };
+    let direct_access = AccessContext::for_linked_actor_receipt(state, actor_id);
+    if location_access_allowed(location_id, &direct_access) {
+        return false;
+    }
+    actor_has_active_hosted_entry(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        actor_ref,
+        location_ref,
+    )
+    .unwrap_or_else(|error| {
+        warn!(
+            "failed to verify hosted guest action restriction: {}",
+            error
+        );
+        true
+    })
+}
+
+fn hosted_guest_progression_mutation_restricted(mutation: &ProjectionMutation) -> bool {
+    matches!(
+        mutation,
+        ProjectionMutation::UpgradePathwayIfReady { .. }
+            | ProjectionMutation::SearchFeature { .. }
+            | ProjectionMutation::SearchLocation { .. }
+            | ProjectionMutation::DiscoverSeedExit { .. }
+            | ProjectionMutation::DiscoverHiddenExit { .. }
+            | ProjectionMutation::DiscoverAvatar { .. }
+            | ProjectionMutation::RememberSearchItem { .. }
+            | ProjectionMutation::UseFeature { .. }
+            | ProjectionMutation::AdvanceClock { .. }
+            | ProjectionMutation::SetJobStatus { .. }
+            | ProjectionMutation::LegacyAcceptQuest { .. }
+            | ProjectionMutation::BankVisitLedger { .. }
+            | ProjectionMutation::MarkVisitLedger { .. }
+            | ProjectionMutation::ReviseCalling { .. }
+            | ProjectionMutation::CreateBond { .. }
+            | ProjectionMutation::ReviseBond { .. }
+            | ProjectionMutation::TrainSkill { .. }
+            | ProjectionMutation::DeepenBond { .. }
+            | ProjectionMutation::ResolveBond { .. }
+    )
+}
+
+fn hosted_guest_record_restricted(
+    state: &AppState,
+    runtime: &RuntimeWorld,
+    record: &JournalRecord,
+) -> bool {
+    record.origin == JournalOrigin::PlayerCard
+        && (hosted_guest_action_restricted(
+            state,
+            runtime,
+            record.action.actor_id,
+            record.action.kind,
+        ) || (record
+            .projection_mutations
+            .iter()
+            .any(hosted_guest_progression_mutation_restricted)
+            && actor_is_restricted_hosted_guest(state, runtime, record.action.actor_id)))
+}
+
+async fn reconcile_hosted_access(state: &AppState) -> Vec<EventView> {
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Vec::new();
+    };
+    let entries = match hosted_access_entries_for_reconciliation(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+    ) {
+        Ok(entries) => entries,
+        Err(error) => {
+            warn!("failed to inspect hosted access entries: {}", error);
+            return Vec::new();
+        }
+    };
+    if entries.is_empty() {
+        return Vec::new();
+    }
+    let _guard = state.canonical_command_lock.lock().await;
+    let ownership = state.ownership_snapshot().await;
+    let active_actors = active_actor_ids_for_state(state);
+    let now = now_millis();
+    let mut committed_events = Vec::new();
+    for entry in entries {
+        let candidates = active_hosted_access_candidates(
+            path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &entry.guest_actor_ref,
+            now,
+        )
+        .unwrap_or_default();
+        let party_active = candidates
+            .iter()
+            .any(|candidate| candidate.party_id == entry.party_id);
+        let evaluation = {
+            let runtime = state.inner.lock().await;
+            let guest_id =
+                runtime.runtime_handle_for_canonical_ref("actor", &entry.guest_actor_ref);
+            let host_id = runtime.runtime_handle_for_canonical_ref("actor", &entry.host_actor_ref);
+            let entry_location_id =
+                runtime.runtime_handle_for_canonical_ref("location", &entry.location_ref);
+            let safe_location_id = runtime
+                .runtime_handle_for_canonical_ref("location", &entry.formed_location_ref)
+                .or_else(|| {
+                    runtime
+                        .location_name(COSY_COTTAGE_LOCATION_ID)
+                        .map(|_| COSY_COTTAGE_LOCATION_ID)
+                });
+            match (guest_id, safe_location_id) {
+                (Some(guest_id), Some(safe_location_id)) => {
+                    let guest_location =
+                        runtime.actor_by_id(guest_id).map(|actor| actor.location_id);
+                    let guest_access =
+                        AccessContext::for_linked_actor_with_ownership(state, guest_id, &ownership);
+                    let reason = match entry_location_id {
+                        None => "gated_location_unavailable",
+                        Some(entry_location_id) if guest_location != Some(entry_location_id) => {
+                            "guest_left_location"
+                        }
+                        Some(entry_location_id)
+                            if location_access_allowed(entry_location_id, &guest_access) =>
+                        {
+                            "guest_now_entitled"
+                        }
+                        Some(_) if !party_active || entry.expires_at_ms <= now => {
+                            "party_removed_revoked_or_expired"
+                        }
+                        Some(entry_location_id) => match host_id {
+                            None => "host_identity_unavailable",
+                            Some(host_id) if !active_actors.contains(&host_id) => "host_inactive",
+                            Some(host_id)
+                                if runtime
+                                    .actor_by_id(host_id)
+                                    .is_none_or(|actor| actor.location_id != entry_location_id) =>
+                            {
+                                "host_departed"
+                            }
+                            Some(host_id)
+                                if !location_access_allowed(
+                                    entry_location_id,
+                                    &AccessContext::for_linked_actor_with_ownership(
+                                        state, host_id, &ownership,
+                                    ),
+                                ) =>
+                            {
+                                "host_entitlement_revoked"
+                            }
+                            Some(_) => "valid",
+                        },
+                    };
+                    Some((
+                        guest_id,
+                        safe_location_id,
+                        guest_location,
+                        reason,
+                        reason == "valid" || reason == "guest_now_entitled",
+                    ))
+                }
+                _ => None,
+            }
+        };
+        let Some((guest_id, safe_location_id, guest_location, reason, valid)) = evaluation else {
+            match update_hosted_entry_validity(
+                path,
+                &entry,
+                false,
+                "canonical_identity_missing",
+                now,
+                state.hosted_access_config.grace_ms,
+            ) {
+                Ok(true) => {
+                    if let Err(error) = mark_hosted_entry_ended(
+                        path,
+                        OFFICIAL_WORLD_ID,
+                        OFFICIAL_WORLD_EPOCH,
+                        &entry,
+                        "canonical_identity_missing",
+                        now,
+                    ) {
+                        warn!("failed to close unresolved hosted access entry: {}", error);
+                    }
+                }
+                Ok(false) => {}
+                Err(error) => warn!("failed to mark unresolved hosted access entry: {}", error),
+            }
+            continue;
+        };
+        if reason == "guest_left_location" || reason == "guest_now_entitled" {
+            if let Err(error) = mark_hosted_entry_ended(
+                path,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                &entry,
+                reason,
+                now,
+            ) {
+                warn!("failed to close completed hosted access entry: {}", error);
+            }
+            continue;
+        }
+        let evacuate = match update_hosted_entry_validity(
+            path,
+            &entry,
+            valid,
+            reason,
+            now,
+            state.hosted_access_config.grace_ms,
+        ) {
+            Ok(evacuate) => evacuate,
+            Err(error) => {
+                warn!("failed to update hosted access validity: {}", error);
+                false
+            }
+        };
+        if !evacuate {
+            continue;
+        }
+        if guest_location == Some(safe_location_id) {
+            if let Err(error) = mark_hosted_entry_ended(
+                path,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                &entry,
+                "guest_already_safe",
+                now,
+            ) {
+                warn!("failed to close safe hosted access entry: {}", error);
+            }
+            continue;
+        }
+        let events = {
+            let mut runtime = state.inner.lock().await;
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: guest_id,
+                    destination_location_id: safe_location_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            )
+            .into_system();
+            record
+                .projection_mutations
+                .push(ProjectionMutation::RendezvousActor {
+                    actor_id: guest_id,
+                    location_id: safe_location_id,
+                    invite_id: entry.party_id.clone(),
+                });
+            match commit_journal_record(state, &mut runtime, record) {
+                Ok((CW_OK, events)) => events,
+                Ok((_status, _events)) => Vec::new(),
+                Err(error) => {
+                    warn!("failed to evacuate hosted guest {}: {}", guest_id, error);
+                    Vec::new()
+                }
+            }
+        };
+        if events.is_empty() {
+            continue;
+        }
+        if let Err(error) = mark_hosted_entry_evacuated(
+            path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &entry,
+            reason,
+            now,
+        ) {
+            warn!("hosted guest evacuated but entry audit failed: {}", error);
+        }
+        committed_events.extend(events);
+    }
+    if !committed_events.is_empty() {
+        broadcast_events(state, &committed_events);
+    }
+    committed_events
+}
+
+fn start_hosted_access_scheduler(state: AppState) {
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(15)).await;
+            let _ = reconcile_hosted_access(&state).await;
+        }
+    });
+}
+
+fn schedule_hosted_access_reconciliation(state: &AppState) {
+    let state = state.clone();
+    tokio::spawn(async move {
+        let _ = reconcile_hosted_access(&state).await;
+    });
+}
+
 fn evolution_track_item_ids(actor_id: u64) -> Option<Vec<u64>> {
     active_content()
         .evolution_tracks
@@ -22863,6 +23493,9 @@ async fn leave_presence(
     } else {
         Vec::new()
     };
+    if ok {
+        schedule_hosted_access_reconciliation(&state);
+    }
     Json(ActionResponse {
         ok,
         status: if ok { CW_OK } else { 403 },
@@ -23674,7 +24307,15 @@ fn canonical_invite_id_valid(invite_id: &str) -> bool {
 fn canonical_invite_view(
     runtime: &RuntimeWorld,
     invite: &CanonicalInvite,
+    hosted_access_config: &HostedAccessConfig,
+    now_ms: u64,
 ) -> Option<CanonicalInviteView> {
+    let hosted_access_eligible = runtime
+        .runtime_handle_for_canonical_ref("location", &invite.created_location_ref)
+        .is_some_and(|location_id| {
+            let rule = location_access_rule(location_id);
+            rule.required_grant_id.is_none() && rule.required_card_id.is_none()
+        });
     Some(CanonicalInviteView {
         invite_id: invite.invite_id.clone(),
         invite_url: format!("/invites/{}", invite.invite_id),
@@ -23684,6 +24325,12 @@ fn canonical_invite_view(
         created_location_ref: invite.created_location_ref.clone(),
         created_world_seq: invite.created_world_seq,
         expires_at_ms: invite.expires_at_ms,
+        hosted_access: hosted_access_terms(
+            hosted_access_config,
+            hosted_access_eligible,
+            invite.expires_at_ms,
+            now_ms,
+        ),
     })
 }
 
@@ -23740,7 +24387,8 @@ async fn create_canonical_invite(
         }
     }
     let runtime = state.inner.lock().await;
-    let Some(invite) = canonical_invite_view(&runtime, &invite) else {
+    let Some(invite) = canonical_invite_view(&runtime, &invite, &state.hosted_access_config, now)
+    else {
         return canonical_invite_response_error(&state, 500);
     };
     Json(CanonicalInviteResponse {
@@ -23762,12 +24410,13 @@ async fn canonical_invite(
     let Some(path) = state.event_store_path.as_deref() else {
         return canonical_invite_response_error(&state, 503);
     };
+    let now = now_millis();
     let invite = match read_canonical_invite(
         path,
         OFFICIAL_WORLD_ID,
         OFFICIAL_WORLD_EPOCH,
         &invite_id,
-        now_millis(),
+        now,
     ) {
         Ok(Some(invite)) => invite,
         Ok(None) => return canonical_invite_response_error(&state, 404),
@@ -23777,7 +24426,8 @@ async fn canonical_invite(
         }
     };
     let runtime = state.inner.lock().await;
-    let Some(invite) = canonical_invite_view(&runtime, &invite) else {
+    let Some(invite) = canonical_invite_view(&runtime, &invite, &state.hosted_access_config, now)
+    else {
         return canonical_invite_response_error(&state, 404);
     };
     Json(CanonicalInviteResponse {
@@ -23802,7 +24452,40 @@ fn canonical_invite_follow_error(
         rendezvous_location_ref: None,
         through_seq: 0,
         events: Vec::new(),
+        party: None,
     })
+}
+
+fn hosted_party_for_invite_follow(
+    state: &AppState,
+    path: &Path,
+    invite: &CanonicalInvite,
+    guest_actor_ref: &str,
+    rendezvous_location_id: u64,
+    rendezvous_location_ref: &str,
+    now_ms: u64,
+) -> io::Result<Option<HostedPartyView>> {
+    if invite.created_location_ref != rendezvous_location_ref {
+        return Ok(None);
+    }
+    let rule = location_access_rule(rendezvous_location_id);
+    let eligible = rule.required_grant_id.is_none() && rule.required_card_id.is_none();
+    if !eligible {
+        return Ok(None);
+    }
+    join_hosted_party(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        &invite.invite_id,
+        &invite.actor_ref,
+        guest_actor_ref,
+        rendezvous_location_ref,
+        now_ms,
+        invite.expires_at_ms,
+        &state.hosted_access_config,
+    )
+    .map(Some)
 }
 
 async fn forward_canonical_invite_follow(
@@ -23940,6 +24623,24 @@ async fn follow_canonical_invite_with_forwarding(
             .world
             .next_event_seq
             .saturating_sub(1);
+        let party = match hosted_party_for_invite_follow(
+            &state,
+            path,
+            &invite,
+            &actor_ref,
+            target_location_id,
+            &target_location_ref,
+            now_millis(),
+        ) {
+            Ok(party) => party,
+            Err(error) => {
+                warn!(
+                    "canonical invite rendezvous could not form party: {}",
+                    error
+                );
+                return canonical_invite_follow_error(&state, &invite_id, 409);
+            }
+        };
         return Json(CanonicalInviteFollowResponse {
             ok: true,
             status: 200,
@@ -23949,6 +24650,7 @@ async fn follow_canonical_invite_with_forwarding(
             rendezvous_location_ref: Some(target_location_ref),
             through_seq,
             events: Vec::new(),
+            party,
         });
     }
     let lease_result = acquire_partition_leases_for_region(
@@ -24011,7 +24713,7 @@ async fn follow_canonical_invite_with_forwarding(
         return canonical_invite_follow_error(&state, &invite_id, 503);
     }
 
-    let (status, events, through_seq, rendezvous_location_ref) = {
+    let (status, events, through_seq, rendezvous_location_id, rendezvous_location_ref) = {
         let mut runtime = state.inner.lock().await;
         let Some(inviter_id) = runtime.runtime_handle_for_canonical_ref("actor", &invite.actor_ref)
         else {
@@ -24054,18 +24756,218 @@ async fn follow_canonical_invite_with_forwarding(
             status,
             events,
             runtime.world.next_event_seq.saturating_sub(1),
+            current_target_location_id,
             rendezvous_location_ref,
         )
     };
     broadcast_events(&state, &events);
+    let mut response_status = status;
+    let party = if status == CW_OK {
+        match rendezvous_location_ref.as_deref() {
+            Some(location_ref) => match hosted_party_for_invite_follow(
+                &state,
+                path,
+                &invite,
+                &actor_ref,
+                rendezvous_location_id,
+                location_ref,
+                now_millis(),
+            ) {
+                Ok(party) => party,
+                Err(error) => {
+                    warn!(
+                        "canonical invite rendezvous could not form party: {}",
+                        error
+                    );
+                    response_status = 409;
+                    None
+                }
+            },
+            None => None,
+        }
+    } else {
+        None
+    };
     Json(CanonicalInviteFollowResponse {
-        ok: status == CW_OK,
-        status,
+        ok: response_status == CW_OK,
+        status: response_status,
         process_id: state.deployment.process_id.clone(),
         invite_id,
         actor_ref: Some(actor_ref),
         rendezvous_location_ref,
         through_seq,
+        events,
+        party,
+    })
+}
+
+fn hosted_party_action_error(party_id: &str, status: u32) -> Json<HostedPartyActionResponse> {
+    Json(HostedPartyActionResponse {
+        ok: false,
+        status,
+        party_id: party_id.to_string(),
+        events: Vec::new(),
+    })
+}
+
+async fn leave_hosted_party(
+    State(state): State<AppState>,
+    AxumPath(party_id): AxumPath<String>,
+    Json(payload): Json<HostedPartyActionRequest>,
+) -> Json<HostedPartyActionResponse> {
+    if !canonical_invite_id_valid(&party_id) {
+        return hosted_party_action_error(&party_id, 400);
+    }
+    converge_capacity_for_read(&state, Some(&payload.actor_session)).await;
+    let Some(path) = state.event_store_path.as_deref() else {
+        return hosted_party_action_error(&party_id, 503);
+    };
+    let guest_actor_ref = {
+        let runtime = state.inner.lock().await;
+        if !client_actor_session_matches_for_state(
+            &runtime,
+            &state,
+            payload.actor_id,
+            Some(&payload.actor_session),
+        ) {
+            return hosted_party_action_error(&party_id, 403);
+        }
+        let Some(actor_ref) = runtime.canonical_ref("actor", payload.actor_id) else {
+            return hosted_party_action_error(&party_id, 404);
+        };
+        actor_ref.to_string()
+    };
+    match remove_hosted_party_member(
+        path,
+        &party_id,
+        &guest_actor_ref,
+        "guest_left",
+        now_millis(),
+    ) {
+        Ok(true) => {}
+        Ok(false) => return hosted_party_action_error(&party_id, 404),
+        Err(error) => {
+            warn!("failed to leave hosted party {}: {}", party_id, error);
+            return hosted_party_action_error(&party_id, 503);
+        }
+    }
+    let events = reconcile_hosted_access(&state).await;
+    Json(HostedPartyActionResponse {
+        ok: true,
+        status: 200,
+        party_id,
+        events,
+    })
+}
+
+async fn remove_hosted_party_member_action(
+    State(state): State<AppState>,
+    AxumPath((party_id, guest_actor_id)): AxumPath<(String, u64)>,
+    Json(payload): Json<HostedPartyActionRequest>,
+) -> Json<HostedPartyActionResponse> {
+    if !canonical_invite_id_valid(&party_id) {
+        return hosted_party_action_error(&party_id, 400);
+    }
+    converge_capacity_for_read(&state, Some(&payload.actor_session)).await;
+    let Some(path) = state.event_store_path.as_deref() else {
+        return hosted_party_action_error(&party_id, 503);
+    };
+    let (host_actor_ref, guest_actor_ref) = {
+        let runtime = state.inner.lock().await;
+        if !client_actor_session_matches_for_state(
+            &runtime,
+            &state,
+            payload.actor_id,
+            Some(&payload.actor_session),
+        ) {
+            return hosted_party_action_error(&party_id, 403);
+        }
+        let Some(host_ref) = runtime.canonical_ref("actor", payload.actor_id) else {
+            return hosted_party_action_error(&party_id, 404);
+        };
+        let Some(guest_ref) = runtime.canonical_ref("actor", guest_actor_id) else {
+            return hosted_party_action_error(&party_id, 404);
+        };
+        (host_ref.to_string(), guest_ref.to_string())
+    };
+    match hosted_party_host(path, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH, &party_id) {
+        Ok(Some(stored_host)) if stored_host == host_actor_ref => {}
+        Ok(Some(_)) => return hosted_party_action_error(&party_id, 403),
+        Ok(None) => return hosted_party_action_error(&party_id, 404),
+        Err(error) => {
+            warn!("failed to authorize hosted party removal: {}", error);
+            return hosted_party_action_error(&party_id, 503);
+        }
+    }
+    match remove_hosted_party_member(
+        path,
+        &party_id,
+        &guest_actor_ref,
+        "host_removed_guest",
+        now_millis(),
+    ) {
+        Ok(true) => {}
+        Ok(false) => return hosted_party_action_error(&party_id, 404),
+        Err(error) => {
+            warn!("failed to remove hosted party member: {}", error);
+            return hosted_party_action_error(&party_id, 503);
+        }
+    }
+    let events = reconcile_hosted_access(&state).await;
+    Json(HostedPartyActionResponse {
+        ok: true,
+        status: 200,
+        party_id,
+        events,
+    })
+}
+
+async fn revoke_hosted_party_action(
+    State(state): State<AppState>,
+    AxumPath(party_id): AxumPath<String>,
+    Json(payload): Json<HostedPartyActionRequest>,
+) -> Json<HostedPartyActionResponse> {
+    if !canonical_invite_id_valid(&party_id) {
+        return hosted_party_action_error(&party_id, 400);
+    }
+    converge_capacity_for_read(&state, Some(&payload.actor_session)).await;
+    let Some(path) = state.event_store_path.as_deref() else {
+        return hosted_party_action_error(&party_id, 503);
+    };
+    let host_actor_ref = {
+        let runtime = state.inner.lock().await;
+        if !client_actor_session_matches_for_state(
+            &runtime,
+            &state,
+            payload.actor_id,
+            Some(&payload.actor_session),
+        ) {
+            return hosted_party_action_error(&party_id, 403);
+        }
+        let Some(host_ref) = runtime.canonical_ref("actor", payload.actor_id) else {
+            return hosted_party_action_error(&party_id, 404);
+        };
+        host_ref.to_string()
+    };
+    match revoke_hosted_party(
+        path,
+        &party_id,
+        &host_actor_ref,
+        "host_revoked",
+        now_millis(),
+    ) {
+        Ok(true) => {}
+        Ok(false) => return hosted_party_action_error(&party_id, 404),
+        Err(error) => {
+            warn!("failed to revoke hosted party: {}", error);
+            return hosted_party_action_error(&party_id, 503);
+        }
+    }
+    let events = reconcile_hosted_access(&state).await;
+    Json(HostedPartyActionResponse {
+        ok: true,
+        status: 200,
+        party_id,
         events,
     })
 }
@@ -25278,7 +26180,7 @@ async fn command_inner(
                 }),
             )
             .await;
-            command_action_response_with_events(resolved, response, presence_events)
+            command_action_response_with_events(resolved, response.into_action(), presence_events)
         }
         CommandDispatch::Flee {
             destination_location_id,
@@ -29216,7 +30118,7 @@ async fn move_actor(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
     Json(payload): Json<MoveRequest>,
-) -> Json<ActionResponse> {
+) -> Json<MoveActionResponse> {
     if !allow_actor_mutation(
         &state,
         client_addr,
@@ -29224,7 +30126,11 @@ async fn move_actor(
         "action-actor",
         GENERAL_ACTION_LIMIT,
     ) {
-        return action_rate_limited_response();
+        let Json(response) = action_rate_limited_response();
+        return Json(MoveActionResponse::from_action(
+            response,
+            MovementAccessView::denied(None, "Movement is temporarily rate limited."),
+        ));
     }
     let ownership = state.ownership_snapshot().await;
     let access = AccessContext::from_move_request(
@@ -29234,15 +30140,7 @@ async fn move_actor(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    if !location_access_allowed(payload.destination_location_id, &access) {
-        return Json(ActionResponse {
-            ok: false,
-            status: 403,
-            events: Vec::new(),
-        });
-    }
-
-    let journey_plan = {
+    let (resolved_access, journey_plan) = {
         let runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
             &runtime,
@@ -29250,17 +30148,47 @@ async fn move_actor(
             payload.actor_id,
             payload.actor_session.as_deref(),
         ) {
-            return client_actor_rejected_response();
+            let Json(response) = client_actor_rejected_response();
+            return Json(MoveActionResponse::from_action(
+                response,
+                MovementAccessView::denied(None, "The actor session is not authorized."),
+            ));
         }
-        runtime.plan_journey_move(payload.actor_id, payload.destination_location_id)
+        let resolved = resolve_movement_access(
+            &state,
+            &runtime,
+            &ownership,
+            payload.actor_id,
+            payload.destination_location_id,
+            &access,
+            now_millis(),
+        );
+        let plan = if resolved.view.mode == "denied" {
+            None
+        } else {
+            Some(runtime.plan_journey_move(payload.actor_id, payload.destination_location_id))
+        };
+        (resolved, plan)
     };
+    if resolved_access.view.mode == "denied" {
+        record_movement_access_outcome(&state, &resolved_access, "denied");
+        return Json(MoveActionResponse {
+            ok: false,
+            status: 403,
+            events: Vec::new(),
+            access: resolved_access.view,
+        });
+    }
+    let journey_plan = journey_plan.expect("allowed movement always creates a journey plan");
     let journey_plan = match journey_plan {
         Ok(plan) => plan,
         Err(_) => {
-            return Json(ActionResponse {
+            record_movement_access_outcome(&state, &resolved_access, "failed");
+            return Json(MoveActionResponse {
                 ok: false,
                 status: 409,
                 events: Vec::new(),
+                access: resolved_access.view,
             });
         }
     };
@@ -29282,23 +30210,39 @@ async fn move_actor(
         } else {
             CW_ACTION_SEARCH
         };
-        let response = apply_journey_transition(
+        let hosted_access_grant = (action.destination_location_id
+            == payload.destination_location_id)
+            .then(|| resolved_access.hosted_journal_grant())
+            .flatten();
+        let response = apply_journey_transition_with_hosted_access(
             state.clone(),
             action,
             mutation,
             payload.actor_session.as_deref(),
             turn_action_kind,
+            hosted_access_grant,
         )
         .await;
         if response.0.ok {
             schedule_hidden_pathway_content_generation(&state, content_generation, narration_plan);
             schedule_pathway_art_generation(&state, art_targets);
         }
-        return response;
+        record_movement_access_outcome(
+            &state,
+            &resolved_access,
+            if response.0.ok { "allowed" } else { "failed" },
+        );
+        if response.0.ok {
+            schedule_hosted_access_reconciliation(&state);
+        }
+        return Json(MoveActionResponse::from_action(
+            response.0,
+            resolved_access.view,
+        ));
     }
 
-    apply_and_broadcast(
-        state,
+    let Json(response) = apply_and_broadcast_with_hosted_access(
+        state.clone(),
         CwAction {
             kind: CW_ACTION_MOVE,
             actor_id: payload.actor_id,
@@ -29306,8 +30250,21 @@ async fn move_actor(
             ..CwAction::default()
         },
         payload.actor_session.as_deref(),
+        resolved_access.hosted_journal_grant(),
     )
-    .await
+    .await;
+    record_movement_access_outcome(
+        &state,
+        &resolved_access,
+        if response.ok { "allowed" } else { "failed" },
+    );
+    if response.ok {
+        schedule_hosted_access_reconciliation(&state);
+    }
+    Json(MoveActionResponse::from_action(
+        response,
+        resolved_access.view,
+    ))
 }
 
 async fn explore_pathway(
@@ -31206,12 +32163,46 @@ async fn apply_and_broadcast(
     apply_and_broadcast_with_resident_reply(state, action, actor_session).await
 }
 
+async fn apply_and_broadcast_with_hosted_access(
+    state: AppState,
+    action: CwAction,
+    actor_session: Option<&str>,
+    hosted_access_grant: Option<HostedAccessJournalGrant>,
+) -> Json<ActionResponse> {
+    apply_and_broadcast_with_resident_reply_and_hosted_access(
+        state,
+        action,
+        actor_session,
+        hosted_access_grant,
+    )
+    .await
+}
+
 async fn apply_journey_transition(
     state: AppState,
     action: CwAction,
     mutation: ProjectionMutation,
     actor_session: Option<&str>,
     turn_action_kind: u8,
+) -> Json<ActionResponse> {
+    apply_journey_transition_with_hosted_access(
+        state,
+        action,
+        mutation,
+        actor_session,
+        turn_action_kind,
+        None,
+    )
+    .await
+}
+
+async fn apply_journey_transition_with_hosted_access(
+    state: AppState,
+    action: CwAction,
+    mutation: ProjectionMutation,
+    actor_session: Option<&str>,
+    turn_action_kind: u8,
+    hosted_access_grant: Option<HostedAccessJournalGrant>,
 ) -> Json<ActionResponse> {
     let actor_id = action.actor_id;
     let was_active = actor_session
@@ -31238,6 +32229,7 @@ async fn apply_journey_transition(
     }
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
     record.projection_mutations.push(mutation);
+    record.hosted_access_grant = hosted_access_grant;
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         drop(runtime);
         return Json(ActionResponse {
@@ -31278,6 +32270,16 @@ async fn apply_and_broadcast_with_resident_reply(
     action: CwAction,
     actor_session: Option<&str>,
 ) -> Json<ActionResponse> {
+    apply_and_broadcast_with_resident_reply_and_hosted_access(state, action, actor_session, None)
+        .await
+}
+
+async fn apply_and_broadcast_with_resident_reply_and_hosted_access(
+    state: AppState,
+    action: CwAction,
+    actor_session: Option<&str>,
+    hosted_access_grant: Option<HostedAccessJournalGrant>,
+) -> Json<ActionResponse> {
     let actor_id = action.actor_id;
     let was_active = actor_session
         .and_then(|token| actor_session_active_for_actor(&state.actor_sessions, actor_id, token))
@@ -31285,6 +32287,13 @@ async fn apply_and_broadcast_with_resident_reply(
     let mut runtime = state.inner.lock().await;
     if !client_actor_authorized_for_state(&runtime, &state, actor_id, actor_session) {
         return client_actor_rejected_response();
+    }
+    if hosted_guest_action_restricted(&state, &runtime, actor_id, action.kind) {
+        return Json(ActionResponse {
+            ok: false,
+            status: 403,
+            events: Vec::new(),
+        });
     }
     let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
     let turn_location_id = runtime.actor_by_id(actor_id).map(|actor| actor.location_id);
@@ -31317,6 +32326,7 @@ async fn apply_and_broadcast_with_resident_reply(
         });
     }
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
+    record.hosted_access_grant = hosted_access_grant;
     if listen_cost > 0 {
         record.orb_deltas.push(OrbDelta {
             actor_id,
@@ -33458,6 +34468,20 @@ fn commit_journal_record(
     runtime: &mut RuntimeWorld,
     record: JournalRecord,
 ) -> io::Result<(u32, Vec<EventView>)> {
+    if hosted_guest_record_restricted(state, runtime, &record) {
+        return Ok((CW_ERR_RULE, Vec::new()));
+    }
+    if record.hosted_access_grant.as_ref().is_some_and(|grant| {
+        !hosted_access_grant_runtime_valid(
+            state,
+            runtime,
+            record.action.actor_id,
+            record.action.destination_location_id,
+            grant,
+        )
+    }) {
+        return Ok((CW_ERR_RULE, Vec::new()));
+    }
     let pre_orb_balances = runtime.orb_balances.clone();
     let pre_orb_reward_claims = runtime.orb_reward_claims.clone();
     let pre_entity_versions = runtime.canonical_identities.entity_versions.clone();
@@ -33538,6 +34562,17 @@ fn commit_journal_record(
                 )
             })?;
             let (status, events) = runtime.apply_journal_record(&record);
+            if status == CW_OK {
+                if let Some(grant) = record.hosted_access_grant.as_ref() {
+                    activate_hosted_access_entry_in_transaction(
+                        &tx,
+                        OFFICIAL_WORLD_ID,
+                        OFFICIAL_WORLD_EPOCH,
+                        grant,
+                        commit_time,
+                    )?;
+                }
+            }
             let mut required_partitions = initial_record_partitions.clone();
             required_partitions.extend(canonical_partitions_for_events(runtime, &events));
             for partition_key in required_partitions {
@@ -34149,6 +35184,7 @@ fn init_event_store(path: &Path) -> io::Result<()> {
     )
     .map_err(sqlite_error)?;
     init_canonical_journal(&conn, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH)?;
+    init_hosted_access_store(&conn)?;
     init_legacy_import_store(&conn)?;
     init_activation_store(&conn)?;
     ensure_sqlite_column(
@@ -36128,6 +37164,7 @@ mod tests {
             box_burn_verifier: Arc::new(None),
             ownership_feed: Arc::new(OwnershipFeedConfig::default()),
             ownership_feed_health: Arc::new(StdMutex::new(OwnershipFeedHealth::default())),
+            hosted_access_config: Arc::new(HostedAccessConfig::default()),
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
@@ -36264,6 +37301,232 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    }
+
+    #[tokio::test]
+    async fn hosted_party_entry_is_server_verified_restricted_and_evacuated_on_revocation() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-hosted-party-route-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Host");
+        create_test_human(&mut runtime, 5001, COSY_COTTAGE_LOCATION_ID, "Guest");
+        let mut state = test_app_state(runtime, Some(path.clone()));
+        state.hosted_access_config = Arc::new(HostedAccessConfig {
+            grace_ms: 0,
+            ..HostedAccessConfig::default()
+        });
+        let (host_session, _) = issue_actor_session(&state, 5000);
+        let (guest_session, _) = issue_actor_session(&state, 5001);
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &host_session),
+            Some(5000)
+        );
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &guest_session),
+            Some(5001)
+        );
+
+        let gate = active_content()
+            .access_gates
+            .first()
+            .expect("official world has a gated location")
+            .clone();
+        let (host_ref, guest_ref, public_ref, gated_ref) = {
+            let runtime = state.inner.lock().await;
+            (
+                runtime.canonical_ref("actor", 5000).unwrap().to_string(),
+                runtime.canonical_ref("actor", 5001).unwrap().to_string(),
+                runtime
+                    .canonical_ref("location", COSY_COTTAGE_LOCATION_ID)
+                    .unwrap()
+                    .to_string(),
+                runtime
+                    .canonical_ref("location", gate.location_id)
+                    .unwrap()
+                    .to_string(),
+            )
+        };
+        let denied_without_party = {
+            let runtime = state.inner.lock().await;
+            resolve_movement_access(
+                &state,
+                &runtime,
+                &OwnershipIndex::default(),
+                5001,
+                gate.location_id,
+                &AccessContext::default(),
+                now_millis(),
+            )
+        };
+        assert_eq!(denied_without_party.view.mode, "denied");
+
+        join_hosted_party(
+            &path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            "party-hosted-test",
+            &host_ref,
+            &guest_ref,
+            &public_ref,
+            now_millis(),
+            now_millis() + 60_000,
+            &state.hosted_access_config,
+        )
+        .expect("form party in public room");
+        state
+            .wallet_actor_links
+            .lock()
+            .unwrap()
+            .insert("wallet-host".to_string(), 5000);
+        let ownership = OwnershipIndex::parse(&format!(
+            r#"{{"wallets":[{{"walletAddress":"wallet-host","grantIds":["{}"]}}]}}"#,
+            gate.required_grant_id
+        ));
+        *state.ownership_index.write().await = ownership.clone();
+        {
+            let mut runtime = state.inner.lock().await;
+            runtime.place_actor_location(5000, gate.location_id, false);
+        }
+        let missing_provider = {
+            let runtime = state.inner.lock().await;
+            resolve_movement_access(
+                &state,
+                &runtime,
+                &OwnershipIndex::default(),
+                5001,
+                gate.location_id,
+                &AccessContext::default(),
+                now_millis(),
+            )
+        };
+        assert_eq!(missing_provider.view.mode, "denied");
+        assert_eq!(missing_provider.reason_code, "host_entitlement_missing");
+        let hosted = {
+            let runtime = state.inner.lock().await;
+            resolve_movement_access(
+                &state,
+                &runtime,
+                &ownership,
+                5001,
+                gate.location_id,
+                &AccessContext::default(),
+                now_millis(),
+            )
+        };
+        assert_eq!(hosted.view.mode, "hosted_guest");
+        assert_eq!(hosted.view.party_id.as_deref(), Some("party-hosted-test"));
+        {
+            let mut runtime = state.inner.lock().await;
+            let mut entry = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: 5001,
+                    destination_location_id: gate.location_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            )
+            .into_player_card();
+            entry.source_location_id = Some(COSY_COTTAGE_LOCATION_ID);
+            entry.hosted_access_grant = hosted.hosted_journal_grant();
+            entry
+                .projection_mutations
+                .push(ProjectionMutation::RendezvousActor {
+                    actor_id: 5001,
+                    location_id: gate.location_id,
+                    invite_id: "party-hosted-test".to_string(),
+                });
+            let (status, events) = commit_journal_record(&state, &mut runtime, entry).unwrap();
+            assert_eq!(status, CW_OK);
+            assert!(events.iter().any(|event| {
+                event.type_name == "actor.moved"
+                    && event.actor_id == Some(5001)
+                    && event.destination_location_id == Some(gate.location_id)
+            }));
+            assert!(hosted_guest_action_restricted(
+                &state,
+                &runtime,
+                5001,
+                CW_ACTION_PICK_UP_ITEM
+            ));
+            assert!(!hosted_guest_action_restricted(
+                &state,
+                &runtime,
+                5001,
+                CW_ACTION_SAY
+            ));
+            let mut progression = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: 5001,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            )
+            .into_player_card();
+            progression
+                .projection_mutations
+                .push(ProjectionMutation::BankVisitLedger {
+                    reason: "hosted_access_test".to_string(),
+                });
+            let (status, events) =
+                commit_journal_record(&state, &mut runtime, progression).unwrap();
+            assert_eq!(status, CW_ERR_RULE);
+            assert!(events.is_empty());
+        }
+        assert!(actor_has_active_hosted_entry(
+            &path,
+            OFFICIAL_WORLD_ID,
+            OFFICIAL_WORLD_EPOCH,
+            &guest_ref,
+            &gated_ref,
+        )
+        .unwrap());
+
+        *state.ownership_index.write().await = OwnershipIndex::default();
+        let events = reconcile_hosted_access(&state).await;
+        assert!(events.iter().any(|event| {
+            event.type_name == "actor.moved"
+                && event.actor_id == Some(5001)
+                && event.destination_location_id == Some(COSY_COTTAGE_LOCATION_ID)
+        }));
+        assert_eq!(
+            state
+                .inner
+                .lock()
+                .await
+                .actor_by_id(5001)
+                .unwrap()
+                .location_id,
+            COSY_COTTAGE_LOCATION_ID
+        );
+        let conn = open_event_store(&path).unwrap();
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM canonical_hosted_access_events
+                 WHERE access_mode = 'hosted_guest' AND outcome = 'allowed'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+            1
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM canonical_hosted_access_events
+                 WHERE access_mode = 'hosted_guest' AND outcome = 'evacuated'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+            1
+        );
+        drop(conn);
+        fs::remove_file(path).unwrap();
     }
 
     fn canonical_test_command_request(
@@ -36833,6 +38096,7 @@ mod tests {
         assert!(invite.ok, "{invite:?}");
         assert_eq!(invite.process_id, "process-a");
         let invite = invite.invite.expect("canonical invite");
+        assert!(invite.hosted_access.eligible);
         let resolved_on_b: CanonicalInviteResponse = client
             .get(format!("{url_b}/invites/{}", invite.invite_id))
             .send()
@@ -36864,6 +38128,7 @@ mod tests {
             .await
             .expect("follow response");
         assert!(followed.ok, "{followed:?}");
+        assert!(followed.party.is_some());
         assert_eq!(
             followed.rendezvous_location_ref.as_deref(),
             Some(invite.inviter.location_ref.as_str())
@@ -59472,6 +60737,7 @@ mod tests {
             box_burn_verifier: Arc::new(None),
             ownership_feed: Arc::new(feed),
             ownership_feed_health: Arc::new(StdMutex::new(OwnershipFeedHealth::default())),
+            hosted_access_config: Arc::new(HostedAccessConfig::default()),
             last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
