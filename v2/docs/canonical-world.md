@@ -5,6 +5,11 @@ regions, room owners, and pack bundles are replaceable machinery behind that
 promise. [ADR 0003](../../docs/decisions/0003-one-canonical-world.md) is the
 normative decision; this page turns it into rollout and test gates.
 
+The canonical journal is also the repair source for the versioned,
+privacy-safe [story and seventh-visit metrics](story-metrics.md). Those metrics
+diagnose whether the shared world produces return-worthy loops; they never
+alter identity, authorization, routing, or world outcomes.
+
 ## Current and target shapes
 
 The Rust orchestrator can now run divergent capacity processes over one shared

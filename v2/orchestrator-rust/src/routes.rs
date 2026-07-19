@@ -89,6 +89,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             post(revoke_hosted_party_action),
         )
         .route("/moderation/activation", get(activation_metrics_view))
+        .route(
+            "/moderation/activation/{player_ref}/delete",
+            post(delete_story_metrics_for_player),
+        )
         .route("/moderation/events", get(moderation_events_view))
         .route("/moderation/reports", get(moderation_reports_view))
         .route(
