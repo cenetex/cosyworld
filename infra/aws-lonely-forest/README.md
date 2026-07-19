@@ -16,11 +16,12 @@ archive/library site at `lonelyforestlibrary.com`.
   `sites/lonelyforestlibrary`.
 
 The ECS service is intentionally `desired_count = 1`. Shared journal fencing,
-cross-process routing, projection/presence convergence, invite rendezvous, and
-the pinned two-process harness are implemented, but ECS still lacks an exact
-per-task owner route and the #130 hot-room migration/failover gate. Do not
-increase it to obtain horizontal write capacity. Multi-process production must
-pass the remaining gates in
+cross-process routing, projection/presence convergence, invite rendezvous,
+atomic hot-room handoff, verified regional recovery, and both chaos harnesses
+are implemented. ECS still lacks an exact per-task owner route, and the first
+release-specific operator drill has not passed. Do not increase it to obtain
+horizontal write capacity. Multi-process production must pass the remaining
+infrastructure and operational gates in
 [`../../v2/docs/canonical-world.md`](../../v2/docs/canonical-world.md).
 
 `COSYWORLD_PROCESS_ID` labels this ECS capacity process in `/meta`.
@@ -32,6 +33,12 @@ persistent-state namespace.
 The task definition intentionally leaves `COSYWORLD_CANONICAL_ROUTE_URL` and
 `COSYWORLD_CANONICAL_ROUTER_TOKEN` unset. A normal ALB origin is not an exact
 task route and must not be placed in the process route registry.
+
+It also leaves the canonical region/recovery variables unset. A future
+multi-region task definition must set `COSYWORLD_CANONICAL_REGION_ID`, and its
+active source must configure both `COSYWORLD_CANONICAL_RECOVERY_DB_PATH` and
+`COSYWORLD_CANONICAL_RECOVERY_REGION_ID`. Promotion is allowed only after the
+source region is hard-fenced and the copied prefix hash is recorded externally.
 
 `deployment.auto.tfvars` captures the current deployed shape:
 

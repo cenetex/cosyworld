@@ -94,11 +94,11 @@ variable "task_memory" {
 variable "desired_count" {
   type        = number
   default     = 1
-  description = "Number of orchestrator tasks. MUST remain 1 until exact ECS task routing and the #130 hot-room migration/failover gate are complete."
+  description = "Number of orchestrator tasks. MUST remain 1 until exact ECS task routing and a release-specific #130 recovery drill are complete."
 
   validation {
     condition     = var.desired_count == 1
-    error_message = "desired_count must remain 1 until exact task routing and the #130 hot-room migration/failover gate are implemented."
+    error_message = "desired_count must remain 1 until exact task routing and the release-specific hot-room/failover drill pass."
   }
 }
 

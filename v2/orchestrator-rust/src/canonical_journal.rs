@@ -1,8 +1,9 @@
-use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior, MAIN_DB};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    io,
+    fs, io,
     path::Path,
     time::Duration,
 };
@@ -54,6 +55,7 @@ pub(super) struct CanonicalReceiptRow<'a> {
 pub(super) struct CanonicalProcessRoute {
     pub(super) owner_id: String,
     pub(super) process_id: String,
+    pub(super) region_id: String,
     pub(super) base_url: String,
     pub(super) heartbeat_expires_at_ms: u64,
 }
@@ -69,6 +71,59 @@ pub(super) struct CanonicalInvite {
     pub(super) expires_at_ms: u64,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct CanonicalOwnershipTransfer {
+    pub(super) source: AuthorityLease,
+    pub(super) target_owner_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct CanonicalOwnershipCheckpoint {
+    pub(super) checkpoint_id: String,
+    pub(super) world_id: String,
+    pub(super) world_epoch: u64,
+    pub(super) world_seq: u64,
+    pub(super) leases: BTreeMap<String, AuthorityLease>,
+    pub(super) reason: String,
+    pub(super) created_at_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct CanonicalReplicaCheckpoint {
+    pub(super) world_id: String,
+    pub(super) world_epoch: u64,
+    pub(super) store_id: String,
+    pub(super) region_id: String,
+    pub(super) durable_world_seq: u64,
+    pub(super) action_journal_seq: u64,
+    pub(super) prefix_hash: String,
+    pub(super) created_at_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct CanonicalRegionAuthority {
+    pub(super) world_id: String,
+    pub(super) world_epoch: u64,
+    pub(super) active_region_id: String,
+    pub(super) promotion_epoch: u64,
+    pub(super) durable_world_seq: u64,
+    pub(super) updated_at_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct CanonicalRegionPromotion {
+    pub(super) promotion_id: String,
+    pub(super) world_id: String,
+    pub(super) world_epoch: u64,
+    pub(super) source_region_id: String,
+    pub(super) target_region_id: String,
+    pub(super) promotion_epoch: u64,
+    pub(super) durable_world_seq: u64,
+    pub(super) action_journal_seq: u64,
+    pub(super) prefix_hash: String,
+    pub(super) promoted_at_ms: u64,
+}
+
 pub(super) fn init_canonical_journal(
     conn: &Connection,
     world_id: &str,
@@ -81,6 +136,12 @@ pub(super) fn init_canonical_journal(
             committed_seq INTEGER NOT NULL,
             updated_at_ms INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS canonical_store_identity (
+            world_id TEXT PRIMARY KEY,
+            world_epoch INTEGER NOT NULL,
+            store_id TEXT NOT NULL UNIQUE,
+            created_at_ms INTEGER NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS canonical_partition_leases (
             world_id TEXT NOT NULL,
             partition_key TEXT NOT NULL,
@@ -92,6 +153,17 @@ pub(super) fn init_canonical_journal(
         );
         CREATE INDEX IF NOT EXISTS idx_canonical_partition_leases_owner
             ON canonical_partition_leases(world_id, owner_id, lease_expires_at_ms);
+        CREATE TABLE IF NOT EXISTS canonical_ownership_checkpoints (
+            checkpoint_id TEXT PRIMARY KEY,
+            world_id TEXT NOT NULL,
+            world_epoch INTEGER NOT NULL,
+            world_seq INTEGER NOT NULL,
+            leases_json TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            created_at_ms INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_canonical_ownership_checkpoints_world_seq
+            ON canonical_ownership_checkpoints(world_id, world_epoch, world_seq);
         CREATE TABLE IF NOT EXISTS canonical_entity_versions (
             world_id TEXT NOT NULL,
             entity_ref TEXT NOT NULL,
@@ -139,6 +211,39 @@ pub(super) fn init_canonical_journal(
         );
         CREATE INDEX IF NOT EXISTS idx_canonical_process_routes_live
             ON canonical_process_routes(world_id, heartbeat_expires_at_ms, process_id);
+        CREATE TABLE IF NOT EXISTS canonical_region_authority (
+            world_id TEXT PRIMARY KEY,
+            world_epoch INTEGER NOT NULL,
+            active_region_id TEXT NOT NULL,
+            promotion_epoch INTEGER NOT NULL,
+            durable_world_seq INTEGER NOT NULL,
+            updated_at_ms INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS canonical_region_replicas (
+            world_id TEXT NOT NULL,
+            world_epoch INTEGER NOT NULL,
+            region_id TEXT NOT NULL,
+            store_id TEXT NOT NULL,
+            durable_world_seq INTEGER NOT NULL,
+            action_journal_seq INTEGER NOT NULL,
+            prefix_hash TEXT NOT NULL,
+            created_at_ms INTEGER NOT NULL,
+            PRIMARY KEY (world_id, region_id)
+        );
+        CREATE TABLE IF NOT EXISTS canonical_region_promotions (
+            promotion_id TEXT PRIMARY KEY,
+            world_id TEXT NOT NULL,
+            world_epoch INTEGER NOT NULL,
+            source_region_id TEXT NOT NULL,
+            target_region_id TEXT NOT NULL,
+            promotion_epoch INTEGER NOT NULL,
+            durable_world_seq INTEGER NOT NULL,
+            action_journal_seq INTEGER NOT NULL,
+            prefix_hash TEXT NOT NULL,
+            promoted_at_ms INTEGER NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_canonical_region_promotions_epoch
+            ON canonical_region_promotions(world_id, promotion_epoch);
         CREATE TABLE IF NOT EXISTS canonical_invites (
             invite_id TEXT PRIMARY KEY,
             world_id TEXT NOT NULL,
@@ -152,6 +257,13 @@ pub(super) fn init_canonical_journal(
             ON canonical_invites(world_id, actor_ref, expires_at_ms);",
     )
     .map_err(sqlite_error)?;
+
+    ensure_column(
+        conn,
+        "canonical_process_routes",
+        "region_id",
+        "ALTER TABLE canonical_process_routes ADD COLUMN region_id TEXT NOT NULL DEFAULT 'local'",
+    )?;
 
     for (column, alter_sql) in [
         (
@@ -252,6 +364,787 @@ pub(super) fn init_canonical_journal(
     Ok(())
 }
 
+pub(super) fn ensure_canonical_store_identity(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    proposed_store_id: &str,
+    created_at_ms: u64,
+) -> io::Result<String> {
+    validate_storage_label(proposed_store_id, "canonical store id")?;
+    let mut conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    let tx = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
+    tx.execute(
+        "INSERT OR IGNORE INTO canonical_store_identity
+            (world_id, world_epoch, store_id, created_at_ms)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![
+            world_id,
+            as_i64(world_epoch)?,
+            proposed_store_id,
+            as_i64(created_at_ms)?
+        ],
+    )
+    .map_err(sqlite_error)?;
+    let store_id = canonical_store_identity_in_connection(&tx, world_id, world_epoch)?;
+    tx.commit().map_err(sqlite_error)?;
+    Ok(store_id)
+}
+
+pub(super) fn validate_canonical_store_identity(
+    conn: &Connection,
+    world_id: &str,
+    world_epoch: u64,
+    expected_store_id: &str,
+) -> io::Result<()> {
+    let stored = canonical_store_identity_in_connection(conn, world_id, world_epoch)?;
+    if stored != expected_store_id {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!(
+                "canonical store identity mismatch: expected {expected_store_id}, found {stored}"
+            ),
+        ));
+    }
+    Ok(())
+}
+
+fn canonical_store_identity_in_connection(
+    conn: &Connection,
+    world_id: &str,
+    world_epoch: u64,
+) -> io::Result<String> {
+    let stored = conn
+        .query_row(
+            "SELECT world_epoch, store_id
+             FROM canonical_store_identity
+             WHERE world_id = ?1",
+            params![world_id],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+        )
+        .optional()
+        .map_err(sqlite_error)?
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "canonical store identity is missing; refusing to create an isolated world fork",
+            )
+        })?;
+    if stored.0 != as_i64(world_epoch)? {
+        return Err(invalid_data(format!(
+            "canonical store epoch mismatch: storage has {}, runtime expects {world_epoch}",
+            stored.0
+        )));
+    }
+    validate_storage_label(&stored.1, "canonical store id")?;
+    Ok(stored.1)
+}
+
+pub(super) fn ensure_region_authority(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    initial_region_id: &str,
+    updated_at_ms: u64,
+) -> io::Result<CanonicalRegionAuthority> {
+    validate_storage_label(initial_region_id, "canonical region id")?;
+    let mut conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    let tx = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
+    let durable_world_seq = current_world_seq(&tx, world_id)?;
+    tx.execute(
+        "INSERT OR IGNORE INTO canonical_region_authority
+            (world_id, world_epoch, active_region_id, promotion_epoch,
+             durable_world_seq, updated_at_ms)
+         VALUES (?1, ?2, ?3, 1, ?4, ?5)",
+        params![
+            world_id,
+            as_i64(world_epoch)?,
+            initial_region_id,
+            as_i64(durable_world_seq)?,
+            as_i64(updated_at_ms)?
+        ],
+    )
+    .map_err(sqlite_error)?;
+    let authority = current_region_authority_in_connection(&tx, world_id, world_epoch)?;
+    tx.commit().map_err(sqlite_error)?;
+    Ok(authority)
+}
+
+pub(super) fn current_region_authority(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+) -> io::Result<CanonicalRegionAuthority> {
+    let conn = open_canonical_store(path)?;
+    current_region_authority_in_connection(&conn, world_id, world_epoch)
+}
+
+fn current_region_authority_in_connection(
+    conn: &Connection,
+    world_id: &str,
+    world_epoch: u64,
+) -> io::Result<CanonicalRegionAuthority> {
+    let row = conn
+        .query_row(
+            "SELECT world_epoch, active_region_id, promotion_epoch,
+                    durable_world_seq, updated_at_ms
+             FROM canonical_region_authority
+             WHERE world_id = ?1",
+            params![world_id],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, i64>(4)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(sqlite_error)?
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "canonical region authority is missing",
+            )
+        })?;
+    if row.0 != as_i64(world_epoch)? {
+        return Err(invalid_data(format!(
+            "canonical region epoch mismatch: authority has {}, runtime expects {world_epoch}",
+            row.0
+        )));
+    }
+    Ok(CanonicalRegionAuthority {
+        world_id: world_id.to_string(),
+        world_epoch,
+        active_region_id: row.1,
+        promotion_epoch: as_u64(row.2, "promotion_epoch")?,
+        durable_world_seq: as_u64(row.3, "durable_world_seq")?,
+        updated_at_ms: as_u64(row.4, "updated_at_ms")?,
+    })
+}
+
+pub(super) fn validate_active_region(
+    conn: &Connection,
+    world_id: &str,
+    world_epoch: u64,
+    region_id: &str,
+) -> io::Result<CanonicalRegionAuthority> {
+    let authority = current_region_authority_in_connection(conn, world_id, world_epoch)?;
+    if authority.active_region_id != region_id {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!(
+                "region {region_id} is fenced; active canonical region is {} at promotion epoch {}",
+                authority.active_region_id, authority.promotion_epoch
+            ),
+        ));
+    }
+    Ok(authority)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn acquire_partition_leases_for_region(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    expected_store_id: &str,
+    region_id: &str,
+    partition_keys: &BTreeSet<String>,
+    owner_id: &str,
+    now_ms: u64,
+    ttl_ms: u64,
+) -> io::Result<BTreeMap<String, AuthorityLease>> {
+    let mut conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    let tx = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
+    validate_canonical_store_identity(&tx, world_id, world_epoch, expected_store_id)?;
+    validate_active_region(&tx, world_id, world_epoch, region_id)?;
+    let mut leases = BTreeMap::new();
+    for partition_key in partition_keys {
+        let lease = acquire_partition_lease_in_transaction(
+            &tx,
+            world_id,
+            partition_key,
+            owner_id,
+            now_ms,
+            ttl_ms,
+        )?;
+        leases.insert(partition_key.clone(), lease);
+    }
+    tx.commit().map_err(sqlite_error)?;
+    Ok(leases)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn handoff_partition_leases(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    expected_store_id: &str,
+    region_id: &str,
+    transfers: &BTreeMap<String, CanonicalOwnershipTransfer>,
+    expected_world_seq: u64,
+    reason: &str,
+    now_ms: u64,
+    ttl_ms: u64,
+) -> io::Result<CanonicalOwnershipCheckpoint> {
+    if transfers.is_empty() {
+        return Err(invalid_data(
+            "ownership handoff requires at least one partition",
+        ));
+    }
+    if reason.trim().is_empty() || reason.chars().count() > 200 {
+        return Err(invalid_data(
+            "ownership handoff reason must be 1-200 characters",
+        ));
+    }
+    let mut conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    let tx = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
+    validate_canonical_store_identity(&tx, world_id, world_epoch, expected_store_id)?;
+    validate_active_region(&tx, world_id, world_epoch, region_id)?;
+    let committed_seq = current_world_seq(&tx, world_id)?;
+    if committed_seq != expected_world_seq {
+        return Err(io::Error::new(
+            io::ErrorKind::WouldBlock,
+            format!(
+                "ownership handoff boundary moved: expected {expected_world_seq}, committed {committed_seq}"
+            ),
+        ));
+    }
+    let mut leases = BTreeMap::new();
+    let next_expiry = now_ms.saturating_add(ttl_ms.max(1));
+    for (partition_key, transfer) in transfers {
+        validate_storage_label(&transfer.target_owner_id, "target owner id")?;
+        if transfer.source.world_id != world_id || transfer.source.partition_key != *partition_key {
+            return Err(invalid_data(format!(
+                "ownership handoff source does not match partition {partition_key}"
+            )));
+        }
+        let target_fencing_epoch = transfer.source.fencing_epoch.saturating_add(1);
+        let changed = tx
+            .execute(
+                "UPDATE canonical_partition_leases
+                 SET owner_id = ?7, fencing_epoch = ?8,
+                     lease_expires_at_ms = ?9, updated_at_ms = ?6
+                 WHERE world_id = ?1 AND partition_key = ?2
+                   AND owner_id = ?3 AND fencing_epoch = ?4
+                   AND lease_expires_at_ms > ?5",
+                params![
+                    world_id,
+                    partition_key,
+                    transfer.source.owner_id,
+                    as_i64(transfer.source.fencing_epoch)?,
+                    as_i64(now_ms)?,
+                    as_i64(now_ms)?,
+                    transfer.target_owner_id,
+                    as_i64(target_fencing_epoch)?,
+                    as_i64(next_expiry)?
+                ],
+            )
+            .map_err(sqlite_error)?;
+        if changed != 1 {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!("partition {partition_key} moved, expired, or was fenced before handoff"),
+            ));
+        }
+        leases.insert(
+            partition_key.clone(),
+            AuthorityLease {
+                world_id: world_id.to_string(),
+                partition_key: partition_key.clone(),
+                owner_id: transfer.target_owner_id.clone(),
+                fencing_epoch: target_fencing_epoch,
+                lease_expires_at_ms: next_expiry,
+            },
+        );
+    }
+    let checkpoint_id = format!(
+        "{}:ownership:{}:{}",
+        world_id,
+        expected_world_seq,
+        short_checkpoint_hash(&leases, now_ms)
+    );
+    let leases_json = serde_json::to_string(&leases)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    tx.execute(
+        "INSERT INTO canonical_ownership_checkpoints
+            (checkpoint_id, world_id, world_epoch, world_seq,
+             leases_json, reason, created_at_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            checkpoint_id,
+            world_id,
+            as_i64(world_epoch)?,
+            as_i64(expected_world_seq)?,
+            leases_json,
+            reason.trim(),
+            as_i64(now_ms)?
+        ],
+    )
+    .map_err(sqlite_error)?;
+    tx.commit().map_err(sqlite_error)?;
+    Ok(CanonicalOwnershipCheckpoint {
+        checkpoint_id,
+        world_id: world_id.to_string(),
+        world_epoch,
+        world_seq: expected_world_seq,
+        leases,
+        reason: reason.trim().to_string(),
+        created_at_ms: now_ms,
+    })
+}
+
+pub(super) fn canonical_replica_checkpoint(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    region_id: &str,
+    created_at_ms: u64,
+) -> io::Result<CanonicalReplicaCheckpoint> {
+    validate_storage_label(region_id, "canonical region id")?;
+    let conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    let store_id = canonical_store_identity_in_connection(&conn, world_id, world_epoch)?;
+    let durable_world_seq = current_world_seq(&conn, world_id)?;
+    let action_journal_seq = max_action_journal_seq(&conn)?;
+    let prefix_hash = canonical_prefix_hash(
+        &conn,
+        world_id,
+        world_epoch,
+        &store_id,
+        durable_world_seq,
+        action_journal_seq,
+    )?;
+    Ok(CanonicalReplicaCheckpoint {
+        world_id: world_id.to_string(),
+        world_epoch,
+        store_id,
+        region_id: region_id.to_string(),
+        durable_world_seq,
+        action_journal_seq,
+        prefix_hash,
+        created_at_ms,
+    })
+}
+
+pub(super) fn record_region_replica_checkpoint(
+    path: &Path,
+    checkpoint: &CanonicalReplicaCheckpoint,
+) -> io::Result<()> {
+    let mut conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, &checkpoint.world_id, checkpoint.world_epoch)?;
+    let tx = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
+    validate_canonical_store_identity(
+        &tx,
+        &checkpoint.world_id,
+        checkpoint.world_epoch,
+        &checkpoint.store_id,
+    )?;
+    let committed = current_world_seq(&tx, &checkpoint.world_id)?;
+    if checkpoint.durable_world_seq > committed
+        || checkpoint.action_journal_seq > max_action_journal_seq(&tx)?
+    {
+        return Err(invalid_data(
+            "regional replica checkpoint is ahead of the durable canonical prefix",
+        ));
+    }
+    if !checkpoint.prefix_hash.starts_with("sha256:") || checkpoint.prefix_hash.len() != 71 {
+        return Err(invalid_data("regional replica checkpoint hash is invalid"));
+    }
+    let existing = tx
+        .query_row(
+            "SELECT durable_world_seq, action_journal_seq
+             FROM canonical_region_replicas
+             WHERE world_id = ?1 AND region_id = ?2",
+            params![checkpoint.world_id, checkpoint.region_id],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+        )
+        .optional()
+        .map_err(sqlite_error)?;
+    if existing.is_some_and(|(world_seq, journal_seq)| {
+        world_seq > checkpoint.durable_world_seq as i64
+            || journal_seq > checkpoint.action_journal_seq as i64
+    }) {
+        return Err(invalid_data("regional replica checkpoint cannot regress"));
+    }
+    tx.execute(
+        "INSERT INTO canonical_region_replicas
+            (world_id, world_epoch, region_id, store_id, durable_world_seq,
+             action_journal_seq, prefix_hash, created_at_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+         ON CONFLICT(world_id, region_id) DO UPDATE SET
+            world_epoch = excluded.world_epoch,
+            store_id = excluded.store_id,
+            durable_world_seq = excluded.durable_world_seq,
+            action_journal_seq = excluded.action_journal_seq,
+            prefix_hash = excluded.prefix_hash,
+            created_at_ms = excluded.created_at_ms",
+        params![
+            checkpoint.world_id,
+            as_i64(checkpoint.world_epoch)?,
+            checkpoint.region_id,
+            checkpoint.store_id,
+            as_i64(checkpoint.durable_world_seq)?,
+            as_i64(checkpoint.action_journal_seq)?,
+            checkpoint.prefix_hash,
+            as_i64(checkpoint.created_at_ms)?
+        ],
+    )
+    .map_err(sqlite_error)?;
+    tx.commit().map_err(sqlite_error)?;
+    Ok(())
+}
+
+pub(super) fn read_region_replica_checkpoint(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    region_id: &str,
+) -> io::Result<Option<CanonicalReplicaCheckpoint>> {
+    let conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    conn.query_row(
+        "SELECT world_epoch, store_id, durable_world_seq,
+                action_journal_seq, prefix_hash, created_at_ms
+         FROM canonical_region_replicas
+         WHERE world_id = ?1 AND region_id = ?2",
+        params![world_id, region_id],
+        |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, i64>(5)?,
+            ))
+        },
+    )
+    .optional()
+    .map_err(sqlite_error)?
+    .map(
+        |(
+            stored_epoch,
+            store_id,
+            durable_world_seq,
+            action_journal_seq,
+            prefix_hash,
+            created_at_ms,
+        )| {
+            if stored_epoch != as_i64(world_epoch)? {
+                return Err(invalid_data("regional replica checkpoint epoch mismatch"));
+            }
+            Ok(CanonicalReplicaCheckpoint {
+                world_id: world_id.to_string(),
+                world_epoch,
+                store_id,
+                region_id: region_id.to_string(),
+                durable_world_seq: as_u64(durable_world_seq, "durable_world_seq")?,
+                action_journal_seq: as_u64(action_journal_seq, "action_journal_seq")?,
+                prefix_hash,
+                created_at_ms: as_u64(created_at_ms, "created_at_ms")?,
+            })
+        },
+    )
+    .transpose()
+}
+
+pub(super) fn replicate_canonical_store(
+    primary_path: &Path,
+    recovery_path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    recovery_region_id: &str,
+    created_at_ms: u64,
+) -> io::Result<CanonicalReplicaCheckpoint> {
+    if primary_path == recovery_path {
+        return Err(invalid_data(
+            "recovery replica path must differ from the primary",
+        ));
+    }
+    if let Some(parent) = recovery_path.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+    let primary = open_canonical_store(primary_path)?;
+    init_canonical_journal(&primary, world_id, world_epoch)?;
+    canonical_store_identity_in_connection(&primary, world_id, world_epoch)?;
+    primary
+        .backup(MAIN_DB, recovery_path, None)
+        .map_err(sqlite_error)?;
+    let checkpoint = canonical_replica_checkpoint(
+        recovery_path,
+        world_id,
+        world_epoch,
+        recovery_region_id,
+        created_at_ms,
+    )?;
+    record_region_replica_checkpoint(recovery_path, &checkpoint)?;
+    record_region_replica_checkpoint(primary_path, &checkpoint)?;
+    Ok(checkpoint)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn promote_recovery_region(
+    recovery_path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    expected_store_id: &str,
+    source_region_id: &str,
+    target_region_id: &str,
+    expected_promotion_epoch: u64,
+    checkpoint: &CanonicalReplicaCheckpoint,
+    promoted_at_ms: u64,
+) -> io::Result<CanonicalRegionPromotion> {
+    if source_region_id == target_region_id {
+        return Err(invalid_data(
+            "recovery promotion requires a different target region",
+        ));
+    }
+    let mut conn = open_canonical_store(recovery_path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    let tx = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
+    validate_canonical_store_identity(&tx, world_id, world_epoch, expected_store_id)?;
+    let authority = current_region_authority_in_connection(&tx, world_id, world_epoch)?;
+    if authority.active_region_id != source_region_id
+        || authority.promotion_epoch != expected_promotion_epoch
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "regional authority moved before recovery promotion",
+        ));
+    }
+    let stored_checkpoint = tx
+        .query_row(
+            "SELECT world_epoch, store_id, durable_world_seq,
+                    action_journal_seq, prefix_hash
+             FROM canonical_region_replicas
+             WHERE world_id = ?1 AND region_id = ?2",
+            params![world_id, target_region_id],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            },
+        )
+        .optional()
+        .map_err(sqlite_error)?
+        .ok_or_else(|| invalid_data("target region has no durable replica checkpoint"))?;
+    if checkpoint.world_id != world_id
+        || checkpoint.world_epoch != world_epoch
+        || checkpoint.region_id != target_region_id
+        || stored_checkpoint.0 != as_i64(world_epoch)?
+        || stored_checkpoint.1 != expected_store_id
+        || stored_checkpoint.2 != as_i64(checkpoint.durable_world_seq)?
+        || stored_checkpoint.3 != as_i64(checkpoint.action_journal_seq)?
+        || stored_checkpoint.4 != checkpoint.prefix_hash
+        || current_world_seq(&tx, world_id)? != checkpoint.durable_world_seq
+        || max_action_journal_seq(&tx)? != checkpoint.action_journal_seq
+    {
+        return Err(invalid_data(
+            "target region does not contain the exact durable committed prefix",
+        ));
+    }
+    let recomputed = canonical_prefix_hash(
+        &tx,
+        world_id,
+        world_epoch,
+        expected_store_id,
+        checkpoint.durable_world_seq,
+        checkpoint.action_journal_seq,
+    )?;
+    if recomputed != checkpoint.prefix_hash {
+        return Err(invalid_data(
+            "regional replica prefix proof does not match storage",
+        ));
+    }
+    let promotion_epoch = authority.promotion_epoch.saturating_add(1);
+    tx.execute(
+        "UPDATE canonical_partition_leases
+         SET fencing_epoch = fencing_epoch + 1,
+             lease_expires_at_ms = ?2,
+             updated_at_ms = ?2
+         WHERE world_id = ?1",
+        params![world_id, as_i64(promoted_at_ms)?],
+    )
+    .map_err(sqlite_error)?;
+    let changed = tx
+        .execute(
+            "UPDATE canonical_region_authority
+             SET active_region_id = ?4, promotion_epoch = ?5,
+                 durable_world_seq = ?6, updated_at_ms = ?7
+             WHERE world_id = ?1 AND world_epoch = ?2
+               AND active_region_id = ?3 AND promotion_epoch = ?8",
+            params![
+                world_id,
+                as_i64(world_epoch)?,
+                source_region_id,
+                target_region_id,
+                as_i64(promotion_epoch)?,
+                as_i64(checkpoint.durable_world_seq)?,
+                as_i64(promoted_at_ms)?,
+                as_i64(expected_promotion_epoch)?
+            ],
+        )
+        .map_err(sqlite_error)?;
+    if changed != 1 {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "regional authority was concurrently promoted",
+        ));
+    }
+    let promotion_id = format!("{world_id}:region-promotion:{promotion_epoch}");
+    tx.execute(
+        "INSERT INTO canonical_region_promotions
+            (promotion_id, world_id, world_epoch, source_region_id,
+             target_region_id, promotion_epoch, durable_world_seq,
+             action_journal_seq, prefix_hash, promoted_at_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![
+            promotion_id,
+            world_id,
+            as_i64(world_epoch)?,
+            source_region_id,
+            target_region_id,
+            as_i64(promotion_epoch)?,
+            as_i64(checkpoint.durable_world_seq)?,
+            as_i64(checkpoint.action_journal_seq)?,
+            checkpoint.prefix_hash,
+            as_i64(promoted_at_ms)?
+        ],
+    )
+    .map_err(sqlite_error)?;
+    tx.commit().map_err(sqlite_error)?;
+    Ok(CanonicalRegionPromotion {
+        promotion_id,
+        world_id: world_id.to_string(),
+        world_epoch,
+        source_region_id: source_region_id.to_string(),
+        target_region_id: target_region_id.to_string(),
+        promotion_epoch,
+        durable_world_seq: checkpoint.durable_world_seq,
+        action_journal_seq: checkpoint.action_journal_seq,
+        prefix_hash: checkpoint.prefix_hash.clone(),
+        promoted_at_ms,
+    })
+}
+
+fn max_action_journal_seq(conn: &Connection) -> io::Result<u64> {
+    let value = conn
+        .query_row(
+            "SELECT COALESCE(MAX(journal_seq), 0) FROM action_journal",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(sqlite_error)?;
+    as_u64(value, "maximum action journal sequence")
+}
+
+fn canonical_prefix_hash(
+    conn: &Connection,
+    world_id: &str,
+    world_epoch: u64,
+    store_id: &str,
+    durable_world_seq: u64,
+    action_journal_seq: u64,
+) -> io::Result<String> {
+    let mut digest = Sha256::new();
+    for value in [
+        world_id.to_string(),
+        world_epoch.to_string(),
+        store_id.to_string(),
+        durable_world_seq.to_string(),
+        action_journal_seq.to_string(),
+    ] {
+        hash_piece(&mut digest, value.as_bytes());
+    }
+    for (sql, bound) in [
+        (
+            "SELECT journal_seq || ':' || record_json
+             FROM action_journal WHERE journal_seq <= ?1 ORDER BY journal_seq",
+            action_journal_seq,
+        ),
+        (
+            "SELECT seq || ':' || payload_json
+             FROM world_events WHERE seq <= ?1 ORDER BY seq",
+            durable_world_seq,
+        ),
+    ] {
+        let mut stmt = conn.prepare(sql).map_err(sqlite_error)?;
+        let rows = stmt
+            .query_map(params![as_i64(bound)?], |row| row.get::<_, String>(0))
+            .map_err(sqlite_error)?;
+        for row in rows {
+            hash_piece(&mut digest, row.map_err(sqlite_error)?.as_bytes());
+        }
+    }
+    for sql in [
+        "SELECT partition_key || ':' || owner_id || ':' || fencing_epoch
+         FROM canonical_partition_leases WHERE world_id = ?1 ORDER BY partition_key",
+        "SELECT entity_ref || ':' || entity_version
+         FROM canonical_entity_versions WHERE world_id = ?1 ORDER BY entity_ref",
+    ] {
+        let mut stmt = conn.prepare(sql).map_err(sqlite_error)?;
+        let rows = stmt
+            .query_map(params![world_id], |row| row.get::<_, String>(0))
+            .map_err(sqlite_error)?;
+        for row in rows {
+            hash_piece(&mut digest, row.map_err(sqlite_error)?.as_bytes());
+        }
+    }
+    Ok(format!("sha256:{:x}", digest.finalize()))
+}
+
+fn hash_piece(digest: &mut Sha256, bytes: &[u8]) {
+    digest.update((bytes.len() as u64).to_le_bytes());
+    digest.update(bytes);
+}
+
+fn short_checkpoint_hash(leases: &BTreeMap<String, AuthorityLease>, now_ms: u64) -> String {
+    let mut digest = Sha256::new();
+    digest.update(now_ms.to_le_bytes());
+    digest.update(serde_json::to_vec(leases).unwrap_or_default());
+    format!("{:x}", digest.finalize())[..16].to_string()
+}
+
+fn validate_storage_label(value: &str, field: &str) -> io::Result<()> {
+    let value = value.trim();
+    if value.is_empty()
+        || value.len() > 160
+        || !value
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':' | '.'))
+    {
+        return Err(invalid_data(format!(
+            "{field} must be 1-160 ASCII letters, numbers, '-', '_', ':' or '.'"
+        )));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 pub(super) fn acquire_partition_lease(
     path: &Path,
@@ -277,36 +1170,6 @@ pub(super) fn acquire_partition_lease(
     )?;
     tx.commit().map_err(sqlite_error)?;
     Ok(lease)
-}
-
-pub(super) fn acquire_partition_leases(
-    path: &Path,
-    world_id: &str,
-    world_epoch: u64,
-    partition_keys: &BTreeSet<String>,
-    owner_id: &str,
-    now_ms: u64,
-    ttl_ms: u64,
-) -> io::Result<BTreeMap<String, AuthorityLease>> {
-    let mut conn = open_canonical_store(path)?;
-    init_canonical_journal(&conn, world_id, world_epoch)?;
-    let tx = conn
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .map_err(sqlite_error)?;
-    let mut leases = BTreeMap::new();
-    for partition_key in partition_keys {
-        let lease = acquire_partition_lease_in_transaction(
-            &tx,
-            world_id,
-            partition_key,
-            owner_id,
-            now_ms,
-            ttl_ms,
-        )?;
-        leases.insert(partition_key.clone(), lease);
-    }
-    tx.commit().map_err(sqlite_error)?;
-    Ok(leases)
 }
 
 pub(super) fn acquire_partition_lease_in_transaction(
@@ -428,10 +1291,11 @@ pub(super) fn upsert_process_route(
     init_canonical_journal(&conn, world_id, world_epoch)?;
     conn.execute(
         "INSERT INTO canonical_process_routes
-            (world_id, owner_id, process_id, base_url, heartbeat_expires_at_ms, updated_at_ms)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            (world_id, owner_id, process_id, region_id, base_url, heartbeat_expires_at_ms, updated_at_ms)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
          ON CONFLICT(world_id, owner_id) DO UPDATE SET
             process_id = excluded.process_id,
+            region_id = excluded.region_id,
             base_url = excluded.base_url,
             heartbeat_expires_at_ms = excluded.heartbeat_expires_at_ms,
             updated_at_ms = excluded.updated_at_ms",
@@ -439,6 +1303,7 @@ pub(super) fn upsert_process_route(
             world_id,
             route.owner_id,
             route.process_id,
+            route.region_id,
             route.base_url,
             as_i64(route.heartbeat_expires_at_ms)?,
             as_i64(updated_at_ms)?
@@ -458,7 +1323,7 @@ pub(super) fn process_route_for_owner(
     let conn = open_canonical_store(path)?;
     init_canonical_journal(&conn, world_id, world_epoch)?;
     conn.query_row(
-        "SELECT owner_id, process_id, base_url, heartbeat_expires_at_ms
+        "SELECT owner_id, process_id, region_id, base_url, heartbeat_expires_at_ms
          FROM canonical_process_routes
          WHERE world_id = ?1 AND owner_id = ?2 AND heartbeat_expires_at_ms > ?3",
         params![world_id, owner_id, as_i64(now_ms)?],
@@ -467,17 +1332,19 @@ pub(super) fn process_route_for_owner(
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
-                row.get::<_, i64>(3)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
             ))
         },
     )
     .optional()
     .map_err(sqlite_error)?
     .map(
-        |(owner_id, process_id, base_url, heartbeat_expires_at_ms)| {
+        |(owner_id, process_id, region_id, base_url, heartbeat_expires_at_ms)| {
             Ok(CanonicalProcessRoute {
                 owner_id,
                 process_id,
+                region_id,
                 base_url,
                 heartbeat_expires_at_ms: as_u64(
                     heartbeat_expires_at_ms,
@@ -499,7 +1366,7 @@ pub(super) fn active_process_routes(
     init_canonical_journal(&conn, world_id, world_epoch)?;
     let mut stmt = conn
         .prepare(
-            "SELECT owner_id, process_id, base_url, heartbeat_expires_at_ms
+            "SELECT owner_id, process_id, region_id, base_url, heartbeat_expires_at_ms
              FROM canonical_process_routes
              WHERE world_id = ?1 AND heartbeat_expires_at_ms > ?2
              ORDER BY process_id, owner_id",
@@ -511,16 +1378,18 @@ pub(super) fn active_process_routes(
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
-                row.get::<_, i64>(3)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
             ))
         })
         .map_err(sqlite_error)?;
     rows.map(|row| {
-        let (owner_id, process_id, base_url, heartbeat_expires_at_ms) =
+        let (owner_id, process_id, region_id, base_url, heartbeat_expires_at_ms) =
             row.map_err(sqlite_error)?;
         Ok(CanonicalProcessRoute {
             owner_id,
             process_id,
+            region_id,
             base_url,
             heartbeat_expires_at_ms: as_u64(heartbeat_expires_at_ms, "heartbeat_expires_at_ms")?,
         })
@@ -731,6 +1600,13 @@ pub(super) fn advance_world_sequence(
             "canonical world sequence changed during commit",
         ));
     }
+    conn.execute(
+        "UPDATE canonical_region_authority
+         SET durable_world_seq = ?2, updated_at_ms = ?3
+         WHERE world_id = ?1 AND durable_world_seq <= ?2",
+        params![world_id, as_i64(next_seq)?, as_i64(updated_at_ms)?],
+    )
+    .map_err(sqlite_error)?;
     Ok(())
 }
 
@@ -1133,6 +2009,7 @@ mod tests {
         let route = CanonicalProcessRoute {
             owner_id: "process-a:boot-1".to_string(),
             process_id: "process-a".to_string(),
+            region_id: "region-a".to_string(),
             base_url: "http://127.0.0.1:4101".to_string(),
             heartbeat_expires_at_ms: 50,
         };

@@ -13,10 +13,15 @@ an exact boot-scoped route, forwards writes to the current fenced room owner,
 polls the durable suffix, and relays ephemeral presence without advancing the
 world cursor. The pinned two-process harness proves this convergence path.
 
-Production still keeps one task/machine. Hot-room ownership migration and the
-full process-loss/failover gate remain in #130, and a normal shared load
-balancer is not an exact process route. Passing the #127 harness does not by
-itself authorize raising production capacity.
+Atomic hot-room ownership handoff, range checkpoints, durable regional-prefix
+proofs, and fenced recovery promotion are now implemented. The #130 chaos
+harness exercises them under hot load, process loss, storage isolation,
+ownership splits, and source-region loss.
+
+Production still keeps one task/machine. AWS does not yet provide an exact
+per-task owner route, and the first live recovery drill has not been signed off.
+A normal shared load balancer is not an exact process route. Passing the
+software harnesses does not by itself authorize raising production capacity.
 
 The target separates five responsibilities without changing player identity:
 
@@ -163,6 +168,91 @@ view for active-room projections, and never insert it into replay history.
 Session affinity is therefore an optimization only, not a correctness
 requirement.
 
+## Ownership handoff and regional recovery
+
+Every durable store has one random `canonical_store_id`, pinned inside
+`canonical_store_identity`. Every lease acquisition and journal commit checks
+that identity and the active regional authority in the same SQLite transaction.
+If a mounted database disappears after boot, the replacement empty file has no
+identity and mutations fail closed instead of creating a mergeable fork.
+
+`COSYWORLD_CANONICAL_REGION_ID` labels the process region and defaults to
+`local`. `/meta.deployment` exposes `region_id`, `active_region_id`,
+`promotion_epoch`, and `canonical_store_id`. A standby must use the same copied
+store identity, a distinct region id, and the exact process-routing secret.
+
+Hot-room moves use the hidden, bearer-authenticated operator route:
+
+```text
+POST /internal/canonical/ownership/handoff
+{
+  "partition_keys": ["room:world://cosyworld/official/location/opaque-id"],
+  "target_owner_id": "process-b:boot-id",
+  "expected_world_seq": 92811,
+  "reason": "hot-room load rebalance"
+}
+```
+
+The target must have a live exact route in the active region. Storage compares
+the expected global cursor and every source owner/fence/expiry, increments all
+target fences, and writes one `canonical_ownership_checkpoints` row in one
+immediate transaction. A cursor move or stale source aborts the entire handoff.
+Read/SSE fan-out can continue from any converged process; only the fenced room
+owner commits writes.
+
+Regional recovery is opt-in and requires both
+`COSYWORLD_CANONICAL_RECOVERY_DB_PATH` and
+`COSYWORLD_CANONICAL_RECOVERY_REGION_ID`. The recovery path must differ from
+`COSYWORLD_V2_EVENT_DB_PATH`. An authenticated
+`POST /internal/canonical/regions/checkpoint` performs an online SQLite backup,
+hashes the exact committed world/event/journal/lease/entity prefix, and records
+the resulting `sha256:` proof on both copies. Checkpoints never regress.
+
+Promotion runs on the standby process, whose event database is that verified
+copy and whose `COSYWORLD_CANONICAL_REGION_ID` matches the checkpoint region:
+
+```text
+POST /internal/canonical/regions/promote
+{
+  "source_region_id": "us-east-1",
+  "expected_promotion_epoch": 3,
+  "expected_prefix_hash": "sha256:operator-recorded-proof"
+}
+```
+
+The transaction recomputes the proof, compares the store id, committed cursor,
+journal cursor, source region, and promotion epoch, then advances regional
+authority and every partition fence before accepting a target-region write.
+The source region must be hard-fenced from traffic and storage before this call.
+Its old database is quarantined permanently; it is never merged or restored as
+a writer. Rollback is another forward checkpoint/promotion from the current
+authority, not reuse of an older primary.
+
+### Operator drill and observability
+
+1. Record `/meta.deployment`, `/state.world_seq`, the target owner route, and
+   the current lease before a handoff.
+2. Keep synthetic writes running, submit the handoff at that exact cursor, and
+   confirm the logged checkpoint id, higher fence, monotonic entity versions,
+   gap-free event suffix, and zero duplicate intent receipts.
+3. Create a recovery checkpoint and retain its region, world/journal cursors,
+   store id, and prefix hash outside the source region.
+4. Stop source-region ingress and writers, revoke their write path, and prove
+   that no source task or scheduled writer remains. Do not promote on ambiguous
+   isolation.
+5. Start the standby against the copied database. Confirm its configured region
+   differs from `active_region_id`, then promote using the recorded hash and
+   epoch. Confirm the promotion log and higher fences in `/meta`/receipts.
+6. Reconnect clients through both regional edges and compare stable actor,
+   room, item, version, and ordered suffix state. Preserve the old storage as
+   read-only incident evidence.
+
+Alert on a process region differing from `active_region_id`, a promotion-epoch
+change, store-id disagreement, repeated `PermissionDenied` lease errors,
+checkpoint lag, event-store append failure/pending outbox growth, or an exact
+owner route nearing expiry. A failed step keeps traffic on the last confirmed
+authority; it never falls back to an isolated local save.
+
 ## Failure and migration gates
 
 | Gate | Pass condition |
@@ -195,9 +285,15 @@ client B to process B.
    B commits with a higher fence while preserving identity and history.
 
 The harness also proves cross-process session refresh and `seq: 0` presence
-fan-out. The remaining #130 failover suite adds ownership migration during an
-active hot room, stale-owner isolation at the append boundary, and promoted
-region recovery.
+fan-out.
+
+`hot_room_and_regional_chaos_preserve_one_committed_world` adds 16 alternating
+edge writes to one hot room, atomic owner handoff, stale-owner rejection,
+independent hot/cold range ownership, all-or-nothing cross-range mutation,
+empty-store isolation, owner-process loss, exact regional backup proof, source
+region loss, higher-fence promotion, and clients reconnecting through different
+regional edges. It asserts one gap-free suffix, unique event ids, exactly one
+copy of every acknowledged message, and no isolated mutation.
 
 ## Rollout order
 
@@ -207,9 +303,12 @@ region recovery.
    authority to durable multi-process storage. (Complete in #128.)
 3. Add stable routing, regional presence fan-out, invite rendezvous, and the
    pinned two-process harness. (Complete in #127.)
-4. Add partition handoff, hot-room fan-out, and process-loss tests.
-5. Add replicated regional recovery and prove the failover gate.
-6. Raise production capacity only after every gate passes.
+4. Add partition handoff, hot-room fan-out, and process-loss tests. (Complete in
+   #130.)
+5. Add replicated regional recovery and prove the failover gate. (Complete in
+   #130.)
+6. Add exact production per-task routes, pass the release-specific operator
+   drill, and only then raise production capacity.
 
 Rollback always returns traffic to one authoritative writer over the same
 committed journal. It never restores an isolated process save as a competing
