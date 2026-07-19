@@ -20,6 +20,7 @@ pub const CW_INVENTORY_BASE_SLOTS: usize = 1;
 pub const CW_KERNEL_VERSION: u32 = 3;
 
 pub const CW_OK: u32 = 0;
+pub const CW_ERR_RULE: u32 = 4;
 
 pub const CW_ACTOR_HUMAN: u8 = 1;
 pub const CW_ACTOR_NPC: u8 = 2;

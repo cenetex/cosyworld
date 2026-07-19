@@ -739,6 +739,17 @@ impl OwnershipIndex {
 
 impl AccessContext {
     pub(super) fn for_linked_actor_receipt(state: &AppState, actor_id: u64) -> Self {
+        let Ok(ownership) = state.ownership_index.try_read() else {
+            return Self::default();
+        };
+        Self::for_linked_actor_with_ownership(state, actor_id, &ownership)
+    }
+
+    pub(super) fn for_linked_actor_with_ownership(
+        state: &AppState,
+        actor_id: u64,
+        ownership: &OwnershipIndex,
+    ) -> Self {
         let linked_wallets = state
             .wallet_actor_links
             .lock()
@@ -750,9 +761,6 @@ impl AccessContext {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        let Ok(ownership) = state.ownership_index.try_read() else {
-            return Self::default();
-        };
         let mut access = Self {
             owner_wallet_address: linked_wallets.first().cloned(),
             signed_wallet_session: !linked_wallets.is_empty(),
@@ -1173,6 +1181,7 @@ pub(super) async fn refresh_ownership_index_once(state: &AppState) -> io::Result
     if !placement_events.is_empty() {
         broadcast_events(state, &placement_events);
     }
+    schedule_hosted_access_reconciliation(state);
 
     if changed {
         info!(
