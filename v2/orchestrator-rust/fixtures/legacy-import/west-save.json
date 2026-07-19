@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "installation_id": "fixture-installation",
+  "legacy_shard_id": "west",
+  "save_id": "save-7",
+  "source": {
+    "schema_version": 1,
+    "composition_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "records": [
+      {
+        "kind": "account",
+        "source_id": "5000",
+        "payload": {
+          "legacy_account": "west-account",
+          "avatar_id": 5000
+        }
+      },
+      {
+        "kind": "item",
+        "source_id": "42",
+        "payload": {
+          "name": "Shared Lantern",
+          "location_id": 1,
+          "history": ["west-created", "west-carried"]
+        }
+      }
+    ]
+  },
+  "composition_transform": {
+    "old_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "new_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "reviewed_transform": {
+      "review_id": "fixture-west-composition",
+      "reviewed_by": "operator.one",
+      "transform_version": "v1",
+      "rationale": "Reviewed deterministic west fixture composition migration."
+    }
+  },
+  "transforms": [
+    {
+      "kind": "account",
+      "source_id": "5000",
+      "strategy": "project",
+      "target_ref": "world://cosyworld/official/account/west-5000"
+    },
+    {
+      "kind": "item",
+      "source_id": "42",
+      "strategy": "map_existing",
+      "target_ref": "world://cosyworld/official/item/shared-lantern",
+      "reviewed_transform": {
+        "review_id": "fixture-west-item",
+        "reviewed_by": "operator.one",
+        "transform_version": "v1",
+        "rationale": "Reviewed west lantern mapping to the existing canonical item."
+      }
+    }
+  ]
+}

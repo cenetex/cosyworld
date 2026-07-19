@@ -159,6 +159,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             "/internal/canonical/regions/promote",
             post(internal_canonical_region_promote),
         )
+        .route(
+            "/internal/canonical/imports",
+            post(internal_canonical_legacy_import),
+        )
         .route("/stream", get(stream))
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())

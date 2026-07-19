@@ -1779,6 +1779,30 @@ pub(super) fn insert_new_claims(
     Ok(inserted_claims)
 }
 
+pub(super) fn load_canonical_claims(
+    path: &Path,
+    world_id: &str,
+) -> io::Result<BTreeMap<String, BTreeSet<String>>> {
+    let conn = open_canonical_store(path)?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT claim_kind, claim_key FROM canonical_claims
+             WHERE world_id = ?1 ORDER BY claim_kind, claim_key",
+        )
+        .map_err(sqlite_error)?;
+    let rows = stmt
+        .query_map(params![world_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(sqlite_error)?;
+    let mut claims = BTreeMap::<String, BTreeSet<String>>::new();
+    for row in rows {
+        let (kind, key) = row.map_err(sqlite_error)?;
+        claims.entry(kind).or_default().insert(key);
+    }
+    Ok(claims)
+}
+
 pub(super) fn insert_canonical_commit(
     conn: &Connection,
     row: &CanonicalCommitRow<'_>,

@@ -9,6 +9,7 @@ mod content_packs;
 mod content_policy;
 mod content_registry;
 mod kernel;
+mod legacy_import;
 mod moderation;
 mod mud;
 mod ownership;
@@ -41,6 +42,7 @@ use content_registry::*;
 use cosyworld_ai_model::ResidentReplyModelInput;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use kernel::*;
+use legacy_import::*;
 use moderation::*;
 use mud::*;
 use ownership::*;
@@ -4602,6 +4604,8 @@ impl AppState {
                     error
                 );
             }
+            let canonical_claims = load_canonical_claims(path, OFFICIAL_WORLD_ID)?;
+            merge_runtime_canonical_claims(&mut runtime, &canonical_claims);
         }
 
         let ownership_feed = OwnershipFeedConfig::from_env();
@@ -24973,6 +24977,147 @@ async fn internal_canonical_region_promote(
     canonical_internal_result(result, StatusCode::OK)
 }
 
+async fn internal_canonical_legacy_import(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Json(payload): Json<LegacySaveImportRequest>,
+) -> Response {
+    if !canonical_internal_authorized(&state, &headers) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return canonical_internal_result::<LegacyImportReport>(
+            Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "canonical event storage is required for legacy imports",
+            )),
+            StatusCode::CREATED,
+        );
+    };
+    let now = now_millis();
+    let partitions = BTreeSet::from([CANONICAL_WORLD_PARTITION.to_string()]);
+    let result = acquire_partition_leases_for_region(
+        path,
+        OFFICIAL_WORLD_ID,
+        OFFICIAL_WORLD_EPOCH,
+        state.canonical_store_id.as_str(),
+        state.canonical_region_id.as_str(),
+        &partitions,
+        state.canonical_owner_id.as_str(),
+        now,
+        authority_lease_ttl_ms(&state),
+    )
+    .and_then(|leases| {
+        let lease = leases
+            .get(CANONICAL_WORLD_PARTITION)
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    "canonical world import lease is missing",
+                )
+            })?
+            .clone();
+        init_event_store(path)?;
+        let mut conn = open_event_store(path)?;
+        let tx = conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(sqlite_error)?;
+        let imported = (|| -> io::Result<LegacyImportReport> {
+            validate_canonical_store_identity(
+                &tx,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                state.canonical_store_id.as_str(),
+            )?;
+            validate_active_region(
+                &tx,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                state.canonical_region_id.as_str(),
+            )?;
+            validate_and_renew_partition_lease(&tx, &lease, now, authority_lease_ttl_ms(&state))?;
+            let world_seq = current_world_seq(&tx, OFFICIAL_WORLD_ID)?;
+            apply_legacy_import_transaction(
+                &tx,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                &active_content().manifest.bundle_hash,
+                world_seq,
+                &payload,
+                now,
+            )
+        })();
+        match imported {
+            Ok(report) => {
+                tx.commit().map_err(sqlite_error)?;
+                Ok(report)
+            }
+            Err(error) => {
+                let _ = tx.rollback();
+                Err(error)
+            }
+        }
+    });
+
+    let report = match result {
+        Ok(report) => report,
+        Err(error) => {
+            return canonical_internal_result::<LegacyImportReport>(
+                Err(error),
+                StatusCode::CREATED,
+            );
+        }
+    };
+    if matches!(
+        report.status,
+        LegacyImportStatus::Applied | LegacyImportStatus::NoOp
+    ) {
+        match load_canonical_claims(path, OFFICIAL_WORLD_ID) {
+            Ok(claims) => {
+                let mut runtime = state.inner.lock().await;
+                merge_runtime_canonical_claims(&mut runtime, &claims);
+            }
+            Err(error) => {
+                warn!(
+                    receipt_id = %report.receipt_id,
+                    error = %error,
+                    "legacy import committed but the in-memory claim projection could not refresh"
+                );
+            }
+        }
+    }
+    let (status, ok) = match report.status {
+        LegacyImportStatus::Applied => (StatusCode::CREATED, true),
+        LegacyImportStatus::NoOp => (StatusCode::OK, true),
+        LegacyImportStatus::Conflicted => (StatusCode::CONFLICT, false),
+    };
+    if ok {
+        info!(
+            receipt_id = %report.receipt_id,
+            source_namespace = %report.source_namespace,
+            source_hash = %report.source_hash,
+            mapping_count = report.mapping_count,
+            projection_count = report.projection_count,
+            "applied canonical legacy save import"
+        );
+    } else {
+        warn!(
+            source_namespace = %report.source_namespace,
+            source_hash = %report.source_hash,
+            conflict_count = report.conflicts.len(),
+            "canonical legacy save import conflicted without world mutation"
+        );
+    }
+    (
+        status,
+        Json(serde_json::json!({
+            "ok": ok,
+            "result": report,
+        })),
+    )
+        .into_response()
+}
+
 async fn command_inner(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -33134,6 +33279,21 @@ fn canonical_claim_snapshot(runtime: &RuntimeWorld) -> BTreeMap<String, BTreeSet
     ])
 }
 
+fn merge_runtime_canonical_claims(
+    runtime: &mut RuntimeWorld,
+    claims: &BTreeMap<String, BTreeSet<String>>,
+) {
+    if let Some(values) = claims.get("rpg") {
+        runtime.rpg_claims.extend(values.iter().cloned());
+    }
+    if let Some(values) = claims.get("orb_reward") {
+        runtime.orb_reward_claims.extend(values.iter().cloned());
+    }
+    if let Some(values) = claims.get("listen_attempt") {
+        runtime.listen_attempt_claims.extend(values.iter().cloned());
+    }
+}
+
 fn canonical_partitions_for_location_ids(
     runtime: &RuntimeWorld,
     location_ids: impl IntoIterator<Item = u64>,
@@ -33989,6 +34149,7 @@ fn init_event_store(path: &Path) -> io::Result<()> {
     )
     .map_err(sqlite_error)?;
     init_canonical_journal(&conn, OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH)?;
+    init_legacy_import_store(&conn)?;
     init_activation_store(&conn)?;
     ensure_sqlite_column(
         &conn,
@@ -36235,6 +36396,132 @@ mod tests {
             "Bearer 0123456789abcdef".parse().unwrap(),
         );
         assert!(canonical_internal_authorized(&state, &headers));
+    }
+
+    #[tokio::test]
+    async fn canonical_legacy_import_route_is_hidden_atomic_and_idempotent() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-legacy-import-route-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        state.canonical_routing = Arc::new(CanonicalRoutingConfig {
+            base_url: Some("http://127.0.0.1:4101".to_string()),
+            token: Some("0123456789abcdef".to_string()),
+        });
+        let active_hash = active_content().manifest.bundle_hash.clone();
+        let old_hash = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+        let review = LegacyReviewedTransform {
+            review_id: "review-route-1".to_string(),
+            reviewed_by: "operator.one".to_string(),
+            transform_version: "v1".to_string(),
+            rationale: "Reviewed route-level deterministic import fixture.".to_string(),
+        };
+        let payload = LegacySaveImportRequest {
+            schema_version: 1,
+            installation_id: "installation-route".to_string(),
+            legacy_shard_id: "shard-route".to_string(),
+            save_id: "save-route".to_string(),
+            source: LegacySaveSource {
+                schema_version: 1,
+                composition_hash: old_hash.to_string(),
+                records: vec![
+                    LegacySourceRecord {
+                        kind: LegacyProjectionKind::Account,
+                        source_id: "5000".to_string(),
+                        payload: serde_json::json!({"legacy_account": "account-5000"}),
+                    },
+                    LegacySourceRecord {
+                        kind: LegacyProjectionKind::Claim,
+                        source_id: "reward-5000".to_string(),
+                        payload: serde_json::json!({"claimed": true}),
+                    },
+                ],
+            },
+            composition_transform: LegacyCompositionTransform {
+                old_hash: old_hash.to_string(),
+                new_hash: active_hash,
+                reviewed_transform: review.clone(),
+            },
+            transforms: vec![
+                LegacyImportTransform {
+                    kind: LegacyProjectionKind::Account,
+                    source_id: "5000".to_string(),
+                    strategy: LegacyTransformStrategy::Project,
+                    target_ref: Some(
+                        "world://cosyworld/official/account/imported-5000".to_string(),
+                    ),
+                    canonical_claim: None,
+                    reviewed_transform: None,
+                },
+                LegacyImportTransform {
+                    kind: LegacyProjectionKind::Claim,
+                    source_id: "reward-5000".to_string(),
+                    strategy: LegacyTransformStrategy::MarkConsumed,
+                    target_ref: None,
+                    canonical_claim: Some(LegacyCanonicalClaim {
+                        kind: "orb_reward".to_string(),
+                        key: "imported-reward-5000".to_string(),
+                    }),
+                    reviewed_transform: Some(review),
+                },
+            ],
+        };
+
+        let hidden = internal_canonical_legacy_import(
+            HeaderMap::new(),
+            State(state.clone()),
+            Json(payload.clone()),
+        )
+        .await;
+        assert_eq!(hidden.status(), StatusCode::NOT_FOUND);
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            "Bearer 0123456789abcdef".parse().unwrap(),
+        );
+        let applied = internal_canonical_legacy_import(
+            headers.clone(),
+            State(state.clone()),
+            Json(payload.clone()),
+        )
+        .await;
+        assert_eq!(applied.status(), StatusCode::CREATED);
+        let repeated =
+            internal_canonical_legacy_import(headers, State(state.clone()), Json(payload)).await;
+        assert_eq!(repeated.status(), StatusCode::OK);
+
+        let conn = open_event_store(&path).expect("inspect imported route fixture");
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM canonical_legacy_import_receipts",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+            1
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM canonical_claims
+                 WHERE claim_kind = 'orb_reward' AND claim_key = 'imported-reward-5000'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+            1
+        );
+        assert!(state
+            .inner
+            .lock()
+            .await
+            .orb_reward_claims
+            .contains("imported-reward-5000"));
+        drop(conn);
+        fs::remove_file(path).expect("remove legacy import route fixture");
     }
 
     #[test]
