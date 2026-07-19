@@ -18,6 +18,12 @@ proofs, and fenced recovery promotion are now implemented. The #130 chaos
 harness exercises them under hot load, process loss, storage isolation,
 ownership splits, and source-region loss.
 
+The #131 isolated-save importer is also implemented. It hashes every
+namespaced source and transform plan, commits reviewed projections and
+idempotent receipts under the fenced world partition, and leaves only a
+conflict report when any target diverges. The full operator contract is in the
+[legacy save import runbook](legacy-save-import.md).
+
 Production still keeps one task/machine. AWS does not yet provide an exact
 per-task owner route, and the first live recovery drill has not been signed off.
 A normal shared load balancer is not an exact process route. Passing the
@@ -266,6 +272,14 @@ authority; it never falls back to an isolated local save.
 | Pack migration | all writers change from old hash to new hash as one audited operation |
 | Save import | source is namespaced and hashed; rerun is idempotent; conflicts create no world mutation |
 
+Save import uses the hidden `POST /internal/canonical/imports` route. It does
+not append legacy public events or mount the source database. Eligible account
+and avatar-history projections, protected archival/mapping decisions,
+consumed-claim guards, old/new composition hashes, and the receipt are one
+atomic transaction after exact store, active-region, and world-partition-fence
+validation. See the [operator runbook](legacy-save-import.md) for the request
+schema, transform strategies, conflict rules, and drill.
+
 ## Two-process integration harness
 
 `divergent_capacity_processes_converge_without_affinity` starts two real
@@ -307,7 +321,9 @@ copy of every acknowledged message, and no isolated mutation.
    #130.)
 5. Add replicated regional recovery and prove the failover gate. (Complete in
    #130.)
-6. Add exact production per-task routes, pass the release-specific operator
+6. Add namespaced, audited isolated-save import with conflict fixtures.
+   (Complete in #131.)
+7. Add exact production per-task routes, pass the release-specific operator
    drill, and only then raise production capacity.
 
 Rollback always returns traffic to one authoritative writer over the same
