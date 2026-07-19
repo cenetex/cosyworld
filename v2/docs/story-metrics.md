@@ -72,8 +72,9 @@ backfill therefore resolves to the same row and cannot inflate a count. Live
 metrics are written in the same SQLite transaction as the canonical journal;
 instrumentation errors are logged and fail open so analytics cannot block a
 world action. The versioned backfill derives supported signals from canonical
-events without copying event prose. Canonical events remain the repair source
-if metrics are lost.
+events without copying event prose and commits its first-run work in one
+rollback-safe SQLite savepoint. Canonical events remain the repair source if
+metrics are lost.
 
 Readers include only schema version 1. Rows with an unknown schema are excluded
 from every result and counted as `unsupported_schema_event_count`, making a

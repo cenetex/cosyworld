@@ -1432,6 +1432,23 @@ fn backfill_story_metrics_from_world_events(conn: &Connection) -> io::Result<()>
     if already_ran {
         return Ok(());
     }
+    conn.execute_batch("SAVEPOINT story_metrics_world_events_v1")
+        .map_err(sqlite_error)?;
+    match backfill_story_metric_rows(conn) {
+        Ok(()) => conn
+            .execute_batch("RELEASE story_metrics_world_events_v1")
+            .map_err(sqlite_error),
+        Err(error) => {
+            let _ = conn.execute_batch(
+                "ROLLBACK TO story_metrics_world_events_v1;
+                 RELEASE story_metrics_world_events_v1;",
+            );
+            Err(error)
+        }
+    }
+}
+
+fn backfill_story_metric_rows(conn: &Connection) -> io::Result<()> {
     let mut stmt = conn
         .prepare("SELECT payload_json, created_at_ms FROM world_events ORDER BY seq")
         .map_err(sqlite_error)?;
@@ -1764,6 +1781,98 @@ mod tests {
         assert!(!serialized.contains("raw private chat"));
         assert!(!serialized.contains("actor_id"));
         assert!(serialized.contains(&story_player_ref(5000)));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn backfill_is_atomic_and_retryable_after_an_insert_failure() {
+        let path = temp_story_db("backfill-atomicity");
+        let _ = fs::remove_file(&path);
+        let conn = Connection::open(&path).expect("open atomic backfill fixture");
+        conn.execute_batch(
+            "CREATE TABLE world_events (
+                seq INTEGER PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at_ms INTEGER NOT NULL
+            );",
+        )
+        .expect("create atomic backfill world events");
+        init_story_metrics_store(&conn).expect("initialize empty story store");
+        conn.execute(
+            "DELETE FROM story_metric_backfills WHERE backfill_key = ?1",
+            params![STORY_METRICS_BACKFILL_KEY],
+        )
+        .unwrap();
+        let created = EventView {
+            seq: 1,
+            type_name: "actor.created".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            ..EventView::default()
+        };
+        let message = EventView {
+            seq: 2,
+            type_name: "message.created".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            ..EventView::default()
+        };
+        for event in [&created, &message] {
+            conn.execute(
+                "INSERT INTO world_events (seq, event_type, payload_json, created_at_ms)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    event.seq as i64,
+                    event.type_name,
+                    serde_json::to_string(event).unwrap(),
+                    1_000_i64 + event.seq as i64,
+                ],
+            )
+            .unwrap();
+        }
+        conn.execute_batch(
+            "CREATE TRIGGER reject_story_backfill
+             BEFORE INSERT ON story_metric_events
+             BEGIN
+               SELECT RAISE(ABORT, 'forced story backfill failure');
+             END;",
+        )
+        .unwrap();
+
+        let error = backfill_story_metrics_from_world_events(&conn).unwrap_err();
+        assert!(error.to_string().contains("forced story backfill failure"));
+        assert!(conn.is_autocommit());
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM story_metric_events", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM story_metric_backfills", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+
+        conn.execute_batch("DROP TRIGGER reject_story_backfill")
+            .unwrap();
+        backfill_story_metrics_from_world_events(&conn).expect("retry atomic backfill");
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM story_metric_events", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM story_metric_backfills", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
 
         let _ = fs::remove_file(path);
     }
