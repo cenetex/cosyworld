@@ -1677,19 +1677,29 @@
       width: 100%;
       flex-basis: auto;
     }
-    .cmd.has-copy .thumb,
-    .cmd.has-copy .thumb.location {
+    .cmd.has-copy .thumb {
       width: 46px;
       flex: 0 0 46px;
-      min-height: 40px;
-      height: auto;
-      align-self: stretch;
+      min-height: 0;
+      height: 46px;
+      align-self: center;
+    }
+    .cmd.has-copy .thumb.avatar {
+      width: 36px;
+      flex-basis: 36px;
+      height: 48px;
+    }
+    .cmd.has-copy .thumb.location {
+      width: 58px;
+      flex-basis: 58px;
+      height: 34px;
     }
     .cmd .thumb.action-mini-card,
     .cmd .thumb.action-mini-card.avatar,
     .cmd .thumb.action-mini-card.item,
     .cmd .thumb.action-mini-card.location {
-      background-size: cover;
+      background-size: contain;
+      background-repeat: no-repeat;
       background-position: center;
       border-radius: 3px;
     }
@@ -2536,13 +2546,22 @@
         width: 100%;
         flex-basis: auto;
       }
-      .cmd.has-copy .thumb,
-      .cmd.has-copy .thumb.location {
+      .cmd.has-copy .thumb {
         width: 40px;
         flex: 0 0 40px;
-        min-height: 36px;
-        height: auto;
-        align-self: stretch;
+        min-height: 0;
+        height: 40px;
+        align-self: center;
+      }
+      .cmd.has-copy .thumb.avatar {
+        width: 32px;
+        flex-basis: 32px;
+        height: 44px;
+      }
+      .cmd.has-copy .thumb.location {
+        width: 52px;
+        flex-basis: 52px;
+        height: 32px;
       }
     }
 
@@ -3009,6 +3028,8 @@
     let refreshInFlight = null;
     let refreshQueued = false;
     let actionBusy = false;
+    let actionSlow = false;
+    let actionSlowTimer = null;
     let pendingAction = null;
     let pendingChats = [];
     let nextPendingChatId = 1;
@@ -8803,9 +8824,10 @@
         aspect: shape === "location" ? "wide" : (shape === "avatar" ? "tall" : "square"),
       };
       const image = cardImage(card) || fallbackCardImage(fallback);
+      const imageEmoji = cardImage(card) ? "" : emojiHtml(cardEmoji(fallback, shape));
       const dataAttr = interactive && card ? cardDataAttr(card) : "";
       const className = ["thumb", extraClass, shape].filter(Boolean).join(" ");
-      return `<span class="${escapeAttr(className)}"${dataAttr} aria-hidden="true" style="background-image:url('${escapeAttr(image)}')">${emojiHtml(cardEmoji(fallback, shape))}</span>`;
+      return `<span class="${escapeAttr(className)}"${dataAttr} aria-hidden="true" style="background-image:url('${escapeAttr(image)}')">${imageEmoji}</span>`;
     }
 
     function actionImage(action) {
@@ -9996,10 +10018,12 @@
         const busyDetail = typeof pendingAction?.busyDetail === "function"
           ? pendingAction.busyDetail()
           : pendingAction?.busyDetail;
-        const detail = busyDetail || pendingAction?.detail || pendingAction?.label || "working";
+        const detail = actionSlow
+          ? "saving safely — this is taking longer than usual"
+          : (busyDetail || pendingAction?.detail || pendingAction?.label || "working");
         renderButton("primary", {
           ...(pendingAction || {}),
-          label: pendingAction?.busyLabel || "working",
+          label: actionSlow ? "still working" : (pendingAction?.busyLabel || "working"),
           detail,
           busy: true,
         });
@@ -10091,7 +10115,14 @@
     async function runAction(action) {
       if (actionBusy) return;
       actionBusy = true;
+      actionSlow = false;
       pendingAction = action;
+      clearTimeout(actionSlowTimer);
+      actionSlowTimer = setTimeout(() => {
+        if (!actionBusy || pendingAction !== action) return;
+        actionSlow = true;
+        renderCommands();
+      }, 3000);
       const pendingChatId = beginPendingChat(action);
       renderCommands();
       renderLog();
@@ -10106,7 +10137,10 @@
         cancelPendingChat(pendingChatId);
         setError(String(error.message || error));
       } finally {
+        clearTimeout(actionSlowTimer);
+        actionSlowTimer = null;
         actionBusy = false;
+        actionSlow = false;
         pendingAction = null;
         render();
       }

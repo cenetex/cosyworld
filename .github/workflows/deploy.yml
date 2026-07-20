@@ -87,6 +87,15 @@ jobs:
           cache-from: type=registry,ref=${{ steps.ecr.outputs.registry }}/${{ env.AWS_ECR_REPOSITORY }}:buildcache
           cache-to: type=registry,ref=${{ steps.ecr.outputs.registry }}/${{ env.AWS_ECR_REPOSITORY }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
 
+      # The arm64 image build can outlive the initial one-hour OIDC session.
+      # Re-assume the deployer role before Terraform touches the remote state.
+      - name: Refresh AWS credentials for Terraform
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          unset-current-credentials: true
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
