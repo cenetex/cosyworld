@@ -118,6 +118,7 @@ struct AppState {
     actor_suspensions: Arc<StdMutex<BTreeMap<u64, ActorSuspension>>>,
     rate_limiter: Arc<StdMutex<RateLimiter>>,
     actor_chat_locks: Arc<StdMutex<BTreeSet<u64>>>,
+    inactive_inventory_release_conflicts: Arc<StdMutex<BTreeSet<(u64, u64)>>>,
     canonical_command_lock: Arc<Mutex<()>>,
     canonical_owner_id: Arc<String>,
     canonical_store_id: Arc<String>,
@@ -5196,6 +5197,7 @@ impl AppState {
             actor_suspensions: Arc::new(StdMutex::new(actor_suspensions)),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
+            inactive_inventory_release_conflicts: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id,
             canonical_store_id,
@@ -23966,7 +23968,7 @@ async fn state_view(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let mut runtime = state.inner.lock().await;
+    let runtime = state.inner.lock().await;
     let actor_id = query.actor_id.filter(|id| {
         client_actor_read_authorized_for_state(
             &runtime,
@@ -23979,7 +23981,6 @@ async fn state_view(
     if let Some(actor_id) = actor_id {
         record_daily_visit(&state, actor_id);
     }
-    let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
     let active_humans = active_actor_ids_for_state(&state);
     let mut response = runtime.state_response_with_presence(
         actor_id,
@@ -23996,9 +23997,6 @@ async fn state_view(
         &turn_humans,
     );
     drop(runtime);
-    if !released_events.is_empty() {
-        broadcast_events(&state, &released_events);
-    }
     if let Some(path) = state.event_store_path.as_deref() {
         match load_account_activity_view(path, &access, 6) {
             Ok(account) => response.account = account,
@@ -24030,7 +24028,7 @@ async fn inspect_view(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let mut runtime = state.inner.lock().await;
+    let runtime = state.inner.lock().await;
     let actor_id = query.actor_id.filter(|id| {
         client_actor_read_authorized_for_state(
             &runtime,
@@ -24040,7 +24038,6 @@ async fn inspect_view(
             &access,
         )
     });
-    let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
     let active_humans = active_actor_ids_for_state(&state);
     let response = runtime.state_response_with_presence(
         actor_id,
@@ -24049,9 +24046,6 @@ async fn inspect_view(
         query_openrouter_connected(query.openrouter_connected.as_deref()),
     );
     drop(runtime);
-    if !released_events.is_empty() {
-        broadcast_events(&state, &released_events);
-    }
     Json(response.inspector)
 }
 
@@ -24068,7 +24062,7 @@ async fn world_view(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let mut runtime = state.inner.lock().await;
+    let runtime = state.inner.lock().await;
     let actor_id = query.actor_id.filter(|id| {
         client_actor_read_authorized_for_state(
             &runtime,
@@ -24078,13 +24072,9 @@ async fn world_view(
             &access,
         )
     });
-    let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
     let active_humans = active_actor_ids_for_state(&state);
     let response = runtime.world_response_with_presence(actor_id, &access, Some(&active_humans));
     drop(runtime);
-    if !released_events.is_empty() {
-        broadcast_events(&state, &released_events);
-    }
     Json(response)
 }
 
@@ -25133,6 +25123,57 @@ fn release_inactive_human_inventory_locked(
         .collect::<Vec<_>>();
     let mut released_events = Vec::new();
     for (actor_id, location_id, item_id) in drops {
+        let conflict_key = (actor_id, item_id);
+        if state
+            .inactive_inventory_release_conflicts
+            .lock()
+            .is_ok_and(|conflicts| conflicts.contains(&conflict_key))
+        {
+            continue;
+        }
+        if let Some(path) = state.event_store_path.as_deref() {
+            let expected_versions = [
+                ("actor", actor_id),
+                ("journal", actor_id),
+                ("location", location_id),
+                ("item", item_id),
+            ]
+            .into_iter()
+            .filter_map(|(kind, handle)| {
+                runtime
+                    .canonical_ref(kind, handle)
+                    .map(|entity_ref| (entity_ref.to_string(), runtime.entity_version(entity_ref)))
+            })
+            .collect::<BTreeMap<_, _>>();
+            match canonical_entity_version_conflict(
+                path,
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH,
+                &expected_versions,
+            ) {
+                Ok(None) => {}
+                Ok(Some((entity_ref, stored, expected))) => {
+                    if let Ok(mut conflicts) = state.inactive_inventory_release_conflicts.lock() {
+                        conflicts.insert(conflict_key);
+                    }
+                    warn!(
+                        "skipping inactive inventory release for actor {} item {}: canonical entity {} is at {:?}, runtime expected {}",
+                        actor_id, item_id, entity_ref, stored, expected
+                    );
+                    continue;
+                }
+                Err(error) => {
+                    if let Ok(mut conflicts) = state.inactive_inventory_release_conflicts.lock() {
+                        conflicts.insert(conflict_key);
+                    }
+                    warn!(
+                        "skipping inactive inventory release for actor {} item {}: canonical version preflight failed: {}",
+                        actor_id, item_id, error
+                    );
+                    continue;
+                }
+            }
+        }
         runtime.hide_loose_items_at_location(location_id);
         let action = CwAction {
             kind: CW_ACTION_DROP_ITEM,
@@ -25144,10 +25185,15 @@ fn release_inactive_human_inventory_locked(
         match commit_journal_record(state, runtime, record) {
             Ok((CW_OK, mut events)) => released_events.append(&mut events),
             Ok((_status, _events)) => {}
-            Err(error) => warn!(
-                "failed to release inactive actor {} item {}: {}",
-                actor_id, item_id, error
-            ),
+            Err(error) => {
+                if let Ok(mut conflicts) = state.inactive_inventory_release_conflicts.lock() {
+                    conflicts.insert(conflict_key);
+                }
+                warn!(
+                    "failed to release inactive actor {} item {}: {}",
+                    actor_id, item_id, error
+                );
+            }
         }
     }
     released_events
@@ -25203,12 +25249,20 @@ async fn leave_presence(
     let was_active = actor_session_active_for_actor(&state.actor_sessions, payload.actor_id, token)
         .unwrap_or(false);
     let ok = mark_actor_session_inactive(&state.actor_sessions, payload.actor_id, token);
-    let events = if ok && was_active {
+    let mut events = if ok && was_active {
         commit_presence_event(&state, payload.actor_id, false).await
     } else {
         Vec::new()
     };
     if ok {
+        let released_events = {
+            let mut runtime = state.inner.lock().await;
+            release_inactive_human_inventory_locked(&state, &mut runtime)
+        };
+        if !released_events.is_empty() {
+            broadcast_events(&state, &released_events);
+            events.extend(released_events);
+        }
         schedule_hosted_access_reconciliation(&state);
     }
     Json(ActionResponse {
@@ -39689,6 +39743,7 @@ mod tests {
             actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
+            inactive_inventory_release_conflicts: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
             canonical_store_id: Arc::new(canonical_store_id),
@@ -45898,6 +45953,149 @@ mod tests {
                     && item.holder_actor_id == 0
                     && item.location_id == COSY_COTTAGE_LOCATION_ID
             }));
+    }
+
+    #[tokio::test]
+    async fn state_reads_do_not_release_inactive_inventory() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Quiet Collector",
+        );
+        let held_since_tick = runtime.world.tick;
+        let story = runtime
+            .world
+            .items
+            .iter_mut()
+            .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+            .expect("Story Button exists");
+        story.holder_actor_id = 5000;
+        story.location_id = 0;
+        story.held_since_tick = held_since_tick;
+        let state = test_app_state(runtime, None);
+
+        let _ = state_view(
+            State(state.clone()),
+            Query(StateQuery {
+                actor_id: None,
+                actor_session: None,
+                wallet_address: None,
+                wallet: None,
+                wallet_session: None,
+                owned_card_ids: None,
+                cards: None,
+                openrouter_connected: None,
+            }),
+        )
+        .await;
+
+        let runtime = state.inner.lock().await;
+        assert!(runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .any(|item| {
+                item.id == STORY_BUTTON_ITEM_ID
+                    && item.holder_actor_id == 5000
+                    && item.location_id == 0
+            }));
+        assert!(!runtime
+            .event_log
+            .iter()
+            .any(|event| event.type_name == "item.dropped"
+                && event.item_id == Some(STORY_BUTTON_ITEM_ID)));
+    }
+
+    #[tokio::test]
+    async fn inactive_inventory_cleanup_skips_stale_canonical_versions() {
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Versioned Collector",
+        );
+        let held_since_tick = runtime.world.tick;
+        let story = runtime
+            .world
+            .items
+            .iter_mut()
+            .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+            .expect("Story Button exists");
+        story.holder_actor_id = actor_id;
+        story.location_id = 0;
+        story.held_since_tick = held_since_tick;
+        let expected_versions = [
+            ("actor", actor_id),
+            ("journal", actor_id),
+            ("location", COSY_COTTAGE_LOCATION_ID),
+            ("item", STORY_BUTTON_ITEM_ID),
+        ]
+        .into_iter()
+        .filter_map(|(kind, handle)| {
+            runtime
+                .canonical_ref(kind, handle)
+                .map(|entity_ref| (entity_ref.to_string(), runtime.entity_version(entity_ref)))
+        })
+        .collect::<BTreeMap<_, _>>();
+        let item_ref = runtime
+            .canonical_ref("item", STORY_BUTTON_ITEM_ID)
+            .expect("Story Button canonical ref")
+            .to_string();
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-stale-inactive-inventory-{}.sqlite",
+            random_hex(8)
+        ));
+        let state = test_app_state(runtime, Some(path.clone()));
+        let conn = open_event_store(&path).expect("open canonical test store");
+        for (entity_ref, version) in &expected_versions {
+            let stored_version = if entity_ref == &item_ref {
+                version.saturating_add(1)
+            } else {
+                *version
+            };
+            conn.execute(
+                "INSERT INTO canonical_entity_versions
+                    (world_id, entity_ref, entity_version, updated_at_ms)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    OFFICIAL_WORLD_ID,
+                    entity_ref,
+                    stored_version as i64,
+                    now_millis() as i64
+                ],
+            )
+            .expect("seed canonical entity version");
+        }
+        drop(conn);
+
+        let mut runtime = state.inner.lock().await;
+        let events = release_inactive_human_inventory_locked(&state, &mut runtime);
+
+        assert!(events.is_empty());
+        assert!(runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .any(|item| {
+                item.id == STORY_BUTTON_ITEM_ID
+                    && item.holder_actor_id == actor_id
+                    && item.location_id == 0
+            }));
+        drop(runtime);
+        assert_eq!(
+            state
+                .event_store_health
+                .lock()
+                .expect("event store health")
+                .consecutive_append_failures,
+            0
+        );
+        assert!(state
+            .inactive_inventory_release_conflicts
+            .lock()
+            .expect("inactive inventory conflicts")
+            .contains(&(actor_id, STORY_BUTTON_ITEM_ID)));
+        let _ = fs::remove_file(path);
     }
 
     #[test]
@@ -64502,6 +64700,7 @@ mod tests {
             actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
             actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
+            inactive_inventory_release_conflicts: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
             canonical_store_id: Arc::new(format!("test-memory:{}", random_hex(8))),

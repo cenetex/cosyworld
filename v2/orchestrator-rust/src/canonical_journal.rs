@@ -1713,6 +1713,50 @@ pub(super) fn reconcile_entity_versions(
     Ok(changed)
 }
 
+pub(super) fn canonical_entity_version_conflict(
+    path: &Path,
+    world_id: &str,
+    world_epoch: u64,
+    expected: &BTreeMap<String, u64>,
+) -> io::Result<Option<(String, Option<u64>, u64)>> {
+    if expected.is_empty() {
+        return Ok(None);
+    }
+    let conn = open_canonical_store(path)?;
+    init_canonical_journal(&conn, world_id, world_epoch)?;
+    let stored_count = conn
+        .query_row(
+            "SELECT COUNT(*) FROM canonical_entity_versions WHERE world_id = ?1",
+            params![world_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(sqlite_error)?;
+    if stored_count == 0 {
+        return Ok(None);
+    }
+    for (entity_ref, expected_version) in expected {
+        let stored_version = conn
+            .query_row(
+                "SELECT entity_version FROM canonical_entity_versions
+                 WHERE world_id = ?1 AND entity_ref = ?2",
+                params![world_id, entity_ref],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()
+            .map_err(sqlite_error)?
+            .map(|value| as_u64(value, "entity_version"))
+            .transpose()?;
+        if stored_version != Some(*expected_version) {
+            return Ok(Some((
+                entity_ref.clone(),
+                stored_version,
+                *expected_version,
+            )));
+        }
+    }
+    Ok(None)
+}
+
 pub(super) fn insert_new_claims(
     conn: &Connection,
     world_id: &str,
