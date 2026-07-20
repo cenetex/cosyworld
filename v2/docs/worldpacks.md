@@ -405,6 +405,42 @@ license URL, name Wizards of the Coast LLC as the source author, describe its
 modifications, and bundle the version-appropriate attribution statement. The
 compiler and runtime registry reject an incomplete record.
 
+### Action and item-card contributions
+
+The `cosyworld.rules/2` worldpack schema compiles four authoritative,
+inspectable contribution modes:
+
+- `reskin`: change label, detail, narration, and art for an existing action;
+- `offer`: bind an existing action to a pack-owned avatar, item, location, room
+  feature, or other contextual target;
+- `variant`: declare and justify exact changes to a named base rule; and
+- `extension`: add a namespaced mechanic with a validated resolver.
+
+Reskins may not change mechanics. Variants and extensions name their base
+profile, version, scope, delta, rationale, fixtures, attribution, replay
+identity, and explicit precedence. Compile-time mutation fixtures prove that
+mechanical reskins and implicit conflicts fail. Pack order alone never selects
+a winner. See [action-pack-authoring.md](action-pack-authoring.md).
+
+The collectible subject kinds remain avatar, item, and location. Weapon, skill
+charm, spell, relic, tool, and consumable are Item roles sharing a playable-item
+contract. Skill and bonus are state of a charm instance; spell cards occupy a
+spell deck; weapons occupy equipment slots. Items also declare weight and
+size/bulk, while container items declare added capacity and fit constraints.
+The carried deck is validated from those physical rules, never a fixed card
+count. Packs may author rarity and transfer or theft eligibility independently
+of the mechanical power budget.
+
+An account entitlement is still not a shard-local item. Materializing a
+collectible into a world, changing its equipped holder, unlocking a bracelet
+slot, moving it between card zones, or stealing it requires an idempotent,
+journaled authoritative operation.
+Owning an avatar or location card never grants control of a shared NPC or the
+right to mutate shared geography.
+
+See [the action and collectible architecture](../../docs/systems/04-action-system.md)
+and [implementation backlog](../../docs/backlog/srd-action-card-foundation.md).
+
 ## Campaign packs
 
 `cosyworld.campaign.the-lantern-keeper` is the first short campaign pack. It

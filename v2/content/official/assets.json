@@ -2,7 +2,7 @@
   {
     "pack_id": "cosyworld.core",
     "pack_version": "1.3.3",
-    "pack_integrity": "sha256:e3202c108bcc2acb1fa3d222342d96491e29089c1a30ea18d073449430c83507",
+    "pack_integrity": "sha256:6f881390ef539244b7f73aca568218b7b8a362be2a3908c5d37a0b8da3a37afe",
     "provider": "cosyworld.core/assets",
     "mount": "generated/cards",
     "root": "core",
@@ -15,7 +15,7 @@
   {
     "pack_id": "cosyworld.core",
     "pack_version": "1.3.3",
-    "pack_integrity": "sha256:e3202c108bcc2acb1fa3d222342d96491e29089c1a30ea18d073449430c83507",
+    "pack_integrity": "sha256:6f881390ef539244b7f73aca568218b7b8a362be2a3908c5d37a0b8da3a37afe",
     "provider": "cosyworld.core/assets",
     "mount": "locations",
     "root": "core",
@@ -28,7 +28,7 @@
   {
     "pack_id": "cosyworld.lonely-forest.characters",
     "pack_version": "1.1.1",
-    "pack_integrity": "sha256:b3ff30dbc1809a84d150ffc12a9cf00ed1d8a57e518584de0ce8a91c7e4f4132",
+    "pack_integrity": "sha256:b0fe32d424fd1fd9d4d99049c711607a90cb3787bb4fce8e99a559473022b2ff",
     "provider": "cosyworld.lonely-forest.characters/assets",
     "mount": "characters",
     "root": "lonely-forest",
@@ -39,9 +39,22 @@
     "fallback": null
   },
   {
+    "pack_id": "cosyworld.the-holy-land",
+    "pack_version": "1.1.1",
+    "pack_integrity": "sha256:bda3362756ed58713d34eb6ded2e54b71c1ecc9463b34d725b9360c01fcbf8ae",
+    "provider": "cosyworld.the-holy-land/assets",
+    "mount": "cards",
+    "root": "the-holy-land",
+    "directory": "assets/cards",
+    "public_prefix": "/assets/the-holy-land/cards",
+    "content_hash": "sha256:6dea500165740b595b55e9bfa96793818bd685a99357c6567e24f436a9fedb9f",
+    "optional": false,
+    "fallback": null
+  },
+  {
     "pack_id": "ruby-high.first-bell",
     "pack_version": "1.3.3",
-    "pack_integrity": "sha256:26e54710278c0881b808dbc4dff78ad51cd496f6dd342ffa1d80f19fcfb3cd39",
+    "pack_integrity": "sha256:ce163cf59c7528bec79a66b243d8b40c6467f4dc9933e086752e8b7ab7c4239b",
     "provider": "ruby-high.first-bell/assets",
     "mount": "cards",
     "root": "ruby-high-first-bell",

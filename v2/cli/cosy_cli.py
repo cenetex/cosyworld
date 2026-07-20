@@ -166,7 +166,7 @@ class Game:
                 self.chat(rest)
         elif verb in {"say", "\""}:
             self.run_command(f"say {rest}" if verb == "\"" else command)
-        elif verb in {"emote", "me", "/me", "report", "drop", "give", "bond", "resolve", "skill", "calling", "bank", "listen", "prepare", "work", "assist", "rest", "search"}:
+        elif verb in {"emote", "me", "/me", "report", "drop", "give", "trade", "steal", "bond", "resolve", "skill", "calling", "bank", "listen", "study", "influence", "prepare", "work", "assist", "rest", "search", "deck", "wear", "remove", "wield", "sling", "stow", "unstow", "cast", "bracelet"}:
             self.run_command(command)
         elif verb in {"move", "go"}:
             if rest and not first_token_int(rest):
@@ -221,6 +221,7 @@ class Game:
         self.print_actors(state.get("actors") or [])
         self.print_items(state.get("items") or [])
         self.print_primary_action(state.get("primary_action") or {})
+        self.print_action_hand(state.get("action_hand") or [])
         self.remember_events(state.get("recent_events") or [])
 
     def who(self) -> None:
@@ -490,7 +491,26 @@ class Game:
             print(f"Command failed with status {response.get('status')}.")
 
     def post_action(self, path: str, payload: dict[str, object]) -> None:
-        response = self.client.post(path, self.with_actor_session(payload))
+        authoritative_payload = self.with_actor_session(payload)
+        offer = self.current_offer(path, authoritative_payload)
+        if offer:
+            response = self.client.post(
+                "/actions/submit",
+                {
+                    "path": path,
+                    "offer_id": offer.get("offer_id"),
+                    "kind": offer.get("kind"),
+                    "rules_action": offer.get("rules_action"),
+                    "operation": offer.get("operation"),
+                    "rules_profile": offer.get("rules_profile"),
+                    "state_revision": offer.get("state_revision"),
+                    "target": offer.get("target"),
+                    "cost": offer.get("cost"),
+                    "payload": authoritative_payload,
+                },
+            )
+        else:
+            response = self.client.post(path, authoritative_payload)
         if not isinstance(response, dict):
             raise ClientError("action response was not an object")
         self.print_events(response.get("events") or [])
@@ -498,6 +518,55 @@ class Game:
             print(f"Action failed with status {response.get('status')}.")
         else:
             self.look()
+
+    def current_offer(self, path: str, payload: dict[str, object]) -> dict[str, object] | None:
+        kinds_by_path = {
+            "/actions/chat": {"chat"},
+            "/actions/move": {"move"},
+            "/actions/flee": {"flee"},
+            "/actions/check": {"check"},
+            "/actions/study": {"study"},
+            "/actions/influence": {"influence"},
+            "/actions/cast-spell": {"cast_spell"},
+            "/actions/pick-up": {"pick_up"},
+            "/actions/drop": {"drop_item"},
+            "/actions/use-item": {"use_item", "use_feature"},
+            "/actions/give-item": {"give_item"},
+            "/actions/trade-item": {"trade_item"},
+            "/actions/theft": {"theft"},
+            "/actions/craft": {"craft"},
+            "/actions/attack": {"attack"},
+            "/actions/defend": {"defend"},
+            "/actions/prepare": {"prepare"},
+            "/actions/work": {"work"},
+            "/actions/help": {"help"},
+            "/actions/rest": {"rest"},
+            "/actions/bank-ledger": {"bank_ledger"},
+            "/actions/unlock-charm-slot": {"unlock_charm_slot"},
+            "/actions/create-bond": {"create_bond"},
+            "/actions/resolve-bond": {"resolve_bond"},
+        }
+        kinds = kinds_by_path.get(path)
+        if not kinds:
+            return None
+        offers = [
+            offer
+            for offer in self.state().get("action_offers") or []
+            if offer.get("kind") in kinds and not offer.get("disabled")
+        ]
+        for offer in offers:
+            target = offer.get("target") or {}
+            expected = target.get("id")
+            key = {
+                "location": "destination_location_id",
+                "actor": "target_actor_id",
+                "item": "target_item_id" if path in {"/actions/trade-item", "/actions/theft"} else "item_id",
+                "recipe": "recipe_id",
+            }.get(str(target.get("kind") or ""))
+            submitted = payload.get(key) if key else None
+            if not submitted or not expected or int(submitted) == int(expected):
+                return offer
+        return None
 
     def print_exits(self, exits: list[dict[str, object]]) -> None:
         if not exits:
@@ -541,6 +610,12 @@ class Game:
         options = action.get("options") or []
         option_labels = ", ".join(option["label"] for option in options) or "none"
         print(f"Button: {action.get('label', 'Wait')} [{option_labels}]")
+
+    def print_action_hand(self, offers: list[dict[str, object]]) -> None:
+        if not offers:
+            return
+        labels = ", ".join(str(offer.get("label") or offer.get("kind") or "action") for offer in offers)
+        print(f"Hand: {labels}")
 
     def print_events(self, events: list[dict[str, object]]) -> None:
         if not events:
@@ -707,10 +782,12 @@ class Game:
             print("Type 'act' for the one-button menu, 'say <message>', 'look', or 'help'.")
             return
         print(
-            "Commands: act, look, who, inventory, say <message>, /me <action>, "
-            "chat <actor_id|name>, report <actor>: <reason>, go <location_id|direction>, "
-            "take/drop <item>, use <item> [target], check <ability> [dc], attack <actor>, "
-            "defend, events/watch [after_seq], quit"
+            "Commands: act, look, who, deck, inventory, say <message>, /me <action>, "
+            "chat/influence <resident>, listen, search <feature>, study <subject>, "
+            "go <location|direction>, take/drop/give/trade/steal <item>, use <item> [target], "
+            "wear/remove <charm>, wield/sling <weapon>, stow <item> in <bag>, unstow <item>, "
+            "prepare spell <spell>, cast <spell> [target], bracelet unlock, prepare/work/assist/rest, "
+            "attack <actor>, defend, report <actor>: <reason>, events/watch [after_seq], quit"
         )
 
     @staticmethod

@@ -644,6 +644,351 @@
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
+    "id": "holy-land:room:700",
+    "location_id": 700,
+    "name": "Bethlehem",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "room for the traveler",
+      "olive-ridge dusk"
+    ],
+    "boons": [
+      "hospitality turns arrival into belonging"
+    ],
+    "hooks": [
+      "someone is still looking for shelter"
+    ],
+    "resources": {
+      "shelter": 3,
+      "lamplight": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:701",
+    "location_id": 701,
+    "name": "Nazareth",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "patient workmanship",
+      "ordinary beginnings"
+    ],
+    "boons": [
+      "practice reveals dignity in small work"
+    ],
+    "hooks": [
+      "a familiar name carries an unfamiliar calling"
+    ],
+    "resources": {
+      "craft": 3,
+      "grain": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:702",
+    "location_id": 702,
+    "name": "Jordan River Crossing",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "waters of beginning",
+      "desert threshold"
+    ],
+    "boons": [
+      "reflection makes a new start easier to name"
+    ],
+    "hooks": [
+      "the far bank asks what should be left behind"
+    ],
+    "resources": {
+      "water": 3,
+      "reeds": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:703",
+    "location_id": 703,
+    "name": "Cana",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "wedding hospitality",
+      "quiet need"
+    ],
+    "boons": [
+      "careful attention notices trouble before it becomes shame"
+    ],
+    "hooks": [
+      "the feast has one more guest than expected"
+    ],
+    "resources": {
+      "hospitality": 3,
+      "vines": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:704",
+    "location_id": 704,
+    "name": "Capernaum",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "crowded doorway",
+      "lakeside ministry"
+    ],
+    "boons": [
+      "neighbors can carry what one household cannot"
+    ],
+    "hooks": [
+      "someone at the threshold cannot reach the room"
+    ],
+    "resources": {
+      "neighbors": 3,
+      "basalt": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:705",
+    "location_id": 705,
+    "name": "Sea of Galilee Shore",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "mended nets",
+      "changeable water"
+    ],
+    "boons": [
+      "shared labor makes fear easier to speak"
+    ],
+    "hooks": [
+      "the wind has shifted before every boat returned"
+    ],
+    "resources": {
+      "fish": 3,
+      "cordage": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:706",
+    "location_id": 706,
+    "name": "Hillside of Teachings",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "open listening",
+      "lake-bright horizon"
+    ],
+    "boons": [
+      "a difficult teaching can be heard without haste"
+    ],
+    "hooks": [
+      "the person at the edge of the crowd has a question"
+    ],
+    "resources": {
+      "attention": 3,
+      "wild-herbs": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:707",
+    "location_id": 707,
+    "name": "Bethsaida",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "working harbor",
+      "first invitations"
+    ],
+    "boons": [
+      "introductions open roads that argument cannot"
+    ],
+    "hooks": [
+      "a missing tool has stopped the morning repair"
+    ],
+    "resources": {
+      "boats": 3,
+      "reeds": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:708",
+    "location_id": 708,
+    "name": "Caesarea Philippi",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "cold springs",
+      "echoing questions"
+    ],
+    "boons": [
+      "naming a loyalty can clarify the road ahead"
+    ],
+    "hooks": [
+      "the cliff returns every answer in a changed voice"
+    ],
+    "resources": {
+      "springwater": 3,
+      "shade": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:709",
+    "location_id": 709,
+    "name": "Sychar Well",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "shared water",
+      "honest noon"
+    ],
+    "boons": [
+      "hospitality can outlast inherited suspicion"
+    ],
+    "hooks": [
+      "a traveler has arrived without a jar"
+    ],
+    "resources": {
+      "water": 3,
+      "conversation": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:710",
+    "location_id": 710,
+    "name": "Jericho",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "oasis heat",
+      "edge of the crowd"
+    ],
+    "boons": [
+      "attention can restore someone to the shared road"
+    ],
+    "hooks": [
+      "the climb begins before every pilgrim is ready"
+    ],
+    "resources": {
+      "dates": 3,
+      "springwater": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:711",
+    "location_id": 711,
+    "name": "Bethany",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "table of friends",
+      "grief held close"
+    ],
+    "boons": [
+      "familiar hospitality gives sorrow room to breathe"
+    ],
+    "hooks": [
+      "an extra place has been set at the table"
+    ],
+    "resources": {
+      "bread": 3,
+      "olive-oil": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:712",
+    "location_id": 712,
+    "name": "Jerusalem",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "festival multitude",
+      "weight of choice"
+    ],
+    "boons": [
+      "pilgrims can find one another across distance"
+    ],
+    "hooks": [
+      "several roads demand an answer before nightfall"
+    ],
+    "resources": {
+      "pilgrims": 3,
+      "lamps": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:713",
+    "location_id": 713,
+    "name": "Garden of Gethsemane",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "wakeful prayer",
+      "olive-shadowed sorrow"
+    ],
+    "boons": [
+      "companionship can remain even when it cannot fix the hour"
+    ],
+    "hooks": [
+      "someone has asked their friends to stay awake"
+    ],
+    "resources": {
+      "quiet": 3,
+      "olive-wood": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
+    "id": "holy-land:room:714",
+    "location_id": 714,
+    "name": "Road to Emmaus",
+    "safety": "safe",
+    "zone": "sanctuary",
+    "aspects": [
+      "evening companionship",
+      "slow recognition"
+    ],
+    "boons": [
+      "walking together lets a broken story be told again"
+    ],
+    "hooks": [
+      "a stranger has joined the road at the right pace"
+    ],
+    "resources": {
+      "companionship": 3,
+      "road-bread": 2
+    },
+    "projects": [],
+    "pack_id": "cosyworld.the-holy-land"
+  },
+  {
     "id": "room:10",
     "location_id": 10,
     "name": "Science Class",

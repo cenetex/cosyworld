@@ -499,7 +499,7 @@ static void test_combat_v2_encounter_turns_dodge_targeting_and_escape(void) {
   assert(events.events[events.count - 1].total == 2);
 }
 
-static void test_combat_v3_finesse_and_v2_attack_replay_compatibility(void) {
+static void test_combat_v4_weapon_profile_and_legacy_replay(void) {
   cw_world world;
   cw_event_buffer events;
   cw_world_init(&world);
@@ -556,6 +556,113 @@ static void test_combat_v3_finesse_and_v2_attack_replay_compatibility(void) {
   assert(events.events[0].modifier == 0);
   assert(events.events[1].type == CW_EVENT_COMBAT_ATTACK_HIT);
   assert(events.events[1].damage <= 6);
+
+  cw_world weapon_replay = before_attack;
+  cw_item *weapon = test_find_item(&weapon_replay, 2003);
+  assert(weapon);
+  assert(cw_world_set_item_profile(&weapon_replay, 2003, 30, CW_ITEM_SIZE_MEDIUM, CW_ITEM_ROLE_WEAPON, 0) == CW_OK);
+  weapon->holder_actor_id = human->id;
+  weapon->location_id = 0;
+  weapon->zone = CW_CARD_ZONE_EQUIPPED;
+  weapon->reserved = 4;
+  attack.kind = CW_ACTION_COMBAT_ATTACK;
+  attack.item_id = weapon->id;
+  assert(cw_world_apply(&weapon_replay, &attack, 415, &events) == CW_OK);
+  assert(events.events[0].item_id == weapon->id);
+  assert(events.events[1].item_id == weapon->id);
+  assert(events.events[1].damage <= 6);
+
+  cw_world unequipped_replay = before_attack;
+  weapon = test_find_item(&unequipped_replay, 2003);
+  assert(weapon);
+  assert(cw_world_set_item_profile(&unequipped_replay, 2003, 30, CW_ITEM_SIZE_MEDIUM, CW_ITEM_ROLE_WEAPON, 0) == CW_OK);
+  weapon->holder_actor_id = human->id;
+  weapon->location_id = 0;
+  weapon->zone = CW_CARD_ZONE_CARRIED;
+  attack.item_id = weapon->id;
+  assert(cw_world_apply(&unequipped_replay, &attack, 415, &events) == CW_ERR_RULE);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+}
+
+static void test_card_zones_spell_exhaustion_and_theft_atomicity(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action create = {0};
+  create.kind = CW_ACTION_CREATE_ACTOR;
+  create.actor_id = 5001;
+  create.location_id = 1;
+  assert(cw_world_apply(&world, &create, 420, &events) == CW_OK);
+
+  cw_item *container = test_find_item(&world, 2005);
+  cw_item *content = test_find_item(&world, 2006);
+  assert(container && content);
+  assert(cw_world_set_item_profile(&world, 2005, 20, CW_ITEM_SIZE_MEDIUM, CW_ITEM_ROLE_CONTAINER, 100) == CW_OK);
+  assert(cw_world_set_item_profile(&world, 2006, 5, CW_ITEM_SIZE_SMALL, CW_ITEM_ROLE_TOOL, 0) == CW_OK);
+  container->holder_actor_id = 5001;
+  container->location_id = 0;
+  container->zone = CW_CARD_ZONE_CARRIED;
+  content->holder_actor_id = 5001;
+  content->location_id = 0;
+  content->zone = CW_CARD_ZONE_CARRIED;
+  assert(cw_world_set_item_zone(&world, 2005, CW_CARD_ZONE_EQUIPPED, 0) == CW_OK);
+  assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_CONTAINED, 2005) == CW_OK);
+  assert(content->container_item_id == 2005);
+  assert(cw_world_set_item_zone(&world, 2005, CW_CARD_ZONE_CONTAINED, 2006) == CW_ERR_RULE);
+  assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_EQUIPPED, 0) == CW_ERR_RULE);
+  assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_CARRIED, 0) == CW_OK);
+
+  cw_item *outer = test_find_item(&world, 2004);
+  assert(outer);
+  assert(cw_world_set_item_profile(&world, 2004, 30, CW_ITEM_SIZE_LARGE, CW_ITEM_ROLE_CONTAINER, 200) == CW_OK);
+  outer->holder_actor_id = 5001;
+  outer->location_id = 0;
+  outer->zone = CW_CARD_ZONE_EQUIPPED;
+  assert(cw_world_set_item_zone(&world, 2005, CW_CARD_ZONE_CONTAINED, 2004) == CW_OK);
+  assert(container->container_item_id == 2004);
+  assert(container->zone == CW_CARD_ZONE_CONTAINED);
+  assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_CONTAINED, 2005) == CW_ERR_RULE);
+  assert(cw_world_set_item_zone(&world, 2005, CW_CARD_ZONE_CARRIED, 0) == CW_OK);
+
+  assert(cw_world_set_item_profile(&world, 2006, 1, CW_ITEM_SIZE_TINY, CW_ITEM_ROLE_SPELL, 0) == CW_OK);
+  content->charges = 1;
+  cw_action magic = {0};
+  magic.kind = CW_ACTION_RULES_MAGIC;
+  magic.actor_id = 5001;
+  magic.target_actor_id = 5001;
+  magic.item_id = 2006;
+  assert(cw_world_apply(&world, &magic, 421, &events) == CW_ERR_RULE);
+  assert(content->charges == 1);
+  assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_SPELL_DECK, 0) == CW_OK);
+  assert(cw_world_apply(&world, &magic, 421, &events) == CW_OK);
+  assert(events.count == 1 && events.events[0].type == CW_EVENT_SPELL_CAST);
+  assert(content->charges == 0 && content->zone == CW_CARD_ZONE_EXHAUSTED);
+  assert(cw_world_apply(&world, &magic, 421, &events) == CW_ERR_RULE);
+
+  cw_item *stolen = test_find_item(&world, 2004);
+  assert(stolen);
+  stolen->holder_actor_id = 1001;
+  stolen->location_id = 0;
+  stolen->zone = CW_CARD_ZONE_CARRIED;
+  cw_action theft = {0};
+  theft.kind = CW_ACTION_THEFT;
+  theft.actor_id = 5001;
+  theft.target_actor_id = 1001;
+  theft.item_id = 2004;
+  theft.dc = 100;
+  assert(cw_world_apply(&world, &theft, 422, &events) == CW_OK);
+  assert(events.count == 1 && events.events[0].type == CW_EVENT_ITEM_THEFT_ATTEMPT);
+  assert(events.events[0].success == 0);
+  assert(stolen->holder_actor_id == 1001);
+  theft.dc = 1;
+  assert(cw_world_apply(&world, &theft, 422, &events) == CW_OK);
+  assert(events.count == 2);
+  assert(events.events[0].type == CW_EVENT_ITEM_THEFT_ATTEMPT);
+  assert(events.events[1].type == CW_EVENT_ITEM_STOLEN);
+  assert(stolen->holder_actor_id == 5001);
+  assert(stolen->zone == CW_CARD_ZONE_CARRIED);
 }
 
 static void test_give_items_and_evolution(void) {
@@ -752,7 +859,7 @@ static void test_npc_give_items(void) {
   assert(world.actors[1].stats.level == 2);
 }
 
-static void test_give_can_return_an_expendable_item_to_make_room(void) {
+static void test_give_can_exchange_an_item_to_make_weight_capacity(void) {
   cw_world world;
   cw_event_buffer events;
   cw_world_init(&world);
@@ -772,6 +879,9 @@ static void test_give_can_return_an_expendable_item_to_make_room(void) {
   offered->location_id = 0;
   returned->holder_actor_id = 1001;
   returned->location_id = 0;
+  world.actors[0].stats.strength = 1;
+  assert(cw_world_set_item_profile(&world, 2002, 100, CW_ITEM_SIZE_SMALL, CW_ITEM_ROLE_GENERIC, 0) == CW_OK);
+  assert(cw_world_set_item_profile(&world, 2005, 100, CW_ITEM_SIZE_SMALL, CW_ITEM_ROLE_GENERIC, 0) == CW_OK);
 
   cw_action give = {0};
   give.kind = CW_ACTION_GIVE_ITEM;
@@ -827,7 +937,7 @@ static void test_npc_pickup_can_evolve_self(void) {
   assert(world.actors[1].stats.level == 2);
 }
 
-static void test_inventory_capacity_evicts_oldest_item(void) {
+static void test_inventory_uses_weight_and_container_capacity(void) {
   cw_world world;
   cw_event_buffer events;
   cw_world_init(&world);
@@ -841,7 +951,15 @@ static void test_inventory_capacity_evicts_oldest_item(void) {
 
   cw_item *held_a = test_find_item(&world, 2001);
   cw_item *new_item = test_find_item(&world, 2005);
-  assert(held_a && new_item);
+  cw_item *bag = test_find_item(&world, 2006);
+  assert(held_a && new_item && bag);
+
+  cw_actor *actor = &world.actors[world.actor_count - 1];
+  assert(actor->id == 5001);
+  actor->stats.strength = 1;
+  assert(cw_world_set_item_profile(&world, 2001, 90, CW_ITEM_SIZE_SMALL, CW_ITEM_ROLE_CONSUMABLE, 0) == CW_OK);
+  assert(cw_world_set_item_profile(&world, 2005, 40, CW_ITEM_SIZE_SMALL, CW_ITEM_ROLE_GENERIC, 0) == CW_OK);
+  assert(cw_world_set_item_profile(&world, 2006, 20, CW_ITEM_SIZE_MEDIUM, CW_ITEM_ROLE_CONTAINER, 100) == CW_OK);
 
   held_a->holder_actor_id = 5001;
   held_a->location_id = 0;
@@ -849,6 +967,9 @@ static void test_inventory_capacity_evicts_oldest_item(void) {
   new_item->holder_actor_id = 0;
   new_item->location_id = 1;
   new_item->held_since_tick = 0;
+  bag->holder_actor_id = 0;
+  bag->location_id = 1;
+  bag->held_since_tick = 0;
 
   world.tick = 100;
   cw_action pickup = {0};
@@ -856,16 +977,55 @@ static void test_inventory_capacity_evicts_oldest_item(void) {
   pickup.actor_id = 5001;
   pickup.item_id = 2005;
   assert(cw_world_apply(&world, &pickup, 61, &events) == CW_OK);
-  assert(events.count == 2);
-  assert(events.events[0].type == CW_EVENT_ITEM_DROPPED);
-  assert(events.events[0].item_id == 2001);
-  assert(events.events[1].type == CW_EVENT_ITEM_PICKED_UP);
-  assert(events.events[1].item_id == 2005);
-  assert(held_a->holder_actor_id == 0);
-  assert(held_a->location_id == 1);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_PICKED_UP);
+  assert(events.events[0].item_id == 2005);
+  assert(held_a->holder_actor_id == 5001);
+  assert(held_a->location_id == 0);
   assert(new_item->holder_actor_id == 5001);
   assert(new_item->location_id == 0);
   assert(new_item->held_since_tick > held_a->held_since_tick);
+
+  pickup.item_id = 2006;
+  assert(cw_world_apply(&world, &pickup, 62, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_PICKED_UP);
+  assert(bag->holder_actor_id == 5001);
+
+  assert(cw_world_set_item_profile(&world, 2002, 100, CW_ITEM_SIZE_SMALL, CW_ITEM_ROLE_GENERIC, 0) == CW_OK);
+  cw_item *too_heavy = test_find_item(&world, 2002);
+  too_heavy->holder_actor_id = 0;
+  too_heavy->location_id = 1;
+  cw_action_offers offers = {0};
+  assert(cw_get_action_offers(&world, 5001, &offers) == CW_OK);
+  assert((offers.option_flags & CW_OFFER_PICK_UP) == 0);
+  pickup.item_id = 2002;
+  assert(cw_world_apply(&world, &pickup, 63, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+  assert(events.events[0].reason == 21);
+  assert(too_heavy->holder_actor_id == 0);
+
+  assert(cw_world_set_item_zone(&world, 2006, CW_CARD_ZONE_EQUIPPED, 0) == CW_OK);
+  assert(bag->zone == CW_CARD_ZONE_EQUIPPED);
+  assert(cw_get_action_offers(&world, 5001, &offers) == CW_OK);
+  assert((offers.option_flags & CW_OFFER_PICK_UP) != 0);
+  assert(cw_world_apply(&world, &pickup, 64, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_PICKED_UP);
+  assert(events.events[0].item_id == 2002);
+  assert(held_a->holder_actor_id == 5001);
+  assert(too_heavy->holder_actor_id == 5001);
+
+  cw_action drop = {0};
+  drop.kind = CW_ACTION_DROP_ITEM;
+  drop.actor_id = 5001;
+  drop.item_id = 2005;
+  assert(cw_world_apply(&world, &drop, 65, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_DROPPED);
+  assert(held_a->holder_actor_id == 5001 && held_a->location_id == 0);
+  assert(new_item->holder_actor_id == 0 && new_item->location_id == 1);
 }
 
 static void test_search_and_craft_create_without_consuming_inputs(void) {
@@ -886,9 +1046,12 @@ static void test_search_and_craft_create_without_consuming_inputs(void) {
   search.location_id = 1;
   search.content_id = 9001;
   search.item_id = 2005;
-  assert(cw_world_apply(&world, &search, 71, &events) == CW_ERR_RULE);
+  assert(cw_world_apply(&world, &search, 71, &events) == CW_OK);
   assert(events.count == 1);
-  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+  assert(events.events[0].type == CW_EVENT_ITEM_FOUND);
+  assert(events.events[0].item_id == 2005);
+  assert(test_find_item(&world, 2001)->location_id == 1);
+  assert(test_find_item(&world, 2005)->location_id == 1);
 
   cw_action pickup = {0};
   pickup.kind = CW_ACTION_PICK_UP_ITEM;
@@ -896,10 +1059,9 @@ static void test_search_and_craft_create_without_consuming_inputs(void) {
   pickup.item_id = 2001;
   assert(cw_world_apply(&world, &pickup, 72, &events) == CW_OK);
 
-  assert(cw_world_apply(&world, &search, 73, &events) == CW_OK);
+  assert(cw_world_apply(&world, &search, 73, &events) == CW_ERR_RULE);
   assert(events.count == 1);
-  assert(events.events[0].type == CW_EVENT_ITEM_FOUND);
-  assert(events.events[0].item_id == 2005);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
   assert(test_find_item(&world, 2005)->location_id == 1);
 
   cw_action care = {0};
@@ -1007,14 +1169,15 @@ int main(void) {
   test_d20_roll_modes_bloodied_and_nonlethal_knockout();
   test_items_and_combat_gate();
   test_combat_v2_encounter_turns_dodge_targeting_and_escape();
-  test_combat_v3_finesse_and_v2_attack_replay_compatibility();
+  test_combat_v4_weapon_profile_and_legacy_replay();
+  test_card_zones_spell_exhaustion_and_theft_atomicity();
   test_give_items_and_evolution();
   test_maximum_evolution_burst_fits_event_buffer();
   test_npc_trade_items();
   test_npc_give_items();
-  test_give_can_return_an_expendable_item_to_make_room();
+  test_give_can_exchange_an_item_to_make_weight_capacity();
   test_npc_pickup_can_evolve_self();
-  test_inventory_capacity_evicts_oldest_item();
+  test_inventory_uses_weight_and_container_capacity();
   test_search_and_craft_create_without_consuming_inputs();
   test_deterministic_replay();
   puts("cosy kernel tests passed");

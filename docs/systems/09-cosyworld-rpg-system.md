@@ -4,7 +4,20 @@
 
 This document defines the CosyWorld V2 RPG layer for the C-kernel / Rust-orchestrated prototype, as CosyWorld's own rules. The tabletop systems that informed it are credited at the end, in [Lineage And References](#lineage-and-references).
 
-Current runtime slice: clock/tag projection state, sanctuary/frontier room and clock zones, Moonlit Trail progress and danger clocks, seeded jobs and room sheets, Prepare/Rest/Work/Help projection verbs, projection-safe `on_fill` descriptors, default Callings, first-class resident-gift Bonds, player-authored resident Bond slots, Bond revision/resolution, Visit Ledger accrual marks, Visit Ledger banking into advancement points, Calling revision, Bond slot creation/revision, and the six starter skill steps as spendable advancement choices, and `/state` exposure are implemented in Rust. Ledger marks currently cover learned truths, matching your Calling, moving a shared progress clock through Work/Help, deepening or resolving a resident Bond, and returning from the frontier through Flee. Repeat Listen pressure is frontier-gated: the Cottage remains free and calm. Covenant contribution and additional banked advancement spending choices are still target work. The rest of this document is the target shape unless a section explicitly says it is already landed.
+Current runtime slice: the clock/tag, sanctuary/frontier, job, Calling, Bond,
+Visit Ledger, and advancement projections are implemented in Rust over the C
+kernel. `cosyworld.srd5/1` now supplies the active stable-action profile:
+Search/Study, Influence, Help/Ready/Utilize project bindings, Attack/Dodge,
+bounded Magic, and explicit unsupported actions. The item-card layer has
+authoritative Collection/Carried/Equipped/Spell deck/Exhausted/Contained/World/
+Escrow zones, weight and size, equipped non-recursive containers, bracelet
+slots, possession-bound skill charms, weapon profiles, executable spell cards,
+idempotent collection materialization, theft, and provenance. Deterministic
+scene composition produces the complete legal offer set and a ranked
+three-card hand for browser and terminal clients. Legacy skill ranks, action
+codes, combat/2 and combat/3 rows remain replay-readable. Covenant contribution
+and additional advancement choices remain future RPG breadth; they are not
+gaps in the SRD action-card foundation.
 
 Anchor files:
 
@@ -27,6 +40,9 @@ CosyWorld is a shared-world cozy adventure RPG where you keep a home you own, fo
 - Every player-visible AI output is committed as a shared room event.
 - **The home is a sanctuary.** A player's cottage and equivalent starting homes never decay, are never invaded, and reject combat by default. Pressure is something you choose to walk toward, not something that comes to you at home.
 - **Progression is earned, never bought.** Advancement comes from play; currency buys amplification and cosmetics, never power, success, access, or rules outcomes.
+- **The collectible subject cosmology is avatar, item, and location.** Skills,
+  weapons, spells, tools, and relics are roles of playable Item cards, not new
+  entity families with separate interfaces.
 - **The core loop is free.** A player with zero currency can always do the meaningful thing — listen, help, bond, travel — without paying.
 - **The world degrades gracefully without AI.** Core world actions remain deterministic and playable when generation is unavailable. Explicit dialogue fails visibly without charge or substitute speech; incidental dialogue is skipped.
 - There are no private resident conversations in the main world loop.
@@ -116,7 +132,8 @@ A **Covenant** is a home base a group of players belongs to — a named cottage,
 - **Short phrases are mechanically real.** A tag, a Calling, a Bond — small concrete words that rules and AI prompts both read.
 - **The world keeps clocks, not just text** — but only the frontier's clocks move on their own.
 - **Meaningful choice, not a single button.** The primary action is a suggestion, but it always carries visible risk and effect so pressing it is a decision, not an approval. You can always choose a different approach.
-- **Items are the build surface.** Growth is mostly inventory and skill step-ups; there is no class tree.
+- **Items are the build surface.** Growth is mostly a carried card deck plus
+  earned bracelet slots; there is no class tree.
 - **Conflict is one risk mode among many**, resolved like any other risk, usually about an objective — never the default solution.
 - **Play to find out**, within validated rails. Resident and room evolution is discovered at runtime; AI never invents authoritative state.
 - **The home is sacred.** Coziness is a guarantee, not a vibe.
@@ -132,13 +149,37 @@ CosyWorld plays as a warm, shared-world MUD:
 5. Gain, spend, use, or change something visible — and accrue toward your Visit Ledger.
 6. See the room, residents, items, bonds, and clocks remember what happened.
 
-The visible verbs are ordinary words: Chat, Notice, Inspect, Scout, Travel, Take, Give, Use, Prepare, Rest, Contribute, Attack, Defend, Flee. Notice receives an ambient lead; Inspect names its target; Scout reveals the next segment toward a named destination without moving; Travel moves; and Contribute presents job-specific Push and Help strategies in one project card. Packs may author different displayed words while these semantic roles remain stable. The player never needs to know which idea came from where.
+The visible labels are ordinary words: Chat, Listen, Travel, Take, Give, Use,
+Prepare, Rest, Work, Help, Attack, Defend, Flee. Beneath them, supported SRD
+5.2.1 actions provide stable rule identities while movement, communication,
+inventory, and Cosy advancement remain explicit operations. Skills, weapons,
+and spells appear through the same cards and hand rather than separate skill
+tree, equipment, and spell-book interfaces. See
+[SRD-Backed Action and Collectible System](04-action-system.md).
+
+### Card deck and Menu
+
+The avatar's carried inventory is a **deck of item instances**, not one item and
+not a fixed forty-card list. Item weight and size, the avatar's SRD-derived
+carrying capacity, and equipped bags/cases determine what can be carried.
+Rooms likewise hold multiple loose item instances; reveal, craft, and drop add
+cards to that location rather than replacing the one already there.
+Bracelet slots determine which skill charms are active; the spell deck/hand
+determines which owned Magic effects are ready. Collection, carried deck,
+equipped, hand, exhausted/discard, world, and transfer are distinct
+authoritative zones.
+
+The play scene remains primary. Account, World, and Orbs should stop competing
+as separate top-level destinations and move behind one **Menu** with Deck &
+Loadout, Collection & Account, Sign in/Identity, World & Packs, Journal &
+Export, Orbs, and Settings & Help. A compact identity or balance display may
+remain status, but deck building and journal export are first-class Menu pages.
 
 ## Authoritative Loop
 
-1. Rust builds authoritative room context from kernel state, access context, projection state, and economy state.
-2. Rust asks the kernel which rule actions are legal.
-3. Rust chooses the primary action and exposes optional commands, adding stable intention, verb, target, accessible-label, project/clock, and risk/effect metadata where that rule surface exists.
+1. Rust builds authoritative scene context from the rules profile, kernel state, location/world cards, the player's active card zones, access context, projection state, and economy state.
+2. Rust composes the legal action set, asks the kernel which rule actions remain legal, and records the contributing profile, packs, cards, target, resolver, and state revision.
+3. Rust ranks a focused action hand from that legal superset and exposes optional commands, adding risk/effect metadata where that rule surface exists.
 4. The player chooses an action.
 5. Rust validates session, access, cost, rate limit, and target.
 6. Rust submits a rule action to the C kernel or schedules a validated projection-only action.
@@ -159,10 +200,13 @@ Actors include player avatars and residents.
 - `home_covenant_id`: the actor's sanctuary and ownership anchor
 - `calling`: the avatar's drive statement (avatars only)
 - `stats`: six internal stats, current HP/protection, level
-- `skills`: step-up skill ratings (see [Progression](#progression-and-advancement))
+- `skills`: replay-compatibility field for legacy avatar-owned skill steps; new
+  active skill bonuses derive from possessed, equipped skill-charm items
 - `tags`: short truths such as `inspired`, `tired`, `trusted by rati`
 - `conditions`: rule-facing states such as damage, defended, hidden, exhausted, vulnerable
-- `inventory`
+- `inventory`: kernel possession projected as authoritative Collection,
+  Carried, Equipped, Spell deck, Exhausted, Contained, World, and Escrow zones,
+  with physical capacity and container-fit validation
 - `bonds`: relationship edges to residents, factions, rooms, covenants, or other actors
 - `ledger_progress`: accrued, unbanked Visit Ledger marks
 - `evolution_track`: optional resident or avatar progression
@@ -273,7 +317,10 @@ The product UI hides that texture behind friendlier groupings:
 - Heart: charisma
 - Wisdom contributes to both Mind and Heart, projected as a defined split (Mind and Heart each take the larger of their primary stat and half of Wisdom), so the mapping is deterministic rather than double-counted.
 
-**You only roll when something is at risk.** A safe action just happens. A check exists when there is a real chance of a cost — which keeps the sanctuary calm and reserves dice for moments that matter. Target checks carry metadata; the current runtime still accepts only ability and DC:
+**You only roll when something is at risk.** A safe authored discovery just
+happens. A risky Search, Study, Influence, theft, or conflict action uses an
+authoritative deterministic check. Offers expose bounded metadata while the
+server, never the client, supplies mechanical inputs:
 
 - `risk`: safe, risky, dire
 - `effect`: limited, standard, great
@@ -286,9 +333,18 @@ The d20 check is fine near-term because it is implemented and familiar. The kern
 
 ### Current Kernel Actions
 
-Create Actor, Say, Move, Ability Check, Pick Up Item, Use Item, Attack, Defend, Give Item, Flee. These remain the first authoritative layer.
+Create Actor, Say, Move, legacy Ability Check, rules-profile Search, Study,
+Influence and Magic, Pick Up/Use/Give/Drop/Trade items, theft, crafting, and the
+versioned combat encounter actions. Journaled Rust reducers own the bounded
+project, loadout, materialization, and progression operations.
 
-### Product Verbs
+### Current Product Verbs
+
+Friendly labels now map to stable SRD 5.2.1 actions or explicit non-action
+operations in the compiled registry. The same authoritative envelopes drive
+the browser, terminal, inspector, and submission endpoint; see
+[the action-system design](04-action-system.md) and
+[the implementation ledger](../backlog/srd-action-card-foundation.md).
 
 | Product verb | Kernel or projection | Purpose |
 | --- | --- | --- |
@@ -319,7 +375,7 @@ The primary action is helpful, not exhaustive. As risk/effect metadata lands, it
 4. Act on your Calling, if a contextual option fits it.
 5. Deepen or resolve a Bond.
 6. Give a matching evolution/job item.
-7. Use a meaningful held item.
+7. Use a meaningful carried or equipped item card.
 8. Take a useful visible item.
 9. Chat with the best target.
 10. Notice, Inspect, Scout, Travel, or Contribute.
@@ -386,10 +442,10 @@ The remaining target shape is broader: resident reactions, job creation, covenan
 | `advance_covenant` / `advance_season` | projection | covenant/season reducer | bounded delta. |
 | `unlock_exit` | authoritative | kernel Move-graph mutation | exit must exist and be currently locked. |
 | `spawn_item` / `reveal_item` | authoritative | kernel item create at location | item template must exist; respects room capacity. |
-| `grant_item` | authoritative | kernel Give Item | target actor present with a free slot. |
+| `grant_item` | authoritative | kernel Give Item | target actor present and the resulting carried deck legal by weight, size, containers, and typed slots. |
 | `apply_condition` | authoritative | kernel condition set | condition from the kernel's known set. |
 
-Authoritative ops never apply in Rust; they are submitted to the C kernel, which can still reject them (a safe room rejecting `apply_condition: vulnerable`, a full inventory rejecting `grant_item`). Projection ops apply in Rust and may never contradict kernel state.
+Authoritative ops never apply in Rust; they are submitted to the C kernel, which can still reject them (a safe room rejecting `apply_condition: vulnerable`, or an overweight/oversized carried deck rejecting `grant_item`). Projection ops apply in Rust and may never contradict kernel state.
 
 ### Example
 
@@ -459,11 +515,31 @@ Kinds: `aspect` (stable truth), `condition` (temporary/rule-facing), `memory` (p
 
 Progression is earned through play and never bought. It has three surfaces, deliberately light:
 
-- **Skills step up.** A skill rises through a short ladder (none → trained → expert → master) and improves the result band of related checks. You advance a skill by banking Visit Ledger progress, not by paying. There is no class tree.
-- **Items are the build.** Most "power" is gear — charges, durability, recharge conditions, break-to-absorb-harm — acquired by play, crafting, or covenant projects.
+- **Bracelet slots step up.** A skill exists in the world as an Item card—a
+  lucky raven feather, brass thimble, carved tooth, or similar charm. Banking
+  Visit Ledger progress unlocks another bracelet slot; it does not create a
+  charm. A charm's authored skill bonus applies only while the avatar possesses
+  and wears it. Gift, trade, drop, or steal the charm and its skill, bonus,
+  rarity, and provenance travel with it; the former holder loses access. A
+  rare skill still has to be found. The current avatar-owned skill-step field
+  is migration state, not the target model.
+- **Items are the build and the common UI.** Weapons supply Attack profiles;
+  skill charms supply check modifiers or specialist qualification; prepared or
+  drawn spell cards supply bounded Magic effects; other gear carries charges,
+  durability, recharge conditions, and break-to-absorb-harm. All are acquired
+  through play, crafting, covenant projects, or a free/core-equivalent path.
+- **Carrying capacity is deck size.** Every item card has weight and size/bulk.
+  The avatar's SRD-derived carrying capacity plus equipped bags, cases,
+  sheaths, and other containers determines the legal carried deck; there is no
+  arbitrary forty-card inventory rule. Bracelet slots decide which charms are
+  active, not how much the avatar can physically carry.
 - **Bonds, Callings, and Covenants are the long game.** Deep bonds unlock resident evolution and reactions; fulfilled callings define milestones; covenant projects open boons and expansions. These are the week-over-week goals the player sets for themselves.
 
-Banking the ledger at a milestone is where a player chooses *how* to grow — a skill step, a new bond slot, a covenant contribution, or a calling revision — so advancement is an expressive choice, not an automatic drip.
+Banking the ledger at a milestone is where a player chooses *how* to grow —
+unlock a bracelet slot, add a bond slot, contribute to a covenant, or revise a
+Calling — so advancement is an expressive choice, not an automatic drip.
+Capacity and discovery remain separate: earning a second charm slot does not
+grant the second charm.
 
 ## Economy
 
@@ -473,7 +549,7 @@ Two economies, kept strictly separate so the core loop is never gated.
 
 **Orbs** are a public attention-and-amplification currency, never a power source.
 
-Good Orb uses: server-paid Chat amplification (richer generation); cosmetic media jobs; entry to special public events; optional crafting/recharge convenience; covenant flourishes. Bad Orb uses: buying success after a failed roll; ignoring access gates; privately changing a resident; skipping item requirements; rewriting public event history; buying Visit Ledger marks or skill steps.
+Good Orb uses: server-paid Chat amplification (richer generation); cosmetic media jobs; entry to special public events; optional crafting/recharge convenience; covenant flourishes. Bad Orb uses: buying success after a failed roll; ignoring access gates; privately changing a resident; skipping item requirements; rewriting public event history; buying Visit Ledger marks or bracelet slots.
 
 No player is ever priced out of the core loop: **Listen, Help, bond, and travel always have a zero-Orb path.** Current Chat uses either a verified player payer or Orbs for server-paid generation; when Chat is unavailable, the primary action should route toward an earning or world action instead of a shop. A future free Chat tier may exist only if it preserves the same public-event, rate-limit, and anti-spam guarantees. Orbs make things *fancier*, never *possible*. Reward rules remain claim-key gated and idempotent (next section), so identical actions never mint unlimited Orbs.
 
@@ -532,6 +608,31 @@ CosyWorld defaults to a **provenance-preserving** stance — the cozy middle bet
 - **Gifting is free and first-class.** Handing a card to someone is a single signed `transfer`. The lineage records who gave it and when, forever.
 - **Trading exists but is world-bound.** A `swap` requires both parties present in the same room or covenant; it is co-signed (or escrowed through the authority) and atomic. Nothing is laundered — a trade *re-attributes* provenance, it never erases it.
 - **No anonymous secondary market.** Because every transfer is in-world, signed, and lineage-carrying, the design structurally resists cold speculation while keeping a real collection game.
+
+### Playable item cards
+
+Weapon, skill, and spell collection uses the same Item-card language as the
+rest of the world:
+
+- A **weapon card** is equipped or played to supply an authoritative Attack
+  profile.
+- A **skill-charm card** is worn on a bracelet. Its instance owns the skill id
+  and authored bonus; the wearer supplies the ability, situation, and action.
+- A **spell card** lives in a prepared spell deck and supplies one bounded
+  Magic effect. A later draw/discard profile may make the spell deck a literal
+  hand, but it can constrain only Magic choices, not ordinary SRD actions.
+
+“Play this card” always means submit its server-authored action offer. Card
+text, rarity, and browser state never apply an effect by themselves. Rarity
+describes provenance, discovery, art, or unusual applicability independently
+of the rules-power budget.
+
+Because these are world items, they can participate in authored gifting,
+trading, dropping, and theft. Theft is not an ownership shortcut: it is a risky
+server-resolved action that atomically changes authoritative possession and
+records a visible consequence. A charm's skill and bonus go with the successful
+transfer. Paid acquisition cannot mint slots, automatic success, or exclusive
+best-in-slot power; progression remains earned through play.
 
 ### Secret poems
 
@@ -635,13 +736,15 @@ Suggested new projection stores: `tags`, `clocks`, `bonds`, `callings`, `jobs`, 
 
 Clock and tag projection state in Rust; Moonlit Trail clocks; sanctuary/frontier zone flags on room sheets and clocks; `/state` exposure; all clock/tag changes server-authored. Follow-up: event-backed room memory.
 
-### Phase 2: Motivation Core
+### Phase 2: Motivation Core (landed foundation)
 
-Default Callings, first-class resident-gift Bonds, player-authored resident Bond slots, Bond revision/resolution, Visit Ledger accrual marks for Listen/Calling/Helped/bond/frontier-return, Visit Ledger banking into advancement points, Calling revision, Bond slot creation/revision for one banked point each, six starter skill steps, claim-key gating, and sanctuary/frontier `zone` flags are landed. Follow-ups: covenant contribution and additional banked advancement spending choices. This is the retention layer and should land before more verbs.
+Default Callings, first-class resident-gift Bonds, player-authored resident Bond slots, Bond revision/resolution, Visit Ledger marks for Search/Study/Calling/Helped/bond/frontier-return, Visit Ledger banking into advancement points, Calling revision, Bond slot creation/revision, claim-key gating, sanctuary/frontier zones, bracelet slots, equipped skill-charm bonuses, and the complete card-zone/materialization lifecycle are landed. Legacy avatar skill steps remain replay-compatible but are no longer the ordinary new progression path. Covenant contribution and additional advancement choices remain future breadth.
 
-### Phase 3: New Verbs (first slice landed)
+### Phase 3: Stable Verbs (landed foundation)
 
-Prepare, Rest, Work, and Help exist as projection actions for the Moonlit job loop. Follow-ups: risk/effect integration, bond effects, covenant clocks, and moving any verb into the C kernel only when it needs hard authority.
+Search, Study, Influence, Magic, Ready/Prepare, Utilize/Work, Help, Rest,
+Attack, Dodge, and Escape are bound to either the C kernel or a validated
+journaled reducer. Dash, Disengage, and Hide remain explicitly unsupported.
 
 ### Phase 4: Jobs And Fronts (job seed landed; front seed first slice landed)
 
@@ -651,9 +754,13 @@ Seed job schema/projection, Moonlit job resolution, player-turn Moonlit encounte
 
 Covenant sheets with boons/hooks/resources/reputation/loyalty; room sheets; covenant projects that spawn jobs and modify rooms; seasonal clock ticks.
 
-### Phase 6: Conflict Objectives And Progression Depth
+### Phase 6: Conflict Objectives And Item-Card Progression (landed foundation)
 
-Objective clocks in danger rooms; durability-absorbs-harm; nonlethal outcomes; skill step-up ladder; calling-milestone revisions.
+Objective clocks in danger rooms, nonlethal outcomes, container contents and
+size validation, equipped weapon profiles, executable bounded spell cards,
+authoritative materialization/theft/transfer, bracelet-slot progression,
+skill-charm equipment, and weight-based carrying capacity are landed.
+Durability/armor and broader Calling milestones remain possible future systems.
 
 ## Acceptance Criteria For New Rules
 
@@ -716,7 +823,7 @@ CosyWorld's mechanics are original writing, but their shapes were studied from a
 ### Cairn, 24XX, and Breathless
 
 - **License:** Cairn CC-BY-SA 4.0 (`sources/cairn`, reference-first); 24XX CC-BY 4.0 (`raw/24xx-srd.md`); Breathless CC-BY 4.0 (`raw/breathless-srd.md`).
-- **Taken:** **only roll when there is real risk** (keeps the sanctuary calm); step-down/step-up skill tracks (Breathless dice, 24XX advancement → the skill ladder); **gear breaks to absorb harm**; "if it costs less than a video game, the only cost is time" (→ progression earned not bought); short, legible risk rolls; "favor inclusion over realism" (KO continues play).
+- **Taken:** **only roll when there is real risk** (keeps the sanctuary calm); step-down/step-up inspiration reshaped into earned bracelet slots plus discoverable skill charms; **gear breaks to absorb harm**; "if it costs less than a video game, the only cost is time" (→ progression earned not bought); short, legible risk rolls; "favor inclusion over realism" (KO continues play).
 - **Left:** dense class progression; combat as the default solution.
 
 ### Ars Magica
@@ -725,11 +832,18 @@ CosyWorld's mechanics are original writing, but their shapes were studied from a
 - **Taken:** the **covenant as an owned, persistent home base** with its own sheet, reputation, and members (→ Covenants); seasonal cadence and long projects that advance across days or weeks (→ season clocks, covenant projects); the home as the stable center of play (→ Sanctuary).
 - **Left:** deep simulation that asks a player to manage a campaign workbook; magic-system depth.
 
-### 5e CC SRD 5.1
+### 5e CC SRD 5.1 and SRD 5.2.1
 
-- **License:** CC-BY 4.0 — `sources/cc-srd-5e`.
-- **Taken:** the six familiar stats internally behind a simpler interface; monster, condition, equipment, and spell ideas as conversion seeds where license allows.
-- **Left:** full class/subclass/spell-slot combat; turning the V2 kernel into a D&D engine.
+- **License:** CC-BY 4.0 — `sources/cc-srd-5e` and the separately
+  attributed `v2/content/rules-srd-5.2.1` pack.
+- **Current:** the six familiar stats and a bounded fifth-edition-compatible
+  kernel surface; condition, monster, equipment, and spell material otherwise
+  remains reference/conversion data.
+- **Target:** SRD 5.2.1 supplies stable action identities and supported
+  resolution semantics. Core and expansions reskin those actions; weapons,
+  skill charms, and spell cards supply collectible Item bindings.
+- **Left:** full class/subclass/spell-slot progression, tactical completeness,
+  and any claim that CosyWorld implements the entire Dungeons & Dragons game.
 
 ### Discovery indexes
 

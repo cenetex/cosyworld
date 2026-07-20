@@ -1,198 +1,67 @@
 # CosyWorld Documentation
 
-Welcome to the CosyWorld documentation. This comprehensive guide covers all aspects of the CosyWorld platform.
+CosyWorld V2 is the current product and runtime. Start with the documents below;
+older Node/Discord/X/Telegram service notes are retained as a legacy archive and
+do not define V2 behavior.
 
-> **This index documents the legacy Node/Discord/X/Telegram service (`src/`).** As of the current runtime, gameplay truth lives in `v2/` — see the root [`readme.md`](../readme.md) for the repository map, [`v2/README.md`](../v2/README.md) for the runtime guide, [`PRD.md`](../PRD.md) and [`docs/systems/09-cosyworld-rpg-system.md`](systems/09-cosyworld-rpg-system.md) for product vision and RPG design, and [`ECONOMY.md`](../ECONOMY.md) for the Orbs/NFT model. The sections below remain accurate for the legacy companion service, not for V2.
+## Product and design
 
-## 🚀 Quick Start
+- **[Product Requirements](../PRD.md)** — current product law, including the
+  card-composed world, seventh-visit priority, and acceptance criteria.
+- **[SRD-Backed Action and Collectible System](systems/04-action-system.md)** —
+  card zones, scene composition, action offers, skill charms, weapons, spells,
+  and rules/pack authority.
+- **[CosyWorld RPG System Bible](systems/09-cosyworld-rpg-system.md)** —
+  Callings, Bonds, Clocks, Jobs, Fronts, Covenants, the Visit Ledger, and
+  progression invariants.
+- **[Economy](../ECONOMY.md)** — Orbs, Boxes, packs, provenance, and the optional
+  NFT bridge.
+- **[AI](../AI.md)** — inference, payer modes, media, and the boundary between AI
+  proposals and authoritative world state.
 
-- **New to CosyWorld?** Start with the [Executive Summary](EXECUTIVE_SUMMARY.md)
-- **Want to deploy?** See [Production Deployment Guide](deployment/PRODUCTION_DEPLOYMENT.md)
-- **Developer?** Check [Technical Report](TECHNICAL_REPORT.md)
-- **Planning work?** Review [Prioritized Issues](PRIORITIZED_ISSUES.md)
+## Implementation and operations
 
----
+- **[Repository map](../readme.md)** and **[V2 runtime guide](../v2/README.md)**
+  — setup, commands, architecture, and local operation.
+- **[Engineering direction](../ENG.md)** and **[implementation audit](../GAP.md)**
+  — architecture priorities and known gaps. Treat dated implementation counts
+  in `GAP.md` as an audit snapshot, not product law.
+- **[Rules adapter](../v2/docs/rules-adapter.md)** — immutable reference imports,
+  the active `cosyworld.srd5/1` profile, and the resolver authority boundary.
+- **[Worldpacks](../v2/docs/worldpacks.md)** — pack compilation, composition,
+  validation, and inspection.
+- **[Action-pack authoring](../v2/docs/action-pack-authoring.md)** — reskins,
+  contextual offers, justified variants/extensions, and playable Item cards.
+- **[Deck-gated action spike](../v2/docs/deck-gated-action-spike.md)** — the
+  measured, non-shipping alternative to the default projection hand.
+- **[World simulation](../v2/docs/world-simulation.md)**,
+  **[combat](../v2/docs/combat-system.md)**, and
+  **[writing style](../v2/docs/writing-style.md)** — focused runtime contracts.
+- **[Deployment](deployment/07-deployment.md)** and
+  **[release process](release.md)** — operating and shipping the repository.
 
-## Overview
+## Groomed local backlogs
 
-CosyWorld is an AI-powered virtual world platform that enables autonomous agents to interact, create stories, and participate in an agentic economy.
+- **[SRD Action-Card Foundation](backlog/srd-action-card-foundation.md)** —
+  dependency-ordered work for rules-bound cards, authoritative zones, scene
+  composition, loadouts, and pack extensions.
+- **[Fiction Frontier](backlog/fiction-frontier.md)** — authored transcript
+  coverage, client-confirmed beat exposure, and prose-quality gates.
 
-**Version**: 0.0.11  
-**Status**: Beta (Production-ready with recommended improvements)  
-**Grade**: B+ (87/100)
+GitHub Issues are the live execution backlog. These local backlogs carry the
+long-form contracts and acceptance gates that do not fit cleanly in an issue.
 
----
+## Legacy service archive
 
-## 📚 Documentation Sections
+The following documents describe the original `src/` service or historical
+experiments. They are useful implementation history, but V2 code and the
+current PRD take precedence:
 
-### 📊 Engineering Analysis (New - October 2025)
+- [Legacy service overview](overview/01-introduction.md)
+- [Legacy system overview](overview/02-system-overview.md)
+- [Legacy service documentation](services/)
+- [Legacy event system](events/)
+- [Historical fixes](fixes/)
+- [X402 agentic economy report](X402_AGENTIC_ECONOMY_REPORT.md)
 
-- **[Executive Summary](EXECUTIVE_SUMMARY.md)** - Quick overview for decision makers
-  - Overall grade and metrics
-  - Key strengths and issues
-  - Production readiness assessment
-  - Timeline and next steps
-
-- **[Technical Report](TECHNICAL_REPORT.md)** - Comprehensive technical analysis
-  - Architecture deep-dive
-  - Service-by-service review
-  - Security and performance analysis
-  - Detailed recommendations
-  - ~15,000 words
-
-- **[Prioritized Issues](PRIORITIZED_ISSUES.md)** - Tracked technical debt and improvements
-  - 15 issues with priorities (P0 to P3)
-  - Code examples for fixes
-  - Effort estimates
-  - Sprint planning
-  - ~9,000 words
-
-- **[Documentation Update Summary](DOCUMENTATION_UPDATE_SUMMARY.md)** - What was analyzed and created
-
-### 🚀 Deployment
-
-- **[Production Deployment Guide](deployment/PRODUCTION_DEPLOYMENT.md)** - Complete deployment instructions
-  - Infrastructure setup
-  - Docker and Kubernetes
-  - Monitoring and observability
-  - Security hardening
-  - Backup and disaster recovery
-  - Incident runbook
-  - ~6,000 words
-
-### 🏗️ Architecture
-
-- **[Overview](overview/)** - Core concepts and system architecture
-- **[Systems](systems/)** - Platform systems (AI, story generation, combat)
-- **[V2 Data Layer](systems/08-v2-data-layer.md)** - Store-oriented persistence design with SQLite and MongoDB backends
-- **[CosyWorld RPG System Bible](systems/09-cosyworld-rpg-system.md)** - Kernel-first RPG design for shared rooms, clocks, tags, jobs, residents, and seasons
-- **[Services](services/)** - Service-level documentation
-
-### 🔧 Integration
-
-- **[Events](events/)** - Event system documentation
-- **[Fixes](fixes/)** - Important fixes and updates
-
-### 💰 Economy
-
-- **[X402 Agentic Economy Report](X402_AGENTIC_ECONOMY_REPORT.md)** - Detailed economic analysis (1,432 lines)
-
----
-
-## 🎯 Quick Navigation by Role
-
-### For Engineering Managers
-1. Read [Executive Summary](EXECUTIVE_SUMMARY.md) (5 min)
-2. Review [Prioritized Issues](PRIORITIZED_ISSUES.md) for sprint planning
-3. Check [Production Deployment Guide](deployment/PRODUCTION_DEPLOYMENT.md) for infrastructure needs
-
-### For Developers
-1. Start with [Technical Report](TECHNICAL_REPORT.md) for architecture understanding
-2. Reference [Prioritized Issues](PRIORITIZED_ISSUES.md) for code fixes
-3. Use service docs in `services/` for specific implementations
-
-### For DevOps Engineers
-1. Go straight to [Production Deployment Guide](deployment/PRODUCTION_DEPLOYMENT.md)
-2. Review monitoring section in [Technical Report](TECHNICAL_REPORT.md)
-3. Check security hardening recommendations
-
-### For Product Managers
-1. Read [Executive Summary](EXECUTIVE_SUMMARY.md)
-2. Review production readiness timeline
-3. Check [X402 Agentic Economy Report](X402_AGENTIC_ECONOMY_REPORT.md) for business model
-
----
-
-## 📈 Platform Status
-
-### Strengths ✅
-- Excellent service-oriented architecture
-- 300+ AI models with intelligent fallbacks
-- Production-ready platform integrations (Discord, X, Telegram)
-- Strong security foundation (AES-256-GCM)
-- Comprehensive documentation
-
-### Areas for Improvement ⚠️
-- Refactor large service files (CombatEncounterService: 3083 lines)
-- Add API documentation (OpenAPI/Swagger)
-- Implement caching layer (Redis)
-- Standardize error handling
-- Add monitoring and observability
-
-### Critical Issues 🔴
-- Fix missing circuitBreaker.mjs (1 hour)
-- Enforce strong encryption keys (2 hours)
-
-**Estimated Time to Production-Ready**: 6-9 weeks
-
----
-
-## 🛠️ Getting Started
-
-### For Local Development
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Run tests
-npm test
-
-# Build for production
-npm run build
-```
-
-See the main [README.md](../readme.md) for detailed setup instructions.
-
-### For Production Deployment
-See [Production Deployment Guide](deployment/PRODUCTION_DEPLOYMENT.md)
-
----
-
-## 📊 Documentation Statistics
-
-| Document | Size | Status |
-|----------|------|--------|
-| Executive Summary | ~3,500 words | ✅ Complete |
-| Technical Report | ~15,000 words | ✅ Complete |
-| Prioritized Issues | ~9,000 words | ✅ Complete |
-| Deployment Guide | ~6,000 words | ✅ Complete |
-| X402 Economy Report | 1,432 lines | ✅ Complete |
-| **Total New Docs** | **~33,500 words** | **✅ Complete** |
-
----
-
-## 🔄 Recent Updates
-
-**October 27, 2025**:
-- ✅ Complete repository analysis performed
-- ✅ Technical report generated with architecture review
-- ✅ 15 prioritized issues identified and documented
-- ✅ Production deployment guide created
-- ✅ Security and performance analysis completed
-- ✅ Test coverage analysis performed (268 tests)
-- ✅ Documentation gaps filled
-
----
-
-## 🤝 Contributing
-
-Before contributing, please review:
-1. [Technical Report](TECHNICAL_REPORT.md) - Understand the architecture
-2. [Prioritized Issues](PRIORITIZED_ISSUES.md) - See tracked work
-3. Main [README.md](../readme.md) - Setup and development workflow
-
----
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/cenetex/cosyworld/issues)
-- **Documentation**: This directory
-- **Pull Request**: See [Prioritized Issues](PRIORITIZED_ISSUES.md) for needed improvements
-
----
-
-*Last Updated: October 27, 2025*  
-*Next Review: After Sprint 1 (Critical fixes)*
+Last reviewed: 2026-07-19.

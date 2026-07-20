@@ -15,12 +15,18 @@ const rubyManifest = read("v2/content/ruby-high-first-bell/pack.json");
 
 describe("Ruby High: First Bell peer pack", () => {
   it("boots as a standalone world with its own rules context and no mounted Core pack", () => {
-    expect(rubyOnly.manifest.packs.map((pack) => pack.id)).toEqual(["ruby-high.first-bell"]);
+    expect(rubyOnly.manifest.packs.map((pack) => pack.id)).toEqual([
+      "cosyworld.rules-srd-5.2.1",
+      "cosyworld.rules-profile-srd5",
+      "ruby-high.first-bell",
+    ]);
+    expect(rubyOnly.manifest.rules_profile).toBe("cosyworld.srd5/1");
     expect(rubyOnly.manifest.entry_location).toBe("ruby-high.first-bell:location/11");
     expect(rubyOnly.manifest.entry_grant_id).toBe("ruby-high.first-bell:location-homeroom");
-    expect(rubyOnly.manifest.packs[0].kind).toBe("world");
-    expect(rubyOnly.manifest.packs[0].default_ruleset).toBe("ruby-high.first-bell/rules");
-    expect(rubyOnly.manifest.packs[0].extensions["x-cosyworld-rules-context"].vocabulary.actions)
+    const rubyPack = rubyOnly.manifest.packs.find((pack) => pack.id === "ruby-high.first-bell");
+    expect(rubyPack.kind).toBe("world");
+    expect(rubyPack.default_ruleset).toBe("ruby-high.first-bell/rules");
+    expect(rubyPack.extensions["x-cosyworld-rules-context"].vocabulary.actions)
       .toEqual(["study", "test", "revise", "attend"]);
     expect(rubyOnly.resources.locations).toHaveLength(6);
     expect(rubyOnly.resources.room_sheets).toHaveLength(6);
@@ -35,12 +41,19 @@ describe("Ruby High: First Bell peer pack", () => {
   });
 
   it("declares Core as optional and activates only its Core-facing bridges and facets when mounted", () => {
-    expect(rubyManifest.dependencies).toEqual([{
-      id: "cosyworld.core",
-      version: ">=1.3.0 <2.0.0",
-      capabilities: ["cosyworld.core/world"],
-      optional: true,
-    }]);
+    expect(rubyManifest.dependencies).toEqual([
+      {
+        id: "cosyworld.core",
+        version: ">=1.3.0 <2.0.0",
+        capabilities: ["cosyworld.core/world"],
+        optional: true,
+      },
+      {
+        id: "cosyworld.rules-profile-srd5",
+        version: ">=1.0.0 <2.0.0",
+        capabilities: ["cosyworld.rules-profile-srd5/rules"],
+      },
+    ]);
     expect(official.resources.exits.filter((exit) => exit.pack_id === "ruby-high.first-bell")).toHaveLength(24);
     expect(official.resources.actor_facets).toEqual([expect.objectContaining({
       pack_id: "ruby-high.first-bell",

@@ -24,8 +24,10 @@ pub(super) struct SeedContent {
     pub(super) evolution_tracks: Vec<SeedEvolutionTrack>,
     pub(super) recipes: Vec<SeedRecipeContent>,
     pub(super) rules: Vec<SeedRuleBundle>,
+    pub(super) contributions: Vec<SeedContributionBundle>,
     pub(super) attributions: Vec<SeedAttribution>,
     pub(super) licenses: Vec<SeedLicenseRecord>,
+    pub(super) modified_material: Vec<SeedModifiedMaterial>,
     pub(super) character_creation: Vec<SeedCharacterCreationBundle>,
     pub(super) external_cards: Vec<ExternalCardSpec>,
     pub(super) asset_mounts: Vec<SeedAssetMount>,
@@ -65,6 +67,12 @@ pub(super) struct SeedWorldpackManifest {
     #[serde(default)]
     pub(super) bundle_hash: String,
     #[serde(default)]
+    pub(super) rules_profile: String,
+    #[serde(default)]
+    pub(super) active_rules_variants: Vec<String>,
+    #[serde(default)]
+    pub(super) active_rules_extensions: Vec<String>,
+    #[serde(default)]
     pub(super) persistence_compatibility: SeedPersistenceCompatibility,
     #[serde(default)]
     pub(super) packs: Vec<SeedWorldpackPack>,
@@ -74,6 +82,10 @@ pub(super) struct SeedWorldpackManifest {
     pub(super) content_references: String,
     #[serde(default)]
     pub(super) licenses: String,
+    #[serde(default)]
+    pub(super) contributions: String,
+    #[serde(default)]
+    pub(super) modified_material: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -120,6 +132,8 @@ pub(super) struct SeedWorldpackPack {
     pub(super) rules_adapter: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) rules_namespace: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) rules_profile: Option<String>,
     #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
     pub(super) extensions: serde_json::Value,
 }
@@ -208,12 +222,212 @@ pub(super) struct SeedRuleBundle {
     pub(super) resources: SeedRuleResources,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(super) struct SeedContributionBundle {
+    pub(super) pack_id: String,
+    pub(super) pack_version: String,
+    pub(super) rules_profile: String,
+    #[serde(default)]
+    pub(super) reskins: Vec<SeedActionReskin>,
+    #[serde(default)]
+    pub(super) offers: Vec<SeedContextualActionOffer>,
+    #[serde(default)]
+    pub(super) variants: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub(super) extensions: Vec<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(super) struct SeedActionReskin {
+    pub(super) id: String,
+    pub(super) based_on: String,
+    pub(super) label: String,
+    #[serde(default)]
+    pub(super) description: String,
+    pub(super) scope: SeedContributionSubject,
+    pub(super) compatibility: String,
+    pub(super) source_reference: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(super) struct SeedContextualActionOffer {
+    pub(super) id: String,
+    pub(super) based_on: String,
+    pub(super) subject: SeedContributionSubject,
+    pub(super) context: serde_json::Value,
+    pub(super) label: String,
+    pub(super) target_predicate: String,
+    pub(super) source_reference: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(super) struct SeedContributionSubject {
+    #[serde(alias = "subject_kind")]
+    pub(super) kind: String,
+    #[serde(alias = "subject_id")]
+    pub(super) id: u64,
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(super) struct SeedRuleResources {
     #[serde(default)]
     pub(super) conditions: Vec<SeedRuleCondition>,
     #[serde(default)]
     pub(super) monster_seeds: Vec<SeedRuleMonsterSeed>,
+    #[serde(default)]
+    pub(super) profiles: Vec<SeedRulesProfile>,
+    #[serde(default)]
+    pub(super) actions: Vec<SeedRulesAction>,
+    #[serde(default)]
+    pub(super) operations: Vec<SeedRulesOperation>,
+    #[serde(default)]
+    pub(super) legacy_bindings: Vec<SeedLegacyBinding>,
+    #[serde(default)]
+    pub(super) abilities: Vec<SeedRulesAbility>,
+    #[serde(default)]
+    pub(super) skills: Vec<SeedRulesSkill>,
+    #[serde(default)]
+    pub(super) item_roles: Vec<SeedRulesItemRole>,
+    #[serde(default)]
+    pub(super) equipment_profiles: Vec<SeedEquipmentProfile>,
+    #[serde(default)]
+    pub(super) magic_effects: Vec<SeedMagicEffect>,
+    #[serde(default)]
+    pub(super) conformance: Vec<SeedRulesConformance>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedRulesProfile {
+    pub(super) id: String,
+    pub(super) source_document: String,
+    pub(super) source_version: String,
+    pub(super) source_pack: String,
+    pub(super) license: String,
+    pub(super) compatibility_claim: String,
+    #[serde(default)]
+    pub(super) excluded_systems: Vec<String>,
+    #[serde(default)]
+    pub(super) cosyworld_deltas: Vec<String>,
+    pub(super) source_reference: String,
+    pub(super) import_transform: String,
+    pub(super) modified: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(super) struct SeedRulesAction {
+    pub(super) id: String,
+    pub(super) namespace: String,
+    pub(super) domain: String,
+    pub(super) label: String,
+    pub(super) source_reference: String,
+    pub(super) support_status: String,
+    pub(super) resolver_kind: String,
+    #[serde(default)]
+    pub(super) aliases: Vec<String>,
+    pub(super) cosyworld_delta: String,
+    pub(super) modified: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedRulesConformance {
+    pub(super) action_id: String,
+    pub(super) support_status: String,
+    pub(super) resolver_kind: String,
+    pub(super) safe_behavior: String,
+    pub(super) risky_behavior: String,
+    #[serde(default)]
+    pub(super) legal_targets: Vec<String>,
+    #[serde(default)]
+    pub(super) event_outputs: Vec<String>,
+    pub(super) cosyworld_delta: String,
+    #[serde(default)]
+    pub(super) replay_fixture: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedModifiedMaterial {
+    pub(super) pack_id: String,
+    pub(super) rules_profile: String,
+    pub(super) resource_type: String,
+    pub(super) id: String,
+    pub(super) source_document: String,
+    pub(super) source_version: String,
+    pub(super) source_pack: String,
+    pub(super) source_reference: String,
+    pub(super) license: String,
+    pub(super) attribution_pack: String,
+    pub(super) import_transform: String,
+    pub(super) modification_status: String,
+    #[serde(default)]
+    pub(super) changes: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedRulesOperation {
+    pub(super) id: String,
+    pub(super) domain: String,
+    pub(super) label: String,
+    #[serde(default)]
+    pub(super) aliases: Vec<String>,
+    pub(super) resolver_kind: String,
+    pub(super) source_reference: String,
+    pub(super) modified: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedLegacyBinding {
+    pub(super) legacy_kind: String,
+    pub(super) binding_kind: String,
+    pub(super) binding_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedRulesAbility {
+    pub(super) id: String,
+    pub(super) label: String,
+    pub(super) source_reference: String,
+    pub(super) modified: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedRulesSkill {
+    pub(super) id: String,
+    pub(super) label: String,
+    pub(super) ability: String,
+    pub(super) source_reference: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedRulesItemRole {
+    pub(super) id: String,
+    pub(super) resolver_kind: String,
+    pub(super) transfer_policy: String,
+    pub(super) theft_policy: String,
+    pub(super) mechanical_descriptor_required: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedEquipmentProfile {
+    pub(super) id: String,
+    pub(super) slot_kind: String,
+    pub(super) base_slots: u8,
+    pub(super) maximum_slots: u8,
+    pub(super) unlock: String,
+    pub(super) source_reference: String,
+    pub(super) modified: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedMagicEffect {
+    pub(super) id: String,
+    pub(super) rules_action: String,
+    pub(super) resolver_kind: String,
+    pub(super) target_predicate: String,
+    pub(super) effect: serde_json::Value,
+    pub(super) uses: u8,
+    pub(super) recovery: String,
+    pub(super) source_reference: String,
+    pub(super) modified: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -470,6 +684,44 @@ pub(super) struct SeedItemContent {
     pub(super) kind: String,
     pub(super) charges: u8,
     pub(super) location_id: u64,
+    #[serde(default = "default_seed_item_role")]
+    pub(super) role: String,
+    #[serde(default = "default_seed_item_weight_tenths")]
+    pub(super) weight_tenths: u16,
+    #[serde(default = "default_seed_item_size")]
+    pub(super) size: String,
+    #[serde(default)]
+    pub(super) container_capacity_tenths: u16,
+    #[serde(default)]
+    pub(super) skill_id: Option<String>,
+    #[serde(default)]
+    pub(super) skill_bonus: i8,
+    #[serde(default)]
+    pub(super) mechanics: Option<SeedPlayableItemMechanics>,
+    #[serde(default)]
+    pub(super) container_opening_size: Option<String>,
+    #[serde(default)]
+    pub(super) allowed_contents: Vec<String>,
+    #[serde(default)]
+    pub(super) access_cost: Option<String>,
+    #[serde(default)]
+    pub(super) nested_containers: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(super) struct SeedPlayableItemMechanics {
+    pub(super) binding: String,
+    pub(super) equipment_profile: String,
+    pub(super) target_predicate: String,
+    pub(super) resolver: String,
+    pub(super) effect_budget: serde_json::Value,
+    pub(super) uses: u8,
+    pub(super) exhaustion: String,
+    pub(super) recovery: String,
+    pub(super) transfer_policy: String,
+    pub(super) theft_policy: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) magic_effect: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -748,14 +1000,39 @@ pub(super) fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> R
         {
             return Err(format!("invalid or duplicate worldpack pack {}", pack.id));
         }
-        if pack.kind == "rules"
-            && (pack.rules_adapter.as_deref() != Some("cosyworld.rules/1")
-                || pack
-                    .rules_namespace
-                    .as_deref()
-                    .is_none_or(|namespace| namespace.trim().is_empty()))
+        if pack.kind == "rules" {
+            if !matches!(
+                pack.rules_adapter.as_deref(),
+                Some("cosyworld.rules/1" | "cosyworld.rules/2")
+            ) || pack
+                .rules_namespace
+                .as_deref()
+                .is_none_or(|namespace| namespace.trim().is_empty())
+            {
+                return Err(format!("invalid rules pack metadata for {}", pack.id));
+            }
+            if pack.rules_adapter.as_deref() == Some("cosyworld.rules/2") {
+                if manifest.rules_profile.is_empty()
+                    || pack.rules_profile.as_deref() != Some(manifest.rules_profile.as_str())
+                {
+                    return Err(format!(
+                        "rules profile pack {} does not provide {}",
+                        pack.id, manifest.rules_profile
+                    ));
+                }
+            } else if pack.rules_profile.is_some() {
+                return Err(format!(
+                    "reference rules pack {} cannot activate a rules profile",
+                    pack.id
+                ));
+            }
+        } else if !manifest.rules_profile.is_empty()
+            && pack.rules_profile.as_deref() != Some(manifest.rules_profile.as_str())
         {
-            return Err(format!("invalid rules pack metadata for {}", pack.id));
+            return Err(format!(
+                "pack {} does not target active rules profile {}",
+                pack.id, manifest.rules_profile
+            ));
         }
     }
     if manifest.registry != "registry.json"
@@ -795,6 +1072,272 @@ pub(super) fn valid_sha256_digest(value: &str) -> bool {
                 .chars()
                 .all(|character| character.is_ascii_digit() || ('a'..='f').contains(&character))
     })
+}
+
+fn validate_seed_rules_profile(bundle: &SeedRuleBundle) -> Result<(), String> {
+    let resources = &bundle.resources;
+    let profile = resources
+        .profiles
+        .first()
+        .ok_or_else(|| format!("rules/2 bundle {} has no profile", bundle.pack_id))?;
+    if profile.id != "cosyworld.srd5/1"
+        || profile.source_document != "System Reference Document 5.2.1"
+        || profile.source_version != "5.2.1"
+        || profile.source_pack != "cosyworld.rules-srd-5.2.1"
+        || profile.license != "CC-BY-4.0"
+        || profile.compatibility_claim != "bounded_profile"
+        || profile.excluded_systems.is_empty()
+        || profile.cosyworld_deltas.is_empty()
+        || profile.source_reference.trim().is_empty()
+        || profile.import_transform.trim().is_empty()
+        || !profile.modified
+    {
+        return Err(format!("invalid rules profile {}", profile.id));
+    }
+
+    let required_actions = BTreeSet::from([
+        "srd5.2.1:attack",
+        "srd5.2.1:dash",
+        "srd5.2.1:disengage",
+        "srd5.2.1:dodge",
+        "srd5.2.1:help",
+        "srd5.2.1:hide",
+        "srd5.2.1:influence",
+        "srd5.2.1:magic",
+        "srd5.2.1:ready",
+        "srd5.2.1:search",
+        "srd5.2.1:study",
+        "srd5.2.1:utilize",
+    ]);
+    let mut action_ids = BTreeSet::new();
+    for action in &resources.actions {
+        let supported = matches!(action.support_status.as_str(), "kernel" | "projection");
+        if !required_actions.contains(action.id.as_str())
+            || action.namespace != "srd5.2.1"
+            || action.domain != "rules_action"
+            || action.label.trim().is_empty()
+            || action.source_reference.trim().is_empty()
+            || action.aliases.is_empty()
+            || action.aliases.iter().any(|alias| alias.trim().is_empty())
+            || !matches!(
+                action.support_status.as_str(),
+                "kernel" | "projection" | "unsupported"
+            )
+            || (supported && action.resolver_kind == "none")
+            || (!supported && action.resolver_kind != "none")
+            || action.cosyworld_delta.trim().is_empty()
+            || !action.modified
+            || !action_ids.insert(action.id.as_str())
+        {
+            return Err(format!("invalid rules action {}", action.id));
+        }
+    }
+    if action_ids != required_actions {
+        return Err("rules profile does not declare exactly twelve SRD actions".to_string());
+    }
+
+    let mut conformance_ids = BTreeSet::new();
+    for row in &resources.conformance {
+        let Some(action) = resources
+            .actions
+            .iter()
+            .find(|action| action.id == row.action_id)
+        else {
+            return Err(format!(
+                "conformance references unknown action {}",
+                row.action_id
+            ));
+        };
+        if row.support_status != action.support_status
+            || row.resolver_kind != action.resolver_kind
+            || row.safe_behavior.trim().is_empty()
+            || row.risky_behavior.trim().is_empty()
+            || row.cosyworld_delta.trim().is_empty()
+            || (action.support_status != "unsupported"
+                && row
+                    .replay_fixture
+                    .as_deref()
+                    .is_none_or(|fixture| fixture.trim().is_empty()))
+            || !conformance_ids.insert(row.action_id.as_str())
+        {
+            return Err(format!("invalid conformance for {}", row.action_id));
+        }
+        let _ = (&row.legal_targets, &row.event_outputs);
+    }
+    if conformance_ids != action_ids {
+        return Err("rules conformance does not cover exactly twelve SRD actions".to_string());
+    }
+
+    let mut operation_ids = BTreeSet::new();
+    for operation in &resources.operations {
+        if !operation.id.starts_with("cosyworld.operation/")
+            || !matches!(
+                operation.domain.as_str(),
+                "movement"
+                    | "communication"
+                    | "object_transfer"
+                    | "procedure"
+                    | "cosy_advancement"
+                    | "interface_meta"
+            )
+            || operation.label.trim().is_empty()
+            || operation.aliases.is_empty()
+            || operation.resolver_kind.trim().is_empty()
+            || operation.source_reference.trim().is_empty()
+            || !operation.modified
+            || !operation_ids.insert(operation.id.as_str())
+        {
+            return Err(format!("invalid rules operation {}", operation.id));
+        }
+    }
+
+    let mut ability_ids = BTreeSet::new();
+    for ability in &resources.abilities {
+        if ability.label.trim().is_empty()
+            || ability.source_reference.trim().is_empty()
+            || ability.modified
+            || !ability_ids.insert(ability.id.as_str())
+        {
+            return Err(format!("invalid rules ability {}", ability.id));
+        }
+    }
+    if ability_ids
+        != BTreeSet::from([
+            "strength",
+            "dexterity",
+            "constitution",
+            "intelligence",
+            "wisdom",
+            "charisma",
+        ])
+    {
+        return Err("rules profile must declare the six abilities".to_string());
+    }
+
+    let mut skill_ids = BTreeSet::new();
+    for skill in &resources.skills {
+        if skill.label.trim().is_empty()
+            || skill.source_reference.trim().is_empty()
+            || !ability_ids.contains(skill.ability.as_str())
+            || !skill_ids.insert(skill.id.as_str())
+        {
+            return Err(format!("invalid rules skill {}", skill.id));
+        }
+    }
+    if skill_ids.len() != 18 {
+        return Err("rules profile must declare eighteen skills".to_string());
+    }
+
+    let mut role_ids = BTreeSet::new();
+    for role in &resources.item_roles {
+        if role.resolver_kind.trim().is_empty()
+            || role.transfer_policy.trim().is_empty()
+            || role.theft_policy.trim().is_empty()
+            || !role_ids.insert(role.id.as_str())
+        {
+            return Err(format!("invalid rules item role {}", role.id));
+        }
+        let _ = role.mechanical_descriptor_required;
+    }
+    if role_ids
+        != BTreeSet::from([
+            "generic",
+            "consumable",
+            "weapon",
+            "skill_charm",
+            "spell",
+            "container",
+            "tool",
+            "relic",
+        ])
+    {
+        return Err("rules profile has an incomplete playable-item role registry".to_string());
+    }
+
+    let mut equipment_ids = BTreeSet::new();
+    for equipment in &resources.equipment_profiles {
+        if equipment.slot_kind.trim().is_empty()
+            || equipment.base_slots == 0
+            || equipment.maximum_slots < equipment.base_slots
+            || equipment.unlock.trim().is_empty()
+            || equipment.source_reference.trim().is_empty()
+            || !equipment.modified
+            || !equipment_ids.insert(equipment.id.as_str())
+        {
+            return Err(format!("invalid equipment profile {}", equipment.id));
+        }
+    }
+
+    let mut magic_effect_ids = BTreeSet::new();
+    for effect in &resources.magic_effects {
+        if effect.rules_action != "srd5.2.1:magic"
+            || effect.resolver_kind != "bounded_magic_v1"
+            || effect.target_predicate.trim().is_empty()
+            || !effect.effect.is_object()
+            || effect.uses == 0
+            || effect.recovery.trim().is_empty()
+            || effect.source_reference.trim().is_empty()
+            || !effect.modified
+            || !magic_effect_ids.insert(effect.id.as_str())
+        {
+            return Err(format!("invalid magic effect {}", effect.id));
+        }
+    }
+
+    let mut legacy_kinds = BTreeSet::new();
+    for binding in &resources.legacy_bindings {
+        if !matches!(
+            binding.binding_kind.as_str(),
+            "rules_action" | "operation" | "contextual"
+        ) || binding.binding_id.split('|').any(|target| {
+            if binding.binding_kind == "operation" {
+                !operation_ids.contains(target)
+            } else {
+                !action_ids.contains(target)
+            }
+        }) || !legacy_kinds.insert(binding.legacy_kind.as_str())
+        {
+            return Err(format!(
+                "invalid legacy action binding {}",
+                binding.legacy_kind
+            ));
+        }
+    }
+    for required_kind in [
+        "attack",
+        "bank_ledger",
+        "chat",
+        "check",
+        "craft",
+        "create_avatar",
+        "create_bond",
+        "defend",
+        "flee",
+        "give_item",
+        "help",
+        "move",
+        "pick_up",
+        "prepare",
+        "resolve_bond",
+        "rest",
+        "search",
+        "study",
+        "influence",
+        "cast_spell",
+        "trade_item",
+        "unlock_charm_slot",
+        "use_feature",
+        "use_item",
+        "wait",
+        "work",
+    ] {
+        if !legacy_kinds.contains(required_kind) {
+            return Err(format!(
+                "active rules profile has no binding for runtime offer kind {required_kind}"
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
@@ -1002,6 +1545,7 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
     }
     let mut rules_pack_ids = BTreeSet::new();
     let mut rules_namespaces = BTreeSet::new();
+    let mut active_rules_profile_bundle = None;
     for bundle in &content.rules {
         let Some(pack) = packs_by_id.get(bundle.pack_id.as_str()) else {
             return Err(format!(
@@ -1011,13 +1555,33 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
         };
         if pack.kind != "rules"
             || bundle.pack_version != pack.version
-            || bundle.adapter != "cosyworld.rules/1"
+            || !matches!(
+                bundle.adapter.as_str(),
+                "cosyworld.rules/1" | "cosyworld.rules/2"
+            )
             || pack.rules_adapter.as_deref() != Some(bundle.adapter.as_str())
             || pack.rules_namespace.as_deref() != Some(bundle.namespace.as_str())
             || !rules_pack_ids.insert(bundle.pack_id.as_str())
             || !rules_namespaces.insert(bundle.namespace.as_str())
         {
             return Err(format!("invalid rules bundle {}", bundle.pack_id));
+        }
+
+        if bundle.adapter == "cosyworld.rules/2" {
+            if pack.rules_profile.as_deref() != Some(content.manifest.rules_profile.as_str())
+                || bundle.resources.profiles.len() != 1
+                || bundle.resources.profiles[0].id != content.manifest.rules_profile
+                || active_rules_profile_bundle
+                    .replace(bundle.pack_id.as_str())
+                    .is_some()
+            {
+                return Err(format!(
+                    "invalid or duplicate active rules profile bundle {}",
+                    bundle.pack_id
+                ));
+            }
+            validate_seed_rules_profile(bundle)?;
+            continue;
         }
 
         let mut condition_ids = BTreeSet::new();
@@ -1084,6 +1648,102 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             }
             let _ = (&monster.senses, &monster.mapping.suggested_role);
         }
+    }
+    if !content.manifest.rules_profile.is_empty() && active_rules_profile_bundle.is_none() {
+        return Err(format!(
+            "no rules bundle provides active profile {}",
+            content.manifest.rules_profile
+        ));
+    }
+    let action_ids = content
+        .rules
+        .iter()
+        .find(|bundle| bundle.adapter == "cosyworld.rules/2")
+        .map(|bundle| {
+            bundle
+                .resources
+                .actions
+                .iter()
+                .map(|action| action.id.as_str())
+                .collect::<BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    let mut contribution_ids = BTreeSet::new();
+    let mut compiled_variants = Vec::new();
+    let mut compiled_extensions = Vec::new();
+    for bundle in &content.contributions {
+        let Some(pack) = packs_by_id.get(bundle.pack_id.as_str()) else {
+            return Err(format!(
+                "contribution bundle {} references an unknown pack",
+                bundle.pack_id
+            ));
+        };
+        if pack.kind == "rules"
+            || bundle.pack_version != pack.version
+            || bundle.rules_profile != content.manifest.rules_profile
+        {
+            return Err(format!("invalid contribution bundle {}", bundle.pack_id));
+        }
+        for reskin in &bundle.reskins {
+            if !reskin.id.starts_with(&format!("{}:", bundle.pack_id))
+                || !action_ids.contains(reskin.based_on.as_str())
+                || reskin.label.trim().is_empty()
+                || reskin.compatibility != content.manifest.rules_profile
+                || reskin.source_reference.trim().is_empty()
+                || !matches!(
+                    reskin.scope.kind.as_str(),
+                    "location" | "feature" | "actor" | "item" | "project"
+                )
+                || reskin.scope.id == 0
+                || !contribution_ids.insert(reskin.id.as_str())
+            {
+                return Err(format!("invalid action reskin {}", reskin.id));
+            }
+        }
+        for offer in &bundle.offers {
+            if !offer.id.starts_with(&format!("{}:", bundle.pack_id))
+                || !action_ids.contains(offer.based_on.as_str())
+                || offer.label.trim().is_empty()
+                || offer.target_predicate.trim().is_empty()
+                || !offer.context.is_object()
+                || !matches!(
+                    offer.subject.kind.as_str(),
+                    "location" | "feature" | "actor" | "item" | "project"
+                )
+                || offer.subject.id == 0
+                || offer.source_reference.trim().is_empty()
+                || !contribution_ids.insert(offer.id.as_str())
+            {
+                return Err(format!("invalid contextual action offer {}", offer.id));
+            }
+        }
+        for variant in &bundle.variants {
+            let id = variant
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            if id.is_empty() || !contribution_ids.insert(id) {
+                return Err(format!("invalid or duplicate rules variant {id}"));
+            }
+            compiled_variants.push(id.to_string());
+        }
+        for extension in &bundle.extensions {
+            let id = extension
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            if id.is_empty() || !contribution_ids.insert(id) {
+                return Err(format!("invalid or duplicate rules extension {id}"));
+            }
+            compiled_extensions.push(id.to_string());
+        }
+    }
+    compiled_variants.sort();
+    compiled_extensions.sort();
+    if compiled_variants != content.manifest.active_rules_variants
+        || compiled_extensions != content.manifest.active_rules_extensions
+    {
+        return Err("compiled rules contribution identity is stale".to_string());
     }
     for pack in content
         .manifest

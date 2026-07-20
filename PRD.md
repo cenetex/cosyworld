@@ -1,10 +1,11 @@
 # CosyWorld Product Requirements
 
-Last major revision: 2026-07-02. This document replaces the CosyWorld 2.0 PRD, which was written for the original one-room, Chat-only MVP and survived as a stack of amendments. The world it described has shipped and grown past it; this document sets direction from where the product actually is — including the turn system, resident autonomy, and the one-slot world adopted this week.
+Last major revision: 2026-07-19. This document replaces the CosyWorld 2.0 PRD, which was written for the original one-room, Chat-only MVP and survived as a stack of amendments. The world it described has shipped and grown past it; this document sets direction from where the product actually is — including the turn system, resident autonomy, and the card-composed world.
 
 Companion documents:
 
 - `docs/systems/09-cosyworld-rpg-system.md` (the RPG Bible) — authoritative mechanics design: Callings, Bonds, Clocks, Jobs, Fronts, Covenants, the Visit Ledger, ownership, and poems. This PRD does not restate it.
+- `docs/systems/04-action-system.md` — authoritative target for card zones, deterministic scene composition, rules-bound offers, loadouts, and pack extensions.
 - `ENG.md` — architecture and engineering priorities.
 - `ECONOMY.md` — Orbs, Boxes, packs, and the NFT bridge in detail.
 - `AI.md` — AI gateway, payer modes, media pipeline, and combat design in detail.
@@ -20,7 +21,7 @@ The product should feel like living in a small fantasy world that remembers you 
 
 CosyWorld V2 is a playable, production-deployable game, live-tested with simultaneous human and agent players:
 
-- 28 locations across CosyWorld Core (free) and the Ruby High: First Bell expansion (card-gated), with 71 cards and complete room sheets, validated by a content gate.
+- CosyWorld Core (free) and the Ruby High: First Bell expansion (card-gated), with compiled cards and complete room sheets validated by the content gate. Release counts are generated from the compiled worldpack rather than maintained in this prose.
 - The full verb surface: Chat (server-authored avatar speech), moderated typed `say` and `/me`, Listen, Travel, Take, Drop, Give, Use, Trade, Prepare, Rest, Work, Help, Attack, Defend, Flee, plus Calling/Bond/skill/growth actions.
 - The card-hand control surface: dealt action cards with art and labels, a detail/confirm surface, and shuffle — play feels like turns, not clicking.
 - Room turn-taking for co-present humans, with ping/pong pacing: waiting players can ping the current player; unresponsive players are skipped, not waited on.
@@ -40,7 +41,7 @@ Every feature must serve at least one of these; a feature that serves none does 
 2. **Cozy by guarantee, stakes by consent.** The home and sanctuary rooms never decay, never see combat, and never advance while nobody is playing. Danger, player-powered clocks, and loss exist only on the frontier — where the player chose to walk.
 3. **The world runs on played time.** World time advances only through committed player turns — never on a wall clock. A quiet world is still, not rotting; a busy world is alive because people are in it. "The world moved while you were away" is always true in a populated shard, and it always means other players moved it.
 4. **Identity through play.** A player should be able to say "I am the kind soul who ___, my home is ___, and I am slowly ___" after ten minutes. Callings, Bonds, and the Journal make that sentence mechanical and publicly remembered.
-5. **One meaningful hand.** The resting UI is a dealt hand of at most three labeled action cards plus shuffle — one surface, server-derived, each card showing its target, cost, and risk before commit. Playing a card is a turn. Speech (`say`, `/me`) is always available and never consumes a turn. No dashboards, no permanent composer, no navigation chrome.
+5. **One meaningful action hand.** The resting UI is a dealt hand of at most three labeled action cards plus shuffle — one surface, server-derived from the player's cards, location cards, visible world state, and base rules. Each card shows its target, cost, and risk before commit. Playing a card is a turn. Speech (`say`, `/me`) is always available and never consumes a turn. The small action hand is a focus mechanism, not an inventory limit.
 6. **AI is a world actor, not the product.** AI proposes narration, resident speech, and media; the kernel decides truth. Core world actions remain playable without inference. Dialogue is never fabricated from canned text: an explicit dialogue action fails visibly and without charge when inference is unavailable, while incidental resident speech is skipped.
 7. **Progression is earned, never bought.** Orbs buy amplification and cosmetics — never power, access, success, or growth. The core loop (listen, help, bond, travel) always has a zero-Orb path.
 8. **Ownership without a token.** The target ownership layer is CosyWorld's own signed provenance log (Ed25519, content-addressed, append-only) — gifting free and first-class, trading world-bound and lineage-preserving, secret poems as commit-reveal claim tickets. External NFTs remain an optional bridge that gates official expansions, never the base game.
@@ -51,33 +52,34 @@ The systems layer is deliberately rich — Callings, Bonds, Clocks, Jobs, Fronts
 
 Two rules follow.
 
-**Rule 1 — six player nouns.** A player should only ever need this vocabulary, and UI copy may not introduce more:
+**Rule 1 — a small player vocabulary.** A player should only need these seven nouns. Adding another requires replacing or absorbing one of them:
 
 | Player word | What it covers | Internal machinery it hides |
 | --- | --- | --- |
-| You | avatar, held item, skills, conditions | stat blocks, tags, claim keys, inventory slot |
+| You | avatar, equipped cards, conditions | stat blocks, tags, claim keys, loadout slots |
 | Home | sanctuary, later your covenant | zones, covenant sheets, season clocks |
 | Calling | who you are | calling tags, ledger triggers |
 | Friends | bonds with residents and players | bond entities, reaction states, evolution gates |
 | Journal | memories that settle into growth | Visit Ledger marks, advancement points, skill steps |
+| Cards | your collection and deck; the people, things, places, and spells that meet in a scene | ownership records, card zones, carrying capacity, scene composition, rules bindings |
 | Orbs | the one visible currency | ledgers, payer modes, claim gating |
 
 Everything else is *fiction, not vocabulary*: a clock is "the trail feels safer lately," a job is "someone needs help," a front is weather and trouble, a faction is who a character stands with. System names (clock, front, claim key, projection, sanctuary/frontier) never appear in the player UI. A new feature must fit an existing noun or replace one — the budget does not grow by default.
 
-**Rule 2 — the hand is the controller.** The shipped control surface is a dealt hand of action cards: at most three labeled cards plus shuffle, each opening a card-art detail surface that names target, cost, and risk before commit. This won over both the bare one-button rail and the unlabeled-emoji experiment because it makes each turn a readable, deliberate choice. The same contract projects onto every future transport: cards become Discord reactions, terminal keys, or voice intents without new server concepts — the v1 emoji grammar remains the prior art for the Discord revival. Two laws hold regardless of transport: every card carries a visible label (never a bare glyph), and browsing the hand is free — only playing a card spends a turn.
+**Rule 2 — the action hand is the controller.** The shipped control surface is a dealt hand of action cards: at most three labeled cards plus shuffle, each opening a card-art detail surface that names target, cost, and risk before commit. It is a projection of a deeper card composition, not the ownership ledger or the player's physical inventory. This won over both the bare one-button rail and the unlabeled-emoji experiment because it makes each turn a readable, deliberate choice. The same contract projects onto every future transport: cards become Discord reactions, terminal keys, or voice intents without new server concepts — the v1 emoji grammar remains the prior art for the Discord revival. Three laws hold regardless of transport: every card carries a visible label (never a bare glyph), browsing the hand is free, and every legal core action remains reachable even when it is not among the three suggestions.
 
-## The One-Slot World
+## The Card-Composed World
 
-Adopted direction (2026-07-02) for the item layer, superseding the unbounded-inventory model. Six rules that are load-bearing for each other:
+Adopted direction (2026-07-19), superseding the one-hand/one-floor simplification. CosyWorld is already a world of cards: a player's deck meets the cards contributed by a location, its residents, its items, and its live conditions. These rules make that reality authoritative instead of pretending that a single physical slot is the system:
 
-1. **One hand, one floor.** Every avatar holds exactly one item; every location's floor holds exactly one item. Taking is swapping with the room; dropping is placing. What you carry is who you are — the player holding the Hearth Tonic *is* the healer.
-2. **Search is the faucet, emptiness is the gate.** Search is offered only when the room's floor is empty, and it can reveal an item drawn from the room's pool. The gate is world-state, not a claim key: carrying an item away creates an empty floor, search refills it, and full hands/floors naturally put the faucet to sleep. Circulation comes from slot pressure and player movement, not item deletion.
-3. **Listen absorbs Bank.** Listening is the reflection verb: sit with the room to try for a truth *and* settle unbanked Journal marks into growth. The expressive choice lives in the spend (skill, bond slot, calling revision), which is unchanged. A settled room always offers something: listen (to grow), search (when the floor is empty), or go.
-4. **Items are persistent.** World items are not consumables. Use, craft, and evolution may exhaust, attune, rename, tag, recharge, unlock, mint a card, create a new item, or mark the Journal, but they do not delete their input items. A tonic can be drained until recharged; a craft can bind two present items into a provenance event; the physical ingredients remain in their current hand/floor slots for future stories.
-5. **Crafting grows the world.** Crafting can create new physical items, but only meaningfully: a crafted key opens a doorway, a crafted lantern wakes a route, a crafted badge calls a resident, a crafted relic anchors a new floor. Every recipe that creates a new item must also declare what new capacity or desire it adds — an unlocked location/floor slot, a resident/avatar role, a covenant project, or an evolution arrangement need — so the item/location/avatar ratio stays balanced as the world expands. Crafting mints cards from play, but its deeper job is making the world larger and better connected.
-6. **Evolution is arrangement.** An evolution level's requirement generalizes from "give N items to a resident" to a **placement pattern**: put these X items into these Y hands and floors — a charm in Skull's keeping, a thread on the Silver Milepost, a bell left in the Garden. The one-slot world makes every placement exclusive, visible, and undoable-by-others, so a pattern in progress is shared drama. Each level's pattern can be a **generated quest list**: proposed (by AI or tables) from a closed vocabulary of existing item tags, reachable locations, and present residents; validated fail-closed like every descriptor; then committed as authoritative jobs. Completing the final placement triggers a public ceremony — placers and witnesses all earn Journal credit, the resident evolves, and the items remain in the world.
+1. **Cards live in explicit zones.** Collection, carried deck, equipped loadout, spell deck/hand, exhausted/discard, world, and escrow/transfer are authoritative states. The action hand is a server-authored projection and never doubles as an ownership record. Every transition names the card instance, source, destination, actor, reason, and idempotency key.
+2. **A scene is a composition.** On entry and whenever relevant state changes, the server composes the active rules profile, location and room-feature cards, visible resident/avatar and world-item cards, clocks/conditions, and the player's carried/equipped/spell cards. That composition produces legal actions and a ranked action hand; it does not transfer ownership or let presentation text acquire authority.
+3. **Capacity is physical, not arbitrary.** An avatar may carry multiple cards. Legality comes from weight, size, physical ability, containers, and typed equipment slots. Bracelet advancement opens space for skill charms; it does not conjure a skill. Bags extend usable carrying capacity only while validly equipped and cannot create recursive capacity.
+4. **Search circulates cards through world state.** Search may reveal or make reachable cards when the location, feature, supply, season, or claim state permits it. An empty visual floor can be one authored condition, but it is never the universal faucet. Discovery and materialization remain kernel-validated, journaled, capacity-aware, and idempotent.
+5. **Items persist and crafting grows the world.** Use, craft, and evolution may exhaust, attune, rename, tag, recharge, unlock, mint, transform, or create cards, but authored inputs are not silently deleted. A crafted key can open a doorway, a lantern can wake a route, and a relic can anchor a location or project. Recipes declare both their card output and the world capacity, desire, route, or story possibility they add.
+6. **Evolution is public arrangement.** Evolution requirements are placement patterns across explicit zones: a charm equipped by Skull, a thread left at the Silver Milepost, a bell carried into the Garden. Patterns compile from a closed vocabulary of existing cards, reachable places, valid zones, and present residents; the kernel checks them against real shared state. Completion is a public ceremony, and placers and witnesses earn Journal credit.
 
-Consequences the design accepts on purpose: evolution becomes ceremony and logistics (X items, one pair of hands — take trips or bring friends); scarcity comes from occupied slots and meaningful placement instead of destruction; every item must be named, wanted, and storied because it can come around again; the card *collection* stays strictly separate from the physical inventory slot; and migration requires a world reset.
+The old phrases “one hand” and “one floor” may survive as scene copy or a deliberately constrained rules variant. They are not storage, ownership, or composition laws. Scarcity comes from authored supply, carrying constraints, typed slots, exhaustion, access, and meaningful placement—not from pretending a deck contains one card.
 
 ## Users
 
@@ -93,12 +95,12 @@ Consequences the design accepts on purpose: evolution becomes ceremony and logis
 
 The loop exists and multiplayer works; the priority is making the world worth returning to.
 
-1. **The one-slot world.** Land the six rules above: single hand/floor slots, search-as-faucet, listen-absorbs-bank, persistent non-consumable items, and craft-as-world-growth. This is the structural fix for room exhaustion ("only go"), the renewable economy, and the forced-cooperation beat.
-2. **First-session arc.** Instrument the arc: arrive → become someone → play a first card → learn a truth → meet a resident → settle the Journal. Target: a first-time mobile visitor settles their first growth in under ten minutes without typing.
-3. **Turn cadence legibility.** The shipped room-turn system (one committed card per active human, ping/pong pacing, speech always turn-exempt) needs its remaining visibility work: a visible ping countdown for both sides, a clear "you've been pinged — play or pass" signal, and warm copy when a room's deck genuinely offers only exits.
-4. **Economy circulation.** Wire the already-designed job Orb payouts; add witness credit (players present when a resident claims a desired item or evolves earn a Journal mark, so resident autonomy rewards spectators instead of robbing them); recover items from inactive avatars via resident desire-hunts; scope claim keys to played-time seasons so faucets reopen through play.
-5. **Real faces.** Replace deterministic SVG placeholders with generated avatar portraits and card art through the media pipeline (see `AI.md`). The card is the player's identity artifact; it should be worth screenshotting.
-6. **Public-traffic moderation.** Content filtering before commit, report-to-action operator workflow, resident line-variety cooldowns (no repeated ambient lines), and abuse review — the shared world cannot open wide without it.
+1. **Trustworthy seventh-visit evidence.** A story or world beat counts as seen only after it is rendered to that player (or acknowledged by an equivalent client receipt), never merely because `/state` returned it. Complete that exposure seam before starting the live cohort, then hold behavior stable for the measurement window.
+2. **The card-composed world.** Land explicit zones, weight/size/container capacity, typed loadouts, and deterministic scene composition. Complete the multi-card migration without reintroducing a parallel single-item authority model.
+3. **First-session arc.** Instrument the arc: arrive → become someone → play a first card → learn a truth → meet a resident → settle the Journal. Target: a first-time mobile visitor settles their first growth in under ten minutes without typing.
+4. **Turn cadence legibility.** The shipped room-turn system (one committed card per active human, ping/pong pacing, speech always turn-exempt) needs its remaining visibility work: a visible ping countdown for both sides, a clear "you've been pinged — play or pass" signal, and warm copy when a room's action hand genuinely offers only exits.
+5. **Economy circulation.** Wire the already-designed job Orb payouts; add witness credit (players present when a resident claims a desired item or evolves earn a Journal mark, so resident autonomy rewards spectators instead of robbing them); recover world-bound cards from inactive avatars via resident desire-hunts; scope claim keys to played-time seasons so faucets reopen through play.
+6. **Real faces and public-traffic safety.** Replace deterministic SVG placeholders with generated avatar portraits and card art through the media pipeline, while completing pre-commit filtering, operator resolution workflows, resident line-variety cooldowns, and abuse review.
 
 ### Next — a world that makes things
 
@@ -136,7 +138,8 @@ The loop exists and multiplayer works; the priority is making the world worth re
 
 ### P1 — current build targets
 
-- The one-slot world live: single slots, search-as-faucet, listen-absorbs-bank, with the world reset that ships it.
+- Card-zone and scene-composition contracts live: multi-card carrying, explicit zones, weight/size/container validation, typed loadouts, and deterministic action-hand projection.
+- World/story-beat exposure is measured from a rendered client receipt or equivalent acknowledgement, not server delivery alone.
 - The instrumented first-session arc, with time-to-first-settled-growth as a tracked metric.
 - Turn legibility: visible ping countdowns, pinged-player signal, settled-room copy.
 - Economy circulation: job Orb payouts, witness credit, ghost-item recovery, played-time season scoping for claim keys.
@@ -157,7 +160,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 - No private AI companions, teacher DMs, or per-user room instances — for any price.
 - No pay-for-power, no purchasable progression, no anonymous secondary market, no speculation loop.
 - Not a full D&D engine; the rules layer stays compact, legible, and kernel-audited.
-- No unbounded inventories, stash tabs, or item spreadsheets — one hand, one floor, and the collection lives on the provenance log, not in your pockets.
+- No unlimited or spreadsheet-like inventory. A carried deck is bounded by weight, size, containers, typed slots, and access costs; the wider collection remains distinct from cards materialized in the shared world.
 - No consumable world items — use, craft, and evolution may exhaust or transform meaning, but must not delete physical items from the world.
 - No dashboard/admin chrome in the player surface; operator tools live behind protected routes.
 - No wall-clock world simulation; the world's pulse is its players.
@@ -189,7 +192,8 @@ Economy health:
 
 ## Risks
 
-- **The one-slot migration is a hard cut.** It changes item semantics everywhere (kernel capacities, evolution flows, smoke tests, seeded content) and requires a world reset. Ship it as one package with its own gate coverage, not incrementally — half a one-slot world is worse than either whole.
+- **Card-zone ambiguity creates duplicate authority.** Collection ownership, world possession, carried cards, equipped cards, spell preparation, and the action hand must never collapse into one field or be inferred from the browser. Migrate each legacy field through a versioned boundary and reject ambiguous state rather than guessing.
+- **Scene composition can become illegible.** The underlying merge may be deep while the resting surface stays small. Keep the three-card action hand, make precedence inspectable, and test that a legal core action remains reachable even when it is not suggested.
 - **Retention layer under-delivers.** If Journal marks feel like chores, the whole Now bet fails. Keep marks tied to genuinely novel events (truths, bonds, frontier returns, witnessed moments), never grind.
 - **Crafting opens a generative moderation surface.** AI-decorated names/blurbs on player-triggered mints must pass the same sanitizer as speech, with authored fallbacks — and recipe outputs must never be kernel-arbitrary.
 - **Moderation debt blocks launch.** One shared world with open traffic and thin filtering is an incident, not a risk. Public-traffic moderation is a P1 gate.
@@ -205,7 +209,7 @@ A release of the current era is acceptable when:
 
 - A new mobile user plays a first card and settles their first growth in one session without typing.
 - A returning user's home is exactly as they left it, and at least one opted-in frontier goal has visibly moved through player turns.
-- No settled room's hand ever collapses to exits alone: there is always listening to do, or a floor to search, or both.
+- No settled room's action hand collapses to exits alone: scene composition always yields a reflective, investigative, social, or useful local action in addition to travel.
 - Two players can complete a resident's placement-based evolution ceremony together without consuming the arranged items, and a present witness earns a Journal mark when a resident claims what it desires.
 - The room transcript reads as a place: at most one resident reply per turn, no repeated ambient lines, dice and clocks visible as public events.
 - A player with zero Orbs and no wallet can listen, help, bond, travel, and settle the Journal.

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.rules-profile-srd5",
+  "name": "CosyWorld SRD 5.2.1 Action Profile",
+  "version": "1.0.0",
+  "description": "The bounded SRD 5.2.1 action, skill, equipment, and playable-item profile used by CosyWorld.",
+  "kind": "rules",
+  "license": "CC-BY-4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "engine": ">=0.0.20 <0.1.0",
+  "capabilities": [
+    {
+      "id": "cosyworld.rules-profile-srd5/rules",
+      "kind": "rules",
+      "version": "1.0.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "cosyworld.rules-srd-5.2.1",
+      "version": ">=0.1.0 <1.0.0",
+      "capabilities": [
+        "cosyworld.rules-srd-5.2.1/reference"
+      ]
+    }
+  ],
+  "entry_points": [
+    {
+      "kind": "rules_namespace",
+      "id": "cosyworld.srd5"
+    }
+  ],
+  "provenance": {
+    "author": "Cenetex",
+    "source_name": "System Reference Document 5.2.1",
+    "source_url": "https://www.dndbeyond.com/srd",
+    "modification_notice": "SRD action names and bounded rules concepts are adapted into CosyWorld's deterministic action-card profile."
+  },
+  "rules_adapter": "cosyworld.rules/2",
+  "rules_namespace": "cosyworld.srd5",
+  "rules_profile": "cosyworld.srd5/1",
+  "rules": {
+    "profiles": "profiles.json",
+    "actions": "actions.json",
+    "operations": "operations.json",
+    "legacy_bindings": "legacy_bindings.json",
+    "abilities": "abilities.json",
+    "skills": "skills.json",
+    "item_roles": "item_roles.json",
+    "equipment_profiles": "equipment_profiles.json",
+    "magic_effects": "magic_effects.json",
+    "conformance": "conformance.json"
+  },
+  "attribution": {
+    "file": "ATTRIBUTION.md",
+    "source_name": "System Reference Document 5.2.1",
+    "source_url": "https://www.dndbeyond.com/srd"
+  }
+}

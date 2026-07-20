@@ -1,0 +1,134 @@
+[
+  {
+    "action_id": "srd5.2.1:attack",
+    "support_status": "kernel",
+    "resolver_kind": "combat_attack_v4",
+    "safe_behavior": "Unavailable in sanctuary and outside an authored active encounter.",
+    "risky_behavior": "Server rolls the equipped weapon profile against the authoritative target and resolves bounded nonlethal harm.",
+    "legal_targets": ["active opposing encounter participant"],
+    "event_outputs": ["combat.attack.attempt", "combat.attack.hit", "combat.attack.miss", "combat.knockout"],
+    "cosyworld_delta": "Frontier-only, turn-bound, weapon-authored, and nonlethal.",
+    "replay_fixture": "core-c/tests/test_kernel.c::test_combat_v4_weapon_profile_and_legacy_replay"
+  },
+  {
+    "action_id": "srd5.2.1:dash",
+    "support_status": "unsupported",
+    "resolver_kind": "none",
+    "safe_behavior": "Produces no offer.",
+    "risky_behavior": "Produces no offer.",
+    "legal_targets": [],
+    "event_outputs": [],
+    "cosyworld_delta": "Ordinary room travel remains a movement operation.",
+    "replay_fixture": null
+  },
+  {
+    "action_id": "srd5.2.1:disengage",
+    "support_status": "unsupported",
+    "resolver_kind": "none",
+    "safe_behavior": "Produces no offer.",
+    "risky_behavior": "Produces no offer.",
+    "legal_targets": [],
+    "event_outputs": [],
+    "cosyworld_delta": "Bounded Escape remains an operation until engagement consequences exist.",
+    "replay_fixture": null
+  },
+  {
+    "action_id": "srd5.2.1:dodge",
+    "support_status": "kernel",
+    "resolver_kind": "combat_defend_v4",
+    "safe_behavior": "Defend outside combat is unavailable unless an authored project maps it to preparation.",
+    "risky_behavior": "The actor spends the encounter turn to impose the bounded dodging condition.",
+    "legal_targets": ["self in active encounter"],
+    "event_outputs": ["combat.dodge", "combat.turn_ended", "combat.turn_started"],
+    "cosyworld_delta": "Uses the bounded encounter condition rather than the complete SRD duration model.",
+    "replay_fixture": "core-c/tests/test_kernel.c::test_combat_v2_encounter_turns_dodge_targeting_and_escape"
+  },
+  {
+    "action_id": "srd5.2.1:help",
+    "support_status": "projection",
+    "resolver_kind": "project_help_v1",
+    "safe_behavior": "Advances only an authored active project or bond and names its recipient.",
+    "risky_behavior": "Repeated unprepared assistance can apply the authored tired consequence.",
+    "legal_targets": ["active project", "nearby resident"],
+    "event_outputs": ["clock.updated", "ledger.marked", "tag.applied"],
+    "cosyworld_delta": "Help is a journaled project contribution, never a self-stacking generic bonus.",
+    "replay_fixture": "orchestrator-rust::tests::prepare_work_and_help_drive_seed_job"
+  },
+  {
+    "action_id": "srd5.2.1:hide",
+    "support_status": "unsupported",
+    "resolver_kind": "none",
+    "safe_behavior": "Produces no offer.",
+    "risky_behavior": "Produces no offer.",
+    "legal_targets": [],
+    "event_outputs": [],
+    "cosyworld_delta": "No profile-1 hidden-state resolver is active.",
+    "replay_fixture": null
+  },
+  {
+    "action_id": "srd5.2.1:influence",
+    "support_status": "projection",
+    "resolver_kind": "influence_v1",
+    "safe_behavior": "Ordinary greetings remain free Chat and never create this action.",
+    "risky_behavior": "A deterministic Charisma check commits one of the authored cooperation outcomes before narration.",
+    "legal_targets": ["nearby active resident with contextual offer"],
+    "event_outputs": ["ability_check.rolled", "influence.committed"],
+    "cosyworld_delta": "Only bounded authored cooperation changes use Influence.",
+    "replay_fixture": "orchestrator-rust::tests::influence_commits_bounded_cooperation_before_narration"
+  },
+  {
+    "action_id": "srd5.2.1:magic",
+    "support_status": "projection",
+    "resolver_kind": "bounded_magic_v1",
+    "safe_behavior": "Unsupported or unprepared spell content produces no offer.",
+    "risky_behavior": "The kernel validates target and prepared instance, consumes one use, and moves the card to Exhausted.",
+    "legal_targets": ["effect-declared active actor in the same location"],
+    "event_outputs": ["magic.spell_cast", "tag.applied"],
+    "cosyworld_delta": "Only validated prepared Item-card effects are executable.",
+    "replay_fixture": "orchestrator-rust::tests::equipment_containment_spell_and_weapon_zones_recompose_and_persist"
+  },
+  {
+    "action_id": "srd5.2.1:ready",
+    "support_status": "projection",
+    "resolver_kind": "project_prepare_v1",
+    "safe_behavior": "Creates one scoped setup only when an authored project can consume it.",
+    "risky_behavior": "The setup has explicit duration and is consumed by the next eligible contribution.",
+    "legal_targets": ["active authored project"],
+    "event_outputs": ["tag.applied", "tag.cleared", "clock.updated"],
+    "cosyworld_delta": "Prepare is a bounded one-use project setup rather than a general reaction trigger.",
+    "replay_fixture": "orchestrator-rust::tests::prepare_work_and_help_drive_seed_job"
+  },
+  {
+    "action_id": "srd5.2.1:search",
+    "support_status": "projection",
+    "resolver_kind": "discovery_search_v1",
+    "safe_behavior": "Authored safe perceptual truths resolve without a roll and remain learn-once.",
+    "risky_behavior": "Authored risky perception uses the deterministic Wisdom check path.",
+    "legal_targets": ["location", "perceptual feature", "hidden path or item"],
+    "event_outputs": ["ability_check.rolled", "feature.searched", "location.searched", "ledger.marked"],
+    "cosyworld_delta": "Listen and Notice are labels for contextual Search, not separate mechanics.",
+    "replay_fixture": "orchestrator-rust::tests::search_and_study_use_distinct_append_only_action_codes"
+  },
+  {
+    "action_id": "srd5.2.1:study",
+    "support_status": "projection",
+    "resolver_kind": "discovery_study_v1",
+    "safe_behavior": "Authored safe analytical truths resolve without a roll and remain learn-once.",
+    "risky_behavior": "Authored risky analysis uses the deterministic Intelligence check path.",
+    "legal_targets": ["analytical feature", "active project plan"],
+    "event_outputs": ["ability_check.rolled", "study.resolved", "ledger.marked"],
+    "cosyworld_delta": "Study is distinct from perceptual Search and may be independently reskinned.",
+    "replay_fixture": "orchestrator-rust::tests::search_and_study_use_distinct_append_only_action_codes"
+  },
+  {
+    "action_id": "srd5.2.1:utilize",
+    "support_status": "projection",
+    "resolver_kind": "item_utilize_v1",
+    "safe_behavior": "Requires a validated usable item or authored feature contract.",
+    "risky_behavior": "Authoritative uses, exhaustion, targets, clock effects, and claim keys are resolved once.",
+    "legal_targets": ["descriptor-approved actor", "authored feature", "active project"],
+    "event_outputs": ["item.used", "feature.used", "clock.updated", "tag.applied"],
+    "cosyworld_delta": "Use and Work are contextual labels over validated Utilize bindings.",
+    "replay_fixture": "orchestrator-rust::tests::hearth_tonic_uses_are_authoritative_and_idempotent"
+  }
+]

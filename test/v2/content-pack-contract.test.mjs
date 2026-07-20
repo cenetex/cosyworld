@@ -290,6 +290,7 @@ describe("Content Pack Manifest v1", () => {
     expect(
       authoredWorld.persistence_compatibility.replay_compatible_bundle_hashes,
     ).toEqual([
+      "sha256:a613a3ec525fc08e10794a775ee0baeb9239733da1c65779ab4dc1df481f9718",
       "sha256:0a1129ce8f3315946c972bb3e5f5a6e4b3f65cb7dac7d1ea3fe441f398c84d32",
       "sha256:2a9b9fb5c049a0b06dcd02131e2b74be5f5e106e6e8d78b891e40f7b093eb49a",
       "sha256:338f4d9a5eefc75d832f7cc48c40600263dc49c89a2e6aa7365ea0d6a361d960",

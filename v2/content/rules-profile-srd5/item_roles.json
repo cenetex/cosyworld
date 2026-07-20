@@ -1,0 +1,10 @@
+[
+  {"id":"consumable","resolver_kind":"item_utilize_v1","transfer_policy":"transferable","theft_policy":"eligible","mechanical_descriptor_required":true},
+  {"id":"weapon","resolver_kind":"combat_weapon_v1","transfer_policy":"transferable","theft_policy":"eligible","mechanical_descriptor_required":true},
+  {"id":"skill_charm","resolver_kind":"skill_charm_v1","transfer_policy":"transferable","theft_policy":"eligible","mechanical_descriptor_required":true},
+  {"id":"spell","resolver_kind":"bounded_magic_v1","transfer_policy":"transferable","theft_policy":"eligible","mechanical_descriptor_required":true},
+  {"id":"container","resolver_kind":"container_v1","transfer_policy":"transferable","theft_policy":"eligible","mechanical_descriptor_required":true},
+  {"id":"tool","resolver_kind":"item_utilize_v1","transfer_policy":"transferable","theft_policy":"eligible","mechanical_descriptor_required":true},
+  {"id":"relic","resolver_kind":"item_utilize_v1","transfer_policy":"authored","theft_policy":"authored","mechanical_descriptor_required":true},
+  {"id":"generic","resolver_kind":"transfer_only","transfer_policy":"transferable","theft_policy":"eligible","mechanical_descriptor_required":false}
+]

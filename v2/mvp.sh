@@ -191,9 +191,21 @@ run_cli_checks() {
 
 run_smoke() {
   COSYWORLD_SMOKE_URL="${BASE_URL}/?wallet=${WALLET}&reset=1" node "$ROOT/scripts/smoke-browser.mjs"
-  COSYWORLD_SMOKE_URL="${BASE_URL}/?wallet=${WALLET}&reset=1" \
-    COSYWORLD_SMOKE_LIVING_WORLD_STRESS=1 \
-    node "$ROOT/scripts/smoke-browser.mjs"
+  local attempt status
+  for attempt in 1 2 3; do
+    if COSYWORLD_SMOKE_URL="${BASE_URL}/?wallet=${WALLET}&reset=1" \
+      COSYWORLD_SMOKE_LIVING_WORLD_STRESS=1 \
+      node "$ROOT/scripts/smoke-browser.mjs"; then
+      return 0
+    else
+      status=$?
+    fi
+    if [ "$status" -ne 75 ]; then
+      return "$status"
+    fi
+    echo "living-world stress avatar was defeated before a choice; retrying (${attempt}/3)" >&2
+  done
+  return 75
 }
 
 run_production_profile_smoke() {

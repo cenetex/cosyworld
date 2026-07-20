@@ -1363,5 +1363,80 @@
     },
     "image_url": "/assets/generated/cards/location-dark-abyss.svg",
     "pack_id": "cosyworld.core"
+  },
+  {
+    "subject_kind": "item",
+    "subject_id": 2012,
+    "card_id": "item-patchwork-satchel",
+    "display_name": "Patchwork Satchel",
+    "role": "item",
+    "rarity": "free",
+    "title": "A Pocket for Every Tale",
+    "blurb": "Equip it to add bounded carrying capacity; stow it and that extra room stops counting.",
+    "aspect": "square",
+    "source": "cosyworld_seed",
+    "asset_status": "seed_art",
+    "subject": "Haunted Mansion",
+    "art": {
+      "label": "Patchwork Satchel",
+      "role": "item",
+      "aspect": "square",
+      "bg": "#2a211c",
+      "ink": "#f2e6cf",
+      "accent": "#b98b68",
+      "glyph": "PS"
+    },
+    "image_url": "/assets/generated/cards/item-patchwork-satchel.svg",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "subject_kind": "item",
+    "subject_id": 2013,
+    "card_id": "item-ashwood-practice-blade",
+    "display_name": "Ashwood Practice Blade",
+    "role": "weapon",
+    "rarity": "free",
+    "title": "A Bounded Edge",
+    "blurb": "Blunt enough for mercy, balanced enough to matter.",
+    "aspect": "square",
+    "source": "cosyworld_seed",
+    "asset_status": "seed_art",
+    "subject": "Moonlit Trail",
+    "art": {
+      "label": "Ash Blade",
+      "role": "weapon",
+      "aspect": "square",
+      "bg": "#17261f",
+      "ink": "#e9f7dc",
+      "accent": "#c99b62",
+      "glyph": "AB"
+    },
+    "image_url": "/assets/generated/cards/item-ashwood-practice-blade.svg",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "subject_kind": "item",
+    "subject_id": 2014,
+    "card_id": "item-steady-light",
+    "display_name": "Steady Light",
+    "role": "spell",
+    "rarity": "free",
+    "title": "A Light That Waits",
+    "blurb": "Prepare it, play it, and carry its glow until rest.",
+    "aspect": "square",
+    "source": "cosyworld_seed",
+    "asset_status": "seed_art",
+    "subject": "Cosy Cottage",
+    "art": {
+      "label": "Steady Light",
+      "role": "spell",
+      "aspect": "square",
+      "bg": "#211c32",
+      "ink": "#fff4c2",
+      "accent": "#f2c96d",
+      "glyph": "SL"
+    },
+    "image_url": "/assets/generated/cards/item-steady-light.svg",
+    "pack_id": "cosyworld.core"
   }
 ]

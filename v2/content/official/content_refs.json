@@ -796,6 +796,30 @@
       "runtime_handle": 8315124370132858
     },
     {
+      "canonical_ref": "pack://cosyworld.core/card/item-ashwood-practice-blade",
+      "pack_id": "cosyworld.core",
+      "pack_version": "1.3.3",
+      "kind": "card",
+      "local_id": "item-ashwood-practice-blade",
+      "runtime_handle": 3640187639484502
+    },
+    {
+      "canonical_ref": "pack://cosyworld.core/card/item-patchwork-satchel",
+      "pack_id": "cosyworld.core",
+      "pack_version": "1.3.3",
+      "kind": "card",
+      "local_id": "item-patchwork-satchel",
+      "runtime_handle": 804106637155376
+    },
+    {
+      "canonical_ref": "pack://cosyworld.core/card/item-steady-light",
+      "pack_id": "cosyworld.core",
+      "pack_version": "1.3.3",
+      "kind": "card",
+      "local_id": "item-steady-light",
+      "runtime_handle": 8614146586928189
+    },
+    {
       "canonical_ref": "pack://cosyworld.core/card/lf-armored-winged-hero",
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.3",
@@ -1454,6 +1478,33 @@
       "runtime_handle": 2010
     },
     {
+      "canonical_ref": "pack://cosyworld.core/item/2012",
+      "pack_id": "cosyworld.core",
+      "pack_version": "1.3.3",
+      "kind": "item",
+      "local_id": "2012",
+      "legacy_runtime_id": 2012,
+      "runtime_handle": 2012
+    },
+    {
+      "canonical_ref": "pack://cosyworld.core/item/2013",
+      "pack_id": "cosyworld.core",
+      "pack_version": "1.3.3",
+      "kind": "item",
+      "local_id": "2013",
+      "legacy_runtime_id": 2013,
+      "runtime_handle": 2013
+    },
+    {
+      "canonical_ref": "pack://cosyworld.core/item/2014",
+      "pack_id": "cosyworld.core",
+      "pack_version": "1.3.3",
+      "kind": "item",
+      "local_id": "2014",
+      "legacy_runtime_id": 2014,
+      "runtime_handle": 2014
+    },
+    {
       "canonical_ref": "pack://cosyworld.core/job/goblin-cave%3Aname-the-price",
       "pack_id": "cosyworld.core",
       "pack_version": "1.3.3",
@@ -1898,6 +1949,1837 @@
       "kind": "room-sheet",
       "local_id": "room:65",
       "runtime_handle": 389717939014779
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/abilitie/charisma",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "abilitie",
+      "local_id": "charisma",
+      "runtime_handle": 6921737729976435
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/abilitie/constitution",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "abilitie",
+      "local_id": "constitution",
+      "runtime_handle": 7405511520880969
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/abilitie/dexterity",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "abilitie",
+      "local_id": "dexterity",
+      "runtime_handle": 1719035463249622
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/abilitie/intelligence",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "abilitie",
+      "local_id": "intelligence",
+      "runtime_handle": 8659493783091618
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/abilitie/strength",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "abilitie",
+      "local_id": "strength",
+      "runtime_handle": 7358915829291383
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/abilitie/wisdom",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "abilitie",
+      "local_id": "wisdom",
+      "runtime_handle": 2019061769562605
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Aattack",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:attack",
+      "runtime_handle": 8634534478194138
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Adash",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:dash",
+      "runtime_handle": 349192630005977
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Adisengage",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:disengage",
+      "runtime_handle": 8594021152314011
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Adodge",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:dodge",
+      "runtime_handle": 4601985959209048
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Ahelp",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:help",
+      "runtime_handle": 6570156657749656
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Ahide",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:hide",
+      "runtime_handle": 1843579646439510
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Ainfluence",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:influence",
+      "runtime_handle": 7763832018621453
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Amagic",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:magic",
+      "runtime_handle": 6239483139308876
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Aready",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:ready",
+      "runtime_handle": 8499715365673539
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Asearch",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:search",
+      "runtime_handle": 6857501118155386
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Astudy",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:study",
+      "runtime_handle": 8281694145059651
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/action/srd5.2.1%3Autilize",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "action",
+      "local_id": "srd5.2.1:utilize",
+      "runtime_handle": 4928937825894669
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Aattack",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:attack",
+      "runtime_handle": 2298114725511263
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Adash",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:dash",
+      "runtime_handle": 2826337085356902
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Adisengage",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:disengage",
+      "runtime_handle": 9000508858023062
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Adodge",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:dodge",
+      "runtime_handle": 310167247615961
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Ahelp",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:help",
+      "runtime_handle": 2689527522388271
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Ahide",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:hide",
+      "runtime_handle": 1482724263889144
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Ainfluence",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:influence",
+      "runtime_handle": 100817870351054
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Amagic",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:magic",
+      "runtime_handle": 8574901835184550
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Aready",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:ready",
+      "runtime_handle": 6164867709790836
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Asearch",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:search",
+      "runtime_handle": 8105566018861749
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Astudy",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:study",
+      "runtime_handle": 8059086358392397
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/conformance/srd5.2.1%3Autilize",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "conformance",
+      "local_id": "srd5.2.1:utilize",
+      "runtime_handle": 7394328992741941
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/equipment-profile/bracelet",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "equipment-profile",
+      "local_id": "bracelet",
+      "runtime_handle": 5649384384456292
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/equipment-profile/container_harness",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "equipment-profile",
+      "local_id": "container_harness",
+      "runtime_handle": 3414165298911186
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/equipment-profile/spell_deck",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "equipment-profile",
+      "local_id": "spell_deck",
+      "runtime_handle": 1097901294039426
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/equipment-profile/weapon_hand",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "equipment-profile",
+      "local_id": "weapon_hand",
+      "runtime_handle": 3412028638395537
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/item-role/consumable",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "item-role",
+      "local_id": "consumable",
+      "runtime_handle": 4241315362506158
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/item-role/container",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "item-role",
+      "local_id": "container",
+      "runtime_handle": 3334571208631548
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/item-role/generic",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "item-role",
+      "local_id": "generic",
+      "runtime_handle": 4105129624574671
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/item-role/relic",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "item-role",
+      "local_id": "relic",
+      "runtime_handle": 6723240888605810
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/item-role/skill_charm",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "item-role",
+      "local_id": "skill_charm",
+      "runtime_handle": 4073749997413880
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/item-role/spell",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "item-role",
+      "local_id": "spell",
+      "runtime_handle": 6484696869654877
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/item-role/tool",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "item-role",
+      "local_id": "tool",
+      "runtime_handle": 8787400995749143
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/item-role/weapon",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "item-role",
+      "local_id": "weapon",
+      "runtime_handle": 3812231561736233
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/attack",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "attack",
+      "runtime_handle": 7788514545698962
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/bank_ledger",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "bank_ledger",
+      "runtime_handle": 4858264261935101
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/cast_spell",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "cast_spell",
+      "runtime_handle": 2664625629083771
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/chat",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "chat",
+      "runtime_handle": 7737166376476023
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/check",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "check",
+      "runtime_handle": 3486367051128131
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/craft",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "craft",
+      "runtime_handle": 7744411774266495
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/create_avatar",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "create_avatar",
+      "runtime_handle": 6029560329614466
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/create_bond",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "create_bond",
+      "runtime_handle": 2837896811595827
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/defend",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "defend",
+      "runtime_handle": 5039961658608636
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/drop_item",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "drop_item",
+      "runtime_handle": 4589113004034310
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/flee",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "flee",
+      "runtime_handle": 6799527254416819
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/give_item",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "give_item",
+      "runtime_handle": 1207188243323311
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/help",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "help",
+      "runtime_handle": 6369800325770786
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/influence",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "influence",
+      "runtime_handle": 8955059546917141
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/materialize",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "materialize",
+      "runtime_handle": 8500961630390771
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/move",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "move",
+      "runtime_handle": 8210432196241363
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/pick_up",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "pick_up",
+      "runtime_handle": 5632039558502289
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/prepare",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "prepare",
+      "runtime_handle": 3291415468387417
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/resolve_bond",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "resolve_bond",
+      "runtime_handle": 6096041102087805
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/rest",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "rest",
+      "runtime_handle": 50780579597749
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/search",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "search",
+      "runtime_handle": 1186562895840142
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/set_item_contained",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "set_item_contained",
+      "runtime_handle": 3835955268153847
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/set_item_equipped",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "set_item_equipped",
+      "runtime_handle": 1678444599603506
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/study",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "study",
+      "runtime_handle": 7714690263643796
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/theft",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "theft",
+      "runtime_handle": 6719346048551834
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/trade_item",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "trade_item",
+      "runtime_handle": 4871204477723670
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/unlock_charm_slot",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "unlock_charm_slot",
+      "runtime_handle": 7295878243867743
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/use_feature",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "use_feature",
+      "runtime_handle": 818741189524083
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/use_item",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "use_item",
+      "runtime_handle": 7339511889615436
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/wait",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "wait",
+      "runtime_handle": 5942634187913735
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/legacy-binding/work",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "legacy-binding",
+      "local_id": "work",
+      "runtime_handle": 4561822016452516
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/magic-effect/cosyworld.magic%2Fsteady-light",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "magic-effect",
+      "local_id": "cosyworld.magic/steady-light",
+      "runtime_handle": 1564580206297998
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fchat",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/chat",
+      "runtime_handle": 2034648826857377
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fcontain",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/contain",
+      "runtime_handle": 7323040098446174
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fcraft",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/craft",
+      "runtime_handle": 5341787702716890
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fcreate-avatar",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/create-avatar",
+      "runtime_handle": 2627518443779544
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fdeck",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/deck",
+      "runtime_handle": 4935419474589018
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fdrop",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/drop",
+      "runtime_handle": 1364927028753
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fequip",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/equip",
+      "runtime_handle": 7142353628417614
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fescape",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/escape",
+      "runtime_handle": 1757927656403337
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fgive",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/give",
+      "runtime_handle": 2906710511380607
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fgrow",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/grow",
+      "runtime_handle": 3395849051145030
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fmaterialize",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/materialize",
+      "runtime_handle": 4597879869687648
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fmove",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/move",
+      "runtime_handle": 6288761180178992
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Freport",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/report",
+      "runtime_handle": 4558535078538840
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Frest",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/rest",
+      "runtime_handle": 2862059797873906
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fsay",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/say",
+      "runtime_handle": 1480283326175528
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Ftake",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/take",
+      "runtime_handle": 8536999733739267
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Ftheft",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/theft",
+      "runtime_handle": 2890722907199517
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Ftrade",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/trade",
+      "runtime_handle": 1960081587435700
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/operation/cosyworld.operation%2Fwait",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "operation",
+      "local_id": "cosyworld.operation/wait",
+      "runtime_handle": 8077400552622800
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/profile/cosyworld.srd5%2F1",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "profile",
+      "local_id": "cosyworld.srd5/1",
+      "runtime_handle": 1679197551543931
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/acrobatics",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "acrobatics",
+      "runtime_handle": 1952649544673050
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/animal_handling",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "animal_handling",
+      "runtime_handle": 1581210491184716
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/arcana",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "arcana",
+      "runtime_handle": 6252745569446079
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/athletics",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "athletics",
+      "runtime_handle": 1649342571958583
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/deception",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "deception",
+      "runtime_handle": 2034201809692564
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/history",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "history",
+      "runtime_handle": 5304826271480975
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/insight",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "insight",
+      "runtime_handle": 5600498235907160
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/intimidation",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "intimidation",
+      "runtime_handle": 1712662649272974
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/investigation",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "investigation",
+      "runtime_handle": 1476117357468351
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/medicine",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "medicine",
+      "runtime_handle": 3622934393325480
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/nature",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "nature",
+      "runtime_handle": 2762578448205727
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/perception",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "perception",
+      "runtime_handle": 3076314623363277
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/performance",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "performance",
+      "runtime_handle": 281582912375074
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/persuasion",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "persuasion",
+      "runtime_handle": 6313450351364815
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/religion",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "religion",
+      "runtime_handle": 6641009376167149
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/sleight_of_hand",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "sleight_of_hand",
+      "runtime_handle": 2227683092363739
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/stealth",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "stealth",
+      "runtime_handle": 2093687044067579
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-profile-srd5/skill/survival",
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "pack_version": "1.0.0",
+      "kind": "skill",
+      "local_id": "survival",
+      "runtime_handle": 5852036008191058
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Fblinded",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/blinded",
+      "runtime_handle": 4852829277110603
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Fcharmed",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/charmed",
+      "runtime_handle": 8515628618042618
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Fdeafened",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/deafened",
+      "runtime_handle": 2553897060670706
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Fexhaustion",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/exhaustion",
+      "runtime_handle": 5062936071234115
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Ffrightened",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/frightened",
+      "runtime_handle": 2852973158123298
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Fgrappled",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/grappled",
+      "runtime_handle": 8525163901986322
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Fincapacitated",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/incapacitated",
+      "runtime_handle": 6975569097807201
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Finvisible",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/invisible",
+      "runtime_handle": 3769036701350649
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Fparalyzed",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/paralyzed",
+      "runtime_handle": 7778960982979902
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Fpetrified",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/petrified",
+      "runtime_handle": 2322791525895549
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Fpoisoned",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/poisoned",
+      "runtime_handle": 616994367986902
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Fprone",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/prone",
+      "runtime_handle": 3206575526875366
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Frestrained",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/restrained",
+      "runtime_handle": 4741845412033391
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Fstunned",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/stunned",
+      "runtime_handle": 3625539536245622
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/condition/condition%2Funconscious",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/unconscious",
+      "runtime_handle": 2088464037460919
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/creature/monster%2Fdryad",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "creature",
+      "local_id": "monster/dryad",
+      "runtime_handle": 6739222332939267
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/creature/monster%2Fsprite",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "creature",
+      "local_id": "monster/sprite",
+      "runtime_handle": 1794288405675041
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.1/creature/monster%2Funicorn",
+      "pack_id": "cosyworld.rules-srd-5.1",
+      "pack_version": "0.1.1",
+      "kind": "creature",
+      "local_id": "monster/unicorn",
+      "runtime_handle": 7046077445603341
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Fblinded",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/blinded",
+      "runtime_handle": 5512037023111210
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Fcharmed",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/charmed",
+      "runtime_handle": 2606439248638642
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Fdeafened",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/deafened",
+      "runtime_handle": 7680426574655289
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Fexhaustion",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/exhaustion",
+      "runtime_handle": 5080053889554257
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Ffrightened",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/frightened",
+      "runtime_handle": 3332487330310359
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Fgrappled",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/grappled",
+      "runtime_handle": 6629629577076976
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Fincapacitated",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/incapacitated",
+      "runtime_handle": 2166833647870339
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Finvisible",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/invisible",
+      "runtime_handle": 8940410272257938
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Fparalyzed",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/paralyzed",
+      "runtime_handle": 8807981195806723
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Fpetrified",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/petrified",
+      "runtime_handle": 3284000498654987
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Fpoisoned",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/poisoned",
+      "runtime_handle": 4821078591683240
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Fprone",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/prone",
+      "runtime_handle": 1990019799948215
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Frestrained",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/restrained",
+      "runtime_handle": 5993652823303904
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Fstunned",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/stunned",
+      "runtime_handle": 7089372485074319
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/condition/condition%2Funconscious",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "condition",
+      "local_id": "condition/unconscious",
+      "runtime_handle": 6343208538221027
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/creature/monster%2Fdryad",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "creature",
+      "local_id": "monster/dryad",
+      "runtime_handle": 5031431162510887
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/creature/monster%2Fsprite",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "creature",
+      "local_id": "monster/sprite",
+      "runtime_handle": 283977165577027
+    },
+    {
+      "canonical_ref": "pack://cosyworld.rules-srd-5.2.1/creature/monster%2Funicorn",
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "pack_version": "0.1.1",
+      "kind": "creature",
+      "local_id": "monster/unicorn",
+      "runtime_handle": 3651719261348777
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7002",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7002",
+      "legacy_runtime_id": 7002,
+      "runtime_handle": 7002
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7003",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7003",
+      "legacy_runtime_id": 7003,
+      "runtime_handle": 7003
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7004",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7004",
+      "legacy_runtime_id": 7004,
+      "runtime_handle": 7004
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7005",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7005",
+      "legacy_runtime_id": 7005,
+      "runtime_handle": 7005
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7006",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7006",
+      "legacy_runtime_id": 7006,
+      "runtime_handle": 7006
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7007",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7007",
+      "legacy_runtime_id": 7007,
+      "runtime_handle": 7007
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7008",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7008",
+      "legacy_runtime_id": 7008,
+      "runtime_handle": 7008
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7009",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7009",
+      "legacy_runtime_id": 7009,
+      "runtime_handle": 7009
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7010",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7010",
+      "legacy_runtime_id": 7010,
+      "runtime_handle": 7010
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7011",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7011",
+      "legacy_runtime_id": 7011,
+      "runtime_handle": 7011
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7012",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7012",
+      "legacy_runtime_id": 7012,
+      "runtime_handle": 7012
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7013",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7013",
+      "legacy_runtime_id": 7013,
+      "runtime_handle": 7013
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7014",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7014",
+      "legacy_runtime_id": 7014,
+      "runtime_handle": 7014
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7015",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7015",
+      "legacy_runtime_id": 7015,
+      "runtime_handle": 7015
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7016",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7016",
+      "legacy_runtime_id": 7016,
+      "runtime_handle": 7016
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/actor/7017",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "actor",
+      "local_id": "7017",
+      "legacy_runtime_id": 7017,
+      "runtime_handle": 7017
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-andrew",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-andrew",
+      "runtime_handle": 6063388728752457
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-bartholomew",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-bartholomew",
+      "runtime_handle": 7648376027062685
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-bethany",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-bethany",
+      "runtime_handle": 2176770069418396
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-bethlehem",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-bethlehem",
+      "runtime_handle": 5964004265344755
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-bethsaida",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-bethsaida",
+      "runtime_handle": 29790776979747
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-caesarea-philippi",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-caesarea-philippi",
+      "runtime_handle": 7420082354530316
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-cana",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-cana",
+      "runtime_handle": 2186253045555771
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-capernaum",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-capernaum",
+      "runtime_handle": 5013152061240789
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-emmaus-road",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-emmaus-road",
+      "runtime_handle": 1568974415455853
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-gethsemane",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-gethsemane",
+      "runtime_handle": 6837635026717251
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-hillside",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-hillside",
+      "runtime_handle": 1193107754509678
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-james-alphaeus",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-james-alphaeus",
+      "runtime_handle": 1905366564737411
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-james-zebedee",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-james-zebedee",
+      "runtime_handle": 2907890190753132
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-jericho",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-jericho",
+      "runtime_handle": 1055350545325908
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-jerusalem",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-jerusalem",
+      "runtime_handle": 5847702027772177
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-john-zebedee",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-john-zebedee",
+      "runtime_handle": 7247410113966080
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-jordan-river",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-jordan-river",
+      "runtime_handle": 3907096302986452
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-judas-iscariot",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-judas-iscariot",
+      "runtime_handle": 8599464094757645
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-matthew",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-matthew",
+      "runtime_handle": 216768732182754
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-nazareth",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-nazareth",
+      "runtime_handle": 1703437341058016
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-philip",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-philip",
+      "runtime_handle": 1025391333820435
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-sea-of-galilee",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-sea-of-galilee",
+      "runtime_handle": 3176257800157183
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-simon-peter",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-simon-peter",
+      "runtime_handle": 8988635300116232
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-simon-zealot",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-simon-zealot",
+      "runtime_handle": 1120775867313045
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-supplicant-emmaus",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-supplicant-emmaus",
+      "runtime_handle": 8807463321091281
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-supplicant-jericho",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-supplicant-jericho",
+      "runtime_handle": 2503838062989616
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-supplicant-lake",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-supplicant-lake",
+      "runtime_handle": 435093098690522
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-supplicant-well",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-supplicant-well",
+      "runtime_handle": 8379734215276720
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-sychar-well",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-sychar-well",
+      "runtime_handle": 5199758672964838
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-thaddaeus",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-thaddaeus",
+      "runtime_handle": 2964664635736234
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/card/holy-land-thomas",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "card",
+      "local_id": "holy-land-thomas",
+      "runtime_handle": 8641029134420332
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/700",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "700",
+      "legacy_runtime_id": 700,
+      "runtime_handle": 700
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/701",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "701",
+      "legacy_runtime_id": 701,
+      "runtime_handle": 701
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/702",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "702",
+      "legacy_runtime_id": 702,
+      "runtime_handle": 702
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/703",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "703",
+      "legacy_runtime_id": 703,
+      "runtime_handle": 703
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/704",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "704",
+      "legacy_runtime_id": 704,
+      "runtime_handle": 704
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/705",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "705",
+      "legacy_runtime_id": 705,
+      "runtime_handle": 705
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/706",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "706",
+      "legacy_runtime_id": 706,
+      "runtime_handle": 706
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/707",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "707",
+      "legacy_runtime_id": 707,
+      "runtime_handle": 707
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/708",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "708",
+      "legacy_runtime_id": 708,
+      "runtime_handle": 708
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/709",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "709",
+      "legacy_runtime_id": 709,
+      "runtime_handle": 709
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/710",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "710",
+      "legacy_runtime_id": 710,
+      "runtime_handle": 710
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/711",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "711",
+      "legacy_runtime_id": 711,
+      "runtime_handle": 711
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/712",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "712",
+      "legacy_runtime_id": 712,
+      "runtime_handle": 712
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/713",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "713",
+      "legacy_runtime_id": 713,
+      "runtime_handle": 713
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/location/714",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "location",
+      "local_id": "714",
+      "legacy_runtime_id": 714,
+      "runtime_handle": 714
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A700",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:700",
+      "runtime_handle": 7425976209670718
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A701",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:701",
+      "runtime_handle": 6204684693382178
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A702",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:702",
+      "runtime_handle": 5142712702127214
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A703",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:703",
+      "runtime_handle": 2952708076765554
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A704",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:704",
+      "runtime_handle": 3014214197745708
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A705",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:705",
+      "runtime_handle": 3400739153275700
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A706",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:706",
+      "runtime_handle": 2594495794026741
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A707",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:707",
+      "runtime_handle": 5427182539397525
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A708",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:708",
+      "runtime_handle": 6003305734945460
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A709",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:709",
+      "runtime_handle": 5856902222036411
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A710",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:710",
+      "runtime_handle": 6909097621799092
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A711",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:711",
+      "runtime_handle": 5891935710839028
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A712",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:712",
+      "runtime_handle": 2608647237945698
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A713",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:713",
+      "runtime_handle": 5848703543063276
+    },
+    {
+      "canonical_ref": "pack://cosyworld.the-holy-land/room-sheet/holy-land%3Aroom%3A714",
+      "pack_id": "cosyworld.the-holy-land",
+      "pack_version": "1.1.1",
+      "kind": "room-sheet",
+      "local_id": "holy-land:room:714",
+      "runtime_handle": 8480266781972399
     },
     {
       "canonical_ref": "pack://ruby-high.first-bell/actor-facet/rati-first-bell",

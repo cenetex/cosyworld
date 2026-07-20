@@ -25,8 +25,17 @@
       "version": "1.0.0"
     }
   ],
-  "dependencies": [],
+  "dependencies": [
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "version": ">=1.0.0 <2.0.0",
+      "capabilities": [
+        "cosyworld.rules-profile-srd5/rules"
+      ]
+    }
+  ],
   "default_ruleset": "cosyworld.core/rules",
+  "rules_profile": "cosyworld.srd5/1",
   "entry_points": [
     {
       "kind": "location",
@@ -56,6 +65,9 @@
     "evolution_tracks": "evolution_tracks.json",
     "recipes": "recipes.json",
     "sentences": "sentences.json"
+  },
+  "contributions": {
+    "offers": "offers.json"
   },
   "assets": [
     {

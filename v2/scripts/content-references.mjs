@@ -134,8 +134,8 @@ export function collectContentReferenceCandidates({ resources, packs, externalCa
     for (const [resource, rows] of Object.entries(bundle.resources)) {
       const kind = resource === "monster_seeds" ? "creature" : resource.replaceAll("_", "-").replace(/s$/, "");
       for (const row of rows) {
-        const localId = row.id ?? row.slug ?? row.name;
-        assert(localId !== undefined && localId !== null && String(localId).length > 0, `rules resource ${resource} row has no id, slug, or name`);
+        const localId = row.id ?? row.slug ?? row.name ?? row.legacy_kind ?? row.action_id;
+        assert(localId !== undefined && localId !== null && String(localId).length > 0, `rules resource ${resource} row has no stable identity field`);
         add(bundle.pack_id, kind, localId);
       }
     }

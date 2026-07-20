@@ -1,0 +1,30 @@
+[
+  {
+    "id": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "compatibility_claim": "bounded_profile",
+    "default": true,
+    "excluded_systems": [
+      "classes",
+      "class_levels",
+      "complete_spell_lists",
+      "encounter_budgets",
+      "srd_rest_cadence",
+      "death_saves",
+      "complete_equipment_economy"
+    ],
+    "cosyworld_deltas": [
+      "sanctuary actions cannot create combat stakes",
+      "combat is bounded and nonlethal",
+      "skill proficiency is supplied by equipped skill charms",
+      "advancement unlocks loadout slots rather than granting items",
+      "the action hand is a projection of the legal action superset"
+    ],
+    "source_reference": "SRD 5.2.1, Rules Glossary: Actions",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modified": true
+  }
+]

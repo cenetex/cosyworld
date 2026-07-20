@@ -1,0 +1,11 @@
+[
+  {
+    "id": "cosyworld.core:cottage-ask-local-lead",
+    "based_on": "srd5.2.1:influence",
+    "subject": {"kind": "location", "id": 1},
+    "context": {"requires_visible_subject": true, "requires_combat": false},
+    "label": "Ask for a local lead",
+    "target_predicate": "active_npc_same_location",
+    "source_reference": "CosyWorld Core — Blue Cottage bounded cooperation"
+  }
+]

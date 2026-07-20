@@ -1,0 +1,11 @@
+[
+  {
+    "id": "ruby-high.first-bell:library-study-notes",
+    "based_on": "srd5.2.1:study",
+    "subject": {"kind": "location", "id": 12},
+    "context": {"requires_visible_subject": true, "requires_combat": false},
+    "label": "Review your notes",
+    "target_predicate": "active_location",
+    "source_reference": "Ruby High: First Bell — Library contextual offer"
+  }
+]

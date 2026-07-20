@@ -1,0 +1,6 @@
+[
+  {"id":"bracelet","slot_kind":"skill_charm","base_slots":1,"maximum_slots":6,"unlock":"earned_advancement","source_reference":"CosyWorld RPG","modified":true},
+  {"id":"weapon_hand","slot_kind":"weapon","base_slots":1,"maximum_slots":2,"unlock":"profile","source_reference":"CosyWorld combat/3","modified":true},
+  {"id":"spell_deck","slot_kind":"spell","base_slots":3,"maximum_slots":6,"unlock":"earned_advancement","source_reference":"CosyWorld RPG","modified":true},
+  {"id":"container_harness","slot_kind":"container","base_slots":1,"maximum_slots":2,"unlock":"earned_advancement","source_reference":"CosyWorld RPG","modified":true}
+]

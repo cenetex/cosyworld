@@ -4,9 +4,78 @@
   "canonical_id_mapping_version": 1,
   "world_id": "cosyworld.services-only",
   "dependency_order": [
+    "cosyworld.rules-srd-5.2.1",
+    "cosyworld.rules-profile-srd5",
     "cosyworld.services-fixture"
   ],
   "packs": [
+    {
+      "id": "cosyworld.rules-srd-5.2.1",
+      "version": "0.1.1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-srd-5.2.1"
+      },
+      "integrity": "sha256:949901b6dfd936d60b668c16c7aba9f36b23dd9b89211964df1e1322e44ba00a",
+      "dependencies": [],
+      "dependency_closure": [],
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1/rules",
+          "kind": "rules",
+          "version": "0.1.0"
+        },
+        {
+          "id": "cosyworld.rules-srd-5.2.1/reference",
+          "kind": "reference",
+          "version": "0.1.0"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "provenance": {
+        "author": "Wizards of the Coast LLC",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "Selected rules references are adapted into CosyWorld's non-authoritative conversion schema."
+      }
+    },
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "version": "1.0.0",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-profile-srd5"
+      },
+      "integrity": "sha256:8ed9de1a2a5c3d49389c2a43c948ee45ccce3363ff901ad0996d8b122c64e068",
+      "dependencies": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "cosyworld.rules-srd-5.2.1/reference"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1"
+      ],
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-profile-srd5/rules",
+          "kind": "rules",
+          "version": "1.0.0"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "SRD action names and bounded rules concepts are adapted into CosyWorld's deterministic action-card profile."
+      }
+    },
     {
       "id": "cosyworld.services-fixture",
       "version": "1.0.1",
@@ -14,9 +83,20 @@
         "type": "workspace",
         "path": "../../content/services-fixture"
       },
-      "integrity": "sha256:cf8cbdacd4ecaccf03a5245c4e6edf71e52cbfbb7469c1366c2740378100be39",
-      "dependencies": [],
-      "dependency_closure": [],
+      "integrity": "sha256:118c565024b15b5d5be55863938ff68549c877c5beec9c4eec6a7bda876b3bee",
+      "dependencies": [
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5"
+      ],
       "capabilities": [
         {
           "id": "cosyworld.services-fixture/reference",
@@ -34,6 +114,52 @@
     }
   ],
   "license_records": [
+    {
+      "pack_id": "cosyworld.rules-srd-5.2.1",
+      "name": "CosyWorld Rules: SRD 5.2.1",
+      "version": "0.1.1",
+      "license_identifier": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "provenance": {
+        "author": "Wizards of the Coast LLC",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "Selected rules references are adapted into CosyWorld's non-authoritative conversion schema."
+      },
+      "notices": [
+        {
+          "kind": "attribution",
+          "title": "System Reference Document 5.2.1 attribution",
+          "file": "ATTRIBUTION.md",
+          "source_name": "System Reference Document 5.2.1",
+          "source_url": "https://www.dndbeyond.com/srd",
+          "text": "This work includes material from the System Reference Document 5.2.1 (“SRD\n5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd.\nThe SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0\nInternational License, available at\nhttps://creativecommons.org/licenses/by/4.0/legalcode."
+        }
+      ]
+    },
+    {
+      "pack_id": "cosyworld.rules-profile-srd5",
+      "name": "CosyWorld SRD 5.2.1 Action Profile",
+      "version": "1.0.0",
+      "license_identifier": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "SRD action names and bounded rules concepts are adapted into CosyWorld's deterministic action-card profile."
+      },
+      "notices": [
+        {
+          "kind": "attribution",
+          "title": "System Reference Document 5.2.1 attribution",
+          "file": "ATTRIBUTION.md",
+          "source_name": "System Reference Document 5.2.1",
+          "source_url": "https://www.dndbeyond.com/srd",
+          "text": "# Attribution\n\nThis profile adapts action names and bounded rules concepts from the\n**System Reference Document 5.2.1** by Wizards of the Coast LLC, licensed under **Creative Commons\nAttribution 4.0 International (CC BY 4.0)**.\n\nSource: https://www.dndbeyond.com/srd\n\nLicense text: https://creativecommons.org/licenses/by/4.0/legalcode\n\nThe action registry, compatibility mappings, resolver classifications,\ncollectible-item roles, equipment slots, and CosyWorld deltas are modified\nmaterial authored for CosyWorld. The complete source attribution is preserved\nby the independently versioned `cosyworld.rules-srd-5.2.1` reference pack."
+        }
+      ]
+    },
     {
       "pack_id": "cosyworld.services-fixture",
       "name": "CosyWorld Services Fixture",

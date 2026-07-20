@@ -43,8 +43,16 @@
         "cosyworld.core/world"
       ],
       "optional": true
+    },
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "version": ">=1.0.0 <2.0.0",
+      "capabilities": [
+        "cosyworld.rules-profile-srd5/rules"
+      ]
     }
   ],
+  "rules_profile": "cosyworld.srd5/1",
   "entry_points": [
     {
       "kind": "location",
@@ -141,6 +149,10 @@
     "cards": "cards.json",
     "card_bindings": "card_bindings.json",
     "sentences": "sentences.json"
+  },
+  "contributions": {
+    "reskins": "reskins.json",
+    "offers": "offers.json"
   },
   "external_cards": "external_cards.json",
   "assets": [

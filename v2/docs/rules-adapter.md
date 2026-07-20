@@ -1,59 +1,74 @@
-# CosyWorld rules adapter
+# CosyWorld rules adapters
 
-The `cosyworld.rules/1` adapter carries independently licensed rules references
-through the worldpack compiler without granting them authority over the game.
-The C kernel remains the only authority for movement, checks, conditions,
-combat, inventory, rewards, and other world state.
+## Current state
+
+The official world selects `cosyworld.srd5/1`, compiled through
+`cosyworld.rules/2`, as its active bounded action profile. The C kernel and
+narrowly validated journaled reducers remain the execution authorities; rules
+JSON, card prose, AI, and clients cannot mutate world state directly.
+
+The independent SRD 5.1 and SRD 5.2.1 reference packs continue to use
+`cosyworld.rules/1`. They are separately attributed reference/import data and
+never overlay each other or the active profile.
 
 ## Pack contract
 
-A `kind: "rules"` pack declares:
+A `kind: "rules"` pack declares a stable `rules_adapter`, namespace, resource
+files, and attribution. Adapter 1 accepts immutable `conditions` and
+`monster_seeds`. Adapter 2 adds:
 
-- `rules_adapter`: currently exactly `cosyworld.rules/1`;
-- `rules_namespace`: a stable lowercase namespace such as `srd5.1`;
-- `rules`: one or more supported array resources;
-- `attribution`: a source name, source URL, and attribution file included in the
-  compiled bundle.
+- stable actions and product/operation bindings;
+- abilities, skills, item roles, equipment profiles, and bounded magic effects;
+- a conformance row for every action; and
+- explicit variants and namespaced extensions.
 
-The first adapter version accepts `conditions` and `monster_seeds`. Compiled
-entries remain scoped by pack id and namespace; resources from separate rules
-packs are never implicitly overlaid.
+Every executable mapping declares `kernel`, `projection`, or `unsupported`.
+Resources remain scoped by pack and namespace. Missing source references,
+attribution, resolvers, replay fixtures, or conflicting identities fail the
+worldpack gate and runtime startup.
 
 ## Authority boundary
 
-Every adapted entry has a `mapping.status`:
+In the reference packs, `reference_only` is authoring context and cannot apply
+statistics or prose as truth. Only `Unconscious` maps to the existing
+`CW_CONDITION_UNCONSCIOUS` flag; the other conditions and monster seeds remain
+reference-only.
 
-- `reference_only` means authoring and proposal context only. The runtime must
-  not apply its statistics, actions, tags, or prose as world truth.
-- `kernel` means the entry names an already implemented kernel primitive. It
-  does not add a primitive or bypass the kernel action that applies it.
+The active profile's executable resources name already implemented kernel or
+projection contracts. They do not create a bypass around those contracts. The
+kernel supplies normal/Advantage/Disadvantage checks, Bloodied state,
+nonlethal knockout, card zones, item transfer, bounded Magic, theft, and
+`cosyworld.combat/4`. Rust supplies validated project, discovery, cooperation,
+loadout, materialization, and progression reducers.
 
-For both SRD 5.1 and SRD 5.2.1, only `Unconscious` maps to the existing
-`CW_CONDITION_UNCONSCIOUS` flag. The other fourteen conditions and every monster
-seed are reference-only. The two documents remain separate bundles under the
-`srd5.1` and `srd5.2.1` namespaces; neither silently overlays the other. A
-future mapping requires a kernel change, kernel tests, adapter validation, and
-an explicit versioned pack update.
+## Active SRD action profile
 
-The kernel independently implements a deliberately small compatible surface:
-normal, Advantage, and Disadvantage d20 rolls; derived Bloodied state; and a
-CosyWorld nonlethal knockout that leaves an actor at 1 Hit Point. The versioned
-`cosyworld.combat/3` protocol adds explicit encounters, initiative,
-proficiency-scaled finesse attacks, critical hits, Dodge, one-action turns,
-and escape through an unlocked exit. These primitives do not grant authority
-to reference-only entries or turn the adapter into a complete implementation
-of either SRD. See [combat-system.md](combat-system.md) for the exact
-compatibility profile and exclusions.
+`cosyworld.srd5/1` defines all twelve SRD 5.2.1 action identities. Attack,
+Dodge, Help, Influence, Magic, Ready, Search, Study, and Utilize have tested
+resolvers. Dash, Disengage, and Hide are explicitly unsupported and produce no
+offers. Each supported action's conformance row records legal targets,
+safe/risky behavior, event outputs, CosyWorld deltas, and a real replay fixture.
+
+Core and expansion packs may contribute a presentation reskin, contextual
+offer, explicit tested variant, or namespaced extension. The compiler rejects
+implicit overrides and load-order winners. Profile, variant, and extension
+identities are stored in worldpacks, snapshots, offers, and journal rows.
 
 ## Product boundary
 
-CosyWorld retains six internal abilities and may use monster, condition,
-equipment, and spell concepts as conversion seeds. It does not adopt SRD class
-trees, subclasses, spell slots, encounter math, XP progression, or automatic
-monster stat blocks. Player-facing UI continues to describe risk and outcomes
-in CosyWorld's ordinary language.
+CosyWorld does not adopt SRD classes, subclasses, spell-slot progression,
+encounter-building math, XP, tactical grids, or automatic monster blocks.
+Player-facing text remains CosyWorld language. This is a documented compatible
+subset, not a full Dungeons & Dragons implementation.
 
-SRD 5.1 and SRD 5.2.1 are both available as attributed authoring references.
-SRD 5.2.1 targets the revised fifth-edition ruleset, but its broader class,
-spell, equipment, reaction, bonus-action, tactical-movement, and monster
-mechanics remain outside the product boundary.
+Weapons, skill charms, and spells are Item-card roles. A charm's skill and
+bonus apply only while that instance is possessed and equipped; advancement
+opens bracelet space but never creates the charm. Prepared spell cards supply
+bounded Magic effects. Weight, size, avatar capacity, and equipped containers
+determine carried-deck legality. Empty bags may be stored in another bag but
+never contribute recursive capacity.
+
+See [combat-system.md](combat-system.md),
+[action-pack-authoring.md](action-pack-authoring.md), the
+[action architecture](../../docs/systems/04-action-system.md), and the
+[implementation ledger](../../docs/backlog/srd-action-card-foundation.md).

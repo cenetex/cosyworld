@@ -1,5 +1,51 @@
 [
   {
+    "pack_id": "cosyworld.rules-srd-5.2.1",
+    "name": "CosyWorld Rules: SRD 5.2.1",
+    "version": "0.1.1",
+    "license_identifier": "CC-BY-4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "provenance": {
+      "author": "Wizards of the Coast LLC",
+      "source_name": "System Reference Document 5.2.1",
+      "source_url": "https://www.dndbeyond.com/srd",
+      "modification_notice": "Selected rules references are adapted into CosyWorld's non-authoritative conversion schema."
+    },
+    "notices": [
+      {
+        "kind": "attribution",
+        "title": "System Reference Document 5.2.1 attribution",
+        "file": "ATTRIBUTION.md",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "text": "This work includes material from the System Reference Document 5.2.1 (“SRD\n5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd.\nThe SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0\nInternational License, available at\nhttps://creativecommons.org/licenses/by/4.0/legalcode."
+      }
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "name": "CosyWorld SRD 5.2.1 Action Profile",
+    "version": "1.0.0",
+    "license_identifier": "CC-BY-4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "provenance": {
+      "author": "Cenetex",
+      "source_name": "System Reference Document 5.2.1",
+      "source_url": "https://www.dndbeyond.com/srd",
+      "modification_notice": "SRD action names and bounded rules concepts are adapted into CosyWorld's deterministic action-card profile."
+    },
+    "notices": [
+      {
+        "kind": "attribution",
+        "title": "System Reference Document 5.2.1 attribution",
+        "file": "ATTRIBUTION.md",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "text": "# Attribution\n\nThis profile adapts action names and bounded rules concepts from the\n**System Reference Document 5.2.1** by Wizards of the Coast LLC, licensed under **Creative Commons\nAttribution 4.0 International (CC BY 4.0)**.\n\nSource: https://www.dndbeyond.com/srd\n\nLicense text: https://creativecommons.org/licenses/by/4.0/legalcode\n\nThe action registry, compatibility mappings, resolver classifications,\ncollectible-item roles, equipment slots, and CosyWorld deltas are modified\nmaterial authored for CosyWorld. The complete source attribution is preserved\nby the independently versioned `cosyworld.rules-srd-5.2.1` reference pack."
+      }
+    ]
+  },
+  {
     "pack_id": "ruby-high.first-bell",
     "name": "Ruby High: First Bell",
     "version": "1.3.3",

@@ -15,10 +15,16 @@ const servicesOnly = read("v2/content/services-only/registry.json");
 const coreManifest = read("v2/content/core/pack.json");
 
 describe("independently mountable CosyWorld Core", () => {
-  it("boots as a one-pack composition with explicit rules and typed effects", () => {
-    expect(coreOnly.manifest.packs.map((pack) => pack.id)).toEqual(["cosyworld.core"]);
-    expect(coreOnly.manifest.packs[0].default_ruleset).toBe("cosyworld.core/rules");
-    expect(coreOnly.manifest.packs[0].capabilities).toContainEqual({
+  it("boots with the shared SRD profile, explicit world rules, and typed effects", () => {
+    expect(coreOnly.manifest.packs.map((pack) => pack.id)).toEqual([
+      "cosyworld.rules-srd-5.2.1",
+      "cosyworld.rules-profile-srd5",
+      "cosyworld.core",
+    ]);
+    expect(coreOnly.manifest.rules_profile).toBe("cosyworld.srd5/1");
+    const corePack = coreOnly.manifest.packs.find((pack) => pack.id === "cosyworld.core");
+    expect(corePack.default_ruleset).toBe("cosyworld.core/rules");
+    expect(corePack.capabilities).toContainEqual({
       id: "cosyworld.core/rules",
       kind: "rules",
       version: "1.0.0",
@@ -29,9 +35,13 @@ describe("independently mountable CosyWorld Core", () => {
     expect(coreOnly.resources.lifecycle_hooks.every((hook) => hook.effects.every((effect) => typeof effect.op === "string"))).toBe(true);
   });
 
-  it("has no manifest dependency on Ruby High or a 5E rules pack", () => {
-    expect(coreManifest.dependencies).toEqual([]);
-    expect(coreOnly.manifest.packs).toHaveLength(1);
+  it("depends on the shared rules profile without mounting Ruby High", () => {
+    expect(coreManifest.dependencies).toEqual([{
+      id: "cosyworld.rules-profile-srd5",
+      version: ">=1.0.0 <2.0.0",
+      capabilities: ["cosyworld.rules-profile-srd5/rules"],
+    }]);
+    expect(coreOnly.manifest.packs).toHaveLength(3);
     expect(coreOnly.resources.access_gates).toEqual([]);
     expect(official.resources.access_gates.every((gate) => gate.pack_id === "ruby-high.first-bell")).toBe(true);
   });
@@ -95,7 +105,11 @@ describe("independently mountable CosyWorld Core", () => {
 
   it("provides a non-world services composition without silently mounting Core", () => {
     expect(servicesOnly.manifest.entry_location).toBeUndefined();
-    expect(servicesOnly.manifest.packs.map((pack) => pack.id)).toEqual(["cosyworld.services-fixture"]);
+    expect(servicesOnly.manifest.packs.map((pack) => pack.id)).toEqual([
+      "cosyworld.rules-srd-5.2.1",
+      "cosyworld.rules-profile-srd5",
+      "cosyworld.services-fixture",
+    ]);
     expect(servicesOnly.resources.locations).toEqual([]);
     expect(servicesOnly.resources.actors).toEqual([]);
   });

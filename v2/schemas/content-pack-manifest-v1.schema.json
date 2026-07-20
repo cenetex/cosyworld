@@ -64,8 +64,19 @@
     "entitlements": { "$ref": "#/definitions/entitlements" },
     "rules_adapter": { "$ref": "#/definitions/capabilityId" },
     "rules_namespace": { "$ref": "#/definitions/stableId" },
+    "rules_profile": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]*/[1-9][0-9]*$"
+    },
     "rules": {
       "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/relativePath" }
+    },
+    "contributions": {
+      "type": "object",
+      "propertyNames": {
+        "enum": ["reskins", "offers", "variants", "extensions"]
+      },
       "additionalProperties": { "$ref": "#/definitions/relativePath" }
     },
     "attribution": { "$ref": "#/definitions/attribution" },

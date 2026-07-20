@@ -5,7 +5,22 @@
     "description": "A warm tonic that gets one person back on their feet, probably complaining.",
     "kind": "potion",
     "charges": 1,
-    "location_id": 1
+    "location_id": 1,
+    "role": "consumable",
+    "weight_tenths": 5,
+    "size": "small",
+    "mechanics": {
+      "binding": "srd5.2.1:utilize",
+      "equipment_profile": "carried",
+      "target_predicate": "active_actor_same_location_needing_healing",
+      "resolver": "item_utilize_v1",
+      "effect_budget": {"healing": 10},
+      "uses": 1,
+      "exhaustion": "consume_charge",
+      "recovery": "none",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    }
   },
   {
     "id": 2002,
@@ -13,7 +28,10 @@
     "description": "A tiny pearled button that makes wet weather look more deliberate.",
     "kind": "evolution",
     "charges": 1,
-    "location_id": 2
+    "location_id": 2,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny"
   },
   {
     "id": 2003,
@@ -21,7 +39,24 @@
     "description": "A cool iron charm marked with a careful pawprint.",
     "kind": "evolution",
     "charges": 1,
-    "location_id": 3
+    "location_id": 3,
+    "role": "skill_charm",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "skill_id": "steadiness",
+    "skill_bonus": 1,
+    "mechanics": {
+      "binding": "ability_check_modifier",
+      "equipment_profile": "bracelet",
+      "target_predicate": "possessing_actor",
+      "resolver": "equipped_charm_modifier_v1",
+      "effect_budget": {"skill_bonus": 1},
+      "uses": 0,
+      "exhaustion": "none",
+      "recovery": "not_applicable",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    }
   },
   {
     "id": 2004,
@@ -29,7 +64,10 @@
     "description": "A silvery strand that tangles at the first hint of rain.",
     "kind": "evolution",
     "charges": 1,
-    "location_id": 43
+    "location_id": 43,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny"
   },
   {
     "id": 2005,
@@ -37,7 +75,10 @@
     "description": "A warm wooden button with a tiny tale tucked under its rim.",
     "kind": "evolution",
     "charges": 1,
-    "location_id": 1
+    "location_id": 1,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny"
   },
   {
     "id": 2006,
@@ -45,7 +86,10 @@
     "description": "A smooth tag cut from warm stone, excellent for labeling chairs and terrible ideas.",
     "kind": "evolution",
     "charges": 1,
-    "location_id": 3
+    "location_id": 3,
+    "role": "generic",
+    "weight_tenths": 5,
+    "size": "small"
   },
   {
     "id": 2007,
@@ -53,7 +97,24 @@
     "description": "A mute little bell that rings only for those keeping watch.",
     "kind": "evolution",
     "charges": 1,
-    "location_id": 2
+    "location_id": 2,
+    "role": "skill_charm",
+    "weight_tenths": 2,
+    "size": "tiny",
+    "skill_id": "listening",
+    "skill_bonus": 1,
+    "mechanics": {
+      "binding": "ability_check_modifier",
+      "equipment_profile": "bracelet",
+      "target_predicate": "possessing_actor",
+      "resolver": "equipped_charm_modifier_v1",
+      "effect_budget": {"skill_bonus": 1},
+      "uses": 0,
+      "exhaustion": "none",
+      "recovery": "not_applicable",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    }
   },
   {
     "id": 2008,
@@ -61,7 +122,10 @@
     "description": "A soft scrap of map-cloth with one path mended in red thread.",
     "kind": "keepsake",
     "charges": 1,
-    "location_id": 41
+    "location_id": 41,
+    "role": "tool",
+    "weight_tenths": 1,
+    "size": "small"
   },
   {
     "id": 2009,
@@ -69,7 +133,10 @@
     "description": "A pressed fern bookmark that keeps sliding out at the dramatic sentence.",
     "kind": "keepsake",
     "charges": 1,
-    "location_id": 43
+    "location_id": 43,
+    "role": "relic",
+    "weight_tenths": 1,
+    "size": "tiny"
   },
   {
     "id": 2010,
@@ -77,6 +144,84 @@
     "description": "A green bead that catches meadow light and keeps it cool enough to trade.",
     "kind": "keepsake",
     "charges": 1,
-    "location_id": 44
+    "location_id": 44,
+    "role": "generic",
+    "weight_tenths": 1,
+    "size": "tiny"
+  },
+  {
+    "id": 2012,
+    "name": "Patchwork Satchel",
+    "description": "A many-pocketed shoulder bag whose mended straps make room for a proper travelling deck.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 42,
+    "role": "container",
+    "weight_tenths": 20,
+    "size": "medium",
+    "container_capacity_tenths": 300,
+    "container_opening_size": "medium",
+    "allowed_contents": ["generic", "consumable", "weapon", "skill_charm", "spell", "tool", "relic", "container"],
+    "access_cost": "free_out_of_combat",
+    "nested_containers": "empty_storage_only",
+    "mechanics": {
+      "binding": "cosyworld.operation/deck",
+      "equipment_profile": "container_harness",
+      "target_predicate": "possessing_actor",
+      "resolver": "container_capacity_v1",
+      "effect_budget": {"capacity_tenths": 300},
+      "uses": 0,
+      "exhaustion": "none",
+      "recovery": "not_applicable",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    }
+  },
+  {
+    "id": 2013,
+    "name": "Ashwood Practice Blade",
+    "description": "A blunt ashwood blade balanced for the bounded, nonlethal scuffles of the frontier.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 3,
+    "role": "weapon",
+    "weight_tenths": 30,
+    "size": "medium",
+    "mechanics": {
+      "binding": "srd5.2.1:attack",
+      "equipment_profile": "weapon_hand",
+      "target_predicate": "active_hostile_actor_same_combat",
+      "resolver": "combat_attack_v4",
+      "effect_budget": {"damage_die": "1d6", "ability": "strength", "nonlethal": true},
+      "uses": 0,
+      "exhaustion": "none",
+      "recovery": "not_applicable",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    }
+  },
+  {
+    "id": 2014,
+    "name": "Steady Light",
+    "description": "A prepared spell card that kindles a replay-safe glow around one nearby traveler until they rest.",
+    "kind": "keepsake",
+    "charges": 1,
+    "location_id": 1,
+    "role": "spell",
+    "weight_tenths": 1,
+    "size": "tiny",
+    "mechanics": {
+      "binding": "srd5.2.1:magic",
+      "equipment_profile": "spell_deck",
+      "target_predicate": "active_actor_same_location",
+      "resolver": "bounded_magic_v1",
+      "magic_effect": "cosyworld.magic/steady-light",
+      "effect_budget": {"tag": "steady light", "duration": "until_rest"},
+      "uses": 1,
+      "exhaustion": "consume_charge",
+      "recovery": "none",
+      "transfer_policy": "transferable",
+      "theft_policy": "eligible_when_carried"
+    }
   }
 ]

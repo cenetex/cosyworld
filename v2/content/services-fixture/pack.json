@@ -4,6 +4,7 @@
   "name": "CosyWorld Services Fixture",
   "version": "1.0.1",
   "kind": "catalog",
+  "rules_profile": "cosyworld.srd5/1",
   "description": "A content-free fixture proving engine services do not require a world pack.",
   "license": "MIT",
   "license_url": "https://opensource.org/license/mit",
@@ -15,7 +16,15 @@
       "version": "1.0.0"
     }
   ],
-  "dependencies": [],
+  "dependencies": [
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "version": ">=1.0.0 <2.0.0",
+      "capabilities": [
+        "cosyworld.rules-profile-srd5/rules"
+      ]
+    }
+  ],
   "default_ruleset": null,
   "entry_points": [],
   "provenance": {

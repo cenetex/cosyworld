@@ -22,8 +22,16 @@
       "capabilities": [
         "cosyworld.core/world"
       ]
+    },
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "version": ">=1.0.0 <2.0.0",
+      "capabilities": [
+        "cosyworld.rules-profile-srd5/rules"
+      ]
     }
   ],
+  "rules_profile": "cosyworld.srd5/1",
   "entry_points": [
     {
       "kind": "asset_mount",
