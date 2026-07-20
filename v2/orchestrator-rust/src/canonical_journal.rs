@@ -1847,6 +1847,30 @@ pub(super) fn load_canonical_claims(
     Ok(claims)
 }
 
+pub(super) fn load_canonical_entity_versions(
+    path: &Path,
+    world_id: &str,
+) -> io::Result<BTreeMap<String, u64>> {
+    let conn = open_canonical_store(path)?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT entity_ref, entity_version FROM canonical_entity_versions
+             WHERE world_id = ?1 ORDER BY entity_ref",
+        )
+        .map_err(sqlite_error)?;
+    let rows = stmt
+        .query_map(params![world_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })
+        .map_err(sqlite_error)?;
+    let mut versions = BTreeMap::new();
+    for row in rows {
+        let (entity_ref, entity_version) = row.map_err(sqlite_error)?;
+        versions.insert(entity_ref, as_u64(entity_version, "entity_version")?);
+    }
+    Ok(versions)
+}
+
 pub(super) fn insert_canonical_commit(
     conn: &Connection,
     row: &CanonicalCommitRow<'_>,

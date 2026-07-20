@@ -4902,8 +4902,7 @@ impl AppState {
                     error
                 );
             }
-            let canonical_claims = load_canonical_claims(path, OFFICIAL_WORLD_ID)?;
-            merge_runtime_canonical_claims(&mut runtime, &canonical_claims);
+            hydrate_runtime_canonical_state(&mut runtime, path)?;
         }
 
         let ownership_feed = OwnershipFeedConfig::from_env();
@@ -36797,6 +36796,25 @@ fn merge_runtime_canonical_claims(
     }
 }
 
+fn merge_runtime_canonical_entity_versions(
+    runtime: &mut RuntimeWorld,
+    versions: &BTreeMap<String, u64>,
+) {
+    runtime.canonical_identities.entity_versions.extend(
+        versions
+            .iter()
+            .map(|(entity_ref, version)| (entity_ref.clone(), *version)),
+    );
+}
+
+fn hydrate_runtime_canonical_state(runtime: &mut RuntimeWorld, path: &Path) -> io::Result<()> {
+    let versions = load_canonical_entity_versions(path, OFFICIAL_WORLD_ID)?;
+    merge_runtime_canonical_entity_versions(runtime, &versions);
+    let claims = load_canonical_claims(path, OFFICIAL_WORLD_ID)?;
+    merge_runtime_canonical_claims(runtime, &claims);
+    Ok(())
+}
+
 fn canonical_partitions_for_location_ids(
     runtime: &RuntimeWorld,
     location_ids: impl IntoIterator<Item = u64>,
@@ -37029,6 +37047,7 @@ fn commit_journal_record(
                 return Err(error);
             }
         };
+        let runtime_before_commit = runtime.clone();
         let committed = (|| -> io::Result<(u32, Vec<EventView>, bool, u64)> {
             let commit_time = now_millis();
             let lease_ttl = authority_lease_ttl_ms(state);
@@ -37274,11 +37293,20 @@ fn commit_journal_record(
             Ok(committed) => committed,
             Err(error) => {
                 let rollback_error = tx.rollback().map_err(sqlite_error).err();
-                let restore_error = restore_runtime_from_durable_state(state, runtime, path).err();
+                let restore_error = if rollback_error.is_none() {
+                    *runtime = runtime_before_commit;
+                    None
+                } else {
+                    restore_runtime_from_durable_state(state, runtime, path).err()
+                };
                 let error = journal_commit_recovery_error(error, rollback_error, restore_error);
                 if let Some(context) = command_context.as_ref() {
                     context.abort_commit();
                 }
+                warn!(
+                    "canonical journal commit failed for actor {} action {}: {}",
+                    record.action.actor_id, record.action.kind, error
+                );
                 state.record_event_store_append_failure(&error);
                 return Err(error);
             }
@@ -37289,6 +37317,10 @@ fn commit_journal_record(
             if let Some(context) = command_context.as_ref() {
                 context.abort_commit();
             }
+            warn!(
+                "canonical journal transaction commit failed for actor {} action {}: {}",
+                record.action.actor_id, record.action.kind, error
+            );
             state.record_event_store_append_failure(&error);
             return Err(error);
         }
@@ -37321,6 +37353,7 @@ fn restore_runtime_from_durable_state(
 ) -> io::Result<()> {
     let mut restored = RuntimeWorld::from_action_journal(event_store_path)?;
     advance_runtime_next_event_seq_from_store(&mut restored, event_store_path)?;
+    hydrate_runtime_canonical_state(&mut restored, event_store_path)?;
     if let Some(path) = state.resident_continuity_path.as_deref() {
         match restored.load_resident_continuity_snapshot(path) {
             Ok(_) => {}
@@ -47045,6 +47078,122 @@ mod tests {
     }
 
     #[test]
+    fn durable_entity_versions_rehydrate_replayed_runtime_before_next_write() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-canonical-version-rehydrate-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let actor_id = 5000;
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+        {
+            let mut runtime = state.inner.blocking_lock();
+            let mut create = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_CREATE_ACTOR,
+                    actor_id,
+                    location_id: COSY_COTTAGE_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                71_200,
+            );
+            create.actor_meta_upserts.insert(
+                actor_id,
+                ActorMeta {
+                    name: "Version Traveller".to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Recovery Tester".to_string(),
+                    description: "A test avatar crossing a worldpack version boundary.".to_string(),
+                },
+            );
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, create)
+                    .expect("commit versioned actor")
+                    .0,
+                CW_OK
+            );
+        }
+        let actor_ref = state
+            .inner
+            .blocking_lock()
+            .canonical_ref("actor", actor_id)
+            .expect("actor canonical ref")
+            .to_string();
+        let durable_version = {
+            let conn = open_event_store(&path).expect("open canonical versions");
+            let current = conn
+                .query_row(
+                    "SELECT entity_version FROM canonical_entity_versions
+                     WHERE world_id = ?1 AND entity_ref = ?2",
+                    params![OFFICIAL_WORLD_ID, &actor_ref],
+                    |row| row.get::<_, i64>(0),
+                )
+                .expect("durable actor version") as u64;
+            let advanced = current.saturating_add(10);
+            conn.execute(
+                "UPDATE canonical_entity_versions SET entity_version = ?3
+                 WHERE world_id = ?1 AND entity_ref = ?2",
+                params![OFFICIAL_WORLD_ID, &actor_ref, advanced as i64],
+            )
+            .expect("simulate a durable version ahead of replay");
+            advanced
+        };
+
+        {
+            let mut runtime = state.inner.blocking_lock();
+            restore_runtime_from_durable_state(&state, &mut runtime, &path)
+                .expect("rehydrate replayed runtime");
+            assert_eq!(runtime.entity_version(&actor_ref), durable_version);
+
+            let content_id = runtime.next_content_id;
+            runtime.next_content_id = runtime.next_content_id.saturating_add(1);
+            let mut say = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_SAY,
+                    actor_id,
+                    content_id,
+                    ..CwAction::default()
+                },
+                71_201,
+            );
+            say.content_upserts.insert(
+                content_id,
+                "the durable version is authoritative".to_string(),
+            );
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, say)
+                    .expect("commit after canonical rehydration")
+                    .0,
+                CW_OK
+            );
+            assert_eq!(
+                runtime.entity_version(&actor_ref),
+                durable_version.saturating_add(1)
+            );
+        }
+        let stored_after = open_event_store(&path)
+            .expect("reopen canonical versions")
+            .query_row(
+                "SELECT entity_version FROM canonical_entity_versions
+                 WHERE world_id = ?1 AND entity_ref = ?2",
+                params![OFFICIAL_WORLD_ID, &actor_ref],
+                |row| row.get::<_, i64>(0),
+            )
+            .expect("advanced durable actor version") as u64;
+        assert_eq!(stored_after, durable_version.saturating_add(1));
+        assert_eq!(
+            state
+                .event_store_health
+                .lock()
+                .expect("event store health")
+                .consecutive_append_failures,
+            0
+        );
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
     fn actor_outbox_keeps_every_player_card_turn_in_order() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-actor-outbox-order-{}-{}.sqlite",
@@ -47186,6 +47335,12 @@ mod tests {
              BEGIN SELECT RAISE(ABORT, 'injected actor outbox failure'); END;",
         )
         .expect("install failure injection");
+        conn.execute(
+            "UPDATE action_journal SET record_json = '{broken replay'
+             WHERE journal_seq = (SELECT MIN(journal_seq) FROM action_journal)",
+            [],
+        )
+        .expect("make full replay unavailable after rollback");
         drop(conn);
         let baseline_counts = {
             let conn = open_event_store(&path).expect("count rollback baseline rows");
@@ -47229,7 +47384,10 @@ mod tests {
                 reason: "actor_outbox_rollback_test".to_string(),
             });
 
-        assert!(commit_journal_record(&state, &mut runtime, record).is_err());
+        let error = commit_journal_record(&state, &mut runtime, record)
+            .expect_err("injected actor outbox failure");
+        assert!(error.to_string().contains("injected actor outbox failure"));
+        assert!(!error.to_string().contains("runtime restore failed"));
         assert_eq!(runtime.world.tick, before_tick);
         assert_eq!(runtime.world.next_event_seq, before_next_event_seq);
         assert!(!runtime.tags.contains_key("test:outbox:rollback"));
