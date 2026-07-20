@@ -24,9 +24,23 @@ For the OpenRouter player payer, Orb-paid Chat, real AI media, combat rewards, a
 - `content/core/`: authored first-party world pack.
 - `content/lonely-forest/` and `content/ruby-high-first-bell/`: asset and external-catalog packs.
 - `content/rules-srd-5.1/` and `content/rules-srd-5.2.1/`: separately attributed, non-authoritative fifth-edition rules references.
+- `content/rules-profile-srd5/`: executable `cosyworld.srd5/1` action profile, conformance matrix, and item/equipment/Magic contracts.
 - `content/the-lantern-keeper/`: short campaign pack and its character-creation profile.
 - `worlds/official/`: selected packs and reproducible integrity lock.
 - `content/official/`: generated bundle consumed by the Rust host. See `docs/worldpacks.md`.
+
+The reference packs remain non-authoritative; the official world selects the
+versioned `cosyworld.srd5/1` profile through `cosyworld.rules/2`. Stable SRD
+5.2.1 action identities sit beneath collectible avatar/item/location cards,
+with weapons, skill charms, spells, and containers as playable Item roles. The
+implemented architecture is documented in
+[`docs/systems/04-action-system.md`](../docs/systems/04-action-system.md) and
+its acceptance/evidence ledger is tracked in
+[`docs/backlog/srd-action-card-foundation.md`](../docs/backlog/srd-action-card-foundation.md).
+Expansion authors should start with
+[`docs/action-pack-authoring.md`](docs/action-pack-authoring.md); the deliberately
+non-shipping ordinary-action draw experiment is recorded in
+[`docs/deck-gated-action-spike.md`](docs/deck-gated-action-spike.md).
 
 ## Current Capabilities
 
@@ -75,6 +89,9 @@ Seed world content:
 - Item `2005`: Story Button.
 - Item `2006`: Hearthstone Tag.
 - Item `2007`: Watch Bell.
+- Item `2012`: Patchwork Satchel, an equippable physical-capacity card.
+- Item `2013`: Moonlit Practice Blade, an equipped weapon-profile card.
+- Item `2014`: Steady Light, a prepared/exhaustible bounded spell card.
 
 ## Access Model
 
@@ -112,6 +129,9 @@ The C kernel currently resolves:
 - Combat rejection in safe locations; The Cosy Cottage remains non-combat.
 - A reachable Moonlit Trail sparring encounter for one-button attack/defend/flee smoke coverage.
 - Ranked primary action offers with typed category, target, cost, risk, effect, claim-key, source, disabled-state, and inspector metadata.
+- Append-only profile Search, Study, Influence, Magic, and theft actions;
+  authoritative item zones, equipped weapon/container profiles, and spell
+  exhaustion.
 
 The Rust orchestrator currently owns:
 
@@ -120,6 +140,10 @@ The Rust orchestrator currently owns:
 - Actor/item/location/content labels.
 - Native calls into the local Rust model for deterministic avatar identity and speech sanitizer behavior that can also run in WASM; dialogue is generated only through configured AI inference.
 - Card projections for visible actors, items, and locations.
+- Rules-bound legal-action envelopes, deterministic ranked three-card hands,
+  composition traces, and stale/tampered submission rejection.
+- Signed-ownership item materialization with durable receipts, reversible
+  Collection returns, and possession provenance.
 - Session-touched and heartbeat-refreshed live human presence, so stale generated avatars do not crowd active rooms.
 - Generated human avatar flavor: name, title, description, and runtime avatar card.
 - Server-authored avatar chat from the `Chat` button, plus moderated human-authored `say` lines for shared room speech.
@@ -253,7 +277,7 @@ http://127.0.0.1:3102/?reset=1
 
 `reset=1` clears the browser's remembered avatar, calls the dev-gated `/dev/reset` endpoint when enabled, removes the reset flag from the URL, reseeds the world, clears the SQLite action journal/event feed, and returns the player to the explicit `Create Avatar` gate. Without `COSYWORLD_ENABLE_DEV_RESET=1`, the query still clears only the local browser avatar so a tester can start a new human without resetting the shared server.
 
-The avatar gate begins with an immediate character question—`what draws you in?`—and carries the answer through the visible game as the avatar's purpose. A quiet transcript is a centered room vignette instead of a tiny line stranded above an empty panel: before avatar creation it frames `a new tale is waiting`, and later it reminds the player that choosing a card will invite someone in the room to answer. After confirming Begin, the card reads `arriving` and the story stage becomes `the cottage is making room`, retaining the selected calling while the model shapes a name and face. That pending beat promises the resident welcome that follows, so the first AI wait feels like arrival rather than a frozen button. The completed Begin lands as a visible arrival beat followed immediately by the first resident in card order welcoming the new avatar, so the action→story→reply rhythm starts with the very first card. The new avatar sheet keeps that tone: empty Journal, knack, friendship, collection, Box, and pack states describe moments and people still ahead rather than saying `nothing`, `none`, or `no one`; a local session is a `local tale`, and keepsake capacity says how much room remains instead of showing a fraction. The browser's opening is then framed as `Your first tale`: Notice a clue, Grow from what happened, then shape a friendship or knack. Its three prompts use short, wrap-safe language on narrow screens, while the authoritative action hand keeps the relevant Calling and Journal choices visible and labels every card with its provenance. A first welcoming Notice remains personal and playable even when an Orb Chat has advanced the shared room turn. The completion beat recalls the whole path: the player noticed a clue, grew from it, and made a friend or found a knack to practice. That guide keys off an actual noticed truth, so an Orb Chat memory or unrelated growth can never masquerade as the opening clue or skip a missed Notice. The first Notice in a room always keeps its welcoming promise by yielding a clue; later noticing can remain uncertain. A paid repeat is presented as `Notice again · one Orb`, with cost, possible clue, and fatigue risk separated in its confirmation. Finishing the opening earns a brief completion beat before ordinary play takes over. Everyday cards describe the gesture and its possible story outcome in plain language: Orb costs are written as costs rather than subtraction, Grow talks about the little things noticed and the new possibilities they open without counting marks or points, Practice replaces the colder Train verb, Grow Closer replaces visible Bond terminology with ordinary friendship language, and Give carries its recipient choice inside one card. Practice carries every trainable knack—Listening, Kindness, Lorecraft, Steadiness, Nimble Hands, and Lifting—inside one card, with the server suggestion first but never forced. Grow Closer now carries every nearby new-friend option too, so the first tale's friendship choice belongs to the player instead of the server default. Remember does the same for mature friendships, letting the player choose whose shared story to carry forward instead of exposing settlement language. Chat follows the same rule: when several residents are nearby, one Chat card opens a resident picker instead of occupying one hand slot per person; a lone resident is still named directly on the card. Take and Swap also collapse every visible floor keepsake into one picker, so discovering another item adds a meaningful option without crowding the hand with a duplicate verb. Use likewise carries every safe care recipient inside one card while keeping combat opponents out of that picker; when the same keepsake can also awaken a room feature, those possibilities join that same Use card as choices such as `with Hearth` and `help you` rather than duplicating the verb. Trade carries every willing resident's exact give-and-receive pair inside one card, and confirmation still moves both keepsakes atomically. Attack carries every active opponent inside one target picker while a lone opponent remains named directly. A wanted gift does not vanish just because a resident's paws are full: the card names the less-important keepsake they will hand back, and the kernel resolves both movements as one gift while protecting attached treasures. Project choices describe their character—make a little, good, or great headway; stay fresh; make the next try count—instead of counting clock steps. Notice, combat, recovery, and shared projects still use exact deterministic fields underneath, but the player-facing transcript, typed-command output, accessibility copy, and room diary describe the outcome as a story beat rather than exposing d20, modifier, DC, rank, damage, HP, segment, or progress-clock arithmetic. The collapsed room `LOG` names who did what and what changed—arrived, found, gave, became friends, grew closer, chose a purpose, or moved a project forward—rather than adding stock atmospheric prose. Travel updates follow the room being viewed: the room left behind records `Rati left for Science Class`, while Science Class records the matching arrival. Long connections are ordinary segmented geography rather than a separate travel minigame: Scout reveals exactly one next adjacent pathway location without moving, then Travel enters it; distance three therefore means three normal Travel edges with two generated pathway locations between the endpoints. Every normal conversation keeps one plain room-opening line above the voices, so returning to a quiet room never produces a contextless transcript. Orb Chat spends one Orb on a short four-beat exchange—avatar, resident, avatar, resident—and records one witnessed room memory after the back-and-forth. Repeat chats keep the same room thread; collision checks fold straight and typographic quotes and dashes, rejecting visually identical inferred lines rather than substituting canned dialogue. While the opening line is being shaped, the chosen resident remains visible in the transcript with a `finding the thread…` beat and the card reads `chatting`, so a model pause still feels like part of the conversation instead of a frozen hand. The shared transcript preserves every player line while pacing an uninterrupted resident monologue down to its two freshest lines; the underlying event history remains intact. The expanded room diary also collapses exact repeated memories and normalizes their sentence endings.
+The avatar gate begins with an immediate character question—`what draws you in?`—and carries the answer through the visible game as the avatar's purpose. A quiet transcript is a centered room vignette instead of a tiny line stranded above an empty panel: before avatar creation it frames `a new tale is waiting`, and later it reminds the player that choosing a card will invite someone in the room to answer. After confirming Begin, the card reads `arriving` and the story stage becomes `the cottage is making room`, retaining the selected calling while the model shapes a name and face. That pending beat promises the resident welcome that follows, so the first AI wait feels like arrival rather than a frozen button. The completed Begin lands as a visible arrival beat followed immediately by the first resident in card order welcoming the new avatar, so the action→story→reply rhythm starts with the very first card. The new avatar sheet keeps that tone: empty Journal, bracelet, friendship, collection, Box, and pack states describe moments and people still ahead rather than saying `nothing`, `none`, or `no one`; a local session is a `local tale`, and the carried deck reports physical weight rather than a fixed card count. The browser's opening is then framed as `Your first tale`: Listen for a clue, Grow from what happened, then shape a friendship or unlock bracelet space. Its three prompts use short, wrap-safe language on narrow screens, and the matching card is pinned in the hand with a visible `✦ next tale beat` reason while unrelated slots can still be redrawn. A first welcoming Listen remains personal and playable even when an Orb Chat has advanced the shared room turn. The completion beat recalls the whole path: the player listened, grew from a clue, and made a friend or opened room for a found charm. That guide keys off an actual listened-to truth, so an Orb Chat memory or unrelated growth can never masquerade as the opening clue or skip a missed Listen. The first Listen in a room always keeps its welcoming promise by yielding a clue; later Listening can remain uncertain. A paid repeat is presented as `Listen again · one Orb`, with cost, possible clue, and fatigue risk separated in its confirmation. Finishing the opening earns a brief completion beat before ordinary play takes over. Everyday cards describe the gesture and its possible story outcome in plain language: Orb costs are written as costs rather than subtraction, Grow talks about the little things noticed and the new possibilities they open without counting marks or points, Expand Bracelet spends advancement on room for another found skill charm, Grow Closer replaces visible Bond terminology with ordinary friendship language, and Give carries its recipient choice inside one card. Advancement never creates a charm or skill. Grow Closer now carries every nearby new-friend option too, so the first tale's friendship choice belongs to the player instead of the server default. Remember does the same for mature friendships, letting the player choose whose shared story to carry forward instead of exposing settlement language. Chat follows the same rule: when several residents are nearby, one Chat card opens a resident picker instead of occupying one hand slot per person; a lone resident is still named directly on the card. Take collapses every visible floor keepsake into one picker, so discovering another item adds a meaningful option without crowding the hand with a duplicate verb; it adds a card to the carried deck without silently evicting another card. Use likewise carries every safe care recipient inside one card while keeping combat opponents out of that picker; when the same keepsake can also awaken a room feature, those possibilities join that same Use card as choices such as `with Hearth` and `help you` rather than duplicating the verb. Trade carries every willing resident's exact give-and-receive pair inside one card, and confirmation still moves both keepsakes atomically. Attack carries every active opponent inside one target picker while a lone opponent remains named directly. A wanted gift remains possible when an explicit returned card makes both residents' weighted decks legal; the kernel resolves both movements atomically while protecting attached treasures. Project choices describe their character—make a little, good, or great headway; stay fresh; make the next try count—instead of counting clock steps. Listen, combat, recovery, and shared projects still use exact deterministic fields underneath, but the player-facing transcript, typed-command output, accessibility copy, and room diary describe the outcome as a story beat rather than exposing d20, modifier, DC, rank, damage, HP, segment, or progress-clock arithmetic. The collapsed room `LOG` names who did what and what changed—arrived, found, gave, became friends, grew closer, chose a purpose, or moved a project forward—rather than adding stock atmospheric prose. Travel updates follow the room being viewed: the room left behind records `Rati left for Science Class`, while Science Class records the matching arrival. Long connections are ordinary segmented geography rather than a separate travel minigame: Search reveals exactly one next adjacent pathway location, then the existing Travel action enters it; distance three therefore means three normal Travel edges with two generated pathway locations between the endpoints. Every normal conversation keeps one plain room-opening line above the voices, so returning to a quiet room never produces a contextless transcript. Orb Chat spends one Orb on a short four-beat exchange—avatar, resident, avatar, resident—and records one witnessed room memory after the back-and-forth. Repeat chats keep the same room thread; collision checks fold straight and typographic quotes and dashes, rejecting visually identical inferred lines rather than substituting canned dialogue. While the opening line is being shaped, the chosen resident remains visible in the transcript with a `finding the thread…` beat and the card reads `chatting`, so a model pause still feels like part of the conversation instead of a frozen hand. The shared transcript preserves every player line while pacing an uninterrupted resident monologue down to its two freshest lines; the underlying event history remains intact. The expanded room diary also collapses exact repeated memories and normalizes their sentence endings.
 
 Pathway Scout and Travel remain ordinary dealt actions: discovering a stretch never replaces the hand, moves the player, commits them to the destination, or hides room interactions. A player may continue, backtrack, choose another route, or stay and act. Generated waypoint rooms begin as risky frontier. Each pathway carries one shared `Make this way familiar` contribution project across all of its waypoint rooms; Push and Help are strategies on one project card and advance the same clock. Community contributions settle the route, move it into sanctuary rules, complete the public job, and unlock generated landscape art. Until that work completes, the deterministic pathway SVG remains the visual fallback.
 
@@ -261,7 +285,7 @@ Authored search reveal percentages are real per-attempt thresholds. Candidates
 are checked in deterministic priority order, and when every roll misses the
 search reveals nothing rather than forcing the first hidden candidate.
 
-At the final first-tale choice, both `Grow Closer` and `Practice` stay visibly guided in the hand. The player can therefore make the promised friendship-or-knack choice directly, including on the two-card mobile hand, instead of relying on a redraw to reveal the other path. A successful Listen now reveals one vivid lead at a time rather than listing every nearby keepsake or system hook; when an earlier keepsake has moved on, the room points to one different object or one gentle search invitation. The collapsed room log keeps the latest human card outcome on top while its derived memory rewards and resident ripples remain in the expanded chronological history. Room-memory cleanup removes only a leading second-person subject, preserving phrases such as `what draws you` inside the sentence.
+At the final first-tale choice, both `Grow Closer` and bracelet `Evolve` stay visibly guided in the hand. The player can therefore make the promised friendship-or-charm-slot choice directly, including on the two-card mobile hand, instead of relying on a redraw to reveal the other path. A successful Listen now reveals one vivid lead at a time rather than listing every nearby keepsake or system hook; when an earlier keepsake has moved on, the room points to one different object or one gentle search invitation. The collapsed room log keeps the latest human card outcome on top while its derived memory rewards and resident ripples remain in the expanded chronological history. Room-memory cleanup removes only a leading second-person subject, preserving phrases such as `what draws you` inside the sentence.
 
 Generated avatar titles are short portable card epithets rather than room descriptions. Model-added suffixes such as `at The Cosy Cottage` are removed on creation and when older profiles are replayed, so arrival copy names the room once and the title still makes sense after travel. Identity generation asks for a small fondness, harmless habit, and gentle curiosity; a server-side tone guard repairs titles, descriptions, visual prompts, and older profiles that drift into grudges, ravenous scheming, hostility, cruelty, or villain language.
 
@@ -288,7 +312,20 @@ Then from the repository root:
 node v2/scripts/smoke-browser.mjs
 ```
 
-The browser smoke uses Playwright from `v2` when available, or the sibling `../app-ruby-high` workspace in this development checkout. `npm run v2:smoke` runs both the deterministic visual/accessibility pass and the longer living-world journey. Together they verify runtime metadata, signed wallet challenge/session access, signed wallet avatar recovery, avatar creation, actor-session continuity, walletless `connect wallet`, one-button normal play, zero-Orb earning-action priority, no-typing `listen`, server-authored avatar chat, moderated client-authored room speech and `/me` emotes, player report queue submission/resolution/deletion plus protected moderation replay, the `/moderation` operator console, player-facing report command seeding, two-browser room fanout and presence leave refresh, compass/typed command behavior, typed item take/drop/retake behavior, reload continuity, contextual verb labels, mobile and desktop viewport fit, generated seed-card art, Ruby High card asset delivery, card-gated travel, resident keepsake handoffs, one-item room swaps, project-clue item use, prepared project completion, post-project social play, autonomous resident delivery, emoji-only speech accessibility, and protected resident/human action boundaries.
+The browser smoke uses Playwright from `v2` when available, or the sibling
+`../app-ruby-high` workspace in this development checkout. `npm run v2:smoke`
+runs both the deterministic visual/accessibility pass and the longer
+living-world journey. Together they verify runtime metadata, signed wallet
+challenge/session access and avatar recovery, avatar creation, actor-session
+continuity, walletless `connect wallet`, one-button normal play, zero-Orb
+earning-action priority, no-typing `listen`, server-authored avatar chat,
+moderated room speech and `/me` emotes, moderation/report flows, two-browser
+fanout and presence leave, compass/typed command behavior, weighted-deck item
+take/drop/retake behavior, multiple loose cards at one location, reload
+continuity, contextual verb labels, viewport fit, seed-card art, card-gated
+travel, resident keepsake handoffs, project-clue use and completion,
+autonomous resident delivery, emoji-only speech accessibility, and protected
+resident/human action boundaries.
 
 When the mobile and desktop visual shell checks pass, the smoke writes viewport screenshots plus JSON metadata and SHA-256 hashes to `v2/orchestrator-rust/.runtime/visual-smoke/`. It also compares those screenshots against the committed PNG baselines in `v2/tests/visual-baselines/` with a 3% max pixel mismatch ratio. Set `COSYWORLD_VISUAL_SNAPSHOT_DIR=/path/to/output` to collect runtime artifacts somewhere else, or run `COSYWORLD_UPDATE_VISUAL_BASELINES=1 node v2/scripts/smoke-browser.mjs` after an intentional UI change to refresh the baselines.
 
@@ -611,7 +648,7 @@ Locations are live channels:
 - `/events` uses the same visibility query parameters for replay; walletless requests only receive public Cottage-visible events. The response is `{ "world_id": "world://cosyworld/official", "world_epoch": 1, "events": [...], "next_after": 123, "through_seq": 123, "caught_up": true }`, so each event's `seq` completes its canonical public identity tuple. Replay defaults to the latest 80 visible events, accepts `limit=...`, and caps explicit requests at 500. Polling clients pass `next_after` into the next request so the cursor advances across events hidden by room or card visibility; each request scans at most 1,000 raw events.
 - Human presence in `/state` and `/world` is filtered to the current actor plus recently touched actor sessions; durable old avatars are not treated as online occupants.
 - `/presence/ping` and `/presence/leave` require the matching actor session and emit hidden `actor.presence` events only when the active-presence state changes.
-- When two or more active human avatars share a room, `/state.turn` names the human whose card play is live. A newcomer still receives one welcoming Listen card before joining the room rhythm, and that courtesy action does not steal or advance the current player's place. Personal first-tale choices remain available while waiting: Grow can keep a new memory and Practice can shape a knack without taking or passing the shared room turn. The gentle Nudge / I'm here handoff remains beside those personal choices instead of exposing technical timeout or initiative language. A nudge opens an eight-second room wait; players who answer are eligible for the next choice if the current player is away.
+- When two or more active human avatars share a room, `/state.turn` names the human whose card play is live. A newcomer still receives one welcoming Listen card before joining the room rhythm, and that courtesy action does not steal or advance the current player's place. Personal first-tale choices remain available while waiting: Grow can keep a new memory and bracelet Evolve can open a charm slot without creating a charm or taking the shared room turn. The gentle Nudge / I'm here handoff remains beside those personal choices instead of exposing technical timeout or initiative language. A nudge opens an eight-second room wait; players who answer are eligible for the next choice if the current player is away.
 - The browser appends only `message.created` speech to group chat. Other matching live events refresh state and remain available through the room Log.
 - Moving between locations swaps to that room's transcript instead of carrying the prior room log forward.
 
@@ -625,6 +662,7 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `GET /meta`
 - `GET /licenses`
 - `GET /content-packs`
+- `GET /inspect`
 - `GET /state`
 - `GET /state?actor_id=5000&actor_session=<session>`
 - `GET /state?actor_id=5000&actor_session=<session>&wallet_session=<wallet-session>`
@@ -647,18 +685,37 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /commands`
 - `POST /presence/ping`
 - `POST /presence/leave`
+- `POST /actions/submit`
 - `POST /actions/chat`
 - `POST /actions/say`
 - `POST /actions/report`
 - `POST /actions/move`
 - `POST /actions/check`
+- `POST /actions/study`
+- `POST /actions/influence`
+- `POST /actions/cast-spell`
 - `POST /actions/pick-up`
 - `POST /actions/drop`
 - `POST /actions/use-item`
 - `POST /actions/give-item`
+- `POST /actions/trade-item`
+- `POST /actions/theft`
+- `POST /actions/craft`
 - `POST /actions/attack`
 - `POST /actions/defend`
+- `POST /actions/prepare`
+- `POST /actions/work`
+- `POST /actions/help`
+- `POST /actions/rest`
+- `POST /actions/unlock-charm-slot`
+- `POST /actions/set-charm-equipped`
+- `POST /actions/set-spell-prepared`
+- `POST /actions/set-item-equipped`
+- `POST /actions/set-item-contained`
 - `POST /actions/flee`
+- `POST /collection/materialize`
+- `POST /collection/unmaterialize`
+- `POST /commands`
 
 `POST /commands` is the canonical mutation gateway. New callers send the
 authenticated numeric actor handle plus the stable envelope advertised by
@@ -688,9 +745,13 @@ stale version returns `409` without another effect.
 `POST /actions/check` is the public Listen action, not a generic client-authored
 roll: the server always resolves Wisdom against DC 12, accepts only `wis` or
 `wisdom` with an omitted or matching DC, and rejects other ability/DC pairs.
+It journals the append-only Search action. `POST /actions/study` is the distinct
+Intelligence-backed Study path. The preferred mechanical submission seam is
+`POST /actions/submit`, which revalidates the server-authored offer identity,
+rules binding, target, collectible source, and state revision before dispatch.
 
 These three routes are compatibility wrappers over the deterministic
-`cosyworld.combat/2` encounter protocol. Attack starts or joins the active
+`cosyworld.combat/4` encounter protocol. Attack starts or joins the active
 room-job encounter, Defend takes the Dodge action, and Flee takes Escape through
 an unlocked accessible exit. Initiative includes NPCs, only the current
 participant may take a mechanical action, job-declared NPC participants are the
@@ -698,7 +759,8 @@ only valid targets, and finishing damage is nonlethal at 1 Hit Point. Active
 encounters are exposed through `/state.combat`, advertised by `/meta.combat`,
 journaled as append-only lifecycle events, and persisted in snapshots. See
 [`docs/combat-system.md`](docs/combat-system.md) for the exact SRD-compatible
-surface and deliberate exclusions.
+surface, equipment-profile damage, legacy replay behavior, and deliberate
+exclusions.
 
 `/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, canonical `world_id`/`world_epoch`, capacity `process_id`, matching legacy `shard_id`, non-secret feature flags such as server-authored Chat and enabled client-authored speech, persistence mode, moderation report retention, ownership-feed mode, current world counters, compiled kernel capacities, and the mounted packs' exact license records. `GET /licenses` exposes those pack versions, license links, provenance, modification notices, and bundled attribution text without authentication. `./v2/mvp.sh status` prints a one-line summary from `/meta`.
 

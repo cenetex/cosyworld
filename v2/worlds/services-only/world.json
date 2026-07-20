@@ -4,7 +4,10 @@
   "name": "CosyWorld Services Only",
   "version": 1,
   "description": "A non-world composition for health, metadata, identity, and moderation services.",
+  "rules_profile": "cosyworld.srd5/1",
   "packs": [
-    "cosyworld.services-fixture"
+    "cosyworld.services-fixture",
+    "cosyworld.rules-srd-5.2.1",
+    "cosyworld.rules-profile-srd5"
   ]
 }

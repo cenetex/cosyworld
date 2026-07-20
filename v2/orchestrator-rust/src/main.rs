@@ -380,6 +380,9 @@ const BOND_REVISION_COST: u8 = 1;
 const BOND_SETTLE_MIN_STRENGTH: u8 = 2;
 const SKILL_STEP_COST: u8 = 1;
 const MAX_SKILL_RANK: u8 = 3;
+const CHARM_SLOT_COST: u8 = 1;
+const BASE_CHARM_SLOTS: u8 = 1;
+const MAX_CHARM_SLOTS: u8 = 6;
 const DEFAULT_EVENT_REPLAY_LIMIT: usize = 80;
 const MAX_EVENT_REPLAY_LIMIT: usize = 500;
 const MAX_EVENT_STORE_SCAN: usize = 1000;
@@ -883,6 +886,40 @@ enum ProjectionMutation {
         cost: u8,
         reason: String,
     },
+    UnlockCharmSlot {
+        cost: u8,
+        reason: String,
+    },
+    SetCharmEquipped {
+        item_id: u64,
+        equipped: bool,
+        reason: String,
+    },
+    SetSpellPrepared {
+        item_id: u64,
+        prepared: bool,
+        reason: String,
+    },
+    SetItemEquipped {
+        item_id: u64,
+        equipped: bool,
+        reason: String,
+    },
+    SetItemContained {
+        item_id: u64,
+        container_item_id: Option<u64>,
+        reason: String,
+    },
+    MaterializeItem {
+        receipt: MaterializationReceiptState,
+        item: CwItem,
+        meta: ItemMeta,
+        reason: String,
+    },
+    UnmaterializeItem {
+        receipt_id: String,
+        reason: String,
+    },
     DeepenBond {
         target_actor_id: u64,
         claim_key: String,
@@ -911,6 +948,40 @@ struct SkillState {
     rank: u8,
     #[serde(default)]
     updated_event_seq: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct NpcCooperationState {
+    actor_id: u64,
+    target_actor_id: u64,
+    desired_cooperation: String,
+    attitude: String,
+    outcome: String,
+    attempts: u32,
+    source_event_seq: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct ItemProvenanceState {
+    item_id: u64,
+    origin: String,
+    acquisition: String,
+    previous_holder_actor_id: Option<u64>,
+    current_holder_actor_id: Option<u64>,
+    current_location_id: Option<u64>,
+    transfer_count: u32,
+    source_event_seq: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct MaterializationReceiptState {
+    id: String,
+    actor_id: u64,
+    card_id: String,
+    item_id: u64,
+    status: String,
+    source_wallet: Option<String>,
+    source_event_seq: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1103,6 +1174,12 @@ struct ResidentProposedAction {
 struct ItemMeta {
     name: String,
     description: String,
+    #[serde(default)]
+    skill_id: Option<String>,
+    #[serde(default)]
+    skill_bonus: i8,
+    #[serde(default)]
+    mechanics: Option<SeedPlayableItemMechanics>,
 }
 
 #[derive(Clone, Debug)]
@@ -1170,6 +1247,12 @@ struct RuntimeWorld {
     journeys: BTreeMap<u64, JourneyState>,
     callings: BTreeMap<u64, CallingState>,
     skills: BTreeMap<String, SkillState>,
+    charm_slots: BTreeMap<u64, u8>,
+    equipped_charms: BTreeMap<u64, BTreeSet<u64>>,
+    prepared_spells: BTreeMap<u64, BTreeSet<u64>>,
+    npc_cooperation: BTreeMap<String, NpcCooperationState>,
+    item_provenance: BTreeMap<u64, ItemProvenanceState>,
+    materialization_receipts: BTreeMap<String, MaterializationReceiptState>,
     ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
     advancement_spends: BTreeMap<String, AdvancementSpendState>,
     bonds: BTreeMap<String, BondState>,
@@ -1197,6 +1280,13 @@ struct RuntimeSnapshot {
     worldpack_bundle_hash: String,
     #[serde(default, skip_serializing_if = "content_reference_context_is_empty")]
     content_context: ContentReferenceContext,
+    #[serde(default)]
+    rules_profile: String,
+    #[serde(default)]
+    active_rules_variants: Vec<String>,
+    #[serde(default)]
+    active_rules_extensions: Vec<String>,
+
     world_version: u32,
     tick: u64,
     next_event_seq: u64,
@@ -1237,6 +1327,18 @@ struct RuntimeSnapshot {
     callings: BTreeMap<u64, CallingState>,
     #[serde(default)]
     skills: BTreeMap<String, SkillState>,
+    #[serde(default)]
+    charm_slots: BTreeMap<u64, u8>,
+    #[serde(default)]
+    equipped_charms: BTreeMap<u64, BTreeSet<u64>>,
+    #[serde(default)]
+    prepared_spells: BTreeMap<u64, BTreeSet<u64>>,
+    #[serde(default)]
+    npc_cooperation: BTreeMap<String, NpcCooperationState>,
+    #[serde(default)]
+    item_provenance: BTreeMap<u64, ItemProvenanceState>,
+    #[serde(default)]
+    materialization_receipts: BTreeMap<String, MaterializationReceiptState>,
     #[serde(default)]
     ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
     #[serde(default)]
@@ -1299,6 +1401,18 @@ struct JournalRecord {
     #[serde(default, skip_serializing_if = "content_reference_context_is_empty")]
     content_context: ContentReferenceContext,
     #[serde(default)]
+    rules_profile: String,
+    #[serde(default)]
+    active_rules_variants: Vec<String>,
+    #[serde(default)]
+    active_rules_extensions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rules_action: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    operation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resolver: Option<String>,
+    #[serde(default)]
     origin: JournalOrigin,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     caused_by_event_seq: Option<u64>,
@@ -1341,11 +1455,27 @@ impl JournalRecord {
             CW_ACTION_NONE => JournalOrigin::System,
             _ => JournalOrigin::PlayerCard,
         };
+        let (rules_action, operation, resolver) = journal_binding_for_kernel_action(action.kind)
+            .map(|binding| {
+                (
+                    binding.rules_action,
+                    binding.operation,
+                    Some(binding.resolver),
+                )
+            })
+            .unwrap_or_default();
         Self {
-            version: 4,
+            version: 6,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry()
                 .content_reference_context(action_content_handles(&action)),
+            rules_profile: active_content().manifest.rules_profile.clone(),
+            active_rules_variants: active_content().manifest.active_rules_variants.clone(),
+            active_rules_extensions: active_content().manifest.active_rules_extensions.clone(),
+            rules_action,
+            operation,
+            resolver,
+
             origin,
             caused_by_event_seq: None,
             source_world_tick: None,
@@ -1396,6 +1526,14 @@ impl JournalRecord {
             refreshed.active_rulesets = self.content_context.active_rulesets.clone();
         }
         self.content_context = refreshed;
+    }
+
+    fn bind_offer_kind(&mut self, kind: &str) {
+        if let Some(binding) = resolved_action_binding(kind) {
+            self.rules_action = binding.rules_action;
+            self.operation = binding.operation;
+            self.resolver = Some(binding.resolver);
+        }
     }
 
     fn into_player_card(mut self) -> Self {
@@ -1647,8 +1785,12 @@ struct MetaWorldpack {
     version: u32,
     bundle_hash: String,
     entry_location: String,
+    rules_profile: String,
+    active_rules_variants: Vec<String>,
+    active_rules_extensions: Vec<String>,
     packs: Vec<SeedWorldpackPack>,
     rules: Vec<MetaRulesBundle>,
+    contributions: Vec<SeedContributionBundle>,
     attributions: Vec<SeedAttribution>,
     licenses: Vec<SeedLicenseRecord>,
 }
@@ -1660,6 +1802,8 @@ struct MetaRulesBundle {
     namespace: String,
     conditions: usize,
     monster_seeds: usize,
+    profiles: Vec<String>,
+    actions: Vec<SeedRulesAction>,
 }
 
 #[derive(Debug, Serialize)]
@@ -2047,6 +2191,7 @@ struct AccountView {
     unopened_pack_ids: Vec<String>,
     recent_box_receipts: Vec<WoodenBoxReceiptView>,
     recent_pack_openings: Vec<AvatarPackOpeningView>,
+    materialization_receipts: Vec<MaterializationReceiptState>,
 }
 
 #[derive(Clone, Debug)]
@@ -2134,6 +2279,7 @@ struct ResidentAutonomyCandidate {
 }
 
 #[derive(Debug, Serialize)]
+
 struct CardRegistryView {
     actors: BTreeMap<u64, CardView>,
     items: BTreeMap<u64, CardView>,
@@ -2252,11 +2398,21 @@ struct ActionOption {
     command: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct RankedActionOffer {
     id: String,
+    offer_id: String,
     kind: String,
     intention: String,
+    rules_action: Option<String>,
+    operation: Option<String>,
+    rules_profile: String,
+    resolver: String,
+    source_collectible: Option<ActionSourceCollectibleView>,
+    pack_provenance: ActionPackProvenanceView,
+    composition_trace: ActionCompositionTraceView,
+    state_revision: u64,
+
     category: String,
     verb: String,
     label: String,
@@ -2276,6 +2432,46 @@ struct RankedActionOffer {
     progress: Option<u8>,
     claim_key: Option<String>,
     reason: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ActionSourceCollectibleView {
+    kind: String,
+    instance_id: u64,
+    card_id: String,
+    pack_id: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ActionPackProvenanceView {
+    pack_id: String,
+    pack_version: String,
+    rules_namespace: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ActionCompositionTraceView {
+    rules_profile: String,
+    rules_pack_id: String,
+    rules_pack_version: String,
+    source_card_instances: Vec<ActionSourceCollectibleView>,
+    target: Option<ActionTargetView>,
+    applied_variants: Vec<String>,
+    active_extensions: Vec<String>,
+    applied_reskins: Vec<String>,
+    contextual_offers: Vec<String>,
+    resolver: String,
+    state_revision: u64,
+}
+
+#[derive(Clone, Debug)]
+struct ResolvedActionBinding {
+    rules_action: Option<String>,
+    operation: Option<String>,
+    resolver: String,
+    pack_id: String,
+    pack_version: String,
+    namespace: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -2311,14 +2507,15 @@ struct ActionProjectView {
     progress_clock_id: String,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+
 struct ActionTargetView {
     kind: String,
     id: Option<u64>,
     label: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 struct ActionCostView {
     orbs: i32,
     reason: String,
@@ -2573,6 +2770,20 @@ struct ActionResponse {
     ok: bool,
     status: u32,
     events: Vec<EventView>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ActionOfferSubmissionRequest {
+    path: String,
+    offer_id: String,
+    kind: String,
+    rules_action: Option<String>,
+    operation: Option<String>,
+    rules_profile: String,
+    state_revision: u64,
+    target: Option<ActionTargetView>,
+    cost: Option<ActionCostView>,
+    payload: serde_json::Value,
 }
 
 #[derive(Debug, Serialize)]
@@ -2844,6 +3055,52 @@ struct ItemRequest {
     item_id: u64,
     target_item_id: Option<u64>,
     target_actor_id: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SetCharmEquippedRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    item_id: u64,
+    equipped: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct SetItemContainedRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    item_id: u64,
+    container_item_id: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MaterializeItemRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    receipt_id: String,
+    card_id: String,
+    wallet_address: Option<String>,
+    wallet: Option<String>,
+    wallet_session: Option<String>,
+    owned_card_ids: Option<String>,
+    cards: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UnmaterializeItemRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    receipt_id: String,
+}
+
+#[derive(Debug, Serialize)]
+struct MaterializationResponse {
+    ok: bool,
+    status: u32,
+    receipt: Option<MaterializationReceiptState>,
+    item: Option<ItemView>,
+    events: Vec<EventView>,
+    error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -3307,6 +3564,9 @@ fn seed_item_meta() -> BTreeMap<u64, ItemMeta> {
                 ItemMeta {
                     name: item.name.clone(),
                     description: item.description.clone(),
+                    skill_id: item.skill_id.clone(),
+                    skill_bonus: item.skill_bonus,
+                    mechanics: item.mechanics.clone(),
                 },
             )
         })
@@ -3316,10 +3576,53 @@ fn seed_item_meta() -> BTreeMap<u64, ItemMeta> {
             items.entry(output.item_id).or_insert_with(|| ItemMeta {
                 name: output.name.clone(),
                 description: output.description.clone(),
+                skill_id: None,
+                skill_bonus: 0,
+                mechanics: None,
             });
         }
     }
     items
+}
+
+fn default_seed_item_role() -> String {
+    "generic".to_string()
+}
+
+fn default_seed_item_weight_tenths() -> u16 {
+    CW_ITEM_DEFAULT_WEIGHT_TENTHS
+}
+
+fn default_seed_item_size() -> String {
+    "small".to_string()
+}
+
+fn seed_item_role(item: &SeedItemContent) -> Option<u8> {
+    match item.role.as_str() {
+        "generic" => Some(CW_ITEM_ROLE_GENERIC),
+        "consumable" => Some(CW_ITEM_ROLE_CONSUMABLE),
+        "weapon" => Some(CW_ITEM_ROLE_WEAPON),
+        "skill_charm" => Some(CW_ITEM_ROLE_SKILL_CHARM),
+        "spell" => Some(CW_ITEM_ROLE_SPELL),
+        "container" => Some(CW_ITEM_ROLE_CONTAINER),
+        "tool" => Some(CW_ITEM_ROLE_TOOL),
+        "relic" => Some(CW_ITEM_ROLE_RELIC),
+        _ => None,
+    }
+}
+
+fn seed_item_size(item: &SeedItemContent) -> Option<u8> {
+    item_size_from_str(&item.size)
+}
+
+fn item_size_from_str(size: &str) -> Option<u8> {
+    match size {
+        "tiny" => Some(CW_ITEM_SIZE_TINY),
+        "small" => Some(CW_ITEM_SIZE_SMALL),
+        "medium" => Some(CW_ITEM_SIZE_MEDIUM),
+        "large" => Some(CW_ITEM_SIZE_LARGE),
+        _ => None,
+    }
 }
 
 fn seed_item_kind(item: &SeedItemContent) -> Option<u8> {
@@ -5222,6 +5525,134 @@ fn query_openrouter_connected(_value: Option<&str>) -> bool {
     false
 }
 
+fn active_rules_bundle() -> &'static SeedRuleBundle {
+    active_content()
+        .rules
+        .iter()
+        .find(|bundle| {
+            bundle.adapter == "cosyworld.rules/2"
+                && bundle
+                    .resources
+                    .profiles
+                    .iter()
+                    .any(|profile| profile.id == active_content().manifest.rules_profile)
+        })
+        .expect("validated content has one active rules profile bundle")
+}
+
+fn resolved_action_binding(kind: &str) -> Option<ResolvedActionBinding> {
+    let canonical_kind = match kind {
+        "travel" => "move",
+        "explore_path" => "search",
+        other => other,
+    };
+    let bundle = active_rules_bundle();
+    let binding = bundle
+        .resources
+        .legacy_bindings
+        .iter()
+        .find(|binding| binding.legacy_kind == canonical_kind)?;
+    let binding_id = if binding.binding_kind == "contextual" {
+        match canonical_kind {
+            "work" => "srd5.2.1:utilize",
+            "check" => "srd5.2.1:search",
+            _ => binding.binding_id.split('|').next()?,
+        }
+    } else {
+        binding.binding_id.as_str()
+    };
+    let (rules_action, operation, resolver) = if binding.binding_kind == "operation" {
+        let operation = bundle
+            .resources
+            .operations
+            .iter()
+            .find(|operation| operation.id == binding_id)?;
+        (
+            None,
+            Some(operation.id.clone()),
+            operation.resolver_kind.clone(),
+        )
+    } else {
+        let action = bundle
+            .resources
+            .actions
+            .iter()
+            .find(|action| action.id == binding_id && action.support_status != "unsupported")?;
+        (Some(action.id.clone()), None, action.resolver_kind.clone())
+    };
+    Some(ResolvedActionBinding {
+        rules_action,
+        operation,
+        resolver,
+        pack_id: bundle.pack_id.clone(),
+        pack_version: bundle.pack_version.clone(),
+        namespace: bundle.namespace.clone(),
+    })
+}
+
+fn journal_binding_for_kernel_action(kind: u8) -> Option<ResolvedActionBinding> {
+    let offer_kind = match kind {
+        CW_ACTION_RULES_SEARCH => "check",
+        CW_ACTION_RULES_STUDY => "study",
+        CW_ACTION_RULES_MAGIC => "cast_spell",
+        CW_ACTION_RULES_INFLUENCE => "influence",
+        CW_ACTION_COMBAT_ATTACK | CW_ACTION_COMBAT_FINESSE_ATTACK | CW_ACTION_ATTACK => "attack",
+        CW_ACTION_COMBAT_DODGE | CW_ACTION_DEFEND => "defend",
+        CW_ACTION_MOVE => "move",
+        CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE => "flee",
+        CW_ACTION_PICK_UP_ITEM => "pick_up",
+        CW_ACTION_DROP_ITEM => "drop_item",
+        CW_ACTION_GIVE_ITEM => "give_item",
+        CW_ACTION_TRADE_ITEM => "trade_item",
+        CW_ACTION_USE_ITEM => "use_item",
+        CW_ACTION_CRAFT => "craft",
+        CW_ACTION_THEFT => "theft",
+        CW_ACTION_SAY => "chat",
+        _ => return None,
+    };
+    resolved_action_binding(offer_kind)
+}
+
+fn validate_journal_rule_binding(record: &JournalRecord) -> io::Result<()> {
+    if record.rules_action.is_none() && record.operation.is_none() && record.resolver.is_none() {
+        return Ok(());
+    }
+    if record.rules_action.is_some() == record.operation.is_some() {
+        return Err(snapshot_error(
+            "action journal must bind exactly one rules action or operation",
+        ));
+    }
+    let bundle = active_rules_bundle();
+    let expected_resolver = if let Some(action_id) = record.rules_action.as_deref() {
+        bundle
+            .resources
+            .actions
+            .iter()
+            .find(|action| action.id == action_id && action.support_status != "unsupported")
+            .map(|action| action.resolver_kind.as_str())
+    } else {
+        bundle
+            .resources
+            .operations
+            .iter()
+            .find(|operation| Some(operation.id.as_str()) == record.operation.as_deref())
+            .map(|operation| operation.resolver_kind.as_str())
+    }
+    .ok_or_else(|| {
+        snapshot_error(format!(
+            "action journal contains unknown or unsupported binding {:?}{:?}",
+            record.rules_action, record.operation
+        ))
+    })?;
+    if record.resolver.as_deref() != Some(expected_resolver) {
+        return Err(snapshot_error(format!(
+            "action journal resolver {:?} does not match binding resolver {}",
+            record.resolver, expected_resolver
+        )));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 impl AmbientConfig {
     fn from_env() -> Self {
@@ -5252,9 +5683,13 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 3,
+            version: 4,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
+            rules_profile: active_content().manifest.rules_profile.clone(),
+            active_rules_variants: active_content().manifest.active_rules_variants.clone(),
+            active_rules_extensions: active_content().manifest.active_rules_extensions.clone(),
+
             world_version: runtime.world.version,
             tick: runtime.world.tick,
             next_event_seq: runtime.world.next_event_seq,
@@ -5284,6 +5719,12 @@ impl RuntimeSnapshot {
             journeys: runtime.journeys.clone(),
             callings: runtime.callings.clone(),
             skills: runtime.skills.clone(),
+            charm_slots: runtime.charm_slots.clone(),
+            equipped_charms: runtime.equipped_charms.clone(),
+            prepared_spells: runtime.prepared_spells.clone(),
+            npc_cooperation: runtime.npc_cooperation.clone(),
+            item_provenance: runtime.item_provenance.clone(),
+            materialization_receipts: runtime.materialization_receipts.clone(),
             ledger_marks: runtime.ledger_marks.clone(),
             advancement_spends: runtime.advancement_spends.clone(),
             bonds: runtime.bonds.clone(),
@@ -5319,6 +5760,30 @@ impl RuntimeSnapshot {
             "snapshot",
             compatibility == WorldpackReplayCompatibility::DeclaredMigration,
         )?;
+        if !self.rules_profile.is_empty()
+            && self.rules_profile != active_content().manifest.rules_profile
+        {
+            return Err(snapshot_error(format!(
+                "snapshot rules profile {} does not match active rules profile {}",
+                self.rules_profile,
+                active_content().manifest.rules_profile
+            )));
+        }
+        if self.active_rules_variants != active_content().manifest.active_rules_variants {
+            return Err(snapshot_error(format!(
+                "snapshot rules variants {:?} do not match active variants {:?}",
+                self.active_rules_variants,
+                active_content().manifest.active_rules_variants
+            )));
+        }
+        if self.active_rules_extensions != active_content().manifest.active_rules_extensions {
+            return Err(snapshot_error(format!(
+                "snapshot rules extensions {:?} do not match active extensions {:?}",
+                self.active_rules_extensions,
+                active_content().manifest.active_rules_extensions
+            )));
+        }
+
         if self.world_actors.len() > CW_MAX_ACTORS {
             return Err(snapshot_error("too many actors in snapshot"));
         }
@@ -5446,6 +5911,12 @@ impl RuntimeSnapshot {
             journeys: self.journeys,
             callings: self.callings,
             skills: self.skills,
+            charm_slots: self.charm_slots,
+            equipped_charms: self.equipped_charms,
+            prepared_spells: self.prepared_spells,
+            npc_cooperation: self.npc_cooperation,
+            item_provenance: self.item_provenance,
+            materialization_receipts: self.materialization_receipts,
             ledger_marks: self.ledger_marks,
             advancement_spends: self.advancement_spends,
             bonds: self.bonds,
@@ -5728,6 +6199,31 @@ impl RuntimeWorld {
                 "action journal",
                 compatibility == WorldpackReplayCompatibility::DeclaredMigration,
             )?;
+            if !record.rules_profile.is_empty()
+                && record.rules_profile != active_content().manifest.rules_profile
+            {
+                return Err(snapshot_error(format!(
+                    "action journal rules profile {} does not match active rules profile {}",
+                    record.rules_profile,
+                    active_content().manifest.rules_profile
+                )));
+            }
+            if record.active_rules_variants != active_content().manifest.active_rules_variants {
+                return Err(snapshot_error(format!(
+                    "action journal rules variants {:?} do not match active variants {:?}",
+                    record.active_rules_variants,
+                    active_content().manifest.active_rules_variants
+                )));
+            }
+            if record.active_rules_extensions != active_content().manifest.active_rules_extensions {
+                return Err(snapshot_error(format!(
+                    "action journal rules extensions {:?} do not match active extensions {:?}",
+                    record.active_rules_extensions,
+                    active_content().manifest.active_rules_extensions
+                )));
+            }
+            validate_journal_rule_binding(&record)?;
+
             let _ = runtime.apply_journal_record(&record);
         }
         if !migrated_bundle_hashes.is_empty() {
@@ -5776,6 +6272,12 @@ impl RuntimeWorld {
             journeys: BTreeMap::new(),
             callings: BTreeMap::new(),
             skills: BTreeMap::new(),
+            charm_slots: BTreeMap::new(),
+            equipped_charms: BTreeMap::new(),
+            prepared_spells: BTreeMap::new(),
+            npc_cooperation: BTreeMap::new(),
+            item_provenance: BTreeMap::new(),
+            materialization_receipts: BTreeMap::new(),
             ledger_marks: BTreeMap::new(),
             advancement_spends: BTreeMap::new(),
             bonds: BTreeMap::new(),
@@ -5833,7 +6335,178 @@ impl RuntimeWorld {
         self.ensure_generated_pathway_topology();
         self.ensure_seed_residents();
         self.ensure_seed_items();
+        self.normalize_card_zones();
         self.ensure_seed_evolution_tracks();
+    }
+
+    fn normalize_card_zones(&mut self) {
+        for item in &mut self.world.items[..self.world.item_count] {
+            if item.zone == 0 {
+                item.zone = if item.holder_actor_id != 0 {
+                    if item.charges == 0
+                        && matches!(item.role, CW_ITEM_ROLE_CONSUMABLE | CW_ITEM_ROLE_SPELL)
+                    {
+                        CW_CARD_ZONE_EXHAUSTED
+                    } else {
+                        CW_CARD_ZONE_CARRIED
+                    }
+                } else if item.location_id != 0 {
+                    CW_CARD_ZONE_WORLD
+                } else {
+                    0
+                };
+            }
+            if item.zone != CW_CARD_ZONE_CONTAINED {
+                item.container_item_id = 0;
+            }
+        }
+        for (actor_id, item_ids) in &self.equipped_charms {
+            for item_id in item_ids {
+                if let Some(item) = self.world.items[..self.world.item_count]
+                    .iter_mut()
+                    .find(|item| item.id == *item_id && item.holder_actor_id == *actor_id)
+                {
+                    item.zone = CW_CARD_ZONE_EQUIPPED;
+                }
+            }
+        }
+        for (actor_id, item_ids) in &self.prepared_spells {
+            for item_id in item_ids {
+                if let Some(item) = self.world.items[..self.world.item_count]
+                    .iter_mut()
+                    .find(|item| item.id == *item_id && item.holder_actor_id == *actor_id)
+                {
+                    item.zone = if item.charges == 0 {
+                        CW_CARD_ZONE_EXHAUSTED
+                    } else {
+                        CW_CARD_ZONE_SPELL_DECK
+                    };
+                }
+            }
+        }
+        for item in &self.world.items[..self.world.item_count] {
+            self.item_provenance
+                .entry(item.id)
+                .or_insert_with(|| ItemProvenanceState {
+                    item_id: item.id,
+                    origin: "seed_pack".to_string(),
+                    acquisition: if item.holder_actor_id != 0 {
+                        "carried".to_string()
+                    } else {
+                        "world".to_string()
+                    },
+                    previous_holder_actor_id: None,
+                    current_holder_actor_id: opt_id(item.holder_actor_id),
+                    current_location_id: opt_id(item.location_id),
+                    transfer_count: 0,
+                    source_event_seq: None,
+                });
+        }
+    }
+
+    fn set_item_zone(&mut self, item_id: u64, zone: u8, container_item_id: u64) -> bool {
+        unsafe {
+            cw_world_set_item_zone(&mut self.world, item_id, zone, container_item_id) == CW_OK
+        }
+    }
+
+    fn reconcile_card_zones(&mut self) {
+        let items = self.world.items[..self.world.item_count].to_vec();
+        for item in &items {
+            if item.zone != CW_CARD_ZONE_CONTAINED {
+                continue;
+            }
+            let valid_container = items.iter().find(|candidate| {
+                candidate.id == item.container_item_id
+                    && candidate.role == CW_ITEM_ROLE_CONTAINER
+                    && candidate.holder_actor_id == item.holder_actor_id
+                    && candidate.zone != CW_CARD_ZONE_CONTAINED
+            });
+            if valid_container.is_none() {
+                let zone = if item.charges == 0
+                    && matches!(item.role, CW_ITEM_ROLE_CONSUMABLE | CW_ITEM_ROLE_SPELL)
+                {
+                    CW_CARD_ZONE_EXHAUSTED
+                } else {
+                    CW_CARD_ZONE_CARRIED
+                };
+                let _ = self.set_item_zone(item.id, zone, 0);
+            }
+        }
+        self.equipped_charms.retain(|actor_id, item_ids| {
+            item_ids.retain(|item_id| {
+                items.iter().any(|item| {
+                    item.id == *item_id
+                        && item.holder_actor_id == *actor_id
+                        && item.role == CW_ITEM_ROLE_SKILL_CHARM
+                        && item.zone == CW_CARD_ZONE_EQUIPPED
+                })
+            });
+            !item_ids.is_empty()
+        });
+        self.prepared_spells.retain(|actor_id, item_ids| {
+            item_ids.retain(|item_id| {
+                items.iter().any(|item| {
+                    item.id == *item_id
+                        && item.holder_actor_id == *actor_id
+                        && item.role == CW_ITEM_ROLE_SPELL
+                        && matches!(item.zone, CW_CARD_ZONE_SPELL_DECK | CW_CARD_ZONE_EXHAUSTED)
+                })
+            });
+            !item_ids.is_empty()
+        });
+    }
+
+    fn update_item_provenance(&mut self, events: &[EventView]) {
+        for event in events.iter().filter(|event| {
+            event.success
+                && matches!(
+                    event.type_name.as_str(),
+                    "item.picked_up"
+                        | "item.dropped"
+                        | "item.given"
+                        | "item.traded"
+                        | "item.stolen"
+                        | "item.found"
+                        | "item.created"
+                )
+        }) {
+            let mut item_ids = event.item_id.into_iter().collect::<Vec<_>>();
+            if event.type_name == "item.traded" {
+                item_ids.extend(event.target_item_id);
+            }
+            for item_id in item_ids {
+                let Some(item) = self.item_by_id(item_id) else {
+                    continue;
+                };
+                let previous_holder = self
+                    .item_provenance
+                    .get(&item_id)
+                    .and_then(|state| state.current_holder_actor_id);
+                let holder = opt_id(item.holder_actor_id);
+                let state =
+                    self.item_provenance
+                        .entry(item_id)
+                        .or_insert_with(|| ItemProvenanceState {
+                            item_id,
+                            origin: "runtime".to_string(),
+                            acquisition: String::new(),
+                            previous_holder_actor_id: None,
+                            current_holder_actor_id: None,
+                            current_location_id: None,
+                            transfer_count: 0,
+                            source_event_seq: None,
+                        });
+                if previous_holder != holder {
+                    state.transfer_count = state.transfer_count.saturating_add(1);
+                    state.previous_holder_actor_id = previous_holder;
+                }
+                state.current_holder_actor_id = holder;
+                state.current_location_id = opt_id(item.location_id);
+                state.acquisition = event.type_name.clone();
+                state.source_event_seq = Some(event.seq);
+            }
+        }
     }
 
     fn ensure_seed_rpg_projection(&mut self) {
@@ -5957,8 +6630,30 @@ impl RuntimeWorld {
                 continue;
             };
             self.ensure_item(item.id, kind, item.location_id, item.charges);
+            let (Some(role), Some(size_class)) = (seed_item_role(item), seed_item_size(item))
+            else {
+                continue;
+            };
+            let status = unsafe {
+                cw_world_set_item_profile(
+                    &mut self.world,
+                    item.id,
+                    item.weight_tenths.max(1),
+                    size_class,
+                    role,
+                    item.container_capacity_tenths,
+                )
+            };
+            debug_assert_eq!(status, CW_OK);
+            if role == CW_ITEM_ROLE_WEAPON {
+                if let Some(world_item) = self.world.items[..self.world.item_count]
+                    .iter_mut()
+                    .find(|world_item| world_item.id == item.id)
+                {
+                    world_item.reserved = seed_weapon_die_sides(item);
+                }
+            }
         }
-        self.enforce_one_loose_item_per_room();
     }
 
     fn ensure_seed_evolution_tracks(&mut self) {
@@ -6052,28 +6747,14 @@ impl RuntimeWorld {
             id: item_id,
             kind,
             charges,
+            weight_tenths: CW_ITEM_DEFAULT_WEIGHT_TENTHS,
+            size_class: CW_ITEM_SIZE_SMALL,
+            zone: CW_CARD_ZONE_WORLD,
             location_id,
             holder_actor_id: 0,
             ..CwItem::default()
         };
         self.world.item_count += 1;
-    }
-
-    fn enforce_one_loose_item_per_room(&mut self) {
-        let mut occupied_locations = BTreeSet::new();
-        let mut loose_items = self.world.items[..self.world.item_count]
-            .iter()
-            .enumerate()
-            .filter(|(_, item)| item.holder_actor_id == 0 && item.location_id != 0)
-            .map(|(index, item)| (item.location_id, item.id, index))
-            .collect::<Vec<_>>();
-        loose_items.sort_by_key(|(location_id, item_id, _)| (*location_id, *item_id));
-        for (location_id, _, index) in loose_items {
-            if !occupied_locations.insert(location_id) {
-                self.world.items[index].location_id = 0;
-                self.world.items[index].held_since_tick = 0;
-            }
-        }
     }
 
     fn ensure_exit(&mut self, from_location_id: u64, to_location_id: u64, flags: u32) {
@@ -7383,6 +8064,65 @@ impl RuntimeWorld {
         event
     }
 
+    fn append_deck_event(
+        &mut self,
+        type_name: &str,
+        actor_id: u64,
+        item_id: Option<u64>,
+        content: String,
+    ) -> EventView {
+        let location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
+        let event = EventView {
+            world_id: official_world_id(),
+            world_epoch: official_world_epoch(),
+            seq: self.world.next_event_seq,
+            type_name: type_name.to_string(),
+            success: true,
+            reason: 0,
+            actor_id: Some(actor_id),
+            actor_name: self.actor_name(actor_id),
+            target_actor_id: None,
+            target_actor_name: None,
+            location_id,
+            location_name: location_id.and_then(|id| self.location_name(id)),
+            destination_location_id: None,
+            destination_location_name: None,
+            content_id: None,
+            content: Some(content),
+            item_id,
+            item_name: item_id.and_then(|id| self.item_name(id)),
+            target_item_id: None,
+            target_item_name: None,
+            raw_roll: None,
+            modifier: None,
+            total: None,
+            dc: None,
+            damage: None,
+            current_hp: None,
+            clock_id: None,
+            clock_scope: None,
+            clock_scope_id: None,
+            clock_kind: None,
+            clock_label: None,
+            clock_filled: None,
+            clock_segments: None,
+            clock_delta: None,
+            tag_id: None,
+            tag_scope: None,
+            tag_scope_id: None,
+            tag_kind: None,
+            tag_label: None,
+            caused_by_event_seq: None,
+            source_world_tick: None,
+            observed_through_seq: None,
+            source_location_id: None,
+            content_context: ContentReferenceContext::default(),
+        };
+        self.world.next_event_seq += 1;
+        self.push_projected_event(event.clone());
+        event
+    }
+
     fn append_ledger_event(
         &mut self,
         type_name: &str,
@@ -7827,8 +8567,39 @@ impl RuntimeWorld {
                 record.initial_calling.as_deref(),
                 record.initial_skill.as_deref(),
             ));
+            if action.kind == CW_ACTION_RULES_STUDY {
+                if let Some(check) = events.iter().find(|event| {
+                    event.type_name == "ability_check.rolled"
+                        && event.actor_id == Some(action.actor_id)
+                }) {
+                    let understood = check.success
+                        && check
+                            .total
+                            .zip(check.dc)
+                            .is_some_and(|(total, dc)| total >= dc);
+                    events.push(
+                        self.append_async_job_event(
+                            "study.resolved",
+                            action.actor_id,
+                            None,
+                            Some(
+                                if understood {
+                                    "The authored signs yielded one understood truth."
+                                } else {
+                                    "The authored signs remain unresolved."
+                                }
+                                .to_string(),
+                            ),
+                        ),
+                    );
+                }
+            }
             events.extend(self.expire_stale_branches());
             events.extend(self.apply_projection_mutations(&action, &record.projection_mutations));
+            let committed_events = events.clone();
+            events.extend(self.apply_bounded_magic_projection(&action, &committed_events));
+            let committed_events = events.clone();
+            events.extend(self.apply_influence_projection(&action, &committed_events));
             self.reinforce_search_memories_from_events(&events);
             let committed_events = events.clone();
             events.extend(self.apply_event_lifecycle_hooks(&action, &committed_events));
@@ -7855,6 +8626,8 @@ impl RuntimeWorld {
             if action.kind != CW_ACTION_SAY {
                 self.clear_resident_pending_action(action.actor_id);
             }
+            self.reconcile_card_zones();
+            self.update_item_provenance(&events);
             self.apply_resident_memory_projection(&action, &events);
             if advances_world_tick {
                 let committed_events = events.clone();
@@ -8506,6 +9279,73 @@ impl RuntimeWorld {
                 } => {
                     events.extend(self.train_skill(action.actor_id, skill_id, *cost, reason));
                 }
+                ProjectionMutation::UnlockCharmSlot { cost, reason } => {
+                    events.extend(self.unlock_charm_slot(action.actor_id, *cost, reason));
+                }
+                ProjectionMutation::SetCharmEquipped {
+                    item_id,
+                    equipped,
+                    reason,
+                } => {
+                    events.extend(self.set_charm_equipped(
+                        action.actor_id,
+                        *item_id,
+                        *equipped,
+                        reason,
+                    ));
+                }
+                ProjectionMutation::SetSpellPrepared {
+                    item_id,
+                    prepared,
+                    reason,
+                } => {
+                    events.extend(self.set_spell_prepared(
+                        action.actor_id,
+                        *item_id,
+                        *prepared,
+                        reason,
+                    ));
+                }
+                ProjectionMutation::SetItemEquipped {
+                    item_id,
+                    equipped,
+                    reason,
+                } => {
+                    events.extend(self.set_item_equipped(
+                        action.actor_id,
+                        *item_id,
+                        *equipped,
+                        reason,
+                    ));
+                }
+                ProjectionMutation::SetItemContained {
+                    item_id,
+                    container_item_id,
+                    reason,
+                } => {
+                    events.extend(self.set_item_contained(
+                        action.actor_id,
+                        *item_id,
+                        *container_item_id,
+                        reason,
+                    ));
+                }
+                ProjectionMutation::MaterializeItem {
+                    receipt,
+                    item,
+                    meta,
+                    reason,
+                } => {
+                    events.extend(self.materialize_item(
+                        receipt.clone(),
+                        *item,
+                        meta.clone(),
+                        reason,
+                    ));
+                }
+                ProjectionMutation::UnmaterializeItem { receipt_id, reason } => {
+                    events.extend(self.unmaterialize_item(action.actor_id, receipt_id, reason));
+                }
                 ProjectionMutation::DeepenBond {
                     target_actor_id,
                     claim_key,
@@ -9082,7 +9922,7 @@ impl RuntimeWorld {
         events: &[EventView],
         was_repeat_listen: bool,
     ) -> Vec<EventView> {
-        if !action_is_listen_check(action) {
+        if !action_is_discovery_check(action) {
             return Vec::new();
         }
         let Some(listen_event) = events.iter().find(|event| {
@@ -9095,15 +9935,20 @@ impl RuntimeWorld {
         };
 
         let mut projected = Vec::new();
-        if let Some(event) = self.bank_visit_ledger(action.actor_id, "listen") {
-            projected.push(event);
-        }
+        let discovery_mode = if action.kind == CW_ACTION_RULES_STUDY {
+            "study"
+        } else {
+            "search"
+        };
         let listen_succeeded = listen_event.success
             && listen_event
                 .total
                 .zip(listen_event.dc)
                 .map(|(total, dc)| total >= dc)
                 .unwrap_or(false);
+        if let Some(event) = self.bank_visit_ledger(action.actor_id, discovery_mode) {
+            projected.push(event);
+        }
         if listen_succeeded {
             projected.extend(self.apply_listen_ledger_projection(
                 action.actor_id,
@@ -9111,7 +9956,11 @@ impl RuntimeWorld {
                 listen_event.seq,
             ));
             projected.extend(self.apply_lifecycle_hooks(
-                "on_listen",
+                if action.kind == CW_ACTION_RULES_STUDY {
+                    "on_study"
+                } else {
+                    "on_listen"
+                },
                 "room",
                 &location_id.to_string(),
                 action.actor_id,
@@ -9136,6 +9985,108 @@ impl RuntimeWorld {
         }
 
         projected
+    }
+
+    fn apply_bounded_magic_projection(
+        &mut self,
+        action: &CwAction,
+        events: &[EventView],
+    ) -> Vec<EventView> {
+        if action.kind != CW_ACTION_RULES_MAGIC {
+            return Vec::new();
+        }
+        let Some(event) = events.iter().find(|event| {
+            event.type_name == "magic.spell_cast"
+                && event.success
+                && event.actor_id == Some(action.actor_id)
+                && event.item_id == Some(action.item_id)
+        }) else {
+            return Vec::new();
+        };
+        let Some(meta) = self.items.get(&action.item_id) else {
+            return Vec::new();
+        };
+        if meta
+            .mechanics
+            .as_ref()
+            .and_then(|mechanics| mechanics.magic_effect.as_deref())
+            != Some("cosyworld.magic/steady-light")
+        {
+            return Vec::new();
+        }
+        let target_actor_id = event.target_actor_id.unwrap_or(action.actor_id);
+        self.set_rpg_tag(
+            RpgTagState {
+                id: format!("spell:steady-light:{target_actor_id}"),
+                scope: "actor".to_string(),
+                scope_id: target_actor_id,
+                label: "steady light".to_string(),
+                kind: "boon".to_string(),
+                active: true,
+                source_event_seq: Some(event.seq),
+                expires: Some("after_rest".to_string()),
+            },
+            action.actor_id,
+            "cosyworld.magic/steady-light",
+        )
+        .into_iter()
+        .collect()
+    }
+
+    fn apply_influence_projection(
+        &mut self,
+        action: &CwAction,
+        events: &[EventView],
+    ) -> Vec<EventView> {
+        if action.kind != CW_ACTION_RULES_INFLUENCE {
+            return Vec::new();
+        }
+        let Some(target) = self.actor_by_id(action.target_actor_id) else {
+            return Vec::new();
+        };
+        if target.kind != CW_ACTOR_NPC {
+            return Vec::new();
+        }
+        let Some(check) = events.iter().find(|event| {
+            event.type_name == "ability_check.rolled" && event.actor_id == Some(action.actor_id)
+        }) else {
+            return Vec::new();
+        };
+        let succeeded = check
+            .total
+            .zip(check.dc)
+            .is_some_and(|(total, dc)| total >= dc);
+        let outcome = if succeeded { "cooperates" } else { "declines" };
+        let attitude = if succeeded { "cooperative" } else { "cautious" };
+        let key = format!("{}:{}", action.actor_id, action.target_actor_id);
+        let attempts = self
+            .npc_cooperation
+            .get(&key)
+            .map(|state| state.attempts.saturating_add(1))
+            .unwrap_or(1);
+        self.npc_cooperation.insert(
+            key,
+            NpcCooperationState {
+                actor_id: action.actor_id,
+                target_actor_id: action.target_actor_id,
+                desired_cooperation: "share one useful local lead".to_string(),
+                attitude: attitude.to_string(),
+                outcome: outcome.to_string(),
+                attempts,
+                source_event_seq: check.seq,
+            },
+        );
+        let target_name = self
+            .actor_name(action.target_actor_id)
+            .unwrap_or_else(|| format!("Resident {}", action.target_actor_id));
+        vec![self.append_async_job_event(
+            "influence.committed",
+            action.actor_id,
+            Some(action.target_actor_id),
+            Some(format!(
+                "{target_name} {outcome}: the authored request was to share one useful local lead."
+            )),
+        )]
     }
 
     fn apply_listen_ledger_projection(
@@ -9178,7 +10129,7 @@ impl RuntimeWorld {
         action: &CwAction,
         events: &[EventView],
     ) -> Option<(u64, u64)> {
-        if !action_is_listen_check(action) {
+        if !action_is_discovery_check(action) {
             return None;
         }
         let location_id = events
@@ -9780,8 +10731,381 @@ impl RuntimeWorld {
         events
     }
 
+    fn unlock_charm_slot(&mut self, actor_id: u64, cost: u8, reason: &str) -> Vec<EventView> {
+        let current_slots = self.charm_slot_count(actor_id);
+        if cost == 0
+            || current_slots >= MAX_CHARM_SLOTS
+            || self.advancement_points_available(actor_id) < usize::from(cost)
+        {
+            return Vec::new();
+        }
+        let spend_seq = self.world.next_event_seq;
+        let spend = AdvancementSpendState {
+            id: advancement_spend_id(actor_id, "charm_slot", spend_seq),
+            actor_id,
+            kind: "charm_slot".to_string(),
+            label: "Bracelet charm slot".to_string(),
+            cost,
+            source_event_seq: spend_seq,
+        };
+        if self.advancement_spends.contains_key(&spend.id) {
+            return Vec::new();
+        }
+        self.advancement_spends
+            .insert(spend.id.clone(), spend.clone());
+        let mut events = vec![self.append_advancement_event("advancement.spent", &spend, reason)];
+        let next_slots = current_slots.saturating_add(1).min(MAX_CHARM_SLOTS);
+        self.charm_slots.insert(actor_id, next_slots);
+        events.push(self.append_deck_event(
+            "charm_slot.unlocked",
+            actor_id,
+            None,
+            format!("bracelet_slots:{next_slots}:{reason}"),
+        ));
+        events
+    }
+
+    fn set_charm_equipped(
+        &mut self,
+        actor_id: u64,
+        item_id: u64,
+        equipped: bool,
+        reason: &str,
+    ) -> Vec<EventView> {
+        let Some(item) = self.item_by_id(item_id) else {
+            return Vec::new();
+        };
+        if item.holder_actor_id != actor_id || item.role != CW_ITEM_ROLE_SKILL_CHARM {
+            return Vec::new();
+        }
+        let slots = usize::from(self.charm_slot_count(actor_id));
+        let equipped_items = self.equipped_charms.entry(actor_id).or_default();
+        let changed = if equipped {
+            if equipped_items.contains(&item_id) || equipped_items.len() >= slots {
+                false
+            } else {
+                equipped_items.insert(item_id)
+            }
+        } else {
+            equipped_items.remove(&item_id)
+        };
+        if !changed {
+            return Vec::new();
+        }
+        let zone = if equipped {
+            CW_CARD_ZONE_EQUIPPED
+        } else {
+            CW_CARD_ZONE_CARRIED
+        };
+        if !self.set_item_zone(item_id, zone, 0) {
+            let equipped_items = self.equipped_charms.entry(actor_id).or_default();
+            if equipped {
+                equipped_items.remove(&item_id);
+            } else {
+                equipped_items.insert(item_id);
+            }
+            return Vec::new();
+        }
+        vec![self.append_deck_event(
+            if equipped {
+                "skill_charm.equipped"
+            } else {
+                "skill_charm.unequipped"
+            },
+            actor_id,
+            Some(item_id),
+            reason.to_string(),
+        )]
+    }
+
+    fn set_spell_prepared(
+        &mut self,
+        actor_id: u64,
+        item_id: u64,
+        prepared: bool,
+        reason: &str,
+    ) -> Vec<EventView> {
+        let Some(item) = self.item_by_id(item_id) else {
+            return Vec::new();
+        };
+        if item.holder_actor_id != actor_id || item.role != CW_ITEM_ROLE_SPELL {
+            return Vec::new();
+        }
+        let prepared_items = self.prepared_spells.entry(actor_id).or_default();
+        let changed = if prepared {
+            if prepared_items.contains(&item_id) || prepared_items.len() >= 3 {
+                false
+            } else {
+                prepared_items.insert(item_id)
+            }
+        } else {
+            prepared_items.remove(&item_id)
+        };
+        if !changed {
+            return Vec::new();
+        }
+        let zone = if prepared {
+            CW_CARD_ZONE_SPELL_DECK
+        } else if item.charges == 0 {
+            CW_CARD_ZONE_EXHAUSTED
+        } else {
+            CW_CARD_ZONE_CARRIED
+        };
+        if !self.set_item_zone(item_id, zone, 0) {
+            let prepared_items = self.prepared_spells.entry(actor_id).or_default();
+            if prepared {
+                prepared_items.remove(&item_id);
+            } else {
+                prepared_items.insert(item_id);
+            }
+            return Vec::new();
+        }
+        vec![self.append_deck_event(
+            if prepared {
+                "spell.prepared"
+            } else {
+                "spell.unprepared"
+            },
+            actor_id,
+            Some(item_id),
+            reason.to_string(),
+        )]
+    }
+
+    fn set_item_equipped(
+        &mut self,
+        actor_id: u64,
+        item_id: u64,
+        equipped: bool,
+        reason: &str,
+    ) -> Vec<EventView> {
+        let Some(item) = self.item_by_id(item_id) else {
+            return Vec::new();
+        };
+        if item.holder_actor_id != actor_id
+            || !matches!(item.role, CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER)
+            || item.container_item_id != 0
+        {
+            return Vec::new();
+        }
+        if equipped {
+            if item.zone == CW_CARD_ZONE_EQUIPPED
+                || self
+                    .actor_held_items(actor_id)
+                    .into_iter()
+                    .any(|candidate| {
+                        candidate.id != item.id
+                            && candidate.role == item.role
+                            && candidate.zone == CW_CARD_ZONE_EQUIPPED
+                    })
+            {
+                return Vec::new();
+            }
+        } else if item.zone != CW_CARD_ZONE_EQUIPPED {
+            return Vec::new();
+        }
+        let zone = if equipped {
+            CW_CARD_ZONE_EQUIPPED
+        } else {
+            CW_CARD_ZONE_CARRIED
+        };
+        if !self.set_item_zone(item_id, zone, 0) {
+            return Vec::new();
+        }
+        vec![self.append_deck_event(
+            if equipped {
+                "item.equipped"
+            } else {
+                "item.unequipped"
+            },
+            actor_id,
+            Some(item_id),
+            reason.to_string(),
+        )]
+    }
+
+    fn set_item_contained(
+        &mut self,
+        actor_id: u64,
+        item_id: u64,
+        container_item_id: Option<u64>,
+        reason: &str,
+    ) -> Vec<EventView> {
+        let Some(item) = self.item_by_id(item_id) else {
+            return Vec::new();
+        };
+        if item.holder_actor_id != actor_id {
+            return Vec::new();
+        }
+        let mut events = Vec::new();
+        let (zone, container_id, event_type) = if let Some(container_id) = container_item_id {
+            let Some(container) = self.item_by_id(container_id) else {
+                return Vec::new();
+            };
+            let Some(contract) = self.seed_item_contract_for_instance(container_id) else {
+                return Vec::new();
+            };
+            let opening = contract
+                .container_opening_size
+                .as_deref()
+                .and_then(item_size_from_str)
+                .unwrap_or(0);
+            let stores_empty_container = item.role == CW_ITEM_ROLE_CONTAINER
+                && contract
+                    .allowed_contents
+                    .iter()
+                    .any(|role| role == "container")
+                && !self
+                    .actor_held_items(actor_id)
+                    .into_iter()
+                    .any(|candidate| candidate.container_item_id == item.id);
+            if item.id == container.id
+                || container.role != CW_ITEM_ROLE_CONTAINER
+                || container.holder_actor_id != actor_id
+                || container.zone == CW_CARD_ZONE_CONTAINED
+                || item.size_class > opening
+                || !(stores_empty_container
+                    || contract
+                        .allowed_contents
+                        .iter()
+                        .any(|role| role == item_role(item.role)))
+            {
+                return Vec::new();
+            }
+            if item.role == CW_ITEM_ROLE_CONTAINER && item.zone == CW_CARD_ZONE_EQUIPPED {
+                events.extend(self.set_item_equipped(actor_id, item_id, false, reason));
+            }
+            if item.role == CW_ITEM_ROLE_SKILL_CHARM && item.zone == CW_CARD_ZONE_EQUIPPED {
+                events.extend(self.set_charm_equipped(actor_id, item_id, false, reason));
+            } else if item.role == CW_ITEM_ROLE_SPELL && item.zone == CW_CARD_ZONE_SPELL_DECK {
+                events.extend(self.set_spell_prepared(actor_id, item_id, false, reason));
+            }
+            (CW_CARD_ZONE_CONTAINED, container_id, "item.contained")
+        } else {
+            if item.zone != CW_CARD_ZONE_CONTAINED {
+                return Vec::new();
+            }
+            (
+                if item.charges == 0
+                    && matches!(item.role, CW_ITEM_ROLE_CONSUMABLE | CW_ITEM_ROLE_SPELL)
+                {
+                    CW_CARD_ZONE_EXHAUSTED
+                } else {
+                    CW_CARD_ZONE_CARRIED
+                },
+                0,
+                "item.uncontained",
+            )
+        };
+        if !self.set_item_zone(item_id, zone, container_id) {
+            return Vec::new();
+        }
+        events.push(self.append_deck_event(
+            event_type,
+            actor_id,
+            Some(item_id),
+            reason.to_string(),
+        ));
+        events
+    }
+
+    fn materialize_item(
+        &mut self,
+        receipt: MaterializationReceiptState,
+        item: CwItem,
+        meta: ItemMeta,
+        reason: &str,
+    ) -> Vec<EventView> {
+        if self
+            .materialization_receipts
+            .get(&receipt.id)
+            .is_some_and(|existing| existing.status == "materialized")
+            || self.item_by_id(item.id).is_some()
+            || self.world.item_count >= CW_MAX_ITEMS
+        {
+            return Vec::new();
+        }
+        self.world.items[self.world.item_count] = item;
+        self.world.item_count += 1;
+        self.items.insert(item.id, meta);
+        self.materialization_receipts
+            .insert(receipt.id.clone(), receipt.clone());
+        self.item_provenance.insert(
+            item.id,
+            ItemProvenanceState {
+                item_id: item.id,
+                origin: format!("collection:{}", receipt.card_id),
+                acquisition: "item.materialized".to_string(),
+                previous_holder_actor_id: None,
+                current_holder_actor_id: Some(receipt.actor_id),
+                current_location_id: None,
+                transfer_count: 0,
+                source_event_seq: Some(receipt.source_event_seq),
+            },
+        );
+        vec![self.append_deck_event(
+            "item.materialized",
+            receipt.actor_id,
+            Some(item.id),
+            reason.to_string(),
+        )]
+    }
+
+    fn unmaterialize_item(
+        &mut self,
+        actor_id: u64,
+        receipt_id: &str,
+        reason: &str,
+    ) -> Vec<EventView> {
+        let Some(receipt) = self.materialization_receipts.get(receipt_id).cloned() else {
+            return Vec::new();
+        };
+        let Some(index) = self.world.items[..self.world.item_count]
+            .iter()
+            .position(|item| item.id == receipt.item_id)
+        else {
+            return Vec::new();
+        };
+        let item = self.world.items[index];
+        if receipt.actor_id != actor_id
+            || receipt.status != "materialized"
+            || item.holder_actor_id != actor_id
+            || item.zone != CW_CARD_ZONE_CARRIED
+            || item.container_item_id != 0
+        {
+            return Vec::new();
+        }
+        let event = self.append_deck_event(
+            "item.unmaterialized",
+            actor_id,
+            Some(item.id),
+            reason.to_string(),
+        );
+        for slot in index..self.world.item_count.saturating_sub(1) {
+            self.world.items[slot] = self.world.items[slot + 1];
+        }
+        self.world.item_count = self.world.item_count.saturating_sub(1);
+        self.world.items[self.world.item_count] = CwItem::default();
+        if let Some(receipt) = self.materialization_receipts.get_mut(receipt_id) {
+            receipt.status = "collection".to_string();
+            receipt.source_event_seq = event.seq;
+        }
+        if let Some(provenance) = self.item_provenance.get_mut(&item.id) {
+            provenance.previous_holder_actor_id = Some(actor_id);
+            provenance.current_holder_actor_id = None;
+            provenance.current_location_id = None;
+            provenance.acquisition = "item.unmaterialized".to_string();
+            provenance.source_event_seq = Some(event.seq);
+        }
+        self.reconcile_card_zones();
+        vec![event]
+    }
+
     fn action_with_skill_bonus(&self, mut action: CwAction) -> CwAction {
-        if action.kind == CW_ACTION_ABILITY_CHECK {
+        if matches!(
+            action.kind,
+            CW_ACTION_ABILITY_CHECK | CW_ACTION_RULES_SEARCH | CW_ACTION_RULES_STUDY
+        ) {
             action.modifier = action
                 .modifier
                 .saturating_add(self.skill_bonus_for_ability(action.actor_id, action.ability));
@@ -9801,10 +11125,19 @@ impl RuntimeWorld {
         let Some(skill_id) = skill_id_for_ability(ability) else {
             return 0;
         };
-        self.skills
+        let legacy_training_bonus = self
+            .skills
             .get(&skill_state_id(actor_id, skill_id))
             .map(|skill| skill_bonus_for_rank(skill.rank))
-            .unwrap_or(0)
+            .unwrap_or(0);
+        let charm_bonus = self
+            .equipped_charm_items(actor_id)
+            .into_iter()
+            .filter_map(|item| self.items.get(&item.id))
+            .filter(|meta| meta.skill_id.as_deref() == Some(skill_id))
+            .map(|meta| i16::from(meta.skill_bonus))
+            .sum::<i16>();
+        legacy_training_bonus.saturating_add(charm_bonus)
     }
 
     fn active_bond(&self, actor_id: u64, target_actor_id: u64) -> Option<&BondState> {
@@ -10191,6 +11524,27 @@ impl RuntimeWorld {
 
     fn item_name(&self, item_id: u64) -> Option<String> {
         self.items.get(&item_id).map(|meta| meta.name.clone())
+    }
+
+    fn seed_item_contract_for_instance(&self, item_id: u64) -> Option<&'static SeedItemContent> {
+        active_content()
+            .items
+            .iter()
+            .find(|seed| seed.id == item_id)
+            .or_else(|| {
+                let receipt = self
+                    .materialization_receipts
+                    .values()
+                    .find(|receipt| receipt.item_id == item_id)?;
+                let card = active_content()
+                    .cards
+                    .iter()
+                    .find(|card| card.card_id == receipt.card_id && card.subject_kind == "item")?;
+                active_content()
+                    .items
+                    .iter()
+                    .find(|seed| seed.id == card.subject_id)
+            })
     }
 
     fn location_name(&self, location_id: u64) -> Option<String> {
@@ -10768,6 +12122,233 @@ impl RuntimeWorld {
             .collect();
         items.sort_by_key(|item| item.id);
         items
+    }
+
+    fn default_spell_card(&self, actor_id: u64) -> Option<CwItem> {
+        let prepared = self.prepared_spells.get(&actor_id)?;
+        self.actor_held_items(actor_id).into_iter().find(|item| {
+            item.role == CW_ITEM_ROLE_SPELL
+                && item.zone == CW_CARD_ZONE_SPELL_DECK
+                && item.charges > 0
+                && prepared.contains(&item.id)
+        })
+    }
+
+    fn equipped_weapon_item(&self, actor_id: u64) -> Option<CwItem> {
+        self.actor_held_items(actor_id)
+            .into_iter()
+            .find(|item| item.role == CW_ITEM_ROLE_WEAPON && item.zone == CW_CARD_ZONE_EQUIPPED)
+    }
+
+    fn charm_slot_count(&self, actor_id: u64) -> u8 {
+        self.charm_slots
+            .get(&actor_id)
+            .copied()
+            .unwrap_or(BASE_CHARM_SLOTS)
+            .clamp(BASE_CHARM_SLOTS, MAX_CHARM_SLOTS)
+    }
+
+    fn equipped_charm_items(&self, actor_id: u64) -> Vec<CwItem> {
+        self.equipped_charms
+            .get(&actor_id)
+            .into_iter()
+            .flat_map(|item_ids| item_ids.iter())
+            .filter_map(|item_id| self.item_by_id(*item_id))
+            .filter(|item| {
+                item.holder_actor_id == actor_id
+                    && item.role == CW_ITEM_ROLE_SKILL_CHARM
+                    && item.zone == CW_CARD_ZONE_EQUIPPED
+            })
+            .take(usize::from(self.charm_slot_count(actor_id)))
+            .collect()
+    }
+
+    fn deck_view(&self, actor_id: Option<u64>) -> DeckView {
+        let Some(actor_id) = actor_id else {
+            return DeckView {
+                actor_id: None,
+                carried_cards: Vec::new(),
+                carried_weight_tenths: 0,
+                base_carrying_capacity_tenths: 0,
+                container_capacity_tenths: 0,
+                carrying_capacity_tenths: 0,
+                bracelet_slots: 0,
+                equipped_charms: Vec::new(),
+                available_charms: Vec::new(),
+                spell_cards: Vec::new(),
+                prepared_spell_cards: Vec::new(),
+                exhausted_spell_cards: Vec::new(),
+                exhausted_cards: Vec::new(),
+                spell_deck_slots: 0,
+                equipped_weapon: None,
+                equipped_containers: Vec::new(),
+                containers: Vec::new(),
+                zone_counts: BTreeMap::new(),
+                validation_errors: Vec::new(),
+                bag_previews: Vec::new(),
+            };
+        };
+        let carried = self.actor_held_items(actor_id);
+        let equipped_ids = self
+            .equipped_charm_items(actor_id)
+            .into_iter()
+            .map(|item| item.id)
+            .collect::<BTreeSet<_>>();
+        let equipped_weapon = carried
+            .iter()
+            .copied()
+            .find(|item| item.role == CW_ITEM_ROLE_WEAPON && item.zone == CW_CARD_ZONE_EQUIPPED)
+            .map(|item| self.item_view(item));
+        let equipped_containers = carried
+            .iter()
+            .copied()
+            .filter(|item| {
+                item.role == CW_ITEM_ROLE_CONTAINER && item.zone == CW_CARD_ZONE_EQUIPPED
+            })
+            .map(|item| self.item_view(item))
+            .collect::<Vec<_>>();
+        let containers = carried
+            .iter()
+            .copied()
+            .filter(|item| item.role == CW_ITEM_ROLE_CONTAINER)
+            .map(|container| {
+                let contract = self.seed_item_contract_for_instance(container.id);
+                ContainerDeckView {
+                    container: self.item_view(container),
+                    contents: carried
+                        .iter()
+                        .copied()
+                        .filter(|item| item.container_item_id == container.id)
+                        .map(|item| self.item_view(item))
+                        .collect(),
+                    opening_size: contract
+                        .and_then(|seed| seed.container_opening_size.clone())
+                        .unwrap_or_else(|| "none".to_string()),
+                    allowed_contents: contract
+                        .map(|seed| seed.allowed_contents.clone())
+                        .unwrap_or_default(),
+                    equipped: container.zone == CW_CARD_ZONE_EQUIPPED,
+                    active_capacity_tenths: if container.zone == CW_CARD_ZONE_EQUIPPED {
+                        container.container_capacity_tenths
+                    } else {
+                        0
+                    },
+                }
+            })
+            .collect::<Vec<_>>();
+        let mut zone_counts = BTreeMap::new();
+        for item in &carried {
+            *zone_counts
+                .entry(card_zone(item.zone, item.holder_actor_id, item.location_id).to_string())
+                .or_insert(0) += 1;
+        }
+        let carried_weight = self.actor_carried_weight_tenths(actor_id);
+        let carrying_capacity = self
+            .actor_carrying_capacity_tenths(actor_id)
+            .unwrap_or_default();
+        let mut validation_errors = Vec::new();
+        if carried_weight > carrying_capacity {
+            let over = carried_weight.saturating_sub(carrying_capacity);
+            let heaviest = carried
+                .iter()
+                .max_by_key(|item| effective_item_weight_tenths(**item))
+                .and_then(|item| self.item_name(item.id))
+                .unwrap_or_else(|| "a carried card".to_string());
+            validation_errors.push(format!(
+                "over capacity by {:.1} lb; {heaviest} is the heaviest carried card and only equipped, uncontained bags add capacity",
+                over as f64 / 10.0
+            ));
+        }
+        let bag_previews = carried
+            .iter()
+            .filter(|item| {
+                item.role == CW_ITEM_ROLE_CONTAINER
+                    && item.zone == CW_CARD_ZONE_CARRIED
+                    && item.container_item_id == 0
+            })
+            .map(|item| {
+                let preview_capacity =
+                    carrying_capacity + u32::from(item.container_capacity_tenths);
+                format!(
+                    "equip {}: capacity becomes {:.1} lb and the carried deck would be {}",
+                    self.item_name(item.id)
+                        .unwrap_or_else(|| format!("Item {}", item.id)),
+                    preview_capacity as f64 / 10.0,
+                    if carried_weight <= preview_capacity {
+                        "legal"
+                    } else {
+                        "overweight"
+                    }
+                )
+            })
+            .collect();
+        DeckView {
+            actor_id: Some(actor_id),
+            carried_cards: carried
+                .iter()
+                .copied()
+                .map(|item| self.item_view(item))
+                .collect(),
+            carried_weight_tenths: carried_weight,
+            base_carrying_capacity_tenths: self
+                .actor_base_carrying_capacity_tenths(actor_id)
+                .unwrap_or_default(),
+            container_capacity_tenths: self.actor_container_capacity_tenths(actor_id),
+            carrying_capacity_tenths: carrying_capacity,
+            bracelet_slots: self.charm_slot_count(actor_id),
+            equipped_charms: carried
+                .iter()
+                .copied()
+                .filter(|item| equipped_ids.contains(&item.id))
+                .map(|item| self.item_view(item))
+                .collect(),
+            available_charms: carried
+                .iter()
+                .copied()
+                .filter(|item| {
+                    item.role == CW_ITEM_ROLE_SKILL_CHARM && !equipped_ids.contains(&item.id)
+                })
+                .map(|item| self.item_view(item))
+                .collect(),
+            spell_cards: carried
+                .iter()
+                .copied()
+                .filter(|item| item.role == CW_ITEM_ROLE_SPELL)
+                .map(|item| self.item_view(item))
+                .collect(),
+            prepared_spell_cards: carried
+                .iter()
+                .copied()
+                .filter(|item| {
+                    item.role == CW_ITEM_ROLE_SPELL
+                        && item.charges > 0
+                        && self
+                            .prepared_spells
+                            .get(&actor_id)
+                            .is_some_and(|prepared| prepared.contains(&item.id))
+                })
+                .map(|item| self.item_view(item))
+                .collect(),
+            exhausted_spell_cards: carried
+                .iter()
+                .copied()
+                .filter(|item| item.role == CW_ITEM_ROLE_SPELL && item.charges == 0)
+                .map(|item| self.item_view(item))
+                .collect(),
+            exhausted_cards: carried
+                .iter()
+                .copied()
+                .filter(|item| item.zone == CW_CARD_ZONE_EXHAUSTED)
+                .map(|item| self.item_view(item))
+                .collect(),
+            spell_deck_slots: 3,
+            equipped_weapon,
+            equipped_containers,
+            containers,
+            zone_counts,
+            validation_errors,
+            bag_previews,
+        }
     }
 
     fn loose_items_at_location(&self, location_id: u64) -> Vec<CwItem> {
@@ -12331,18 +13912,13 @@ impl RuntimeWorld {
         if !economy.motive.trim().is_empty() {
             parts.push(format!("motive: {}", economy.motive.trim()));
         }
-        if economy.inventory_capacity > 0 {
-            let hands = if economy.inventory_count == 0 {
-                "free".to_string()
-            } else if economy.inventory_count >= economy.inventory_capacity {
-                "full".to_string()
-            } else {
-                format!(
-                    "room for {} more",
-                    economy.inventory_capacity - economy.inventory_count
-                )
-            };
-            parts.push(format!("hands: {hands}"));
+        if economy.carrying_capacity_tenths > 0 {
+            parts.push(format!(
+                "carried deck: {:.1}/{:.1} lb across {} card(s)",
+                economy.carried_weight_tenths as f64 / 10.0,
+                economy.carrying_capacity_tenths as f64 / 10.0,
+                economy.inventory_count
+            ));
         }
 
         let memory_notes = self.resident_memory_prompt_notes(resident.id);
@@ -12867,6 +14443,8 @@ impl RuntimeWorld {
             CW_ACTION_NONE | CW_ACTION_SAY | CW_ACTION_CREATE_ACTOR => return true,
             CW_ACTION_MOVE => CW_OFFER_MOVE,
             CW_ACTION_ABILITY_CHECK => CW_OFFER_CHECK,
+            CW_ACTION_RULES_SEARCH | CW_ACTION_RULES_STUDY => CW_OFFER_CHECK,
+            CW_ACTION_RULES_MAGIC => CW_OFFER_USE_ITEM,
             CW_ACTION_PICK_UP_ITEM => CW_OFFER_PICK_UP,
             CW_ACTION_USE_ITEM => CW_OFFER_USE_ITEM,
             CW_ACTION_ATTACK => CW_OFFER_ATTACK,
@@ -13839,14 +15417,31 @@ impl RuntimeWorld {
         RESIDENT_DEFAULT_ITEM_SCORE
     }
 
+    #[cfg(test)]
     fn resident_expendable_item_for_pickup(&self, resident: CwActor) -> Option<CwItem> {
         if resident.kind != CW_ACTOR_NPC || !self.actor_inventory_full(resident.id) {
+            return None;
+        }
+        self.resident_exchange_item_for_pickup(resident, None)
+    }
+
+    fn resident_exchange_item_for_pickup(
+        &self,
+        resident: CwActor,
+        incoming_item: Option<CwItem>,
+    ) -> Option<CwItem> {
+        if resident.kind != CW_ACTOR_NPC {
             return None;
         }
         let mut candidates: Vec<_> = self
             .actor_held_items(resident.id)
             .into_iter()
             .filter(|item| !self.resident_item_is_attached(resident.id, *item))
+            .filter(|item| {
+                incoming_item.is_none_or(|incoming| {
+                    self.actor_can_exchange_items(resident.id, Some(*item), incoming)
+                })
+            })
             .collect();
         candidates.sort_by_key(|item| {
             (
@@ -13920,8 +15515,9 @@ impl RuntimeWorld {
         }
     }
 
-    fn actor_inventory_capacity(&self, actor_id: u64) -> Option<usize> {
-        self.actor_by_id(actor_id).map(actor_inventory_capacity)
+    fn actor_base_carrying_capacity_tenths(&self, actor_id: u64) -> Option<u32> {
+        self.actor_by_id(actor_id)
+            .map(actor_base_carrying_capacity_tenths)
     }
 
     fn actor_inventory_count(&self, actor_id: u64) -> usize {
@@ -13931,14 +15527,68 @@ impl RuntimeWorld {
             .count()
     }
 
+    fn actor_carried_weight_tenths(&self, actor_id: u64) -> u32 {
+        self.actor_held_items(actor_id)
+            .into_iter()
+            .map(|item| u32::from(effective_item_weight_tenths(item)))
+            .sum()
+    }
+
+    fn actor_container_capacity_tenths(&self, actor_id: u64) -> u32 {
+        self.actor_held_items(actor_id)
+            .into_iter()
+            .filter(|item| {
+                item.role == CW_ITEM_ROLE_CONTAINER
+                    && item.zone == CW_CARD_ZONE_EQUIPPED
+                    && item.container_item_id == 0
+            })
+            .map(|item| u32::from(item.container_capacity_tenths))
+            .sum()
+    }
+
+    fn actor_carrying_capacity_tenths(&self, actor_id: u64) -> Option<u32> {
+        self.actor_base_carrying_capacity_tenths(actor_id)
+            .map(|base| base + self.actor_container_capacity_tenths(actor_id))
+    }
+
     fn actor_inventory_full(&self, actor_id: u64) -> bool {
-        self.actor_inventory_capacity(actor_id)
-            .map(|capacity| self.actor_inventory_count(actor_id) >= capacity)
+        self.actor_carrying_capacity_tenths(actor_id)
+            .map(|capacity| self.actor_carried_weight_tenths(actor_id) >= capacity)
             .unwrap_or(false)
     }
 
-    fn actor_can_receive_item(&self, target: CwActor, _offered_item_id: u64) -> bool {
-        !self.actor_inventory_full(target.id)
+    fn actor_can_receive_item(&self, target: CwActor, offered_item_id: u64) -> bool {
+        let Some(item) = self.item_by_id(offered_item_id) else {
+            return false;
+        };
+        self.actor_can_exchange_items(target.id, None, item)
+    }
+
+    fn actor_can_exchange_items(
+        &self,
+        actor_id: u64,
+        removed_item: Option<CwItem>,
+        added_item: CwItem,
+    ) -> bool {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return false;
+        };
+        let mut weight = 0u32;
+        let mut capacity = actor_base_carrying_capacity_tenths(actor);
+        for item in self.actor_held_items(actor_id) {
+            if removed_item.is_some_and(|removed| removed.id == item.id) {
+                continue;
+            }
+            weight += u32::from(effective_item_weight_tenths(item));
+            if item.role == CW_ITEM_ROLE_CONTAINER
+                && item.zone == CW_CARD_ZONE_EQUIPPED
+                && item.container_item_id == 0
+            {
+                capacity += u32::from(item.container_capacity_tenths);
+            }
+        }
+        weight += u32::from(effective_item_weight_tenths(added_item));
+        weight <= capacity
     }
 
     fn resident_player_gift_return_item(
@@ -13946,17 +15596,17 @@ impl RuntimeWorld {
         target: CwActor,
         offered_item: CwItem,
     ) -> Option<CwItem> {
-        if target.kind != CW_ACTOR_NPC || !self.actor_inventory_full(target.id) {
+        if target.kind != CW_ACTOR_NPC || self.actor_can_receive_item(target, offered_item.id) {
             return None;
         }
-        let return_item = self.resident_expendable_item_for_pickup(target)?;
+        let return_item = self.resident_exchange_item_for_pickup(target, Some(offered_item))?;
         (self.resident_item_offer_score(target, offered_item)
             > self.resident_item_keep_score(target, return_item))
         .then_some(return_item)
     }
 
     fn resident_can_accept_player_gift(&self, target: CwActor, offered_item: CwItem) -> bool {
-        !self.actor_inventory_full(target.id)
+        self.actor_can_receive_item(target, offered_item.id)
             || self
                 .resident_player_gift_return_item(target, offered_item)
                 .is_some()
@@ -14368,11 +16018,9 @@ impl RuntimeWorld {
             pulse.weather.location_id,
             None,
             format!(
-                "{} — {weather_location}: {} gives way to {} (intensity {}). Travel there to witness the changed atmosphere; nothing is at risk.",
-                pulse.weather.class.as_str(),
+                "At {weather_location}, {} gives way to {}. The changed air asks nothing of anyone.",
                 pulse.weather.before,
-                pulse.weather.after,
-                pulse.weather.intensity
+                pulse.weather.after
             ),
             pulse.source_world_tick,
             source_location_id,
@@ -14389,8 +16037,7 @@ impl RuntimeWorld {
             (
                 "world.trade.flowed",
                 format!(
-                    "{} — A caravan carries {} {} from {trade_origin} to {trade_destination}; {}. Travelers can follow the route while stock is moving.",
-                    pulse.trade.class.as_str(),
+                    "A caravan carries {} {} from {trade_origin} to {trade_destination}; {}. The road is open enough to follow.",
                     pulse.trade.amount,
                     pulse.trade.resource,
                     pulse.trade.reason
@@ -14400,8 +16047,7 @@ impl RuntimeWorld {
             (
                 "world.trade.disrupted",
                 format!(
-                    "{} — The {} route from {trade_origin} to {trade_destination} fails: {}. Travelers can visit either end to answer the shortage.",
-                    pulse.trade.class.as_str(),
+                    "The {} between {trade_origin} and {trade_destination} cannot find its way; {}. Either end of the road may need a visitor.",
                     pulse.trade.resource,
                     pulse.trade.reason
                 ),
@@ -14424,24 +16070,13 @@ impl RuntimeWorld {
             let to_name = self
                 .location_name(faction.to_location_id)
                 .unwrap_or_else(|| format!("Location {}", faction.to_location_id));
-            let opposition = if faction.opposed_faction_ids.is_empty() {
-                "no rival answers yet".to_string()
-            } else {
-                format!(
-                    "opposition answers from {}",
-                    faction.opposed_faction_ids.join(", ")
-                )
-            };
             events.push(self.append_world_history_event(
                 "world.faction.influence_shifted",
                 faction.from_location_id,
                 Some(faction.to_location_id),
                 format!(
-                    "{} — {} carries its doctrine from {from_name} to {to_name}; influence rises {}→{}, and {opposition}. Travelers can answer the claim at {to_name}.",
-                    faction.class.as_str(),
-                    faction.faction_name,
-                    faction.influence_before,
-                    faction.influence_after
+                    "{} carries its promises from {from_name} toward {to_name}. By evening, {to_name} has heard the claim.",
+                    faction.faction_name
                 ),
                 pulse.source_world_tick,
                 source_location_id,
@@ -14460,14 +16095,6 @@ impl RuntimeWorld {
             } else {
                 "world.conflict.pressure_eased"
             };
-            let front_note = if pulse.conflict.front_ids.is_empty() {
-                " Travelers can visit and watch for a local response.".to_string()
-            } else {
-                format!(
-                    " Travelers can answer {} before pressure grows again.",
-                    pulse.conflict.front_ids.join(", ")
-                )
-            };
             let conflict_cause = if pulse.conflict.class == PulseEffectClass::Stakes {
                 stakes_consent.as_ref().map(|(_, event_seq, _)| *event_seq)
             } else {
@@ -14477,13 +16104,15 @@ impl RuntimeWorld {
                 event_type,
                 pulse.conflict.location_id,
                 None,
-                format!(
-                    "{} — {conflict_location}: conflict pressure shifts {}→{} because {}.{front_note}",
-                    pulse.conflict.class.as_str(),
-                    pulse.conflict.before,
-                    pulse.conflict.after,
-                    pulse.conflict.reason
-                ),
+                if pulse.conflict.escalated {
+                    format!("In {conflict_location}, old strains meet and the air hardens.")
+                } else if pulse.conflict.after > pulse.conflict.before {
+                    format!(
+                        "The air in {conflict_location} draws taut around an unanswered strain."
+                    )
+                } else {
+                    format!("Whatever pressed on {conflict_location} loosens, for now.")
+                },
                 pulse.source_world_tick,
                 source_location_id,
                 conflict_cause,
@@ -15131,50 +16760,6 @@ impl RuntimeWorld {
             .count()
     }
 
-    fn default_trainable_skill(&self, actor_id: u64) -> Option<&'static str> {
-        if self.trained_since_rest_tag_active(actor_id)
-            || self.advancement_points_available(actor_id) < usize::from(SKILL_STEP_COST)
-        {
-            return None;
-        }
-
-        let mut preferences = Vec::new();
-        let mut banked_marks: Vec<_> = self
-            .ledger_marks
-            .values()
-            .filter(|mark| mark.actor_id == actor_id && mark.banked)
-            .collect();
-        banked_marks.sort_by_key(|mark| mark.source_event_seq);
-        for mark in banked_marks.iter().rev() {
-            let Some(skill_id) = default_skill_for_ledger_category(&mark.category) else {
-                continue;
-            };
-            if !preferences.contains(&skill_id) {
-                preferences.push(skill_id);
-            }
-        }
-        for skill_id in [
-            "listening",
-            "kindness",
-            "lorecraft",
-            "steadiness",
-            "nimble_hands",
-            "lifting",
-        ] {
-            if !preferences.contains(&skill_id) {
-                preferences.push(skill_id);
-            }
-        }
-
-        preferences.into_iter().find(|skill_id| {
-            self.skills
-                .get(&skill_state_id(actor_id, skill_id))
-                .map(|skill| skill.rank)
-                .unwrap_or(0)
-                < MAX_SKILL_RANK
-        })
-    }
-
     fn default_bondable_resident(&self, actor_id: u64) -> Option<CwActor> {
         let actor = self.actor_by_id(actor_id)?;
         if self.advancement_points_available(actor_id) < usize::from(BOND_SLOT_COST) {
@@ -15518,17 +17103,26 @@ impl RuntimeWorld {
         }
 
         let has_chat_target = self.has_active_chat_target(actor_id);
+        let can_influence = has_chat_target
+            && !self
+                .contextual_action_contributions(actor_id, "srd5.2.1:influence")
+                .2
+                .is_empty();
         let has_combat_target = self.has_active_combat_target(actor_id);
         let has_resident_gift = self.has_resident_gift(actor_id);
         let can_trade_item = self.default_item_trade(actor_id).is_some();
+        let can_attempt_theft = self.default_theft_candidate(actor_id).is_some();
         let can_prepare = self.prepare_available(actor_id);
         let can_work = self.work_available(actor_id);
         let can_help = self.help_available(actor_id);
         let can_rest = self.rest_available(actor_id);
         let has_unbanked_ledger = self.unbanked_visit_ledger_count(actor_id) > 0;
-        let can_train_skill = self.default_trainable_skill(actor_id).is_some();
+        let can_unlock_charm_slot = self.advancement_points_available(actor_id)
+            >= usize::from(CHARM_SLOT_COST)
+            && self.charm_slot_count(actor_id) < MAX_CHARM_SLOTS;
         let can_create_bond = self.default_bondable_resident(actor_id).is_some();
         let can_resolve_bond = self.default_resolvable_bond(actor_id).is_some();
+        let can_cast_spell = self.default_spell_card(actor_id).is_some();
         let default_feature_use = self.default_player_feature_use_candidate(actor_id);
         let default_search_target = self.default_search_target(actor_id);
         let default_craft_recipe = self.default_craft_recipe(actor_id);
@@ -15539,6 +17133,15 @@ impl RuntimeWorld {
                 kind: "chat".to_string(),
                 label: "Chat".to_string(),
                 command: "chat".to_string(),
+            });
+        }
+        if can_influence {
+            let (authored_label, _, _) =
+                self.contextual_action_contributions(actor_id, "srd5.2.1:influence");
+            options.push(ActionOption {
+                kind: "influence".to_string(),
+                label: authored_label.unwrap_or_else(|| "Influence".to_string()),
+                command: "ask for a local lead".to_string(),
             });
         }
         if offers.option_flags & CW_OFFER_CHECK != 0 {
@@ -15553,6 +17156,21 @@ impl RuntimeWorld {
                     kind: "check".to_string(),
                     label: "Check".to_string(),
                     command: "listen".to_string(),
+                });
+            }
+            if self.actor_by_id(actor_id).is_some_and(|actor| {
+                actor.location_id == MOONLIT_TRAIL_LOCATION_ID
+                    || !self
+                        .contextual_action_contributions(actor_id, "srd5.2.1:study")
+                        .1
+                        .is_empty()
+            }) {
+                let (authored_label, _, _) =
+                    self.contextual_action_contributions(actor_id, "srd5.2.1:study");
+                options.push(ActionOption {
+                    kind: "study".to_string(),
+                    label: authored_label.unwrap_or_else(|| "Study".to_string()),
+                    command: "study the moonlit signs".to_string(),
                 });
             }
         }
@@ -15624,6 +17242,13 @@ impl RuntimeWorld {
                 command: "trade".to_string(),
             });
         }
+        if can_attempt_theft {
+            options.push(ActionOption {
+                kind: "theft".to_string(),
+                label: "Steal".to_string(),
+                command: "steal".to_string(),
+            });
+        }
         if offers.option_flags & CW_OFFER_DEFEND != 0 && has_combat_target {
             options.push(ActionOption {
                 kind: "defend".to_string(),
@@ -15671,16 +17296,18 @@ impl RuntimeWorld {
                 command: "rest".to_string(),
             });
         }
-        if can_train_skill {
-            let command = self
-                .default_trainable_skill(actor_id)
-                .and_then(skill_command_name)
-                .map(|skill| format!("skill {skill}"))
-                .unwrap_or_else(|| "skill listening".to_string());
+        if can_cast_spell {
             options.push(ActionOption {
-                kind: "train_skill".to_string(),
-                label: "Practice".to_string(),
-                command,
+                kind: "cast_spell".to_string(),
+                label: "Cast".to_string(),
+                command: "cast steady light".to_string(),
+            });
+        }
+        if can_unlock_charm_slot {
+            options.push(ActionOption {
+                kind: "unlock_charm_slot".to_string(),
+                label: "Expand Bracelet".to_string(),
+                command: "unlock charm slot".to_string(),
             });
         }
         if can_create_bond {
@@ -15716,10 +17343,12 @@ impl RuntimeWorld {
             .to_string(),
             label: match selected_kind {
                 "chat" => "Chat",
+                "influence" => "Influence",
                 "move" => "Travel",
                 "flee" => "Flee",
                 "give_item" => "Give Item",
                 "trade_item" => "Trade",
+                "theft" => "Steal",
                 "use_item" => "Use",
                 "use_feature" => "Use",
                 "rest" => "Rest",
@@ -15727,12 +17356,14 @@ impl RuntimeWorld {
                 "defend" => "Defend",
                 "pick_up" => "Take",
                 "check" => "Listen",
+                "study" => "Study",
+                "cast_spell" => "Cast",
                 "prepare" => "Prepare",
                 "work" if self.work_finishes_active_progress(actor_id) => "Finish",
                 "work" => "Work",
                 "help" => "Help",
                 "bank_ledger" => "Grow",
-                "train_skill" => "Practice",
+                "unlock_charm_slot" => "Expand Bracelet",
                 "create_bond" => "Grow Closer",
                 "resolve_bond" => "Remember",
                 _ => "Act",
@@ -15740,10 +17371,12 @@ impl RuntimeWorld {
             .to_string(),
             command: match selected_kind {
                 "chat" => "chat".to_string(),
+                "influence" => "ask for a local lead".to_string(),
                 "move" => "go".to_string(),
                 "flee" => "flee".to_string(),
                 "give_item" => "give".to_string(),
                 "trade_item" => "trade".to_string(),
+                "theft" => "steal".to_string(),
                 "use_item" => "use".to_string(),
                 "use_feature" => default_feature_use
                     .as_ref()
@@ -15756,15 +17389,13 @@ impl RuntimeWorld {
                 "defend" => "defend".to_string(),
                 "pick_up" => "take".to_string(),
                 "check" => "listen".to_string(),
+                "study" => "study the moonlit signs".to_string(),
+                "cast_spell" => "cast steady light".to_string(),
                 "prepare" => "prepare".to_string(),
                 "work" => "work".to_string(),
                 "help" => "assist".to_string(),
                 "bank_ledger" => "bank ledger".to_string(),
-                "train_skill" => self
-                    .default_trainable_skill(actor_id)
-                    .and_then(skill_command_name)
-                    .map(|skill| format!("skill {skill}"))
-                    .unwrap_or_else(|| "skill listening".to_string()),
+                "unlock_charm_slot" => "unlock charm slot".to_string(),
                 "create_bond" => self
                     .default_bond_command(actor_id)
                     .unwrap_or_else(|| "bond".to_string()),
@@ -15774,6 +17405,50 @@ impl RuntimeWorld {
             disabled: false,
             options,
         }
+    }
+
+    fn contextual_action_contributions(
+        &self,
+        actor_id: u64,
+        rules_action: &str,
+    ) -> (Option<String>, Vec<String>, Vec<String>) {
+        let Some(location_id) = self.actor_by_id(actor_id).map(|actor| actor.location_id) else {
+            return (None, Vec::new(), Vec::new());
+        };
+        let mut reskins = active_content()
+            .contributions
+            .iter()
+            .flat_map(|bundle| bundle.reskins.iter())
+            .filter(|reskin| {
+                reskin.based_on == rules_action
+                    && reskin.scope.kind == "location"
+                    && reskin.scope.id == location_id
+            })
+            .collect::<Vec<_>>();
+        let mut offers = active_content()
+            .contributions
+            .iter()
+            .flat_map(|bundle| bundle.offers.iter())
+            .filter(|offer| {
+                offer.based_on == rules_action
+                    && offer.subject.kind == "location"
+                    && offer.subject.id == location_id
+            })
+            .collect::<Vec<_>>();
+        reskins.sort_by(|left, right| left.id.cmp(&right.id));
+        offers.sort_by(|left, right| left.id.cmp(&right.id));
+        let label = reskins
+            .first()
+            .map(|reskin| reskin.label.clone())
+            .or_else(|| offers.first().map(|offer| offer.label.clone()));
+        (
+            label,
+            reskins
+                .into_iter()
+                .map(|reskin| reskin.id.clone())
+                .collect(),
+            offers.into_iter().map(|offer| offer.id.clone()).collect(),
+        )
     }
 
     fn ranked_action_offers(
@@ -15829,6 +17504,17 @@ impl RuntimeWorld {
         let mut offers: Vec<_> = options
             .into_iter()
             .map(|option| {
+                let binding = resolved_action_binding(&option.kind).unwrap_or_else(|| {
+                    panic!(
+                        "validated action offer kind has no rules binding: {}",
+                        option.kind
+                    )
+                });
+                let (authored_label, applied_reskins, contextual_offers) = binding
+                    .rules_action
+                    .as_deref()
+                    .map(|action_id| self.contextual_action_contributions(actor_id, action_id))
+                    .unwrap_or_default();
                 let rank = self.action_offer_rank_for_actor(&option.kind, actor_id);
                 let target = self.action_offer_target(&option.kind, actor_id, access);
                 let project = self.action_offer_project(&option.kind, actor_id);
@@ -15841,6 +17527,7 @@ impl RuntimeWorld {
                     target.as_ref(),
                     project.as_ref(),
                 );
+                let label = authored_label.unwrap_or(label);
                 let accessible_label = self.action_offer_accessible_label(
                     &option.kind,
                     &verb,
@@ -15859,18 +17546,67 @@ impl RuntimeWorld {
                     target.as_ref(),
                     project.as_ref(),
                 );
+                let state_revision = self.world.next_event_seq.saturating_sub(1);
+                let source_collectible =
+                    self.action_offer_source_collectible(&option.kind, actor_id);
+                let mut source_card_instances =
+                    source_collectible.clone().into_iter().collect::<Vec<_>>();
+                if let Some(location_source) = self.location_source_collectible(actor_id) {
+                    if !source_card_instances
+                        .iter()
+                        .any(|source| source.card_id == location_source.card_id)
+                    {
+                        source_card_instances.push(location_source);
+                    }
+                }
+                let legacy_id = format!(
+                    "{}:{}",
+                    option.kind,
+                    normalize_command_text(&option.command)
+                );
+                let offer_id = format!(
+                    "{}:{}:{}",
+                    active_content().manifest.rules_profile,
+                    state_revision,
+                    legacy_id
+                );
+                let pack_provenance = ActionPackProvenanceView {
+                    pack_id: binding.pack_id.clone(),
+                    pack_version: binding.pack_version.clone(),
+                    rules_namespace: binding.namespace.clone(),
+                };
+                let composition_trace = ActionCompositionTraceView {
+                    rules_profile: active_content().manifest.rules_profile.clone(),
+                    rules_pack_id: binding.pack_id.clone(),
+                    rules_pack_version: binding.pack_version.clone(),
+                    source_card_instances,
+                    target: target.clone(),
+                    applied_variants: active_content().manifest.active_rules_variants.clone(),
+                    active_extensions: active_content().manifest.active_rules_extensions.clone(),
+                    applied_reskins: applied_reskins.clone(),
+                    contextual_offers: contextual_offers.clone(),
+                    resolver: binding.resolver.clone(),
+                    state_revision,
+                };
+
                 RankedActionOffer {
-                    id: format!(
-                        "{}:{}",
-                        option.kind,
-                        normalize_command_text(&option.command)
-                    ),
+                    id: legacy_id,
+                    offer_id,
+                    rules_action: binding.rules_action,
+                    operation: binding.operation,
+                    rules_profile: active_content().manifest.rules_profile.clone(),
+                    resolver: binding.resolver,
+                    source_collectible,
+                    pack_provenance,
+                    composition_trace,
+                    state_revision,
                     category: action_offer_category(&option.kind).to_string(),
                     intention,
                     kind: option.kind,
                     verb,
                     label,
                     accessible_label,
+
                     command: option.command,
                     rank,
                     disabled: primary_action.disabled,
@@ -15893,16 +17629,55 @@ impl RuntimeWorld {
             .collect();
         if let Some(target) = self.scout_action_offer_target(actor_id, access) {
             let kind = "explore_path";
+            let binding = resolved_action_binding(kind)
+                .expect("explore_path must resolve through the SRD search action");
             let intention = action_offer_intention(kind).to_string();
             let verb = self.action_offer_verb(kind, actor_id);
             let label = self.action_offer_label(kind, &verb, "Scout", Some(&target), None);
             let accessible_label =
                 self.action_offer_accessible_label(kind, &verb, &label, Some(&target), None);
             let provider = self.action_offer_provider(kind, actor_id, Some(&target), None);
+            let state_revision = self.world.next_event_seq.saturating_sub(1);
+            let source_collectible = self.location_source_collectible(actor_id);
+            let source_card_instances = source_collectible.clone().into_iter().collect();
+            let legacy_id = format!("explore_path:{}", target.id.clone().unwrap_or_default());
+            let offer_id = format!(
+                "{}:{}:{}",
+                active_content().manifest.rules_profile,
+                state_revision,
+                legacy_id
+            );
+            let pack_provenance = ActionPackProvenanceView {
+                pack_id: binding.pack_id.clone(),
+                pack_version: binding.pack_version.clone(),
+                rules_namespace: binding.namespace.clone(),
+            };
+            let composition_trace = ActionCompositionTraceView {
+                rules_profile: active_content().manifest.rules_profile.clone(),
+                rules_pack_id: binding.pack_id.clone(),
+                rules_pack_version: binding.pack_version.clone(),
+                source_card_instances,
+                target: Some(target.clone()),
+                applied_variants: active_content().manifest.active_rules_variants.clone(),
+                active_extensions: active_content().manifest.active_rules_extensions.clone(),
+                applied_reskins: Vec::new(),
+                contextual_offers: Vec::new(),
+                resolver: binding.resolver.clone(),
+                state_revision,
+            };
             offers.push(RankedActionOffer {
-                id: format!("explore_path:{}", target.id.unwrap_or_default()),
+                id: legacy_id,
+                offer_id,
                 kind: kind.to_string(),
                 intention,
+                rules_action: binding.rules_action,
+                operation: binding.operation,
+                rules_profile: active_content().manifest.rules_profile.clone(),
+                resolver: binding.resolver,
+                source_collectible,
+                pack_provenance,
+                composition_trace,
+                state_revision,
                 category: action_offer_category(kind).to_string(),
                 verb,
                 label,
@@ -15970,16 +17745,7 @@ impl RuntimeWorld {
         {
             return 84;
         }
-        if kind == "train_skill"
-            && self.default_bondable_resident(actor_id).is_some()
-            && self
-                .default_trainable_skill(actor_id)
-                .is_some_and(|skill_id| {
-                    self.skills
-                        .get(&skill_state_id(actor_id, skill_id))
-                        .is_some_and(|skill| skill.rank > 0)
-                })
-        {
+        if kind == "unlock_charm_slot" && self.default_bondable_resident(actor_id).is_some() {
             return 78;
         }
         action_offer_rank(kind)
@@ -16000,8 +17766,44 @@ impl RuntimeWorld {
         claim_key: Option<String>,
         reason: &str,
     ) -> RankedActionOffer {
+        let binding = resolved_action_binding(kind)
+            .unwrap_or_else(|| panic!("validated action offer kind has no rules binding: {kind}"));
+        let state_revision = self.world.next_event_seq.saturating_sub(1);
+        let legacy_id = format!("{kind}:{}", normalize_command_text(command));
+        let offer_id = format!(
+            "{}:{}:{}",
+            active_content().manifest.rules_profile,
+            state_revision,
+            legacy_id
+        );
+        let pack_provenance = ActionPackProvenanceView {
+            pack_id: binding.pack_id.clone(),
+            pack_version: binding.pack_version.clone(),
+            rules_namespace: binding.namespace.clone(),
+        };
         RankedActionOffer {
-            id: format!("{kind}:{}", normalize_command_text(command)),
+            id: legacy_id,
+            offer_id,
+            rules_action: binding.rules_action,
+            operation: binding.operation,
+            rules_profile: active_content().manifest.rules_profile.clone(),
+            resolver: binding.resolver.clone(),
+            source_collectible: None,
+            pack_provenance,
+            composition_trace: ActionCompositionTraceView {
+                rules_profile: active_content().manifest.rules_profile.clone(),
+                rules_pack_id: binding.pack_id,
+                rules_pack_version: binding.pack_version,
+                source_card_instances: Vec::new(),
+                target: target.clone(),
+                applied_variants: active_content().manifest.active_rules_variants.clone(),
+                active_extensions: active_content().manifest.active_rules_extensions.clone(),
+                applied_reskins: Vec::new(),
+                contextual_offers: Vec::new(),
+                resolver: binding.resolver,
+                state_revision,
+            },
+            state_revision,
             kind: kind.to_string(),
             intention: action_offer_intention(kind).to_string(),
             category: action_offer_category(kind).to_string(),
@@ -16387,6 +18189,61 @@ impl RuntimeWorld {
             })
     }
 
+    fn action_offer_source_collectible(
+        &self,
+        kind: &str,
+        actor_id: u64,
+    ) -> Option<ActionSourceCollectibleView> {
+        let source_item = match kind {
+            "cast_spell" => self.default_spell_card(actor_id),
+            "attack" => self.equipped_weapon_item(actor_id),
+            "use_item" | "use_feature" => self
+                .actor_held_items(actor_id)
+                .into_iter()
+                .find(|item| item.role != CW_ITEM_ROLE_GENERIC),
+            _ => None,
+        };
+        if let Some(item) = source_item {
+            let card = seed_card_for_subject("item", item.id).or_else(|| {
+                self.materialization_receipts
+                    .values()
+                    .find(|receipt| receipt.item_id == item.id)
+                    .and_then(|receipt| {
+                        active_content()
+                            .cards
+                            .iter()
+                            .find(|card| card.card_id == receipt.card_id)
+                            .map(card_from_seed_content)
+                    })
+            })?;
+            return Some(ActionSourceCollectibleView {
+                kind: "item".to_string(),
+                instance_id: item.id,
+                card_id: card.card_id,
+                pack_id: card.pack_id.unwrap_or_else(|| "cosyworld.core".to_string()),
+            });
+        }
+        let actor = self.actor_by_id(actor_id)?;
+        let card = seed_card_for_subject("location", actor.location_id)?;
+        Some(ActionSourceCollectibleView {
+            kind: "location".to_string(),
+            instance_id: actor.location_id,
+            card_id: card.card_id,
+            pack_id: card.pack_id.unwrap_or_else(|| "cosyworld.core".to_string()),
+        })
+    }
+
+    fn location_source_collectible(&self, actor_id: u64) -> Option<ActionSourceCollectibleView> {
+        let location_id = self.actor_by_id(actor_id)?.location_id;
+        let card = seed_card_for_subject("location", location_id)?;
+        Some(ActionSourceCollectibleView {
+            kind: "location".to_string(),
+            instance_id: location_id,
+            card_id: card.card_id,
+            pack_id: card.pack_id.unwrap_or_else(|| "cosyworld.core".to_string()),
+        })
+    }
+
     fn action_offer_target(
         &self,
         kind: &str,
@@ -16400,13 +18257,15 @@ impl RuntimeWorld {
                 id: Some(actor.location_id),
                 label: self.location_name(actor.location_id),
             }),
-            "chat" => self
-                .default_chat_target(actor_id)
-                .map(|target| ActionTargetView {
-                    kind: "actor".to_string(),
-                    id: Some(target.id),
-                    label: self.actor_name(target.id),
-                }),
+            "chat" | "influence" => {
+                self.default_chat_target(actor_id)
+                    .map(|target| ActionTargetView {
+                        kind: "actor".to_string(),
+                        id: Some(target.id),
+                        label: self.actor_name(target.id),
+                    })
+            }
+
             "attack" | "defend" => self
                 .combat_job_for_actor(actor_id, None)
                 .and_then(|(_, target_id)| self.actor_by_id(target_id))
@@ -16415,6 +18274,14 @@ impl RuntimeWorld {
                     id: Some(target.id),
                     label: self.actor_name(target.id),
                 }),
+            "prepare" | "work" => {
+                self.active_job_for_location(actor.location_id)
+                    .map(|job| ActionTargetView {
+                        kind: "project".to_string(),
+                        id: Some(actor.location_id),
+                        label: Some(format!("{} ({})", job.premise, job.id)),
+                    })
+            }
             "help" => self
                 .default_chat_target(actor_id)
                 .map(|target| ActionTargetView {
@@ -16472,6 +18339,19 @@ impl RuntimeWorld {
                     id: Some(item.id),
                     label: self.item_name(item.id),
                 }),
+            "theft" => self
+                .default_theft_candidate(actor_id)
+                .map(|(target, item)| ActionTargetView {
+                    kind: "item".to_string(),
+                    id: Some(item.id),
+                    label: Some(format!(
+                        "{} carried by {}",
+                        self.item_name(item.id)
+                            .unwrap_or_else(|| format!("Item {}", item.id)),
+                        self.actor_name(target.id)
+                            .unwrap_or_else(|| format!("Resident {}", target.id))
+                    )),
+                }),
             "search" => self
                 .default_search_target(actor_id)
                 .map(|target| ActionTargetView {
@@ -16479,6 +18359,16 @@ impl RuntimeWorld {
                     id: Some(target.location_id),
                     label: Some(target.name),
                 }),
+            "study" => Some(ActionTargetView {
+                kind: "feature".to_string(),
+                id: Some(actor.location_id),
+                label: Some("the moonlit signs".to_string()),
+            }),
+            "cast_spell" => Some(ActionTargetView {
+                kind: "actor".to_string(),
+                id: Some(actor_id),
+                label: self.actor_name(actor_id),
+            }),
             "craft" => self
                 .default_craft_recipe(actor_id)
                 .map(|recipe| ActionTargetView {
@@ -16550,6 +18440,17 @@ impl RuntimeWorld {
             "check" if self.location_is_frontier(actor.location_id) => {
                 Some("listening again out here may tire you".to_string())
             }
+            "study" if self.location_is_frontier(actor.location_id) => {
+                Some("a mistaken reading may leave the signs unresolved".to_string())
+            }
+            "influence" => Some(
+                "the resident may cooperate or cautiously decline; no reward or attitude is chosen by narration"
+                    .to_string(),
+            ),
+            "theft" => Some(
+                "failure leaves possession unchanged and is visible; success transfers exactly one card and provokes a consequence"
+                    .to_string(),
+            ),
             "work" if !self.prepared_tag_active(actor_id, actor.location_id) => {
                 Some("rushing in may tire you".to_string())
             }
@@ -16603,6 +18504,14 @@ impl RuntimeWorld {
                 .default_chat_target(actor_id)
                 .and_then(|target| self.actor_name(target.id))
                 .map(|name| format!("opens a small exchange with {name}")),
+            "influence" => self
+                .default_chat_target(actor_id)
+                .and_then(|target| self.actor_name(target.id))
+                .map(|name| {
+                    format!(
+                        "asks {name} to share one useful local lead; allowed outcomes are cooperates or declines"
+                    )
+                }),
             "check" => {
                 let unbanked = self.unbanked_visit_ledger_count(actor_id);
                 if unbanked > 0 {
@@ -16625,6 +18534,14 @@ impl RuntimeWorld {
                     )
                 }
             }
+            "study" => Some(
+                "reasons through the moonlit signs and records one understood truth"
+                    .to_string(),
+            ),
+            "cast_spell" => Some(
+                "spends Steady Light and gives one nearby traveler a glow until rest"
+                    .to_string(),
+            ),
             "prepare" => {
                 let amount = self.prepared_project_progress_amount(actor_id, actor.location_id);
                 let setup_effect = "makes the next try count";
@@ -16733,10 +18650,8 @@ impl RuntimeWorld {
                 let count = self.unbanked_visit_ledger_count(actor_id);
                 (count > 0).then(|| "lets this visit become part of you".to_string())
             }
-            "train_skill" => self.default_trainable_skill(actor_id).map(|skill_id| {
-                let label = skill_label(skill_id).unwrap_or("Skill");
-                format!("{label} grows a little stronger")
-            }),
+            "unlock_charm_slot" => (self.charm_slot_count(actor_id) < MAX_CHARM_SLOTS)
+                .then(|| "opens room for one more found skill charm; no charm is granted".to_string()),
             "create_bond" => self.default_bondable_resident(actor_id).and_then(|target| {
                 self.actor_name(target.id)
                     .map(|name| format!("a friendship with {name} begins"))
@@ -16789,15 +18704,26 @@ impl RuntimeWorld {
                             .unwrap_or_else(|| format!("Item {}", target_item.id))
                     )
                 }),
+            "theft" => self.default_theft_candidate(actor_id).map(|(target, item)| {
+                format!(
+                    "attempts to take {} from {}; the server resolves the transfer atomically",
+                    self.item_name(item.id)
+                        .unwrap_or_else(|| format!("Item {}", item.id)),
+                    self.actor_name(target.id)
+                        .unwrap_or_else(|| format!("Resident {}", target.id))
+                )
+            }),
             "use_item" => Some("uses a held item on a valid room or actor target".to_string()),
             "use_feature" => self
                 .default_player_feature_use_candidate(actor_id)
                 .map(|candidate| candidate.effect),
             "pick_up" => {
-                if self.actor_inventory_full(actor_id) {
-                    Some("takes the floor item and places your held item here".to_string())
+                let actor = self.actor_by_id(actor_id)?;
+                let item = self.loose_items_at_location(actor.location_id).into_iter().next()?;
+                if self.actor_can_receive_item(actor, item.id) {
+                    Some("adds the item card to your carried deck".to_string())
                 } else {
-                    Some("takes the floor item into your hand".to_string())
+                    Some("needs more carrying capacity or an explicit item exchange".to_string())
                 }
             }
             _ => None,
@@ -16808,12 +18734,22 @@ impl RuntimeWorld {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
             "chat" => None,
+            "influence" => self
+                .default_chat_target(actor_id)
+                .map(|target| format!("influence:{}:{}:local-lead", actor_id, target.id)),
             "check" => Some(ability_check_success_claim_key(
                 actor_id,
                 actor.location_id,
                 LISTEN_ABILITY,
                 LISTEN_DC as i16,
             )),
+            "study" => Some(format!("discovery:{}:{}", actor_id, actor.location_id)),
+            "cast_spell" => self
+                .default_spell_card(actor_id)
+                .map(|spell| format!("spell_use:{}:{}", actor_id, spell.id)),
+            "theft" => self
+                .default_theft_candidate(actor_id)
+                .map(|(target, item)| format!("theft:{}:{}:{}", actor_id, target.id, item.id)),
             "rest" => Some(tired_tag_id(actor_id)),
             "help" => self.default_chat_target(actor_id).and_then(|target| {
                 let claim_key = help_bond_claim_key(actor_id, target.id);
@@ -16861,6 +18797,27 @@ impl RuntimeWorld {
 
     fn has_active_chat_target(&self, actor_id: u64) -> bool {
         self.default_chat_target(actor_id).is_some()
+    }
+
+    fn default_theft_candidate(&self, actor_id: u64) -> Option<(CwActor, CwItem)> {
+        let actor = self.actor_by_id(actor_id)?;
+        self.active_chat_targets(actor_id)
+            .into_iter()
+            .find_map(|target| {
+                self.actor_held_items(target.id)
+                    .into_iter()
+                    .find_map(|item| {
+                        let eligible = self
+                            .items
+                            .get(&item.id)
+                            .and_then(|meta| meta.mechanics.as_ref())
+                            .is_some_and(|mechanics| {
+                                mechanics.theft_policy == "eligible_when_carried"
+                            });
+                        (eligible && self.actor_can_exchange_items(actor.id, None, item))
+                            .then_some((target, item))
+                    })
+            })
     }
 
     fn has_resident_gift(&self, actor_id: u64) -> bool {
@@ -18344,17 +20301,20 @@ impl RuntimeWorld {
                     memory.subject_id,
                     actor.location_id,
                 ) {
-                    if self.actor_inventory_full(actor.id)
-                        && self.resident_expendable_item_for_pickup(actor).is_none()
-                    {
-                        return None;
-                    }
+                    let incoming_item = self.item_by_id(memory.subject_id)?;
+                    let exchange_item_id = if self.actor_can_receive_item(actor, incoming_item.id) {
+                        0
+                    } else {
+                        self.resident_exchange_item_for_pickup(actor, Some(incoming_item))?
+                            .id
+                    };
                     if let Some(action) = self.fresh_resident_autonomy_action(
                         actor,
                         CwAction {
                             kind: CW_ACTION_PICK_UP_ITEM,
                             actor_id: actor.id,
                             item_id: memory.subject_id,
+                            target_item_id: exchange_item_id,
                             ..CwAction::default()
                         },
                     ) {
@@ -20184,6 +22144,7 @@ fn account_view(access: &AccessContext) -> AccountView {
         unopened_pack_ids: access.unopened_pack_ids.iter().cloned().collect(),
         recent_box_receipts: Vec::new(),
         recent_pack_openings: Vec::new(),
+        materialization_receipts: Vec::new(),
     }
 }
 
@@ -20478,6 +22439,19 @@ fn seed_card_for_subject(subject_kind: &str, subject_id: u64) -> Option<CardView
         .iter()
         .find(|card| card.subject_kind == subject_kind && card.subject_id == subject_id)
         .map(card_from_seed_content)
+}
+
+fn seed_weapon_die_sides(item: &SeedItemContent) -> u8 {
+    if item.role != "weapon" {
+        return 0;
+    }
+    item.mechanics
+        .as_ref()
+        .and_then(|mechanics| mechanics.effect_budget.get("damage_die"))
+        .and_then(serde_json::Value::as_str)
+        .and_then(|die| die.split_once('d'))
+        .and_then(|(_, sides)| sides.parse::<u8>().ok())
+        .unwrap_or(6)
 }
 
 fn seed_card_rarity_for_subject(subject_kind: &str, subject_id: u64) -> Option<&'static str> {
@@ -20848,7 +22822,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             box_burn_verifier_configured: state.box_burn_verifier.as_ref().is_some(),
         },
         combat: MetaCombat {
-            protocol: "cosyworld.combat/3",
+            protocol: "cosyworld.combat/4",
             kernel_version: CW_KERNEL_VERSION,
             action_economy: "one_action_per_turn",
             resolution: "nonlethal_subdual_at_1_hp",
@@ -20860,6 +22834,9 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             version: active_content().manifest.version,
             bundle_hash: active_content().manifest.bundle_hash.clone(),
             entry_location: active_content().manifest.entry_location.clone(),
+            rules_profile: active_content().manifest.rules_profile.clone(),
+            active_rules_variants: active_content().manifest.active_rules_variants.clone(),
+            active_rules_extensions: active_content().manifest.active_rules_extensions.clone(),
             packs: active_content().manifest.packs.clone(),
             rules: active_content()
                 .rules
@@ -20870,8 +22847,16 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
                     namespace: bundle.namespace.clone(),
                     conditions: bundle.resources.conditions.len(),
                     monster_seeds: bundle.resources.monster_seeds.len(),
+                    profiles: bundle
+                        .resources
+                        .profiles
+                        .iter()
+                        .map(|profile| profile.id.clone())
+                        .collect(),
+                    actions: bundle.resources.actions.clone(),
                 })
                 .collect(),
+            contributions: active_content().contributions.clone(),
             attributions: active_content().attributions.clone(),
             licenses: active_content().licenses.clone(),
         },
@@ -23231,6 +25216,375 @@ async fn leave_presence(
         status: if ok { CW_OK } else { 403 },
         events,
     })
+}
+
+fn action_offer_rejected(reason: impl Into<String>) -> Json<ActionResponse> {
+    Json(ActionResponse {
+        ok: false,
+        status: 409,
+        events: vec![EventView {
+            type_name: "action.offer_rejected".to_string(),
+            content: Some(reason.into()),
+            ..EventView::default()
+        }],
+    })
+}
+
+fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
+    match path {
+        "/actions/chat" => kind == "chat",
+        "/actions/move" => kind == "move",
+        "/actions/explore-path" => kind == "search",
+        "/actions/flee" => kind == "flee",
+        "/actions/check" => kind == "check",
+        "/actions/study" => kind == "study",
+        "/actions/influence" => kind == "influence",
+        "/actions/cast-spell" => kind == "cast_spell",
+        "/actions/pick-up" => kind == "pick_up",
+        "/actions/drop" => kind == "drop_item",
+        "/actions/use-item" => matches!(kind, "use_item" | "use_feature"),
+        "/actions/give-item" => kind == "give_item",
+        "/actions/trade-item" => kind == "trade_item",
+        "/actions/theft" => kind == "theft",
+        "/actions/craft" => kind == "craft",
+        "/actions/attack" => kind == "attack",
+        "/actions/defend" => kind == "defend",
+        "/actions/prepare" => kind == "prepare",
+        "/actions/work" => kind == "work",
+        "/actions/help" => kind == "help",
+        "/actions/rest" => kind == "rest",
+        "/actions/bank-ledger" => kind == "bank_ledger",
+        "/actions/unlock-charm-slot" => kind == "unlock_charm_slot",
+        "/actions/create-bond" => kind == "create_bond",
+        "/actions/resolve-bond" => kind == "resolve_bond",
+        _ => false,
+    }
+}
+
+fn submitted_payload_target(
+    path: &str,
+    target: &ActionTargetView,
+    payload: &serde_json::Value,
+) -> Option<u64> {
+    let key = match (path, target.kind.as_str()) {
+        ("/actions/move" | "/actions/flee", "location") => "destination_location_id",
+        ("/actions/craft", "recipe") => "recipe_id",
+        ("/actions/pick-up" | "/actions/drop", "item") => "item_id",
+        ("/actions/trade-item" | "/actions/theft", "item") => "target_item_id",
+        (
+            "/actions/chat"
+            | "/actions/attack"
+            | "/actions/give-item"
+            | "/actions/create-bond"
+            | "/actions/resolve-bond"
+            | "/actions/cast-spell"
+            | "/actions/influence",
+            "actor",
+        ) => "target_actor_id",
+        _ => return None,
+    };
+    payload.get(key).and_then(serde_json::Value::as_u64)
+}
+
+async fn submit_action_offer(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(submission): Json<ActionOfferSubmissionRequest>,
+) -> Json<ActionResponse> {
+    if !action_path_accepts_kind(&submission.path, &submission.kind) {
+        return action_offer_rejected("offer kind does not belong to the submitted action path");
+    }
+    let Some(actor_id) = submission
+        .payload
+        .get("actor_id")
+        .and_then(serde_json::Value::as_u64)
+    else {
+        return action_offer_rejected("offer submission is missing its actor");
+    };
+    if submission.payload.as_object().is_some_and(|payload| {
+        [
+            "attack_bonus",
+            "damage",
+            "armor_class",
+            "advantage",
+            "outcome",
+            "modifier",
+            "success",
+            "progress",
+            "cost_orbs",
+        ]
+        .iter()
+        .any(|field| payload.contains_key(*field))
+    }) {
+        return action_offer_rejected("mechanical inputs are server-authored");
+    }
+
+    let ownership = state.ownership_snapshot().await;
+    let query: StateQuery =
+        serde_json::from_value(submission.payload.clone()).unwrap_or(StateQuery {
+            actor_id: Some(actor_id),
+            actor_session: None,
+            wallet_address: None,
+            wallet: None,
+            wallet_session: None,
+            owned_card_ids: None,
+            cards: None,
+            openrouter_connected: None,
+        });
+    let access = AccessContext::from_query(
+        &query,
+        &ownership,
+        state.trust_client_card_ids,
+        &state.wallet_sessions,
+        state.allow_unsigned_wallet_claims,
+    );
+    let validation = {
+        let runtime = state.inner.lock().await;
+        let primary = runtime.primary_action(Some(actor_id), &access);
+        let offers = runtime.ranked_action_offers(Some(actor_id), &access, &primary);
+        let Some(offer) = offers
+            .iter()
+            .find(|offer| offer.offer_id == submission.offer_id)
+        else {
+            return action_offer_rejected(
+                "that offer expired; refresh the scene and submit a current offer_id",
+            );
+        };
+        if offer.kind != submission.kind
+            || offer.rules_action != submission.rules_action
+            || offer.operation != submission.operation
+            || offer.rules_profile != submission.rules_profile
+            || offer.state_revision != submission.state_revision
+            || offer.target != submission.target
+            || offer.cost != submission.cost
+            || offer.disabled
+        {
+            Err("offer identity, rules binding, target, cost, or availability was changed")
+        } else if offer.target.as_ref().is_some_and(|target| {
+            submitted_payload_target(&submission.path, target, &submission.payload)
+                .is_some_and(|submitted| target.id != Some(submitted))
+        }) {
+            Err("submitted payload target does not match the authoritative offer")
+        } else {
+            Ok(())
+        }
+    };
+    if let Err(reason) = validation {
+        return action_offer_rejected(reason);
+    }
+
+    macro_rules! parsed {
+        ($request_type:ty) => {
+            match serde_json::from_value::<$request_type>(submission.payload.clone()) {
+                Ok(payload) => payload,
+                Err(_) => return action_offer_rejected("offer payload is malformed"),
+            }
+        };
+    }
+    match submission.path.as_str() {
+        "/actions/chat" => {
+            chat(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ChatRequest)),
+            )
+            .await
+        }
+        "/actions/move" => {
+            let Json(response) = move_actor(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(MoveRequest)),
+            )
+            .await;
+            Json(response.into_action())
+        }
+        "/actions/explore-path" => {
+            explore_pathway(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ActorRequest)),
+            )
+            .await
+        }
+        "/actions/flee" => {
+            flee(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(MoveRequest)),
+            )
+            .await
+        }
+        "/actions/check" => {
+            ability_check(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(CheckRequest)),
+            )
+            .await
+        }
+        "/actions/study" => {
+            study(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(CheckRequest)),
+            )
+            .await
+        }
+        "/actions/influence" => {
+            influence(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(AttackRequest)),
+            )
+            .await
+        }
+        "/actions/cast-spell" => {
+            cast_spell(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ItemRequest)),
+            )
+            .await
+        }
+        "/actions/pick-up" => {
+            pick_up_item(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ItemRequest)),
+            )
+            .await
+        }
+        "/actions/drop" => {
+            drop_item(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ItemRequest)),
+            )
+            .await
+        }
+        "/actions/use-item" => {
+            use_item(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ItemRequest)),
+            )
+            .await
+        }
+        "/actions/give-item" => {
+            give_item(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ItemRequest)),
+            )
+            .await
+        }
+        "/actions/trade-item" => {
+            trade_item(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ItemRequest)),
+            )
+            .await
+        }
+        "/actions/theft" => {
+            theft(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ItemRequest)),
+            )
+            .await
+        }
+        "/actions/craft" => {
+            craft(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(CraftRequest)),
+            )
+            .await
+        }
+        "/actions/attack" => {
+            attack(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(AttackRequest)),
+            )
+            .await
+        }
+        "/actions/defend" => {
+            defend(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ActorRequest)),
+            )
+            .await
+        }
+        "/actions/prepare" => {
+            prepare(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ActorRequest)),
+            )
+            .await
+        }
+        "/actions/work" => {
+            work(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ActorRequest)),
+            )
+            .await
+        }
+        "/actions/help" => {
+            help_room(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ActorRequest)),
+            )
+            .await
+        }
+        "/actions/rest" => {
+            rest(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ActorRequest)),
+            )
+            .await
+        }
+        "/actions/bank-ledger" => {
+            bank_ledger(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ActorRequest)),
+            )
+            .await
+        }
+        "/actions/unlock-charm-slot" => {
+            unlock_charm_slot(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ActorRequest)),
+            )
+            .await
+        }
+        "/actions/create-bond" => {
+            create_bond(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(ReviseBondRequest)),
+            )
+            .await
+        }
+        "/actions/resolve-bond" => {
+            resolve_bond(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(AttackRequest)),
+            )
+            .await
+        }
+        _ => action_offer_rejected("unsupported offer submission path"),
+    }
 }
 
 async fn chat(
@@ -25946,6 +28300,51 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
+        CommandDispatch::Study => {
+            let Json(response) = study(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(CheckRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    ability: "intelligence".to_string(),
+                    dc: Some(LISTEN_DC),
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::Influence { target_actor_id } => {
+            let Json(response) = influence(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(AttackRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::CastSpell {
+            item_id,
+            target_actor_id,
+        } => {
+            let Json(response) = cast_spell(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ItemRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    item_id,
+                    target_item_id: None,
+                    target_actor_id: Some(target_actor_id),
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
         CommandDispatch::PickUp { item_id } => {
             let Json(response) = pick_up_item(
                 ConnectInfo(client_addr),
@@ -26096,6 +28495,7 @@ async fn command_inner(
                 seed,
             )
             .into_player_card();
+            record.bind_offer_kind("search");
             if found_item_id.is_some() {
                 record.content_upserts.insert(content_id, output.clone());
             }
@@ -26274,6 +28674,7 @@ async fn command_inner(
                 runtime.next_seed_value(),
             )
             .into_player_card();
+            record.bind_offer_kind("use_feature");
             record
                 .projection_mutations
                 .push(ProjectionMutation::UseFeature {
@@ -26355,6 +28756,24 @@ async fn command_inner(
                     actor_session: payload.actor_session,
                     item_id,
                     target_item_id: Some(target_item_id),
+                    target_actor_id: Some(target_actor_id),
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::Theft {
+            item_id,
+            target_actor_id,
+        } => {
+            let Json(response) = theft(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ItemRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    item_id,
+                    target_item_id: Some(item_id),
                     target_actor_id: Some(target_actor_id),
                 }),
             )
@@ -26467,6 +28886,77 @@ async fn command_inner(
                 Json(ActorRequest {
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::UnlockCharmSlot => {
+            let Json(response) = unlock_charm_slot(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::SetCharmEquipped { item_id, equipped } => {
+            let Json(response) = set_charm_equipped(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(SetCharmEquippedRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    item_id,
+                    equipped,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::SetSpellPrepared { item_id, prepared } => {
+            let Json(response) = set_spell_prepared(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(SetCharmEquippedRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    item_id,
+                    equipped: prepared,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::SetItemEquipped { item_id, equipped } => {
+            let Json(response) = set_item_equipped(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(SetCharmEquippedRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    item_id,
+                    equipped,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::SetItemContained {
+            item_id,
+            container_item_id,
+        } => {
+            let Json(response) = set_item_contained(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(SetItemContainedRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    item_id,
+                    container_item_id,
                 }),
             )
             .await;
@@ -29826,10 +32316,142 @@ async fn ability_check(
     apply_and_broadcast(
         state,
         CwAction {
-            kind: CW_ACTION_ABILITY_CHECK,
+            kind: CW_ACTION_RULES_SEARCH,
             actor_id: payload.actor_id,
             ability: LISTEN_ABILITY,
             dc: LISTEN_DC,
+            ..CwAction::default()
+        },
+        payload.actor_session.as_deref(),
+    )
+    .await
+}
+
+async fn study(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<CheckRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    if !payload.ability.eq_ignore_ascii_case("intelligence")
+        || payload.dc.is_some_and(|dc| dc != LISTEN_DC)
+    {
+        return Json(ActionResponse {
+            ok: false,
+            status: 400,
+            events: Vec::new(),
+        });
+    }
+    let is_authored_here = {
+        let runtime = state.inner.lock().await;
+        runtime.actor_by_id(payload.actor_id).is_some_and(|actor| {
+            actor.location_id == MOONLIT_TRAIL_LOCATION_ID
+                || !runtime
+                    .contextual_action_contributions(payload.actor_id, "srd5.2.1:study")
+                    .2
+                    .is_empty()
+        })
+    };
+    if !is_authored_here {
+        return action_offer_rejected("Study has no authored subject in this scene");
+    }
+    apply_and_broadcast(
+        state,
+        CwAction {
+            kind: CW_ACTION_RULES_STUDY,
+            actor_id: payload.actor_id,
+            ability: 3,
+            dc: LISTEN_DC,
+            ..CwAction::default()
+        },
+        payload.actor_session.as_deref(),
+    )
+    .await
+}
+
+async fn influence(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<AttackRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let legal = {
+        let runtime = state.inner.lock().await;
+        let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
+            return action_offer_rejected("Influence requires an active avatar");
+        };
+        runtime
+            .actor_by_id(payload.target_actor_id)
+            .is_some_and(|target| {
+                target.kind == CW_ACTOR_NPC
+                    && target.status == CW_ACTOR_ACTIVE
+                    && target.location_id == actor.location_id
+                    && runtime
+                        .default_chat_target(payload.actor_id)
+                        .is_some_and(|default| default.id == target.id)
+            })
+            && !runtime
+                .contextual_action_contributions(payload.actor_id, "srd5.2.1:influence")
+                .2
+                .is_empty()
+    };
+    if !legal {
+        return action_offer_rejected(
+            "Influence target or authored cooperation is no longer available",
+        );
+    }
+    apply_and_broadcast(
+        state,
+        CwAction {
+            kind: CW_ACTION_RULES_INFLUENCE,
+            actor_id: payload.actor_id,
+            target_actor_id: payload.target_actor_id,
+            ability: 5,
+            dc: LISTEN_DC,
+            ..CwAction::default()
+        },
+        payload.actor_session.as_deref(),
+    )
+    .await
+}
+
+async fn cast_spell(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ItemRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    apply_and_broadcast(
+        state,
+        CwAction {
+            kind: CW_ACTION_RULES_MAGIC,
+            actor_id: payload.actor_id,
+            target_actor_id: payload.target_actor_id.unwrap_or(payload.actor_id),
+            item_id: payload.item_id,
             ..CwAction::default()
         },
         payload.actor_session.as_deref(),
@@ -29857,6 +32479,7 @@ async fn pick_up_item(
             kind: CW_ACTION_PICK_UP_ITEM,
             actor_id: payload.actor_id,
             item_id: payload.item_id,
+            target_item_id: payload.target_item_id.unwrap_or_default(),
             ..CwAction::default()
         },
         payload.actor_session.as_deref(),
@@ -30037,6 +32660,47 @@ async fn trade_item(
     .await
 }
 
+async fn theft(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ItemRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let target_actor_id = payload.target_actor_id.unwrap_or_default();
+    let target_item_id = payload.target_item_id.unwrap_or(payload.item_id);
+    let legal = {
+        let runtime = state.inner.lock().await;
+        runtime
+            .default_theft_candidate(payload.actor_id)
+            .is_some_and(|(target, item)| target.id == target_actor_id && item.id == target_item_id)
+    };
+    if !legal {
+        return action_offer_rejected("theft target, capacity, or possession changed");
+    }
+    apply_and_broadcast(
+        state,
+        CwAction {
+            kind: CW_ACTION_THEFT,
+            actor_id: payload.actor_id,
+            target_actor_id,
+            item_id: target_item_id,
+            ability: 1,
+            dc: LISTEN_DC,
+            ..CwAction::default()
+        },
+        payload.actor_session.as_deref(),
+    )
+    .await
+}
+
 async fn craft(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -30175,6 +32839,7 @@ async fn prepare(
         runtime.next_seed_value(),
     )
     .into_player_card();
+    record.bind_offer_kind("prepare");
     record
         .projection_mutations
         .push(ProjectionMutation::SetTag {
@@ -30290,6 +32955,7 @@ async fn work(
         runtime.next_seed_value(),
     )
     .into_player_card();
+    record.bind_offer_kind("work");
     record
         .projection_mutations
         .push(ProjectionMutation::AdvanceClock {
@@ -30457,6 +33123,7 @@ async fn help_room(
         runtime.next_seed_value(),
     )
     .into_player_card();
+    record.bind_offer_kind("help");
     record
         .projection_mutations
         .push(ProjectionMutation::AdvanceClock {
@@ -30969,6 +33636,629 @@ async fn train_skill(
         ok: status == CW_OK && !events.is_empty(),
         status: if events.is_empty() { 409 } else { status },
         events,
+    })
+}
+
+async fn unlock_charm_slot(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ActorRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    if runtime.charm_slot_count(payload.actor_id) >= MAX_CHARM_SLOTS
+        || runtime.advancement_points_available(payload.actor_id) < usize::from(CHARM_SLOT_COST)
+    {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    )
+    .into_player_card();
+    record
+        .projection_mutations
+        .push(ProjectionMutation::UnlockCharmSlot {
+            cost: CHARM_SLOT_COST,
+            reason: "advancement".to_string(),
+        });
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK && !events.is_empty(),
+        status: if events.is_empty() { 409 } else { status },
+        events,
+    })
+}
+
+async fn set_charm_equipped(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<SetCharmEquippedRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            item_id: payload.item_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::SetCharmEquipped {
+            item_id: payload.item_id,
+            equipped: payload.equipped,
+            reason: "deck_configuration".to_string(),
+        });
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK && !events.is_empty(),
+        status: if events.is_empty() { 409 } else { status },
+        events,
+    })
+}
+
+async fn set_spell_prepared(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<SetCharmEquippedRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            item_id: payload.item_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::SetSpellPrepared {
+            item_id: payload.item_id,
+            prepared: payload.equipped,
+            reason: "spell_deck_configuration".to_string(),
+        });
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK && !events.is_empty(),
+        status: if events.is_empty() { 409 } else { status },
+        events,
+    })
+}
+
+async fn set_item_equipped(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<SetCharmEquippedRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            item_id: payload.item_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::SetItemEquipped {
+            item_id: payload.item_id,
+            equipped: payload.equipped,
+            reason: "equipment_configuration".to_string(),
+        });
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK && !events.is_empty(),
+        status: if events.is_empty() { 409 } else { status },
+        events,
+    })
+}
+
+async fn set_item_contained(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<SetItemContainedRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            item_id: payload.item_id,
+            target_item_id: payload.container_item_id.unwrap_or_default(),
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::SetItemContained {
+            item_id: payload.item_id,
+            container_item_id: payload.container_item_id,
+            reason: "container_configuration".to_string(),
+        });
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK && !events.is_empty(),
+        status: if events.is_empty() { 409 } else { status },
+        events,
+    })
+}
+
+async fn materialize_collection_item(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<MaterializeItemRequest>,
+) -> Json<MaterializationResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: RATE_LIMITED_STATUS,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("materialization rate limited".to_string()),
+        });
+    }
+    let receipt_id = payload.receipt_id.trim();
+    if receipt_id.is_empty()
+        || receipt_id.len() > 96
+        || !receipt_id
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':'))
+    {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 400,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("receipt_id must be a stable printable identifier".to_string()),
+        });
+    }
+    let ownership = state.ownership_snapshot().await;
+    let access = AccessContext::from_request_parts(
+        payload.wallet_session.as_deref(),
+        payload
+            .wallet_address
+            .as_deref()
+            .or(payload.wallet.as_deref()),
+        [
+            state
+                .trust_client_card_ids
+                .then_some(payload.owned_card_ids.as_deref())
+                .flatten(),
+            state
+                .trust_client_card_ids
+                .then_some(payload.cards.as_deref())
+                .flatten(),
+        ],
+        &ownership,
+        &state.wallet_sessions,
+        state.allow_unsigned_wallet_claims,
+    );
+    let Some(card) = active_content()
+        .cards
+        .iter()
+        .find(|card| card.card_id == payload.card_id && card.subject_kind == "item")
+    else {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 404,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("card_id is not an item collectible".to_string()),
+        });
+    };
+    let owns_card = access.owned_card_ids.contains(&card.card_id)
+        || card
+            .external_card_id
+            .as_ref()
+            .is_some_and(|external_id| access.owned_card_ids.contains(external_id));
+    if !owns_card {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 403,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("the signed collection does not own this item card".to_string()),
+        });
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 403,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("actor session is not authorized".to_string()),
+        });
+    }
+    if let Some(existing) = runtime.materialization_receipts.get(receipt_id).cloned() {
+        let matching = existing.actor_id == payload.actor_id && existing.card_id == payload.card_id;
+        if !matching || existing.status == "materialized" {
+            return Json(MaterializationResponse {
+                ok: matching,
+                status: if matching { CW_OK } else { 409 },
+                item: matching
+                    .then(|| runtime.item_by_id(existing.item_id))
+                    .flatten()
+                    .map(|item| runtime.item_view(item)),
+                receipt: Some(existing),
+                events: Vec::new(),
+                error: (!matching)
+                    .then(|| "receipt_id is already bound to another materialization".to_string()),
+            });
+        }
+    }
+    if let Some(existing) = runtime
+        .materialization_receipts
+        .values()
+        .find(|receipt| {
+            receipt.actor_id == payload.actor_id
+                && receipt.card_id == payload.card_id
+                && receipt.status == "materialized"
+        })
+        .cloned()
+    {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 409,
+            item: runtime
+                .item_by_id(existing.item_id)
+                .map(|item| runtime.item_view(item)),
+            receipt: Some(existing),
+            events: Vec::new(),
+            error: Some("this collectible is already materialized for the avatar".to_string()),
+        });
+    }
+    let Some(seed_item) = active_content()
+        .items
+        .iter()
+        .find(|item| item.id == card.subject_id)
+    else {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 409,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("item collectible has no playable item profile".to_string()),
+        });
+    };
+    let item_id = materialized_item_id(receipt_id);
+    let item = CwItem {
+        id: item_id,
+        kind: seed_item_kind(seed_item).unwrap_or(CW_ITEM_KEEPSAKE),
+        charges: seed_item.charges,
+        weight_tenths: seed_item.weight_tenths,
+        container_capacity_tenths: seed_item.container_capacity_tenths,
+        size_class: seed_item_size(seed_item).unwrap_or(CW_ITEM_SIZE_SMALL),
+        role: seed_item_role(seed_item).unwrap_or(CW_ITEM_ROLE_GENERIC),
+        zone: CW_CARD_ZONE_CARRIED,
+        holder_actor_id: payload.actor_id,
+        held_since_tick: runtime.world.tick,
+        reserved: seed_weapon_die_sides(seed_item),
+        ..CwItem::default()
+    };
+    if runtime.item_by_id(item_id).is_some()
+        || !runtime.actor_can_exchange_items(payload.actor_id, None, item)
+    {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 409,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("instance id collision or insufficient carried-deck capacity".to_string()),
+        });
+    }
+    let receipt = MaterializationReceiptState {
+        id: receipt_id.to_string(),
+        actor_id: payload.actor_id,
+        card_id: payload.card_id.clone(),
+        item_id,
+        status: "materialized".to_string(),
+        source_wallet: access.owner_wallet_address,
+        source_event_seq: runtime.world.next_event_seq,
+    };
+    let meta = ItemMeta {
+        name: seed_item.name.clone(),
+        description: seed_item.description.clone(),
+        skill_id: seed_item.skill_id.clone(),
+        skill_bonus: seed_item.skill_bonus,
+        mechanics: seed_item.mechanics.clone(),
+    };
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            item_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record.bind_offer_kind("materialize");
+    record
+        .projection_mutations
+        .push(ProjectionMutation::MaterializeItem {
+            receipt: receipt.clone(),
+            item,
+            meta,
+            reason: "collection_materialization".to_string(),
+        });
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 500,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("materialization commit failed".to_string()),
+        });
+    };
+    let committed_receipt = runtime.materialization_receipts.get(receipt_id).cloned();
+    let committed_item = runtime
+        .item_by_id(item_id)
+        .map(|item| runtime.item_view(item));
+    drop(runtime);
+    broadcast_events(&state, &events);
+    Json(MaterializationResponse {
+        ok: status == CW_OK && committed_receipt.is_some(),
+        status,
+        receipt: committed_receipt,
+        item: committed_item,
+        events,
+        error: None,
+    })
+}
+
+async fn unmaterialize_collection_item(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<UnmaterializeItemRequest>,
+) -> Json<MaterializationResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: RATE_LIMITED_STATUS,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("unmaterialization rate limited".to_string()),
+        });
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 403,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("actor session is not authorized".to_string()),
+        });
+    }
+    let Some(existing) = runtime
+        .materialization_receipts
+        .get(&payload.receipt_id)
+        .cloned()
+    else {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 404,
+            receipt: None,
+            item: None,
+            events: Vec::new(),
+            error: Some("materialization receipt was not found".to_string()),
+        });
+    };
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            item_id: existing.item_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record.bind_offer_kind("materialize");
+    record
+        .projection_mutations
+        .push(ProjectionMutation::UnmaterializeItem {
+            receipt_id: payload.receipt_id.clone(),
+            reason: "collection_unmaterialization".to_string(),
+        });
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(MaterializationResponse {
+            ok: false,
+            status: 500,
+            receipt: Some(existing),
+            item: None,
+            events: Vec::new(),
+            error: Some("unmaterialization commit failed".to_string()),
+        });
+    };
+    let receipt = runtime
+        .materialization_receipts
+        .get(&payload.receipt_id)
+        .cloned();
+    drop(runtime);
+    broadcast_events(&state, &events);
+    let rejected = events.is_empty();
+    Json(MaterializationResponse {
+        ok: status == CW_OK && !rejected,
+        status: if rejected { 409 } else { status },
+        receipt,
+        item: None,
+        events,
+        error: rejected.then(|| {
+            "only an unequipped, uncontained card still held by the materializing avatar can return to Collection"
+                .to_string()
+        }),
     })
 }
 
@@ -32341,31 +35631,35 @@ fn automatic_orb_reward_for_action(
                     reason: "avatar_created".to_string(),
                 },
             }),
-        CW_ACTION_ABILITY_CHECK if action_is_listen_check(action) => events
-            .iter()
-            .find(|event| {
-                event.type_name == "ability_check.rolled"
-                    && event.success
-                    && event.actor_id == Some(action.actor_id)
-                    && event
-                        .total
-                        .zip(event.dc)
-                        .map(|(total, dc)| total >= dc)
-                        .unwrap_or(false)
-            })
-            .map(|event| AutomaticOrbReward {
-                claim_key: ability_check_success_claim_key(
-                    action.actor_id,
-                    event.location_id.unwrap_or(0),
-                    LISTEN_ABILITY,
-                    LISTEN_DC as i16,
-                ),
-                delta: OrbDelta {
-                    actor_id: action.actor_id,
-                    delta: LISTEN_ORB_REWARD,
-                    reason: "ability_check_success".to_string(),
-                },
-            }),
+        CW_ACTION_ABILITY_CHECK | CW_ACTION_RULES_SEARCH | CW_ACTION_RULES_STUDY
+            if action_is_discovery_check(action) =>
+        {
+            events
+                .iter()
+                .find(|event| {
+                    event.type_name == "ability_check.rolled"
+                        && event.success
+                        && event.actor_id == Some(action.actor_id)
+                        && event
+                            .total
+                            .zip(event.dc)
+                            .map(|(total, dc)| total >= dc)
+                            .unwrap_or(false)
+                })
+                .map(|event| AutomaticOrbReward {
+                    claim_key: ability_check_success_claim_key(
+                        action.actor_id,
+                        event.location_id.unwrap_or(0),
+                        action.ability,
+                        LISTEN_DC as i16,
+                    ),
+                    delta: OrbDelta {
+                        actor_id: action.actor_id,
+                        delta: LISTEN_ORB_REWARD,
+                        reason: "ability_check_success".to_string(),
+                    },
+                })
+        }
         CW_ACTION_ATTACK => {
             if let Some(event) = events.iter().find(|event| {
                 event.type_name == "combat.knockout"
@@ -32753,6 +36047,12 @@ fn stable_pathway_hash(value: &str) -> u64 {
     })
 }
 
+fn materialized_item_id(receipt_id: &str) -> u64 {
+    const MATERIALIZED_ITEM_ID_BASE: u64 = 8_000_000_000;
+    const MATERIALIZED_ITEM_ID_RANGE: u64 = 1_000_000_000;
+    MATERIALIZED_ITEM_ID_BASE + stable_pathway_hash(receipt_id) % MATERIALIZED_ITEM_ID_RANGE
+}
+
 fn generated_pathway_location_id(pathway_id: &str, index: usize) -> u64 {
     GENERATED_PATHWAY_LOCATION_ID_BASE
         + (stable_pathway_hash(pathway_id) % 10_000) * 16
@@ -32811,28 +36111,6 @@ fn skill_label(skill_id: &str) -> Option<&'static str> {
         "lorecraft" => Some("Lorecraft"),
         "listening" => Some("Listening"),
         "kindness" => Some("Kindness"),
-        _ => None,
-    }
-}
-
-fn skill_command_name(skill_id: &str) -> Option<&'static str> {
-    match skill_id {
-        "lifting" => Some("lifting"),
-        "nimble_hands" => Some("nimble hands"),
-        "steadiness" => Some("steadiness"),
-        "lorecraft" => Some("lorecraft"),
-        "listening" => Some("listening"),
-        "kindness" => Some("kindness"),
-        _ => None,
-    }
-}
-
-fn default_skill_for_ledger_category(category: &str) -> Option<&'static str> {
-    match category {
-        "bond" => Some("kindness"),
-        "feature" | "helped" => Some("lorecraft"),
-        "frontier_return" => Some("steadiness"),
-        "learned_truth" | "calling" | "witness" => Some("listening"),
         _ => None,
     }
 }
@@ -32942,9 +36220,18 @@ fn normalize_job_status(value: &str) -> Option<&'static str> {
 }
 
 fn action_is_listen_check(action: &CwAction) -> bool {
-    action.kind == CW_ACTION_ABILITY_CHECK
-        && action.ability == LISTEN_ABILITY
+    matches!(
+        action.kind,
+        CW_ACTION_ABILITY_CHECK | CW_ACTION_RULES_SEARCH
+    ) && action.ability == LISTEN_ABILITY
         && action.dc == LISTEN_DC
+}
+
+fn action_is_discovery_check(action: &CwAction) -> bool {
+    action_is_listen_check(action)
+        || (action.kind == CW_ACTION_RULES_STUDY
+            && action.ability == LISTEN_ABILITY
+            && action.dc == LISTEN_DC)
 }
 
 fn action_provider(
@@ -33106,7 +36393,7 @@ fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandView {
         entries: selected
             .into_iter()
             .map(|offer| ActionHandEntryView {
-                offer_id: offer.id.clone(),
+                offer_id: offer.offer_id.clone(),
                 kind: offer.kind.clone(),
                 intention: offer.intention.clone(),
                 provider: offer.provider.clone(),
@@ -33131,10 +36418,12 @@ fn action_offer_rank(kind: &str) -> u16 {
         "explore_path" => 55,
         "search" => 58,
         "check" => 60,
+        "study" => 61,
+        "cast_spell" => 22,
         "chat" => 70,
         "trade_item" => 74,
         "bank_ledger" => 75,
-        "train_skill" => 76,
+        "unlock_charm_slot" | "train_skill" => 76,
         "create_bond" => 77,
         "resolve_bond" => 79,
         "move" => 80,
@@ -33218,7 +36507,9 @@ fn action_offer_category(kind: &str) -> &'static str {
         "check" | "search" => "discovery",
         "prepare" | "work" => "project",
         "rest" => "recovery",
-        "bank_ledger" | "train_skill" | "revise_calling" | "revise_bond" => "growth",
+        "bank_ledger" | "unlock_charm_slot" | "train_skill" | "revise_calling" | "revise_bond" => {
+            "growth"
+        }
         _ => "other",
     }
 }
@@ -36210,9 +39501,53 @@ fn item_kind(kind: u8) -> &'static str {
     }
 }
 
-fn actor_inventory_capacity(actor: CwActor) -> usize {
-    let _ = actor;
-    CW_INVENTORY_BASE_SLOTS
+fn item_role(role: u8) -> &'static str {
+    match role {
+        CW_ITEM_ROLE_CONSUMABLE => "consumable",
+        CW_ITEM_ROLE_WEAPON => "weapon",
+        CW_ITEM_ROLE_SKILL_CHARM => "skill_charm",
+        CW_ITEM_ROLE_SPELL => "spell",
+        CW_ITEM_ROLE_CONTAINER => "container",
+        CW_ITEM_ROLE_TOOL => "tool",
+        CW_ITEM_ROLE_RELIC => "relic",
+        _ => "generic",
+    }
+}
+
+fn card_zone(zone: u8, holder_actor_id: u64, location_id: u64) -> &'static str {
+    match zone {
+        CW_CARD_ZONE_WORLD => "world",
+        CW_CARD_ZONE_CARRIED => "carried",
+        CW_CARD_ZONE_EQUIPPED => "equipped",
+        CW_CARD_ZONE_SPELL_DECK => "spell_deck",
+        CW_CARD_ZONE_EXHAUSTED => "exhausted",
+        CW_CARD_ZONE_CONTAINED => "contained",
+        CW_CARD_ZONE_ESCROW => "escrow",
+        _ if holder_actor_id != 0 => "carried",
+        _ if location_id != 0 => "world",
+        _ => "collection",
+    }
+}
+
+fn item_size(size_class: u8) -> &'static str {
+    match size_class {
+        CW_ITEM_SIZE_TINY => "tiny",
+        CW_ITEM_SIZE_MEDIUM => "medium",
+        CW_ITEM_SIZE_LARGE => "large",
+        _ => "small",
+    }
+}
+
+fn effective_item_weight_tenths(item: CwItem) -> u16 {
+    if item.weight_tenths == 0 {
+        CW_ITEM_DEFAULT_WEIGHT_TENTHS
+    } else {
+        item.weight_tenths
+    }
+}
+
+fn actor_base_carrying_capacity_tenths(actor: CwActor) -> u32 {
+    u32::from(actor.stats.strength.max(1) as u8) * 150
 }
 
 fn opt_id(value: u64) -> Option<u64> {
@@ -41011,8 +44346,27 @@ mod tests {
         assert!(INDEX_HTML.contains("function worldChronicleHtml"));
         assert!(INDEX_HTML.contains("the world beyond"));
         assert!(INDEX_HTML.contains("function localWorldConditionBeat"));
-        assert!(INDEX_HTML.contains("accountPanelPinned ? \"close\" : \"account\""));
-        assert!(INDEX_HTML.contains("Close your keepsake collection and return to room chat"));
+        assert!(INDEX_HTML.contains("function deckPanelHtml"));
+        assert!(INDEX_HTML.contains("[\"deck\", \"deck\"]"));
+        assert!(INDEX_HTML.contains("[\"collection\", \"collection & account\"]"));
+        assert!(INDEX_HTML.contains("[\"identity\", \"sign in / identity\"]"));
+        assert!(INDEX_HTML.contains("[\"world\", \"worlds & packs\"]"));
+        assert!(INDEX_HTML.contains("[\"journal\", \"journal\"]"));
+        assert!(INDEX_HTML.contains("[\"settings\", \"orbs & settings\"]"));
+        assert!(INDEX_HTML.contains("physical cards, not a fixed card count"));
+        assert!(INDEX_HTML.contains("carried weight · base"));
+        assert!(
+            INDEX_HTML.contains("Advancement opens a bracelet slot; it never creates the charm")
+        );
+        assert!(INDEX_HTML.contains("Only prepared spell cards can be cast"));
+        assert!(INDEX_HTML.contains("data-materialize-card"));
+        assert!(INDEX_HTML.contains("data-unmaterialize-receipt"));
+        assert!(INDEX_HTML.contains("function currentOfferForSubmission"));
+        assert!(!INDEX_HTML.contains("|| candidates[0] || null"));
+        assert!(INDEX_HTML.contains("/actions/unlock-charm-slot"));
+        assert!(INDEX_HTML.contains("/actions/set-charm-equipped"));
+        assert!(INDEX_HTML.contains("data-export-journal"));
+
         assert!(INDEX_HTML.contains("accountPanelPinned && event.key === \"Escape\""));
         assert!(!INDEX_HTML.contains("connect ai"));
         assert!(!INDEX_HTML.contains("openrouter_api_key"));
@@ -41029,7 +44383,7 @@ mod tests {
         assert!(INDEX_HTML.contains("function signAndSendBoxBurnTransaction"));
         assert!(INDEX_HTML.contains("method: \"signAndSendTransaction\""));
         assert!(INDEX_HTML.contains("params: { message: transaction.message }"));
-        assert!(INDEX_HTML.contains("parts.push(accountPanelPinned ? \"close\" : \"account\")"));
+        assert!(INDEX_HTML.contains("const menuOpen = libraryPanelPinned || accountPanelPinned"));
         assert!(!INDEX_HTML.contains("parts.push(signed ? \"wallet\" : \"connect wallet\")"));
         assert!(INDEX_HTML.contains("const accountName = identity?.authenticated"));
         assert!(INDEX_HTML.contains("data-passkey-continue"));
@@ -41070,7 +44424,7 @@ mod tests {
         assert!(INDEX_HTML.contains("notice one little clue."));
         assert!(INDEX_HTML.contains("ledger.banked_count"));
         assert!(INDEX_HTML.contains("choose a friendship to grow."));
-        assert!(INDEX_HTML.contains("choose an ability to train."));
+        assert!(INDEX_HTML.contains("open room for another found skill charm."));
         assert!(!INDEX_HTML.contains("listen to the room — it may have a clue just for you."));
         assert!(INDEX_HTML.contains("white-space: normal;"));
         assert!(INDEX_HTML.contains(
@@ -41079,9 +44433,8 @@ mod tests {
         assert!(INDEX_HTML.contains(
             "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${pendingConversation}${pendingChatReplies}`;"
         ));
-        assert!(INDEX_HTML.contains(
-            "return event?.type === \"message.created\" || event?.type === \"chat.failed\";"
-        ));
+        assert!(INDEX_HTML.contains("return event?.type === \"message.created\""));
+        assert!(INDEX_HTML.contains("|| event?.type === \"chat.failed\""));
         assert!(INDEX_HTML.contains("function transcriptEventHtml"));
         assert!(!INDEX_HTML.contains("function openingRoomLineHtml"));
         assert!(!INDEX_HTML.contains("visibleEvents.map(timelineEventHtml)"));
@@ -41122,7 +44475,7 @@ mod tests {
         assert!(INDEX_HTML.contains("the cottage is making room"));
         assert!(INDEX_HTML.contains("Someone here is getting ready to say hello."));
         assert!(INDEX_HTML.contains("your first little moment is waiting"));
-        assert!(INDEX_HTML.contains("ability training will grow here"));
+        assert!(INDEX_HTML.contains("find a skill charm, then wear it from Deck"));
         assert!(INDEX_HTML.contains("someone new is waiting to meet you"));
         assert!(INDEX_HTML.contains("room for ${smallNumberWord"));
         assert!(INDEX_HTML.contains("local tale"));
@@ -41134,8 +44487,9 @@ mod tests {
         assert!(!INDEX_HTML.contains("storyGuideActionKeys"));
         assert!(INDEX_HTML.contains("view.action_hand?.entries"));
         assert!(INDEX_HTML.contains("handProviderReason(action)"));
+
         assert!(INDEX_HTML.contains("const buildGrowAction"));
-        assert!(INDEX_HTML.contains("const buildTrainAction"));
+        assert!(INDEX_HTML.contains("const buildUnlockCharmSlotAction"));
         assert!(INDEX_HTML.contains("the room shares one welcoming clue just for you"));
         assert!(INDEX_HTML.contains("id=\"turn-ping-pill\""));
         assert!(INDEX_HTML.contains("the room is waiting for your choice"));
@@ -41242,6 +44596,14 @@ mod tests {
         assert!(INDEX_HTML.contains("function narratedTranscriptEvents"));
         assert!(INDEX_HTML.contains("eventsShareAStoryBeat"));
         assert!(INDEX_HTML.contains("const sceneCardEventTypes = new Set(["));
+        assert!(INDEX_HTML.contains("const worldTranscriptEventTypes = new Set(["));
+        assert!(INDEX_HTML.contains("world.weather.shifted"));
+        assert!(INDEX_HTML.contains("world.trade.flowed"));
+        assert!(INDEX_HTML.contains("world.faction.influence_shifted"));
+        assert!(INDEX_HTML.contains("world.conflict.escalated"));
+        assert!(INDEX_HTML.contains(
+            "worldTranscriptEventTypes.has(event?.type) && eventMatchesCurrentLocation(event)"
+        ));
         assert!(INDEX_HTML.contains("function sceneCardEventHtml"));
         assert!(INDEX_HTML.contains("Story beat. ${text}"));
         assert!(INDEX_HTML.contains("makes room for ${actor}"));
@@ -41258,16 +44620,15 @@ mod tests {
         assert!(INDEX_HTML.contains("bond.created"));
         assert!(INDEX_HTML.contains("bond.resolved"));
         assert!(INDEX_HTML.contains("/actions/bank-ledger"));
-        assert!(INDEX_HTML.contains("/actions/train-skill"));
+        assert!(INDEX_HTML.contains("/actions/unlock-charm-slot"));
         assert!(INDEX_HTML.contains("const buildEvolveAction = () =>"));
         assert!(INDEX_HTML.contains("label: \"evolve\""));
         assert!(INDEX_HTML.contains("cardType: \"evolve\""));
         assert!(INDEX_HTML.contains("choose how to evolve"));
         assert!(INDEX_HTML.contains("choose one of two lessons"));
         assert!(INDEX_HTML.contains("practiceChoices.slice(0, growAction ? 1 : 2)"));
-        assert!(INDEX_HTML.contains("label: `${ability.label} +1`"));
-        assert!(!INDEX_HTML.contains("label: `practice ${ability.label}`"));
-        assert!(INDEX_HTML.contains("+1 training bonus to ${ability.label} checks"));
+        assert!(INDEX_HTML.contains("opens bracelet space; the charm itself must still be found"));
+
         assert!(INDEX_HTML.contains("action.evolveModes?.includes(\"practice\")"));
         assert!(INDEX_HTML.contains("/actions/create-bond"));
         assert!(INDEX_HTML.contains("label: \"grow closer\""));
@@ -41295,7 +44656,7 @@ mod tests {
         assert!(INDEX_HTML.contains("function residentEconomyPanelHtml"));
         assert!(INDEX_HTML.contains("actor?.resident_economy"));
         assert!(INDEX_HTML.contains("economy.inventory_count"));
-        assert!(INDEX_HTML.contains("economy.inventory_capacity"));
+        assert!(INDEX_HTML.contains("economy.carrying_capacity_tenths"));
         assert!(INDEX_HTML.contains("economy.held_items"));
         assert!(INDEX_HTML.contains("economy.sought_items"));
         assert!(INDEX_HTML.contains("soughtItem?.world_status"));
@@ -41310,15 +44671,12 @@ mod tests {
         assert!(INDEX_HTML.contains("kept close</span>"));
         assert!(INDEX_HTML.contains("id=\"card-modal-keepsake\""));
         assert!(INDEX_HTML.contains("function keepsakePromise"));
-        assert!(INDEX_HTML.contains(
-            "Their art can appear beside matching choices without changing actions or odds."
-        ));
+        assert!(INDEX_HTML
+            .contains("This is a menu preference, not your physical carried deck or bracelet."));
         assert!(INDEX_HTML.contains(
             "can appear beside matching choices. It does not change available actions or odds."
         ));
-        assert!(INDEX_HTML.contains("function authoritativeHandSignature"));
-        assert!(INDEX_HTML.contains("function actionMatchesProjectedHandEntry"));
-        assert!(!INDEX_HTML.contains("function handHash"));
+
         assert!(INDEX_HTML.contains(
             "priority: useCandidates.some((candidate) => candidate.requested) ? 10 : undefined"
         ));
@@ -42092,7 +45450,7 @@ mod tests {
         assert!(action_journal_has_records(&path).expect("has records"));
         let records = read_action_journal(&path).expect("read records");
         assert_eq!(records.len(), 2);
-        assert_eq!(records[0].version, 4);
+        assert_eq!(records[0].version, 6);
         assert_eq!(records[0].content_context.mapping_version, 1);
         let location_reference = records[0]
             .content_context
@@ -43106,6 +46464,153 @@ mod tests {
         legacy_json["projection_mutations"][0]["kind"] =
             serde_json::json!("unknown_future_mutation");
         assert!(serde_json::from_value::<JournalRecord>(legacy_json).is_err());
+    }
+
+    #[test]
+    fn srd_action_replay_golden_is_byte_stable_and_offline() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../tests/fixtures/srd-action-replay-golden-v1.json"
+        ))
+        .expect("golden replay fixture is valid JSON");
+        assert_eq!(
+            fixture.get("schema").and_then(serde_json::Value::as_str),
+            Some("cosyworld.replay-golden/1")
+        );
+        let records: Vec<JournalRecord> = serde_json::from_value(
+            fixture
+                .get("records")
+                .cloned()
+                .expect("golden fixture has journal records"),
+        )
+        .expect("golden journal records deserialize without migration or network access");
+        assert!(records.iter().any(|record| {
+            record.version == 1 && record.action.kind == CW_ACTION_ABILITY_CHECK
+        }));
+        assert!(records
+            .iter()
+            .any(|record| { record.version == 1 && record.action.kind == CW_ACTION_ATTACK }));
+        assert!(records
+            .iter()
+            .any(|record| { record.version == 1 && record.action.kind == CW_ACTION_COMBAT_START }));
+        assert!(records
+            .iter()
+            .any(|record| { record.rules_action.as_deref() == Some("srd5.2.1:search") }));
+        assert!(records
+            .iter()
+            .any(|record| { record.rules_action.as_deref() == Some("srd5.2.1:study") }));
+        assert!(records
+            .iter()
+            .any(|record| !record.projection_mutations.is_empty()));
+
+        let mut direct_replay = RuntimeWorld::seeded();
+        for record in &records {
+            let (status, events) = direct_replay.apply_journal_record(record);
+            assert_eq!(
+                status, CW_OK,
+                "golden record kind {} must remain replayable",
+                record.action.kind
+            );
+            if record.action.kind == CW_ACTION_RULES_STUDY {
+                assert!(events
+                    .iter()
+                    .any(|event| event.type_name == "study.resolved"));
+            }
+        }
+
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-srd-replay-golden-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        for record in &records {
+            append_action_journal(&path, record).expect("append golden journal record");
+        }
+        let replayed = RuntimeWorld::from_action_journal(&path)
+            .expect("golden journal replays under its declared profile");
+        let _ = fs::remove_file(path);
+
+        let relevant_types = BTreeSet::from([
+            "actor.created",
+            "actor.entered_location",
+            "combat.attack.attempt",
+            "combat.attack.hit",
+            "combat.attack.miss",
+            "ability_check.rolled",
+            "clock.updated",
+            "ledger.marked",
+            "study.resolved",
+            "combat.encounter.started",
+            "combat.initiative.rolled",
+            "combat.turn.started",
+            "tag.applied",
+            "job.updated",
+        ]);
+        let events = replayed
+            .event_log
+            .iter()
+            .filter(|event| relevant_types.contains(event.type_name.as_str()))
+            .map(|event| {
+                serde_json::json!([
+                    event.seq,
+                    event.type_name,
+                    event.success,
+                    event.actor_id,
+                    event.target_actor_id,
+                    event.raw_roll,
+                    event.modifier,
+                    event.total,
+                    event.dc,
+                    event.damage,
+                    event.current_hp,
+                    event.clock_id,
+                    event.clock_filled,
+                    event.clock_delta,
+                    event.content
+                ])
+            })
+            .collect::<Vec<_>>();
+        let actor = replayed.actor_by_id(5000).expect("golden actor exists");
+        let echo = replayed
+            .actor_by_id(1004)
+            .expect("golden combat target exists");
+        let encounter = replayed
+            .combat_encounter(9003)
+            .expect("combat/3 encounter start remains replayable");
+        let actual = serde_json::json!({
+            "rules_profile": active_content().manifest.rules_profile,
+            "kernel_version": replayed.world.version,
+            "world_tick": replayed.world.tick,
+            "next_event_seq": replayed.world.next_event_seq,
+            "actor": {
+                "id": actor.id,
+                "location_id": actor.location_id,
+                "status": actor.status,
+                "damage": actor.damage
+            },
+            "echo": {
+                "id": echo.id,
+                "status": echo.status,
+                "damage": echo.damage,
+                "current_hp": unsafe { cw_actor_current_hp(&echo) }
+            },
+            "project_clock": replayed.clocks.get(MOONLIT_PROGRESS_CLOCK_ID).map(|clock| clock.filled),
+            "encounter": {
+                "id": encounter.id,
+                "status": encounter.status,
+                "round": encounter.round,
+                "participant_count": encounter.participant_count
+            },
+            "events": events
+        });
+        assert_eq!(
+            actual,
+            fixture
+                .get("expected")
+                .cloned()
+                .expect("golden expected result exists"),
+            "authoritative replay output changed; preserve legacy meaning or version the fixture intentionally"
+        );
     }
 
     #[test]
@@ -44757,7 +48262,20 @@ mod tests {
         assert_eq!(state.economy.chat_cost_orbs, CHAT_ORB_COST);
         assert!(state.economy.can_chat_with_orbs);
         assert_eq!(state.economy.inventory_count, 0);
-        assert_eq!(state.economy.inventory_capacity, 1);
+        assert_eq!(state.economy.inventory_capacity, 0);
+        assert_eq!(state.economy.carried_weight_tenths, 0);
+        let avatar_strength = state
+            .actors
+            .iter()
+            .find(|actor| actor.id == 5000)
+            .expect("created avatar is visible")
+            .stats
+            .strength;
+        assert_eq!(
+            state.economy.base_carrying_capacity_tenths,
+            u32::from(avatar_strength.max(1) as u8) * 150
+        );
+        assert_eq!(state.deck.bracelet_slots, BASE_CHARM_SLOTS);
         assert_eq!(state.economy.listen_cost_orbs, 0);
         assert!(state.economy.listen_reward_claimable);
         assert!(!state.economy.openrouter_connected);
@@ -45593,6 +49111,908 @@ mod tests {
     }
 
     #[test]
+    fn carried_skill_charms_use_bracelet_slots_and_advancement_only_unlocks_space() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Charm Tester",
+        );
+        let wolfprint = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == 2003)
+            .expect("Wolfprint Charm exists");
+        assert_eq!(wolfprint.role, CW_ITEM_ROLE_SKILL_CHARM);
+        wolfprint.location_id = 0;
+        wolfprint.holder_actor_id = 5000;
+
+        let before = runtime.deck_view(Some(5000));
+        assert_eq!(before.bracelet_slots, 1);
+        assert!(before.equipped_charms.is_empty());
+        assert_eq!(before.available_charms.len(), 1);
+
+        let deck_command = runtime
+            .resolve_command(&command_request(5000, "deck"), &AccessContext::default())
+            .expect("deck command resolves");
+        match deck_command.dispatch {
+            CommandDispatch::Read { output } => {
+                assert!(output.contains("Wolfprint Charm"));
+                assert!(output.contains("Bracelet: 0/1 charm slots"));
+                assert!(output.contains("Spell deck: 0/3 prepared (none prepared)"));
+            }
+            other => panic!("deck should be a read command, got {other:?}"),
+        }
+        let wear_command = runtime
+            .resolve_command(
+                &command_request(5000, "wear Wolfprint Charm"),
+                &AccessContext::default(),
+            )
+            .expect("wear charm command resolves");
+        assert!(matches!(
+            wear_command.dispatch,
+            CommandDispatch::SetCharmEquipped {
+                item_id: 2003,
+                equipped: true
+            }
+        ));
+
+        let equip_events = runtime.set_charm_equipped(5000, 2003, true, "test");
+        assert!(equip_events
+            .iter()
+            .any(|event| event.type_name == "skill_charm.equipped"));
+        assert_eq!(runtime.skill_bonus_for_ability(5000, 2), 1);
+        assert_eq!(runtime.deck_view(Some(5000)).equipped_charms.len(), 1);
+        let remove_command = runtime
+            .resolve_command(
+                &command_request(5000, "remove Wolfprint Charm"),
+                &AccessContext::default(),
+            )
+            .expect("remove charm command resolves");
+        assert!(matches!(
+            remove_command.dispatch,
+            CommandDispatch::SetCharmEquipped {
+                item_id: 2003,
+                equipped: false
+            }
+        ));
+
+        runtime.ledger_marks.insert(
+            "test:charm-slot-point".to_string(),
+            VisitLedgerMarkState {
+                id: "test:charm-slot-point".to_string(),
+                actor_id: 5000,
+                category: "witness".to_string(),
+                label: "Found a reason to grow".to_string(),
+                source_event_seq: runtime.world.next_event_seq,
+                banked: true,
+            },
+        );
+        let unlock_command = runtime
+            .resolve_command(
+                &command_request(5000, "bracelet unlock"),
+                &AccessContext::default(),
+            )
+            .expect("bracelet unlock command resolves");
+        assert!(matches!(
+            unlock_command.dispatch,
+            CommandDispatch::UnlockCharmSlot
+        ));
+        let item_count = runtime.world.item_count;
+        let unlock_events = runtime.unlock_charm_slot(5000, CHARM_SLOT_COST, "advancement");
+        assert!(unlock_events
+            .iter()
+            .any(|event| event.type_name == "charm_slot.unlocked"));
+        assert_eq!(runtime.charm_slot_count(5000), 2);
+        assert_eq!(
+            runtime.world.item_count, item_count,
+            "unlocking a slot grants no charm"
+        );
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("deck loadout survives snapshot restore");
+        let restored_deck = restored.deck_view(Some(5000));
+        assert_eq!(restored_deck.bracelet_slots, 2);
+        assert_eq!(restored_deck.equipped_charms.len(), 1);
+        assert_eq!(restored.skill_bonus_for_ability(5000, 2), 1);
+    }
+
+    #[test]
+    fn authoritative_action_hand_is_the_deterministic_top_three_legal_offers() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Hand Tester");
+        let access = AccessContext::default();
+
+        let left = runtime.state_response(Some(5000), &access);
+        let right = runtime.state_response(Some(5000), &access);
+        let legal_ids = left
+            .action_offers
+            .iter()
+            .map(|offer| offer.offer_id.clone())
+            .collect::<BTreeSet<_>>();
+        let left_hand = left
+            .action_hand
+            .entries
+            .iter()
+            .map(|offer| offer.offer_id.clone())
+            .collect::<Vec<_>>();
+        let right_hand = right
+            .action_hand
+            .entries
+            .iter()
+            .map(|offer| offer.offer_id.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(left_hand, right_hand);
+        assert!(left_hand
+            .iter()
+            .all(|offer_id| legal_ids.contains(offer_id)));
+        assert!(left.action_hand.entries.len() <= 3);
+        assert!(left.action_offers.len() >= left.action_hand.entries.len());
+    }
+
+    #[tokio::test]
+    async fn search_and_study_use_distinct_append_only_action_codes() {
+        assert_ne!(CW_ACTION_RULES_SEARCH, CW_ACTION_RULES_STUDY);
+        assert_ne!(CW_ACTION_RULES_SEARCH, CW_ACTION_ABILITY_CHECK);
+        assert_ne!(CW_ACTION_RULES_STUDY, CW_ACTION_ABILITY_CHECK);
+
+        let search_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_RULES_SEARCH,
+                actor_id: 5000,
+                ability: LISTEN_ABILITY,
+                dc: LISTEN_DC,
+                ..CwAction::default()
+            },
+            77_001,
+        );
+        let study_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_RULES_STUDY,
+                actor_id: 5000,
+                ability: 3,
+                dc: LISTEN_DC,
+                ..CwAction::default()
+            },
+            77_001,
+        );
+        assert_eq!(
+            search_record.rules_action.as_deref(),
+            Some("srd5.2.1:search")
+        );
+        assert_eq!(study_record.rules_action.as_deref(), Some("srd5.2.1:study"));
+        assert_ne!(search_record.action.kind, study_record.action.kind);
+
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Discovery Parity Tester",
+        );
+        let direct_state = test_app_state(runtime.clone(), None);
+        let offered_state = test_app_state(runtime, None);
+        let (direct_session, _) = issue_actor_session(&direct_state, 5000);
+        let (offered_session, _) = issue_actor_session(&offered_state, 5000);
+        let study_offer = {
+            let runtime = offered_state.inner.lock().await;
+            runtime
+                .state_response(Some(5000), &AccessContext::default())
+                .action_offers
+                .into_iter()
+                .find(|offer| offer.kind == "study")
+                .expect("Moonlit Trail exposes an authored Study offer")
+        };
+
+        let direct = study(
+            ConnectInfo("127.0.0.1:44130".parse().expect("client address")),
+            State(direct_state),
+            Json(CheckRequest {
+                actor_id: 5000,
+                actor_session: Some(direct_session),
+                ability: "intelligence".to_string(),
+                dc: Some(LISTEN_DC),
+            }),
+        )
+        .await
+        .0;
+        let offered = submit_action_offer(
+            ConnectInfo("127.0.0.1:44131".parse().expect("client address")),
+            State(offered_state),
+            Json(ActionOfferSubmissionRequest {
+                path: "/actions/study".to_string(),
+                offer_id: study_offer.offer_id,
+                kind: study_offer.kind,
+                rules_action: study_offer.rules_action,
+                operation: study_offer.operation,
+                rules_profile: study_offer.rules_profile,
+                state_revision: study_offer.state_revision,
+                target: study_offer.target,
+                cost: study_offer.cost,
+                payload: serde_json::json!({
+                    "actor_id": 5000,
+                    "actor_session": offered_session,
+                    "ability": "intelligence",
+                    "dc": LISTEN_DC
+                }),
+            }),
+        )
+        .await
+        .0;
+        assert!(direct.ok && offered.ok);
+        let signature = |events: &[EventView]| {
+            events
+                .iter()
+                .map(|event| {
+                    (
+                        event.type_name.clone(),
+                        event.success,
+                        event.raw_roll,
+                        event.modifier,
+                        event.total,
+                        event.dc,
+                        event.content.clone(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(signature(&direct.events), signature(&offered.events));
+        assert!(direct
+            .events
+            .iter()
+            .any(|event| event.type_name == "study.resolved"));
+    }
+
+    #[test]
+    fn influence_commits_bounded_cooperation_before_narration() {
+        let mut base = RuntimeWorld::seeded();
+        create_test_human(
+            &mut base,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Influence Tester",
+        );
+        let mut greeting = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: 5000,
+                content_id: 91_000,
+                ..CwAction::default()
+            },
+            77_010,
+        );
+        greeting
+            .content_upserts
+            .insert(91_000, "Hello, Rati.".to_string());
+        assert_eq!(base.apply_journal_record(&greeting).0, CW_OK);
+        assert!(
+            base.npc_cooperation.is_empty(),
+            "ordinary Chat is not Influence"
+        );
+
+        let mut outcomes = BTreeSet::new();
+        for seed in 1..=128 {
+            let mut runtime = base.clone();
+            let action = CwAction {
+                kind: CW_ACTION_RULES_INFLUENCE,
+                actor_id: 5000,
+                target_actor_id: RATI_ACTOR_ID,
+                ability: 5,
+                dc: LISTEN_DC,
+                ..CwAction::default()
+            };
+            let record = JournalRecord::new(action, seed);
+            assert_eq!(record.rules_action.as_deref(), Some("srd5.2.1:influence"));
+            let (status, events) = runtime.apply_journal_record(&record);
+            assert_eq!(status, CW_OK);
+            let check = events
+                .iter()
+                .find(|event| event.type_name == "ability_check.rolled")
+                .expect("Influence resolves an authoritative check");
+            let committed = events
+                .iter()
+                .find(|event| event.type_name == "influence.committed")
+                .expect("the bounded result is committed without narration");
+            assert!(committed.seq > check.seq);
+            let state = runtime
+                .npc_cooperation
+                .get(&format!("5000:{RATI_ACTOR_ID}"))
+                .expect("cooperation state is durable");
+            assert_eq!(state.source_event_seq, check.seq);
+            assert_eq!(state.desired_cooperation, "share one useful local lead");
+            assert_eq!(
+                state.outcome,
+                if check
+                    .total
+                    .zip(check.dc)
+                    .is_some_and(|(total, dc)| total >= dc)
+                {
+                    "cooperates"
+                } else {
+                    "declines"
+                }
+            );
+            outcomes.insert(state.outcome.clone());
+            if outcomes.len() == 2 {
+                break;
+            }
+        }
+        assert_eq!(
+            outcomes,
+            BTreeSet::from(["cooperates".to_string(), "declines".to_string()])
+        );
+    }
+
+    #[test]
+    fn hearth_tonic_uses_are_authoritative_and_idempotent() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Utilize Tester",
+        );
+        let actor = runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("test actor exists");
+        actor.damage = 4;
+        let tonic = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == HEARTH_TONIC_ITEM_ID)
+            .expect("Hearth Tonic exists");
+        tonic.location_id = 0;
+        tonic.holder_actor_id = 5000;
+        tonic.zone = CW_CARD_ZONE_CARRIED;
+        tonic.container_item_id = 0;
+        tonic.charges = 1;
+        let record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_USE_ITEM,
+                actor_id: 5000,
+                target_actor_id: 5000,
+                item_id: HEARTH_TONIC_ITEM_ID,
+                ..CwAction::default()
+            },
+            77_020,
+        );
+        assert_eq!(record.rules_action.as_deref(), Some("srd5.2.1:utilize"));
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "item.used" && event.item_id == Some(HEARTH_TONIC_ITEM_ID)
+        }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "tag.applied"
+                && event.tag_id.as_deref() == Some(HEARTH_TONIC_WARMTH_TAG_ID)
+        }));
+        assert_eq!(
+            runtime
+                .item_by_id(HEARTH_TONIC_ITEM_ID)
+                .map(|item| item.charges),
+            Some(0)
+        );
+        let tag_count = runtime
+            .event_log
+            .iter()
+            .filter(|event| {
+                event.type_name == "tag.applied"
+                    && event.tag_id.as_deref() == Some(HEARTH_TONIC_WARMTH_TAG_ID)
+            })
+            .count();
+        let (repeat_status, repeat_events) = runtime.apply_journal_record(&record);
+        assert_ne!(repeat_status, CW_OK);
+        assert!(repeat_events
+            .iter()
+            .any(|event| event.type_name == "rule.rejected"));
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == "tag.applied"
+                        && event.tag_id.as_deref() == Some(HEARTH_TONIC_WARMTH_TAG_ID)
+                })
+                .count(),
+            tag_count
+        );
+    }
+
+    #[test]
+    fn equipment_containment_spell_and_weapon_zones_recompose_and_persist() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Loadout Tester",
+        );
+        for item_id in [2012, 2013, 2014] {
+            let item = runtime
+                .world
+                .items
+                .iter_mut()
+                .take(runtime.world.item_count)
+                .find(|item| item.id == item_id)
+                .expect("playable core item exists");
+            item.holder_actor_id = 5000;
+            item.location_id = 0;
+            item.zone = CW_CARD_ZONE_CARRIED;
+            item.container_item_id = 0;
+        }
+        let base_capacity = runtime
+            .actor_carrying_capacity_tenths(5000)
+            .expect("actor has capacity");
+
+        let bag_events = runtime.set_item_equipped(5000, 2012, true, "test");
+        assert!(bag_events
+            .iter()
+            .any(|event| event.type_name == "item.equipped"));
+        assert_eq!(
+            runtime.actor_carrying_capacity_tenths(5000),
+            Some(base_capacity + 300)
+        );
+        let stow_events = runtime.set_item_contained(5000, 2013, Some(2012), "test");
+        assert!(stow_events
+            .iter()
+            .any(|event| event.type_name == "item.contained"));
+        let stowed_blade = runtime.item_by_id(2013).expect("blade remains present");
+        assert_eq!(stowed_blade.zone, CW_CARD_ZONE_CONTAINED);
+        assert_eq!(stowed_blade.container_item_id, 2012);
+        assert!(runtime
+            .set_item_contained(5000, 2012, Some(2012), "test")
+            .is_empty());
+
+        let nested_receipt_id = "test:materialize:second-satchel";
+        let nested_bag_id = materialized_item_id(nested_receipt_id);
+        let nested_receipt = MaterializationReceiptState {
+            id: nested_receipt_id.to_string(),
+            actor_id: 5000,
+            card_id: "item-patchwork-satchel".to_string(),
+            item_id: nested_bag_id,
+            status: "materialized".to_string(),
+            source_wallet: Some("test-wallet".to_string()),
+            source_event_seq: runtime.world.next_event_seq,
+        };
+        let nested_bag = CwItem {
+            id: nested_bag_id,
+            kind: CW_ITEM_KEEPSAKE,
+            charges: 1,
+            weight_tenths: 20,
+            container_capacity_tenths: 300,
+            size_class: CW_ITEM_SIZE_MEDIUM,
+            role: CW_ITEM_ROLE_CONTAINER,
+            zone: CW_CARD_ZONE_CARRIED,
+            holder_actor_id: 5000,
+            held_since_tick: runtime.world.tick,
+            ..CwItem::default()
+        };
+        let nested_meta = runtime
+            .items
+            .get(&2012)
+            .cloned()
+            .expect("bag metadata exists");
+        assert!(!runtime
+            .materialize_item(nested_receipt, nested_bag, nested_meta, "test")
+            .is_empty());
+        assert!(!runtime
+            .set_item_equipped(5000, 2012, false, "test")
+            .is_empty());
+        assert!(!runtime
+            .set_item_equipped(5000, nested_bag_id, true, "test")
+            .is_empty());
+        assert_eq!(
+            runtime.actor_carrying_capacity_tenths(5000),
+            Some(base_capacity + 300)
+        );
+        assert!(!runtime
+            .set_item_contained(5000, nested_bag_id, Some(2012), "test")
+            .is_empty());
+        assert_eq!(
+            runtime.actor_carrying_capacity_tenths(5000),
+            Some(base_capacity),
+            "a bag stored in another bag contributes no recursive capacity"
+        );
+        assert!(runtime
+            .set_item_contained(5000, 2012, Some(nested_bag_id), "test")
+            .is_empty());
+        assert!(!runtime
+            .set_item_contained(5000, nested_bag_id, None, "test")
+            .is_empty());
+        assert!(!runtime
+            .set_item_equipped(5000, 2012, true, "test")
+            .is_empty());
+
+        assert!(!runtime
+            .set_item_contained(5000, 2013, None, "test")
+            .is_empty());
+        assert!(!runtime
+            .set_item_equipped(5000, 2013, true, "test")
+            .is_empty());
+        let attack_offer = runtime
+            .state_response(Some(5000), &AccessContext::default())
+            .action_offers
+            .into_iter()
+            .find(|offer| offer.kind == "attack");
+        assert!(attack_offer.as_ref().is_some_and(|offer| {
+            offer
+                .source_collectible
+                .as_ref()
+                .is_some_and(|source| source.instance_id == 2013)
+        }));
+
+        assert!(!runtime
+            .set_spell_prepared(5000, 2014, true, "test")
+            .is_empty());
+        let prepared = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(prepared
+            .action_offers
+            .iter()
+            .any(|offer| offer.kind == "cast_spell"));
+        let magic = CwAction {
+            kind: CW_ACTION_RULES_MAGIC,
+            actor_id: 5000,
+            target_actor_id: 5000,
+            item_id: 2014,
+            ..CwAction::default()
+        };
+        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(magic, 77_014));
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "magic.spell_cast"));
+        let exhausted = runtime.deck_view(Some(5000));
+        assert!(exhausted.exhausted_cards.iter().any(|item| item.id == 2014));
+        assert!(!runtime
+            .state_response(Some(5000), &AccessContext::default())
+            .action_offers
+            .iter()
+            .any(|offer| offer.kind == "cast_spell"));
+        let (repeat_status, repeat_events) =
+            runtime.apply_journal_record(&JournalRecord::new(magic, 77_014));
+        assert_ne!(repeat_status, CW_OK);
+        assert!(repeat_events
+            .iter()
+            .any(|event| event.type_name == "rule.rejected"));
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("loadout zones survive restart");
+        assert_eq!(
+            restored.item_by_id(2012).map(|item| item.zone),
+            Some(CW_CARD_ZONE_EQUIPPED)
+        );
+        assert_eq!(
+            restored.item_by_id(2013).map(|item| item.zone),
+            Some(CW_CARD_ZONE_EQUIPPED)
+        );
+        assert_eq!(
+            restored.item_by_id(2014).map(|item| item.zone),
+            Some(CW_CARD_ZONE_EXHAUSTED)
+        );
+    }
+
+    #[test]
+    fn materialization_receipts_are_idempotent_reversible_and_restart_safe() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Receipt Tester",
+        );
+        let receipt_id = "test:materialize:steady-light";
+        let item_id = materialized_item_id(receipt_id);
+        let receipt = MaterializationReceiptState {
+            id: receipt_id.to_string(),
+            actor_id: 5000,
+            card_id: "item-steady-light".to_string(),
+            item_id,
+            status: "materialized".to_string(),
+            source_wallet: Some("test-wallet".to_string()),
+            source_event_seq: runtime.world.next_event_seq,
+        };
+        let meta = runtime
+            .items
+            .get(&2014)
+            .cloned()
+            .expect("spell metadata exists");
+        let item = CwItem {
+            id: item_id,
+            kind: CW_ITEM_KEEPSAKE,
+            charges: 1,
+            weight_tenths: 1,
+            size_class: CW_ITEM_SIZE_TINY,
+            role: CW_ITEM_ROLE_SPELL,
+            zone: CW_CARD_ZONE_CARRIED,
+            holder_actor_id: 5000,
+            held_since_tick: runtime.world.tick,
+            ..CwItem::default()
+        };
+        let before_count = runtime.world.item_count;
+        let events = runtime.materialize_item(receipt.clone(), item, meta.clone(), "test");
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].type_name, "item.materialized");
+        assert_eq!(runtime.world.item_count, before_count + 1);
+        assert!(runtime
+            .materialize_item(receipt.clone(), item, meta.clone(), "retry")
+            .is_empty());
+        assert_eq!(runtime.world.item_count, before_count + 1);
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("materialization survives restart");
+        assert_eq!(
+            restored
+                .materialization_receipts
+                .get(receipt_id)
+                .map(|receipt| receipt.status.as_str()),
+            Some("materialized")
+        );
+        assert!(restored.item_by_id(item_id).is_some());
+        assert_eq!(
+            restored
+                .item_provenance
+                .get(&item_id)
+                .map(|provenance| provenance.origin.as_str()),
+            Some("collection:item-steady-light")
+        );
+
+        let mut runtime = restored;
+        let returned = runtime.unmaterialize_item(5000, receipt_id, "test");
+        assert_eq!(returned.len(), 1);
+        assert_eq!(returned[0].type_name, "item.unmaterialized");
+        assert!(runtime.item_by_id(item_id).is_none());
+        assert_eq!(
+            runtime
+                .materialization_receipts
+                .get(receipt_id)
+                .map(|receipt| receipt.status.as_str()),
+            Some("collection")
+        );
+        assert!(runtime
+            .unmaterialize_item(5000, receipt_id, "retry")
+            .is_empty());
+
+        let rematerialized = runtime.materialize_item(receipt, item, meta, "test-return");
+        assert_eq!(rematerialized.len(), 1);
+        assert_eq!(runtime.world.item_count, before_count + 1);
+    }
+
+    #[tokio::test]
+    async fn materialization_endpoint_requires_ownership_and_prevents_duplicates() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Collection Tester",
+        );
+        let mut state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let addr = "127.0.0.1:44120".parse().expect("client address");
+        let request = |receipt_id: &str, card_id: &str| MaterializeItemRequest {
+            actor_id: 5000,
+            actor_session: Some(actor_session.clone()),
+            receipt_id: receipt_id.to_string(),
+            card_id: card_id.to_string(),
+            wallet_address: None,
+            wallet: None,
+            wallet_session: None,
+            owned_card_ids: Some(format!("item-patchwork-satchel,{card_id}")),
+            cards: None,
+        };
+
+        let spoofed = materialize_collection_item(
+            ConnectInfo(addr),
+            State(state.clone()),
+            Json(request("receipt:bag:1", "item-patchwork-satchel")),
+        )
+        .await
+        .0;
+        assert!(!spoofed.ok);
+        assert_eq!(spoofed.status, 403);
+        assert_eq!(
+            spoofed.error.as_deref(),
+            Some("the signed collection does not own this item card")
+        );
+
+        state.trust_client_card_ids = true;
+        let created = materialize_collection_item(
+            ConnectInfo(addr),
+            State(state.clone()),
+            Json(request("receipt:bag:1", "item-patchwork-satchel")),
+        )
+        .await
+        .0;
+        assert!(created.ok, "{created:?}");
+        assert_eq!(created.status, CW_OK);
+        assert_eq!(created.events.len(), 1);
+        let item_id = created.item.as_ref().expect("materialized item").id;
+
+        let retry = materialize_collection_item(
+            ConnectInfo(addr),
+            State(state.clone()),
+            Json(request("receipt:bag:1", "item-patchwork-satchel")),
+        )
+        .await
+        .0;
+        assert!(retry.ok, "{retry:?}");
+        assert_eq!(retry.item.as_ref().map(|item| item.id), Some(item_id));
+        assert!(
+            retry.events.is_empty(),
+            "retry must not create another item"
+        );
+
+        let rebound_receipt = materialize_collection_item(
+            ConnectInfo(addr),
+            State(state.clone()),
+            Json(request("receipt:bag:1", "item-steady-light")),
+        )
+        .await
+        .0;
+        assert!(!rebound_receipt.ok);
+        assert_eq!(rebound_receipt.status, 409);
+
+        let duplicate_card = materialize_collection_item(
+            ConnectInfo(addr),
+            State(state.clone()),
+            Json(request("receipt:bag:2", "item-patchwork-satchel")),
+        )
+        .await
+        .0;
+        assert!(!duplicate_card.ok);
+        assert_eq!(duplicate_card.status, 409);
+
+        let returned = unmaterialize_collection_item(
+            ConnectInfo(addr),
+            State(state.clone()),
+            Json(UnmaterializeItemRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session.clone()),
+                receipt_id: "receipt:bag:1".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(returned.ok, "{returned:?}");
+        assert_eq!(
+            returned
+                .receipt
+                .as_ref()
+                .map(|receipt| receipt.status.as_str()),
+            Some("collection")
+        );
+
+        let repeat_return = unmaterialize_collection_item(
+            ConnectInfo(addr),
+            State(state.clone()),
+            Json(UnmaterializeItemRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                receipt_id: "receipt:bag:1".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(!repeat_return.ok);
+        assert_eq!(repeat_return.status, 409);
+    }
+
+    #[test]
+    fn theft_failure_is_atomic_and_success_transfers_charm_provenance_and_access() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Theft Tester");
+        let charm = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == 2003)
+            .expect("Wolfprint Charm exists");
+        charm.location_id = 0;
+        charm.holder_actor_id = RATI_ACTOR_ID;
+        charm.zone = CW_CARD_ZONE_EQUIPPED;
+        charm.container_item_id = 0;
+        runtime
+            .equipped_charms
+            .insert(RATI_ACTOR_ID, [charm.id].into_iter().collect());
+        runtime.item_provenance.insert(
+            charm.id,
+            ItemProvenanceState {
+                item_id: charm.id,
+                origin: "seed:cosyworld.core".to_string(),
+                acquisition: "item.given".to_string(),
+                previous_holder_actor_id: None,
+                current_holder_actor_id: Some(RATI_ACTOR_ID),
+                current_location_id: None,
+                transfer_count: 0,
+                source_event_seq: None,
+            },
+        );
+        assert_eq!(runtime.skill_bonus_for_ability(RATI_ACTOR_ID, 2), 1);
+
+        let failed = CwAction {
+            kind: CW_ACTION_THEFT,
+            actor_id: 5000,
+            target_actor_id: RATI_ACTOR_ID,
+            item_id: 2003,
+            dc: 100,
+            ..CwAction::default()
+        };
+        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(failed, 77_101));
+        assert_eq!(status, CW_OK);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].type_name, "item.theft_attempt");
+        assert!(!events[0].success);
+        assert_eq!(
+            runtime.item_by_id(2003).map(|item| item.holder_actor_id),
+            Some(RATI_ACTOR_ID)
+        );
+        assert_eq!(
+            runtime
+                .item_provenance
+                .get(&2003)
+                .and_then(|state| state.current_holder_actor_id),
+            Some(RATI_ACTOR_ID)
+        );
+
+        let succeeded = CwAction { dc: 1, ..failed };
+        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(succeeded, 77_101));
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "item.stolen" && event.success));
+        let stolen = runtime
+            .item_by_id(2003)
+            .expect("stolen charm remains present");
+        assert_eq!(stolen.holder_actor_id, 5000);
+        assert_eq!(stolen.zone, CW_CARD_ZONE_CARRIED);
+        assert_eq!(runtime.skill_bonus_for_ability(RATI_ACTOR_ID, 2), 0);
+        assert_eq!(runtime.skill_bonus_for_ability(5000, 2), 0);
+        assert_eq!(
+            runtime
+                .item_provenance
+                .get(&2003)
+                .and_then(|state| state.current_holder_actor_id),
+            Some(5000)
+        );
+        assert!(runtime
+            .item_provenance
+            .get(&2003)
+            .is_some_and(|state| state.transfer_count == 1));
+        assert!(!runtime
+            .set_charm_equipped(5000, 2003, true, "test")
+            .is_empty());
+        assert_eq!(runtime.skill_bonus_for_ability(5000, 2), 1);
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("theft possession and provenance survive restart");
+        assert_eq!(
+            restored.item_by_id(2003).map(|item| item.holder_actor_id),
+            Some(5000)
+        );
+        assert_eq!(restored.skill_bonus_for_ability(5000, 2), 1);
+        assert_eq!(
+            restored
+                .item_provenance
+                .get(&2003)
+                .and_then(|state| state.current_holder_actor_id),
+            Some(5000)
+        );
+    }
+
+    #[test]
     fn banked_advancement_points_train_once_per_rest_and_skill_bonus() {
         let mut runtime = RuntimeWorld::seeded();
         assert_eq!(normalize_skill_id("nimble_hands"), Some("nimble_hands"));
@@ -45651,20 +50071,20 @@ mod tests {
         let banked_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert_eq!(banked_state.ledger.advancement_points, 2);
         assert!(banked_state.primary_action.options.iter().any(|option| {
-            option.kind == "train_skill"
-                && option.label == "Practice"
-                && option.command == "skill listening"
+            option.kind == "unlock_charm_slot"
+                && option.label == "Expand Bracelet"
+                && option.command == "unlock charm slot"
         }));
-        let train_offer = banked_state
+        let slot_offer = banked_state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "train_skill")
-            .expect("train skill offer is exposed once advancement points are banked");
-        assert_eq!(train_offer.rank, 76);
-        assert!(train_offer
+            .find(|offer| offer.kind == "unlock_charm_slot")
+            .expect("bracelet slot offer is exposed once advancement points are banked");
+        assert_eq!(slot_offer.rank, 78);
+        assert!(slot_offer
             .effect
             .as_deref()
-            .is_some_and(|effect| effect.contains("Listening grows a little stronger")));
+            .is_some_and(|effect| effect.contains("no charm is granted")));
 
         let command = runtime
             .resolve_command(
@@ -45846,12 +50266,12 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "rest"));
-        let repeat_train_offer = rested_state
+        let repeat_slot_offer = rested_state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "train_skill")
-            .expect("train offer returns after resting");
-        assert_eq!(repeat_train_offer.rank, 78);
+            .find(|offer| offer.kind == "unlock_charm_slot")
+            .expect("bracelet slot offer remains while advancement is available");
+        assert_eq!(repeat_slot_offer.rank, 78);
 
         let command = runtime
             .resolve_command(
@@ -45990,16 +50410,16 @@ mod tests {
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         assert_eq!(state.ledger.advancement_points, 2);
-        let train_offer = state
+        let slot_offer = state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "train_skill")
-            .expect("train offer is exposed after contextual marks are banked");
-        assert_eq!(train_offer.command, "skill steadiness");
-        assert!(train_offer
+            .find(|offer| offer.kind == "unlock_charm_slot")
+            .expect("bracelet slot offer is exposed after contextual marks are banked");
+        assert_eq!(slot_offer.command, "unlock charm slot");
+        assert!(slot_offer
             .effect
             .as_deref()
-            .is_some_and(|effect| effect.contains("Steadiness grows a little stronger")));
+            .is_some_and(|effect| effect.contains("no charm is granted")));
 
         let command = runtime
             .resolve_command(
@@ -48002,7 +52422,7 @@ mod tests {
             .combat
             .as_ref()
             .expect("active encounter is public state");
-        assert_eq!(combat.protocol, "cosyworld.combat/3");
+        assert_eq!(combat.protocol, "cosyworld.combat/4");
         assert_eq!(combat.encounter_id, encounter_id);
         assert_eq!(combat.round, 1);
         assert_eq!(combat.participants.len(), 2);
@@ -48586,6 +53006,8 @@ mod tests {
                 LISTEN_ABILITY,
                 LISTEN_DC as i16,
             ));
+        runtime.bank_visit_ledger(5000, "repeat_listen_test_setup");
+        assert_eq!(runtime.listen_cost_orbs(5000), LISTEN_REPEAT_ORB_COST);
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
@@ -49127,20 +53549,63 @@ mod tests {
     }
 
     #[test]
-    fn official_composition_omits_reference_only_srd_rule_packs() {
+    fn embedded_srd_references_remain_immutable_while_action_profile_is_active() {
         let rules = &active_content().rules;
         let attributions = &active_content().attributions;
 
-        assert!(rules.is_empty());
-        assert_eq!(attributions.len(), 1);
-        assert_eq!(
-            attributions[0].pack_id,
-            "cosyworld.campaign.the-lantern-keeper"
-        );
-        assert_eq!(attributions[0].license, "CC-BY-4.0");
-        assert!(attributions[0]
-            .text
-            .contains("System Reference Document 5.1"));
+        assert_eq!(rules.len(), 3);
+        for (pack_id, namespace) in [
+            ("cosyworld.rules-srd-5.1", "srd5.1"),
+            ("cosyworld.rules-srd-5.2.1", "srd5.2.1"),
+        ] {
+            let srd = rules
+                .iter()
+                .find(|bundle| bundle.pack_id == pack_id)
+                .expect("versioned SRD bundle");
+            assert_eq!(srd.adapter, "cosyworld.rules/1");
+            assert_eq!(srd.namespace, namespace);
+            assert_eq!(srd.resources.conditions.len(), 15);
+            assert_eq!(srd.resources.monster_seeds.len(), 3);
+            assert!(srd.resources.conditions.iter().all(|condition| {
+                condition.mapping.status == "reference_only"
+                    || (condition.id == "condition/unconscious"
+                        && condition.mapping.status == "kernel"
+                        && condition.mapping.kernel_condition.as_deref() == Some("unconscious"))
+            }));
+            assert!(srd
+                .resources
+                .monster_seeds
+                .iter()
+                .all(|monster| monster.mapping.status == "reference_only"));
+        }
+
+        let profile = rules
+            .iter()
+            .find(|bundle| bundle.pack_id == "cosyworld.rules-profile-srd5")
+            .expect("active bounded action profile");
+        assert_eq!(profile.adapter, "cosyworld.rules/2");
+        assert_eq!(profile.resources.profiles[0].id, "cosyworld.srd5/1");
+        assert_eq!(profile.resources.actions.len(), 12);
+        assert!(profile.resources.actions.iter().all(|action| {
+            action.support_status == "unsupported" || action.resolver_kind != "none"
+        }));
+
+        assert!(attributions.len() >= 3);
+        for (pack_id, document_name) in [
+            ("cosyworld.rules-srd-5.1", "System Reference Document 5.1"),
+            (
+                "cosyworld.rules-srd-5.2.1",
+                "System Reference Document 5.2.1",
+            ),
+        ] {
+            let attribution = attributions
+                .iter()
+                .find(|attribution| attribution.pack_id == pack_id)
+                .expect("versioned SRD attribution");
+            assert_eq!(attribution.license, "CC-BY-4.0");
+            assert!(attribution.text.contains(document_name));
+            assert!(!attribution.text.contains("CC-BY-SA"));
+        }
     }
 
     #[test]
@@ -49149,29 +53614,25 @@ mod tests {
         assert_eq!(content.manifest.id, "cosyworld.official");
         assert_eq!(content.manifest.version, 1);
         assert_eq!(content.manifest.schema_version, 2);
-        assert_eq!(content.manifest.packs.len(), 4);
-        assert_eq!(
-            content
-                .manifest
-                .packs
-                .iter()
-                .map(|pack| pack.id.as_str())
-                .collect::<Vec<_>>(),
-            vec![
-                "cosyworld.core",
-                "cosyworld.campaign.the-lantern-keeper",
-                "cosyworld.lonely-forest.characters",
-                "ruby-high.first-bell",
-            ]
-        );
+        assert_eq!(content.manifest.rules_profile, "cosyworld.srd5/1");
+        assert_eq!(content.manifest.packs.len(), 8);
+
         assert!(content.manifest.bundle_hash.starts_with("sha256:"));
         assert!(content.manifest.description.contains("seed world"));
-        assert_eq!(content.actors.len(), 40);
+        assert_eq!(content.actors.len(), 56);
         assert_eq!(content.access_gates.len(), 6);
         assert_eq!(content.factions.len(), 12);
-        assert_eq!(content.items.len(), 14);
-        assert_eq!(content.locations.len(), 33);
-        assert_eq!(content.exits.len(), 78);
+        assert_eq!(content.items.len(), 17);
+        let satchel = content
+            .items
+            .iter()
+            .find(|item| item.id == 2012)
+            .expect("core pack includes a carrying container");
+        assert_eq!(satchel.role, "container");
+        assert_eq!(satchel.container_capacity_tenths, 300);
+        assert_eq!(content.locations.len(), 48);
+        assert_eq!(content.exits.len(), 110);
+
         assert!(content.exits.iter().any(|exit| {
             exit.from_location_id == MOONLIT_TRAIL_LOCATION_ID
                 && exit.to_location_id == GREAT_LIBRARY_LOCATION_ID
@@ -49181,8 +53642,8 @@ mod tests {
                 && exit.to_location_id == MOONLIT_TRAIL_LOCATION_ID
         }));
         assert_eq!(content.hidden_exits.len(), 1);
-        assert_eq!(content.room_features.len(), 22);
-        assert_eq!(content.room_sheets.len(), 33);
+        assert_eq!(content.room_features.len(), 37);
+        assert_eq!(content.room_sheets.len(), 48);
         assert_eq!(content.clocks.len(), 12);
         assert_eq!(content.jobs.len(), 6);
         assert!(content
@@ -49190,26 +53651,12 @@ mod tests {
             .iter()
             .all(|job| job.reward.orbs() == 2 && !job.reward.label().is_empty()));
         assert_eq!(content.fronts.len(), 6);
-        assert_eq!(content.cards.len(), 84);
+        assert_eq!(content.cards.len(), 118);
         assert_eq!(content.lifecycle_hooks.len(), 27);
         assert_eq!(content.evolution_tracks.len(), 3);
-        assert_eq!(
-            content
-                .recipes
-                .iter()
-                .map(|recipe| recipe.id)
-                .collect::<Vec<_>>(),
-            vec![3001, 3002, 3003, 3004]
-        );
-        assert_eq!(
-            content
-                .recipes
-                .iter()
-                .filter(|recipe| recipe.output.is_none())
-                .count(),
-            3
-        );
-        assert!(content.rules.is_empty());
+        assert_eq!(content.recipes.len(), 4);
+        assert_eq!(content.rules.len(), 3);
+
         let nib = content
             .actors
             .iter()
@@ -49252,15 +53699,36 @@ mod tests {
                     && job.participant_ids == vec![participant_id]
             }));
         }
-        assert_eq!(content.attributions.len(), 1);
+        for namespace in ["srd5.1", "srd5.2.1"] {
+            let srd = content
+                .rules
+                .iter()
+                .find(|bundle| bundle.namespace == namespace)
+                .expect("versioned SRD bundle");
+            assert_eq!(srd.adapter, "cosyworld.rules/1");
+            assert_eq!(srd.resources.conditions.len(), 15);
+            assert_eq!(srd.resources.monster_seeds.len(), 3);
+            assert!(srd.resources.conditions.iter().any(|condition| {
+                condition.id == "condition/unconscious"
+                    && condition.mapping.status == "kernel"
+                    && condition.mapping.kernel_condition.as_deref() == Some("unconscious")
+            }));
+            assert!(srd
+                .resources
+                .monster_seeds
+                .iter()
+                .all(|monster| monster.mapping.status == "reference_only"));
+        }
+        assert_eq!(content.attributions.len(), 4);
+
         assert!(content
             .attributions
             .iter()
             .all(|attribution| attribution.license == "CC-BY-4.0"));
-        assert_eq!(
-            content.attributions[0].pack_id,
-            "cosyworld.campaign.the-lantern-keeper"
-        );
+        assert!(content
+            .attributions
+            .iter()
+            .any(|attribution| attribution.pack_id == "cosyworld.campaign.the-lantern-keeper"));
         assert_eq!(content.character_creation.len(), 1);
         let creation = &content.character_creation[0];
         assert_eq!(creation.pack_id, "cosyworld.campaign.the-lantern-keeper");
@@ -49431,18 +53899,11 @@ mod tests {
                 seed_item_kind(item).expect("seed item kind")
             );
             assert_eq!(world_item.charges, item.charges);
-            let first_seed_item_at_location = content
-                .items
-                .iter()
-                .filter(|candidate| candidate.location_id == item.location_id)
-                .map(|candidate| candidate.id)
-                .min();
-            let expected_location_id = if Some(item.id) == first_seed_item_at_location {
-                item.location_id
-            } else {
-                0
-            };
-            assert_eq!(world_item.location_id, expected_location_id);
+            assert_eq!(
+                world_item.location_id, item.location_id,
+                "seed item {} placement",
+                item.id
+            );
             assert_eq!(world_item.holder_actor_id, 0);
         }
         for location in &content.locations {
@@ -49548,6 +54009,7 @@ mod tests {
             now_seed()
         ));
         let mut snapshot = RuntimeSnapshot::from_runtime(&RuntimeWorld::seeded());
+        let expected_tick = snapshot.tick;
         snapshot.worldpack_bundle_hash = format!("sha256:{}", "0".repeat(64));
         fs::write(
             &path,
@@ -49563,7 +54025,7 @@ mod tests {
             active_content().locations.len()
         );
         assert_eq!(runtime.world.actor_count, active_content().actors.len());
-        assert_eq!(runtime.world.tick, RuntimeWorld::seeded().world.tick);
+        assert_eq!(runtime.world.tick, expected_tick);
     }
 
     #[test]
@@ -50031,9 +54493,15 @@ mod tests {
             if item.id == HEARTH_TONIC_ITEM_ID {
                 item.location_id = 0;
                 item.holder_actor_id = 5000;
+            } else if item.id == STORY_BUTTON_ITEM_ID {
+                item.location_id = 0;
+                item.holder_actor_id = 0;
             }
         }
-        assert!(runtime.room_floor_empty(COSY_COTTAGE_LOCATION_ID));
+        assert!(!runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .any(|item| item.id == STORY_BUTTON_ITEM_ID
+                && item.location_id == COSY_COTTAGE_LOCATION_ID));
         assert_eq!(
             runtime.hidden_search_item_for_location(COSY_COTTAGE_LOCATION_ID),
             Some(STORY_BUTTON_ITEM_ID)
@@ -50109,7 +54577,7 @@ mod tests {
             .iter()
             .filter(|actor| actor.location_id.is_some())
             .collect();
-        assert_eq!(placed_seed_actors.len(), 40);
+        assert_eq!(placed_seed_actors.len(), 56);
         for actor in placed_seed_actors {
             let world_actor = runtime.actor_by_id(actor.id).expect("placed seed actor");
             assert_eq!(world_actor.location_id, actor.location_id.unwrap());
@@ -50231,7 +54699,7 @@ mod tests {
             let offer = calling_state
                 .action_offers
                 .iter()
-                .find(|offer| offer.id == entry.offer_id)
+                .find(|offer| offer.offer_id == entry.offer_id)
                 .expect("projected hand entry references an offer");
             offer.kind == entry.kind
                 && action_offer_is_reachable(offer)
@@ -50243,7 +54711,7 @@ mod tests {
             calling_state
                 .action_offers
                 .iter()
-                .find(|offer| offer.id == entry.offer_id)
+                .find(|offer| offer.offer_id == entry.offer_id)
                 .is_some_and(action_offer_is_generally_useful)
         }));
 
@@ -50278,7 +54746,10 @@ mod tests {
             .iter()
             .map(|entry| entry.kind.as_str())
             .collect::<BTreeSet<_>>();
-        assert!(growth_kinds.contains("train_skill"));
+        assert!(growth_state
+            .action_offers
+            .iter()
+            .any(|offer| offer.kind == "unlock_charm_slot"));
         assert!(growth_kinds.contains("create_bond"));
 
         let mut friendship_runtime = RuntimeWorld::seeded();
@@ -51326,7 +55797,9 @@ mod tests {
             Some(RESIDENT_OBSERVED_MEMORY_CONFIDENCE)
         );
         assert_eq!(economy.inventory_count, 1);
-        assert_eq!(economy.inventory_capacity, 1);
+        assert_eq!(economy.inventory_capacity, 0);
+        assert!(economy.carried_weight_tenths > 0);
+        assert!(economy.carrying_capacity_tenths > economy.carried_weight_tenths);
         assert!(economy.held_item_ids.contains(&DEWBRIGHT_BUTTON_ITEM_ID));
         let held_dewbright = economy
             .held_items
@@ -52371,6 +56844,21 @@ mod tests {
             }
         }
         runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == SKULL_ACTOR_ID)
+            .expect("Skull exists")
+            .stats
+            .strength = 1;
+        runtime
+            .world
+            .items
+            .iter_mut()
+            .find(|item| item.id == DEWBRIGHT_BUTTON_ITEM_ID)
+            .expect("Dewbright exists")
+            .weight_tenths = 150;
+        runtime
             .prepare_resident_local_memories(SKULL_ACTOR_ID)
             .expect("Skull notices the player-held bell");
 
@@ -52688,7 +57176,7 @@ mod tests {
     }
 
     #[test]
-    fn pickup_with_full_hand_swaps_held_item_to_floor() {
+    fn pickup_adds_to_weight_based_carried_deck_without_auto_dropping() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -52718,13 +57206,13 @@ mod tests {
         }
 
         let access = AccessContext::default();
-        let full_state = runtime.state_response(Some(5000), &access);
-        assert!(full_state
+        let deck_state = runtime.state_response(Some(5000), &access);
+        assert!(deck_state
             .action_offers
             .iter()
             .find(|offer| offer.kind == "pick_up")
             .and_then(|offer| offer.effect.as_deref())
-            .is_some_and(|effect| effect.contains("places your held item here")));
+            .is_some_and(|effect| effect.contains("carried deck")));
 
         let pickup = CwAction {
             kind: CW_ACTION_PICK_UP_ITEM,
@@ -52734,20 +57222,16 @@ mod tests {
         };
         let (status, events) = runtime.apply_journal_record(&JournalRecord::new(pickup, 7832));
         assert_eq!(status, CW_OK);
-        assert_eq!(events.len(), 2);
-        assert_eq!(events[0].type_name, "item.dropped");
-        assert_eq!(events[0].item_id, Some(2001));
-        assert_eq!(events[1].type_name, "item.picked_up");
-        assert_eq!(events[1].item_id, Some(STORY_BUTTON_ITEM_ID));
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].type_name, "item.picked_up");
+        assert_eq!(events[0].item_id, Some(STORY_BUTTON_ITEM_ID));
         assert_eq!(
             command_response_output(None, &events).as_deref(),
-            Some("You drop Hearth Tonic.\nYou take Story Button.")
+            Some("You take Story Button.")
         );
         assert!(runtime.world.items[..runtime.world.item_count]
             .iter()
-            .any(|item| item.id == 2001
-                && item.holder_actor_id == 0
-                && item.location_id == COSY_COTTAGE_LOCATION_ID));
+            .any(|item| item.id == 2001 && item.holder_actor_id == 5000));
         assert!(runtime.world.items[..runtime.world.item_count]
             .iter()
             .any(|item| item.id == STORY_BUTTON_ITEM_ID && item.holder_actor_id == 5000));
@@ -52757,11 +57241,9 @@ mod tests {
             .expect("inventory resolves");
         match inventory.dispatch {
             CommandDispatch::Read { output } => {
-                assert_eq!(
-                    output,
-                    "You carry Story Button. Taking something else will leave it here in exchange."
-                );
-                assert!(!output.contains("Hearth Tonic"));
+                assert!(output.contains("You carry Hearth Tonic, Story Button"));
+                assert!(output.contains("0.6/"));
+                assert!(output.contains("Hearth Tonic"));
             }
             other => panic!("inventory should be read-only, got {other:?}"),
         }
@@ -53011,7 +57493,11 @@ mod tests {
                 assert!(output.contains("report <actor>: <reason>"));
                 assert!(output.contains("drop <item>"));
                 assert!(output.contains("more"));
-                assert!(output.contains("practice <knack>"));
+                assert!(output.contains("deck"));
+                assert!(output.contains("bracelet unlock"));
+                assert!(output.contains("wear <skill charm>"));
+                assert!(output.contains("remove <skill charm>"));
+                assert!(!output.contains("practice <knack>"));
                 assert!(output.contains("purpose <what draws you in>"));
                 assert!(output.contains("friendship <resident>"));
                 assert!(output.contains("remember <resident>"));
@@ -53343,20 +57829,16 @@ mod tests {
             other => panic!("feature use should map to projected item use, got {other:?}"),
         }
 
-        let take_dewbright = runtime
-            .resolve_command(&command_request(5000, "take dewbright"), &access)
-            .expect("take dewbright resolves after the one-hand swap");
-        match take_dewbright.dispatch {
-            CommandDispatch::PickUp { item_id } => assert_eq!(item_id, 2002),
-            other => panic!("take dewbright should map to pick-up, got {other:?}"),
+        let carried = runtime
+            .resolve_command(&command_request(5000, "inventory"), &access)
+            .expect("multi-card carried deck resolves");
+        match carried.dispatch {
+            CommandDispatch::Read { output } => {
+                assert!(output.contains("Dewbright Button"));
+                assert!(output.contains("Story Button"));
+            }
+            other => panic!("inventory should show both carried cards, got {other:?}"),
         }
-        pickup.item_id = 2002;
-        assert_eq!(
-            runtime
-                .apply_journal_record(&JournalRecord::new(pickup, 7838))
-                .0,
-            CW_OK
-        );
 
         let give = runtime
             .resolve_command(&command_request(5000, "give dewbright to gust"), &access)
@@ -54405,7 +58887,7 @@ mod tests {
     }
 
     #[test]
-    fn ambient_autonomy_resident_pickup_swaps_instead_of_self_evolving() {
+    fn ambient_autonomy_resident_can_add_wanted_card_without_self_evolving() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -54445,10 +58927,20 @@ mod tests {
         );
 
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
-        assert!(
-            runtime.resident_economy_autonomy_action(rati).is_none(),
-            "floor placement requirements should not make residents pick up the placed item"
-        );
+        let action = runtime
+            .resident_economy_autonomy_action(rati)
+            .expect("Rati can add a wanted card to the carried deck");
+        assert_eq!(action.kind, CW_ACTION_PICK_UP_ITEM);
+        assert_eq!(action.item_id, STORY_BUTTON_ITEM_ID);
+        assert_eq!(action.target_item_id, 0);
+        let (status, events) = runtime.apply_journal_record(&JournalRecord::new(action, 70611));
+        assert_eq!(status, CW_OK);
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "item.picked_up"));
+        assert!(!events
+            .iter()
+            .any(|event| event.type_name == "avatar.evolved"));
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert_eq!(rati.stats.level, 1);
         assert!(runtime.world.items[..runtime.world.item_count]
@@ -54457,9 +58949,7 @@ mod tests {
         assert!(runtime.world.items[..runtime.world.item_count]
             .iter()
             .any(|item| {
-                item.id == STORY_BUTTON_ITEM_ID
-                    && item.location_id == COSY_COTTAGE_LOCATION_ID
-                    && item.holder_actor_id == 0
+                item.id == STORY_BUTTON_ITEM_ID && item.holder_actor_id == RATI_ACTOR_ID
             }));
         let economy = runtime
             .resident_economy_view(rati, Some(5000))
@@ -54517,6 +59007,17 @@ mod tests {
             }
         }
 
+        let rati_index = runtime.world.actors[..runtime.world.actor_count]
+            .iter()
+            .position(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("Rati exists");
+        runtime.world.actors[rati_index].stats.strength = 1;
+        let dewbright_index = runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .position(|item| item.id == DEWBRIGHT_BUTTON_ITEM_ID)
+            .expect("Dewbright exists");
+        runtime.world.items[dewbright_index].weight_tenths = 150;
+
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert!(runtime.actor_inventory_full(RATI_ACTOR_ID));
         let expendable = runtime
@@ -54540,6 +59041,7 @@ mod tests {
         assert_eq!(action.kind, CW_ACTION_PICK_UP_ITEM);
         assert_eq!(action.actor_id, RATI_ACTOR_ID);
         assert_eq!(action.item_id, 2004);
+        assert_eq!(action.target_item_id, DEWBRIGHT_BUTTON_ITEM_ID);
 
         let (status, events) = runtime.apply_journal_record(&JournalRecord::new(action, 7071));
         assert_eq!(status, CW_OK);
@@ -54607,6 +59109,17 @@ mod tests {
                 _ => {}
             }
         }
+
+        let rati_index = runtime.world.actors[..runtime.world.actor_count]
+            .iter()
+            .position(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("Rati exists");
+        runtime.world.actors[rati_index].stats.strength = 1;
+        let tonic_index = runtime.world.items[..runtime.world.item_count]
+            .iter()
+            .position(|item| item.id == HEARTH_TONIC_ITEM_ID)
+            .expect("Hearth Tonic exists");
+        runtime.world.items[tonic_index].weight_tenths = 150;
 
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         assert!(runtime.actor_inventory_full(RATI_ACTOR_ID));
@@ -56004,7 +60517,7 @@ mod tests {
         assert!(reply_plan.user_text.contains("blue scarf"));
         assert!(reply_plan.user_text.contains("Gust wants Dewbright Button"));
         assert!(reply_plan.user_text.contains("weather mark"));
-        assert!(reply_plan.economy_note.contains("hands: full"));
+        assert!(reply_plan.economy_note.contains("carried deck:"));
         assert!(reply_plan.economy_note.contains("carrying:"));
     }
 
@@ -60380,7 +64893,8 @@ mod tests {
         assert!(weather
             .content
             .as_deref()
-            .is_some_and(|content| content.starts_with("ambient —")));
+            .is_some_and(|content| content.starts_with("At ")
+                && content.ends_with("The changed air asks nothing of anyone.")));
         let trade = events
             .iter()
             .find(|event| event.type_name.starts_with("world.trade."))
@@ -60388,7 +64902,7 @@ mod tests {
         assert!(trade
             .content
             .as_deref()
-            .is_some_and(|content| content.starts_with("opportunity —")));
+            .is_some_and(|content| content.contains("road") || content.contains("visitor")));
         let escalation = events
             .iter()
             .find(|event| event.type_name == "world.conflict.escalated")
@@ -60398,7 +64912,8 @@ mod tests {
         assert!(escalation
             .content
             .as_deref()
-            .is_some_and(|content| content.starts_with("stakes —")));
+            .is_some_and(|content| content.starts_with("In ")
+                && content.ends_with("old strains meet and the air hardens.")));
         let danger = events
             .iter()
             .find(|event| {

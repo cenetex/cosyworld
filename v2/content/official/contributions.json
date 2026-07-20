@@ -1,0 +1,65 @@
+[
+  {
+    "pack_id": "cosyworld.core",
+    "pack_version": "1.3.3",
+    "rules_profile": "cosyworld.srd5/1",
+    "reskins": [],
+    "offers": [
+      {
+        "id": "cosyworld.core:cottage-ask-local-lead",
+        "based_on": "srd5.2.1:influence",
+        "subject": {
+          "kind": "location",
+          "id": 1
+        },
+        "context": {
+          "requires_visible_subject": true,
+          "requires_combat": false
+        },
+        "label": "Ask for a local lead",
+        "target_predicate": "active_npc_same_location",
+        "source_reference": "CosyWorld Core — Blue Cottage bounded cooperation"
+      }
+    ],
+    "variants": [],
+    "extensions": []
+  },
+  {
+    "pack_id": "ruby-high.first-bell",
+    "pack_version": "1.3.3",
+    "rules_profile": "cosyworld.srd5/1",
+    "reskins": [
+      {
+        "id": "ruby-high.first-bell:study-review-notes",
+        "based_on": "srd5.2.1:study",
+        "label": "Review your notes",
+        "description": "Compare what you wrote down and work out what it means.",
+        "scope": {
+          "subject_kind": "location",
+          "subject_id": 12
+        },
+        "compatibility": "cosyworld.srd5/1",
+        "source_reference": "Ruby High: First Bell — Library presentation"
+      }
+    ],
+    "offers": [
+      {
+        "id": "ruby-high.first-bell:library-study-notes",
+        "based_on": "srd5.2.1:study",
+        "subject": {
+          "kind": "location",
+          "id": 12
+        },
+        "context": {
+          "requires_visible_subject": true,
+          "requires_combat": false
+        },
+        "label": "Review your notes",
+        "target_predicate": "active_location",
+        "source_reference": "Ruby High: First Bell — Library contextual offer"
+      }
+    ],
+    "variants": [],
+    "extensions": []
+  }
+]

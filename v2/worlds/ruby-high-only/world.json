@@ -6,7 +6,10 @@
   "description": "A standalone First Bell boot fixture with no CosyWorld Core pack mounted.",
   "entry_location": "ruby-high.first-bell:location/11",
   "entry_grant_id": "ruby-high.first-bell:location-homeroom",
+  "rules_profile": "cosyworld.srd5/1",
   "packs": [
-    "ruby-high.first-bell"
+    "ruby-high.first-bell",
+    "cosyworld.rules-srd-5.2.1",
+    "cosyworld.rules-profile-srd5"
   ]
 }

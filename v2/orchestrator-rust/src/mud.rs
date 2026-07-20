@@ -62,6 +62,14 @@ pub(crate) enum CommandDispatch {
         destination_location_id: u64,
     },
     Check,
+    Study,
+    Influence {
+        target_actor_id: u64,
+    },
+    CastSpell {
+        item_id: u64,
+        target_actor_id: u64,
+    },
     PickUp {
         item_id: u64,
     },
@@ -93,6 +101,10 @@ pub(crate) enum CommandDispatch {
         target_actor_id: u64,
         target_item_id: u64,
     },
+    Theft {
+        item_id: u64,
+        target_actor_id: u64,
+    },
     Craft {
         recipe_id: u64,
     },
@@ -105,6 +117,23 @@ pub(crate) enum CommandDispatch {
     Help,
     Rest,
     BankLedger,
+    UnlockCharmSlot,
+    SetCharmEquipped {
+        item_id: u64,
+        equipped: bool,
+    },
+    SetSpellPrepared {
+        item_id: u64,
+        prepared: bool,
+    },
+    SetItemEquipped {
+        item_id: u64,
+        equipped: bool,
+    },
+    SetItemContained {
+        item_id: u64,
+        container_item_id: Option<u64>,
+    },
     ReviseCalling {
         statement: String,
     },
@@ -186,22 +215,35 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
     match verb {
         "l" | "look" | "examine" | "inspect" => "look",
         "search" | "find" => "search",
-        "i" | "inv" | "inventory" => "inventory",
+        "i" | "inv" | "inventory" | "deck" => "inventory",
         "who" | "where" => "who",
         "go" | "move" | "travel" => "go",
         "get" | "take" | "pick" => "take",
         "give" | "gift" => "give",
         "trade" | "swap" | "barter" => "trade",
+        "steal" | "pilfer" => "steal",
         "craft" | "make" | "combine" => "craft",
         "use" | "drink" | "ring" => "use",
         "talk" | "chat" | "speak" => "chat",
+        "influence" | "persuade" => "influence",
+        "cast" | "magic" => "cast",
+        "prepare-spell" => "prepare-spell",
+        "unprepare-spell" => "unprepare-spell",
         "listen" | "check" => "listen",
+        "study" | "analyze" => "study",
         "prepare" | "ready" => "prepare",
-        "work" | "repair" | "study" => "work",
+        "work" | "repair" => "work",
         "assist" | "aid" => "assist",
         "rest" | "breathe" | "catch" => "rest",
         "shuffle" | "deal" | "more" | "redraw" => "shuffle",
         "grow" | "bank" | "review" | "advance" => "bank",
+        "bracelet" | "unlock" => "bracelet",
+        "wear" | "equip" => "wear",
+        "unwear" | "unequip" | "remove" => "unwear",
+        "wield" | "sling" => "equip-item",
+        "unwield" | "unsling" => "unequip-item",
+        "stow" | "pack" => "stow",
+        "unstow" | "unpack" => "unstow",
         "skill" | "train" | "practice" => "skill",
         "bond" | "relationship" | "friendship" => "bond",
         "calling" | "drive" | "purpose" | "revise" => "calling",
@@ -369,6 +411,9 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::Move { .. } => "That path is not open from here right now.",
         CommandDispatch::Flee { .. } => "The room has calmed; flee is not needed.",
         CommandDispatch::Check => "The room did not catch that Listen. Try once more.",
+        CommandDispatch::Study => "There is no authored subject to Study here now.",
+        CommandDispatch::Influence { .. } => "That bounded request is no longer available.",
+        CommandDispatch::CastSpell { .. } => "That prepared spell cannot be cast right now.",
         CommandDispatch::PickUp { .. } => "Someone moved that item. Look around once more.",
         CommandDispatch::Drop { .. } => "You are not carrying that anymore.",
         CommandDispatch::UseItem { .. } => "That item cannot help there right now.",
@@ -378,6 +423,7 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::TradeItem { .. } => {
             "That trade changed while you were choosing. Check what you carry and who is here."
         }
+        CommandDispatch::Theft { .. } => "That item is no longer a legal theft target.",
         CommandDispatch::Craft { .. } => {
             "That recipe changed. Check what you carry and what is nearby."
         }
@@ -389,6 +435,21 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::Help => "No one needs that kind of help here right now.",
         CommandDispatch::Rest => "You are already fresh enough to keep going.",
         CommandDispatch::BankLedger => "You have not found anything to grow from yet.",
+        CommandDispatch::UnlockCharmSlot => {
+            "That bracelet slot cannot open right now. Check your available advancement."
+        }
+        CommandDispatch::SetCharmEquipped { .. } => {
+            "That charm loadout changed while you were choosing. Check your carried deck."
+        }
+        CommandDispatch::SetSpellPrepared { .. } => {
+            "That spell loadout changed while you were choosing. Check your spell deck."
+        }
+        CommandDispatch::SetItemEquipped { .. } => {
+            "That equipment slot changed while you were choosing. Check your deck."
+        }
+        CommandDispatch::SetItemContained { .. } => {
+            "Those container contents changed while you were choosing. Check your deck."
+        }
         CommandDispatch::ReviseCalling { .. } => "That purpose cannot change just now.",
         CommandDispatch::CreateBond { .. } => "There is not a friendship ready to grow just now.",
         CommandDispatch::ReviseBond { .. } => "That friendship cannot change right now.",
@@ -573,6 +634,17 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             event.target_actor_name.as_deref().unwrap_or("someone"),
             event.target_item_name.as_deref().unwrap_or("another item")
         )),
+        "item.theft_attempt" if !event.success => Some(format!(
+            "You fail to take {} from {}; possession does not change, and the attempt is noticed.",
+            event.item_name.as_deref().unwrap_or("the item"),
+            event.target_actor_name.as_deref().unwrap_or("the resident")
+        )),
+        "item.theft_attempt" => None,
+        "item.stolen" => Some(format!(
+            "You steal {} from {}; the transfer is recorded and visible.",
+            event.item_name.as_deref().unwrap_or("the item"),
+            event.target_actor_name.as_deref().unwrap_or("the resident")
+        )),
         "item.crafted" => Some(format!(
             "You craft with {} and {}.",
             event.item_name.as_deref().unwrap_or("one item"),
@@ -582,6 +654,46 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             "{} joins the world.",
             event.item_name.as_deref().unwrap_or("Something new")
         )),
+        "charm_slot.unlocked" => Some(
+            "You open bracelet space for another skill charm; no charm is granted.".to_string(),
+        ),
+        "skill_charm.equipped" => Some(format!(
+            "You wear {} on your bracelet.",
+            event.item_name.as_deref().unwrap_or("a skill charm")
+        )),
+        "skill_charm.unequipped" => Some(format!(
+            "You remove {} from your bracelet.",
+            event.item_name.as_deref().unwrap_or("a skill charm")
+        )),
+        "spell.prepared" => Some(format!(
+            "You prepare {} in your spell deck.",
+            event.item_name.as_deref().unwrap_or("a spell card")
+        )),
+        "spell.unprepared" => Some(format!(
+            "You remove {} from your prepared spell deck.",
+            event.item_name.as_deref().unwrap_or("a spell card")
+        )),
+        "item.equipped" => Some(format!(
+            "You equip {}.",
+            event.item_name.as_deref().unwrap_or("the item")
+        )),
+        "item.unequipped" => Some(format!(
+            "You unequip {}.",
+            event.item_name.as_deref().unwrap_or("the item")
+        )),
+        "item.contained" => Some(format!(
+            "You stow {}.",
+            event.item_name.as_deref().unwrap_or("the item")
+        )),
+        "item.uncontained" => Some(format!(
+            "You take {} out.",
+            event.item_name.as_deref().unwrap_or("the item")
+        )),
+        "magic.spell_cast" => Some(format!(
+            "You cast {}.",
+            event.item_name.as_deref().unwrap_or("the prepared spell")
+        )),
+        "influence.committed" => event.content.clone(),
         "ability_check.rolled" => Some(if event.success {
             "You listen closely, and the room answers.".to_string()
         } else {
@@ -848,7 +960,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, who, inventory, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <resident>, trade <item> with <resident> for <item>, use <item> on <target>, chat <resident>, listen, prepare, work, assist, rest, more, grow, practice <knack>, purpose <what draws you in>, friendship <resident>: <why they matter>, remember <resident>, attack <target>, defend, flee <place>, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, deck, bracelet unlock, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <resident>, trade <item> with <resident> for <item>, use <item> on <target>, chat <resident>, influence <resident>, listen, prepare, work, assist, rest, more, grow, purpose <what draws you in>, friendship <resident>: <why they matter>, remember <resident>, attack <target>, defend, flee <place>, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -916,6 +1028,236 @@ impl RuntimeWorld {
                     output: self.inventory_command_output(actor.id),
                 },
             }),
+            "bracelet" => {
+                if rest.trim().is_empty() {
+                    return Ok(ResolvedCommand {
+                        command: "bracelet".to_string(),
+                        verb,
+                        action: None,
+                        dispatch: CommandDispatch::Read {
+                            output: self.inventory_command_output(actor.id),
+                        },
+                    });
+                }
+                if self.charm_slot_count(actor.id) >= MAX_CHARM_SLOTS {
+                    return Ok(ResolvedCommand {
+                        command: "bracelet unlock".to_string(),
+                        verb,
+                        action: Some(command_action(
+                            "unlock_charm_slot",
+                            "Expand Bracelet",
+                            "bracelet unlock",
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "Your bracelet already has every available charm slot."
+                                .to_string(),
+                        },
+                    });
+                }
+                if self.advancement_points_available(actor.id) < usize::from(CHARM_SLOT_COST) {
+                    return Ok(ResolvedCommand {
+                        command: "bracelet unlock".to_string(),
+                        verb,
+                        action: Some(command_action(
+                            "unlock_charm_slot",
+                            "Expand Bracelet",
+                            "bracelet unlock",
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "Grow from a memory first. Advancement opens the slot; it never grants a charm."
+                                .to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: "bracelet unlock".to_string(),
+                    verb,
+                    action: Some(command_action(
+                        "unlock_charm_slot",
+                        "Expand Bracelet",
+                        "bracelet unlock",
+                    )),
+                    dispatch: CommandDispatch::UnlockCharmSlot,
+                })
+            }
+            "wear" | "unwear" => {
+                let equipped = verb == "wear";
+                let item_query = rest
+                    .strip_prefix("charm ")
+                    .unwrap_or(rest)
+                    .trim();
+                let item = self
+                    .resolve_held_item(actor.id, item_query)
+                    .map_err(|output| command_error(&command, &verb, 404, output))?;
+                let item_view = self.item_view(item);
+                if item_view.role != "skill_charm" {
+                    return Ok(ResolvedCommand {
+                        command,
+                        verb,
+                        action: Some(command_action(
+                            "set_charm_equipped",
+                            if equipped { "Wear Charm" } else { "Remove Charm" },
+                            &payload.command,
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: format!("{} is not a skill charm.", item_view.name),
+                        },
+                    });
+                }
+                let command = format!(
+                    "{} {}",
+                    if equipped { "wear" } else { "remove" },
+                    item_view.name
+                );
+                Ok(ResolvedCommand {
+                    command: command.clone(),
+                    verb,
+                    action: Some(command_action(
+                        "set_charm_equipped",
+                        if equipped { "Wear Charm" } else { "Remove Charm" },
+                        &command,
+                    )),
+                    dispatch: CommandDispatch::SetCharmEquipped {
+                        item_id: item.id,
+                        equipped,
+                    },
+                })
+            }
+            "prepare-spell" | "unprepare-spell" => {
+                let prepared = verb == "prepare-spell";
+                let item = self
+                    .resolve_held_item(actor.id, rest.trim())
+                    .map_err(|output| command_error(&command, &verb, 404, output))?;
+                let item_view = self.item_view(item);
+                if item_view.role != "spell" {
+                    return Ok(ResolvedCommand {
+                        command,
+                        verb,
+                        action: Some(command_action(
+                            "set_spell_prepared",
+                            if prepared { "Prepare Spell" } else { "Unprepare Spell" },
+                            &payload.command,
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: format!("{} is not a spell card.", item_view.name),
+                        },
+                    });
+                }
+                if prepared
+                    && self
+                        .prepared_spells
+                        .get(&actor.id)
+                        .is_some_and(|spells| spells.len() >= 3 && !spells.contains(&item.id))
+                {
+                    return Ok(ResolvedCommand {
+                        command,
+                        verb,
+                        action: Some(command_action(
+                            "set_spell_prepared",
+                            "Prepare Spell",
+                            &payload.command,
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "Your three spell-deck slots are already prepared.".to_string(),
+                        },
+                    });
+                }
+                let command = format!(
+                    "{} {}",
+                    if prepared { "prepare-spell" } else { "unprepare-spell" },
+                    item_view.name
+                );
+                Ok(ResolvedCommand {
+                    command: command.clone(),
+                    verb,
+                    action: Some(command_action(
+                        "set_spell_prepared",
+                        if prepared { "Prepare Spell" } else { "Unprepare Spell" },
+                        &command,
+                    )),
+                    dispatch: CommandDispatch::SetSpellPrepared {
+                        item_id: item.id,
+                        prepared,
+                    },
+                })
+            }
+            "equip-item" | "unequip-item" => {
+                let equipped = verb == "equip-item";
+                let item = self
+                    .resolve_held_item(actor.id, rest.trim())
+                    .map_err(|output| command_error(&command, &verb, 404, output))?;
+                if !matches!(item.role, CW_ITEM_ROLE_WEAPON | CW_ITEM_ROLE_CONTAINER) {
+                    return Ok(ResolvedCommand {
+                        command,
+                        verb,
+                        action: Some(command_action("set_item_equipped", "Equip", &payload.command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "Only a weapon or container card uses this equipment command."
+                                .to_string(),
+                        },
+                    });
+                }
+                let item_name = self.item_name(item.id).unwrap_or_else(|| format!("Item {}", item.id));
+                let command = format!("{} {item_name}", if equipped { "wield" } else { "unwield" });
+                Ok(ResolvedCommand {
+                    command: command.clone(),
+                    verb,
+                    action: Some(command_action(
+                        "set_item_equipped",
+                        if equipped { "Equip" } else { "Unequip" },
+                        &command,
+                    )),
+                    dispatch: CommandDispatch::SetItemEquipped {
+                        item_id: item.id,
+                        equipped,
+                    },
+                })
+            }
+            "stow" => {
+                let (item_query, container_query) = split_direct_indirect(rest, "in")
+                    .or_else(|| split_direct_indirect(rest, "into"))
+                    .ok_or_else(|| command_error(&command, &verb, 400, "Try stow <item> in <bag>."))?;
+                let item = self
+                    .resolve_held_item(actor.id, item_query)
+                    .map_err(|output| command_error(&command, &verb, 404, output))?;
+                let container = self
+                    .resolve_held_item(actor.id, container_query)
+                    .map_err(|output| command_error(&command, &verb, 404, output))?;
+                let item_name = self.item_name(item.id).unwrap_or_else(|| format!("Item {}", item.id));
+                let container_name = self.item_name(container.id).unwrap_or_else(|| format!("Item {}", container.id));
+                let command = format!("stow {item_name} in {container_name}");
+                Ok(ResolvedCommand {
+                    command: command.clone(),
+                    verb,
+                    action: Some(command_action("set_item_contained", "Stow", &command)),
+                    dispatch: CommandDispatch::SetItemContained {
+                        item_id: item.id,
+                        container_item_id: Some(container.id),
+                    },
+                })
+            }
+            "unstow" => {
+                let item = self
+                    .resolve_held_item(actor.id, rest.trim())
+                    .map_err(|output| command_error(&command, &verb, 404, output))?;
+                let item_name = self.item_name(item.id).unwrap_or_else(|| format!("Item {}", item.id));
+                let command = format!("unstow {item_name}");
+                Ok(ResolvedCommand {
+                    command: command.clone(),
+                    verb,
+                    action: Some(command_action("set_item_contained", "Take out", &command)),
+                    dispatch: CommandDispatch::SetItemContained {
+                        item_id: item.id,
+                        container_item_id: None,
+                    },
+                })
+            }
             "who" => Ok(ResolvedCommand {
                 command,
                 verb,
@@ -1089,6 +1431,61 @@ impl RuntimeWorld {
                     },
                 })
             }
+            "steal" => {
+                let (target, item) = if rest.trim().is_empty() {
+                    self.default_theft_candidate(actor.id).ok_or_else(|| {
+                        command_error(&command, "steal", 409, "There is no eligible carried item to steal here.")
+                    })?
+                } else {
+                    let (item_query, target_query) = split_direct_indirect(rest, "from")
+                        .ok_or_else(|| command_error(&command, "steal", 400, "Use: steal <item> from <resident>."))?;
+                    let target = self
+                        .resolve_room_actor(
+                            actor,
+                            target_query,
+                            CommandActorFilter::ActiveNpc,
+                            active_human_actor_ids,
+                        )
+                        .map_err(|output| command_error(&command, "steal", 404, output))?;
+                    let item = self
+                        .resolve_actor_held_item(
+                            target.id,
+                            item_query,
+                            "That resident is not carrying an item that matches that command.",
+                        )
+                        .map_err(|output| command_error(&command, "steal", 404, output))?;
+                    let legal = self
+                        .default_theft_candidate(actor.id)
+                        .is_some_and(|(candidate_target, candidate_item)| {
+                            candidate_target.id == target.id && candidate_item.id == item.id
+                        });
+                    if !legal {
+                        return Ok(ResolvedCommand {
+                            command,
+                            verb,
+                            action: Some(command_action("theft", "Steal", &payload.command)),
+                            dispatch: CommandDispatch::Disabled {
+                                status: 409,
+                                output: "That possession is protected, too large, or not the current authored theft target."
+                                    .to_string(),
+                            },
+                        });
+                    }
+                    (target, item)
+                };
+                let item_name = self.item_name(item.id).unwrap_or_else(|| format!("Item {}", item.id));
+                let target_name = self.actor_name(target.id).unwrap_or_else(|| format!("Resident {}", target.id));
+                let command = format!("steal {item_name} from {target_name}");
+                Ok(ResolvedCommand {
+                    command: command.clone(),
+                    verb,
+                    action: Some(command_action("theft", "Steal", &command)),
+                    dispatch: CommandDispatch::Theft {
+                        item_id: item.id,
+                        target_actor_id: target.id,
+                    },
+                })
+            }
             "craft" => {
                 let recipe = if rest.trim().is_empty() {
                     self.default_craft_recipe(actor.id)
@@ -1213,6 +1610,78 @@ impl RuntimeWorld {
                     },
                 })
             }
+            "influence" => {
+                if self
+                    .contextual_action_contributions(actor.id, "srd5.2.1:influence")
+                    .2
+                    .is_empty()
+                {
+                    return Ok(ResolvedCommand {
+                        command,
+                        verb,
+                        action: Some(command_action("influence", "Influence", &payload.command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "There is no authored bounded cooperation to request here. Ordinary chat is still available."
+                                .to_string(),
+                        },
+                    });
+                }
+                let target = self
+                    .resolve_room_actor(
+                        actor,
+                        rest,
+                        CommandActorFilter::ActiveNpc,
+                        active_human_actor_ids,
+                    )
+                    .map_err(|output| command_error(&command, "influence", 404, output))?;
+                let target_name = self.actor_view(target).name;
+                let command = format!("influence {target_name}");
+                Ok(ResolvedCommand {
+                    command: command.clone(),
+                    verb,
+                    action: Some(command_action("influence", "Ask for a local lead", &command)),
+                    dispatch: CommandDispatch::Influence {
+                        target_actor_id: target.id,
+                    },
+                })
+            }
+            "cast" => {
+                let item = if rest.trim().is_empty() {
+                    self.default_spell_card(actor.id)
+                        .ok_or_else(|| command_error(&command, "cast", 409, "Prepare an unspent spell card first."))?
+                } else {
+                    self.resolve_held_item(actor.id, rest.trim())
+                        .map_err(|output| command_error(&command, "cast", 404, output))?
+                };
+                let is_prepared = self
+                    .prepared_spells
+                    .get(&actor.id)
+                    .is_some_and(|spells| spells.contains(&item.id));
+                if item.role != CW_ITEM_ROLE_SPELL || !is_prepared || item.charges == 0 {
+                    return Ok(ResolvedCommand {
+                        command,
+                        verb,
+                        action: Some(command_action("cast_spell", "Cast", &payload.command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "That card must be an unspent, prepared spell before it can be cast."
+                                .to_string(),
+                        },
+                    });
+                }
+                let item_name = self.item_name(item.id).unwrap_or_else(|| format!("Item {}", item.id));
+                let command = format!("cast {item_name}");
+                Ok(ResolvedCommand {
+                    command: command.clone(),
+                    verb,
+                    action: Some(command_action("cast_spell", "Cast", &command)),
+                    dispatch: CommandDispatch::CastSpell {
+                        item_id: item.id,
+                        target_actor_id: actor.id,
+                    },
+                })
+            }
             "listen" => {
                 let listen_cost = self.listen_cost_orbs(actor.id);
                 if listen_cost > 0 && self.orb_balance(actor.id) < listen_cost {
@@ -1233,6 +1702,31 @@ impl RuntimeWorld {
                     verb,
                     action: Some(command_action("check", "Listen", "listen")),
                     dispatch: CommandDispatch::Check,
+                })
+            }
+            "study" => {
+                let authored = actor.location_id == MOONLIT_TRAIL_LOCATION_ID
+                    || !self
+                        .contextual_action_contributions(actor.id, "srd5.2.1:study")
+                        .2
+                        .is_empty();
+                if !authored {
+                    return Ok(ResolvedCommand {
+                        command: "study".to_string(),
+                        verb,
+                        action: Some(command_action("study", "Study", "study")),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "There is no authored analytical subject to Study here."
+                                .to_string(),
+                        },
+                    });
+                }
+                Ok(ResolvedCommand {
+                    command: "study".to_string(),
+                    verb,
+                    action: Some(command_action("study", "Study", "study")),
+                    dispatch: CommandDispatch::Study,
                 })
             }
             "prepare" => {
@@ -2012,32 +2506,70 @@ impl RuntimeWorld {
     }
 
     fn inventory_command_output(&self, actor_id: u64) -> String {
-        let items = self.world.items[..self.world.item_count]
+        let deck = self.deck_view(Some(actor_id));
+        let items = deck
+            .carried_cards
             .iter()
-            .copied()
-            .filter(|item| item.holder_actor_id == actor_id)
-            .map(|item| self.item_view(item).name)
+            .map(|item| item.name.clone())
             .collect::<Vec<_>>();
-        if items.is_empty() {
-            "Your hands are free.".to_string()
+        let carried = if items.is_empty() {
+            "Your carried deck is empty.".to_string()
         } else {
-            let capacity = self.actor_inventory_capacity(actor_id).unwrap_or(0);
-            let count = items.len();
+            let capacity = deck.carrying_capacity_tenths;
+            let weight = deck.carried_weight_tenths;
             let carried = command_list_or_none(&items);
-            if capacity > 0 && count >= capacity {
-                if count == 1 {
-                    format!(
-                        "You carry {carried}. Taking something else will leave it here in exchange."
-                    )
-                } else {
-                    format!(
-                        "You carry {carried}. Your hands are full; taking something else will leave one here in exchange."
-                    )
-                }
+            if capacity > 0 && weight >= capacity {
+                format!(
+                    "You carry {carried}. Your carried deck is at {:.1}/{:.1} lb.",
+                    weight as f64 / 10.0,
+                    capacity as f64 / 10.0
+                )
             } else {
-                format!("You carry {carried}, with room for something else.")
+                format!(
+                    "You carry {carried} ({:.1}/{:.1} lb).",
+                    weight as f64 / 10.0,
+                    capacity as f64 / 10.0
+                )
             }
-        }
+        };
+        let charms = deck
+            .equipped_charms
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>();
+        let charm_summary = if charms.is_empty() {
+            "none worn".to_string()
+        } else {
+            charms.join(", ")
+        };
+        let prepared_spells = deck
+            .prepared_spell_cards
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>();
+        let prepared_summary = if prepared_spells.is_empty() {
+            "none prepared".to_string()
+        } else {
+            prepared_spells.join(", ")
+        };
+        let exhausted_summary = deck
+            .exhausted_spell_cards
+            .iter()
+            .map(|item| item.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let exhausted = if exhausted_summary.is_empty() {
+            String::new()
+        } else {
+            format!(" Exhausted: {exhausted_summary}.")
+        };
+        format!(
+            "{carried} Bracelet: {}/{} charm slots ({charm_summary}). Spell deck: {}/{} prepared ({prepared_summary}).{exhausted}",
+            deck.equipped_charms.len(),
+            deck.bracelet_slots,
+            deck.prepared_spell_cards.len(),
+            deck.spell_deck_slots,
+        )
     }
 
     fn who_command_output(

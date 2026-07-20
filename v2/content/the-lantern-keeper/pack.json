@@ -22,8 +22,23 @@
       "capabilities": [
         "cosyworld.core/world"
       ]
+    },
+    {
+      "id": "cosyworld.rules-srd-5.1",
+      "version": ">=0.1.0 <1.0.0",
+      "capabilities": [
+        "cosyworld.rules-srd-5.1/reference"
+      ]
+    },
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "version": ">=1.0.0 <2.0.0",
+      "capabilities": [
+        "cosyworld.rules-profile-srd5/rules"
+      ]
     }
   ],
+  "rules_profile": "cosyworld.srd5/1",
   "default_ruleset": null,
   "entry_points": [
     {

@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define CW_KERNEL_VERSION 3u
+#define CW_KERNEL_VERSION 5u
 
 #define CW_MAX_ACTORS 512u
 #define CW_MAX_ITEMS 1024u
@@ -19,7 +19,8 @@ extern "C" {
 #define CW_MAX_EVENTS 256u
 #define CW_MAX_COMBAT_ENCOUNTERS 32u
 #define CW_MAX_COMBAT_PARTICIPANTS 16u
-#define CW_INVENTORY_BASE_SLOTS 1u
+
+#define CW_ITEM_DEFAULT_WEIGHT_TENTHS 10u
 
 typedef uint64_t cw_id;
 
@@ -68,6 +69,36 @@ typedef enum {
 } cw_item_kind;
 
 typedef enum {
+  CW_ITEM_SIZE_NONE = 0,
+  CW_ITEM_SIZE_TINY = 1,
+  CW_ITEM_SIZE_SMALL = 2,
+  CW_ITEM_SIZE_MEDIUM = 3,
+  CW_ITEM_SIZE_LARGE = 4
+} cw_item_size;
+
+typedef enum {
+  CW_ITEM_ROLE_GENERIC = 0,
+  CW_ITEM_ROLE_CONSUMABLE = 1,
+  CW_ITEM_ROLE_WEAPON = 2,
+  CW_ITEM_ROLE_SKILL_CHARM = 3,
+  CW_ITEM_ROLE_SPELL = 4,
+  CW_ITEM_ROLE_CONTAINER = 5,
+  CW_ITEM_ROLE_TOOL = 6,
+  CW_ITEM_ROLE_RELIC = 7
+} cw_item_role;
+
+typedef enum {
+  CW_CARD_ZONE_NONE = 0,
+  CW_CARD_ZONE_WORLD = 1,
+  CW_CARD_ZONE_CARRIED = 2,
+  CW_CARD_ZONE_EQUIPPED = 3,
+  CW_CARD_ZONE_SPELL_DECK = 4,
+  CW_CARD_ZONE_EXHAUSTED = 5,
+  CW_CARD_ZONE_CONTAINED = 6,
+  CW_CARD_ZONE_ESCROW = 7
+} cw_card_zone;
+
+typedef enum {
   CW_ABILITY_STRENGTH = 0,
   CW_ABILITY_DEXTERITY = 1,
   CW_ABILITY_CONSTITUTION = 2,
@@ -111,7 +142,14 @@ typedef enum {
   CW_ACTION_COMBAT_ATTACK = 17,
   CW_ACTION_COMBAT_DODGE = 18,
   CW_ACTION_COMBAT_ESCAPE = 19,
-  CW_ACTION_COMBAT_FINESSE_ATTACK = 20
+  CW_ACTION_COMBAT_FINESSE_ATTACK = 20,
+  /* Append-only rules-profile actions. The legacy generic check (4) and
+     hidden-item search (13) retain their original journal meanings. */
+  CW_ACTION_RULES_SEARCH = 21,
+  CW_ACTION_RULES_STUDY = 22,
+  CW_ACTION_RULES_MAGIC = 23,
+  CW_ACTION_RULES_INFLUENCE = 24,
+  CW_ACTION_THEFT = 25
 } cw_action_kind;
 
 typedef enum {
@@ -145,7 +183,10 @@ typedef enum {
   CW_EVENT_COMBAT_TURN_STARTED = 27,
   CW_EVENT_COMBAT_TURN_ENDED = 28,
   CW_EVENT_COMBAT_DODGE = 29,
-  CW_EVENT_COMBAT_ENCOUNTER_RESOLVED = 30
+  CW_EVENT_COMBAT_ENCOUNTER_RESOLVED = 30,
+  CW_EVENT_SPELL_CAST = 31,
+  CW_EVENT_ITEM_THEFT_ATTEMPT = 32,
+  CW_EVENT_ITEM_STOLEN = 33
 } cw_event_type;
 
 typedef enum {
@@ -213,9 +254,15 @@ typedef struct {
   cw_id id;
   uint8_t kind;
   uint8_t charges;
-  uint16_t reserved;
+  uint16_t weight_tenths;
+  uint16_t container_capacity_tenths;
+  uint8_t size_class;
+  uint8_t role;
+  uint8_t zone;
+  uint8_t reserved;
   cw_id location_id;
   cw_id holder_actor_id;
+  cw_id container_item_id;
   uint64_t held_since_tick;
   uint64_t recharge_at_tick;
 } cw_item;
@@ -322,6 +369,8 @@ typedef struct {
 
 void cw_world_init(cw_world *world);
 cw_status cw_seed_cosy_cottage(cw_world *world, cw_event_buffer *out_events);
+cw_status cw_world_set_item_profile(cw_world *world, cw_id item_id, uint16_t weight_tenths, uint8_t size_class, uint8_t role, uint16_t container_capacity_tenths);
+cw_status cw_world_set_item_zone(cw_world *world, cw_id item_id, uint8_t zone, cw_id container_item_id);
 cw_status cw_world_set_evolution_track(cw_world *world, cw_id actor_id, const cw_evolution_requirement *requirements, size_t requirement_count);
 /* Deterministic apply without clock advancement. Player-card callers own the tick. */
 cw_status cw_world_apply(cw_world *world, const cw_action *action, uint64_t seed, cw_event_buffer *out_events);

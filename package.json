@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.82",
+  "version": "0.0.83",
   "description": "Shared AI MUD runtime with a deterministic C kernel and Rust orchestrator",
   "type": "module",
   "private": true,
@@ -41,6 +41,7 @@
     "v2:rust:build": "bash ./v2/scripts/check-rust.sh build",
     "v2:worldpack:inspect": "node v2/scripts/import-srd-5.1.mjs --check && node v2/scripts/import-srd-5.2.1.mjs --check && node v2/scripts/compile-worldpack.mjs --check && node v2/scripts/check-worldpack.mjs --report",
     "v2:proof-world": "node v2/scripts/check-proof-world.mjs",
+    "v2:spike:deck-gated": "node v2/scripts/spike-deck-gated-actions.mjs",
     "v2:syntax": "node --check v2/scripts/smoke-browser.mjs && node --check v2/scripts/smoke-production-profile.mjs && node --check v2/scripts/smoke-deployed-ruby-high.mjs && python3 -m py_compile v2/cli/cosy_cli.py",
     "reset-setup": "node scripts/reset-setup.mjs",
     "build": "npm run clean && npm run build:js && npm run docs",

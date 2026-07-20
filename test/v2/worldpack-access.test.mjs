@@ -195,12 +195,20 @@ describe("worldpack authored relationships", () => {
 
     expect(world.packs).toEqual([
       "cosyworld.core",
+      "cosyworld.rules-srd-5.1",
+      "cosyworld.rules-srd-5.2.1",
+      "cosyworld.rules-profile-srd5",
       "cosyworld.campaign.the-lantern-keeper",
+      "cosyworld.the-holy-land",
       "cosyworld.lonely-forest.characters",
       "ruby-high.first-bell",
     ]);
-    expect(locations).toHaveLength(33);
-    expect(rules).toEqual([]);
+    expect(locations).toHaveLength(48);
+    expect(rules.map((bundle) => bundle.pack_id)).toEqual([
+      "cosyworld.rules-srd-5.2.1",
+      "cosyworld.rules-profile-srd5",
+      "cosyworld.rules-srd-5.1",
+    ]);
 
     for (const [directory, id] of [
       ["the-holy-land", "cosyworld.the-holy-land"],

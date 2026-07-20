@@ -8,8 +8,169 @@
   "description": "A standalone First Bell boot fixture with no CosyWorld Core pack mounted.",
   "entry_location": "ruby-high.first-bell:location/11",
   "entry_grant_id": "ruby-high.first-bell:location-homeroom",
-  "bundle_hash": "sha256:dd173afe72ff9503ed556470864720b896c645b4ba298ad9faf3becca0ca795f",
+  "rules_profile": "cosyworld.srd5/1",
+  "active_rules_variants": [],
+  "active_rules_extensions": [],
+  "bundle_hash": "sha256:35d3843fd2d3415ffac72c3eb147151a919f75badc21631b7dc8c66301fc255b",
   "packs": [
+    {
+      "id": "cosyworld.rules-srd-5.2.1",
+      "name": "CosyWorld Rules: SRD 5.2.1",
+      "description": "An attributed, non-authoritative SRD 5.2.1 adapter pack for CosyWorld conversion seeds.",
+      "version": "0.1.1",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1/rules",
+          "kind": "rules",
+          "version": "0.1.0"
+        },
+        {
+          "id": "cosyworld.rules-srd-5.2.1/reference",
+          "kind": "reference",
+          "version": "0.1.0"
+        }
+      ],
+      "dependencies": [],
+      "dependency_requirements": [],
+      "dependency_closure": [],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "rules_namespace",
+          "id": "srd5.2.1"
+        }
+      ],
+      "provenance": {
+        "author": "Wizards of the Coast LLC",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "Selected rules references are adapted into CosyWorld's non-authoritative conversion schema."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 18,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_adapter": "cosyworld.rules/1",
+      "rules_namespace": "srd5.2.1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-srd-5.2.1"
+      },
+      "integrity": "sha256:949901b6dfd936d60b668c16c7aba9f36b23dd9b89211964df1e1322e44ba00a"
+    },
+    {
+      "id": "cosyworld.rules-profile-srd5",
+      "name": "CosyWorld SRD 5.2.1 Action Profile",
+      "description": "The bounded SRD 5.2.1 action, skill, equipment, and playable-item profile used by CosyWorld.",
+      "version": "1.0.0",
+      "kind": "rules",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.rules-profile-srd5/rules",
+          "kind": "rules",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.rules-srd-5.2.1"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.rules-srd-5.2.1",
+          "version": ">=0.1.0 <1.0.0",
+          "capabilities": [
+            "cosyworld.rules-srd-5.2.1/reference"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "rules_namespace",
+          "id": "cosyworld.srd5"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "System Reference Document 5.2.1",
+        "source_url": "https://www.dndbeyond.com/srd",
+        "modification_notice": "SRD action names and bounded rules concepts are adapted into CosyWorld's deterministic action-card profile."
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 112,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_adapter": "cosyworld.rules/2",
+      "rules_namespace": "cosyworld.srd5",
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/rules-profile-srd5"
+      },
+      "integrity": "sha256:8ed9de1a2a5c3d49389c2a43c948ee45ccce3363ff901ad0996d8b122c64e068"
+    },
     {
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
@@ -47,7 +208,8 @@
         }
       ],
       "dependencies": [
-        "cosyworld.core"
+        "cosyworld.core",
+        "cosyworld.rules-profile-srd5"
       ],
       "dependency_requirements": [
         {
@@ -57,9 +219,19 @@
             "cosyworld.core/world"
           ],
           "optional": true
+        },
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
         }
       ],
-      "dependency_closure": [],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5"
+      ],
       "default_ruleset": "ruby-high.first-bell/rules",
       "entry_points": [
         {
@@ -104,7 +276,11 @@
         "external_cards": 24,
         "assets": 1,
         "rules": 0,
-        "character_creation": 0
+        "character_creation": 0,
+        "reskins": 1,
+        "offers": 1,
+        "variants": 0,
+        "extensions": 0
       },
       "distribution": {
         "media_type": "application/vnd.cosyworld.pack+json",
@@ -189,11 +365,12 @@
           }
         }
       },
+      "rules_profile": "cosyworld.srd5/1",
       "source": {
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:26e54710278c0881b808dbc4dff78ad51cd496f6dd342ffa1d80f19fcfb3cd39"
+      "integrity": "sha256:ce163cf59c7528bec79a66b243d8b40c6467f4dc9933e086752e8b7ab7c4239b"
     }
   ],
   "files": {
@@ -221,8 +398,10 @@
   "external_cards": "external_cards.json",
   "assets": "assets.json",
   "rules": "rules.json",
+  "contributions": "contributions.json",
   "attributions": "attributions.json",
   "licenses": "licenses.json",
+  "modified_material": "modified-material.json",
   "character_creation": "character_creation.json",
   "content_references": "content_refs.json",
   "registry": "registry.json"

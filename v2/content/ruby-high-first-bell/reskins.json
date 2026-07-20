@@ -1,0 +1,11 @@
+[
+  {
+    "id": "ruby-high.first-bell:study-review-notes",
+    "based_on": "srd5.2.1:study",
+    "label": "Review your notes",
+    "description": "Compare what you wrote down and work out what it means.",
+    "scope": {"subject_kind": "location", "subject_id": 12},
+    "compatibility": "cosyworld.srd5/1",
+    "source_reference": "Ruby High: First Bell — Library presentation"
+  }
+]

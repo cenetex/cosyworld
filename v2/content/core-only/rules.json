@@ -1,1 +1,1380 @@
-[]
+[
+  {
+    "pack_id": "cosyworld.rules-srd-5.2.1",
+    "pack_version": "0.1.1",
+    "adapter": "cosyworld.rules/1",
+    "namespace": "srd5.2.1",
+    "resources": {
+      "conditions": [
+        {
+          "id": "condition/blinded",
+          "name": "Blinded",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Blinded condition, you experience the following effects. Can't See. You can't see and automatically fail any ability check that requires sight. Attacks Affected. Attack rolls against you have Advantage, and your attack rolls have Disadvantage.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/charmed",
+          "name": "Charmed",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Charmed condition, you experience the following effects. Can't Harm the Charmer. You can't attack the charmer or target the charmer with damaging abilities or magical effects. Social Advantage. The charmer has Advantage on any ability check to interact with you socially.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/deafened",
+          "name": "Deafened",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Deafened condition, you experience the following effect. Can't Hear. You can't hear and automatically fail any ability check that requires hearing.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/exhaustion",
+          "name": "Exhaustion",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Exhaustion condition, you experience the following effects. Exhaustion Levels. This condition is cumulative. Each time you receive it, you gain 1 Exhaustion level. You die if your Exhaustion level is 6. D20 Tests Affected. When you make a D20 Test, the roll is reduced by 2 times your Exhaustion level. Speed Reduced. Your Speed is reduced by a number of feet equal to 5 times your Exhaustion level. Removing Exhaustion Levels. Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/frightened",
+          "name": "Frightened",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Frightened condition, you experience the following effects. Ability Checks and Attacks Affected. You have Disadvantage on ability checks and attack rolls while the source of fear is within line of sight. Can't Approach. You can't willingly move closer to the source of fear.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/grappled",
+          "name": "Grappled",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Grappled condition, you experience the following effects. Speed 0. Your Speed is 0 and can't increase. Attacks Affected. You have Disadvantage on attack rolls against any target other than the grappler. Movable. The grappler can drag or carry you when it moves, but every foot of movement costs it 1 extra foot unless you are Tiny or two or more sizes smaller than it.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/incapacitated",
+          "name": "Incapacitated",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Incapacitated condition, you experience the following effects. Inactive. You can't take any action, Bonus Action, or Reaction. No Concentration. Your Concentration is broken. Speechless. You can't speak. Surprised. If you're Incapacitated when you roll Initiative, you have Disadvantage on the roll.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/invisible",
+          "name": "Invisible",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Invisible condition, you experience the following effects. Surprise. If you're Invisible when you roll Initiative, you have Advantage on the roll. Concealed. You aren't affected by any effect that requires its target to be seen unless the effect's creator can somehow see you. Any equipment you are wearing or carrying is also concealed. Attacks Affected. Attack rolls against you have Disadvantage, and your attack rolls have Advantage. If a creature can somehow see you, you don't gain this benefit against that creature.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/paralyzed",
+          "name": "Paralyzed",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Paralyzed condition, you experience the following effects. Incapacitated. You have the Incapacitated condition. Speed 0. Your Speed is 0 and can't increase. Saving Throws Affected. You automatically fail Strength and Dexterity saving throws. Attacks Affected. Attack rolls against you have Advantage. Automatic Critical Hits. Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/petrified",
+          "name": "Petrified",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Petrified condition, you experience the following effects. Turned to Inanimate Substance. You are transformed, along with any nonmagical objects you are wearing and carrying, into a solid inanimate substance (usually stone). Your weight increases by a factor of ten, and you cease aging. Incapacitated. You have the Incapacitated condition. Speed 0. Your Speed is 0 and can't increase. Attacks Affected. Attack rolls against you have Advantage. Saving Throws Affected. You automatically fail Strength and Dexterity saving throws. Resist Damage. You have Resistance to all damage. Poison Immunity. You have Immunity to the Poisoned condition.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/poisoned",
+          "name": "Poisoned",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Poisoned condition, you experience the following effect. Ability Checks and Attacks Affected. You have Disadvantage on attack rolls and ability checks.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/prone",
+          "name": "Prone",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Prone condition, you experience the following effects. Restricted Movement. Your only movement options are to crawl or to spend an amount of movement equal to half your Speed (round down) to right yourself and thereby end the condition. If your Speed is 0, you can't right yourself. Attacks Affected. You have Disadvantage on attack rolls. An attack roll against you has Advantage if the attacker is within 5 feet of you. Otherwise, that attack roll has Disadvantage.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/restrained",
+          "name": "Restrained",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Restrained condition, you experience the following effects. Speed 0. Your Speed is 0 and can't increase. Attacks Affected. Attack rolls against you have Advantage, and your attack rolls have Disadvantage. Saving Throws Affected. You have Disadvantage on Dexterity saving throws.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/stunned",
+          "name": "Stunned",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Stunned condition, you experience the following effects. Incapacitated. You have the Incapacitated condition. Saving Throws Affected. You automatically fail Strength and Dexterity saving throws. Attacks Affected. Attack rolls against you have Advantage.",
+          "mapping": {
+            "status": "reference_only"
+          }
+        },
+        {
+          "id": "condition/unconscious",
+          "name": "Unconscious",
+          "source_section": "Rules Glossary: Condition",
+          "source_text": "While you have the Unconscious condition, you experience the following effects. Inert. You have the Incapacitated and Prone conditions, and you drop whatever you're holding. When this condition ends, you remain Prone. Speed 0. Your Speed is 0 and can't increase. Attacks Affected. Attack rolls against you have Advantage. Saving Throws Affected. You automatically fail Strength and Dexterity saving throws. Automatic Critical Hits. Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you. Unaware. You're unaware of your surroundings.",
+          "mapping": {
+            "status": "kernel",
+            "kernel_condition": "unconscious"
+          }
+        }
+      ],
+      "monster_seeds": [
+        {
+          "id": "monster/dryad",
+          "name": "Dryad",
+          "source_name": "Dryad",
+          "size": "Medium",
+          "creature_type": "Fey",
+          "alignment": "Neutral",
+          "armor_class": "16",
+          "hit_points": "22 (5d8)",
+          "speed": "30 ft.",
+          "ability_scores": {
+            "strength": 10,
+            "dexterity": 12,
+            "constitution": 11,
+            "intelligence": 14,
+            "wisdom": 15,
+            "charisma": 18
+          },
+          "challenge": "1 (XP 200; PB +2)",
+          "senses": "Darkvision 60 ft.; Passive Perception 14",
+          "features": [
+            {
+              "name": "Magic Resistance",
+              "description": "The dryad has Advantage on saving throws against spells and other magical effects."
+            },
+            {
+              "name": "Speak with Beasts and Plants",
+              "description": "The dryad can communicate with Beasts and Plants as if they shared a language."
+            },
+            {
+              "name": "Multiattack",
+              "description": "The dryad makes one Vine Lash or Thorn Burst attack, and it can use Spellcasting to cast Charm Monster."
+            },
+            {
+              "name": "Vine Lash",
+              "description": "Melee Attack Roll: +6, reach 10 ft. Hit: 8 (1d8 + 4) Slashing damage."
+            },
+            {
+              "name": "Thorn Burst",
+              "description": "Ranged Attack Roll: +6, range 60 ft. Hit: 7 (1d6 + 4) Piercing damage."
+            },
+            {
+              "name": "Spellcasting",
+              "description": "The dryad casts one of the following spells, requiring no Material components and using Charisma as the spellcasting ability (spell save DC 14): At Will: Animal Friendship, Charm Monster (lasts 24 hours; ends early if the dryad casts the spell again), Druidcraft. 1/Day Each: Entangle, Pass without Trace."
+            },
+            {
+              "name": "Tree Stride",
+              "description": "If within 5 feet of a Large or bigger tree, the dryad teleports to an unoccupied space within 5 feet of a second Large or bigger tree that is within 60 feet of the previous tree."
+            }
+          ],
+          "mapping": {
+            "status": "reference_only",
+            "suggested_role": "resident"
+          }
+        },
+        {
+          "id": "monster/sprite",
+          "name": "Sprite",
+          "source_name": "Sprite",
+          "size": "Tiny",
+          "creature_type": "Fey",
+          "alignment": "Neutral Good",
+          "armor_class": "15",
+          "hit_points": "10 (4d4)",
+          "speed": "10 ft., Fly 40 ft.",
+          "ability_scores": {
+            "strength": 3,
+            "dexterity": 18,
+            "constitution": 10,
+            "intelligence": 14,
+            "wisdom": 13,
+            "charisma": 11
+          },
+          "challenge": "1/4 (XP 50; PB +2)",
+          "senses": "Passive Perception 13",
+          "features": [
+            {
+              "name": "Needle Sword",
+              "description": "Melee Attack Roll: +6, reach 5 ft. Hit: 6 (1d4 + 4) Piercing damage."
+            },
+            {
+              "name": "Enchanting Bow",
+              "description": "Ranged Attack Roll: +6, range 40/160 ft. Hit: 1 Piercing damage, and the target has the Charmed condition until the start of the sprite's next turn."
+            },
+            {
+              "name": "Heart Sight",
+              "description": "Charisma Saving Throw: DC 10, one creature within 5 feet the sprite can see (Celestials, Fiends, and Undead automatically fail the save). Failure: The sprite knows the target's emotions and alignment."
+            },
+            {
+              "name": "Invisibility",
+              "description": "The sprite casts Invisibility on itself, requiring no spell components and using Charisma as the spellcasting ability."
+            }
+          ],
+          "mapping": {
+            "status": "reference_only",
+            "suggested_role": "resident"
+          }
+        },
+        {
+          "id": "monster/unicorn",
+          "name": "Unicorn",
+          "source_name": "Unicorn",
+          "size": "Large",
+          "creature_type": "Celestial",
+          "alignment": "Lawful Good",
+          "armor_class": "12",
+          "hit_points": "97 (13d10 + 26)",
+          "speed": "50 ft.",
+          "ability_scores": {
+            "strength": 18,
+            "dexterity": 14,
+            "constitution": 15,
+            "intelligence": 11,
+            "wisdom": 17,
+            "charisma": 16
+          },
+          "challenge": "5 (XP 1,800; PB +3)",
+          "senses": "Darkvision 60 ft.; Passive Perception 13",
+          "features": [
+            {
+              "name": "Legendary Resistance (3/Day)",
+              "description": "If the unicorn fails a saving throw, it can choose to succeed instead."
+            },
+            {
+              "name": "Magic Resistance",
+              "description": "The unicorn has Advantage on saving throws against spells and other magical effects."
+            },
+            {
+              "name": "Multiattack",
+              "description": "The unicorn makes one Hooves attack and one Radiant Horn attack."
+            },
+            {
+              "name": "Hooves",
+              "description": "Melee Attack Roll: +7, reach 5 ft. Hit: 11 (2d6 + 4) Bludgeoning damage."
+            },
+            {
+              "name": "Radiant Horn",
+              "description": "Melee Attack Roll: +7, reach 5 ft. Hit: 9 (1d10 + 4) Radiant damage."
+            },
+            {
+              "name": "Spellcasting",
+              "description": "The unicorn casts one of the following spells, requiring no spell components and using Charisma as the spellcasting ability (spell save DC 14): At Will: Detect Evil and Good, Druidcraft. 1/Day Each: Calm Emotions, Dispel Evil and Good, Entangle, Pass without Trace, Word of Recall."
+            },
+            {
+              "name": "Unicorn's Blessing (3/Day)",
+              "description": "The unicorn touches another creature with its horn and casts Cure Wounds or Lesser Restoration on that creature, using the same spellcasting ability as Spellcasting."
+            },
+            {
+              "name": "Charging Horn",
+              "description": "The unicorn moves up to half its Speed without provoking Opportunity Attacks, and it makes one Radiant Horn attack."
+            },
+            {
+              "name": "Shimmering Shield",
+              "description": "The unicorn targets itself or one creature it can see within 60 feet of itself. The target gains 10 (3d6) Temporary Hit Points, and its AC increases by 2 until the end of the unicorn's next turn. The unicorn can't take this action again until the start of its next turn."
+            }
+          ],
+          "mapping": {
+            "status": "reference_only",
+            "suggested_role": "guardian"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "pack_version": "1.0.0",
+    "adapter": "cosyworld.rules/2",
+    "namespace": "cosyworld.srd5",
+    "resources": {
+      "profiles": [
+        {
+          "id": "cosyworld.srd5/1",
+          "source_document": "System Reference Document 5.2.1",
+          "source_version": "5.2.1",
+          "source_pack": "cosyworld.rules-srd-5.2.1",
+          "license": "CC-BY-4.0",
+          "compatibility_claim": "bounded_profile",
+          "default": true,
+          "excluded_systems": [
+            "classes",
+            "class_levels",
+            "complete_spell_lists",
+            "encounter_budgets",
+            "srd_rest_cadence",
+            "death_saves",
+            "complete_equipment_economy"
+          ],
+          "cosyworld_deltas": [
+            "sanctuary actions cannot create combat stakes",
+            "combat is bounded and nonlethal",
+            "skill proficiency is supplied by equipped skill charms",
+            "advancement unlocks loadout slots rather than granting items",
+            "the action hand is a projection of the legal action superset"
+          ],
+          "source_reference": "SRD 5.2.1, Rules Glossary: Actions",
+          "import_transform": "manual bounded action-profile adaptation",
+          "modified": true
+        }
+      ],
+      "actions": [
+        {
+          "id": "srd5.2.1:attack",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Attack",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Attack [Action]",
+          "support_status": "kernel",
+          "resolver_kind": "combat_attack_v4",
+          "aliases": [
+            "attack",
+            "strike"
+          ],
+          "cosyworld_delta": "Only authored frontier combat is legal; resolution is nonlethal and server-authored.",
+          "modified": true
+        },
+        {
+          "id": "srd5.2.1:dash",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Dash",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Dash [Action]",
+          "support_status": "unsupported",
+          "resolver_kind": "none",
+          "aliases": [
+            "dash",
+            "hurry"
+          ],
+          "cosyworld_delta": "Ordinary room travel is an operation, not Dash.",
+          "modified": true
+        },
+        {
+          "id": "srd5.2.1:disengage",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Disengage",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Disengage [Action]",
+          "support_status": "unsupported",
+          "resolver_kind": "none",
+          "aliases": [
+            "disengage"
+          ],
+          "cosyworld_delta": "Escape is a bounded combat operation until engagement consequences exist.",
+          "modified": true
+        },
+        {
+          "id": "srd5.2.1:dodge",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Dodge",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Dodge [Action]",
+          "support_status": "kernel",
+          "resolver_kind": "combat_defend_v4",
+          "aliases": [
+            "dodge",
+            "defend"
+          ],
+          "cosyworld_delta": "Dodge supplies bounded project preparation instead of the complete SRD duration model.",
+          "modified": true
+        },
+        {
+          "id": "srd5.2.1:help",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Help",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Help [Action]",
+          "support_status": "projection",
+          "resolver_kind": "project_help_v1",
+          "aliases": [
+            "help",
+            "assist"
+          ],
+          "cosyworld_delta": "Help advances an authored project or bond with an explicit recipient.",
+          "modified": true
+        },
+        {
+          "id": "srd5.2.1:hide",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Hide",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Hide [Action]",
+          "support_status": "unsupported",
+          "resolver_kind": "none",
+          "aliases": [
+            "hide",
+            "sneak"
+          ],
+          "cosyworld_delta": "No hidden-state resolver is active in profile 1.",
+          "modified": true
+        },
+        {
+          "id": "srd5.2.1:influence",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Influence",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Influence [Action]",
+          "support_status": "projection",
+          "resolver_kind": "influence_v1",
+          "aliases": [
+            "influence",
+            "persuade"
+          ],
+          "cosyworld_delta": "Only authored bounded cooperation changes use Influence; ordinary Chat remains communication.",
+          "modified": true
+        },
+        {
+          "id": "srd5.2.1:magic",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Magic",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Magic [Action]",
+          "support_status": "projection",
+          "resolver_kind": "bounded_magic_v1",
+          "aliases": [
+            "magic",
+            "cast",
+            "play spell"
+          ],
+          "cosyworld_delta": "Only prepared item-card effects with validated descriptors can create Magic offers.",
+          "modified": true
+        },
+        {
+          "id": "srd5.2.1:ready",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Ready",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Ready [Action]",
+          "support_status": "projection",
+          "resolver_kind": "project_prepare_v1",
+          "aliases": [
+            "ready",
+            "prepare"
+          ],
+          "cosyworld_delta": "Prepare creates one authored, scoped, consumable setup tag rather than a general reaction trigger.",
+          "modified": true
+        },
+        {
+          "id": "srd5.2.1:search",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Search",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Search [Action]",
+          "support_status": "projection",
+          "resolver_kind": "discovery_search_v1",
+          "aliases": [
+            "search",
+            "listen",
+            "notice",
+            "look for"
+          ],
+          "cosyworld_delta": "Perceptual discovery defaults to Wisdom and preserves learn-once claims.",
+          "modified": true
+        },
+        {
+          "id": "srd5.2.1:study",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Study",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Study [Action]",
+          "support_status": "projection",
+          "resolver_kind": "discovery_study_v1",
+          "aliases": [
+            "study",
+            "inspect",
+            "analyze",
+            "review"
+          ],
+          "cosyworld_delta": "Analytical discovery defaults to Intelligence and preserves learn-once claims.",
+          "modified": true
+        },
+        {
+          "id": "srd5.2.1:utilize",
+          "namespace": "srd5.2.1",
+          "domain": "rules_action",
+          "label": "Utilize",
+          "source_reference": "SRD 5.2.1, Rules Glossary: Utilize [Action]",
+          "support_status": "projection",
+          "resolver_kind": "item_utilize_v1",
+          "aliases": [
+            "utilize",
+            "use",
+            "work"
+          ],
+          "cosyworld_delta": "Utilize requires an authored item or room-feature target and validated effect descriptor.",
+          "modified": true
+        }
+      ],
+      "operations": [
+        {
+          "id": "cosyworld.operation/move",
+          "domain": "movement",
+          "label": "Move",
+          "aliases": [
+            "move",
+            "go",
+            "travel"
+          ],
+          "resolver_kind": "kernel_move",
+          "source_reference": "CosyWorld protocol",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/escape",
+          "domain": "movement",
+          "label": "Escape",
+          "aliases": [
+            "escape",
+            "flee"
+          ],
+          "resolver_kind": "combat_escape_v3",
+          "source_reference": "CosyWorld combat/3",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/chat",
+          "domain": "communication",
+          "label": "Chat",
+          "aliases": [
+            "chat",
+            "talk"
+          ],
+          "resolver_kind": "orb_chat_v1",
+          "source_reference": "CosyWorld communication",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/say",
+          "domain": "communication",
+          "label": "Say",
+          "aliases": [
+            "say",
+            "speak"
+          ],
+          "resolver_kind": "message_create",
+          "source_reference": "CosyWorld communication",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/take",
+          "domain": "object_transfer",
+          "label": "Take",
+          "aliases": [
+            "take",
+            "pick up"
+          ],
+          "resolver_kind": "kernel_pick_up",
+          "source_reference": "CosyWorld kernel",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/drop",
+          "domain": "object_transfer",
+          "label": "Drop",
+          "aliases": [
+            "drop",
+            "leave"
+          ],
+          "resolver_kind": "kernel_drop",
+          "source_reference": "CosyWorld kernel",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/give",
+          "domain": "object_transfer",
+          "label": "Give",
+          "aliases": [
+            "give"
+          ],
+          "resolver_kind": "kernel_give",
+          "source_reference": "CosyWorld kernel",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/trade",
+          "domain": "object_transfer",
+          "label": "Trade",
+          "aliases": [
+            "trade",
+            "swap"
+          ],
+          "resolver_kind": "kernel_trade",
+          "source_reference": "CosyWorld kernel",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/craft",
+          "domain": "procedure",
+          "label": "Craft",
+          "aliases": [
+            "craft",
+            "make"
+          ],
+          "resolver_kind": "kernel_craft",
+          "source_reference": "CosyWorld kernel",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/rest",
+          "domain": "procedure",
+          "label": "Rest",
+          "aliases": [
+            "rest",
+            "recover"
+          ],
+          "resolver_kind": "rest_v1",
+          "source_reference": "CosyWorld RPG",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/wait",
+          "domain": "procedure",
+          "label": "Wait",
+          "aliases": [
+            "wait",
+            "pass"
+          ],
+          "resolver_kind": "turn_wait",
+          "source_reference": "CosyWorld room turns",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/grow",
+          "domain": "cosy_advancement",
+          "label": "Grow",
+          "aliases": [
+            "grow",
+            "evolve",
+            "remember"
+          ],
+          "resolver_kind": "visit_ledger_v1",
+          "source_reference": "CosyWorld RPG",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/create-avatar",
+          "domain": "interface_meta",
+          "label": "Create Avatar",
+          "aliases": [
+            "create avatar",
+            "begin"
+          ],
+          "resolver_kind": "avatar_create",
+          "source_reference": "CosyWorld identity",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/deck",
+          "domain": "interface_meta",
+          "label": "Deck",
+          "aliases": [
+            "deck",
+            "inventory"
+          ],
+          "resolver_kind": "read_only_projection",
+          "source_reference": "CosyWorld interface",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/report",
+          "domain": "interface_meta",
+          "label": "Report",
+          "aliases": [
+            "report"
+          ],
+          "resolver_kind": "moderation_report",
+          "source_reference": "CosyWorld moderation",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/theft",
+          "domain": "object_transfer",
+          "label": "Steal",
+          "aliases": [
+            "steal",
+            "take secretly"
+          ],
+          "resolver_kind": "kernel_theft_v1",
+          "source_reference": "CosyWorld card zones",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/equip",
+          "domain": "object_transfer",
+          "label": "Equip",
+          "aliases": [
+            "equip",
+            "wield",
+            "wear"
+          ],
+          "resolver_kind": "loadout_zone_v1",
+          "source_reference": "CosyWorld card zones",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/contain",
+          "domain": "object_transfer",
+          "label": "Stow",
+          "aliases": [
+            "stow",
+            "unstow"
+          ],
+          "resolver_kind": "container_zone_v1",
+          "source_reference": "CosyWorld card zones",
+          "modified": true
+        },
+        {
+          "id": "cosyworld.operation/materialize",
+          "domain": "object_transfer",
+          "label": "Materialize",
+          "aliases": [
+            "materialize",
+            "bring into world"
+          ],
+          "resolver_kind": "materialization_receipt_v1",
+          "source_reference": "CosyWorld collection bridge",
+          "modified": true
+        }
+      ],
+      "legacy_bindings": [
+        {
+          "legacy_kind": "attack",
+          "binding_kind": "rules_action",
+          "binding_id": "srd5.2.1:attack"
+        },
+        {
+          "legacy_kind": "defend",
+          "binding_kind": "rules_action",
+          "binding_id": "srd5.2.1:dodge"
+        },
+        {
+          "legacy_kind": "help",
+          "binding_kind": "rules_action",
+          "binding_id": "srd5.2.1:help"
+        },
+        {
+          "legacy_kind": "prepare",
+          "binding_kind": "rules_action",
+          "binding_id": "srd5.2.1:ready"
+        },
+        {
+          "legacy_kind": "check",
+          "binding_kind": "contextual",
+          "binding_id": "srd5.2.1:search|srd5.2.1:study"
+        },
+        {
+          "legacy_kind": "search",
+          "binding_kind": "rules_action",
+          "binding_id": "srd5.2.1:search"
+        },
+        {
+          "legacy_kind": "study",
+          "binding_kind": "rules_action",
+          "binding_id": "srd5.2.1:study"
+        },
+        {
+          "legacy_kind": "influence",
+          "binding_kind": "rules_action",
+          "binding_id": "srd5.2.1:influence"
+        },
+        {
+          "legacy_kind": "cast_spell",
+          "binding_kind": "rules_action",
+          "binding_id": "srd5.2.1:magic"
+        },
+        {
+          "legacy_kind": "work",
+          "binding_kind": "contextual",
+          "binding_id": "srd5.2.1:study|srd5.2.1:utilize"
+        },
+        {
+          "legacy_kind": "use_feature",
+          "binding_kind": "rules_action",
+          "binding_id": "srd5.2.1:utilize"
+        },
+        {
+          "legacy_kind": "use_item",
+          "binding_kind": "rules_action",
+          "binding_id": "srd5.2.1:utilize"
+        },
+        {
+          "legacy_kind": "flee",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/escape"
+        },
+        {
+          "legacy_kind": "move",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/move"
+        },
+        {
+          "legacy_kind": "chat",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/chat"
+        },
+        {
+          "legacy_kind": "pick_up",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/take"
+        },
+        {
+          "legacy_kind": "drop_item",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/drop"
+        },
+        {
+          "legacy_kind": "give_item",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/give"
+        },
+        {
+          "legacy_kind": "trade_item",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/trade"
+        },
+        {
+          "legacy_kind": "theft",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/theft"
+        },
+        {
+          "legacy_kind": "set_item_equipped",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/equip"
+        },
+        {
+          "legacy_kind": "set_item_contained",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/contain"
+        },
+        {
+          "legacy_kind": "materialize",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/materialize"
+        },
+        {
+          "legacy_kind": "craft",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/craft"
+        },
+        {
+          "legacy_kind": "rest",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/rest"
+        },
+        {
+          "legacy_kind": "wait",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/wait"
+        },
+        {
+          "legacy_kind": "create_avatar",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/create-avatar"
+        },
+        {
+          "legacy_kind": "bank_ledger",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/grow"
+        },
+        {
+          "legacy_kind": "unlock_charm_slot",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/grow"
+        },
+        {
+          "legacy_kind": "create_bond",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/grow"
+        },
+        {
+          "legacy_kind": "resolve_bond",
+          "binding_kind": "operation",
+          "binding_id": "cosyworld.operation/grow"
+        }
+      ],
+      "abilities": [
+        {
+          "id": "strength",
+          "label": "Strength",
+          "source_reference": "SRD 5.2.1, Ability Scores",
+          "modified": false
+        },
+        {
+          "id": "dexterity",
+          "label": "Dexterity",
+          "source_reference": "SRD 5.2.1, Ability Scores",
+          "modified": false
+        },
+        {
+          "id": "constitution",
+          "label": "Constitution",
+          "source_reference": "SRD 5.2.1, Ability Scores",
+          "modified": false
+        },
+        {
+          "id": "intelligence",
+          "label": "Intelligence",
+          "source_reference": "SRD 5.2.1, Ability Scores",
+          "modified": false
+        },
+        {
+          "id": "wisdom",
+          "label": "Wisdom",
+          "source_reference": "SRD 5.2.1, Ability Scores",
+          "modified": false
+        },
+        {
+          "id": "charisma",
+          "label": "Charisma",
+          "source_reference": "SRD 5.2.1, Ability Scores",
+          "modified": false
+        }
+      ],
+      "skills": [
+        {
+          "id": "acrobatics",
+          "label": "Acrobatics",
+          "ability": "dexterity",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "animal_handling",
+          "label": "Animal Handling",
+          "ability": "wisdom",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "arcana",
+          "label": "Arcana",
+          "ability": "intelligence",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "athletics",
+          "label": "Athletics",
+          "ability": "strength",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "deception",
+          "label": "Deception",
+          "ability": "charisma",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "history",
+          "label": "History",
+          "ability": "intelligence",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "insight",
+          "label": "Insight",
+          "ability": "wisdom",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "intimidation",
+          "label": "Intimidation",
+          "ability": "charisma",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "investigation",
+          "label": "Investigation",
+          "ability": "intelligence",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "medicine",
+          "label": "Medicine",
+          "ability": "wisdom",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "nature",
+          "label": "Nature",
+          "ability": "intelligence",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "perception",
+          "label": "Perception",
+          "ability": "wisdom",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "performance",
+          "label": "Performance",
+          "ability": "charisma",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "persuasion",
+          "label": "Persuasion",
+          "ability": "charisma",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "religion",
+          "label": "Religion",
+          "ability": "intelligence",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "sleight_of_hand",
+          "label": "Sleight of Hand",
+          "ability": "dexterity",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "stealth",
+          "label": "Stealth",
+          "ability": "dexterity",
+          "source_reference": "SRD 5.2.1, Skills"
+        },
+        {
+          "id": "survival",
+          "label": "Survival",
+          "ability": "wisdom",
+          "source_reference": "SRD 5.2.1, Skills"
+        }
+      ],
+      "item_roles": [
+        {
+          "id": "consumable",
+          "resolver_kind": "item_utilize_v1",
+          "transfer_policy": "transferable",
+          "theft_policy": "eligible",
+          "mechanical_descriptor_required": true
+        },
+        {
+          "id": "weapon",
+          "resolver_kind": "combat_weapon_v1",
+          "transfer_policy": "transferable",
+          "theft_policy": "eligible",
+          "mechanical_descriptor_required": true
+        },
+        {
+          "id": "skill_charm",
+          "resolver_kind": "skill_charm_v1",
+          "transfer_policy": "transferable",
+          "theft_policy": "eligible",
+          "mechanical_descriptor_required": true
+        },
+        {
+          "id": "spell",
+          "resolver_kind": "bounded_magic_v1",
+          "transfer_policy": "transferable",
+          "theft_policy": "eligible",
+          "mechanical_descriptor_required": true
+        },
+        {
+          "id": "container",
+          "resolver_kind": "container_v1",
+          "transfer_policy": "transferable",
+          "theft_policy": "eligible",
+          "mechanical_descriptor_required": true
+        },
+        {
+          "id": "tool",
+          "resolver_kind": "item_utilize_v1",
+          "transfer_policy": "transferable",
+          "theft_policy": "eligible",
+          "mechanical_descriptor_required": true
+        },
+        {
+          "id": "relic",
+          "resolver_kind": "item_utilize_v1",
+          "transfer_policy": "authored",
+          "theft_policy": "authored",
+          "mechanical_descriptor_required": true
+        },
+        {
+          "id": "generic",
+          "resolver_kind": "transfer_only",
+          "transfer_policy": "transferable",
+          "theft_policy": "eligible",
+          "mechanical_descriptor_required": false
+        }
+      ],
+      "equipment_profiles": [
+        {
+          "id": "bracelet",
+          "slot_kind": "skill_charm",
+          "base_slots": 1,
+          "maximum_slots": 6,
+          "unlock": "earned_advancement",
+          "source_reference": "CosyWorld RPG",
+          "modified": true
+        },
+        {
+          "id": "weapon_hand",
+          "slot_kind": "weapon",
+          "base_slots": 1,
+          "maximum_slots": 2,
+          "unlock": "profile",
+          "source_reference": "CosyWorld combat/3",
+          "modified": true
+        },
+        {
+          "id": "spell_deck",
+          "slot_kind": "spell",
+          "base_slots": 3,
+          "maximum_slots": 6,
+          "unlock": "earned_advancement",
+          "source_reference": "CosyWorld RPG",
+          "modified": true
+        },
+        {
+          "id": "container_harness",
+          "slot_kind": "container",
+          "base_slots": 1,
+          "maximum_slots": 2,
+          "unlock": "earned_advancement",
+          "source_reference": "CosyWorld RPG",
+          "modified": true
+        }
+      ],
+      "magic_effects": [
+        {
+          "id": "cosyworld.magic/steady-light",
+          "rules_action": "srd5.2.1:magic",
+          "resolver_kind": "bounded_magic_v1",
+          "target_predicate": "self_or_visible_actor",
+          "effect": {
+            "kind": "set_tag",
+            "label": "steady light",
+            "duration_turns": 3
+          },
+          "uses": 1,
+          "recovery": "rest",
+          "source_reference": "CosyWorld bounded magic",
+          "modified": true
+        }
+      ],
+      "conformance": [
+        {
+          "action_id": "srd5.2.1:attack",
+          "support_status": "kernel",
+          "resolver_kind": "combat_attack_v4",
+          "safe_behavior": "Unavailable in sanctuary and outside an authored active encounter.",
+          "risky_behavior": "Server rolls the equipped weapon profile against the authoritative target and resolves bounded nonlethal harm.",
+          "legal_targets": [
+            "active opposing encounter participant"
+          ],
+          "event_outputs": [
+            "combat.attack.attempt",
+            "combat.attack.hit",
+            "combat.attack.miss",
+            "combat.knockout"
+          ],
+          "cosyworld_delta": "Frontier-only, turn-bound, weapon-authored, and nonlethal.",
+          "replay_fixture": "core-c/tests/test_kernel.c::test_combat_v4_weapon_profile_and_legacy_replay"
+        },
+        {
+          "action_id": "srd5.2.1:dash",
+          "support_status": "unsupported",
+          "resolver_kind": "none",
+          "safe_behavior": "Produces no offer.",
+          "risky_behavior": "Produces no offer.",
+          "legal_targets": [],
+          "event_outputs": [],
+          "cosyworld_delta": "Ordinary room travel remains a movement operation.",
+          "replay_fixture": null
+        },
+        {
+          "action_id": "srd5.2.1:disengage",
+          "support_status": "unsupported",
+          "resolver_kind": "none",
+          "safe_behavior": "Produces no offer.",
+          "risky_behavior": "Produces no offer.",
+          "legal_targets": [],
+          "event_outputs": [],
+          "cosyworld_delta": "Bounded Escape remains an operation until engagement consequences exist.",
+          "replay_fixture": null
+        },
+        {
+          "action_id": "srd5.2.1:dodge",
+          "support_status": "kernel",
+          "resolver_kind": "combat_defend_v4",
+          "safe_behavior": "Defend outside combat is unavailable unless an authored project maps it to preparation.",
+          "risky_behavior": "The actor spends the encounter turn to impose the bounded dodging condition.",
+          "legal_targets": [
+            "self in active encounter"
+          ],
+          "event_outputs": [
+            "combat.dodge",
+            "combat.turn_ended",
+            "combat.turn_started"
+          ],
+          "cosyworld_delta": "Uses the bounded encounter condition rather than the complete SRD duration model.",
+          "replay_fixture": "core-c/tests/test_kernel.c::test_combat_v2_encounter_turns_dodge_targeting_and_escape"
+        },
+        {
+          "action_id": "srd5.2.1:help",
+          "support_status": "projection",
+          "resolver_kind": "project_help_v1",
+          "safe_behavior": "Advances only an authored active project or bond and names its recipient.",
+          "risky_behavior": "Repeated unprepared assistance can apply the authored tired consequence.",
+          "legal_targets": [
+            "active project",
+            "nearby resident"
+          ],
+          "event_outputs": [
+            "clock.updated",
+            "ledger.marked",
+            "tag.applied"
+          ],
+          "cosyworld_delta": "Help is a journaled project contribution, never a self-stacking generic bonus.",
+          "replay_fixture": "orchestrator-rust::tests::prepare_work_and_help_drive_seed_job"
+        },
+        {
+          "action_id": "srd5.2.1:hide",
+          "support_status": "unsupported",
+          "resolver_kind": "none",
+          "safe_behavior": "Produces no offer.",
+          "risky_behavior": "Produces no offer.",
+          "legal_targets": [],
+          "event_outputs": [],
+          "cosyworld_delta": "No profile-1 hidden-state resolver is active.",
+          "replay_fixture": null
+        },
+        {
+          "action_id": "srd5.2.1:influence",
+          "support_status": "projection",
+          "resolver_kind": "influence_v1",
+          "safe_behavior": "Ordinary greetings remain free Chat and never create this action.",
+          "risky_behavior": "A deterministic Charisma check commits one of the authored cooperation outcomes before narration.",
+          "legal_targets": [
+            "nearby active resident with contextual offer"
+          ],
+          "event_outputs": [
+            "ability_check.rolled",
+            "influence.committed"
+          ],
+          "cosyworld_delta": "Only bounded authored cooperation changes use Influence.",
+          "replay_fixture": "orchestrator-rust::tests::influence_commits_bounded_cooperation_before_narration"
+        },
+        {
+          "action_id": "srd5.2.1:magic",
+          "support_status": "projection",
+          "resolver_kind": "bounded_magic_v1",
+          "safe_behavior": "Unsupported or unprepared spell content produces no offer.",
+          "risky_behavior": "The kernel validates target and prepared instance, consumes one use, and moves the card to Exhausted.",
+          "legal_targets": [
+            "effect-declared active actor in the same location"
+          ],
+          "event_outputs": [
+            "magic.spell_cast",
+            "tag.applied"
+          ],
+          "cosyworld_delta": "Only validated prepared Item-card effects are executable.",
+          "replay_fixture": "orchestrator-rust::tests::equipment_containment_spell_and_weapon_zones_recompose_and_persist"
+        },
+        {
+          "action_id": "srd5.2.1:ready",
+          "support_status": "projection",
+          "resolver_kind": "project_prepare_v1",
+          "safe_behavior": "Creates one scoped setup only when an authored project can consume it.",
+          "risky_behavior": "The setup has explicit duration and is consumed by the next eligible contribution.",
+          "legal_targets": [
+            "active authored project"
+          ],
+          "event_outputs": [
+            "tag.applied",
+            "tag.cleared",
+            "clock.updated"
+          ],
+          "cosyworld_delta": "Prepare is a bounded one-use project setup rather than a general reaction trigger.",
+          "replay_fixture": "orchestrator-rust::tests::prepare_work_and_help_drive_seed_job"
+        },
+        {
+          "action_id": "srd5.2.1:search",
+          "support_status": "projection",
+          "resolver_kind": "discovery_search_v1",
+          "safe_behavior": "Authored safe perceptual truths resolve without a roll and remain learn-once.",
+          "risky_behavior": "Authored risky perception uses the deterministic Wisdom check path.",
+          "legal_targets": [
+            "location",
+            "perceptual feature",
+            "hidden path or item"
+          ],
+          "event_outputs": [
+            "ability_check.rolled",
+            "feature.searched",
+            "location.searched",
+            "ledger.marked"
+          ],
+          "cosyworld_delta": "Listen and Notice are labels for contextual Search, not separate mechanics.",
+          "replay_fixture": "orchestrator-rust::tests::search_and_study_use_distinct_append_only_action_codes"
+        },
+        {
+          "action_id": "srd5.2.1:study",
+          "support_status": "projection",
+          "resolver_kind": "discovery_study_v1",
+          "safe_behavior": "Authored safe analytical truths resolve without a roll and remain learn-once.",
+          "risky_behavior": "Authored risky analysis uses the deterministic Intelligence check path.",
+          "legal_targets": [
+            "analytical feature",
+            "active project plan"
+          ],
+          "event_outputs": [
+            "ability_check.rolled",
+            "study.resolved",
+            "ledger.marked"
+          ],
+          "cosyworld_delta": "Study is distinct from perceptual Search and may be independently reskinned.",
+          "replay_fixture": "orchestrator-rust::tests::search_and_study_use_distinct_append_only_action_codes"
+        },
+        {
+          "action_id": "srd5.2.1:utilize",
+          "support_status": "projection",
+          "resolver_kind": "item_utilize_v1",
+          "safe_behavior": "Requires a validated usable item or authored feature contract.",
+          "risky_behavior": "Authoritative uses, exhaustion, targets, clock effects, and claim keys are resolved once.",
+          "legal_targets": [
+            "descriptor-approved actor",
+            "authored feature",
+            "active project"
+          ],
+          "event_outputs": [
+            "item.used",
+            "feature.used",
+            "clock.updated",
+            "tag.applied"
+          ],
+          "cosyworld_delta": "Use and Work are contextual labels over validated Utilize bindings.",
+          "replay_fixture": "orchestrator-rust::tests::hearth_tonic_uses_are_authoritative_and_idempotent"
+        }
+      ]
+    }
+  }
+]

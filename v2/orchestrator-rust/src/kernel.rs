@@ -15,9 +15,9 @@ pub const CW_MAX_EVOLUTION_TRACKS: usize = 128;
 pub const CW_MAX_EVOLUTION_REQUIREMENTS: usize = 4;
 pub const CW_MAX_COMBAT_ENCOUNTERS: usize = 32;
 pub const CW_MAX_COMBAT_PARTICIPANTS: usize = 16;
-pub const CW_INVENTORY_BASE_SLOTS: usize = 1;
+pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
-pub const CW_KERNEL_VERSION: u32 = 3;
+pub const CW_KERNEL_VERSION: u32 = 5;
 
 pub const CW_OK: u32 = 0;
 pub const CW_ERR_RULE: u32 = 4;
@@ -48,6 +48,28 @@ pub const CW_ITEM_POTION: u8 = 1;
 pub const CW_ITEM_EVOLUTION: u8 = 2;
 pub const CW_ITEM_KEEPSAKE: u8 = 3;
 
+pub const CW_ITEM_SIZE_TINY: u8 = 1;
+pub const CW_ITEM_SIZE_SMALL: u8 = 2;
+pub const CW_ITEM_SIZE_MEDIUM: u8 = 3;
+pub const CW_ITEM_SIZE_LARGE: u8 = 4;
+
+pub const CW_ITEM_ROLE_GENERIC: u8 = 0;
+pub const CW_ITEM_ROLE_CONSUMABLE: u8 = 1;
+pub const CW_ITEM_ROLE_WEAPON: u8 = 2;
+pub const CW_ITEM_ROLE_SKILL_CHARM: u8 = 3;
+pub const CW_ITEM_ROLE_SPELL: u8 = 4;
+pub const CW_ITEM_ROLE_CONTAINER: u8 = 5;
+pub const CW_ITEM_ROLE_TOOL: u8 = 6;
+pub const CW_ITEM_ROLE_RELIC: u8 = 7;
+
+pub const CW_CARD_ZONE_WORLD: u8 = 1;
+pub const CW_CARD_ZONE_CARRIED: u8 = 2;
+pub const CW_CARD_ZONE_EQUIPPED: u8 = 3;
+pub const CW_CARD_ZONE_SPELL_DECK: u8 = 4;
+pub const CW_CARD_ZONE_EXHAUSTED: u8 = 5;
+pub const CW_CARD_ZONE_CONTAINED: u8 = 6;
+pub const CW_CARD_ZONE_ESCROW: u8 = 7;
+
 pub const CW_ROLL_NORMAL: u8 = 0;
 pub const CW_ROLL_ADVANTAGE: u8 = 1;
 pub const CW_ROLL_DISADVANTAGE: u8 = 2;
@@ -73,6 +95,11 @@ pub const CW_ACTION_COMBAT_ATTACK: u8 = 17;
 pub const CW_ACTION_COMBAT_DODGE: u8 = 18;
 pub const CW_ACTION_COMBAT_ESCAPE: u8 = 19;
 pub const CW_ACTION_COMBAT_FINESSE_ATTACK: u8 = 20;
+pub const CW_ACTION_RULES_SEARCH: u8 = 21;
+pub const CW_ACTION_RULES_STUDY: u8 = 22;
+pub const CW_ACTION_RULES_MAGIC: u8 = 23;
+pub const CW_ACTION_RULES_INFLUENCE: u8 = 24;
+pub const CW_ACTION_THEFT: u8 = 25;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;
@@ -94,6 +121,9 @@ pub const CW_EVENT_COMBAT_TURN_STARTED: u8 = 27;
 pub const CW_EVENT_COMBAT_TURN_ENDED: u8 = 28;
 pub const CW_EVENT_COMBAT_DODGE: u8 = 29;
 pub const CW_EVENT_COMBAT_ENCOUNTER_RESOLVED: u8 = 30;
+pub const CW_EVENT_SPELL_CAST: u8 = 31;
+pub const CW_EVENT_ITEM_THEFT_ATTEMPT: u8 = 32;
+pub const CW_EVENT_ITEM_STOLEN: u8 = 33;
 
 pub const CW_OFFER_CHAT: u32 = 1 << 0;
 pub const CW_OFFER_CHECK: u32 = 1 << 1;
@@ -156,12 +186,33 @@ pub struct CwItem {
     pub id: u64,
     pub kind: u8,
     pub charges: u8,
-    pub reserved: u16,
+    #[serde(default = "default_item_weight_tenths")]
+    pub weight_tenths: u16,
+    #[serde(default)]
+    pub container_capacity_tenths: u16,
+    #[serde(default = "default_item_size_class")]
+    pub size_class: u8,
+    #[serde(default)]
+    pub role: u8,
+    #[serde(default)]
+    pub zone: u8,
+    #[serde(default)]
+    pub reserved: u8,
     pub location_id: u64,
     pub holder_actor_id: u64,
     #[serde(default)]
+    pub container_item_id: u64,
+    #[serde(default)]
     pub held_since_tick: u64,
     pub recharge_at_tick: u64,
+}
+
+fn default_item_weight_tenths() -> u16 {
+    CW_ITEM_DEFAULT_WEIGHT_TENTHS
+}
+
+fn default_item_size_class() -> u8 {
+    CW_ITEM_SIZE_SMALL
 }
 
 #[repr(C)]
@@ -324,6 +375,20 @@ impl Default for CwWorld {
 extern "C" {
     pub fn cw_world_init(world: *mut CwWorld);
     pub fn cw_seed_cosy_cottage(world: *mut CwWorld, out_events: *mut CwEventBuffer) -> u32;
+    pub fn cw_world_set_item_profile(
+        world: *mut CwWorld,
+        item_id: u64,
+        weight_tenths: u16,
+        size_class: u8,
+        role: u8,
+        container_capacity_tenths: u16,
+    ) -> u32;
+    pub fn cw_world_set_item_zone(
+        world: *mut CwWorld,
+        item_id: u64,
+        zone: u8,
+        container_item_id: u64,
+    ) -> u32;
     pub fn cw_world_set_evolution_track(
         world: *mut CwWorld,
         actor_id: u64,

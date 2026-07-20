@@ -65,9 +65,13 @@ struct CompiledContentRegistry {
     #[serde(default)]
     rules: Vec<SeedRuleBundle>,
     #[serde(default)]
+    contributions: Vec<SeedContributionBundle>,
+    #[serde(default)]
     attributions: Vec<SeedAttribution>,
     #[serde(default)]
     licenses: Vec<SeedLicenseRecord>,
+    #[serde(default)]
+    modified_material: Vec<SeedModifiedMaterial>,
     #[serde(default)]
     character_creation: Vec<SeedCharacterCreationBundle>,
     content_references: ContentReferenceDocument,
@@ -139,8 +143,10 @@ impl ContentRegistry {
             evolution_tracks: take_resource(&mut resources, "evolution_tracks")?,
             recipes: take_resource(&mut resources, "recipes")?,
             rules: document.rules,
+            contributions: document.contributions,
             attributions: document.attributions,
             licenses: document.licenses,
+            modified_material: document.modified_material,
             character_creation: document.character_creation,
             external_cards: document.external_cards,
             asset_mounts: document.assets,
@@ -930,6 +936,7 @@ mod tests {
             entitlements: None,
             rules_adapter: None,
             rules_namespace: None,
+            rules_profile: None,
             extensions: serde_json::Value::Null,
         }
     }
@@ -1099,7 +1106,12 @@ mod tests {
             env!("CARGO_PKG_VERSION"),
         )
         .expect("official registry loads");
-        assert_eq!(registry.content().locations.len(), 33);
+        assert_eq!(registry.content().locations.len(), 48);
+        assert_eq!(registry.content().manifest.packs.len(), 8);
+        assert_eq!(
+            registry.content().manifest.rules_profile,
+            "cosyworld.srd5/1"
+        );
         assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.3.3");
         assert_eq!(
             registry.capability_provider("cosyworld.core/world"),
@@ -1198,8 +1210,9 @@ mod tests {
             env!("CARGO_PKG_VERSION"),
         )
         .expect("Core-only registry mounts");
-        assert_eq!(core.content().manifest.packs.len(), 1);
-        assert_eq!(core.content().manifest.packs[0].id, "cosyworld.core");
+        assert_eq!(core.content().manifest.packs.len(), 3);
+        assert!(core.pack("cosyworld.core").is_some());
+        assert!(core.pack("cosyworld.rules-profile-srd5").is_some());
         assert_eq!(core.entry_location_id(), Some(COSY_COTTAGE_LOCATION_ID));
         assert_eq!(
             core.capability_provider("cosyworld.core/rules"),
@@ -1213,11 +1226,9 @@ mod tests {
             env!("CARGO_PKG_VERSION"),
         )
         .expect("services-only registry mounts");
-        assert_eq!(services.content().manifest.packs.len(), 1);
-        assert_eq!(
-            services.content().manifest.packs[0].id,
-            "cosyworld.services-fixture"
-        );
+        assert_eq!(services.content().manifest.packs.len(), 3);
+        assert!(services.pack("cosyworld.services-fixture").is_some());
+        assert!(services.pack("cosyworld.rules-profile-srd5").is_some());
         assert!(services.pack("cosyworld.core").is_none());
         assert_eq!(services.entry_location_id(), None);
         assert!(services.content().locations.is_empty());

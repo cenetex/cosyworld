@@ -1,0 +1,13 @@
+[
+  {
+    "id": "cosyworld.magic/steady-light",
+    "rules_action": "srd5.2.1:magic",
+    "resolver_kind": "bounded_magic_v1",
+    "target_predicate": "self_or_visible_actor",
+    "effect": {"kind":"set_tag","label":"steady light","duration_turns":3},
+    "uses": 1,
+    "recovery": "rest",
+    "source_reference": "CosyWorld bounded magic",
+    "modified": true
+  }
+]

@@ -40,6 +40,7 @@ pub(super) struct StateResponse {
     pub(super) access: AccessView,
     pub(super) account: AccountView,
     pub(super) economy: EconomyView,
+    pub(super) deck: DeckView,
     pub(super) combat: Option<CombatView>,
     pub(super) turn: RoomTurnView,
     pub(super) branch: Option<BranchView>,
@@ -86,6 +87,11 @@ pub(super) struct EconomyView {
     pub(super) can_chat_with_orbs: bool,
     pub(super) inventory_count: usize,
     pub(super) inventory_capacity: usize,
+    pub(super) carried_weight_tenths: u32,
+    pub(super) base_carrying_capacity_tenths: u32,
+    pub(super) container_capacity_tenths: u32,
+    pub(super) carrying_capacity_tenths: u32,
+    pub(super) encumbered: bool,
     pub(super) listen_cost_orbs: i32,
     pub(super) listen_reward_claimable: bool,
     pub(super) listen_attempted_here: bool,
@@ -93,6 +99,40 @@ pub(super) struct EconomyView {
     pub(super) chat_payer: String,
     pub(super) wooden_boxes: usize,
     pub(super) unopened_packs: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct DeckView {
+    pub(super) actor_id: Option<u64>,
+    pub(super) carried_cards: Vec<ItemView>,
+    pub(super) carried_weight_tenths: u32,
+    pub(super) base_carrying_capacity_tenths: u32,
+    pub(super) container_capacity_tenths: u32,
+    pub(super) carrying_capacity_tenths: u32,
+    pub(super) bracelet_slots: u8,
+    pub(super) equipped_charms: Vec<ItemView>,
+    pub(super) available_charms: Vec<ItemView>,
+    pub(super) spell_cards: Vec<ItemView>,
+    pub(super) prepared_spell_cards: Vec<ItemView>,
+    pub(super) exhausted_spell_cards: Vec<ItemView>,
+    pub(super) exhausted_cards: Vec<ItemView>,
+    pub(super) spell_deck_slots: u8,
+    pub(super) equipped_weapon: Option<ItemView>,
+    pub(super) equipped_containers: Vec<ItemView>,
+    pub(super) containers: Vec<ContainerDeckView>,
+    pub(super) zone_counts: BTreeMap<String, usize>,
+    pub(super) validation_errors: Vec<String>,
+    pub(super) bag_previews: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct ContainerDeckView {
+    pub(super) container: ItemView,
+    pub(super) contents: Vec<ItemView>,
+    pub(super) opening_size: String,
+    pub(super) allowed_contents: Vec<String>,
+    pub(super) equipped: bool,
+    pub(super) active_capacity_tenths: u16,
 }
 
 #[derive(Debug, Serialize)]
@@ -252,6 +292,8 @@ pub(super) struct ResidentEconomyView {
     pub(super) held_items: Vec<ResidentHeldItemView>,
     pub(super) inventory_count: usize,
     pub(super) inventory_capacity: usize,
+    pub(super) carried_weight_tenths: u32,
+    pub(super) carrying_capacity_tenths: u32,
     pub(super) desired_item_ids: Vec<u64>,
     pub(super) sought_item_ids: Vec<u64>,
     pub(super) sought_items: Vec<ResidentSoughtItemView>,
@@ -336,6 +378,16 @@ pub(super) struct ItemView {
     pub(super) name: String,
     pub(super) description: String,
     pub(super) kind: String,
+    pub(super) role: String,
+    pub(super) weight_tenths: u16,
+    pub(super) size: String,
+    pub(super) container_capacity_tenths: u16,
+    pub(super) skill_id: Option<String>,
+    pub(super) skill_bonus: i8,
+    pub(super) mechanics: Option<SeedPlayableItemMechanics>,
+    pub(super) zone: String,
+    pub(super) container_item_id: Option<u64>,
+    pub(super) provenance: Option<ItemProvenanceState>,
     pub(super) location_id: Option<u64>,
     pub(super) holder_actor_id: Option<u64>,
     pub(super) charges: u8,
@@ -504,6 +556,14 @@ pub(super) struct RoomInspectorView {
 pub(super) struct ActionInspectorView {
     pub(super) offer_id: String,
     pub(super) kind: String,
+    pub(super) rules_action: Option<String>,
+    pub(super) operation: Option<String>,
+    pub(super) rules_profile: String,
+    pub(super) resolver: String,
+    pub(super) source_collectible: Option<ActionSourceCollectibleView>,
+    pub(super) pack_provenance: ActionPackProvenanceView,
+    pub(super) composition_trace: ActionCompositionTraceView,
+    pub(super) state_revision: u64,
     pub(super) category: String,
     pub(super) label: String,
     pub(super) command: String,
@@ -863,6 +923,20 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| format!("Item {}", item.id)),
             description: meta.map(|m| m.description.clone()).unwrap_or_default(),
             kind: item_kind(item.kind).to_string(),
+            role: item_role(item.role).to_string(),
+            weight_tenths: effective_item_weight_tenths(item),
+            size: item_size(item.size_class).to_string(),
+            container_capacity_tenths: if item.role == CW_ITEM_ROLE_CONTAINER {
+                item.container_capacity_tenths
+            } else {
+                0
+            },
+            skill_id: meta.and_then(|meta| meta.skill_id.clone()),
+            skill_bonus: meta.map(|meta| meta.skill_bonus).unwrap_or_default(),
+            mechanics: meta.and_then(|meta| meta.mechanics.clone()),
+            zone: card_zone(item.zone, item.holder_actor_id, item.location_id).to_string(),
+            container_item_id: opt_id(item.container_item_id),
+            provenance: self.item_provenance.get(&item.id).cloned(),
             location_id: opt_id(item.location_id),
             holder_actor_id: opt_id(item.holder_actor_id),
             charges: item.charges,
@@ -1039,7 +1113,6 @@ impl RuntimeWorld {
         }
         let held_items_raw = self.actor_held_items(resident.id);
         let inventory_count = held_items_raw.len();
-        let inventory_capacity = self.actor_inventory_capacity(resident.id).unwrap_or(0);
         let held_item_ids: Vec<_> = held_items_raw.iter().map(|item| item.id).collect();
         let held_items = held_items_raw
             .iter()
@@ -1144,7 +1217,11 @@ impl RuntimeWorld {
             held_item_ids,
             held_items,
             inventory_count,
-            inventory_capacity,
+            inventory_capacity: 0,
+            carried_weight_tenths: self.actor_carried_weight_tenths(resident.id),
+            carrying_capacity_tenths: self
+                .actor_carrying_capacity_tenths(resident.id)
+                .unwrap_or_default(),
             desired_item_ids,
             sought_item_ids,
             sought_items,
@@ -1311,9 +1388,23 @@ impl RuntimeWorld {
                 inventory_count: client_actor_id
                     .map(|id| self.actor_inventory_count(id))
                     .unwrap_or_default(),
-                inventory_capacity: client_actor_id
-                    .and_then(|id| self.actor_inventory_capacity(id))
+                inventory_capacity: 0,
+                carried_weight_tenths: client_actor_id
+                    .map(|id| self.actor_carried_weight_tenths(id))
                     .unwrap_or_default(),
+                base_carrying_capacity_tenths: client_actor_id
+                    .and_then(|id| self.actor_base_carrying_capacity_tenths(id))
+                    .unwrap_or_default(),
+                container_capacity_tenths: client_actor_id
+                    .map(|id| self.actor_container_capacity_tenths(id))
+                    .unwrap_or_default(),
+                carrying_capacity_tenths: client_actor_id
+                    .and_then(|id| self.actor_carrying_capacity_tenths(id))
+                    .unwrap_or_default(),
+                encumbered: client_actor_id.is_some_and(|id| {
+                    self.actor_carried_weight_tenths(id)
+                        > self.actor_carrying_capacity_tenths(id).unwrap_or_default()
+                }),
                 listen_cost_orbs,
                 listen_reward_claimable,
                 listen_attempted_here,
@@ -1322,6 +1413,7 @@ impl RuntimeWorld {
                 wooden_boxes: access.owned_box_ids.len(),
                 unopened_packs: access.unopened_pack_ids.len(),
             },
+            deck: self.deck_view(client_actor_id),
             combat: client_actor_id.and_then(|id| self.combat_view(id, access)),
             turn: RoomTurnView::idle(location_id),
             branch: None,
@@ -1368,7 +1460,7 @@ impl RuntimeWorld {
             })
             .collect();
         Some(CombatView {
-            protocol: "cosyworld.combat/3",
+            protocol: "cosyworld.combat/4",
             encounter_id: encounter.id,
             location_id: encounter.location_id,
             round: encounter.round,
@@ -1635,8 +1727,16 @@ impl RuntimeWorld {
             .find(|offer| offer.kind == primary_action.kind)
             .or_else(|| action_offers.first())
             .map(|offer| ActionInspectorView {
-                offer_id: offer.id.clone(),
+                offer_id: offer.offer_id.clone(),
                 kind: offer.kind.clone(),
+                rules_action: offer.rules_action.clone(),
+                operation: offer.operation.clone(),
+                rules_profile: offer.rules_profile.clone(),
+                resolver: offer.resolver.clone(),
+                source_collectible: offer.source_collectible.clone(),
+                pack_provenance: offer.pack_provenance.clone(),
+                composition_trace: offer.composition_trace.clone(),
+                state_revision: offer.state_revision,
                 category: offer.category.clone(),
                 label: offer.label.clone(),
                 command: offer.command.clone(),

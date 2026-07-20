@@ -147,7 +147,7 @@
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
-      cursor: pointer;
+      cursor: default;
     }
     .economy strong {
       color: var(--amber);
@@ -971,6 +971,55 @@
       margin-bottom: 8px;
       padding: 10px 12px;
     }
+    .menu-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+      padding-bottom: 9px;
+      border-bottom: 1px solid var(--line);
+    }
+    .menu-nav button {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--terminal-2);
+      color: var(--dim);
+      padding: 5px 9px;
+      font: inherit;
+      font-weight: 850;
+    }
+    .menu-nav button.active {
+      border-color: var(--line-strong);
+      color: var(--amber);
+      background: rgba(239, 201, 107, 0.08);
+    }
+    .deck-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 7px;
+      margin: 8px 0 12px;
+    }
+    .deck-stat,
+    .deck-card {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: rgba(13, 20, 15, 0.72);
+      padding: 8px;
+    }
+    .deck-stat strong,
+    .deck-card strong { display: block; color: var(--amber); }
+    .deck-stat small,
+    .deck-card small { color: var(--dim); }
+    .deck-card-list { display: grid; gap: 7px; margin: 8px 0 14px; }
+    .deck-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .deck-card-copy { min-width: 0; }
+    .deck-empty { color: var(--dim); padding: 8px 0 14px; }
     .library-panel {
       display: grid;
       gap: 10px;
@@ -2750,7 +2799,7 @@
         color: var(--text);
         font-size: 12px;
       }
-      .brand[aria-expanded="true"]::before { content: "close"; }
+      .brand[aria-expanded="true"]::before { content: "cosyworld://"; }
       .economy {
         max-width: 96px;
         font-size: 11px;
@@ -2767,8 +2816,8 @@
 <body>
   <div class="shell">
     <header class="topbar">
-      <button class="brand" id="brand" type="button" aria-label="Open World Library" aria-expanded="false" aria-controls="log" data-player-concept="world-pack" data-analytics-event="world_pack.library.open">world library</button>
-      <button class="economy" id="economy" type="button" aria-label="Open your keepsake collection" aria-expanded="false" aria-controls="log" data-player-concept="keepsake" data-analytics-event="keepsake.collection.open"></button>
+      <button class="brand" id="brand" type="button" aria-label="Open Menu" aria-expanded="false" aria-controls="log">menu</button>
+      <span class="economy" id="economy" aria-label="Carried deck and Orb status"></span>
       <button class="location-pill" type="button" aria-label="Focus current location">
         <img id="location-image" alt="" />
         <span id="subtitle">booting</span>
@@ -2949,6 +2998,9 @@
     let handKeys = [];
     let discardedHandKeys = [];
     let handCompositionSignature = "";
+    let handDealNonce = 1;
+    let authoritativeHandIdentity = "";
+    let playerPromotedHandKey = "";
     let recoveryPromptPending = false;
     let logEvents = [];
     const seenSeq = new Set();
@@ -2964,6 +3016,7 @@
     let actionConfirmAction = null;
     let accountPanelPinned = false;
     let libraryPanelPinned = false;
+    let menuSection = "deck";
     let contentPacks = null;
     let contentPacksAccessKey = "";
     let worldView = null;
@@ -3353,6 +3406,7 @@
       handCompositionSignature = "";
       focusIndex = 0;
       focusedKey = "";
+      playerPromotedHandKey = "";
       await refresh();
       connectStream();
     }
@@ -3386,6 +3440,9 @@
         handKeys = [];
         discardedHandKeys = [];
         handCompositionSignature = nextHandCompositionSignature;
+        handDealNonce += 1;
+        playerPromotedHandKey = "";
+        handCompositionSignature = nextHandCompositionSignature;
       }
       if (actorId && state.primary_action?.kind === "create_avatar") {
         actorId = 0;
@@ -3401,6 +3458,7 @@
         discardedHandKeys = [];
         focusIndex = 0;
         focusedKey = "";
+        playerPromotedHandKey = "";
       }
       const isTired = actorIsTired(state);
       if (!isTired) recoveryPromptPending = false;
@@ -3450,6 +3508,29 @@
       const params = requestParams();
       const qs = params.toString();
       return `/state${qs ? `?${qs}` : ""}`;
+    }
+
+    async function exportJournal() {
+      const params = requestParams();
+      params.set("limit", "1000");
+      const events = await api(`/events?${params.toString()}`);
+      const payload = {
+        format: "cosyworld.journal/1",
+        exported_at: new Date().toISOString(),
+        actor_id: actorId || null,
+        worldpack_bundle_hash: contentPacks?.bundle_hash || null,
+        events: Array.isArray(events) ? events : [],
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `cosyworld-journal-${actorId || "visitor"}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setStatus("Journal exported.", "ok");
     }
 
     function contentPacksPath() {
@@ -3829,86 +3910,53 @@
           run: () => action("/actions/bank-ledger", { actor_id: actorId }),
         };
       };
-      const buildTrainAction = () => {
-        if (!options.has("train_skill") || Number(ledger.advancement_points || 0) <= 0) return null;
-        const offer = offerFor("train_skill");
-        const trainEffect = String(offer?.effect || "");
-        const offeredLabel = trainEffect.match(/steps\s+(.+?)\s+up/i)?.[1]?.trim()
-          || trainEffect.match(/^(.+?)\s+grows\b/i)?.[1]?.trim()
-          || "Wisdom";
-        const offeredId = authoredAbilityChoice(offeredLabel)?.id || "listening";
-        const rankFor = (choice) => Number(skills.find((skill) => (
-          skill.skill_id === choice.id
-          || String(skill.label || "").toLowerCase() === choice.label.toLowerCase()
-        ))?.rank || 0);
-        const abilityCandidates = authoredAbilityChoices
-          .filter((choice) => rankFor(choice) < 3)
-          .sort((left, right) => (
-            Number(right.id === offeredId) - Number(left.id === offeredId)
-            || authoredAbilityChoices.findIndex((choice) => choice.id === left.id)
-              - authoredAbilityChoices.findIndex((choice) => choice.id === right.id)
-          ));
-        if (!abilityCandidates.length) return null;
-        const firstAbility = abilityCandidates[0];
-        const oneAbility = abilityCandidates.length === 1;
-        const currentRank = rankFor(firstAbility);
-        const practiceAction = {
-          label: "practice",
-          detail: oneAbility
-            ? `${firstAbility.label} · use what you learned`
-            : "choose an ability · use what you learned",
-          command: oneAbility
-            ? (firstAbility.id === offeredId && offer?.command
-              ? offer.command
-              : `skill ${firstAbility.label.toLowerCase()}`)
-            : "skill",
-          focusKey: oneAbility
-            ? `train-${firstAbility.id.replace(/_/g, "-")}`
-            : `train:${abilityCandidates.map((choice) => choice.id).join("|")}`,
-          focusKeys: abilityCandidates.map((choice) => `skill:${choice.id}`),
+      const buildUnlockCharmSlotAction = () => {
+        if (!options.has("unlock_charm_slot") || Number(ledger.advancement_points || 0) <= 0) return null;
+        const slots = Number(view.deck?.bracelet_slots || 0);
+        if (!slots || slots >= 6) return null;
+        const abilityCandidates = [{ id: "charm_slot", label: "charm slot", detail: "room for one more found skill charm" }];
+        const unlockAction = {
+          label: "expand bracelet",
+          detail: `open charm slot ${slots + 1} · use what you learned`,
+          command: "unlock charm slot",
+          focusKey: "unlock-charm-slot",
+          focusKeys: ["charm-slot"],
           card: cardForActor(actorId) || cardForLocation(view.location?.id),
           shape: "avatar",
-          priority: currentRank > 0 && options.has("create_bond") ? 78 : 76,
-          modalTitle: oneAbility ? `${firstAbility.label} +1` : "choose an ability",
-          modalSummary: oneAbility
-            ? `Add +1 to your training bonus for ${firstAbility.label} checks. The ability score itself does not change.`
-            : "Choose which ability gets +1 to its check training bonus. The ability score itself does not change.",
-          effect: oneAbility ? offer?.effect : "the ability you choose gets +1 to its check training bonus",
-          ...(oneAbility ? {} : {
-            choices: abilityCandidates.map((choice) => ({
-              label: choice.label,
-              detail: choice.detail,
-              value: choice.id,
-            })),
-            selectedChoice: firstAbility.id,
-          }),
+          priority: options.has("create_bond") ? 78 : 76,
+          modalTitle: "unlock another charm slot",
+          modalSummary: "Advancement opens space on your bracelet. It does not grant a skill charm; you still have to find one in the world.",
+          effect: `opens bracelet slot ${slots + 1} without creating a charm`,
         };
-        practiceAction.selectedPayload = () => ({
-          actor_id: actorId,
-          skill_id: String(practiceAction.selectedChoice || firstAbility.id),
-        });
-        practiceAction.run = () => action("/actions/train-skill", practiceAction.selectedPayload());
-        practiceAction.abilityCandidates = abilityCandidates;
-        return practiceAction;
+        unlockAction.run = () => action("/actions/unlock-charm-slot", { actor_id: actorId });
+        unlockAction.abilityCandidates = abilityCandidates;
+        return unlockAction;
       };
       const buildEvolveAction = () => {
         const growAction = buildGrowAction();
-        const practiceAction = buildTrainAction();
+        const practiceAction = buildUnlockCharmSlotAction();
         if (!growAction && !practiceAction) return null;
 
-        const rankForAbility = (ability) => Number(skills.find((skill) => (
-          skill.skill_id === ability.id
-          || String(skill.label || "").toLowerCase() === ability.label.toLowerCase()
-        ))?.rank || 0);
+        const choiceSeed = [
+          actorId,
+          Number(view.world_tick || 0),
+          Number(ledger.unbanked_count || 0),
+          Number(ledger.banked_count || 0),
+          Number(ledger.spent_count || 0),
+          skills.map((skill) => `${skill.skill_id}:${skill.rank}`).sort().join(","),
+        ].join(":");
         const practiceChoices = (practiceAction?.abilityCandidates || [])
           .map((ability) => ({
-            label: `${ability.label} +1`,
-            detail: `${ability.detail || "use what you learned"} · +1 training bonus to ${ability.label} checks`,
+            label: "unlock another charm slot",
+            detail: "opens bracelet space; the charm itself must still be found",
             value: `practice:${ability.id}`,
             card: practiceAction.card,
-            rankBefore: rankForAbility(ability),
-            rankAfter: rankForAbility(ability) + 1,
-          }));
+          }))
+          .sort((left, right) => (
+            handHash(`${choiceSeed}:${left.value}`, handDealNonce)
+              - handHash(`${choiceSeed}:${right.value}`, handDealNonce)
+            || left.value.localeCompare(right.value)
+          ));
         const evolutionChoices = [];
         if (growAction) {
           evolutionChoices.push({
@@ -3928,7 +3976,7 @@
             ? "choose one of two lessons"
             : (growAction
               ? "from what you learned"
-              : (oneChoice ? `${(practiceAction?.abilityCandidates || [])[0]?.label || "ability"} +1` : "choose one of two abilities")),
+              : "open another bracelet slot"),
           command: "evolve",
           focusKey: growAction?.focusKey || practiceAction?.focusKey || "evolve",
           focusKeys: [...new Set([
@@ -3951,23 +3999,22 @@
           modalSummary: oneChoice
             ? (growAction
               ? "Keep what mattered."
-              : `Put what you learned into ${(practiceAction?.abilityCandidates || [])[0]?.label || "an ability"} training.`)
+              : "Put what you learned into room for another found skill charm.")
             : (growAction
-              ? "Keep the lesson, or improve one ability's training bonus."
-              : "Choose how this lesson strengthens your avatar."),
+              ? "Keep the lesson, or open another bracelet slot."
+              : "Open another bracelet slot."),
           effect: oneChoice
             ? (growAction?.effect || practiceAction?.effect)
             : (growAction
-              ? "your choice either keeps this lesson for later or adds +1 to an ability's check training bonus"
-              : "a practiced ability gets +1 to its check training bonus; its score stays the same"),
+              ? "your choice either keeps this lesson for later or opens bracelet space for a charm you find"
+              : "opens bracelet space for a charm you find"),
           selectedChoice,
           ...(oneChoice ? {} : { choices: evolutionChoices }),
         };
         evolveAction.run = () => {
           const selected = String(evolveAction.selectedChoice || selectedChoice);
           if (selected === "grow") return growAction.run();
-          const skillId = selected.replace(/^practice:/, "");
-          return action("/actions/train-skill", { actor_id: actorId, skill_id: skillId });
+          return action("/actions/unlock-charm-slot", { actor_id: actorId });
         };
         return evolveAction;
       };
@@ -4125,11 +4172,33 @@
 
       const heldUsableItems = (view.items || []).filter((item) => item.holder_actor_id === actorId && item.kind === "potion" && item.charges > 0);
       const heldItems = (view.items || []).filter((item) => item.holder_actor_id === actorId);
-      const reportedInventoryCapacity = Number(economy.inventory_capacity);
-      const inventoryCapacity = Number.isFinite(reportedInventoryCapacity) && reportedInventoryCapacity > 0
-        ? reportedInventoryCapacity
-        : 1;
-      const inventoryFull = heldItems.length >= inventoryCapacity;
+      const carriedWeightTenths = Number(view.economy?.carried_weight_tenths || 0);
+      const carryingCapacityTenths = Number(
+        view.economy?.carrying_capacity_tenths || Number.MAX_SAFE_INTEGER,
+      );
+      const itemWeightTenths = (item) => item ? Math.max(1, Number(item.weight_tenths || 10)) : 0;
+      const itemContainerCapacityTenths = (item) => (
+        item?.role === "container" ? Math.max(0, Number(item?.container_capacity_tenths || 0)) : 0
+      );
+      const carriedDeckFitsAfter = (incoming, outgoing = null) => (
+        carriedWeightTenths - itemWeightTenths(outgoing) + itemWeightTenths(incoming)
+          <= carryingCapacityTenths
+            - itemContainerCapacityTenths(outgoing)
+            + itemContainerCapacityTenths(incoming)
+      );
+      const equippedCharmIds = new Set((view.deck?.equipped_charms || []).map((item) => Number(item.id)));
+      const exchangeCardFor = (incoming) => {
+        if (carriedDeckFitsAfter(incoming)) return null;
+        return heldItems
+          .slice()
+          .sort((left, right) => (
+            Number(left.role === "container") - Number(right.role === "container")
+              || Number(equippedCharmIds.has(Number(left.id))) - Number(equippedCharmIds.has(Number(right.id)))
+              || itemWeightTenths(right) - itemWeightTenths(left)
+              || Number(left.id) - Number(right.id)
+          ))
+          .find((outgoing) => carriedDeckFitsAfter(incoming, outgoing)) || null;
+      };
       const bonds = Array.isArray(view.bonds) ? view.bonds : [];
       const activeBondTargetIds = new Set(bonds.map((bond) => Number(bond.target_actor_id || 0)));
       const offeredAttackTargetId = Number(offerFor("attack")?.target?.id || 0);
@@ -4378,6 +4447,30 @@
           built.push(tradeAction);
         }
       }
+      if (options.has("theft")) {
+        const theftOffer = offerFor("theft");
+        const itemId = Number(theftOffer?.target?.id || 0);
+        const item = (view.items || []).find((candidate) => Number(candidate.id || 0) === itemId);
+        const targetActorId = Number(item?.holder_actor_id || 0);
+        if (itemId && targetActorId) built.push({
+          label: theftOffer?.label || "steal",
+          detail: theftOffer?.target?.label || item?.name || "a carried card",
+          command: `steal ${item?.name || "item"}`,
+          focusKey: `theft:${targetActorId}:${itemId}`,
+          card: cardForItem(itemId),
+          shape: "item",
+          priority: Number(theftOffer?.rank || 76),
+          modalSummary: "Attempt an observable, server-resolved possession transfer.",
+          effect: theftOffer?.effect,
+          risk: theftOffer?.risk,
+          run: () => action("/actions/theft", {
+            actor_id: actorId,
+            item_id: itemId,
+            target_item_id: itemId,
+            target_actor_id: targetActorId,
+          }),
+        });
+      }
       if (view.search_available === true || options.has("search")) {
         const locationName = view.location?.name || "this room";
         const searchOffer = offerFor("search");
@@ -4413,11 +4506,17 @@
         const roomItems = (view.items || []).filter((item) => (
           Number(item.location_id || 0) === currentLocationId
         ));
-        if (roomItems.length) {
-          const firstItem = roomItems[0];
-          const heldItemName = heldItems[0]?.name || "what you carry";
-          const swapping = inventoryFull;
-          const oneItem = roomItems.length === 1;
+        const takeCandidates = roomItems.map((item) => {
+          const direct = carriedDeckFitsAfter(item);
+          const exchangeItem = direct ? null : exchangeCardFor(item);
+          return { item, direct, exchangeItem };
+        }).filter((candidate) => candidate.direct || candidate.exchangeItem);
+        if (takeCandidates.length) {
+          const firstCandidate = takeCandidates[0];
+          const firstItem = firstCandidate.item;
+          const heldItemName = firstCandidate.exchangeItem?.name || "what you carry";
+          const swapping = Boolean(firstCandidate.exchangeItem);
+          const oneItem = takeCandidates.length === 1;
           const takeAction = {
             label: swapping ? "swap" : "take",
             detail: oneItem
@@ -4426,8 +4525,8 @@
             command: oneItem ? `take ${firstItem.name}` : "take",
             focusKey: oneItem
               ? `item:${firstItem.id}`
-              : `${swapping ? "swap" : "take"}:${roomItems.map((item) => item.id).join("|")}`,
-            focusKeys: roomItems.map((item) => `item:${item.id}`),
+              : `${swapping ? "swap" : "take"}:${takeCandidates.map((candidate) => candidate.item.id).join("|")}`,
+            focusKeys: takeCandidates.map((candidate) => `item:${candidate.item.id}`),
             card: cardForItem(firstItem.id),
             shape: "item",
             heldItemName,
@@ -4442,16 +4541,19 @@
             effect: oneItem
               ? (swapping
                 ? `${firstItem.name} comes with you; ${heldItemName} stays in ${view.location?.name || "the room"}`
-                : `${firstItem.name} stays in your hand until you use, give, swap, or drop it`)
+                : `${firstItem.name} joins your carried deck until you use, give, trade, or drop it`)
               : (swapping
                 ? `the keepsake you choose comes with you; ${heldItemName} stays in ${view.location?.name || "the room"}`
-                : "the keepsake you choose stays in your hand until you use, give, swap, or drop it"),
+                : "the card you choose joins your carried deck until you use, give, trade, or drop it"),
             ...(oneItem ? {} : {
-              choices: roomItems.map((item) => {
+              choices: takeCandidates.map((candidate) => {
+                const item = candidate.item;
                 const card = cardForItem(item.id);
                 return {
                   label: item.name,
-                  detail: item.description || card?.title || "a room keepsake",
+                  detail: candidate.exchangeItem
+                    ? `${item.description || card?.title || "a room keepsake"} · leaves ${candidate.exchangeItem.name}`
+                    : (item.description || card?.title || "a room keepsake"),
                   value: String(item.id),
                   card,
                 };
@@ -4459,10 +4561,16 @@
               selectedChoice: String(firstItem.id),
             }),
           };
-          takeAction.selectedPayload = () => ({
-            actor_id: actorId,
-            item_id: Number(takeAction.selectedChoice || firstItem.id),
-          });
+          takeAction.selectedPayload = () => {
+            const selectedItemId = Number(takeAction.selectedChoice || firstItem.id);
+            const selected = takeCandidates.find((candidate) => Number(candidate.item.id) === selectedItemId)
+              || firstCandidate;
+            return {
+              actor_id: actorId,
+              item_id: selectedItemId,
+              ...(selected.exchangeItem ? { target_item_id: Number(selected.exchangeItem.id) } : {}),
+            };
+          };
           takeAction.run = () => action("/actions/pick-up", takeAction.selectedPayload());
           built.push(takeAction);
         }
@@ -4934,6 +5042,62 @@
           run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 })
         });
       }
+      if (options.has("study")) {
+        const studyOffer = offerFor("study");
+        built.push({
+          label: studyOffer?.label || "study",
+          detail: studyOffer?.target?.label || "the moonlit signs",
+          command: studyOffer?.command || "study the moonlit signs",
+          focusKey: `study:${view.location?.id || "current"}`,
+          card: cardForLocation(view.location?.id),
+          shape: "location",
+          priority: Number(studyOffer?.rank || 61),
+          modalSummary: "Reason through what the signs mean.",
+          effect: studyOffer?.effect || "an understood truth joins your Visit Ledger",
+          risk: studyOffer?.risk,
+          run: () => action("/actions/study", { actor_id: actorId, ability: "intelligence", dc: 12 }),
+        });
+      }
+      if (options.has("influence")) {
+        const influenceOffer = offerFor("influence");
+        const targetId = Number(influenceOffer?.target?.id || 0);
+        if (targetId) built.push({
+          label: influenceOffer?.label || "influence",
+          detail: influenceOffer?.target?.label || "a nearby resident",
+          command: influenceOffer?.command || "ask for a local lead",
+          focusKey: `influence:${targetId}`,
+          card: cardForActor(targetId),
+          shape: "avatar",
+          priority: Number(influenceOffer?.rank || 58),
+          modalSummary: "Ask for one bounded, authored form of cooperation.",
+          effect: influenceOffer?.effect,
+          risk: influenceOffer?.risk,
+          run: () => action("/actions/influence", {
+            actor_id: actorId,
+            target_actor_id: targetId,
+          }),
+        });
+      }
+      if (options.has("cast_spell")) {
+        const spellOffer = offerFor("cast_spell");
+        const spellId = Number(spellOffer?.source_collectible?.instance_id || 0);
+        if (spellId) built.push({
+          label: spellOffer?.label || "cast",
+          detail: cardForItem(spellId)?.display_name || "Steady Light",
+          command: spellOffer?.command || "cast steady light",
+          focusKey: `spell:${spellId}`,
+          card: cardForItem(spellId),
+          shape: "item",
+          priority: Number(spellOffer?.rank || 22),
+          modalSummary: "Play this prepared spell card on yourself.",
+          effect: spellOffer?.effect,
+          run: () => action("/actions/cast-spell", {
+            actor_id: actorId,
+            item_id: spellId,
+            target_actor_id: actorId,
+          }),
+        });
+      }
       const evolveAction = buildEvolveAction();
       if (evolveAction) built.push(evolveAction);
       if (options.has("create_bond") && Number(ledger.advancement_points || 0) > 0) {
@@ -5352,6 +5516,7 @@
               setStatus(status.moved ? "NFT wallet claim moved here." : "NFT wallet claimed.", "ok");
               focusIndex = 0;
               focusedKey = "";
+              playerPromotedHandKey = "";
               await refresh();
               connectStream();
               closeWalletQrModal(true);
@@ -5399,6 +5564,7 @@
               setStatus("Wallet connected.", "ok");
               focusIndex = 0;
               focusedKey = "";
+              playerPromotedHandKey = "";
               await refresh();
               connectStream();
               closeWalletQrModal(true);
@@ -5463,6 +5629,7 @@
         setStatus("Wallet connected.", "ok");
         focusIndex = 0;
         focusedKey = "";
+        playerPromotedHandKey = "";
         await refresh();
         connectStream();
         return true;
@@ -5537,6 +5704,7 @@
       setStatus(cards.length ? `Opened avatar bundle: ${cards.join(", ")}` : "Opened avatar bundle.", "ok");
       focusIndex = 0;
       focusedKey = "";
+      playerPromotedHandKey = "";
       accountPanelPinned = true;
       await refresh();
     }
@@ -5600,11 +5768,87 @@
       });
     }
 
+    function offerKindsForPath(path, actionCard = pendingAction) {
+      const byPath = {
+        "/actions/chat": ["chat"],
+        "/actions/move": ["move"],
+        "/actions/explore-path": ["search"],
+        "/actions/flee": ["flee"],
+        "/actions/check": ["check"],
+        "/actions/study": ["study"],
+        "/actions/influence": ["influence"],
+        "/actions/cast-spell": ["cast_spell"],
+        "/actions/pick-up": ["pick_up"],
+        "/actions/drop": ["drop_item"],
+        "/actions/give-item": ["give_item"],
+        "/actions/trade-item": ["trade_item"],
+        "/actions/theft": ["theft"],
+        "/actions/craft": ["craft"],
+        "/actions/attack": ["attack"],
+        "/actions/defend": ["defend"],
+        "/actions/prepare": ["prepare"],
+        "/actions/work": ["work"],
+        "/actions/help": ["help"],
+        "/actions/rest": ["rest"],
+        "/actions/bank-ledger": ["bank_ledger"],
+        "/actions/unlock-charm-slot": ["unlock_charm_slot"],
+        "/actions/create-bond": ["create_bond"],
+        "/actions/resolve-bond": ["resolve_bond"],
+      };
+      if (path === "/actions/use-item") {
+        const selected = actionCard?.selectedMode?.()?.source || actionCard;
+        return [selected?.useChoiceKind === "feature" ? "use_feature" : "use_item"];
+      }
+      return byPath[path] || [];
+    }
+
+    function offerPayloadTarget(path, offer, payload) {
+      const targetKind = String(offer?.target?.kind || "");
+      if ((path === "/actions/move" || path === "/actions/flee") && targetKind === "location") {
+        return Number(payload.destination_location_id || 0);
+      }
+      if (path === "/actions/craft" && targetKind === "recipe") return Number(payload.recipe_id || 0);
+      if ((path === "/actions/pick-up" || path === "/actions/drop") && targetKind === "item") {
+        return Number(payload.item_id || 0);
+      }
+      if (["/actions/trade-item", "/actions/theft"].includes(path) && targetKind === "item") return Number(payload.target_item_id || 0);
+      if (["/actions/chat", "/actions/attack", "/actions/give-item", "/actions/create-bond", "/actions/resolve-bond", "/actions/cast-spell", "/actions/influence"].includes(path)
+          && targetKind === "actor") {
+        return Number(payload.target_actor_id || 0);
+      }
+      return 0;
+    }
+
+    function currentOfferForSubmission(path, payload) {
+      const kinds = offerKindsForPath(path);
+      if (!kinds.length) return null;
+      const candidates = (state?.action_offers || []).filter((offer) => kinds.includes(offer.kind));
+      return candidates.find((offer) => {
+        const submittedTarget = offerPayloadTarget(path, offer, payload);
+        return !submittedTarget || !offer?.target?.id || Number(offer.target.id) === submittedTarget;
+      }) || null;
+    }
+
     async function action(path, payload) {
       setError("");
       const clearFirstTaleAfterAction = firstTaleCelebration && path !== "/actions/timeout";
       const beforeOrbs = economyOrbCount();
-      const result = await post(path, withAccess(payload));
+      const authoritativePayload = withAccess(payload);
+      const offer = currentOfferForSubmission(path, authoritativePayload);
+      const result = offer
+        ? await post("/actions/submit", {
+            path,
+            offer_id: offer.offer_id,
+            kind: offer.kind,
+            rules_action: offer.rules_action,
+            operation: offer.operation,
+            rules_profile: offer.rules_profile,
+            state_revision: offer.state_revision,
+            target: offer.target,
+            cost: offer.cost,
+            payload: authoritativePayload,
+          })
+        : await post(path, authoritativePayload);
       pushEvents(result.events || []);
       if (!result.ok) {
         setError(actionFailureMessage(path, result));
@@ -5614,6 +5858,7 @@
       if (result.ok && clearFirstTaleAfterAction) firstTaleCelebration = false;
       focusIndex = 0;
       focusedKey = "";
+      playerPromotedHandKey = "";
       if (!result.ok) void queueRefresh();
       announceOrbChange(beforeOrbs, result.ok);
       return result;
@@ -5693,6 +5938,7 @@
       if (result.ok && clearFirstTaleAfterAction) firstTaleCelebration = false;
       focusIndex = 0;
       focusedKey = "";
+      playerPromotedHandKey = "";
       await refresh();
       announceOrbChange(beforeOrbs, result.ok);
       return result;
@@ -6084,6 +6330,25 @@
       "combat.defend",
       "combat.knockout",
       "combat.flee.success",
+      "world.weather.shifted",
+      "world.weather.held",
+      "world.trade.flowed",
+      "world.trade.disrupted",
+      "world.faction.influence_shifted",
+      "world.conflict.pressure_grew",
+      "world.conflict.pressure_eased",
+      "world.conflict.escalated",
+    ]);
+
+    const worldTranscriptEventTypes = new Set([
+      "world.weather.shifted",
+      "world.weather.held",
+      "world.trade.flowed",
+      "world.trade.disrupted",
+      "world.faction.influence_shifted",
+      "world.conflict.pressure_grew",
+      "world.conflict.pressure_eased",
+      "world.conflict.escalated",
     ]);
 
     const mechanicalCommandOutputPrefixes = [
@@ -6144,6 +6409,7 @@
 
     function eventShouldRefreshState(event) {
       if (!event) return false;
+      if (worldTranscriptEventTypes.has(event.type)) return true;
       return event.type === "world.reset"
         || event.type === "actor.presence"
         || event.type === "actor.created"
@@ -6262,9 +6528,10 @@
       $("room-avatar-rail").innerHTML = roomAvatarRailHtml(state);
       $("subtitle").textContent = location.name || "Unknown";
       const brand = $("brand");
-      brand.textContent = libraryPanelPinned ? "close library" : "world library";
-      brand.setAttribute("aria-label", libraryPanelPinned ? "Close World Library" : "Open World Library");
-      brand.setAttribute("aria-expanded", libraryPanelPinned ? "true" : "false");
+      const menuOpen = libraryPanelPinned || accountPanelPinned;
+      brand.textContent = menuOpen ? "close menu" : "menu";
+      brand.setAttribute("aria-label", menuOpen ? "Close Menu" : "Open Menu");
+      brand.setAttribute("aria-expanded", menuOpen ? "true" : "false");
       renderEconomy();
       $("avatar").textContent = me ? `${actorLabel(me)}, ${me.title || "traveler"}` : "";
       $("location-name").textContent = location.name || "Unknown";
@@ -6283,29 +6550,25 @@
     function renderEconomy() {
       const economy = state?.economy || {};
       const orbs = Number.isFinite(Number(economy.orbs)) ? Number(economy.orbs) : 0;
-      const boxes = state?.access?.owned_box_ids?.length || 0;
-      const packs = state?.access?.unopened_pack_ids?.length || 0;
-      const signed = state?.access?.mode === "signed_wallet_entitlements" && Boolean(walletSession);
       const parts = [`<strong>${orbs}</strong> orbs`];
+      const boxes = Array.isArray(state?.account?.active_box_ids) ? state.account.active_box_ids.length : 0;
+      const packs = Array.isArray(state?.account?.unopened_pack_ids) ? state.account.unopened_pack_ids.length : 0;
       const compact = window.matchMedia("(max-width: 900px)").matches;
       if (economyFlash) {
         parts.push(`<span class="economy-flash ${escapeAttr(economyFlash.kind)}">${escapeHtml(economyFlash.text)}</span>`);
+      }
+      if (!compact && state?.deck?.actor_id) {
+        const carried = Number(state.deck.carried_weight_tenths || 0) / 10;
+        const capacity = Number(state.deck.carrying_capacity_tenths || 0) / 10;
+        parts.push(`${carried.toFixed(1)}/${capacity.toFixed(1)} lb`);
       }
       if (!compact) {
         if (boxes) parts.push(`${boxes} ${boxes === 1 ? "box" : "boxes"}`);
         if (packs) parts.push(`${packs} ${packs === 1 ? "bundle" : "bundles"}`);
       }
-      parts.push(accountPanelPinned ? "close" : "account");
       const economyNode = $("economy");
       economyNode.innerHTML = parts.join(" · ");
-      economyNode.setAttribute(
-        "aria-label",
-        accountPanelPinned
-          ? "Close your keepsake collection and return to room chat"
-          : `Open your keepsake collection: ${orbs} Orbs, ${boxes} Boxes, and ${packs} unopened avatar bundles`
-      );
-      economyNode.setAttribute("aria-expanded", accountPanelPinned ? "true" : "false");
-      economyNode.classList.toggle("focused", Boolean(accountPanelPinned));
+      economyNode.setAttribute("aria-label", `${orbs} Orbs and carried deck status`);
     }
 
     function exitUnavailable(exit, view = state) {
@@ -6422,8 +6685,8 @@
       if (Array.isArray(view?.bonds) && view.bonds.length) {
         return "you noticed a clue, grew from it, and made a new friend.";
       }
-      if (Array.isArray(view?.skills) && view.skills.length) {
-        return "you noticed a clue, grew from it, and trained an ability.";
+      if (Number(view?.deck?.bracelet_slots || 0) > 1) {
+        return "you noticed a clue, grew from it, and opened room for another skill charm.";
       }
       return "you noticed a clue, grew from it, and chose what to care about.";
     }
@@ -6431,7 +6694,7 @@
     function firstTaleIsComplete(view = state) {
       const ledger = view?.ledger || {};
       const shapedIdentity = (Array.isArray(view?.bonds) && view.bonds.length)
-        || (Array.isArray(view?.skills) && view.skills.length);
+        || Number(view?.deck?.bracelet_slots || 0) > 1;
       return Boolean(
         actorId
           && Number(ledger.learned_truth_count || 0) > 0
@@ -6530,7 +6793,7 @@
           && action.evolveModes.includes("practice")
       )) || findAction("practice");
       if (evolve) {
-        return makeThread(evolve, "Something you learned is ready to become part of you", "evolve");
+        return makeThread(evolve, "Something you learned can open room for another found charm", "evolve");
       }
       return null;
     }
@@ -7043,18 +7306,120 @@
       log.scrollTop = tailChanged || wasAtBottom ? log.scrollHeight : previousScrollTop;
     }
 
+    function menuNavHtml(active = menuSection) {
+      const entries = [
+        ["deck", "deck"],
+        ["collection", "collection & account"],
+        ["identity", "sign in / identity"],
+        ["world", "worlds & packs"],
+        ["journal", "journal"],
+        ["settings", "orbs & settings"],
+      ];
+      return `<nav class="menu-nav" aria-label="Menu sections">${entries.map(([id, label]) => {
+        const worldPackAttrs = id === "world"
+          ? ' data-player-concept="world-pack" data-analytics-event="world_pack.library.open"'
+          : "";
+        return `<button type="button" class="${id === active ? "active" : ""}" data-menu-section="${id}"${worldPackAttrs}>${label}</button>`;
+      }).join("")}</nav>`;
+    }
+
+    function deckWeightLabel(tenths) {
+      return `${(Number(tenths || 0) / 10).toFixed(1)} lb`;
+    }
+
+    function deckCardRow(card, actionHtml = "") {
+      const skill = card.skill_id ? ` · ${card.skill_id.replaceAll("_", " ")} ${Number(card.skill_bonus || 0) >= 0 ? "+" : ""}${card.skill_bonus || 0}` : "";
+      const charges = ["spell", "consumable"].includes(String(card.role || "")) ? ` · ${Number(card.charges || 0)} use${Number(card.charges || 0) === 1 ? "" : "s"}` : "";
+      return `<div class="deck-card"><div class="deck-card-copy"><strong>${escapeHtml(card.name || `Item ${card.id}`)}</strong><small>${escapeHtml(`${card.zone || "carried"} · ${card.role || "generic"} · ${card.size || "small"} · ${deckWeightLabel(card.weight_tenths)}${charges}${skill}`)}</small></div>${actionHtml}</div>`;
+    }
+
+    function deckPanelHtml() {
+      const deck = state?.deck || {};
+      const carried = Array.isArray(deck.carried_cards) ? deck.carried_cards : [];
+      const equipped = Array.isArray(deck.equipped_charms) ? deck.equipped_charms : [];
+      const available = Array.isArray(deck.available_charms) ? deck.available_charms : [];
+      const spells = Array.isArray(deck.spell_cards) ? deck.spell_cards : [];
+      const preparedSpells = Array.isArray(deck.prepared_spell_cards) ? deck.prepared_spell_cards : [];
+      const exhaustedCards = Array.isArray(deck.exhausted_cards) ? deck.exhausted_cards : [];
+      const exhaustedSpellIds = new Set((Array.isArray(deck.exhausted_spell_cards) ? deck.exhausted_spell_cards : []).map((card) => Number(card.id)));
+      const preparedSpellIds = new Set(preparedSpells.map((card) => Number(card.id)));
+      const spellSlots = Number(deck.spell_deck_slots || 0);
+      const containers = Array.isArray(deck.containers) ? deck.containers : [];
+      const validationErrors = Array.isArray(deck.validation_errors) ? deck.validation_errors : [];
+      const bagPreviews = Array.isArray(deck.bag_previews) ? deck.bag_previews : [];
+      const slots = Number(deck.bracelet_slots || 0);
+      const advancement = Number(state?.ledger?.advancement_points || 0);
+      const unlock = slots > 0 && slots < 6
+        ? `<button class="account-button secondary" type="button" data-unlock-charm-slot${advancement < 1 ? " disabled" : ""}>unlock another slot · 1 advancement</button>`
+        : "";
+      const charmRows = [
+        ...equipped.map((card) => deckCardRow(card, `<button class="account-button secondary" type="button" data-set-charm="${card.id}" data-equipped="false">remove</button>`)),
+        ...available.map((card) => deckCardRow(card, `<button class="account-button secondary" type="button" data-set-charm="${card.id}" data-equipped="true"${equipped.length >= slots ? " disabled" : ""}>wear</button>`)),
+      ].join("");
+      const firstContainer = containers[0]?.container || null;
+      const carriedRows = carried.length ? carried.map((card) => {
+        const receipt = (state?.account?.materialization_receipts || []).find((entry) => (
+          Number(entry.item_id) === Number(card.id) && entry.status === "materialized"
+        ));
+        const actionParts = [];
+        if (["weapon", "container"].includes(String(card.role || ""))) {
+          const equipped = card.zone === "equipped";
+          actionParts.push(`<button class="account-button secondary" type="button" data-set-item-equipped="${card.id}" data-equipped="${equipped ? "false" : "true"}">${equipped ? "unequip" : "equip"}</button>`);
+        } else if (card.zone === "contained") {
+          actionParts.push(`<button class="account-button secondary" type="button" data-set-contained="${card.id}" data-container="">take out</button>`);
+        } else if (firstContainer && !["skill_charm", "spell"].includes(String(card.role || ""))) {
+          actionParts.push(`<button class="account-button secondary" type="button" data-set-contained="${card.id}" data-container="${firstContainer.id}">put in ${escapeHtml(firstContainer.name)}</button>`);
+        }
+        if (receipt && card.zone === "carried") {
+          actionParts.push(`<button class="account-button secondary" type="button" data-unmaterialize-receipt="${escapeAttr(receipt.id)}">return to collection</button>`);
+        }
+        return deckCardRow(card, actionParts.join(""));
+      }).join("") : `<div class="deck-empty">Your carried deck is empty. Pick up item cards in the world.</div>`;
+      const spellRows = spells.length ? spells.map((card) => {
+        const prepared = preparedSpellIds.has(Number(card.id));
+        const exhausted = exhaustedSpellIds.has(Number(card.id));
+        const actionHtml = exhausted
+          ? `<span class="account-wallet">exhausted</span>`
+          : `<button class="account-button secondary" type="button" data-set-spell="${card.id}" data-prepared="${prepared ? "false" : "true"}"${!prepared && preparedSpells.length >= spellSlots ? " disabled" : ""}>${prepared ? "unprepare" : "prepare"}</button>`;
+        return deckCardRow(card, actionHtml);
+      }).join("") : `<div class="deck-empty">No spell cards are currently carried.</div>`;
+      const loadoutRows = [deck.equipped_weapon, ...(Array.isArray(deck.equipped_containers) ? deck.equipped_containers : [])]
+        .filter(Boolean)
+        .map((card) => deckCardRow(card))
+        .join("");
+      const containerRows = containers.map((entry) => {
+        const contentNames = (entry.contents || []).map((card) => card.name).join(", ") || "empty";
+        return `<div class="keepsake-note"><strong>${escapeHtml(entry.container?.name || "container")}</strong> · ${entry.equipped ? "equipped" : "inactive"} · opening ${escapeHtml(entry.opening_size || "none")} · contents: ${escapeHtml(contentNames)}</div>`;
+      }).join("");
+      const validation = validationErrors.map((message) => `<div class="deck-empty">${escapeHtml(message)}</div>`).join("");
+      const previews = bagPreviews.map((message) => `<div class="keepsake-note">${escapeHtml(message)}</div>`).join("");
+      const exhaustedRows = exhaustedCards.length
+        ? exhaustedCards.map((card) => deckCardRow(card, `<span class="account-wallet">exhausted</span>`)).join("")
+        : `<div class="deck-empty">No cards are exhausted.</div>`;
+      return `<div class="account-title"><h2 id="account-panel-title">your deck</h2><span class="account-wallet">physical cards, not a fixed card count</span></div><div class="deck-summary"><div class="deck-stat"><strong>${escapeHtml(deckWeightLabel(deck.carried_weight_tenths))} / ${escapeHtml(deckWeightLabel(deck.carrying_capacity_tenths))}</strong><small>carried weight · base ${escapeHtml(deckWeightLabel(deck.base_carrying_capacity_tenths))} + equipped bags ${escapeHtml(deckWeightLabel(deck.container_capacity_tenths))}</small></div><div class="deck-stat"><strong>${equipped.length} / ${slots}</strong><small>bracelet charm slots</small></div><div class="deck-stat"><strong>${preparedSpells.length} / ${spellSlots}</strong><small>prepared spell cards</small></div></div>${validation}${previews}<div class="account-section-title">equipped loadout</div>${loadoutRows ? `<div class="deck-card-list">${loadoutRows}</div>` : `<div class="deck-empty">No weapon or bag is equipped.</div>`}<div class="account-section-title">containers</div>${containerRows || `<div class="deck-empty">No container cards are carried.</div>`}<div class="account-section-title">skill charms</div><div class="keepsake-note">Advancement opens a bracelet slot; it never creates the charm that goes in it.</div>${charmRows ? `<div class="deck-card-list">${charmRows}</div>` : `<div class="deck-empty">Find, earn, trade, or steal a skill charm before you can wear it.</div>`}${unlock}<div class="account-section-title">spell deck</div><div class="keepsake-note">Only prepared spell cards can be cast. Spent cards remain in the deck as exhausted until a rule refreshes them.</div><div class="deck-card-list">${spellRows}</div><div class="account-section-title">exhausted / discard</div><div class="deck-card-list">${exhaustedRows}</div><div class="account-section-title">all carried cards</div><div class="deck-card-list">${carriedRows}</div>`;
+    }
+
+    function journalPanelHtml() {
+      return `<div class="account-title"><h2 id="account-panel-title">journal</h2><span class="account-wallet">portable tale</span></div><div class="library-intro">Export the events visible to this avatar as JSON. The export includes current access credentials only in the request, never in the file.</div><div class="account-actions"><button class="account-button" type="button" data-export-journal>export journal</button></div>`;
+    }
+
+    function settingsPanelHtml() {
+      const economy = state?.economy || {};
+      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div>${accountRow("chat", economy.chat_cost_orbs ? `${economy.chat_cost_orbs} Orbs per AI reply` : "no Orb cost")}${accountRow("AI", economy.openrouter_connected ? "connected" : "world default")}${accountRow("carried deck", `${deckWeightLabel(economy.carried_weight_tenths)} / ${deckWeightLabel(economy.carrying_capacity_tenths)}`)}`;
+    }
+
     function libraryPanelHtml() {
       if (!libraryPanelPinned) return "";
       const packs = Array.isArray(contentPacks?.packs) ? contentPacks.packs.filter((pack) => pack.visible !== false) : [];
       if (!packs.length) {
-        return `<section class="account-panel library-panel" aria-labelledby="world-library-title"><div class="library-heading"><h2 id="world-library-title">world library</h2></div><div class="library-intro">The worlds are still gathering. Try again in a moment.</div></section>`;
+        return `<section class="account-panel library-panel" aria-labelledby="world-library-title">${menuNavHtml("world")}<div class="library-heading"><h2 id="world-library-title">world library</h2></div><div class="library-intro">The worlds are still gathering. Try again in a moment.</div></section>`;
       }
       const bundle = compactAssetId(contentPacks?.bundle_hash || "");
       const cards = packs.map(libraryPackHtml).join("");
       const bundleDetails = bundle
         ? `<details class="library-technical"><summary>bundle details</summary><code>${escapeHtml(bundle)}</code></details>`
         : "";
-      return `<section class="account-panel library-panel" aria-labelledby="world-library-title"><div class="library-heading"><h2 id="world-library-title">world library</h2><small>${escapeHtml(`${packs.length} world packs mounted`)}</small></div><div class="library-intro">See where your story can travel. Open worlds are ready now; locked places name the pass or access they need.</div>${worldChronicleHtml()}<div class="library-grid">${cards}</div>${bundleDetails}</section>`;
+      return `<section class="account-panel library-panel" aria-labelledby="world-library-title">${menuNavHtml("world")}<div class="library-heading"><h2 id="world-library-title">world library</h2><small>${escapeHtml(`${packs.length} world packs mounted`)}</small></div><div class="library-intro">See where your story can travel. Open worlds are ready now; locked places name the pass or access they need.</div>${worldChronicleHtml()}<div class="library-grid">${cards}</div>${bundleDetails}</section>`;
     }
 
     function worldChronicleHtml() {
@@ -7212,7 +7577,9 @@
     }
 
     function eventIsChatTranscriptEvent(event) {
-      return event?.type === "message.created" || event?.type === "chat.failed";
+      return event?.type === "message.created"
+        || event?.type === "chat.failed"
+        || (worldTranscriptEventTypes.has(event?.type) && eventMatchesCurrentLocation(event));
     }
 
     function transcriptEventHtml(event) {
@@ -7221,6 +7588,18 @@
 
     function accountPanelHtml() {
       if (!accountPanelPinned) return "";
+      if (menuSection === "deck") {
+        return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}${deckPanelHtml()}</section>`;
+      }
+      if (menuSection === "journal") {
+        return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}${journalPanelHtml()}</section>`;
+      }
+      if (menuSection === "settings") {
+        return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}${settingsPanelHtml()}</section>`;
+      }
+      if (menuSection === "identity") {
+        return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}<div class="account-title"><h2 id="account-panel-title">sign in & identity</h2><span class="account-wallet">portable account, optional NFT access</span></div>${identitySectionHtml()}</section>`;
+      }
       const account = state?.account || {};
       const wallet = account.wallet_address || state?.access?.owner_wallet_address || "";
       const ownedCards = Array.isArray(account.owned_cards) ? account.owned_cards : [];
@@ -7246,12 +7625,12 @@
         assets.push(accountPackCard(packId));
       }
       const inventoryRows = [
-        accountRow("keepsakes", equippedCardIds.length
+        accountRow("favorites", equippedCardIds.length
           ? `${equippedCardIds.map(cardDisplayName).join(", ")} · ${equippedCardIds.length >= keepsakeCapacity
-            ? "all three kept close"
+            ? "all three collection favorites pinned"
             : `room for ${smallNumberWord(keepsakeCapacity - equippedCardIds.length)} more`}`
-          : "choose a few to keep close"),
-        accountRow("collection", ownedCards.length ? `${smallNumberWord(ownedCards.length)} keepsakes gathered` : "waiting to be found"),
+          : "choose a few collection cards to pin"),
+        accountRow("cards", ownedCards.length ? `${smallNumberWord(ownedCards.length)} in your collection` : "waiting to be found"),
         accountRow("boxes", boxes.length ? `${smallNumberWord(boxes.length)} waiting to open` : "a wooden box may turn up"),
         accountRow("bundles", packs.length ? `${smallNumberWord(packs.length)} waiting to open` : "an avatar bundle may turn up"),
       ];
@@ -7276,12 +7655,12 @@
         : `<div class="account-empty">your collection is waiting for its first keepsake</div>`;
       const accountActions = actions.length ? `<div class="account-actions">${actions.join("")}</div>` : "";
       const keepsakeNote = ownedCards.length
-        ? `<div class="keepsake-note">Keep a few keepsakes close—up to three. Their art can appear beside matching choices without changing actions or odds.</div>`
+        ? `<div class="keepsake-note">Keep a few keepsakes close—up to three. This is a menu preference, not your physical carried deck or bracelet.</div>`
         : "";
       const accountName = identity?.authenticated
         ? "CosyWorld account"
         : (signed ? (compactAssetId(wallet) || "linked account") : "local tale");
-      return `<section class="account-panel" aria-labelledby="account-panel-title"><div class="account-title"><h2 id="account-panel-title">your avatar</h2><span class="account-wallet">${escapeHtml(accountName)}</span></div>${identitySectionHtml()}${characterSheetHtml()}${accountActions}<div class="account-section"><div class="account-section-title">your keepsakes</div>${keepsakeNote}${inventory}${inventoryRows.join("")}</div></section>`;
+      return `<section class="account-panel" aria-labelledby="account-panel-title">${menuNavHtml()}<div class="account-title"><h2 id="account-panel-title">collection & account</h2><span class="account-wallet">${escapeHtml(accountName)}</span></div>${characterSheetHtml()}${accountActions}<div class="account-section"><div class="account-section-title">owned collection</div><div class="keepsake-note">Collection ownership is separate from world, carried, equipped, spell-deck, exhausted, and transfer zones. Materializing an eligible item creates one durable shard instance; it does not grant a slot or advancement.</div>${keepsakeNote}${inventory}${inventoryRows.join("")}</div></section>`;
     }
 
     function identitySectionHtml() {
@@ -7320,20 +7699,18 @@
       const growthReady = Number(ledger.advancement_points || 0);
       const growthSummary = [
         memoriesReady ? "something you noticed is ready to keep" : "",
-        growthReady ? "you can strengthen a friendship or train an ability" : "",
+        growthReady ? "you can strengthen a friendship or open bracelet space" : "",
       ].filter(Boolean).join(" · ") || "your first little moment is waiting";
       const rows = [
         accountRow("purpose", purpose),
         accountRow("journal", growthSummary),
       ];
-      const skills = Array.isArray(state?.skills) ? state.skills : [];
-      rows.push(accountRow("ability training", skills.length ? skills.map((skill) => {
-        const rank = Number(skill.rank || 0);
-        const confidence = rank >= 3 ? "second nature" : (rank === 2 ? "strong" : "growing");
-        const label = abilityLabel(skill.skill_id || skill.label, skill.label);
-        const bonus = Math.max(0, Number(skill.bonus ?? rank) || 0);
-        return `${label} checks +${bonus} — ${confidence}`;
-      }).join(", ") : "ability training will grow here"));
+      const equippedCharms = Array.isArray(state?.deck?.equipped_charms) ? state.deck.equipped_charms : [];
+      rows.push(accountRow("worn skill charms", equippedCharms.length ? equippedCharms.map((charm) => {
+        const skill = abilityLabel(charm.skill_id, charm.skill_id || "skill");
+        const bonus = Math.max(0, Number(charm.skill_bonus || 0));
+        return `${charm.name} — ${skill}${bonus ? ` +${bonus}` : ""}`;
+      }).join(", ") : "find a skill charm, then wear it from Deck"));
       const bonds = Array.isArray(state?.bonds) ? state.bonds : [];
       rows.push(accountRow("friends", bonds.length ? bonds.map((bond) => {
         const name = String(bond.target_actor_name || "someone").trim();
@@ -7368,7 +7745,23 @@
       const buttonLabel = equipped ? "put away" : "keep close";
       const cardName = card.display_name || card.card_id || "Owned keepsake";
       const cardNameHtml = `${emojiHtml(cardEmoji(card, shape))}${escapeHtml(cardName)}`;
-      return `<div class="account-asset owned-card ${escapeAttr(shape)}${equipped ? " kept-close" : ""}" data-player-concept="keepsake"><button class="account-card-open" type="button"${cardDataAttr(card)} aria-label="Open ${escapeAttr(cardName)} keepsake details" data-analytics-event="keepsake.open"><img src="${escapeAttr(image)}" alt="" /></button><div class="account-asset-title">${cardNameHtml}</div><div class="account-asset-subtitle">${escapeHtml(rarity)} · ${escapeHtml(card.title || card.role || "keepsake")}</div><div class="account-asset-effect"><span>when kept close</span>${escapeHtml(keepsakePromise(card))}</div><button class="account-button secondary" type="button" data-account-toggle-keepsake="${escapeAttr(card.card_id || "")}" data-analytics-event="keepsake.toggle"${!equipped && full ? " disabled" : ""}>${buttonLabel}</button></div>`;
+      const itemCard = ["item", "weapon", "spell", "container", "skill charm", "skill_charm", "tool", "consumable", "relic"]
+        .some((role) => String(card.role || "").toLowerCase().includes(role));
+      const receipt = (state?.account?.materialization_receipts || []).find((entry) => entry.card_id === card.card_id);
+      const materialized = receipt?.status === "materialized";
+      const materializeButton = itemCard && actorId
+        ? materialized
+          ? `<button class="account-button secondary" type="button" data-unmaterialize-receipt="${escapeAttr(receipt.id)}">return from carried deck</button>`
+          : `<button class="account-button secondary" type="button" data-materialize-card="${escapeAttr(card.card_id || "")}">materialize to carried deck</button>`
+        : "";
+      const zoneCopy = itemCard ? `<div class="account-asset-effect"><span>authoritative zone</span>${materialized ? "carried in this shard" : "collection"}</div>` : "";
+      return `<div class="account-asset owned-card ${escapeAttr(shape)}${equipped ? " kept-close" : ""}" data-player-concept="keepsake"><button class="account-card-open" type="button"${cardDataAttr(card)} aria-label="Open ${escapeAttr(cardName)} keepsake details" data-analytics-event="keepsake.open"><img src="${escapeAttr(image)}" alt="" /></button><div class="account-asset-title">${cardNameHtml}</div><div class="account-asset-subtitle">${escapeHtml(rarity)} · ${escapeHtml(card.title || card.role || "keepsake")}</div>${zoneCopy}<div class="account-asset-effect"><span>when kept close</span>${escapeHtml(keepsakePromise(card))}</div><button class="account-button secondary" type="button" data-account-toggle-keepsake="${escapeAttr(card.card_id || "")}" data-analytics-event="keepsake.toggle"${!equipped && full ? " disabled" : ""}>${buttonLabel}</button>${materializeButton}</div>`;
+    }
+
+    function materializationReceiptId(cardId) {
+      const left = handHash(cardId, Number(actorId || 0)).toString(16).padStart(8, "0");
+      const right = handHash([...String(cardId)].reverse().join(""), Number(actorId || 0) ^ 0x9e3779b9).toString(16).padStart(8, "0");
+      return `web:${actorId}:${left}${right}`;
     }
 
     function boxImageUrl(boxId, stateName = "closed") {
@@ -7381,7 +7774,7 @@
         "a wooden box may turn up",
         "an avatar bundle may turn up",
         "your first little moment is waiting",
-        "ability training will grow here",
+        "found skill charms will appear here",
         "someone new is waiting to meet you",
       ].includes(value);
       return `<div class="account-row"><span class="account-key">${escapeHtml(key)}</span><span class="account-value${empty ? " account-empty" : ""}">${escapeHtml(value)}</span></div>`;
@@ -7519,6 +7912,30 @@
       }
       if (type === "chat.failed") {
         return "The conversation slipped away before it could begin. Your Orb came back.";
+      }
+      if (type === "world.weather.shifted") {
+        return finishSentence(cleanStatusText(event.content || "The weather changes its mind"));
+      }
+      if (type === "world.weather.held") {
+        return finishSentence(cleanStatusText(event.content || "The weather settles in and stays"));
+      }
+      if (type === "world.trade.flowed") {
+        return finishSentence(cleanStatusText(event.content || "Something useful finds its way along the road"));
+      }
+      if (type === "world.trade.disrupted") {
+        return finishSentence(cleanStatusText(event.content || "Something useful cannot find its way along the road"));
+      }
+      if (type === "world.faction.influence_shifted") {
+        return finishSentence(cleanStatusText(event.content || "A familiar presence carries farther today"));
+      }
+      if (type === "world.conflict.pressure_grew") {
+        return finishSentence(cleanStatusText(event.content || "An unanswered strain draws the air taut"));
+      }
+      if (type === "world.conflict.pressure_eased") {
+        return finishSentence(cleanStatusText(event.content || "Whatever pressed here loosens, for now"));
+      }
+      if (type === "world.conflict.escalated") {
+        return finishSentence(cleanStatusText(event.content || "Old strains meet, and the air hardens"));
       }
       if (type.startsWith("journey.") || type === "pathway.discovered" || type === "pathway.familiarized") {
         return finishSentence(cleanStatusText(event.content || "The path changes beneath careful feet"));
@@ -7853,7 +8270,14 @@
       if (event.type === "calling.revised") return `finds a new purpose: ${withoutFinalPeriod(callingEventLabel(event))}.`;
       if (event.type === "ledger.marked") return `keeps a memory: ${ledgerEventLabel(event)}.`;
       if (event.type === "ledger.banked") return `${ledgerBankedEventLabel(event)}.`;
-      if (event.type === "advancement.spent") return "puts what they learned into practice.";
+      if (event.type === "advancement.spent") {
+        return String(event.content || "").startsWith("charm_slot:")
+          ? "uses what they learned to open bracelet space."
+          : "puts what they learned into practice.";
+      }
+      if (event.type === "charm_slot.unlocked") return "opens room for another found skill charm.";
+      if (event.type === "skill_charm.equipped") return `wears ${event.item_name || "a skill charm"}.`;
+      if (event.type === "skill_charm.unequipped") return `removes ${event.item_name || "a skill charm"}.`;
       if (event.type === "skill.stepped") return `${skillEventLabel(event)}.`;
       if (event.type === "bond.deepened") return `grows closer to ${event.target_actor_name || "someone"}.`;
       if (event.type === "bond.created") return `became friends with ${event.target_actor_name || "someone"}.`;
@@ -8245,14 +8669,10 @@
         rows.push(economyRowHtml("today", escapeHtml(motive)));
       }
       const inventoryCount = Number(economy.inventory_count);
-      const inventoryCapacity = Number(economy.inventory_capacity);
-      if (Number.isFinite(inventoryCount) && Number.isFinite(inventoryCapacity) && inventoryCapacity > 0) {
-        const hands = inventoryCount <= 0
-          ? "free"
-          : (inventoryCount >= inventoryCapacity
-            ? "full"
-            : (inventoryCapacity - inventoryCount === 1 ? "room for one more" : `room for ${inventoryCapacity - inventoryCount} more`));
-        rows.push(economyRowHtml("hands", escapeHtml(hands)));
+      const carriedWeight = Number(economy.carried_weight_tenths || 0);
+      const carryingCapacity = Number(economy.carrying_capacity_tenths || 0);
+      if (Number.isFinite(inventoryCount) && Number.isFinite(carryingCapacity) && carryingCapacity > 0) {
+        rows.push(economyRowHtml("carried deck", escapeHtml(`${inventoryCount} card${inventoryCount === 1 ? "" : "s"} · ${deckWeightLabel(carriedWeight)} / ${deckWeightLabel(carryingCapacity)}`)));
       }
       const sought = Array.isArray(economy.sought_items) ? economy.sought_items : [];
       const listedSoughtIds = new Set();
@@ -8430,7 +8850,7 @@
         summary: "Keep what mattered.",
         rows: [
           ["What stays", "the little things you noticed this visit"],
-          ["What opens", "new ways to strengthen a friendship or train an ability"],
+          ["What opens", "new ways to strengthen a friendship or open bracelet space"],
         ],
       };
     }
@@ -8629,11 +9049,11 @@
           ["Then", "what mattered stays with you"],
         ];
       }
-      if (["practice", "train"].includes(String(action?.label || "").toLowerCase()) && action?.choices?.length) {
+      if (String(action?.label || "").toLowerCase() === "expand bracelet") {
         return [
-          ["Choose", "the ability that gets +1"],
-          ["Then", "its check training bonus increases by +1"],
-          ["Score", "the ability score itself does not change"],
+          ["Spend", "one advancement point"],
+          ["Then", "another bracelet charm slot opens"],
+          ["Still needed", "find, earn, trade, or steal the charm itself"],
         ];
       }
       if (String(action?.label || "").toLowerCase() === "evolve") {
@@ -8644,22 +9064,20 @@
             ? [
                 ["Choose", "one of two lessons"],
                 ["Keep it", "save this visit as growth you can use later"],
-                ["Ability +1", "add +1 to that ability's check training bonus"],
-                ["Score", "the ability score itself does not change"],
+                ["Expand bracelet", "open space for another found skill charm"],
+                ["Still needed", "the charm itself is not granted"],
               ]
             : [
-                ["Choose", "one of two abilities"],
-                ["Your avatar", "the chosen ability gets +1 training"],
-                ["Checks", "the bonus applies to matching ability checks"],
-                ["Score", "the ability score itself does not change"],
-                ["After", "rest before evolving another ability"],
+                ["Spend", "one advancement point"],
+                ["Then", "another bracelet charm slot opens"],
+                ["Still needed", "find the charm itself in the world"],
               ];
         }
         if (Array.isArray(action?.evolveModes) && action.evolveModes.includes("grow")) {
           return bankLedgerPlan(action)?.rows || [];
         }
         return [
-          ["What changes", friendlyActionText(action?.effect) || "an ability gets +1 to its check training bonus"],
+          ["What changes", friendlyActionText(action?.effect) || "another bracelet charm slot opens"],
         ];
       }
       if (String(action?.label || "").toLowerCase() === "rest") {
@@ -9025,12 +9443,12 @@
       if (banked > 0) {
         if (spent > 0 || growth <= 0) return null;
         const bond = findAction((action) => ["grow closer", "bond"].includes(action.label));
-        const train = findAction((action) => (
+        const bracelet = findAction((action) => (
           ["practice", "train"].includes(action.label)
             || (action.label === "evolve" && action.evolveModes?.includes("practice"))
         ));
-        const next = bond || train;
-        const identityActionKeys = [bond, train]
+        const next = bond || bracelet;
+        const identityActionKeys = [bond, bracelet]
           .filter(Boolean)
           .map((action) => actionHandKey(action))
           .filter(Boolean);
@@ -9039,13 +9457,13 @@
           total: 3,
           actionKey: next ? actionHandKey(next) : "",
           actionKeys: identityActionKeys,
-          text: bond && train
-            ? "choose friendship or ability training."
+          text: bond && bracelet
+            ? "choose friendship or bracelet space."
             : bond
             ? "choose a friendship to grow."
-            : train
-              ? "choose an ability to train."
-              : "strengthen a friendship or train an ability.",
+            : bracelet
+              ? "open room for another found skill charm."
+              : "strengthen a friendship or open bracelet space.",
         };
       }
 
@@ -9101,6 +9519,55 @@
       if (index >= 0) return index;
       index = actionIndexForKey(key);
       return index;
+    }
+
+    function actionOfferKindCandidates(action) {
+      const focus = String(action?.focusKey || "").split(":")[0];
+      const label = String(action?.label || "").toLowerCase();
+      const byFocus = {
+        "bank-ledger": ["bank_ledger"],
+        "unlock-charm-slot": ["unlock_charm_slot"],
+        check: ["check"],
+        study: ["study"],
+        influence: ["influence"],
+        spell: ["cast_spell"],
+        defend: ["defend"],
+        prepare: ["prepare"],
+        work: ["work"],
+        help: ["help"],
+        rest: ["rest"],
+        theft: ["theft"],
+      };
+      if (byFocus[focus]) return byFocus[focus];
+      const byLabel = {
+        chat: ["chat"],
+        influence: ["influence"],
+        travel: ["move"],
+        flee: ["flee"],
+        give: ["give_item"],
+        "give item": ["give_item"],
+        trade: ["trade_item"],
+        steal: ["theft"],
+        use: ["use_item", "use_feature"],
+        rest: ["rest"],
+        attack: ["attack"],
+        defend: ["defend"],
+        take: ["pick_up"],
+        search: ["search"],
+        listen: ["check"],
+        "listen again": ["check"],
+        study: ["study"],
+        cast: ["cast_spell"],
+        prepare: ["prepare"],
+        work: ["work"],
+        finish: ["work"],
+        help: ["help"],
+        grow: ["bank_ledger"],
+        "expand bracelet": ["unlock_charm_slot"],
+        "grow closer": ["create_bond"],
+        remember: ["resolve_bond"],
+      };
+      return byLabel[label] || [];
     }
 
     function orderedActionIndexesForHand() {
@@ -9170,10 +9637,30 @@
       if (state?.branch) {
         handKeys = actions.slice(0, 3).map(actionHandKey).filter(Boolean);
         discardedHandKeys = [];
+        playerPromotedHandKey = "";
         return;
+      }
+      const nextAuthoritativeIdentity = (state?.action_hand?.entries || [])
+        .map((offer) => offer.offer_id || `${offer.kind}:${offer.state_revision}`)
+        .join("|");
+      if (nextAuthoritativeIdentity !== authoritativeHandIdentity) {
+        authoritativeHandIdentity = nextAuthoritativeIdentity;
+        handKeys = playerPromotedHandKey ? [playerPromotedHandKey] : [];
+        discardedHandKeys = [];
       }
       const capacity = handCapacity();
       const validKeys = validActionHandKeySet();
+      if (playerPromotedHandKey && !validKeys.has(playerPromotedHandKey)) {
+        const reboundIndex = actionIndexForKey(focusedKey);
+        const reboundKey = reboundIndex >= 0 ? actionHandKey(actions[reboundIndex]) : "";
+        playerPromotedHandKey = validKeys.has(reboundKey) ? reboundKey : "";
+        if (playerPromotedHandKey) {
+          handKeys = [
+            playerPromotedHandKey,
+            ...handKeys.filter((key) => key !== playerPromotedHandKey),
+          ];
+        }
+      }
       pruneDiscardedHandKeys(validKeys);
       const kept = [];
       const seen = new Set();
@@ -9230,6 +9717,7 @@
         focusedKey = "";
         focusIndex = 0;
       }
+      if (playerPromotedHandKey === key) playerPromotedHandKey = "";
       if (shouldReconcile) reconcileHand();
     }
 
@@ -9244,6 +9732,15 @@
       return actions.findIndex((action) => actionMatchesFocusKey(action, key));
     }
 
+    function restoreFocusedActionChoice(action, key) {
+      if (!String(key || "").startsWith("exit:")) return;
+      const destinationId = String(key).slice("exit:".length);
+      const choice = (action?.choices || []).find((candidate) => (
+        String(candidate?.value || "") === destinationId
+      ));
+      if (choice) action.selectedChoice = choice.value;
+    }
+
     function restoreFocusedAction() {
       if (!actions.length) {
         focusIndex = 0;
@@ -9254,6 +9751,7 @@
         const index = actionIndexForKey(focusedKey);
         if (index >= 0) {
           focusIndex = index;
+          restoreFocusedActionChoice(actions[index], focusedKey);
           return;
         }
       }
@@ -9268,6 +9766,7 @@
       libraryPanelPinned = false;
       focusIndex = ((index % actions.length) + actions.length) % actions.length;
       focusedKey = key || actions[focusIndex]?.focusKey || "";
+      playerPromotedHandKey = actionHandKey(actions[focusIndex]) || "";
       promoteActionToHand(focusIndex, focusedKey);
       render();
     }
@@ -9400,6 +9899,30 @@
       reconcileHand();
       const storyGuide = dealtStoryGuide();
       const storyActionKeys = new Set(storyGuide?.actionKeys || []);
+      const guidedHandKeys = storyGuide?.kind === "room-thread"
+        ? []
+        : [...storyActionKeys]
+          .map((key) => actionIndexForKey(key))
+          .filter((index) => index >= 0)
+          .map((index) => actionHandKey(actions[index]))
+          .filter(Boolean);
+      if (guidedHandKeys.length) {
+        const guidedSet = new Set(guidedHandKeys);
+        discardedHandKeys = discardedHandKeys.filter((key) => !guidedSet.has(key));
+        const playerPromotedFocus = Boolean(
+          playerPromotedHandKey
+            && handKeys[0] === playerPromotedHandKey
+            && !guidedSet.has(playerPromotedHandKey)
+        );
+        const pinned = playerPromotedFocus ? [playerPromotedHandKey] : [];
+        for (const key of guidedHandKeys) {
+          if (!pinned.includes(key)) pinned.push(key);
+        }
+        for (const key of handKeys) {
+          if (!pinned.includes(key)) pinned.push(key);
+        }
+        handKeys = pinned.slice(0, handCapacity());
+      }
       const entries = [];
       for (const key of handKeys) {
         const index = actionIndexForHandKey(key);
@@ -9443,6 +9966,7 @@
     }
 
     function advanceHandPage() {
+      playerPromotedHandKey = "";
       discardVisibleHand(false);
       const validKeys = validActionHandKeySet();
       const hasUndrawnCard = [...validKeys].some((key) => (
@@ -9702,6 +10226,93 @@
     }, true);
 
     $("log").addEventListener("click", (event) => {
+      const menuTarget = event.target.closest("[data-menu-section]");
+      if (menuTarget) {
+        event.preventDefault();
+        const section = menuTarget.getAttribute("data-menu-section") || "deck";
+        menuSection = section;
+        if (section === "world") {
+          toggleLibraryPanel(true);
+        } else {
+          libraryPanelPinned = false;
+          accountPanelPinned = true;
+          if (section === "collection" || section === "identity") void loadIdentity();
+          render();
+        }
+        return;
+      }
+      const charmTarget = event.target.closest("[data-set-charm]");
+      if (charmTarget) {
+        event.preventDefault();
+        const itemId = Number(charmTarget.getAttribute("data-set-charm") || 0);
+        const equipped = charmTarget.getAttribute("data-equipped") === "true";
+        action("/actions/set-charm-equipped", { actor_id: actorId, item_id: itemId, equipped })
+          .then(() => refresh());
+        return;
+      }
+      const spellTarget = event.target.closest("[data-set-spell]");
+      if (spellTarget) {
+        event.preventDefault();
+        const itemId = Number(spellTarget.getAttribute("data-set-spell") || 0);
+        const prepared = spellTarget.getAttribute("data-prepared") === "true";
+        action("/actions/set-spell-prepared", { actor_id: actorId, item_id: itemId, equipped: prepared })
+          .then(() => refresh());
+        return;
+      }
+      const equipmentTarget = event.target.closest("[data-set-item-equipped]");
+      if (equipmentTarget) {
+        event.preventDefault();
+        const itemId = Number(equipmentTarget.getAttribute("data-set-item-equipped") || 0);
+        const equipped = equipmentTarget.getAttribute("data-equipped") === "true";
+        action("/actions/set-item-equipped", { actor_id: actorId, item_id: itemId, equipped })
+          .then(() => refresh());
+        return;
+      }
+      const containedTarget = event.target.closest("[data-set-contained]");
+      if (containedTarget) {
+        event.preventDefault();
+        const itemId = Number(containedTarget.getAttribute("data-set-contained") || 0);
+        const containerRaw = containedTarget.getAttribute("data-container") || "";
+        action("/actions/set-item-contained", {
+          actor_id: actorId,
+          item_id: itemId,
+          container_item_id: containerRaw ? Number(containerRaw) : null,
+        }).then(() => refresh());
+        return;
+      }
+      const materializeTarget = event.target.closest("[data-materialize-card]");
+      if (materializeTarget) {
+        event.preventDefault();
+        const cardId = materializeTarget.getAttribute("data-materialize-card") || "";
+        if (!cardId) return;
+        action("/collection/materialize", {
+          actor_id: actorId,
+          card_id: cardId,
+          receipt_id: materializationReceiptId(cardId),
+        }).then(() => refresh());
+        return;
+      }
+      const unmaterializeTarget = event.target.closest("[data-unmaterialize-receipt]");
+      if (unmaterializeTarget) {
+        event.preventDefault();
+        const receiptId = unmaterializeTarget.getAttribute("data-unmaterialize-receipt") || "";
+        if (!receiptId) return;
+        action("/collection/unmaterialize", {
+          actor_id: actorId,
+          receipt_id: receiptId,
+        }).then(() => refresh());
+        return;
+      }
+      if (event.target.closest("[data-unlock-charm-slot]")) {
+        event.preventDefault();
+        action("/actions/unlock-charm-slot", { actor_id: actorId }).then(() => refresh());
+        return;
+      }
+      if (event.target.closest("[data-export-journal]")) {
+        event.preventDefault();
+        exportJournal().catch((error) => setError(String(error.message || error)));
+        return;
+      }
       const passkeyContinue = event.target.closest("[data-passkey-continue]");
       if (passkeyContinue) {
         event.preventDefault();
@@ -9852,17 +10463,19 @@
 
     const libraryPill = $("brand");
     libraryPill.addEventListener("click", () => {
-      toggleLibraryPanel();
+      if (libraryPanelPinned || accountPanelPinned) {
+        libraryPanelPinned = false;
+        accountPanelPinned = false;
+        render();
+      } else {
+        menuSection = "deck";
+        toggleAccountPanel(true);
+      }
     });
 
     const locationPill = document.querySelector(".location-pill");
     locationPill.addEventListener("click", () => {
       focusActionByKey("check");
-    });
-
-    const economyPill = $("economy");
-    economyPill.addEventListener("click", () => {
-      toggleAccountPanel();
     });
 
     function toggleAccountPanel(forceOpen = null) {
@@ -9875,6 +10488,7 @@
     function toggleLibraryPanel(forceOpen = null) {
       libraryPanelPinned = forceOpen === null ? !libraryPanelPinned : Boolean(forceOpen);
       if (libraryPanelPinned) {
+        menuSection = "world";
         accountPanelPinned = false;
         Promise.all([ensureContentPacks(), ensureWorldView(true)]).then(render).catch(() => render());
       } else {
@@ -9973,7 +10587,7 @@
       if (accountPanelPinned && event.key === "Escape") {
         event.preventDefault();
         toggleAccountPanel(false);
-        economyPill.focus();
+        libraryPill.focus();
         return;
       }
       if (accountPanelPinned) return;

@@ -48,7 +48,6 @@ const expectedFiles = {
 };
 const allowedPackKinds = new Set(["world", "campaign", "catalog", "assets", "rules"]);
 const allowedEntitlementAuthorityTypes = new Set(["asset_feed", "solana_collection", "signed_set"]);
-const supportedRuleResources = new Set(["conditions", "monster_seeds"]);
 const environmentRegisterFields = new Set(["description", "look", "search"]);
 const bannedEnvironmentTells = [
   ["as if", /\bas if\b/i],
@@ -64,6 +63,28 @@ const allowedSentenceShelves = new Set([
   "drowned",
   "hearth",
 ]);
+const supportedRulesAdapters = new Map([
+  ["cosyworld.rules/1", new Set(["conditions", "monster_seeds"])],
+  ["cosyworld.rules/2", new Set([
+    "profiles",
+    "actions",
+    "operations",
+    "legacy_bindings",
+    "abilities",
+    "skills",
+    "item_roles",
+    "equipment_profiles",
+    "magic_effects",
+    "conformance",
+  ])],
+]);
+const requiredSrdActionIds = new Set([
+  "srd5.2.1:attack", "srd5.2.1:dash", "srd5.2.1:disengage", "srd5.2.1:dodge",
+  "srd5.2.1:help", "srd5.2.1:hide", "srd5.2.1:influence", "srd5.2.1:magic",
+  "srd5.2.1:ready", "srd5.2.1:search", "srd5.2.1:study", "srd5.2.1:utilize",
+]);
+const allowedItemRoles = new Set(["generic", "consumable", "weapon", "skill_charm", "spell", "container", "tool", "relic"]);
+const allowedItemSizes = new Set(["tiny", "small", "medium", "large"]);
 
 const failures = [];
 const warnings = [];
@@ -356,6 +377,9 @@ if (manifest.canonical_id_mapping_version !== CANONICAL_ID_MAPPING_VERSION) {
 if (!Number.isInteger(manifest.version) || manifest.version <= 0) {
   fail("worldpack manifest version must be a positive integer");
 }
+if (!isNonEmptyString(manifest.rules_profile) || !/^[a-z0-9][a-z0-9.-]*\/\d+$/.test(manifest.rules_profile)) {
+  fail("worldpack manifest is missing a versioned rules_profile");
+}
 if (!isNonEmptyString(manifest.bundle_hash) || !/^sha256:[0-9a-f]{64}$/.test(manifest.bundle_hash)) {
   fail("worldpack manifest has an invalid bundle_hash");
 }
@@ -375,12 +399,20 @@ for (const pack of packs) {
     fail(`worldpack pack ${pack.id} has unsupported kind ${pack.kind}`);
   }
   if (pack.kind === "rules") {
-    if (pack.rules_adapter !== "cosyworld.rules/1") {
-      fail(`rules pack ${pack.id} must use cosyworld.rules/1`);
+    if (!supportedRulesAdapters.has(pack.rules_adapter)) {
+      fail(`rules pack ${pack.id} has unsupported adapter ${pack.rules_adapter}`);
     }
     if (!isNonEmptyString(pack.rules_namespace) || !/^[a-z0-9][a-z0-9.-]*$/.test(pack.rules_namespace)) {
       fail(`rules pack ${pack.id} has an invalid rules_namespace`);
     }
+    if (pack.rules_adapter === "cosyworld.rules/2" && pack.rules_profile !== manifest.rules_profile) {
+      fail(`rules/2 pack ${pack.id} must provide ${manifest.rules_profile}`);
+    }
+    if (pack.rules_adapter === "cosyworld.rules/1" && pack.rules_profile !== undefined) {
+      fail(`reference rules/1 pack ${pack.id} cannot activate a rules profile`);
+    }
+  } else if (pack.rules_profile !== manifest.rules_profile) {
+    fail(`pack ${pack.id} must target ${manifest.rules_profile}`);
   }
   if (!/^sha256:[0-9a-f]{64}$/.test(pack.integrity ?? "")) {
     fail(`worldpack pack ${pack.id} has an invalid integrity hash`);
@@ -484,13 +516,15 @@ if (
   manifest.external_cards !== "external_cards.json"
   || manifest.assets !== "assets.json"
   || manifest.rules !== "rules.json"
+  || manifest.contributions !== "contributions.json"
   || manifest.attributions !== "attributions.json"
   || manifest.licenses !== "licenses.json"
+  || manifest.modified_material !== "modified-material.json"
   || manifest.character_creation !== "character_creation.json"
   || manifest.content_references !== "content_refs.json"
   || manifest.registry !== "registry.json"
 ) {
-  fail("worldpack manifest must map the registry and compatibility artifacts to compiled files");
+  fail("worldpack manifest must map the registry, licensing, rules, contribution, and compatibility artifacts to compiled files");
 }
 
 for (const [key, fileName] of Object.entries(expectedFiles)) {
@@ -595,6 +629,12 @@ const rulePackIds = new Set();
 const ruleNamespaces = new Set();
 let ruleConditionCount = 0;
 let ruleMonsterSeedCount = 0;
+let ruleActionCount = 0;
+let activeRulesProfile = null;
+let rulesConformance = [];
+const playableBindingIds = new Set();
+const equipmentProfileIds = new Set();
+const magicEffectIds = new Set();
 for (const bundle of ruleBundles) {
   validateRequiredStrings("rules bundle", bundle, ["pack_id", "pack_version", "adapter", "namespace"]);
   if (!has(packIds, bundle.pack_id)) {
@@ -604,7 +644,7 @@ for (const bundle of ruleBundles) {
   if (pack?.kind !== "rules") {
     fail(`rules bundle ${bundle.pack_id} does not belong to a rules pack`);
   }
-  if (bundle.adapter !== "cosyworld.rules/1" || bundle.adapter !== pack?.rules_adapter) {
+  if (!supportedRulesAdapters.has(bundle.adapter) || bundle.adapter !== pack?.rules_adapter) {
     fail(`rules bundle ${bundle.pack_id} has an unsupported adapter`);
   }
   if (bundle.namespace !== pack?.rules_namespace) {
@@ -623,9 +663,114 @@ for (const bundle of ruleBundles) {
     continue;
   }
   for (const resource of Object.keys(bundle.resources)) {
-    if (!supportedRuleResources.has(resource)) {
+    if (!supportedRulesAdapters.get(bundle.adapter)?.has(resource)) {
       fail(`rules bundle ${bundle.pack_id} contains unsupported resource ${resource}`);
     }
+  }
+
+  if (bundle.adapter === "cosyworld.rules/2") {
+    const profiles = asArray(`rules bundle ${bundle.pack_id} profiles`, bundle.resources.profiles ?? []);
+    if (profiles.length !== 1 || profiles[0]?.id !== manifest.rules_profile) {
+      fail(`rules/2 bundle ${bundle.pack_id} must contain selected profile ${manifest.rules_profile}`);
+    } else if (activeRulesProfile) {
+      fail(`more than one rules bundle provides active profile ${manifest.rules_profile}`);
+    } else {
+      activeRulesProfile = profiles[0];
+    }
+    for (const profile of profiles) {
+      validateRequiredStrings("rules profile", profile, ["source_document", "source_version", "source_pack", "license", "compatibility_claim", "source_reference", "import_transform"]);
+      if (profile.source_version !== "5.2.1" || profile.license !== "CC-BY-4.0" || profile.modified !== true) {
+        fail(`rules profile ${profile.id} has invalid source or modification metadata`);
+      }
+    }
+
+    const actions = asArray(`rules bundle ${bundle.pack_id} actions`, bundle.resources.actions ?? []);
+    const actionIds = idSet(`rules bundle ${bundle.pack_id} actions`, actions, (action) => action.id);
+    ruleActionCount += actions.length;
+    if (actionIds.size !== requiredSrdActionIds.size) fail(`profile ${manifest.rules_profile} must contain twelve SRD actions`);
+    for (const actionId of requiredSrdActionIds) {
+      if (!has(actionIds, actionId)) fail(`profile ${manifest.rules_profile} is missing ${actionId}`);
+    }
+    for (const action of actions) {
+      playableBindingIds.add(action.id);
+      validateRequiredStrings("rules action", action, ["namespace", "domain", "label", "source_reference", "support_status", "resolver_kind", "cosyworld_delta"]);
+      if (action.namespace !== "srd5.2.1" || action.domain !== "rules_action" || !Array.isArray(action.aliases) || action.aliases.length === 0) {
+        fail(`rules action ${action.id} has invalid identity, domain, or aliases`);
+      }
+      if (!["kernel", "projection", "unsupported"].includes(action.support_status)) {
+        fail(`rules action ${action.id} has invalid support_status`);
+      } else if (action.support_status === "unsupported" && action.resolver_kind !== "none") {
+        fail(`unsupported action ${action.id} cannot name a resolver`);
+      } else if (action.support_status !== "unsupported" && action.resolver_kind === "none") {
+        fail(`supported action ${action.id} must name a resolver`);
+      }
+    }
+
+    const operations = asArray(`rules bundle ${bundle.pack_id} operations`, bundle.resources.operations ?? []);
+    const operationIds = idSet(`rules bundle ${bundle.pack_id} operations`, operations, (operation) => operation.id);
+    for (const operation of operations) {
+      playableBindingIds.add(operation.id);
+      validateRequiredStrings("rules operation", operation, ["domain", "label", "resolver_kind", "source_reference"]);
+      if (!["movement", "communication", "object_transfer", "procedure", "cosy_advancement", "interface_meta"].includes(operation.domain)) {
+        fail(`operation ${operation.id} has invalid domain`);
+      }
+    }
+
+    const abilities = asArray(`rules bundle ${bundle.pack_id} abilities`, bundle.resources.abilities ?? []);
+    const abilityIds = idSet(`rules bundle ${bundle.pack_id} abilities`, abilities, (ability) => ability.id);
+    const skills = asArray(`rules bundle ${bundle.pack_id} skills`, bundle.resources.skills ?? []);
+    idSet(`rules bundle ${bundle.pack_id} skills`, skills, (skill) => skill.id);
+    for (const skill of skills) {
+      if (!has(abilityIds, skill.ability)) fail(`skill ${skill.id} references unknown ability ${skill.ability}`);
+    }
+    idSet(`rules bundle ${bundle.pack_id} item_roles`, asArray(`rules bundle ${bundle.pack_id} item_roles`, bundle.resources.item_roles ?? []), (role) => role.id);
+    const equipmentProfiles = asArray(`rules bundle ${bundle.pack_id} equipment_profiles`, bundle.resources.equipment_profiles ?? []);
+    idSet(`rules bundle ${bundle.pack_id} equipment_profiles`, equipmentProfiles, (profile) => profile.id);
+    for (const profile of equipmentProfiles) equipmentProfileIds.add(profile.id);
+    const magicEffects = asArray(`rules bundle ${bundle.pack_id} magic_effects`, bundle.resources.magic_effects ?? []);
+    idSet(`rules bundle ${bundle.pack_id} magic_effects`, magicEffects, (effect) => effect.id);
+    for (const effect of magicEffects) {
+      magicEffectIds.add(effect.id);
+      if (!has(actionIds, effect.rules_action) || effect.resolver_kind !== "bounded_magic_v1") {
+        fail(`magic effect ${effect.id} has an invalid action or resolver`);
+      }
+    }
+    const bindings = asArray(`rules bundle ${bundle.pack_id} legacy_bindings`, bundle.resources.legacy_bindings ?? []);
+    idSet(`rules bundle ${bundle.pack_id} legacy_bindings`, bindings, (binding) => binding.legacy_kind);
+    for (const binding of bindings) {
+      for (const target of String(binding.binding_id || "").split("|")) {
+        const valid = binding.binding_kind === "operation" ? has(operationIds, target) : has(actionIds, target);
+        if (!valid) fail(`legacy binding ${binding.legacy_kind} references unknown ${target}`);
+      }
+    }
+    rulesConformance = asArray(
+      `rules bundle ${bundle.pack_id} conformance`,
+      bundle.resources.conformance ?? [],
+    );
+    const conformanceIds = idSet(
+      `rules bundle ${bundle.pack_id} conformance`,
+      rulesConformance,
+      (row) => row.action_id,
+    );
+    if (conformanceIds.size !== actionIds.size) {
+      fail(`profile ${manifest.rules_profile} conformance matrix must cover every action`);
+    }
+    for (const action of actions) {
+      const row = rulesConformance.find((candidate) => candidate.action_id === action.id);
+      if (!row
+        || row.support_status !== action.support_status
+        || row.resolver_kind !== action.resolver_kind
+        || !Array.isArray(row.legal_targets)
+        || !Array.isArray(row.event_outputs)
+        || !isNonEmptyString(row.safe_behavior)
+        || !isNonEmptyString(row.risky_behavior)
+        || !isNonEmptyString(row.cosyworld_delta)) {
+        fail(`conformance for ${action.id} is missing or disagrees with its registry`);
+      } else if (action.support_status !== "unsupported" && !isNonEmptyString(row.replay_fixture)) {
+        fail(`supported action ${action.id} lacks replay coverage`);
+      }
+    }
+    continue;
   }
 
   const conditions = asArray(
@@ -690,9 +835,66 @@ for (const bundle of ruleBundles) {
     }
   }
 }
+if (!activeRulesProfile) fail(`no rules bundle provides active profile ${manifest.rules_profile}`);
 for (const pack of packs.filter((candidate) => candidate.kind === "rules")) {
   if (!has(rulePackIds, pack.id)) fail(`rules pack ${pack.id} has no compiled rules bundle`);
 }
+
+const contributionKinds = ["reskins", "offers", "variants", "extensions"];
+const presentationOnlyReskinFields = new Set([
+  "id", "based_on", "label", "description", "art", "scope", "compatibility",
+  "compose_with", "source_reference",
+]);
+const contributionBundles = asArray("contributions.json", readJson("contributions.json"));
+const contributionIds = new Set();
+const compiledVariants = [];
+const compiledExtensions = [];
+for (const bundle of contributionBundles) {
+  validateRequiredStrings("contribution bundle", bundle, ["pack_id", "pack_version", "rules_profile"]);
+  const pack = packs.find((candidate) => candidate.id === bundle.pack_id);
+  if (!pack || pack.kind === "rules" || pack.version !== bundle.pack_version || bundle.rules_profile !== manifest.rules_profile) {
+    fail(`contribution bundle ${bundle.pack_id} has invalid pack/profile provenance`);
+  }
+  for (const kind of contributionKinds) {
+    const rows = asArray(`contribution bundle ${bundle.pack_id} ${kind}`, bundle[kind]);
+    if (pack?.resource_counts?.[kind] !== rows.length) {
+      fail(`pack ${bundle.pack_id} resource_counts.${kind} does not match compiled contributions`);
+    }
+    for (const row of rows) {
+      if (!isNonEmptyString(row.id) || !row.id.startsWith(`${bundle.pack_id}:`) || contributionIds.has(row.id)) {
+        fail(`invalid or conflicting contribution ${row.id}`);
+      }
+      contributionIds.add(row.id);
+      if (!has(requiredSrdActionIds, row.based_on) || !isNonEmptyString(row.source_reference)) {
+        fail(`contribution ${row.id} has invalid base action or source reference`);
+      }
+      if (kind === "reskins") {
+        for (const field of Object.keys(row)) {
+          if (!presentationOnlyReskinFields.has(field)) fail(`reskin ${row.id} contains mechanical field ${field}`);
+        }
+        if (!isNonEmptyString(row.label)) fail(`reskin ${row.id} requires label`);
+      } else if (kind === "offers") {
+        if (!isObject(row.subject) || !isObject(row.context) || !isNonEmptyString(row.label)) {
+          fail(`contextual offer ${row.id} is incomplete`);
+        }
+      } else if (kind === "variants") {
+        compiledVariants.push(row.id);
+        if (!/^.+\/\d+$/.test(row.id) || !isObject(row.exact_delta) || !Object.keys(row.exact_delta).length || !Array.isArray(row.fixtures) || !row.fixtures.length) {
+          fail(`variant ${row.id} lacks version, exact delta, or fixtures`);
+        }
+      } else if (kind === "extensions") {
+        compiledExtensions.push(row.id);
+        if (!/^.+\/\d+$/.test(row.id) || !isObject(row.resolver_contract) || !String(row.resolver_contract.kind || "").startsWith(`${bundle.pack_id}.`) || !Array.isArray(row.fixtures) || !row.fixtures.length) {
+          fail(`extension ${row.id} lacks a namespaced resolver contract or fixtures`);
+        }
+      }
+    }
+  }
+}
+const declaredVariants = asArray("worldpack active_rules_variants", manifest.active_rules_variants).slice().sort();
+const declaredExtensions = asArray("worldpack active_rules_extensions", manifest.active_rules_extensions).slice().sort();
+if (JSON.stringify(declaredVariants) !== JSON.stringify(compiledVariants.sort())) fail("worldpack active_rules_variants identity is stale");
+if (JSON.stringify(declaredExtensions) !== JSON.stringify(compiledExtensions.sort())) fail("worldpack active_rules_extensions identity is stale");
 
 const attributions = asArray("attributions.json", readJson("attributions.json"));
 if (JSON.stringify(registry?.attributions) !== JSON.stringify(attributions)) {
@@ -774,6 +976,36 @@ for (const record of licenses) {
 }
 for (const pack of packs) {
   if (!has(licensedPackIds, pack.id)) fail(`pack ${pack.id} has no compiled license record`);
+}
+
+const modifiedMaterial = asArray("modified-material.json", readJson("modified-material.json"));
+if (JSON.stringify(registry?.modified_material) !== JSON.stringify(modifiedMaterial)) {
+  fail("registry.json modified_material does not match modified-material.json");
+}
+const modifiedMaterialKeys = new Set();
+for (const row of modifiedMaterial) {
+  validateRequiredStrings("modified material", row, [
+    "pack_id", "rules_profile", "resource_type", "id", "source_document",
+    "source_version", "source_pack", "source_reference", "license",
+    "attribution_pack", "import_transform", "modification_status",
+  ]);
+  const key = `${row.resource_type}:${row.id}`;
+  if (modifiedMaterialKeys.has(key)) fail(`duplicate modified-material entry ${key}`);
+  modifiedMaterialKeys.add(key);
+  if (row.rules_profile !== manifest.rules_profile
+    || row.source_version !== "5.2.1"
+    || row.license !== "CC-BY-4.0"
+    || row.modification_status !== "modified"
+    || !has(attributedPackIds, row.attribution_pack)
+    || !Array.isArray(row.changes)
+    || row.changes.length === 0) {
+    fail(`modified-material entry ${key} has incomplete provenance`);
+  }
+}
+for (const actionId of requiredSrdActionIds) {
+  if (!modifiedMaterialKeys.has(`action:${actionId}`)) {
+    fail(`modified-material report is missing action ${actionId}`);
+  }
 }
 const srdPack = packs.find((pack) => pack.id === "cosyworld.rules-srd-5.1");
 if (srdPack) {
@@ -1056,18 +1288,117 @@ for (const item of items) {
   } catch (error) {
     fail(error.message);
   }
-  validateRequiredStrings("item", item, ["name", "description", "kind"]);
+  validateRequiredStrings("item", item, ["name", "description", "kind", "role", "size"]);
   if (!["potion", "evolution", "keepsake"].includes(item.kind)) {
     fail(`item ${item.id} has invalid kind ${item.kind}`);
   }
   if (!Number.isInteger(item.charges) || item.charges <= 0) {
     fail(`item ${item.id} must declare positive charges`);
   }
+  if (!allowedItemRoles.has(item.role)) {
+    fail(`item ${item.id} has invalid role ${item.role}`);
+  }
+  if (!allowedItemSizes.has(item.size)) {
+    fail(`item ${item.id} has invalid size ${item.size}`);
+  }
+  if (!Number.isInteger(item.weight_tenths) || item.weight_tenths <= 0) {
+    fail(`item ${item.id} must declare positive weight_tenths`);
+  }
+  if (item.role === "container") {
+    if (!Number.isInteger(item.container_capacity_tenths) || item.container_capacity_tenths <= 0) {
+      fail(`container item ${item.id} must declare positive container_capacity_tenths`);
+    }
+    if (!allowedItemSizes.has(item.container_opening_size) || !Array.isArray(item.allowed_contents) || !item.allowed_contents.length || !item.allowed_contents.includes("container") || item.nested_containers !== "empty_storage_only" || !isNonEmptyString(item.access_cost)) {
+      fail(`container item ${item.id} has an invalid opening, contents, access cost, or nested-container policy`);
+    }
+  } else if (item.container_capacity_tenths !== undefined && item.container_capacity_tenths !== 0) {
+    fail(`non-container item ${item.id} cannot add container capacity`);
+  }
+  if (item.role === "skill_charm") {
+    if (!isNonEmptyString(item.skill_id) || !Number.isInteger(item.skill_bonus) || item.skill_bonus === 0) {
+      fail(`skill charm ${item.id} must declare skill_id and non-zero skill_bonus`);
+    }
+  }
+  if (["consumable", "weapon", "skill_charm", "spell", "container"].includes(item.role)) {
+    const mechanics = item.mechanics;
+    if (!isObject(mechanics)
+      || !(playableBindingIds.has(mechanics.binding) || mechanics.binding === "ability_check_modifier")
+      || !(equipmentProfileIds.has(mechanics.equipment_profile) || mechanics.equipment_profile === "carried")
+      || !isNonEmptyString(mechanics.target_predicate)
+      || !isNonEmptyString(mechanics.resolver)
+      || !isObject(mechanics.effect_budget)
+      || !Number.isInteger(mechanics.uses)
+      || !isNonEmptyString(mechanics.exhaustion)
+      || !isNonEmptyString(mechanics.recovery)
+      || mechanics.transfer_policy !== "transferable"
+      || !isNonEmptyString(mechanics.theft_policy)) {
+      fail(`mechanical item ${item.id} lacks a validated playable-item descriptor`);
+    }
+    if (item.role === "spell" && !magicEffectIds.has(mechanics?.magic_effect)) {
+      fail(`spell item ${item.id} references unsupported magic effect ${mechanics?.magic_effect}`);
+    }
+  }
   if (!has(locationIds, item.location_id)) {
     fail(`item ${item.id} references missing location ${item.location_id}`);
   }
 }
 const itemById = new Map(items.map((item) => [item.id, item]));
+const collectiblePowerWarnings = [];
+function mechanicalPowerScore(value, key = "") {
+  if (typeof value === "number") return Math.max(0, value);
+  if (typeof value === "string") {
+    const die = value.match(/^(\d+)d(\d+)$/i);
+    return die ? Number(die[1]) * Number(die[2]) : 0;
+  }
+  if (!isObject(value)) return 0;
+  return Object.entries(value).reduce((score, [childKey, child]) => (
+    score + mechanicalPowerScore(child, childKey || key)
+  ), 0);
+}
+function auditCollectiblePower(cardRows, itemRows, equipmentRows) {
+  const warnings = [];
+  for (const profile of equipmentRows) {
+    if (/purchas|wallet|ownership|card|entitlement/i.test(String(profile.unlock || ""))) {
+      warnings.push(`equipment profile ${profile.id} purchases or imports slots through ${profile.unlock}`);
+    }
+  }
+  const itemMap = new Map(itemRows.map((item) => [item.id, item]));
+  const freeMaximumByRole = new Map();
+  for (const card of cardRows.filter((card) => card.subject_kind === "item" && card.requires_ownership !== true)) {
+    const item = itemMap.get(card.subject_id);
+    if (!item?.mechanics) continue;
+    const score = mechanicalPowerScore(item.mechanics.effect_budget);
+    freeMaximumByRole.set(item.role, Math.max(freeMaximumByRole.get(item.role) || 0, score));
+  }
+  for (const card of cardRows.filter((card) => card.subject_kind === "item" && card.requires_ownership === true)) {
+    const item = itemMap.get(card.subject_id);
+    if (!item?.mechanics) continue;
+    const serialized = JSON.stringify(item.mechanics.effect_budget || {});
+    if (/advancement|bracelet.?slot|spell.?slot|extra.?turn|automatic.?success/i.test(serialized)) {
+      warnings.push(`ownership-gated card ${card.card_id} grants forbidden progression or action economy`);
+    }
+    const score = mechanicalPowerScore(item.mechanics.effect_budget);
+    if (score > (freeMaximumByRole.get(item.role) || 0)) {
+      warnings.push(`ownership-gated card ${card.card_id} exceeds the free ${item.role} power budget`);
+    }
+  }
+  return warnings;
+}
+const equipmentRows = ruleBundles.flatMap((bundle) => bundle.resources?.equipment_profiles ?? []);
+collectiblePowerWarnings.push(...auditCollectiblePower(cards, items, equipmentRows));
+const powerMutationWarnings = auditCollectiblePower(
+  [
+    { card_id: "fixture-free", subject_kind: "item", subject_id: 1, requires_ownership: false },
+    { card_id: "fixture-paid", subject_kind: "item", subject_id: 2, requires_ownership: true },
+  ],
+  [
+    { id: 1, role: "skill_charm", mechanics: { effect_budget: { skill_bonus: 1 } } },
+    { id: 2, role: "skill_charm", mechanics: { effect_budget: { skill_bonus: 2, bracelet_slot: 1 } } },
+  ],
+  [],
+);
+if (powerMutationWarnings.length < 2) fail("collectible power mutation gate did not flag paid slots and numerical superiority");
+for (const warning of collectiblePowerWarnings) fail(`collectible power policy: ${warning}`);
 
 for (const location of locations) {
   try {
@@ -1891,6 +2222,7 @@ function buildWorldpackReport() {
       name: manifest.name,
       version: manifest.version,
       bundle_hash: manifest.bundle_hash,
+      rules_profile: manifest.rules_profile,
       packs: packs.map((pack) => ({ id: pack.id, version: pack.version, integrity: pack.integrity })),
       content_root: contentRoot,
     },
@@ -1914,13 +2246,29 @@ function buildWorldpackReport() {
       rules_bundles: ruleBundles.length,
       rule_conditions: ruleConditionCount,
       rule_monster_seeds: ruleMonsterSeedCount,
+      rule_actions: ruleActionCount,
       attributions: attributions.length,
+      modified_material: modifiedMaterial.length,
       character_creation_profiles: characterCreationProfileIds.size,
+      action_contributions: contributionBundles.reduce((count, bundle) => count + contributionKinds.reduce((subtotal, kind) => subtotal + bundle[kind].length, 0), 0),
       lifecycle_hooks: lifecycleHooks.length,
       evolution_tracks: evolutionTracks.length,
       recipes: recipes.length,
     },
     locations: locationReports,
+    action_contributions: contributionBundles.flatMap((bundle) => contributionKinds.flatMap((kind) => bundle[kind].map((row) => ({
+      kind: kind.slice(0, -1),
+      id: row.id,
+      pack_id: bundle.pack_id,
+      based_on: row.based_on,
+      label: row.label ?? null,
+      exact_delta: row.exact_delta ?? null,
+      resolver_contract: row.resolver_contract ?? null,
+      source_reference: row.source_reference,
+    })))),
+    rules_conformance: rulesConformance,
+    modified_material: modifiedMaterial,
+    collectible_power_warnings: collectiblePowerWarnings,
     jobs: sorted(jobs, (a, b) => a.id.localeCompare(b.id)).map((job) => ({
       id: job.id,
       status: job.status || "active",
@@ -1973,10 +2321,31 @@ function buildWorldpackReport() {
 
 function printWorldpackReport(report) {
   console.log(`worldpack ok: ${report.counts.locations} locations, ${report.counts.room_sheets} room sheets, ${report.counts.cards} cards`);
-  console.log(`manifest: ${report.manifest.id} v${report.manifest.version} ${report.manifest.bundle_hash} (${report.manifest.packs.length} packs; ${report.manifest.content_root})`);
+  console.log(`manifest: ${report.manifest.id} v${report.manifest.version} ${report.manifest.bundle_hash} profile=${report.manifest.rules_profile} (${report.manifest.packs.length} packs; ${report.manifest.content_root})`);
   console.log(
-    `counts: actors=${report.counts.actors} items=${report.counts.items} factions=${report.counts.factions} gates=${report.counts.access_gates} jobs=${report.counts.jobs} fronts=${report.counts.fronts} hooks=${report.counts.lifecycle_hooks} recipes=${report.counts.recipes} rules=${report.counts.rules_bundles} conditions=${report.counts.rule_conditions} monster_seeds=${report.counts.rule_monster_seeds} character_creation=${report.counts.character_creation_profiles}`
+    `counts: actors=${report.counts.actors} items=${report.counts.items} factions=${report.counts.factions} gates=${report.counts.access_gates} jobs=${report.counts.jobs} fronts=${report.counts.fronts} hooks=${report.counts.lifecycle_hooks} recipes=${report.counts.recipes} rules=${report.counts.rules_bundles} actions=${report.counts.rule_actions} contributions=${report.counts.action_contributions} conditions=${report.counts.rule_conditions} monster_seeds=${report.counts.rule_monster_seeds} character_creation=${report.counts.character_creation_profiles}`
   );
+  if (report.action_contributions.length) {
+    console.log("action contributions:");
+    for (const contribution of report.action_contributions) {
+      const detail = contribution.exact_delta
+        ? ` delta=${JSON.stringify(contribution.exact_delta)}`
+        : contribution.resolver_contract
+          ? ` resolver=${contribution.resolver_contract.kind}`
+          : contribution.label
+            ? ` label=${JSON.stringify(contribution.label)}`
+            : "";
+      console.log(`- ${contribution.kind} ${contribution.id} -> ${contribution.based_on}${detail} [${contribution.pack_id}; ${contribution.source_reference}]`);
+    }
+  }
+  if (report.rules_conformance.length) {
+    console.log("rules conformance:");
+    for (const row of report.rules_conformance) {
+      console.log(`- ${row.action_id} ${row.support_status} resolver=${row.resolver_kind} targets=${row.legal_targets.join(",") || "none"} fixture=${row.replay_fixture || "not-applicable"}`);
+    }
+  }
+  console.log(`modified material: ${report.modified_material.length} traceable resources (machine-readable modified-material.json)`);
+  console.log(`collectible power warnings: ${report.collectible_power_warnings.length}`);
   console.log("locations:");
   for (const location of report.locations) {
     const gate = location.gate ? ` gate=${location.gate.required_card_id}` : " public";
