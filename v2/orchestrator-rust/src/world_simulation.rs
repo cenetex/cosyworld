@@ -48,16 +48,6 @@ pub(crate) enum PulseEffectClass {
     Stakes,
 }
 
-impl PulseEffectClass {
-    pub(crate) const fn as_str(self) -> &'static str {
-        match self {
-            Self::Ambient => "ambient",
-            Self::Opportunity => "opportunity",
-            Self::Stakes => "stakes",
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct WorldStakesConsent {
     pub location_id: u64,
