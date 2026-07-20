@@ -72,6 +72,10 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/nft/boxes/burn-confirm", post(box_burn_confirm))
         .route("/nft/packs/open", post(pack_open))
         .route("/state", get(state_view))
+        .route(
+            "/story/world-beat-exposures",
+            post(acknowledge_world_beat_exposure),
+        )
         .route("/inspect", get(inspect_view))
         .route("/world", get(world_view))
         .route("/events", get(events_view))

@@ -2024,6 +2024,25 @@ struct EventsResponse {
     caught_up: bool,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WorldBeatExposureReceiptRequest {
+    actor_id: u64,
+    actor_session: String,
+    exposure_id: String,
+    transport: String,
+    state_revision: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct WorldBeatExposureReceiptResponse {
+    ok: bool,
+    status: u16,
+    exposure_id: String,
+    recorded: bool,
+    error: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 struct EventReplayGap {
     after: u64,
@@ -24008,10 +24027,119 @@ async fn state_view(
     }
     response.room_memory =
         room_memory_view_for_state(&state, &response.location, &response.recent_events);
-    if let Some(actor_id) = actor_id {
-        record_visible_world_beats(&state, actor_id, &response.recent_events);
-    }
     Json(response)
+}
+
+async fn acknowledge_world_beat_exposure(
+    State(state): State<AppState>,
+    Json(receipt): Json<WorldBeatExposureReceiptRequest>,
+) -> Json<WorldBeatExposureReceiptResponse> {
+    let rejected = |status, error: &str| {
+        Json(WorldBeatExposureReceiptResponse {
+            ok: false,
+            status,
+            exposure_id: receipt.exposure_id.clone(),
+            recorded: false,
+            error: Some(error.to_string()),
+        })
+    };
+    let Some(source_event_seq) = world_beat_exposure_seq(&receipt.exposure_id) else {
+        return rejected(422, "unknown world-beat exposure contract");
+    };
+    if !valid_world_beat_transport(&receipt.transport) {
+        return rejected(422, "unsupported world-beat delivery transport");
+    }
+    if receipt.state_revision < source_event_seq {
+        return rejected(409, "state revision predates the world beat");
+    }
+
+    converge_capacity_for_read(&state, Some(&receipt.actor_session)).await;
+    let (authorized, current_revision, visible_locations, buffered_event) = {
+        let runtime = state.inner.lock().await;
+        let authorized = client_actor_authorized_for_state(
+            &runtime,
+            &state,
+            receipt.actor_id,
+            Some(&receipt.actor_session),
+        );
+        let access = AccessContext::default();
+        (
+            authorized,
+            runtime.world.next_event_seq.saturating_sub(1),
+            runtime.visible_event_locations(Some(receipt.actor_id), &access),
+            runtime
+                .event_log
+                .iter()
+                .find(|event| event.seq == source_event_seq)
+                .cloned(),
+        )
+    };
+    if !authorized {
+        return rejected(403, "actor session is not authorized");
+    }
+    if receipt.state_revision > current_revision {
+        return rejected(409, "state revision is ahead of the canonical world");
+    }
+
+    let event = match buffered_event {
+        Some(event) => Some(event),
+        None => match state.event_store_path.as_deref() {
+            Some(path) => match read_event_store_event(path, source_event_seq) {
+                Ok(event) => event,
+                Err(error) => {
+                    warn!(
+                        "failed to validate world-beat exposure {} in {}: {}",
+                        receipt.exposure_id,
+                        path.display(),
+                        error
+                    );
+                    return rejected(503, "world-beat journal is temporarily unavailable");
+                }
+            },
+            None => None,
+        },
+    };
+    let Some(event) = event else {
+        return rejected(
+            404,
+            "world-beat exposure does not name a known journal event",
+        );
+    };
+    if !world_beat_is_renderable(&event) {
+        return rejected(422, "journal event is not a renderable authored world beat");
+    }
+    if !event_visible_to_locations(&event, &visible_locations) {
+        return rejected(403, "world beat is not visible to this actor");
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return rejected(503, "story metrics store is not configured");
+    };
+    match record_world_beat_exposure_at(
+        path,
+        receipt.actor_id,
+        &event,
+        &receipt.exposure_id,
+        &receipt.transport,
+        receipt.state_revision,
+        now_millis(),
+    ) {
+        Ok(recorded) => Json(WorldBeatExposureReceiptResponse {
+            ok: true,
+            status: 200,
+            exposure_id: receipt.exposure_id.clone(),
+            recorded,
+            error: None,
+        }),
+        Err(error) => {
+            warn!(
+                "failed to record world-beat exposure {} in {}: {}",
+                receipt.exposure_id,
+                path.display(),
+                error
+            );
+            rejected(503, "story metrics store is temporarily unavailable")
+        }
+    }
 }
 
 async fn inspect_view(
@@ -39013,6 +39141,28 @@ fn read_event_store(path: &Path, after: Option<u64>, limit: usize) -> io::Result
         events.push(event);
     }
     Ok(events)
+}
+
+fn read_event_store_event(path: &Path, seq: u64) -> io::Result<Option<EventView>> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let payload = conn
+        .query_row(
+            "SELECT payload_json FROM world_events WHERE seq = ?1",
+            params![seq as i64],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(sqlite_error)?;
+    let Some(payload) = payload else {
+        return Ok(None);
+    };
+    let mut event: EventView = serde_json::from_str(&payload)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    if content_reference_context_is_empty(&event.content_context) {
+        event.refresh_content_context();
+    }
+    Ok(Some(event))
 }
 
 fn read_event_store_between(
