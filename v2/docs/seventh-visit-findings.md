@@ -11,8 +11,10 @@ unsupported schemas are excluded and surfaced; the backfill fixture proves that
 private chat, narration, avatar names, and raw actor handles are not copied.
 
 These are instrumentation findings, not live retention results. The first live
-readout begins after the release and must not be represented as a playtest
-outcome until a cohort has had the full 30-day return window.
+readout begins with v0.0.87 and story-metrics schema 2; older delivery-based
+`world_beat_seen` rows are excluded from this receipt-based cohort. The readout
+must not be represented as a playtest outcome until a cohort has had the full
+30-day return window.
 
 ## Pre-registered decision thresholds
 

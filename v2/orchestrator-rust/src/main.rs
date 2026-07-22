@@ -39733,6 +39733,151 @@ mod tests {
         fs::remove_file(path).unwrap();
     }
 
+    #[tokio::test]
+    async fn world_beat_exposure_endpoint_validates_delivery_and_state_reads_do_not_count() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-world-beat-exposure-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Visible Reader",
+        );
+        let state = test_app_state(runtime, Some(path.clone()));
+        let actor_session = issue_actor_session(&state, 5000).0;
+        let (visible_beat, visible_revision) = {
+            let mut runtime = state.inner.lock().await;
+            let world_tick = runtime.world.tick;
+            let event = runtime.append_world_history_event(
+                "world.weather.shifted",
+                COSY_COTTAGE_LOCATION_ID,
+                None,
+                "Rain thins into a pearly mist around the cottage windows.".to_string(),
+                world_tick,
+                Some(COSY_COTTAGE_LOCATION_ID),
+                None,
+            );
+            let revision = runtime.world.next_event_seq.saturating_sub(1);
+            (event, revision)
+        };
+
+        let seen_count = || {
+            let conn = open_event_store(&path).expect("open exposure test store");
+            conn.query_row(
+                "SELECT COUNT(*) FROM story_metric_events
+                 WHERE schema_version = ?1 AND event_kind = 'world_beat_seen'",
+                params![STORY_METRICS_SCHEMA_VERSION],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(seen_count(), 0);
+        let _ = state_view(
+            State(state.clone()),
+            Query(StateQuery {
+                actor_id: Some(5000),
+                actor_session: Some(actor_session.clone()),
+                wallet_address: None,
+                wallet: None,
+                wallet_session: None,
+                owned_card_ids: None,
+                cards: None,
+                openrouter_connected: None,
+            }),
+        )
+        .await;
+        assert_eq!(seen_count(), 0, "GET /state must not imply exposure");
+
+        let valid_receipt = WorldBeatExposureReceiptRequest {
+            actor_id: 5000,
+            actor_session: actor_session.clone(),
+            exposure_id: world_beat_exposure_id(visible_beat.seq),
+            transport: "browser".to_string(),
+            state_revision: visible_revision,
+        };
+        let first =
+            acknowledge_world_beat_exposure(State(state.clone()), Json(valid_receipt.clone()))
+                .await
+                .0;
+        assert!(first.ok && first.recorded);
+        let duplicate =
+            acknowledge_world_beat_exposure(State(state.clone()), Json(valid_receipt.clone()))
+                .await
+                .0;
+        assert!(duplicate.ok && !duplicate.recorded);
+        assert_eq!(seen_count(), 1);
+
+        let unauthorized = acknowledge_world_beat_exposure(
+            State(state.clone()),
+            Json(WorldBeatExposureReceiptRequest {
+                actor_session: "not-a-session".to_string(),
+                ..valid_receipt.clone()
+            }),
+        )
+        .await
+        .0;
+        assert!(!unauthorized.ok && unauthorized.status == 403);
+
+        let (raw_event, inaccessible_event, gap_seq, current_revision) = {
+            let mut runtime = state.inner.lock().await;
+            let world_tick = runtime.world.tick;
+            let raw = runtime.append_world_history_event(
+                "world.bootstrapped",
+                COSY_COTTAGE_LOCATION_ID,
+                None,
+                "internal boot state".to_string(),
+                world_tick,
+                Some(COSY_COTTAGE_LOCATION_ID),
+                None,
+            );
+            let inaccessible = runtime.append_world_history_event(
+                "world.trade.flowed",
+                11,
+                None,
+                "A parcel finds its way through Homeroom.".to_string(),
+                world_tick,
+                Some(11),
+                None,
+            );
+            let gap = runtime.world.next_event_seq;
+            runtime.world.next_event_seq = runtime.world.next_event_seq.saturating_add(1);
+            let revision = runtime.world.next_event_seq.saturating_sub(1);
+            (raw, inaccessible, gap, revision)
+        };
+        let receipt_for = |seq| WorldBeatExposureReceiptRequest {
+            actor_id: 5000,
+            actor_session: actor_session.clone(),
+            exposure_id: world_beat_exposure_id(seq),
+            transport: "browser".to_string(),
+            state_revision: current_revision,
+        };
+        let raw =
+            acknowledge_world_beat_exposure(State(state.clone()), Json(receipt_for(raw_event.seq)))
+                .await
+                .0;
+        assert!(!raw.ok && raw.status == 422);
+        let inaccessible = acknowledge_world_beat_exposure(
+            State(state.clone()),
+            Json(receipt_for(inaccessible_event.seq)),
+        )
+        .await
+        .0;
+        assert!(!inaccessible.ok && inaccessible.status == 403);
+        let unknown =
+            acknowledge_world_beat_exposure(State(state.clone()), Json(receipt_for(gap_seq)))
+                .await
+                .0;
+        assert!(!unknown.ok && unknown.status == 404);
+        assert_eq!(seen_count(), 1);
+
+        fs::remove_file(path).unwrap();
+    }
+
     fn canonical_test_command_request(
         runtime: &RuntimeWorld,
         actor_id: u64,

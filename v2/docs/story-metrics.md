@@ -24,8 +24,12 @@ rankings.
 - **Pact:** a successful player contribution to a shared craft.
 - **Public trace:** the fact that a meaningful action entered the public room
   journal. The event records no narration or prose.
-- **World beat seen/answered:** a visible `world.*` beat is seen in a room and
-  the player later performs a meaningful action in that room.
+- **World beat seen/answered:** a supported `world.*` beat is seen only after a
+  client presents its non-empty authored prose and the server accepts the
+  client's exposure receipt. A later successful, meaningful action in that
+  room answers the most recent previously seen, unanswered beat. Returning a
+  beat from `/state`, polling in the background, or rendering it behind Menu
+  does not count.
 - **Job/front:** a player contribution to a canonical job update.
 - **Stranded/recovered:** the system drops an inactive holder's item, then a
   player later recovers that item.
@@ -51,8 +55,9 @@ stable within this schema version but are not portable identifiers.
 The table does not store avatar names, account or wallet identifiers, IP
 addresses, actor-session tokens, private chat, room speech, narration, journal
 prose, prompts, or generated text. Event attributes are a small allowlist of
-non-prose booleans and counts. The canonical world journal remains the source
-of truth; story metrics never change game outcomes.
+non-prose booleans, counts, transport names, state revisions, and versioned
+exposure ids. The canonical world journal remains the source of truth; story
+metrics never change game outcomes.
 
 Operators can delete one player's metric rows with:
 
@@ -67,18 +72,30 @@ protected report.
 
 ## Delivery and lifecycle
 
-Metric event ids are deterministic. A command retry, repeated state read, or
-backfill therefore resolves to the same row and cannot inflate a count. Live
-metrics are written in the same SQLite transaction as the canonical journal;
-instrumentation errors are logged and fail open so analytics cannot block a
-world action. The versioned backfill derives supported signals from canonical
-events without copying event prose and commits its first-run work in one
-rollback-safe SQLite savepoint. Canonical events remain the repair source if
-metrics are lost.
+Metric event ids are deterministic. A command retry, repeated render,
+reconnect, refresh, or second browser tab therefore resolves to the same row
+and cannot inflate a count. Most live metrics are written in the same SQLite
+transaction as the canonical journal; the presentation-dependent
+`world_beat_seen` signal is written only after its separate receipt is
+validated. Instrumentation errors are logged and fail open so analytics cannot
+block a world action. The versioned backfill derives supported non-exposure
+signals from canonical events without copying event prose and commits its
+first-run work in one rollback-safe SQLite savepoint. Canonical events remain
+the repair source if metrics are lost, but exposure is deliberately not
+inferred from historical delivery.
 
-Readers include only schema version 1. Rows with an unknown schema are excluded
-from every result and counted as `unsupported_schema_event_count`, making a
-partial rollout visible without corrupting a cohort.
+Exposure ids have the canonical form `world-beat:v1:<journal-sequence>`. The
+receipt endpoint accepts `browser`, `cli`, or `agent` transport and rejects an
+unknown beat, a stale state revision, a non-renderable event, a mismatched actor
+session, or an event outside the actor's visible location. `/state` never
+writes an exposure row. The browser acknowledges only after the transcript row
+is actually visible in a foreground document; CLI and agent clients
+acknowledge after printing or otherwise presenting the authored beat.
+
+Readers include only schema version 2. Version 1 delivery-based exposure rows
+and rows with any other schema are excluded from every result and counted as
+`unsupported_schema_event_count`. This starts a clean receipt-based cohort
+without rewriting old delivery into exposure.
 
 Rows expire after `COSYWORLD_STORY_METRICS_RETENTION_DAYS`, defaulting to 400
 days. Purging runs at boot and daily. Set the variable to `0`, `off`, `none`, or

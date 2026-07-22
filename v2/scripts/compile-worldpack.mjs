@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +18,7 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
+const repoRoot = path.resolve(v2Root, "..");
 const contentRoot = path.join(v2Root, "content");
 const rawArgs = process.argv.slice(2);
 const args = new Set(rawArgs);
@@ -118,6 +120,32 @@ function sha256(parts) {
 
 function filesBelow(directory) {
   if (!fs.existsSync(directory)) return [];
+  const repoRelativeDirectory = path.relative(repoRoot, directory);
+  const isInsideRepository = repoRelativeDirectory !== ""
+    && !repoRelativeDirectory.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(repoRelativeDirectory);
+  if (isInsideRepository) {
+    const trackedOrVisible = spawnSync("git", [
+      "ls-files",
+      "--cached",
+      "--others",
+      "--exclude-standard",
+      "-z",
+      "--",
+      repoRelativeDirectory,
+    ], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    if (trackedOrVisible.status === 0) {
+      return trackedOrVisible.stdout
+        .split("\0")
+        .filter(Boolean)
+        .map((filePath) => path.join(repoRoot, filePath))
+        .filter((filePath) => fs.existsSync(filePath) && fs.statSync(filePath).isFile())
+        .sort();
+    }
+  }
   const results = [];
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const entryPath = path.join(directory, entry.name);

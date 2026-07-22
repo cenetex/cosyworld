@@ -99,7 +99,8 @@ class Game:
 
     def run(self) -> None:
         self.ensure_avatar()
-        self.start_presence_heartbeat()
+        if self.start_presence_heartbeat():
+            print("Presence: active.")
         self.look()
         self.help(short=True)
         while True:
@@ -623,7 +624,12 @@ class Game:
         option_labels = ", ".join(option["label"] for option in options) or "none"
         print(f"Button: {action.get('label', 'Wait')} [{option_labels}]")
 
-    def print_action_hand(self, offers: list[dict[str, object]]) -> None:
+    def print_action_hand(self, offers: object) -> None:
+        if isinstance(offers, dict):
+            offers = offers.get("entries") or []
+        if not isinstance(offers, list):
+            return
+        offers = [offer for offer in offers if isinstance(offer, dict)]
         if not offers:
             return
         labels = ", ".join(str(offer.get("label") or offer.get("kind") or "action") for offer in offers)
@@ -640,6 +646,8 @@ class Game:
             if event_is_hidden_context(event):
                 continue
             print(self.format_event(event))
+            if world_beat_is_renderable(event):
+                sys.stdout.flush()
             self.acknowledge_world_beat(event)
 
     def acknowledge_world_beat(self, event: dict[str, object]) -> None:
@@ -787,18 +795,24 @@ class Game:
         except ClientError:
             pass
 
-    def ping_presence(self) -> None:
+    def ping_presence(self) -> dict[str, object] | None:
         if self.actor_id is None or not self.actor_session:
-            return
-        self.client.post("/presence/ping", self.with_actor_session({"actor_id": self.actor_id}))
+            return None
+        response = self.client.post(
+            "/presence/ping",
+            self.with_actor_session({"actor_id": self.actor_id}),
+        )
+        if not isinstance(response, dict) or not response.get("ok"):
+            raise ClientError(f"presence ping failed: {response}")
+        return response
 
-    def start_presence_heartbeat(self) -> None:
+    def start_presence_heartbeat(self) -> bool:
         if self.actor_id is None or not self.actor_session or self._presence_thread:
-            return
+            return False
         try:
             self.ping_presence()
         except ClientError:
-            return
+            return False
         self._presence_stop.clear()
 
         def heartbeat() -> None:
@@ -810,6 +824,7 @@ class Game:
 
         self._presence_thread = threading.Thread(target=heartbeat, daemon=True)
         self._presence_thread.start()
+        return True
 
     def stop_presence_heartbeat(self) -> None:
         self._presence_stop.set()

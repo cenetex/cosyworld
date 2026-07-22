@@ -317,6 +317,9 @@ fn insert_story_metric(
         let Some(subject_ref) = metric.subject_ref else {
             return Ok(false);
         };
+        let Some(response_event_seq) = metric.source_event_seq else {
+            return Ok(false);
+        };
         let has_seen = conn
             .query_row(
                 "SELECT EXISTS(
@@ -325,8 +328,15 @@ fn insert_story_metric(
                       AND event_kind = 'world_beat_seen'
                       AND player_ref = ?2
                       AND subject_ref = ?3
+                      AND source_event_seq IS NOT NULL
+                      AND source_event_seq < ?4
                  )",
-                params![STORY_METRICS_SCHEMA_VERSION, metric.player_ref, subject_ref],
+                params![
+                    STORY_METRICS_SCHEMA_VERSION,
+                    metric.player_ref,
+                    subject_ref,
+                    response_event_seq as i64,
+                ],
                 |row| row.get::<_, bool>(0),
             )
             .map_err(sqlite_error)?;
@@ -794,6 +804,7 @@ fn record_world_beat_answer_if_seen(
              WHERE seen.schema_version = ?1 AND seen.event_kind = 'world_beat_seen'
                AND seen.player_ref = ?2 AND seen.location_ref = ?3
                AND seen.source_event_seq IS NOT NULL
+               AND seen.source_event_seq < ?4
                AND NOT EXISTS (
                  SELECT 1 FROM story_metric_events answered
                  WHERE answered.schema_version = ?1
@@ -801,8 +812,13 @@ fn record_world_beat_answer_if_seen(
                    AND answered.player_ref = seen.player_ref
                    AND answered.subject_ref = seen.subject_ref
                )
-             ORDER BY seen.occurred_at_ms DESC LIMIT 1",
-            params![STORY_METRICS_SCHEMA_VERSION, player_ref, location_ref],
+             ORDER BY seen.source_event_seq DESC, seen.occurred_at_ms DESC LIMIT 1",
+            params![
+                STORY_METRICS_SCHEMA_VERSION,
+                player_ref,
+                location_ref,
+                source_seq as i64,
+            ],
             |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
         )
         .optional()
@@ -1799,11 +1815,189 @@ mod tests {
             params![now as i64],
         )
         .expect("insert unsupported schema fixture");
-        assert_eq!(count_unsupported_story_metric_schemas(&conn).unwrap(), 1);
+        conn.execute(
+            "INSERT INTO story_metric_events
+                (event_id, schema_version, world_ref, player_ref, session_ref,
+                 event_kind, source_event_seq, subject_ref, attributes_json,
+                 occurred_at_ms, ingested_at_ms)
+             VALUES ('legacy-delivery-seen', 1, 'world', 'player', 'visit',
+                     'world_beat_seen', 12, 'legacy-beat', '{}', ?1, ?1)",
+            params![now as i64],
+        )
+        .expect("insert pre-receipt exposure fixture");
+        assert_eq!(count_unsupported_story_metric_schemas(&conn).unwrap(), 2);
         assert!(read_recent_story_metrics(&conn, 10)
             .unwrap()
             .iter()
             .all(|event| event.schema_version == STORY_METRICS_SCHEMA_VERSION));
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn world_beat_exposure_contract_is_canonical_renderable_and_idempotent() {
+        let path = temp_story_db("world-beat-exposure");
+        let _ = fs::remove_file(&path);
+        let event = EventView {
+            seq: 73,
+            type_name: "world.weather.shifted".to_string(),
+            success: true,
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            content: Some("At The Cosy Cottage, rain gives way to silver mist.".to_string()),
+            ..EventView::default()
+        };
+        let exposure_id = world_beat_exposure_id(event.seq);
+        assert_eq!(exposure_id, "world-beat:v1:73");
+        assert_eq!(world_beat_exposure_seq(&exposure_id), Some(73));
+        assert_eq!(world_beat_exposure_seq("world-beat:v1:073"), None);
+        assert_eq!(world_beat_exposure_seq("world-beat:v2:73"), None);
+        assert!(world_beat_is_renderable(&event));
+
+        assert!(record_world_beat_exposure_at(
+            &path,
+            5000,
+            &event,
+            &exposure_id,
+            "browser",
+            80,
+            STORY_METRICS_DAY_MS,
+        )
+        .unwrap());
+        assert!(!record_world_beat_exposure_at(
+            &path,
+            5000,
+            &event,
+            &exposure_id,
+            "cli",
+            81,
+            STORY_METRICS_DAY_MS + 1,
+        )
+        .unwrap());
+
+        let conn = open_event_store(&path).expect("open world-beat exposure store");
+        let seen = read_recent_story_metrics(&conn, 10)
+            .unwrap()
+            .into_iter()
+            .filter(|metric| metric.event_kind == "world_beat_seen")
+            .collect::<Vec<_>>();
+        assert_eq!(seen.len(), 1);
+        assert_eq!(seen[0].source_event_seq, Some(73));
+        assert_eq!(seen[0].attributes["transport"], "browser");
+        assert_eq!(
+            seen[0].attributes["presentation_contract_version"],
+            WORLD_BEAT_PRESENTATION_CONTRACT_VERSION
+        );
+
+        let raw_event = EventView {
+            seq: 74,
+            type_name: "world.bootstrapped".to_string(),
+            success: true,
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            content: Some("raw world state".to_string()),
+            ..EventView::default()
+        };
+        assert!(!world_beat_is_renderable(&raw_event));
+        assert!(!record_world_beat_exposure_at(
+            &path,
+            5000,
+            &raw_event,
+            &world_beat_exposure_id(raw_event.seq),
+            "browser",
+            80,
+            STORY_METRICS_DAY_MS + 2,
+        )
+        .unwrap());
+        assert!(!record_world_beat_exposure_at(
+            &path,
+            5000,
+            &event,
+            &exposure_id,
+            "raw",
+            80,
+            STORY_METRICS_DAY_MS + 3,
+        )
+        .unwrap());
+
+        drop(conn);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn world_beat_answer_requires_a_seen_row_in_the_current_schema() {
+        let path = temp_story_db("world-beat-answer-guard");
+        let _ = fs::remove_file(&path);
+        init_event_store(&path).expect("initialize answer guard store");
+        let conn = open_event_store(&path).expect("open answer guard store");
+        let player_ref = story_player_ref(5000);
+        let session_ref = story_session_ref(&player_ref, 1);
+        let location_ref = story_location_ref(COSY_COTTAGE_LOCATION_ID);
+        let beat_ref = story_subject_ref("beat", "world-beat:v1:90");
+        let insert_answer = || {
+            insert_story_metric(
+                &conn,
+                NewStoryMetric {
+                    event_id: story_event_id(&["world_beat_answered", &player_ref, &beat_ref]),
+                    player_ref: &player_ref,
+                    session_ref: &session_ref,
+                    event_kind: "world_beat_answered",
+                    source_event_seq: Some(91),
+                    location_ref: Some(&location_ref),
+                    target_player_ref: None,
+                    subject_ref: Some(&beat_ref),
+                    attributes: serde_json::json!({}),
+                    occurred_at_ms: STORY_METRICS_DAY_MS,
+                },
+                STORY_METRICS_DAY_MS,
+            )
+        };
+        assert!(!insert_answer().unwrap());
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM story_metric_events WHERE event_kind = 'world_beat_answered'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+            0
+        );
+
+        insert_story_metric(
+            &conn,
+            NewStoryMetric {
+                event_id: story_event_id(&["world_beat_seen", &player_ref, &beat_ref, "future"]),
+                player_ref: &player_ref,
+                session_ref: &session_ref,
+                event_kind: "world_beat_seen",
+                source_event_seq: Some(92),
+                location_ref: Some(&location_ref),
+                target_player_ref: None,
+                subject_ref: Some(&beat_ref),
+                attributes: serde_json::json!({}),
+                occurred_at_ms: STORY_METRICS_DAY_MS - 1,
+            },
+            STORY_METRICS_DAY_MS - 1,
+        )
+        .unwrap();
+        assert!(!insert_answer().unwrap());
+
+        insert_story_metric(
+            &conn,
+            NewStoryMetric {
+                event_id: story_event_id(&["world_beat_seen", &player_ref, &beat_ref, "prior"]),
+                player_ref: &player_ref,
+                session_ref: &session_ref,
+                event_kind: "world_beat_seen",
+                source_event_seq: Some(90),
+                location_ref: Some(&location_ref),
+                target_player_ref: None,
+                subject_ref: Some(&beat_ref),
+                attributes: serde_json::json!({}),
+                occurred_at_ms: STORY_METRICS_DAY_MS - 2,
+            },
+            STORY_METRICS_DAY_MS - 2,
+        )
+        .unwrap();
+        assert!(insert_answer().unwrap());
 
         let _ = fs::remove_file(path);
     }
