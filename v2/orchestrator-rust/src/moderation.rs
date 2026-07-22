@@ -1,12 +1,24 @@
-use axum::Json;
+use axum::{
+    extract::{Path as AxumPath, Query, State},
+    http::{header, HeaderMap},
+    response::{Html, IntoResponse},
+    Json,
+};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::{io, path::Path, time::Duration};
-use tracing::info;
+use tracing::{error, info, warn};
 
+use crate::kernel::CW_ACTOR_HUMAN;
 use crate::{
-    deployment_config_error, init_event_store, now_millis, open_event_store, sqlite_error,
-    MAX_EVENT_STORE_SCAN,
+    active_actor_ids_for_state, clear_actor_sessions_for_actor, commit_presence_event,
+    delete_actor_sessions_for_actor, delete_actor_suspension, deployment_config_error,
+    event_replay_limit, event_store_scan_limit, init_event_store, no_store_headers, now_millis,
+    now_unix_secs, open_event_store, persist_actor_suspension, read_economy_audit,
+    read_event_store, resolve_economy_reconciliation, sqlite_error, tail_event_replay,
+    ActorSuspension, AiUsageLedgerAuditView, AppState, AvatarPackOpeningView,
+    EconomyReconciliationView, EventView, OrbLedgerAuditView, WoodenBoxReceiptView,
+    MAX_EVENT_STORE_SCAN, MODERATION_HTML,
 };
 
 pub(crate) const MAX_REPORT_REASON_CHARS: usize = 500;
@@ -434,4 +446,623 @@ fn moderation_report_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Moder
         resolved_by: row.get(13)?,
         resolution_note: row.get(14)?,
     })
+}
+
+// ---------------------------------------------------------------------------
+// HTTP handlers and auth (extracted from main.rs)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ModerationEventsQuery {
+    pub(crate) after: Option<u64>,
+    pub(crate) limit: Option<usize>,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ModerationEventsResponse {
+    pub(crate) ok: bool,
+    pub(crate) status: u16,
+    pub(crate) events: Vec<EventView>,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ModerationEconomyResponse {
+    pub(crate) ok: bool,
+    pub(crate) status: u16,
+    pub(crate) orb_ledger: Vec<OrbLedgerAuditView>,
+    pub(crate) ai_usage_ledger: Vec<AiUsageLedgerAuditView>,
+    pub(crate) wooden_box_receipts: Vec<WoodenBoxReceiptView>,
+    pub(crate) avatar_pack_openings: Vec<AvatarPackOpeningView>,
+    pub(crate) economy_reconciliations: Vec<EconomyReconciliationView>,
+    pub(crate) error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ResolveEconomyReconciliationRequest {
+    pub(crate) moderator: Option<String>,
+    pub(crate) note: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct EconomyReconciliationResponse {
+    pub(crate) ok: bool,
+    pub(crate) status: u16,
+    pub(crate) reconciliation: Option<EconomyReconciliationView>,
+    pub(crate) error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ModerationSuspendRequest {
+    pub(crate) reason: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ModerationActorResponse {
+    pub(crate) ok: bool,
+    pub(crate) status: u16,
+    pub(crate) actor_id: u64,
+    pub(crate) suspended: bool,
+    pub(crate) reason: Option<String>,
+    pub(crate) suspended_at_unix: Option<u64>,
+    pub(crate) error: Option<String>,
+}
+
+pub(crate) async fn moderation_events_view(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Query(query): Query<ModerationEventsQuery>,
+) -> Json<ModerationEventsResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return Json(ModerationEventsResponse {
+            ok: false,
+            status: 403,
+            events: Vec::new(),
+        });
+    }
+    let replay_limit = event_replay_limit(query.limit);
+    if replay_limit == 0 {
+        return Json(ModerationEventsResponse {
+            ok: true,
+            status: 200,
+            events: Vec::new(),
+        });
+    }
+    if let Some(path) = state.event_store_path.as_deref() {
+        match read_event_store(
+            path,
+            query.after,
+            event_store_scan_limit(query.after, replay_limit),
+        ) {
+            Ok(events) => {
+                state.record_event_store_read_success();
+                return Json(ModerationEventsResponse {
+                    ok: true,
+                    status: 200,
+                    events: tail_event_replay(events, replay_limit),
+                });
+            }
+            Err(error) => {
+                state.record_event_store_read_failure(&error);
+                error!(
+                    "failed to read CosyWorld v2 moderation event store {}: {}",
+                    path.display(),
+                    error
+                );
+            }
+        }
+    }
+
+    let runtime = state.inner.lock().await;
+    let events = runtime
+        .event_log
+        .iter()
+        .filter(|event| query.after.map(|after| event.seq > after).unwrap_or(true))
+        .cloned()
+        .collect::<Vec<_>>();
+    Json(ModerationEventsResponse {
+        ok: true,
+        status: 200,
+        events: tail_event_replay(events, replay_limit),
+    })
+}
+
+pub(crate) async fn moderation_economy_view(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Query(query): Query<ModerationEventsQuery>,
+) -> Json<ModerationEconomyResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return Json(ModerationEconomyResponse {
+            ok: false,
+            status: 403,
+            orb_ledger: Vec::new(),
+            ai_usage_ledger: Vec::new(),
+            wooden_box_receipts: Vec::new(),
+            avatar_pack_openings: Vec::new(),
+            economy_reconciliations: Vec::new(),
+            error: Some("moderation bearer token required".to_string()),
+        });
+    }
+    let limit = event_replay_limit(query.limit);
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Json(ModerationEconomyResponse {
+            ok: false,
+            status: 503,
+            orb_ledger: Vec::new(),
+            ai_usage_ledger: Vec::new(),
+            wooden_box_receipts: Vec::new(),
+            avatar_pack_openings: Vec::new(),
+            economy_reconciliations: Vec::new(),
+            error: Some("event store is required for economy audit".to_string()),
+        });
+    };
+    if limit == 0 {
+        return Json(ModerationEconomyResponse {
+            ok: true,
+            status: 200,
+            orb_ledger: Vec::new(),
+            ai_usage_ledger: Vec::new(),
+            wooden_box_receipts: Vec::new(),
+            avatar_pack_openings: Vec::new(),
+            economy_reconciliations: Vec::new(),
+            error: None,
+        });
+    }
+
+    match read_economy_audit(path, limit) {
+        Ok(response) => Json(response),
+        Err(error) => {
+            warn!(
+                "failed to read CosyWorld v2 economy audit store {}: {}",
+                path.display(),
+                error
+            );
+            Json(ModerationEconomyResponse {
+                ok: false,
+                status: 500,
+                orb_ledger: Vec::new(),
+                ai_usage_ledger: Vec::new(),
+                wooden_box_receipts: Vec::new(),
+                avatar_pack_openings: Vec::new(),
+                economy_reconciliations: Vec::new(),
+                error: Some(error.to_string()),
+            })
+        }
+    }
+}
+
+pub(crate) async fn moderation_resolve_economy_reconciliation(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath(run_id): AxumPath<u64>,
+    Json(payload): Json<ResolveEconomyReconciliationRequest>,
+) -> Json<EconomyReconciliationResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 403,
+            reconciliation: None,
+            error: Some("moderation bearer token required".to_string()),
+        });
+    }
+    if run_id == 0 {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 400,
+            reconciliation: None,
+            error: Some("Reconciliation run id is required.".to_string()),
+        });
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 503,
+            reconciliation: None,
+            error: Some("Economy reconciliation requires the event store.".to_string()),
+        });
+    };
+    let Some(moderator) = normalize_moderator_label(payload.moderator.as_deref()) else {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 400,
+            reconciliation: None,
+            error: Some(format!(
+                "Moderator label must be under {MAX_MODERATOR_LABEL_CHARS} characters."
+            )),
+        });
+    };
+    let Some(note) = normalize_report_resolution_note(payload.note.as_deref()) else {
+        return Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 400,
+            reconciliation: None,
+            error: Some(format!(
+                "Resolution note must be under {MAX_REPORT_RESOLUTION_NOTE_CHARS} characters."
+            )),
+        });
+    };
+
+    match resolve_economy_reconciliation(path, run_id, &moderator, note.as_deref()) {
+        Ok(Some(reconciliation)) if reconciliation.status == "clear" => {
+            Json(EconomyReconciliationResponse {
+                ok: false,
+                status: 409,
+                reconciliation: Some(reconciliation),
+                error: Some("A clear reconciliation run has no anomaly to resolve.".to_string()),
+            })
+        }
+        Ok(Some(reconciliation)) => Json(EconomyReconciliationResponse {
+            ok: true,
+            status: 200,
+            reconciliation: Some(reconciliation),
+            error: None,
+        }),
+        Ok(None) => Json(EconomyReconciliationResponse {
+            ok: false,
+            status: 404,
+            reconciliation: None,
+            error: Some("Reconciliation run was not found.".to_string()),
+        }),
+        Err(error) => {
+            warn!(
+                "failed to resolve economy reconciliation {} in {}: {}",
+                run_id,
+                path.display(),
+                error
+            );
+            Json(EconomyReconciliationResponse {
+                ok: false,
+                status: 500,
+                reconciliation: None,
+                error: Some("Reconciliation run could not be resolved.".to_string()),
+            })
+        }
+    }
+}
+
+pub(crate) async fn moderation_reports_view(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    Query(query): Query<ModerationReportsQuery>,
+) -> Json<ModerationReportsResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return Json(ModerationReportsResponse {
+            ok: false,
+            status: 403,
+            reports: Vec::new(),
+            error: Some("moderation bearer token required".to_string()),
+        });
+    }
+    let status_filter = match moderation_report_status_filter(query.status.as_deref()) {
+        Ok(filter) => filter,
+        Err(error) => {
+            return Json(ModerationReportsResponse {
+                ok: false,
+                status: 400,
+                reports: Vec::new(),
+                error: Some(error.to_string()),
+            });
+        }
+    };
+    let limit = event_replay_limit(query.limit);
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Json(ModerationReportsResponse {
+            ok: false,
+            status: 503,
+            reports: Vec::new(),
+            error: Some("event store is required for moderation reports".to_string()),
+        });
+    };
+    if limit == 0 {
+        return Json(ModerationReportsResponse {
+            ok: true,
+            status: 200,
+            reports: Vec::new(),
+            error: None,
+        });
+    }
+
+    match read_moderation_reports(path, query.after, limit, status_filter) {
+        Ok(mut response) => {
+            annotate_moderation_report_suspensions(&state, &mut response.reports);
+            Json(response)
+        }
+        Err(error) => {
+            warn!(
+                "failed to read CosyWorld v2 moderation reports store {}: {}",
+                path.display(),
+                error
+            );
+            Json(ModerationReportsResponse {
+                ok: false,
+                status: 500,
+                reports: Vec::new(),
+                error: Some(error.to_string()),
+            })
+        }
+    }
+}
+
+pub(crate) fn annotate_moderation_report_suspensions(
+    state: &AppState,
+    reports: &mut [ModerationReportView],
+) {
+    let Ok(suspensions) = state.actor_suspensions.lock() else {
+        return;
+    };
+    for report in reports {
+        report.reporter_suspended = suspensions.contains_key(&report.reporter_actor_id);
+        report.target_suspended = suspensions.contains_key(&report.target_actor_id);
+    }
+}
+
+pub(crate) async fn moderation_resolve_report(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath(report_id): AxumPath<u64>,
+    Json(payload): Json<ResolveReportRequest>,
+) -> Json<ReportResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return report_response(false, 403, None, "moderation bearer token required");
+    }
+    if report_id == 0 {
+        return report_response(false, 400, None, "Report id is required.");
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return report_response(
+            false,
+            503,
+            None,
+            "Report queue requires the event store to be enabled.",
+        );
+    };
+    let moderator = match normalize_moderator_label(payload.moderator.as_deref()) {
+        Some(label) => label,
+        None => {
+            return report_response(
+                false,
+                400,
+                None,
+                format!("Moderator label must be under {MAX_MODERATOR_LABEL_CHARS} characters."),
+            );
+        }
+    };
+    let note = match normalize_report_resolution_note(payload.note.as_deref()) {
+        Some(note) => note,
+        None => {
+            return report_response(
+                false,
+                400,
+                None,
+                format!(
+                    "Resolution note must be under {MAX_REPORT_RESOLUTION_NOTE_CHARS} characters."
+                ),
+            );
+        }
+    };
+
+    match resolve_moderation_report(path, report_id, &moderator, note.as_deref()) {
+        Ok(Some(report)) => report_response(true, 200, Some(report), ""),
+        Ok(None) => report_response(false, 404, None, "Report was not found."),
+        Err(error) => {
+            warn!(
+                "failed to resolve CosyWorld moderation report {} in {}: {}",
+                report_id,
+                path.display(),
+                error
+            );
+            report_response(false, 500, None, "Report could not be resolved.")
+        }
+    }
+}
+
+pub(crate) async fn moderation_delete_report(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath(report_id): AxumPath<u64>,
+) -> Json<ReportResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return report_response(false, 403, None, "moderation bearer token required");
+    }
+    if report_id == 0 {
+        return report_response(false, 400, None, "Report id is required.");
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return report_response(
+            false,
+            503,
+            None,
+            "Report queue requires the event store to be enabled.",
+        );
+    };
+
+    match delete_resolved_moderation_report(path, report_id) {
+        Ok(DeleteModerationReportOutcome::Deleted(report)) => {
+            report_response(true, 200, Some(report), "")
+        }
+        Ok(DeleteModerationReportOutcome::NotResolved(report)) => {
+            report_response(false, 409, Some(report), "Resolve report before deletion.")
+        }
+        Ok(DeleteModerationReportOutcome::NotFound) => {
+            report_response(false, 404, None, "Report was not found.")
+        }
+        Err(error) => {
+            warn!(
+                "failed to delete CosyWorld moderation report {} in {}: {}",
+                report_id,
+                path.display(),
+                error
+            );
+            report_response(false, 500, None, "Report could not be deleted.")
+        }
+    }
+}
+
+pub(crate) async fn moderation_suspend_actor(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath(actor_id): AxumPath<u64>,
+    Json(payload): Json<ModerationSuspendRequest>,
+) -> Json<ModerationActorResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return moderation_actor_response(
+            false,
+            403,
+            actor_id,
+            false,
+            None,
+            None,
+            Some("moderation bearer token required".to_string()),
+        );
+    }
+    let runtime = state.inner.lock().await;
+    let is_human = runtime
+        .actor_by_id(actor_id)
+        .map(|actor| actor.kind == CW_ACTOR_HUMAN)
+        .unwrap_or(false);
+    drop(runtime);
+    if !is_human {
+        return moderation_actor_response(
+            false,
+            404,
+            actor_id,
+            false,
+            None,
+            None,
+            Some("actor was not found or is not a human avatar".to_string()),
+        );
+    }
+
+    let was_visible_in_presence = active_actor_ids_for_state(&state).contains(&actor_id);
+    let reason = normalize_moderation_reason(payload.reason.as_deref());
+    let created_at_unix = now_unix_secs();
+    let suspension = ActorSuspension {
+        reason: reason.clone(),
+        created_at_unix,
+    };
+    if let Ok(mut suspensions) = state.actor_suspensions.lock() {
+        suspensions.insert(actor_id, suspension);
+    }
+    clear_actor_sessions_for_actor(&state.actor_sessions, actor_id);
+    if let Some(path) = state.event_store_path.as_deref() {
+        if let Err(error) = persist_actor_suspension(path, actor_id, &reason) {
+            warn!(
+                "failed to persist CosyWorld actor suspension for {}: {}",
+                actor_id, error
+            );
+        }
+        if let Err(error) = delete_actor_sessions_for_actor(path, actor_id) {
+            warn!(
+                "failed to delete CosyWorld actor sessions for suspended actor {}: {}",
+                actor_id, error
+            );
+        }
+    }
+    if was_visible_in_presence {
+        commit_presence_event(&state, actor_id, false).await;
+    }
+    moderation_actor_response(
+        true,
+        200,
+        actor_id,
+        true,
+        Some(reason),
+        Some(created_at_unix),
+        None,
+    )
+}
+
+pub(crate) async fn moderation_unsuspend_actor(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath(actor_id): AxumPath<u64>,
+) -> Json<ModerationActorResponse> {
+    if !moderation_authorized(&state, &headers) {
+        return moderation_actor_response(
+            false,
+            403,
+            actor_id,
+            true,
+            None,
+            None,
+            Some("moderation bearer token required".to_string()),
+        );
+    }
+    let removed = state
+        .actor_suspensions
+        .lock()
+        .map(|mut suspensions| suspensions.remove(&actor_id))
+        .ok()
+        .flatten();
+    if let Some(path) = state.event_store_path.as_deref() {
+        if let Err(error) = delete_actor_suspension(path, actor_id) {
+            warn!(
+                "failed to delete CosyWorld actor suspension for {}: {}",
+                actor_id, error
+            );
+        }
+    }
+    let (reason, suspended_at_unix) = removed
+        .map(|entry| (Some(entry.reason), Some(entry.created_at_unix)))
+        .unwrap_or((None, None));
+    moderation_actor_response(true, 200, actor_id, false, reason, suspended_at_unix, None)
+}
+
+pub(crate) fn moderation_actor_response(
+    ok: bool,
+    status: u16,
+    actor_id: u64,
+    suspended: bool,
+    reason: Option<String>,
+    suspended_at_unix: Option<u64>,
+    error: Option<String>,
+) -> Json<ModerationActorResponse> {
+    Json(ModerationActorResponse {
+        ok,
+        status,
+        actor_id,
+        suspended,
+        reason,
+        suspended_at_unix,
+        error,
+    })
+}
+
+pub(crate) fn moderation_authorized(state: &AppState, headers: &HeaderMap) -> bool {
+    moderation_authorized_token(
+        state.moderation_token.as_deref().map(String::as_str),
+        headers,
+    )
+}
+
+pub(crate) fn moderation_authorized_token(expected: Option<&str>, headers: &HeaderMap) -> bool {
+    let Some(expected) = expected else {
+        return false;
+    };
+    let Some(value) = headers.get(header::AUTHORIZATION) else {
+        return false;
+    };
+    let Ok(value) = value.to_str() else {
+        return false;
+    };
+    value.trim() == format!("Bearer {expected}")
+}
+
+pub(crate) fn normalize_moderation_reason(reason: Option<&str>) -> String {
+    let mut normalized = reason
+        .unwrap_or("moderator action")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if normalized.is_empty() {
+        normalized = "moderator action".to_string();
+    }
+    if normalized.chars().count() > 160 {
+        normalized = normalized.chars().take(160).collect();
+    }
+    normalized
+}
+
+pub(crate) async fn moderation_console() -> impl IntoResponse {
+    (no_store_headers(), Html(MODERATION_HTML))
 }

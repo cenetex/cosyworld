@@ -3023,6 +3023,9 @@
     let recoveryPromptPending = false;
     let logEvents = [];
     const seenSeq = new Set();
+    const worldBeatPresentationContractVersion = 1;
+    const worldBeatReceiptState = new Map();
+    let worldBeatVisibilityFrame = null;
     let streamReplayFloorSeq = 0;
     let stream = null;
     let refreshInFlight = null;
@@ -3169,6 +3172,7 @@
       modalReturnFocus.delete(modalId);
       window.requestAnimationFrame(() => {
         if (returnTarget?.isConnected && !returnTarget.closest("[inert]")) returnTarget.focus();
+        if (!activeModal()) scheduleVisibleWorldBeatReceipts();
       });
     }
 
@@ -6372,6 +6376,85 @@
       "world.conflict.escalated",
     ]);
 
+    function worldBeatExposureId(event) {
+      const seq = Number(event?.seq || 0);
+      if (!Number.isSafeInteger(seq) || seq <= 0 || !worldTranscriptEventTypes.has(event?.type)) return "";
+      return `world-beat:v${worldBeatPresentationContractVersion}:${seq}`;
+    }
+
+    function worldBeatRowIsActuallyVisible(row, log) {
+      if (!row?.isConnected || !log?.isConnected || row.getClientRects().length === 0) return false;
+      const style = window.getComputedStyle(row);
+      if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) return false;
+      const rowRect = row.getBoundingClientRect();
+      const logRect = log.getBoundingClientRect();
+      const top = Math.max(logRect.top, 0);
+      const left = Math.max(logRect.left, 0);
+      const bottom = Math.min(logRect.bottom, window.innerHeight);
+      const right = Math.min(logRect.right, window.innerWidth);
+      return rowRect.bottom > top && rowRect.top < bottom && rowRect.right > left && rowRect.left < right;
+    }
+
+    function scheduleVisibleWorldBeatReceipts() {
+      if (worldBeatVisibilityFrame !== null) return;
+      worldBeatVisibilityFrame = window.requestAnimationFrame(() => {
+        worldBeatVisibilityFrame = null;
+        acknowledgeVisibleWorldBeatRows();
+      });
+    }
+
+    function acknowledgeVisibleWorldBeatRows() {
+      if (!actorId || !actorSession || document.visibilityState !== "visible" || activeModal()) return;
+      const log = $("log");
+      if (!log || log.hidden || log.getClientRects().length === 0 || libraryPanelPinned || accountPanelPinned) return;
+      for (const row of log.querySelectorAll("[data-world-beat-exposure][data-world-beat-seq]")) {
+        if (!worldBeatRowIsActuallyVisible(row, log)) continue;
+        const seq = Number(row.dataset.worldBeatSeq || 0);
+        const event = logEvents.find((candidate) => Number(candidate?.seq || 0) === seq);
+        if (!event || !sceneCardEventText(event)) continue;
+        void acknowledgeWorldBeatExposure(event);
+      }
+    }
+
+    async function acknowledgeWorldBeatExposure(event) {
+      const exposureId = worldBeatExposureId(event);
+      if (!exposureId) return;
+      const previous = worldBeatReceiptState.get(exposureId);
+      if (["in_flight", "acknowledged", "rejected"].includes(previous?.status)) return;
+      const attempts = Number(previous?.attempts || 0) + 1;
+      worldBeatReceiptState.set(exposureId, { status: "in_flight", attempts });
+      try {
+        const result = await post("/story/world-beat-exposures", {
+          actor_id: actorId,
+          actor_session: actorSession,
+          exposure_id: exposureId,
+          transport: "browser",
+          state_revision: Math.max(
+            Number(state?.state_revision || 0),
+            Number(state?.world_seq || 0),
+            latestSeenSeq(),
+          ),
+        });
+        if (result?.ok) {
+          worldBeatReceiptState.set(exposureId, { status: "acknowledged", attempts });
+          return;
+        }
+        const status = Number(result?.status || 0);
+        if ([403, 404, 409, 422].includes(status)) {
+          worldBeatReceiptState.set(exposureId, { status: "rejected", attempts });
+          return;
+        }
+        throw new Error(result?.error || "world-beat exposure receipt failed");
+      } catch (error) {
+        worldBeatReceiptState.set(exposureId, { status: "retry", attempts });
+        if (attempts < 3) {
+          window.setTimeout(scheduleVisibleWorldBeatReceipts, attempts * 1000);
+        } else {
+          console.warn("World-beat exposure receipt was not recorded", exposureId, error);
+        }
+      }
+    }
+
     const mechanicalCommandOutputPrefixes = [
       "Visit Ledger marked:",
       "Visit Ledger banked:",
@@ -7325,6 +7408,7 @@
       renderedChatTailKey = chatTailKey;
       log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join("")}${pendingConversation}${pendingChatReplies}`;
       log.scrollTop = tailChanged || wasAtBottom ? log.scrollHeight : previousScrollTop;
+      scheduleVisibleWorldBeatReceipts();
     }
 
     function menuNavHtml(active = menuSection) {
@@ -7918,7 +8002,11 @@
       const meta = statusUpdateMeta(event);
       const text = sceneCardEventText(event);
       if (!text) return "";
-      return `<div class="line event scene-card ${escapeAttr(meta.kind)}" data-event-row aria-label="${escapeAttr(`Story beat. ${text}`)}"><span class="event-label" aria-hidden="true">✦</span><span class="text">${escapeHtml(text)}</span></div>`;
+      const exposureId = worldBeatExposureId(event);
+      const exposureAttrs = exposureId
+        ? ` data-world-beat-exposure="${escapeAttr(exposureId)}" data-world-beat-seq="${Number(event.seq)}"`
+        : "";
+      return `<div class="line event scene-card ${escapeAttr(meta.kind)}" data-event-row${exposureAttrs} aria-label="${escapeAttr(`Story beat. ${text}`)}"><span class="event-label" aria-hidden="true">✦</span><span class="text">${escapeHtml(text)}</span></div>`;
     }
 
     function sceneCardEventText(event) {
@@ -10651,6 +10739,11 @@
         event.preventDefault();
         focusAction(focusIndex - 1);
       }
+    });
+
+    $("log").addEventListener("scroll", scheduleVisibleWorldBeatReceipts, { passive: true });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") scheduleVisibleWorldBeatReceipts();
     });
 
     window.addEventListener("pagehide", leavePresence);

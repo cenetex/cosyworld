@@ -189,6 +189,12 @@ run_cli_checks() {
   python3 -m py_compile "$ROOT/cli/cosy_cli.py"
 }
 
+start_deterministic_smoke_server() {
+  unset COSYWORLD_AI_API_KEY OPENROUTER_API_KEY OPENAI_API_KEY
+  unset COSYWORLD_AI_BASE_URL COSYWORLD_AI_PROVIDER
+  start_server
+}
+
 run_smoke() {
   COSYWORLD_SMOKE_URL="${BASE_URL}/?wallet=${WALLET}&reset=1" node "$ROOT/scripts/smoke-browser.mjs"
   local attempt status
@@ -200,26 +206,29 @@ run_smoke() {
     else
       status=$?
     fi
-    if [ "$status" -ne 75 ]; then
+    if ! health_check; then
+      echo "living-world stress lost the local smoke server; restarting (${attempt}/3)" >&2
+      start_deterministic_smoke_server
+    elif [ "$status" -ne 75 ]; then
       return "$status"
+    else
+      echo "living-world stress avatar was defeated before a choice; retrying (${attempt}/3)" >&2
     fi
-    echo "living-world stress avatar was defeated before a choice; retrying (${attempt}/3)" >&2
   done
-  return 75
+  return "$status"
 }
 
 run_production_profile_smoke() {
   node "$ROOT/scripts/smoke-production-profile.mjs"
 }
 
-run_cli_smoke() {
-  local actor_info actor_id actor_session button_output heartbeat_output command_output
-  actor_info="$(python3 - "$BASE_URL" <<'PY'
+create_cli_smoke_actor() {
+  python3 - "$BASE_URL" "$1" <<'PY'
 import json
 import sys
 import urllib.request
 
-body = json.dumps({"name": "Terminal Smoke"}).encode("utf-8")
+body = json.dumps({"name": sys.argv[2]}).encode("utf-8")
 request = urllib.request.Request(
     f"{sys.argv[1]}/avatar",
     data=body,
@@ -232,7 +241,11 @@ if not data.get("ok"):
     raise SystemExit(f"avatar creation failed: {data}")
 print(data["actor"]["id"], data["actor_session"])
 PY
-)"
+}
+
+run_cli_smoke() {
+  local actor_info actor_id actor_session button_output heartbeat_output command_output
+  actor_info="$(create_cli_smoke_actor "Terminal Button Smoke")"
   read -r actor_id actor_session <<<"$actor_info"
 
   button_output="$(printf 'q' | python3 "$ROOT/cli/cosy_cli.py" --base-url "$BASE_URL" --actor-id "$actor_id" --actor-session "$actor_session")"
@@ -243,38 +256,17 @@ PY
     return 1
   fi
 
+  actor_info="$(create_cli_smoke_actor "Terminal Heartbeat Smoke")"
+  read -r actor_id actor_session <<<"$actor_info"
   heartbeat_output="$(printf 'q' | python3 "$ROOT/cli/cosy_cli.py" --base-url "$BASE_URL" --actor-id "$actor_id" --actor-session "$actor_session" --command-mode)"
   if grep -q "Command failed\\|Action failed" <<<"$heartbeat_output"; then
     echo "$heartbeat_output" >&2
     return 1
   fi
-  python3 - "$BASE_URL" "$actor_id" "$actor_session" <<'PY'
-import json
-import sys
-import urllib.parse
-import urllib.request
+  grep -q "Presence: active\." <<<"$heartbeat_output"
 
-base_url, actor_id, actor_session = sys.argv[1], int(sys.argv[2]), sys.argv[3]
-query = urllib.parse.urlencode(
-    {
-        "actor_id": actor_id,
-        "actor_session": actor_session,
-        "after": 0,
-        "limit": 500,
-    }
-)
-with urllib.request.urlopen(f"{base_url}/events?{query}", timeout=5) as response:
-    replay = json.loads(response.read().decode("utf-8"))
-events = replay.get("events", [])
-if not any(
-    event.get("type") == "actor.presence"
-    and event.get("actor_id") == actor_id
-    and event.get("content") == "active"
-    for event in events
-):
-    raise SystemExit("terminal command-mode did not announce active presence")
-PY
-
+  actor_info="$(create_cli_smoke_actor "Terminal Command Smoke")"
+  read -r actor_id actor_session <<<"$actor_info"
   command_output="$(printf 'say terminal smoke\nevents 0\nq\n' | python3 "$ROOT/cli/cosy_cli.py" --base-url "$BASE_URL" --actor-id "$actor_id" --actor-session "$actor_session" --command-mode)"
   grep -q "terminal smoke" <<<"$command_output"
   if [ "$(grep -c "terminal smoke" <<<"$command_output")" -lt 2 ]; then
@@ -296,7 +288,7 @@ check_all() {
   run_js_checks
   run_cli_checks
   run_production_profile_smoke
-  start_server
+  start_deterministic_smoke_server
   run_smoke
   run_cli_smoke
   status

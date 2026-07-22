@@ -62,6 +62,7 @@ Every event type that currently hits this path is a bug.
 **Priority**: P0 (blocks the live seventh-visit cohort)
 **Scope**: Browser transcript receipts + story metrics + CLI parity
 **Depends on**: FF-1
+**Status**: Implemented for v0.0.87 (issue #145)
 
 ### What to do
 
@@ -88,6 +89,19 @@ Every event type that currently hits this path is a bug.
   prose on screen; a raw or suppressed event cannot be counted as seen.
 - Seventh-visit reporting excludes pre-migration delivery-based rows or labels
   them with a separate schema version.
+
+### Implementation evidence
+
+- Exposure ids use `world-beat:v1:<journal-sequence>` and the receipt carries
+  actor, transport, and observed state revision.
+- The server verifies authentication, exact journal delivery, authored
+  renderability, room visibility, and revision before an idempotent insert.
+- Browser smoke covers visible prose, repeated renders, suppressed events, and
+  a transcript hidden behind Menu. Rust endpoint tests cover passive `/state`,
+  duplicate receipts, forged authentication, inaccessible rooms, raw events,
+  and unknown sequences.
+- Story metrics schema 2 excludes the older delivery-based rows and refuses an
+  answered beat without an earlier receipt-based seen row.
 
 ---
 

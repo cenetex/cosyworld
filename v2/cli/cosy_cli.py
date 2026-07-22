@@ -26,6 +26,17 @@ AVATAR_PREFIXES = ("Moss", "Button", "Hearth", "Rain", "Moon", "Thimble", "Lante
 AVATAR_SUFFIXES = ("Wanderer", "Stitch", "Keeper", "Guest", "Scout", "Dreamer", "Walker", "Friend")
 PRESENCE_HEARTBEAT_SECS = 60
 HTTP_TIMEOUT_SECS = 25
+WORLD_BEAT_PRESENTATION_CONTRACT_VERSION = 1
+WORLD_BEAT_TYPES = {
+    "world.weather.shifted",
+    "world.weather.held",
+    "world.trade.flowed",
+    "world.trade.disrupted",
+    "world.faction.influence_shifted",
+    "world.conflict.pressure_grew",
+    "world.conflict.pressure_eased",
+    "world.conflict.escalated",
+}
 
 
 class ButtonAction:
@@ -82,12 +93,14 @@ class Game:
         self.actor_id = actor_id
         self.actor_session = actor_session
         self.last_seq = 0
+        self._acknowledged_world_beats: set[str] = set()
         self._presence_stop = threading.Event()
         self._presence_thread: threading.Thread | None = None
 
     def run(self) -> None:
         self.ensure_avatar()
-        self.start_presence_heartbeat()
+        if self.start_presence_heartbeat():
+            print("Presence: active.")
         self.look()
         self.help(short=True)
         while True:
@@ -611,7 +624,12 @@ class Game:
         option_labels = ", ".join(option["label"] for option in options) or "none"
         print(f"Button: {action.get('label', 'Wait')} [{option_labels}]")
 
-    def print_action_hand(self, offers: list[dict[str, object]]) -> None:
+    def print_action_hand(self, offers: object) -> None:
+        if isinstance(offers, dict):
+            offers = offers.get("entries") or []
+        if not isinstance(offers, list):
+            return
+        offers = [offer for offer in offers if isinstance(offer, dict)]
         if not offers:
             return
         labels = ", ".join(str(offer.get("label") or offer.get("kind") or "action") for offer in offers)
@@ -620,11 +638,40 @@ class Game:
     def print_events(self, events: list[dict[str, object]]) -> None:
         if not events:
             return
+        self.last_seq = max(
+            self.last_seq,
+            *(int(event.get("seq") or 0) for event in events),
+        )
         for event in events:
-            self.last_seq = max(self.last_seq, int(event.get("seq") or 0))
             if event_is_hidden_context(event):
                 continue
             print(self.format_event(event))
+            if world_beat_is_renderable(event):
+                sys.stdout.flush()
+            self.acknowledge_world_beat(event)
+
+    def acknowledge_world_beat(self, event: dict[str, object]) -> None:
+        if self.actor_id is None or not self.actor_session or not world_beat_is_renderable(event):
+            return
+        seq = int(event.get("seq") or 0)
+        exposure_id = f"world-beat:v{WORLD_BEAT_PRESENTATION_CONTRACT_VERSION}:{seq}"
+        if exposure_id in self._acknowledged_world_beats:
+            return
+        try:
+            response = self.client.post(
+                "/story/world-beat-exposures",
+                {
+                    "actor_id": self.actor_id,
+                    "actor_session": self.actor_session,
+                    "exposure_id": exposure_id,
+                    "transport": "cli",
+                    "state_revision": max(self.last_seq, seq),
+                },
+            )
+        except ClientError:
+            return
+        if isinstance(response, dict) and response.get("ok"):
+            self._acknowledged_world_beats.add(exposure_id)
 
     def remember_events(self, events: list[dict[str, object]]) -> None:
         for event in events:
@@ -643,6 +690,8 @@ class Game:
             return f"[{seq}] {actor}: {event.get('content', '')}"
         if type_name == "world.reset":
             return f"[{seq}] The world returns to its first page."
+        if type_name in WORLD_BEAT_TYPES:
+            return f"[{seq}] ✦ {str(event.get('content') or '').strip()}"
         if type_name == "actor.created":
             return f"[{seq}] {actor} enters the world at {location}."
         if type_name == "actor.entered_location":
@@ -746,18 +795,24 @@ class Game:
         except ClientError:
             pass
 
-    def ping_presence(self) -> None:
+    def ping_presence(self) -> dict[str, object] | None:
         if self.actor_id is None or not self.actor_session:
-            return
-        self.client.post("/presence/ping", self.with_actor_session({"actor_id": self.actor_id}))
+            return None
+        response = self.client.post(
+            "/presence/ping",
+            self.with_actor_session({"actor_id": self.actor_id}),
+        )
+        if not isinstance(response, dict) or not response.get("ok"):
+            raise ClientError(f"presence ping failed: {response}")
+        return response
 
-    def start_presence_heartbeat(self) -> None:
+    def start_presence_heartbeat(self) -> bool:
         if self.actor_id is None or not self.actor_session or self._presence_thread:
-            return
+            return False
         try:
             self.ping_presence()
         except ClientError:
-            return
+            return False
         self._presence_stop.clear()
 
         def heartbeat() -> None:
@@ -769,6 +824,7 @@ class Game:
 
         self._presence_thread = threading.Thread(target=heartbeat, daemon=True)
         self._presence_thread.start()
+        return True
 
     def stop_presence_heartbeat(self) -> None:
         self._presence_stop.set()
@@ -803,6 +859,7 @@ class ButtonGame(Game):
         super().__init__(client, actor_id, actor_session)
         self.rotation = 0
         self.message_log: list[str] = []
+        self.pending_world_beat_events: list[dict[str, object]] = []
 
     def run(self) -> None:
         self.ensure_avatar()
@@ -996,6 +1053,15 @@ class ButtonGame(Game):
         print("-" * 48)
         for line in self.message_log[-5:]:
             print(line)
+        sys.stdout.flush()
+        for event in self.pending_world_beat_events:
+            self.acknowledge_world_beat(event)
+        self.pending_world_beat_events = [
+            event
+            for event in self.pending_world_beat_events
+            if f"world-beat:v{WORLD_BEAT_PRESENTATION_CONTRACT_VERSION}:{int(event.get('seq') or 0)}"
+            not in self._acknowledged_world_beats
+        ][-20:]
         print("-" * 48)
         primary = actions[0] if actions else ButtonAction("Wait", lambda: None)
         secondary = actions[1] if len(actions) > 1 else None
@@ -1045,11 +1111,16 @@ class ButtonGame(Game):
     def capture_events(self, events: list[dict[str, object]]) -> None:
         if not events:
             return
+        self.last_seq = max(
+            self.last_seq,
+            *(int(event.get("seq") or 0) for event in events),
+        )
         for event in events:
-            self.last_seq = max(self.last_seq, int(event.get("seq") or 0))
             if event_is_hidden_context(event):
                 continue
             self.message_log.append(self.format_event(event))
+            if world_beat_is_renderable(event):
+                self.pending_world_beat_events.append(event)
         self.message_log = self.message_log[-20:]
 
 
@@ -1063,6 +1134,16 @@ def location_label(location_id: object) -> str:
 
 def event_is_hidden_context(event: dict[str, object]) -> bool:
     return event.get("type") in {"world.bootstrapped", "actor.presence"}
+
+
+def world_beat_is_renderable(event: dict[str, object]) -> bool:
+    return (
+        event.get("type") in WORLD_BEAT_TYPES
+        and event.get("success") is True
+        and int(event.get("seq") or 0) > 0
+        and event.get("location_id") is not None
+        and bool(str(event.get("content") or "").strip())
+    )
 
 
 def event_label_tail(event: dict[str, object]) -> str:

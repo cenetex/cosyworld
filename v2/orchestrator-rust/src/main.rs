@@ -2024,6 +2024,25 @@ struct EventsResponse {
     caught_up: bool,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WorldBeatExposureReceiptRequest {
+    actor_id: u64,
+    actor_session: String,
+    exposure_id: String,
+    transport: String,
+    state_revision: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct WorldBeatExposureReceiptResponse {
+    ok: bool,
+    status: u16,
+    exposure_id: String,
+    recorded: bool,
+    error: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 struct EventReplayGap {
     after: u64,
@@ -2031,31 +2050,6 @@ struct EventReplayGap {
     through_seq: u64,
     replay_limit: usize,
     reason: &'static str,
-}
-
-#[derive(Debug, Deserialize)]
-struct ModerationEventsQuery {
-    after: Option<u64>,
-    limit: Option<usize>,
-}
-
-#[derive(Debug, Serialize)]
-struct ModerationEventsResponse {
-    ok: bool,
-    status: u16,
-    events: Vec<EventView>,
-}
-
-#[derive(Debug, Serialize)]
-struct ModerationEconomyResponse {
-    ok: bool,
-    status: u16,
-    orb_ledger: Vec<OrbLedgerAuditView>,
-    ai_usage_ledger: Vec<AiUsageLedgerAuditView>,
-    wooden_box_receipts: Vec<WoodenBoxReceiptView>,
-    avatar_pack_openings: Vec<AvatarPackOpeningView>,
-    economy_reconciliations: Vec<EconomyReconciliationView>,
-    error: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2081,20 +2075,6 @@ struct EconomyReconciliationView {
     resolved_at_ms: Option<u64>,
     resolved_by: Option<String>,
     resolution_note: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ResolveEconomyReconciliationRequest {
-    moderator: Option<String>,
-    note: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct EconomyReconciliationResponse {
-    ok: bool,
-    status: u16,
-    reconciliation: Option<EconomyReconciliationView>,
-    error: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -2123,22 +2103,6 @@ struct AiUsageLedgerAuditView {
     error_code: Option<String>,
     latency_ms: u64,
     created_at_ms: u64,
-}
-
-#[derive(Debug, Deserialize)]
-struct ModerationSuspendRequest {
-    reason: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct ModerationActorResponse {
-    ok: bool,
-    status: u16,
-    actor_id: u64,
-    suspended: bool,
-    reason: Option<String>,
-    suspended_at_unix: Option<u64>,
-    error: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -24008,10 +23972,119 @@ async fn state_view(
     }
     response.room_memory =
         room_memory_view_for_state(&state, &response.location, &response.recent_events);
-    if let Some(actor_id) = actor_id {
-        record_visible_world_beats(&state, actor_id, &response.recent_events);
-    }
     Json(response)
+}
+
+async fn acknowledge_world_beat_exposure(
+    State(state): State<AppState>,
+    Json(receipt): Json<WorldBeatExposureReceiptRequest>,
+) -> Json<WorldBeatExposureReceiptResponse> {
+    let rejected = |status, error: &str| {
+        Json(WorldBeatExposureReceiptResponse {
+            ok: false,
+            status,
+            exposure_id: receipt.exposure_id.clone(),
+            recorded: false,
+            error: Some(error.to_string()),
+        })
+    };
+    let Some(source_event_seq) = world_beat_exposure_seq(&receipt.exposure_id) else {
+        return rejected(422, "unknown world-beat exposure contract");
+    };
+    if !valid_world_beat_transport(&receipt.transport) {
+        return rejected(422, "unsupported world-beat delivery transport");
+    }
+    if receipt.state_revision < source_event_seq {
+        return rejected(409, "state revision predates the world beat");
+    }
+
+    converge_capacity_for_read(&state, Some(&receipt.actor_session)).await;
+    let (authorized, current_revision, visible_locations, buffered_event) = {
+        let runtime = state.inner.lock().await;
+        let authorized = client_actor_authorized_for_state(
+            &runtime,
+            &state,
+            receipt.actor_id,
+            Some(&receipt.actor_session),
+        );
+        let access = AccessContext::default();
+        (
+            authorized,
+            runtime.world.next_event_seq.saturating_sub(1),
+            runtime.visible_event_locations(Some(receipt.actor_id), &access),
+            runtime
+                .event_log
+                .iter()
+                .find(|event| event.seq == source_event_seq)
+                .cloned(),
+        )
+    };
+    if !authorized {
+        return rejected(403, "actor session is not authorized");
+    }
+    if receipt.state_revision > current_revision {
+        return rejected(409, "state revision is ahead of the canonical world");
+    }
+
+    let event = match buffered_event {
+        Some(event) => Some(event),
+        None => match state.event_store_path.as_deref() {
+            Some(path) => match read_event_store_event(path, source_event_seq) {
+                Ok(event) => event,
+                Err(error) => {
+                    warn!(
+                        "failed to validate world-beat exposure {} in {}: {}",
+                        receipt.exposure_id,
+                        path.display(),
+                        error
+                    );
+                    return rejected(503, "world-beat journal is temporarily unavailable");
+                }
+            },
+            None => None,
+        },
+    };
+    let Some(event) = event else {
+        return rejected(
+            404,
+            "world-beat exposure does not name a known journal event",
+        );
+    };
+    if !world_beat_is_renderable(&event) {
+        return rejected(422, "journal event is not a renderable authored world beat");
+    }
+    if !event_visible_to_locations(&event, &visible_locations) {
+        return rejected(403, "world beat is not visible to this actor");
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return rejected(503, "story metrics store is not configured");
+    };
+    match record_world_beat_exposure_at(
+        path,
+        receipt.actor_id,
+        &event,
+        &receipt.exposure_id,
+        &receipt.transport,
+        receipt.state_revision,
+        now_millis(),
+    ) {
+        Ok(recorded) => Json(WorldBeatExposureReceiptResponse {
+            ok: true,
+            status: 200,
+            exposure_id: receipt.exposure_id.clone(),
+            recorded,
+            error: None,
+        }),
+        Err(error) => {
+            warn!(
+                "failed to record world-beat exposure {} in {}: {}",
+                receipt.exposure_id,
+                path.display(),
+                error
+            );
+            rejected(503, "story metrics store is temporarily unavailable")
+        }
+    }
 }
 
 async fn inspect_view(
@@ -24154,559 +24227,6 @@ async fn events_view(
         replay_limit,
         &visible_locations,
     ))
-}
-
-async fn moderation_events_view(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    Query(query): Query<ModerationEventsQuery>,
-) -> Json<ModerationEventsResponse> {
-    if !moderation_authorized(&state, &headers) {
-        return Json(ModerationEventsResponse {
-            ok: false,
-            status: 403,
-            events: Vec::new(),
-        });
-    }
-    let replay_limit = event_replay_limit(query.limit);
-    if replay_limit == 0 {
-        return Json(ModerationEventsResponse {
-            ok: true,
-            status: 200,
-            events: Vec::new(),
-        });
-    }
-    if let Some(path) = state.event_store_path.as_deref() {
-        match read_event_store(
-            path,
-            query.after,
-            event_store_scan_limit(query.after, replay_limit),
-        ) {
-            Ok(events) => {
-                state.record_event_store_read_success();
-                return Json(ModerationEventsResponse {
-                    ok: true,
-                    status: 200,
-                    events: tail_event_replay(events, replay_limit),
-                });
-            }
-            Err(error) => {
-                state.record_event_store_read_failure(&error);
-                error!(
-                    "failed to read CosyWorld v2 moderation event store {}: {}",
-                    path.display(),
-                    error
-                );
-            }
-        }
-    }
-
-    let runtime = state.inner.lock().await;
-    let events = runtime
-        .event_log
-        .iter()
-        .filter(|event| query.after.map(|after| event.seq > after).unwrap_or(true))
-        .cloned()
-        .collect::<Vec<_>>();
-    Json(ModerationEventsResponse {
-        ok: true,
-        status: 200,
-        events: tail_event_replay(events, replay_limit),
-    })
-}
-
-async fn moderation_economy_view(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    Query(query): Query<ModerationEventsQuery>,
-) -> Json<ModerationEconomyResponse> {
-    if !moderation_authorized(&state, &headers) {
-        return Json(ModerationEconomyResponse {
-            ok: false,
-            status: 403,
-            orb_ledger: Vec::new(),
-            ai_usage_ledger: Vec::new(),
-            wooden_box_receipts: Vec::new(),
-            avatar_pack_openings: Vec::new(),
-            economy_reconciliations: Vec::new(),
-            error: Some("moderation bearer token required".to_string()),
-        });
-    }
-    let limit = event_replay_limit(query.limit);
-    let Some(path) = state.event_store_path.as_deref() else {
-        return Json(ModerationEconomyResponse {
-            ok: false,
-            status: 503,
-            orb_ledger: Vec::new(),
-            ai_usage_ledger: Vec::new(),
-            wooden_box_receipts: Vec::new(),
-            avatar_pack_openings: Vec::new(),
-            economy_reconciliations: Vec::new(),
-            error: Some("event store is required for economy audit".to_string()),
-        });
-    };
-    if limit == 0 {
-        return Json(ModerationEconomyResponse {
-            ok: true,
-            status: 200,
-            orb_ledger: Vec::new(),
-            ai_usage_ledger: Vec::new(),
-            wooden_box_receipts: Vec::new(),
-            avatar_pack_openings: Vec::new(),
-            economy_reconciliations: Vec::new(),
-            error: None,
-        });
-    }
-
-    match read_economy_audit(path, limit) {
-        Ok(response) => Json(response),
-        Err(error) => {
-            warn!(
-                "failed to read CosyWorld v2 economy audit store {}: {}",
-                path.display(),
-                error
-            );
-            Json(ModerationEconomyResponse {
-                ok: false,
-                status: 500,
-                orb_ledger: Vec::new(),
-                ai_usage_ledger: Vec::new(),
-                wooden_box_receipts: Vec::new(),
-                avatar_pack_openings: Vec::new(),
-                economy_reconciliations: Vec::new(),
-                error: Some(error.to_string()),
-            })
-        }
-    }
-}
-
-async fn moderation_resolve_economy_reconciliation(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    AxumPath(run_id): AxumPath<u64>,
-    Json(payload): Json<ResolveEconomyReconciliationRequest>,
-) -> Json<EconomyReconciliationResponse> {
-    if !moderation_authorized(&state, &headers) {
-        return Json(EconomyReconciliationResponse {
-            ok: false,
-            status: 403,
-            reconciliation: None,
-            error: Some("moderation bearer token required".to_string()),
-        });
-    }
-    if run_id == 0 {
-        return Json(EconomyReconciliationResponse {
-            ok: false,
-            status: 400,
-            reconciliation: None,
-            error: Some("Reconciliation run id is required.".to_string()),
-        });
-    }
-    let Some(path) = state.event_store_path.as_deref() else {
-        return Json(EconomyReconciliationResponse {
-            ok: false,
-            status: 503,
-            reconciliation: None,
-            error: Some("Economy reconciliation requires the event store.".to_string()),
-        });
-    };
-    let Some(moderator) = normalize_moderator_label(payload.moderator.as_deref()) else {
-        return Json(EconomyReconciliationResponse {
-            ok: false,
-            status: 400,
-            reconciliation: None,
-            error: Some(format!(
-                "Moderator label must be under {MAX_MODERATOR_LABEL_CHARS} characters."
-            )),
-        });
-    };
-    let Some(note) = normalize_report_resolution_note(payload.note.as_deref()) else {
-        return Json(EconomyReconciliationResponse {
-            ok: false,
-            status: 400,
-            reconciliation: None,
-            error: Some(format!(
-                "Resolution note must be under {MAX_REPORT_RESOLUTION_NOTE_CHARS} characters."
-            )),
-        });
-    };
-
-    match resolve_economy_reconciliation(path, run_id, &moderator, note.as_deref()) {
-        Ok(Some(reconciliation)) if reconciliation.status == "clear" => {
-            Json(EconomyReconciliationResponse {
-                ok: false,
-                status: 409,
-                reconciliation: Some(reconciliation),
-                error: Some("A clear reconciliation run has no anomaly to resolve.".to_string()),
-            })
-        }
-        Ok(Some(reconciliation)) => Json(EconomyReconciliationResponse {
-            ok: true,
-            status: 200,
-            reconciliation: Some(reconciliation),
-            error: None,
-        }),
-        Ok(None) => Json(EconomyReconciliationResponse {
-            ok: false,
-            status: 404,
-            reconciliation: None,
-            error: Some("Reconciliation run was not found.".to_string()),
-        }),
-        Err(error) => {
-            warn!(
-                "failed to resolve economy reconciliation {} in {}: {}",
-                run_id,
-                path.display(),
-                error
-            );
-            Json(EconomyReconciliationResponse {
-                ok: false,
-                status: 500,
-                reconciliation: None,
-                error: Some("Reconciliation run could not be resolved.".to_string()),
-            })
-        }
-    }
-}
-
-async fn moderation_reports_view(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    Query(query): Query<ModerationReportsQuery>,
-) -> Json<ModerationReportsResponse> {
-    if !moderation_authorized(&state, &headers) {
-        return Json(ModerationReportsResponse {
-            ok: false,
-            status: 403,
-            reports: Vec::new(),
-            error: Some("moderation bearer token required".to_string()),
-        });
-    }
-    let status_filter = match moderation_report_status_filter(query.status.as_deref()) {
-        Ok(filter) => filter,
-        Err(error) => {
-            return Json(ModerationReportsResponse {
-                ok: false,
-                status: 400,
-                reports: Vec::new(),
-                error: Some(error.to_string()),
-            });
-        }
-    };
-    let limit = event_replay_limit(query.limit);
-    let Some(path) = state.event_store_path.as_deref() else {
-        return Json(ModerationReportsResponse {
-            ok: false,
-            status: 503,
-            reports: Vec::new(),
-            error: Some("event store is required for moderation reports".to_string()),
-        });
-    };
-    if limit == 0 {
-        return Json(ModerationReportsResponse {
-            ok: true,
-            status: 200,
-            reports: Vec::new(),
-            error: None,
-        });
-    }
-
-    match read_moderation_reports(path, query.after, limit, status_filter) {
-        Ok(mut response) => {
-            annotate_moderation_report_suspensions(&state, &mut response.reports);
-            Json(response)
-        }
-        Err(error) => {
-            warn!(
-                "failed to read CosyWorld v2 moderation reports store {}: {}",
-                path.display(),
-                error
-            );
-            Json(ModerationReportsResponse {
-                ok: false,
-                status: 500,
-                reports: Vec::new(),
-                error: Some(error.to_string()),
-            })
-        }
-    }
-}
-
-fn annotate_moderation_report_suspensions(state: &AppState, reports: &mut [ModerationReportView]) {
-    let Ok(suspensions) = state.actor_suspensions.lock() else {
-        return;
-    };
-    for report in reports {
-        report.reporter_suspended = suspensions.contains_key(&report.reporter_actor_id);
-        report.target_suspended = suspensions.contains_key(&report.target_actor_id);
-    }
-}
-
-async fn moderation_resolve_report(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    AxumPath(report_id): AxumPath<u64>,
-    Json(payload): Json<ResolveReportRequest>,
-) -> Json<ReportResponse> {
-    if !moderation_authorized(&state, &headers) {
-        return report_response(false, 403, None, "moderation bearer token required");
-    }
-    if report_id == 0 {
-        return report_response(false, 400, None, "Report id is required.");
-    }
-    let Some(path) = state.event_store_path.as_deref() else {
-        return report_response(
-            false,
-            503,
-            None,
-            "Report queue requires the event store to be enabled.",
-        );
-    };
-    let moderator = match normalize_moderator_label(payload.moderator.as_deref()) {
-        Some(label) => label,
-        None => {
-            return report_response(
-                false,
-                400,
-                None,
-                format!("Moderator label must be under {MAX_MODERATOR_LABEL_CHARS} characters."),
-            );
-        }
-    };
-    let note = match normalize_report_resolution_note(payload.note.as_deref()) {
-        Some(note) => note,
-        None => {
-            return report_response(
-                false,
-                400,
-                None,
-                format!(
-                    "Resolution note must be under {MAX_REPORT_RESOLUTION_NOTE_CHARS} characters."
-                ),
-            );
-        }
-    };
-
-    match resolve_moderation_report(path, report_id, &moderator, note.as_deref()) {
-        Ok(Some(report)) => report_response(true, 200, Some(report), ""),
-        Ok(None) => report_response(false, 404, None, "Report was not found."),
-        Err(error) => {
-            warn!(
-                "failed to resolve CosyWorld moderation report {} in {}: {}",
-                report_id,
-                path.display(),
-                error
-            );
-            report_response(false, 500, None, "Report could not be resolved.")
-        }
-    }
-}
-
-async fn moderation_delete_report(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    AxumPath(report_id): AxumPath<u64>,
-) -> Json<ReportResponse> {
-    if !moderation_authorized(&state, &headers) {
-        return report_response(false, 403, None, "moderation bearer token required");
-    }
-    if report_id == 0 {
-        return report_response(false, 400, None, "Report id is required.");
-    }
-    let Some(path) = state.event_store_path.as_deref() else {
-        return report_response(
-            false,
-            503,
-            None,
-            "Report queue requires the event store to be enabled.",
-        );
-    };
-
-    match delete_resolved_moderation_report(path, report_id) {
-        Ok(DeleteModerationReportOutcome::Deleted(report)) => {
-            report_response(true, 200, Some(report), "")
-        }
-        Ok(DeleteModerationReportOutcome::NotResolved(report)) => {
-            report_response(false, 409, Some(report), "Resolve report before deletion.")
-        }
-        Ok(DeleteModerationReportOutcome::NotFound) => {
-            report_response(false, 404, None, "Report was not found.")
-        }
-        Err(error) => {
-            warn!(
-                "failed to delete CosyWorld moderation report {} in {}: {}",
-                report_id,
-                path.display(),
-                error
-            );
-            report_response(false, 500, None, "Report could not be deleted.")
-        }
-    }
-}
-
-async fn moderation_suspend_actor(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    AxumPath(actor_id): AxumPath<u64>,
-    Json(payload): Json<ModerationSuspendRequest>,
-) -> Json<ModerationActorResponse> {
-    if !moderation_authorized(&state, &headers) {
-        return moderation_actor_response(
-            false,
-            403,
-            actor_id,
-            false,
-            None,
-            None,
-            Some("moderation bearer token required".to_string()),
-        );
-    }
-    let runtime = state.inner.lock().await;
-    let is_human = runtime
-        .actor_by_id(actor_id)
-        .map(|actor| actor.kind == CW_ACTOR_HUMAN)
-        .unwrap_or(false);
-    drop(runtime);
-    if !is_human {
-        return moderation_actor_response(
-            false,
-            404,
-            actor_id,
-            false,
-            None,
-            None,
-            Some("actor was not found or is not a human avatar".to_string()),
-        );
-    }
-
-    let was_visible_in_presence = active_actor_ids_for_state(&state).contains(&actor_id);
-    let reason = normalize_moderation_reason(payload.reason.as_deref());
-    let created_at_unix = now_unix_secs();
-    let suspension = ActorSuspension {
-        reason: reason.clone(),
-        created_at_unix,
-    };
-    if let Ok(mut suspensions) = state.actor_suspensions.lock() {
-        suspensions.insert(actor_id, suspension);
-    }
-    clear_actor_sessions_for_actor(&state.actor_sessions, actor_id);
-    if let Some(path) = state.event_store_path.as_deref() {
-        if let Err(error) = persist_actor_suspension(path, actor_id, &reason) {
-            warn!(
-                "failed to persist CosyWorld actor suspension for {}: {}",
-                actor_id, error
-            );
-        }
-        if let Err(error) = delete_actor_sessions_for_actor(path, actor_id) {
-            warn!(
-                "failed to delete CosyWorld actor sessions for suspended actor {}: {}",
-                actor_id, error
-            );
-        }
-    }
-    if was_visible_in_presence {
-        commit_presence_event(&state, actor_id, false).await;
-    }
-    moderation_actor_response(
-        true,
-        200,
-        actor_id,
-        true,
-        Some(reason),
-        Some(created_at_unix),
-        None,
-    )
-}
-
-async fn moderation_unsuspend_actor(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    AxumPath(actor_id): AxumPath<u64>,
-) -> Json<ModerationActorResponse> {
-    if !moderation_authorized(&state, &headers) {
-        return moderation_actor_response(
-            false,
-            403,
-            actor_id,
-            true,
-            None,
-            None,
-            Some("moderation bearer token required".to_string()),
-        );
-    }
-    let removed = state
-        .actor_suspensions
-        .lock()
-        .map(|mut suspensions| suspensions.remove(&actor_id))
-        .ok()
-        .flatten();
-    if let Some(path) = state.event_store_path.as_deref() {
-        if let Err(error) = delete_actor_suspension(path, actor_id) {
-            warn!(
-                "failed to delete CosyWorld actor suspension for {}: {}",
-                actor_id, error
-            );
-        }
-    }
-    let (reason, suspended_at_unix) = removed
-        .map(|entry| (Some(entry.reason), Some(entry.created_at_unix)))
-        .unwrap_or((None, None));
-    moderation_actor_response(true, 200, actor_id, false, reason, suspended_at_unix, None)
-}
-
-fn moderation_actor_response(
-    ok: bool,
-    status: u16,
-    actor_id: u64,
-    suspended: bool,
-    reason: Option<String>,
-    suspended_at_unix: Option<u64>,
-    error: Option<String>,
-) -> Json<ModerationActorResponse> {
-    Json(ModerationActorResponse {
-        ok,
-        status,
-        actor_id,
-        suspended,
-        reason,
-        suspended_at_unix,
-        error,
-    })
-}
-
-fn moderation_authorized(state: &AppState, headers: &HeaderMap) -> bool {
-    moderation_authorized_token(
-        state.moderation_token.as_deref().map(String::as_str),
-        headers,
-    )
-}
-
-fn moderation_authorized_token(expected: Option<&str>, headers: &HeaderMap) -> bool {
-    let Some(expected) = expected else {
-        return false;
-    };
-    let Some(value) = headers.get(header::AUTHORIZATION) else {
-        return false;
-    };
-    let Ok(value) = value.to_str() else {
-        return false;
-    };
-    value.trim() == format!("Bearer {expected}")
-}
-
-fn normalize_moderation_reason(reason: Option<&str>) -> String {
-    let mut normalized = reason
-        .unwrap_or("moderator action")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    if normalized.is_empty() {
-        normalized = "moderator action".to_string();
-    }
-    if normalized.chars().count() > 160 {
-        normalized = normalized.chars().take(160).collect();
-    }
-    normalized
 }
 
 fn event_replay_limit(requested: Option<usize>) -> usize {
@@ -35175,10 +34695,6 @@ async fn index(headers: HeaderMap) -> Response {
     (StatusCode::OK, cache_headers, Html(INDEX_HTML)).into_response()
 }
 
-async fn moderation_console() -> impl IntoResponse {
-    (no_store_headers(), Html(MODERATION_HTML))
-}
-
 fn event_visible_to_locations(event: &EventView, location_ids: &BTreeSet<u64>) -> bool {
     event
         .location_id
@@ -39015,6 +38531,28 @@ fn read_event_store(path: &Path, after: Option<u64>, limit: usize) -> io::Result
     Ok(events)
 }
 
+fn read_event_store_event(path: &Path, seq: u64) -> io::Result<Option<EventView>> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let payload = conn
+        .query_row(
+            "SELECT payload_json FROM world_events WHERE seq = ?1",
+            params![seq as i64],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(sqlite_error)?;
+    let Some(payload) = payload else {
+        return Ok(None);
+    };
+    let mut event: EventView = serde_json::from_str(&payload)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    if content_reference_context_is_empty(&event.content_context) {
+        event.refresh_content_context();
+    }
+    Ok(Some(event))
+}
+
 fn read_event_store_between(
     path: &Path,
     after_seq: u64,
@@ -40192,6 +39730,151 @@ mod tests {
             .iter()
             .any(|event| event.event_kind == "hosted_guest_entry"));
         drop(conn);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[tokio::test]
+    async fn world_beat_exposure_endpoint_validates_delivery_and_state_reads_do_not_count() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-world-beat-exposure-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Visible Reader",
+        );
+        let state = test_app_state(runtime, Some(path.clone()));
+        let actor_session = issue_actor_session(&state, 5000).0;
+        let (visible_beat, visible_revision) = {
+            let mut runtime = state.inner.lock().await;
+            let world_tick = runtime.world.tick;
+            let event = runtime.append_world_history_event(
+                "world.weather.shifted",
+                COSY_COTTAGE_LOCATION_ID,
+                None,
+                "Rain thins into a pearly mist around the cottage windows.".to_string(),
+                world_tick,
+                Some(COSY_COTTAGE_LOCATION_ID),
+                None,
+            );
+            let revision = runtime.world.next_event_seq.saturating_sub(1);
+            (event, revision)
+        };
+
+        let seen_count = || {
+            let conn = open_event_store(&path).expect("open exposure test store");
+            conn.query_row(
+                "SELECT COUNT(*) FROM story_metric_events
+                 WHERE schema_version = ?1 AND event_kind = 'world_beat_seen'",
+                params![STORY_METRICS_SCHEMA_VERSION],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(seen_count(), 0);
+        let _ = state_view(
+            State(state.clone()),
+            Query(StateQuery {
+                actor_id: Some(5000),
+                actor_session: Some(actor_session.clone()),
+                wallet_address: None,
+                wallet: None,
+                wallet_session: None,
+                owned_card_ids: None,
+                cards: None,
+                openrouter_connected: None,
+            }),
+        )
+        .await;
+        assert_eq!(seen_count(), 0, "GET /state must not imply exposure");
+
+        let valid_receipt = WorldBeatExposureReceiptRequest {
+            actor_id: 5000,
+            actor_session: actor_session.clone(),
+            exposure_id: world_beat_exposure_id(visible_beat.seq),
+            transport: "browser".to_string(),
+            state_revision: visible_revision,
+        };
+        let first =
+            acknowledge_world_beat_exposure(State(state.clone()), Json(valid_receipt.clone()))
+                .await
+                .0;
+        assert!(first.ok && first.recorded);
+        let duplicate =
+            acknowledge_world_beat_exposure(State(state.clone()), Json(valid_receipt.clone()))
+                .await
+                .0;
+        assert!(duplicate.ok && !duplicate.recorded);
+        assert_eq!(seen_count(), 1);
+
+        let unauthorized = acknowledge_world_beat_exposure(
+            State(state.clone()),
+            Json(WorldBeatExposureReceiptRequest {
+                actor_session: "not-a-session".to_string(),
+                ..valid_receipt.clone()
+            }),
+        )
+        .await
+        .0;
+        assert!(!unauthorized.ok && unauthorized.status == 403);
+
+        let (raw_event, inaccessible_event, gap_seq, current_revision) = {
+            let mut runtime = state.inner.lock().await;
+            let world_tick = runtime.world.tick;
+            let raw = runtime.append_world_history_event(
+                "world.bootstrapped",
+                COSY_COTTAGE_LOCATION_ID,
+                None,
+                "internal boot state".to_string(),
+                world_tick,
+                Some(COSY_COTTAGE_LOCATION_ID),
+                None,
+            );
+            let inaccessible = runtime.append_world_history_event(
+                "world.trade.flowed",
+                11,
+                None,
+                "A parcel finds its way through Homeroom.".to_string(),
+                world_tick,
+                Some(11),
+                None,
+            );
+            let gap = runtime.world.next_event_seq;
+            runtime.world.next_event_seq = runtime.world.next_event_seq.saturating_add(1);
+            let revision = runtime.world.next_event_seq.saturating_sub(1);
+            (raw, inaccessible, gap, revision)
+        };
+        let receipt_for = |seq| WorldBeatExposureReceiptRequest {
+            actor_id: 5000,
+            actor_session: actor_session.clone(),
+            exposure_id: world_beat_exposure_id(seq),
+            transport: "browser".to_string(),
+            state_revision: current_revision,
+        };
+        let raw =
+            acknowledge_world_beat_exposure(State(state.clone()), Json(receipt_for(raw_event.seq)))
+                .await
+                .0;
+        assert!(!raw.ok && raw.status == 422);
+        let inaccessible = acknowledge_world_beat_exposure(
+            State(state.clone()),
+            Json(receipt_for(inaccessible_event.seq)),
+        )
+        .await
+        .0;
+        assert!(!inaccessible.ok && inaccessible.status == 403);
+        let unknown =
+            acknowledge_world_beat_exposure(State(state.clone()), Json(receipt_for(gap_seq)))
+                .await
+                .0;
+        assert!(!unknown.ok && unknown.status == 404);
+        assert_eq!(seen_count(), 1);
+
         fs::remove_file(path).unwrap();
     }
 

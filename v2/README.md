@@ -216,6 +216,11 @@ That script builds the Rust orchestrator, starts it detached on `127.0.0.1:3102`
 
 Use `./v2/mvp.sh check` as the local MVP gate. It runs the content worldpack check, the C kernel test, local AI model native tests plus WASM build, Rust format/tests/build, JavaScript and terminal-client syntax checks, starts a production-profile smoke against a protected local Ruby High-style ownership feed, restarts the detached browser server, runs the Playwright browser smoke, runs a non-typing terminal smoke plus a typed terminal command-mode speech smoke, and leaves the verified server running.
 
+The browser and terminal portions of this gate deliberately clear remote AI
+credentials before starting their local server. They exercise the explicit
+AI-unavailable behavior deterministically; live provider integration is a
+separate operational check and cannot make the local release gate flaky.
+
 The local AI model can be checked and built for browser use from the repository root:
 
 ```sh
@@ -685,6 +690,7 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /commands`
 - `POST /presence/ping`
 - `POST /presence/leave`
+- `POST /story/world-beat-exposures`
 - `POST /actions/submit`
 - `POST /actions/chat`
 - `POST /actions/say`
@@ -741,6 +747,16 @@ the committed `world_epoch` and `world_seq`, affected canonical entity
 versions, and the current fencing epoch. Retry the exact envelope after a lost
 transport response. Reusing its `intent_id` for different content or sending a
 stale version returns `409` without another effect.
+
+`POST /story/world-beat-exposures` accepts an authenticated post-presentation
+receipt such as `{ "actor_id": 5000, "actor_session": "...", "exposure_id":
+"world-beat:v1:92810", "transport": "browser", "state_revision": 92811 }`.
+The server verifies the exact journal event, authored renderability, actor
+session, current location visibility, and observed state revision before
+recording one idempotent `world_beat_seen` metric. `GET /state` never records
+this signal. Browser clients submit only after the transcript row is visibly
+rendered; terminal and agent clients acknowledge after presentation with
+`cli` or `agent` transport.
 
 `POST /actions/check` is the public Listen action, not a generic client-authored
 roll: the server always resolves Wisdom against DC 12, accepts only `wis` or

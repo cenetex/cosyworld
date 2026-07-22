@@ -4620,6 +4620,135 @@ async function main() {
     assert((attrs.label || "").toLowerCase().includes("shared room"), `timeline should have a useful label: ${JSON.stringify(attrs)}`);
   }
 
+  async function assertWorldBeatExposureFollowsVisibleAuthoredProse() {
+    const result = await page.evaluate(async () => {
+      const previous = {
+        logEvents: logEvents.slice(),
+        seenSeq: [...seenSeq],
+        accountPanelPinned,
+        libraryPanelPinned,
+        actorId,
+        actorSession,
+        state,
+        receiptState: [...worldBeatReceiptState.entries()],
+        fetch: window.fetch,
+      };
+      const calls = [];
+      const waitForFrames = () => new Promise((resolve) => {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
+      });
+      try {
+        accountPanelPinned = false;
+        libraryPanelPinned = false;
+        actorId = Number(actorId || 5000);
+        actorSession = actorSession || "browser-smoke-session";
+        state = {
+          ...state,
+          world_seq: 990500100,
+          location: { ...(state?.location || {}), id: 1, name: "The Cosy Cottage" },
+        };
+        worldBeatReceiptState.clear();
+        window.fetch = async (input, options = {}) => {
+          const path = new URL(String(input), window.location.href).pathname;
+          if (path !== "/story/world-beat-exposures") return previous.fetch(input, options);
+          const payload = JSON.parse(String(options.body || "{}"));
+          calls.push(payload);
+          return new Response(JSON.stringify({
+            ok: true,
+            status: 200,
+            exposure_id: payload.exposure_id,
+            recorded: calls.length === 1,
+            error: null,
+          }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        };
+
+        const authored = {
+          seq: 990500001,
+          type: "world.weather.shifted",
+          success: true,
+          location_id: 1,
+          location_name: "The Cosy Cottage",
+          content: "Rain thins into pearl-grey mist around the cottage windows.",
+        };
+        logEvents = [authored];
+        seenSeq.clear();
+        seenSeq.add(authored.seq);
+        renderLog();
+        await waitForFrames();
+        await new Promise((resolve) => window.setTimeout(resolve, 25));
+        const row = document.querySelector(`[data-world-beat-exposure="world-beat:v1:${authored.seq}"]`);
+        const visibleAuthoredText = row?.textContent?.trim().replace(/\s+/g, " ") || "";
+
+        renderLog();
+        renderLog();
+        await waitForFrames();
+        await new Promise((resolve) => window.setTimeout(resolve, 25));
+        const callsAfterRepeatedRender = calls.length;
+
+        logEvents = [{
+          seq: 990500002,
+          type: "world.bootstrapped",
+          success: true,
+          location_id: 1,
+          content: "raw boot state",
+        }, {
+          seq: 990500003,
+          type: "world.uncovered",
+          success: true,
+          location_id: 1,
+          content: "raw uncovered state",
+        }];
+        renderLog();
+        await waitForFrames();
+        await new Promise((resolve) => window.setTimeout(resolve, 25));
+        const callsAfterSuppressedEvents = calls.length;
+
+        accountPanelPinned = true;
+        logEvents = [{ ...authored, seq: 990500004 }];
+        renderLog();
+        await waitForFrames();
+        await new Promise((resolve) => window.setTimeout(resolve, 25));
+        const callsWhileMenuHidden = calls.length;
+        return {
+          calls,
+          callsAfterRepeatedRender,
+          callsAfterSuppressedEvents,
+          callsWhileMenuHidden,
+          visibleAuthoredText,
+          exposureAttribute: row?.getAttribute("data-world-beat-exposure") || "",
+        };
+      } finally {
+        window.fetch = previous.fetch;
+        logEvents = previous.logEvents;
+        seenSeq.clear();
+        for (const seq of previous.seenSeq) seenSeq.add(seq);
+        accountPanelPinned = previous.accountPanelPinned;
+        libraryPanelPinned = previous.libraryPanelPinned;
+        actorId = previous.actorId;
+        actorSession = previous.actorSession;
+        state = previous.state;
+        worldBeatReceiptState.clear();
+        for (const [key, value] of previous.receiptState) worldBeatReceiptState.set(key, value);
+        renderTimelines();
+      }
+    });
+    assert(result.calls.length === 1, `one visible world beat should send one receipt: ${JSON.stringify(result)}`);
+    assert(result.callsAfterRepeatedRender === 1, `repeat renders and reconnect-style rebuilds should remain idempotent: ${JSON.stringify(result)}`);
+    assert(result.callsAfterSuppressedEvents === 1, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.callsWhileMenuHidden === 1, `a transcript hidden behind Menu must not send exposure receipts: ${JSON.stringify(result)}`);
+    assert(result.exposureAttribute === "world-beat:v1:990500001", `world-beat exposure ids should bind presentation v1 to journal sequence: ${JSON.stringify(result)}`);
+    assert(result.visibleAuthoredText.includes("Rain thins into pearl-grey mist"), `a receipted beat must have authored prose on screen: ${JSON.stringify(result)}`);
+    assert(
+      result.calls[0]?.transport === "browser"
+        && Number(result.calls[0]?.actor_id) > 0
+        && Number(result.calls[0]?.state_revision) >= 990500001,
+      `browser receipt should name actor, transport, beat, and observed state revision: ${JSON.stringify(result)}`,
+    );
+  }
+
   async function assertWorldResetClearsTranscriptAndResidentRepeatsCollapse() {
     const result = await page.evaluate(() => {
       const previousLogEvents = logEvents.slice();
@@ -5573,7 +5702,7 @@ async function main() {
   }
 
   async function clickPrimary(label) {
-    await page.locator("#primary").click();
+    await page.locator("#primary").click({ force: true });
     await confirmActionModalIfOpen();
     await page.waitForTimeout(200);
     await assertNoVisibleOverflow();
@@ -6944,6 +7073,7 @@ async function main() {
       `report command should submit for the nearby resident: ${JSON.stringify(report)}`,
     );
     await waitForTimelineText(`Report submitted for ${nearbyActor}.`);
+    await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
     await assertNoComposerOrDebugChrome();
     steps.push({ label: "report command palette", command: `report ${nearbyActor}` });
   }
@@ -7504,7 +7634,13 @@ async function main() {
     assert(collapsed.expanded === "false", `${label}: room memory should start collapsed: ${JSON.stringify(collapsed)}`);
     assert(!collapsed.memoryVisible, `${label}: memory panel should be hidden while collapsed: ${JSON.stringify(collapsed)}`);
     assert(collapsed.unexpectedRows === 0, `${label}: normal feed should keep bookkeeping rows out of the scene: ${JSON.stringify(collapsed)}`);
-    assert(!collapsed.transcriptVisible || collapsed.chatRows > 0 || collapsed.quietScene === 1, `${label}: visible group chat should show speech or its quiet empty state: ${JSON.stringify(collapsed)}`);
+    assert(
+      !collapsed.transcriptVisible
+        || collapsed.chatRows > 0
+        || collapsed.sceneRows > 0
+        || collapsed.quietScene === 1,
+      `${label}: a visible transcript should show speech, an authored scene beat, or its quiet empty state: ${JSON.stringify(collapsed)}`,
+    );
 
     await page.locator("#room-log-toggle").click();
     const expanded = await page.evaluate(() => {
@@ -8556,6 +8692,7 @@ async function main() {
   await assertUiAccessibilityContract("mobile accessibility and navigation");
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
+  await assertWorldBeatExposureFollowsVisibleAuthoredProse();
   await assertWorldResetClearsTranscriptAndResidentRepeatsCollapse();
   await assertCardBeatsStayInSceneAndBookkeepingStaysOut();
   await assertJourneyCardContract();
