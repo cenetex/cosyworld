@@ -776,6 +776,26 @@ struct RoomSheetState {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum ProjectionMutation {
+    CreateTransferOffer {
+        offer: TransferOfferState,
+    },
+    ResolveTransferOffer {
+        offer_id: String,
+        status: TransferOfferStatus,
+        resolved_by_actor_id: u64,
+    },
+    SetActorSafety {
+        actor_id: u64,
+        target_actor_id: u64,
+        control: ActorSafetyControl,
+        enabled: bool,
+    },
+    SetGiftAutoAccept {
+        policy: GiftAutoAcceptPolicy,
+    },
+    ConsumeGiftAutoAccept {
+        policy_id: String,
+    },
     ShuffleHand {
         reason: String,
     },
@@ -1221,6 +1241,68 @@ impl ActorControlMode {
     }
 }
 
+const TRANSFER_OFFER_TTL_TICKS: u64 = 24;
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum TransferOfferKind {
+    Gift,
+    Trade,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum TransferOfferStatus {
+    Pending,
+    Accepted,
+    Declined,
+    Withdrawn,
+    Expired,
+    Invalidated,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct TransferOfferState {
+    id: String,
+    kind: TransferOfferKind,
+    offered_by_actor_id: u64,
+    offered_to_actor_id: u64,
+    offered_item_id: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    requested_item_id: Option<u64>,
+    created_tick: u64,
+    expires_tick: u64,
+    status: TransferOfferStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resolved_by_actor_id: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct GiftAutoAcceptPolicy {
+    id: String,
+    recipient_actor_id: u64,
+    offered_by_actor_id: u64,
+    item_id: u64,
+    created_tick: u64,
+    expires_tick: u64,
+    consumed: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum ActorSafetyControl {
+    Mute,
+    Block,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+struct ActorSafetyState {
+    #[serde(default)]
+    muted_actor_ids: BTreeSet<u64>,
+    #[serde(default)]
+    blocked_actor_ids: BTreeSet<u64>,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 struct ActorAutonomyState {
     control_mode: ActorControlMode,
@@ -1341,6 +1423,9 @@ struct RuntimeWorld {
     search_memories: BTreeMap<String, SearchMemoryState>,
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
+    transfer_offers: BTreeMap<String, TransferOfferState>,
+    gift_auto_accepts: BTreeMap<String, GiftAutoAcceptPolicy>,
+    actor_safety: BTreeMap<u64, ActorSafetyState>,
     world_simulation: WorldSimulationState,
     rpg_claims: BTreeSet<String>,
     orb_balances: BTreeMap<u64, i32>,
@@ -1438,6 +1523,12 @@ struct RuntimeSnapshot {
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     #[serde(default)]
     actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
+    #[serde(default)]
+    transfer_offers: BTreeMap<String, TransferOfferState>,
+    #[serde(default)]
+    gift_auto_accepts: BTreeMap<String, GiftAutoAcceptPolicy>,
+    #[serde(default)]
+    actor_safety: BTreeMap<u64, ActorSafetyState>,
     #[serde(default)]
     world_simulation: WorldSimulationState,
     #[serde(default)]
@@ -3177,6 +3268,31 @@ struct ItemRequest {
     item_id: u64,
     target_item_id: Option<u64>,
     target_actor_id: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TransferOfferActionRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    offer_id: String,
+    decision: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ActorSafetyRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    target_actor_id: u64,
+    control: ActorSafetyControl,
+    enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct GiftAutoAcceptRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    offered_by_actor_id: u64,
+    item_id: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -5943,6 +6059,9 @@ impl RuntimeSnapshot {
             search_memories: runtime.search_memories.clone(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: runtime.actor_autonomy.clone(),
+            transfer_offers: runtime.transfer_offers.clone(),
+            gift_auto_accepts: runtime.gift_auto_accepts.clone(),
+            actor_safety: runtime.actor_safety.clone(),
             world_simulation: runtime.world_simulation.clone(),
             rpg_claims: runtime.rpg_claims.clone(),
             orb_balances: runtime.orb_balances.clone(),
@@ -6137,6 +6256,9 @@ impl RuntimeSnapshot {
             search_memories: self.search_memories,
             resident_continuities: self.resident_continuities,
             actor_autonomy: self.actor_autonomy,
+            transfer_offers: self.transfer_offers,
+            gift_auto_accepts: self.gift_auto_accepts,
+            actor_safety: self.actor_safety,
             world_simulation: self.world_simulation,
             rpg_claims: self.rpg_claims,
             orb_balances: self.orb_balances,
@@ -6500,6 +6622,9 @@ impl RuntimeWorld {
             search_memories: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: BTreeMap::new(),
+            transfer_offers: BTreeMap::new(),
+            gift_auto_accepts: BTreeMap::new(),
+            actor_safety: BTreeMap::new(),
             world_simulation: WorldSimulationState::default(),
             rpg_claims: BTreeSet::new(),
             orb_balances: BTreeMap::new(),
@@ -8751,6 +8876,7 @@ impl RuntimeWorld {
     }
 
     fn apply_journal_record(&mut self, record: &JournalRecord) -> (u32, Vec<EventView>) {
+        self.expire_transfer_offers();
         for (actor_id, meta) in &record.actor_meta_upserts {
             self.actors.insert(*actor_id, meta.clone());
             self.next_actor_id = self.next_actor_id.max(*actor_id + 1);
@@ -8915,6 +9041,70 @@ impl RuntimeWorld {
         let mut events = Vec::new();
         for mutation in mutations {
             match mutation {
+                ProjectionMutation::CreateTransferOffer { offer } => {
+                    self.transfer_offers
+                        .entry(offer.id.clone())
+                        .or_insert_with(|| offer.clone());
+                }
+                ProjectionMutation::ResolveTransferOffer {
+                    offer_id,
+                    status,
+                    resolved_by_actor_id,
+                } => {
+                    if let Some(offer) = self.transfer_offers.get_mut(offer_id) {
+                        if offer.status == TransferOfferStatus::Pending || offer.status == *status {
+                            offer.status = *status;
+                            offer.resolved_by_actor_id = Some(*resolved_by_actor_id);
+                        }
+                    }
+                }
+                ProjectionMutation::SetActorSafety {
+                    actor_id,
+                    target_actor_id,
+                    control,
+                    enabled,
+                } => {
+                    let safety = self.actor_safety.entry(*actor_id).or_default();
+                    let ids = match control {
+                        ActorSafetyControl::Mute => &mut safety.muted_actor_ids,
+                        ActorSafetyControl::Block => &mut safety.blocked_actor_ids,
+                    };
+                    if *enabled {
+                        ids.insert(*target_actor_id);
+                    } else {
+                        ids.remove(target_actor_id);
+                    }
+                    if *control == ActorSafetyControl::Block && *enabled {
+                        for offer in self.transfer_offers.values_mut() {
+                            let participants_match = (offer.offered_by_actor_id == *actor_id
+                                && offer.offered_to_actor_id == *target_actor_id)
+                                || (offer.offered_by_actor_id == *target_actor_id
+                                    && offer.offered_to_actor_id == *actor_id);
+                            if participants_match && offer.status == TransferOfferStatus::Pending {
+                                offer.status = TransferOfferStatus::Invalidated;
+                                offer.resolved_by_actor_id = Some(*actor_id);
+                            }
+                        }
+                        for policy in self.gift_auto_accepts.values_mut() {
+                            let participants_match = (policy.recipient_actor_id == *actor_id
+                                && policy.offered_by_actor_id == *target_actor_id)
+                                || (policy.recipient_actor_id == *target_actor_id
+                                    && policy.offered_by_actor_id == *actor_id);
+                            if participants_match {
+                                policy.consumed = true;
+                            }
+                        }
+                    }
+                }
+                ProjectionMutation::SetGiftAutoAccept { policy } => {
+                    self.gift_auto_accepts
+                        .insert(policy.id.clone(), policy.clone());
+                }
+                ProjectionMutation::ConsumeGiftAutoAccept { policy_id } => {
+                    if let Some(policy) = self.gift_auto_accepts.get_mut(policy_id) {
+                        policy.consumed = true;
+                    }
+                }
                 ProjectionMutation::ShuffleHand { reason } => {
                     events.push(self.append_hand_shuffled_event(action.actor_id, reason));
                 }
@@ -12577,6 +12767,127 @@ impl RuntimeWorld {
             .get(&actor_id)
             .map(|autonomy| autonomy.control_mode)
             .unwrap_or_default()
+    }
+
+    fn actors_blocked(&self, left_actor_id: u64, right_actor_id: u64) -> bool {
+        self.actor_safety
+            .get(&left_actor_id)
+            .is_some_and(|safety| safety.blocked_actor_ids.contains(&right_actor_id))
+            || self
+                .actor_safety
+                .get(&right_actor_id)
+                .is_some_and(|safety| safety.blocked_actor_ids.contains(&left_actor_id))
+    }
+
+    fn actor_muted(&self, actor_id: u64, target_actor_id: u64) -> bool {
+        self.actor_safety
+            .get(&actor_id)
+            .is_some_and(|safety| safety.muted_actor_ids.contains(&target_actor_id))
+    }
+
+    fn transfer_offer_status(&self, offer: &TransferOfferState) -> TransferOfferStatus {
+        if offer.status == TransferOfferStatus::Pending && self.world.tick >= offer.expires_tick {
+            TransferOfferStatus::Expired
+        } else {
+            offer.status
+        }
+    }
+
+    fn expire_transfer_offers(&mut self) {
+        let tick = self.world.tick;
+        for offer in self.transfer_offers.values_mut() {
+            if offer.status == TransferOfferStatus::Pending && tick >= offer.expires_tick {
+                offer.status = TransferOfferStatus::Expired;
+            }
+        }
+    }
+
+    fn matching_pending_transfer_offer(
+        &self,
+        kind: TransferOfferKind,
+        offered_by_actor_id: u64,
+        offered_to_actor_id: u64,
+        offered_item_id: u64,
+        requested_item_id: Option<u64>,
+    ) -> Option<&TransferOfferState> {
+        self.transfer_offers.values().find(|offer| {
+            self.transfer_offer_status(offer) == TransferOfferStatus::Pending
+                && offer.kind == kind
+                && offer.offered_by_actor_id == offered_by_actor_id
+                && offer.offered_to_actor_id == offered_to_actor_id
+                && offer.offered_item_id == offered_item_id
+                && offer.requested_item_id == requested_item_id
+        })
+    }
+
+    fn new_transfer_offer(
+        &self,
+        kind: TransferOfferKind,
+        offered_by_actor_id: u64,
+        offered_to_actor_id: u64,
+        offered_item_id: u64,
+        requested_item_id: Option<u64>,
+    ) -> TransferOfferState {
+        let kind_label = match kind {
+            TransferOfferKind::Gift => "gift",
+            TransferOfferKind::Trade => "trade",
+        };
+        TransferOfferState {
+            id: format!(
+                "{kind_label}-{}-{}-{}-{}-{}-{}",
+                offered_by_actor_id,
+                offered_to_actor_id,
+                offered_item_id,
+                requested_item_id.unwrap_or_default(),
+                self.world.next_event_seq,
+                self.next_seed
+            ),
+            kind,
+            offered_by_actor_id,
+            offered_to_actor_id,
+            offered_item_id,
+            requested_item_id,
+            created_tick: self.world.tick,
+            expires_tick: self.world.tick.saturating_add(TRANSFER_OFFER_TTL_TICKS),
+            status: TransferOfferStatus::Pending,
+            resolved_by_actor_id: None,
+        }
+    }
+
+    fn gift_auto_accept_policy(
+        &self,
+        recipient_actor_id: u64,
+        offered_by_actor_id: u64,
+        item_id: u64,
+    ) -> Option<&GiftAutoAcceptPolicy> {
+        self.gift_auto_accepts.values().find(|policy| {
+            !policy.consumed
+                && self.world.tick < policy.expires_tick
+                && policy.recipient_actor_id == recipient_actor_id
+                && policy.offered_by_actor_id == offered_by_actor_id
+                && policy.item_id == item_id
+                && !self.actors_blocked(recipient_actor_id, offered_by_actor_id)
+        })
+    }
+
+    fn new_gift_auto_accept_policy(
+        &self,
+        recipient_actor_id: u64,
+        offered_by_actor_id: u64,
+        item_id: u64,
+    ) -> GiftAutoAcceptPolicy {
+        GiftAutoAcceptPolicy {
+            id: format!(
+                "gift-request-{recipient_actor_id}-{offered_by_actor_id}-{item_id}-{}-{}",
+                self.world.next_event_seq, self.next_seed
+            ),
+            recipient_actor_id,
+            offered_by_actor_id,
+            item_id,
+            created_tick: self.world.tick,
+            expires_tick: self.world.tick.saturating_add(TRANSFER_OFFER_TTL_TICKS),
+            consumed: false,
+        }
     }
 
     fn actor_uses_inference(&self, actor_id: u64) -> bool {
@@ -17231,6 +17542,7 @@ impl RuntimeWorld {
                 target.id != actor_id
                     && Self::actor_is_active_avatar(*target)
                     && target.location_id == actor.location_id
+                    && !self.actors_blocked(actor_id, target.id)
                     && self.actor_visible_in_projection(*target, Some(actor_id), None)
                     && self.active_bond(actor_id, target.id).is_none()
             })
@@ -19716,6 +20028,9 @@ impl RuntimeWorld {
         {
             return Err("That avatar is not close enough to receive an item.".to_string());
         }
+        if self.actors_blocked(actor.id, target.id) {
+            return Err("Transfers between these avatars are blocked.".to_string());
+        }
         let offered_item = self.world.items[..self.world.item_count]
             .iter()
             .copied()
@@ -19737,6 +20052,46 @@ impl RuntimeWorld {
                 .actor_name(target.id)
                 .unwrap_or_else(|| format!("Avatar {}", target.id));
             return Err(format!("{target_name} cannot carry that item right now."));
+        }
+        Ok(())
+    }
+
+    fn actor_trade_is_legal(
+        &self,
+        actor_id: u64,
+        target_actor_id: u64,
+        item_id: u64,
+        target_item_id: u64,
+    ) -> Result<(), String> {
+        let actor = self
+            .actor_by_id(actor_id)
+            .ok_or_else(|| "That avatar is not here.".to_string())?;
+        let target = self
+            .actor_by_id(target_actor_id)
+            .ok_or_else(|| "That avatar is not here.".to_string())?;
+        if actor.id == target.id
+            || !Self::actor_is_active_avatar(actor)
+            || !Self::actor_is_active_avatar(target)
+            || target.location_id != actor.location_id
+        {
+            return Err("That avatar is not close enough to trade.".to_string());
+        }
+        if self.actors_blocked(actor.id, target.id) {
+            return Err("Transfers between these avatars are blocked.".to_string());
+        }
+        let offered_item = self
+            .item_by_id(item_id)
+            .ok_or_else(|| "That item is not here.".to_string())?;
+        let requested_item = self
+            .item_by_id(target_item_id)
+            .ok_or_else(|| "That trade item is not here.".to_string())?;
+        if offered_item.holder_actor_id != actor.id || requested_item.holder_actor_id != target.id {
+            return Err("Those items are not held by the trading partners.".to_string());
+        }
+        if !self.actor_can_exchange_items(actor.id, Some(offered_item), requested_item)
+            || !self.actor_can_exchange_items(target.id, Some(requested_item), offered_item)
+        {
+            return Err("That exchange would overfill one avatar's carried deck.".to_string());
         }
         Ok(())
     }
@@ -19771,7 +20126,11 @@ impl RuntimeWorld {
     fn accepted_item_trade_candidates(&self, actor_id: u64) -> Vec<ResidentTradeCandidate> {
         self.item_trade_candidates(actor_id)
             .into_iter()
-            .filter(|candidate| candidate.preference.accepted)
+            .filter(|candidate| {
+                self.actor_control_mode(candidate.target.id)
+                    .is_direct_input()
+                    || candidate.preference.accepted
+            })
             .collect()
     }
 
@@ -20047,6 +20406,7 @@ impl RuntimeWorld {
         item_id: u64,
         target_item_id: u64,
     ) -> Result<(), String> {
+        self.actor_trade_is_legal(actor_id, target_actor_id, item_id, target_item_id)?;
         let actor = self
             .actor_by_id(actor_id)
             .ok_or_else(|| "That avatar is not here.".to_string())?;
@@ -20056,9 +20416,9 @@ impl RuntimeWorld {
         let target = self
             .actor_by_id(target_actor_id)
             .ok_or_else(|| "That avatar is not here.".to_string())?;
-        if !Self::actor_is_active_avatar(target) || target.location_id != actor.location_id {
-            return Err("That avatar is not close enough to trade.".to_string());
-        }
+        debug_assert!(
+            Self::actor_is_active_avatar(target) && target.location_id == actor.location_id
+        );
         let offered_item = self.world.items[..self.world.item_count]
             .iter()
             .copied()
@@ -20069,9 +20429,6 @@ impl RuntimeWorld {
             .copied()
             .find(|item| item.id == target_item_id)
             .ok_or_else(|| "That trade item is not here.".to_string())?;
-        if offered_item.holder_actor_id != actor_id || requested_item.holder_actor_id != target.id {
-            return Err("Those items are not held by the trading partners.".to_string());
-        }
         let preference = self.resident_trade_preference(target.id, offered_item, requested_item);
         if preference.accepted {
             Ok(())
@@ -21181,6 +21538,14 @@ impl RuntimeWorld {
     }
 
     fn fresh_resident_autonomy_action(&self, actor: CwActor, action: CwAction) -> Option<CwAction> {
+        if matches!(action.kind, CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM)
+            && (self
+                .actor_control_mode(action.target_actor_id)
+                .is_direct_input()
+                || self.actors_blocked(actor.id, action.target_actor_id))
+        {
+            return None;
+        }
         (!self.resident_autonomy_action_repeats_recent_event(actor, &action)
             && self.kernel_offer_allows_action(&action))
         .then_some(action)
@@ -29308,6 +29673,56 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
+        CommandDispatch::ResolveTransferOffer { offer_id, decision } => {
+            let Json(response) = resolve_transfer_offer(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(TransferOfferActionRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    offer_id,
+                    decision,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::SetActorSafety {
+            target_actor_id,
+            control,
+            enabled,
+        } => {
+            let Json(response) = set_actor_safety(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ActorSafetyRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    target_actor_id,
+                    control,
+                    enabled,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::RequestGift {
+            offered_by_actor_id,
+            item_id,
+        } => {
+            let Json(response) = request_gift_auto_accept(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(GiftAutoAcceptRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    offered_by_actor_id,
+                    item_id,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
         CommandDispatch::Theft {
             item_id,
             target_actor_id,
@@ -32921,6 +33336,7 @@ async fn influence(
             .is_some_and(|target| {
                 RuntimeWorld::actor_is_active_avatar(target)
                     && target.location_id == actor.location_id
+                    && !runtime.actors_blocked(payload.actor_id, target.id)
                     && runtime
                         .default_chat_target(payload.actor_id)
                         .is_some_and(|default| default.id == target.id)
@@ -33061,6 +33477,60 @@ async fn use_item(
     .await
 }
 
+fn private_actor_event(
+    type_name: &str,
+    actor_id: u64,
+    target_actor_id: Option<u64>,
+    content: String,
+) -> EventView {
+    EventView {
+        type_name: type_name.to_string(),
+        actor_id: Some(actor_id),
+        target_actor_id,
+        content: Some(content),
+        ..EventView::default()
+    }
+}
+
+fn transfer_offer_created_response(
+    runtime: &RuntimeWorld,
+    offer: &TransferOfferState,
+    actor_id: u64,
+) -> ActionResponse {
+    let target_name = runtime
+        .actor_name(offer.offered_to_actor_id)
+        .unwrap_or_else(|| format!("Avatar {}", offer.offered_to_actor_id));
+    let item_name = runtime
+        .item_name(offer.offered_item_id)
+        .unwrap_or_else(|| format!("Item {}", offer.offered_item_id));
+    let content = match offer.kind {
+        TransferOfferKind::Gift => format!(
+            "Gift offer {} sent privately to {target_name} for {item_name}.",
+            offer.id
+        ),
+        TransferOfferKind::Trade => {
+            let requested_name = offer
+                .requested_item_id
+                .and_then(|id| runtime.item_name(id))
+                .unwrap_or_else(|| "their item".to_string());
+            format!(
+                "Trade offer {} sent privately to {target_name}: {item_name} for {requested_name}.",
+                offer.id
+            )
+        }
+    };
+    ActionResponse {
+        ok: true,
+        status: CW_OK,
+        events: vec![private_actor_event(
+            "transfer.offer_created",
+            actor_id,
+            Some(offer.offered_to_actor_id),
+            content,
+        )],
+    }
+}
+
 async fn give_item(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -33076,7 +33546,7 @@ async fn give_item(
         return action_rate_limited_response();
     }
     let return_item_id = {
-        let runtime = state.inner.lock().await;
+        let mut runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
             &runtime,
             &state,
@@ -33085,22 +33555,103 @@ async fn give_item(
         ) {
             return client_actor_rejected_response();
         }
-        if runtime
-            .actor_gift_is_legal(
-                payload.actor_id,
-                payload.target_actor_id.unwrap_or(0),
-                payload.item_id,
-            )
-            .is_err()
+        let target_actor_id = payload.target_actor_id.unwrap_or_default();
+        if let Err(reason) =
+            runtime.actor_gift_is_legal(payload.actor_id, target_actor_id, payload.item_id)
         {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
+            return action_offer_rejected(reason);
         }
-        let target = runtime.actor_by_id(payload.target_actor_id.unwrap_or(0));
+        let target = runtime.actor_by_id(target_actor_id);
         let offered_item = runtime.item_by_id(payload.item_id);
+        if runtime
+            .actor_control_mode(target_actor_id)
+            .is_direct_input()
+        {
+            if let Some(policy) = runtime
+                .gift_auto_accept_policy(target_actor_id, payload.actor_id, payload.item_id)
+                .cloned()
+            {
+                let mut record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_GIVE_ITEM,
+                        actor_id: payload.actor_id,
+                        target_actor_id,
+                        item_id: payload.item_id,
+                        ..CwAction::default()
+                    },
+                    runtime.next_seed_value(),
+                );
+                record
+                    .projection_mutations
+                    .push(ProjectionMutation::ConsumeGiftAutoAccept {
+                        policy_id: policy.id,
+                    });
+                let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record)
+                else {
+                    return Json(ActionResponse {
+                        ok: false,
+                        status: 500,
+                        events: Vec::new(),
+                    });
+                };
+                drop(runtime);
+                if status == CW_OK {
+                    broadcast_events(&state, &events);
+                }
+                return Json(ActionResponse {
+                    ok: status == CW_OK,
+                    status,
+                    events,
+                });
+            }
+            if let Some(existing) = runtime.matching_pending_transfer_offer(
+                TransferOfferKind::Gift,
+                payload.actor_id,
+                target_actor_id,
+                payload.item_id,
+                None,
+            ) {
+                return Json(transfer_offer_created_response(
+                    &runtime,
+                    existing,
+                    payload.actor_id,
+                ));
+            }
+            let offer = runtime.new_transfer_offer(
+                TransferOfferKind::Gift,
+                payload.actor_id,
+                target_actor_id,
+                payload.item_id,
+                None,
+            );
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: payload.actor_id,
+                    target_actor_id,
+                    item_id: payload.item_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            );
+            record
+                .projection_mutations
+                .push(ProjectionMutation::CreateTransferOffer {
+                    offer: offer.clone(),
+                });
+            if commit_journal_record(&state, &mut runtime, record).is_err() {
+                return Json(ActionResponse {
+                    ok: false,
+                    status: 500,
+                    events: Vec::new(),
+                });
+            }
+            return Json(transfer_offer_created_response(
+                &runtime,
+                &offer,
+                payload.actor_id,
+            ));
+        }
         target
             .zip(offered_item)
             .and_then(|(target, offered_item)| {
@@ -33139,7 +33690,7 @@ async fn trade_item(
         return action_rate_limited_response();
     }
     {
-        let runtime = state.inner.lock().await;
+        let mut runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
             &runtime,
             &state,
@@ -33148,20 +33699,76 @@ async fn trade_item(
         ) {
             return client_actor_rejected_response();
         }
+        let target_actor_id = payload.target_actor_id.unwrap_or_default();
+        let target_item_id = payload.target_item_id.unwrap_or_default();
         if runtime
-            .resident_trade_is_willing(
-                payload.actor_id,
-                payload.target_actor_id.unwrap_or(0),
-                payload.item_id,
-                payload.target_item_id.unwrap_or(0),
-            )
-            .is_err()
+            .actor_control_mode(target_actor_id)
+            .is_direct_input()
         {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
+            if let Err(reason) = runtime.actor_trade_is_legal(
+                payload.actor_id,
+                target_actor_id,
+                payload.item_id,
+                target_item_id,
+            ) {
+                return action_offer_rejected(reason);
+            }
+            if let Some(existing) = runtime.matching_pending_transfer_offer(
+                TransferOfferKind::Trade,
+                payload.actor_id,
+                target_actor_id,
+                payload.item_id,
+                Some(target_item_id),
+            ) {
+                return Json(transfer_offer_created_response(
+                    &runtime,
+                    existing,
+                    payload.actor_id,
+                ));
+            }
+            let offer = runtime.new_transfer_offer(
+                TransferOfferKind::Trade,
+                payload.actor_id,
+                target_actor_id,
+                payload.item_id,
+                Some(target_item_id),
+            );
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: payload.actor_id,
+                    target_actor_id,
+                    item_id: payload.item_id,
+                    target_item_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            );
+            record
+                .projection_mutations
+                .push(ProjectionMutation::CreateTransferOffer {
+                    offer: offer.clone(),
+                });
+            if commit_journal_record(&state, &mut runtime, record).is_err() {
+                return Json(ActionResponse {
+                    ok: false,
+                    status: 500,
+                    events: Vec::new(),
+                });
+            }
+            return Json(transfer_offer_created_response(
+                &runtime,
+                &offer,
+                payload.actor_id,
+            ));
+        }
+        if let Err(reason) = runtime.resident_trade_is_willing(
+            payload.actor_id,
+            target_actor_id,
+            payload.item_id,
+            target_item_id,
+        ) {
+            return action_offer_rejected(reason);
         }
     }
     apply_and_broadcast_with_resident_reply(
@@ -33177,6 +33784,406 @@ async fn trade_item(
         payload.actor_session.as_deref(),
     )
     .await
+}
+
+async fn resolve_transfer_offer(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<TransferOfferActionRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let Some(offer) = runtime.transfer_offers.get(&payload.offer_id).cloned() else {
+        return action_offer_rejected("That transfer offer was not found.");
+    };
+    let decision = payload.decision.trim().to_ascii_lowercase();
+    let (resolved_status, authorized) = match decision.as_str() {
+        "accept" => (
+            TransferOfferStatus::Accepted,
+            payload.actor_id == offer.offered_to_actor_id,
+        ),
+        "decline" => (
+            TransferOfferStatus::Declined,
+            payload.actor_id == offer.offered_to_actor_id,
+        ),
+        "withdraw" => (
+            TransferOfferStatus::Withdrawn,
+            payload.actor_id == offer.offered_by_actor_id,
+        ),
+        _ => return action_offer_rejected("Use accept, decline, or withdraw."),
+    };
+    if !authorized {
+        return Json(ActionResponse {
+            ok: false,
+            status: 403,
+            events: Vec::new(),
+        });
+    }
+    let current_status = runtime.transfer_offer_status(&offer);
+    if current_status == resolved_status {
+        return Json(ActionResponse {
+            ok: true,
+            status: CW_OK,
+            events: vec![private_actor_event(
+                "transfer.offer_unchanged",
+                payload.actor_id,
+                Some(if payload.actor_id == offer.offered_by_actor_id {
+                    offer.offered_to_actor_id
+                } else {
+                    offer.offered_by_actor_id
+                }),
+                format!(
+                    "Transfer offer {} is already {}.",
+                    offer.id,
+                    transfer_offer_status_label(current_status)
+                ),
+            )],
+        });
+    }
+    if current_status != TransferOfferStatus::Pending {
+        return action_offer_rejected(format!(
+            "That transfer offer is already {}.",
+            transfer_offer_status_label(current_status)
+        ));
+    }
+
+    let mut record = if resolved_status == TransferOfferStatus::Accepted {
+        let active_actor_ids = active_actor_ids_for_state(&state);
+        if !active_actor_ids.contains(&offer.offered_by_actor_id)
+            || !active_actor_ids.contains(&offer.offered_to_actor_id)
+            || !runtime
+                .actor_control_mode(offer.offered_to_actor_id)
+                .is_direct_input()
+        {
+            return action_offer_rejected(
+                "Both directly controlled avatars must be present to accept this transfer.",
+            );
+        }
+        if runtime.actors_blocked(offer.offered_by_actor_id, offer.offered_to_actor_id) {
+            return action_offer_rejected("Transfers between these avatars are blocked.");
+        }
+        let action = match offer.kind {
+            TransferOfferKind::Gift => {
+                if let Err(reason) = runtime.actor_gift_is_legal(
+                    offer.offered_by_actor_id,
+                    offer.offered_to_actor_id,
+                    offer.offered_item_id,
+                ) {
+                    return action_offer_rejected(reason);
+                }
+                CwAction {
+                    kind: CW_ACTION_GIVE_ITEM,
+                    actor_id: offer.offered_by_actor_id,
+                    target_actor_id: offer.offered_to_actor_id,
+                    item_id: offer.offered_item_id,
+                    ..CwAction::default()
+                }
+            }
+            TransferOfferKind::Trade => {
+                let requested_item_id = offer.requested_item_id.unwrap_or_default();
+                if let Err(reason) = runtime.actor_trade_is_legal(
+                    offer.offered_by_actor_id,
+                    offer.offered_to_actor_id,
+                    offer.offered_item_id,
+                    requested_item_id,
+                ) {
+                    return action_offer_rejected(reason);
+                }
+                CwAction {
+                    kind: CW_ACTION_TRADE_ITEM,
+                    actor_id: offer.offered_by_actor_id,
+                    target_actor_id: offer.offered_to_actor_id,
+                    item_id: offer.offered_item_id,
+                    target_item_id: requested_item_id,
+                    ..CwAction::default()
+                }
+            }
+        };
+        JournalRecord::new(action, runtime.next_seed_value())
+    } else {
+        JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: payload.actor_id,
+                target_actor_id: if payload.actor_id == offer.offered_by_actor_id {
+                    offer.offered_to_actor_id
+                } else {
+                    offer.offered_by_actor_id
+                },
+                ..CwAction::default()
+            },
+            runtime.next_seed_value(),
+        )
+    };
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ResolveTransferOffer {
+            offer_id: offer.id.clone(),
+            status: resolved_status,
+            resolved_by_actor_id: payload.actor_id,
+        });
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    if status != CW_OK {
+        return action_offer_rejected("That transfer changed before consent could commit.");
+    }
+    drop(runtime);
+    if resolved_status == TransferOfferStatus::Accepted {
+        broadcast_events(&state, &events);
+        return Json(ActionResponse {
+            ok: true,
+            status,
+            events,
+        });
+    }
+    Json(ActionResponse {
+        ok: true,
+        status,
+        events: vec![private_actor_event(
+            match resolved_status {
+                TransferOfferStatus::Declined => "transfer.offer_declined",
+                TransferOfferStatus::Withdrawn => "transfer.offer_withdrawn",
+                _ => "transfer.offer_resolved",
+            },
+            payload.actor_id,
+            Some(if payload.actor_id == offer.offered_by_actor_id {
+                offer.offered_to_actor_id
+            } else {
+                offer.offered_by_actor_id
+            }),
+            format!(
+                "Transfer offer {} {}.",
+                offer.id,
+                transfer_offer_status_label(resolved_status)
+            ),
+        )],
+    })
+}
+
+fn transfer_offer_status_label(status: TransferOfferStatus) -> &'static str {
+    match status {
+        TransferOfferStatus::Pending => "pending",
+        TransferOfferStatus::Accepted => "accepted",
+        TransferOfferStatus::Declined => "declined",
+        TransferOfferStatus::Withdrawn => "withdrawn",
+        TransferOfferStatus::Expired => "expired",
+        TransferOfferStatus::Invalidated => "invalidated",
+    }
+}
+
+async fn set_actor_safety(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ActorSafetyRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let nearby = runtime
+        .actor_by_id(payload.actor_id)
+        .zip(runtime.actor_by_id(payload.target_actor_id))
+        .is_some_and(|(actor, target)| {
+            actor.id != target.id
+                && RuntimeWorld::actor_is_active_avatar(target)
+                && actor.location_id == target.location_id
+        });
+    if !nearby {
+        return action_offer_rejected("That avatar is not nearby.");
+    }
+    let already_set = match payload.control {
+        ActorSafetyControl::Mute => {
+            runtime.actor_muted(payload.actor_id, payload.target_actor_id) == payload.enabled
+        }
+        ActorSafetyControl::Block => {
+            runtime
+                .actor_safety
+                .get(&payload.actor_id)
+                .is_some_and(|safety| safety.blocked_actor_ids.contains(&payload.target_actor_id))
+                == payload.enabled
+        }
+    };
+    if !already_set {
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: payload.actor_id,
+                target_actor_id: payload.target_actor_id,
+                ..CwAction::default()
+            },
+            runtime.next_seed_value(),
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::SetActorSafety {
+                actor_id: payload.actor_id,
+                target_actor_id: payload.target_actor_id,
+                control: payload.control,
+                enabled: payload.enabled,
+            });
+        if commit_journal_record(&state, &mut runtime, record).is_err() {
+            return Json(ActionResponse {
+                ok: false,
+                status: 500,
+                events: Vec::new(),
+            });
+        }
+    }
+    let target_name = runtime
+        .actor_name(payload.target_actor_id)
+        .unwrap_or_else(|| format!("Avatar {}", payload.target_actor_id));
+    let verb = match (payload.control, payload.enabled) {
+        (ActorSafetyControl::Mute, true) => "muted",
+        (ActorSafetyControl::Mute, false) => "unmuted",
+        (ActorSafetyControl::Block, true) => "blocked",
+        (ActorSafetyControl::Block, false) => "unblocked",
+    };
+    Json(ActionResponse {
+        ok: true,
+        status: CW_OK,
+        events: vec![private_actor_event(
+            "actor.safety_changed",
+            payload.actor_id,
+            Some(payload.target_actor_id),
+            format!("{target_name} {verb}."),
+        )],
+    })
+}
+
+async fn request_gift_auto_accept(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<GiftAutoAcceptRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "action-actor",
+        GENERAL_ACTION_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let valid = runtime
+        .actor_by_id(payload.actor_id)
+        .zip(runtime.actor_by_id(payload.offered_by_actor_id))
+        .zip(runtime.item_by_id(payload.item_id))
+        .is_some_and(|((recipient, holder), item)| {
+            recipient.id != holder.id
+                && RuntimeWorld::actor_is_active_avatar(recipient)
+                && RuntimeWorld::actor_is_active_avatar(holder)
+                && runtime.actor_control_mode(recipient.id).is_direct_input()
+                && runtime.actor_control_mode(holder.id).is_direct_input()
+                && recipient.location_id == holder.location_id
+                && item.holder_actor_id == holder.id
+                && !runtime.actors_blocked(recipient.id, holder.id)
+                && runtime.actor_can_receive_item(recipient, item.id)
+        });
+    if !valid {
+        return action_offer_rejected(
+            "That exact item and avatar are not available for a gift request.",
+        );
+    }
+    let existing = runtime
+        .gift_auto_accept_policy(
+            payload.actor_id,
+            payload.offered_by_actor_id,
+            payload.item_id,
+        )
+        .cloned();
+    let policy = existing.unwrap_or_else(|| {
+        runtime.new_gift_auto_accept_policy(
+            payload.actor_id,
+            payload.offered_by_actor_id,
+            payload.item_id,
+        )
+    });
+    if !runtime.gift_auto_accepts.contains_key(&policy.id) {
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: payload.actor_id,
+                target_actor_id: payload.offered_by_actor_id,
+                item_id: payload.item_id,
+                ..CwAction::default()
+            },
+            runtime.next_seed_value(),
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::SetGiftAutoAccept {
+                policy: policy.clone(),
+            });
+        if commit_journal_record(&state, &mut runtime, record).is_err() {
+            return Json(ActionResponse {
+                ok: false,
+                status: 500,
+                events: Vec::new(),
+            });
+        }
+    }
+    let holder_name = runtime
+        .actor_name(payload.offered_by_actor_id)
+        .unwrap_or_else(|| format!("Avatar {}", payload.offered_by_actor_id));
+    let item_name = runtime
+        .item_name(payload.item_id)
+        .unwrap_or_else(|| format!("Item {}", payload.item_id));
+    Json(ActionResponse {
+        ok: true,
+        status: CW_OK,
+        events: vec![private_actor_event(
+            "gift.requested",
+            payload.actor_id,
+            Some(payload.offered_by_actor_id),
+            format!(
+                "You requested {item_name} from {holder_name}. That exact gift may auto-accept once."
+            ),
+        )],
+    })
 }
 
 async fn theft(
@@ -34816,6 +35823,7 @@ async fn create_bond(
     if target.id == actor.id
         || !RuntimeWorld::actor_is_active_avatar(target)
         || target.location_id != actor.location_id
+        || runtime.actors_blocked(actor.id, target.id)
         || runtime
             .active_bond(payload.actor_id, payload.target_actor_id)
             .is_some()
@@ -34928,6 +35936,7 @@ async fn revise_bond(
     if target.id == actor.id
         || !RuntimeWorld::actor_is_active_avatar(target)
         || target.location_id != actor.location_id
+        || runtime.actors_blocked(actor.id, target.id)
     {
         return Json(ActionResponse {
             ok: false,
@@ -40391,6 +41400,877 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    }
+
+    fn arrange_test_transfer_items(runtime: &mut RuntimeWorld) {
+        for item in &mut runtime.world.items[..runtime.world.item_count] {
+            match item.id {
+                STORY_BUTTON_ITEM_ID => {
+                    item.location_id = 0;
+                    item.holder_actor_id = 5000;
+                }
+                DEWBRIGHT_BUTTON_ITEM_ID => {
+                    item.location_id = 0;
+                    item.holder_actor_id = 5001;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn direct_avatar_gift_requires_consent_and_acceptance_is_idempotent() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Gift Giver");
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Gift Receiver",
+        );
+        arrange_test_transfer_items(&mut runtime);
+        let state = test_app_state(runtime, None);
+        let giver_session = issue_actor_session(&state, 5000).0;
+        let receiver_session = issue_actor_session(&state, 5001).0;
+
+        let offered = give_item(
+            ConnectInfo("127.0.0.1:46001".parse().unwrap()),
+            State(state.clone()),
+            Json(ItemRequest {
+                actor_id: 5000,
+                actor_session: Some(giver_session),
+                item_id: STORY_BUTTON_ITEM_ID,
+                target_item_id: None,
+                target_actor_id: Some(5001),
+            }),
+        )
+        .await
+        .0;
+        assert!(offered.ok);
+        assert!(offered
+            .events
+            .iter()
+            .any(|event| event.type_name == "transfer.offer_created"));
+        let offer_id = {
+            let runtime = state.inner.lock().await;
+            assert_eq!(
+                runtime
+                    .item_by_id(STORY_BUTTON_ITEM_ID)
+                    .unwrap()
+                    .holder_actor_id,
+                5000
+            );
+            runtime.transfer_offers.keys().next().unwrap().clone()
+        };
+
+        let accepted = resolve_transfer_offer(
+            ConnectInfo("127.0.0.1:46002".parse().unwrap()),
+            State(state.clone()),
+            Json(TransferOfferActionRequest {
+                actor_id: 5001,
+                actor_session: Some(receiver_session.clone()),
+                offer_id: offer_id.clone(),
+                decision: "accept".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(accepted.ok);
+        assert!(accepted
+            .events
+            .iter()
+            .any(|event| event.type_name == "item.given"));
+        {
+            let runtime = state.inner.lock().await;
+            assert_eq!(
+                runtime
+                    .item_by_id(STORY_BUTTON_ITEM_ID)
+                    .unwrap()
+                    .holder_actor_id,
+                5001
+            );
+            assert_eq!(
+                runtime.transfer_offers[&offer_id].status,
+                TransferOfferStatus::Accepted
+            );
+        }
+
+        let retry = resolve_transfer_offer(
+            ConnectInfo("127.0.0.1:46002".parse().unwrap()),
+            State(state.clone()),
+            Json(TransferOfferActionRequest {
+                actor_id: 5001,
+                actor_session: Some(receiver_session.clone()),
+                offer_id: offer_id.clone(),
+                decision: "accept".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(retry.ok);
+        assert!(retry
+            .events
+            .iter()
+            .any(|event| event.type_name == "transfer.offer_unchanged"));
+        assert_eq!(
+            state
+                .inner
+                .lock()
+                .await
+                .item_by_id(STORY_BUTTON_ITEM_ID)
+                .unwrap()
+                .holder_actor_id,
+            5001
+        );
+    }
+
+    #[tokio::test]
+    async fn explicit_item_request_auto_accepts_that_gift_exactly_once() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Requested Giver",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Requesting Receiver",
+        );
+        arrange_test_transfer_items(&mut runtime);
+        let state = test_app_state(runtime, None);
+        let giver_session = issue_actor_session(&state, 5000).0;
+        let receiver_session = issue_actor_session(&state, 5001).0;
+        let request = request_gift_auto_accept(
+            ConnectInfo("127.0.0.1:46009".parse().unwrap()),
+            State(state.clone()),
+            Json(GiftAutoAcceptRequest {
+                actor_id: 5001,
+                actor_session: Some(receiver_session),
+                offered_by_actor_id: 5000,
+                item_id: STORY_BUTTON_ITEM_ID,
+            }),
+        )
+        .await
+        .0;
+        assert!(request.ok);
+
+        let accepted = give_item(
+            ConnectInfo("127.0.0.1:46010".parse().unwrap()),
+            State(state.clone()),
+            Json(ItemRequest {
+                actor_id: 5000,
+                actor_session: Some(giver_session.clone()),
+                item_id: STORY_BUTTON_ITEM_ID,
+                target_item_id: None,
+                target_actor_id: Some(5001),
+            }),
+        )
+        .await
+        .0;
+        assert!(accepted.ok);
+        assert!(accepted
+            .events
+            .iter()
+            .any(|event| event.type_name == "item.given"));
+        {
+            let mut runtime = state.inner.lock().await;
+            assert!(runtime
+                .gift_auto_accepts
+                .values()
+                .all(|policy| policy.consumed));
+            runtime
+                .world
+                .items
+                .iter_mut()
+                .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+                .unwrap()
+                .holder_actor_id = 5000;
+        }
+
+        let second = give_item(
+            ConnectInfo("127.0.0.1:46010".parse().unwrap()),
+            State(state.clone()),
+            Json(ItemRequest {
+                actor_id: 5000,
+                actor_session: Some(giver_session),
+                item_id: STORY_BUTTON_ITEM_ID,
+                target_item_id: None,
+                target_actor_id: Some(5001),
+            }),
+        )
+        .await
+        .0;
+        assert!(second.ok);
+        assert!(second
+            .events
+            .iter()
+            .any(|event| event.type_name == "transfer.offer_created"));
+        assert_eq!(
+            state
+                .inner
+                .lock()
+                .await
+                .item_by_id(STORY_BUTTON_ITEM_ID)
+                .unwrap()
+                .holder_actor_id,
+            5000
+        );
+    }
+
+    #[tokio::test]
+    async fn direct_avatar_trade_waits_for_recipient_instead_of_inference_preference() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Trade Proposer",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Trade Decider",
+        );
+        arrange_test_transfer_items(&mut runtime);
+        let state = test_app_state(runtime, None);
+        let proposer_session = issue_actor_session(&state, 5000).0;
+        let decider_session = issue_actor_session(&state, 5001).0;
+
+        let offered = trade_item(
+            ConnectInfo("127.0.0.1:46003".parse().unwrap()),
+            State(state.clone()),
+            Json(ItemRequest {
+                actor_id: 5000,
+                actor_session: Some(proposer_session),
+                item_id: STORY_BUTTON_ITEM_ID,
+                target_item_id: Some(DEWBRIGHT_BUTTON_ITEM_ID),
+                target_actor_id: Some(5001),
+            }),
+        )
+        .await
+        .0;
+        assert!(offered.ok);
+        let offer_id = {
+            let runtime = state.inner.lock().await;
+            assert_eq!(
+                runtime
+                    .item_by_id(STORY_BUTTON_ITEM_ID)
+                    .unwrap()
+                    .holder_actor_id,
+                5000
+            );
+            assert_eq!(
+                runtime
+                    .item_by_id(DEWBRIGHT_BUTTON_ITEM_ID)
+                    .unwrap()
+                    .holder_actor_id,
+                5001
+            );
+            runtime.transfer_offers.keys().next().unwrap().clone()
+        };
+
+        let accepted = resolve_transfer_offer(
+            ConnectInfo("127.0.0.1:46004".parse().unwrap()),
+            State(state.clone()),
+            Json(TransferOfferActionRequest {
+                actor_id: 5001,
+                actor_session: Some(decider_session),
+                offer_id,
+                decision: "accept".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(accepted.ok);
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime
+                .item_by_id(STORY_BUTTON_ITEM_ID)
+                .unwrap()
+                .holder_actor_id,
+            5001
+        );
+        assert_eq!(
+            runtime
+                .item_by_id(DEWBRIGHT_BUTTON_ITEM_ID)
+                .unwrap()
+                .holder_actor_id,
+            5000
+        );
+    }
+
+    #[tokio::test]
+    async fn decline_and_withdraw_are_private_and_leave_inventory_unchanged() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Private Proposer",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Private Decider",
+        );
+        arrange_test_transfer_items(&mut runtime);
+        let state = test_app_state(runtime, None);
+        let proposer_session = issue_actor_session(&state, 5000).0;
+        let decider_session = issue_actor_session(&state, 5001).0;
+        let make_offer = |session: String| ItemRequest {
+            actor_id: 5000,
+            actor_session: Some(session),
+            item_id: STORY_BUTTON_ITEM_ID,
+            target_item_id: None,
+            target_actor_id: Some(5001),
+        };
+
+        assert!(
+            give_item(
+                ConnectInfo("127.0.0.1:46007".parse().unwrap()),
+                State(state.clone()),
+                Json(make_offer(proposer_session.clone())),
+            )
+            .await
+            .0
+            .ok
+        );
+        let first_offer_id = state
+            .inner
+            .lock()
+            .await
+            .transfer_offers
+            .keys()
+            .next()
+            .unwrap()
+            .clone();
+        let mut broadcast = state.tx.subscribe();
+        let declined = resolve_transfer_offer(
+            ConnectInfo("127.0.0.1:46008".parse().unwrap()),
+            State(state.clone()),
+            Json(TransferOfferActionRequest {
+                actor_id: 5001,
+                actor_session: Some(decider_session),
+                offer_id: first_offer_id,
+                decision: "decline".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(declined.ok);
+        assert!(matches!(
+            broadcast.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
+
+        assert!(
+            give_item(
+                ConnectInfo("127.0.0.1:46007".parse().unwrap()),
+                State(state.clone()),
+                Json(make_offer(proposer_session.clone())),
+            )
+            .await
+            .0
+            .ok
+        );
+        let second_offer_id = {
+            let runtime = state.inner.lock().await;
+            runtime
+                .transfer_offers
+                .values()
+                .find(|offer| offer.status == TransferOfferStatus::Pending)
+                .unwrap()
+                .id
+                .clone()
+        };
+        let withdrawn = resolve_transfer_offer(
+            ConnectInfo("127.0.0.1:46007".parse().unwrap()),
+            State(state.clone()),
+            Json(TransferOfferActionRequest {
+                actor_id: 5000,
+                actor_session: Some(proposer_session),
+                offer_id: second_offer_id,
+                decision: "withdraw".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(withdrawn.ok);
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime
+                .item_by_id(STORY_BUTTON_ITEM_ID)
+                .unwrap()
+                .holder_actor_id,
+            5000
+        );
+        assert_eq!(
+            runtime
+                .transfer_offers
+                .values()
+                .filter(|offer| offer.status == TransferOfferStatus::Declined)
+                .count(),
+            1
+        );
+        assert_eq!(
+            runtime
+                .transfer_offers
+                .values()
+                .filter(|offer| offer.status == TransferOfferStatus::Withdrawn)
+                .count(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_departed_and_simultaneous_offers_fail_without_extra_transfer() {
+        let mut runtime = RuntimeWorld::seeded();
+        for (actor_id, name) in [
+            (5000, "Conflict Proposer"),
+            (5001, "First Decider"),
+            (5002, "Second Decider"),
+        ] {
+            create_test_human(&mut runtime, actor_id, COSY_COTTAGE_LOCATION_ID, name);
+        }
+        arrange_test_transfer_items(&mut runtime);
+        let state = test_app_state(runtime, None);
+        let proposer_session = issue_actor_session(&state, 5000).0;
+        let first_session = issue_actor_session(&state, 5001).0;
+        let second_session = issue_actor_session(&state, 5002).0;
+        for (target_actor_id, port) in [(5001, 46011), (5002, 46012)] {
+            assert!(
+                give_item(
+                    ConnectInfo(format!("127.0.0.1:{port}").parse().unwrap()),
+                    State(state.clone()),
+                    Json(ItemRequest {
+                        actor_id: 5000,
+                        actor_session: Some(proposer_session.clone()),
+                        item_id: STORY_BUTTON_ITEM_ID,
+                        target_item_id: None,
+                        target_actor_id: Some(target_actor_id),
+                    }),
+                )
+                .await
+                .0
+                .ok
+            );
+        }
+        let (first_offer, second_offer) = {
+            let runtime = state.inner.lock().await;
+            (
+                runtime
+                    .transfer_offers
+                    .values()
+                    .find(|offer| offer.offered_to_actor_id == 5001)
+                    .unwrap()
+                    .id
+                    .clone(),
+                runtime
+                    .transfer_offers
+                    .values()
+                    .find(|offer| offer.offered_to_actor_id == 5002)
+                    .unwrap()
+                    .id
+                    .clone(),
+            )
+        };
+        assert!(
+            resolve_transfer_offer(
+                ConnectInfo("127.0.0.1:46013".parse().unwrap()),
+                State(state.clone()),
+                Json(TransferOfferActionRequest {
+                    actor_id: 5001,
+                    actor_session: Some(first_session),
+                    offer_id: first_offer,
+                    decision: "accept".to_string(),
+                }),
+            )
+            .await
+            .0
+            .ok
+        );
+        let conflict = resolve_transfer_offer(
+            ConnectInfo("127.0.0.1:46014".parse().unwrap()),
+            State(state.clone()),
+            Json(TransferOfferActionRequest {
+                actor_id: 5002,
+                actor_session: Some(second_session),
+                offer_id: second_offer,
+                decision: "accept".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(!conflict.ok);
+        assert_eq!(
+            state
+                .inner
+                .lock()
+                .await
+                .item_by_id(STORY_BUTTON_ITEM_ID)
+                .unwrap()
+                .holder_actor_id,
+            5001
+        );
+
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Departing Proposer",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Waiting Recipient",
+        );
+        arrange_test_transfer_items(&mut runtime);
+        let state = test_app_state(runtime, None);
+        let proposer_session = issue_actor_session(&state, 5000).0;
+        let receiver_session = issue_actor_session(&state, 5001).0;
+        assert!(
+            give_item(
+                ConnectInfo("127.0.0.1:46015".parse().unwrap()),
+                State(state.clone()),
+                Json(ItemRequest {
+                    actor_id: 5000,
+                    actor_session: Some(proposer_session.clone()),
+                    item_id: STORY_BUTTON_ITEM_ID,
+                    target_item_id: None,
+                    target_actor_id: Some(5001),
+                }),
+            )
+            .await
+            .0
+            .ok
+        );
+        let offer_id = state
+            .inner
+            .lock()
+            .await
+            .transfer_offers
+            .keys()
+            .next()
+            .unwrap()
+            .clone();
+        assert!(mark_actor_session_inactive(
+            &state.actor_sessions,
+            5000,
+            &proposer_session
+        ));
+        let departed = resolve_transfer_offer(
+            ConnectInfo("127.0.0.1:46016".parse().unwrap()),
+            State(state.clone()),
+            Json(TransferOfferActionRequest {
+                actor_id: 5001,
+                actor_session: Some(receiver_session.clone()),
+                offer_id: offer_id.clone(),
+                decision: "accept".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(!departed.ok);
+        assert!(departed.events.iter().any(|event| {
+            event
+                .content
+                .as_deref()
+                .is_some_and(|content| content.contains("must be present"))
+        }));
+        assert_eq!(
+            state
+                .inner
+                .lock()
+                .await
+                .item_by_id(STORY_BUTTON_ITEM_ID)
+                .unwrap()
+                .holder_actor_id,
+            5000
+        );
+        let _replacement_session = issue_actor_session(&state, 5000).0;
+        {
+            let mut runtime = state.inner.lock().await;
+            let expires_tick = runtime.transfer_offers[&offer_id].expires_tick;
+            runtime.world.tick = expires_tick;
+        }
+        let stale = resolve_transfer_offer(
+            ConnectInfo("127.0.0.1:46017".parse().unwrap()),
+            State(state.clone()),
+            Json(TransferOfferActionRequest {
+                actor_id: 5001,
+                actor_session: Some(receiver_session),
+                offer_id,
+                decision: "accept".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(!stale.ok);
+        assert!(stale.events.iter().any(|event| {
+            event
+                .content
+                .as_deref()
+                .is_some_and(|content| content.contains("expired"))
+        }));
+    }
+
+    #[test]
+    fn transfer_authorization_state_replays_from_the_action_journal() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-transfer-replay-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let runtime = RuntimeWorld::seeded();
+        let offer = runtime.new_transfer_offer(
+            TransferOfferKind::Gift,
+            5000,
+            5001,
+            STORY_BUTTON_ITEM_ID,
+            None,
+        );
+        let mut offer_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                target_actor_id: 5001,
+                item_id: STORY_BUTTON_ITEM_ID,
+                ..CwAction::default()
+            },
+            91_001,
+        );
+        offer_record
+            .projection_mutations
+            .push(ProjectionMutation::CreateTransferOffer {
+                offer: offer.clone(),
+            });
+        let mut safety_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5001,
+                target_actor_id: 5000,
+                ..CwAction::default()
+            },
+            91_002,
+        );
+        safety_record
+            .projection_mutations
+            .push(ProjectionMutation::SetActorSafety {
+                actor_id: 5001,
+                target_actor_id: 5000,
+                control: ActorSafetyControl::Mute,
+                enabled: true,
+            });
+        append_action_journal(&path, &offer_record).unwrap();
+        append_action_journal(&path, &safety_record).unwrap();
+
+        let replayed = RuntimeWorld::from_action_journal(&path).unwrap();
+        assert_eq!(replayed.transfer_offers.get(&offer.id), Some(&offer));
+        assert!(replayed.actor_muted(5001, 5000));
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn block_is_private_durable_and_invalidates_pending_transfers() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Safety Setter",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Safety Target",
+        );
+        arrange_test_transfer_items(&mut runtime);
+        let state = test_app_state(runtime, None);
+        let setter_session = issue_actor_session(&state, 5000).0;
+        let target_session = issue_actor_session(&state, 5001).0;
+        assert!(
+            give_item(
+                ConnectInfo("127.0.0.1:46005".parse().unwrap()),
+                State(state.clone()),
+                Json(ItemRequest {
+                    actor_id: 5000,
+                    actor_session: Some(setter_session.clone()),
+                    item_id: STORY_BUTTON_ITEM_ID,
+                    target_item_id: None,
+                    target_actor_id: Some(5001),
+                }),
+            )
+            .await
+            .0
+            .ok
+        );
+
+        let changed = set_actor_safety(
+            ConnectInfo("127.0.0.1:46006".parse().unwrap()),
+            State(state.clone()),
+            Json(ActorSafetyRequest {
+                actor_id: 5001,
+                actor_session: Some(target_session),
+                target_actor_id: 5000,
+                control: ActorSafetyControl::Block,
+                enabled: true,
+            }),
+        )
+        .await
+        .0;
+        assert!(changed.ok);
+        assert!(changed
+            .events
+            .iter()
+            .all(|event| event.seq == 0 && event.type_name == "actor.safety_changed"));
+        {
+            let runtime = state.inner.lock().await;
+            assert!(runtime.actors_blocked(5000, 5001));
+            assert!(runtime
+                .transfer_offers
+                .values()
+                .all(|offer| offer.status == TransferOfferStatus::Invalidated));
+            let restored = RuntimeSnapshot::from_runtime(&runtime)
+                .into_runtime()
+                .expect("snapshot with authorization state");
+            assert!(restored.actors_blocked(5000, 5001));
+            assert!(restored
+                .transfer_offers
+                .values()
+                .all(|offer| offer.status == TransferOfferStatus::Invalidated));
+        }
+
+        let blocked = give_item(
+            ConnectInfo("127.0.0.1:46005".parse().unwrap()),
+            State(state.clone()),
+            Json(ItemRequest {
+                actor_id: 5000,
+                actor_session: Some(setter_session),
+                item_id: STORY_BUTTON_ITEM_ID,
+                target_item_id: None,
+                target_actor_id: Some(5001),
+            }),
+        )
+        .await
+        .0;
+        assert!(!blocked.ok);
+        assert_eq!(blocked.status, 409);
+    }
+
+    #[test]
+    fn avatar_inspector_exposes_transfer_and_safety_controls() {
+        for contract in [
+            "data-avatar-transfer=\"give\"",
+            "data-avatar-transfer=\"trade\"",
+            "data-avatar-safety=",
+            "data-avatar-report=",
+            "data-avatar-gift-request=",
+            "data-transfer-offer-decision=\"accept\"",
+            "data-transfer-offer-decision=\"decline\"",
+            "data-transfer-offer-decision=\"withdraw\"",
+            "/actions/transfer-offer",
+            "/actions/actor-safety",
+            "function eventIsMuted",
+        ] {
+            assert!(
+                INDEX_HTML.contains(contract),
+                "missing browser contract: {contract}"
+            );
+        }
+    }
+
+    #[test]
+    fn mud_exposes_gift_requests_offer_decisions_and_safety_controls() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "CLI Holder");
+        create_test_human(&mut runtime, 5001, COSY_COTTAGE_LOCATION_ID, "CLI Decider");
+        arrange_test_transfer_items(&mut runtime);
+        let access = AccessContext::default();
+        let request = runtime
+            .resolve_command(
+                &command_request(5001, "request story button from CLI Holder"),
+                &access,
+            )
+            .unwrap();
+        assert!(matches!(
+            request.dispatch,
+            CommandDispatch::RequestGift {
+                offered_by_actor_id: 5000,
+                item_id: STORY_BUTTON_ITEM_ID,
+            }
+        ));
+
+        let offer = runtime.new_transfer_offer(
+            TransferOfferKind::Gift,
+            5000,
+            5001,
+            STORY_BUTTON_ITEM_ID,
+            None,
+        );
+        runtime
+            .transfer_offers
+            .insert(offer.id.clone(), offer.clone());
+        let accept = runtime
+            .resolve_command(
+                &command_request(5001, &format!("accept {}", offer.id)),
+                &access,
+            )
+            .unwrap();
+        assert!(matches!(
+            accept.dispatch,
+            CommandDispatch::ResolveTransferOffer {
+                ref offer_id,
+                ref decision,
+            } if offer_id == &offer.id && decision == "accept"
+        ));
+        let block = runtime
+            .resolve_command(&command_request(5001, "block CLI Holder"), &access)
+            .unwrap();
+        assert!(matches!(
+            block.dispatch,
+            CommandDispatch::SetActorSafety {
+                target_actor_id: 5000,
+                control: ActorSafetyControl::Block,
+                enabled: true,
+            }
+        ));
+    }
+
+    #[test]
+    fn inference_autonomy_cannot_supply_a_direct_avatar_transfer_decision() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Direct Recipient",
+        );
+        let inference_actor = runtime.actor_by_id(RATI_ACTOR_ID).unwrap();
+        for kind in [CW_ACTION_GIVE_ITEM, CW_ACTION_TRADE_ITEM] {
+            let action = CwAction {
+                kind,
+                actor_id: inference_actor.id,
+                target_actor_id: 5000,
+                item_id: STORY_BUTTON_ITEM_ID,
+                target_item_id: DEWBRIGHT_BUTTON_ITEM_ID,
+                ..CwAction::default()
+            };
+            assert!(
+                runtime
+                    .fresh_resident_autonomy_action(inference_actor, action)
+                    .is_none(),
+                "inference must not mutate a direct avatar through transfer preference"
+            );
+        }
     }
 
     fn grant_test_advancement(runtime: &mut RuntimeWorld, actor_id: u64, id: &str) {

@@ -2278,6 +2278,47 @@
       font-weight: 900;
       text-transform: uppercase;
     }
+    .avatar-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      border-top: 1px solid rgba(129, 255, 167, 0.18);
+      padding-top: 8px;
+    }
+    .avatar-controls button {
+      min-height: 36px;
+    }
+    .avatar-offer {
+      border-top: 1px solid rgba(129, 255, 167, 0.18);
+      padding-top: 7px;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .avatar-offer strong {
+      display: block;
+      color: var(--amber);
+    }
+    .avatar-report-form {
+      display: grid;
+      width: 100%;
+      gap: 6px;
+    }
+    .avatar-report-form label {
+      color: var(--amber);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .avatar-report-form input {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--terminal-2);
+      color: var(--text);
+      padding: 8px;
+      font: inherit;
+    }
     @media (min-width: 701px) {
       .card-dialog.portrait-card {
         width: min(780px, calc(100vw - 36px));
@@ -4375,6 +4416,7 @@
           const targetName = actorLabel(target).toLowerCase();
           const mentionedItem = heldItems.find((held) => giveOfferText.includes(String(held.name || "").toLowerCase()));
           if (mentionedItem && (!giveOfferText || giveOfferText.includes(targetName))) return mentionedItem;
+          if (target?.control_mode === "direct_input" && heldItems.length) return heldItems[0];
           if (!offeredTargetId && actorTargets.length === 1 && heldItems.length === 1) return heldItems[0];
           if (offeredTargetId === Number(target.id || 0) && heldItems.length === 1) return heldItems[0];
           return null;
@@ -6223,7 +6265,7 @@
           changed = true;
           continue;
         }
-        if (!event || seenSeq.has(event.seq)) continue;
+        if (!event || eventIsMuted(event) || seenSeq.has(event.seq)) continue;
         seenSeq.add(event.seq);
         resolvePendingChat(event);
         if (eventIsHiddenContext(event)) continue;
@@ -6311,7 +6353,7 @@
           resetTranscriptAtWorldBoundary(event);
           continue;
         }
-        if (!event) continue;
+        if (!event || eventIsMuted(event)) continue;
         resolvePendingChat(event);
         if (eventIsHiddenContext(event)) continue;
         if (event.seq !== undefined && event.seq !== null) {
@@ -6321,6 +6363,11 @@
         if (!eventIsLowSignalStatus(event)) appendLogEvent(event);
       }
       logEvents = logEvents.slice(-90);
+    }
+
+    function eventIsMuted(event) {
+      const muted = new Set((state?.safety?.muted_actor_ids || []).map(Number));
+      return muted.has(Number(event?.actor_id || 0));
     }
 
     const chatEventTypes = new Set(["message.created"]);
@@ -8835,13 +8882,52 @@
       }[String(actor?.control_mode || "")] || "";
     }
 
+    function transferActionForActor(kind, targetActorId) {
+      const actorKey = `actor:${Number(targetActorId || 0)}`;
+      return (actions || []).find((candidate) => (
+        String(candidate?.label || "").toLowerCase() === kind
+        && (candidate?.focusKey === actorKey || (candidate?.focusKeys || []).includes(actorKey))
+      )) || null;
+    }
+
+    function actorSafetyPanelHtml(actor) {
+      if (!actor || Number(actor.id || 0) === Number(actorId || 0)) return "";
+      const actorNumericId = Number(actor.id || 0);
+      const giftAvailable = Boolean(transferActionForActor("give", actorNumericId));
+      const tradeAvailable = Boolean(transferActionForActor("trade", actorNumericId));
+      const incoming = (state?.safety?.incoming_offers || [])
+        .filter((offer) => Number(offer.offered_by_actor_id || 0) === actorNumericId);
+      const outgoing = (state?.safety?.outgoing_offers || [])
+        .filter((offer) => Number(offer.offered_to_actor_id || 0) === actorNumericId);
+      const giftRequests = (state?.safety?.gift_auto_accepts || [])
+        .filter((request) => Number(request.offered_by_actor_id || 0) === actorNumericId);
+      const giftRequestHtml = (actor?.economy?.held_items || []).map((held) => {
+        const itemId = Number(held.item_id || 0);
+        const existing = giftRequests.find((request) => Number(request.item_id || 0) === itemId);
+        return `<button class="account-button" type="button" data-avatar-gift-request="${itemId}" data-avatar-id="${actorNumericId}"${existing ? " disabled" : ""}>${escapeHtml(existing ? `${itemNameForId(itemId)} requested` : `request ${itemNameForId(itemId)}`)}</button>`;
+      }).join("");
+      const offerHtml = [
+        ...incoming.map((offer) => {
+          const exchange = offer.requested_item_name ? ` for ${offer.requested_item_name}` : "";
+          return `<div class="avatar-offer"><strong>incoming ${escapeHtml(offer.kind || "transfer")}</strong>${escapeHtml(`${offer.offered_item_name}${exchange}`)}<div class="avatar-controls"><button class="account-button" type="button" data-transfer-offer-decision="accept" data-transfer-offer-id="${escapeAttr(offer.id)}">accept</button><button class="account-button" type="button" data-transfer-offer-decision="decline" data-transfer-offer-id="${escapeAttr(offer.id)}">decline</button></div></div>`;
+        }),
+        ...outgoing.map((offer) => {
+          const exchange = offer.requested_item_name ? ` for ${offer.requested_item_name}` : "";
+          return `<div class="avatar-offer"><strong>pending ${escapeHtml(offer.kind || "transfer")}</strong>${escapeHtml(`${offer.offered_item_name}${exchange}`)}<div class="avatar-controls"><button class="account-button" type="button" data-transfer-offer-decision="withdraw" data-transfer-offer-id="${escapeAttr(offer.id)}">withdraw</button></div></div>`;
+        }),
+      ].join("");
+      const muteVerb = actor.muted_by_you ? "unmute" : "mute";
+      const blockVerb = actor.blocked_by_you ? "unblock" : "block";
+      return `${offerHtml}<div class="avatar-controls" aria-label="Controls for ${escapeAttr(actorLabel(actor))}"><button class="account-button" type="button" data-avatar-transfer="give" data-avatar-id="${actorNumericId}"${giftAvailable ? "" : " disabled"}>offer gift</button><button class="account-button" type="button" data-avatar-transfer="trade" data-avatar-id="${actorNumericId}"${tradeAvailable ? "" : " disabled"}>offer trade</button>${giftRequestHtml}<button class="account-button" type="button" data-avatar-safety="${muteVerb}" data-avatar-id="${actorNumericId}">${muteVerb}</button><button class="account-button" type="button" data-avatar-safety="${blockVerb}" data-avatar-id="${actorNumericId}">${blockVerb}</button><button class="account-button" type="button" data-avatar-report="${actorNumericId}">report</button></div>`;
+    }
+
     function actorEconomyPanelHtml(actor) {
       if (!actor) return "";
       const rows = [];
       const controller = actorControlModeLabel(actor);
       if (controller) rows.push(economyRowHtml("controller", escapeHtml(controller)));
       const economy = actor?.economy || null;
-      if (!economy) return rows.join("");
+      if (!economy) return `${rows.join("")}${actorSafetyPanelHtml(actor)}`;
       const motive = economyMotiveSummary(actor, economy);
       if (motive && !economyMotiveRepeatsRows(actor, economy, motive)) {
         rows.push(economyRowHtml("today", escapeHtml(motive)));
@@ -8882,7 +8968,7 @@
         }[disposition] || "kept close";
         rows.push(economyRowHtml("carries", economyItemSummaryHtml(itemName, [dispositionLabel])));
       }
-      return rows.join("");
+      return `${rows.join("")}${actorSafetyPanelHtml(actor)}`;
     }
 
     function openCardModal(card) {
@@ -10678,6 +10764,98 @@
     });
 
     $("card-modal").addEventListener("click", (event) => {
+      const transfer = event.target.closest("[data-avatar-transfer]");
+      if (transfer) {
+        event.preventDefault();
+        event.stopPropagation();
+        const kind = String(transfer.getAttribute("data-avatar-transfer") || "");
+        const targetActorId = Number(transfer.getAttribute("data-avatar-id") || 0);
+        const transferAction = transferActionForActor(kind, targetActorId);
+        if (!transferAction) return;
+        if (Array.isArray(transferAction.choices)) {
+          const choice = transferAction.choices.find((candidate) => {
+            const value = String(candidate?.value || "");
+            return kind === "give"
+              ? value.endsWith(`:${targetActorId}`)
+              : value.startsWith(`${targetActorId}:`);
+          });
+          if (choice) transferAction.selectedChoice = choice.value;
+        }
+        closeCardModal();
+        runAction(transferAction);
+        return;
+      }
+      const offerDecision = event.target.closest("[data-transfer-offer-decision]");
+      if (offerDecision) {
+        event.preventDefault();
+        event.stopPropagation();
+        const decision = String(offerDecision.getAttribute("data-transfer-offer-decision") || "");
+        const offerId = String(offerDecision.getAttribute("data-transfer-offer-id") || "");
+        offerDecision.disabled = true;
+        action("/actions/transfer-offer", {
+          actor_id: actorId,
+          offer_id: offerId,
+          decision,
+        }).then(async (result) => {
+          await refresh();
+          if (result?.ok) setStatus(`Offer ${decision}ed.`, "ok");
+        });
+        return;
+      }
+      const safety = event.target.closest("[data-avatar-safety]");
+      if (safety) {
+        event.preventDefault();
+        event.stopPropagation();
+        const verb = String(safety.getAttribute("data-avatar-safety") || "");
+        const targetActorId = Number(safety.getAttribute("data-avatar-id") || 0);
+        safety.disabled = true;
+        action("/actions/actor-safety", {
+          actor_id: actorId,
+          target_actor_id: targetActorId,
+          control: verb.includes("mute") ? "mute" : "block",
+          enabled: !verb.startsWith("un"),
+        }).then(async (result) => {
+          await refresh();
+          if (result?.ok) {
+            const updated = cardForActor(targetActorId);
+            if (updated) openCardModal(updated);
+          }
+        });
+        return;
+      }
+      const giftRequest = event.target.closest("[data-avatar-gift-request]");
+      if (giftRequest) {
+        event.preventDefault();
+        event.stopPropagation();
+        const targetActorId = Number(giftRequest.getAttribute("data-avatar-id") || 0);
+        const itemId = Number(giftRequest.getAttribute("data-avatar-gift-request") || 0);
+        giftRequest.disabled = true;
+        action("/actions/request-gift", {
+          actor_id: actorId,
+          offered_by_actor_id: targetActorId,
+          item_id: itemId,
+        }).then(async (result) => {
+          await refresh();
+          if (result?.ok) {
+            const updated = cardForActor(targetActorId);
+            if (updated) openCardModal(updated);
+          }
+        });
+        return;
+      }
+      const report = event.target.closest("[data-avatar-report]");
+      if (report) {
+        event.preventDefault();
+        event.stopPropagation();
+        const targetActorId = Number(report.getAttribute("data-avatar-report") || 0);
+        const target = actorForId(targetActorId);
+        const controls = report.closest(".avatar-controls");
+        if (!controls || controls.querySelector("[data-avatar-report-form]")) return;
+        report.hidden = true;
+        controls.insertAdjacentHTML("beforeend", `<form class="avatar-report-form" data-avatar-report-form="${targetActorId}"><label for="avatar-report-reason-${targetActorId}">Why are you reporting ${escapeHtml(actorLabel(target))}?</label><input id="avatar-report-reason-${targetActorId}" name="reason" required maxlength="240" autocomplete="off"><button class="account-button" type="submit">send report</button></form>`);
+        controls.querySelector("input[name='reason']")?.focus();
+        return;
+      }
       const fundImage = event.target.closest("[data-fund-community-image]");
       if (fundImage) {
         event.preventDefault();
@@ -10705,6 +10883,18 @@
         event.preventDefault();
         closeCardModal();
       }
+    });
+
+    $("card-modal").addEventListener("submit", (event) => {
+      const form = event.target.closest("[data-avatar-report-form]");
+      if (!form) return;
+      event.preventDefault();
+      const targetActorId = Number(form.getAttribute("data-avatar-report-form") || 0);
+      const target = actorForId(targetActorId);
+      const reason = String(new FormData(form).get("reason") || "").trim();
+      if (!target || !reason) return;
+      closeCardModal();
+      runCommandText(`report ${actorLabel(target)}: ${reason}`);
     });
 
     $("action-modal").addEventListener("click", (event) => {
