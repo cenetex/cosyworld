@@ -380,8 +380,11 @@ type locally, so temporary Replicate URLs can expire safely:
 
 ```sh
 REPLICATE_API_TOKEN=...
-COSYWORLD_REPLICATE_AVATAR_MODEL=owner/model
-COSYWORLD_REPLICATE_AVATAR_LORA=https://.../mirquo-lora.safetensors
+COSYWORLD_REPLICATE_AVATAR_MODEL=black-forest-labs/flux-dev-lora
+COSYWORLD_REPLICATE_AVATAR_LORA=immanencer/mirquo
+COSYWORLD_REPLICATE_AVATAR_LORA_INPUT=lora_weights
+COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT=lora_scale
+COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX="MRQ, cozy storybook trading-card portrait"
 COSYWORLD_GENERATED_ASSET_DIR=/data/generated
 ```
 
@@ -391,8 +394,9 @@ pinned prediction version, `COSYWORLD_REPLICATE_AVATAR_LORA_INPUT` and
 names, `COSYWORLD_REPLICATE_AVATAR_LORA_SCALE`,
 `COSYWORLD_REPLICATE_AVATAR_OUTPUT_FORMAT`, and
 `COSYWORLD_REPLICATE_AVATAR_INPUT_JSON` for additional input fields. Existing
-local setups that define `REPLICATE_BASE_MODEL` are also supported as a fallback
-for `COSYWORLD_REPLICATE_AVATAR_MODEL`.
+local setups that define `REPLICATE_BASE_MODEL`, `REPLICATE_LORA_WEIGHTS`,
+`REPLICATE_MODEL`, `REPLICATE_LORA_TRIGGER`, or `LORA_TRIGGER_WORD` are also
+supported as fallbacks.
 
 `Chat` appears only when the avatar has banked advancement and an eligible nearby resident can become a new friend. Playing it spends one advancement point, creates the Bond, and passes the room turn; it never accepts human text or spends Orbs. Human-authored room speech is the separate moderated, turn-exempt `say` path.
 

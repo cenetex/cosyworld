@@ -5470,18 +5470,20 @@ impl ReplicateAvatarArtConfig {
         let lora_url = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA")
             .ok()
             .or_else(|| std::env::var("COSYWORLD_MIRQUO_LORA_URL").ok())
+            .or_else(|| std::env::var("REPLICATE_LORA_WEIGHTS").ok())
+            .or_else(|| std::env::var("REPLICATE_MODEL").ok())
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty());
         let lora_input_key = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA_INPUT")
             .ok()
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "extra_lora".to_string());
+            .unwrap_or_else(|| "lora_weights".to_string());
         let lora_scale_input_key = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT")
             .ok()
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "extra_lora_scale".to_string());
+            .unwrap_or_else(|| "lora_scale".to_string());
         let lora_scale = std::env::var("COSYWORLD_REPLICATE_AVATAR_LORA_SCALE")
             .ok()
             .and_then(|value| value.trim().parse::<f64>().ok())
@@ -5489,9 +5491,11 @@ impl ReplicateAvatarArtConfig {
             .clamp(0.0, 2.0);
         let prompt_prefix = std::env::var("COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX")
             .ok()
+            .or_else(|| std::env::var("REPLICATE_LORA_TRIGGER").ok())
+            .or_else(|| std::env::var("LORA_TRIGGER_WORD").ok())
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "mirquo style, cozy storybook trading-card portrait".to_string());
+            .unwrap_or_else(|| "MRQ, cozy storybook trading-card portrait".to_string());
         let output_format = std::env::var("COSYWORLD_REPLICATE_AVATAR_OUTPUT_FORMAT")
             .ok()
             .map(|value| value.trim().to_string())

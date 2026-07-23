@@ -38,7 +38,18 @@ describe('deploy workflow', () => {
 
   it('keeps the image workshop configured on both Fly tenants', () => {
     const model = 'COSYWORLD_REPLICATE_AVATAR_MODEL = "black-forest-labs/flux-dev-lora"';
-    expect(primaryFlyConfig).toContain(model);
-    expect(lonelyForestFlyConfig).toContain(model);
+    const mirquoLora = 'COSYWORLD_REPLICATE_AVATAR_LORA = "immanencer/mirquo"';
+    const loraInput = 'COSYWORLD_REPLICATE_AVATAR_LORA_INPUT = "lora_weights"';
+    const loraScaleInput = 'COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT = "lora_scale"';
+    const trigger =
+      'COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX = "MRQ, cozy storybook trading-card portrait"';
+
+    for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
+      expect(config).toContain(model);
+      expect(config).toContain(mirquoLora);
+      expect(config).toContain(loraInput);
+      expect(config).toContain(loraScaleInput);
+      expect(config).toContain(trigger);
+    }
   });
 });

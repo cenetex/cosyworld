@@ -19,6 +19,10 @@ primary_region = "sjc"
   COSYWORLD_HOSTED_ACCESS_GRACE_SECS = "60"
   COSYWORLD_STORY_METRICS_RETENTION_DAYS = "400"
   COSYWORLD_REPLICATE_AVATAR_MODEL = "black-forest-labs/flux-dev-lora"
+  COSYWORLD_REPLICATE_AVATAR_LORA = "immanencer/mirquo"
+  COSYWORLD_REPLICATE_AVATAR_LORA_INPUT = "lora_weights"
+  COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT = "lora_scale"
+  COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX = "MRQ, cozy storybook trading-card portrait"
   RUST_LOG = "cosyworld_orchestrator=info,tower_http=warn"
 
 # Required production secrets:
