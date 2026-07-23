@@ -407,6 +407,34 @@ static void test_combat_v2_encounter_turns_dodge_targeting_and_escape(void) {
   assert(events.events[0].reason == 20);
   assert(events.events[0].content_id == encounter->id);
 
+  cw_action say = {0};
+  say.kind = CW_ACTION_SAY;
+  say.actor_id = other_id;
+  assert(cw_world_apply_with_tick(&world, &say, 404, 0, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_MESSAGE_CREATED);
+  assert(encounter->participants[encounter->current_index].actor_id == current_id);
+
+  cw_action need_time = {0};
+  need_time.kind = CW_ACTION_COMBAT_NEED_TIME;
+  need_time.actor_id = current_id;
+  need_time.content_id = encounter->id;
+  assert(cw_world_apply_with_tick(&world, &need_time, 404, 0, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_COMBAT_NEED_TIME);
+  assert(encounter->participants[encounter->current_index].actor_id == current_id);
+
+  cw_action pass = {0};
+  pass.kind = CW_ACTION_COMBAT_PASS;
+  pass.actor_id = current_id;
+  pass.content_id = encounter->id;
+  assert(cw_world_apply(&world, &pass, 404, &events) == CW_OK);
+  assert(events.events[0].type == CW_EVENT_COMBAT_PASS);
+  assert(events.events[1].type == CW_EVENT_COMBAT_TURN_ENDED);
+  assert(events.events[2].type == CW_EVENT_COMBAT_TURN_STARTED);
+  current_id = encounter->participants[encounter->current_index].actor_id;
+  other_id = current_id == human->id ? echo->id : human->id;
+
   cw_action wrong_turn = {0};
   wrong_turn.kind = CW_ACTION_COMBAT_DODGE;
   wrong_turn.actor_id = other_id;

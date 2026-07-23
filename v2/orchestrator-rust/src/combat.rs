@@ -5,6 +5,8 @@ pub(super) enum CombatChoice {
     Attack { target_actor_id: u64 },
     Dodge,
     Escape { destination_location_id: u64 },
+    Pass,
+    NeedTime,
 }
 
 impl RuntimeWorld {
@@ -351,7 +353,10 @@ pub(super) async fn apply_combat_choice(
     }
     let requested_target_id = match choice {
         CombatChoice::Attack { target_actor_id } => Some(target_actor_id),
-        CombatChoice::Dodge | CombatChoice::Escape { .. } => None,
+        CombatChoice::Dodge
+        | CombatChoice::Escape { .. }
+        | CombatChoice::Pass
+        | CombatChoice::NeedTime => None,
     };
     let Some((job_id, encounter_target_id)) =
         runtime.combat_job_for_actor(actor_id, requested_target_id)
@@ -479,6 +484,30 @@ pub(super) async fn apply_combat_choice(
             events,
         });
     }
+    if matches!(choice, CombatChoice::NeedTime)
+        && combat_need_time_used(&runtime, encounter_id, actor_id)
+    {
+        events.push(EventView {
+            type_name: "combat.need_time.already_used".to_string(),
+            success: false,
+            actor_id: Some(actor_id),
+            actor_name: runtime.actor_name(actor_id),
+            location_id: turn_location_id,
+            content_id: Some(encounter_id),
+            content: Some(
+                "This turn already has its nonpunitive time extension; the combat floor stays with you."
+                    .to_string(),
+            ),
+            ..EventView::default()
+        });
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events,
+        });
+    }
 
     let action = match choice {
         CombatChoice::Attack { target_actor_id } => CwAction {
@@ -503,8 +532,25 @@ pub(super) async fn apply_combat_choice(
             content_id: encounter_id,
             ..CwAction::default()
         },
+        CombatChoice::Pass => CwAction {
+            kind: CW_ACTION_COMBAT_PASS,
+            actor_id,
+            content_id: encounter_id,
+            ..CwAction::default()
+        },
+        CombatChoice::NeedTime => CwAction {
+            kind: CW_ACTION_COMBAT_NEED_TIME,
+            actor_id,
+            content_id: encounter_id,
+            ..CwAction::default()
+        },
     };
-    let record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
+    let need_time = matches!(choice, CombatChoice::NeedTime);
+    let record = if need_time {
+        JournalRecord::new(action, runtime.next_seed_value()).into_system()
+    } else {
+        JournalRecord::new(action, runtime.next_seed_value()).into_player_card()
+    };
     let Ok((mut status, player_events)) = commit_journal_record(&state, &mut runtime, record)
     else {
         drop(runtime);
@@ -524,14 +570,21 @@ pub(super) async fn apply_combat_choice(
             Err(_) => 500,
         };
     }
-    let observation = advance_turn_and_capture_player_tick_observation(
-        &state,
-        &mut runtime,
-        turn_location_id,
-        actor_id,
-        status,
-        &mut events,
-    );
+    let observation = if need_time {
+        if status == CW_OK {
+            append_action_receipt(&state, &runtime, actor_id, &mut events);
+        }
+        None
+    } else {
+        advance_turn_and_capture_player_tick_observation(
+            &state,
+            &mut runtime,
+            turn_location_id,
+            actor_id,
+            status,
+            &mut events,
+        )
+    };
     drop(runtime);
 
     broadcast_events(&state, &released_events);

@@ -1779,6 +1779,39 @@ static cw_status apply_combat_dodge(cw_world *world, const cw_action *action, cw
   return CW_OK;
 }
 
+static cw_status apply_combat_pass(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  cw_combat_encounter *encounter = 0;
+  cw_actor *actor = 0;
+  cw_status status = require_active_combat_turn(world, action, out_events, &encounter, &actor);
+  if (status != CW_OK) return status;
+  append_event(world, out_events, CW_EVENT_COMBAT_PASS);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = encounter->location_id;
+    event->content_id = encounter->id;
+  }
+  finish_or_advance_combat_turn(world, encounter, action, out_events);
+  return CW_OK;
+}
+
+static cw_status apply_combat_need_time(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  cw_combat_encounter *encounter = 0;
+  cw_actor *actor = 0;
+  cw_status status = require_active_combat_turn(world, action, out_events, &encounter, &actor);
+  if (status != CW_OK) return status;
+  append_event(world, out_events, CW_EVENT_COMBAT_NEED_TIME);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = encounter->location_id;
+    event->content_id = encounter->id;
+  }
+  return CW_OK;
+}
+
 static cw_status apply_combat_escape(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
   cw_combat_encounter *encounter = 0;
   cw_actor *actor = 0;
@@ -1819,7 +1852,9 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
       && action->kind != CW_ACTION_COMBAT_ATTACK
       && action->kind != CW_ACTION_COMBAT_FINESSE_ATTACK
       && action->kind != CW_ACTION_COMBAT_DODGE
-      && action->kind != CW_ACTION_COMBAT_ESCAPE) {
+      && action->kind != CW_ACTION_COMBAT_ESCAPE
+      && action->kind != CW_ACTION_COMBAT_PASS
+      && action->kind != CW_ACTION_COMBAT_NEED_TIME) {
     cw_status status = reject(world, out_events, action, CW_REASON_COMBAT_ACTION_REQUIRED);
     if (out_events && out_events->count > 0) {
       cw_event *event = &out_events->events[out_events->count - 1];
@@ -1903,6 +1938,12 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
       break;
     case CW_ACTION_COMBAT_ESCAPE:
       status = apply_combat_escape(world, action, out_events);
+      break;
+    case CW_ACTION_COMBAT_PASS:
+      status = apply_combat_pass(world, action, out_events);
+      break;
+    case CW_ACTION_COMBAT_NEED_TIME:
+      status = apply_combat_need_time(world, action, out_events);
       break;
     default:
       status = reject(world, out_events, action, CW_REASON_INVALID_ACTION);
@@ -2065,6 +2106,8 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_SPELL_CAST: return "magic.spell_cast";
     case CW_EVENT_ITEM_THEFT_ATTEMPT: return "item.theft_attempt";
     case CW_EVENT_ITEM_STOLEN: return "item.stolen";
+    case CW_EVENT_COMBAT_PASS: return "combat.pass";
+    case CW_EVENT_COMBAT_NEED_TIME: return "combat.need_time";
     default: return "unknown";
   }
 }
