@@ -131,8 +131,7 @@ impl RuntimeWorld {
                     })
                     .find(|target_id| {
                         self.actor_by_id(*target_id).is_some_and(|target| {
-                            target.kind == CW_ACTOR_NPC
-                                && target.status == CW_ACTOR_ACTIVE
+                            Self::actor_is_active_avatar(target)
                                 && target.location_id == actor.location_id
                         })
                     })
@@ -204,6 +203,21 @@ impl RuntimeWorld {
             .map(|target| target.id)
     }
 
+    pub(super) fn combat_actors_share_side(&self, left_actor_id: u64, right_actor_id: u64) -> bool {
+        let Some(encounter) = self.active_combat_encounter_for_actor(left_actor_id) else {
+            return false;
+        };
+        let participant_side = |actor_id| {
+            encounter.participants[..encounter.participant_count]
+                .iter()
+                .find(|participant| participant.actor_id == actor_id)
+                .map(|participant| participant.side)
+        };
+        participant_side(left_actor_id)
+            .zip(participant_side(right_actor_id))
+            .is_some_and(|(left, right)| left == right)
+    }
+
     pub(super) fn combat_job_id_for_encounter(&self, encounter_id: u64) -> Option<String> {
         self.jobs
             .keys()
@@ -241,8 +255,7 @@ impl RuntimeWorld {
                     .unwrap_or(true);
                 actor_can_act
                     && self.actor_by_id(target_id).is_some_and(|target| {
-                        target.kind == CW_ACTOR_NPC
-                            && target.status == CW_ACTOR_ACTIVE
+                        Self::actor_is_active_avatar(target)
                             && target.location_id == actor.location_id
                             && self.actor_visible_in_projection(target, Some(actor_id), None)
                     })
@@ -265,7 +278,7 @@ impl RuntimeWorld {
     }
 }
 
-fn drive_combat_npc_turns(
+fn drive_combat_inference_turns(
     state: &AppState,
     runtime: &mut RuntimeWorld,
     encounter_id: u64,
@@ -278,7 +291,7 @@ fn drive_combat_npc_turns(
         let Some(actor) = runtime.actor_by_id(actor_id) else {
             return Ok(CW_OK);
         };
-        if actor.kind != CW_ACTOR_NPC {
+        if !runtime.actor_uses_inference(actor.id) {
             return Ok(CW_OK);
         }
         let Some(target_actor_id) = runtime.combat_target_for_actor(encounter_id, actor_id) else {
@@ -295,8 +308,8 @@ fn drive_combat_npc_turns(
             runtime.next_seed_value(),
         )
         .into_system();
-        let (status, npc_events) = commit_journal_record(state, runtime, record)?;
-        events.extend(npc_events);
+        let (status, inference_events) = commit_journal_record(state, runtime, record)?;
+        events.extend(inference_events);
         if status != CW_OK {
             return Ok(status);
         }
@@ -317,7 +330,7 @@ pub(super) async fn apply_combat_choice(
     if !client_actor_authorized_for_state(&runtime, &state, actor_id, actor_session) {
         return client_actor_rejected_response();
     }
-    let released_events = release_inactive_human_inventory_locked(&state, &mut runtime);
+    let released_events = release_inactive_direct_inventory_locked(&state, &mut runtime);
     let Some(actor) = runtime.actor_by_id(actor_id) else {
         drop(runtime);
         broadcast_events(&state, &released_events);
@@ -327,7 +340,7 @@ pub(super) async fn apply_combat_choice(
             events: Vec::new(),
         });
     };
-    if actor.kind != CW_ACTOR_HUMAN || actor.status != CW_ACTOR_ACTIVE {
+    if !RuntimeWorld::actor_is_active_avatar(actor) {
         drop(runtime);
         broadcast_events(&state, &released_events);
         return Json(ActionResponse {
@@ -421,17 +434,18 @@ pub(super) async fn apply_combat_choice(
         }
     }
 
-    let npc_status = match drive_combat_npc_turns(&state, &mut runtime, encounter_id, &mut events) {
-        Ok(status) => status,
-        Err(_) => 500,
-    };
-    if npc_status != CW_OK {
+    let inference_status =
+        match drive_combat_inference_turns(&state, &mut runtime, encounter_id, &mut events) {
+            Ok(status) => status,
+            Err(_) => 500,
+        };
+    if inference_status != CW_OK {
         drop(runtime);
         broadcast_events(&state, &released_events);
         broadcast_events(&state, &events);
         return Json(ActionResponse {
             ok: false,
-            status: npc_status,
+            status: inference_status,
             events,
         });
     }
@@ -504,8 +518,9 @@ pub(super) async fn apply_combat_choice(
     };
     events.extend(player_events);
     if status == CW_OK {
-        status = match drive_combat_npc_turns(&state, &mut runtime, encounter_id, &mut events) {
-            Ok(npc_status) => npc_status,
+        status = match drive_combat_inference_turns(&state, &mut runtime, encounter_id, &mut events)
+        {
+            Ok(inference_status) => inference_status,
             Err(_) => 500,
         };
     }

@@ -420,16 +420,15 @@ pub(super) fn initiative_bonus_from_dexterity(dexterity: i8) -> i16 {
 
 pub(super) fn room_turn_actors_for_location(
     runtime: &RuntimeWorld,
-    active_human_actor_ids: &BTreeSet<u64>,
+    active_direct_actor_ids: &BTreeSet<u64>,
     location_id: u64,
 ) -> Vec<RoomTurnActor> {
     runtime.world.actors[..runtime.world.actor_count]
         .iter()
         .filter(|actor| {
-            actor.kind == CW_ACTOR_HUMAN
-                && actor.status == CW_ACTOR_ACTIVE
+            RuntimeWorld::actor_is_active_avatar(**actor)
                 && actor.location_id == location_id
-                && active_human_actor_ids.contains(&actor.id)
+                && active_direct_actor_ids.contains(&actor.id)
         })
         .map(|actor| RoomTurnActor {
             actor_id: actor.id,
@@ -446,9 +445,9 @@ pub(super) fn room_turn_view_for_runtime(
     runtime: &RuntimeWorld,
     location_id: u64,
     viewer_actor_id: Option<u64>,
-    active_human_actor_ids: &BTreeSet<u64>,
+    active_direct_actor_ids: &BTreeSet<u64>,
 ) -> RoomTurnView {
-    let actors = room_turn_actors_for_location(runtime, active_human_actor_ids, location_id);
+    let actors = room_turn_actors_for_location(runtime, active_direct_actor_ids, location_id);
     state
         .room_turns
         .lock()
@@ -460,7 +459,7 @@ pub(super) fn actor_room_turn_view(
     state: &AppState,
     runtime: &RuntimeWorld,
     actor_id: u64,
-    active_human_actor_ids: &BTreeSet<u64>,
+    active_direct_actor_ids: &BTreeSet<u64>,
 ) -> Option<RoomTurnView> {
     let actor = runtime.actor_by_id(actor_id)?;
     Some(room_turn_view_for_runtime(
@@ -468,7 +467,7 @@ pub(super) fn actor_room_turn_view(
         runtime,
         actor.location_id,
         Some(actor_id),
-        active_human_actor_ids,
+        active_direct_actor_ids,
     ))
 }
 
@@ -497,9 +496,9 @@ pub(super) fn actor_turn_rejection(
     runtime: &RuntimeWorld,
     actor_id: u64,
 ) -> Option<Json<ActionResponse>> {
-    let mut active_humans = active_turn_actor_ids_for_state(state);
-    active_humans.insert(actor_id);
-    let view = actor_room_turn_view(state, runtime, actor_id, &active_humans)?;
+    let mut active_direct_actors = active_turn_actor_ids_for_state(state);
+    active_direct_actors.insert(actor_id);
+    let view = actor_room_turn_view(state, runtime, actor_id, &active_direct_actors)?;
     (view.enabled && !view.is_current_actor).then(|| actor_not_current_turn_response(view))
 }
 
@@ -550,9 +549,9 @@ pub(super) fn command_actor_turn_rejection(
     if matches!(dispatch, CommandDispatch::Check) && !runtime.listen_attempted_here(actor_id) {
         return None;
     }
-    let mut active_humans = active_turn_actor_ids_for_state(state);
-    active_humans.insert(actor_id);
-    let view = actor_room_turn_view(state, runtime, actor_id, &active_humans)?;
+    let mut active_direct_actors = active_turn_actor_ids_for_state(state);
+    active_direct_actors.insert(actor_id);
+    let view = actor_room_turn_view(state, runtime, actor_id, &active_direct_actors)?;
     (view.enabled && !view.is_current_actor).then_some(view)
 }
 
@@ -622,9 +621,9 @@ pub(super) fn advance_actor_room_turn_after_commit(
     let Some(location_id) = location_id else {
         return;
     };
-    let mut active_humans = active_turn_actor_ids_for_state(state);
-    active_humans.insert(actor_id);
-    let actors = room_turn_actors_for_location(runtime, &active_humans, location_id);
+    let mut active_direct_actors = active_turn_actor_ids_for_state(state);
+    active_direct_actors.insert(actor_id);
+    let actors = room_turn_actors_for_location(runtime, &active_direct_actors, location_id);
     if let Ok(mut turns) = state.room_turns.lock() {
         turns.advance_after_action(location_id, &actors, actor_id);
     }
@@ -712,8 +711,8 @@ fn schedule_turn_ping_resolution(state: AppState, location_id: u64, ping_id: u64
 
 async fn resolve_turn_ping_after_countdown(state: AppState, location_id: u64, ping_id: u64) {
     let mut runtime = state.inner.lock().await;
-    let active_humans = active_turn_actor_ids_for_state(&state);
-    let actors = room_turn_actors_for_location(&runtime, &active_humans, location_id);
+    let active_direct_actors = active_turn_actor_ids_for_state(&state);
+    let actors = room_turn_actors_for_location(&runtime, &active_direct_actors, location_id);
     let outcome = state
         .room_turns
         .lock()
@@ -780,9 +779,9 @@ pub(super) async fn request_turn_timeout(
         });
     };
     let location_id = actor.location_id;
-    let mut active_humans = active_turn_actor_ids_for_state(&state);
-    active_humans.insert(payload.actor_id);
-    let actors = room_turn_actors_for_location(&runtime, &active_humans, location_id);
+    let mut active_direct_actors = active_turn_actor_ids_for_state(&state);
+    active_direct_actors.insert(payload.actor_id);
+    let actors = room_turn_actors_for_location(&runtime, &active_direct_actors, location_id);
     let outcome = state
         .room_turns
         .lock()

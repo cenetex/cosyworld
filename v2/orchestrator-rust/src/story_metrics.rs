@@ -394,13 +394,13 @@ pub(super) fn record_story_metrics_for_journal_in_transaction(
     runtime: &RuntimeWorld,
     record: &JournalRecord,
     events: &[EventView],
-    co_present_human_count: usize,
+    co_present_direct_actor_count: usize,
     now_ms: u64,
 ) -> io::Result<()> {
     let actor_id = record.action.actor_id;
     let Some(actor) = runtime
         .actor_by_id(actor_id)
-        .filter(|actor| actor.kind == CW_ACTOR_HUMAN)
+        .filter(|actor| !runtime.actor_uses_inference(actor.id))
     else {
         return Ok(());
     };
@@ -498,7 +498,7 @@ pub(super) fn record_story_metrics_for_journal_in_transaction(
             subject_ref: None,
             attributes: serde_json::json!({
                 "action_category": action_category,
-                "co_present_human_count": co_present_human_count,
+                "co_present_direct_actor_count": co_present_direct_actor_count,
             }),
             occurred_at_ms: now_ms,
         },
@@ -525,7 +525,7 @@ pub(super) fn record_story_metrics_for_journal_in_transaction(
         now_ms,
     )?;
 
-    if co_present_human_count >= 2 {
+    if co_present_direct_actor_count >= 2 {
         insert_story_metric(
             conn,
             NewStoryMetric {
@@ -542,7 +542,7 @@ pub(super) fn record_story_metrics_for_journal_in_transaction(
                 target_player_ref: None,
                 subject_ref: None,
                 attributes: serde_json::json!({
-                    "active_human_count": co_present_human_count,
+                    "active_direct_actor_count": co_present_direct_actor_count,
                 }),
                 occurred_at_ms: now_ms,
             },
@@ -554,7 +554,7 @@ pub(super) fn record_story_metrics_for_journal_in_transaction(
         let target_id = event.target_actor_id?;
         runtime
             .actor_by_id(target_id)
-            .filter(|target| target.kind == CW_ACTOR_HUMAN)
+            .filter(|target| !runtime.actor_uses_inference(target.id))
             .map(|_| story_player_ref(target_id))
     });
     if let Some(target_player_ref) = target_player_ref.as_deref() {
