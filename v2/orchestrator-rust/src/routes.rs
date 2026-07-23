@@ -131,6 +131,8 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/presence/leave", post(leave_presence))
         .route("/actions/submit", post(submit_action_offer))
         .route("/actions/timeout", post(request_turn_timeout))
+        .route("/actions/need-time", post(request_turn_timeout))
+        .route("/actions/pass", post(pass_ordered_scene_turn))
         .route("/actions/narrative-move", post(submit_narrative_move))
         .route("/actions/chat", post(chat))
         .route("/actions/fund-image", post(fund_community_image))

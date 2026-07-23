@@ -2897,7 +2897,7 @@
     </main>
     <div class="status" id="error" role="status" aria-live="polite" aria-atomic="true"></div>
     <footer class="prompt">
-      <div class="turn-ping-pill" id="turn-ping-pill" aria-live="assertive" hidden></div>
+      <div class="turn-ping-pill" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true" hidden></div>
       <div class="caret">&gt;</div>
       <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
@@ -3090,7 +3090,7 @@
     let commandHistoryIndex = 0;
     let commandDraft = "";
     let presenceHeartbeatTimer = null;
-    let turnCountdownTimer = null;
+    let announcedTurnHandoffKey = "";
     let walletQrPollTimer = null;
     let walletQrResolve = null;
     let firstTaleActorIdSeen = 0;
@@ -3718,35 +3718,6 @@
       presenceHeartbeatTimer = window.setInterval(pingPresence, presenceHeartbeatMs);
     }
 
-    function turnPingRemainingMs(turn = state?.turn) {
-      const expiresAt = Number(turn?.ping_expires_at_ms || 0);
-      if (!Number.isFinite(expiresAt) || expiresAt <= 0) return 0;
-      return Math.max(0, expiresAt - Date.now());
-    }
-
-    function turnPingRemainingLabel(turn = state?.turn) {
-      const remainingMs = turnPingRemainingMs(turn);
-      if (remainingMs <= 0) return "resolving";
-      return `${Math.ceil(remainingMs / 1000)}s`;
-    }
-
-    function syncTurnCountdownTimer() {
-      if (turnCountdownTimer) {
-        window.clearInterval(turnCountdownTimer);
-        turnCountdownTimer = null;
-      }
-      if (!state?.turn?.ping_active || turnPingRemainingMs() <= 0) return;
-      turnCountdownTimer = window.setInterval(() => {
-        actions = buildActions(state);
-        reconcileHand();
-        renderCommands();
-        if (!state?.turn?.ping_active || turnPingRemainingMs() <= 0) {
-          window.clearInterval(turnCountdownTimer);
-          turnCountdownTimer = null;
-        }
-      }, 500);
-    }
-
     function parseCardIds(value) {
       return String(value || "")
         .split(/[\s,;]+/)
@@ -4232,54 +4203,74 @@
       };
       if (turn.enabled && !turn.is_current_actor) {
         const currentName = turn.current_actor_name || "another avatar";
-        const firstListen = view.economy?.listen_attempted_here === false;
-        if (firstListen) {
-          const noticeOffer = offerFor("check");
-          const noticeVerb = offerVerb(noticeOffer, "Notice");
-          return [{
-            ...semanticAction(noticeOffer, "notice"),
-            label: noticeVerb.toLowerCase(),
-            detail: "for your first clue",
-            command: "listen",
-            focusKey: "check",
-            card: cardForLocation(view.location?.id),
-            shape: "location",
-            priority: 1,
-            modalTitle: noticeVerb.toLowerCase(),
-            modalSummary: "Receive one ambient lead from this room.",
-            effect: "the room shares one welcoming clue just for you",
-            run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 }),
-          }].map(decorateActionHand);
-        }
-        const pingActive = turn.ping_active === true;
-        const alreadyPonged = (turn.ping_responder_ids || []).map(Number).includes(Number(actorId));
-        const countdown = pingActive ? turnPingRemainingLabel(turn) : "";
         const waitingAction = {
           handProvider: {
             kind: "rules",
-            id: "rules:shared-turn",
-            label: "Shared turn",
-            reason: "From the shared turn rules",
+            id: "rules:ordered-scene",
+            label: "Ordered scene",
+            reason: "This scene explicitly uses turns",
             priority: 0,
           },
-          label: pingActive ? "I'm here" : "nudge",
-          detail: pingActive
-            ? (alreadyPonged ? `waiting together · ${countdown}` : `next choice in ${countdown}`)
-            : `${currentName} is thinking`,
-          command: pingActive ? "here" : "nudge",
-          focusKey: "turn-ping",
+          label: "ordered combat",
+          detail: `${currentName} acts now`,
+          command: "look",
+          focusKey: "ordered-scene",
           card: cardForActor(turn.current_actor_id) || cardForLocation(view.location?.id),
           shape: "avatar",
           priority: 5,
-          effect: pingActive
-            ? "lets the room know you're ready for the next choice"
-            : `gives ${currentName} a moment, then passes the choice if they're away`,
-          run: () => action("/actions/timeout", { actor_id: actorId }),
+          modalTitle: "combat uses an ordered floor",
+          modalSummary: turn.explanation || `${currentName} acts now. Chat and inspection stay available.`,
+          effect: "shows the current combat order without taking an action",
+          run: () => runCommandText("look"),
         };
-        return [waitingAction, buildEvolveAction()].filter(Boolean).map(decorateActionHand);
+        return [waitingAction].map(decorateActionHand);
       }
 
       const built = [];
+      if (turn.enabled && turn.is_current_actor && turn.policy === "scene-turn") {
+        if (turn.can_pass) {
+          built.push({
+            handProvider: {
+              kind: "rules",
+              id: "rules:ordered-scene-pass",
+              label: "Ordered scene",
+              reason: "Pass the authored combat floor",
+              priority: 0,
+            },
+            label: "pass",
+            detail: "yield this combat turn",
+            command: "pass",
+            focusKey: "scene-pass",
+            card: cardForActor(actorId),
+            shape: "avatar",
+            modalTitle: "pass this combat turn",
+            modalSummary: "The next combat participant acts. Passing does not make you dodge.",
+            effect: "advances the ordered scene once",
+            run: () => action("/actions/pass", { actor_id: actorId }),
+          });
+        }
+        if (turn.can_need_time) {
+          built.push({
+            handProvider: {
+              kind: "rules",
+              id: "rules:ordered-scene-need-time",
+              label: "Ordered scene",
+              reason: "Ask for a nonpunitive pause",
+              priority: 0,
+            },
+            label: "need time",
+            detail: "pause without losing your turn",
+            command: "need time",
+            focusKey: "scene-need-time",
+            card: cardForActor(actorId),
+            shape: "avatar",
+            modalTitle: "take more time",
+            modalSummary: `Keep the combat floor and add ${Math.round(Number(turn.need_time_extension_ms || 60000) / 1000)} seconds of authored grace.`,
+            effect: "records the pause without advancing world time or skipping anyone",
+            run: () => action("/actions/need-time", { actor_id: actorId }),
+          });
+        }
+      }
       const journey = view.journey || null;
       if (journey) {
         const nextLocationId = Number(journey.next_location_id || 0);
@@ -5402,18 +5393,13 @@
     }
 
     function turnPingPillHtml(turn = state?.turn) {
-      if (!turn?.ping_active) return "";
-      const countdown = turnPingRemainingLabel(turn);
+      if (!turn?.enabled || turn?.policy !== "scene-turn") return "";
       const currentName = turn.current_actor_name || "the current player";
-      const responders = (turn.ping_responder_ids || []).length;
-      const alreadyPonged = (turn.ping_responder_ids || []).map(Number).includes(Number(actorId));
       const copy = turn.is_current_actor
-        ? "the room is waiting for your choice"
-        : alreadyPonged
-          ? `waiting on ${currentName} — the room knows you're here`
-          : `waiting on ${currentName} — say you're here for the next choice`;
-      const suffix = !turn.is_current_actor && responders > 1 ? ` · ${responders} are here` : "";
-      return `<span class="turn-ping-copy">${escapeHtml(copy + suffix)}</span><span class="turn-ping-time">${escapeHtml(countdown)}</span>`;
+        ? "ordered combat — your turn"
+        : `ordered combat — ${currentName} acts now`;
+      const grace = Math.round(Number(turn.grace_period_ms || 0) / 1000);
+      return `<span class="turn-ping-copy">${escapeHtml(copy)}</span>${grace > 0 ? `<span class="turn-ping-time" aria-hidden="true">${escapeHtml(`${grace}s grace`)}</span>` : ""}`;
     }
 
     function renderTurnPingPill() {
@@ -5421,8 +5407,19 @@
       if (!pill) return;
       const html = turnPingPillHtml();
       pill.hidden = !html;
-      pill.classList.toggle("urgent", Boolean(state?.turn?.ping_active && state?.turn?.is_current_actor));
-      pill.innerHTML = html;
+      pill.classList.toggle("urgent", Boolean(state?.turn?.enabled && state?.turn?.is_current_actor));
+      const handoffKey = html ? String(state?.turn?.handoff_key || "") : "";
+      if (!html) {
+        announcedTurnHandoffKey = "";
+        pill.innerHTML = "";
+      } else if (handoffKey !== announcedTurnHandoffKey) {
+        announcedTurnHandoffKey = handoffKey;
+        pill.innerHTML = html;
+      } else {
+        const visualGrace = pill.querySelector(".turn-ping-time");
+        const grace = Math.round(Number(state?.turn?.grace_period_ms || 0) / 1000);
+        if (visualGrace && grace > 0) visualGrace.textContent = `${grace}s grace`;
+      }
     }
 
     function compareActions(left, right) {
@@ -5937,13 +5934,15 @@
 
     function actionFailureMessage(path, result = {}) {
       const status = Number(result.status || 0);
+      const conflict = (result.events || []).find((event) => event?.type === "action.conflict");
+      if (conflict?.content) return String(conflict.content);
       if (status === 402 && path.includes("fund-image")) {
         return "You need one Orb to add to this community image.";
       }
       if (status === 503 && path.includes("fund-image")) return "The image workshop is unavailable, so no Orb was taken.";
       if (status === 403) return "Your avatar slipped out of reach. Begin again or reconnect your account.";
-      if (status === 409) return "That choice changed while you were deciding. Here are the choices you have now.";
-      if (status === 423) return "Someone else has the room right now. Your choices are ready for the next turn.";
+      if (status === 409) return "The target changed before your write committed. Nothing extra happened; check the current state and choose again.";
+      if (status === 423) return "This is an explicitly ordered scene. The named combat participant acts now; chat and inspection stay available.";
       if (status === 429) return "The room needs a breath. Try again in a moment.";
       if (status === 502) return "That reply got lost. Try talking again in a moment.";
       return "That choice did not land. Here are the choices you have now.";
@@ -5954,8 +5953,8 @@
       if (output) return output;
       const status = Number(result.status || 0);
       if (status === 403) return "Your avatar slipped out of reach. Begin again or reconnect your account.";
-      if (status === 409) return "That choice changed while you were deciding. Look at the choices you have now.";
-      if (status === 423) return "Someone else has the room. Send a gentle nudge if they seem away.";
+      if (status === 409) return "The target changed before your write committed. Nothing extra happened; look again.";
+      if (status === 423) return "This is an explicitly ordered scene. The named combat participant acts now; chat and inspection stay available.";
       if (status === 429) return "The room needs a breath. Try again in a moment.";
       return "The room did not catch that. Look around and try another choice.";
     }
@@ -5986,7 +5985,7 @@
       }
       setError("");
       const clearFirstTaleAfterAction = firstTaleCelebration
-        && !/^(?:timeout|ping|pong|nudge|here)$/i.test(command);
+        && !/^(?:need[ -]time)$/i.test(command);
       if (/^(shuffle|deal|more|redraw)$/i.test(command)) {
         await shuffleHand();
         setStatus("A fresh hand appears.", "ok");
@@ -6404,6 +6403,8 @@
       "bond.resolved",
       "combat.attack.attempt",
       "combat.defend",
+      "combat.pass",
+      "combat.need_time",
       "combat.knockout",
       "combat.flee.success",
       "world.weather.shifted",
@@ -6609,6 +6610,8 @@
         || event.type === "combat.attack.attempt"
         || event.type === "combat.attack.hit"
         || event.type === "combat.attack.miss"
+        || event.type === "combat.pass"
+        || event.type === "combat.need_time"
         || event.type === "combat.knockout"
         || event.type === "combat.flee.success"
         || event.type === "encounter.reset";
@@ -6699,7 +6702,6 @@
       renderRoomCopy(location.id);
       renderTimelines();
       renderCommands();
-      syncTurnCountdownTimer();
     }
 
     function renderEconomy() {
@@ -7331,6 +7333,12 @@
       }
       if (event.type === "combat.attack.attempt") {
         return { kind: "roll", label: "roll", text: cleanStatusText(eventText(event)) };
+      }
+      if (event.type === "combat.pass") {
+        return { kind: "hand", label: "pass", text: cleanStatusText(eventText(event)) };
+      }
+      if (event.type === "combat.need_time") {
+        return { kind: "hand", label: "pause", text: cleanStatusText(eventText(event)) };
       }
       if (event.type === "item.traded") {
         return { kind: "trade", label: "trade", text: cleanStatusText(eventText(event)) };
@@ -8172,6 +8180,12 @@
       if (type === "combat.defend") {
         return `${actor} plants their feet and waits for the opening.`;
       }
+      if (type === "combat.pass") {
+        return `${actor} passes the ordered combat floor without taking another action.`;
+      }
+      if (type === "combat.need_time") {
+        return `${actor} asks for more time; the turn stays with them and nothing is skipped.`;
+      }
       if (type === "combat.knockout") {
         return `The clash goes quiet around ${event.target_actor_name || "their opponent"}; their light can rest for now.`;
       }
@@ -8457,6 +8471,8 @@
       if (event.type === "bond.resolved") return `keeps what mattered with ${event.target_actor_name || "someone"}.`;
       if (event.type === "job.updated") return `${jobEventLabel(event)}.`;
       if (event.type === "combat.defend") return `raises a careful guard.`;
+      if (event.type === "combat.pass") return `passes the ordered combat floor.`;
+      if (event.type === "combat.need_time") return `takes more time without losing the turn.`;
       if (event.type === "combat.attack.attempt") return rollMeta(event).story;
       if (event.type === "combat.attack.hit") return `breaks through ${event.target_actor_name}'s guard.`;
       if (event.type === "combat.attack.miss") return `${event.target_actor_name} turns the strike aside.`;

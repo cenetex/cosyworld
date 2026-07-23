@@ -129,7 +129,6 @@ struct AppState {
     canonical_routing: Arc<CanonicalRoutingConfig>,
     canonical_recovery: Arc<Option<CanonicalRecoveryConfig>>,
     regional_presence: Arc<StdMutex<BTreeMap<u64, RegionalPresence>>>,
-    room_turns: Arc<StdMutex<RoomTurns>>,
     room_memory_cache: Arc<StdMutex<BTreeMap<u64, RoomMemoryCacheEntry>>>,
     room_memory_jobs: Arc<StdMutex<BTreeSet<(u64, u64, u64)>>>,
     room_chat_heartbeats: Arc<StdMutex<BTreeSet<u64>>>,
@@ -506,7 +505,6 @@ const COMBAT_OUTCOME_ORB_REWARD: i32 = 3;
 #[cfg(test)]
 const DIALOGUE_BRANCH_TTL_TICKS: u64 = 24;
 const ACTIVE_ACTOR_WINDOW: Duration = Duration::from_secs(15 * 60);
-const TURN_ACTOR_WINDOW: Duration = Duration::from_secs(2 * 60);
 const NARRATIVE_MOVE_SIGNATURE_TTL: Duration = Duration::from_secs(5 * 60);
 const NARRATIVE_MOVE_SIGNATURE_FUTURE_SKEW_SECS: u64 = 60;
 const NARRATIVE_MOVE_DELEGATION_MAX_TTL: Duration = Duration::from_secs(12 * 60 * 60);
@@ -4392,14 +4390,6 @@ fn active_actor_ids_for_state(state: &AppState) -> BTreeSet<u64> {
     ids
 }
 
-fn active_turn_actor_ids_for_state(state: &AppState) -> BTreeSet<u64> {
-    let mut ids = active_actor_ids_with_window(&state.actor_sessions, TURN_ACTOR_WINDOW);
-    if let Ok(suspensions) = state.actor_suspensions.lock() {
-        ids.retain(|id| !suspensions.contains_key(id));
-    }
-    ids
-}
-
 fn client_actor_authorized_for_state(
     runtime: &RuntimeWorld,
     state: &AppState,
@@ -5527,7 +5517,6 @@ impl AppState {
             canonical_routing,
             canonical_recovery,
             regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
-            room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
             room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
@@ -25155,7 +25144,7 @@ async fn state_view(
         Some(&active_direct_actors),
         query_openrouter_connected(query.openrouter_connected.as_deref()),
     );
-    let turn_humans = active_turn_actor_ids_for_state(&state);
+    let turn_humans = active_actor_ids_for_state(&state);
     response.turn = room_turn_view_for_runtime(
         &state,
         &runtime,
@@ -29038,41 +29027,43 @@ async fn command_inner(
     let normalized_command = normalize_command_text(&payload.command);
     if matches!(
         normalized_command.as_str(),
-        "timeout" | "ping" | "pong" | "nudge" | "here"
+        "pass" | "need time" | "need-time"
     ) {
-        let Json(response) = request_turn_timeout(
-            ConnectInfo(client_addr),
-            State(state),
-            Json(ActorRequest {
-                actor_id: payload.actor_id,
-                actor_session: payload.actor_session,
-            }),
-        )
-        .await;
+        let request = ActorRequest {
+            actor_id: payload.actor_id,
+            actor_session: payload.actor_session,
+        };
+        let Json(response) = if normalized_command == "pass" {
+            pass_ordered_scene_turn(ConnectInfo(client_addr), State(state), Json(request)).await
+        } else {
+            request_turn_timeout(ConnectInfo(client_addr), State(state), Json(request)).await
+        };
         let output = if response.ok {
             if response
                 .events
                 .iter()
-                .any(|event| event.type_name == "turn.ping_started")
+                .any(|event| event.type_name == "combat.pass")
             {
-                "A gentle nudge went around the room."
-            } else if response
-                .events
-                .iter()
-                .any(|event| event.type_name == "turn.pong")
-            {
-                "The room knows you're here."
+                "You pass the ordered scene to its next participant."
             } else {
-                "The room already knows you're here."
+                "The ordered scene gives you more time. Nothing is skipped."
             }
         } else {
-            "The room is already ready for its next choice."
+            "Pass and Need time are available only when your ordered-scene turn is active."
         };
         return Json(CommandResponse {
             ok: response.ok,
             status: response.status,
             command: normalized_command,
-            verb: "nudge".to_string(),
+            verb: if response
+                .events
+                .iter()
+                .any(|event| event.type_name == "combat.pass")
+            {
+                "pass".to_string()
+            } else {
+                "need".to_string()
+            },
             output: Some(output.to_string()),
             action: None,
             receipt: None,
@@ -30271,7 +30262,7 @@ fn append_action_receipt(
     events: &mut Vec<EventView>,
 ) {
     let access = AccessContext::for_linked_actor_receipt(state, actor_id);
-    let active_direct_actors = active_turn_actor_ids_for_state(state);
+    let active_direct_actors = active_actor_ids_for_state(state);
     let mut next_state = runtime.state_response_with_presence(
         Some(actor_id),
         &access,
@@ -36236,6 +36227,65 @@ async fn apply_and_broadcast_with_resident_reply(
         .await
 }
 
+fn causal_target_conflict_event(
+    runtime: &RuntimeWorld,
+    action: &CwAction,
+    status: u32,
+    events: &[EventView],
+) -> Option<EventView> {
+    if status == CW_OK
+        || action_concurrency_policy(action.kind) != ConcurrencyPolicy::TargetSerialized
+    {
+        return None;
+    }
+    let content = match action.kind {
+        CW_ACTION_PICK_UP_ITEM => {
+            "That item moved before your pickup committed. Nothing was duplicated."
+        }
+        CW_ACTION_DROP_ITEM => {
+            "That item was no longer in your inventory when the drop committed. Nothing was lost."
+        }
+        CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM => {
+            "That transfer target changed before the write committed. No item moved twice."
+        }
+        CW_ACTION_USE_ITEM | CW_ACTION_RULES_MAGIC => {
+            "That item or target changed before the use committed. No charge was spent twice."
+        }
+        CW_ACTION_CRAFT => {
+            "A crafting input changed before the write committed. No ingredient was consumed twice."
+        }
+        CW_ACTION_THEFT => {
+            "That scarce item changed before the attempt committed. The losing write made no change."
+        }
+        _ => "That target changed before the write committed. The losing write made no change.",
+    };
+    Some(EventView {
+        seq: 0,
+        type_name: "action.conflict".to_string(),
+        success: false,
+        reason: events
+            .iter()
+            .find(|event| event.type_name == "rule.rejected")
+            .map(|event| event.reason)
+            .unwrap_or_default(),
+        actor_id: Some(action.actor_id),
+        actor_name: runtime.actor_name(action.actor_id),
+        target_actor_id: (action.target_actor_id != 0).then_some(action.target_actor_id),
+        target_actor_name: (action.target_actor_id != 0)
+            .then(|| runtime.actor_name(action.target_actor_id))
+            .flatten(),
+        location_id: runtime
+            .actor_by_id(action.actor_id)
+            .map(|actor| actor.location_id),
+        item_id: (action.item_id != 0).then_some(action.item_id),
+        item_name: (action.item_id != 0)
+            .then(|| runtime.item_name(action.item_id))
+            .flatten(),
+        content: Some(content.to_string()),
+        ..EventView::default()
+    })
+}
+
 async fn apply_and_broadcast_with_resident_reply_and_hosted_access(
     state: AppState,
     action: CwAction,
@@ -36287,6 +36337,7 @@ async fn apply_and_broadcast_with_resident_reply_and_hosted_access(
         status,
         &mut events,
     );
+    let conflict_event = causal_target_conflict_event(&runtime, &action, status, &events);
     drop(runtime);
 
     if !released_events.is_empty() {
@@ -36297,6 +36348,9 @@ async fn apply_and_broadcast_with_resident_reply_and_hosted_access(
         schedule_player_tick_observation(&state, observation);
     }
     let mut response_events = events;
+    if let Some(conflict_event) = conflict_event {
+        response_events.push(conflict_event);
+    }
     if !was_active {
         response_events.extend(commit_presence_event(&state, actor_id, true).await);
     }
@@ -41282,7 +41336,6 @@ mod tests {
             canonical_routing: Arc::new(CanonicalRoutingConfig::default()),
             canonical_recovery: Arc::new(None),
             regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
-            room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
             room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
@@ -47112,9 +47165,7 @@ mod tests {
         assert!(INDEX_HTML.contains("Use one advancement point to begin a friendship with"));
         assert!(INDEX_HTML.contains("kind: \"advancement-chat\""));
         assert!(!INDEX_HTML.contains("label: \"grow closer\""));
-        assert!(INDEX_HTML.contains(
-            "return [waitingAction, buildEvolveAction()].filter(Boolean).map(decorateActionHand);"
-        ));
+        assert!(INDEX_HTML.contains("return [waitingAction].map(decorateActionHand);"));
         assert!(!INDEX_HTML.contains("cmd-progress"));
         assert!(INDEX_HTML.contains("if (!result.ok) void queueRefresh();"));
         assert!(INDEX_HTML.contains("event?.type !== \"action.receipt\""));
@@ -47148,16 +47199,20 @@ mod tests {
 
         assert!(INDEX_HTML.contains("const buildGrowAction"));
         assert!(INDEX_HTML.contains("const buildUnlockCharmSlotAction"));
-        assert!(INDEX_HTML.contains("the room shares one welcoming clue just for you"));
         assert!(INDEX_HTML.contains("id=\"turn-ping-pill\""));
-        assert!(INDEX_HTML.contains("the room is waiting for your choice"));
-        assert!(INDEX_HTML.contains("Receive one ambient lead from this room."));
+        assert!(INDEX_HTML.contains("ordered combat — your turn"));
+        assert!(INDEX_HTML.contains("Receive one ambient lead from the room."));
         assert!(!INDEX_HTML.contains("temporary Dex priority boost"));
         assert!(INDEX_HTML.contains("class=\"roll-symbol\""));
         assert!(INDEX_HTML.contains("class=\"roll-result\""));
         assert!(!INDEX_HTML.contains("class=\"roll-math\""));
         assert!(!INDEX_HTML.contains("class=\"roll-die\">d20"));
-        assert!(INDEX_HTML.contains("turnPingRemainingLabel"));
+        assert!(!INDEX_HTML.contains("turnPingRemainingLabel"));
+        assert!(!INDEX_HTML.contains("aria-live=\"assertive\""));
+        assert!(INDEX_HTML.contains("announcedTurnHandoffKey"));
+        assert!(INDEX_HTML.contains("pill.querySelector(\".turn-ping-time\")"));
+        assert!(INDEX_HTML.contains("\"/actions/pass\""));
+        assert!(INDEX_HTML.contains("\"/actions/need-time\""));
         assert!(INDEX_HTML.contains("resident_feature_use|resident_autonomy_intent"));
         assert!(!INDEX_HTML.contains("data-event-row title="));
         assert!(!INDEX_HTML.contains(".line.event:hover .text"));
@@ -48369,34 +48424,8 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
-    #[test]
-    fn turn_actor_ids_use_shorter_window_than_room_presence() {
-        let actor_sessions = StdMutex::new(ActorSessions::default());
-        let (_session_token, _) = create_actor_session(&actor_sessions, 5000);
-        {
-            let mut sessions = actor_sessions.lock().expect("actor sessions");
-            let session = sessions
-                .sessions
-                .values_mut()
-                .find(|session| session.actor_id == 5000)
-                .expect("created session");
-            session.last_seen_at = Instant::now()
-                .checked_sub(TURN_ACTOR_WINDOW + Duration::from_secs(1))
-                .expect("recent enough instant");
-        }
-
-        assert!(
-            active_actor_ids(&actor_sessions).contains(&5000),
-            "recent ghosts should remain visible in ordinary room presence"
-        );
-        assert!(
-            !active_actor_ids_with_window(&actor_sessions, TURN_ACTOR_WINDOW).contains(&5000),
-            "turn rings use a shorter activity window than room presence"
-        );
-    }
-
     #[tokio::test]
-    async fn waiting_player_can_grow_and_train_without_taking_the_room_turn() {
+    async fn co_present_player_can_grow_and_train_without_a_room_owner() {
         let mut runtime = RuntimeWorld::seeded();
         for (actor_id, name, dexterity, seed) in [
             (5000, "Room Keeper", 30, 17601),
@@ -48454,7 +48483,7 @@ mod tests {
             ping_actor_session_for_actor(&state.actor_sessions, 5001, &waiting_session),
             Some(false)
         );
-        let active = active_turn_actor_ids_for_state(&state);
+        let active = active_actor_ids_for_state(&state);
         {
             let runtime = state.inner.lock().await;
             let before = room_turn_view_for_runtime(
@@ -48464,7 +48493,9 @@ mod tests {
                 Some(5001),
                 &active,
             );
-            assert_eq!(before.current_actor_id, Some(5000));
+            assert!(!before.enabled);
+            assert_eq!(before.policy, "concurrent");
+            assert_eq!(before.current_actor_id, None);
             assert!(!before.is_current_actor);
         }
 
@@ -48503,7 +48534,7 @@ mod tests {
             .iter()
             .any(|event| event.type_name == "skill.stepped"));
 
-        let active = active_turn_actor_ids_for_state(&state);
+        let active = active_actor_ids_for_state(&state);
         let runtime = state.inner.lock().await;
         let after = room_turn_view_for_runtime(
             &state,
@@ -48512,7 +48543,9 @@ mod tests {
             Some(5001),
             &active,
         );
-        assert_eq!(after.current_actor_id, Some(5000));
+        assert!(!after.enabled);
+        assert_eq!(after.policy, "concurrent");
+        assert_eq!(after.current_actor_id, None);
         assert!(!after.is_current_actor);
         assert_eq!(runtime.visit_ledger_view(5001).unbanked_count, 0);
         assert_eq!(
@@ -48522,6 +48555,239 @@ mod tests {
                 .map(|skill| skill.rank),
             Some(1)
         );
+    }
+
+    #[tokio::test]
+    async fn co_present_avatars_move_independently_without_a_room_turn() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "First Walker");
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Second Walker",
+        );
+        create_test_human(
+            &mut runtime,
+            5002,
+            COSY_COTTAGE_LOCATION_ID,
+            "Crowded Observer",
+        );
+        let state = test_app_state(runtime, None);
+        let (first_session, _) = issue_actor_session(&state, 5000);
+        let (second_session, _) = issue_actor_session(&state, 5001);
+        let _ = issue_actor_session(&state, 5002);
+
+        for (actor_id, actor_session, port) in
+            [(5000, first_session, 43120), (5001, second_session, 43121)]
+        {
+            let response = move_actor(
+                ConnectInfo(format!("127.0.0.1:{port}").parse().unwrap()),
+                State(state.clone()),
+                Json(MoveRequest {
+                    actor_id,
+                    actor_session: Some(actor_session),
+                    destination_location_id: 2,
+                    wallet_address: None,
+                    wallet: None,
+                    wallet_session: None,
+                    owned_card_ids: None,
+                    cards: None,
+                }),
+            )
+            .await
+            .0;
+            assert!(response.ok, "actor {actor_id} moves without a room owner");
+            assert_ne!(response.status, 423);
+        }
+
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime.actor_by_id(5000).map(|actor| actor.location_id),
+            Some(2)
+        );
+        assert_eq!(
+            runtime.actor_by_id(5001).map(|actor| actor.location_id),
+            Some(2)
+        );
+        let turn = room_turn_view_for_runtime(
+            &state,
+            &runtime,
+            2,
+            Some(5000),
+            &active_actor_ids_for_state(&state),
+        );
+        assert!(!turn.enabled);
+        assert_eq!(turn.policy, "concurrent");
+    }
+
+    #[tokio::test]
+    async fn co_present_avatars_contribute_to_compatible_project_targets() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "First Contributor",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Second Contributor",
+        );
+        let state = test_app_state(runtime, None);
+        let (first_session, _) = issue_actor_session(&state, 5000);
+        let (second_session, _) = issue_actor_session(&state, 5001);
+
+        for (actor_id, actor_session, port) in [
+            (5000, first_session.clone(), 43124),
+            (5001, second_session.clone(), 43125),
+        ] {
+            let prepared = prepare(
+                ConnectInfo(format!("127.0.0.1:{port}").parse().unwrap()),
+                State(state.clone()),
+                Json(ActorRequest {
+                    actor_id,
+                    actor_session: Some(actor_session),
+                }),
+            )
+            .await
+            .0;
+            assert!(prepared.ok, "compatible preparation is not room-turn gated");
+            assert_ne!(prepared.status, 423);
+        }
+
+        let first_work = work(
+            ConnectInfo("127.0.0.1:43126".parse().unwrap()),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(first_session),
+            }),
+        )
+        .await
+        .0;
+        assert!(first_work.ok);
+        assert_ne!(first_work.status, 423);
+
+        let second_help = help_room(
+            ConnectInfo("127.0.0.1:43127".parse().unwrap()),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5001,
+                actor_session: Some(second_session),
+            }),
+        )
+        .await
+        .0;
+        assert!(second_help.ok);
+        assert_ne!(second_help.status, 423);
+        assert!(second_help.events.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
+        }));
+    }
+
+    #[tokio::test]
+    async fn scarce_item_race_has_one_winner_and_a_causal_losing_result() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, 2, "First Picker");
+        create_test_human(&mut runtime, 5001, 2, "Second Picker");
+        let item = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == 2002)
+            .expect("scarce test item");
+        item.location_id = 2;
+        item.holder_actor_id = 0;
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-target-race-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let state = test_app_state(runtime, Some(path.clone()));
+        let (first_session, _) = issue_actor_session(&state, 5000);
+        let (second_session, _) = issue_actor_session(&state, 5001);
+
+        let first = pick_up_item(
+            ConnectInfo("127.0.0.1:43130".parse().unwrap()),
+            State(state.clone()),
+            Json(ItemRequest {
+                actor_id: 5000,
+                actor_session: Some(first_session),
+                item_id: 2002,
+                target_item_id: None,
+                target_actor_id: None,
+            }),
+        )
+        .await
+        .0;
+        assert!(first.ok);
+
+        let second = pick_up_item(
+            ConnectInfo("127.0.0.1:43131".parse().unwrap()),
+            State(state.clone()),
+            Json(ItemRequest {
+                actor_id: 5001,
+                actor_session: Some(second_session),
+                item_id: 2002,
+                target_item_id: None,
+                target_actor_id: None,
+            }),
+        )
+        .await
+        .0;
+        assert!(!second.ok);
+        let conflict = second
+            .events
+            .iter()
+            .find(|event| event.type_name == "action.conflict")
+            .expect("losing write explains its target conflict");
+        assert!(conflict
+            .content
+            .as_deref()
+            .is_some_and(|content| content.contains("Nothing was duplicated")));
+
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime
+                .world
+                .items
+                .iter()
+                .take(runtime.world.item_count)
+                .find(|item| item.id == 2002)
+                .map(|item| item.holder_actor_id),
+            Some(5000)
+        );
+        drop(runtime);
+        let journal = read_action_journal(&path).expect("race journal");
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("race checkpoint restores");
+        let replay_statuses = journal
+            .iter()
+            .map(|record| replayed.apply_journal_record(record).0)
+            .collect::<Vec<_>>();
+        assert_eq!(replay_statuses.first().copied(), Some(CW_OK));
+        assert!(replay_statuses
+            .last()
+            .is_some_and(|status| *status != CW_OK));
+        assert_eq!(
+            replayed
+                .world
+                .items
+                .iter()
+                .take(replayed.world.item_count)
+                .find(|item| item.id == 2002)
+                .map(|item| item.holder_actor_id),
+            Some(5000)
+        );
+        let _ = fs::remove_file(path);
     }
 
     #[tokio::test]
@@ -56709,7 +56975,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn advancement_chat_is_turn_gated_and_passes_to_the_room_heartbeat() {
+    async fn co_present_advancement_chat_is_not_owned_by_a_room_turn() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -56737,9 +57003,9 @@ mod tests {
             Some(false)
         );
 
-        let (current_actor_id, waiting_actor_id, round, before_tick) = {
+        let before_tick = {
             let runtime = state.inner.lock().await;
-            let active_direct_actors = active_turn_actor_ids_for_state(&state);
+            let active_direct_actors = active_actor_ids_for_state(&state);
             let turn = room_turn_view_for_runtime(
                 &state,
                 &runtime,
@@ -56747,120 +57013,221 @@ mod tests {
                 Some(5000),
                 &active_direct_actors,
             );
-            let current_actor_id = turn.current_actor_id.expect("room has a current actor");
-            let waiting_actor_id = if current_actor_id == 5000 { 5001 } else { 5000 };
-            (
-                current_actor_id,
-                waiting_actor_id,
-                turn.round,
-                runtime.world.tick,
-            )
-        };
-        let current_session = if current_actor_id == 5000 {
-            session_5000.clone()
-        } else {
-            session_5001.clone()
-        };
-        let waiting_session = if waiting_actor_id == 5000 {
-            session_5000
-        } else {
-            session_5001
+            assert!(!turn.enabled);
+            assert_eq!(turn.policy, "concurrent");
+            runtime.world.tick
         };
 
-        let rejected = chat(
+        let first = chat(
             ConnectInfo("127.0.0.1:44002".parse().expect("client address")),
             State(state.clone()),
             Json(ChatRequest {
-                actor_id: waiting_actor_id,
-                actor_session: Some(waiting_session),
-                target_actor_id: RATI_ACTOR_ID,
-            }),
-        )
-        .await
-        .0;
-        assert!(!rejected.ok, "Chat remains a turn-gated card");
-        assert_eq!(rejected.status, 423);
-
-        let response = chat(
-            ConnectInfo("127.0.0.1:44003".parse().expect("client address")),
-            State(state.clone()),
-            Json(ChatRequest {
-                actor_id: current_actor_id,
-                actor_session: Some(current_session.clone()),
+                actor_id: 5001,
+                actor_session: Some(session_5001),
                 target_actor_id: RATI_ACTOR_ID,
             }),
         )
         .await
         .0;
         assert!(
-            response.ok,
-            "the current avatar can spend advancement on Chat"
+            first.ok,
+            "a co-present avatar can chat without owning a room turn"
         );
-        assert!(response
+        assert!(first
             .events
             .iter()
             .any(|event| event.type_name == "bond.created"));
-        assert!(!response
-            .events
-            .iter()
-            .any(|event| event.type_name == "message.created"));
-        let card_receipt = response
-            .events
-            .iter()
-            .find(|event| event.type_name == "action.receipt")
-            .and_then(|event| event.content.as_deref())
-            .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
-            .expect("Chat returns the next turn before the room heartbeat");
 
-        let runtime = state.inner.lock().await;
-        let active_direct_actors = active_turn_actor_ids_for_state(&state);
-        let turn = room_turn_view_for_runtime(
-            &state,
-            &runtime,
-            COSY_COTTAGE_LOCATION_ID,
-            Some(current_actor_id),
-            &active_direct_actors,
-        );
-        let after_card_tick = before_tick + 1;
-        assert_eq!(runtime.world.tick, after_card_tick);
-        assert_eq!(turn.current_actor_id, Some(waiting_actor_id));
-        assert_eq!(turn.round, round + 1);
-        assert!(!turn.is_current_actor);
-        assert_eq!(card_receipt["world_tick"], after_card_tick);
-        assert_eq!(
-            card_receipt["state"]["turn"]["current_actor_id"],
-            waiting_actor_id
-        );
-        drop(runtime);
-
-        let nudge = request_turn_timeout(
-            ConnectInfo("127.0.0.1:44004".parse().expect("client address")),
+        let second = chat(
+            ConnectInfo("127.0.0.1:44003".parse().expect("client address")),
             State(state.clone()),
-            Json(ActorRequest {
-                actor_id: current_actor_id,
-                actor_session: Some(current_session),
+            Json(ChatRequest {
+                actor_id: 5000,
+                actor_session: Some(session_5000),
+                target_actor_id: RATI_ACTOR_ID,
             }),
         )
         .await
         .0;
-        assert!(nudge.ok);
-        assert!(nudge
+        assert!(
+            second.ok,
+            "a second co-present avatar can commit the compatible chat independently"
+        );
+        assert!(second
             .events
             .iter()
-            .any(|event| event.type_name == "turn.ping_started"));
-        let receipt = nudge
+            .any(|event| event.type_name == "bond.created"));
+
+        let runtime = state.inner.lock().await;
+        let active_direct_actors = active_actor_ids_for_state(&state);
+        let turn = room_turn_view_for_runtime(
+            &state,
+            &runtime,
+            COSY_COTTAGE_LOCATION_ID,
+            Some(5000),
+            &active_direct_actors,
+        );
+        assert_eq!(runtime.world.tick, before_tick + 2);
+        assert!(!turn.enabled);
+        assert_eq!(turn.policy, "concurrent");
+        assert_eq!(turn.current_actor_id, None);
+        assert!(!turn.is_current_actor);
+    }
+
+    #[tokio::test]
+    async fn ordered_combat_pass_and_need_time_share_one_replayable_kernel_path() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Careful Combatant",
+        );
+        let actor = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+            .expect("combatant");
+        actor.stats.dexterity = 100;
+        actor.stats.hp_base = 100;
+        let echo = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 1004)
+            .expect("combat target");
+        echo.stats.dexterity = 1;
+        echo.stats.strength = 1;
+        echo.stats.hp_base = 100;
+        let encounter_id = combat_encounter_id(MOONLIT_JOB_ID);
+        let start = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_START,
+                actor_id: 5000,
+                target_actor_id: 1004,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            71_901,
+        )
+        .into_system();
+        assert_eq!(runtime.apply_journal_record(&start).0, CW_OK);
+        assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(5000));
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-ordered-scene-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let state = test_app_state(runtime, Some(path.clone()));
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let before_tick = state.inner.lock().await.world.tick;
+
+        let mut need_time_command = command_request(5000, "need time");
+        need_time_command.actor_session = Some(actor_session.clone());
+        let need_time = command_inner(
+            ConnectInfo("127.0.0.1:44010".parse().unwrap()),
+            State(state.clone()),
+            Json(need_time_command),
+        )
+        .await
+        .0;
+        assert!(need_time.ok);
+        assert_eq!(
+            need_time.output.as_deref(),
+            Some("The ordered scene gives you more time. Nothing is skipped.")
+        );
+        assert!(need_time
+            .events
+            .iter()
+            .any(|event| event.type_name == "combat.need_time"));
+        let need_time_receipt = need_time
             .events
             .iter()
             .find(|event| event.type_name == "action.receipt")
             .and_then(|event| event.content.as_deref())
             .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
-            .expect("nudge returns its next turn state without a refresh");
-        assert_eq!(receipt["world_tick"], after_card_tick);
-        assert_eq!(
-            receipt["state"]["turn"]["current_actor_id"],
-            waiting_actor_id
+            .expect("Need time returns ordered scene state");
+        assert_eq!(need_time_receipt["world_tick"], before_tick);
+        assert_eq!(need_time_receipt["state"]["turn"]["policy"], "scene-turn");
+        assert!(
+            need_time_receipt["state"]["turn"]["grace_period_ms"]
+                .as_u64()
+                .unwrap_or_default()
+                > 8_000
         );
-        assert_eq!(receipt["state"]["turn"]["ping_active"], true);
+        assert_eq!(need_time_receipt["state"]["turn"]["current_actor_id"], 5000);
+        assert_eq!(
+            need_time_receipt["state"]["turn"]["grace_period_ms"],
+            ORDERED_SCENE_BASE_GRACE_MS + ORDERED_SCENE_NEED_TIME_MS
+        );
+
+        let mut incompatible_command = command_request(5000, "work");
+        incompatible_command.actor_session = Some(actor_session.clone());
+        let incompatible = command_inner(
+            ConnectInfo("127.0.0.1:44012".parse().unwrap()),
+            State(state.clone()),
+            Json(incompatible_command),
+        )
+        .await
+        .0;
+        assert!(!incompatible.ok);
+        assert_eq!(incompatible.status, 423);
+        assert!(incompatible
+            .output
+            .as_deref()
+            .is_some_and(|output| output.contains("Combat is an ordered scene")));
+        assert!(incompatible
+            .events
+            .iter()
+            .any(|event| event.type_name == "combat.action.required"));
+
+        let mut pass_command = command_request(5000, "pass");
+        pass_command.actor_session = Some(actor_session);
+        let passed = command_inner(
+            ConnectInfo("127.0.0.1:44011".parse().unwrap()),
+            State(state.clone()),
+            Json(pass_command),
+        )
+        .await
+        .0;
+        assert!(passed.ok);
+        assert_eq!(
+            passed.output.as_deref(),
+            Some("You pass the ordered scene to its next participant.")
+        );
+        assert!(passed
+            .events
+            .iter()
+            .any(|event| event.type_name == "combat.pass"));
+        assert!(passed
+            .events
+            .iter()
+            .any(|event| event.type_name == "combat.turn.ended"));
+
+        let runtime = state.inner.lock().await;
+        assert_eq!(runtime.world.tick, before_tick + 1);
+        let expected_tick = runtime.world.tick;
+        let expected_current = runtime.combat_current_actor_id(encounter_id);
+        drop(runtime);
+        let journal = read_action_journal(&path).expect("ordered scene journal");
+
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("combat checkpoint restores");
+        for record in &journal {
+            assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
+        }
+        assert_eq!(replayed.world.tick, expected_tick);
+        assert_eq!(
+            replayed.combat_current_actor_id(encounter_id),
+            expected_current
+        );
+        let _ = fs::remove_file(path);
     }
 
     #[tokio::test]
@@ -59871,6 +60238,14 @@ mod tests {
         assert!(!runtime.actor_uses_inference(RATI_ACTOR_ID));
         assert!(!runtime.client_actor_can_submit(5000));
         assert!(runtime.client_actor_can_submit(RATI_ACTOR_ID));
+        assert!(
+            combat_turn_view(&runtime, RATI_ACTOR_ID, COSY_COTTAGE_LOCATION_ID).is_none(),
+            "an inference or direct controller cannot own an ordinary room"
+        );
+        assert!(
+            combat_turn_view(&runtime, 5000, COSY_COTTAGE_LOCATION_ID).is_none(),
+            "controller mode does not create an ordinary room turn"
+        );
         assert_eq!(
             runtime.ambient_actor().map(|actor| actor.id),
             Some(5000),
@@ -61109,6 +61484,8 @@ mod tests {
                 assert!(output.contains("purpose <what draws you in>"));
                 assert!(output.contains("friendship <avatar>"));
                 assert!(output.contains("remember <avatar>"));
+                assert!(output.contains("pass"));
+                assert!(output.contains("need time"));
                 assert!(!output.contains("skill <name>"));
                 assert!(!output.contains("calling <new drive>"));
                 assert!(!output.contains("bond <avatar>"));
@@ -68045,7 +68422,6 @@ mod tests {
             canonical_routing: Arc::new(CanonicalRoutingConfig::default()),
             canonical_recovery: Arc::new(None),
             regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
-            room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
             room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),

@@ -58,6 +58,8 @@ pub(super) struct StateResponse {
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct CombatView {
     pub(super) protocol: &'static str,
+    pub(super) concurrency_policy: &'static str,
+    pub(super) turn_rule: &'static str,
     pub(super) encounter_id: u64,
     pub(super) location_id: u64,
     pub(super) round: u16,
@@ -65,6 +67,10 @@ pub(super) struct CombatView {
     pub(super) current_actor_name: Option<String>,
     pub(super) is_current_actor: bool,
     pub(super) available_actions: Vec<&'static str>,
+    pub(super) grace_period_ms: u64,
+    pub(super) need_time_extension_ms: u64,
+    pub(super) can_pass: bool,
+    pub(super) can_need_time: bool,
     pub(super) participants: Vec<CombatParticipantView>,
 }
 
@@ -1630,9 +1636,10 @@ impl RuntimeWorld {
             .get(usize::from(encounter.current_index))?
             .actor_id;
         let is_current_actor = current_actor_id == actor_id;
+        let need_time_used = combat_need_time_used(self, encounter.id, current_actor_id);
         let mut available_actions = Vec::new();
         if is_current_actor {
-            available_actions.extend(["attack", "dodge"]);
+            available_actions.extend(["attack", "dodge", "pass", "need_time"]);
             if self.has_accessible_exit(actor_id, access) {
                 available_actions.push("escape");
             }
@@ -1657,6 +1664,9 @@ impl RuntimeWorld {
             .collect();
         Some(CombatView {
             protocol: "cosyworld.combat/4",
+            concurrency_policy: ConcurrencyPolicy::SceneTurn.as_str(),
+            turn_rule:
+                "Combat is ordered. The named participant acts; chat and inspection stay available.",
             encounter_id: encounter.id,
             location_id: encounter.location_id,
             round: encounter.round,
@@ -1664,6 +1674,14 @@ impl RuntimeWorld {
             current_actor_name: self.actor_name(current_actor_id),
             is_current_actor,
             available_actions,
+            grace_period_ms: ORDERED_SCENE_BASE_GRACE_MS.saturating_add(
+                need_time_used
+                    .then_some(ORDERED_SCENE_NEED_TIME_MS)
+                    .unwrap_or_default(),
+            ),
+            need_time_extension_ms: ORDERED_SCENE_NEED_TIME_MS,
+            can_pass: is_current_actor,
+            can_need_time: is_current_actor && !need_time_used,
             participants,
         })
     }

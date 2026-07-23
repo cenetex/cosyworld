@@ -100,6 +100,8 @@ pub const CW_ACTION_RULES_STUDY: u8 = 22;
 pub const CW_ACTION_RULES_MAGIC: u8 = 23;
 pub const CW_ACTION_RULES_INFLUENCE: u8 = 24;
 pub const CW_ACTION_THEFT: u8 = 25;
+pub const CW_ACTION_COMBAT_PASS: u8 = 26;
+pub const CW_ACTION_COMBAT_NEED_TIME: u8 = 27;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;
@@ -124,6 +126,8 @@ pub const CW_EVENT_COMBAT_ENCOUNTER_RESOLVED: u8 = 30;
 pub const CW_EVENT_SPELL_CAST: u8 = 31;
 pub const CW_EVENT_ITEM_THEFT_ATTEMPT: u8 = 32;
 pub const CW_EVENT_ITEM_STOLEN: u8 = 33;
+pub const CW_EVENT_COMBAT_PASS: u8 = 34;
+pub const CW_EVENT_COMBAT_NEED_TIME: u8 = 35;
 
 pub const CW_OFFER_CHAT: u32 = 1 << 0;
 pub const CW_OFFER_CHECK: u32 = 1 << 1;

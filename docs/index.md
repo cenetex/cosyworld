@@ -34,6 +34,8 @@ do not define V2 behavior.
   contextual offers, justified variants/extensions, and playable Item cards.
 - **[Avatar transfer consent](transfer-consent.md)** — direct-player gift and
   trade authorization, single-use gift requests, and mute/block/report controls.
+- **[Scene concurrency policy](concurrency-policy.md)** — asynchronous
+  co-present play, target conflict handling, and explicitly ordered scenes.
 - **[Deck-gated action spike](../v2/docs/deck-gated-action-spike.md)** — the
   measured, non-shipping alternative to the default projection hand.
 - **[World simulation](../v2/docs/world-simulation.md)**,
