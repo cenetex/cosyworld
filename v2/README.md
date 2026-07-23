@@ -390,7 +390,9 @@ pinned prediction version, `COSYWORLD_REPLICATE_AVATAR_LORA_INPUT` and
 `COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT` for model-specific LoRA parameter
 names, `COSYWORLD_REPLICATE_AVATAR_LORA_SCALE`,
 `COSYWORLD_REPLICATE_AVATAR_OUTPUT_FORMAT`, and
-`COSYWORLD_REPLICATE_AVATAR_INPUT_JSON` for additional input fields.
+`COSYWORLD_REPLICATE_AVATAR_INPUT_JSON` for additional input fields. Existing
+local setups that define `REPLICATE_BASE_MODEL` are also supported as a fallback
+for `COSYWORLD_REPLICATE_AVATAR_MODEL`.
 
 `Chat` appears only when the avatar has banked advancement and an eligible nearby resident can become a new friend. Playing it spends one advancement point, creates the Bond, and passes the room turn; it never accepts human text or spends Orbs. Human-authored room speech is the separate moderated, turn-exempt `say` path.
 

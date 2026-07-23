@@ -5460,6 +5460,7 @@ impl ReplicateAvatarArtConfig {
         let model = std::env::var("COSYWORLD_REPLICATE_AVATAR_MODEL")
             .ok()
             .or_else(|| std::env::var("REPLICATE_AVATAR_MODEL").ok())
+            .or_else(|| std::env::var("REPLICATE_BASE_MODEL").ok())
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())?;
         let version = std::env::var("COSYWORLD_REPLICATE_AVATAR_VERSION")
