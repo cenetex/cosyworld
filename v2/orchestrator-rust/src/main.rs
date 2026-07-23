@@ -34034,13 +34034,16 @@ async fn unlock_charm_slot(
             cost: CHARM_SLOT_COST,
             reason: "advancement".to_string(),
         });
-    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+    let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
             ok: false,
             status: 500,
             events: Vec::new(),
         });
     };
+    if status == CW_OK && !events.is_empty() {
+        append_action_receipt(&state, &runtime, payload.actor_id, &mut events);
+    }
     drop(runtime);
     broadcast_events(&state, &events);
     Json(ActionResponse {
@@ -45198,9 +45201,9 @@ mod tests {
         assert!(INDEX_HTML.contains("/actions/bank-ledger"));
         assert!(INDEX_HTML.contains("/actions/unlock-charm-slot"));
         assert!(INDEX_HTML.contains("const buildEvolveAction = () =>"));
-        assert!(INDEX_HTML.contains("label: \"evolve\""));
+        assert!(INDEX_HTML.contains("label: growAction ? \"grow\" : \"expand bracelet\""));
         assert!(INDEX_HTML.contains("cardType: \"evolve\""));
-        assert!(INDEX_HTML.contains("choose how to evolve"));
+        assert!(INDEX_HTML.contains("choose how to grow"));
         assert!(INDEX_HTML.contains("choose one of two lessons"));
         assert!(INDEX_HTML.contains("practiceChoices.slice(0, growAction ? 1 : 2)"));
         assert!(INDEX_HTML.contains("opens bracelet space; the charm itself must still be found"));
@@ -46427,6 +46430,71 @@ mod tests {
                 .map(|skill| skill.rank),
             Some(1)
         );
+    }
+
+    #[tokio::test]
+    async fn bracelet_growth_returns_authoritative_state_and_cannot_repeat_without_advancement() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Bracelet Tester",
+        );
+        grant_test_advancement(&mut runtime, 5000, "test:bracelet-receipt");
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+
+        let response = unlock_charm_slot(
+            ConnectInfo("127.0.0.1:43010".parse().expect("client address")),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session.clone()),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok);
+        assert_eq!(response.status, CW_OK);
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "advancement.spent"));
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "charm_slot.unlocked"));
+        let receipt = response
+            .events
+            .iter()
+            .find(|event| event.type_name == "action.receipt")
+            .and_then(|event| event.content.as_deref())
+            .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
+            .expect("bracelet growth returns its updated authoritative state");
+        assert_eq!(receipt["state"]["deck"]["bracelet_slots"], 2);
+        assert_eq!(receipt["state"]["ledger"]["spent_count"], 1);
+        assert_eq!(receipt["state"]["ledger"]["advancement_points"], 0);
+        assert!(receipt["state"]["primary_action"]["options"]
+            .as_array()
+            .is_some_and(|options| options
+                .iter()
+                .all(|option| option["kind"] != "unlock_charm_slot")));
+
+        let repeat = unlock_charm_slot(
+            ConnectInfo("127.0.0.1:43010".parse().expect("client address")),
+            State(state),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+            }),
+        )
+        .await
+        .0;
+        assert!(!repeat.ok);
+        assert_eq!(repeat.status, 409);
+        assert!(repeat.events.is_empty());
     }
 
     #[tokio::test]

@@ -568,7 +568,7 @@ async function main() {
       const firstThreadText = node?.querySelector(".update-pill.first-thread .update-text");
       const growAction = { label: "grow", focusKey: "bank-ledger", command: "bank ledger" };
       const bondAction = { label: "chat", focusKey: "bond:1001", command: "chat Rati" };
-      const trainAction = { label: "evolve", focusKey: "unlock-charm-slot", command: "evolve", evolveModes: ["practice"] };
+      const trainAction = { label: "expand bracelet", focusKey: "unlock-charm-slot", command: "unlock charm slot", evolveModes: ["practice"] };
       const result = {
         visible,
         text: node?.textContent?.trim().replace(/\s+/g, " ") || "",
@@ -871,7 +871,7 @@ async function main() {
           ],
         };
         actions = [
-          { label: "evolve", detail: "open another bracelet slot", focusKey: "unlock-charm-slot", command: "evolve", evolveModes: ["practice"], offerKinds: ["unlock_charm_slot"] },
+          { label: "expand bracelet", detail: "open charm slot 2 · spend one growth (two ready)", focusKey: "unlock-charm-slot", command: "unlock charm slot", evolveModes: ["practice"], offerKinds: ["unlock_charm_slot"] },
           { label: "chat", detail: "with Gust · use what you learned", focusKey: "bond:1002", command: "chat Gust", offerKinds: ["create_bond"] },
           { ...travelAction, offerKinds: ["move"] },
         ];
@@ -924,8 +924,8 @@ async function main() {
     );
     assert(
       guide.identityHand?.slice(0, 2).map((action) => `${action.label}:${action.storyGuide}`).join(",")
-        === "chat:true,evolve:true",
-      `Chat and bracelet Evolve should both stay visibly guided at the final first-tale choice: ${JSON.stringify(guide)}`,
+        === "chat:true,expand bracelet:true",
+      `Chat and Expand Bracelet should both stay visibly guided at the final first-tale choice: ${JSON.stringify(guide)}`,
     );
     assert(
       guide.restoredFocusHand?.join(",") === "notice,take"
@@ -952,7 +952,7 @@ async function main() {
       `the redundant room-thread strip should stay removed after the first tale: ${JSON.stringify(guide)}`,
     );
     assert(
-      guide.roomThreadHand?.labels?.join(",") === "evolve,chat"
+      guide.roomThreadHand?.labels?.join(",") === "expand bracelet,chat"
         && guide.roomThreadHand.guided?.every((entry) => !entry.endsWith(":room thread"))
         && guide.roomThreadHand.buttonGuide === ""
         && guide.roomThreadHand.buttonCue === "",
@@ -963,11 +963,11 @@ async function main() {
     assert(guide.waitingWelcomeWithoutOption.length === 1 && guide.waitingWelcomeWithoutOption[0]?.label === "notice", `the personal welcoming Notice should ignore another player's shared turn: ${JSON.stringify(guide)}`);
     assert(/first clue/i.test(guide.arrivalActions[0]?.detail || "") && /ambient lead from this room/i.test(guide.arrivalActions[0]?.summary || ""), `the arrival Notice should explain its welcome clearly: ${JSON.stringify(guide)}`);
     assert(guide.arrivalActions[0]?.effect === "the room shares one welcoming clue just for you", `the arrival Notice outcome should read as a complete story thought: ${JSON.stringify(guide)}`);
-    assert(guide.waitingGrowActions.some((action) => action.label === "evolve" && action.focusKey === "bank-ledger"), `personal Evolve should keep the learned-clue choice available while another player has the room: ${JSON.stringify(guide)}`);
-    assert(guide.waitingGrowActions.some((action) => action.label === "nudge"), `waiting Evolve should not remove the gentle room handoff: ${JSON.stringify(guide)}`);
-    const waitingEvolution = guide.waitingTrainActions.find((action) => action.label === "evolve");
-    assert(waitingEvolution?.detail === "open another bracelet slot", `personal Evolve should offer bracelet space without waiting on the room turn: ${JSON.stringify(guide)}`);
-    assert(waitingEvolution?.title === "evolve" && /room for another found skill charm/i.test(waitingEvolution?.summary || ""), `Evolve confirmation should explain that advancement opens space but grants no charm: ${JSON.stringify(guide)}`);
+    assert(guide.waitingGrowActions.some((action) => action.label === "grow" && action.focusKey === "bank-ledger"), `personal Grow should keep the learned-clue choice available while another player has the room: ${JSON.stringify(guide)}`);
+    assert(guide.waitingGrowActions.some((action) => action.label === "nudge"), `waiting Grow should not remove the gentle room handoff: ${JSON.stringify(guide)}`);
+    const waitingEvolution = guide.waitingTrainActions.find((action) => action.label === "expand bracelet");
+    assert(waitingEvolution?.detail === "open charm slot 2 · spend one growth (two ready)", `personal bracelet growth should name its next slot and cost without waiting on the room turn: ${JSON.stringify(guide)}`);
+    assert(waitingEvolution?.title === "expand bracelet" && /spend one banked growth \(two ready\)/i.test(waitingEvolution?.summary || ""), `Expand Bracelet should explain its advancement spend and that it grants no charm: ${JSON.stringify(guide)}`);
     assert(guide.waitingTrainActions.some((action) => action.label === "nudge"), `waiting bracelet growth should retain the gentle room handoff: ${JSON.stringify(guide)}`);
     assert(guide.waitingActions.length === 1 && guide.waitingActions[0]?.label === "nudge", `ordinary waiting should use a gentle Nudge instead of ping jargon: ${JSON.stringify(guide)}`);
     assert(!/ping|pong|dex|priority/i.test(JSON.stringify(guide.waitingActions)), `waiting copy should stay free of technical turn jargon: ${JSON.stringify(guide)}`);
@@ -3073,17 +3073,17 @@ async function main() {
     assert(bankIndex >= 0, `bank ledger action should surface after marks are earned: ${JSON.stringify(result)}`);
     assert(chatIndex < 0, `Chat should remain absent until progress is banked into advancement: ${JSON.stringify(result)}`);
     assert(bankIndex < travelIndex, `bank ledger should appear before leaving with unbanked progress: ${JSON.stringify(result)}`);
-    assert(actions[bankIndex]?.label === "evolve", `growth action should use the unified compact verb: ${JSON.stringify(result)}`);
-    assert(actions[bankIndex]?.detail === "from what you learned", `Evolve should use warm, non-ledger copy: ${JSON.stringify(result)}`);
-    assert(actions[bankIndex]?.command === "evolve", `the unified card should keep system command language out of sight: ${JSON.stringify(result)}`);
-    assert(actions[bankIndex]?.title === "evolve" && actions[bankIndex]?.confirm === "evolve", `Evolve should be the only visible verb: ${JSON.stringify(result)}`);
-    assert(actions[bankIndex]?.summary === "Keep what mattered.", `Evolve should explain itself without ledger language: ${JSON.stringify(result)}`);
-    assert(actions[bankIndex]?.rows?.some((row) => row[1] === "the little things you noticed this visit"), `Evolve should describe the visit without counting memories: ${JSON.stringify(result)}`);
-    assert(actions[bankIndex]?.rows?.some((row) => row[1] === "new ways to strengthen a friendship or open bracelet space"), `Evolve should explain what opens without counting growth tokens: ${JSON.stringify(result)}`);
+    assert(actions[bankIndex]?.label === "grow", `banking memories should use the truthful Grow verb: ${JSON.stringify(result)}`);
+    assert(actions[bankIndex]?.detail === "from what you learned", `Grow should use warm, non-ledger copy: ${JSON.stringify(result)}`);
+    assert(actions[bankIndex]?.command === "grow", `the growth card should keep system command language out of sight: ${JSON.stringify(result)}`);
+    assert(actions[bankIndex]?.title === "grow" && actions[bankIndex]?.confirm === "grow", `Grow should be the only visible verb for banking memories: ${JSON.stringify(result)}`);
+    assert(actions[bankIndex]?.summary === "Keep what mattered.", `Grow should explain itself without ledger language: ${JSON.stringify(result)}`);
+    assert(actions[bankIndex]?.rows?.some((row) => row[1] === "the little things you noticed this visit"), `Grow should describe the visit without counting memories: ${JSON.stringify(result)}`);
+    assert(actions[bankIndex]?.rows?.some((row) => row[1] === "new ways to strengthen a friendship or open bracelet space"), `Grow should explain what opens without counting growth tokens: ${JSON.stringify(result)}`);
     assert(!actions.some((action) => String(action.detail || "").includes(" / ")), `bank ledger copy should avoid slash-heavy detail: ${JSON.stringify(result)}`);
     assert(!panelHtml.includes("data-character-bank") && !panelHtml.includes(">bank ledger<"), `account panel should not duplicate the bank action: ${panelHtml}`);
     assert(panelHtml.includes("something you noticed is ready to keep"), `the avatar journal should summarize ready growth without counting memories: ${panelHtml}`);
-    assert(!/two memories|two chances|marks|points/i.test(JSON.stringify([actions[bankIndex]?.rows, panelHtml])), `visible Evolve and journal copy should stay free of resource arithmetic: ${JSON.stringify(result)}`);
+    assert(!/two memories|two chances|marks|points/i.test(JSON.stringify([actions[bankIndex]?.rows, panelHtml])), `visible Grow and journal copy should stay free of resource arithmetic: ${JSON.stringify(result)}`);
   }
 
   async function assertCharmSlotSurfacesAsCompactAdvancementAction() {
@@ -3197,25 +3197,25 @@ async function main() {
         actorId = previousActorId;
       }
     });
-    const slotIndex = result.firstStep.findIndex((action) => action.label === "evolve");
+    const slotIndex = result.firstStep.findIndex((action) => action.label === "expand bracelet");
     const travelIndex = result.firstStep.findIndex((action) => action.label === "travel");
     assert(slotIndex >= 0, `bracelet growth should surface after advancement is banked: ${JSON.stringify(result)}`);
     assert(slotIndex < travelIndex, `bracelet growth should appear before wandering away with spendable progress: ${JSON.stringify(result)}`);
-    assert(result.firstStep[slotIndex]?.detail === "open another bracelet slot", `Evolve should name the slot unlocked by advancement: ${JSON.stringify(result)}`);
-    assert(result.firstStep[slotIndex]?.title === "evolve" && /room for another found skill charm/i.test(result.firstStep[slotIndex]?.summary || ""), `Evolve should explain that the charm must still be found: ${JSON.stringify(result)}`);
+    assert(result.firstStep[slotIndex]?.detail === "open charm slot 2 · spend one growth (one ready)", `Expand Bracelet should name the exact slot and advancement cost: ${JSON.stringify(result)}`);
+    assert(result.firstStep[slotIndex]?.title === "expand bracelet" && /spend one banked growth \(one ready\)/i.test(result.firstStep[slotIndex]?.summary || ""), `Expand Bracelet should explain its spend and that the charm must still be found: ${JSON.stringify(result)}`);
     assert(result.firstStep[slotIndex]?.choices.length === 0, `a slot unlock should not invent skill choices or charm cards: ${JSON.stringify(result)}`);
-    const combinedIndex = result.combinedLesson.findIndex((action) => action.label === "evolve");
-    assert(result.combinedLesson[combinedIndex]?.detail === "choose one of two lessons", `Learn and Evolve should surface as one two-choice card: ${JSON.stringify(result)}`);
+    const combinedIndex = result.combinedLesson.findIndex((action) => action.label === "grow");
+    assert(result.combinedLesson[combinedIndex]?.detail === "choose one of two lessons", `banking and bracelet growth should surface as one two-choice Grow card: ${JSON.stringify(result)}`);
     assert(result.combinedLesson[combinedIndex]?.choices.join(",") === "keep the lesson,unlock another charm slot", `the combined card should keep the lesson beside bracelet space, not a generated skill: ${JSON.stringify(result)}`);
     assert(result.combinedLesson[combinedIndex]?.choiceDetails.some((detail) => /charm itself must still be found/i.test(detail)), `the combined card should preserve separate progression and discovery: ${JSON.stringify(result)}`);
-    const contextualIndex = result.contextual.findIndex((action) => action.label === "evolve");
+    const contextualIndex = result.contextual.findIndex((action) => action.label === "expand bracelet");
     assert(contextualIndex >= 0 && result.contextual[contextualIndex]?.focusKey === "unlock-charm-slot", `server context should still resolve to the bracelet-slot mutation: ${JSON.stringify(result)}`);
     const skillAgnosticSlot = result.onlyListening.find((action) => action.focusKey === "unlock-charm-slot");
-    assert(skillAgnosticSlot?.label === "evolve" && skillAgnosticSlot?.detail === "open another bracelet slot", `legacy avatar skill ranks should not change the new bracelet offer: ${JSON.stringify(result)}`);
-    const repeatSlotIndex = result.repeatWithBond.findIndex((action) => action.label === "evolve");
+    assert(skillAgnosticSlot?.label === "expand bracelet" && skillAgnosticSlot?.detail === "open charm slot 2 · spend one growth (one ready)", `legacy avatar skill ranks should not change the new bracelet offer: ${JSON.stringify(result)}`);
+    const repeatSlotIndex = result.repeatWithBond.findIndex((action) => action.label === "expand bracelet");
     const bondIndex = result.repeatWithBond.findIndex((action) => action.focusKey === "bond:1001");
     assert(bondIndex >= 0 && repeatSlotIndex >= 0 && bondIndex < repeatSlotIndex, `Chat should interrupt repeat bracelet growth when both are available: ${JSON.stringify(result)}`);
-    assert(!/one growth|growth spent/i.test(JSON.stringify(result)), `bracelet growth should not expose advancement as a counted token: ${JSON.stringify(result)}`);
+    assert(/spend one growth \(one ready\)/i.test(JSON.stringify(result.firstStep)), `bracelet growth should expose the exact spend that gates the action: ${JSON.stringify(result)}`);
     assert(![...result.firstStep, ...result.contextual, ...result.onlyListening, ...result.repeatWithBond].some((action) => String(action.detail || "").includes(" / ")), `bracelet copy should avoid slash-heavy detail: ${JSON.stringify(result)}`);
   }
 
@@ -4281,8 +4281,8 @@ async function main() {
       }
     });
     assert(result.frontier[0]?.label === "rest", `frontier fatigue should keep rest urgent: ${JSON.stringify(result)}`);
-    assert(result.frontierWithLedger[0]?.label === "evolve", `unclaimed frontier growth should interrupt rest once: ${JSON.stringify(result)}`);
-    assert(result.frontierWithLedger[0]?.detail === "from what you learned", `frontier Evolve should keep the same warm copy before rest: ${JSON.stringify(result)}`);
+    assert(result.frontierWithLedger[0]?.label === "grow", `unclaimed frontier growth should interrupt rest once: ${JSON.stringify(result)}`);
+    assert(result.frontierWithLedger[0]?.detail === "from what you learned", `frontier Grow should keep the same warm copy before rest: ${JSON.stringify(result)}`);
     assert(result.frontierWithLedger[1]?.label === "rest", `frontier rest should remain immediately available after bank: ${JSON.stringify(result)}`);
     assert(result.frontierWithLedger[1]?.summary === "Catch your breath. Trouble may draw nearer while you rest.", `frontier Rest should explain its tradeoff once in natural language: ${JSON.stringify(result)}`);
     assert(result.frontierWithLedger[1]?.rows?.some((row) => row[0] === "What changes" && row[1] === "you feel fresh again"), `frontier Rest should state its payoff directly: ${JSON.stringify(result)}`);
@@ -7204,12 +7204,12 @@ async function main() {
       }));
       assert(!afterFirstListen.isCurrentActor, `the second player should be waiting after their first Listen: ${JSON.stringify(afterFirstListen)}`);
       assert(
-        afterFirstListen.labels.includes("evolve")
+        afterFirstListen.labels.includes("grow")
           && afterFirstListen.labels.some((label) => label === "nudge" || label === "I'm here"),
-        `waiting first-tale progress should offer Evolve beside the room-turn response: ${JSON.stringify(afterFirstListen)}`,
+        `waiting first-tale progress should offer Grow beside the room-turn response: ${JSON.stringify(afterFirstListen)}`,
       );
       assert(
-        ["evolve", "nudge", "i'm here"].some((label) => (
+        ["grow", "nudge", "i'm here"].some((label) => (
           afterFirstListen.primary.toLowerCase().startsWith(label)
         )),
         `the authoritative waiting hand should keep both personal growth and the room response reachable: ${JSON.stringify(afterFirstListen)}`,
@@ -7232,14 +7232,14 @@ async function main() {
         labels: actions.map((action) => action.label),
         primary: document.querySelector("#primary")?.getAttribute("aria-label") || "",
       }));
-      assert(afterWaitingGrow.currentActorId === sharedTurnOwner && !afterWaitingGrow.isCurrentActor, `Evolve should not take or pass the shared room turn: ${JSON.stringify({ sharedTurnOwner, afterWaitingGrow })}`);
+      assert(afterWaitingGrow.currentActorId === sharedTurnOwner && !afterWaitingGrow.isCurrentActor, `Grow should not take or pass the shared room turn: ${JSON.stringify({ sharedTurnOwner, afterWaitingGrow })}`);
       assert(
-        afterWaitingGrow.labels.includes("evolve")
+        afterWaitingGrow.labels.includes("expand bracelet")
           && afterWaitingGrow.labels.some((label) => label === "nudge" || label === "I'm here"),
-        `waiting first-tale progress should keep the remaining Evolve choice beside the room-turn response: ${JSON.stringify(afterWaitingGrow)}`,
+        `waiting first-tale progress should keep Expand Bracelet beside the room-turn response: ${JSON.stringify(afterWaitingGrow)}`,
       );
       assert(
-        ["evolve", "nudge", "i'm here"].some((label) => (
+        ["expand bracelet", "nudge", "i'm here"].some((label) => (
           afterWaitingGrow.primary.toLowerCase().startsWith(label)
         )),
         `the authoritative waiting hand should keep the remaining personal growth and room response reachable: ${JSON.stringify(afterWaitingGrow)}`,
@@ -7254,7 +7254,7 @@ async function main() {
         ));
         const selected = await other.evaluate(() => {
           const index = actions.findIndex((action) => (
-            (action.label === "evolve" && action.focusKey !== "bank-ledger")
+            action.label === "expand bracelet"
               || action.focusKey?.startsWith("bond:")
           ));
           if (index < 0) return { ok: false, actions: actions.map((action) => ({ label: action.label, focusKey: action.focusKey })) };
@@ -7286,10 +7286,10 @@ async function main() {
         labels: actions.map((action) => action.label),
         guide: document.querySelector("#updates")?.textContent?.trim().replace(/\s+/g, " ") || "",
       }));
-      assert(afterWaitingPractice.currentActorId === sharedTurnOwner && !afterWaitingPractice.isCurrentActor, `Evolve should leave the shared room turn untouched: ${JSON.stringify({ sharedTurnOwner, afterWaitingPractice })}`);
+      assert(afterWaitingPractice.currentActorId === sharedTurnOwner && !afterWaitingPractice.isCurrentActor, `Expand Bracelet should leave the shared room turn untouched: ${JSON.stringify({ sharedTurnOwner, afterWaitingPractice })}`);
       assert(
         afterWaitingPractice.labels.includes("nudge")
-          && afterWaitingPractice.labels.every((label) => label === "nudge" || label === "evolve"),
+          && afterWaitingPractice.labels.every((label) => label === "nudge" || label === "expand bracelet"),
         `finished first-tale growth should retain the gentle handoff beside any remaining personal bracelet growth: ${JSON.stringify(afterWaitingPractice)}`,
       );
       assert(/your first tale is yours/i.test(afterWaitingPractice.guide), `finishing personal growth while waiting should still earn the first-tale celebration: ${JSON.stringify(afterWaitingPractice)}`);

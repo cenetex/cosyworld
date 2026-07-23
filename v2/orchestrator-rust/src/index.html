@@ -4022,10 +4022,11 @@
         if (!options.has("unlock_charm_slot") || Number(ledger.advancement_points || 0) <= 0) return null;
         const slots = Number(view.deck?.bracelet_slots || 0);
         if (!slots || slots >= 6) return null;
+        const advancement = Number(ledger.advancement_points || 0);
         const abilityCandidates = [{ id: "charm_slot", label: "charm slot", detail: "room for one more found skill charm" }];
         const unlockAction = {
           label: "expand bracelet",
-          detail: `open charm slot ${slots + 1} · use what you learned`,
+          detail: `open charm slot ${slots + 1} · spend one growth (${smallNumberWord(advancement)} ready)`,
           command: "unlock charm slot",
           focusKey: "unlock-charm-slot",
           focusKeys: ["charm-slot"],
@@ -4033,8 +4034,8 @@
           shape: "avatar",
           priority: options.has("create_bond") ? 78 : 76,
           modalTitle: "unlock another charm slot",
-          modalSummary: "Advancement opens space on your bracelet. It does not grant a skill charm; you still have to find one in the world.",
-          effect: `opens bracelet slot ${slots + 1} without creating a charm`,
+          modalSummary: `Spend one banked growth (${smallNumberWord(advancement)} ready) to open bracelet slot ${slots + 1}. The skill charm itself must still be found in the world.`,
+          effect: `spends one growth and opens bracelet slot ${slots + 1} without creating a charm`,
         };
         unlockAction.run = () => action("/actions/unlock-charm-slot", { actor_id: actorId });
         unlockAction.abilityCandidates = abilityCandidates;
@@ -4079,13 +4080,13 @@
         const oneChoice = evolutionChoices.length === 1;
         const selectedChoice = evolutionChoices[0]?.value || "grow";
         const evolveAction = {
-          label: "evolve",
+          label: growAction ? "grow" : "expand bracelet",
           detail: growAction && practiceAction
             ? "choose one of two lessons"
             : (growAction
               ? "from what you learned"
-              : "open another bracelet slot"),
-          command: "evolve",
+              : practiceAction.detail),
+          command: growAction ? "grow" : "unlock charm slot",
           focusKey: growAction?.focusKey || practiceAction?.focusKey || "evolve",
           focusKeys: [...new Set([
             ...(growAction?.focusKeys || []),
@@ -4103,7 +4104,9 @@
           memoryCount: growAction?.memoryCount,
           growthCount: growAction?.growthCount,
           evolveModes: [growAction ? "grow" : "", practiceAction ? "practice" : ""].filter(Boolean),
-          modalTitle: oneChoice ? "evolve" : "choose how to evolve",
+          modalTitle: oneChoice
+            ? (growAction ? "grow" : "expand bracelet")
+            : "choose how to grow",
           modalSummary: oneChoice
             ? (growAction
               ? "Keep what mattered."
@@ -6895,10 +6898,9 @@
         return makeThread(null, `${hook.charAt(0).toUpperCase()}${hook.slice(1)}`, "room");
       }
       const evolve = availableActions.find((action) => (
-        String(action?.label || "").toLowerCase() === "evolve"
-          && Array.isArray(action?.evolveModes)
+        Array.isArray(action?.evolveModes)
           && action.evolveModes.includes("practice")
-      )) || findAction("practice");
+      )) || findAction("expand bracelet", "practice");
       if (evolve) {
         return makeThread(evolve, "Something you learned can open room for another found charm", "evolve");
       }
@@ -9669,7 +9671,7 @@
         const grow = findAction((action) => (
           action.focusKey === "bank-ledger"
             || action.label === "grow"
-            || (action.label === "evolve" && action.evolveModes?.includes("grow"))
+            || action.evolveModes?.includes("grow")
         ));
         return {
           stage: 2,
@@ -9684,7 +9686,7 @@
         const bond = findAction((action) => ["chat", "grow closer", "bond"].includes(action.label));
         const bracelet = findAction((action) => (
           ["practice", "train"].includes(action.label)
-            || (action.label === "evolve" && action.evolveModes?.includes("practice"))
+            || action.evolveModes?.includes("practice")
         ));
         const next = bond || bracelet;
         const identityActionKeys = [bond, bracelet]
