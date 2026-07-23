@@ -14,11 +14,17 @@ The generated image belongs to the public card. Its prompt uses the card identit
 
 - Chat and repeat Listen/Notice have no Orb affordability check, debit, or refund path; Chat's separate cost is one banked advancement point.
 - `community_image_generation` is the only negative Orb reason emitted by new player actions.
-- Eligible subjects are generated human avatars, runtime-generated items, and familiar generated pathway locations.
+- Eligible subjects are cards whose art is still pending or generated: avatars,
+  locations, and items from mounted packs, plus familiar generated pathway
+  locations. Authored final and on-chain art remain ineligible.
 - Card state exposes `level`, `required_orbs`, `funded_orbs`, `remaining_orbs`, `status`, and `history_through_seq`.
 - `POST /actions/fund-image` accepts one Orb per request, journals the contributor and funding mutation atomically, caps the pool at the level, and does not advance the room turn.
 - Provider absence fails before debit. Fully funded failures/retries do not debit again.
 - Replicate generation is asynchronous. A committed ready result swaps the card to the shared generated asset with a level cache key.
+- Avatar image briefs include the persisted physical description plus current
+  species, origin, class/classless state, level, calling, location, and up to
+  eight carried or equipped items. Item and location briefs include their
+  authoritative world details as well as public history.
 - Funding and status survive snapshots and action-journal replay. In-flight job de-duplication is currently process-local.
 - The existing keepsake modal shows pooled progress and provides the contribution/retry action; no separate currency UI was added.
 

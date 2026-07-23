@@ -786,6 +786,8 @@ enum ProjectionMutation {
     },
     RefreshAvatarIdentity {
         actor_id: u64,
+        #[serde(default)]
+        physical_description: String,
     },
     FundCommunityArt {
         subject_kind: String,
@@ -994,6 +996,8 @@ struct AvatarIdentityState {
     profile_id: String,
     species_id: String,
     origin_id: String,
+    #[serde(default)]
+    physical_description: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     class_id: Option<String>,
     #[serde(default)]
@@ -1510,6 +1514,8 @@ struct JournalRecord {
     initial_species_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     initial_origin_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    initial_physical_description: Option<String>,
     #[serde(default)]
     actor_meta_upserts: BTreeMap<u64, ActorMeta>,
     #[serde(default)]
@@ -1567,6 +1573,7 @@ impl JournalRecord {
             initial_character_profile_id: None,
             initial_species_id: None,
             initial_origin_id: None,
+            initial_physical_description: None,
             actor_meta_upserts: BTreeMap::new(),
             content_upserts: BTreeMap::new(),
             branch_upserts: BTreeMap::new(),
@@ -4505,7 +4512,10 @@ fn schedule_avatar_identity_refinement(
             record.actor_meta_upserts.insert(actor_id, actor_meta);
             record
                 .projection_mutations
-                .push(ProjectionMutation::RefreshAvatarIdentity { actor_id });
+                .push(ProjectionMutation::RefreshAvatarIdentity {
+                    actor_id,
+                    physical_description: identity.visual_prompt,
+                });
             let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
                 return;
             };
@@ -7161,6 +7171,24 @@ impl RuntimeWorld {
             meta.description =
                 sanitize_avatar_description(Some(&meta.description), &fallback_description);
         }
+        let missing_physical_descriptions = self
+            .character_identities
+            .iter()
+            .filter(|(_, identity)| identity.physical_description.trim().is_empty())
+            .filter_map(|(actor_id, _)| {
+                self.actors.get(actor_id).map(|meta| {
+                    (
+                        *actor_id,
+                        avatar_visual_prompt(&meta.name, &meta.title, &meta.description),
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
+        for (actor_id, physical_description) in missing_physical_descriptions {
+            if let Some(identity) = self.character_identities.get_mut(&actor_id) {
+                identity.physical_description = physical_description;
+            }
+        }
     }
 
     fn append_world_reset_event(&mut self) -> EventView {
@@ -8764,6 +8792,7 @@ impl RuntimeWorld {
                 record.initial_character_profile_id.as_deref(),
                 record.initial_species_id.as_deref(),
                 record.initial_origin_id.as_deref(),
+                record.initial_physical_description.as_deref(),
             ));
             if action.kind == CW_ACTION_RULES_STUDY {
                 if let Some(check) = events.iter().find(|event| {
@@ -8886,7 +8915,16 @@ impl RuntimeWorld {
                         Some(reason.clone()),
                     ));
                 }
-                ProjectionMutation::RefreshAvatarIdentity { actor_id } => {
+                ProjectionMutation::RefreshAvatarIdentity {
+                    actor_id,
+                    physical_description,
+                } => {
+                    if !physical_description.trim().is_empty() {
+                        if let Some(identity) = self.character_identities.get_mut(actor_id) {
+                            identity.physical_description =
+                                compact_whitespace(physical_description);
+                        }
+                    }
                     events.push(self.append_async_job_event(
                         "avatar.refined",
                         *actor_id,
@@ -9825,6 +9863,7 @@ impl RuntimeWorld {
         initial_character_profile_id: Option<&str>,
         initial_species_id: Option<&str>,
         initial_origin_id: Option<&str>,
+        initial_physical_description: Option<&str>,
     ) -> Vec<EventView> {
         if action.kind != CW_ACTION_CREATE_ACTOR || self.callings.contains_key(&action.actor_id) {
             return Vec::new();
@@ -9847,6 +9886,9 @@ impl RuntimeWorld {
                     profile_id: profile_id.to_string(),
                     species_id: species_id.to_string(),
                     origin_id: origin_id.to_string(),
+                    physical_description: initial_physical_description
+                        .map(compact_whitespace)
+                        .unwrap_or_default(),
                     class_id: None,
                     class_selection_ready: false,
                     qualifying_world_actions: 0,
@@ -17310,19 +17352,49 @@ impl RuntimeWorld {
 
     fn community_art_subject_level(&self, subject_kind: &str, subject_id: u64) -> Option<u8> {
         match subject_kind {
-            "actor" => self
-                .actor_by_id(subject_id)
-                .filter(|actor| actor.kind == CW_ACTOR_HUMAN)
-                .map(|actor| actor.stats.level.max(1)),
-            "item" => self.world.items[..self.world.item_count]
-                .iter()
-                .find(|item| item.id == subject_id)
-                .filter(|_| seed_card_for_subject("item", subject_id).is_none())
-                .map(|_| 1),
-            "location" => self
-                .generated_pathway_for_location(subject_id)
-                .filter(|pathway| pathway.familiar && pathway.art_eligible)
-                .map(|_| 1),
+            "actor" => {
+                let actor = self.actor_by_id(subject_id)?;
+                let meta = self.actors.get(&subject_id).cloned().unwrap_or(ActorMeta {
+                    name: format!("Avatar {subject_id}"),
+                    speech_mode: "prose".to_string(),
+                    title: "World Traveler".to_string(),
+                    description: String::new(),
+                });
+                community_art_eligible_card(&card_for_actor(
+                    subject_id,
+                    &meta.name,
+                    &meta.title,
+                    &meta.description,
+                    actor.stats.level,
+                ))
+                .then_some(actor.stats.level.max(1))
+            }
+            "item" => {
+                let item = self.world.items[..self.world.item_count]
+                    .iter()
+                    .find(|item| item.id == subject_id)?;
+                let meta = self.items.get(&subject_id).cloned().unwrap_or(ItemMeta {
+                    name: format!("Item {subject_id}"),
+                    description: "A found keepsake.".to_string(),
+                    skill_id: None,
+                    skill_bonus: 0,
+                    mechanics: None,
+                });
+                community_art_eligible_card(&card_for_item(item.id, &meta.name, &meta.description))
+                    .then_some(1)
+            }
+            "location" => {
+                let name = self.location_name(subject_id)?;
+                let meta = self.location_meta_for(subject_id);
+                let card = card_for_location(subject_id, &name, Some(&meta));
+                if !community_art_eligible_card(&card) {
+                    return None;
+                }
+                if let Some(pathway) = self.generated_pathway_for_location(subject_id) {
+                    return (pathway.familiar && pathway.art_eligible).then_some(1);
+                }
+                Some(1)
+            }
             _ => None,
         }
     }
@@ -17362,6 +17434,129 @@ impl RuntimeWorld {
         card
     }
 
+    fn actor_community_art_details(&self, actor_id: u64, card: &CardView) -> String {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return String::new();
+        };
+        let mut facts = vec![format!("authoritative level {}", actor.stats.level)];
+        if let Some(identity) = self.character_identities.get(&actor_id) {
+            if let Some(profile) = character_creation_profile(Some(&identity.profile_id)) {
+                if let Some(species) = profile
+                    .species
+                    .iter()
+                    .find(|species| species.id == identity.species_id)
+                {
+                    facts.push(format!("species: {}", species.label));
+                    facts.push(format!("species appearance: {}", species.visual_prompt));
+                }
+                if let Some(origin) = profile
+                    .origins
+                    .iter()
+                    .find(|origin| origin.id == identity.origin_id)
+                {
+                    facts.push(format!("origin: {}", origin.label));
+                    facts.push(format!("origin details: {}", origin.visual_prompt));
+                }
+                if let Some(class) = identity.class_id.as_deref().and_then(|class_id| {
+                    profile.choices.iter().find(|choice| choice.id == class_id)
+                }) {
+                    facts.push(format!("class: {}", class.label));
+                    facts.push(format!("class gear and bearing: {}", class.description));
+                } else {
+                    facts.push("class: classless traveler".to_string());
+                }
+            }
+            if !identity.physical_description.trim().is_empty() {
+                facts.push(format!(
+                    "stable physical description: {}",
+                    identity.physical_description
+                ));
+            }
+        } else {
+            facts.push(format!(
+                "stable physical description: {}",
+                avatar_visual_prompt(&card.display_name, &card.title, &card.blurb)
+            ));
+        }
+        if let Some(calling) = self.callings.get(&actor_id) {
+            facts.push(format!("calling: {}", calling.statement));
+        }
+        if let Some(location) = self.location_name(actor.location_id) {
+            facts.push(format!("current setting: {location}"));
+        }
+        let carried = self
+            .actor_held_items(actor_id)
+            .into_iter()
+            .take(8)
+            .map(|item| {
+                let name = self
+                    .item_name(item.id)
+                    .unwrap_or_else(|| format!("Item {}", item.id));
+                format!(
+                    "{name} ({})",
+                    card_zone(item.zone, item.holder_actor_id, item.location_id)
+                )
+            })
+            .collect::<Vec<_>>();
+        if carried.is_empty() {
+            facts.push("carried items: none".to_string());
+        } else {
+            facts.push(format!(
+                "carried and equipped items: {}",
+                carried.join(", ")
+            ));
+        }
+        facts.join(". ")
+    }
+
+    fn item_community_art_details(&self, item: CwItem) -> String {
+        let mut facts = vec![
+            format!("item type: {}", item_kind(item.kind)),
+            format!("equipment role: {}", item_role(item.role)),
+            format!("size: {}", item_size(item.size_class)),
+        ];
+        if item.charges > 0 {
+            facts.push(format!("remaining charges: {}", item.charges));
+        }
+        if item.holder_actor_id != 0 {
+            facts.push(format!(
+                "carried by: {}",
+                self.actor_name(item.holder_actor_id)
+                    .unwrap_or_else(|| format!("Avatar {}", item.holder_actor_id))
+            ));
+            facts.push(format!(
+                "card zone: {}",
+                card_zone(item.zone, item.holder_actor_id, item.location_id)
+            ));
+        } else if let Some(location) = self.location_name(item.location_id) {
+            facts.push(format!("current setting: {location}"));
+        }
+        facts.join(". ")
+    }
+
+    fn location_community_art_details(&self, location_id: u64) -> String {
+        let meta = self.location_meta_for(location_id);
+        let mut facts = Vec::new();
+        if !meta.biome.trim().is_empty() {
+            facts.push(format!("biome: {}", meta.biome));
+        }
+        if !meta.terrain.is_empty() {
+            facts.push(format!("terrain: {}", meta.terrain.join(", ")));
+        }
+        if let Some(sheet) = self.room_sheets.get(&location_id) {
+            if !sheet.aspects.is_empty() {
+                facts.push(format!("defining aspects: {}", sheet.aspects.join(", ")));
+            }
+            if !sheet.boons.is_empty() {
+                facts.push(format!("visible boons: {}", sheet.boons.join(", ")));
+            }
+            if !sheet.hooks.is_empty() {
+                facts.push(format!("visible hooks: {}", sheet.hooks.join(", ")));
+            }
+        }
+        facts.join(". ")
+    }
+
     fn community_art_plan(
         &self,
         contributor_actor_id: u64,
@@ -17375,7 +17570,7 @@ impl RuntimeWorld {
         let level = self
             .community_art_subject_level(subject_kind, subject_id)
             .ok_or_else(|| "That card does not have community-generated art.".to_string())?;
-        let (card, visible, aspect_ratio) = match subject_kind {
+        let (card, visible, aspect_ratio, subject_details) = match subject_kind {
             "actor" => {
                 let actor = self
                     .actor_by_id(subject_id)
@@ -17386,16 +17581,18 @@ impl RuntimeWorld {
                     title: "World Traveler".to_string(),
                     description: String::new(),
                 });
+                let card = card_for_actor(
+                    subject_id,
+                    &meta.name,
+                    &meta.title,
+                    &meta.description,
+                    actor.stats.level,
+                );
                 (
-                    card_for_actor(
-                        subject_id,
-                        &meta.name,
-                        &meta.title,
-                        &meta.description,
-                        actor.stats.level,
-                    ),
+                    card.clone(),
                     actor.location_id == contributor.location_id,
                     "2:3",
+                    self.actor_community_art_details(subject_id, &card),
                 )
             }
             "item" => {
@@ -17416,6 +17613,7 @@ impl RuntimeWorld {
                         || (item.holder_actor_id == 0
                             && item.location_id == contributor.location_id),
                     "1:1",
+                    self.item_community_art_details(*item),
                 )
             }
             "location" => {
@@ -17433,6 +17631,7 @@ impl RuntimeWorld {
                     card_for_location(subject_id, &name, Some(&self.location_meta_for(subject_id))),
                     visible,
                     "16:9",
+                    self.location_community_art_details(subject_id),
                 )
             }
             _ => return Err("Unknown community-art subject.".to_string()),
@@ -17478,7 +17677,7 @@ impl RuntimeWorld {
             history
         };
         let prompt = compact_whitespace(&format!(
-            "mirquo style, cozy storybook collectible card art for {kind} {name}, titled {title}. {blurb}. Level {level}. Let the image visibly remember this public history without adding text: {history}. No words, logo, watermark, UI, gore, or photorealism.",
+            "Collectible card art for {kind} {name}, titled {title}. {blurb}. Authoritative level {level}. Canonical visual facts: {subject_details}. Let the image visibly remember this public history without adding text: {history}. Preserve the subject's established identity across later levels. No words, logo, watermark, UI, gore, or photorealism.",
             kind = subject_kind,
             name = card.display_name,
             title = card.title,
@@ -23077,6 +23276,13 @@ fn card_ref_view(kind: &str, subject_id: u64, card: &CardView) -> CardRefView {
     }
 }
 
+fn community_art_eligible_card(card: &CardView) -> bool {
+    matches!(
+        card.asset_status.as_str(),
+        "pending_art" | "generated_art" | "generated_pathway_art" | "seed_art"
+    )
+}
+
 fn card_transaction_view(
     subject: CardRefView,
     predicate: &str,
@@ -25251,6 +25457,7 @@ async fn create_avatar(
         record.initial_character_profile_id = Some(selection.profile.id.clone());
         record.initial_species_id = selection.species.as_ref().map(|card| card.id.clone());
         record.initial_origin_id = selection.origin.as_ref().map(|card| card.id.clone());
+        record.initial_physical_description = Some(identity.visual_prompt.clone());
     }
     record.actor_meta_upserts.insert(actor_id, actor_meta);
     if let Some(host) = runtime.welcome_host_for(entry_location_id) {
@@ -31379,7 +31586,7 @@ async fn request_ai_avatar_identity(
         "Create one new CosyWorld player avatar for The Cosy Cottage.\n\
          Tone: grounded, gentle storybook comedy - a character with one small fondness, one harmless habit, and one slightly impractical plan. Mischief may be clumsy or curious but never hungry, hostile, cruel, threatening, or mean. Do not use grudges, schemes, insults, weapons, danger, or villain language.\n\
          Avoid existing resident names: Rati, Gust, Skull, Coach, Badger, Toad.\n\
-         Output exactly this shape: {{\"name\":\"Two words, 28 chars max, ASCII letters/spaces/hyphen/apostrophe only\",\"title\":\"warm portable card epithet, 2-5 words and 36 chars max; never include a location or the words The Cosy Cottage\",\"description\":\"one warm third-person persona sentence about a fondness, habit, or curiosity, 220 chars max\",\"visual_prompt\":\"image-generation prompt for a full-body cozy fantasy avatar portrait, 360 chars max\"}}\n\
+         Output exactly this shape: {{\"name\":\"Two words, 28 chars max, ASCII letters/spaces/hyphen/apostrophe only\",\"title\":\"warm portable card epithet, 2-5 words and 36 chars max; never include a location or the words The Cosy Cottage\",\"description\":\"one warm third-person persona sentence about a fondness, habit, or curiosity, 220 chars max\",\"visual_prompt\":\"stable appearance-only physical description, 360 chars max: anatomy/species, face, skin/fur, hair, build, age impression, distinctive features, and practical clothing; no pose, camera, art style, text, or location\"}}\n\
          If unsure, use this fallback as inspiration but do not copy it exactly: {name} / {title} / {description}",
         name = fallback.name,
         title = fallback.title,
@@ -44812,6 +45019,63 @@ mod tests {
     }
 
     #[test]
+    fn pending_pack_art_exposes_community_orb_funding_for_every_card_shape() {
+        let runtime = RuntimeWorld::seeded();
+
+        let actor_level = runtime
+            .actor_by_id(8303)
+            .expect("Moth-Eaten Knight is mounted")
+            .stats
+            .level
+            .max(1);
+        assert_eq!(
+            runtime.community_art_subject_level("actor", 8303),
+            Some(actor_level),
+            "pending avatar art should expose the Orb button"
+        );
+        assert_eq!(
+            runtime.community_art_subject_level("location", 803),
+            Some(1),
+            "pending location art should expose the Orb button"
+        );
+        assert_eq!(
+            runtime.community_art_subject_level("item", 8403),
+            Some(1),
+            "pending item art should expose the Orb button"
+        );
+
+        let moth_card = runtime.decorate_community_art_card(
+            card_for_actor(
+                8303,
+                "Moth-Eaten Knight",
+                "Barrow Road Sentinel",
+                "Empty armor packed with moths bars the only dry crossing.",
+                actor_level,
+            ),
+            "actor",
+            8303,
+        );
+        let barrow_card = runtime.decorate_community_art_card(
+            card_for_location(803, "Flooded Barrow", Some(&runtime.location_meta_for(803))),
+            "location",
+            803,
+        );
+        let dawn_oil_card = runtime.decorate_community_art_card(
+            card_for_item(
+                8403,
+                "Dawn Oil",
+                "A stoppered flask of gold oil that smells of hot stone after rain.",
+            ),
+            "item",
+            8403,
+        );
+
+        assert!(moth_card.community_art.is_some());
+        assert!(barrow_card.community_art.is_some());
+        assert!(dawn_oil_card.community_art.is_some());
+    }
+
+    #[test]
     fn generated_pathway_can_be_backtracked_or_left_for_another_route() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -48547,6 +48811,10 @@ mod tests {
             assert_eq!(identity.origin_id, "old-chapel");
             assert_eq!(identity.class_id, None);
             assert!(!identity.class_selection_ready);
+            assert!(identity.physical_description.contains("human traveler"));
+            assert!(identity
+                .physical_description
+                .contains("old roadside chapel"));
             assert!(!runtime
                 .skills
                 .contains_key(&skill_state_id(actor.id, "steadiness")));
@@ -48601,7 +48869,7 @@ mod tests {
             .iter()
             .any(|event| event.type_name == "class.chosen"));
 
-        let runtime = state.inner.lock().await;
+        let mut runtime = state.inner.lock().await;
         let actor = runtime.actor_view(runtime.actor_by_id(actor.id).expect("classed avatar"));
         assert_eq!(actor.stats.level, 1);
         assert_eq!(actor.title, "Lantern Warden");
@@ -48626,6 +48894,27 @@ mod tests {
                 .map(|skill| skill.rank),
             Some(1)
         );
+        let item_count = runtime.world.item_count;
+        let dawn_oil = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(item_count)
+            .find(|item| item.id == 8403)
+            .expect("Dawn Oil is mounted");
+        dawn_oil.holder_actor_id = actor.id;
+        dawn_oil.location_id = 0;
+        dawn_oil.zone = CW_CARD_ZONE_CARRIED;
+        let art_plan = runtime
+            .community_art_plan(actor.id, "actor", actor.id)
+            .expect("generated avatar can build a canonical art plan");
+        assert!(art_plan.prompt.contains("species: Human"));
+        assert!(art_plan.prompt.contains("origin: The Old Chapel"));
+        assert!(art_plan.prompt.contains("class: Lantern Warden"));
+        assert!(art_plan.prompt.contains("authoritative level 1"));
+        assert!(art_plan.prompt.contains("stable physical description"));
+        assert!(art_plan.prompt.contains("Dawn Oil (carried)"));
+
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
             .expect("staged identity survives a snapshot round trip");
@@ -48636,6 +48925,10 @@ mod tests {
         assert_eq!(
             restored_identity.class_id.as_deref(),
             Some("lantern-warden")
+        );
+        assert_eq!(
+            restored_identity.physical_description,
+            runtime.character_identities[&actor.id].physical_description
         );
         assert!(!restored_identity.class_selection_ready);
         assert_eq!(

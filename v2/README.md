@@ -398,6 +398,12 @@ local setups that define `REPLICATE_BASE_MODEL`, `REPLICATE_LORA_WEIGHTS`,
 `REPLICATE_MODEL`, `REPLICATE_LORA_TRIGGER`, or `LORA_TRIGGER_WORD` are also
 supported as fallbacks.
 
+Avatar art prompts start with the configured LoRA trigger and combine a stable,
+persisted physical description with the avatar's current species, origin,
+class or classless state, level, calling, location, and carried/equipped items.
+Item and location generations likewise include their authoritative card and
+world details plus committed public history.
+
 `Chat` appears only when the avatar has banked advancement and an eligible nearby resident can become a new friend. Playing it spends one advancement point, creates the Bond, and passes the room turn; it never accepts human text or spends Orbs. Human-authored room speech is the separate moderated, turn-exempt `say` path.
 
 Every successful scene-card play atomically arms one delayed room heartbeat. Roughly three seconds later, the next active resident in authored card order may answer. A room can have only one pending or running heartbeat, so rapid plays coalesce rather than building a reply queue. The resident prompt includes the triggering event, recent played-card/log entries, recent room lines, cast, location memory, current goals, and resident continuity. Accepted speech is validated against the resident's prose, emoji, or emote contract, committed through `CW_ACTION_SAY`, and broadcast as a shared world event.
