@@ -9,7 +9,7 @@ integrations and migration work. Gameplay truth lives here.
 
 For the Orbs, Intricately Carved Wooden Boxes, Ruby High pack/burn adapter, and legacy migration plan, see `../ECONOMY.md`.
 
-For the OpenRouter player payer, Orb-paid Chat, real AI media, combat rewards, and self-expanding swarm design, see `../AI.md`.
+For free public Chat, community-funded evolving card art, combat rewards, and self-expanding swarm design, see `../AI.md`.
 
 ## Layout
 
@@ -146,13 +146,13 @@ The Rust orchestrator currently owns:
   Collection returns, and possession provenance.
 - Session-touched and heartbeat-refreshed live human presence, so stale generated avatars do not crowd active rooms.
 - Generated human avatar flavor: name, title, description, and runtime avatar card.
-- Server-authored avatar chat from the `Chat` button, plus moderated human-authored `say` lines for shared room speech.
-- OpenAI-compatible avatar and resident response generation with no deterministic dialogue substitute when inference is unavailable.
+- Advancement-backed `Chat` for beginning a friendship, plus moderated human-authored `say` lines for shared room speech.
+- OpenAI-compatible contextual resident replies with no deterministic dialogue substitute when inference is unavailable.
 - Event projection.
 - Snapshot persistence.
 - SQLite action journal and projected event feed.
-- Durable Orb ledger rows for avatar grants, rule rewards, flee rewards, and server-paid Chat spends.
-- Durable AI usage ledger rows for player-avatar Chat payer/provider/model/status accounting without storing player OpenRouter keys.
+- Durable Orb ledger rows for avatar grants, rule rewards, flee rewards, and community image contributions; image generation is the sole Orb sink.
+- Durable AI usage ledger rows for system-funded resident and community-image payer/provider/model/status accounting without storing player OpenRouter keys.
 - Trusted ownership-feed projection for active Wooden Box NFTs and unopened avatar packs in `/state`.
 - Signed-wallet staging routes for Wooden Box burn receipts and avatar pack opening/card grants.
 - Resident replies are submitted back through the kernel as actor actions and broadcast one-to-many to everyone in the room.
@@ -282,7 +282,11 @@ http://127.0.0.1:3102/?reset=1
 
 `reset=1` clears the browser's remembered avatar, calls the dev-gated `/dev/reset` endpoint when enabled, removes the reset flag from the URL, reseeds the world, clears the SQLite action journal/event feed, and returns the player to the explicit `Create Avatar` gate. Without `COSYWORLD_ENABLE_DEV_RESET=1`, the query still clears only the local browser avatar so a tester can start a new human without resetting the shared server.
 
-The avatar gate begins with an immediate character question—`what draws you in?`—and carries the answer through the visible game as the avatar's purpose. A quiet transcript is a centered room vignette instead of a tiny line stranded above an empty panel: before avatar creation it frames `a new tale is waiting`, and later it reminds the player that choosing a card will invite someone in the room to answer. After confirming Begin, the card reads `arriving` and the story stage becomes `the cottage is making room`, retaining the selected calling while the model shapes a name and face. That pending beat promises the resident welcome that follows, so the first AI wait feels like arrival rather than a frozen button. The completed Begin lands as a visible arrival beat followed immediately by the first resident in card order welcoming the new avatar, so the action→story→reply rhythm starts with the very first card. The new avatar sheet keeps that tone: empty Journal, bracelet, friendship, collection, Box, and pack states describe moments and people still ahead rather than saying `nothing`, `none`, or `no one`; a local session is a `local tale`, and the carried deck reports physical weight rather than a fixed card count. The browser's opening is then framed as `Your first tale`: Listen for a clue, Grow from what happened, then shape a friendship or unlock bracelet space. Its three prompts use short, wrap-safe language on narrow screens, and the matching card is pinned in the hand with a visible `✦ next tale beat` reason while unrelated slots can still be redrawn. A first welcoming Listen remains personal and playable even when an Orb Chat has advanced the shared room turn. The completion beat recalls the whole path: the player listened, grew from a clue, and made a friend or opened room for a found charm. That guide keys off an actual listened-to truth, so an Orb Chat memory or unrelated growth can never masquerade as the opening clue or skip a missed Listen. The first Listen in a room always keeps its welcoming promise by yielding a clue; later Listening can remain uncertain. A paid repeat is presented as `Listen again · one Orb`, with cost, possible clue, and fatigue risk separated in its confirmation. Finishing the opening earns a brief completion beat before ordinary play takes over. Everyday cards describe the gesture and its possible story outcome in plain language: Orb costs are written as costs rather than subtraction, Grow talks about the little things noticed and the new possibilities they open without counting marks or points, Expand Bracelet spends advancement on room for another found skill charm, Grow Closer replaces visible Bond terminology with ordinary friendship language, and Give carries its recipient choice inside one card. Advancement never creates a charm or skill. Grow Closer now carries every nearby new-friend option too, so the first tale's friendship choice belongs to the player instead of the server default. Remember does the same for mature friendships, letting the player choose whose shared story to carry forward instead of exposing settlement language. Chat follows the same rule: when several residents are nearby, one Chat card opens a resident picker instead of occupying one hand slot per person; a lone resident is still named directly on the card. Take collapses every visible floor keepsake into one picker, so discovering another item adds a meaningful option without crowding the hand with a duplicate verb; it adds a card to the carried deck without silently evicting another card. Use likewise carries every safe care recipient inside one card while keeping combat opponents out of that picker; when the same keepsake can also awaken a room feature, those possibilities join that same Use card as choices such as `with Hearth` and `help you` rather than duplicating the verb. Trade carries every willing resident's exact give-and-receive pair inside one card, and confirmation still moves both keepsakes atomically. Attack carries every active opponent inside one target picker while a lone opponent remains named directly. A wanted gift remains possible when an explicit returned card makes both residents' weighted decks legal; the kernel resolves both movements atomically while protecting attached treasures. Project choices describe their character—make a little, good, or great headway; stay fresh; make the next try count—instead of counting clock steps. Listen, combat, recovery, and shared projects still use exact deterministic fields underneath, but the player-facing transcript, typed-command output, accessibility copy, and room diary describe the outcome as a story beat rather than exposing d20, modifier, DC, rank, damage, HP, segment, or progress-clock arithmetic. The collapsed room `LOG` names who did what and what changed—arrived, found, gave, became friends, grew closer, chose a purpose, or moved a project forward—rather than adding stock atmospheric prose. Travel updates follow the room being viewed: the room left behind records `Rati left for Science Class`, while Science Class records the matching arrival. Long connections are ordinary segmented geography rather than a separate travel minigame: Search reveals exactly one next adjacent pathway location, then the existing Travel action enters it; distance three therefore means three normal Travel edges with two generated pathway locations between the endpoints. Every normal conversation keeps one plain room-opening line above the voices, so returning to a quiet room never produces a contextless transcript. Orb Chat spends one Orb on a short four-beat exchange—avatar, resident, avatar, resident—and records one witnessed room memory after the back-and-forth. Repeat chats keep the same room thread; collision checks fold straight and typographic quotes and dashes, rejecting visually identical inferred lines rather than substituting canned dialogue. While the opening line is being shaped, the chosen resident remains visible in the transcript with a `finding the thread…` beat and the card reads `chatting`, so a model pause still feels like part of the conversation instead of a frozen hand. The shared transcript preserves every player line while pacing an uninterrupted resident monologue down to its two freshest lines; the underlying event history remains intact. The expanded room diary also collapses exact repeated memories and normalizes their sentence endings.
+The avatar gate begins with an immediate character question and carries that answer through the visible game as the avatar's purpose. A quiet transcript frames `a new tale is waiting`; the completed Begin lands as a visible arrival beat and arms the first resident heartbeat. The new avatar sheet describes moments and people still ahead, calls a local session a `local tale`, and reports the carried deck by physical weight rather than a fixed card count.
+
+The browser frames onboarding as `Your first tale`: Listen for a clue, Grow from what happened, then choose between Chat and bracelet space. Chat is the former friendship-growth choice in plain language: it appears only after advancement is banked, spends one advancement point, and opens a resident picker when several eligible new friends are nearby. Advancement never creates a charm, skill, spell, or weapon card. Remember handles mature friendships separately.
+
+Multi-target verbs stay compact: Take, Use, Give, Trade, Attack, and Chat put legal targets inside one card instead of duplicating hand slots. Long connections remain ordinary segmented geography—Search reveals one adjacent pathway and Travel enters it. Player-facing copy describes story outcomes rather than exposing raw d20, damage, HP, or clock arithmetic. The collapsed room `LOG` names who did what and what changed; the expanded history preserves the audited sequence. That log is also supplied to resident inference, so a delayed reply can refer to cards played and changes that happened in the channel instead of inventing an isolated conversation.
 
 Pathway Scout and Travel remain ordinary dealt actions: discovering a stretch never replaces the hand, moves the player, commits them to the destination, or hides room interactions. A player may continue, backtrack, choose another route, or stay and act. Generated waypoint rooms begin as risky frontier. Each pathway carries one shared `Make this way familiar` contribution project across all of its waypoint rooms; Push and Help are strategies on one project card and advance the same clock. Community contributions settle the route, move it into sanctuary rules, complete the public job, and unlock generated landscape art. Until that work completes, the deterministic pathway SVG remains the visual fallback.
 
@@ -290,7 +294,7 @@ Authored search reveal percentages are real per-attempt thresholds. Candidates
 are checked in deterministic priority order, and when every roll misses the
 search reveals nothing rather than forcing the first hidden candidate.
 
-At the final first-tale choice, both `Grow Closer` and bracelet `Evolve` stay visibly guided in the hand. The player can therefore make the promised friendship-or-charm-slot choice directly, including on the two-card mobile hand, instead of relying on a redraw to reveal the other path. A successful Listen now reveals one vivid lead at a time rather than listing every nearby keepsake or system hook; when an earlier keepsake has moved on, the room points to one different object or one gentle search invitation. The collapsed room log keeps the latest human card outcome on top while its derived memory rewards and resident ripples remain in the expanded chronological history. Room-memory cleanup removes only a leading second-person subject, preserving phrases such as `what draws you` inside the sentence.
+At the final first-tale choice, both `Chat` and bracelet `Evolve` stay visibly guided in the hand. The player can therefore make the promised friendship-or-charm-slot choice directly, including on the two-card mobile hand, instead of relying on a redraw. A successful Listen reveals one vivid lead at a time. The collapsed room log keeps the latest human card outcome on top while derived memory rewards and resident ripples remain in the expanded chronological history.
 
 Generated avatar titles are short portable card epithets rather than room descriptions. Model-added suffixes such as `at The Cosy Cottage` are removed on creation and when older profiles are replayed, so arrival copy names the room once and the title still makes sense after travel. Identity generation asks for a small fondness, harmless habit, and gentle curiosity; a server-side tone guard repairs titles, descriptions, visual prompts, and older profiles that drift into grudges, ravenous scheming, hostility, cruelty, or villain language.
 
@@ -323,8 +327,8 @@ runs both the deterministic visual/accessibility pass and the longer
 living-world journey. Together they verify runtime metadata, signed wallet
 challenge/session access and avatar recovery, avatar creation, actor-session
 continuity, walletless `connect wallet`, one-button normal play, zero-Orb
-earning-action priority, no-typing `listen`, server-authored avatar chat,
-moderated room speech and `/me` emotes, moderation/report flows, two-browser
+earning-action priority, no-typing `listen`, advancement-backed Chat,
+contextual resident heartbeats, moderated room speech and `/me` emotes, moderation/report flows, two-browser
 fanout and presence leave, compass/typed command behavior, weighted-deck item
 take/drop/retake behavior, multiple loose cards at one location, reload
 continuity, contextual verb labels, viewport fit, seed-card art, card-gated
@@ -334,7 +338,7 @@ resident/human action boundaries.
 
 When the mobile and desktop visual shell checks pass, the smoke writes viewport screenshots plus JSON metadata and SHA-256 hashes to `v2/orchestrator-rust/.runtime/visual-smoke/`. It also compares those screenshots against the committed PNG baselines in `v2/tests/visual-baselines/` with a 3% max pixel mismatch ratio. Set `COSYWORLD_VISUAL_SNAPSHOT_DIR=/path/to/output` to collect runtime artifacts somewhere else, or run `COSYWORLD_UPDATE_VISUAL_BASELINES=1 node v2/scripts/smoke-browser.mjs` after an intentional UI change to refresh the baselines.
 
-Enable AI-backed avatar chat and resident replies with an OpenAI-compatible provider:
+Enable AI-backed resident replies with an OpenAI-compatible provider:
 
 ```sh
 COSYWORLD_AI_API_KEY=... COSYWORLD_AI_MODEL=openai/gpt-5.6-luna cargo run
@@ -388,21 +392,23 @@ names, `COSYWORLD_REPLICATE_AVATAR_LORA_SCALE`,
 `COSYWORLD_REPLICATE_AVATAR_OUTPUT_FORMAT`, and
 `COSYWORLD_REPLICATE_AVATAR_INPUT_JSON` for additional input fields.
 
-Pressing `Chat` asks configured AI inference to author a short four-beat exchange—avatar, resident, avatar, resident. Each accepted line is committed through the C kernel as `CW_ACTION_SAY`, validated against its speaker's speech contract, and broadcast as a shared world event. If inference is unavailable or the opening line is invalid, Chat fails before charging an Orb or emitting dialogue. If a later beat fails, the accepted public lines remain and the exchange ends without canned completion. Repeated or invalid inferred lines are rejected rather than replaced with authored text; emoji and emote residents keep their speech contracts. A completed exchange leaves one friendly witness memory per resident instead of farming a new reward on every repeat. Human-authored room speech is a separate moderated `say` path.
+`Chat` appears only when the avatar has banked advancement and an eligible nearby resident can become a new friend. Playing it spends one advancement point, creates the Bond, and passes the room turn; it never accepts human text or spends Orbs. Human-authored room speech is the separate moderated, turn-exempt `say` path.
+
+Every successful scene-card play atomically arms one delayed room heartbeat. Roughly three seconds later, the next active resident in authored card order may answer. A room can have only one pending or running heartbeat, so rapid plays coalesce rather than building a reply queue. The resident prompt includes the triggering event, recent played-card/log entries, recent room lines, cast, location memory, current goals, and resident continuity. Accepted speech is validated against the resident's prose, emoji, or emote contract, committed through `CW_ACTION_SAY`, and broadcast as a shared world event.
 
 The MVP economy is enabled by default:
 
 - New human avatars receive 3 Orbs.
-- Server-paid `Chat` costs 1 Orb after the avatar line commits.
+- `Chat`, `Say`, room heartbeats, and repeat `Listen` cost zero Orbs; Chat costs one banked advancement point.
 - `Listen`, `Attack`, and `Flee` can award Orbs from committed kernel events.
 - Automatic Orb rewards are claim-key gated by actor/context so repeated identical outcomes cannot mint duplicate rewards.
-- If Chat is unaffordable, the browser prefers in-world earning actions such as `Listen` over AI setup only while that action can still claim a reward; a verified player OpenRouter key still makes explicit `Chat` actions cost zero Orbs while the result remains a public shared-room event.
-- Orb mutations and player-avatar Chat AI usage are persisted to SQLite ledger tables when the event store is enabled.
+- Eligible generated card modals pool one Orb per contribution until the total equals the card's level; each level unlocks one history-aware shared image.
+- Orb mutations and AI usage are persisted to SQLite ledger tables when the event store is enabled.
 - Trusted ownership feeds may include active Wooden Boxes and unopened avatar packs; the main room UI keeps those out of the normal transcript, while the top economy chip can focus account inventory/provenance and change the one contextual command to `Open Box` or `Open Pack`.
 - `/nft/boxes/burn-prepare`, `/nft/boxes/burn-confirm`, and `/nft/packs/open` exist as signed-wallet endpoints. Local mode can still create staging receipts for fast development. With a configured Solana/Core verifier, production `burn-prepare` fetches a current blockhash and returns an unsigned owner-paid Metaplex Core BurnV1 transaction for the trusted Box and configured collection. The browser confirms the irreversible action, asks the wallet to sign and send it, and passes the returned chain signature to `burn-confirm`, which verifies the transaction before creating a receipt. Receipts and pack openings are durable, idempotent, merged back into the ownership projection, and shown in account state.
 - `/moderation/economy` returns recent Orb/AI ledgers, Box receipts, pack reveals, and pre-merge ownership reconciliation runs. Open anomaly runs can be resolved idempotently with moderator identity and notes through `/moderation/economy/reconciliations/{run_id}/resolve`; the moderation console exposes the same economy workflow.
 
-CosyWorld time is player-powered. There is no real-time ambient scheduler: the world does not commit resident speech, checks, danger ticks, or placement changes simply because wall-clock seconds passed. Each confirmed scene card reserves the next active resident in room-card order for an inferred reaction; a direct target reply takes precedence so Give, Trade, and friendship cards do not answer twice. Accepted reactions follow the resident's prose, emoji, emote, or multi-voice contract and are committed before the card request resolves. When inference is unavailable or invalid, the deterministic card outcome still commits and the reaction is skipped rather than replaced with stock dialogue. Group chat contains only committed speech. Card outcomes—what the avatar heard, found, carried, changed, or helped—remain available through the room Log alongside the audited projection events. Player actions can also fan out into lifecycle hooks, frontier danger/progress clocks, and player-turn encounter resets, all through the normal audited journal path. `COSYWORLD_AMBIENT_QUIET_SECS` remains only as a local test threshold for ambient helper coverage; `/meta.features.ambient_enabled` reports `false` in the running service.
+CosyWorld mechanical time is player-powered: clocks, danger, placement, seasons, and resident actions do not advance merely because wall-clock seconds pass. A committed scene card may arm one speech-only room heartbeat after a short delay. The durable player-tick observation is stored atomically with the card outcome; later cards while that room heartbeat is pending or running do not stack another reply. When the heartbeat runs, it selects the next active resident in stable authored card order and supplies both the triggering card and the latest authoritative room log. When inference is unavailable or invalid, the deterministic card outcome remains committed and speech is skipped rather than replaced with stock dialogue. Group chat contains only committed speech; card outcomes remain in the room Log. Player actions can also fan out into lifecycle hooks, frontier danger/progress clocks, and player-turn encounter resets through the audited journal path.
 
 By default, runtime state persists to:
 
@@ -599,14 +605,13 @@ This is the adapter seam for replacing the dev snapshot with Ruby High wallet/se
 
 The world remains shared: `location-science-lab`, `location-homeroom`, `location-library`, `location-cafeteria`, `location-greenhouse`, and `location-courtyard` unlock travel to their one global rooms. They do not create per-wallet rooms or teacher DMs.
 
-Chat is server-authored avatar speech, not a human text box or branch picker:
+Chat is advancement-backed friendship, not a human text box or branch picker:
 
-- Focusing Rati, Whiskerwind, or Skull and pressing `Chat` calls `/actions/chat`.
-- The server validates the actor session, target resident, shared location, and rate limit.
-- The server uses AI inference for the in-character avatar opener, resident reply, avatar follow-up, and resident closing. If inference is unavailable or invalid, no canned dialogue is emitted and Chat fails before charging an Orb.
-- All four lines are committed through the C kernel as normal `message.created` world events on the same shared one-to-many timeline as other room output.
-- One Orb covers the entire exchange, and the Chat action stays in flight until the closing line lands.
-- A human avatar can have only one server-authored Chat turn in flight; overlapping Chat submissions for the same actor return `409` and emit no events.
+- When a banked advancement point and an eligible nearby resident make `create_bond` legal, the browser labels that offer `Chat`.
+- The server validates the actor session, target resident, shared location, room turn, rate limit, available advancement, and absence of an existing Bond.
+- Success spends one advancement point, creates the Bond, passes the room turn, and arms the room's normal delayed reply heartbeat.
+- Chat never spends an Orb. The resident reply is system-funded and, if inference is unavailable or invalid, the friendship remains committed without canned dialogue.
+- The legacy `/actions/chat` route delegates to the same advancement-backed contract for older clients.
 - `say <message>`, `/me <action>`, and `POST /actions/say` commit moderated human-authored room text as normal `message.created` events; unsafe or overlong text is rejected before it reaches the journal.
 - Legacy branch records in old snapshots are ignored by `/state` and do not change the primary action.
 
@@ -659,7 +664,7 @@ Locations are live channels:
 
 This keeps AI output one-to-many: a resident reply is committed as a world event and broadcast to everyone present, not regenerated as a private response for each player.
 
-Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot-backed buffer. Heavy activity elsewhere can rotate out the global event replay window without erasing a quieter room's recent conversational context.
+Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot-backed buffer and add up to ten recent successful non-speech room-log entries. This lets residents refer to cards just played and changes recorded in the channel, even when other rooms are busy. Newer log entries are authoritative when older context conflicts.
 
 ## Endpoints
 
@@ -692,6 +697,7 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `POST /presence/leave`
 - `POST /story/world-beat-exposures`
 - `POST /actions/submit`
+- `POST /actions/create-bond`
 - `POST /actions/chat`
 - `POST /actions/say`
 - `POST /actions/report`
@@ -778,11 +784,11 @@ journaled as append-only lifecycle events, and persisted in snapshots. See
 surface, equipment-profile damage, legacy replay behavior, and deliberate
 exclusions.
 
-`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, canonical `world_id`/`world_epoch`, capacity `process_id`, matching legacy `shard_id`, non-secret feature flags such as server-authored Chat and enabled client-authored speech, persistence mode, moderation report retention, ownership-feed mode, current world counters, compiled kernel capacities, and the mounted packs' exact license records. `GET /licenses` exposes those pack versions, license links, provenance, modification notices, and bundled attribution text without authentication. `./v2/mvp.sh status` prints a one-line summary from `/meta`.
+`/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, canonical `world_id`/`world_epoch`, capacity `process_id`, matching legacy `shard_id`, non-secret dialogue and client-authored-speech feature flags, persistence mode, moderation report retention, ownership-feed mode, current world counters, compiled kernel capacities, and the mounted packs' exact license records. `GET /licenses` exposes those pack versions, license links, provenance, modification notices, and bundled attribution text without authentication. `./v2/mvp.sh status` prints a one-line summary from `/meta`.
 
 Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, `/moderation/activation` returns first-session activation evidence plus privacy-safe seventh-visit cohorts, return-signal comparisons, and world-health diagnostics, `/moderation/activation/{player_ref}/delete` deletes one pseudonymous player's story-metric rows, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, Wooden Box receipt, and avatar pack opening rows without exposing player OpenRouter keys.
 
-Public action endpoints accept active human actors only when the matching `actor_session` is present. The Rust orchestrator can still commit avatar and resident `SAY` events internally for Chat, AI replies, player-triggered resident beats, and audited placement changes. Browser-submitted `say` is limited to the caller's own human avatar, is normalized through the same cozy text hygiene used by other player-authored statements, and cannot act as Rati, Whiskerwind, Skull, other residents, or another human avatar by id alone.
+Public action endpoints accept active human actors only when the matching `actor_session` is present. The Rust orchestrator can commit resident `SAY` events internally for contextual heartbeat replies and audited resident beats. Browser-submitted `say` is limited to the caller's own human avatar, is normalized through the same cozy text hygiene used by other player-authored statements, and cannot act as Rati, Whiskerwind, Skull, other residents, or another human avatar by id alone.
 
 `POST /actions/say` accepts JSON `{ "actor_id": 5000, "actor_session": "...", "content": "hello room" }` or the alias field `message`. Success returns `200` plus a `message.created` event whose `location_id` is the speaker's current room. Missing or wrong actor sessions return `403`, rejected text returns `400`, rate limits return `429`, and no rejected speech emits a world event.
 
@@ -794,11 +800,11 @@ Public mutation endpoints also pass through lightweight in-memory rate limits be
 
 - Avatar creation: 12 attempts per client IP per 10 minutes.
 - Wallet challenge/session: 30 attempts per client IP per minute.
-- Chat and player room-message actions: 45 attempts per actor per minute, with a broader shared IP mutation cap.
+- Chat/friendship and player room-message actions: 45 attempts per actor per minute, with a broader shared IP mutation cap.
 - Player reports: 12 attempts per actor per 10 minutes, with the broader shared IP mutation cap.
 - Movement, item, check, and combat actions: 180 attempts per actor per minute, with the same shared IP mutation cap.
 
-Client-submitted `/actions/say` and typed command emotes enter the action journal only after actor-session authorization and text moderation. They use the same C `SAY` event shape as server-authored Chat and resident replies, so room speech, action narration, AI dialogue, replay, and SSE broadcast all share one event contract.
+Client-submitted `/actions/say` and typed command emotes enter the action journal only after actor-session authorization and text moderation. They use the same C `SAY` event shape as resident replies, so room speech, action narration, AI dialogue, replay, and SSE broadcast all share one event contract.
 
 Rate limits are intentionally generous for normal play and local smoke tests.
 They are abuse guardrails for the current single-writer process, not a

@@ -45,7 +45,12 @@ The legacy Node service (`src/`) is a companion for Discord/X/Telegram integrati
 These are the engineering enforcement of the PRD's pillars. Code review holds this line.
 
 1. **All meaningful world mutation passes through the C kernel.** Rust may store, project, schedule, moderate, and call AI; it may not decide whether movement, speech emission, item transfer, evolution, combat, or checks succeed. Projection state (clocks, tags, bonds, ledgers) may lag the kernel but never contradict it.
-2. **World time is played time.** No wall-clock world mutation, ever: clocks, fronts, resident behavior, encounter resets, and seasons advance only on committed player turns. Wall-clock time is permitted only for abuse guardrails (rate limits, ping countdowns, presence TTLs) — things that pace *players*, never things that change the *world*.
+2. **World time is played time.** Clocks, fronts, resident mechanical behavior,
+   encounter resets, and seasons advance only from committed player turns. A
+   committed scene card may arm one wall-clock-delayed room speech heartbeat;
+   the delay only paces its causally linked public reply and cannot originate
+   mechanical state. Rate limits, ping countdowns, and presence TTLs may also use
+   wall time.
 3. **AI proposes; it never mutates.** Every AI output is validated, sanitized, and committed as a public event or discarded. AI never grants items, fills clocks, deepens bonds, changes access, or spends currency directly. This extends to generated content: crafted-item names and generated evolution quest lists are proposals that must survive a fail-closed compiler before becoming authoritative.
 4. **Events are append-only and replayable.** The journal is the source of truth; snapshots are disposable. Every visible dice roll carries die, roll, modifier, total, and DC/AC.
 5. **Every mint, spend, ledger mark, and one-shot effect is claim-key gated.** Keys are pure functions of authoritative facts — never wall-clock time or RNG. Review checks key granularity in both directions (too coarse swallows legitimate repeats; too fine lets retries double-mint). This applies to NPC behavior too: resident ambient lines and autonomous acts carry cooldown/claim discipline like player rewards.
@@ -58,7 +63,14 @@ These are the engineering enforcement of the PRD's pillars. Code review holds th
 
 ## Current State
 
-`GAP.md` is the detailed audit. The one-paragraph version: the kernel, orchestrator, avatar gate, server-authored Chat, moderated `say`, shared live rooms with room turns and ping/pong pacing, resident autonomy (wandering, desire-driven pickup), transcript-rendered world feedback (arrivals, callings, clues, dice, growth), items/evolution, card projection, wallet-gated expansion access, economy MVP (Orbs, claim keys, OpenRouter payer, Box/pack bridge with production burn verification), moderation basics (reports, console, suspension), the RPG layer first slice (Callings, Bonds, Clocks, Jobs, Fronts, Visit Ledger, Prepare/Rest/Work/Help, skill training), the deterministic played-time frontier simulation (weather, trade, faction movement, conflict, distant history), both clients, and the production deploy profile are all live and covered by `./v2/mvp.sh check`. Live mixed human/agent multiplayer has been validated on a running shard. The remaining work is the one-slot migration, economy circulation, decomposition, media, and the designed-but-unbuilt systems (crafting, covenants, front-spawned jobs, native ownership chain).
+`GAP.md` is the detailed audit. The one-paragraph version: the kernel,
+orchestrator, avatar gate, advancement-backed Chat, moderated `say`, coalescing
+contextual room heartbeats, shared live rooms with room turns and ping/pong
+pacing, resident autonomy, transcript-rendered world feedback, items/evolution,
+card projection, wallet-gated expansion access, economy MVP (Orbs, claim keys,
+image-only community spends, Box/pack bridge), moderation basics, the RPG layer
+first slice, deterministic frontier simulation, both clients, and the production
+deploy profile are live and covered by `./v2/mvp.sh check`.
 
 ## Engineering Priorities
 
@@ -97,15 +109,15 @@ Implements PRD "Now" #4, from the live economy audit:
 - Witness credit: a claim-keyed Journal mark for players present when a resident claims a desired item or evolves — aligning resident autonomy with player reward.
 - Ghost-item recovery: resident desire-hunts extend to items held by presence-inactive avatars, pulling leaked uniques back into circulation.
 - Season scoping: claim keys fold in a season id that increments on played world-ticks, so exhausted faucets (listen rewards, encounter rewards) reopen through play — never through a scheduler.
-- Write down the Orbs identity decision (AI meter funneling to BYOK vs. renewable play energy) and tune faucets to match.
+- Enforce the decided Orbs identity: the only negative mutation is a pooled community image contribution; tune faucets against level-based image demand.
 
 ### 4. Finish `ai_gateway`
 
-`v2/orchestrator-rust/src/ai_gateway.rs` now owns OpenAI-compatible/OpenRouter provider configuration, the shared chat-completion client, per-feature timeouts, bounded retry policy, stable failure codes, and provider/model/attempt/latency tracing. Domain routes keep auth, target validation, idempotency, Orb affordability, and spend-after-commit; the kernel keeps legality. Dialogue inference fails closed without substitute speech. Remaining gateway work is transient player-payer resolution, key verification, usage-ledger ownership, model capability discovery, and moving Replicate/media calls behind the same boundary. This is the precondition for media jobs, per-room AI spend budgets, and generated content (crafted names, evolution quest lists). Design detail: `AI.md`.
+`v2/orchestrator-rust/src/ai_gateway.rs` owns OpenAI-compatible/OpenRouter text configuration, bounded retries, stable failure codes, and tracing. Dialogue inference fails closed without substitute speech and never touches Orbs. Card commits persist a delayed player-tick observation; one pending/running job per room coalesces rapid plays, and the resident prompt combines the triggering event with recent room-log/card history, recent speech, cast, place, goals, and continuity. The first community card-art worker validates a durable level-scoped pool before calling Replicate; remaining gateway work is a provider-neutral durable queue, object storage, recovery of funded jobs after restart, usage-ledger ownership, and model capability discovery. Design detail: `AI.md`.
 
 ### 5. Media pipeline
 
-Durable `media_jobs`/`media_assets` (idempotent, payer-attributed, intent-typed) replacing the current inline Replicate avatar path. First intents: `avatar_portrait`, `avatar_card_art`, `room_scene`; crafted-item card art joins once crafting lands. Provider order: OpenRouter image models → Replicate (already integrated) → deterministic placeholder. Generated media attached to a shared avatar, card, or room is public world media. Schemas: `AI.md`.
+Durable `media_jobs`/`media_assets` (idempotent, contributor-attributed, intent-typed) replacing the current inline Replicate community-card worker. First intents: `avatar_card_art`, `item_card_art`, `location_card_art`; scene media remains system-funded. Provider order: OpenRouter image models → Replicate (already integrated) → deterministic placeholder. Generated media attached to a shared card is public world media. Schemas and backlog: `AI.md`, `docs/backlog/community-art-evolution.md`.
 
 ### 6. Moderation and abuse hardening
 
@@ -193,7 +205,7 @@ Scale model: one shard per process, isolated stores, route players to their shar
 
 ## Open Questions
 
-- **Orbs identity.** AI-cost meter that funnels engaged players to BYOK, or renewable play energy? The code currently says the first, the docs say the second; priority 3 forces the written decision.
+- **Community image governance.** Orbs now have one identity and one sink. Open questions are how items/locations gain authoritative levels, how a community previews history input, and how moderation replaces an inappropriate ready image without charging again.
 - **Generated-pattern curation.** Do generated evolution quest lists go live automatically after compiler validation, or behind an operator approve queue for the first season? Start curated, measure rejection rates, then decide.
 - **Player identity for the ownership chain.** When is the Ed25519 keypair generated, where does it live, and what is recovery? (Wallet-linked recovery exists; a native keypair story does not yet.)
 - **Kernel promotion policy.** Prepare/Rest/Work/Help are projection verbs; the standing answer is "move a verb into C only when it needs hard authority" — each promotion should record why. Search-reveal goes straight to the kernel because it creates a physical item placement; craft goes to the kernel because it must validate item co-presence, create any physical output in a legal slot, and emit an authoritative provenance event even when inputs are not consumed. Listen-absorbs-bank stays projection.

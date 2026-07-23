@@ -51,6 +51,7 @@ pub(super) struct StateResponse {
     pub(super) action_hand: ActionHandView,
     pub(super) inspector: InspectorView,
     pub(super) character_creation: Vec<CharacterCreationProfileView>,
+    pub(super) character_identity: Option<CharacterIdentityView>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -1383,8 +1384,8 @@ impl RuntimeWorld {
             account: account_view(access),
             economy: EconomyView {
                 orbs,
-                chat_cost_orbs: CHAT_ORB_COST,
-                can_chat_with_orbs: orbs >= CHAT_ORB_COST,
+                chat_cost_orbs: 0,
+                can_chat_with_orbs: false,
                 inventory_count: client_actor_id
                     .map(|id| self.actor_inventory_count(id))
                     .unwrap_or_default(),
@@ -1409,7 +1410,7 @@ impl RuntimeWorld {
                 listen_reward_claimable,
                 listen_attempted_here,
                 openrouter_connected: false,
-                chat_payer: "cosyworld_orbs".to_string(),
+                chat_payer: "advancement".to_string(),
                 wooden_boxes: access.owned_box_ids.len(),
                 unopened_packs: access.unopened_pack_ids.len(),
             },
@@ -1424,7 +1425,49 @@ impl RuntimeWorld {
             action_hand,
             inspector,
             character_creation: character_creation_views(),
+            character_identity: client_actor_id
+                .and_then(|actor_id| self.character_identity_view(actor_id)),
         }
+    }
+
+    fn character_identity_view(&self, actor_id: u64) -> Option<CharacterIdentityView> {
+        let identity = self.character_identities.get(&actor_id)?;
+        let profile = character_creation_profile(Some(&identity.profile_id))?;
+        let species_label = profile
+            .species
+            .iter()
+            .find(|card| card.id == identity.species_id)
+            .map(|card| card.label.clone())
+            .unwrap_or_else(|| identity.species_id.clone());
+        let origin_label = profile
+            .origins
+            .iter()
+            .find(|card| card.id == identity.origin_id)
+            .map(|card| card.label.clone())
+            .unwrap_or_else(|| identity.origin_id.clone());
+        let class_label = identity.class_id.as_ref().map(|class_id| {
+            profile
+                .choices
+                .iter()
+                .find(|choice| choice.id == *class_id)
+                .map(|choice| choice.label.clone())
+                .unwrap_or_else(|| class_id.clone())
+        });
+        Some(CharacterIdentityView {
+            profile_id: identity.profile_id.clone(),
+            species_id: identity.species_id.clone(),
+            species_label,
+            origin_id: identity.origin_id.clone(),
+            origin_label,
+            class_id: identity.class_id.clone(),
+            class_label,
+            class_selection_ready: identity.class_selection_ready,
+            qualifying_world_actions: identity.qualifying_world_actions,
+            level: self
+                .actor_by_id(actor_id)
+                .map(|actor| actor.stats.level)
+                .unwrap_or_default(),
+        })
     }
 
     pub(super) fn combat_view(&self, actor_id: u64, access: &AccessContext) -> Option<CombatView> {

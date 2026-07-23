@@ -4,13 +4,68 @@
     "pack_version": "0.1.2",
     "profiles": [
       {
-        "schema_version": 1,
+        "schema_version": 2,
         "id": "the-lantern-keeper",
         "name": "The Lantern Keeper",
-        "description": "Create a level-one traveler answering the last light on the Mothwood road.",
+        "description": "Begin as a classless level-zero traveler, take one action in the world, then choose how that first choice shapes your class.",
         "entry_location_id": 800,
-        "prompt": "Who takes up the road when the beacon goes dark?",
+        "prompt": "What kind of traveler reaches the last light?",
+        "class_prompt": "What did your first choice reveal about you?",
         "default_choice_id": "lantern-warden",
+        "default_species_id": "human",
+        "default_origin_id": "wayside-inn",
+        "species": [
+          {
+            "id": "human",
+            "label": "Human",
+            "detail": "adaptable, familiar, and hard to surprise twice",
+            "title": "Human",
+            "description": "A human traveler with practical hands and a face the road has not finished writing.",
+            "visual_prompt": "human traveler, expressive face, practical layered road clothes"
+          },
+          {
+            "id": "mouse",
+            "label": "Mouse",
+            "detail": "small, quick, and attentive to overlooked things",
+            "title": "Mouse",
+            "description": "A small mouse traveler with bright eyes, careful paws, and an instinct for the useful edge of a room.",
+            "visual_prompt": "anthropomorphic mouse traveler, bright eyes, careful paws, small practical satchel"
+          },
+          {
+            "id": "badger",
+            "label": "Badger",
+            "detail": "sturdy, patient, and difficult to hurry",
+            "title": "Badger",
+            "description": "A broad badger traveler with weathered fur, a patient stance, and room for one more burden.",
+            "visual_prompt": "anthropomorphic badger traveler, weathered fur, broad patient posture"
+          }
+        ],
+        "origins": [
+          {
+            "id": "wayside-inn",
+            "label": "The Wayside Inn",
+            "detail": "you learned people by the state of their boots",
+            "title": "the Wayside Inn",
+            "description": "They grew up around kettle steam, wet cloaks, and stories told once the door was barred.",
+            "visual_prompt": "warm wayside inn details, kettle steam, patched travel cloak"
+          },
+          {
+            "id": "open-road",
+            "label": "The Open Road",
+            "detail": "home was whichever milepost still had daylight",
+            "title": "the Open Road",
+            "description": "They learned to sleep lightly, mend straps in rain, and remember every honest milepost.",
+            "visual_prompt": "open road details, weathered map ribbon, rain-mended traveling gear"
+          },
+          {
+            "id": "old-chapel",
+            "label": "The Old Chapel",
+            "detail": "you know which old customs still keep people safe",
+            "title": "the Old Chapel",
+            "description": "They remember soot-black rafters, small bells, and rules whose reasons were never written down.",
+            "visual_prompt": "old roadside chapel details, small brass bell, soot-marked cloth"
+          }
+        ],
         "choices": [
           {
             "id": "lantern-warden",
@@ -29,15 +84,6 @@
             "title": "Mothwood Guide",
             "description": "A weather-wise scout carrying chalk, twine, and a map corrected more often than it is folded.",
             "starting_skill_id": "listening"
-          },
-          {
-            "id": "chapel-scholar",
-            "label": "Chapel Scholar",
-            "detail": "name the old wards before they break",
-            "calling": "I learn what the old lights were built to keep out.",
-            "title": "Chapel Scholar",
-            "description": "A field scholar with soot-black notes, practical prayers, and an inconvenient curiosity about sealed doors.",
-            "starting_skill_id": "lorecraft"
           },
           {
             "id": "hedge-mender",

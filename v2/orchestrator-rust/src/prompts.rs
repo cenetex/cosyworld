@@ -15,6 +15,8 @@ pub(super) struct ResidentReplyPlan {
     pub(super) location_memory: Vec<String>,
     pub(super) cast: Vec<String>,
     pub(super) recent_lines: Vec<String>,
+    #[serde(default)]
+    pub(super) recent_activity: Vec<String>,
     pub(super) user_text: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) caused_by_event_seq: Option<u64>,
@@ -183,11 +185,16 @@ pub(super) async fn request_ai_resident_intent(
     } else {
         plan.recent_lines.join("\n")
     };
+    let recent_activity = if plan.recent_activity.is_empty() {
+        "No recent played-card or room-log activity.".to_string()
+    } else {
+        plan.recent_activity.join("\n")
+    };
     let location_memory = format_location_memory(&plan.location_memory);
     let goals = format_goal_lines(&plan.goals);
     let resident_continuity = format_resident_continuity(&plan.resident_continuity);
     let user = format!(
-        "Location: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nResident continuity:\n{resident_continuity}\nResident economy:\n{economy_note}\nCast present: {cast}\nRecent room lines:\n{recent}\nHuman line to respond to:\n{line}\nReply contract: answer that line's actual question or proposal before adding a new hook. If it names a concrete item or place, repeat that name so the conversation cannot silently change subjects.\nReturn valid JSON only with this shape:\n{{\"speech\":\"one visible reply from {name}\",\"intent\":\"what {name} is trying next, or null\",\"belief\":\"what {name} now believes, or null\",\"desire\":\"what {name} wants, or null\",\"promise\":\"what {name} commits to, or null\",\"refusal\":\"what {name} refuses, or null\",\"proposed_action\":{{\"kind\":\"wait|speak|move|pick_up|drop|give|trade|use|search|refuse\",\"target_actor_id\":null,\"item_id\":null,\"destination_location_id\":null,\"reason\":\"why this action follows\"}}}}\nUse null for unknown optional fields. The kernel has not accepted proposed_action yet, so do not claim it already happened.",
+        "Location: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nResident continuity:\n{resident_continuity}\nResident economy:\n{economy_note}\nCast present: {cast}\nRecent played cards and room log, oldest to newest:\n{recent_activity}\nRecent room lines:\n{recent}\nCard or direct event to respond to:\n{line}\nReply contract: react to what actually happened in this channel. Treat the room log and played cards as facts, with newer entries superseding older state. Answer the direct event first, then use at most one concrete detail from the recent context as a hook. If it names a concrete item or place, repeat that name so the conversation cannot silently change subjects.\nReturn valid JSON only with this shape:\n{{\"speech\":\"one visible reply from {name}\",\"intent\":\"what {name} is trying next, or null\",\"belief\":\"what {name} now believes, or null\",\"desire\":\"what {name} wants, or null\",\"promise\":\"what {name} commits to, or null\",\"refusal\":\"what {name} refuses, or null\",\"proposed_action\":{{\"kind\":\"wait|speak|move|pick_up|drop|give|trade|use|search|refuse\",\"target_actor_id\":null,\"item_id\":null,\"destination_location_id\":null,\"reason\":\"why this action follows\"}}}}\nUse null for unknown optional fields. The kernel has not accepted proposed_action yet, so do not claim it already happened.",
         location = plan.location_name,
         location_title = plan.location_title,
         location_description = plan.location_description,
@@ -197,6 +204,7 @@ pub(super) async fn request_ai_resident_intent(
         resident_continuity = resident_continuity,
         economy_note = plan.economy_note,
         cast = plan.cast.join(", "),
+        recent_activity = recent_activity,
         recent = recent,
         line = plan.user_text,
         name = plan.npc_name

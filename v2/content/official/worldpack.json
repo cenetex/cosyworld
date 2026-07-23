@@ -29,7 +29,7 @@
   "rules_profile": "cosyworld.srd5/1",
   "active_rules_variants": [],
   "active_rules_extensions": [],
-  "bundle_hash": "sha256:b424bcf3b79f15d59afed4848c13c7f7c4ecb59098f1f0ada430da7f9412e37a",
+  "bundle_hash": "sha256:226996ee96150505c53df2a999297e8c5fa771b0dd81e6d03eb82e62daccc290",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -457,7 +457,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:cf3734be336644caa931bda935b68b2cf04b215d6be7e6195a34184db3800cac"
+      "integrity": "sha256:67a0bd418a91396b74796249727341f4481ac25f8a32f7eb2ae32a499acbada4"
     },
     {
       "id": "cosyworld.lonely-forest.characters",

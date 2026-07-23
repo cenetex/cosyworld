@@ -1,21 +1,22 @@
-# Lonely Forest AWS Hosting
+# Lonely Forest AWS edge and rollback infrastructure
 
-This module hosts the live V2 orchestrator at `lonelyforest.com` and a static
-archive/library site at `lonelyforestlibrary.com`.
+This module owns the `lonelyforest.com` Route 53 zone, the static
+archive/library site at `lonelyforestlibrary.com`, and the dormant AWS rollback
+stack. The live V2 orchestrator runs in the `cosyworld-lonelyforest` Fly app.
 
 ## What It Creates
 
-- ECR repository for the root `Dockerfile` image.
-- ECS Fargate service behind an HTTPS Application Load Balancer.
-- EFS access point mounted at `/data` for SQLite snapshots, event store, and generated assets.
-- WebAuthn/passkey relying-party configuration for the application domain and optional `www` origin.
+- ECR, ECS Fargate, ALB, and EFS resources retained for the migration rollback
+  window.
+- WebAuthn/passkey relying-party configuration for the application domain and
+  optional `www` origin.
 - ACM certificate for `lonelyforest.com`, `www.lonelyforest.com`,
   `lonelyforestlibrary.com`, and `www.lonelyforestlibrary.com`.
 - Route 53 alias records for both domains.
 - S3 private bucket plus CloudFront distribution for the archive site in
   `sites/lonelyforestlibrary`.
 
-The ECS service is intentionally `desired_count = 1`. Shared journal fencing,
+Any active ECS rollback is intentionally `desired_count = 1`. Shared journal fencing,
 cross-process routing, projection/presence convergence, invite rendezvous,
 atomic hot-room handoff, verified regional recovery, and both chaos harnesses
 are implemented. ECS still lacks an exact per-task owner route, and the first
@@ -44,11 +45,13 @@ source region is hard-fenced and the copied prefix hash is recorded externally.
 
 - `create_hosted_zones = true` because these domains are delegated to the
   hosted zones managed by this module.
-- `deploy_profile = "local"` because the production bearer/moderation secrets
-  do not exist in this AWS account yet.
+- `fly_app_ipv4` and `fly_app_ipv6` select Fly for the application records when
+  both are populated; leaving both empty retains the ALB records for rollback.
+- `desired_count = 0` keeps the AWS writer stopped after the cutover. It may be
+  `1` only during an explicit rollback after the Fly writer is fenced.
 
-Switch to `deploy_profile = "production"` only after creating the required
-Secrets Manager entries and setting their ARN variables.
+The data migration and cutover runbook lives in
+[`../../docs/deployment/lonelyforest-fly.md`](../../docs/deployment/lonelyforest-fly.md).
 
 ## Prerequisites
 
@@ -75,7 +78,7 @@ Secrets Manager entries and setting their ARN variables.
    - `COSYWORLD_BOX_BURN_SOLANA_RPC_URL`
    - `COSYWORLD_BOX_CORE_COLLECTION_ADDRESS`
 
-## Deploy
+## Legacy AWS rollback deploy
 
 From the repo root:
 
@@ -106,7 +109,7 @@ For an amd64 image, use:
 DOCKER_PLATFORM=linux/amd64 TF_VAR_cpu_architecture=X86_64 ./scripts/deploy-lonely-forest-aws.sh
 ```
 
-## Manual Flow
+## Legacy manual flow
 
 ```sh
 cd infra/aws-lonely-forest

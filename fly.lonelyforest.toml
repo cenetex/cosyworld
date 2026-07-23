@@ -1,40 +1,45 @@
-app = "cosyworld"
+app = "cosyworld-lonelyforest"
 primary_region = "sjc"
 
-[build]
-  dockerfile = "Dockerfile"
+# Lonely Forest is an installation boundary, not a request-host tenant inside
+# the CosyWorld process. It deliberately runs the same immutable image as the
+# primary Fly app while keeping its journal and generated assets on a separate
+# volume.
 
 [env]
   COSYWORLD_DEPLOY_PROFILE = "production"
   COSYWORLD_V2_ADDR = "0.0.0.0:3000"
+  COSYWORLD_PROCESS_ID = "lonelyforest-1"
+  COSYWORLD_V2_SHARD_ID = "lonelyforest-1"
   COSYWORLD_V2_SNAPSHOT_PATH = "/data/cosyworld-v2-snapshot.json"
   COSYWORLD_V2_EVENT_DB_PATH = "/data/cosyworld-v2-events.sqlite"
   COSYWORLD_GENERATED_ASSET_DIR = "/data/generated"
-  COSYWORLD_WEBAUTHN_RP_ID = "cosyworld.fly.dev"
-  COSYWORLD_WEBAUTHN_ORIGIN = "https://cosyworld.fly.dev"
+  COSYWORLD_WEBAUTHN_RP_ID = "lonelyforest.com"
+  COSYWORLD_WEBAUTHN_ORIGIN = "https://lonelyforest.com"
+  COSYWORLD_WEBAUTHN_EXTRA_ORIGINS = "https://www.lonelyforest.com"
   COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL = "https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards"
   COSYWORLD_HOSTED_PARTY_MAX_GUESTS = "4"
   COSYWORLD_HOSTED_PARTY_MAX_ACTIVE_PER_GUEST = "4"
   COSYWORLD_HOSTED_ACCESS_TTL_SECS = "7200"
   COSYWORLD_HOSTED_ACCESS_GRACE_SECS = "60"
   COSYWORLD_STORY_METRICS_RETENTION_DAYS = "400"
+  COSYWORLD_GENERATION_DEFAULT_MODE = "off"
+  COSYWORLD_GENERATION_FEATURE_MODES_JSON = "{\"pathway_content\":\"auto_bounded\"}"
+  COSYWORLD_AI_PROVIDER = "openrouter"
+  OPENROUTER_CHAT_MODEL = "openai/gpt-5.6-luna"
+  OPENROUTER_REASONING_EFFORT = "none"
   RUST_LOG = "cosyworld_orchestrator=info,tower_http=warn"
 
-# Required production secrets:
-# fly secrets set COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER=...
-# fly secrets set COSYWORLD_MODERATION_TOKEN=...
-
-# Required before enabling production Box burns:
-# fly secrets set COSYWORLD_BOX_BURN_SOLANA_RPC_URL=...
-# fly secrets set COSYWORLD_BOX_CORE_COLLECTION_ADDRESS=...
+# Required production secrets are provisioned independently for this app.
+# See docs/deployment/lonelyforest-fly.md.
 
 [[mounts]]
-  source = "cosyworld_data"
+  source = "lonelyforest_data"
   destination = "/data"
 
 [http_service]
   internal_port = 3000
-  force_https = false
+  force_https = true
   auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1

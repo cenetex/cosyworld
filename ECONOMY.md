@@ -4,9 +4,9 @@
 
 CosyWorld should use two currency-like resources with different trust models:
 
-- `Orbs`: fungible, off-chain game currency held in the v2 account ledger. Orbs are earned by solving challenges, completing puzzles, winning small encounters, or advancing world goals. Server-paid Chat spends Orbs because `Chat` consumes shared AI/world attention.
+- `Orbs`: fungible, off-chain game currency held in the v2 account ledger. Orbs are earned by solving challenges, completing puzzles, winning small encounters, or advancing world goals. Their only player spend is community image generation for generated collectible cards.
 - `Intricately Carved Wooden Boxes`: wallet-owned NFTs. A Box is an irreversible burn voucher. Burning one creates an avatar card pack in the Ruby High card-pack style; opening that pack reveals avatar cards from the CosyWorld/Ruby High world catalog.
-- Player OpenRouter connection: an alternate AI payer. A connected player OpenRouter account makes explicit player-initiated Chat/media cost zero Orbs inside CosyWorld, while the resulting output remains a public shared-world event.
+- AI provider accounts and server budgets are operational concerns, not a second in-world price for conversation. Chat is public and Orb-free, but is an advancement-backed friendship action rather than an always-available free verb.
 
 This is deliberately not one generic wallet balance. Orbs are MMO play energy. Boxes are on-chain collectible inventory. Avatar cards, item cards, and location cards remain shared-world inputs, not private instances.
 
@@ -49,33 +49,31 @@ Rules:
 - A wallet or account has an Orb balance in the v2 Rust ledger.
 - The C kernel may emit rule outcomes that cause Orb awards, but it does not own the wallet ledger.
 - Orbs are awarded only from committed game events: challenge solved, puzzle solved, encounter resolved, daily room contribution, or world goal contribution.
-- Server-paid Chat costs Orbs. The server can render `Chat` only when the avatar is allowed to speak and the account has either a verified player OpenRouter payer or enough Orbs.
-- Player OpenRouter-paid Chat spends zero Orbs, but still records AI usage and commits public room events.
-- The player's OpenRouter payer covers only the explicit action they initiated, normally the player-avatar line plus the immediate resident reply.
-- The player's OpenRouter payer is not used for ambient resident beats, autonomous swarm jobs, admin content generation, or other players' later actions.
-- Failed validation does not spend Orbs.
-- A successful server-paid inferred avatar line spends Orbs after it commits. Failed or unavailable inference emits no substitute speech and spends nothing.
-- If AI fails before any shared avatar line is committed, the spend is rolled back or never committed.
+- Orbs never pay for Chat, Say, Listen/Notice, combat, travel, access, success, progression, resident heartbeats, or any other ordinary world verb.
+- A generated collectible may receive one community-funded image at each level.
+- The total pooled price of that image is exactly its level in Orbs: level 1 costs 1, level 2 costs 2, and so on.
+- Contributions are journaled per avatar and capped at the remaining pooled price. Once fully funded, retries never take more Orbs.
+- The generation prompt includes public history through the funding event, so later-level images can visibly evolve with the card's story.
+- Generated media belongs to the shared card, not to the contributor. Paying does not grant ownership, power, access, or editorial authority.
+- Failed validation, unavailable providers, duplicate contributions, generation retries, and already-completed levels spend nothing.
 - P0 Orbs are not on-chain, not transferable, and not a payment rail. Later bridges can be designed explicitly.
 
 Current v2 implementation:
 
 - `orb_ledger` is append-only and idempotent by committed action/event key.
-- Avatar creation, successful challenge/combat rewards, flee rewards, and server-paid Chat spends are projected into `orb_ledger`.
+- Avatar creation and successful challenge/combat/flee rewards are projected into `orb_ledger`; `community_image_generation` is the sole negative ledger reason for new actions.
 - Automatic rule rewards are claim-key gated by actor/context, so replaying the same Listen/combat/flee outcome does not mint duplicate Orbs.
-- `ai_usage_ledger` records player-avatar Chat usage with feature, payer mode, provider, model, status, source event id, Orb delta, and latency.
+- `ai_usage_ledger` records system-funded resident inference and community image jobs as `community_orbs`, with feature, status, source event id, Orb delta, and latency.
 - Player OpenRouter keys remain transient. The ledger records payer mode, not secrets.
 - Trusted ownership feeds can include active Wooden Boxes and unopened avatar packs; `/state` exposes compact counts and asset ids without trusting client query params.
 - Development reset clears projected events, action journal, sessions, wallet links, suspensions, Orb ledger rows, and AI usage rows together.
 
 UI implication:
 
-- The normal room button remains `Chat`.
-- When the player has no Orbs, the primary command becomes a world-appropriate earning action such as `Listen`, `Challenge`, `Practice`, or `Notice`, not a shop button.
-- If a zero-Orb room exposes a still-claimable `Listen` reward, the one-button browser shell prefers `Listen` and hides the `Connect AI` fallback from the command rail.
-- Once that actor/location Listen reward claim is spent, the shell stops presenting `Listen` as a recovery command and can fall back to `Connect AI` until another real earning action is available.
-- When the player has a verified OpenRouter payer, `Chat` stays available even at zero Orbs.
-- When the player has neither OpenRouter payer nor enough Orbs, the primary command should route toward earning Orbs through `Challenge`, `Spar`, `Listen`, `Practice`, or `Notice`.
+- `Chat` appears only when banked advancement can begin a friendship with an eligible nearby resident. Its cost is one advancement point, never an Orb.
+- Ordinary moderated `Say` remains available without advancement. Other successful scene cards can invite one system-funded resident reply on the room heartbeat.
+- Generated avatar, item, and familiar generated-location card modals show the current level's pooled image progress. Contributing uses the existing card surface; it does not add a currency dashboard to the play scene.
+- A fully funded or failed job can be nudged/retried without another debit. A completed card says that its next image unlocks at the next level.
 - The Orb balance can be visible as compact status text, but it must not turn the MUD into a dashboard.
 
 ### Intricately Carved Wooden Boxes
@@ -155,11 +153,10 @@ Add services/modules:
 
 Update existing flows:
 
-- `/state` returns compact economy state: Orb balance, Box count, unopened pack count, whether `Chat` is affordable, and whether Chat will spend Orbs.
-- `/state` returns compact AI payer state: OpenRouter connection state, verified label or limit metadata, and current server-paid Chat cost.
-- `/actions/chat` requires avatar session, room access, target validity, rate limit, and either verified OpenRouter payer or Orb affordability before generating a line.
-- `/actions/chat` records AI usage for both payer modes.
-- `/actions/chat` records the Orb spend and the committed message under one idempotency key only for server-paid Chat.
+- `/state` returns compact economy state plus level-scoped `community_art` funding on eligible generated cards. Legacy Chat-cost fields remain zero-valued for client compatibility.
+- `/actions/create-bond` is presented as `Chat` and requires avatar session, room access, an eligible nearby resident, turn legality, rate limit, and one advancement point. Legacy `/actions/chat` delegates to that contract. Neither path checks or spends Orbs.
+- `/actions/fund-image` validates the session, visible eligible card, current level, provider availability, remaining pooled cost, and contributor balance before atomically journaling one Orb.
+- Community generation completion/failure is journaled separately; the image asset becomes the card's current art only after the ready event commits.
 - `/world` and room state include newly granted avatar cards through the same card projection map.
 - `/meta` exposes economy feature flags without secrets.
 
@@ -351,20 +348,13 @@ Current status: implemented for the MVP text loop.
 - New avatars receive a starter grant.
 - Listen/combat/flee outcomes can award Orbs from committed events.
 - Added claim keys for automatic rule rewards so repeated identical actor/context outcomes are idempotent.
-- Server-paid `Chat` spends one Orb only after the avatar line commits.
-- The one-button browser shell routes zero-Orb players toward in-world earning actions before AI setup, but only while the focused action can still produce a reward claim.
-- Tests cover committed spends, ledger projection, reward claim idempotency, zero-Orb earning-action UX, and reset cleanup.
+- `Chat`, resident heartbeats, and repeat `Listen` spend no Orbs; Chat spends one advancement point.
+- Eligible generated cards pool exactly one Orb per contribution until the level-sized image price is met.
+- Tests cover image-only Orb spends, level-sized pooled funding, advancement-backed Chat, free Listen, heartbeat coalescing, ledger projection, reward claim idempotency, and reset cleanup.
 
-### Stage 2: OpenRouter Player Payer
+### Stage 2: AI Payer Separation
 
-Current status: implemented as a browser-held key MVP.
-
-- Added OpenRouter key connection state in the browser.
-- Verified player keys with OpenRouter's `/api/v1/key`.
-- Recorded AI usage without storing raw player keys in SQLite.
-- Allowed verified player-paid `Chat` with zero Orb spend.
-- Kept autonomous ambient and swarm work on the server budget.
-- Still missing: PKCE/vaulted cross-device account link.
+Current status: Chat is advancement-backed and Orb-free; the delayed resident reply is system-funded. The browser no longer exposes player-key setup in the normal play surface. AI usage remains non-secret and auditable. Any future player-provider connection must not reintroduce an Orb gate for ordinary verbs.
 
 ### Stage 3: Combat Challenge Loop
 
@@ -447,7 +437,7 @@ Current status: implemented as deterministic local reveal provenance.
 - NFT ownership unlocks shared rooms and influences shared residents; it does not create private rooms.
 - Human players do not type chat.
 - AI speech is one-to-many through room events.
-- Orbs are spent only for committed server-paid world participation.
+- Orbs are spent only for committed community image generation.
 - Automatic Orb rewards are claim-gated by stable actor/context keys.
 - Player OpenRouter payment changes payer only, never room visibility.
 - Boxes are burned only through verified irreversible wallet actions.

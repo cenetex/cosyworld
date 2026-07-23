@@ -19,8 +19,12 @@ describe('deploy workflow', () => {
     expect(workflow).not.toContain('group: deploy-${{ github.ref }}');
   });
 
-  it('lets tagged AWS deployments finish independently of Fly', () => {
-    expect(job('aws', 'github-release')).not.toMatch(/^\s+needs:\s*fly\s*$/m);
-    expect(job('github-release')).toContain('needs: [fly, aws]');
+  it('deploys one immutable Fly image to both apps before publishing a release', () => {
+    const fly = job('fly', 'github-release');
+    expect(fly).toContain('flyctl deploy --remote-only --config fly.toml');
+    expect(fly).toContain('flyctl image show --app "$FLY_PRIMARY_APP" --json');
+    expect(fly).toContain('flyctl deploy --config fly.lonelyforest.toml --image "${{ steps.image.outputs.ref }}"');
+    expect(workflow).not.toContain('\n  aws:');
+    expect(job('github-release')).toContain('needs: [fly]');
   });
 });

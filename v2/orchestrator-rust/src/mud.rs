@@ -161,9 +161,6 @@ pub(crate) enum CommandDispatch {
         target_actor_id: u64,
         reason: String,
     },
-    Chat {
-        target_actor_id: u64,
-    },
 }
 
 #[derive(Debug)]
@@ -460,7 +457,6 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
             "The room did not hear that. Try once more."
         }
         CommandDispatch::Report { .. } => "That report did not reach us. Try once more.",
-        CommandDispatch::Chat { .. } => "They cannot answer just now.",
         CommandDispatch::Read { .. }
         | CommandDispatch::Disabled { .. }
         | CommandDispatch::SearchFeature { .. }
@@ -1601,12 +1597,40 @@ impl RuntimeWorld {
                     )
                     .map_err(|output| command_error(&command, "chat", 404, output))?;
                 let target_name = self.actor_view(target).name;
+                let chat_command = format!("chat {target_name}");
+                if self.active_bond(actor.id, target.id).is_some() {
+                    return Ok(ResolvedCommand {
+                        command: chat_command.clone(),
+                        verb,
+                        action: Some(command_action("create_bond", "Chat", &chat_command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: format!(
+                                "You already share a friendship with {target_name}; play another card and let the room answer."
+                            ),
+                        },
+                    });
+                }
+                if self.advancement_points_available(actor.id) < usize::from(BOND_SLOT_COST) {
+                    return Ok(ResolvedCommand {
+                        command: chat_command.clone(),
+                        verb,
+                        action: Some(command_action("create_bond", "Chat", &chat_command)),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: format!(
+                                "Grow first, then Chat can begin a friendship with {target_name}."
+                            ),
+                        },
+                    });
+                }
                 Ok(ResolvedCommand {
-                    command: format!("chat {target_name}"),
+                    command: chat_command.clone(),
                     verb,
-                    action: Some(command_action("chat", "Chat", &format!("chat {target_name}"))),
-                    dispatch: CommandDispatch::Chat {
+                    action: Some(command_action("create_bond", "Chat", &chat_command)),
+                    dispatch: CommandDispatch::CreateBond {
                         target_actor_id: target.id,
+                        statement: default_bond_statement(&target_name),
                     },
                 })
             }

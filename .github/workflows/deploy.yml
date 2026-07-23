@@ -14,10 +14,7 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: us-east-1
-  AWS_ROLE_ARN: arn:aws:iam::022118847419:role/lonely-forest-github-actions-deployer
-  AWS_TERRAFORM_DIR: infra/aws-lonely-forest
-  AWS_ECR_REPOSITORY: lonely-forest-app
+  FLY_PRIMARY_APP: cosyworld
 
 jobs:
   fly:
@@ -31,92 +28,31 @@ jobs:
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Deploy to Fly
+      - name: Deploy primary Fly app
         run: flyctl deploy --remote-only --config fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-  aws:
-    name: Deploy tagged version to AWS
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to ECR
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Check for existing versioned AWS image
-        id: aws_image
+      - name: Resolve deployed image digest
+        id: image
         run: |
-          if aws ecr describe-images \
-            --repository-name "$AWS_ECR_REPOSITORY" \
-            --image-ids "imageTag=$GITHUB_REF_NAME" \
-            >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Setup Docker Buildx
-        if: steps.aws_image.outputs.exists != 'true'
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push AWS image
-        if: steps.aws_image.outputs.exists != 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: |
-            ${{ steps.ecr.outputs.registry }}/${{ env.AWS_ECR_REPOSITORY }}:${{ github.ref_name }}
-            ${{ steps.ecr.outputs.registry }}/${{ env.AWS_ECR_REPOSITORY }}:latest
-          cache-from: type=registry,ref=${{ steps.ecr.outputs.registry }}/${{ env.AWS_ECR_REPOSITORY }}:buildcache
-          cache-to: type=registry,ref=${{ steps.ecr.outputs.registry }}/${{ env.AWS_ECR_REPOSITORY }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
-
-      # The arm64 image build can outlive the initial one-hour OIDC session.
-      # Re-assume the deployer role before Terraform touches the remote state.
-      - name: Refresh AWS credentials for Terraform
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          unset-current-credentials: true
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.5.7
-
-      - name: Terraform init
-        working-directory: ${{ env.AWS_TERRAFORM_DIR }}
-        run: terraform init -input=false
-
-      - name: Terraform apply
-        working-directory: ${{ env.AWS_TERRAFORM_DIR }}
-        run: terraform apply -input=false -auto-approve -var="image_tag=${GITHUB_REF_NAME}"
+          image_ref="$(flyctl image show --app "$FLY_PRIMARY_APP" --json | jq -r '.[0] | "\(.Registry)/\(.Repository)@\(.Digest)"')"
+          test -n "$image_ref"
+          test "$image_ref" != "null/null@null"
+          echo "ref=$image_ref" >> "$GITHUB_OUTPUT"
         env:
-          TF_IN_AUTOMATION: true
-          TF_INPUT: false
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Deploy the same image to Lonely Forest
+        run: flyctl deploy --config fly.lonelyforest.toml --image "${{ steps.image.outputs.ref }}" --ha=false
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   github-release:
     name: Create GitHub release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [fly, aws]
+    needs: [fly]
     permissions:
       contents: write
     steps:

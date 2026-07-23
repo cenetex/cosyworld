@@ -8,6 +8,11 @@ output "app_url" {
   description = "Live app URL."
 }
 
+output "app_hosting_provider" {
+  value       = local.app_uses_fly ? "fly" : "aws"
+  description = "Provider currently selected by the application DNS records."
+}
+
 output "archive_url" {
   value       = "https://${var.archive_domain}"
   description = "Archive/library URL."

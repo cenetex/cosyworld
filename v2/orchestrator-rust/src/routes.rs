@@ -23,6 +23,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             get(generated_pathway_asset),
         )
         .route(
+            "/assets/generated/community/{subject_kind}/{asset_file}",
+            get(generated_community_art_asset),
+        )
+        .route(
             "/assets/generated/avatars/{avatar_file}",
             get(generated_avatar_asset),
         )
@@ -122,12 +126,14 @@ pub(super) fn app_router(state: AppState) -> Router {
         )
         .route("/dev/reset", post(dev_reset))
         .route("/avatar", post(create_avatar))
+        .route("/avatar/class", post(choose_avatar_class))
         .route("/presence/ping", post(ping_presence))
         .route("/presence/leave", post(leave_presence))
         .route("/actions/submit", post(submit_action_offer))
         .route("/actions/timeout", post(request_turn_timeout))
         .route("/actions/narrative-move", post(submit_narrative_move))
         .route("/actions/chat", post(chat))
+        .route("/actions/fund-image", post(fund_community_image))
         .route("/actions/say", post(say))
         .route("/actions/report", post(report_actor))
         .route("/actions/move", post(move_actor))

@@ -2899,7 +2899,7 @@
       <div class="action-meta" id="action-modal-meta"></div>
       <div class="action-choice-list" id="action-modal-choices" hidden></div>
       <button class="action-confirm" id="action-modal-confirm" type="button" data-analytics-event="action.confirm">confirm</button>
-      <button class="action-cancel" type="button" data-action-close>cancel</button>
+      <button class="action-cancel" id="action-modal-cancel" type="button" data-action-close>cancel</button>
     </section>
   </div>
   <div class="wallet-modal" id="wallet-modal" hidden>
@@ -3411,7 +3411,12 @@
       const payload = profile
         ? {
             character_creation_id: selection?.profileId || profile.id,
-            character_choice_id: choiceId,
+            ...(profile.schema_version === 2
+              ? {
+                  species_id: selection?.speciesId || profile.default_species_id,
+                  origin_id: selection?.originId || profile.default_origin_id,
+                }
+              : { character_choice_id: choiceId }),
           }
         : { calling: selection?.calling || authoredCallingChoices[0].statement };
       const avatar = await post("/avatar", withAccess(payload));
@@ -3434,6 +3439,17 @@
       playerPromotedHandKey = "";
       await refresh();
       connectStream();
+    }
+
+    async function chooseAvatarClass(selection) {
+      const result = await post("/avatar/class", withActor({
+        character_creation_id: selection.profileId,
+        class_id: selection.classId,
+      }));
+      if (!result.ok) throw new Error(actionFailureMessage(result, "That class is not ready yet."));
+      pushEvents(result.events || []);
+      await refresh();
+      return result;
     }
 
     async function requestDevResetIfNeeded() {
@@ -3783,7 +3799,16 @@
       if (view.primary_action?.kind === "create_avatar") {
         const beginningAgain = Boolean(defeatTransition);
         const creationProfile = (view.character_creation || [])[0] || null;
-        const creationChoices = creationProfile?.choices?.length
+        const stagedCreation = creationProfile?.schema_version === 2
+          && creationProfile?.species?.length
+          && creationProfile?.origins?.length;
+        const creationChoices = stagedCreation
+          ? creationProfile.species.map((choice) => ({
+              label: choice.label,
+              detail: choice.detail,
+              value: choice.id,
+            }))
+          : creationProfile?.choices?.length
           ? creationProfile.choices.map((choice) => ({
               label: choice.label,
               detail: choice.detail,
@@ -3794,7 +3819,9 @@
               detail: choice.detail,
               value: choice.statement,
             }));
-        const defaultChoice = creationProfile?.default_choice_id || authoredCallingChoices[0].statement;
+        const defaultChoice = stagedCreation
+          ? creationProfile.default_species_id
+          : (creationProfile?.default_choice_id || authoredCallingChoices[0].statement);
         const action = {
           handProvider: {
             kind: "rules",
@@ -3816,7 +3843,9 @@
             ? "begin another tale"
             : (creationProfile?.prompt || "what draws you in?"),
           modalSummary: beginningAgain
-            ? "Choose what draws your next avatar into the world."
+            ? (stagedCreation
+              ? "Choose what your next avatar is. Their class will emerge after their first choice in the world."
+              : "Choose what draws your next avatar into the world.")
             : (creationProfile?.description || "Pick the sort of trouble your avatar can't resist."),
           effect: beginningAgain
             ? "starts a new avatar's tale"
@@ -3828,10 +3857,63 @@
           busyLabel: "arriving",
           busyDetail: creationProfile ? "the last lantern is making room…" : "the cottage is making room…",
         };
+        if (stagedCreation) {
+          action.creationProfile = creationProfile;
+          action.selectedSpeciesId = creationProfile.default_species_id;
+          action.selectedOriginId = creationProfile.default_origin_id;
+          setCreationModalStage(action, "species");
+        }
         action.run = () => createAvatar(creationProfile
-          ? { profileId: creationProfile.id, choiceId: action.selectedChoice || defaultChoice }
+          ? (stagedCreation
+            ? {
+                profileId: creationProfile.id,
+                speciesId: action.selectedSpeciesId || creationProfile.default_species_id,
+                originId: action.selectedOriginId || creationProfile.default_origin_id,
+              }
+            : { profileId: creationProfile.id, choiceId: action.selectedChoice || defaultChoice })
           : { calling: action.selectedChoice || defaultChoice });
         return [action];
+      }
+
+      const characterIdentity = view.character_identity || null;
+      if (characterIdentity?.class_selection_ready && !characterIdentity?.class_id) {
+        const creationProfile = (view.character_creation || [])
+          .find((profile) => profile.id === characterIdentity.profile_id);
+        if (creationProfile?.choices?.length) {
+          const choices = creationProfile.choices.map((choice) => ({
+            label: choice.label,
+            detail: choice.detail,
+            value: choice.id,
+          }));
+          const action = {
+            handProvider: {
+              kind: "identity",
+              id: `identity:${characterIdentity.profile_id}:class`,
+              label: "Your first choice",
+              reason: "From what you just did in the world",
+              priority: 0,
+            },
+            kind: "choose-class",
+            label: "choose class",
+            detail: "your first action revealed three paths",
+            command: "choose class",
+            focusKey: "choose-class",
+            card: cardForActor(actorId),
+            shape: "avatar",
+            modalTitle: creationProfile.class_prompt || "what did your first choice reveal?",
+            modalSummary: `${characterIdentity.species_label} from ${characterIdentity.origin_label}: choose your path.`,
+            effect: "raises this classless traveler from level zero to level one",
+            choices,
+            selectedChoice: creationProfile.default_choice_id || choices[0].value,
+            busyLabel: "becoming",
+            busyDetail: "your first path is settling into place…",
+          };
+          action.run = () => chooseAvatarClass({
+            profileId: creationProfile.id,
+            classId: action.selectedChoice || creationProfile.default_choice_id,
+          });
+          return [action];
+        }
       }
 
       const turn = view.turn || {};
@@ -3872,7 +3954,8 @@
         if (intention === "contribute") add("work", "help");
         if (action?.evolveModes?.includes("grow") || focusKey === "bank-ledger") add("bank_ledger");
         if (action?.evolveModes?.includes("practice") || focusKey.startsWith("train")) add("train_skill");
-        if (action?.kind === "orb-chat" || label === "chat") add("chat");
+        if (action?.kind === "orb-chat") add("chat");
+        if (action?.kind === "advancement-chat" || label === "chat") add("create_bond");
         if (label === "give") add("give_item");
         if (label === "trade") add("trade_item");
         if (["take", "swap"].includes(label)) add("pick_up");
@@ -4044,54 +4127,47 @@
         return evolveAction;
       };
       const buildChatAction = () => {
-        if (economy.can_chat_with_orbs === false) return null;
-        const chatCandidates = (view.actors || []).filter((actor) => (
-          actor.id !== actorId
-          && actor.kind === "npc"
-          && actor.status === "active"
-        ));
+        if (!options.has("create_bond") || Number(ledger.advancement_points || 0) <= 0) return null;
+        const chatOffer = offerFor("create_bond");
+        const offeredTargetId = Number(chatOffer?.target?.id || 0);
+        const chatCandidates = residentTargets
+          .filter((actor) => !activeBondTargetIds.has(actor.id))
+          .sort((left, right) => (
+            Number(right.id === offeredTargetId) - Number(left.id === offeredTargetId)
+            || actorLabel(left).localeCompare(actorLabel(right))
+          ));
         if (!chatCandidates.length) return null;
-        const chatOffer = offerFor("chat");
-        const chatCostValue = Number.isFinite(Number(chatOffer?.cost?.orbs))
-          ? Number(chatOffer.cost.orbs)
-          : Number(economy.chat_cost_orbs || 0);
-        const chatUsesOrbs = chatCostValue > 0;
-        const chatCostText = chatCostValue === 1 ? "one Orb" : `${chatCostValue} Orbs`;
         const firstChat = chatCandidates[0];
         const oneChat = chatCandidates.length === 1;
-        const firstTargetName = actorLabel(firstChat);
+        const firstTargetName = firstChat.name || actorLabel(firstChat);
         const chatAction = {
-          kind: "orb-chat",
+          kind: "advancement-chat",
           label: "chat",
           detail: oneChat
-            ? (chatUsesOrbs ? `${firstTargetName} · ${chatCostText}` : firstTargetName)
-            : (chatUsesOrbs ? `choose someone · ${chatCostText}` : "choose someone"),
-          command: oneChat ? `chat ${firstTargetName}` : "chat",
+            ? `with ${actorLabel(firstChat)} · use what you learned`
+            : "choose someone · use what you learned",
+          command: oneChat ? (chatOffer?.command || `chat ${firstTargetName}`) : "chat",
           focusKey: oneChat
-            ? (options.has("attack") ? `talk:${firstChat.id}` : `actor:${firstChat.id}`)
-            : `chat:${chatCandidates.map((actor) => actor.id).join("|")}`,
-          focusKeys: chatCandidates.map((actor) => (
-            options.has("attack") ? `talk:${actor.id}` : `actor:${actor.id}`
-          )),
-          card: oneChat
-            ? cardForActor(firstChat.id)
-            : (cardForActor(actorId) || cardForLocation(view.location?.id) || cardForActor(firstChat.id)),
+            ? `bond:${firstChat.id}`
+            : `bond:${chatCandidates.map((actor) => actor.id).join("|")}`,
+          focusKeys: chatCandidates.map((actor) => `actor:${actor.id}`),
+          card: cardForActor(firstChat.id),
           shape: "avatar",
-          priority: 83,
+          priority: Number(chatOffer?.rank || 77),
           targetName: oneChat ? firstTargetName : "",
-          orbCost: chatUsesOrbs ? chatCostValue : 0,
+          modalTitle: oneChat ? `chat with ${firstTargetName}` : "choose someone to chat with",
           modalSummary: oneChat
-            ? `Play Chat to start a short conversation with ${firstTargetName}. The action passes the room turn immediately while the conversation unfolds.`
-            : "Choose someone nearby, then play Chat. The action passes the room turn immediately while the conversation unfolds.",
+            ? `Use one advancement point to begin a friendship with ${firstTargetName}.`
+            : "Choose someone nearby. Chat uses one advancement point and begins a friendship.",
           effect: oneChat
-            ? `you and ${firstTargetName} trade a few lines after the room turn passes`
-            : "the chosen conversation unfolds after the room turn passes",
+            ? `your friendship with ${firstTargetName} begins`
+            : "a new friendship begins",
           ...(oneChat ? {} : {
             choices: chatCandidates.map((actor) => {
               const card = cardForActor(actor.id);
               return {
                 label: actorLabel(actor),
-                detail: card?.title || "short back-and-forth",
+                detail: card?.title || "begin a friendship",
                 value: String(actor.id),
                 card,
               };
@@ -4102,14 +4178,14 @@
         chatAction.selectedTarget = () => chatCandidates.find((actor) => (
           String(actor.id) === String(chatAction.selectedChoice || firstChat.id)
         )) || firstChat;
-        chatAction.busyLabel = "chatting";
-        chatAction.busyDetail = () => `${actorLabel(chatAction.selectedTarget())} is finding the thread…`;
-        chatAction.pendingTargetActorId = () => chatAction.selectedTarget().id;
         chatAction.selectedPayload = () => ({
           actor_id: actorId,
           target_actor_id: Number(chatAction.selectedTarget().id),
+          statement: defaultBondStatement(
+            chatAction.selectedTarget().name || actorLabel(chatAction.selectedTarget())
+          ),
         });
-        chatAction.run = () => chatWith(chatAction.selectedPayload().target_actor_id);
+        chatAction.run = () => action("/actions/create-bond", chatAction.selectedPayload());
         return chatAction;
       };
       if (turn.enabled && !turn.is_current_actor) {
@@ -5034,31 +5110,25 @@
         };
         built.push(contributionAction);
       }
-      const listenRewardClaimable = economy.listen_reward_claimable !== false;
-      const listenCost = Number.isFinite(Number(economy.listen_cost_orbs))
-        ? Number(economy.listen_cost_orbs)
-        : (listenRewardClaimable ? 0 : 1);
       const listenAttemptedHere = economy.listen_attempted_here === true;
-      const listenCanHelp = listenCost <= 0 || Number(economy.orbs || 0) >= listenCost;
-      const listenHasFreshOutcome = !listenAttemptedHere || listenCost > 0;
+      const listenHasFreshOutcome = !listenAttemptedHere || options.has("check");
       const listenKnownUnattempted = economy.listen_attempted_here === false;
-      if ((options.has("check") || listenKnownUnattempted) && listenCanHelp && listenHasFreshOutcome) {
+      if ((options.has("check") || listenKnownUnattempted) && listenHasFreshOutcome) {
         const listenOffer = offerFor("check");
         const noticeVerb = offerVerb(listenOffer, "Notice");
-        const repeatListenCost = listenCost === 1 ? "one Orb" : `${listenCost} Orbs`;
         built.push({
           ...semanticAction(listenOffer, "notice"),
           label: listenAttemptedHere ? `${noticeVerb.toLowerCase()} again` : noticeVerb.toLowerCase(),
-          detail: listenAttemptedHere ? repeatListenCost : "for a clue",
+          detail: listenAttemptedHere ? "free" : "for a clue",
           command: "listen",
           focusKey: "check",
           card: cardForLocation(view.location?.id),
           shape: "location",
           priority: listenAttemptedHere ? 82 : Number(listenOffer?.rank || 60),
-          orbCost: listenAttemptedHere ? listenCost : 0,
+          orbCost: 0,
           modalTitle: listenAttemptedHere ? `${noticeVerb.toLowerCase()} once more` : noticeVerb.toLowerCase(),
           modalSummary: listenAttemptedHere
-            ? `Spend ${repeatListenCost} to notice another ambient lead. The room may have nothing new yet.`
+            ? "Notice another ambient lead. The room may have nothing new yet."
             : "Receive one ambient lead from the room.",
           effect: listenAttemptedHere
             ? "the room may share another clue"
@@ -5125,67 +5195,6 @@
       }
       const evolveAction = buildEvolveAction();
       if (evolveAction) built.push(evolveAction);
-      if (options.has("create_bond") && Number(ledger.advancement_points || 0) > 0) {
-        const offer = offerFor("create_bond");
-        const targetId = Number(offer?.target?.id || 0);
-        const bondTargets = residentTargets
-          .filter((actor) => !activeBondTargetIds.has(actor.id))
-          .sort((left, right) => (
-            Number(right.id === targetId) - Number(left.id === targetId)
-            || actorLabel(left).localeCompare(actorLabel(right))
-          ));
-        if (bondTargets.length) {
-          const firstTarget = bondTargets[0];
-          const oneTarget = bondTargets.length === 1;
-          const firstTargetName = firstTarget.name || actorLabel(firstTarget);
-          const firstStatement = defaultBondStatement(firstTargetName);
-          const bondAction = {
-            label: "grow closer",
-            detail: oneTarget
-              ? `to ${actorLabel(firstTarget)} · use what you learned`
-              : "choose someone · use what you learned",
-            command: oneTarget
-              ? (offer?.command || `bond ${firstTargetName}: ${firstStatement}`)
-              : "bond",
-            focusKey: oneTarget
-              ? `bond:${firstTarget.id}`
-              : `bond:${bondTargets.map((actor) => actor.id).join("|")}`,
-            focusKeys: bondTargets.map((actor) => `actor:${actor.id}`),
-            card: cardForActor(firstTarget.id),
-            shape: "avatar",
-            priority: 77,
-            targetName: oneTarget ? firstTargetName : "",
-            modalTitle: oneTarget ? `grow closer to ${firstTargetName}` : "choose someone to grow closer to",
-            modalSummary: oneTarget
-              ? `Keep ${firstTargetName} as someone who matters to you.`
-              : "Choose someone to grow closer to.",
-            effect: oneTarget ? `your friendship with ${firstTargetName} begins` : "a new friendship begins",
-            ...(oneTarget ? {} : {
-              choices: bondTargets.map((target) => {
-                const card = cardForActor(target.id);
-                return {
-                  label: actorLabel(target),
-                  detail: card?.title || "begin a friendship",
-                  value: String(target.id),
-                  card,
-                };
-              }),
-              selectedChoice: String(firstTarget.id),
-            }),
-          };
-          bondAction.selectedPayload = () => {
-            const selected = bondTargets.find((target) => String(target.id) === String(bondAction.selectedChoice)) || firstTarget;
-            const targetName = selected.name || actorLabel(selected);
-            return {
-              actor_id: actorId,
-              target_actor_id: selected.id,
-              statement: defaultBondStatement(targetName),
-            };
-          };
-          bondAction.run = () => action("/actions/create-bond", bondAction.selectedPayload());
-          built.push(bondAction);
-        }
-      }
       if (options.has("resolve_bond")) {
         const offer = offerFor("resolve_bond");
         const targetId = Number(offer?.target?.id || 0);
@@ -5786,16 +5795,9 @@
         .join("");
     }
 
-    async function chatWith(targetActorId) {
-      await action("/actions/chat", {
-        actor_id: actorId,
-        target_actor_id: targetActorId,
-      });
-    }
-
     function offerKindsForPath(path, actionCard = pendingAction) {
       const byPath = {
-        "/actions/chat": ["chat"],
+        "/actions/chat": ["create_bond"],
         "/actions/move": ["move"],
         "/actions/explore-path": ["search"],
         "/actions/flee": ["flee"],
@@ -5891,9 +5893,10 @@
 
     function actionFailureMessage(path, result = {}) {
       const status = Number(result.status || 0);
-      if (status === 402) return path.includes("/chat")
-        ? "Talking needs one Orb. Listen for a clue or finish a little job to earn one."
-        : "You need another Orb for that. Listen for a clue or finish a little job first.";
+      if (status === 402 && path.includes("fund-image")) {
+        return "You need one Orb to add to this community image.";
+      }
+      if (status === 503 && path.includes("fund-image")) return "The image workshop is unavailable, so no Orb was taken.";
       if (status === 403) return "Your avatar slipped out of reach. Begin again or reconnect your account.";
       if (status === 409) return "That choice changed while you were deciding. Here are the choices you have now.";
       if (status === 423) return "Someone else has the room right now. Your choices are ready for the next turn.";
@@ -7510,7 +7513,7 @@
 
     function settingsPanelHtml() {
       const economy = state?.economy || {};
-      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div>${accountRow("chat", economy.chat_cost_orbs ? `${economy.chat_cost_orbs} Orbs per AI reply` : "no Orb cost")}${accountRow("AI", economy.openrouter_connected ? "connected" : "world default")}${accountRow("carried deck", `${deckWeightLabel(economy.carried_weight_tenths)} / ${deckWeightLabel(economy.carrying_capacity_tenths)}`)}`;
+      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div>${accountRow("Orbs", "fund community images only")}${accountRow("Chat", "appears when advancement can begin a friendship")}${accountRow("room voices", "one contextual reply per armed card heartbeat")}${accountRow("AI", economy.openrouter_connected ? "connected" : "world default")}${accountRow("carried deck", `${deckWeightLabel(economy.carried_weight_tenths)} / ${deckWeightLabel(economy.carrying_capacity_tenths)}`)}`;
     }
 
     function libraryPanelHtml() {
@@ -7650,11 +7653,16 @@
 
     function pendingAvatarArrivalHtml() {
       if (!actionBusy || pendingAction?.kind !== "avatar-arrival") return "";
-      const choice = selectedActionChoice(pendingAction);
-      const calling = choice?.label || "a little trouble";
+      const creationProfile = pendingAction.creationProfile || null;
+      const species = (creationProfile?.species || [])
+        .find((choice) => choice.id === pendingAction.selectedSpeciesId)?.label;
+      const origin = (creationProfile?.origins || [])
+        .find((choice) => choice.id === pendingAction.selectedOriginId)?.label;
       const kicker = "the cottage is making room";
-      const text = "A name, a face, and a little trouble are finding their way to the door.";
-      const cue = `Drawn in by ${calling}. Someone here is getting ready to say hello.`;
+      const text = "A name, a face, and an unfinished path are finding their way to the door.";
+      const cue = species && origin
+        ? `${species}, from ${origin}. What they become will begin with their first choice.`
+        : "Someone classless is arriving. What they become will begin with their first choice.";
       const aria = `${kicker}. ${text} ${cue}`;
       return `<div class="room-scene arrival-scene" role="status" aria-label="${escapeAttr(aria)}"><span class="room-scene-kicker">${escapeHtml(kicker)}</span><span class="room-scene-text">${escapeHtml(text)}</span><span class="room-scene-cue">${escapeHtml(cue)}</span></div>`;
     }
@@ -7806,7 +7814,21 @@
         memoriesReady ? "something you noticed is ready to keep" : "",
         growthReady ? "you can strengthen a friendship or open bracelet space" : "",
       ].filter(Boolean).join(" · ") || "your first little moment is waiting";
+      const composedIdentity = state?.character_identity || null;
+      const identityCards = composedIdentity
+        ? [
+            composedIdentity.species_label,
+            composedIdentity.origin_label,
+            composedIdentity.class_label
+              || (composedIdentity.class_selection_ready ? "Class ready to choose" : "Class veiled"),
+          ].filter(Boolean).join(" · ")
+        : "";
+      const level = Number(composedIdentity?.level ?? avatar?.stats?.level ?? 1);
       const rows = [
+        accountRow("level", composedIdentity && !composedIdentity.class_id
+          ? `${level} · classless`
+          : String(level)),
+        ...(identityCards ? [accountRow("identity cards", identityCards)] : []),
         accountRow("purpose", purpose),
         accountRow("journal", growthSummary),
       ];
@@ -8626,6 +8648,46 @@
       return null;
     }
 
+    function communityArtSubject(card) {
+      for (const [kind, group] of [
+        ["actor", state?.cards?.actors],
+        ["item", state?.cards?.items],
+        ["location", state?.cards?.locations],
+      ]) {
+        if (!group) continue;
+        for (const [id, candidate] of Object.entries(group)) {
+          if (candidate === card || cardKey(candidate) === cardKey(card)) {
+            return { kind, id: Number(id) };
+          }
+        }
+      }
+      return null;
+    }
+
+    function communityArtPanelHtml(card) {
+      const art = card?.community_art;
+      const subject = communityArtSubject(card);
+      if (!art || !subject) return "";
+      const level = Math.max(1, Number(art.level || card.level || 1));
+      const required = Math.max(1, Number(art.required_orbs || level));
+      const funded = Math.max(0, Number(art.funded_orbs || 0));
+      const remaining = Math.max(0, Number(art.remaining_orbs ?? (required - funded)));
+      const status = String(art.status || "available");
+      if (status === "ready") {
+        return `<div class="economy-row"><span>community image</span><strong>level ${level} complete</strong></div><div class="economy-row"><span>next image</span><strong>unlocks at the next level</strong></div>`;
+      }
+      const balance = Math.max(0, Number(state?.economy?.orbs || 0));
+      const needsOrb = remaining > 0;
+      const buttonLabel = needsOrb
+        ? `add one Orb · ${funded}/${required}`
+        : (status === "failed" ? "try the image again" : "nudge the image workshop");
+      const disabled = needsOrb && balance < 1;
+      const detail = needsOrb
+        ? `${remaining} ${remaining === 1 ? "Orb" : "Orbs"} still needed from the community`
+        : "fully funded; no more Orbs will be taken";
+      return `<div class="economy-row"><span>level ${level} image</span><strong>${escapeHtml(detail)}</strong></div><button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}"${disabled ? " disabled" : ""}>${escapeHtml(buttonLabel)}</button>`;
+    }
+
     function residentEconomyTitle(actor) {
       const economy = actor?.resident_economy || null;
       if (!economy) return actorLabel(actor);
@@ -8841,7 +8903,7 @@
       $("card-modal-keepsake").innerHTML = promise
         ? `<span>when kept close</span>${escapeHtml(promise)}`
         : "";
-      $("card-modal-economy").innerHTML = residentEconomyPanelHtml(actor);
+      $("card-modal-economy").innerHTML = `${residentEconomyPanelHtml(actor)}${communityArtPanelHtml(card)}`;
       openModal("card-modal", $("card-modal").querySelector(".card-close"));
       if (dialog) dialog.scrollTop = 0;
       const copy = dialog?.querySelector(".card-copy");
@@ -9003,10 +9065,10 @@
       if (label === "listen again") return "listen once more";
       if (label === "travel" && action?.detail) return `go to ${action.detail}`;
       if (label === "search" && action?.detail) return `search ${action.detail}`;
-      if (label === "chat" && action?.choices?.length) return "choose someone to talk with";
+      if (label === "chat" && action?.choices?.length) return "choose someone to chat with";
       if (label === "chat" && action?.detail) {
         const targetName = action?.targetName || String(action.detail).split(/[·,]/)[0].trim();
-        return `talk with ${targetName}`;
+        return `chat with ${targetName}`;
       }
       if (label === "take" && action?.choices?.length) return "choose what to take";
       if (label === "swap" && action?.choices?.length) return "choose what to swap";
@@ -9074,11 +9136,28 @@
 
     function actionModalRows(action) {
       if (String(action?.command || "").trim().toLowerCase() === "create avatar") {
-        const creationProfile = (state?.character_creation || [])[0] || null;
+        const creationProfile = action?.creationProfile || (state?.character_creation || [])[0] || null;
         if (creationProfile) {
           const entryName = creationProfile.entry_location_name
             || cardForLocation(creationProfile.entry_location_id)?.display_name
             || "the campaign threshold";
+          if (action?.creationStage === "species") {
+            return [
+              ["Choose", "a Species card"],
+              ["Next", "choose an Origin card"],
+              ["Begin at", entryName],
+            ];
+          }
+          if (action?.creationStage === "origin") {
+            const species = (creationProfile.species || [])
+              .find((choice) => choice.id === action.selectedSpeciesId)?.label || "your chosen species";
+            return [
+              ["Species", species],
+              ["Choose", "an Origin card"],
+              ["Then", "begin classless at level 0"],
+              ["Begin at", entryName],
+            ];
+          }
           return [
             ["Campaign", creationProfile.name],
             ["Begin at", entryName],
@@ -9089,29 +9168,35 @@
           ["Then", "your new avatar arrives in The Cosy Cottage"],
         ];
       }
+      if (String(action?.kind || "") === "choose-class") {
+        return [
+          ["Right now", "classless · level 0"],
+          ["Choose", "the Class revealed by your first action"],
+          ["Then", "become level 1 and gain its starting knack"],
+        ];
+      }
       if (String(action?.intention || "").toLowerCase() === "notice"
           && String(action?.label || "").toLowerCase().endsWith("again")) {
         const orbCost = Math.max(0, Number(action?.orbCost || 0));
         return [
-          ["Costs", orbCost === 1 ? "one Orb" : `${orbCost} Orbs`],
+          ["Costs", orbCost ? (orbCost === 1 ? "one Orb" : `${orbCost} Orbs`) : ""],
           ["What may happen", friendlyActionText(action?.effect)],
           ["Watch for", friendlyActionText(action?.risk)],
         ].filter((row) => String(row[1] || "").trim());
       }
       if (String(action?.label || "").toLowerCase() === "chat") {
-        const orbCost = Math.max(0, Number(action?.orbCost || 0));
         if (action?.choices?.length) {
           return [
-            ["Choose", "who you want to talk with"],
-            ["Costs", orbCost ? (orbCost === 1 ? "one Orb for the whole exchange" : `${orbCost} Orbs for the whole exchange`) : ""],
-            ["Conversation", "your avatar opens, they answer, then you each get one more line"],
-          ].filter((row) => String(row[1] || "").trim());
+            ["Choose", "who you want to begin a friendship with"],
+            ["Spend", "one advancement point"],
+            ["Then", "their response arrives on the room heartbeat"],
+          ];
         }
         return [
           ["With", action?.targetName || String(action?.detail || "").split(/[·,]/)[0].trim()],
-          ["Costs", orbCost ? (orbCost === 1 ? "one Orb for the whole exchange" : `${orbCost} Orbs for the whole exchange`) : ""],
-          ["Conversation", "your avatar opens, they answer, then you each get one more line"],
-        ].filter((row) => String(row[1] || "").trim());
+          ["Spend", "one advancement point"],
+          ["Then", "a friendship begins and their response arrives on the room heartbeat"],
+        ];
       }
       if (["take", "swap"].includes(String(action?.label || "").toLowerCase()) && action?.choices?.length) {
         const swapping = String(action.label || "").toLowerCase() === "swap";
@@ -9261,6 +9346,9 @@
 
     function actionConfirmLabel(action) {
       const label = String(action?.label || "").toLowerCase();
+      if (action?.creationStage === "species") return "next";
+      if (action?.creationStage === "origin") return "begin";
+      if (String(action?.kind || "") === "choose-class") return "choose class";
       if (String(action?.intention || "") === "contribute") {
         return String(action?.project?.verb || "contribute").toLowerCase();
       }
@@ -9274,7 +9362,7 @@
       if (label === "travel") return "go";
       if (label === "listen") return "listen";
       if (label === "listen again") return "listen again";
-      if (label === "chat") return "talk";
+      if (label === "chat") return "chat";
       if (label === "give") return "give";
       if (label === "take") return "take";
       if (label === "swap") return "swap";
@@ -9309,7 +9397,38 @@
       }).join("");
       renderActionChoices(action);
       $("action-modal-confirm").textContent = actionConfirmLabel(action);
+      $("action-modal-cancel").textContent = action?.creationStage === "origin" ? "back" : "cancel";
       openModal("action-modal", $("action-modal-confirm"));
+    }
+
+    function setCreationModalStage(action, stage) {
+      const profile = action?.creationProfile;
+      if (!profile || !["species", "origin"].includes(stage)) return;
+      action.creationStage = stage;
+      if (stage === "species") {
+        action.choices = (profile.species || []).map((choice) => ({
+          label: choice.label,
+          detail: choice.detail,
+          value: choice.id,
+        }));
+        action.selectedChoice = action.selectedSpeciesId
+          || profile.default_species_id
+          || action.choices[0]?.value;
+        action.modalTitle = profile.prompt || "what kind of traveler arrives?";
+        action.modalSummary = profile.description
+          || "Choose what your traveler is. Their class will emerge from play.";
+        return;
+      }
+      action.choices = (profile.origins || []).map((choice) => ({
+        label: choice.label,
+        detail: choice.detail,
+        value: choice.id,
+      }));
+      action.selectedChoice = action.selectedOriginId
+        || profile.default_origin_id
+        || action.choices[0]?.value;
+      action.modalTitle = "where did your traveler come from?";
+      action.modalSummary = "Choose the place that shaped them. You will enter classless at level 0; your first meaningful choice in the world will reveal the Class cards.";
     }
 
     function renderActionChoices(action) {
@@ -9348,11 +9467,21 @@
       $("action-modal-meta").innerHTML = "";
       $("action-modal-choices").hidden = true;
       $("action-modal-choices").innerHTML = "";
+      $("action-modal-cancel").textContent = "cancel";
       actionConfirmAction = null;
     }
 
     async function confirmActionModal() {
       const action = actionConfirmAction;
+      if (action?.creationStage === "species") {
+        action.selectedSpeciesId = action.selectedChoice;
+        setCreationModalStage(action, "origin");
+        openActionModal(action);
+        return;
+      }
+      if (action?.creationStage === "origin") {
+        action.selectedOriginId = action.selectedChoice;
+      }
       closeActionModal();
       if (action) await runAction(action);
     }
@@ -9552,7 +9681,7 @@
 
       if (banked > 0) {
         if (spent > 0 || growth <= 0) return null;
-        const bond = findAction((action) => ["grow closer", "bond"].includes(action.label));
+        const bond = findAction((action) => ["chat", "grow closer", "bond"].includes(action.label));
         const bracelet = findAction((action) => (
           ["practice", "train"].includes(action.label)
             || (action.label === "evolve" && action.evolveModes?.includes("practice"))
@@ -9650,7 +9779,7 @@
       };
       if (byFocus[focus]) return byFocus[focus];
       const byLabel = {
-        chat: ["chat"],
+        chat: ["create_bond"],
         influence: ["influence"],
         travel: ["move"],
         flee: ["flee"],
@@ -10540,6 +10669,29 @@
     });
 
     $("card-modal").addEventListener("click", (event) => {
+      const fundImage = event.target.closest("[data-fund-community-image]");
+      if (fundImage) {
+        event.preventDefault();
+        event.stopPropagation();
+        const [subjectKind, subjectId] = String(fundImage.getAttribute("data-fund-community-image") || "").split(":");
+        if (!subjectKind || !Number(subjectId)) return;
+        fundImage.disabled = true;
+        action("/actions/fund-image", {
+          actor_id: actorId,
+          subject_kind: subjectKind,
+          subject_id: Number(subjectId),
+          intent_id: `web-image:${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`}`,
+        }).then(async (result) => {
+          await refresh();
+          if (result?.ok) {
+            const updated = subjectKind === "actor"
+              ? cardForActor(Number(subjectId))
+              : (subjectKind === "item" ? cardForItem(Number(subjectId)) : cardForLocation(Number(subjectId)));
+            if (updated) openCardModal(updated);
+          }
+        });
+        return;
+      }
       if (event.target.closest("[data-card-close]") || event.target.id === "card-modal") {
         event.preventDefault();
         closeCardModal();
@@ -10547,7 +10699,17 @@
     });
 
     $("action-modal").addEventListener("click", (event) => {
-      if (event.target.closest("[data-action-close]") || event.target.id === "action-modal") {
+      if (event.target.closest("[data-action-close]")) {
+        event.preventDefault();
+        if (actionConfirmAction?.creationStage === "origin") {
+          setCreationModalStage(actionConfirmAction, "species");
+          openActionModal(actionConfirmAction);
+          return;
+        }
+        closeActionModal();
+        return;
+      }
+      if (event.target.id === "action-modal") {
         event.preventDefault();
         closeActionModal();
       }

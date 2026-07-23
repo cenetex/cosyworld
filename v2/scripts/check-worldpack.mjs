@@ -1209,8 +1209,8 @@ for (const profile of characterCreationProfiles) {
     "prompt",
     "default_choice_id",
   ]);
-  if (profile.schema_version !== 1) {
-    fail(`character creation profile ${profile.id} must use schema_version 1`);
+  if (![1, 2].includes(profile.schema_version)) {
+    fail(`character creation profile ${profile.id} must use schema_version 1 or 2`);
   }
   if (!has(locationIds, profile.entry_location_id)) {
     fail(`character creation profile ${profile.id} references missing entry location ${profile.entry_location_id}`);
@@ -1234,6 +1234,35 @@ for (const profile of characterCreationProfiles) {
     ]);
     if (!new Set(["listening", "kindness", "lorecraft", "steadiness", "nimble_hands", "lifting"]).has(choice.starting_skill_id)) {
       fail(`character creation choice ${profile.id}:${choice.id} has invalid starting_skill_id ${choice.starting_skill_id}`);
+    }
+  }
+  if (profile.schema_version === 2) {
+    validateRequiredStrings("staged character creation profile", profile, [
+      "class_prompt",
+      "default_species_id",
+      "default_origin_id",
+    ]);
+    for (const [slot, cards, defaultId] of [
+      ["species", profile.species, profile.default_species_id],
+      ["origin", profile.origins, profile.default_origin_id],
+    ]) {
+      const entries = asArray(`character creation profile ${profile.id} ${slot}`, cards);
+      if (entries.length < 3 || entries.length > 12) {
+        fail(`character creation profile ${profile.id} must declare 3-12 ${slot} cards`);
+      }
+      const cardIds = idSet(`character creation profile ${profile.id} ${slot}`, entries, (card) => card.id);
+      if (!has(cardIds, defaultId)) {
+        fail(`character creation profile ${profile.id} has missing default ${slot} ${defaultId}`);
+      }
+      for (const card of entries) {
+        validateRequiredStrings(`character creation ${slot} ${profile.id}`, card, [
+          "label",
+          "detail",
+          "title",
+          "description",
+          "visual_prompt",
+        ]);
+      }
     }
   }
 }

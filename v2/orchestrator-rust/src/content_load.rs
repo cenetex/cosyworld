@@ -532,6 +532,16 @@ pub(super) struct SeedCharacterCreationProfile {
     pub(super) prompt: String,
     pub(super) default_choice_id: String,
     pub(super) choices: Vec<SeedCharacterCreationChoice>,
+    #[serde(default)]
+    pub(super) class_prompt: Option<String>,
+    #[serde(default)]
+    pub(super) default_species_id: Option<String>,
+    #[serde(default)]
+    pub(super) species: Vec<SeedCharacterCreationIdentityCard>,
+    #[serde(default)]
+    pub(super) default_origin_id: Option<String>,
+    #[serde(default)]
+    pub(super) origins: Vec<SeedCharacterCreationIdentityCard>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -543,6 +553,16 @@ pub(super) struct SeedCharacterCreationChoice {
     pub(super) title: String,
     pub(super) description: String,
     pub(super) starting_skill_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedCharacterCreationIdentityCard {
+    pub(super) id: String,
+    pub(super) label: String,
+    pub(super) detail: String,
+    pub(super) title: String,
+    pub(super) description: String,
+    pub(super) visual_prompt: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1857,7 +1877,7 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             ));
         }
         for profile in &bundle.profiles {
-            if profile.schema_version != 1
+            if !matches!(profile.schema_version, 1 | 2)
                 || profile.id.trim().is_empty()
                 || profile.name.trim().is_empty()
                 || profile.description.trim().is_empty()
@@ -1890,6 +1910,55 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                     "character creation profile {} has missing default choice",
                     profile.id
                 ));
+            }
+            if profile.schema_version == 2 {
+                if profile
+                    .class_prompt
+                    .as_deref()
+                    .is_none_or(|prompt| prompt.trim().is_empty())
+                    || !(3..=12).contains(&profile.species.len())
+                    || !(3..=12).contains(&profile.origins.len())
+                {
+                    return Err(format!(
+                        "character creation profile {} has invalid staged identity cards",
+                        profile.id
+                    ));
+                }
+                for (slot, cards, default_id) in [
+                    (
+                        "species",
+                        profile.species.as_slice(),
+                        profile.default_species_id.as_deref(),
+                    ),
+                    (
+                        "origin",
+                        profile.origins.as_slice(),
+                        profile.default_origin_id.as_deref(),
+                    ),
+                ] {
+                    let mut card_ids = BTreeSet::new();
+                    for card in cards {
+                        if card.id.trim().is_empty()
+                            || card.label.trim().is_empty()
+                            || card.detail.trim().is_empty()
+                            || card.title.trim().is_empty()
+                            || card.description.trim().is_empty()
+                            || card.visual_prompt.trim().is_empty()
+                            || !card_ids.insert(card.id.as_str())
+                        {
+                            return Err(format!(
+                                "invalid character creation {slot} card {}:{}",
+                                profile.id, card.id
+                            ));
+                        }
+                    }
+                    if default_id.is_none_or(|default_id| !card_ids.contains(default_id)) {
+                        return Err(format!(
+                            "character creation profile {} has missing default {slot}",
+                            profile.id
+                        ));
+                    }
+                }
             }
         }
     }

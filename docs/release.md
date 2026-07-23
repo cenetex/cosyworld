@@ -2,29 +2,26 @@
 
 Deployments are handled by `.github/workflows/deploy.yml`.
 
-## Continuous Deploys
+## Continuous deploys
 
-Every branch push deploys the current repository state to Fly using `fly.toml`.
+Pushes to `main` and version tags deploy the current repository state to Fly.
 The workflow requires this GitHub secret:
 
 - `FLY_API_TOKEN`
 
-Fly is the always-on deploy target for normal pushes and tagged releases.
+The workflow deploys `fly.toml` to `cosyworld`, resolves that deployment's
+immutable registry digest, then deploys the same digest with
+`fly.lonelyforest.toml`. The two apps run identical code with independent
+volumes and WebAuthn relying-party domains.
 
-## Tagged AWS Releases
+## Lonely Forest infrastructure
 
-Version tags matching `v*` also deploy to AWS after the Fly deploy succeeds.
-The AWS job:
+Application releases no longer build ECR images or update ECS. AWS remains the
+authority for the `lonelyforest.com` Route 53 zone and the static
+`lonelyforestlibrary.com` S3/CloudFront site. Its dormant ECS/EFS/ALB resources
+are kept only for the documented rollback window.
 
-1. Assumes `arn:aws:iam::022118847419:role/lonely-forest-github-actions-deployer`
-   via GitHub Actions OIDC. The role trust is restricted to `v*` tag refs
-   from `cenetex/cosyworld`.
-2. Builds the root `Dockerfile` for `linux/arm64`.
-3. Pushes both `${tag}` and `latest` images to ECR.
-4. Runs Terraform from `infra/aws-lonely-forest` with
-   `-var="image_tag=${tag}"`.
-
-The AWS Terraform state is stored in:
+The Terraform state remains stored in:
 
 - S3 bucket: `cosyworld-lonely-forest-terraform-state-022118847419`
 - Key: `lonely-forest/terraform.tfstate`
@@ -39,17 +36,9 @@ git tag v0.0.13
 git push origin v0.0.13
 ```
 
-The workflow deploys Fly first, then AWS, then creates GitHub release notes.
+The workflow deploys both Fly apps, then creates GitHub release notes.
 
-## Production AWS Profile
+## Lonely Forest operations
 
-AWS currently deploys with `deploy_profile = "local"` in
-`infra/aws-lonely-forest/deployment.auto.tfvars` because the production
-Secrets Manager entries do not exist yet. To switch AWS to strict production:
-
-1. Create the required Secrets Manager secrets.
-2. Set these Terraform variables to their ARNs:
-   - `ruby_high_wallet_cards_bearer_secret_arn`
-   - `moderation_token_secret_arn`
-3. Change `deploy_profile` to `"production"`.
-4. Push a new `v*` tag.
+Provisioning, data authority, DNS cutover, and rollback are documented in
+[`deployment/lonelyforest-fly.md`](deployment/lonelyforest-fly.md).

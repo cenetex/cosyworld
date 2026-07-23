@@ -44,6 +44,12 @@ CosyWorld is a shared-world cozy adventure RPG where you keep a home you own, fo
   weapons, spells, tools, and relics are roles of playable Item cards, not new
   entity families with separate interfaces.
 - **The core loop is free.** A player with zero currency can always do the meaningful thing — listen, help, bond, travel — without paying.
+- **Chat is visible growth.** `Chat` appears only when banked advancement can
+  begin a friendship with an eligible nearby resident. It spends advancement,
+  never Orbs; ordinary player speech remains the separate `say` action.
+- **Cards invite one contextual room voice.** A successful scene card arms one
+  delayed resident heartbeat per room. Rapid cards coalesce, resident priority
+  follows authored card order, and the reply sees recent card/log history.
 - **The world degrades gracefully without AI.** Core world actions remain deterministic and playable when generation is unavailable. Explicit dialogue fails visibly without charge or substitute speech; incidental dialogue is skipped.
 - There are no private resident conversations in the main world loop.
 - The client never decides affordability, model access, combat outcomes, rewards, room access, inventory grants, or quest completion.
@@ -377,7 +383,7 @@ The primary action is helpful, not exhaustive. As risk/effect metadata lands, it
 6. Give a matching evolution/job item.
 7. Use a meaningful carried or equipped item card.
 8. Take a useful visible item.
-9. Chat with the best target.
+9. Chat with an eligible target, only when advancement can create the friendship.
 10. Notice, Inspect, Scout, Travel, or Contribute.
 
 The primary action may vary by context, but the result is always public.
@@ -394,7 +400,13 @@ Primary action selection; card projection; room memory; clocks; bonds; the Visit
 
 ### AI Layer
 
-Avatar line proposals; resident reply proposals; director narration; room beat suggestions; job and front premise drafts; media prompts; summaries. AI output must be validated, sanitized, and committed as public event content. AI never grants items, fills clocks, applies conditions, deepens bonds, changes access, marks the ledger, or spends currency directly.
+Resident reply proposals; director narration; room beat suggestions; job and
+front premise drafts; media prompts; summaries. A resident reply receives the
+triggering card/event plus recent room-log entries, recent speech, cast,
+location memory, goals, and resident continuity. AI output must be validated,
+sanitized, and committed as public event content. AI never grants items, fills
+clocks, applies conditions, deepens bonds, changes access, marks the ledger, or
+spends currency directly.
 
 ## Clocks
 
@@ -411,7 +423,7 @@ Clocks give CosyWorld persistent pressure without heavy rules.
 
 ### Clock Movement
 
-Clock changes are event-backed. A successful Listen may fill progress; a failed risky action may fill danger; Rest may reset fatigue and, on the frontier, tick a danger or season clock; Work fills project progress; Chat adds memory and bond strength but rarely fills clocks unless tied to a resident or job; combat fills objective clocks rather than only dealing damage.
+Clock changes are event-backed. A successful Listen may fill progress; a failed risky action may fill danger; Rest may reset fatigue and, on the frontier, tick a danger or season clock; Work fills project progress; later actions may deepen an existing Bond; combat fills objective clocks rather than only dealing damage. Chat creates the initial Bond by spending advancement and does not silently fill unrelated clocks.
 
 **Offscreen movement is frontier-only.** A clock advances between visits only if its `zone` is frontier and it belongs to a goal the player opted into. Sanctuary clocks never move on their own.
 
@@ -547,11 +559,11 @@ Two economies, kept strictly separate so the core loop is never gated.
 
 **Progression** (skills, bonds, items, covenant standing) is earned by play, per the section above. It cannot be purchased.
 
-**Orbs** are a public attention-and-amplification currency, never a power source.
+**Orbs** are a public image-making currency, never a power source.
 
-Good Orb uses: server-paid Chat amplification (richer generation); cosmetic media jobs; entry to special public events; optional crafting/recharge convenience; covenant flourishes. Bad Orb uses: buying success after a failed roll; ignoring access gates; privately changing a resident; skipping item requirements; rewriting public event history; buying Visit Ledger marks or bracelet slots.
+Their sole spend is community image generation for eligible generated cards. A card unlocks one generation at each authoritative level, the community pools exactly that level in Orbs, and the prompt incorporates committed public history so later images can evolve with the world. Contributions buy no ownership or rules authority; a fully funded retry costs nothing.
 
-No player is ever priced out of the core loop: **Listen, Help, bond, and travel always have a zero-Orb path.** Current Chat uses either a verified player payer or Orbs for server-paid generation; when Chat is unavailable, the primary action should route toward an earning or world action instead of a shop. A future free Chat tier may exist only if it preserves the same public-event, rate-limit, and anti-spam guarantees. Orbs make things *fancier*, never *possible*. Reward rules remain claim-key gated and idempotent (next section), so identical actions never mint unlimited Orbs.
+Chat, Say, resident heartbeats, Listen/Notice, Help, bond, travel, combat, access, and progression never spend Orbs. Chat instead spends one banked advancement point to create a new Bond. Reward rules remain claim-key gated and idempotent (next section), so identical actions never mint unlimited Orbs. The negative ledger is equally strict: new actions may use only `community_image_generation`, capped by `{subject, level}`.
 
 ## Claim Keys And Idempotency
 
@@ -722,7 +734,7 @@ This is how CosyWorld becomes more than a chat layer: the room and the covenant 
 Residents remain deterministic world actors even though their visible dialogue requires live inference.
 
 - **With AI:** residents propose lines through the validated AI layer, reading their persona, wants, reaction state, and the player's bonds.
-- **Without AI:** deterministic reducers still run world actions such as gifts and evolution gates, but no resident or avatar dialogue is fabricated. Paid Chat fails before charging, and incidental reactions are skipped until inference is available.
+- **Without AI:** deterministic reducers still run world actions such as gifts and evolution gates, but no resident or avatar dialogue is fabricated. Chat fails visibly without any currency effect, community image funding is unavailable before debit, and incidental reactions are skipped until inference is available.
 
 This is enforced as an acceptance criterion for core world rules: reaction-state transitions, bond deepening, and evolution gates are deterministic projection logic. Generation may speak about those changes, but it does not own them; dialogue itself fails closed when inference is unavailable.
 
@@ -785,7 +797,7 @@ The smallest useful implementation, building on what is already landed:
 2. Seed the Moonlit Trail (frontier) progress and danger clocks (done).
 3. Make Listen fill the progress clock once per actor/location claim and add matching Visit Ledger marks (done).
 4. Add a one-line Calling at avatar creation and mark the ledger when a Listen matches it (done).
-5. Make repeat Listen pressure frontier-only: Moonlit Trail repeats can cost Orbs and add `tired`; Cottage repeats stay free and calm (done).
+5. Make repeat Listen pressure frontier-only without currency: Moonlit Trail repeats can add `tired`; Cottage repeats stay free and calm (done).
 6. Add Rest to clear a `tired` tag and tick the Moonlit danger clock; danger ticks are zone-gated to frontier clocks (done).
 7. Expose clocks, tags, jobs, room sheets, Calling, and unbanked ledger progress in `/state` (done).
 8. Smoke coverage proving clocks are public, persisted, event-backed (done), and that sanctuary clocks do not move without a committed player turn once player-turn frontier movement expands.

@@ -974,8 +974,9 @@ mod tests {
             }
         ));
         assert!(command_dispatch_consumes_room_turn(
-            &CommandDispatch::Chat {
+            &CommandDispatch::CreateBond {
                 target_actor_id: 1001,
+                statement: "I bring small kindnesses to Rati.".to_string(),
             }
         ));
         assert!(command_dispatch_consumes_room_turn(&CommandDispatch::Check));

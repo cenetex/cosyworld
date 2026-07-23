@@ -1,21 +1,7 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
-    sync::{Arc, Mutex},
+    collections::{BTreeMap, VecDeque},
     time::{Duration, Instant},
 };
-
-pub(super) struct ActorChatGuard {
-    pub(super) locks: Arc<Mutex<BTreeSet<u64>>>,
-    pub(super) actor_id: u64,
-}
-
-impl Drop for ActorChatGuard {
-    fn drop(&mut self) {
-        if let Ok(mut locks) = self.locks.lock() {
-            locks.remove(&self.actor_id);
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug)]
 pub(super) struct RateLimit {

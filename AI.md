@@ -4,14 +4,20 @@
 
 CosyWorld should use AI as a world actor, not as a private chatbot.
 
-The `Chat` verb specifically never types for the human — pressing `Chat` asks the server to author one in-character line for the player's avatar, commit it as a shared room event, then optionally commit one resident reply. (This document originally said "the human still never types" as a blanket claim; that stopped being true once `POST /actions/say` shipped as a separate, moderated, player-typed room-speech path. `say` bypasses AI generation entirely — the player's literal text is broadcast, subject to sanitization — while `Chat` remains the AI-authored path described below.) The payer for a `Chat` AI turn can be either:
+`Chat` is the player-facing friendship action. It appears only when the avatar
+has banked advancement and a nearby resident is eligible for a new Bond; playing
+it spends one advancement point, creates that friendship, and passes the room
+turn. It never accepts text or spends Orbs. Moderated player-authored room speech
+uses the separate turn-exempt `say` action.
 
-- the player's connected OpenRouter account, which costs no Orbs inside CosyWorld;
-- the CosyWorld server key, which costs Orbs.
+Every successful scene-card play arms one room dialogue heartbeat about three
+seconds later. At most one heartbeat can be pending per room, so rapid card plays
+do not create a reply backlog. The next resident in authored card order receives
+the triggering event, recent played-card/log activity, recent room speech,
+location memory, cast, goals, and personal continuity before proposing one
+public reply.
 
-"Unlimited" means unlimited by CosyWorld's Orb gate. It does not bypass OpenRouter credits, rate limits, model availability, or the player's own key limits.
-
-Ruby High's quiz loop maps to CosyWorld's encounter loop. Where Ruby High offers quiz answers, CosyWorld offers rule actions: `Attack`, `Defend`, `Flee`, and `Use`. Combat and challenges earn Orbs. Chat spends Orbs only when the player is using the CosyWorld server key.
+Ruby High's quiz loop maps to CosyWorld's encounter loop. Where Ruby High offers quiz answers, CosyWorld offers rule actions: `Attack`, `Defend`, `Flee`, and `Use`. Combat and challenges can earn Orbs. The sole player-facing Orb sink is pooled community image generation.
 
 ## Source Findings
 
@@ -22,12 +28,12 @@ Relevant implementation points:
 - `v2/orchestrator-rust/src/main.rs` already supports OpenAI-compatible text generation through `AiConfig`.
 - `AiConfig` reads `COSYWORLD_AI_API_KEY`, `OPENROUTER_API_KEY`, or `OPENAI_API_KEY`.
 - OpenRouter defaults to `https://openrouter.ai/api/v1` and `x-ai/grok-4.5`.
-- `POST /actions/chat` validates the actor session, builds an `AvatarChatPlan`, generates one player-avatar line, commits it through `CW_ACTION_SAY`, then schedules one resident reply.
+- `POST /actions/create-bond` is projected as `Chat` only when advancement and an eligible nearby resident are available. The legacy `/actions/chat` endpoint delegates to the same advancement-backed behavior.
 - `POST /actions/say` is a separate, non-AI route: it takes player-typed `content` directly, moderates/sanitizes it, and commits it as a `message.created` room event with no LLM call involved. This is the human-typed room-speech path that `Chat` intentionally does not provide.
-- Resident replies are already one-to-many world events.
-- Server-paid player-avatar Chat spends one Orb only after a committed message event, and the spend is projected into `orb_ledger`.
-- Player OpenRouter Chat stores no key server-side and records only non-secret usage metadata in `ai_usage_ledger`.
-- Generated player avatar art is currently deterministic local SVG, not real AI media.
+- Successful card commits atomically enqueue a delayed, durable room heartbeat. One pending/running heartbeat per room coalesces later cards.
+- Resident replies are one-to-many world events. Their inference context includes the current card event and recent channel log, not only the latest spoken line.
+- Chat has no Orb affordability check or ledger mutation; its authoritative cost is one advancement point.
+- Generated cards use deterministic/local art as a safe fallback. Eligible avatars, runtime items, and familiar generated locations can replace it through a community-funded Replicate image job.
 - The C kernel already has combat primitives for safe-room rejection, attack, defend, flee, and potion use.
 
 ### Legacy CosyWorld
@@ -48,7 +54,7 @@ Relevant migration points:
 - `../app-ruby-high/src/services/llm-provider.ts` centralizes OpenRouter/local model routing, headers, timeouts, and usage logging.
 - `../app-ruby-high/src/services/avatar-chat.ts` streams one generated player avatar line and cleans unusable output.
 - `../app-ruby-high/src/services/character-generation.ts` generates portraits and composite class/graduation photos through OpenRouter image models using `modalities: ["image", "text"]`.
-- Ruby High's Merit Star chat quote/spend flow is the closest product analogue to CosyWorld's future Orb-paid chat.
+- Ruby High's Merit Star quote/spend flow is useful historical input for atomic funding, but CosyWorld applies that pattern only to shared image generation, never Chat.
 
 ### OpenRouter Platform
 
@@ -68,14 +74,15 @@ Official OpenRouter docs confirm the integration shape:
 - A connected user key changes who pays; it does not create a private world.
 - One user-paid action can benefit everyone present because the output is a public event.
 - Autonomous resident actions and swarm jobs use the server budget unless an admin explicitly runs them.
-- The client never decides Orb affordability, model access, combat outcomes, rewards, or inventory use.
+- The client never decides Orb affordability, image eligibility, model access, combat outcomes, rewards, or inventory use.
+- Orbs may be debited only by the authoritative community-image funding route.
 - No raw OpenRouter key is ever written to logs, event payloads, screenshots, or analytics.
 
 ## Payment Modes
 
 ### Player OpenRouter Mode
 
-The player connects an OpenRouter account or API key and can use `Chat` without spending Orbs.
+The player may connect an OpenRouter account or API key for explicitly supported provider features. Neither Chat nor ambient room replies cost Orbs.
 
 Recommended MVP shape:
 
@@ -96,24 +103,19 @@ Tradeoff:
 
 ### CosyWorld Server-Paid Mode
 
-If no player OpenRouter key is available, `Chat` uses the CosyWorld server key and spends Orbs.
+The server key pays for autonomous/public text inference, including the resident
+reply after Chat and other card plays. Failure is skipped or remains visible as
+appropriate, but no reservation, debit, or refund touches the Orb ledger.
 
-Rules:
-
-- The Orb spend is tied to a committed public avatar line.
-- Failed validation spends nothing.
-- If AI fails before a shared avatar line commits, spend nothing or refund the reservation.
-- No deterministic dialogue fallback is permitted. If inference fails before a shared avatar line commits, the action fails and spends nothing.
-- The immediate resident reply is included in the same action budget. The player should not be charged twice for one press.
-- If no key and not enough Orbs, `Chat` should disappear or become an earning action such as `Challenge`, `Spar`, `Listen`, `Practice`, or `Notice`.
+Community image generation is different: the server validates a level-scoped shared funding pool before starting Replicate. One card gets one generation at each level, the pooled Orb price equals that level, and retries after full funding are free.
 
 ### Payer Matrix
 
 | Feature | Player OpenRouter | CosyWorld Server Key | Orb Cost |
 | --- | --- | --- | --- |
-| Player presses `Chat` | yes | yes, when configured | 0 with player key, 1 with server key |
-| Immediate resident reply | same payer as `Chat` | same action budget | included |
-| Avatar portrait generation | optional player payer | fallback for starter grants | 0 with player key, higher Orb cost with server key |
+| Player presses `Chat` | no | no inference required to create the Bond | 0 Orbs; 1 advancement |
+| Delayed resident heartbeat | no | yes, when configured | 0 |
+| Community card image (avatar/item/location) | future option | yes, when configured | pooled total equals card level |
 | Combat narration | no by default | yes | free or included in combat |
 | Combat rewards | no | no | awards Orbs |
 | Ambient residents | no | yes | no player cost |
@@ -157,7 +159,7 @@ Suggested payer modes:
 
 - `player_openrouter_transient`
 - `player_openrouter_vaulted`
-- `cosyworld_orbs`
+- `community_orbs`
 - `cosyworld_system`
 - `admin_system`
 
@@ -165,24 +167,28 @@ Deterministic placeholders remain valid for non-dialogue media previews, but the
 
 ## Text Generation
 
-### Chat Turn
+### Card-Driven Room Dialogue
 
-`POST /actions/chat` should become an economy-aware AI transaction:
+For every successful scene-card commit:
 
-1. Validate actor session, wallet/session, room access, focus target, rate limit, suspension, and in-flight lock.
-2. Resolve payer:
-   - valid player OpenRouter key means no Orb spend;
-   - otherwise require Orb affordability.
-3. Build authoritative room context.
-4. Generate one player-avatar line.
-5. Sanitize and validate it.
-6. Commit `CW_ACTION_SAY` through the C kernel.
-7. Generate or schedule one resident reply under the same payer budget.
-8. Commit the resident reply through the C kernel.
-9. Record AI usage and Orb ledger changes idempotently.
-10. Broadcast the committed world events.
+1. Commit the deterministic card outcome and durable player-tick observation in
+   one transaction.
+2. Arm the room's next heartbeat for roughly three seconds later. If that room
+   already has a pending or running heartbeat, do not add another.
+3. Choose the next active resident in stable authored card order, continuing
+   after the resident who most recently spoke.
+4. Build authoritative channel context from the triggering card/event, up to ten
+   recent room-log entries, recent spoken lines, current cast and location,
+   durable room memory, goals, economy facts, and resident continuity.
+5. Ask AI for one bounded resident proposal. The direct event is answered first;
+   newer log facts override older ones.
+6. Validate the resident's speech contract and commit the accepted `CW_ACTION_SAY`
+   through the journal and C kernel.
+7. Complete the heartbeat only after the reply attempt, so cards played while
+   inference is running still cannot stack another reply.
 
-The user never provides dialogue text. The prompt should continue saying that the human operator is silent.
+The human operator is never impersonated by this path. Human dialogue is the
+moderated `say` action.
 
 ### Structured Decisions
 
@@ -240,9 +246,11 @@ CosyWorld should generalize that into Rust rather than copying the Ruby High Typ
 ### Image Ownership
 
 - Generated media belongs to the world event/card it was generated for, not to a private chat.
-- Player-key-generated portraits can still be public once attached to the avatar/card.
-- The UI should show that using a player key for avatar art creates public game media.
-- Media jobs must be idempotent by source event id and intent.
+- A contribution buys no ownership, access, power, or private control over the prompt.
+- Each `{subject kind, subject id, level}` generation is unique and replay-safe. Multiple avatars may pool its exact level-sized cost.
+- The prompt captures public card history through a committed sequence. When the card reaches a later level, its one newly unlocked image can evolve in response to everything that happened since.
+- Fully funded jobs may be retried without another Orb debit. Provider-unavailable requests fail before funding.
+- Current implementation stores a durable funding/status projection and serves the ready shared asset from the generated-card route. A generalized object-store-backed `media_jobs` service remains the scaling step.
 
 ## Combat Replaces Quizzes
 
@@ -258,7 +266,7 @@ The basic loop:
 6. The C kernel rolls and emits auditable combat events.
 7. AI may narrate the result, but cannot change the result.
 8. Completing, winning, surviving, or cleverly resolving the encounter awards Orbs.
-9. The player can spend Orbs on future `Chat` if they are not using their own OpenRouter key.
+9. The player can contribute earned Orbs to a generated card's next community image.
 
 ### One-Button Combat UX
 
@@ -410,7 +418,9 @@ GET  /ai/account
 POST /ai/openrouter/verify
 POST /ai/openrouter/disconnect
 GET  /ai/models
-POST /actions/chat
+POST /actions/create-bond
+POST /actions/chat  # legacy alias for advancement-backed Chat
+POST /actions/fund-image
 POST /actions/combat
 GET  /media/jobs/:id
 GET  /economy
@@ -424,32 +434,29 @@ GET  /economy
     "mode": "player_openrouter",
     "connected": true,
     "label": "OpenRouter",
-    "can_chat": true,
+    "can_chat": false,
     "chat_cost_orbs": 0
   },
   "economy": {
-    "orbs": 3
+    "orbs": 3,
+    "chat_payer": "advancement"
   },
   "primaryAction": {
-    "kind": "chat",
+    "kind": "create_bond",
     "label": "Chat"
   }
 }
 ```
 
-When not connected and out of Orbs:
+Orb balance does not affect Chat. Without banked advancement, it is absent:
 
 ```json
 {
   "ai": {
-    "mode": "cosyworld_orbs",
+    "mode": "cosyworld_system",
     "connected": false,
     "can_chat": false,
-    "chat_cost_orbs": 1
-  },
-  "primaryAction": {
-    "kind": "challenge",
-    "label": "Challenge"
+    "chat_cost_orbs": 0
   }
 }
 ```
@@ -460,7 +467,7 @@ When not connected and out of Orbs:
 
 - Extract current Rust AI calls into `ai_gateway`.
 - Keep current env-key behavior working.
-- Add payer mode to avatar chat and resident reply.
+- Record system payer mode for resident heartbeat replies.
 - Add usage logging without secrets.
 - Add model capability discovery cache.
 
@@ -469,17 +476,17 @@ When not connected and out of Orbs:
 - Reuse Ruby High PKCE concepts or an explicit key paste dev flow.
 - Verify key with `/api/v1/key`.
 - Return compact connection state in `/state`.
-- Send player key only with explicit `Chat` or media actions.
-- Ensure resident reply uses the same action payer without persisting the key.
+- Send a player key only with explicitly supported media actions.
 
-### Stage 3: Orbs For Server-Paid Chat
+### Stage 3: Community-Funded Card Images
 
-Current status: implemented for the MVP text loop.
+Current status: first end-to-end slice implemented.
 
-- Added `orb_ledger`.
-- Added Orb balance to `/state`.
-- Charged one Orb only for server-paid committed `Chat`.
-- Added ledger and reset tests.
+- `orb_ledger` remains the authoritative balance ledger; `community_image_generation` is the only new negative mutation reason.
+- Eligible generated card projections expose level, required/funded/remaining Orbs, status, and history sequence.
+- `POST /actions/fund-image` pools one Orb per press, caps the pool at the card level, and schedules generation only when fully funded.
+- Ready art replaces the card image with a level cache key; failure and restart-safe retries never charge twice.
+- Chat, room heartbeats, and repeat Listen have no Orb spend path.
 
 ### Stage 4: Combat-As-Earning Loop
 
@@ -490,11 +497,11 @@ Current status: implemented for the MVP text loop.
 
 Current status: partially implemented. Moonlit Trail exposes `Attack`, `Defend`, `Flee`, and meaningful potion `Use`; richer encounter lifecycle and a single `/actions/combat` facade remain future work.
 
-### Stage 5: OpenRouter Media
+### Stage 5: Generalized Media Jobs
 
 - Port Ruby High's OpenRouter portrait/composition response parsing into Rust.
 - Add `media_jobs` and `media_assets`.
-- Generate player avatar portraits when the player uses their key or spends the configured Orb amount.
+- Move the current community card-image worker behind a durable, provider-neutral queue and object storage.
 - Generate combat scene media asynchronously from committed combat events.
 
 ### Stage 6: Swarm Content
@@ -506,7 +513,7 @@ Current status: partially implemented. Moonlit Trail exposes `Attack`, `Defend`,
 
 ## Open Decisions
 
-- Whether player OpenRouter mode should also cover optional image jobs by default. Recommendation: yes, but show that the resulting image becomes public world/card media.
-- Whether a server-paid Chat costs exactly 1 Orb forever. Recommendation: start at 1 Orb for text, 3 to 5 Orbs for player-requested media, and tune from usage.
+- Whether player OpenRouter mode should be allowed to contribute provider credit instead of Orbs to the same public pool. Recommendation: defer; one level-based currency rule is clearer.
+- How non-avatar collectibles gain levels. Recommendation: make level an authoritative card/evolution property, never infer it from Orb contributions.
 - Whether OpenRouter key storage should remain browser-only. Recommendation: browser-only MVP; encrypted vault later only if cross-device "connected" state matters.
 - Whether resident reply should wait in the same request to reuse a transient key. Recommendation: finish avatar line plus immediate resident reply within the same action transaction for player-key turns; keep async scheduling for server-paid ambient turns.

@@ -94,12 +94,30 @@ variable "task_memory" {
 variable "desired_count" {
   type        = number
   default     = 1
-  description = "Number of orchestrator tasks. MUST remain 1 until exact ECS task routing and a release-specific #130 recovery drill are complete."
+  description = "Number of rollback ECS tasks. Use 0 after the Fly cutover; any active AWS deployment MUST remain single-process."
 
   validation {
-    condition     = var.desired_count == 1
-    error_message = "desired_count must remain 1 until exact task routing and the release-specific hot-room/failover drill pass."
+    condition     = contains([0, 1], var.desired_count)
+    error_message = "desired_count must be 0 for a dormant rollback stack or 1 for a single-process AWS deployment."
   }
+}
+
+variable "fly_app_ipv4" {
+  type        = string
+  default     = ""
+  description = "Fly anycast IPv4 for the live app. Leave both Fly IP variables empty to keep the AWS ALB records."
+}
+
+variable "fly_app_ipv6" {
+  type        = string
+  default     = ""
+  description = "Fly anycast IPv6 for the live app. Leave both Fly IP variables empty to keep the AWS ALB records."
+}
+
+variable "fly_dns_validation_id" {
+  type        = string
+  default     = ""
+  description = "Fly DNS validation label used to issue certificates before the application traffic cutover."
 }
 
 variable "deploy_profile" {

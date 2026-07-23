@@ -2,15 +2,16 @@
 
 ## Status Note
 
-This gap analysis was written for the original one-room, `Chat`-only MVP. The runtime has since grown a full RPG layer (Callings, Bonds, Clocks, Jobs, Fronts) and a typed `say` room-speech action. `docs/systems/09-cosyworld-rpg-system.md` (the RPG Bible) now tracks implementation phase status for that layer and is the more current source for it; this file has been updated below to correct claims that are now factually wrong (notably the `/actions/say` status) and to add top-level status entries for the RPG systems, but has not been re-audited line-by-line against every RPG Bible phase.
+This gap analysis was written for the original one-room, `Chat`-only MVP. The runtime has since grown a full RPG layer (Callings, Bonds, Clocks, Jobs, Fronts), advancement-backed Chat, card-driven resident heartbeats, and a typed `say` room-speech action. `docs/systems/09-cosyworld-rpg-system.md` (the RPG Bible) is the more current source for that layer.
 
 ## Scope
 
 This compares the current `v2/` implementation against `PRD.md`, `ENG.md`, and the current product direction:
 
 - humans generate an avatar before play;
-- the `Chat` verb specifically is server-authored, not client-typed — but the separate `say` action does allow moderated, player-typed room speech (see [Server-Authored Chat](#server-authored-chat) below);
-- `Chat` asks the server to author one in-character player-avatar line;
+- `Chat` spends banked advancement to begin a friendship and never accepts player text;
+- the separate `say` action allows moderated, player-typed room speech;
+- successful scene cards arm one coalescing resident-reply heartbeat with recent channel context;
 - locations are shared channels;
 - cards/NFT ownership unlocks shared locations rather than private rooms;
 - world mutation passes through the C kernel.
@@ -26,7 +27,7 @@ The legacy Node/Discord app remains useful reference material. The current MVP i
 
 ## Executive Summary
 
-CosyWorld v2 has crossed from sketch to playable local MVP, and has grown well past the original single-room slice. It now has a deterministic C rules kernel, Rust HTTP/SSE orchestrator, a 48-location official worldpack, one-button browser MUD UI with a typed command palette (`say`, `look`, `go`, `/me`, `report`, `drop`, etc.), terminal client, avatar gate, server-authored Chat plus moderated human-typed `say`, Ruby High card projection, wallet-gated shared locations, item pickup/gifting/trading, level 2 resident evolution, combat primitives, a first-slice RPG layer (Callings, Bonds, Clocks, Jobs, Fronts, Work/Rest/Prepare/Help), Orb banking and skill training, room-scoped event replay, persistence, actor sessions, presence filtering, and a full local smoke gate.
+CosyWorld v2 has crossed from sketch to playable local MVP, and has grown well past the original single-room slice. It now has a deterministic C rules kernel, Rust HTTP/SSE orchestrator, a 48-location official worldpack, one-button browser MUD UI with a typed command palette (`say`, `look`, `go`, `/me`, `report`, `drop`, etc.), terminal client, avatar gate, advancement-backed Chat, contextual resident replies, moderated human-typed `say`, Ruby High card projection, wallet-gated shared locations, item pickup/gifting/trading, level 2 resident evolution, combat primitives, a first-slice RPG layer (Callings, Bonds, Clocks, Jobs, Fronts, Work/Rest/Prepare/Help), Orb banking and skill training, room-scoped event replay, persistence, actor sessions, presence filtering, and a full local smoke gate.
 
 The biggest remaining gaps are production hardening and product polish rather than missing core loop:
 
@@ -136,31 +137,32 @@ Gap:
 - Wallet recovery is now server-backed, but there is not yet a full account management UX for device lists, revocation, or wallet changes.
 - Name hygiene is an MVP guardrail, not a complete moderation system for public traffic.
 
-### Server-Authored Chat
+### Advancement Chat And Card-Driven Channel Dialogue
 
 Status: `Proven`.
 
 Evidence:
 
-- `POST /actions/chat`.
+- `POST /actions/create-bond`, with `/actions/chat` retained as a legacy alias.
 - `POST /actions/say` is live and verified working (manually confirmed 2026-07-01: creates a `message.created` event broadcast to the room). This corrects an earlier version of this doc, which incorrectly claimed `/actions/say` returns `410`; that status apparently described an intermediate build, not current `main`.
-- Rust tests cover avatar chat planning/commit.
-- Browser smoke asserts no branch events, disabled client-authored speech through the `Chat` verb, and duplicate Chat rejection.
+- Rust tests cover advancement gating, Bond creation, stable resident priority, delayed heartbeat persistence, and room-level coalescing.
+- Prompt tests verify that recent played-card and room-log activity is carried into resident inference.
 
 Implemented:
 
-- Humans do not submit text through the `Chat` verb specifically; `Chat` always asks the server to author the line. Separately, `say` lets a human submit free-text room speech directly (subject to moderation/sanitization), broadcast the same way as any other room event.
-- `Chat` validates actor session, target resident, rate limit, and shared location.
-- Server authors one player-avatar line using configured AI inference.
-- Avatar line commits through the C `SAY` event path.
-- Resident reply is scheduled and committed as another shared event.
-- Per-actor Chat in-flight lock rejects overlapping turns with `409`.
+- `Chat` is shown only when one banked advancement point and an eligible nearby resident make `create_bond` legal.
+- Playing Chat spends the point, creates the Bond, passes the room turn, and arms the same delayed reply heartbeat as other scene cards.
+- `say` lets a human submit moderated free-text room speech directly; it is a separate turn-exempt action.
+- One pending or running heartbeat per room coalesces rapid cards instead of queuing a speech backlog.
+- The next active resident is selected in stable authored card order, rotating after the most recent resident speaker.
+- Resident prompts include the triggering action, up to ten recent room-log entries, recent spoken lines, location/cast/goals, and durable resident continuity.
+- Accepted replies commit through the C `SAY` event path and broadcast as shared room events.
 
 Gap:
 
 - AI output policy is prompt/sanitizer based. Broader moderation is still required before open public traffic.
 - Moderators can inspect all-room event history and suspend actors through protected endpoints, but there is no report queue or player-facing appeal/account flow.
-- Avatar line generation is one-shot. Inference failure is visible and uncharged, but there is not yet a richer retry UX.
+- The first heartbeat currently uses a fixed three-second delay; adaptive pacing and per-room observability remain future polish.
 
 ### One-Button Browser MUD UI
 
@@ -226,20 +228,20 @@ Evidence:
 
 - Legacy CosyWorld has item, quest, combat, external payment, and claim-gate systems.
 - Ruby High has Solana pack purchase, pack opening, card burn, card ownership export, and reveal provenance systems.
-- V2 currently has wallet sessions, ownership feed parsing, card projection, SQLite event storage, one-button chat, Orb balances, durable Orb and AI usage ledgers, player OpenRouter verification, server-paid Chat spend, combat/listen rewards, signed-wallet Box/pack routes, and production confirm-side Solana/Core burn verification.
+- V2 currently has wallet sessions, ownership feed parsing, card projection, SQLite event storage, advancement-backed Chat, Orb balances, durable Orb/AI usage ledgers, image-only community spends, combat/listen rewards, signed-wallet Box/pack routes, and production confirm-side Solana/Core burn verification.
 
 Implemented:
 
 - MVP Orb balances are stored in the replayable runtime snapshot/action journal and projected into `orb_ledger` when the event store is enabled.
 - Human avatar creation grants starter Orbs.
-- `/state` reports Orb balance, Chat cost, Orb affordability, and player OpenRouter connection state.
-- Server-paid `/actions/chat` requires and spends one Orb only after a line commits.
-- Player OpenRouter-paid `/actions/chat` spends zero Orbs and keeps the output public.
-- Player OpenRouter keys are held by the browser and sent only with explicit player Chat actions; the server verifies and uses them transiently.
-- `ai_usage_ledger` records non-secret Chat payer/provider/model/status metadata.
+- `/state` reports Orb balance and a level-scoped `community_art` contract on eligible generated cards; legacy Chat-cost fields are always zero.
+- advancement-backed Chat, card-driven resident replies, and repeat Listen have no Orb affordability check or ledger spend.
+- `/actions/fund-image` atomically pools one contributor Orb, capped at the card's level, and starts Replicate only after full funding.
+- Generated avatars, runtime items, and familiar generated pathway locations share the same card-level contract. Ready images replace the projected card asset with a level cache key.
+- `ai_usage_ledger` records non-secret system-resident and community-image payer/provider/status metadata.
 - Existing listen/combat actions can award Orbs from committed kernel events.
 - Automatic Orb awards are claim-key gated by actor/context so repeated identical Listen/combat/flee actions cannot farm duplicate ledger rows.
-- `/state` exposes whether the current room's `Listen` reward remains claimable, so the browser only prefers `Listen` over AI setup when it can still be a real earning action.
+- `/state` exposes whether the current room's `Listen` reward remains claimable; repeat attempts remain free even after that reward is claimed.
 - The current Moonlit Trail loop exposes `Attack`, `Defend`, `Flee`, and meaningful potion `Use` actions through the one-button focus rail.
 - Trusted ownership feeds can project active Intricately Carved Wooden Boxes and unopened avatar packs into `/state` counts and access metadata.
 - `/nft/boxes/burn-prepare`, `/nft/boxes/burn-confirm`, and `/nft/packs/open` are implemented behind signed wallet sessions, trusted ownership checks, idempotent SQLite receipts, deterministic reveal provenance, and wallet card grants.
@@ -253,9 +255,8 @@ Implemented:
 
 Gap:
 
-- Player OpenRouter keys are browser-held and transient; no PKCE account flow yet.
-- No durable AI account link table.
 - Orb reward claims prevent obvious replay farming, but richer balance tuning, daily/encounter cooldown policy, and operator review tools are still needed.
+- Community image jobs need a durable provider-neutral queue/object store, startup recovery for fully funded jobs, moderation/replacement tooling, and authoritative item/location levels beyond the current level-1 slice.
 - Local Box burn confirmation can still trust the ownership feed plus submitted burn signature for staging. With a configured verifier, production `burn-prepare` now returns a current-blockhash Metaplex Core BurnV1 transaction for the connected owner to sign and send; `burn-confirm` verifies that submitted transaction on-chain before issuing a receipt.
 - Minimal Box/pack account focus exists in the top economy chip, including wallet-scoped burn/reveal provenance in the terminal panel, but there is no rich card gallery, full burn-state history, pack art surface, or support-grade provenance viewer.
 - Reconciliation evidence, contradiction detection, protected moderator resolution notes, and a
@@ -285,21 +286,20 @@ Evidence:
 
 Implemented:
 
-- Server-key text generation for avatar lines and resident replies.
-- Player OpenRouter API-key verification through `/ai/openrouter/verify`.
-- Transient player OpenRouter key use for explicit `Chat`, with zero Orb spend.
+- Server-key text generation for contextual resident replies.
+- Advancement-backed, Orb-free Chat with system-paid reply inference.
+- Replicate-backed community image generation for eligible generated cards.
 - One-to-many resident replies as room events.
 - Prompt-level constraint that the human operator is silent.
 - Dialogue inference requires a configured model; unavailable inference emits no substitute speech.
 
 Gap:
 
-- No `ai_gateway` Rust module; AI calls are still inline in `main.rs`.
-- No usage ledger, per-feature model accounting, or payer-mode audit.
+- The text gateway exists, but Replicate/media work is not yet behind the same provider-neutral boundary.
 - No OpenRouter model capability discovery.
-- No OpenRouter image generation in v2.
-- No `media_jobs` or `media_assets` table.
-- No avatar portrait generation beyond deterministic SVG.
+- No OpenRouter image generation; the first slice uses Replicate.
+- No durable `media_jobs` or `media_assets` table/object store; job de-duplication is process-local while funding/status is journal-durable.
+- Existing un-funded cards retain deterministic or authored fallback art.
 - No battle/photo/media job migration from legacy CosyWorld.
 - No swarm proposal/curation/content-pack pipeline.
 
@@ -308,7 +308,7 @@ Migration points:
 - Use Ruby High's OpenRouter PKCE and transient browser-key pattern as the first player payer implementation.
 - Use Ruby High's `character-generation.ts` and `yearbook-image.ts` response parsing for OpenRouter image generation and reference composition.
 - Use legacy `SelfieTool`, `SceneCameraTool`, and `BattleMediaService` as media-intent references.
-- Keep player-paid AI scoped to explicit player actions; ambient residents and swarm jobs stay server-paid.
+- Keep Orbs scoped exclusively to community images; resident speech and swarm jobs stay system-paid while Chat itself spends advancement.
 
 ### Shared Live Rooms
 
@@ -442,8 +442,8 @@ Gap:
 3. Moderation is shallow.
    A single shared global world now has protected all-room audit replay and actor suspension, but still needs content filtering, reports, richer mute/ban primitives, and retention rules before broad traffic.
 
-4. AI payer and cost controls are MVP-grade.
-   The first `ai_gateway` extraction, player OpenRouter verification, Orb-paid server inference, and usage ledgers now work, but production still needs gateway-owned payer resolution/ledger writes, richer aggregate model telemetry, and per-room spend budgets.
+4. AI media controls are MVP-grade.
+   Advancement Chat, contextual room heartbeats, image-only Orb funding, and usage ledgers work, but production still needs a durable media queue, provider-neutral routing, restart recovery, moderation, and richer aggregate telemetry.
 
 5. Content authoring is still basic.
    Seed labels and level 2 evolution tracks are now data-backed, but the content pipeline still needs designer tooling, migrations, and higher-level evolution data.
@@ -452,7 +452,7 @@ Gap:
    The current smoke checks mobile and desktop shell geometry, preserves local screenshots, and compares them against committed PNG baselines. It does not yet cover a broader viewport/browser matrix or page-state matrix.
 
 7. Economy still needs production guardrails.
-   MVP Orbs, claim-gated automatic rewards, claim-aware zero-Orb recovery commands, OpenRouter payer mode, durable ledgers, trusted Box/pack projection, signed-wallet Box/pack flows, Solana/Core burn transaction construction and confirmation verification, replayable pack/card grants, protected economy audit, pre-merge reconciliation evidence, and moderator resolution notes are implemented. Production still needs a configured live burn smoke, richer balance policy, and support-grade anomaly search/alerts.
+   MVP Orbs, claim-gated rewards, the single community-image sink, durable ledgers, trusted Box/pack projection, signed-wallet flows, replayable grants, economy audit, and moderator notes are implemented. Production still needs a negative-ledger invariant alert, funded-job recovery, a configured live burn smoke, richer balance policy, and support-grade anomaly search.
 
 ## Current Best Next Steps
 

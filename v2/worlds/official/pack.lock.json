@@ -165,7 +165,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:cf3734be336644caa931bda935b68b2cf04b215d6be7e6195a34184db3800cac",
+      "integrity": "sha256:67a0bd418a91396b74796249727341f4481ac25f8a32f7eb2ae32a499acbada4",
       "dependencies": [
         {
           "id": "cosyworld.core",

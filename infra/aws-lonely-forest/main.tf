@@ -15,6 +15,7 @@ locals {
   archive_www_domain = "www.${var.archive_domain}"
   app_zone_name      = "${var.app_domain}."
   archive_zone_name  = "${var.archive_domain}."
+  app_uses_fly       = trimspace(var.fly_app_ipv4) != "" || trimspace(var.fly_app_ipv6) != ""
   vpc_id             = var.vpc_id != "" ? var.vpc_id : data.aws_vpc.default[0].id
 }
 
@@ -783,29 +784,88 @@ resource "aws_ecs_service" "app" {
 }
 
 resource "aws_route53_record" "app_apex" {
-  zone_id = local.app_zone_id
-  name    = var.app_domain
-  type    = "A"
+  allow_overwrite = true
+  zone_id         = local.app_zone_id
+  name            = var.app_domain
+  type            = "A"
+  ttl             = local.app_uses_fly ? 60 : null
+  records         = local.app_uses_fly ? [var.fly_app_ipv4] : null
 
-  alias {
-    name                   = aws_lb.app.dns_name
-    zone_id                = aws_lb.app.zone_id
-    evaluate_target_health = true
+  dynamic "alias" {
+    for_each = local.app_uses_fly ? [] : [true]
+
+    content {
+      name                   = aws_lb.app.dns_name
+      zone_id                = aws_lb.app.zone_id
+      evaluate_target_health = true
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition = !local.app_uses_fly || (
+        trimspace(var.fly_app_ipv4) != "" && trimspace(var.fly_app_ipv6) != ""
+      )
+      error_message = "fly_app_ipv4 and fly_app_ipv6 must be set together."
+    }
   }
 }
 
 resource "aws_route53_record" "app_www" {
   count = var.enable_www_records ? 1 : 0
 
-  zone_id = local.app_zone_id
-  name    = local.app_www_domain
-  type    = "A"
+  allow_overwrite = true
+  zone_id         = local.app_zone_id
+  name            = local.app_www_domain
+  type            = "A"
+  ttl             = local.app_uses_fly ? 60 : null
+  records         = local.app_uses_fly ? [var.fly_app_ipv4] : null
 
-  alias {
-    name                   = aws_lb.app.dns_name
-    zone_id                = aws_lb.app.zone_id
-    evaluate_target_health = true
+  dynamic "alias" {
+    for_each = local.app_uses_fly ? [] : [true]
+
+    content {
+      name                   = aws_lb.app.dns_name
+      zone_id                = aws_lb.app.zone_id
+      evaluate_target_health = true
+    }
   }
+}
+
+resource "aws_route53_record" "app_apex_ipv6" {
+  count = local.app_uses_fly ? 1 : 0
+
+  allow_overwrite = true
+  zone_id         = local.app_zone_id
+  name            = var.app_domain
+  type            = "AAAA"
+  ttl             = 60
+  records         = [var.fly_app_ipv6]
+}
+
+resource "aws_route53_record" "app_www_ipv6" {
+  count = local.app_uses_fly && var.enable_www_records ? 1 : 0
+
+  allow_overwrite = true
+  zone_id         = local.app_zone_id
+  name            = local.app_www_domain
+  type            = "AAAA"
+  ttl             = 60
+  records         = [var.fly_app_ipv6]
+}
+
+resource "aws_route53_record" "app_fly_cert_validation" {
+  for_each = local.app_uses_fly && var.fly_dns_validation_id != "" ? toset(compact([
+    var.app_domain,
+    var.enable_www_records ? local.app_www_domain : "",
+  ])) : toset([])
+
+  allow_overwrite = true
+  zone_id         = local.app_zone_id
+  name            = "_acme-challenge.${each.value}"
+  type            = "CNAME"
+  ttl             = 60
+  records         = ["${each.value}.${var.fly_dns_validation_id}.flydns.net"]
 }
 
 locals {

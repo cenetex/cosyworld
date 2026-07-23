@@ -567,7 +567,7 @@ async function main() {
       const firstThread = node?.querySelector(".update-pill.first-thread");
       const firstThreadText = node?.querySelector(".update-pill.first-thread .update-text");
       const growAction = { label: "grow", focusKey: "bank-ledger", command: "bank ledger" };
-      const bondAction = { label: "grow closer", focusKey: "bond:1001", command: "bond Rati" };
+      const bondAction = { label: "chat", focusKey: "bond:1001", command: "chat Rati" };
       const trainAction = { label: "evolve", focusKey: "unlock-charm-slot", command: "evolve", evolveModes: ["practice"] };
       const result = {
         visible,
@@ -867,15 +867,15 @@ async function main() {
         state.action_hand = {
           entries: [
             { offer_id: "unlock-charm-slot:practice", kind: "unlock_charm_slot" },
-            { offer_id: "chat:gust", kind: "chat" },
+            { offer_id: "create-bond:gust", kind: "create_bond" },
           ],
         };
         actions = [
           { label: "evolve", detail: "open another bracelet slot", focusKey: "unlock-charm-slot", command: "evolve", evolveModes: ["practice"], offerKinds: ["unlock_charm_slot"] },
-          { label: "chat", detail: "Gust", focusKey: "actor:1002", command: "chat Gust", offerKinds: ["chat"] },
+          { label: "chat", detail: "with Gust · use what you learned", focusKey: "bond:1002", command: "chat Gust", offerKinds: ["create_bond"] },
           { ...travelAction, offerKinds: ["move"] },
         ];
-        handKeys = ["unlock-charm-slot", "actor:1002"];
+        handKeys = ["unlock-charm-slot", "bond:1002"];
         discardedHandKeys = ["exit:2"];
         focusedKey = "";
         playerPromotedHandKey = "";
@@ -924,8 +924,8 @@ async function main() {
     );
     assert(
       guide.identityHand?.slice(0, 2).map((action) => `${action.label}:${action.storyGuide}`).join(",")
-        === "grow closer:true,evolve:true",
-      `Grow Closer and bracelet Evolve should both stay visibly guided at the final first-tale choice: ${JSON.stringify(guide)}`,
+        === "chat:true,evolve:true",
+      `Chat and bracelet Evolve should both stay visibly guided at the final first-tale choice: ${JSON.stringify(guide)}`,
     );
     assert(
       guide.restoredFocusHand?.join(",") === "notice,take"
@@ -1035,6 +1035,7 @@ async function main() {
           can_chat_with_orbs: false,
           listen_cost_orbs: claimable ? 0 : 1,
           listen_reward_claimable: claimable,
+          listen_attempted_here: !claimable,
           openrouter_connected: false,
         },
         actors: [
@@ -1071,15 +1072,15 @@ async function main() {
     }, listenRewardClaimable);
   }
 
-  async function assertZeroOrbModePrefersWorldEarningAction() {
+  async function assertFreeActionsIgnoreOrbBalance() {
     const claimableActions = await zeroOrbActionLabels(true);
     const claimableLabels = claimableActions.map((action) => action.label);
-    assert(claimableLabels[0] === "notice", `zero-Orb mode should route to Notice before AI setup: ${JSON.stringify(claimableActions)}`);
-    assert(!claimableLabels.includes("connect ai"), `zero-Orb mode with an earning action should not offer Connect AI as the command: ${JSON.stringify(claimableActions)}`);
+    assert(claimableLabels[0] === "notice", `the first Notice should remain available with no Orbs: ${JSON.stringify(claimableActions)}`);
+    assert(!claimableLabels.includes("connect ai"), `free actions should not offer Connect AI as a command: ${JSON.stringify(claimableActions)}`);
     const exhaustedActions = await zeroOrbActionLabels(false);
     const exhaustedLabels = exhaustedActions.map((action) => action.label);
-    assert(!exhaustedLabels.includes("notice"), `spent Notice reward should not remain the zero-Orb recovery command: ${JSON.stringify(exhaustedActions)}`);
-    assert(exhaustedActions[0]?.label === "look", `zero-Orb mode without a local earning action should fall back to Look: ${JSON.stringify(exhaustedActions)}`);
+    assert(!exhaustedLabels.includes("notice"), `a claimed first clue should become repeat Notice: ${JSON.stringify(exhaustedActions)}`);
+    assert(exhaustedActions[0]?.label === "notice again" && exhaustedActions[0]?.detail === "free", `repeat Notice should ignore a stale legacy cost and remain free at zero Orbs: ${JSON.stringify(exhaustedActions)}`);
     const travelActions = await page.evaluate(() => {
       const previousState = state;
       const previousActorId = actorId;
@@ -1128,8 +1129,8 @@ async function main() {
       }
     });
     const travelLabels = travelActions.map((action) => action.label);
-    assert(!travelLabels.includes("connect ai"), `zero-Orb mode should not offer client AI setup: ${JSON.stringify(travelActions)}`);
-    assert(travelLabels.includes("travel"), `zero-Orb chat setup should not remove valid travel: ${JSON.stringify(travelActions)}`);
+    assert(!travelLabels.includes("connect ai"), `zero-Orb state should not offer client AI setup: ${JSON.stringify(travelActions)}`);
+    assert(travelLabels.includes("travel"), `Orb balance should not remove valid travel: ${JSON.stringify(travelActions)}`);
   }
 
   async function assertEmptyActionSetFallsBackToLook() {
@@ -1365,7 +1366,7 @@ async function main() {
         return {
           fresh: actionsFor(false),
           repeat: actionsFor(true),
-          paidRepeat: actionsFor(true, { orbs: 1, listen_cost_orbs: 1, listen_reward_claimable: false }),
+          stalePaidRepeat: actionsFor(true, { orbs: 1, listen_cost_orbs: 1, listen_reward_claimable: false }),
         };
       } finally {
         state = previousState;
@@ -1374,19 +1375,19 @@ async function main() {
     });
     assert(result.fresh[0]?.label === "notice", `fresh room clue should still lead the first action: ${JSON.stringify(result)}`);
     assert(result.repeat[0]?.label !== "notice again", `repeat Notice should not stay the default action: ${JSON.stringify(result)}`);
-    assert(result.repeat.some((action) => action.label === "chat"), `chat should remain available after the free clue is spent: ${JSON.stringify(result)}`);
+    assert(!result.repeat.some((action) => action.label === "chat"), `Chat should stay absent when no advancement-backed friendship is offered: ${JSON.stringify(result)}`);
     const repeatIndex = result.repeat.findIndex((action) => action.label === "notice again");
-    assert(repeatIndex === -1, `free no-op repeat listen should leave the one-button cycle after its clue is spent: ${JSON.stringify(result)}`);
-    const paidRepeat = result.paidRepeat.find((action) => action.label === "notice again");
-    assert(paidRepeat?.detail === "one Orb" && paidRepeat?.compactLabel === "notice again", `paid repeat Notice should separate its gesture from its cost: ${JSON.stringify(result)}`);
-    assert(paidRepeat?.title === "notice once more", `paid repeat confirmation should keep the Notice verb: ${JSON.stringify(result)}`);
-    assert(paidRepeat?.summary === "Spend one Orb to notice another ambient lead. The room may have nothing new yet.", `paid repeat confirmation should explain both cost and uncertainty: ${JSON.stringify(result)}`);
-    assert(paidRepeat?.rows?.some((row) => row[0] === "Costs" && row[1] === "one Orb"), `paid repeat confirmation should give cost its own row: ${JSON.stringify(result)}`);
-    assert(paidRepeat?.rows?.some((row) => row[0] === "What may happen" && row[1] === "the room may share another clue"), `paid repeat confirmation should describe its possible reward plainly: ${JSON.stringify(result)}`);
-    assert(paidRepeat?.rows?.some((row) => row[0] === "Watch for" && row[1] === "listening again may tire you"), `paid repeat confirmation should preserve its gentle fatigue warning: ${JSON.stringify(result)}`);
-    assert(paidRepeat?.confirm === "notice again", `paid repeat confirmation button should match the card: ${JSON.stringify(result)}`);
-    assert(!JSON.stringify(paidRepeat).includes("to listen again"), `paid repeat listen should not repeat its own verb: ${JSON.stringify(result)}`);
-    assert(!paidRepeat?.detail.includes("/"), `paid repeat listen should avoid slash shorthand: ${JSON.stringify(result)}`);
+    assert(repeatIndex > 0 && result.repeat[repeatIndex]?.detail === "free", `free repeat Notice should remain available without hijacking the primary action: ${JSON.stringify(result)}`);
+    const stalePaidRepeat = result.stalePaidRepeat.find((action) => action.label === "notice again");
+    assert(stalePaidRepeat?.detail === "free" && stalePaidRepeat?.compactLabel === "notice again", `repeat Notice should stay free even when stale state reports a legacy cost: ${JSON.stringify(result)}`);
+    assert(stalePaidRepeat?.title === "notice once more", `repeat confirmation should keep the Notice verb: ${JSON.stringify(result)}`);
+    assert(stalePaidRepeat?.summary === "Notice another ambient lead. The room may have nothing new yet.", `repeat confirmation should explain its uncertain outcome without an Orb charge: ${JSON.stringify(result)}`);
+    assert(!stalePaidRepeat?.rows?.some((row) => row[0] === "Costs"), `repeat Notice should never display an Orb cost: ${JSON.stringify(result)}`);
+    assert(stalePaidRepeat?.rows?.some((row) => row[0] === "What may happen" && row[1] === "the room may share another clue"), `repeat confirmation should describe its possible reward plainly: ${JSON.stringify(result)}`);
+    assert(stalePaidRepeat?.rows?.some((row) => row[0] === "Watch for" && row[1] === "listening again may tire you"), `repeat confirmation should preserve its gentle fatigue warning: ${JSON.stringify(result)}`);
+    assert(stalePaidRepeat?.confirm === "notice again", `repeat confirmation button should match the card: ${JSON.stringify(result)}`);
+    assert(!JSON.stringify(stalePaidRepeat).includes("to listen again"), `repeat listen should not repeat its own verb: ${JSON.stringify(result)}`);
+    assert(!stalePaidRepeat?.detail.includes("/"), `repeat listen should avoid slash shorthand: ${JSON.stringify(result)}`);
   }
 
   async function assertCalmRoomSearchDoesNotHijackPrimary() {
@@ -1439,7 +1440,7 @@ async function main() {
     const chatIndex = result.findIndex((action) => action.label === "chat");
     const notice = result.find((action) => action.intention === "notice");
     assert(result[0]?.label === "notice", `fresh Notice can still lead calm-room discovery: ${JSON.stringify(result)}`);
-    assert(chatIndex >= 0 && (searchIndex === -1 || searchIndex > chatIndex), `calm-room search should not outrank resident chat: ${JSON.stringify(result)}`);
+    assert(chatIndex === -1, `calm-room fixtures without advancement should not invent Chat: ${JSON.stringify(result)}`);
     assert(searchIndex === -1 || searchIndex > travelIndex, `calm-room feature search should stay behind travel unless focused: ${JSON.stringify(result)}`);
     assert(locationSearch?.title === "inspect the cosy cottage", `room Inspect should name where the player is looking: ${JSON.stringify(result)}`);
     assert(locationSearch?.summary === "Inspect The Cosy Cottage for one hidden thing.", `room Inspect should promise one meaningful discovery in story language: ${JSON.stringify(result)}`);
@@ -1563,8 +1564,8 @@ async function main() {
     const listenAgainIndex = result.findIndex((action) => action.label === "notice again");
     const travelIndex = result.findIndex((action) => action.label === "travel");
     const chatIndex = result.findIndex((action) => action.label === "chat");
-    assert(chatIndex >= 0 && (useIndex === -1 || useIndex > chatIndex), `optional feature use should not outrank resident chat: ${JSON.stringify(result)}`);
-    assert(listenAgainIndex === -1, `spent free listen should not sit between chat and optional feature use: ${JSON.stringify(result)}`);
+    assert(chatIndex === -1, `optional feature fixtures without advancement should not invent Chat: ${JSON.stringify(result)}`);
+    assert(listenAgainIndex > travelIndex && result[listenAgainIndex]?.detail === "free", `repeat Notice should remain available without outranking concrete travel: ${JSON.stringify(result)}`);
     assert(useIndex === -1 || useIndex > travelIndex, `optional feature use should stay behind travel unless focused: ${JSON.stringify(result)}`);
     if (useIndex >= 0) {
       assert(result[useIndex]?.command === "use Story Button on Scarf Basket", `feature use should remain focusable when the server exposes it: ${JSON.stringify(result)}`);
@@ -1864,17 +1865,18 @@ async function main() {
       const baseState = {
         location: { id: 1, name: "The Cosy Cottage" },
         primary_action: {
-          kind: "chat",
-          options: [{ kind: "chat" }],
+          kind: "create_bond",
+          options: [{ kind: "create_bond" }],
         },
         action_offers: [{
-          kind: "chat",
+          kind: "create_bond",
+          command: "chat Skull",
           target: { kind: "actor", id: 1003, label: "Skull" },
-          cost: { orbs: 1, reason: "server-authored avatar chat" },
-          effect: "first chat deepens Bond with Skull; adds a memory mark",
+          effect: "a friendship with Skull begins",
         }],
-        chat_bond_claimed_target_ids: [],
-        economy: { orbs: 1, chat_cost_orbs: 1, can_chat_with_orbs: true, openrouter_connected: false },
+        economy: { orbs: 0, chat_cost_orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
+        ledger: { advancement_points: 1 },
+        bonds: [],
         actors: [
           { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", stats: { level: 1 } },
           { id: 1003, name: "Skull", kind: "npc", status: "active", stats: { level: 2 } },
@@ -1940,8 +1942,8 @@ async function main() {
           ...baseState,
           ...patch,
           primary_action: {
-            kind: "chat",
-            options: [{ kind: "chat" }, { kind: "move" }],
+            kind: "create_bond",
+            options: [{ kind: "create_bond" }, { kind: "move" }],
           },
           exits: [{
             destination_location_id: 2,
@@ -1963,16 +1965,17 @@ async function main() {
         return {
           serverPaid: chatActionFor({}),
           staleConnectedHint: chatActionFor({ economy: { openrouter_connected: true } }),
-          claimed: chatActionFor({ chat_bond_claimed_target_ids: [1003] }),
-          freshOrder: orderedActionsFor({ chat_bond_claimed_target_ids: [] }),
-          claimedOrder: orderedActionsFor({ chat_bond_claimed_target_ids: [1003] }),
+          claimed: chatActionFor({ bonds: [{ target_actor_id: 1003, status: "active" }] }),
+          freshOrder: orderedActionsFor({ bonds: [] }),
+          claimedOrder: orderedActionsFor({ bonds: [{ target_actor_id: 1003, status: "active" }] }),
           multiResident: chatActionsFor({
             action_offers: [{
               ...baseState.action_offers[0],
               target: { kind: "actor", id: 1001, label: "Rati" },
-              effect: "first chat deepens Bond with Rati; adds a memory mark",
+              command: "chat Rati",
+              effect: "a friendship with Rati begins",
             }],
-            chat_bond_claimed_target_ids: [1001],
+            bonds: [],
             actors: [
               baseState.actors[0],
               { id: 1001, name: "Rati", kind: "npc", status: "active", stats: { level: 1 } },
@@ -1998,22 +2001,23 @@ async function main() {
         actorId = previousActorId;
       }
     });
-    assert(result.serverPaid?.detail === "Skull · one Orb", `server-paid chat should show the resident name and Orb cost without subtraction shorthand: ${JSON.stringify(result)}`);
-    assert(result.staleConnectedHint?.detail === "Skull · one Orb", `stale OpenRouter hints should still show server-paid Orb cost: ${JSON.stringify(result)}`);
-    assert(result.claimed?.detail === "Skull · one Orb", `claimed chat bond payoff should disappear from compact detail: ${JSON.stringify(result)}`);
-    assert(result.freshOrder?.some((action) => action.label === "chat"), `fresh chat should stay available beside travel: ${JSON.stringify(result)}`);
-    assert(result.claimedOrder?.[0]?.label === "travel", `claimed repeat chat should drop behind travel: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.detail === "with Skull · use what you learned", `Chat should show the resident and advancement source: ${JSON.stringify(result)}`);
+    assert(result.staleConnectedHint?.detail === "with Skull · use what you learned", `stale OpenRouter hints must not affect advancement-backed Chat: ${JSON.stringify(result)}`);
+    assert(result.claimed === null, `Chat should disappear once that friendship already exists: ${JSON.stringify(result)}`);
+    assert(result.freshOrder?.some((action) => action.label === "chat"), `eligible Chat should stay available beside travel: ${JSON.stringify(result)}`);
+    assert(result.claimedOrder?.[0]?.label === "travel" && !result.claimedOrder.some((action) => action.label === "chat"), `an existing friendship should remove Chat: ${JSON.stringify(result)}`);
     assert(result.multiResident?.length === 1, `nearby residents should share one choice-bearing Chat card: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.detail === "choose someone · one Orb", `multi-resident Chat should advertise its in-card choice and whole-conversation cost: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.title === "choose someone to talk with", `multi-resident Chat should open a clear target picker: ${JSON.stringify(result)}`);
-    assert(result.multiResident[0]?.summary === "Choose someone nearby, then play Chat. The action passes the room turn immediately while the conversation unfolds.", `multi-resident Chat should explain the action commit and asynchronous conversation: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.detail === "choose someone · use what you learned", `multi-resident Chat should advertise its in-card choice and advancement source: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.title === "choose someone to chat with", `multi-resident Chat should open a clear target picker: ${JSON.stringify(result)}`);
+    assert(result.multiResident[0]?.summary === "Choose someone nearby. Chat uses one advancement point and begins a friendship.", `multi-resident Chat should explain its advancement and friendship result: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.choices?.map((choice) => choice.label).join(",") === "Rati,Skull", `the Chat card should carry every eligible resident choice: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.alternateTargetId === 1003, `confirming an alternate Chat choice should address that resident: ${JSON.stringify(result)}`);
     assert(result.multiResident[0]?.focusKeys?.includes("actor:1001") && result.multiResident[0]?.focusKeys?.includes("actor:1003"), `one Chat card should retain affinity for every resident it can reach: ${JSON.stringify(result)}`);
-    assert(result.serverPaid?.title === "talk with Skull", `chat confirmation should name the conversation partner: ${JSON.stringify(result)}`);
-    assert(result.serverPaid?.summary === "Play Chat to start a short conversation with Skull. The action passes the room turn immediately while the conversation unfolds.", `chat confirmation should explain the ordinary action and asynchronous conversation: ${JSON.stringify(result)}`);
-    assert(result.serverPaid?.rows?.some((row) => row[0] === "Costs" && row[1] === "one Orb for the whole exchange"), `chat confirmation should spell out the single cost for every line: ${JSON.stringify(result)}`);
-    assert(result.serverPaid?.rows?.some((row) => row[0] === "Conversation" && row[1].includes("one more line")), `chat confirmation should explain the back-and-forth cadence: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.title === "chat with Skull", `Chat confirmation should name the resident: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.summary === "Use one advancement point to begin a friendship with Skull.", `Chat confirmation should explain its advancement cost: ${JSON.stringify(result)}`);
+    assert(!result.serverPaid?.rows?.some((row) => row[0] === "Costs"), `chat confirmation should never display an Orb cost: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.rows?.some((row) => row[0] === "Spend" && row[1] === "one advancement point"), `Chat confirmation should name the advancement spend: ${JSON.stringify(result)}`);
+    assert(result.serverPaid?.rows?.some((row) => row[0] === "Then" && row[1].includes("room heartbeat")), `Chat confirmation should explain the delayed room reply: ${JSON.stringify(result)}`);
     assert(!/reply hook|authors a line|-[0-9]+ Orb/i.test(JSON.stringify(result.serverPaid)), `chat confirmation should hide implementation and subtraction jargon: ${JSON.stringify(result)}`);
     assert(!String(result.serverPaid?.detail || "").includes("lv"), `chat cards should let the evolved art and title carry character growth: ${JSON.stringify(result)}`);
     assert(!String(result.serverPaid?.detail || "").includes("/"), `chat detail should not include card title chrome: ${JSON.stringify(result)}`);
@@ -3067,8 +3071,7 @@ async function main() {
     const chatIndex = actions.findIndex((action) => action.label === "chat");
     const travelIndex = actions.findIndex((action) => action.label === "travel");
     assert(bankIndex >= 0, `bank ledger action should surface after marks are earned: ${JSON.stringify(result)}`);
-    assert(chatIndex >= 0, `chat action should remain available while progress can be banked: ${JSON.stringify(result)}`);
-    assert(bankIndex < chatIndex, `bank ledger should interrupt chat once when progress is unbanked: ${JSON.stringify(result)}`);
+    assert(chatIndex < 0, `Chat should remain absent until progress is banked into advancement: ${JSON.stringify(result)}`);
     assert(bankIndex < travelIndex, `bank ledger should appear before leaving with unbanked progress: ${JSON.stringify(result)}`);
     assert(actions[bankIndex]?.label === "evolve", `growth action should use the unified compact verb: ${JSON.stringify(result)}`);
     assert(actions[bankIndex]?.detail === "from what you learned", `Evolve should use warm, non-ledger copy: ${JSON.stringify(result)}`);
@@ -3211,7 +3214,7 @@ async function main() {
     assert(skillAgnosticSlot?.label === "evolve" && skillAgnosticSlot?.detail === "open another bracelet slot", `legacy avatar skill ranks should not change the new bracelet offer: ${JSON.stringify(result)}`);
     const repeatSlotIndex = result.repeatWithBond.findIndex((action) => action.label === "evolve");
     const bondIndex = result.repeatWithBond.findIndex((action) => action.focusKey === "bond:1001");
-    assert(bondIndex >= 0 && repeatSlotIndex >= 0 && bondIndex < repeatSlotIndex, `growing closer should interrupt repeat bracelet growth when both are available: ${JSON.stringify(result)}`);
+    assert(bondIndex >= 0 && repeatSlotIndex >= 0 && bondIndex < repeatSlotIndex, `Chat should interrupt repeat bracelet growth when both are available: ${JSON.stringify(result)}`);
     assert(!/one growth|growth spent/i.test(JSON.stringify(result)), `bracelet growth should not expose advancement as a counted token: ${JSON.stringify(result)}`);
     assert(![...result.firstStep, ...result.contextual, ...result.onlyListening, ...result.repeatWithBond].some((action) => String(action.detail || "").includes(" / ")), `bracelet copy should avoid slash-heavy detail: ${JSON.stringify(result)}`);
   }
@@ -3343,21 +3346,21 @@ async function main() {
     const actions = result.single;
     const bondIndex = actions.findIndex((action) => action.focusKey === "bond:1001");
     const travelIndex = actions.findIndex((action) => action.label === "travel");
-    assert(bondIndex >= 0, `grow-closer action should surface when a resident can become a friend: ${JSON.stringify(result)}`);
-    assert(bondIndex < travelIndex, `grow-closer action should appear before leaving with spendable growth: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.label === "grow closer", `relationship action should use a warm, plain verb: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.detail === "to Rati · use what you learned", `relationship action should preview its person and cost simply: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.title === "grow closer to Rati", `relationship confirmation should name the gesture: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.summary === "Keep Rati as someone who matters to you.", `relationship confirmation should explain the choice warmly: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.rows?.some((row) => row[1] === "your friendship with Rati begins"), `relationship confirmation should describe its outcome without system language: ${JSON.stringify(result)}`);
-    assert(actions[bondIndex]?.confirm === "grow closer", `relationship confirmation should keep the same warm verb: ${JSON.stringify(result)}`);
+    assert(bondIndex >= 0, `Chat should surface when a resident can become a friend: ${JSON.stringify(result)}`);
+    assert(bondIndex < travelIndex, `Chat should appear before leaving with spendable advancement: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.label === "chat", `relationship action should use the unified Chat verb: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.detail === "with Rati · use what you learned", `Chat should preview its person and cost simply: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.title === "chat with Rati", `Chat confirmation should name the resident: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.summary === "Use one advancement point to begin a friendship with Rati.", `Chat confirmation should explain its advancement cost: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.rows?.some((row) => row[1] === "a friendship begins and their response arrives on the room heartbeat"), `Chat confirmation should describe its friendship and heartbeat outcome: ${JSON.stringify(result)}`);
+    assert(actions[bondIndex]?.confirm === "chat", `relationship confirmation should keep the Chat verb: ${JSON.stringify(result)}`);
     assert(actions[bondIndex]?.command === "bond Rati: I bring small kindnesses to Rati.", `relationship action should keep the underlying command intact: ${JSON.stringify(result)}`);
-    const multipleBonds = result.multiple.filter((action) => action.label === "grow closer");
-    assert(multipleBonds.length === 1 && multipleBonds[0]?.detail === "choose someone · use what you learned", `several possible friends should share one Grow Closer card: ${JSON.stringify(result)}`);
-    assert(multipleBonds[0]?.title === "choose someone to grow closer to" && multipleBonds[0]?.summary === "Choose someone to grow closer to.", `Grow Closer should make the promised friendship choice explicit: ${JSON.stringify(result)}`);
-    assert(multipleBonds[0]?.choices.join(",") === "Rati,Gust" && multipleBonds[0]?.alternatePayload?.target_actor_id === 1002, `Grow Closer should submit the resident selected inside the card: ${JSON.stringify(result)}`);
+    const multipleBonds = result.multiple.filter((action) => action.label === "chat");
+    assert(multipleBonds.length === 1 && multipleBonds[0]?.detail === "choose someone · use what you learned", `several possible friends should share one Chat card: ${JSON.stringify(result)}`);
+    assert(multipleBonds[0]?.title === "choose someone to chat with" && multipleBonds[0]?.summary === "Choose someone nearby. Chat uses one advancement point and begins a friendship.", `Chat should make the promised friendship choice explicit: ${JSON.stringify(result)}`);
+    assert(multipleBonds[0]?.choices.join(",") === "Rati,Gust" && multipleBonds[0]?.alternatePayload?.target_actor_id === 1002, `Chat should submit the resident selected inside the card: ${JSON.stringify(result)}`);
     assert(multipleBonds[0]?.alternatePayload?.statement === "I bring small kindnesses to Gust.", `each friendship choice should carry its own warm statement: ${JSON.stringify(result)}`);
-    assert(multipleBonds[0]?.focusKeys.includes("actor:1001") && multipleBonds[0]?.focusKeys.includes("actor:1002"), `one Grow Closer card should retain affinity for every eligible friend: ${JSON.stringify(result)}`);
+    assert(multipleBonds[0]?.focusKeys.includes("actor:1001") && multipleBonds[0]?.focusKeys.includes("actor:1002"), `one Chat card should retain affinity for every eligible friend: ${JSON.stringify(result)}`);
     const visibleRelationshipCopy = {
       label: actions[bondIndex]?.label,
       detail: actions[bondIndex]?.detail,
@@ -4321,8 +4324,8 @@ async function main() {
         }),
       },
     }));
-    assert(result.action.chatCost === "Talking needs one Orb. Listen for a clue or finish a little job to earn one.", `Chat failure should explain how to recover: ${JSON.stringify(result)}`);
-    assert(result.action.orbCost === "You need another Orb for that. Listen for a clue or finish a little job first.", `Orb failure should offer a next step: ${JSON.stringify(result)}`);
+    assert(result.action.chatCost === "That choice did not land. Here are the choices you have now.", `a stale Chat payment error should not imply that Chat costs Orbs: ${JSON.stringify(result)}`);
+    assert(result.action.orbCost === "That choice did not land. Here are the choices you have now.", `non-image payment errors should not advertise another Orb sink: ${JSON.stringify(result)}`);
     assert(result.action.changed === "That choice changed while you were deciding. Here are the choices you have now.", `stale cards should explain the refreshed choice naturally: ${JSON.stringify(result)}`);
     assert(result.action.hurry === "The room needs a breath. Try again in a moment.", `rate limits should sound like the room, not infrastructure: ${JSON.stringify(result)}`);
     assert(result.command.serverGuidance === "There is no need to fight here now.", `typed commands should preserve contextual server guidance: ${JSON.stringify(result)}`);
@@ -5711,30 +5714,56 @@ async function main() {
 
   async function clickActionMatching(label, needles) {
     const normalizedNeedles = needles.map((needle) => needle.toLowerCase());
-    const selected = await page.evaluate((terms) => {
-      const actionText = (action) => [
-        compactActionLabel(action),
-        action?.detail,
-        action?.command,
-        action?.cost,
-        action?.risk,
-        action?.effect,
-      ].filter(Boolean).join(" ").toLowerCase();
-      const index = actions.findIndex((action) => terms.every((term) => actionText(action).includes(term)));
-      if (index < 0) return { ok: false, actions: actions.map(actionText) };
-      focusAction(index);
-      document.querySelector("#primary")?.click();
-      return { ok: true, action: actionText(actions[index]) };
-    }, normalizedNeedles);
-    assert(selected.ok, `${label} card was not atomically selectable: ${JSON.stringify(selected)}`);
-    await confirmActionModalIfOpen();
-    await page.waitForFunction(() => (
-      actionBusy === false
-        && refreshInFlight === null
-        && document.querySelector("#action-modal")?.hidden === true
-    ), null, { timeout: 35_000 });
-    await assertNoVisibleOverflow();
-    steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
+    let lastResult = null;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      await page.waitForFunction(() => (
+        actionBusy === false
+          && refreshInFlight === null
+          && document.querySelector("#action-modal")?.hidden === true
+      ), null, { timeout: 35_000 });
+      const selected = await page.evaluate((terms) => {
+        const actionText = (action) => [
+          compactActionLabel(action),
+          action?.detail,
+          action?.command,
+          action?.cost,
+          action?.risk,
+          action?.effect,
+        ].filter(Boolean).join(" ").toLowerCase();
+        const index = actions.findIndex((action) => terms.every((term) => actionText(action).includes(term)));
+        if (index < 0) return { ok: false, actions: actions.map(actionText) };
+        focusAction(index);
+        document.querySelector("#primary")?.click();
+        return { ok: true, action: actionText(actions[index]) };
+      }, normalizedNeedles);
+      assert(selected.ok, `${label} card was not atomically selectable: ${JSON.stringify(selected)}`);
+      const responsePromise = page.waitForResponse((response) => (
+        response.request().method() === "POST"
+          && new URL(response.url()).pathname.startsWith("/actions/")
+      ));
+      await confirmActionModalIfOpen();
+      const response = await responsePromise;
+      const body = await response.json();
+      lastResult = { httpStatus: response.status(), body };
+      await page.waitForFunction(() => (
+        actionBusy === false
+          && refreshInFlight === null
+          && document.querySelector("#action-modal")?.hidden === true
+      ), null, { timeout: 35_000 });
+      if (body?.ok === true) {
+        await assertNoVisibleOverflow();
+        steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
+        return lastResult;
+      }
+      const staleOffer = Number(body?.status || response.status()) === 409
+        && (body?.events || []).some((event) => String(event.content || "").includes("offer_id"));
+      assert(
+        staleOffer,
+        `${label} should commit or reject only as a stale concurrent offer: ${JSON.stringify(lastResult)}`,
+      );
+      await page.evaluate(() => refresh());
+    }
+    throw new Error(`${label} stayed stale after three fresh offers: ${JSON.stringify(lastResult)}`);
   }
 
   async function clickPrimaryAndAssertPending(label) {
@@ -5750,7 +5779,7 @@ async function main() {
     const pendingCopy = await page.locator("#log .line.chat.pending").getAttribute("aria-label");
     assert(
       /is finding the thread\. Your next actions are ready while the conversation unfolds\./.test(pendingCopy || ""),
-      `queued Orb Chat should announce that play can continue: ${pendingCopy}`,
+      `queued Chat should announce that play can continue: ${pendingCopy}`,
     );
     steps.push({ label, pending: "queued", cards: "ready" });
   }
@@ -6102,9 +6131,7 @@ async function main() {
       current = await fetchCurrentState();
     }
     if (Number(current.ledger?.advancement_points || 0) > 0 && Number(current.ledger?.spent_count || 0) === 0) {
-      await focusPrimaryMatching("first-thread identity", (text) => (
-        text.startsWith("evolve") || text.startsWith("grow closer")
-      ), 32);
+      await focusPrimaryMatching("first-thread identity", (text) => text.startsWith("chat"), 32);
       await clickPrimary("first-thread identity");
       await page.waitForFunction(() => Number(state?.ledger?.spent_count || 0) > 0);
       const completion = await page.locator("#updates").evaluate((node) => ({
@@ -6218,12 +6245,12 @@ async function main() {
       await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
       firstListenCommitted = (await fetchCurrentState()).economy?.listen_attempted_here === true;
     }
-    assert(firstListenCommitted, "the first frontier Notice should commit before drawing its paid repeat");
+    assert(firstListenCommitted, "the first frontier Notice should commit before drawing its free repeat");
     await bankCurrentMemories("evolve after frontier notice");
 
-    const repeatNotice = await drawPrimaryMatching("tiring frontier notice", ["notice", "one orb"]);
+    const repeatNotice = await drawPrimaryMatching("tiring frontier notice", ["notice", "free"]);
     steps.push({ label: "tiring frontier notice", primary: repeatNotice, location: await currentLocation() });
-    await clickActionMatching("tiring frontier notice", ["notice", "one orb"]);
+    await clickActionMatching("tiring frontier notice", ["notice", "free"]);
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
@@ -7961,26 +7988,44 @@ async function main() {
     assert(openingPrimary.includes("begin") && openingPrimary.includes("enter the lantern keeper"), `guest first card should name the campaign: ${openingPrimary}`);
     await page.locator("#primary").click();
     await page.waitForSelector("#action-modal:not([hidden])");
-    assert(await page.locator("#action-modal-title").innerText() === "Who takes up the road when the beacon goes dark?", "opening modal should ask the campaign's character question");
+    assert(await page.locator("#action-modal-title").innerText() === "What kind of traveler reaches the last light?", "opening modal should ask for the campaign species");
     assert(
-      await page.locator("#action-modal-summary").innerText() === "Create a level-one traveler answering the last light on the Mothwood road.",
-      "campaign modal should frame the character's immediate adventure",
+      await page.locator("#action-modal-summary").innerText() === "Begin as a classless level-zero traveler, take one action in the world, then choose how that first choice shapes your class.",
+      "campaign modal should frame staged character creation",
     );
     const openingRows = await page.locator("#action-modal-meta .action-row").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
     ));
-    assert(openingRows.includes("Campaign The Lantern Keeper") && openingRows.includes("Begin at Wayside Lantern Inn"), `opening modal should name the campaign and entry room: ${JSON.stringify(openingRows)}`);
-    const purposeChoices = await page.locator("#action-modal-choices .action-choice").evaluateAll((nodes) => (
+    assert(
+      openingRows.includes("Why this action From the campaign beginning")
+        && openingRows.includes("Choose a Species card")
+        && openingRows.includes("Next choose an Origin card")
+        && openingRows.includes("Begin at Wayside Lantern Inn"),
+      `opening modal should explain the campaign-backed staged choice: ${JSON.stringify(openingRows)}`,
+    );
+    const speciesChoices = await page.locator("#action-modal-choices .action-choice").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
     ));
     assert(
-      purposeChoices.length === 4
-        && purposeChoices[0].toLowerCase().includes("lantern warden")
-        && purposeChoices[1].toLowerCase().includes("mothwood guide")
-        && purposeChoices[2].toLowerCase().includes("chapel scholar")
-        && purposeChoices[3].toLowerCase().includes("hedge mender"),
-      `guest avatar gate should expose campaign archetypes in the modal: ${JSON.stringify(purposeChoices)}`,
+      speciesChoices.length === 3
+        && speciesChoices[0].toLowerCase().includes("human")
+        && speciesChoices[1].toLowerCase().includes("mouse")
+        && speciesChoices[2].toLowerCase().includes("badger"),
+      `guest avatar gate should expose campaign species first: ${JSON.stringify(speciesChoices)}`,
     );
+    await page.locator("#action-modal-confirm").click();
+    assert(await page.locator("#action-modal-title").innerText() === "where did your traveler come from?", "the second creation stage should ask for an origin");
+    const originChoices = await page.locator("#action-modal-choices .action-choice").evaluateAll((nodes) => (
+      nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
+    ));
+    assert(
+      originChoices.length === 3
+        && originChoices[0].toLowerCase().includes("wayside inn")
+        && originChoices[1].toLowerCase().includes("open road")
+        && originChoices[2].toLowerCase().includes("old chapel"),
+      `guest avatar gate should expose campaign origins second: ${JSON.stringify(originChoices)}`,
+    );
+    assert(await page.locator("#action-modal-confirm").innerText() === "begin", "the origin stage should begin the classless traveler");
     await page.locator("#action-modal-confirm").click();
     await page.waitForTimeout(200);
     await assertNoVisibleOverflow();
@@ -8011,7 +8056,8 @@ async function main() {
     steps.push({ label: "open guest account inventory", primary: await focusAccountInventory() });
     await assertActionBarCapped("guest account inventory", 0);
     const guestSheetText = await page.locator(".account-panel").innerText();
-    assert(guestSheetText.includes("I keep a light burning when others lose the road."), `new avatar sheet should carry the campaign purpose choice: ${guestSheetText}`);
+    assert(guestSheetText.includes("I listen for odd jobs nobody else wants."), `a classless new avatar should keep the safe default purpose until class selection: ${guestSheetText}`);
+    assert(guestSheetText.includes("0 · classless"), `the account sheet should show staged classless creation: ${guestSheetText}`);
     assert(guestSheetText.includes("journal") && guestSheetText.includes("friends"), `avatar sheet should use the small player vocabulary: ${guestSheetText}`);
     assert(
       guestSheetText.includes("your first little moment is waiting")
@@ -8090,6 +8136,7 @@ async function main() {
       return !primary?.disabled && label.trim().toLowerCase().startsWith("begin,");
     });
     await clickPrimary("box flow generate avatar");
+    await confirmActionModalIfOpen();
     await page.waitForFunction(() => actorId > 0 && localStorage.getItem("cosyworld.actorId") === String(actorId));
     steps.push({ label: "box flow open account", primary: await focusAccountInventory() });
     const walletConnected = await page.evaluate(() => connectWallet());
@@ -8440,15 +8487,15 @@ async function main() {
       }
       assert(
         after?.latestChatFailedSeq > before.latestEventSeq,
-        `AI-disabled Orb Chat should publish a failure event: ${JSON.stringify({ before, after })}`,
+        `AI-disabled Chat should publish a failure event: ${JSON.stringify({ before, after })}`,
       );
       assert(
         after.totalMessages === before.totalMessages,
-        `AI-disabled Orb Chat should not invent dialogue: ${JSON.stringify({ before, after })}`,
+        `AI-disabled Chat should not invent dialogue: ${JSON.stringify({ before, after })}`,
       );
       assert(
         after.orbs === before.orbs,
-        `AI-disabled Orb Chat should refund its Orb after failure: ${JSON.stringify({ before, after })}`,
+        `AI-disabled Chat should leave the Orb balance unchanged: ${JSON.stringify({ before, after })}`,
       );
       await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
       await assertActionBarCapped("failed chat action bar");
@@ -8488,7 +8535,7 @@ async function main() {
         && exchange.length <= 4
         && exchange[0]?.actorId === before.actorId
         && exchange.every((line, index) => line.actorId === (index % 2 === 0 ? before.actorId : targetActorId)),
-      `one-Orb Chat should commit an inferred avatar line and any available alternating continuation beats: ${JSON.stringify(exchange)}`,
+      `Chat should commit an inferred avatar line and any available alternating continuation beats: ${JSON.stringify(exchange)}`,
     );
     assert(
       exchange.every((line) => String(line.content || "").trim().length >= 2),
@@ -8654,7 +8701,7 @@ async function main() {
   await page.waitForFunction(() => (state?.items || []).some((item) => (
     item.name === "Story Button" && Number(item.holder_actor_id || 0) === Number(actorId || 0)
   )));
-  await assertZeroOrbModePrefersWorldEarningAction();
+  await assertFreeActionsIgnoreOrbBalance();
   await assertEmptyActionSetFallsBackToLook();
   await assertLockedRoutesCollapseAndFooterVerbsFit();
   await assertRepeatListenDoesNotHijackPrimary();
@@ -8755,39 +8802,42 @@ async function main() {
   await assertBoundedEventReplay();
   await assertStreamReplaysAfterCursor();
 
-  let residentRoom = null;
-  let residentChatPrimary = "";
-  let residentChatDiagnostic = null;
-  for (let attempt = 1; attempt <= 6 && !residentChatPrimary; attempt += 1) {
-    residentRoom = await joinNearbyResident();
-    residentChatDiagnostic = await page.evaluate(() => ({
-      location: state?.location?.name || "",
-      residents: (state?.actors || [])
-        .filter((actor) => actor.kind === "npc" && actor.status === "active")
-        .map((actor) => actor.name),
-      canChat: state?.economy?.can_chat_with_orbs !== false,
+  const residentRoom = await joinNearbyResident();
+  await page.evaluate(() => refresh());
+  const residentChatDiagnostic = await page.evaluate(() => ({
+    location: state?.location?.name || "",
+    residents: (state?.actors || [])
+      .filter((actor) => actor.kind === "npc" && actor.status === "active")
+      .map((actor) => actor.name),
+    advancement: Number(state?.ledger?.advancement_points || 0),
+    offers: (state?.action_offers || []).map((offer) => offer.kind),
+    actions: actions.map((action) => action.label),
+    turn: state?.turn || null,
+  }));
+  assert(
+    residentChatDiagnostic.advancement > 0
+      && residentChatDiagnostic.offers.includes("create_bond")
+      && residentChatDiagnostic.actions.includes("chat"),
+    `Chat should remain available while another advancement-backed friendship can begin: ${JSON.stringify(residentChatDiagnostic)}`,
+  );
+  await focusPrimaryMatching("spend final advancement on Chat", (text) => text.startsWith("chat"), 32);
+  await clickPrimary("spend final advancement on Chat");
+  await page.waitForFunction(() => Number(state?.ledger?.advancement_points || 0) === 0);
+  const spentChatDiagnostic = await page.evaluate(async () => {
+    await refresh();
+    return {
+      advancement: Number(state?.ledger?.advancement_points || 0),
       offers: (state?.action_offers || []).map((offer) => offer.kind),
       actions: actions.map((action) => action.label),
-      turn: state?.turn || null,
-    }));
-    if (!residentChatDiagnostic.actions.includes("chat")) continue;
-    try {
-      residentChatPrimary = await focusPrimaryMatching(
-        `resident chat ${attempt}`,
-        (text) => text.includes("chat"),
-        8,
-      );
-    } catch {
-      await page.evaluate(() => refresh());
-    }
-  }
+    };
+  });
   assert(
-    residentChatPrimary,
-    `a resident should stay nearby long enough to offer Chat: ${JSON.stringify(residentChatDiagnostic)}`,
+    spentChatDiagnostic.advancement === 0
+      && !spentChatDiagnostic.offers.includes("create_bond")
+      && !spentChatDiagnostic.actions.includes("chat"),
+    `Chat should disappear once no advancement-backed friendship remains: ${JSON.stringify(spentChatDiagnostic)}`,
   );
-  steps.push({ label: "focus resident chat", primary: residentChatPrimary });
-  assert((await primaryText()).toLowerCase().includes("chat"), "resident focus should still use the Chat verb");
-  if (!runLivingWorldStress) await chatWithFocusedResident("avatar chat with resident");
+  steps.push({ label: "spent advancement hides chat", location: residentChatDiagnostic.location });
   if (residentRoom.destinationName !== "The Cosy Cottage") {
     await travelPathTo("The Cosy Cottage");
   }
@@ -8899,11 +8949,11 @@ async function main() {
         }
         const projectHelpPrimary = await drawPrimaryMatching(
           "project safe help",
-          ["help", "make a little headway"],
+          ["help coach", "+1 progress"],
         );
         assert(
-          projectHelpPrimary.toLowerCase().includes("stay fresh"),
-          "fallback project help should preserve the gentler route",
+          projectHelpPrimary.toLowerCase().includes("quiet the echo"),
+          "fallback project help should retain the authored project card",
         );
         await clickPrimary("help project safely");
       }
@@ -8971,7 +9021,10 @@ async function main() {
         return {
           progress: Number(progress?.filled || 0),
           job: job?.status || "missing",
-          tired: (state?.tags || []).some((tag) => tag.label === "tired"),
+          tired: (state?.tags || []).some((tag) => (
+            tag.label === "tired"
+              && Number(tag.scope_id || 0) === Number(actorId || 0)
+          )),
           actions: actions.map((action) => String(action.label || "").toLowerCase()),
         };
       });
@@ -9023,7 +9076,11 @@ async function main() {
       ),
       `resolving the project should apply its reward tag: ${JSON.stringify(completedProjectState.tags)}`,
     );
-    const projectLeftAvatarTired = (completedProjectState.tags || []).some((tag) => tag.label === "tired");
+    const activeAvatarId = Number(await page.evaluate(() => actorId || 0));
+    const projectLeftAvatarTired = (completedProjectState.tags || []).some((tag) => (
+      tag.label === "tired"
+        && Number(tag.scope_id || 0) === activeAvatarId
+    ));
     assert(
       !(completedProjectState.tags || []).some(
         (tag) => tag.label === "spent preparation",
@@ -9047,10 +9104,20 @@ async function main() {
       }
       const recoveryCard = await drawPrimaryMatching("rest after extra project work", ["rest", "feel fresh"]);
       steps.push({ label: "rest after extra project work", primary: recoveryCard });
-      await clickPrimary("rest after extra project work");
+      const recoveryResult = await clickActionMatching(
+        "rest after extra project work",
+        ["rest", "feel fresh"],
+      );
+      assert(
+        recoveryResult.body?.ok === true,
+        `post-project Rest should commit: ${JSON.stringify(recoveryResult)}`,
+      );
       let recovered = false;
       for (let attempt = 0; attempt < 70 && !recovered; attempt += 1) {
-        recovered = !(await fetchCurrentState()).tags?.some((tag) => tag.label === "tired");
+        recovered = !(await fetchCurrentState()).tags?.some((tag) => (
+          tag.label === "tired"
+            && Number(tag.scope_id || 0) === activeAvatarId
+        ));
         if (!recovered) await page.waitForTimeout(500);
       }
       assert(recovered, "post-project Rest should clear tired in authoritative state");
@@ -9058,8 +9125,7 @@ async function main() {
     }
     const quietedEchoRoom = await joinResident("Coach");
     const quietedChatAvailability = await page.evaluate(() => ({
-      canChat: state?.economy?.can_chat_with_orbs !== false,
-      orbs: Number(state?.economy?.orbs || 0),
+      advancement: Number(state?.ledger?.advancement_points || 0),
       hasChat: actions.some((action) => action.label === "chat"),
       hasCoachAttack: actions.some((action) => (
         action.label === "attack"
@@ -9067,24 +9133,12 @@ async function main() {
       )),
     }));
     assert(!quietedChatAvailability.hasCoachAttack, "completed project should calm Coach combat");
-    if (quietedChatAvailability.hasChat) {
-      const quietedChat = await page.evaluate(() => {
-        const chat = actions.find((action) => action.label === "chat") || null;
-        return {
-          text: `${chat?.label || ""} ${chat?.detail || ""}`.trim(),
-          hasCoach: chat?.targetName === "Coach"
-            || (chat?.choices || []).some((choice) => choice.label === "Coach"),
-        };
-      });
-      steps.push({ label: "quieted Coach joins Chat choices", primary: quietedChat.text });
-      assert(quietedChat.hasCoach, `quieted Coach should appear inside the room's Chat card: ${JSON.stringify(quietedChat)}`);
-    } else {
-      assert(
-        !quietedChatAvailability.canChat || quietedChatAvailability.orbs <= 0,
-        `quieted Coach should only be absent from Chat when the avatar cannot afford an Orb: ${JSON.stringify(quietedChatAvailability)}`,
-      );
-      steps.push({ label: "quieted Coach is peaceful; no Orb left for Chat", location: await currentLocation() });
-    }
+    steps.push({
+      label: "quieted Coach is peaceful",
+      location: await currentLocation(),
+      advancement: quietedChatAvailability.advancement,
+      chatAvailableForNewFriend: quietedChatAvailability.hasChat,
+    });
     const postEchoLocation = await currentLocation();
     if (postEchoLocation !== "Moonlit Trail") {
       const echoExitNames = await page.evaluate(() => (state?.exits || [])
@@ -9251,9 +9305,9 @@ async function main() {
     );
     assert(finalState.trailExitEvents.includes("Rain-Soft Garden"), "leaving Moonlit Trail should record a trail exit event");
   }
-  assert(finalState.avatarMessages.length >= 2, "Chat should emit server-authored avatar messages");
-  assert(finalState.branchEvents.length === 0, `Chat should not emit branch lifecycle events: ${JSON.stringify(finalState.branchEvents)}`);
-  assert(finalState.buttons.length >= 1 && finalState.buttons.length <= 3, `chat should finish with a capped action bar: ${JSON.stringify(finalState.buttons)}`);
+  assert(finalState.avatarMessages.length >= 2, "moderated player speech should remain in the shared channel");
+  assert(finalState.branchEvents.length === 0, `normal play should not emit branch lifecycle events: ${JSON.stringify(finalState.branchEvents)}`);
+  assert(finalState.buttons.length >= 1 && finalState.buttons.length <= 3, `the journey should finish with a capped action bar: ${JSON.stringify(finalState.buttons)}`);
   await assertNoComposerOrDebugChrome();
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.waitForTimeout(150);

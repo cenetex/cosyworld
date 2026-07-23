@@ -561,6 +561,10 @@ static cw_status apply_create_actor(cw_world *world, const cw_action *action, ui
   if (!find_location(world, location_id)) return reject(world, out_events, action, CW_REASON_LOCATION_NOT_FOUND);
 
   cw_stat_block stats = generated_stats(seed ^ action->actor_id);
+  /* Character-creation schema v2 deliberately begins before a class is
+     chosen. The orchestrator marks that path with modifier -1; legacy create
+     records retain their level-one semantics. */
+  if (action->modifier == -1) stats.level = 0;
   cw_status status = add_actor(world, action->actor_id, CW_ACTOR_HUMAN, location_id, stats);
   if (status == CW_ERR_RULE) return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
   if (status != CW_OK) return status;

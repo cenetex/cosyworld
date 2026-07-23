@@ -10,6 +10,7 @@ Companion documents:
 - `ECONOMY.md` — Orbs, Boxes, packs, and the NFT bridge in detail.
 - `AI.md` — AI gateway, payer modes, media pipeline, and combat design in detail.
 - `GAP.md` — implementation status audit.
+- `docs/backlog/community-art-evolution.md` — shipped slice, production gaps, and acceptance invariants for the image-only Orb economy.
 
 ## What CosyWorld Is
 
@@ -22,12 +23,12 @@ The product should feel like living in a small fantasy world that remembers you 
 CosyWorld V2 is a playable, production-deployable game, live-tested with simultaneous human and agent players:
 
 - CosyWorld Core (free) and the Ruby High: First Bell expansion (card-gated), with compiled cards and complete room sheets validated by the content gate. Release counts are generated from the compiled worldpack rather than maintained in this prose.
-- The full verb surface: Chat (server-authored avatar speech), moderated typed `say` and `/me`, Listen, Travel, Take, Drop, Give, Use, Trade, Prepare, Rest, Work, Help, Attack, Defend, Flee, plus Calling/Bond/skill/growth actions.
+- The full verb surface: advancement-backed Chat (begin a friendship), moderated typed `say` and `/me`, Listen, Travel, Take, Drop, Give, Use, Trade, Prepare, Rest, Work, Help, Attack, Defend, Flee, plus Calling/Bond/skill/growth actions.
 - The card-hand control surface: dealt action cards with art and labels, a detail/confirm surface, and shuffle — play feels like turns, not clicking.
 - Room turn-taking for co-present humans, with ping/pong pacing: waiting players can ping the current player; unresponsive players are skipped, not waited on.
 - Resident autonomy on played time: residents wander, remember, and hunt the items they desire — a resident reclaiming her own lost keepsake is now an observed, emergent story beat.
 - The RPG retention layer: Callings, first-class Bonds, sanctuary/frontier zoning, progress and danger clocks, seeded Jobs and Fronts, factions, the Visit Ledger with growth banking into skill steps and bond slots — all rendered in the shared transcript (arrivals, callings, clues, dice, growth).
-- An economy MVP: starter Orbs, claim-key-gated rewards, server-paid Chat spends, a player OpenRouter payer, durable Orb/AI-usage ledgers, and the Wooden Box burn → pack reveal bridge with production Solana/Core verification.
+- An economy MVP: starter Orbs, claim-key-gated rewards, image-only community spends, durable Orb/AI-usage ledgers, and the Wooden Box burn → pack reveal bridge with production Solana/Core verification.
 - Moderation basics: player reports, an operator console, protected all-room replay, actor suspension, and report retention.
 - Browser and terminal clients over the same API, with a Playwright smoke, visual baselines, and a production deployment profile with strict guardrails.
 
@@ -43,7 +44,7 @@ Every feature must serve at least one of these; a feature that serves none does 
 4. **Identity through play.** A player should be able to say "I am the kind soul who ___, my home is ___, and I am slowly ___" after ten minutes. Callings, Bonds, and the Journal make that sentence mechanical and publicly remembered.
 5. **One meaningful action hand.** The resting UI is a dealt hand of at most three labeled action cards plus shuffle — one surface, server-derived from the player's cards, location cards, visible world state, and base rules. Each card shows its target, cost, and risk before commit. Playing a card is a turn. Speech (`say`, `/me`) is always available and never consumes a turn. The small action hand is a focus mechanism, not an inventory limit.
 6. **AI is a world actor, not the product.** AI proposes narration, resident speech, and media; the kernel decides truth. Core world actions remain playable without inference. Dialogue is never fabricated from canned text: an explicit dialogue action fails visibly and without charge when inference is unavailable, while incidental resident speech is skipped.
-7. **Progression is earned, never bought.** Orbs buy amplification and cosmetics — never power, access, success, or growth. The core loop (listen, help, bond, travel) always has a zero-Orb path.
+7. **Progression is earned, never bought.** Orbs buy only shared images — never Chat, power, access, success, or growth. Every ordinary world verb has a zero-Orb path.
 8. **Ownership without a token.** The target ownership layer is CosyWorld's own signed provenance log (Ed25519, content-addressed, append-only) — gifting free and first-class, trading world-bound and lineage-preserving, secret poems as commit-reveal claim tickets. External NFTs remain an optional bridge that gates official expansions, never the base game.
 
 ## The Concept Budget
@@ -99,7 +100,7 @@ The loop exists and multiplayer works; the priority is making the world worth re
 2. **The card-composed world.** Land explicit zones, weight/size/container capacity, typed loadouts, and deterministic scene composition. Complete the multi-card migration without reintroducing a parallel single-item authority model.
 3. **First-session arc.** Instrument the arc: arrive → become someone → play a first card → learn a truth → meet a resident → settle the Journal. Target: a first-time mobile visitor settles their first growth in under ten minutes without typing.
 4. **Turn cadence legibility.** The shipped room-turn system (one committed card per active human, ping/pong pacing, speech always turn-exempt) needs its remaining visibility work: a visible ping countdown for both sides, a clear "you've been pinged — play or pass" signal, and warm copy when a room's action hand genuinely offers only exits.
-5. **Economy circulation.** Wire the already-designed job Orb payouts; add witness credit (players present when a resident claims a desired item or evolves earn a Journal mark, so resident autonomy rewards spectators instead of robbing them); recover world-bound cards from inactive avatars via resident desire-hunts; scope claim keys to played-time seasons so faucets reopen through play.
+5. **Economy circulation and card art.** Wire the already-designed job Orb payouts; add witness credit; recover world-bound cards from inactive avatars; scope faucets to played-time seasons; complete the generalized community media queue. Each generated collectible unlocks one shared image per authoritative level, with pooled cost equal to that level and history-aware visual evolution.
 6. **Real faces and public-traffic safety.** Replace deterministic SVG placeholders with generated avatar portraits and card art through the media pipeline, while completing pre-commit filtering, operator resolution workflows, resident line-variety cooldowns, and abuse review.
 
 ### Next — a world that makes things
@@ -131,9 +132,10 @@ The loop exists and multiplayer works; the priority is making the world worth re
 - Sanctuary rooms reject combat and never receive autonomous pressure or decay.
 - Every reward, mint, spend, and one-shot effect is claim-key gated and idempotent.
 - The core loop is playable with zero Orbs and with AI generation unavailable.
-- In shared rooms, one human commits one card per turn; speech and emotes are always turn-exempt; waiting players can always see whose turn it is and can pace it (ping/pong) — a present player is never hostage to an absent one.
-- Resident speech contracts hold: Rati prose, Whiskerwind emoji-only (with accessible labels), Skull emote-only; at most one resident replies to a normal turn.
-- Typed player speech (`say`, `/me`) is moderated and sanitized before it reaches the journal; server-authored `Chat` never takes player text.
+- In shared rooms, one human commits one card per turn; `say` and emotes are turn-exempt; waiting players can always see whose turn it is and can pace it (ping/pong) — a present player is never hostage to an absent one.
+- Resident speech contracts hold: Rati prose, Whiskerwind emoji-only (with accessible labels), Skull emote-only; at most one room heartbeat is armed, rapid card plays do not stack replies, and the next speaker follows authored resident priority.
+- Resident inference sees the triggering card, recent room-log/card history, recent speech, current cast/location, and durable continuity before proposing a public reply.
+- `Chat` appears only when advancement can create a friendship, spends no Orbs, and never takes player text. Typed player speech (`say`, `/me`) is moderated and sanitized before it reaches the journal.
 - Content safety: cozy, non-explicit, no harassment, no gore escalation; engine-owned facts override character improvisation; residents never mention models, prompts, or system internals.
 
 ### P1 — current build targets
@@ -198,7 +200,7 @@ Economy health:
 - **Crafting opens a generative moderation surface.** AI-decorated names/blurbs on player-triggered mints must pass the same sanitizer as speech, with authored fallbacks — and recipe outputs must never be kernel-arbitrary.
 - **Moderation debt blocks launch.** One shared world with open traffic and thin filtering is an incident, not a risk. Public-traffic moderation is a P1 gate.
 - **UI creep.** Every new system (covenants, trading, crafting, media) will ask for chrome. The hand rule and transcript-first surface are product law; new surfaces must be focus states, not panels.
-- **Economy drift.** Any path where Orbs or cards buy outcomes breaks pillar 7 permanently. Claim keys and kernel authority are the enforcement; review guards key granularity, and the Orbs identity (AI meter funneling to BYOK vs. renewable play energy) must stay a written decision, not an accident.
+- **Economy drift.** Any negative Orb ledger reason other than `community_image_generation`, or any image contribution that buys outcomes or ownership, breaks pillar 7. Review must enforce the single-sink invariant and level-sized pooled cap.
 - **Trading reintroduces speculation.** World-bound, co-signed, lineage-preserving trades are the line; hold it even when a marketplace would be easier.
 - **Turn systems can suffocate a chat world.** Speech stays turn-exempt, browsing stays free, and absent players are skippable — if any of those three slips, shared rooms stop feeling alive.
 - **Scope gravity toward simulation.** Covenants, fronts, seasons, and crafting can each become a management game. Ship the smallest slice that serves a fantasy, per the RPG Bible's acceptance criteria.

@@ -77,10 +77,10 @@ keep separate domains so that a friendly label never silently changes rules:
 | --- | --- | --- |
 | Rules actions | Search, Study, Utilize, Help, Attack | Resolve through the selected rules profile. |
 | Movement | Travel, ordinary movement, crossing an exit | Use movement and access rules; Dash and Disengage may modify it. |
-| Communication | Chat, Say, ordinary conversation | Free communication unless the player is trying to influence an NPC. |
+| Communication | Say, emote, ordinary player speech | Turn-exempt and free unless the player is trying to influence an NPC. |
 | Object transfer | Take, Give, Trade | Inventory and ownership operations, not Utilize by default. |
 | Procedures | Rest, initiative, equipping a loadout | Versioned procedures with their own contracts. |
-| Cosy advancement | Grow Closer, Remember, Evolve, bank a Visit Ledger | CosyWorld progression outside the SRD action economy. |
+| Cosy advancement | Chat, Remember, Evolve, bank a Visit Ledger | CosyWorld progression outside the SRD action economy. Chat spends advancement to begin a friendship. |
 | Interface/meta | Look, inspect a card, report, open a menu | Never consumes a rules action. |
 
 ### Product-language mapping
@@ -94,7 +94,8 @@ mechanical offer declares its stable identity:
 | Inspect, Investigate, Recall | Study, normally using Intelligence; use Search when perception is decisive. |
 | Scout, Scope Out | Search or Study followed by movement, not a new universal action. |
 | Travel, Head To | Movement through a legal exit. |
-| Chat | Ordinary communication; Influence only when changing attitude or cooperation is at stake. |
+| Chat | Spend one banked advancement point to begin a friendship with an eligible nearby resident; absent when that growth option is unavailable. |
+| Say | Ordinary moderated room communication; Influence only when changing attitude or cooperation is at stake. |
 | Use | Utilize for a nonmagical object; Magic for a spell, magic feature, or magic item. |
 | Work | A contextual Study or Utilize offer that advances an eligible project. |
 | Help | The Help action, with the assisted actor or project named. |

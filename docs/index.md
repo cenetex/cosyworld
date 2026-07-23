@@ -42,6 +42,10 @@ do not define V2 behavior.
 
 ## Groomed local backlogs
 
+- **[Card-Composed Character Creation](backlog/card-composed-character-creation.md)** —
+  account-owned Species, Class, and Origin cards, classless level-zero arrival,
+  first-action Class reveal, world discovery, new-tale lifecycle, and migration
+  from compound campaign choices.
 - **[SRD Action-Card Foundation](backlog/srd-action-card-foundation.md)** —
   dependency-ordered work for rules-bound cards, authoritative zones, scene
   composition, loadouts, and pack extensions.
@@ -64,4 +68,4 @@ current PRD take precedence:
 - [Historical fixes](fixes/)
 - [X402 agentic economy report](X402_AGENTIC_ECONOMY_REPORT.md)
 
-Last reviewed: 2026-07-19.
+Last reviewed: 2026-07-22.

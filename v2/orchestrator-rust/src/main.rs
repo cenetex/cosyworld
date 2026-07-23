@@ -117,7 +117,6 @@ struct AppState {
     actor_sessions: Arc<StdMutex<ActorSessions>>,
     actor_suspensions: Arc<StdMutex<BTreeMap<u64, ActorSuspension>>>,
     rate_limiter: Arc<StdMutex<RateLimiter>>,
-    actor_chat_locks: Arc<StdMutex<BTreeSet<u64>>>,
     inactive_inventory_release_conflicts: Arc<StdMutex<BTreeSet<(u64, u64)>>>,
     canonical_command_lock: Arc<Mutex<()>>,
     canonical_owner_id: Arc<String>,
@@ -133,7 +132,7 @@ struct AppState {
     room_turns: Arc<StdMutex<RoomTurns>>,
     room_memory_cache: Arc<StdMutex<BTreeMap<u64, RoomMemoryCacheEntry>>>,
     room_memory_jobs: Arc<StdMutex<BTreeSet<(u64, u64, u64)>>>,
-    avatar_art_jobs: Arc<StdMutex<BTreeSet<u64>>>,
+    room_chat_heartbeats: Arc<StdMutex<BTreeSet<u64>>>,
     actor_job_notify: Arc<Notify>,
     avatar_chat_delay: Duration,
     moderation_token: Option<Arc<String>>,
@@ -374,7 +373,6 @@ const QR_WALLET_LOGIN_TTL: Duration = Duration::from_secs(5 * 60);
 const QR_WALLET_COMPLETE_GRACE: Duration = Duration::from_secs(60);
 
 const RATE_LIMITED_STATUS: u32 = 429;
-const CHAT_IN_FLIGHT_STATUS: u32 = 409;
 const CALLING_REVISION_COST: u8 = 1;
 const BOND_SLOT_COST: u8 = 1;
 const BOND_REVISION_COST: u8 = 1;
@@ -389,12 +387,10 @@ const MAX_EVENT_REPLAY_LIMIT: usize = 500;
 const MAX_EVENT_STORE_SCAN: usize = 1000;
 const RECENT_ROOM_LINE_CAPACITY: usize = 16;
 const STARTING_ORBS: i32 = 3;
-const CHAT_ORB_COST: i32 = 1;
 const CORE_PROGRAM_ID: &str = "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d";
 const SOLANA_SYSTEM_PROGRAM_ID: &str = "11111111111111111111111111111111";
 const SPL_NOOP_PROGRAM_ID: &str = "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV";
 const LISTEN_ORB_REWARD: i32 = 1;
-const LISTEN_REPEAT_ORB_COST: i32 = 1;
 const LISTEN_ABILITY: u8 = 4;
 const LISTEN_DC: u16 = 12;
 const WELCOMING_LISTEN_MIN_MODIFIER: i16 = LISTEN_DC as i16 - 1;
@@ -585,6 +581,32 @@ struct GeneratedPathwayState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+struct CommunityArtGenerationState {
+    subject_kind: String,
+    subject_id: u64,
+    level: u8,
+    required_orbs: i32,
+    funded_orbs: i32,
+    #[serde(default)]
+    contributions: BTreeMap<u64, i32>,
+    #[serde(default)]
+    funding_intent_ids: BTreeSet<String>,
+    status: String,
+    history_through_seq: u64,
+}
+
+#[derive(Clone, Debug)]
+struct CommunityArtPlan {
+    subject_kind: String,
+    subject_id: u64,
+    level: u8,
+    required_orbs: i32,
+    history_through_seq: u64,
+    prompt: String,
+    aspect_ratio: &'static str,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct JourneyState {
     actor_id: u64,
     pathway_id: String,
@@ -765,6 +787,23 @@ enum ProjectionMutation {
     RefreshAvatarIdentity {
         actor_id: u64,
     },
+    FundCommunityArt {
+        subject_kind: String,
+        subject_id: u64,
+        level: u8,
+        required_orbs: i32,
+        contributor_actor_id: u64,
+        #[serde(default)]
+        intent_id: String,
+        amount: i32,
+        history_through_seq: u64,
+    },
+    SetCommunityArtStatus {
+        subject_kind: String,
+        subject_id: u64,
+        level: u8,
+        status: String,
+    },
     RefinePathway {
         pathway: GeneratedPathwayState,
     },
@@ -865,6 +904,14 @@ enum ProjectionMutation {
         source_event_seq: u64,
         reason: String,
     },
+    ChooseClass {
+        profile_id: String,
+        class_id: String,
+        calling: String,
+        starting_skill_id: String,
+        actor_meta: ActorMeta,
+        reason: String,
+    },
     ReviseCalling {
         statement: String,
         cost: u8,
@@ -939,6 +986,22 @@ struct CallingState {
     statement: String,
     #[serde(default)]
     source_event_seq: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct AvatarIdentityState {
+    actor_id: u64,
+    profile_id: String,
+    species_id: String,
+    origin_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    class_id: Option<String>,
+    #[serde(default)]
+    class_selection_ready: bool,
+    #[serde(default)]
+    qualifying_world_actions: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    class_source_event_seq: Option<u64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1245,7 +1308,9 @@ struct RuntimeWorld {
     jobs: BTreeMap<String, JobState>,
     room_sheets: BTreeMap<u64, RoomSheetState>,
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
+    community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     journeys: BTreeMap<u64, JourneyState>,
+    character_identities: BTreeMap<u64, AvatarIdentityState>,
     callings: BTreeMap<u64, CallingState>,
     skills: BTreeMap<String, SkillState>,
     charm_slots: BTreeMap<u64, u8>,
@@ -1323,7 +1388,11 @@ struct RuntimeSnapshot {
     #[serde(default)]
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
     #[serde(default)]
+    community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
+    #[serde(default)]
     journeys: BTreeMap<u64, JourneyState>,
+    #[serde(default)]
+    character_identities: BTreeMap<u64, AvatarIdentityState>,
     #[serde(default)]
     callings: BTreeMap<u64, CallingState>,
     #[serde(default)]
@@ -1435,6 +1504,12 @@ struct JournalRecord {
     initial_calling: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     initial_skill: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    initial_character_profile_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    initial_species_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    initial_origin_id: Option<String>,
     #[serde(default)]
     actor_meta_upserts: BTreeMap<u64, ActorMeta>,
     #[serde(default)]
@@ -1489,6 +1564,9 @@ impl JournalRecord {
             hosted_access_grant: None,
             initial_calling: None,
             initial_skill: None,
+            initial_character_profile_id: None,
+            initial_species_id: None,
+            initial_origin_id: None,
             actor_meta_upserts: BTreeMap::new(),
             content_upserts: BTreeMap::new(),
             branch_upserts: BTreeMap::new(),
@@ -1643,6 +1721,7 @@ const ACTOR_JOB_KIND_ORB_CHAT: &str = "orb_chat";
 const ACTOR_JOB_LEASE_MS: u64 = 120_000;
 const ACTOR_JOB_MAX_ATTEMPTS: u32 = 3;
 const ACTOR_JOB_IDLE_POLL: Duration = Duration::from_secs(2);
+const CARD_REACTION_HEARTBEAT_DELAY_MS: u64 = 3_000;
 
 impl RippleBudget {
     fn for_zone_and_action(zone: &str, source_action_kind: u8) -> Self {
@@ -2108,14 +2187,20 @@ struct AiUsageLedgerAuditView {
 #[derive(Clone, Debug, Serialize)]
 struct CharacterCreationProfileView {
     pack_id: String,
+    schema_version: u32,
     id: String,
     name: String,
     description: String,
     entry_location_id: u64,
     entry_location_name: String,
     prompt: String,
+    class_prompt: Option<String>,
     default_choice_id: String,
     choices: Vec<CharacterCreationChoiceView>,
+    default_species_id: Option<String>,
+    species: Vec<CharacterCreationIdentityCardView>,
+    default_origin_id: Option<String>,
+    origins: Vec<CharacterCreationIdentityCardView>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -2127,6 +2212,30 @@ struct CharacterCreationChoiceView {
     title: String,
     description: String,
     starting_skill_id: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CharacterCreationIdentityCardView {
+    id: String,
+    label: String,
+    detail: String,
+    title: String,
+    description: String,
+    visual_prompt: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CharacterIdentityView {
+    profile_id: String,
+    species_id: String,
+    species_label: String,
+    origin_id: String,
+    origin_label: String,
+    class_id: Option<String>,
+    class_label: Option<String>,
+    class_selection_ready: bool,
+    qualifying_world_actions: u8,
+    level: u8,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -2294,6 +2403,18 @@ struct CardView {
     owned: bool,
     accessible: bool,
     access_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    community_art: Option<CommunityArtView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CommunityArtView {
+    level: u8,
+    required_orbs: i32,
+    funded_orbs: i32,
+    remaining_orbs: i32,
+    status: String,
+    history_through_seq: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -2795,6 +2916,16 @@ struct CreateAvatarRequest {
     wallet_session: Option<String>,
     character_creation_id: Option<String>,
     character_choice_id: Option<String>,
+    species_id: Option<String>,
+    origin_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChooseClassRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    character_creation_id: String,
+    class_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2802,6 +2933,15 @@ struct ChatRequest {
     actor_id: u64,
     actor_session: Option<String>,
     target_actor_id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct FundCommunityImageRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    subject_kind: String,
+    subject_id: u64,
+    intent_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -3423,6 +3563,7 @@ fn character_creation_views() -> Vec<CharacterCreationProfileView> {
                 .iter()
                 .map(|profile| CharacterCreationProfileView {
                     pack_id: bundle.pack_id.clone(),
+                    schema_version: profile.schema_version,
                     id: profile.id.clone(),
                     name: profile.name.clone(),
                     description: profile.description.clone(),
@@ -3434,6 +3575,7 @@ fn character_creation_views() -> Vec<CharacterCreationProfileView> {
                         .map(|location| location.name.clone())
                         .unwrap_or_else(|| "the campaign threshold".to_string()),
                     prompt: profile.prompt.clone(),
+                    class_prompt: profile.class_prompt.clone(),
                     default_choice_id: profile.default_choice_id.clone(),
                     choices: profile
                         .choices
@@ -3448,31 +3590,110 @@ fn character_creation_views() -> Vec<CharacterCreationProfileView> {
                             starting_skill_id: choice.starting_skill_id.clone(),
                         })
                         .collect(),
+                    default_species_id: profile.default_species_id.clone(),
+                    species: profile
+                        .species
+                        .iter()
+                        .map(character_creation_identity_card_view)
+                        .collect(),
+                    default_origin_id: profile.default_origin_id.clone(),
+                    origins: profile
+                        .origins
+                        .iter()
+                        .map(character_creation_identity_card_view)
+                        .collect(),
                 })
         })
         .collect()
 }
 
-fn character_creation_selection(
-    profile_id: Option<&str>,
-    choice_id: Option<&str>,
-) -> Option<(SeedCharacterCreationProfile, SeedCharacterCreationChoice)> {
+fn character_creation_identity_card_view(
+    card: &SeedCharacterCreationIdentityCard,
+) -> CharacterCreationIdentityCardView {
+    CharacterCreationIdentityCardView {
+        id: card.id.clone(),
+        label: card.label.clone(),
+        detail: card.detail.clone(),
+        title: card.title.clone(),
+        description: card.description.clone(),
+        visual_prompt: card.visual_prompt.clone(),
+    }
+}
+
+#[derive(Clone, Debug)]
+struct CharacterCreationSelection {
+    profile: SeedCharacterCreationProfile,
+    species: Option<SeedCharacterCreationIdentityCard>,
+    origin: Option<SeedCharacterCreationIdentityCard>,
+    class: Option<SeedCharacterCreationChoice>,
+}
+
+fn character_creation_profile(profile_id: Option<&str>) -> Option<SeedCharacterCreationProfile> {
     let profiles = active_content()
         .character_creation
         .iter()
         .flat_map(|bundle| bundle.profiles.iter());
-    let profile = match profile_id {
+    match profile_id {
         Some(profile_id) => profiles
             .into_iter()
-            .find(|profile| profile.id == profile_id)?,
-        None => profiles.into_iter().next()?,
-    };
+            .find(|profile| profile.id == profile_id)
+            .cloned(),
+        None => profiles.into_iter().next().cloned(),
+    }
+}
+
+fn character_creation_selection(
+    profile_id: Option<&str>,
+    choice_id: Option<&str>,
+    species_id: Option<&str>,
+    origin_id: Option<&str>,
+) -> Option<CharacterCreationSelection> {
+    let profile = character_creation_profile(profile_id)?;
+    if profile.schema_version == 2 {
+        let selected_species_id = species_id.or(profile.default_species_id.as_deref())?;
+        let selected_origin_id = origin_id.or(profile.default_origin_id.as_deref())?;
+        let species = profile
+            .species
+            .iter()
+            .find(|card| card.id == selected_species_id)?
+            .clone();
+        let origin = profile
+            .origins
+            .iter()
+            .find(|card| card.id == selected_origin_id)?
+            .clone();
+        return Some(CharacterCreationSelection {
+            profile,
+            species: Some(species),
+            origin: Some(origin),
+            class: None,
+        });
+    }
     let selected_choice_id = choice_id.unwrap_or(&profile.default_choice_id);
-    let choice = profile
+    let class = profile
         .choices
         .iter()
-        .find(|choice| choice.id == selected_choice_id)?;
-    Some((profile.clone(), choice.clone()))
+        .find(|choice| choice.id == selected_choice_id)?
+        .clone();
+    Some(CharacterCreationSelection {
+        profile,
+        species: None,
+        origin: None,
+        class: Some(class),
+    })
+}
+
+fn character_creation_class_selection(
+    profile_id: &str,
+    class_id: &str,
+) -> Option<(SeedCharacterCreationProfile, SeedCharacterCreationChoice)> {
+    let profile = character_creation_profile(Some(profile_id))?;
+    let class = profile
+        .choices
+        .iter()
+        .find(|choice| choice.id == class_id)?
+        .clone();
+    Some((profile, class))
 }
 
 fn seed_actor_meta() -> BTreeMap<u64, ActorMeta> {
@@ -4172,22 +4393,6 @@ fn allow_actor_mutation(
         && state.allow_rate_limit(actor_key, actor_limit)
 }
 
-fn try_begin_actor_chat(
-    locks: &Arc<StdMutex<BTreeSet<u64>>>,
-    actor_id: u64,
-) -> Option<ActorChatGuard> {
-    let Ok(mut active) = locks.lock() else {
-        return None;
-    };
-    if !active.insert(actor_id) {
-        return None;
-    }
-    Some(ActorChatGuard {
-        locks: locks.clone(),
-        actor_id,
-    })
-}
-
 fn avatar_rate_limited_response() -> Json<AvatarResponse> {
     Json(AvatarResponse {
         ok: false,
@@ -4209,15 +4414,30 @@ fn action_rate_limited_response() -> Json<ActionResponse> {
 
 fn apply_avatar_creation_flavor(
     mut identity: GeneratedAvatarIdentity,
-    character_choice: Option<&SeedCharacterCreationChoice>,
+    character_selection: Option<&CharacterCreationSelection>,
     initial_calling: &str,
 ) -> GeneratedAvatarIdentity {
-    if let Some(choice) = character_choice {
+    if let Some(choice) = character_selection.and_then(|selection| selection.class.as_ref()) {
         identity.title = choice.title.clone();
         identity.description = format!("{} {}", identity.name, choice.description);
         identity.visual_prompt = format!(
             "{}, {}, short fantasy campaign character, practical traveling gear, hooded lantern",
             identity.visual_prompt, choice.description
+        );
+    } else if let Some((species, origin)) = character_selection
+        .and_then(|selection| selection.species.as_ref().zip(selection.origin.as_ref()))
+    {
+        identity.title = format!("{} from {}", species.title, origin.title);
+        identity.description = format!(
+            "{} {} {}",
+            identity.name, species.description, origin.description
+        );
+        identity.visual_prompt = format!(
+            "{}, {}, {}, {}, short fantasy campaign character before choosing a profession",
+            identity.visual_prompt,
+            species.visual_prompt,
+            origin.visual_prompt,
+            species.description
         );
     } else if calling_statement_is_explorer(initial_calling) {
         identity.title = "Explorer of Unnamed Ways".to_string();
@@ -4236,26 +4456,27 @@ fn apply_avatar_creation_flavor(
 fn schedule_avatar_identity_refinement(
     state: &AppState,
     actor_id: u64,
-    character_choice: Option<SeedCharacterCreationChoice>,
+    character_selection: Option<CharacterCreationSelection>,
     initial_calling: String,
     fallback_identity: GeneratedAvatarIdentity,
 ) {
     let Some(config) = state.ai_config.as_ref().clone() else {
-        schedule_avatar_art_generation(state, actor_id, fallback_identity);
         return;
     };
     let state = state.clone();
     tokio::spawn(async move {
         let identity = match request_ai_avatar_identity(&config, actor_id).await {
-            Ok(identity) => {
-                apply_avatar_creation_flavor(identity, character_choice.as_ref(), &initial_calling)
-            }
+            Ok(identity) => apply_avatar_creation_flavor(
+                identity,
+                character_selection.as_ref(),
+                &initial_calling,
+            ),
             Err(error) => {
                 warn!(
                     "AI avatar identity refinement failed for actor {}: {}",
                     actor_id, error
                 );
-                schedule_avatar_art_generation(&state, actor_id, fallback_identity);
+                let _ = fallback_identity;
                 return;
             }
         };
@@ -4294,7 +4515,6 @@ fn schedule_avatar_identity_refinement(
             events
         };
         broadcast_events(&state, &events);
-        schedule_avatar_art_generation(&state, actor_id, identity);
     });
 }
 
@@ -5159,7 +5379,6 @@ impl AppState {
             actor_sessions: Arc::new(StdMutex::new(actor_sessions)),
             actor_suspensions: Arc::new(StdMutex::new(actor_suspensions)),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
-            actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             inactive_inventory_release_conflicts: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id,
@@ -5175,7 +5394,7 @@ impl AppState {
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
-            avatar_art_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
+            room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
             actor_job_notify: Arc::new(Notify::new()),
             avatar_chat_delay,
             moderation_token,
@@ -5681,7 +5900,9 @@ impl RuntimeSnapshot {
             jobs: runtime.jobs.clone(),
             room_sheets: runtime.room_sheets.clone(),
             generated_pathways: runtime.generated_pathways.clone(),
+            community_art_generations: runtime.community_art_generations.clone(),
             journeys: runtime.journeys.clone(),
+            character_identities: runtime.character_identities.clone(),
             callings: runtime.callings.clone(),
             skills: runtime.skills.clone(),
             charm_slots: runtime.charm_slots.clone(),
@@ -5873,7 +6094,9 @@ impl RuntimeSnapshot {
             jobs: self.jobs,
             room_sheets: self.room_sheets,
             generated_pathways: self.generated_pathways,
+            community_art_generations: self.community_art_generations,
             journeys: self.journeys,
+            character_identities: self.character_identities,
             callings: self.callings,
             skills: self.skills,
             charm_slots: self.charm_slots,
@@ -6234,7 +6457,9 @@ impl RuntimeWorld {
             jobs: BTreeMap::new(),
             room_sheets: BTreeMap::new(),
             generated_pathways: BTreeMap::new(),
+            community_art_generations: BTreeMap::new(),
             journeys: BTreeMap::new(),
+            character_identities: BTreeMap::new(),
             callings: BTreeMap::new(),
             skills: BTreeMap::new(),
             charm_slots: BTreeMap::new(),
@@ -8531,6 +8756,9 @@ impl RuntimeWorld {
                 &events,
                 record.initial_calling.as_deref(),
                 record.initial_skill.as_deref(),
+                record.initial_character_profile_id.as_deref(),
+                record.initial_species_id.as_deref(),
+                record.initial_origin_id.as_deref(),
             ));
             if action.kind == CW_ACTION_RULES_STUDY {
                 if let Some(check) = events.iter().find(|event| {
@@ -8561,6 +8789,7 @@ impl RuntimeWorld {
             }
             events.extend(self.expire_stale_branches());
             events.extend(self.apply_projection_mutations(&action, &record.projection_mutations));
+            events.extend(self.apply_class_readiness_projection(record, &action));
             let committed_events = events.clone();
             events.extend(self.apply_bounded_magic_projection(&action, &committed_events));
             let committed_events = events.clone();
@@ -8658,6 +8887,88 @@ impl RuntimeWorld {
                         *actor_id,
                         None,
                         None,
+                    ));
+                }
+                ProjectionMutation::FundCommunityArt {
+                    subject_kind,
+                    subject_id,
+                    level,
+                    required_orbs,
+                    contributor_actor_id,
+                    intent_id,
+                    amount,
+                    history_through_seq,
+                } => {
+                    let key = community_art_generation_key(subject_kind, *subject_id, *level);
+                    let funding_reason = {
+                        let generation =
+                            self.community_art_generations
+                                .entry(key)
+                                .or_insert_with(|| CommunityArtGenerationState {
+                                    subject_kind: subject_kind.clone(),
+                                    subject_id: *subject_id,
+                                    level: *level,
+                                    required_orbs: (*required_orbs).max(1),
+                                    funded_orbs: 0,
+                                    contributions: BTreeMap::new(),
+                                    funding_intent_ids: BTreeSet::new(),
+                                    status: "funding".to_string(),
+                                    history_through_seq: *history_through_seq,
+                                });
+                        if !intent_id.is_empty()
+                            && !generation.funding_intent_ids.insert(intent_id.clone())
+                        {
+                            continue;
+                        }
+                        let accepted = (*amount).max(0).min(
+                            generation
+                                .required_orbs
+                                .saturating_sub(generation.funded_orbs),
+                        );
+                        if accepted > 0 {
+                            generation.funded_orbs += accepted;
+                            *generation
+                                .contributions
+                                .entry(*contributor_actor_id)
+                                .or_insert(0) += accepted;
+                            generation.history_through_seq =
+                                generation.history_through_seq.max(*history_through_seq);
+                            if generation.funded_orbs >= generation.required_orbs {
+                                generation.status = "funded".to_string();
+                            }
+                        }
+                        format!(
+                            "{}:{}:level:{}:{}/{}",
+                            subject_kind,
+                            subject_id,
+                            level,
+                            generation.funded_orbs,
+                            generation.required_orbs
+                        )
+                    };
+                    events.push(self.append_async_job_event(
+                        "community_art.funded",
+                        *contributor_actor_id,
+                        None,
+                        Some(funding_reason),
+                    ));
+                }
+                ProjectionMutation::SetCommunityArtStatus {
+                    subject_kind,
+                    subject_id,
+                    level,
+                    status,
+                } => {
+                    let key = community_art_generation_key(subject_kind, *subject_id, *level);
+                    let Some(generation) = self.community_art_generations.get_mut(&key) else {
+                        continue;
+                    };
+                    generation.status = status.clone();
+                    events.push(self.append_async_job_event(
+                        &format!("community_art.{status}"),
+                        action.actor_id,
+                        None,
+                        Some(format!("{}:{}:level:{}", subject_kind, subject_id, level)),
                     ));
                 }
                 ProjectionMutation::RefinePathway { pathway } => {
@@ -9202,6 +9513,24 @@ impl RuntimeWorld {
                         events.push(event);
                     }
                 }
+                ProjectionMutation::ChooseClass {
+                    profile_id,
+                    class_id,
+                    calling,
+                    starting_skill_id,
+                    actor_meta,
+                    reason,
+                } => {
+                    events.extend(self.choose_character_class(
+                        action.actor_id,
+                        profile_id,
+                        class_id,
+                        calling,
+                        starting_skill_id,
+                        actor_meta,
+                        reason,
+                    ));
+                }
                 ProjectionMutation::ReviseCalling {
                     statement,
                     cost,
@@ -9488,6 +9817,9 @@ impl RuntimeWorld {
         events: &[EventView],
         initial_calling: Option<&str>,
         initial_skill: Option<&str>,
+        initial_character_profile_id: Option<&str>,
+        initial_species_id: Option<&str>,
+        initial_origin_id: Option<&str>,
     ) -> Vec<EventView> {
         if action.kind != CW_ACTION_CREATE_ACTOR || self.callings.contains_key(&action.actor_id) {
             return Vec::new();
@@ -9497,6 +9829,24 @@ impl RuntimeWorld {
         };
         if actor.kind != CW_ACTOR_HUMAN {
             return Vec::new();
+        }
+        if let (Some(profile_id), Some(species_id), Some(origin_id)) = (
+            initial_character_profile_id,
+            initial_species_id,
+            initial_origin_id,
+        ) {
+            self.character_identities
+                .entry(action.actor_id)
+                .or_insert_with(|| AvatarIdentityState {
+                    actor_id: action.actor_id,
+                    profile_id: profile_id.to_string(),
+                    species_id: species_id.to_string(),
+                    origin_id: origin_id.to_string(),
+                    class_id: None,
+                    class_selection_ready: false,
+                    qualifying_world_actions: 0,
+                    class_source_event_seq: None,
+                });
         }
         let source_event_seq = events
             .iter()
@@ -9535,6 +9885,133 @@ impl RuntimeWorld {
             }
         }
         projection_events
+    }
+
+    fn apply_class_readiness_projection(
+        &mut self,
+        record: &JournalRecord,
+        action: &CwAction,
+    ) -> Vec<EventView> {
+        if action.actor_id == 0
+            || action.kind == CW_ACTION_CREATE_ACTOR
+            || !matches!(
+                record.origin,
+                JournalOrigin::PlayerCard | JournalOrigin::Speech
+            )
+        {
+            return Vec::new();
+        }
+        if action.kind == CW_ACTION_NONE
+            && !record.projection_mutations.is_empty()
+            && record
+                .projection_mutations
+                .iter()
+                .all(|mutation| matches!(mutation, ProjectionMutation::ShuffleHand { .. }))
+        {
+            return Vec::new();
+        }
+        let became_ready = {
+            let Some(identity) = self.character_identities.get_mut(&action.actor_id) else {
+                return Vec::new();
+            };
+            if identity.class_id.is_some() || identity.class_selection_ready {
+                return Vec::new();
+            }
+            identity.qualifying_world_actions = identity.qualifying_world_actions.saturating_add(1);
+            identity.class_selection_ready = identity.qualifying_world_actions >= 1;
+            identity.class_selection_ready
+        };
+        became_ready
+            .then(|| {
+                self.append_async_job_event(
+                    "class.selection_ready",
+                    action.actor_id,
+                    None,
+                    Some(
+                        "Your first choice in the world reveals how you want to meet it."
+                            .to_string(),
+                    ),
+                )
+            })
+            .into_iter()
+            .collect()
+    }
+
+    fn choose_character_class(
+        &mut self,
+        actor_id: u64,
+        profile_id: &str,
+        class_id: &str,
+        calling_statement: &str,
+        starting_skill_id: &str,
+        actor_meta: &ActorMeta,
+        reason: &str,
+    ) -> Vec<EventView> {
+        let valid_identity = self
+            .character_identities
+            .get(&actor_id)
+            .is_some_and(|identity| {
+                identity.profile_id == profile_id
+                    && identity.class_id.is_none()
+                    && identity.class_selection_ready
+            });
+        if !valid_identity {
+            return Vec::new();
+        }
+        let Some(actor_index) =
+            self.world.actors[..self.world.actor_count]
+                .iter()
+                .position(|actor| {
+                    actor.id == actor_id
+                        && actor.kind == CW_ACTOR_HUMAN
+                        && actor.status == CW_ACTOR_ACTIVE
+                })
+        else {
+            return Vec::new();
+        };
+        self.world.actors[actor_index].stats.level = 1;
+        self.actors.insert(actor_id, actor_meta.clone());
+        if let Some(identity) = self.character_identities.get_mut(&actor_id) {
+            identity.class_id = Some(class_id.to_string());
+            identity.class_selection_ready = false;
+        }
+
+        let mut events = Vec::new();
+        let class_event = self.append_async_job_event(
+            "class.chosen",
+            actor_id,
+            None,
+            Some(format!("{class_id}:{reason}")),
+        );
+        if let Some(identity) = self.character_identities.get_mut(&actor_id) {
+            identity.class_source_event_seq = Some(class_event.seq);
+        }
+        events.push(class_event);
+
+        let calling = CallingState {
+            actor_id,
+            statement: normalize_calling_statement(calling_statement)
+                .unwrap_or_else(|| default_calling_statement().to_string()),
+            source_event_seq: events.first().map(|event| event.seq),
+        };
+        self.callings.insert(actor_id, calling.clone());
+        events.push(self.append_calling_event("calling.set", &calling, "class_chosen"));
+
+        if let Some(label) = skill_label(starting_skill_id) {
+            let id = skill_state_id(actor_id, starting_skill_id);
+            if !self.skills.contains_key(&id) {
+                let skill = SkillState {
+                    actor_id,
+                    skill_id: starting_skill_id.to_string(),
+                    label: label.to_string(),
+                    rank: 1,
+                    updated_event_seq: Some(self.world.next_event_seq),
+                };
+                self.skills.insert(id, skill.clone());
+                events.push(self.append_skill_event("skill.stepped", &skill, "class_chosen"));
+            }
+        }
+        events
     }
 
     fn apply_progress_contribution_ledger_projection(
@@ -11564,26 +12041,6 @@ impl RuntimeWorld {
             .values()
             .find(|pathway| generated_pathway_progress_clock_id(&pathway.id) == clock_id)
             .map(|pathway| pathway.id.clone())
-    }
-
-    fn generated_pathway_art_targets(&self, pathway_id: &str) -> Vec<(u64, String)> {
-        let Some(pathway) = self.generated_pathways.get(pathway_id) else {
-            return Vec::new();
-        };
-        if !pathway.familiar || !pathway.art_eligible {
-            return Vec::new();
-        }
-        pathway
-            .waypoints
-            .iter()
-            .filter_map(|waypoint| {
-                waypoint
-                    .meta
-                    .art_prompt
-                    .as_ref()
-                    .map(|prompt| (waypoint.id, prompt.clone()))
-            })
-            .collect()
     }
 
     fn generated_location_is_revealed(&self, location_id: u64) -> bool {
@@ -14096,6 +14553,7 @@ impl RuntimeWorld {
             location_memory: location_meta.memory,
             cast: self.room_cast_names(actor.location_id),
             recent_lines: self.recent_room_lines(actor.location_id, 8),
+            recent_activity: self.recent_room_activity(actor.location_id, 10),
             user_text,
             caused_by_event_seq: None,
             source_world_tick: None,
@@ -15667,23 +16125,8 @@ impl RuntimeWorld {
         self.listen_attempt_claimed_at(actor_id, actor.location_id)
     }
 
-    fn listen_cost_orbs(&self, actor_id: u64) -> i32 {
-        if self.unbanked_visit_ledger_count(actor_id) > 0 {
-            return 0;
-        }
-        let Some(actor) = self.actor_by_id(actor_id) else {
-            return 0;
-        };
-        if actor.status != CW_ACTOR_ACTIVE {
-            return 0;
-        }
-        if self.location_is_frontier(actor.location_id)
-            && self.listen_attempt_claimed_at(actor_id, actor.location_id)
-        {
-            LISTEN_REPEAT_ORB_COST
-        } else {
-            0
-        }
+    fn listen_cost_orbs(&self, _actor_id: u64) -> i32 {
+        0
     }
 
     fn listen_affordable(&self, actor_id: u64) -> bool {
@@ -15696,7 +16139,10 @@ impl RuntimeWorld {
             return true;
         }
         self.listen_affordable(actor_id)
-            && (!self.listen_attempted_here(actor_id) || self.listen_cost_orbs(actor_id) > 0)
+            && (!self.listen_attempted_here(actor_id)
+                || self
+                    .actor_by_id(actor_id)
+                    .is_some_and(|actor| self.location_is_frontier(actor.location_id)))
     }
 
     fn rest_available(&self, actor_id: u64) -> bool {
@@ -16746,8 +17192,7 @@ impl RuntimeWorld {
     fn default_bond_command(&self, actor_id: u64) -> Option<String> {
         let target = self.default_bondable_resident(actor_id)?;
         let target_name = self.actor_name(target.id)?;
-        let statement = default_bond_statement(&target_name);
-        Some(format!("bond {target_name}: {statement}"))
+        Some(format!("chat {target_name}"))
     }
 
     fn default_resolvable_bond(&self, actor_id: u64) -> Option<BondState> {
@@ -16858,6 +17303,193 @@ impl RuntimeWorld {
         locations
     }
 
+    fn community_art_subject_level(&self, subject_kind: &str, subject_id: u64) -> Option<u8> {
+        match subject_kind {
+            "actor" => self
+                .actor_by_id(subject_id)
+                .filter(|actor| actor.kind == CW_ACTOR_HUMAN)
+                .map(|actor| actor.stats.level.max(1)),
+            "item" => self.world.items[..self.world.item_count]
+                .iter()
+                .find(|item| item.id == subject_id)
+                .filter(|_| seed_card_for_subject("item", subject_id).is_none())
+                .map(|_| 1),
+            "location" => self
+                .generated_pathway_for_location(subject_id)
+                .filter(|pathway| pathway.familiar && pathway.art_eligible)
+                .map(|_| 1),
+            _ => None,
+        }
+    }
+
+    fn decorate_community_art_card(
+        &self,
+        mut card: CardView,
+        subject_kind: &str,
+        subject_id: u64,
+    ) -> CardView {
+        let Some(level) = self.community_art_subject_level(subject_kind, subject_id) else {
+            return card;
+        };
+        let key = community_art_generation_key(subject_kind, subject_id, level);
+        let generation = self.community_art_generations.get(&key);
+        let required_orbs = i32::from(level.max(1));
+        let funded_orbs = generation.map(|state| state.funded_orbs).unwrap_or(0);
+        let status = generation
+            .map(|state| state.status.clone())
+            .unwrap_or_else(|| "available".to_string());
+        if status == "ready" {
+            card.image_url = Some(community_art_image_url(subject_kind, subject_id, level));
+            card.asset_status = "community_art".to_string();
+        }
+        card.level = level;
+        card.evolved = level >= 2;
+        card.community_art = Some(CommunityArtView {
+            level,
+            required_orbs,
+            funded_orbs,
+            remaining_orbs: required_orbs.saturating_sub(funded_orbs),
+            status,
+            history_through_seq: generation
+                .map(|state| state.history_through_seq)
+                .unwrap_or_else(|| self.world.next_event_seq.saturating_sub(1)),
+        });
+        card
+    }
+
+    fn community_art_plan(
+        &self,
+        contributor_actor_id: u64,
+        subject_kind: &str,
+        subject_id: u64,
+    ) -> Result<CommunityArtPlan, String> {
+        let contributor = self
+            .actor_by_id(contributor_actor_id)
+            .filter(|actor| actor.kind == CW_ACTOR_HUMAN && actor.status == CW_ACTOR_ACTIVE)
+            .ok_or_else(|| "The contributing avatar is no longer active.".to_string())?;
+        let level = self
+            .community_art_subject_level(subject_kind, subject_id)
+            .ok_or_else(|| "That card does not have community-generated art.".to_string())?;
+        let (card, visible, aspect_ratio) = match subject_kind {
+            "actor" => {
+                let actor = self
+                    .actor_by_id(subject_id)
+                    .ok_or_else(|| "That avatar is no longer here.".to_string())?;
+                let meta = self.actors.get(&subject_id).cloned().unwrap_or(ActorMeta {
+                    name: format!("Avatar {subject_id}"),
+                    speech_mode: "prose".to_string(),
+                    title: "World Traveler".to_string(),
+                    description: String::new(),
+                });
+                (
+                    card_for_actor(
+                        subject_id,
+                        &meta.name,
+                        &meta.title,
+                        &meta.description,
+                        actor.stats.level,
+                    ),
+                    actor.location_id == contributor.location_id,
+                    "2:3",
+                )
+            }
+            "item" => {
+                let item = self.world.items[..self.world.item_count]
+                    .iter()
+                    .find(|item| item.id == subject_id)
+                    .ok_or_else(|| "That item is no longer in the world.".to_string())?;
+                let meta = self.items.get(&subject_id).cloned().unwrap_or(ItemMeta {
+                    name: format!("Item {subject_id}"),
+                    description: "A found keepsake.".to_string(),
+                    skill_id: None,
+                    skill_bonus: 0,
+                    mechanics: None,
+                });
+                (
+                    card_for_item(subject_id, &meta.name, &meta.description),
+                    item.holder_actor_id == contributor_actor_id
+                        || (item.holder_actor_id == 0
+                            && item.location_id == contributor.location_id),
+                    "1:1",
+                )
+            }
+            "location" => {
+                let name = self
+                    .location_name(subject_id)
+                    .ok_or_else(|| "That location is no longer on the shared map.".to_string())?;
+                let visible = subject_id == contributor.location_id
+                    || self.world.exits[..self.world.exit_count]
+                        .iter()
+                        .any(|exit| {
+                            exit.from_location_id == contributor.location_id
+                                && exit.to_location_id == subject_id
+                        });
+                (
+                    card_for_location(subject_id, &name, Some(&self.location_meta_for(subject_id))),
+                    visible,
+                    "16:9",
+                )
+            }
+            _ => return Err("Unknown community-art subject.".to_string()),
+        };
+        if !visible {
+            return Err("That card is not visible from here.".to_string());
+        }
+        let history_through_seq = self.world.next_event_seq.saturating_sub(1);
+        let history = self
+            .event_log
+            .iter()
+            .rev()
+            .filter(|event| match subject_kind {
+                "actor" => {
+                    event.actor_id == Some(subject_id) || event.target_actor_id == Some(subject_id)
+                }
+                "item" => {
+                    event.item_id == Some(subject_id) || event.target_item_id == Some(subject_id)
+                }
+                "location" => {
+                    event.location_id == Some(subject_id)
+                        || event.destination_location_id == Some(subject_id)
+                }
+                _ => false,
+            })
+            .take(12)
+            .map(|event| {
+                event
+                    .content
+                    .as_deref()
+                    .filter(|content| !content.trim().is_empty())
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| event.type_name.replace('.', " "))
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("; ");
+        let history = if history.is_empty() {
+            "newly arrived in the shared world".to_string()
+        } else {
+            history
+        };
+        let prompt = compact_whitespace(&format!(
+            "mirquo style, cozy storybook collectible card art for {kind} {name}, titled {title}. {blurb}. Level {level}. Let the image visibly remember this public history without adding text: {history}. No words, logo, watermark, UI, gore, or photorealism.",
+            kind = subject_kind,
+            name = card.display_name,
+            title = card.title,
+            blurb = card.blurb,
+        ));
+        Ok(CommunityArtPlan {
+            subject_kind: subject_kind.to_string(),
+            subject_id,
+            level,
+            required_orbs: i32::from(level.max(1)),
+            history_through_seq,
+            prompt,
+            aspect_ratio,
+        })
+    }
+
     fn card_registry_for(
         &self,
         location: &LocationView,
@@ -16870,10 +17502,14 @@ impl RuntimeWorld {
         locations.insert(
             location.id,
             apply_location_access(
-                card_for_location(
+                self.decorate_community_art_card(
+                    card_for_location(
+                        location.id,
+                        location.name.as_str(),
+                        Some(&self.location_meta_for(location.id)),
+                    ),
+                    "location",
                     location.id,
-                    location.name.as_str(),
-                    Some(&self.location_meta_for(location.id)),
                 ),
                 location.id,
                 access,
@@ -16883,10 +17519,14 @@ impl RuntimeWorld {
             locations.insert(
                 exit.destination_location_id,
                 apply_location_access(
-                    card_for_location(
+                    self.decorate_community_art_card(
+                        card_for_location(
+                            exit.destination_location_id,
+                            exit.destination_location_name.as_str(),
+                            Some(&self.location_meta_for(exit.destination_location_id)),
+                        ),
+                        "location",
                         exit.destination_location_id,
-                        exit.destination_location_name.as_str(),
-                        Some(&self.location_meta_for(exit.destination_location_id)),
                     ),
                     exit.destination_location_id,
                     access,
@@ -16900,12 +17540,16 @@ impl RuntimeWorld {
                 .map(|actor| {
                     (
                         actor.id,
-                        card_for_actor(
+                        self.decorate_community_art_card(
+                            card_for_actor(
+                                actor.id,
+                                actor.name.as_str(),
+                                actor.title.as_str(),
+                                actor.description.as_str(),
+                                actor.stats.level,
+                            ),
+                            "actor",
                             actor.id,
-                            actor.name.as_str(),
-                            actor.title.as_str(),
-                            actor.description.as_str(),
-                            actor.stats.level,
                         ),
                     )
                 })
@@ -16915,7 +17559,11 @@ impl RuntimeWorld {
                 .map(|item| {
                     (
                         item.id,
-                        card_for_item(item.id, item.name.as_str(), item.description.as_str()),
+                        self.decorate_community_art_card(
+                            card_for_item(item.id, item.name.as_str(), item.description.as_str()),
+                            "item",
+                            item.id,
+                        ),
                     )
                 })
                 .collect(),
@@ -17093,13 +17741,6 @@ impl RuntimeWorld {
         let default_craft_recipe = self.default_craft_recipe(actor_id);
 
         let mut options = Vec::new();
-        if offers.option_flags & CW_OFFER_CHAT != 0 && has_chat_target {
-            options.push(ActionOption {
-                kind: "chat".to_string(),
-                label: "Chat".to_string(),
-                command: "chat".to_string(),
-            });
-        }
         if can_influence {
             let (authored_label, _, _) =
                 self.contextual_action_contributions(actor_id, "srd5.2.1:influence");
@@ -17281,7 +17922,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| "bond".to_string());
             options.push(ActionOption {
                 kind: "create_bond".to_string(),
-                label: "Grow Closer".to_string(),
+                label: "Chat".to_string(),
                 command,
             });
         }
@@ -17329,7 +17970,7 @@ impl RuntimeWorld {
                 "help" => "Help",
                 "bank_ledger" => "Grow",
                 "unlock_charm_slot" => "Expand Bracelet",
-                "create_bond" => "Grow Closer",
+                "create_bond" => "Chat",
                 "resolve_bond" => "Remember",
                 _ => "Act",
             }
@@ -18370,18 +19011,11 @@ impl RuntimeWorld {
     }
 
     fn action_offer_cost(&self, kind: &str, actor_id: u64) -> Option<ActionCostView> {
+        let _ = actor_id;
         match kind {
-            "chat" => Some(ActionCostView {
-                orbs: CHAT_ORB_COST,
-                reason: "server-authored avatar chat".to_string(),
-            }),
-            "check" => {
-                let orbs = self.listen_cost_orbs(actor_id);
-                (orbs > 0).then(|| ActionCostView {
-                    orbs,
-                    reason: "repeat frontier listen".to_string(),
-                })
-            }
+            // Orbs are reserved for community image generation. Conversation,
+            // observation, and every other ordinary world verb are free.
+            "chat" | "check" => None,
             _ => None,
         }
     }
@@ -19523,6 +20157,24 @@ impl RuntimeWorld {
             .collect()
     }
 
+    fn recent_room_activity(&self, location_id: u64, limit: usize) -> Vec<String> {
+        let mut activity = self
+            .event_log
+            .iter()
+            .rev()
+            .filter(|event| {
+                event.success
+                    && event.type_name != "message.created"
+                    && event_visible_in_location(event, location_id)
+            })
+            .filter_map(|event| room_memory_entry_for_event_at_location(event, location_id))
+            .take(limit)
+            .map(|entry| format!("{}: {}", entry.label, entry.text))
+            .collect::<Vec<_>>();
+        activity.reverse();
+        activity
+    }
+
     fn narrative_goal_lines(&self, actor_id: Option<u64>, location_id: u64) -> Vec<String> {
         let mut goals = Vec::new();
         if let Some(job) = self.active_job_for_location(location_id) {
@@ -19979,6 +20631,7 @@ impl RuntimeWorld {
             location_memory: location_meta.memory,
             cast: self.room_cast_names(npc.location_id),
             recent_lines: self.recent_room_lines(npc.location_id, 8),
+            recent_activity: self.recent_room_activity(npc.location_id, 10),
             user_text: text.to_string(),
             caused_by_event_seq: None,
             source_world_tick: None,
@@ -20137,6 +20790,7 @@ impl RuntimeWorld {
             location_memory: location_meta.memory,
             cast: self.room_cast_names(npc.location_id),
             recent_lines: self.recent_room_lines(npc.location_id, 8),
+            recent_activity: self.recent_room_activity(npc.location_id, 10),
             user_text: "The room has been quiet. Add one fresh in-character ambient beat that follows the recent room dialogue without repeating an earlier line.".to_string(),
             caused_by_event_seq: None,
             source_world_tick: None,
@@ -21953,6 +22607,42 @@ fn generated_pathway_dir(root: &Path) -> PathBuf {
     root.join("pathways")
 }
 
+fn community_art_generation_key(subject_kind: &str, subject_id: u64, level: u8) -> String {
+    format!("{subject_kind}:{subject_id}:level:{level}")
+}
+
+fn community_art_dir(root: &Path, subject_kind: &str) -> PathBuf {
+    root.join("community-art").join(subject_kind)
+}
+
+fn stored_community_art_image_path(root: &Path, subject_kind: &str, subject_id: u64) -> PathBuf {
+    community_art_dir(root, subject_kind).join(format!("{subject_id}.image"))
+}
+
+fn stored_community_art_content_type_path(
+    root: &Path,
+    subject_kind: &str,
+    subject_id: u64,
+) -> PathBuf {
+    community_art_dir(root, subject_kind).join(format!("{subject_id}.content-type"))
+}
+
+fn stored_community_art_content_type(root: &Path, subject_kind: &str, subject_id: u64) -> String {
+    fs::read_to_string(stored_community_art_content_type_path(
+        root,
+        subject_kind,
+        subject_id,
+    ))
+    .ok()
+    .map(|value| value.trim().to_ascii_lowercase())
+    .filter(|value| is_safe_image_content_type(value))
+    .unwrap_or_else(|| "image/png".to_string())
+}
+
+fn community_art_image_url(subject_kind: &str, subject_id: u64, level: u8) -> String {
+    format!("/assets/generated/community/{subject_kind}/{subject_id}.image?level={level}")
+}
+
 fn stored_pathway_image_path(root: &Path, location_id: u64) -> PathBuf {
     generated_pathway_dir(root).join(format!("{location_id}.image"))
 }
@@ -22495,6 +23185,7 @@ fn card_from_seed_content(card: &SeedCardContent) -> CardView {
         owned: false,
         accessible: true,
         access_reason: None,
+        community_art: None,
     }
 }
 
@@ -22585,6 +23276,7 @@ fn external_card_view(spec: &ExternalCardSpec) -> CardView {
         owned: false,
         accessible: true,
         access_reason: None,
+        community_art: None,
     }
 }
 
@@ -22635,6 +23327,7 @@ fn seed_card(spec: SeedCardSpec<'_>) -> CardView {
         owned: false,
         accessible: true,
         access_reason: None,
+        community_art: None,
     }
 }
 
@@ -24394,9 +25087,6 @@ async fn dev_reset(State(state): State<AppState>) -> Json<ResetResponse> {
     if let Ok(mut jobs) = state.room_memory_jobs.lock() {
         jobs.clear();
     }
-    if let Ok(mut jobs) = state.avatar_art_jobs.lock() {
-        jobs.clear();
-    }
 
     let mut events = vec![reset_event];
     events.extend(placement_events);
@@ -24438,7 +25128,7 @@ async fn create_avatar(
             let runtime = state.inner.lock().await;
             if let Some(actor) = runtime
                 .actor_by_id(actor_id)
-                .filter(|actor| actor.kind == CW_ACTOR_HUMAN)
+                .filter(|actor| actor.kind == CW_ACTOR_HUMAN && actor.status == CW_ACTOR_ACTIVE)
                 .map(|actor| runtime.actor_view(actor))
             {
                 drop(runtime);
@@ -24458,11 +25148,15 @@ async fn create_avatar(
 
     let selection_requested = payload.character_creation_id.is_some()
         || payload.character_choice_id.is_some()
+        || payload.species_id.is_some()
+        || payload.origin_id.is_some()
         || payload.calling.is_none();
     let character_selection = if selection_requested {
         let Some(selection) = character_creation_selection(
             payload.character_creation_id.as_deref(),
             payload.character_choice_id.as_deref(),
+            payload.species_id.as_deref(),
+            payload.origin_id.as_deref(),
         ) else {
             return Json(AvatarResponse {
                 ok: false,
@@ -24485,7 +25179,8 @@ async fn create_avatar(
     };
     let initial_calling = character_selection
         .as_ref()
-        .map(|(_, choice)| choice.calling.clone())
+        .and_then(|selection| selection.class.as_ref())
+        .map(|class| class.calling.clone())
         .or_else(|| {
             payload
                 .calling
@@ -24495,7 +25190,7 @@ async fn create_avatar(
         .unwrap_or_else(|| default_calling_statement().to_string());
     let entry_location_id = character_selection
         .as_ref()
-        .map(|(profile, _)| profile.entry_location_id)
+        .map(|selection| selection.profile.entry_location_id)
         .or_else(|| content_registry().entry_location_id());
     let Some(entry_location_id) = entry_location_id else {
         return Json(AvatarResponse {
@@ -24517,7 +25212,7 @@ async fn create_avatar(
         .unwrap_or_else(|| fallback_avatar_identity(actor_id));
     let identity = apply_avatar_creation_flavor(
         base_identity,
-        character_selection.as_ref().map(|(_, choice)| choice),
+        character_selection.as_ref(),
         &initial_calling,
     );
     let actor_meta = ActorMeta {
@@ -24531,13 +25226,27 @@ async fn create_avatar(
         kind: CW_ACTION_CREATE_ACTOR,
         actor_id,
         location_id: entry_location_id,
+        modifier: character_selection
+            .as_ref()
+            .is_some_and(|selection| selection.profile.schema_version == 2)
+            .then_some(-1)
+            .unwrap_or_default(),
         ..CwAction::default()
     };
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
     record.initial_calling = Some(initial_calling.clone());
     record.initial_skill = character_selection
         .as_ref()
-        .map(|(_, choice)| choice.starting_skill_id.clone());
+        .and_then(|selection| selection.class.as_ref())
+        .map(|class| class.starting_skill_id.clone());
+    if let Some(selection) = character_selection
+        .as_ref()
+        .filter(|selection| selection.profile.schema_version == 2)
+    {
+        record.initial_character_profile_id = Some(selection.profile.id.clone());
+        record.initial_species_id = selection.species.as_ref().map(|card| card.id.clone());
+        record.initial_origin_id = selection.origin.as_ref().map(|card| card.id.clone());
+    }
     record.actor_meta_upserts.insert(actor_id, actor_meta);
     if let Some(host) = runtime.welcome_host_for(entry_location_id) {
         record
@@ -24571,15 +25280,11 @@ async fn create_avatar(
         }
         record_avatar_created(&state, actor_id);
         record_daily_visit(&state, actor_id);
-        if payload.name.is_some() {
-            schedule_avatar_art_generation(&state, actor_id, identity.clone());
-        } else {
+        if payload.name.is_none() {
             schedule_avatar_identity_refinement(
                 &state,
                 actor_id,
-                character_selection
-                    .as_ref()
-                    .map(|(_, choice)| choice.clone()),
+                character_selection.clone(),
                 initial_calling.clone(),
                 identity.clone(),
             );
@@ -24597,6 +25302,135 @@ async fn create_avatar(
         actor_session: (status == CW_OK).then_some(actor_session),
         actor_session_expires_at_unix: (status == CW_OK)
             .then_some(actor_session_record.expires_at_unix),
+        events,
+    })
+}
+
+async fn choose_avatar_class(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<ChooseClassRequest>,
+) -> Json<ActionResponse> {
+    if !allow_actor_mutation(
+        &state,
+        client_addr,
+        payload.actor_id,
+        "class-selection-actor",
+        AVATAR_CREATE_LIMIT,
+    ) {
+        return action_rate_limited_response();
+    }
+    let Some((profile, class)) =
+        character_creation_class_selection(&payload.character_creation_id, &payload.class_id)
+    else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 400,
+            events: Vec::new(),
+        });
+    };
+    if profile.schema_version != 2 {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+
+    let mut runtime = state.inner.lock().await;
+    if !client_actor_authorized_for_state(
+        &runtime,
+        &state,
+        payload.actor_id,
+        payload.actor_session.as_deref(),
+    ) {
+        return client_actor_rejected_response();
+    }
+    let Some(identity) = runtime
+        .character_identities
+        .get(&payload.actor_id)
+        .filter(|identity| {
+            identity.profile_id == profile.id
+                && identity.class_id.is_none()
+                && identity.class_selection_ready
+        })
+        .cloned()
+    else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    };
+    let Some(species) = profile
+        .species
+        .iter()
+        .find(|card| card.id == identity.species_id)
+    else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    };
+    let Some(origin) = profile
+        .origins
+        .iter()
+        .find(|card| card.id == identity.origin_id)
+    else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    };
+    let current_meta = runtime
+        .actors
+        .get(&payload.actor_id)
+        .cloned()
+        .unwrap_or_else(|| ActorMeta {
+            name: format!("Traveler {}", payload.actor_id),
+            speech_mode: "prose".to_string(),
+            title: String::new(),
+            description: String::new(),
+        });
+    let actor_meta = ActorMeta {
+        name: current_meta.name.clone(),
+        speech_mode: current_meta.speech_mode,
+        title: class.title.clone(),
+        description: format!(
+            "{} {} {} {}",
+            current_meta.name, species.description, origin.description, class.description
+        ),
+    };
+    let action = CwAction {
+        kind: CW_ACTION_NONE,
+        actor_id: payload.actor_id,
+        ..CwAction::default()
+    };
+    let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_system();
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ChooseClass {
+            profile_id: profile.id,
+            class_id: class.id,
+            calling: class.calling,
+            starting_skill_id: class.starting_skill_id,
+            actor_meta,
+            reason: "first_world_action".to_string(),
+        });
+    let Ok((status, events)) = commit_journal_record(&state, &mut runtime, record) else {
+        return Json(ActionResponse {
+            ok: false,
+            status: 500,
+            events: Vec::new(),
+        });
+    };
+    drop(runtime);
+    broadcast_events(&state, &events);
+    Json(ActionResponse {
+        ok: status == CW_OK,
+        status,
         events,
     })
 }
@@ -24805,7 +25639,7 @@ fn action_offer_rejected(reason: impl Into<String>) -> Json<ActionResponse> {
 
 fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
     match path {
-        "/actions/chat" => kind == "chat",
+        "/actions/chat" => kind == "create_bond",
         "/actions/move" => kind == "move",
         "/actions/explore-path" => kind == "search",
         "/actions/flee" => kind == "flee",
@@ -25165,67 +25999,59 @@ async fn chat(
     State(state): State<AppState>,
     Json(payload): Json<ChatRequest>,
 ) -> Json<ActionResponse> {
+    let target_name = {
+        let runtime = state.inner.lock().await;
+        runtime
+            .actor_name(payload.target_actor_id)
+            .unwrap_or_else(|| format!("Actor {}", payload.target_actor_id))
+    };
+    create_bond(
+        ConnectInfo(client_addr),
+        State(state),
+        Json(ReviseBondRequest {
+            actor_id: payload.actor_id,
+            actor_session: payload.actor_session,
+            target_actor_id: payload.target_actor_id,
+            statement: default_bond_statement(&target_name),
+        }),
+    )
+    .await
+}
+
+async fn fund_community_image(
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    State(state): State<AppState>,
+    Json(payload): Json<FundCommunityImageRequest>,
+) -> Json<ActionResponse> {
     if !allow_actor_mutation(
         &state,
         client_addr,
         payload.actor_id,
-        "chat-actor",
+        "community-image-actor",
         CHAT_ACTION_LIMIT,
     ) {
         return action_rate_limited_response();
     }
-    if let Some(path) = state.event_store_path.as_deref() {
-        match actor_has_active_job(path, payload.actor_id, ACTOR_JOB_KIND_ORB_CHAT) {
-            Ok(true) => {
-                return Json(ActionResponse {
-                    ok: false,
-                    status: CHAT_IN_FLIGHT_STATUS,
-                    events: Vec::new(),
-                });
-            }
-            Ok(false) => {}
-            Err(error) => warn!("failed to inspect active Orb Chat jobs: {}", error),
-        }
-    }
-
-    let plan = {
-        let runtime = state.inner.lock().await;
-        if !client_actor_authorized_for_state(
-            &runtime,
-            &state,
-            payload.actor_id,
-            payload.actor_session.as_deref(),
-        ) {
-            return client_actor_rejected_response();
-        }
-        if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
-            return response;
-        }
-        let Some(plan) = runtime.avatar_chat_plan_for(payload.actor_id, payload.target_actor_id)
-        else {
-            return Json(ActionResponse {
-                ok: false,
-                status: 404,
-                events: Vec::new(),
-            });
-        };
-        if runtime.orb_balance(payload.actor_id) < CHAT_ORB_COST {
-            return Json(ActionResponse {
-                ok: false,
-                status: 402,
-                events: Vec::new(),
-            });
-        }
-        plan
-    };
-
-    let Some(chat_guard) = try_begin_actor_chat(&state.actor_chat_locks, payload.actor_id) else {
+    if state.avatar_art_config.as_ref().is_none() {
         return Json(ActionResponse {
             ok: false,
-            status: CHAT_IN_FLIGHT_STATUS,
+            status: 503,
             events: Vec::new(),
         });
-    };
+    }
+    let intent_id = payload.intent_id.trim();
+    if intent_id.is_empty()
+        || intent_id.len() > 128
+        || !intent_id
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':' | '.'))
+    {
+        return Json(ActionResponse {
+            ok: false,
+            status: 400,
+            events: Vec::new(),
+        });
+    }
 
     let mut runtime = state.inner.lock().await;
     if !client_actor_authorized_for_state(
@@ -25236,121 +26062,125 @@ async fn chat(
     ) {
         return client_actor_rejected_response();
     }
-    let turn_location_id = runtime
-        .actor_by_id(payload.actor_id)
-        .map(|actor| actor.location_id);
-    if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
-        return response;
+    let plan = match runtime.community_art_plan(
+        payload.actor_id,
+        payload.subject_kind.trim(),
+        payload.subject_id,
+    ) {
+        Ok(plan) => plan,
+        Err(_) => {
+            return Json(ActionResponse {
+                ok: false,
+                status: 404,
+                events: Vec::new(),
+            });
+        }
+    };
+    let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+    let existing = runtime.community_art_generations.get(&key);
+    if existing.is_some_and(|generation| generation.funding_intent_ids.contains(intent_id)) {
+        let retry_generation = existing.is_some_and(|generation| {
+            generation.status != "ready" && generation.funded_orbs >= generation.required_orbs
+        });
+        drop(runtime);
+        if retry_generation {
+            schedule_community_art_generation(&state, payload.actor_id, plan);
+        }
+        return Json(ActionResponse {
+            ok: true,
+            status: CW_OK,
+            events: Vec::new(),
+        });
     }
-    if runtime
-        .avatar_chat_plan_for(payload.actor_id, payload.target_actor_id)
-        .is_none()
-    {
+    if existing.is_some_and(|generation| generation.status == "ready") {
         return Json(ActionResponse {
             ok: false,
             status: 409,
             events: Vec::new(),
         });
     }
-    if runtime.orb_balance(payload.actor_id) < CHAT_ORB_COST {
+    let funded_orbs = existing
+        .map(|generation| generation.funded_orbs)
+        .unwrap_or(0);
+    let contribution = plan.required_orbs.saturating_sub(funded_orbs).min(1);
+    if contribution > 0 && runtime.orb_balance(payload.actor_id) < contribution {
         return Json(ActionResponse {
             ok: false,
             status: 402,
             events: Vec::new(),
         });
     }
-    // Commit the ordinary Chat card and pass the room turn immediately. The
-    // generated conversation is the asynchronous consequence of that card.
-    let action = CwAction {
-        kind: CW_ACTION_NONE,
-        actor_id: payload.actor_id,
-        ..CwAction::default()
-    };
-    let mut record = JournalRecord::new(action, runtime.next_seed_value()).into_player_card();
-    record.queued_actor_job = Some(ActorJobPayload::OrbChat(OrbChatJob {
-        actor_id: payload.actor_id,
-        target_actor_id: payload.target_actor_id,
-        plan: plan.clone(),
-        queue_event_id: None,
-        source_world_tick: None,
-        observed_through_seq: None,
-    }));
-    record
-        .projection_mutations
-        .push(ProjectionMutation::ChatStatus {
-            target_actor_id: payload.target_actor_id,
-            status: "queued".to_string(),
-            reason: "dialogue is being written".to_string(),
-        });
-    record.orb_deltas.push(OrbDelta {
-        actor_id: payload.actor_id,
-        delta: -CHAT_ORB_COST,
-        reason: "chat".to_string(),
-    });
-    let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
-        return Json(ActionResponse {
-            ok: false,
-            status: 500,
-            events: Vec::new(),
-        });
-    };
-    advance_actor_room_turn_after_commit(
-        &state,
-        &mut runtime,
-        turn_location_id,
-        payload.actor_id,
-        status,
-        &mut events,
-    );
-    if status == CW_OK {
-        append_action_receipt(&state, &runtime, payload.actor_id, &mut events);
-    }
-    let source_world_tick = Some(runtime.world.tick);
-    let observed_through_seq = Some(runtime.world.next_event_seq.saturating_sub(1));
-    drop(runtime);
 
-    broadcast_events(&state, &events);
-    if status == CW_OK {
-        if state.event_store_path.is_some() {
-            state.actor_job_notify.notify_waiters();
-        } else {
-            let queue_event_id = events
-                .iter()
-                .find(|event| event.type_name == "chat.queued")
-                .map(|event| event.seq);
-            let state = state.clone();
-            let actor_id = payload.actor_id;
-            let target_actor_id = payload.target_actor_id;
-            tokio::spawn(async move {
-                let _chat_guard = chat_guard;
-                complete_queued_orb_chat(
-                    &state,
-                    actor_id,
-                    target_actor_id,
-                    plan,
-                    queue_event_id,
-                    source_world_tick,
-                    observed_through_seq,
-                )
-                .await;
+    let events = if contribution > 0 {
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: payload.actor_id,
+                ..CwAction::default()
+            },
+            runtime.next_seed_value(),
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::FundCommunityArt {
+                subject_kind: plan.subject_kind.clone(),
+                subject_id: plan.subject_id,
+                level: plan.level,
+                required_orbs: plan.required_orbs,
+                contributor_actor_id: payload.actor_id,
+                intent_id: intent_id.to_string(),
+                amount: contribution,
+                history_through_seq: plan.history_through_seq,
             });
+        record.orb_deltas.push(OrbDelta {
+            actor_id: payload.actor_id,
+            delta: -contribution,
+            reason: "community_image_generation".to_string(),
+        });
+        match commit_journal_record(&state, &mut runtime, record) {
+            Ok((CW_OK, events)) => events,
+            Ok((status, events)) => {
+                return Json(ActionResponse {
+                    ok: false,
+                    status,
+                    events,
+                });
+            }
+            Err(_) => {
+                return Json(ActionResponse {
+                    ok: false,
+                    status: 500,
+                    events: Vec::new(),
+                });
+            }
         }
+    } else {
+        Vec::new()
+    };
+    let fully_funded = runtime
+        .community_art_generations
+        .get(&key)
+        .is_some_and(|generation| generation.funded_orbs >= generation.required_orbs);
+    drop(runtime);
+    if !events.is_empty() {
+        broadcast_events(&state, &events);
+    }
+    if fully_funded {
+        schedule_community_art_generation(&state, payload.actor_id, plan);
     }
     Json(ActionResponse {
-        ok: status == CW_OK,
-        status,
+        ok: true,
+        status: CW_OK,
         events,
     })
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn commit_chat_status(
     state: &AppState,
     actor_id: u64,
     target_actor_id: u64,
     status: &str,
     reason: &str,
-    orb_delta: i32,
     caused_by_event_seq: Option<u64>,
     source_world_tick: Option<u64>,
     observed_through_seq: Option<u64>,
@@ -25376,13 +26206,6 @@ async fn commit_chat_status(
             status: status.to_string(),
             reason: reason.to_string(),
         });
-    if orb_delta != 0 {
-        record.orb_deltas.push(OrbDelta {
-            actor_id,
-            delta: orb_delta,
-            reason: "chat_refund".to_string(),
-        });
-    }
     let Ok((commit_status, events)) = commit_journal_record(state, &mut runtime, record) else {
         return Vec::new();
     };
@@ -25418,8 +26241,7 @@ async fn complete_queued_orb_chat(
                 actor_id,
                 target_actor_id,
                 "failed",
-                "the reply got lost; your Orb returned",
-                CHAT_ORB_COST,
+                "the reply got lost; try talking again",
                 queue_event_id,
                 source_world_tick,
                 observed_through_seq,
@@ -25430,7 +26252,7 @@ async fn complete_queued_orb_chat(
                 state,
                 Some(actor_id),
                 "avatar_chat",
-                "cosyworld_orbs",
+                "cosyworld_system",
                 usage_config.as_ref(),
                 "failed",
                 queue_event_id,
@@ -25495,8 +26317,7 @@ async fn complete_queued_orb_chat(
             actor_id,
             target_actor_id,
             "failed",
-            "the conversation moved out of reach; your Orb returned",
-            CHAT_ORB_COST,
+            "the conversation moved out of reach",
             queue_event_id,
             source_world_tick,
             observed_through_seq,
@@ -25507,7 +26328,7 @@ async fn complete_queued_orb_chat(
             state,
             Some(actor_id),
             "avatar_chat",
-            "cosyworld_orbs",
+            "cosyworld_system",
             usage_config.as_ref(),
             "failed",
             queue_event_id,
@@ -25522,11 +26343,11 @@ async fn complete_queued_orb_chat(
         state,
         Some(actor_id),
         "avatar_chat",
-        "cosyworld_orbs",
+        "cosyworld_system",
         usage_config.as_ref(),
         "ok",
         queue_event_id.or_else(|| source_event_id_for_chat(&events, actor_id, content_id)),
-        -CHAT_ORB_COST,
+        0,
         None,
         started_at.elapsed(),
     );
@@ -25539,7 +26360,6 @@ async fn complete_queued_orb_chat(
         target_actor_id,
         "completed",
         "the conversation settled",
-        0,
         queue_event_id,
         source_world_tick,
         observed_through_seq,
@@ -28659,19 +29479,6 @@ async fn command_inner(
                 events: presence_events,
             })
         }
-        CommandDispatch::Chat { target_actor_id } => {
-            let Json(response) = chat(
-                ConnectInfo(client_addr),
-                State(state),
-                Json(ChatRequest {
-                    actor_id: payload.actor_id,
-                    actor_session: payload.actor_session,
-                    target_actor_id,
-                }),
-            )
-            .await;
-            command_action_response_with_events(resolved, response, presence_events)
-        }
     }
 }
 
@@ -29079,28 +29886,39 @@ async fn complete_player_tick_observation(
     Ok(reply_plan)
 }
 
-fn spawn_resident_reply(state: &AppState, plan: ResidentReplyPlan) {
-    let state = state.clone();
-    tokio::spawn(async move {
-        if let Err(error) = complete_resident_reply(&state, plan).await {
-            warn!("asynchronous resident dialogue failed: {}", error);
-        }
-    });
-}
-
 fn schedule_player_tick_observation(state: &AppState, observation: PlayerTickObservation) {
     if state.event_store_path.is_some() {
         // The observation was inserted in the same SQLite transaction as the
-        // card journal and events. This call only wakes the durable worker.
+        // card journal and events. This call only wakes the durable worker;
+        // its available_at timestamp supplies the room-chat heartbeat delay.
         state.actor_job_notify.notify_waiters();
+        return;
+    }
+    let Some(location_id) = observation.source_location_id else {
+        return;
+    };
+    let heartbeat_armed = state
+        .room_chat_heartbeats
+        .lock()
+        .map(|mut rooms| rooms.insert(location_id))
+        .unwrap_or(false);
+    if !heartbeat_armed {
         return;
     }
     let state = state.clone();
     tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(CARD_REACTION_HEARTBEAT_DELAY_MS)).await;
         match complete_player_tick_observation(&state, observation).await {
-            Ok(Some(plan)) => spawn_resident_reply(&state, plan),
+            Ok(Some(plan)) => {
+                if let Err(error) = complete_resident_reply(&state, plan).await {
+                    warn!("asynchronous resident dialogue failed: {}", error);
+                }
+            }
             Ok(None) => {}
             Err(error) => warn!("resident turn failed: {}", error),
+        }
+        if let Ok(mut rooms) = state.room_chat_heartbeats.lock() {
+            rooms.remove(&location_id);
         }
     });
 }
@@ -29235,10 +30053,42 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                     {
                         match complete_player_tick_observation(&state, observation.clone()).await {
                             Ok(Some(plan)) => {
-                                spawn_resident_reply(&state, plan);
-                                Ok(())
+                                let reply_state = state.clone();
+                                let reply_path = path.to_path_buf();
+                                let reply_job = job.clone();
+                                tokio::spawn(async move {
+                                    match complete_resident_reply(&reply_state, plan).await {
+                                        Ok(()) => {
+                                            if let Err(error) =
+                                                complete_actor_job(&reply_path, reply_job.id)
+                                            {
+                                                warn!(
+                                                    "failed to complete actor job {}: {}",
+                                                    reply_job.id, error
+                                                );
+                                            }
+                                        }
+                                        Err(error) => {
+                                            warn!(
+                                                "actor job {} dialogue failed: {}",
+                                                reply_job.id, error
+                                            );
+                                            if let Err(store_error) = fail_or_retry_actor_job(
+                                                &reply_path,
+                                                &reply_job,
+                                                &error.to_string(),
+                                            ) {
+                                                warn!(
+                                                    "failed to update retry state for actor job {}: {}",
+                                                    reply_job.id, store_error
+                                                );
+                                            }
+                                        }
+                                    }
+                                });
+                                Ok(false)
                             }
-                            Ok(None) => Ok(()),
+                            Ok(None) => Ok(true),
                             Err(error) => Err(error),
                         }
                     }
@@ -29255,7 +30105,7 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                             chat.observed_through_seq,
                         )
                         .await;
-                        Ok(())
+                        Ok(true)
                     }
                     _ => Err(format!(
                         "unsupported or inconsistent actor job kind {}",
@@ -29263,11 +30113,12 @@ async fn run_actor_job_worker(state: AppState, claimed_kind: &'static str) {
                     )),
                 };
                 match result {
-                    Ok(()) => {
+                    Ok(true) => {
                         if let Err(error) = complete_actor_job(path, job.id) {
                             warn!("failed to complete actor job {}: {}", job.id, error);
                         }
                     }
+                    Ok(false) => {}
                     Err(error) => {
                         warn!("actor job {} failed: {}", job.id, error);
                         if let Err(store_error) =
@@ -30550,163 +31401,114 @@ async fn request_ai_avatar_identity(
         .ok_or_else(|| "AI avatar identity response was not usable JSON".to_string())
 }
 
-async fn generate_and_store_avatar_art(
+static COMMUNITY_ART_JOBS: OnceLock<StdMutex<BTreeSet<String>>> = OnceLock::new();
+
+fn community_art_jobs() -> &'static StdMutex<BTreeSet<String>> {
+    COMMUNITY_ART_JOBS.get_or_init(|| StdMutex::new(BTreeSet::new()))
+}
+
+async fn generate_and_store_community_art(
     config: &ReplicateAvatarArtConfig,
     generated_asset_dir: &Path,
-    actor_id: u64,
-    identity: &GeneratedAvatarIdentity,
+    plan: &CommunityArtPlan,
 ) -> Result<(), String> {
-    let image = request_replicate_avatar_art(config, identity).await?;
-    let path = stored_avatar_image_path(generated_asset_dir, actor_id);
+    let prompt = compact_whitespace(&format!("{}, {}", config.prompt_prefix, plan.prompt));
+    let image = request_replicate_art(config, prompt, plan.aspect_ratio).await?;
+    let path =
+        stored_community_art_image_path(generated_asset_dir, &plan.subject_kind, plan.subject_id);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
     fs::write(&path, image.bytes).map_err(|error| error.to_string())?;
     fs::write(
-        stored_avatar_content_type_path(generated_asset_dir, actor_id),
+        stored_community_art_content_type_path(
+            generated_asset_dir,
+            &plan.subject_kind,
+            plan.subject_id,
+        ),
         image.content_type,
     )
     .map_err(|error| error.to_string())?;
     Ok(())
 }
 
-fn schedule_avatar_art_generation(
+async fn commit_community_art_status(
     state: &AppState,
     actor_id: u64,
-    identity: GeneratedAvatarIdentity,
-) {
+    plan: &CommunityArtPlan,
+    status: &str,
+) -> Vec<EventView> {
+    let mut runtime = state.inner.lock().await;
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    );
+    record
+        .projection_mutations
+        .push(ProjectionMutation::SetCommunityArtStatus {
+            subject_kind: plan.subject_kind.clone(),
+            subject_id: plan.subject_id,
+            level: plan.level,
+            status: status.to_string(),
+        });
+    let Ok((commit_status, events)) = commit_journal_record(state, &mut runtime, record) else {
+        return Vec::new();
+    };
+    drop(runtime);
+    if commit_status == CW_OK {
+        broadcast_events(state, &events);
+        events
+    } else {
+        Vec::new()
+    }
+}
+
+fn schedule_community_art_generation(state: &AppState, actor_id: u64, plan: CommunityArtPlan) {
     let Some(config) = state.avatar_art_config.as_ref().clone() else {
         return;
     };
-    if let Ok(mut jobs) = state.avatar_art_jobs.lock() {
-        if !jobs.insert(actor_id) {
+    let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
+    if let Ok(mut jobs) = community_art_jobs().lock() {
+        if !jobs.insert(key.clone()) {
             return;
         }
     }
-    let generated_asset_dir = state.generated_asset_dir.clone();
-    let jobs = state.avatar_art_jobs.clone();
+    let state = state.clone();
     tokio::spawn(async move {
-        if let Err(error) =
-            generate_and_store_avatar_art(&config, &generated_asset_dir, actor_id, &identity).await
-        {
-            warn!(
-                "Replicate avatar art generation failed for actor {}: {}",
-                actor_id, error
-            );
-        }
-        if let Ok(mut jobs) = jobs.lock() {
-            jobs.remove(&actor_id);
+        let started_at = Instant::now();
+        let result =
+            generate_and_store_community_art(&config, &state.generated_asset_dir, &plan).await;
+        let (status, error_code) = match result {
+            Ok(()) => ("ready", None),
+            Err(error) => {
+                warn!("community art generation failed for {}: {}", key, error);
+                ("failed", Some("community_art_generation_failed"))
+            }
+        };
+        let events = commit_community_art_status(&state, actor_id, &plan, status).await;
+        record_ai_usage(
+            &state,
+            Some(actor_id),
+            "community_image_generation",
+            "community_orbs",
+            None,
+            if status == "ready" { "ok" } else { "failed" },
+            events.first().map(|event| event.seq),
+            0,
+            error_code,
+            started_at.elapsed(),
+        );
+        if let Ok(mut jobs) = community_art_jobs().lock() {
+            jobs.remove(&key);
         }
     });
 }
 
-async fn generate_and_store_pathway_art(
-    config: &ReplicateAvatarArtConfig,
-    generated_asset_dir: &Path,
-    location_id: u64,
-    art_prompt: &str,
-) -> Result<(), String> {
-    let prompt_prefix = std::env::var("COSYWORLD_REPLICATE_PATHWAY_PROMPT_PREFIX")
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "mirquo style, cozy storybook landscape".to_string());
-    let prompt = compact_whitespace(&format!(
-        "{prompt_prefix}, {art_prompt}. Wide establishing landscape, no character portrait, no text, no logo, no watermark."
-    ));
-    let image = request_replicate_art(config, prompt, "16:9").await?;
-    let path = stored_pathway_image_path(generated_asset_dir, location_id);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    fs::write(&path, image.bytes).map_err(|error| error.to_string())?;
-    fs::write(
-        stored_pathway_content_type_path(generated_asset_dir, location_id),
-        image.content_type,
-    )
-    .map_err(|error| error.to_string())?;
-    Ok(())
-}
-
-fn pathway_art_targets(mutation: &ProjectionMutation) -> Vec<(u64, String)> {
-    let ProjectionMutation::JourneyTransition {
-        pathway,
-        reveal_edges,
-        ..
-    } = mutation
-    else {
-        return Vec::new();
-    };
-    if !pathway.art_eligible || !pathway.familiar {
-        return Vec::new();
-    }
-    let revealed_location_ids = reveal_edges
-        .iter()
-        .map(|(_from, to)| *to)
-        .filter(|location_id| *location_id >= GENERATED_PATHWAY_LOCATION_ID_BASE)
-        .collect::<BTreeSet<_>>();
-    pathway
-        .waypoints
-        .iter()
-        .filter(|waypoint| revealed_location_ids.contains(&waypoint.id))
-        .filter_map(|waypoint| {
-            waypoint
-                .meta
-                .art_prompt
-                .as_ref()
-                .map(|prompt| (waypoint.id, prompt.clone()))
-        })
-        .collect()
-}
-
-fn schedule_pathway_art_generation(state: &AppState, targets: Vec<(u64, String)>) {
-    let Some(config) = state.avatar_art_config.as_ref().clone() else {
-        return;
-    };
-    for (location_id, prompt) in targets {
-        if stored_pathway_image_path(&state.generated_asset_dir, location_id).exists() {
-            continue;
-        }
-        if let Ok(mut jobs) = state.avatar_art_jobs.lock() {
-            if !jobs.insert(location_id) {
-                continue;
-            }
-        }
-        let generated_asset_dir = state.generated_asset_dir.clone();
-        let jobs = state.avatar_art_jobs.clone();
-        let config = config.clone();
-        tokio::spawn(async move {
-            if let Err(error) =
-                generate_and_store_pathway_art(&config, &generated_asset_dir, location_id, &prompt)
-                    .await
-            {
-                warn!(
-                    "Replicate pathway art generation failed for location {}: {}",
-                    location_id, error
-                );
-            }
-            if let Ok(mut jobs) = jobs.lock() {
-                jobs.remove(&location_id);
-            }
-        });
-    }
-}
-
 const MAX_REPLICATE_AVATAR_IMAGE_BYTES: u64 = 8 * 1024 * 1024;
-
-async fn request_replicate_avatar_art(
-    config: &ReplicateAvatarArtConfig,
-    identity: &GeneratedAvatarIdentity,
-) -> Result<DownloadedReplicateImage, String> {
-    let prompt = compact_whitespace(&format!(
-        "{prefix}, {visual}. Character name: {name}. Title: {title}. No text, no logo, no watermark.",
-        prefix = config.prompt_prefix,
-        visual = identity.visual_prompt,
-        name = identity.name,
-        title = identity.title,
-    ));
-    request_replicate_art(config, prompt, "2:3").await
-}
 
 async fn request_replicate_art(
     config: &ReplicateAvatarArtConfig,
@@ -31700,7 +32502,6 @@ async fn move_actor(
             *stored_narration = narration;
         }
         let content_generation = mutation.clone();
-        let art_targets = pathway_art_targets(&mutation);
         let turn_action_kind = if action.kind == CW_ACTION_MOVE {
             CW_ACTION_MOVE
         } else {
@@ -31721,7 +32522,6 @@ async fn move_actor(
         .await;
         if response.0.ok {
             schedule_hidden_pathway_content_generation(&state, content_generation, narration_plan);
-            schedule_pathway_art_generation(&state, art_targets);
         }
         record_movement_access_outcome(
             &state,
@@ -31808,7 +32608,6 @@ async fn explore_pathway(
     {
         *stored_narration = narration;
     }
-    let art_targets = pathway_art_targets(&mutation);
     let response = apply_journey_transition(
         state.clone(),
         action,
@@ -31817,9 +32616,6 @@ async fn explore_pathway(
         CW_ACTION_SEARCH,
     )
     .await;
-    if response.0.ok {
-        schedule_pathway_art_generation(&state, art_targets);
-    }
     response
 }
 
@@ -32591,14 +33387,6 @@ async fn work(
             events: Vec::new(),
         });
     };
-    let pathway_upgraded = events
-        .iter()
-        .any(|event| event.type_name == "pathway.familiarized");
-    let pathway_art_targets = pathway_upgrade_id
-        .as_deref()
-        .filter(|_| pathway_upgraded)
-        .map(|pathway_id| runtime.generated_pathway_art_targets(pathway_id))
-        .unwrap_or_default();
     let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
@@ -32610,9 +33398,6 @@ async fn work(
     drop(runtime);
 
     broadcast_events(&state, &events);
-    if pathway_upgraded {
-        schedule_pathway_art_generation(&state, pathway_art_targets);
-    }
     if let Some(plan) = ripple_reply_plan {
         schedule_player_tick_observation(&state, plan);
     }
@@ -32785,14 +33570,6 @@ async fn help_room(
             events: Vec::new(),
         });
     };
-    let pathway_upgraded = events
-        .iter()
-        .any(|event| event.type_name == "pathway.familiarized");
-    let pathway_art_targets = pathway_upgrade_id
-        .as_deref()
-        .filter(|_| pathway_upgraded)
-        .map(|pathway_id| runtime.generated_pathway_art_targets(pathway_id))
-        .unwrap_or_default();
     let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
         &state,
         &mut runtime,
@@ -32804,9 +33581,6 @@ async fn help_room(
     drop(runtime);
 
     broadcast_events(&state, &events);
-    if pathway_upgraded {
-        schedule_pathway_art_generation(&state, pathway_art_targets);
-    }
     if let Some(plan) = ripple_reply_plan {
         schedule_player_tick_observation(&state, plan);
     }
@@ -34330,36 +35104,8 @@ async fn apply_and_broadcast_with_resident_reply_and_hosted_access(
         }
         return response;
     }
-    let listen_cost = if action_is_listen_check(&action) {
-        runtime.listen_cost_orbs(actor_id)
-    } else {
-        0
-    };
-    if listen_cost > 0 && runtime.orb_balance(actor_id) < listen_cost {
-        drop(runtime);
-        if !released_events.is_empty() {
-            broadcast_events(&state, &released_events);
-        }
-        let events = if was_active {
-            Vec::new()
-        } else {
-            commit_presence_event(&state, actor_id, true).await
-        };
-        return Json(ActionResponse {
-            ok: false,
-            status: 402,
-            events,
-        });
-    }
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
     record.hosted_access_grant = hosted_access_grant;
-    if listen_cost > 0 {
-        record.orb_deltas.push(OrbDelta {
-            actor_id,
-            delta: -listen_cost,
-            reason: "listen".to_string(),
-        });
-    }
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         drop(runtime);
         if !released_events.is_empty() {
@@ -34950,6 +35696,37 @@ async fn generated_pathway_asset(
             (header::CACHE_CONTROL, "public, max-age=86400"),
         ],
         svg,
+    )
+        .into_response()
+}
+
+async fn generated_community_art_asset(
+    State(state): State<AppState>,
+    AxumPath((subject_kind, asset_file)): AxumPath<(String, String)>,
+) -> impl IntoResponse {
+    if !matches!(subject_kind.as_str(), "actor" | "item" | "location") {
+        return (StatusCode::NOT_FOUND, "unknown community artwork").into_response();
+    }
+    let Some(subject_id) = asset_file
+        .strip_suffix(".image")
+        .and_then(|value| value.parse::<u64>().ok())
+    else {
+        return (StatusCode::NOT_FOUND, "unknown community artwork").into_response();
+    };
+    let path =
+        stored_community_art_image_path(&state.generated_asset_dir, &subject_kind, subject_id);
+    let Ok(bytes) = fs::read(path) else {
+        return (StatusCode::NOT_FOUND, "community artwork is not ready").into_response();
+    };
+    let content_type =
+        stored_community_art_content_type(&state.generated_asset_dir, &subject_kind, subject_id);
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, content_type),
+            (header::CACHE_CONTROL, "public, max-age=86400".to_string()),
+        ],
+        bytes,
     )
         .into_response()
 }
@@ -36154,6 +36931,7 @@ fn source_event_for_orb_delta<'a>(
         "combat_outcome" => Some("combat.encounter.resolved"),
         "combat_flee" => Some("combat.flee.success"),
         "job_completed" => Some("job.updated"),
+        "community_image_generation" => Some("community_art.funded"),
         "chat" => Some("chat.queued"),
         "chat_refund" => Some("chat.failed"),
         "listen" => Some("ability_check.rolled"),
@@ -37412,6 +38190,19 @@ fn actor_job_dedupe_key(observation: &PlayerTickObservation) -> String {
 }
 
 fn insert_actor_job(conn: &Connection, observation: &PlayerTickObservation) -> io::Result<bool> {
+    if let Some(location_id) = observation.source_location_id {
+        let active_heartbeat_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM actor_jobs
+                 WHERE kind = ?1 AND location_id = ?2 AND status IN ('pending', 'running')",
+                params![ACTOR_JOB_KIND_PLAYER_TICK, location_id as i64],
+                |row| row.get(0),
+            )
+            .map_err(sqlite_error)?;
+        if active_heartbeat_count > 0 {
+            return Ok(false);
+        }
+    }
     let payload = ActorJobPayload::PlayerTick(observation.clone());
     insert_actor_job_payload(
         conn,
@@ -37423,6 +38214,7 @@ fn insert_actor_job(conn: &Connection, observation: &PlayerTickObservation) -> i
         observation.source_location_id,
         &actor_job_dedupe_key(observation),
         &payload,
+        CARD_REACTION_HEARTBEAT_DELAY_MS,
     )
 }
 
@@ -37453,21 +38245,8 @@ fn insert_orb_chat_job(
             cause_event_seq.unwrap_or(0)
         ),
         &payload,
+        0,
     )
-}
-
-fn actor_has_active_job(path: &Path, actor_id: u64, kind: &str) -> io::Result<bool> {
-    init_event_store(path)?;
-    let conn = open_event_store(path)?;
-    let count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM actor_jobs
-             WHERE actor_id = ?1 AND kind = ?2 AND status IN ('pending', 'running')",
-            params![actor_id as i64, kind],
-            |row| row.get(0),
-        )
-        .map_err(sqlite_error)?;
-    Ok(count > 0)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -37481,17 +38260,19 @@ fn insert_actor_job_payload(
     location_id: Option<u64>,
     dedupe_key: &str,
     payload: &ActorJobPayload,
+    delay_ms: u64,
 ) -> io::Result<bool> {
     let context_json = serde_json::to_string(payload)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let now = now_millis() as i64;
+    let available_at = now.saturating_add(delay_ms as i64);
     let inserted = conn
         .execute(
             "INSERT OR IGNORE INTO actor_jobs
                 (kind, actor_id, cause_event_seq, source_tick, observed_through_seq,
                  location_id, status, attempts, lease_until_ms, available_at_ms,
                  context_json, dedupe_key, created_at_ms, updated_at_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', 0, NULL, ?7, ?8, ?9, ?7, ?7)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', 0, NULL, ?7, ?8, ?9, ?10, ?10)",
             params![
                 kind,
                 actor_id as i64,
@@ -37499,9 +38280,10 @@ fn insert_actor_job_payload(
                 source_tick as i64,
                 observed_through_seq as i64,
                 location_id.map(|id| id as i64),
-                now,
+                available_at,
                 context_json,
                 dedupe_key,
+                now,
             ],
         )
         .map_err(sqlite_error)?;
@@ -37515,6 +38297,19 @@ fn append_actor_job(path: &Path, observation: &PlayerTickObservation) -> io::Res
     insert_actor_job(&conn, observation)
 }
 
+#[cfg(test)]
+fn release_pending_actor_jobs(path: &Path, kind: &str) -> io::Result<()> {
+    let conn = open_event_store(path)?;
+    conn.execute(
+        "UPDATE actor_jobs SET available_at_ms = 0
+         WHERE kind = ?1 AND status = 'pending'",
+        params![kind],
+    )
+    .map_err(sqlite_error)?;
+    Ok(())
+}
+
+#[cfg(test)]
 fn claim_next_actor_job(path: &Path) -> io::Result<Option<ActorJob>> {
     claim_next_actor_job_filtered(path, None)
 }
@@ -39313,7 +40108,6 @@ mod tests {
             actor_sessions: Arc::new(StdMutex::new(ActorSessions::default())),
             actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
-            actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             inactive_inventory_release_conflicts: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
@@ -39329,7 +40123,7 @@ mod tests {
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
-            avatar_art_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
+            room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
             actor_job_notify: Arc::new(Notify::new()),
             avatar_chat_delay: Duration::ZERO,
             moderation_token: None,
@@ -39444,6 +40238,20 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    }
+
+    fn grant_test_advancement(runtime: &mut RuntimeWorld, actor_id: u64, id: &str) {
+        runtime.ledger_marks.insert(
+            id.to_string(),
+            VisitLedgerMarkState {
+                id: id.to_string(),
+                actor_id,
+                category: "witness".to_string(),
+                label: "Found a reason to grow".to_string(),
+                source_event_seq: runtime.world.next_event_seq,
+                banked: true,
+            },
+        );
     }
 
     #[tokio::test]
@@ -42625,16 +43433,6 @@ mod tests {
     }
 
     #[test]
-    fn actor_chat_guard_rejects_overlap_until_released() {
-        let locks = Arc::new(StdMutex::new(BTreeSet::new()));
-        let first = try_begin_actor_chat(&locks, 5000).expect("first chat starts");
-        assert!(try_begin_actor_chat(&locks, 5000).is_none());
-        assert!(try_begin_actor_chat(&locks, 5001).is_some());
-        drop(first);
-        assert!(try_begin_actor_chat(&locks, 5000).is_some());
-    }
-
-    #[test]
     fn human_message_hygiene_trims_blank_and_long_content() {
         assert_eq!(
             normalize_human_message("  hello   warm    room  ").as_deref(),
@@ -43599,10 +44397,6 @@ mod tests {
         if let ProjectionMutation::JourneyTransition { narration, .. } = &mut first_mutation {
             *narration = travel_narration_fallback(&first_narration);
         }
-        assert!(
-            pathway_art_targets(&first_mutation).is_empty(),
-            "discovering a route keeps premium art locked behind community work"
-        );
         let mut first_record = JournalRecord::new(first_search, 900_001);
         first_record.projection_mutations.push(first_mutation);
         let (first_status, first_events) = runtime.apply_journal_record(&first_record);
@@ -43661,6 +44455,9 @@ mod tests {
             Some(format!("/assets/generated/pathways/{first_waypoint_id}.svg").as_str())
         );
         let after_first_search = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(after_first_search.cards.locations[&first_waypoint_id]
+            .community_art
+            .is_none());
         assert!(after_first_search
             .exits
             .iter()
@@ -43742,10 +44539,6 @@ mod tests {
         {
             *narration = travel_narration_fallback(&second_search_narration);
         }
-        assert!(
-            pathway_art_targets(&second_search_mutation).is_empty(),
-            "later discoveries keep premium art locked until the route is familiar"
-        );
         let mut second_search_record = JournalRecord::new(second_search, 900_003);
         second_search_record
             .projection_mutations
@@ -43929,7 +44722,7 @@ mod tests {
     }
 
     #[test]
-    fn community_work_familiarizes_generated_pathway_and_unlocks_art() {
+    fn community_work_familiarizes_generated_pathway_and_unlocks_community_art() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -44000,11 +44793,14 @@ mod tests {
             runtime.job_status(&runtime.jobs[&generated_pathway_job_id(&pathway_id)]),
             "completed"
         );
-        let art_targets = runtime.generated_pathway_art_targets(&pathway_id);
-        assert_eq!(art_targets.len(), 2);
-        assert!(art_targets
-            .iter()
-            .all(|(_, prompt)| prompt.contains("cozy storybook landscape")));
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        let art = state.cards.locations[&first_waypoint_id]
+            .community_art
+            .as_ref()
+            .expect("familiar generated location unlocks one community image");
+        assert_eq!(art.level, 1);
+        assert_eq!(art.required_orbs, 1);
+        assert_eq!(art.status, "available");
     }
 
     #[test]
@@ -44223,7 +45019,9 @@ mod tests {
         assert!(INDEX_HTML.contains("touch-action: pan-y;"));
         assert!(!INDEX_HTML.contains("scroll-behavior: smooth;"));
         assert!(INDEX_HTML.contains("pendingAction?.kind === \"orb-chat\""));
-        assert!(INDEX_HTML.contains("Play Chat to start a short conversation with"));
+        assert!(INDEX_HTML.contains("Use one advancement point to begin a friendship with"));
+        assert!(INDEX_HTML.contains("kind: \"advancement-chat\""));
+        assert!(!INDEX_HTML.contains("label: \"grow closer\""));
         assert!(INDEX_HTML.contains(
             "return [waitingAction, buildEvolveAction()].filter(Boolean).map(decorateActionHand);"
         ));
@@ -44244,7 +45042,6 @@ mod tests {
         assert!(INDEX_HTML.contains("kind: \"avatar-arrival\""));
         assert!(INDEX_HTML.contains("function pendingAvatarArrivalHtml"));
         assert!(INDEX_HTML.contains("the cottage is making room"));
-        assert!(INDEX_HTML.contains("Someone here is getting ready to say hello."));
         assert!(INDEX_HTML.contains("your first little moment is waiting"));
         assert!(INDEX_HTML.contains("find a skill charm, then wear it from Deck"));
         assert!(INDEX_HTML.contains("someone new is waiting to meet you"));
@@ -44325,6 +45122,11 @@ mod tests {
         assert!(INDEX_HTML.contains("label: beginningAgain ? \"begin again\" : \"begin\""));
         assert!(INDEX_HTML.contains("character_creation_id"));
         assert!(INDEX_HTML.contains("character_choice_id"));
+        assert!(INDEX_HTML.contains("species_id"));
+        assert!(INDEX_HTML.contains("origin_id"));
+        assert!(INDEX_HTML.contains("/avatar/class"));
+        assert!(INDEX_HTML.contains("setCreationModalStage(action, \"species\")"));
+        assert!(INDEX_HTML.contains("classless · level 0"));
         assert!(INDEX_HTML.contains("accountRow(\"purpose\", purpose)"));
         assert!(!INDEX_HTML.contains("detail: \"choose calling\""));
         assert!(!INDEX_HTML.contains("modalTitle: \"choose a calling\""));
@@ -44338,15 +45140,17 @@ mod tests {
         assert!(INDEX_HTML.contains("listen again"));
         assert!(INDEX_HTML.contains("The room may have nothing new yet."));
         assert!(INDEX_HTML.contains("the room may share another clue"));
-        assert!(INDEX_HTML.contains("[\"Costs\", orbCost === 1 ? \"one Orb\""));
+        assert!(INDEX_HTML.contains("[\"Costs\", orbCost ?"));
         assert!(!INDEX_HTML.contains("to listen again"));
         assert!(INDEX_HTML.contains("Receive one ambient lead from the room."));
         assert!(INDEX_HTML.contains("one Orb"));
         assert!(INDEX_HTML.contains("function orbChangeText"));
         assert!(!INDEX_HTML.contains("flashEconomy(`+${delta}`"));
         assert!(!INDEX_HTML.contains("flashEconomy(`-${spent}`"));
-        assert!(INDEX_HTML.contains("Play Chat to start a short conversation with"));
-        assert!(INDEX_HTML.contains("one Orb for the whole exchange"));
+        assert!(INDEX_HTML.contains("Chat uses one advancement point and begins a friendship."));
+        assert!(!INDEX_HTML.contains("one Orb for the whole exchange"));
+        assert!(INDEX_HTML.contains("/actions/fund-image"));
+        assert!(INDEX_HTML.contains("fund community images only"));
         assert!(INDEX_HTML.contains("Inspect ${searchTarget} for one hidden thing."));
         assert!(INDEX_HTML.contains("into your keeping"));
         assert!(INDEX_HTML.contains("function smallNumberWord"));
@@ -44402,10 +45206,10 @@ mod tests {
 
         assert!(INDEX_HTML.contains("action.evolveModes?.includes(\"practice\")"));
         assert!(INDEX_HTML.contains("/actions/create-bond"));
-        assert!(INDEX_HTML.contains("label: \"grow closer\""));
-        assert!(INDEX_HTML.contains("choose someone to grow closer to"));
+        assert!(INDEX_HTML.contains("label: \"chat\""));
+        assert!(INDEX_HTML.contains("choose someone to chat with"));
         assert!(INDEX_HTML.contains("Choose whose story to carry forward."));
-        assert!(INDEX_HTML.contains("Keep ${firstTargetName} as someone who matters to you."));
+        assert!(INDEX_HTML.contains("Use one advancement point to begin a friendship with"));
         assert!(INDEX_HTML.contains("your friendship with ${firstTargetName} begins"));
         assert!(INDEX_HTML.contains("const giftCandidates = []"));
         assert!(INDEX_HTML.contains("Choose who receives"));
@@ -46593,6 +47397,14 @@ mod tests {
         assert_eq!(job_count, 1);
         drop(conn);
 
+        assert!(
+            claim_next_actor_job(&path)
+                .expect("inspect heartbeat delay")
+                .is_none(),
+            "the resident heartbeat should not fire immediately"
+        );
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .expect("release heartbeat for deterministic test");
         let first = claim_next_actor_job(&path)
             .expect("claim actor job")
             .expect("pending actor job");
@@ -46877,7 +47689,7 @@ mod tests {
     }
 
     #[test]
-    fn actor_outbox_keeps_every_player_card_turn_in_order() {
+    fn actor_outbox_coalesces_cards_until_the_room_heartbeat_completes() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-v2-actor-outbox-order-{}-{}.sqlite",
             std::process::id(),
@@ -46897,8 +47709,13 @@ mod tests {
         let first_observation = observation(41, 401);
         let second_observation = observation(42, 402);
         assert!(append_actor_job(&path, &first_observation).expect("queue first player card"));
-        assert!(append_actor_job(&path, &second_observation).expect("queue second player card"));
+        assert!(
+            !append_actor_job(&path, &second_observation).expect("coalesce second player card"),
+            "multiple cards must not stack while the room heartbeat is armed"
+        );
 
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .expect("release first heartbeat");
         let first = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
             .expect("claim first player card")
             .expect("first player card remains queued");
@@ -46909,6 +47726,13 @@ mod tests {
         assert_eq!(first_tick, 41);
         complete_actor_job(&path, first.id).expect("complete first player card");
 
+        assert!(
+            append_actor_job(&path, &second_observation)
+                .expect("queue a card after heartbeat completion"),
+            "a later card may arm the next heartbeat"
+        );
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .expect("release second heartbeat");
         let second = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
             .expect("claim second player card")
             .expect("second player card remains queued");
@@ -46966,6 +47790,8 @@ mod tests {
         let claimed_chat = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_ORB_CHAT)
             .expect("claim Chat lane")
             .expect("Chat is running");
+        release_pending_actor_jobs(&path, ACTOR_JOB_KIND_PLAYER_TICK)
+            .expect("release gameplay heartbeat");
         let claimed_gameplay = claim_next_actor_job_of_kind(&path, ACTOR_JOB_KIND_PLAYER_TICK)
             .expect("claim gameplay lane while Chat runs")
             .expect("gameplay is not blocked by slow Chat");
@@ -47018,6 +47844,11 @@ mod tests {
              BEGIN SELECT RAISE(ABORT, 'injected actor outbox failure'); END;",
         )
         .expect("install failure injection");
+        conn.execute(
+            "UPDATE actor_jobs SET status = 'completed', lease_until_ms = NULL",
+            [],
+        )
+        .expect("finish the baseline heartbeat before failure injection");
         conn.execute(
             "UPDATE action_journal SET record_json = '{broken replay'
              WHERE journal_seq = (SELECT MIN(journal_seq) FROM action_journal)",
@@ -47168,7 +47999,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn resident_gameplay_turn_is_independent_of_ai_reaction_speech() {
+    async fn resident_gameplay_turn_waits_for_the_card_heartbeat_not_ai_speech() {
         let mut runtime = RuntimeWorld::seeded();
         hide_seed_items(&mut runtime);
         let mut create = CwAction::default();
@@ -47204,7 +48035,27 @@ mod tests {
         assert!(response.events.iter().any(|event| {
             event.type_name == "location.searched" && event.actor_id == Some(5000)
         }));
-        let resident_action = tokio::time::timeout(Duration::from_secs(1), async {
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        {
+            let runtime = state.inner.lock().await;
+            assert!(
+                !runtime.event_log.iter().any(|event| {
+                    [RATI_ACTOR_ID, WHISKERWIND_ACTOR_ID, SKULL_ACTOR_ID]
+                        .contains(&event.actor_id.unwrap_or_default())
+                        && matches!(
+                            event.type_name.as_str(),
+                            "actor.moved"
+                                | "item.picked_up"
+                                | "item.dropped"
+                                | "item.given"
+                                | "item.traded"
+                                | "item.used"
+                        )
+                }),
+                "resident consequence should wait for the next room heartbeat"
+            );
+        }
+        let resident_action = tokio::time::timeout(Duration::from_secs(5), async {
             loop {
                 let resident_action = {
                     let runtime = state.inner.lock().await;
@@ -47230,7 +48081,7 @@ mod tests {
             }
         })
         .await
-        .expect("resident gameplay should not wait for dialogue inference");
+        .expect("resident gameplay should follow the delayed heartbeat without waiting on AI");
         assert!(resident_action.is_some());
         assert!(!response.events.iter().any(|event| {
             event.type_name == "message.created"
@@ -47243,7 +48094,18 @@ mod tests {
     fn card_reactions_cycle_through_resident_card_order() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Card Player");
+        runtime.event_log.push(EventView {
+            seq: 700,
+            type_name: "item.picked_up".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            actor_name: Some("Card Player".to_string()),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_name: Some("Lucky Raven Feather".to_string()),
+            ..EventView::default()
+        });
         let card_events = vec![EventView {
+            seq: 701,
             type_name: "location.searched".to_string(),
             success: true,
             actor_id: Some(5000),
@@ -47256,6 +48118,13 @@ mod tests {
             .expect("a resident should react to the card");
         assert_eq!(first.npc_actor_id, RATI_ACTOR_ID);
         assert!(first.user_text.contains("searched"));
+        assert!(
+            first
+                .recent_activity
+                .iter()
+                .any(|entry| entry.contains("Lucky Raven Feather")),
+            "the resident prompt should include recent room-log/card context"
+        );
 
         runtime.event_log.push(EventView {
             type_name: "message.created".to_string(),
@@ -47554,17 +48423,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn lantern_keeper_character_creation_sets_entry_identity_and_starting_knack() {
+    async fn lantern_keeper_creation_stages_identity_then_reveals_a_class() {
         let runtime = RuntimeWorld::seeded();
         let guest = runtime.state_response(None, &AccessContext::default());
         assert_eq!(guest.character_creation.len(), 1);
         assert_eq!(guest.character_creation[0].id, "the-lantern-keeper");
+        assert_eq!(guest.character_creation[0].schema_version, 2);
         assert_eq!(guest.character_creation[0].entry_location_id, 800);
         assert_eq!(
             guest.character_creation[0].entry_location_name,
             "Wayside Lantern Inn"
         );
-        assert_eq!(guest.character_creation[0].choices.len(), 4);
+        assert_eq!(guest.character_creation[0].species.len(), 3);
+        assert_eq!(guest.character_creation[0].origins.len(), 3);
+        assert_eq!(guest.character_creation[0].choices.len(), 3);
         let state = test_app_state(runtime, None);
         let response = create_avatar(
             ConnectInfo("127.0.0.1:45110".parse().expect("client address")),
@@ -47574,31 +48446,194 @@ mod tests {
                 calling: None,
                 wallet_session: None,
                 character_creation_id: Some("the-lantern-keeper".to_string()),
-                character_choice_id: Some("chapel-scholar".to_string()),
+                character_choice_id: None,
+                species_id: Some("human".to_string()),
+                origin_id: Some("old-chapel".to_string()),
             }),
         )
         .await
         .0;
 
         assert!(response.ok, "{response:?}");
+        let actor_session = response.actor_session.clone().expect("actor session");
         let actor = response.actor.expect("campaign avatar");
         assert_eq!(actor.location_id, 800);
-        assert_eq!(actor.title, "Chapel Scholar");
-        assert!(actor.description.contains("field scholar"));
+        assert_eq!(actor.stats.level, 0);
+        assert_eq!(actor.title, "Human from the Old Chapel");
+        assert!(actor.description.contains("human traveler"));
+        assert!(actor.description.contains("soot-black rafters"));
+        {
+            let runtime = state.inner.lock().await;
+            let identity = runtime
+                .character_identities
+                .get(&actor.id)
+                .expect("composed identity");
+            assert_eq!(identity.species_id, "human");
+            assert_eq!(identity.origin_id, "old-chapel");
+            assert_eq!(identity.class_id, None);
+            assert!(!identity.class_selection_ready);
+            assert!(!runtime
+                .skills
+                .contains_key(&skill_state_id(actor.id, "steadiness")));
+        }
+
+        let readiness_events = {
+            let mut runtime = state.inner.lock().await;
+            let content_id = runtime.next_content_id_value();
+            let action = CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: actor.id,
+                content_id,
+                ..CwAction::default()
+            };
+            let mut record = JournalRecord::new(action, runtime.next_seed_value());
+            record
+                .content_upserts
+                .insert(content_id, "I step through the lantern light.".to_string());
+            commit_journal_record(&state, &mut runtime, record)
+                .expect("first player card commits")
+                .1
+        };
+        assert!(readiness_events
+            .iter()
+            .any(|event| event.type_name == "class.selection_ready"));
+        {
+            let runtime = state.inner.lock().await;
+            let identity = runtime
+                .character_identities
+                .get(&actor.id)
+                .expect("identity becomes ready");
+            assert!(identity.class_selection_ready);
+            assert_eq!(identity.qualifying_world_actions, 1);
+            assert_eq!(identity.class_id, None);
+        }
+
+        let class_response = choose_avatar_class(
+            ConnectInfo("127.0.0.1:45110".parse().expect("client address")),
+            State(state.clone()),
+            Json(ChooseClassRequest {
+                actor_id: actor.id,
+                actor_session: Some(actor_session),
+                character_creation_id: "the-lantern-keeper".to_string(),
+                class_id: "lantern-warden".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(class_response.ok, "{class_response:?}");
+        assert!(class_response
+            .events
+            .iter()
+            .any(|event| event.type_name == "class.chosen"));
+
         let runtime = state.inner.lock().await;
+        let actor = runtime.actor_view(runtime.actor_by_id(actor.id).expect("classed avatar"));
+        assert_eq!(actor.stats.level, 1);
+        assert_eq!(actor.title, "Lantern Warden");
+        assert_eq!(
+            runtime
+                .character_identities
+                .get(&actor.id)
+                .and_then(|identity| identity.class_id.as_deref()),
+            Some("lantern-warden")
+        );
         assert_eq!(
             runtime
                 .callings
                 .get(&actor.id)
                 .map(|calling| calling.statement.as_str()),
-            Some("I learn what the old lights were built to keep out.")
+            Some("I keep a light burning when others lose the road.")
         );
         assert_eq!(
             runtime
                 .skills
-                .get(&skill_state_id(actor.id, "lorecraft"))
+                .get(&skill_state_id(actor.id, "steadiness"))
                 .map(|skill| skill.rank),
             Some(1)
+        );
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("staged identity survives a snapshot round trip");
+        let restored_identity = restored
+            .character_identities
+            .get(&actor.id)
+            .expect("restored composed identity");
+        assert_eq!(
+            restored_identity.class_id.as_deref(),
+            Some("lantern-warden")
+        );
+        assert!(!restored_identity.class_selection_ready);
+        assert_eq!(
+            restored
+                .actor_by_id(actor.id)
+                .expect("restored classed avatar")
+                .stats
+                .level,
+            1
+        );
+        assert_eq!(
+            restored
+                .skills
+                .get(&skill_state_id(actor.id, "steadiness"))
+                .map(|skill| skill.rank),
+            Some(1)
+        );
+    }
+
+    #[tokio::test]
+    async fn wallet_linked_knocked_out_avatar_can_begin_a_new_tale() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Fallen Traveler",
+        );
+        runtime.world.actors[..runtime.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("linked avatar")
+            .status = CW_ACTOR_KNOCKED_OUT;
+
+        let state = test_app_state(runtime, None);
+        let wallet_address = "wallet-ready-for-another-tale";
+        let wallet_session = "wallet-ready-for-another-tale-session";
+        insert_wallet_session(&state, wallet_session, wallet_address);
+        link_wallet_actor(&state, wallet_address, 5000);
+
+        let response = create_avatar(
+            ConnectInfo("127.0.0.1:45114".parse().expect("client address")),
+            State(state.clone()),
+            Json(CreateAvatarRequest {
+                name: Some("New Lantern".to_string()),
+                calling: None,
+                wallet_session: Some(wallet_session.to_string()),
+                character_creation_id: Some("the-lantern-keeper".to_string()),
+                character_choice_id: None,
+                species_id: Some("human".to_string()),
+                origin_id: Some("wayside-inn".to_string()),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok, "{response:?}");
+        let actor = response.actor.expect("replacement avatar");
+        assert_ne!(actor.id, 5000);
+        assert_eq!(actor.status, "active");
+        assert_eq!(
+            linked_actor_for_wallet(&state, wallet_address),
+            Some(actor.id)
+        );
+        assert_eq!(
+            state
+                .inner
+                .lock()
+                .await
+                .actor_by_id(5000)
+                .expect("previous avatar remains in history")
+                .status,
+            CW_ACTOR_KNOCKED_OUT
         );
     }
 
@@ -47616,6 +48651,8 @@ mod tests {
                 wallet_session: None,
                 character_creation_id: None,
                 character_choice_id: None,
+                species_id: None,
+                origin_id: None,
             }),
         )
         .await
@@ -47657,6 +48694,8 @@ mod tests {
                 wallet_session: None,
                 character_creation_id: None,
                 character_choice_id: None,
+                species_id: None,
+                origin_id: None,
             }),
         )
         .await
@@ -47712,6 +48751,8 @@ mod tests {
                 wallet_session: None,
                 character_creation_id: None,
                 character_choice_id: None,
+                species_id: None,
+                origin_id: None,
             }),
         )
         .await
@@ -47756,15 +48797,15 @@ mod tests {
         assert_eq!(gift.npc_actor_id, RATI_ACTOR_ID);
         assert!(gift.user_text.contains("Story Button"));
 
-        let free_chat = runtime
+        let contextual_reply = runtime
             .resident_reply_plan_for_target(
                 5000,
                 SKULL_ACTOR_ID,
                 "What are you watching by the door?",
             )
-            .expect("free chat target can reply");
-        assert_eq!(free_chat.speech_mode, "emote_only");
-        assert!(free_chat.user_text.contains("watching by the door"));
+            .expect("resident can receive a contextual event");
+        assert_eq!(contextual_reply.speech_mode, "emote_only");
+        assert!(contextual_reply.user_text.contains("watching by the door"));
     }
 
     #[test]
@@ -48298,8 +49339,8 @@ mod tests {
         let state =
             runtime.state_response_with_presence(Some(5000), &AccessContext::default(), None, true);
         assert_eq!(state.economy.orbs, STARTING_ORBS);
-        assert_eq!(state.economy.chat_cost_orbs, CHAT_ORB_COST);
-        assert!(state.economy.can_chat_with_orbs);
+        assert_eq!(state.economy.chat_cost_orbs, 0);
+        assert!(!state.economy.can_chat_with_orbs);
         assert_eq!(state.economy.inventory_count, 0);
         assert_eq!(state.economy.inventory_capacity, 0);
         assert_eq!(state.economy.carried_weight_tenths, 0);
@@ -48318,11 +49359,11 @@ mod tests {
         assert_eq!(state.economy.listen_cost_orbs, 0);
         assert!(state.economy.listen_reward_claimable);
         assert!(!state.economy.openrouter_connected);
-        assert_eq!(state.economy.chat_payer, "cosyworld_orbs");
+        assert_eq!(state.economy.chat_payer, "advancement");
     }
 
     #[test]
-    fn server_paid_chat_spends_one_orb_from_journal() {
+    fn human_say_does_not_spend_orbs() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -48350,13 +49391,147 @@ mod tests {
             9101,
             "Rati, I brought a little rain in my pocket.".to_string(),
         );
-        chat_record.orb_deltas.push(OrbDelta {
-            actor_id: 5000,
-            delta: -CHAT_ORB_COST,
-            reason: "chat".to_string(),
-        });
         assert_eq!(runtime.apply_journal_record(&chat_record).0, CW_OK);
-        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - CHAT_ORB_COST);
+        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
+    }
+
+    #[test]
+    fn community_art_funding_is_once_per_level_and_costs_that_level() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Art Subject");
+        let actor = runtime.world.actors[..runtime.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("test avatar exists");
+        actor.stats.level = 2;
+
+        for (contributor_actor_id, seed) in [(5000, 7041), (5001, 7042)] {
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: contributor_actor_id,
+                    ..CwAction::default()
+                },
+                seed,
+            );
+            record
+                .projection_mutations
+                .push(ProjectionMutation::FundCommunityArt {
+                    subject_kind: "actor".to_string(),
+                    subject_id: 5000,
+                    level: 2,
+                    required_orbs: 2,
+                    contributor_actor_id,
+                    intent_id: format!("test-community-art-{seed}"),
+                    amount: 1,
+                    history_through_seq: seed,
+                });
+            assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        }
+
+        let key = community_art_generation_key("actor", 5000, 2);
+        let generation = runtime
+            .community_art_generations
+            .get(&key)
+            .expect("level funding is durable");
+        assert_eq!(generation.required_orbs, 2);
+        assert_eq!(generation.funded_orbs, 2);
+        assert_eq!(generation.status, "funded");
+        assert_eq!(generation.contributions.get(&5000), Some(&1));
+        assert_eq!(generation.contributions.get(&5001), Some(&1));
+
+        let mut ready = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            7043,
+        );
+        ready
+            .projection_mutations
+            .push(ProjectionMutation::SetCommunityArtStatus {
+                subject_kind: "actor".to_string(),
+                subject_id: 5000,
+                level: 2,
+                status: "ready".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&ready).0, CW_OK);
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        let card = &state.cards.actors[&5000];
+        assert_eq!(card.community_art.as_ref().map(|art| art.level), Some(2));
+        assert_eq!(
+            card.image_url.as_deref(),
+            Some("/assets/generated/community/actor/5000.image?level=2")
+        );
+    }
+
+    #[tokio::test]
+    async fn community_image_endpoint_pools_one_orb_without_taking_a_turn() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Art Patron");
+        runtime.world.actors[..runtime.world.actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("test avatar exists")
+            .stats
+            .level = 2;
+        let before_tick = runtime.world.tick;
+        let mut state = test_app_state(runtime, None);
+        state.avatar_art_config = Arc::new(Some(ReplicateAvatarArtConfig {
+            api_token: "test-token".to_string(),
+            model: "test/model".to_string(),
+            version: None,
+            lora_url: None,
+            lora_input_key: "lora_weights".to_string(),
+            lora_scale_input_key: "lora_scale".to_string(),
+            lora_scale: 1.0,
+            prompt_prefix: "cozy card art".to_string(),
+            output_format: "png".to_string(),
+        }));
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+
+        let response = fund_community_image(
+            ConnectInfo("127.0.0.1:44991".parse().expect("client address")),
+            State(state.clone()),
+            Json(FundCommunityImageRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session.clone()),
+                subject_kind: "actor".to_string(),
+                subject_id: 5000,
+                intent_id: "test-community-endpoint-1".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(response.ok);
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "community_art.funded"));
+        let duplicate = fund_community_image(
+            ConnectInfo("127.0.0.1:44991".parse().expect("client address")),
+            State(state.clone()),
+            Json(FundCommunityImageRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                subject_kind: "actor".to_string(),
+                subject_id: 5000,
+                intent_id: "test-community-endpoint-1".to_string(),
+            }),
+        )
+        .await
+        .0;
+        assert!(duplicate.ok);
+        assert!(duplicate.events.is_empty());
+        let runtime = state.inner.lock().await;
+        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
+        assert_eq!(runtime.world.tick, before_tick);
+        let generation =
+            &runtime.community_art_generations[&community_art_generation_key("actor", 5000, 2)];
+        assert_eq!(generation.funded_orbs, 1);
+        assert_eq!(generation.required_orbs, 2);
+        assert_eq!(generation.status, "funding");
     }
 
     #[test]
@@ -48391,22 +49566,34 @@ mod tests {
             CW_OK
         );
 
-        let mut say = CwAction::default();
-        say.kind = CW_ACTION_SAY;
-        say.actor_id = 5000;
-        say.content_id = 9102;
-        let mut chat_record = JournalRecord::new(say, 7032);
-        chat_record
-            .content_upserts
-            .insert(9102, "Rati, the ledger has a warm little line.".to_string());
-        chat_record.orb_deltas.push(OrbDelta {
+        let mut art_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            7032,
+        );
+        art_record
+            .projection_mutations
+            .push(ProjectionMutation::FundCommunityArt {
+                subject_kind: "actor".to_string(),
+                subject_id: 5000,
+                level: 1,
+                required_orbs: 1,
+                contributor_actor_id: 5000,
+                intent_id: "test-community-ledger-1".to_string(),
+                amount: 1,
+                history_through_seq: runtime.world.next_event_seq.saturating_sub(1),
+            });
+        art_record.orb_deltas.push(OrbDelta {
             actor_id: 5000,
-            delta: -CHAT_ORB_COST,
-            reason: "chat".to_string(),
+            delta: -1,
+            reason: "community_image_generation".to_string(),
         });
         assert_eq!(
-            commit_journal_record(&state, &mut runtime, chat_record)
-                .expect("commit chat")
+            commit_journal_record(&state, &mut runtime, art_record)
+                .expect("commit community image funding")
                 .0,
             CW_OK
         );
@@ -48440,11 +49627,11 @@ mod tests {
         assert_eq!(rows[0].3, STARTING_ORBS as i64);
         assert!(rows[0].4.is_some());
         assert_eq!(rows[1].0, 5000);
-        assert_eq!(rows[1].1, -(CHAT_ORB_COST as i64));
-        assert_eq!(rows[1].2, "chat");
-        assert_eq!(rows[1].3, (STARTING_ORBS - CHAT_ORB_COST) as i64);
+        assert_eq!(rows[1].1, -1);
+        assert_eq!(rows[1].2, "community_image_generation");
+        assert_eq!(rows[1].3, (STARTING_ORBS - 1) as i64);
         assert!(rows[1].4.is_some());
-        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - CHAT_ORB_COST);
+        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
 
         let _ = fs::remove_file(path);
     }
@@ -49050,12 +50237,13 @@ mod tests {
             .expect("grow is exposed once marks are unbanked");
         assert_eq!(grow_offer.label, "Grow");
         assert_eq!(grow_offer.rank, 34);
-        let chat_offer = earned_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "chat")
-            .expect("chat offer remains available while marks are unbanked");
-        assert!(grow_offer.rank < chat_offer.rank);
+        assert!(
+            !earned_state
+                .action_offers
+                .iter()
+                .any(|offer| matches!(offer.kind.as_str(), "chat" | "create_bond")),
+            "Chat stays unavailable until growth has been banked"
+        );
         assert!(grow_offer
             .effect
             .as_deref()
@@ -49105,6 +50293,11 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "bank_ledger"));
+        assert!(banked_state
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "create_bond" && option.label == "Chat"));
         assert!(runtime
             .ledger_marks
             .values()
@@ -50523,12 +51716,11 @@ mod tests {
             });
         assert_eq!(runtime.apply_journal_record(&bank_record).0, CW_OK);
         let banked_state = runtime.state_response(Some(5000), &AccessContext::default());
-        let default_statement = default_bond_statement("Rati");
-        let default_command = format!("bond Rati: {default_statement}");
+        let default_command = "chat Rati";
         assert!(banked_state.primary_action.options.iter().any(|option| {
             option.kind == "create_bond"
-                && option.label == "Grow Closer"
-                && option.command.as_str() == default_command.as_str()
+                && option.label == "Chat"
+                && option.command == default_command
         }));
         let bond_offer = banked_state
             .action_offers
@@ -53008,7 +54200,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn listen_action_endpoint_spends_orb_for_repeat_attempts() {
+    async fn listen_action_endpoint_keeps_repeat_attempts_free() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -53046,7 +54238,7 @@ mod tests {
                 LISTEN_DC as i16,
             ));
         runtime.bank_visit_ledger(5000, "repeat_listen_test_setup");
-        assert_eq!(runtime.listen_cost_orbs(5000), LISTEN_REPEAT_ORB_COST);
+        assert_eq!(runtime.listen_cost_orbs(5000), 0);
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
@@ -53070,14 +54262,11 @@ mod tests {
             .iter()
             .any(|event| event.type_name == "ability_check.rolled"));
         let runtime = state.inner.lock().await;
-        assert_eq!(
-            runtime.orb_balance(5000),
-            STARTING_ORBS - LISTEN_REPEAT_ORB_COST
-        );
+        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
     }
 
     #[tokio::test]
-    async fn listen_action_endpoint_rejects_unfunded_repeat_attempts() {
+    async fn listen_action_endpoint_allows_zero_orb_frontier_repeats() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -53127,9 +54316,13 @@ mod tests {
         )
         .await
         .0;
-        assert!(!response.ok);
-        assert_eq!(response.status, 402);
-        assert!(response.events.is_empty());
+        assert!(response.ok);
+        assert_eq!(response.status, CW_OK);
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "ability_check.rolled"));
+        assert_eq!(state.inner.lock().await.orb_balance(5000), 0);
     }
 
     #[tokio::test]
@@ -53191,9 +54384,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn chat_without_ai_queues_then_fails_and_refunds_without_dialogue() {
-        let mut state = test_app_state(RuntimeWorld::seeded(), None);
-        state.avatar_chat_delay = Duration::from_millis(50);
+    async fn legacy_chat_endpoint_uses_advancement_to_begin_a_friendship() {
+        let state = test_app_state(RuntimeWorld::seeded(), None);
         {
             let mut runtime = state.inner.lock().await;
             create_test_human(
@@ -53202,6 +54394,7 @@ mod tests {
                 COSY_COTTAGE_LOCATION_ID,
                 "Inference Tester",
             );
+            grant_test_advancement(&mut runtime, 5000, "test:chat-growth");
         }
         let (actor_session, _) = issue_actor_session(&state, 5000);
 
@@ -53220,47 +54413,30 @@ mod tests {
         assert!(response.ok);
         assert_eq!(response.status, CW_OK);
         assert!(response.events.iter().any(|event| {
-            event.type_name == "chat.queued"
+            event.type_name == "bond.created"
                 && event.actor_id == Some(5000)
                 && event.target_actor_id == Some(RATI_ACTOR_ID)
         }));
-        {
-            let runtime = state.inner.lock().await;
-            assert_eq!(runtime.orb_balance(5000), STARTING_ORBS - 1);
-            assert!(!runtime.event_log.iter().any(|event| {
-                event.type_name == "message.created" && event.actor_id == Some(5000)
-            }));
-        }
-
-        let mut failed = false;
-        for _ in 0..30 {
-            {
-                let runtime = state.inner.lock().await;
-                failed = runtime.event_log.iter().any(|event| {
-                    event.type_name == "chat.failed"
-                        && event.actor_id == Some(5000)
-                        && event.target_actor_id == Some(RATI_ACTOR_ID)
-                });
-                if failed {
-                    assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
-                    assert!(!runtime.event_log.iter().any(|event| {
-                        event.type_name == "message.created" && event.actor_id == Some(5000)
-                    }));
-                }
-            }
-            if failed {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-        assert!(
-            failed,
-            "the queued chat should report failure and refund its Orb"
-        );
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "advancement.spent"));
+        assert!(!response
+            .events
+            .iter()
+            .any(|event| event.type_name == "chat.queued"));
+        let runtime = state.inner.lock().await;
+        assert_eq!(runtime.orb_balance(5000), STARTING_ORBS);
+        assert_eq!(runtime.advancement_points_available(5000), 0);
+        assert!(runtime.active_bond(5000, RATI_ACTOR_ID).is_some());
+        assert!(!runtime
+            .event_log
+            .iter()
+            .any(|event| { event.type_name == "message.created" && event.actor_id == Some(5000) }));
     }
 
     #[tokio::test]
-    async fn chat_card_is_turn_gated_and_passes_before_the_conversation_finishes() {
+    async fn advancement_chat_is_turn_gated_and_passes_to_the_room_heartbeat() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -53274,6 +54450,8 @@ mod tests {
             COSY_COTTAGE_LOCATION_ID,
             "Waiting Chatter",
         );
+        grant_test_advancement(&mut runtime, 5000, "test:chat-turn:5000");
+        grant_test_advancement(&mut runtime, 5001, "test:chat-turn:5001");
         let state = test_app_state(runtime, None);
         let (session_5000, _) = issue_actor_session(&state, 5000);
         let (session_5001, _) = issue_actor_session(&state, 5001);
@@ -53343,19 +54521,23 @@ mod tests {
         .0;
         assert!(
             response.ok,
-            "the current avatar can commit Chat immediately"
+            "the current avatar can spend advancement on Chat"
         );
         assert!(response
             .events
             .iter()
-            .any(|event| event.type_name == "chat.queued"));
+            .any(|event| event.type_name == "bond.created"));
+        assert!(!response
+            .events
+            .iter()
+            .any(|event| event.type_name == "message.created"));
         let card_receipt = response
             .events
             .iter()
             .find(|event| event.type_name == "action.receipt")
             .and_then(|event| event.content.as_deref())
             .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
-            .expect("Chat returns the next turn before dialogue generation");
+            .expect("Chat returns the next turn before the room heartbeat");
 
         let runtime = state.inner.lock().await;
         let active_humans = active_turn_actor_ids_for_state(&state);
@@ -53773,8 +54955,11 @@ mod tests {
         assert_eq!(creation.pack_id, "cosyworld.campaign.the-lantern-keeper");
         assert_eq!(creation.profiles.len(), 1);
         assert_eq!(creation.profiles[0].id, "the-lantern-keeper");
+        assert_eq!(creation.profiles[0].schema_version, 2);
         assert_eq!(creation.profiles[0].entry_location_id, 800);
-        assert_eq!(creation.profiles[0].choices.len(), 4);
+        assert_eq!(creation.profiles[0].species.len(), 3);
+        assert_eq!(creation.profiles[0].origins.len(), 3);
+        assert_eq!(creation.profiles[0].choices.len(), 3);
         let mut exit_direction_keys = BTreeSet::new();
         for exit in &content.exits {
             let direction = exit
@@ -55014,21 +56199,13 @@ mod tests {
             .risk
             .as_deref()
             .is_some_and(|risk| risk.contains("rushing in may tire you")));
-        let chat_offer = state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "chat")
-            .expect("chat offer is exposed");
-        assert_eq!(chat_offer.category, "social");
-        assert_eq!(
-            chat_offer.cost.as_ref().map(|cost| cost.orbs),
-            Some(CHAT_ORB_COST)
+        assert!(
+            !state
+                .action_offers
+                .iter()
+                .any(|offer| matches!(offer.kind.as_str(), "chat" | "create_bond")),
+            "Chat is not an ordinary room offer without available advancement"
         );
-        assert!(chat_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("opens a small exchange")));
-        assert!(chat_offer.claim_key.is_none());
         let move_offer = state
             .action_offers
             .iter()
@@ -55038,27 +56215,6 @@ mod tests {
         assert_eq!(move_offer.intention, "travel");
         assert_eq!(move_offer.verb, "Travel");
         assert!(move_offer.accessible_label.starts_with("Travel to "));
-        assert!(
-            move_offer.rank < chat_offer.rank,
-            "chat should not outrank concrete room travel without a bond payoff"
-        );
-        let spent_chat_state = runtime.state_response(Some(5000), &AccessContext::default());
-        let spent_chat_offer = spent_chat_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "chat")
-            .expect("chat remains available after first-chat payoffs are spent");
-        let spent_move_offer = spent_chat_state
-            .action_offers
-            .iter()
-            .find(|offer| offer.kind == "move")
-            .expect("move remains available after first-chat payoffs are spent");
-        assert!(
-            spent_move_offer.rank < spent_chat_offer.rank,
-            "chat should stay behind travel without a bond payoff"
-        );
-        assert!(spent_chat_offer.effect.is_some());
-        assert!(spent_chat_offer.claim_key.is_none());
 
         let inspector = state.inspector;
         assert_eq!(inspector.location_id, MOONLIT_TRAIL_LOCATION_ID);
@@ -57901,8 +59057,11 @@ mod tests {
             .resolve_command(&command_request(5000, "talk rati"), &access)
             .expect("chat resolves");
         match chat.dispatch {
-            CommandDispatch::Chat { target_actor_id } => assert_eq!(target_actor_id, 1001),
-            other => panic!("talk should map to chat, got {other:?}"),
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 409);
+                assert!(output.contains("already share a friendship"));
+            }
+            other => panic!("Chat should not create a duplicate friendship, got {other:?}"),
         }
 
         let report = runtime
@@ -58108,11 +59267,11 @@ mod tests {
         assert_eq!(state.primary_action.kind, "pick_up");
         assert_eq!(state.primary_action.label, "Take");
         assert_eq!(state.primary_action.command, "take");
-        assert!(state
+        assert!(!state
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "chat" && option.command == "chat"));
+            .any(|option| matches!(option.kind.as_str(), "chat" | "create_bond")));
         assert!(state
             .primary_action
             .options
@@ -61453,6 +62612,7 @@ mod tests {
             location_memory: Vec::new(),
             cast: vec![npc_name.to_string()],
             recent_lines: Vec::new(),
+            recent_activity: Vec::new(),
             user_text: "weather?".to_string(),
             caused_by_event_seq: None,
             source_world_tick: None,
@@ -61872,11 +63032,11 @@ mod tests {
         assert!(state.branch.is_none());
         assert_eq!(state.primary_action.kind, "pick_up");
         assert_eq!(state.primary_action.label, "Take");
-        assert!(state
+        assert!(!state
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "chat"));
+            .any(|option| matches!(option.kind.as_str(), "chat" | "create_bond")));
     }
 
     #[test]
@@ -61951,11 +63111,11 @@ mod tests {
         assert!(state.branch.is_none());
         assert_eq!(state.primary_action.kind, "pick_up");
         assert_eq!(state.primary_action.label, "Take");
-        assert!(state
+        assert!(!state
             .primary_action
             .options
             .iter()
-            .any(|option| option.kind == "chat"));
+            .any(|option| matches!(option.kind.as_str(), "chat" | "create_bond")));
     }
 
     #[test]
@@ -64540,7 +65700,6 @@ mod tests {
             actor_sessions: Arc::new(StdMutex::new(ActorSessions::default())),
             actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),
             rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
-            actor_chat_locks: Arc::new(StdMutex::new(BTreeSet::new())),
             inactive_inventory_release_conflicts: Arc::new(StdMutex::new(BTreeSet::new())),
             canonical_command_lock: Arc::new(Mutex::new(())),
             canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
@@ -64556,7 +65715,7 @@ mod tests {
             room_turns: Arc::new(StdMutex::new(RoomTurns::default())),
             room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
             room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
-            avatar_art_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
+            room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
             actor_job_notify: Arc::new(Notify::new()),
             avatar_chat_delay: Duration::ZERO,
             moderation_token: None,

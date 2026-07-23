@@ -4,6 +4,13 @@ create_hosted_zones = true
 deploy_profile      = "production"
 image_tag           = "latest"
 
+# Filled during the Fly cutover. Terraform keeps Route 53 and the archive site
+# authoritative while the app journal moves to its domain-isolated Fly volume.
+fly_app_ipv4          = "66.241.125.93"
+fly_app_ipv6          = "2a09:8280:1::152:f10d:0"
+fly_dns_validation_id = "8xr5p31"
+desired_count         = 0
+
 # Secret values live in AWS Secrets Manager. These ARNs are safe to keep here
 # and ensure subsequent Terraform deploys continue injecting them into ECS.
 ruby_high_wallet_cards_bearer_secret_arn = "arn:aws:secretsmanager:us-east-1:022118847419:secret:lonely-forest/COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER-2BhIN3"
