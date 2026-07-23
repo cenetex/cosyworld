@@ -13,9 +13,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  FLY_PRIMARY_APP: cosyworld
-
 jobs:
   fly:
     name: Deploy to Fly
@@ -33,18 +30,8 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-      - name: Resolve deployed image digest
-        id: image
-        run: |
-          image_ref="$(flyctl image show --app "$FLY_PRIMARY_APP" --json | jq -r '.[0] | "\(.Registry)/\(.Repository)@\(.Digest)"')"
-          test -n "$image_ref"
-          test "$image_ref" != "null/null@null"
-          echo "ref=$image_ref" >> "$GITHUB_OUTPUT"
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-      - name: Deploy the same image to Lonely Forest
-        run: flyctl deploy --config fly.lonelyforest.toml --image "${{ steps.image.outputs.ref }}" --ha=false
+      - name: Build and deploy Lonely Forest
+        run: flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
