@@ -45129,6 +45129,8 @@ mod tests {
         assert!(INDEX_HTML.contains("species_id"));
         assert!(INDEX_HTML.contains("origin_id"));
         assert!(INDEX_HTML.contains("/avatar/class"));
+        assert!(INDEX_HTML.contains("actor_id: actorId,\n        character_creation_id:"));
+        assert!(!INDEX_HTML.contains("withActor("));
         assert!(INDEX_HTML.contains("setCreationModalStage(action, \"species\")"));
         assert!(INDEX_HTML.contains("classless · level 0"));
         assert!(INDEX_HTML.contains("accountRow(\"purpose\", purpose)"));

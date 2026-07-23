@@ -3442,7 +3442,8 @@
     }
 
     async function chooseAvatarClass(selection) {
-      const result = await post("/avatar/class", withActor({
+      const result = await post("/avatar/class", withAccess({
+        actor_id: actorId,
         character_creation_id: selection.profileId,
         class_id: selection.classId,
       }));
@@ -4033,6 +4034,8 @@
           card: cardForActor(actorId) || cardForLocation(view.location?.id),
           shape: "avatar",
           priority: options.has("create_bond") ? 78 : 76,
+          growthAvailable: advancement,
+          braceletSlot: slots + 1,
           modalTitle: "unlock another charm slot",
           modalSummary: `Spend one banked growth (${smallNumberWord(advancement)} ready) to open bracelet slot ${slots + 1}. The skill charm itself must still be found in the world.`,
           effect: `spends one growth and opens bracelet slot ${slots + 1} without creating a charm`,
@@ -4103,6 +4106,8 @@
           ),
           memoryCount: growAction?.memoryCount,
           growthCount: growAction?.growthCount,
+          growthAvailable: practiceAction?.growthAvailable,
+          braceletSlot: practiceAction?.braceletSlot,
           evolveModes: [growAction ? "grow" : "", practiceAction ? "practice" : ""].filter(Boolean),
           modalTitle: oneChoice
             ? (growAction ? "grow" : "expand bracelet")
@@ -4110,7 +4115,7 @@
           modalSummary: oneChoice
             ? (growAction
               ? "Keep what mattered."
-              : "Put what you learned into room for another found skill charm.")
+              : practiceAction.modalSummary)
             : (growAction
               ? "Keep the lesson, or open another bracelet slot."
               : "Open another bracelet slot."),
@@ -9247,9 +9252,11 @@
         ];
       }
       if (String(action?.label || "").toLowerCase() === "expand bracelet") {
+        const available = Math.max(1, Number(action?.growthAvailable || 1));
+        const nextSlot = Math.max(1, Number(action?.braceletSlot || 0));
         return [
-          ["Spend", "one advancement point"],
-          ["Then", "another bracelet charm slot opens"],
+          ["Spend", `one growth (${smallNumberWord(available)} ready)`],
+          ["Then", nextSlot ? `bracelet slot ${nextSlot} opens` : "another bracelet charm slot opens"],
           ["Still needed", "find, earn, trade, or steal the charm itself"],
         ];
       }
