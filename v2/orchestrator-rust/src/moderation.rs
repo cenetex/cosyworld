@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use std::{io, path::Path, time::Duration};
 use tracing::{error, info, warn};
 
-use crate::kernel::CW_ACTOR_HUMAN;
 use crate::{
     active_actor_ids_for_state, clear_actor_sessions_for_actor, commit_presence_event,
     delete_actor_sessions_for_actor, delete_actor_suspension, deployment_config_error,
@@ -916,12 +915,9 @@ pub(crate) async fn moderation_suspend_actor(
         );
     }
     let runtime = state.inner.lock().await;
-    let is_human = runtime
-        .actor_by_id(actor_id)
-        .map(|actor| actor.kind == CW_ACTOR_HUMAN)
-        .unwrap_or(false);
+    let is_directly_controlled = runtime.client_actor_can_submit(actor_id);
     drop(runtime);
-    if !is_human {
+    if !is_directly_controlled {
         return moderation_actor_response(
             false,
             404,
@@ -929,7 +925,7 @@ pub(crate) async fn moderation_suspend_actor(
             false,
             None,
             None,
-            Some("actor was not found or is not a human avatar".to_string()),
+            Some("actor was not found or is not directly controlled".to_string()),
         );
     }
 

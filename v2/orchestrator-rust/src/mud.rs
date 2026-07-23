@@ -174,7 +174,7 @@ pub(crate) struct CommandError {
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum CommandActorFilter {
     Any,
-    ActiveNpc,
+    ActiveActor,
 }
 
 pub(crate) fn normalize_command_text(input: &str) -> String {
@@ -633,13 +633,13 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
         "item.theft_attempt" if !event.success => Some(format!(
             "You fail to take {} from {}; possession does not change, and the attempt is noticed.",
             event.item_name.as_deref().unwrap_or("the item"),
-            event.target_actor_name.as_deref().unwrap_or("the resident")
+            event.target_actor_name.as_deref().unwrap_or("the avatar")
         )),
         "item.theft_attempt" => None,
         "item.stolen" => Some(format!(
             "You steal {} from {}; the transfer is recorded and visible.",
             event.item_name.as_deref().unwrap_or("the item"),
-            event.target_actor_name.as_deref().unwrap_or("the resident")
+            event.target_actor_name.as_deref().unwrap_or("the avatar")
         )),
         "item.crafted" => Some(format!(
             "You craft with {} and {}.",
@@ -907,7 +907,7 @@ impl RuntimeWorld {
         &self,
         payload: &CommandRequest,
         access: &AccessContext,
-        active_human_actor_ids: Option<&BTreeSet<u64>>,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
     ) -> Result<ResolvedCommand, CommandError> {
         let command = normalize_command_text(&payload.command);
         if command.is_empty() {
@@ -941,7 +941,7 @@ impl RuntimeWorld {
                 "That avatar is not in the world.",
             ));
         };
-        if actor.kind != CW_ACTOR_HUMAN || actor.status != CW_ACTOR_ACTIVE {
+        if !Self::actor_is_active_avatar(actor) {
             return Err(command_error(
                 &command,
                 &verb,
@@ -956,7 +956,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, deck, bracelet unlock, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <resident>, trade <item> with <resident> for <item>, use <item> on <target>, chat <resident>, influence <resident>, listen, prepare, work, assist, rest, more, grow, purpose <what draws you in>, friendship <resident>: <why they matter>, remember <resident>, attack <target>, defend, flee <place>, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, deck, bracelet unlock, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, trade <item> with <avatar> for <item>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, work, assist, rest, more, grow, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -965,7 +965,7 @@ impl RuntimeWorld {
                 action: None,
                 dispatch: CommandDispatch::Read {
                     output: self
-                        .look_command_output(actor, rest, access, active_human_actor_ids)
+                        .look_command_output(actor, rest, access, active_direct_actor_ids)
                         .map_err(|output| command_error(&command, "look", 404, output))?,
                 },
             }),
@@ -1262,7 +1262,7 @@ impl RuntimeWorld {
                     output: self.who_command_output(
                         actor.location_id,
                         Some(actor.id),
-                        active_human_actor_ids,
+                        active_direct_actor_ids,
                     ),
                 },
             }),
@@ -1334,7 +1334,7 @@ impl RuntimeWorld {
             }
             "give" => {
                 let (item_query, target_query) = split_direct_indirect(rest, "to")
-                    .ok_or_else(|| command_error(&command, "give", 400, "Use: give <item> to <resident>."))?;
+                    .ok_or_else(|| command_error(&command, "give", 400, "Use: give <item> to <avatar>."))?;
                 let item = self
                     .resolve_held_item(actor.id, item_query)
                     .map_err(|output| command_error(&command, "give", 404, output))?;
@@ -1342,8 +1342,8 @@ impl RuntimeWorld {
                     .resolve_room_actor(
                         actor,
                         target_query,
-                        CommandActorFilter::ActiveNpc,
-                        active_human_actor_ids,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
                     )
                     .map_err(|_| {
                         command_error(
@@ -1353,8 +1353,8 @@ impl RuntimeWorld {
                             self.actor_not_nearby_output(
                                 actor,
                                 target_query,
-                                CommandActorFilter::ActiveNpc,
-                                active_human_actor_ids,
+                                CommandActorFilter::ActiveActor,
+                                active_direct_actor_ids,
                             ),
                         )
                     })?;
@@ -1372,9 +1372,9 @@ impl RuntimeWorld {
             }
             "trade" => {
                 let (item_query, trade_tail) = split_direct_indirect(rest, "with")
-                    .ok_or_else(|| command_error(&command, "trade", 400, "Use: trade <item> with <resident> for <item>."))?;
+                    .ok_or_else(|| command_error(&command, "trade", 400, "Use: trade <item> with <avatar> for <item>."))?;
                 let (target_query, target_item_query) = split_direct_indirect(trade_tail, "for")
-                    .ok_or_else(|| command_error(&command, "trade", 400, "Use: trade <item> with <resident> for <item>."))?;
+                    .ok_or_else(|| command_error(&command, "trade", 400, "Use: trade <item> with <avatar> for <item>."))?;
                 let item = self
                     .resolve_held_item(actor.id, item_query)
                     .map_err(|output| command_error(&command, "trade", 404, output))?;
@@ -1382,8 +1382,8 @@ impl RuntimeWorld {
                     .resolve_room_actor(
                         actor,
                         target_query,
-                        CommandActorFilter::ActiveNpc,
-                        active_human_actor_ids,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
                     )
                     .map_err(|_| {
                         command_error(
@@ -1393,8 +1393,8 @@ impl RuntimeWorld {
                             self.actor_not_nearby_output(
                                 actor,
                                 target_query,
-                                CommandActorFilter::ActiveNpc,
-                                active_human_actor_ids,
+                                CommandActorFilter::ActiveActor,
+                                active_direct_actor_ids,
                             ),
                         )
                     })?;
@@ -1402,7 +1402,7 @@ impl RuntimeWorld {
                     .resolve_actor_held_item(
                         target.id,
                         target_item_query,
-                        "That resident is not holding an item that matches that command.",
+                        "That avatar is not holding an item that matches that command.",
                     )
                     .map_err(|output| command_error(&command, "trade", 404, output))?;
                 self.resident_trade_is_willing(actor.id, target.id, item.id, target_item.id)
@@ -1434,20 +1434,20 @@ impl RuntimeWorld {
                     })?
                 } else {
                     let (item_query, target_query) = split_direct_indirect(rest, "from")
-                        .ok_or_else(|| command_error(&command, "steal", 400, "Use: steal <item> from <resident>."))?;
+                        .ok_or_else(|| command_error(&command, "steal", 400, "Use: steal <item> from <avatar>."))?;
                     let target = self
                         .resolve_room_actor(
                             actor,
                             target_query,
-                            CommandActorFilter::ActiveNpc,
-                            active_human_actor_ids,
+                            CommandActorFilter::ActiveActor,
+                            active_direct_actor_ids,
                         )
                         .map_err(|output| command_error(&command, "steal", 404, output))?;
                     let item = self
                         .resolve_actor_held_item(
                             target.id,
                             item_query,
-                            "That resident is not carrying an item that matches that command.",
+                            "That avatar is not carrying an item that matches that command.",
                         )
                         .map_err(|output| command_error(&command, "steal", 404, output))?;
                     let legal = self
@@ -1470,7 +1470,7 @@ impl RuntimeWorld {
                     (target, item)
                 };
                 let item_name = self.item_name(item.id).unwrap_or_else(|| format!("Item {}", item.id));
-                let target_name = self.actor_name(target.id).unwrap_or_else(|| format!("Resident {}", target.id));
+                let target_name = self.actor_name(target.id).unwrap_or_else(|| format!("Avatar {}", target.id));
                 let command = format!("steal {item_name} from {target_name}");
                 Ok(ResolvedCommand {
                     command: command.clone(),
@@ -1571,7 +1571,7 @@ impl RuntimeWorld {
                         actor,
                         target_query,
                         CommandActorFilter::Any,
-                        active_human_actor_ids,
+                        active_direct_actor_ids,
                     )
                         .map_err(|output| command_error(&command, "use", 404, output))?
                 };
@@ -1592,8 +1592,8 @@ impl RuntimeWorld {
                     .resolve_room_actor(
                         actor,
                         rest,
-                        CommandActorFilter::ActiveNpc,
-                        active_human_actor_ids,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
                     )
                     .map_err(|output| command_error(&command, "chat", 404, output))?;
                 let target_name = self.actor_view(target).name;
@@ -1655,8 +1655,8 @@ impl RuntimeWorld {
                     .resolve_room_actor(
                         actor,
                         rest,
-                        CommandActorFilter::ActiveNpc,
-                        active_human_actor_ids,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
                     )
                     .map_err(|output| command_error(&command, "influence", 404, output))?;
                 let target_name = self.actor_view(target).name;
@@ -2032,8 +2032,8 @@ impl RuntimeWorld {
                     .resolve_room_actor(
                         actor,
                         target_query,
-                        CommandActorFilter::ActiveNpc,
-                        active_human_actor_ids,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
                     )
                     .map_err(|output| command_error(&command, "bond", 404, output))?;
                 let target_name = self.actor_view(target).name;
@@ -2124,8 +2124,8 @@ impl RuntimeWorld {
                     .resolve_room_actor(
                         actor,
                         target_query,
-                        CommandActorFilter::ActiveNpc,
-                        active_human_actor_ids,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
                     )
                     .map_err(|output| command_error(&command, "resolve", 404, output))?;
                 let target_name = self.actor_view(target).name;
@@ -2188,8 +2188,8 @@ impl RuntimeWorld {
                     .resolve_room_actor(
                         actor,
                         rest,
-                        CommandActorFilter::ActiveNpc,
-                        active_human_actor_ids,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
                     )
                     .map_err(|output| command_error(&command, "attack", 404, output))?;
                 let target_name = self.actor_view(target).name;
@@ -2276,7 +2276,7 @@ impl RuntimeWorld {
                         actor,
                         target_query,
                         CommandActorFilter::Any,
-                        active_human_actor_ids,
+                        active_direct_actor_ids,
                     )
                     .map_err(|output| command_error(&command, "report", 404, output))?;
                 let Some(reason) = normalize_report_reason(reason) else {
@@ -2321,7 +2321,7 @@ impl RuntimeWorld {
         actor: CwActor,
         query: &str,
         access: &AccessContext,
-        active_human_actor_ids: Option<&BTreeSet<u64>>,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
     ) -> Result<String, &'static str> {
         let query = trim_command_filler(query);
         if query.is_empty()
@@ -2330,7 +2330,7 @@ impl RuntimeWorld {
                 "room" | "here" | "around" | "location"
             )
         {
-            return Ok(self.room_command_output(actor, access, active_human_actor_ids));
+            return Ok(self.room_command_output(actor, access, active_direct_actor_ids));
         }
         if let Some(feature) = self.resolve_room_feature(actor.location_id, query).ok() {
             return Ok(format!("{} - {}", feature.name, feature.look));
@@ -2340,7 +2340,7 @@ impl RuntimeWorld {
                 actor,
                 query,
                 CommandActorFilter::Any,
-                active_human_actor_ids,
+                active_direct_actor_ids,
             )
             .ok()
         {
@@ -2429,7 +2429,7 @@ impl RuntimeWorld {
         &self,
         actor: CwActor,
         access: &AccessContext,
-        active_human_actor_ids: Option<&BTreeSet<u64>>,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
     ) -> String {
         let location_id = actor.location_id;
         let location = self.location_view(location_id);
@@ -2441,7 +2441,7 @@ impl RuntimeWorld {
                 self.actor_visible_in_projection(
                     *visible_actor,
                     Some(actor.id),
-                    active_human_actor_ids,
+                    active_direct_actor_ids,
                 )
             })
             .map(|actor| self.actor_view(actor).name)
@@ -2600,14 +2600,14 @@ impl RuntimeWorld {
         &self,
         location_id: u64,
         client_actor_id: Option<u64>,
-        active_human_actor_ids: Option<&BTreeSet<u64>>,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
     ) -> String {
         let actors = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
             .filter(|actor| actor.location_id == location_id && actor.status == CW_ACTOR_ACTIVE)
             .filter(|actor| {
-                self.actor_visible_in_projection(*actor, client_actor_id, active_human_actor_ids)
+                self.actor_visible_in_projection(*actor, client_actor_id, active_direct_actor_ids)
             })
             .map(|actor| {
                 let view = self.actor_view(actor);
@@ -2662,7 +2662,7 @@ impl RuntimeWorld {
         actor: CwActor,
         query: &str,
         filter: CommandActorFilter,
-        active_human_actor_ids: Option<&BTreeSet<u64>>,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
     ) -> Result<CwActor, &'static str> {
         let candidates = self.world.actors[..self.world.actor_count]
             .iter()
@@ -2671,13 +2671,15 @@ impl RuntimeWorld {
                 candidate.id != actor.id && candidate.location_id == actor.location_id
             })
             .filter(|candidate| {
-                self.actor_visible_in_projection(*candidate, Some(actor.id), active_human_actor_ids)
+                self.actor_visible_in_projection(
+                    *candidate,
+                    Some(actor.id),
+                    active_direct_actor_ids,
+                )
             })
             .filter(|candidate| match filter {
                 CommandActorFilter::Any => true,
-                CommandActorFilter::ActiveNpc => {
-                    candidate.kind == CW_ACTOR_NPC && candidate.status == CW_ACTOR_ACTIVE
-                }
+                CommandActorFilter::ActiveActor => Self::actor_is_active_avatar(*candidate),
             })
             .collect::<Vec<_>>();
         self.best_actor_match(candidates, query)
@@ -2689,20 +2691,22 @@ impl RuntimeWorld {
         actor: CwActor,
         query: &str,
         filter: CommandActorFilter,
-        active_human_actor_ids: Option<&BTreeSet<u64>>,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
     ) -> String {
         let candidates = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
             .filter(|candidate| candidate.id != actor.id)
             .filter(|candidate| {
-                self.actor_visible_in_projection(*candidate, Some(actor.id), active_human_actor_ids)
+                self.actor_visible_in_projection(
+                    *candidate,
+                    Some(actor.id),
+                    active_direct_actor_ids,
+                )
             })
             .filter(|candidate| match filter {
                 CommandActorFilter::Any => true,
-                CommandActorFilter::ActiveNpc => {
-                    candidate.kind == CW_ACTOR_NPC && candidate.status == CW_ACTOR_ACTIVE
-                }
+                CommandActorFilter::ActiveActor => Self::actor_is_active_avatar(*candidate),
             })
             .collect::<Vec<_>>();
         if let Some(found) = self.best_actor_match(candidates, query) {

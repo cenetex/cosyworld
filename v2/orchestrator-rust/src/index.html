@@ -417,13 +417,15 @@
       align-items: center;
       gap: 7px;
       min-width: 0;
-      pointer-events: none;
+      overflow-x: auto;
+      overscroll-behavior-inline: contain;
+      scrollbar-width: thin;
+      pointer-events: auto;
     }
     .room-avatar-rail:empty {
       display: none;
     }
-    .room-avatar-pfp,
-    .room-avatar-more {
+    .room-avatar-pfp {
       width: 42px;
       height: 42px;
       flex: 0 0 42px;
@@ -444,14 +446,6 @@
     }
     .room-avatar-pfp.evolved {
       border-color: rgba(239, 201, 107, 0.95);
-    }
-    .room-avatar-more {
-      display: grid;
-      place-items: center;
-      color: var(--amber);
-      font-size: 12px;
-      font-weight: 900;
-      pointer-events: none;
     }
     .room-tags {
       display: flex;
@@ -738,7 +732,7 @@
       align-items: start;
       background: linear-gradient(90deg, rgba(139, 183, 255, 0.05), transparent 58%);
     }
-    .line.chat.npc {
+    .line.chat.avatar {
       border-left-color: rgba(239, 201, 107, 0.4);
       background: linear-gradient(90deg, rgba(239, 201, 107, 0.05), transparent 58%);
     }
@@ -796,7 +790,7 @@
       box-shadow: 0 0 0 1px rgba(5, 8, 6, 0.86), 0 4px 14px rgba(0,0,0,0.32);
       overflow: hidden;
     }
-    .line.npc .chat-pfp {
+    .line.avatar .chat-pfp {
       border-color: rgba(239, 201, 107, 0.64);
     }
     .line.world .chat-pfp {
@@ -854,7 +848,7 @@
     .speaker::before { content: "["; color: var(--line-strong); }
     .speaker::after { content: "]"; color: var(--line-strong); }
     .line.you .speaker { color: var(--blue); }
-    .line.npc .speaker { color: var(--amber); }
+    .line.avatar .speaker { color: var(--amber); }
     .line.world .speaker { color: var(--green); }
     .text {
       display: block;
@@ -2361,8 +2355,7 @@
         bottom: 8px;
         gap: 5px;
       }
-      .room-avatar-pfp,
-      .room-avatar-more {
+      .room-avatar-pfp {
         width: 34px;
         height: 34px;
         flex-basis: 34px;
@@ -4138,7 +4131,7 @@
         if (!options.has("create_bond") || Number(ledger.advancement_points || 0) <= 0) return null;
         const chatOffer = offerFor("create_bond");
         const offeredTargetId = Number(chatOffer?.target?.id || 0);
-        const chatCandidates = residentTargets
+        const chatCandidates = actorTargets
           .filter((actor) => !activeBondTargetIds.has(actor.id))
           .sort((left, right) => (
             Number(right.id === offeredTargetId) - Number(left.id === offeredTargetId)
@@ -4316,7 +4309,6 @@
         .map((participant) => Number(participant.actor_id)));
       const attackTargetIds = new Set(options.has("attack") ? (view.actors || [])
         .filter((actor) => actor.id !== actorId
-          && actor.kind === "npc"
           && actor.status === "active"
           && (offeredAttackTargetId > 0
             ? actor.id === offeredAttackTargetId
@@ -4324,9 +4316,11 @@
         .map((actor) => actor.id) : []);
       const usableTargets = (view.actors || []).filter((actor) => (
         actorNeedsHealing(actor)
-        && !(actor.kind === "npc" && attackTargetIds.has(actor.id))
+        && !attackTargetIds.has(actor.id)
       ));
-      const residentTargets = (view.actors || []).filter((actor) => actor.id !== actorId && actor.kind === "npc" && actor.status === "active");
+      const actorTargets = (view.actors || []).filter((actor) => (
+        actor.id !== actorId && actor.status === "active"
+      ));
       const progressAmountFromOffer = (offer, fallback) => {
         const structured = Number(offer?.progress || 0);
         if (Number.isFinite(structured) && structured > 0) return structured;
@@ -4381,12 +4375,12 @@
           const targetName = actorLabel(target).toLowerCase();
           const mentionedItem = heldItems.find((held) => giveOfferText.includes(String(held.name || "").toLowerCase()));
           if (mentionedItem && (!giveOfferText || giveOfferText.includes(targetName))) return mentionedItem;
-          if (!offeredTargetId && residentTargets.length === 1 && heldItems.length === 1) return heldItems[0];
+          if (!offeredTargetId && actorTargets.length === 1 && heldItems.length === 1) return heldItems[0];
           if (offeredTargetId === Number(target.id || 0) && heldItems.length === 1) return heldItems[0];
           return null;
         };
-        for (const target of residentTargets) {
-          const request = target.resident_economy?.request || null;
+        for (const target of actorTargets) {
+          const request = target.economy?.request || null;
           const requestedItemId = Number(request?.item_id || 0);
           const item = requestedItemId
             ? heldItems.find((held) => Number(held.id || 0) === requestedItemId)
@@ -4438,7 +4432,7 @@
             requestedGift: giftCandidates.some((candidate) => candidate.requested),
             effect: oneChoice
               ? (firstGift.reason || `${actorLabel(firstGift.target)} keeps ${firstGift.item.name} and may use, trade, or treasure it`)
-              : "the chosen resident keeps the chosen item",
+              : "the chosen avatar keeps the chosen item",
             ...(oneChoice ? {
               modalSummary: `Pass ${firstGift.item.name} to ${actorLabel(firstGift.target)}.`,
             } : {
@@ -4471,9 +4465,9 @@
         const defaultTradeItemId = Number(tradeOfferDefault?.target?.id || 0);
         const itemById = (itemId) => (view.items || []).find((item) => Number(item.id || 0) === Number(itemId || 0));
         const tradeCandidates = [];
-        for (const target of residentTargets) {
-          const request = target.resident_economy?.request || null;
-          const tradeOffer = target.resident_economy?.trade_offer || null;
+        for (const target of actorTargets) {
+          const request = target.economy?.request || null;
+          const tradeOffer = target.economy?.trade_offer || null;
           if (!tradeOffer) continue;
           const offeredItem = itemById(tradeOffer.offered_item_id);
           const targetItem = itemById(tradeOffer.requested_item_id);
@@ -4827,7 +4821,7 @@
         const useCandidates = [];
         for (const item of heldUsableItems) {
           usableTargets.forEach((target) => {
-            const request = target.resident_economy?.request || null;
+            const request = target.economy?.request || null;
             const requested = Number(request?.item_id || 0) === Number(item.id || 0);
             useCandidates.push({
               key: `${item.id}:${target.id}`,
@@ -5051,13 +5045,13 @@
           && helpOffer.project.progress_clock_id === contributionProject?.progress_clock_id
           && String(helpOffer?.target?.label || "").trim()) {
         const helpVerb = offerVerb(helpOffer, "Help");
-        const residentName = String(helpOffer.target.label).trim();
+        const avatarName = String(helpOffer.target.label).trim();
         const relationshipEffect = /deepens Bond|brings you closer/i.test(String(helpOffer?.effect || ""))
           ? "first contribution strengthens the relationship"
-          : "contribute alongside a resident";
+          : "contribute alongside another avatar";
         contributionStrategies.push({
           key: "help",
-          label: `${helpVerb} ${residentName} with ${projectLabel}`,
+          label: `${helpVerb} ${avatarName} with ${projectLabel}`,
           detail: [
             `+${helpProgressPreview} progress`,
             relationshipEffect,
@@ -5166,7 +5160,7 @@
         const targetId = Number(influenceOffer?.target?.id || 0);
         if (targetId) built.push({
           label: influenceOffer?.label || "influence",
-          detail: influenceOffer?.target?.label || "a nearby resident",
+          detail: influenceOffer?.target?.label || "a nearby avatar",
           command: influenceOffer?.command || "ask for a local lead",
           focusKey: `influence:${targetId}`,
           card: cardForActor(targetId),
@@ -5210,7 +5204,7 @@
           .filter((bond) => Number(bond.strength || 0) >= 2 && String(bond.status || "active") === "active")
           .map((bond) => ({
             bond,
-            target: residentTargets.find((actor) => actor.id === Number(bond.target_actor_id || 0)),
+            target: actorTargets.find((actor) => actor.id === Number(bond.target_actor_id || 0)),
           }))
           .filter((candidate) => candidate.target)
           .sort((left, right) => (
@@ -6062,25 +6056,25 @@
       return `${event.type}:${location}:${target}`;
     }
 
-    function residentMessageCollapseKey(event) {
-      if (!messageActorIsResident(event)) return "";
+    function inferredMessageCollapseKey(event) {
+      if (!messageActorUsesInference(event)) return "";
       const numericActorId = Number(event.actor_id || 0);
       const content = cleanStatusText(event.content).toLowerCase();
       if (!content) return "";
       return `${numericActorId}:${Number(event.location_id || 0)}:${content}`;
     }
 
-    function messageActorIsResident(event) {
+    function messageActorUsesInference(event) {
       if (event?.type !== "message.created") return false;
       const numericActorId = Number(event.actor_id || 0);
       const actor = actorForId(numericActorId);
-      return actor?.kind === "npc" || (numericActorId > 0 && numericActorId < 5000);
+      return event.source_world_tick != null || actor?.control_mode !== "direct_input";
     }
 
     function pacedChatTranscriptEvents(events) {
-      // Exact duplicate resident lines are already collapsed when events enter
+      // Exact duplicate avatar lines are already collapsed when events enter
       // the transcript. Keep distinct replies here so consecutive card plays do
-      // not erase one another just because the same resident answered them.
+      // not erase one another just because the same avatar answered them.
       return [...(events || [])].slice(-24);
     }
 
@@ -6148,15 +6142,15 @@
     }
 
     function appendLogEvent(event) {
-      const messageKey = residentMessageCollapseKey(event);
+      const messageKey = inferredMessageCollapseKey(event);
       if (messageKey) {
-        let residentMessagesSeen = 0;
+        let inferredMessagesSeen = 0;
         for (let index = logEvents.length - 1; index >= 0; index -= 1) {
           const prior = logEvents[index];
           if (prior?.type !== "message.created") continue;
-          if (!residentMessageCollapseKey(prior)) break;
-          residentMessagesSeen += 1;
-          if (residentMessageCollapseKey(prior) === messageKey) {
+          if (!inferredMessageCollapseKey(prior)) break;
+          inferredMessagesSeen += 1;
+          if (inferredMessageCollapseKey(prior) === messageKey) {
             const collapsed = {
               ...event,
               first_seq: prior.first_seq ?? prior.seq,
@@ -6166,7 +6160,7 @@
             logEvents.push(collapsed);
             return;
           }
-          if (residentMessagesSeen >= 4) break;
+          if (inferredMessagesSeen >= 4) break;
         }
       }
       const key = logEventCollapseKey(event);
@@ -6249,21 +6243,20 @@
           selectedTargetId = 0;
         }
       }
-      const residents = (state?.actors || []).filter((actor) => (
-        actor.kind === "npc"
-        && actor.status === "active"
+      const avatars = (state?.actors || []).filter((actor) => (
+        actor.status === "active"
         && Number(actor.location_id || state?.location?.id || 0) === Number(state?.location?.id || 0)
       ));
-      const selected = residents.find((actor) => Number(actor.id) === selectedTargetId);
+      const selected = avatars.find((actor) => Number(actor.id) === selectedTargetId);
       if (selected) return selected;
-      if (!residents.length) return actorForId(actorId);
-      const latestResidentId = [...logEvents].reverse().find((event) => (
+      if (!avatars.length) return actorForId(actorId);
+      const latestAvatarId = [...logEvents].reverse().find((event) => (
         event?.type === "message.created"
-        && residents.some((actor) => Number(actor.id) === Number(event.actor_id))
+        && avatars.some((actor) => Number(actor.id) === Number(event.actor_id))
       ))?.actor_id;
-      if (!latestResidentId) return residents[0];
-      const latestIndex = residents.findIndex((actor) => Number(actor.id) === Number(latestResidentId));
-      return residents[(latestIndex + 1) % residents.length];
+      if (!latestAvatarId) return avatars[0];
+      const latestIndex = avatars.findIndex((actor) => Number(actor.id) === Number(latestAvatarId));
+      return avatars[(latestIndex + 1) % avatars.length];
     }
 
     function beginPendingChat(action) {
@@ -6738,8 +6731,7 @@
         if (b.id === actorId) return 1;
         return String(a.name || "").localeCompare(String(b.name || ""));
       });
-      const visible = actors.slice(0, 7);
-      const portraits = visible.map((actor) => {
+      return actors.map((actor) => {
         const card = cardForActor(actor.id);
         const fallback = card || {
           display_name: actor.name || "Avatar",
@@ -6751,12 +6743,7 @@
         const evolved = Number(actor.stats?.level || 1) > 1;
         const label = you ? `${actorLabel(actor)} (you)` : actorLabel(actor);
         return `<button class="room-avatar-pfp${you ? " you" : ""}${evolved ? " evolved" : ""}" type="button"${cardDataAttr(card)} title="${escapeAttr(label)}" aria-label="Open ${escapeAttr(label)} keepsake" data-player-concept="keepsake" data-analytics-event="keepsake.open"${backgroundImageStyle(image)}></button>`;
-      });
-      const remaining = actors.length - visible.length;
-      if (remaining > 0) {
-        portraits.push(`<span class="room-avatar-more" title="${escapeAttr(`${remaining} more`)}">+${remaining}</span>`);
-      }
-      return portraits.join("");
+      }).join("");
     }
 
     function renderTimelines() {
@@ -6841,7 +6828,7 @@
         const gift = String(give.detail || "").match(/^(.+?)\s+to\s+(.+)$/i);
         return makeThread(
           give,
-          gift ? `${gift[2]} is waiting for ${gift[1]}` : "A nearby resident is hoping for one of your keepsakes",
+          gift ? `${gift[2]} is waiting for ${gift[1]}` : "A nearby avatar is hoping for one of your keepsakes",
           "gift",
         );
       }
@@ -7360,13 +7347,13 @@
       const pendingArrival = pendingAvatarArrivalHtml();
       const defeatScene = defeatTransitionHtml();
       const hasChat = visibleEvents.length > 0 || Boolean(pendingConversation) || Boolean(pendingChatReplies);
-      const residentOnly = visibleEvents.length > 0 && visibleEvents.every(messageActorIsResident);
+      const inferredOnly = visibleEvents.length > 0 && visibleEvents.every(messageActorUsesInference);
       log.classList.toggle("library-mode", Boolean(libraryPanel));
       log.classList.toggle("account-mode", !libraryPanel && Boolean(accountPanel));
       log.classList.toggle("chat-mode", !libraryPanel && !accountPanel && hasChat);
       log.classList.toggle("room-mode", !libraryPanel && !accountPanel && !hasChat && !pendingArrival && !defeatScene);
       log.classList.toggle("arrival-mode", !libraryPanel && !accountPanel && Boolean(pendingArrival || defeatScene));
-      log.classList.toggle("quiet-mode", !libraryPanel && !accountPanel && residentOnly);
+      log.classList.toggle("quiet-mode", !libraryPanel && !accountPanel && inferredOnly);
       const panelMode = libraryPanel ? "library" : (accountPanel ? "account" : "");
       document.querySelector(".terminal")?.classList.toggle("panel-open", Boolean(panelMode));
       document.querySelector(".prompt").hidden = Boolean(panelMode);
@@ -7621,7 +7608,7 @@
     function libraryPackCountSummary(counts) {
       const entries = [
         ["locations", "places"],
-        ["actors", "residents"],
+        ["actors", "avatars"],
         ["items", "items"],
         ["cards", "keepsakes"],
         ["external_cards", "catalog keepsakes"],
@@ -7646,7 +7633,7 @@
       const target = actorForId(targetId);
       const speaker = target ? actorLabel(target) : (pendingAction.targetName || "A neighbour");
       const aria = `${speaker} is finding the thread. Your conversation is unfolding.`;
-      return `<div class="line chat npc pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: targetId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>finding the thread…</span></div>`;
+      return `<div class="line chat avatar pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: targetId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>finding the thread…</span></div>`;
     }
 
     function pendingChatsHtml() {
@@ -7654,7 +7641,7 @@
       return pendingChats.map((chat) => {
         const speaker = chat.targetName || "Someone nearby";
         const aria = `${speaker} is finding the thread. Your next actions are ready while the conversation unfolds.`;
-        return `<div class="line chat npc pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: chat.targetActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>finding the thread…</span></div>`;
+        return `<div class="line chat avatar pending" role="status" aria-label="${escapeAttr(aria)}">${chatPfpHtml({ actor_id: chat.targetActorId }, speaker)}<span class="speaker">${escapeHtml(speaker)}</span><span class="text" aria-hidden="true"><span class="chat-thinking-dots"><i></i><i></i><i></i></span>finding the thread…</span></div>`;
       }).join("");
     }
 
@@ -8189,7 +8176,7 @@
     function messageHtml(event) {
       const speaker = event.actor_name || "CosyWorld";
       const body = eventText(event);
-      const kind = event.actor_id === actorId ? "you" : event.actor_id ? "npc" : "world";
+      const kind = event.actor_id === actorId ? "you" : event.actor_id ? "avatar" : "world";
       const repeat = Math.max(1, Number(event.repeat_count || 1));
       const baseAriaLabel = eventAriaLabel(event, speaker, body);
       const label = repeat > 1
@@ -8568,7 +8555,7 @@
 
     function actorNameForId(id) {
       const actor = actorForId(id);
-      return actor ? actorLabel(actor) : `Resident ${id}`;
+      return actor ? actorLabel(actor) : `Avatar ${id}`;
     }
 
     function accountCard(displayName) {
@@ -8695,8 +8682,8 @@
       return `<div class="economy-row"><span>level ${level} image</span><strong>${escapeHtml(detail)}</strong></div><button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}"${disabled ? " disabled" : ""}>${escapeHtml(buttonLabel)}</button>`;
     }
 
-    function residentEconomyTitle(actor) {
-      const economy = actor?.resident_economy || null;
+    function actorEconomyTitle(actor) {
+      const economy = actor?.economy || null;
       if (!economy) return actorLabel(actor);
       const parts = [];
       const motive = String(economy.motive || "").trim();
@@ -8838,10 +8825,23 @@
       return `<span class="card-economy-main">${escapeHtml(itemName)}</span>${economyTagsHtml(tags)}`;
     }
 
-    function residentEconomyPanelHtml(actor) {
-      const economy = actor?.resident_economy || null;
-      if (!economy) return "";
+    function actorControlModeLabel(actor) {
+      return {
+        direct_input: "player choice",
+        reactive_ai: "reactive inference",
+        local_ai: "local inference",
+        roaming_ai: "roaming inference",
+        delegated_ai: "delegated inference",
+      }[String(actor?.control_mode || "")] || "";
+    }
+
+    function actorEconomyPanelHtml(actor) {
+      if (!actor) return "";
       const rows = [];
+      const controller = actorControlModeLabel(actor);
+      if (controller) rows.push(economyRowHtml("controller", escapeHtml(controller)));
+      const economy = actor?.economy || null;
+      if (!economy) return rows.join("");
       const motive = economyMotiveSummary(actor, economy);
       if (motive && !economyMotiveRepeatsRows(actor, economy, motive)) {
         rows.push(economyRowHtml("today", escapeHtml(motive)));
@@ -8910,7 +8910,7 @@
       $("card-modal-keepsake").innerHTML = promise
         ? `<span>when kept close</span>${escapeHtml(promise)}`
         : "";
-      $("card-modal-economy").innerHTML = `${residentEconomyPanelHtml(actor)}${communityArtPanelHtml(card)}`;
+      $("card-modal-economy").innerHTML = `${actorEconomyPanelHtml(actor)}${communityArtPanelHtml(card)}`;
       openModal("card-modal", $("card-modal").querySelector(".card-close"));
       if (dialog) dialog.scrollTop = 0;
       const copy = dialog?.querySelector(".card-copy");
@@ -9228,7 +9228,7 @@
       }
       if (String(action?.label || "").toLowerCase() === "trade" && action?.choices?.length) {
         return [
-          ["Choose", "the resident and keepsake swap"],
+          ["Choose", "the avatar and keepsake swap"],
           ["Then", "both keepsakes change hands"],
         ];
       }
@@ -9562,7 +9562,7 @@
         .replace(/\sand finishes progress clock\s+.+?\s+by\s+([1-9]\d*)/gi, " and finishes the work")
         .replace(/\sand sets up \+([1-9]\d*) progress/gi, " and makes the next try count")
         .replace(/^marks you\s+/i, "")
-        .replace(/^helps a resident and\s+/i, "")
+        .replace(/^helps (?:a resident|an avatar) and\s+/i, "")
         .trim();
     }
 

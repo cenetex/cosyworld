@@ -882,8 +882,7 @@ static cw_status apply_theft(cw_world *world, const cw_action *action, uint64_t 
   if (status != CW_OK) return status;
   cw_actor *target = find_actor(world, action->target_actor_id);
   cw_item *item = find_item(world, action->item_id);
-  if (!target || !actor_is_active(target) || target->kind != CW_ACTOR_NPC
-      || target->id == actor->id) {
+  if (!target || !actor_is_active(target) || target->id == actor->id) {
     return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
   }
   if (target->location_id != actor->location_id) {
@@ -957,7 +956,7 @@ static void maybe_evolve_after_placement(cw_world *world, cw_id source_actor_id,
   for (size_t i = 0; i < world->evolution_track_count; ++i) {
     const cw_evolution_track *track = &world->evolution_tracks[i];
     cw_actor *target = find_actor(world, track->actor_id);
-    if (!target || target->kind != CW_ACTOR_NPC || target->stats.level >= 2) continue;
+    if (!target || !actor_is_active(target) || target->stats.level >= 2) continue;
     if (!evolution_track_satisfied(world, track)) continue;
 
     target->stats.level = 2;
@@ -980,14 +979,10 @@ static cw_status apply_give_item(cw_world *world, const cw_action *action, cw_ev
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
   if (status != CW_OK) return status;
-  if (actor->kind != CW_ACTOR_HUMAN && actor->kind != CW_ACTOR_NPC) {
-    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
-  }
-
   cw_actor *target = find_actor(world, action->target_actor_id);
   if (!target) return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
   if (!actor_is_active(target)) return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
-  if (target->kind != CW_ACTOR_NPC) return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
+  if (target->id == actor->id) return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
   if (target->location_id != actor->location_id) return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
 
   cw_item *item = find_item(world, action->item_id);
@@ -1038,9 +1033,6 @@ static cw_status apply_trade_item(cw_world *world, const cw_action *action, cw_e
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
   if (status != CW_OK) return status;
-  if (actor->kind != CW_ACTOR_HUMAN && actor->kind != CW_ACTOR_NPC) {
-    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
-  }
   if (!action->item_id || !action->target_item_id || action->item_id == action->target_item_id) {
     return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
   }
@@ -1048,7 +1040,6 @@ static cw_status apply_trade_item(cw_world *world, const cw_action *action, cw_e
   cw_actor *target = find_actor(world, action->target_actor_id);
   if (!target) return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
   if (!actor_is_active(target)) return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
-  if (target->kind != CW_ACTOR_NPC) return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
   if (target->id == actor->id) return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
   if (target->location_id != actor->location_id) return reject(world, out_events, action, CW_REASON_NOT_SAME_LOCATION);
 
@@ -1503,12 +1494,12 @@ static cw_status apply_combat_start(cw_world *world, const cw_action *action, ui
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
   if (status != CW_OK) return status;
-  if (actor->kind != CW_ACTOR_HUMAN || action->actor_id == action->target_actor_id) {
+  if (action->actor_id == action->target_actor_id) {
     return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
   }
   cw_actor *target = find_actor(world, action->target_actor_id);
   if (!target) return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
-  if (!actor_is_active(target) || target->kind != CW_ACTOR_NPC) {
+  if (!actor_is_active(target)) {
     return reject(world, out_events, action, CW_REASON_TARGET_UNAVAILABLE);
   }
   if (target->location_id != actor->location_id) {
@@ -1612,7 +1603,9 @@ static cw_status apply_combat_join(cw_world *world, const cw_action *action, uin
   cw_combat_participant *participant = &encounter->participants[encounter->participant_count++];
   memset(participant, 0, sizeof(*participant));
   participant->actor_id = actor->id;
-  participant->side = actor->kind == CW_ACTOR_HUMAN ? 1 : 2;
+  /* Controller provenance is not a combat faction. Callers may choose side 2
+     explicitly; otherwise a joining actor joins the initiating side. */
+  participant->side = action->modifier == 2 ? 2 : 1;
   participant->initiative = (int16_t)(raw + ability_modifier(actor->stats.dexterity));
   sort_combat_participants(encounter);
   for (size_t i = 0; i < encounter->participant_count; ++i) {
@@ -1981,14 +1974,14 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
   }
 
   int actor_has_held_item = 0;
-  int room_npc_has_held_item = 0;
-  int room_has_active_npc = 0;
+  int room_actor_has_held_item = 0;
+  int room_has_active_actor = 0;
   int room_has_loose_item = 0;
   int hidden_search_item_available = 0;
   for (size_t i = 0; i < world->actor_count; ++i) {
     const cw_actor *other = &world->actors[i];
-    if (other->id != actor->id && other->kind == CW_ACTOR_NPC && actor_is_active(other) && other->location_id == actor->location_id) {
-      room_has_active_npc = 1;
+    if (other->id != actor->id && actor_is_active(other) && other->location_id == actor->location_id) {
+      room_has_active_actor = 1;
       break;
     }
   }
@@ -2013,12 +2006,12 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
     }
     if (item->holder_actor_id && item->holder_actor_id != actor->id) {
       const cw_actor *holder = find_actor_const(world, item->holder_actor_id);
-      if (holder && holder->kind == CW_ACTOR_NPC && actor_is_active(holder) && holder->location_id == actor->location_id) {
-        room_npc_has_held_item = 1;
+      if (holder && actor_is_active(holder) && holder->location_id == actor->location_id) {
+        room_actor_has_held_item = 1;
       }
     }
   }
-  if (actor_has_held_item && room_has_active_npc) {
+  if (actor_has_held_item && room_has_active_actor) {
     out_offers->option_flags |= CW_OFFER_GIVE_ITEM;
   }
   if (actor_has_held_item && !room_has_loose_item) {
@@ -2030,9 +2023,7 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
   if (actor_has_held_item && room_has_loose_item) {
     out_offers->option_flags |= CW_OFFER_CRAFT;
   }
-  if ((actor->kind == CW_ACTOR_HUMAN || actor->kind == CW_ACTOR_NPC)
-      && actor_has_held_item
-      && room_npc_has_held_item) {
+  if (actor_has_held_item && room_actor_has_held_item) {
     out_offers->option_flags |= CW_OFFER_TRADE_ITEM;
   }
 

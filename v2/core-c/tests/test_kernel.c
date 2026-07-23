@@ -859,6 +859,95 @@ static void test_npc_give_items(void) {
   assert(world.actors[1].stats.level == 2);
 }
 
+static void test_actor_affordances_do_not_depend_on_controller_provenance(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action create = {0};
+  create.kind = CW_ACTION_CREATE_ACTOR;
+  create.location_id = 1;
+  create.actor_id = 5001;
+  assert(cw_world_apply(&world, &create, 801, &events) == CW_OK);
+  create.actor_id = 5002;
+  assert(cw_world_apply(&world, &create, 802, &events) == CW_OK);
+
+  cw_item *tonic = test_find_item(&world, 2001);
+  cw_item *button = test_find_item(&world, 2005);
+  assert(tonic);
+  assert(button);
+  tonic->holder_actor_id = 5001;
+  tonic->location_id = 0;
+  button->holder_actor_id = 5002;
+  button->location_id = 0;
+
+  cw_action_offers offers = {0};
+  assert(cw_get_action_offers(&world, 5001, &offers) == CW_OK);
+  assert(offers.option_flags & CW_OFFER_GIVE_ITEM);
+  assert(offers.option_flags & CW_OFFER_TRADE_ITEM);
+
+  cw_action trade = {0};
+  trade.kind = CW_ACTION_TRADE_ITEM;
+  trade.actor_id = 5001;
+  trade.target_actor_id = 5002;
+  trade.item_id = tonic->id;
+  trade.target_item_id = button->id;
+  assert(cw_world_apply(&world, &trade, 803, &events) == CW_OK);
+  assert(events.events[0].type == CW_EVENT_ITEM_TRADED);
+  assert(tonic->holder_actor_id == 5002);
+  assert(button->holder_actor_id == 5001);
+
+  const cw_evolution_requirement human_requirement = {
+    2005, CW_PLACEMENT_ACTOR_HAND, {0}, 5002
+  };
+  assert(cw_world_set_evolution_track(&world, 5002, &human_requirement, 1) == CW_OK);
+  cw_action give = {0};
+  give.kind = CW_ACTION_GIVE_ITEM;
+  give.actor_id = 5001;
+  give.target_actor_id = 5002;
+  give.item_id = button->id;
+  assert(cw_world_apply(&world, &give, 804, &events) == CW_OK);
+  assert(events.count == 2);
+  assert(events.events[0].type == CW_EVENT_ITEM_GIVEN);
+  assert(events.events[1].type == CW_EVENT_AVATAR_EVOLVED);
+  assert(events.events[1].target_actor_id == 5002);
+
+  cw_actor *thief = 0;
+  for (size_t i = 0; i < world.actor_count; ++i) {
+    if (world.actors[i].id == 5001) thief = &world.actors[i];
+  }
+  assert(thief);
+  thief->stats.dexterity = 20;
+  cw_action theft = {0};
+  theft.kind = CW_ACTION_THEFT;
+  theft.actor_id = 5001;
+  theft.target_actor_id = 5002;
+  theft.item_id = button->id;
+  theft.dc = 1;
+  assert(cw_world_apply(&world, &theft, 805, &events) == CW_OK);
+  assert(events.count == 2);
+  assert(events.events[0].type == CW_EVENT_ITEM_THEFT_ATTEMPT);
+  assert(events.events[1].type == CW_EVENT_ITEM_STOLEN);
+  assert(button->holder_actor_id == 5001);
+
+  cw_actor *combat_target = 0;
+  for (size_t i = 0; i < world.actor_count; ++i) {
+    if (world.actors[i].id == 5002) combat_target = &world.actors[i];
+  }
+  assert(combat_target);
+  thief->location_id = 3;
+  combat_target->location_id = 3;
+  cw_action combat = {0};
+  combat.kind = CW_ACTION_COMBAT_START;
+  combat.actor_id = 5001;
+  combat.target_actor_id = 5002;
+  combat.content_id = 9801;
+  assert(cw_world_apply(&world, &combat, 806, &events) == CW_OK);
+  assert(events.events[0].type == CW_EVENT_COMBAT_ENCOUNTER_STARTED);
+  assert(world.combat_encounters[0].participant_count == 2);
+}
+
 static void test_give_can_exchange_an_item_to_make_weight_capacity(void) {
   cw_world world;
   cw_event_buffer events;
@@ -1175,6 +1264,7 @@ int main(void) {
   test_maximum_evolution_burst_fits_event_buffer();
   test_npc_trade_items();
   test_npc_give_items();
+  test_actor_affordances_do_not_depend_on_controller_provenance();
   test_give_can_exchange_an_item_to_make_weight_capacity();
   test_npc_pickup_can_evolve_self();
   test_inventory_uses_weight_and_container_capacity();

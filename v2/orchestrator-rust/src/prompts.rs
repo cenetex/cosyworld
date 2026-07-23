@@ -1,9 +1,14 @@
 use super::*;
 
+pub(super) const DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT: &str =
+    "This avatar is directly controlled and is reacting to the action its controller just chose. Write speech only; do not invent private controller intent or another physical action.";
+pub(super) const DIRECTLY_CONTROLLED_REACTION_CONTEXT: &str =
+    "This is a co-present directly controlled avatar's immediate in-character reaction. Write speech only; do not invent private controller intent, an economy motive, or a physical action.";
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub(super) struct ResidentReplyPlan {
-    pub(super) npc_actor_id: u64,
-    pub(super) npc_name: String,
+pub(super) struct AvatarReplyPlan {
+    pub(super) speaker_actor_id: u64,
+    pub(super) speaker_name: String,
     pub(super) speech_mode: String,
     pub(super) resident_continuity: ResidentContinuityState,
     pub(super) economy_note: String,
@@ -28,7 +33,7 @@ pub(super) struct ResidentReplyPlan {
     pub(super) source_location_id: Option<u64>,
 }
 
-impl ResidentReplyPlan {
+impl AvatarReplyPlan {
     pub(super) fn with_observation(mut self, observation: &PlayerTickObservation) -> Self {
         self.caused_by_event_seq = observation.caused_by_event_seq;
         self.source_world_tick = Some(observation.source_world_tick);
@@ -60,12 +65,12 @@ pub(super) struct AvatarChatPlan {
     pub(super) missing_need: Option<String>,
 }
 
-pub(super) async fn resident_reply_intent(
+pub(super) async fn avatar_reply_intent(
     config: Option<&AiConfig>,
-    plan: &ResidentReplyPlan,
-) -> Result<ResidentIntentProposal, AiGatewayError> {
-    let config = config.ok_or_else(|| AiGatewayError::unconfigured("resident dialogue"))?;
-    request_ai_resident_intent(config, plan).await
+    plan: &AvatarReplyPlan,
+) -> Result<AvatarIntentProposal, AiGatewayError> {
+    let config = config.ok_or_else(|| AiGatewayError::unconfigured("avatar dialogue"))?;
+    request_ai_avatar_intent(config, plan).await
 }
 
 pub(super) async fn avatar_chat_text(
@@ -109,13 +114,13 @@ async fn request_ai_avatar_chat(
     let goals = format_goal_lines(&plan.goals);
     let target_continuity = format_resident_continuity(&plan.target_continuity);
     let need = if followup {
-        "Do not introduce a resident need or item that is absent from the freshest exchange."
+        "Do not introduce an avatar need or item that is absent from the freshest exchange."
             .to_string()
     } else {
         plan.missing_need
             .as_ref()
-            .map(|item| format!("The resident may currently need: {item}."))
-            .unwrap_or_else(|| "No current resident item need is known.".to_string())
+            .map(|item| format!("The other avatar may currently need: {item}."))
+            .unwrap_or_else(|| "No current avatar item need is known.".to_string())
     };
     let target_economy = if followup {
         "Do not revive an older request, trade, or item topic.".to_string()
@@ -126,14 +131,14 @@ async fn request_ai_avatar_chat(
         .fresh_subject
         .as_deref()
         .map(|subject| format!("Fresh conversation subject: {subject}. Stay on it."))
-        .unwrap_or_else(|| "Follow only the freshest resident line.".to_string());
+        .unwrap_or_else(|| "Follow only the freshest avatar line.".to_string());
     let system = if followup {
-        "You write the player avatar's brief follow-up in an ongoing cozy conversation. Respond directly to the freshest resident line and continue only its current subject. Never introduce an item, request, goal, or place that is absent from the two freshest lines. Keep one concrete room detail in play and leave a small closing hook. Do not restart the conversation. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Plain words and concrete nouns; no lyric flourishes; never attribute feelings or memories to objects. Keep it under 28 words."
+        "You write the directly controlled avatar's brief follow-up in an ongoing cozy conversation. Respond directly to the freshest line and continue only its current subject. Never introduce an item, request, goal, or place that is absent from the two freshest lines. Keep one concrete room detail in play and leave a small closing hook. Do not restart the conversation. The direct controller is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the other avatar. Plain words and concrete nouns; no lyric flourishes; never attribute feelings or memories to objects. Keep it under 28 words."
     } else {
-        "You write one in-character line for the player avatar after the human presses Chat. Make the line feel intentionally authored: use one concrete detail from the room, recent dialogue, or the target resident's continuity/current need, and give the resident an easy hook to answer. The human operator is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the resident. Plain words and concrete nouns; no lyric flourishes; never attribute feelings or memories to objects. Keep it under 34 words."
+        "You write one in-character line for a directly controlled avatar after its controller selects Chat. Make the line feel intentional: use one concrete detail from the room, recent dialogue, or the target avatar's continuity/current need, and give that avatar an easy hook to answer. The direct controller is silent; do not mention the user, buttons, UI, AI, prompts, policies, tools, or models. Do not speak for the other avatar. Plain words and concrete nouns; no lyric flourishes; never attribute feelings or memories to objects. Keep it under 34 words."
     };
     let user = format!(
-        "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nTarget resident: {target} / {target_title}\nTarget continuity:\n{target_continuity}\nTarget economy:\n{target_economy}\nCast present: {cast}\n{need}\n{fresh_subject}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
+        "Avatar: {name} / {title}\nAvatar description: {description}\nLocation: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nTarget avatar: {target} / {target_title}\nTarget continuity:\n{target_continuity}\nTarget economy:\n{target_economy}\nCast present: {cast}\n{need}\n{fresh_subject}\nRecent room lines:\n{recent}\nWrite only the avatar's next spoken line.",
         name = plan.actor_name,
         title = plan.actor_title,
         description = plan.actor_description,
@@ -175,10 +180,10 @@ async fn request_ai_avatar_chat(
     .map(|completion| completion.text)
 }
 
-pub(super) async fn request_ai_resident_intent(
+pub(super) async fn request_ai_avatar_intent(
     config: &AiConfig,
-    plan: &ResidentReplyPlan,
-) -> Result<ResidentIntentProposal, AiGatewayError> {
+    plan: &AvatarReplyPlan,
+) -> Result<AvatarIntentProposal, AiGatewayError> {
     let system = resident_system_prompt(plan);
     let recent = if plan.recent_lines.is_empty() {
         "No recent room dialogue.".to_string()
@@ -194,7 +199,7 @@ pub(super) async fn request_ai_resident_intent(
     let goals = format_goal_lines(&plan.goals);
     let resident_continuity = format_resident_continuity(&plan.resident_continuity);
     let user = format!(
-        "Location: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nResident continuity:\n{resident_continuity}\nResident economy:\n{economy_note}\nCast present: {cast}\nRecent played cards and room log, oldest to newest:\n{recent_activity}\nRecent room lines:\n{recent}\nCard or direct event to respond to:\n{line}\nReply contract: react to what actually happened in this channel. Treat the room log and played cards as facts, with newer entries superseding older state. Answer the direct event first, then use at most one concrete detail from the recent context as a hook. If it names a concrete item or place, repeat that name so the conversation cannot silently change subjects.\nReturn valid JSON only with this shape:\n{{\"speech\":\"one visible reply from {name}\",\"intent\":\"what {name} is trying next, or null\",\"belief\":\"what {name} now believes, or null\",\"desire\":\"what {name} wants, or null\",\"promise\":\"what {name} commits to, or null\",\"refusal\":\"what {name} refuses, or null\",\"proposed_action\":{{\"kind\":\"wait|speak|move|pick_up|drop|give|trade|use|search|refuse\",\"target_actor_id\":null,\"item_id\":null,\"destination_location_id\":null,\"reason\":\"why this action follows\"}}}}\nUse null for unknown optional fields. The kernel has not accepted proposed_action yet, so do not claim it already happened.",
+        "Location: {location} / {location_title}\nLocation description: {location_description}\nLocation persona: {location_persona}\nLocation memory:\n{location_memory}\nCurrent goals:\n{goals}\nSpeaker continuity:\n{resident_continuity}\nActor economy:\n{economy_note}\nCast present: {cast}\nRecent played cards and room log, oldest to newest:\n{recent_activity}\nRecent room lines:\n{recent}\nCard or direct event to respond to:\n{line}\nReply contract: react to what actually happened in this channel. Treat the room log and played cards as facts, with newer entries superseding older state. Answer the direct event first, then use at most one concrete detail from the recent context as a hook. If it names a concrete item or place, repeat that name so the conversation cannot silently change subjects.\nReturn valid JSON only with this shape:\n{{\"speech\":\"one visible reply from {name}\",\"intent\":\"what {name} is trying next, or null\",\"belief\":\"what {name} now believes, or null\",\"desire\":\"what {name} wants, or null\",\"promise\":\"what {name} commits to, or null\",\"refusal\":\"what {name} refuses, or null\",\"proposed_action\":{{\"kind\":\"wait|speak|move|pick_up|drop|give|trade|use|search|refuse\",\"target_actor_id\":null,\"item_id\":null,\"destination_location_id\":null,\"reason\":\"why this action follows\"}}}}\nUse null for unknown optional fields. The kernel has not accepted proposed_action yet, so do not claim it already happened.",
         location = plan.location_name,
         location_title = plan.location_title,
         location_description = plan.location_description,
@@ -207,7 +212,7 @@ pub(super) async fn request_ai_resident_intent(
         recent_activity = recent_activity,
         recent = recent,
         line = plan.user_text,
-        name = plan.npc_name
+        name = plan.speaker_name
     );
 
     let response_format = serde_json::json!({ "type": "json_object" });
@@ -227,7 +232,7 @@ pub(super) async fn request_ai_resident_intent(
     )
     .await?;
     parse_resident_intent_json(&completion.text, plan).ok_or_else(|| {
-        AiGatewayError::invalid_response("AI resident intent response was not usable JSON")
+        AiGatewayError::invalid_response("AI avatar intent response was not usable JSON")
     })
 }
 
@@ -337,18 +342,21 @@ pub(super) fn format_resident_continuity(continuity: &ResidentContinuityState) -
     lines.join("\n")
 }
 
-pub(super) fn resident_system_prompt(plan: &ResidentReplyPlan) -> String {
-    let base = "Return valid JSON only. Never mention AI, models, prompts, policies, tools, or system instructions. Do not speak for other residents. Treat resident continuity as this resident's durable perspective, while the room/kernel facts remain authoritative. The speech field is the only visible room line. Typed intent fields update continuity only after the kernel accepts the speech event. Comedy rules: ground every line in one physical action, prop, or bodily complaint from the room. Punchlines over poetry. Cheeky teasing and light flirting are welcome; keep it playful, never cruel or explicit. Never use the words whisper, eternal, void, abyss, veil, hush, sacred, vow, moonlit, or objects that remember things. If in doubt, be funnier and more specific.";
-    if plan
-        .economy_note
-        .starts_with("This is the player avatar's own immediate")
-    {
+pub(super) fn resident_system_prompt(plan: &AvatarReplyPlan) -> String {
+    let base = "Return valid JSON only. Never mention AI, models, prompts, policies, tools, or system instructions. Do not speak for other avatars. Treat speaker continuity as this avatar's durable perspective, while the room/kernel facts remain authoritative. The speech field is the only visible room line. Typed intent fields update continuity only after the kernel accepts the speech event. Comedy rules: ground every line in one physical action, prop, or bodily complaint from the room. Punchlines over poetry. Cheeky teasing and light flirting are welcome; keep it playful, never cruel or explicit. Never use the words whisper, eternal, void, abyss, veil, hush, sacred, vow, moonlit, or objects that remember things. If in doubt, be funnier and more specific.";
+    if plan.economy_note == DIRECTLY_CONTROLLED_SELF_REACTION_CONTEXT {
         return format!(
-            "You are {}, the player avatar in CosyWorld. Write their immediate first-person in-character response to the action they just chose. React to the concrete outcome instead of narrating the rules or inventing another action. Keep it under 34 words. {base}",
-            plan.npc_name
+            "You are {}, the acting avatar in CosyWorld. Speak briefly on behalf of its direct controller in first person, reacting to the concrete outcome of the action just chosen. Do not narrate rules, claim private controller thoughts, or invent another action. Keep it under 34 words. {base}",
+            plan.speaker_name
         );
     }
-    match plan.npc_actor_id {
+    if plan.economy_note == DIRECTLY_CONTROLLED_REACTION_CONTEXT {
+        return format!(
+            "You are {}, a co-present directly controlled avatar in CosyWorld. Speak briefly on behalf of its controller in first person, reacting to another avatar's concrete action in the room. Do not impersonate the acting avatar, claim private controller thoughts, or invent another action. Keep it under 34 words. {base}",
+            plan.speaker_name
+        );
+    }
+    match plan.speaker_actor_id {
         1001 => format!(
             "You are Rati, the cottage's brisk landlady mouse. The speech field must be first person: bossy, mothering, armed with knitting needles and opinions about boots. One concrete room prop per line. Under 40 words. {base}"
         ),
@@ -381,7 +389,7 @@ pub(super) fn resident_system_prompt(plan: &ResidentReplyPlan) -> String {
         ),
         _ => format!(
             "You are {} in CosyWorld, a grounded physical-comedy village. Keep the speech field concise, concrete, and cheeky. {base}",
-            plan.npc_name
+            plan.speaker_name
         ),
     }
 }

@@ -207,8 +207,6 @@ pub(super) struct WorldLocationView {
     pub(super) access_reason: Option<String>,
     pub(super) card: CardView,
     pub(super) actor_count: usize,
-    pub(super) human_count: usize,
-    pub(super) resident_count: usize,
     pub(super) item_count: usize,
     pub(super) actors: Vec<ActorView>,
     pub(super) items: Vec<ItemView>,
@@ -276,11 +274,13 @@ pub(super) struct ActorView {
     pub(super) name: String,
     pub(super) title: String,
     pub(super) description: String,
+    pub(super) control_mode: ActorControlMode,
     pub(super) kind: String,
     pub(super) status: String,
     pub(super) speech_mode: String,
     pub(super) location_id: u64,
     pub(super) factions: Vec<FactionRefView>,
+    #[serde(rename = "economy")]
     pub(super) resident_economy: Option<ResidentEconomyView>,
     pub(super) hp: i16,
     pub(super) bloodied: bool,
@@ -883,6 +883,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| format!("Actor {}", actor.id)),
             title: meta.map(|m| m.title.clone()).unwrap_or_default(),
             description: meta.map(|m| m.description.clone()).unwrap_or_default(),
+            control_mode: self.actor_control_mode(actor.id),
             kind: actor_kind(actor.kind).to_string(),
             status: actor_status(actor.status).to_string(),
             speech_mode: meta
@@ -951,7 +952,7 @@ impl RuntimeWorld {
     ) -> ResidentHeldItemView {
         let resident_name = self
             .actor_name(resident.id)
-            .unwrap_or_else(|| format!("Resident {}", resident.id));
+            .unwrap_or_else(|| format!("Avatar {}", resident.id));
         let item_name = self
             .item_name(item.id)
             .unwrap_or_else(|| format!("Item {}", item.id));
@@ -1082,10 +1083,7 @@ impl RuntimeWorld {
         holder_actor_id: u64,
     ) -> Option<ResidentRequestView> {
         let holder = self.actor_by_id(holder_actor_id)?;
-        if holder.kind != CW_ACTOR_HUMAN
-            || holder.status != CW_ACTOR_ACTIVE
-            || holder.location_id != resident.location_id
-        {
+        if !Self::actor_is_active_avatar(holder) || holder.location_id != resident.location_id {
             return None;
         }
 
@@ -1109,7 +1107,7 @@ impl RuntimeWorld {
         resident: CwActor,
         client_actor_id: Option<u64>,
     ) -> Option<ResidentEconomyView> {
-        if resident.kind != CW_ACTOR_NPC {
+        if !Self::actor_is_active_avatar(resident) {
             return None;
         }
         let held_items_raw = self.actor_held_items(resident.id);
@@ -1160,7 +1158,7 @@ impl RuntimeWorld {
                 });
         let resident_name = self
             .actor_name(resident.id)
-            .unwrap_or_else(|| format!("Resident {}", resident.id));
+            .unwrap_or_else(|| format!("Avatar {}", resident.id));
         let motive = if let Some(request) = request.as_ref() {
             if let Some(holder_name) = self.actor_name(request.holder_actor_id) {
                 let reason = request.reason.trim_end_matches('.');
@@ -1174,7 +1172,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| format!("Item {}", delivery.actor_item.id));
             let target_name = self
                 .actor_name(delivery.target.id)
-                .unwrap_or_else(|| format!("Resident {}", delivery.target.id));
+                .unwrap_or_else(|| format!("Avatar {}", delivery.target.id));
             let location_name = self
                 .location_name(delivery.target_location_id)
                 .unwrap_or_else(|| format!("Location {}", delivery.target_location_id));
@@ -1283,7 +1281,7 @@ impl RuntimeWorld {
         &self,
         actor_id: Option<u64>,
         access: &AccessContext,
-        active_human_actor_ids: Option<&BTreeSet<u64>>,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
         _openrouter_connected: bool,
     ) -> StateResponse {
         let client_actor_id = actor_id.filter(|id| self.client_actor_can_submit(*id));
@@ -1296,7 +1294,7 @@ impl RuntimeWorld {
             .copied()
             .filter(|actor| actor.location_id == location_id)
             .filter(|actor| {
-                self.actor_visible_in_projection(*actor, client_actor_id, active_human_actor_ids)
+                self.actor_visible_in_projection(*actor, client_actor_id, active_direct_actor_ids)
             })
             .map(|actor| self.actor_view_for_client(actor, client_actor_id))
             .collect();
@@ -2048,8 +2046,7 @@ impl RuntimeWorld {
             .iter()
             .filter(|target| {
                 target.id != actor_id
-                    && target.kind == CW_ACTOR_NPC
-                    && target.status == CW_ACTOR_ACTIVE
+                    && Self::actor_is_active_avatar(**target)
                     && target.location_id == location_id
                     && self
                         .rpg_claims
@@ -2074,7 +2071,7 @@ impl RuntimeWorld {
         &self,
         actor_id: Option<u64>,
         access: &AccessContext,
-        active_human_actor_ids: Option<&BTreeSet<u64>>,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
     ) -> WorldResponse {
         let client_actor_id = actor_id.filter(|id| self.client_actor_can_submit(*id));
         let current_location_id = client_actor_id
@@ -2134,7 +2131,7 @@ impl RuntimeWorld {
                         self.actor_visible_in_projection(
                             *actor,
                             client_actor_id,
-                            active_human_actor_ids,
+                            active_direct_actor_ids,
                         )
                     })
                     .collect();
@@ -2146,13 +2143,10 @@ impl RuntimeWorld {
                             && !self.forgotten_search_item_at_location(*item, location.id)
                     })
                     .collect();
-                let human_count = visible_actors_in_location
+                let actor_count = visible_actors_in_location
                     .iter()
-                    .filter(|actor| actor.kind == CW_ACTOR_HUMAN)
-                    .count();
-                let resident_count = visible_actors_in_location
-                    .iter()
-                    .filter(|actor| actor.kind == CW_ACTOR_NPC)
+                    .copied()
+                    .filter(|actor| Self::actor_is_active_avatar(*actor))
                     .count();
                 let actors = accessible
                     .then(|| {
@@ -2215,9 +2209,7 @@ impl RuntimeWorld {
                         access_rule.reason.map(ToString::to_string)
                     },
                     card,
-                    actor_count: visible_actors_in_location.len(),
-                    human_count,
-                    resident_count,
+                    actor_count,
                     item_count: items_in_location.len(),
                     actors,
                     items,
