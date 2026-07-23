@@ -1,7 +1,8 @@
 # Lonely Forest on Fly
 
-`lonelyforest.com` runs from the same immutable image digest as the primary
-`cosyworld` Fly app, but it has its own Fly application and persistent volume:
+`lonelyforest.com` runs from the same source revision as the primary
+`cosyworld` Fly app, but it has its own Fly application, image build, and
+persistent volume:
 
 | Domain | Fly app | Volume | WebAuthn RP ID |
 | --- | --- | --- | --- |
@@ -16,9 +17,21 @@ another Fly app, volume, passkey configuration, and explicit deployment target.
 ## Continuous deployment
 
 `.github/workflows/deploy.yml` builds and deploys `fly.toml` first. It then
-resolves the deployed registry digest and passes that exact digest to the
-Lonely Forest deployment. A successful workflow therefore proves both apps are
-running the same artifact; the second app is never rebuilt independently.
+performs a separate remote build from the same checked-out revision using
+`fly.lonelyforest.toml`. A successful workflow therefore proves both apps
+accepted the same source revision. The separate builds let each deployment use
+an app-scoped Fly token; an app-scoped Lonely Forest token cannot pull a private
+image owned by the primary app's registry.
+
+The workflow requires two GitHub Actions secrets:
+
+```text
+FLY_API_TOKEN
+FLY_LONELYFOREST_API_TOKEN
+```
+
+Each secret should be scoped to its corresponding Fly app. An organization-wide
+token is unnecessary.
 
 The Lonely Forest app requires these independently provisioned secrets:
 
@@ -39,8 +52,8 @@ output.
 1. Create `cosyworld-lonelyforest` and a 1 GB encrypted
    `lonelyforest_data` volume in `sjc`.
 2. Provision the production secrets without deploying a machine.
-3. Deploy the current `cosyworld` image by digest with
-   `fly.lonelyforest.toml`.
+3. Build and deploy the current source revision with
+   `fly.lonelyforest.toml` using the Lonely Forest app-scoped token.
 4. Restore the selected Lonely Forest SQLite journal and generated assets to
    the new volume before making the app writable to public traffic.
 5. Add Fly certificates for `lonelyforest.com` and

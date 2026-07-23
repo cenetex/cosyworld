@@ -27,11 +27,20 @@ describe('deploy workflow', () => {
     expect(workflow).not.toContain('group: deploy-${{ github.ref }}');
   });
 
-  it('deploys one immutable Fly image to both apps before publishing a release', () => {
+  it('builds the same revision with app-scoped tokens before publishing a release', () => {
     const fly = job('fly', 'github-release');
-    expect(fly).toContain('flyctl deploy --remote-only --config fly.toml');
-    expect(fly).toContain('flyctl image show --app "$FLY_PRIMARY_APP" --json');
-    expect(fly).toContain('flyctl deploy --config fly.lonelyforest.toml --image "${{ steps.image.outputs.ref }}"');
+    const primaryDeploy = 'flyctl deploy --remote-only --config fly.toml';
+    const lonelyForestDeploy =
+      'flyctl deploy --remote-only --config fly.lonelyforest.toml --ha=false';
+    expect(fly).toContain(primaryDeploy);
+    expect(fly).toContain(lonelyForestDeploy);
+    expect(fly.indexOf(primaryDeploy)).toBeLessThan(fly.indexOf(lonelyForestDeploy));
+    expect(fly).toContain('FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}');
+    expect(fly).toContain(
+      'FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}'
+    );
+    expect(fly).not.toContain('flyctl image show');
+    expect(fly).not.toContain('--image');
     expect(workflow).not.toContain('\n  aws:');
     expect(job('github-release')).toContain('needs: [fly]');
   });
