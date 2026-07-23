@@ -46,7 +46,7 @@ jobs:
       - name: Deploy the same image to Lonely Forest
         run: flyctl deploy --config fly.lonelyforest.toml --image "${{ steps.image.outputs.ref }}" --ha=false
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
   github-release:
     name: Create GitHub release
