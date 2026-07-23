@@ -1962,7 +1962,7 @@ struct MetaCombat {
     kernel_version: u32,
     action_economy: &'static str,
     resolution: &'static str,
-    actions: [&'static str; 3],
+    actions: [&'static str; 5],
 }
 
 #[derive(Debug, Serialize)]
@@ -23984,7 +23984,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             kernel_version: CW_KERNEL_VERSION,
             action_economy: "one_action_per_turn",
             resolution: "nonlethal_subdual_at_1_hp",
-            actions: ["attack", "dodge", "escape"],
+            actions: ["attack", "dodge", "escape", "pass", "need_time"],
         },
         worldpack: MetaWorldpack {
             id: active_content().manifest.id.clone(),
@@ -47538,6 +47538,17 @@ mod tests {
         assert!(healthy.last_read_success_at_unix.is_some());
         assert!(healthy.last_error_code.is_none());
         let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn metadata_advertises_every_ordered_combat_action() {
+        let state = test_app_state(RuntimeWorld::seeded(), None);
+        let combat = meta(State(state)).await.0.combat;
+
+        assert_eq!(
+            combat.actions,
+            ["attack", "dodge", "escape", "pass", "need_time"]
+        );
     }
 
     #[test]
