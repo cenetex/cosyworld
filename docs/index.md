@@ -32,6 +32,8 @@ do not define V2 behavior.
   validation, and inspection.
 - **[Action-pack authoring](../v2/docs/action-pack-authoring.md)** — reskins,
   contextual offers, justified variants/extensions, and playable Item cards.
+- **[Avatar transfer consent](transfer-consent.md)** — direct-player gift and
+  trade authorization, single-use gift requests, and mute/block/report controls.
 - **[Deck-gated action spike](../v2/docs/deck-gated-action-spike.md)** — the
   measured, non-shipping alternative to the default projection hand.
 - **[World simulation](../v2/docs/world-simulation.md)**,
@@ -68,4 +70,4 @@ current PRD take precedence:
 - [Historical fixes](fixes/)
 - [X402 agentic economy report](X402_AGENTIC_ECONOMY_REPORT.md)
 
-Last reviewed: 2026-07-22.
+Last reviewed: 2026-07-23.

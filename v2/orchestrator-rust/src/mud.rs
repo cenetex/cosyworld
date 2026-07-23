@@ -101,6 +101,19 @@ pub(crate) enum CommandDispatch {
         target_actor_id: u64,
         target_item_id: u64,
     },
+    ResolveTransferOffer {
+        offer_id: String,
+        decision: String,
+    },
+    SetActorSafety {
+        target_actor_id: u64,
+        control: ActorSafetyControl,
+        enabled: bool,
+    },
+    RequestGift {
+        offered_by_actor_id: u64,
+        item_id: u64,
+    },
     Theft {
         item_id: u64,
         target_actor_id: u64,
@@ -218,6 +231,15 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "get" | "take" | "pick" => "take",
         "give" | "gift" => "give",
         "trade" | "swap" | "barter" => "trade",
+        "offers" => "offers",
+        "request" => "request",
+        "accept" => "accept",
+        "decline" | "reject" => "decline",
+        "withdraw" | "cancel" => "withdraw",
+        "mute" => "mute",
+        "unmute" => "unmute",
+        "block" => "block",
+        "unblock" => "unblock",
         "steal" | "pilfer" => "steal",
         "craft" | "make" | "combine" => "craft",
         "use" | "drink" | "ring" => "use",
@@ -420,6 +442,13 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::TradeItem { .. } => {
             "That trade changed while you were choosing. Check what you carry and who is here."
         }
+        CommandDispatch::ResolveTransferOffer { .. } => {
+            "That transfer offer changed while you were choosing. Check offers again."
+        }
+        CommandDispatch::SetActorSafety { .. } => {
+            "That safety control could not be changed. Check who is nearby."
+        }
+        CommandDispatch::RequestGift { .. } => "That exact gift request is no longer available.",
         CommandDispatch::Theft { .. } => "That item is no longer a legal theft target.",
         CommandDispatch::Craft { .. } => {
             "That recipe changed. Check what you carry and what is nearby."
@@ -538,6 +567,12 @@ pub(crate) fn command_response_output_for_actor(
 pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
     match event.type_name.as_str() {
         "message.created" => event.content.clone(),
+        "transfer.offer_created"
+        | "transfer.offer_declined"
+        | "transfer.offer_withdrawn"
+        | "transfer.offer_unchanged"
+        | "gift.requested"
+        | "actor.safety_changed" => event.content.clone(),
         "hand.shuffled" => Some("You draw a new hand.".to_string()),
         "feature.searched" => Some(format!(
             "You search {}.",
@@ -956,7 +991,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, deck, bracelet unlock, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, trade <item> with <avatar> for <item>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, work, assist, rest, more, grow, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, deck, bracelet unlock, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, work, assist, rest, more, grow, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -1332,6 +1367,206 @@ impl RuntimeWorld {
                     dispatch: CommandDispatch::Drop { item_id: item.id },
                 })
             }
+            "request" => {
+                let (item_query, holder_query) = split_direct_indirect(rest, "from").ok_or_else(
+                    || {
+                        command_error(
+                            &command,
+                            "request",
+                            400,
+                            "Use: request <item> from <avatar>.",
+                        )
+                    },
+                )?;
+                let holder = self
+                    .resolve_room_actor(
+                        actor,
+                        holder_query,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
+                    )
+                    .map_err(|output| command_error(&command, "request", 404, output))?;
+                let item = self
+                    .resolve_actor_held_item(
+                        holder.id,
+                        item_query,
+                        "That avatar is not holding an item matching your request.",
+                    )
+                    .map_err(|output| command_error(&command, "request", 404, output))?;
+                if self.actors_blocked(actor.id, holder.id)
+                    || !self.actor_can_receive_item(actor, item.id)
+                {
+                    return Err(command_error(
+                        &command,
+                        "request",
+                        409,
+                        "That exact gift request is not available.",
+                    ));
+                }
+                let holder_name = self
+                    .actor_name(holder.id)
+                    .unwrap_or_else(|| format!("Avatar {}", holder.id));
+                let item_name = self
+                    .item_name(item.id)
+                    .unwrap_or_else(|| format!("Item {}", item.id));
+                Ok(ResolvedCommand {
+                    command: format!("request {item_name} from {holder_name}"),
+                    verb,
+                    action: Some(command_action(
+                        "request_gift",
+                        "Request gift",
+                        &format!("request {item_name} from {holder_name}"),
+                    )),
+                    dispatch: CommandDispatch::RequestGift {
+                        offered_by_actor_id: holder.id,
+                        item_id: item.id,
+                    },
+                })
+            }
+            "offers" => {
+                let mut offers = self
+                    .transfer_offers
+                    .values()
+                    .filter(|offer| {
+                        self.transfer_offer_status(offer) == TransferOfferStatus::Pending
+                            && (offer.offered_by_actor_id == actor.id
+                                || offer.offered_to_actor_id == actor.id)
+                    })
+                    .collect::<Vec<_>>();
+                offers.sort_by(|left, right| left.id.cmp(&right.id));
+                let output = if offers.is_empty() {
+                    "You have no pending transfer offers.".to_string()
+                } else {
+                    offers
+                        .into_iter()
+                        .map(|offer| {
+                            let from = self
+                                .actor_name(offer.offered_by_actor_id)
+                                .unwrap_or_else(|| {
+                                    format!("Avatar {}", offer.offered_by_actor_id)
+                                });
+                            let to = self
+                                .actor_name(offer.offered_to_actor_id)
+                                .unwrap_or_else(|| {
+                                    format!("Avatar {}", offer.offered_to_actor_id)
+                                });
+                            let item = self
+                                .item_name(offer.offered_item_id)
+                                .unwrap_or_else(|| format!("Item {}", offer.offered_item_id));
+                            let exchange = offer
+                                .requested_item_id
+                                .and_then(|id| self.item_name(id))
+                                .map(|requested| format!(" for {requested}"))
+                                .unwrap_or_default();
+                            format!("{}: {from} offers {item}{exchange} to {to}.", offer.id)
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                };
+                Ok(ResolvedCommand {
+                    command,
+                    verb,
+                    action: None,
+                    dispatch: CommandDispatch::Read { output },
+                })
+            }
+            "accept" | "decline" | "withdraw" => {
+                let mut candidates = self
+                    .transfer_offers
+                    .values()
+                    .filter(|offer| {
+                        self.transfer_offer_status(offer) == TransferOfferStatus::Pending
+                            && if verb == "withdraw" {
+                                offer.offered_by_actor_id == actor.id
+                            } else {
+                                offer.offered_to_actor_id == actor.id
+                            }
+                    })
+                    .filter(|offer| {
+                        rest.is_empty()
+                            || offer.id.eq_ignore_ascii_case(rest)
+                            || offer.id.starts_with(rest)
+                    })
+                    .collect::<Vec<_>>();
+                candidates.sort_by(|left, right| left.id.cmp(&right.id));
+                let offer = match candidates.as_slice() {
+                    [offer] => *offer,
+                    [] => {
+                        return Err(command_error(
+                            &command,
+                            &verb,
+                            404,
+                            "No matching pending transfer offer was found. Try offers.",
+                        ));
+                    }
+                    _ => {
+                        return Err(command_error(
+                            &command,
+                            &verb,
+                            409,
+                            "More than one offer matches. Use the full offer id shown by offers.",
+                        ));
+                    }
+                };
+                Ok(ResolvedCommand {
+                    command: format!("{verb} {}", offer.id),
+                    verb: verb.clone(),
+                    action: Some(command_action(
+                        "transfer_offer",
+                        match verb.as_str() {
+                            "accept" => "Accept",
+                            "decline" => "Decline",
+                            _ => "Withdraw",
+                        },
+                        &format!("{verb} {}", offer.id),
+                    )),
+                    dispatch: CommandDispatch::ResolveTransferOffer {
+                        offer_id: offer.id.clone(),
+                        decision: verb,
+                    },
+                })
+            }
+            "mute" | "unmute" | "block" | "unblock" => {
+                let target = self
+                    .resolve_room_actor(
+                        actor,
+                        rest,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
+                    )
+                    .map_err(|output| command_error(&command, &verb, 404, output))?;
+                if target.id == actor.id {
+                    return Err(command_error(
+                        &command,
+                        &verb,
+                        400,
+                        "Choose another nearby avatar.",
+                    ));
+                }
+                let control = if verb.contains("mute") {
+                    ActorSafetyControl::Mute
+                } else {
+                    ActorSafetyControl::Block
+                };
+                let enabled = !verb.starts_with("un");
+                let target_name = self
+                    .actor_name(target.id)
+                    .unwrap_or_else(|| format!("Avatar {}", target.id));
+                Ok(ResolvedCommand {
+                    command: format!("{verb} {target_name}"),
+                    verb: verb.clone(),
+                    action: Some(command_action(
+                        "actor_safety",
+                        if enabled { "Set safety" } else { "Clear safety" },
+                        &format!("{verb} {target_name}"),
+                    )),
+                    dispatch: CommandDispatch::SetActorSafety {
+                        target_actor_id: target.id,
+                        control,
+                        enabled,
+                    },
+                })
+            }
             "give" => {
                 let (item_query, target_query) = split_direct_indirect(rest, "to")
                     .ok_or_else(|| command_error(&command, "give", 400, "Use: give <item> to <avatar>."))?;
@@ -1405,8 +1640,13 @@ impl RuntimeWorld {
                         "That avatar is not holding an item that matches that command.",
                     )
                     .map_err(|output| command_error(&command, "trade", 404, output))?;
-                self.resident_trade_is_willing(actor.id, target.id, item.id, target_item.id)
-                    .map_err(|output| command_error(&command, "trade", 409, output))?;
+                if self.actor_control_mode(target.id).is_direct_input() {
+                    self.actor_trade_is_legal(actor.id, target.id, item.id, target_item.id)
+                        .map_err(|output| command_error(&command, "trade", 409, output))?;
+                } else {
+                    self.resident_trade_is_willing(actor.id, target.id, item.id, target_item.id)
+                        .map_err(|output| command_error(&command, "trade", 409, output))?;
+                }
                 let item_name = self.item_name(item.id).unwrap_or_else(|| item.id.to_string());
                 let target_name = self.actor_view(target).name;
                 let target_item_name = self
@@ -2036,6 +2276,14 @@ impl RuntimeWorld {
                         active_direct_actor_ids,
                     )
                     .map_err(|output| command_error(&command, "bond", 404, output))?;
+                if self.actors_blocked(actor.id, target.id) {
+                    return Err(command_error(
+                        &command,
+                        "bond",
+                        409,
+                        "Targeted social actions between these avatars are blocked.",
+                    ));
+                }
                 let target_name = self.actor_view(target).name;
                 let Some(active_bond) = self.active_bond(actor.id, target.id) else {
                     if self.advancement_points_available(actor.id) < usize::from(BOND_SLOT_COST) {

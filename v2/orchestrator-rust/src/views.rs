@@ -44,6 +44,7 @@ pub(super) struct StateResponse {
     pub(super) combat: Option<CombatView>,
     pub(super) turn: RoomTurnView,
     pub(super) branch: Option<BranchView>,
+    pub(super) safety: ActorSafetyView,
     pub(super) recent_events: Vec<EventView>,
     pub(super) room_memory: RoomMemoryView,
     pub(super) primary_action: PrimaryAction,
@@ -278,6 +279,8 @@ pub(super) struct ActorView {
     pub(super) kind: String,
     pub(super) status: String,
     pub(super) speech_mode: String,
+    pub(super) muted_by_you: bool,
+    pub(super) blocked_by_you: bool,
     pub(super) location_id: u64,
     pub(super) factions: Vec<FactionRefView>,
     #[serde(rename = "economy")]
@@ -285,6 +288,43 @@ pub(super) struct ActorView {
     pub(super) hp: i16,
     pub(super) bloodied: bool,
     pub(super) stats: StatView,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub(super) struct ActorSafetyView {
+    pub(super) muted_actor_ids: Vec<u64>,
+    pub(super) blocked_actor_ids: Vec<u64>,
+    pub(super) incoming_offers: Vec<TransferOfferView>,
+    pub(super) outgoing_offers: Vec<TransferOfferView>,
+    pub(super) gift_auto_accepts: Vec<GiftAutoAcceptView>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct TransferOfferView {
+    pub(super) id: String,
+    pub(super) kind: TransferOfferKind,
+    pub(super) offered_by_actor_id: u64,
+    pub(super) offered_by_actor_name: String,
+    pub(super) offered_to_actor_id: u64,
+    pub(super) offered_to_actor_name: String,
+    pub(super) offered_item_id: u64,
+    pub(super) offered_item_name: String,
+    pub(super) requested_item_id: Option<u64>,
+    pub(super) requested_item_name: Option<String>,
+    pub(super) expires_tick: u64,
+    pub(super) can_accept: bool,
+    pub(super) can_decline: bool,
+    pub(super) can_withdraw: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct GiftAutoAcceptView {
+    pub(super) id: String,
+    pub(super) offered_by_actor_id: u64,
+    pub(super) offered_by_actor_name: String,
+    pub(super) item_id: u64,
+    pub(super) item_name: String,
+    pub(super) expires_tick: u64,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -889,6 +929,13 @@ impl RuntimeWorld {
             speech_mode: meta
                 .map(|m| m.speech_mode.clone())
                 .unwrap_or_else(|| "prose".to_string()),
+            muted_by_you: client_actor_id
+                .is_some_and(|client_id| self.actor_muted(client_id, actor.id)),
+            blocked_by_you: client_actor_id.is_some_and(|client_id| {
+                self.actor_safety
+                    .get(&client_id)
+                    .is_some_and(|safety| safety.blocked_actor_ids.contains(&actor.id))
+            }),
             location_id: actor.location_id,
             factions: faction_refs_for_actor(actor.id),
             resident_economy: self.resident_economy_view(actor, client_actor_id),
@@ -904,6 +951,90 @@ impl RuntimeWorld {
                 hp_base: actor.stats.hp_base,
                 level: actor.stats.level,
             },
+        }
+    }
+
+    fn actor_safety_view(&self, client_actor_id: Option<u64>) -> ActorSafetyView {
+        let Some(client_actor_id) = client_actor_id else {
+            return ActorSafetyView::default();
+        };
+        let safety = self
+            .actor_safety
+            .get(&client_actor_id)
+            .cloned()
+            .unwrap_or_default();
+        let transfer_view = |offer: &TransferOfferState| TransferOfferView {
+            id: offer.id.clone(),
+            kind: offer.kind,
+            offered_by_actor_id: offer.offered_by_actor_id,
+            offered_by_actor_name: self
+                .actor_name(offer.offered_by_actor_id)
+                .unwrap_or_else(|| format!("Avatar {}", offer.offered_by_actor_id)),
+            offered_to_actor_id: offer.offered_to_actor_id,
+            offered_to_actor_name: self
+                .actor_name(offer.offered_to_actor_id)
+                .unwrap_or_else(|| format!("Avatar {}", offer.offered_to_actor_id)),
+            offered_item_id: offer.offered_item_id,
+            offered_item_name: self
+                .item_name(offer.offered_item_id)
+                .unwrap_or_else(|| format!("Item {}", offer.offered_item_id)),
+            requested_item_id: offer.requested_item_id,
+            requested_item_name: offer
+                .requested_item_id
+                .and_then(|item_id| self.item_name(item_id)),
+            expires_tick: offer.expires_tick,
+            can_accept: offer.offered_to_actor_id == client_actor_id,
+            can_decline: offer.offered_to_actor_id == client_actor_id,
+            can_withdraw: offer.offered_by_actor_id == client_actor_id,
+        };
+        let mut incoming_offers = self
+            .transfer_offers
+            .values()
+            .filter(|offer| {
+                offer.offered_to_actor_id == client_actor_id
+                    && self.transfer_offer_status(offer) == TransferOfferStatus::Pending
+            })
+            .map(transfer_view)
+            .collect::<Vec<_>>();
+        let mut outgoing_offers = self
+            .transfer_offers
+            .values()
+            .filter(|offer| {
+                offer.offered_by_actor_id == client_actor_id
+                    && self.transfer_offer_status(offer) == TransferOfferStatus::Pending
+            })
+            .map(transfer_view)
+            .collect::<Vec<_>>();
+        let mut gift_auto_accepts = self
+            .gift_auto_accepts
+            .values()
+            .filter(|policy| {
+                policy.recipient_actor_id == client_actor_id
+                    && !policy.consumed
+                    && self.world.tick < policy.expires_tick
+            })
+            .map(|policy| GiftAutoAcceptView {
+                id: policy.id.clone(),
+                offered_by_actor_id: policy.offered_by_actor_id,
+                offered_by_actor_name: self
+                    .actor_name(policy.offered_by_actor_id)
+                    .unwrap_or_else(|| format!("Avatar {}", policy.offered_by_actor_id)),
+                item_id: policy.item_id,
+                item_name: self
+                    .item_name(policy.item_id)
+                    .unwrap_or_else(|| format!("Item {}", policy.item_id)),
+                expires_tick: policy.expires_tick,
+            })
+            .collect::<Vec<_>>();
+        incoming_offers.sort_by(|left, right| left.id.cmp(&right.id));
+        outgoing_offers.sort_by(|left, right| left.id.cmp(&right.id));
+        gift_auto_accepts.sort_by(|left, right| left.id.cmp(&right.id));
+        ActorSafetyView {
+            muted_actor_ids: safety.muted_actor_ids.into_iter().collect(),
+            blocked_actor_ids: safety.blocked_actor_ids.into_iter().collect(),
+            incoming_offers,
+            outgoing_offers,
+            gift_auto_accepts,
         }
     }
 
@@ -1137,25 +1268,41 @@ impl RuntimeWorld {
         let trade_stance_candidate = client_actor_id.and_then(|actor_id| {
             self.default_item_trade_stance_candidate_for_target(actor_id, resident.id)
         });
+        let direct_consent = self.actor_control_mode(resident.id).is_direct_input();
         let trade_offer = trade_stance_candidate
             .as_ref()
-            .filter(|candidate| candidate.preference.accepted)
+            .filter(|candidate| direct_consent || candidate.preference.accepted)
             .map(|candidate| ResidentTradeOfferView {
                 offered_item_id: candidate.offered_item.id,
                 requested_item_id: candidate.target_item.id,
-                willingness: candidate.preference.willingness.to_string(),
-                reason: candidate.preference.reason.clone(),
+                willingness: if direct_consent {
+                    "awaits consent".to_string()
+                } else {
+                    candidate.preference.willingness.to_string()
+                },
+                reason: if direct_consent {
+                    format!(
+                        "Only {} can accept this exchange.",
+                        self.actor_name(resident.id)
+                            .unwrap_or_else(|| format!("Avatar {}", resident.id))
+                    )
+                } else {
+                    candidate.preference.reason.clone()
+                },
             });
-        let trade_stance =
-            trade_stance_candidate
-                .as_ref()
-                .map(|candidate| ResidentTradeStanceView {
-                    offered_item_id: candidate.offered_item.id,
-                    requested_item_id: candidate.target_item.id,
-                    willingness: candidate.preference.willingness.to_string(),
-                    reason: candidate.preference.reason.clone(),
-                    accepted: candidate.preference.accepted,
-                });
+        let trade_stance = (!direct_consent)
+            .then(|| {
+                trade_stance_candidate
+                    .as_ref()
+                    .map(|candidate| ResidentTradeStanceView {
+                        offered_item_id: candidate.offered_item.id,
+                        requested_item_id: candidate.target_item.id,
+                        willingness: candidate.preference.willingness.to_string(),
+                        reason: candidate.preference.reason.clone(),
+                        accepted: candidate.preference.accepted,
+                    })
+            })
+            .flatten();
         let resident_name = self
             .actor_name(resident.id)
             .unwrap_or_else(|| format!("Avatar {}", resident.id));
@@ -1340,7 +1487,14 @@ impl RuntimeWorld {
         let recent_events = self
             .event_log
             .iter()
-            .filter(|event| event_visible_in_location(event, location_id))
+            .filter(|event| {
+                event_visible_in_location(event, location_id)
+                    && !client_actor_id.is_some_and(|actor_id| {
+                        event
+                            .actor_id
+                            .is_some_and(|source_id| self.actor_muted(actor_id, source_id))
+                    })
+            })
             .rev()
             .take(80)
             .cloned()
@@ -1416,6 +1570,7 @@ impl RuntimeWorld {
             combat: client_actor_id.and_then(|id| self.combat_view(id, access)),
             turn: RoomTurnView::idle(location_id),
             branch: None,
+            safety: self.actor_safety_view(client_actor_id),
             recent_events,
             room_memory,
             primary_action,
