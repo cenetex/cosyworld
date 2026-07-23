@@ -18,6 +18,7 @@ primary_region = "sjc"
   COSYWORLD_HOSTED_ACCESS_TTL_SECS = "7200"
   COSYWORLD_HOSTED_ACCESS_GRACE_SECS = "60"
   COSYWORLD_STORY_METRICS_RETENTION_DAYS = "400"
+  COSYWORLD_REPLICATE_AVATAR_MODEL = "black-forest-labs/flux-dev-lora"
   RUST_LOG = "cosyworld_orchestrator=info,tower_http=warn"
 
 # Required production secrets:

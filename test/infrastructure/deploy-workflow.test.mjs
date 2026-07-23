@@ -5,6 +5,14 @@ const workflow = readFileSync(
   new URL('../../.github/workflows/deploy.yml', import.meta.url),
   'utf8'
 );
+const primaryFlyConfig = readFileSync(
+  new URL('../../fly.toml', import.meta.url),
+  'utf8'
+);
+const lonelyForestFlyConfig = readFileSync(
+  new URL('../../fly.lonelyforest.toml', import.meta.url),
+  'utf8'
+);
 
 const job = (name, nextName) => {
   const start = workflow.indexOf(`\n  ${name}:`);
@@ -26,5 +34,11 @@ describe('deploy workflow', () => {
     expect(fly).toContain('flyctl deploy --config fly.lonelyforest.toml --image "${{ steps.image.outputs.ref }}"');
     expect(workflow).not.toContain('\n  aws:');
     expect(job('github-release')).toContain('needs: [fly]');
+  });
+
+  it('keeps the image workshop configured on both Fly tenants', () => {
+    const model = 'COSYWORLD_REPLICATE_AVATAR_MODEL = "black-forest-labs/flux-dev-lora"';
+    expect(primaryFlyConfig).toContain(model);
+    expect(lonelyForestFlyConfig).toContain(model);
   });
 });
