@@ -728,6 +728,28 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
         } else {
             "You listen closely, but the room keeps its secret.".to_string()
         }),
+        "job.contribution.resolved" => event
+            .content
+            .as_deref()
+            .and_then(|content| serde_json::from_str::<JobContributionTrace>(content).ok())
+            .map(|trace| {
+                let headway = if trace.total_progress == 1 {
+                    "1 step".to_string()
+                } else {
+                    format!("{} steps", trace.total_progress)
+                };
+                let outcome = if trace.outcome == "failure" {
+                    " The attempt falls short, but the careful groundwork still counts."
+                } else {
+                    ""
+                };
+                format!(
+                    "You try to {} at {}; the shared work gains {headway}.{outcome}",
+                    trace.strategy_label.to_lowercase(),
+                    trace.target.label
+                )
+            })
+            .or_else(|| Some("Your approach changes the shared work.".to_string())),
         "clock.updated" => Some(format!(
             "{} {}.",
             event
@@ -740,6 +762,7 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
                 "draws closer"
             }
         )),
+        "clock.threshold" => event.content.clone(),
         "tag.applied" => Some(format!(
             "You are now {}.",
             event.tag_label.as_deref().unwrap_or("changed")
@@ -1966,27 +1989,29 @@ impl RuntimeWorld {
                 })
             }
             "study" => {
-                let authored = actor.location_id == MOONLIT_TRAIL_LOCATION_ID
-                    || !self
-                        .contextual_action_contributions(actor.id, "srd5.2.1:study")
-                        .2
-                        .is_empty();
-                if !authored {
+                let contribution =
+                    self.job_contribution_intent(actor.id, "study", None, None, None);
+                let Some(contribution) = contribution else {
                     return Ok(ResolvedCommand {
                         command: "study".to_string(),
                         verb,
                         action: Some(command_action("study", "Study", "study")),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "There is no authored analytical subject to Study here."
-                                .to_string(),
+                            output:
+                                "There is no authored quest contribution to Study here."
+                                    .to_string(),
                         },
                     });
-                }
+                };
                 Ok(ResolvedCommand {
-                    command: "study".to_string(),
+                    command: format!("study {}", contribution.target.label),
                     verb,
-                    action: Some(command_action("study", "Study", "study")),
+                    action: Some(command_action(
+                        "study",
+                        &contribution.strategy.strategy_label,
+                        "study",
+                    )),
                     dispatch: CommandDispatch::Study,
                 })
             }

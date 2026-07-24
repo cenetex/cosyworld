@@ -511,6 +511,9 @@ pub(super) struct JobView {
     pub(super) consequence: String,
     pub(super) action_label: String,
     pub(super) action_summary: String,
+    pub(super) contribution_schema_version: u8,
+    pub(super) contribution_strategies: Vec<JobContributionStrategy>,
+    pub(super) narrated_thresholds: Vec<JobNarratedThreshold>,
 }
 
 #[derive(Debug, Serialize)]
@@ -656,6 +659,17 @@ pub(super) struct JobInspectorView {
     pub(super) danger_clock_id: String,
     pub(super) reward: String,
     pub(super) consequence: String,
+    pub(super) contribution_schema_version: u8,
+    pub(super) contribution_strategies: Vec<JobContributionInspectorView>,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct JobContributionInspectorView {
+    pub(super) strategy: JobContributionStrategy,
+    pub(super) resolved_target: Option<ResolvedContributionTarget>,
+    pub(super) available: bool,
+    pub(super) claim_key: Option<String>,
+    pub(super) source_event_seqs: Vec<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1851,6 +1865,9 @@ impl RuntimeWorld {
                 consequence: job.consequence.clone(),
                 action_label: self.job_action_label(job),
                 action_summary: self.job_action_summary(job),
+                contribution_schema_version: job.contribution_schema_version,
+                contribution_strategies: job.contribution_strategies.clone(),
+                narrated_thresholds: job.narrated_thresholds.clone(),
             })
             .collect()
     }
@@ -2024,14 +2041,18 @@ impl RuntimeWorld {
                 listen_reason,
             },
             suggested_action,
-            jobs: self.job_inspector_views(location_id),
+            jobs: self.job_inspector_views(location_id, actor_id),
             fronts: self.front_views(location_id),
             clocks: self.clock_inspector_views(location_id),
             lifecycle_hooks: self.lifecycle_hook_inspector_views(location_id),
         }
     }
 
-    pub(super) fn job_inspector_views(&self, location_id: u64) -> Vec<JobInspectorView> {
+    pub(super) fn job_inspector_views(
+        &self,
+        location_id: u64,
+        actor_id: Option<u64>,
+    ) -> Vec<JobInspectorView> {
         self.jobs
             .values()
             .filter(|job| job.location_ids.contains(&location_id))
@@ -2063,6 +2084,62 @@ impl RuntimeWorld {
                             .unwrap_or_else(|| format!("Actor {actor_id}"))
                     })
                     .collect();
+                let contribution_strategies = job
+                    .contribution_strategies
+                    .iter()
+                    .map(|strategy| {
+                        let resolved_target = actor_id.and_then(|actor_id| {
+                            self.resolve_contribution_target(actor_id, job, strategy, None)
+                        });
+                        let claim_key = actor_id.zip(resolved_target.as_ref()).and_then(
+                            |(actor_id, target)| {
+                                Self::contribution_claim_key(actor_id, &job.id, strategy, target)
+                            },
+                        );
+                        let available =
+                            actor_id
+                                .zip(resolved_target.as_ref())
+                                .is_some_and(|(actor_id, _)| {
+                                    self.job_status(job) == "active"
+                                        && self
+                                            .clocks
+                                            .get(&strategy.clock_id)
+                                            .is_some_and(|clock| clock.filled < clock.segments)
+                                        && self.contribution_strategy_binding_is_active(strategy)
+                                        && strategy.requirements.iter().all(|requirement| {
+                                            self.contribution_requirement_met(actor_id, requirement)
+                                        })
+                                        && claim_key.as_ref().is_none_or(|claim_key| {
+                                            !self.rpg_claims.contains(claim_key)
+                                        })
+                                });
+                        let mut source_event_seqs = self
+                            .event_log
+                            .iter()
+                            .filter(|event| event.type_name == "job.contribution.resolved")
+                            .filter_map(|event| {
+                                let trace = serde_json::from_str::<JobContributionTrace>(
+                                    event.content.as_deref()?,
+                                )
+                                .ok()?;
+                                (trace.job_id == job.id && trace.strategy_id == strategy.id)
+                                    .then_some((event.seq, trace.source_event_seqs))
+                            })
+                            .flat_map(|(event_seq, source_event_seqs)| {
+                                std::iter::once(event_seq).chain(source_event_seqs)
+                            })
+                            .collect::<Vec<_>>();
+                        source_event_seqs.sort_unstable();
+                        source_event_seqs.dedup();
+                        JobContributionInspectorView {
+                            strategy: strategy.clone(),
+                            resolved_target,
+                            available,
+                            claim_key,
+                            source_event_seqs,
+                        }
+                    })
+                    .collect();
                 JobInspectorView {
                     id: job.id.clone(),
                     status: self.job_status(job),
@@ -2074,6 +2151,8 @@ impl RuntimeWorld {
                     danger_clock_id: job.danger_clock_id.clone(),
                     reward: job.reward.label().to_string(),
                     consequence: job.consequence.clone(),
+                    contribution_schema_version: job.contribution_schema_version,
+                    contribution_strategies,
                 }
             })
             .collect()

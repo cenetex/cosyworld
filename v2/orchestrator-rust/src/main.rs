@@ -631,7 +631,7 @@ struct JourneyNarrationPlan {
     discovery: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 enum EffectDescriptor {
     AdvanceClock {
@@ -662,6 +662,137 @@ enum EffectDescriptor {
         #[serde(default)]
         reason: Option<String>,
     },
+}
+
+const JOB_CONTRIBUTION_SCHEMA_VERSION: u8 = 1;
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct ContributionTargetDescriptor {
+    kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    predicate: Option<String>,
+    label: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum ContributionRequirement {
+    AtLocation {
+        location_id: u64,
+    },
+    HeldItem {
+        item_id: u64,
+    },
+    ActiveTag {
+        tag_id: String,
+    },
+    RoomFeature {
+        location_id: u64,
+        feature_key: String,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum ContributionResolutionPolicy {
+    Certain,
+    SrdCheck { ability: String, dc: u16 },
+    ExistingKernelOutcome { event_type: String },
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum ContributionClaimPolicy {
+    #[default]
+    Repeatable,
+    OncePerActor,
+    OncePerTarget,
+    OncePerActorTarget,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct JobContributionStrategy {
+    version: u8,
+    id: String,
+    action_kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rules_action: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    operation: Option<String>,
+    target: ContributionTargetDescriptor,
+    #[serde(default)]
+    requirements: Vec<ContributionRequirement>,
+    resolution: ContributionResolutionPolicy,
+    clock_id: String,
+    baseline_progress: u8,
+    #[serde(default)]
+    success_progress: u8,
+    #[serde(default)]
+    prepared_bonus_progress: u8,
+    #[serde(default)]
+    on_success: Vec<EffectDescriptor>,
+    #[serde(default)]
+    on_failure: Vec<EffectDescriptor>,
+    #[serde(default)]
+    claim_policy: ContributionClaimPolicy,
+    strategy_label: String,
+    narration_key: String,
+    rules_profile: String,
+    rules_pack_id: String,
+    rules_pack_version: String,
+    pack_id: String,
+    pack_version: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct JobNarratedThreshold {
+    clock_id: String,
+    filled: u8,
+    narration_key: String,
+    text: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct ResolvedContributionTarget {
+    kind: String,
+    id: String,
+    label: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct JobContributionIntent {
+    job_id: String,
+    strategy: JobContributionStrategy,
+    target: ResolvedContributionTarget,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct JobContributionTrace {
+    schema_version: u8,
+    job_id: String,
+    strategy_id: String,
+    strategy_label: String,
+    narration_key: String,
+    action_kind: String,
+    rules_action: Option<String>,
+    operation: Option<String>,
+    target: ResolvedContributionTarget,
+    resolution: String,
+    outcome: String,
+    baseline_progress: u8,
+    success_progress: u8,
+    prepared_bonus_progress: u8,
+    total_progress: u8,
+    clock_id: String,
+    claim_key: Option<String>,
+    source_event_seqs: Vec<u64>,
+    rules_profile: String,
+    rules_pack_id: String,
+    rules_pack_version: String,
+    pack_id: String,
+    pack_version: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -748,6 +879,12 @@ struct JobState {
     memory_summary: String,
     #[serde(default)]
     action_copy: JobActionCopy,
+    #[serde(default)]
+    contribution_schema_version: u8,
+    #[serde(default)]
+    contribution_strategies: Vec<JobContributionStrategy>,
+    #[serde(default)]
+    narrated_thresholds: Vec<JobNarratedThreshold>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     delivery: Option<DeliveryJobSpec>,
 }
@@ -911,6 +1048,9 @@ enum ProjectionMutation {
         clock_id: String,
         amount: u8,
         reason: String,
+    },
+    ResolveJobContribution {
+        intent: JobContributionIntent,
     },
     SetTag {
         tag: RpgTagState,
@@ -2741,6 +2881,14 @@ struct ActionProjectView {
     label: String,
     summary: String,
     progress_clock_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    strategy_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    strategy_label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resolution: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    claim_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -3301,6 +3449,28 @@ struct CheckRequest {
     actor_session: Option<String>,
     ability: String,
     dc: Option<u16>,
+}
+
+#[derive(Debug, Deserialize)]
+struct StudyContributionRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    ability: String,
+    dc: Option<u16>,
+    #[serde(default)]
+    job_id: Option<String>,
+    #[serde(default)]
+    strategy_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct JobContributionRequest {
+    actor_id: u64,
+    actor_session: Option<String>,
+    #[serde(default)]
+    job_id: Option<String>,
+    #[serde(default)]
+    strategy_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -7745,7 +7915,7 @@ impl RuntimeWorld {
             });
         self.jobs.entry(job_id.clone()).or_insert_with(|| JobState {
             pack_id: String::new(),
-            id: job_id,
+            id: job_id.clone(),
             premise: "Make the newly found way familiar.".to_string(),
             stakes: "Until enough travelers help, the route stays wild and changeable.".to_string(),
             location_ids: pathway
@@ -7754,7 +7924,7 @@ impl RuntimeWorld {
                 .map(|waypoint| waypoint.id)
                 .collect(),
             participant_ids: Vec::new(),
-            progress_clock_id,
+            progress_clock_id: progress_clock_id.clone(),
             danger_clock_id,
             status: if pathway.familiar {
                 "completed"
@@ -7773,6 +7943,18 @@ impl RuntimeWorld {
                 summary: "Choose how to help this newly found route settle into a familiar way."
                     .to_string(),
             },
+            contribution_schema_version: JOB_CONTRIBUTION_SCHEMA_VERSION,
+            contribution_strategies: generated_pathway_contribution_strategies(
+                &job_id,
+                &progress_clock_id,
+            ),
+            narrated_thresholds: vec![JobNarratedThreshold {
+                clock_id: progress_clock_id.clone(),
+                filled: 2,
+                narration_key: "pathway.familiarity.taking-shape".to_string(),
+                text: "The route is beginning to feel remembered rather than merely crossed."
+                    .to_string(),
+            }],
             delivery: None,
         });
     }
@@ -9403,6 +9585,16 @@ impl RuntimeWorld {
         self.next_seed = record.seed;
         let action = self.action_with_skill_bonus(record.action);
         let advances_world_tick = record.advances_world_tick();
+        let authoritative_contribution_clock_ids = record
+            .projection_mutations
+            .iter()
+            .filter_map(|mutation| match mutation {
+                ProjectionMutation::ResolveJobContribution { intent } => {
+                    Some(intent.strategy.clock_id.clone())
+                }
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
         self.prepare_projection_mutations(&record.projection_mutations);
         let projection_only_blocked_by_combat = advances_world_tick
             && action.kind == CW_ACTION_NONE
@@ -9477,7 +9669,12 @@ impl RuntimeWorld {
                 }
             }
             events.extend(self.expire_stale_branches());
-            events.extend(self.apply_projection_mutations(&action, &record.projection_mutations));
+            let committed_events = events.clone();
+            events.extend(self.apply_projection_mutations(
+                &action,
+                &committed_events,
+                &record.projection_mutations,
+            ));
             events.extend(self.apply_class_readiness_projection(record, &action));
             let committed_events = events.clone();
             events.extend(self.apply_bounded_magic_projection(&action, &committed_events));
@@ -9485,7 +9682,11 @@ impl RuntimeWorld {
             events.extend(self.apply_influence_projection(&action, &committed_events));
             self.reinforce_search_memories_from_events(&events);
             let committed_events = events.clone();
-            events.extend(self.apply_event_lifecycle_hooks(&action, &committed_events));
+            events.extend(self.apply_event_lifecycle_hooks(
+                &action,
+                &committed_events,
+                &authoritative_contribution_clock_ids,
+            ));
             let committed_events = events.clone();
             events.extend(self.apply_defend_project_preparation(&action, &committed_events));
             let committed_events = events.clone();
@@ -9514,6 +9715,7 @@ impl RuntimeWorld {
                 &events,
                 was_repeat_listen,
                 discovery_settlement_reason,
+                &authoritative_contribution_clock_ids,
             ));
             let committed_events = events.clone();
             events.extend(self.clear_job_resolved_tags_from_events(&committed_events));
@@ -9572,6 +9774,7 @@ impl RuntimeWorld {
     fn apply_projection_mutations(
         &mut self,
         action: &CwAction,
+        committed_events: &[EventView],
         mutations: &[ProjectionMutation],
     ) -> Vec<EventView> {
         let mut events = Vec::new();
@@ -10249,6 +10452,15 @@ impl RuntimeWorld {
                     amount,
                     reason,
                 } => events.extend(self.advance_clock(clock_id, *amount, action.actor_id, reason)),
+                ProjectionMutation::ResolveJobContribution { intent } => {
+                    let mut contribution_sources = committed_events.to_vec();
+                    contribution_sources.extend(events.clone());
+                    events.extend(self.resolve_job_contribution(
+                        action,
+                        &contribution_sources,
+                        intent,
+                    ));
+                }
                 ProjectionMutation::SetTag { tag, reason } => {
                     if let Some(event) = self.set_rpg_tag(tag.clone(), action.actor_id, reason) {
                         events.push(event);
@@ -10472,6 +10684,7 @@ impl RuntimeWorld {
         &mut self,
         action: &CwAction,
         events: &[EventView],
+        excluded_clock_ids: &BTreeSet<String>,
     ) -> Vec<EventView> {
         let mut projected = Vec::new();
         for event in events {
@@ -10480,32 +10693,35 @@ impl RuntimeWorld {
             }
             if event.type_name == "actor.moved" && event.actor_id == Some(action.actor_id) {
                 if let Some(destination_location_id) = event.destination_location_id {
-                    projected.extend(self.apply_lifecycle_hooks(
+                    projected.extend(self.apply_lifecycle_hooks_excluding_clocks(
                         "on_enter",
                         "room",
                         &destination_location_id.to_string(),
                         action.actor_id,
                         event.seq,
+                        excluded_clock_ids,
                     ));
                 }
             } else if event.type_name == "item.used" && event.actor_id == Some(action.actor_id) {
                 if let Some(item_id) = event.item_id {
-                    projected.extend(self.apply_lifecycle_hooks(
+                    projected.extend(self.apply_lifecycle_hooks_excluding_clocks(
                         "on_use",
                         "item",
                         &item_id.to_string(),
                         action.actor_id,
                         event.seq,
+                        excluded_clock_ids,
                     ));
                 }
             } else if event.type_name == "item.given" && event.actor_id == Some(action.actor_id) {
                 if let Some(target_actor_id) = event.target_actor_id {
-                    projected.extend(self.apply_lifecycle_hooks(
+                    projected.extend(self.apply_lifecycle_hooks_excluding_clocks(
                         "on_give",
                         "actor",
                         &target_actor_id.to_string(),
                         action.actor_id,
                         event.seq,
+                        excluded_clock_ids,
                     ));
                 }
             }
@@ -10513,16 +10729,32 @@ impl RuntimeWorld {
         projected
     }
 
-    fn apply_lifecycle_hooks(
+    fn apply_lifecycle_hooks_excluding_clocks(
         &mut self,
         hook_name: &str,
         target_kind: &str,
         target_id: &str,
         actor_id: u64,
         source_event_seq: u64,
+        excluded_clock_ids: &BTreeSet<String>,
     ) -> Vec<EventView> {
         let mut projected = Vec::new();
         for hook in lifecycle_hooks_for(hook_name, target_kind, target_id) {
+            let effects = hook
+                .effects
+                .iter()
+                .filter(|effect| {
+                    !matches!(
+                        effect,
+                        EffectDescriptor::AdvanceClock { clock_id, .. }
+                            if excluded_clock_ids.contains(clock_id)
+                    )
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            if effects.is_empty() {
+                continue;
+            }
             if let Some(claim_key) =
                 lifecycle_hook_claim_key(hook, actor_id, target_kind, target_id, source_event_seq)
             {
@@ -10534,7 +10766,7 @@ impl RuntimeWorld {
                 hook_name,
                 actor_id,
                 source_event_seq,
-                &hook.effects,
+                &effects,
             ));
         }
         projected
@@ -10820,20 +11052,29 @@ impl RuntimeWorld {
     ) -> Vec<EventView> {
         let mut projected = Vec::new();
         for event in events {
-            if event.type_name != "clock.updated"
-                || event.clock_kind.as_deref() != Some("progress")
-                || !matches!(
-                    event.content.as_deref(),
-                    Some(
-                        "work"
-                            | "prepared_work"
-                            | "informed_work"
-                            | "help"
-                            | "prepared_help"
-                            | "informed_help"
-                    )
-                )
+            if event.type_name != "clock.updated" || event.clock_kind.as_deref() != Some("progress")
             {
+                continue;
+            }
+            let legacy_work_or_help = matches!(
+                event.content.as_deref(),
+                Some(
+                    "work"
+                        | "prepared_work"
+                        | "informed_work"
+                        | "help"
+                        | "prepared_help"
+                        | "informed_help"
+                )
+            );
+            let authoritative_work_or_help = event
+                .caused_by_event_seq
+                .and_then(|cause_seq| events.iter().find(|candidate| candidate.seq == cause_seq))
+                .filter(|candidate| candidate.type_name == "job.contribution.resolved")
+                .and_then(|candidate| candidate.content.as_deref())
+                .and_then(|content| serde_json::from_str::<JobContributionTrace>(content).ok())
+                .is_some_and(|trace| matches!(trace.action_kind.as_str(), "work" | "help"));
+            if !legacy_work_or_help && !authoritative_work_or_help {
                 continue;
             }
             let Some(actor_id) = event.actor_id else {
@@ -11165,6 +11406,7 @@ impl RuntimeWorld {
         events: &[EventView],
         was_repeat_listen: bool,
         settlement_reason: Option<&str>,
+        excluded_clock_ids: &BTreeSet<String>,
     ) -> Vec<EventView> {
         if !action_is_discovery_check(action) {
             return Vec::new();
@@ -11201,7 +11443,7 @@ impl RuntimeWorld {
                 location_id,
                 listen_event.seq,
             ));
-            projected.extend(self.apply_lifecycle_hooks(
+            projected.extend(self.apply_lifecycle_hooks_excluding_clocks(
                 if action.kind == CW_ACTION_RULES_STUDY {
                     "on_study"
                 } else {
@@ -11211,6 +11453,7 @@ impl RuntimeWorld {
                 &location_id.to_string(),
                 action.actor_id,
                 listen_event.seq,
+                excluded_clock_ids,
             ));
             if let Some(reason) = settlement_reason {
                 if let Some(event) = self.bank_visit_ledger(action.actor_id, reason) {
@@ -11432,18 +11675,58 @@ impl RuntimeWorld {
             reason,
         );
         let mut events = vec![update_event.clone()];
+        let crossed_thresholds = self
+            .jobs
+            .values()
+            .flat_map(|job| job.narrated_thresholds.iter())
+            .filter(|threshold| {
+                threshold.clock_id == clock.id
+                    && before < threshold.filled
+                    && after >= threshold.filled
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        for threshold in crossed_thresholds {
+            let mut event =
+                self.append_clock_event("clock.threshold", actor_id, &clock, 0, &threshold.text);
+            event.caused_by_event_seq = Some(update_event.seq);
+            self.replace_projected_event(&event);
+            events.push(event);
+        }
         if crossed_fill && !clock.on_fill.is_empty() {
             let claim_key = clock_fill_claim_key(&clock.id, update_event.seq);
             if self.rpg_claims.insert(claim_key) {
-                events.extend(self.apply_clock_fill_effects(
+                let mut fill_events = self.apply_clock_fill_effects(
                     &clock.id,
                     actor_id,
                     update_event.seq,
                     &clock.on_fill,
-                ));
+                );
+                self.link_events_to_cause(&mut fill_events, update_event.seq);
+                events.extend(fill_events);
             }
         }
         events
+    }
+
+    fn replace_projected_event(&mut self, replacement: &EventView) {
+        if let Some(event) = self
+            .event_log
+            .iter_mut()
+            .rev()
+            .find(|event| event.seq == replacement.seq)
+        {
+            *event = replacement.clone();
+        }
+    }
+
+    fn link_events_to_cause(&mut self, events: &mut [EventView], cause_event_seq: u64) {
+        for event in events {
+            if event.caused_by_event_seq.is_none() {
+                event.caused_by_event_seq = Some(cause_event_seq);
+                self.replace_projected_event(event);
+            }
+        }
     }
 
     fn apply_clock_fill_effects(
@@ -11532,6 +11815,292 @@ impl RuntimeWorld {
                         reason.as_deref().unwrap_or("clock_fill"),
                     ));
                 }
+            }
+        }
+        events
+    }
+
+    fn contribution_claim_key(
+        actor_id: u64,
+        job_id: &str,
+        strategy: &JobContributionStrategy,
+        target: &ResolvedContributionTarget,
+    ) -> Option<String> {
+        let stem = format!(
+            "job_contribution:{job_id}:{}:{}:{}",
+            strategy.id, target.kind, target.id
+        );
+        match strategy.claim_policy {
+            ContributionClaimPolicy::Repeatable => None,
+            ContributionClaimPolicy::OncePerActor => Some(format!(
+                "job_contribution:{job_id}:{}:actor:{actor_id}",
+                strategy.id
+            )),
+            ContributionClaimPolicy::OncePerTarget => Some(stem),
+            ContributionClaimPolicy::OncePerActorTarget => Some(format!("{stem}:actor:{actor_id}")),
+        }
+    }
+
+    fn resolve_job_contribution(
+        &mut self,
+        action: &CwAction,
+        committed_events: &[EventView],
+        intent: &JobContributionIntent,
+    ) -> Vec<EventView> {
+        let Some(job) = self.jobs.get(&intent.job_id).cloned() else {
+            return Vec::new();
+        };
+        let Some(current_strategy) = job
+            .contribution_strategies
+            .iter()
+            .find(|strategy| strategy.id == intent.strategy.id)
+        else {
+            return Vec::new();
+        };
+        if current_strategy.version != intent.strategy.version
+            || current_strategy.action_kind != intent.strategy.action_kind
+            || current_strategy.clock_id != intent.strategy.clock_id
+            || self.job_status(&job) != "active"
+        {
+            return Vec::new();
+        }
+        let Some(clock) = self.clocks.get(&intent.strategy.clock_id) else {
+            return Vec::new();
+        };
+        if clock.filled >= clock.segments {
+            return Vec::new();
+        }
+
+        let claim_key = Self::contribution_claim_key(
+            action.actor_id,
+            &intent.job_id,
+            &intent.strategy,
+            &intent.target,
+        );
+        if claim_key
+            .as_ref()
+            .is_some_and(|claim_key| self.rpg_claims.contains(claim_key))
+        {
+            return Vec::new();
+        }
+
+        let (resolution, outcome, resolved, source_event_seqs) =
+            match &intent.strategy.resolution {
+                ContributionResolutionPolicy::Certain => ("certain", "certain", true, Vec::new()),
+                ContributionResolutionPolicy::SrdCheck { ability, dc } => {
+                    let check = committed_events.iter().find(|event| {
+                        event.type_name == "ability_check.rolled"
+                            && event.actor_id == Some(action.actor_id)
+                            && action.ability == ability_from_string(ability)
+                            && event.dc == Some(*dc as i16)
+                    });
+                    let Some(check) = check else {
+                        return Vec::new();
+                    };
+                    let succeeded = check.success
+                        && check
+                            .total
+                            .zip(check.dc)
+                            .is_some_and(|(total, dc)| total >= dc);
+                    (
+                        "srd_check",
+                        if succeeded { "success" } else { "failure" },
+                        succeeded,
+                        vec![check.seq],
+                    )
+                }
+                ContributionResolutionPolicy::ExistingKernelOutcome { event_type } => {
+                    let outcome_event =
+                        committed_events.iter().find(|event| {
+                            event.type_name == *event_type
+                                && event.actor_id == Some(action.actor_id)
+                                && match intent.target.kind.as_str() {
+                                    "item" => intent
+                                        .target
+                                        .id
+                                        .parse::<u64>()
+                                        .ok()
+                                        .is_some_and(|item_id| event.item_id == Some(item_id)),
+                                    "actor" => intent.target.id.parse::<u64>().ok().is_some_and(
+                                        |actor_id| {
+                                            event.target_actor_id == Some(actor_id)
+                                                || event.actor_id == Some(actor_id)
+                                        },
+                                    ),
+                                    _ => true,
+                                }
+                        });
+                    let Some(outcome_event) = outcome_event else {
+                        return Vec::new();
+                    };
+                    (
+                        "existing_kernel_outcome",
+                        if outcome_event.success {
+                            "success"
+                        } else {
+                            "failure"
+                        },
+                        outcome_event.success,
+                        vec![outcome_event.seq],
+                    )
+                }
+            };
+
+        if let Some(claim_key) = claim_key.as_ref() {
+            if !self.rpg_claims.insert(claim_key.clone()) {
+                return Vec::new();
+            }
+        }
+        let prepared_bonus_progress = if self
+            .actor_by_id(action.actor_id)
+            .is_some_and(|actor| self.prepared_tag_active(action.actor_id, actor.location_id))
+        {
+            intent.strategy.prepared_bonus_progress
+        } else {
+            0
+        };
+        let success_progress = if resolved {
+            intent.strategy.success_progress
+        } else {
+            0
+        };
+        let total_progress = intent
+            .strategy
+            .baseline_progress
+            .saturating_add(success_progress)
+            .saturating_add(prepared_bonus_progress);
+        let trace = JobContributionTrace {
+            schema_version: JOB_CONTRIBUTION_SCHEMA_VERSION,
+            job_id: intent.job_id.clone(),
+            strategy_id: intent.strategy.id.clone(),
+            strategy_label: intent.strategy.strategy_label.clone(),
+            narration_key: intent.strategy.narration_key.clone(),
+            action_kind: intent.strategy.action_kind.clone(),
+            rules_action: intent.strategy.rules_action.clone(),
+            operation: intent.strategy.operation.clone(),
+            target: intent.target.clone(),
+            resolution: resolution.to_string(),
+            outcome: outcome.to_string(),
+            baseline_progress: intent.strategy.baseline_progress,
+            success_progress,
+            prepared_bonus_progress,
+            total_progress,
+            clock_id: intent.strategy.clock_id.clone(),
+            claim_key: claim_key.clone(),
+            source_event_seqs: source_event_seqs.clone(),
+            rules_profile: intent.strategy.rules_profile.clone(),
+            rules_pack_id: intent.strategy.rules_pack_id.clone(),
+            rules_pack_version: intent.strategy.rules_pack_version.clone(),
+            pack_id: intent.strategy.pack_id.clone(),
+            pack_version: intent.strategy.pack_version.clone(),
+        };
+        let target_actor_id = (intent.target.kind == "actor")
+            .then(|| intent.target.id.parse::<u64>().ok())
+            .flatten();
+        let mut contribution_event = self.append_async_job_event(
+            "job.contribution.resolved",
+            action.actor_id,
+            target_actor_id,
+            serde_json::to_string(&trace).ok(),
+        );
+        contribution_event.clock_id = Some(intent.strategy.clock_id.clone());
+        contribution_event.caused_by_event_seq = source_event_seqs.last().copied();
+        self.replace_projected_event(&contribution_event);
+
+        let mut events = vec![contribution_event.clone()];
+        if total_progress > 0 {
+            let mut progress_events = self.advance_clock(
+                &intent.strategy.clock_id,
+                total_progress,
+                action.actor_id,
+                &format!("job_contribution:{}:{}", intent.job_id, intent.strategy.id),
+            );
+            self.link_events_to_cause(&mut progress_events, contribution_event.seq);
+            events.extend(progress_events);
+        }
+        let authored_effects = if resolved {
+            &intent.strategy.on_success
+        } else {
+            &intent.strategy.on_failure
+        };
+        let mut consequence_events = self.apply_contribution_effects(
+            action.actor_id,
+            contribution_event.seq,
+            authored_effects,
+        );
+        self.link_events_to_cause(&mut consequence_events, contribution_event.seq);
+        events.extend(consequence_events);
+        events
+    }
+
+    fn apply_contribution_effects(
+        &mut self,
+        actor_id: u64,
+        source_event_seq: u64,
+        effects: &[EffectDescriptor],
+    ) -> Vec<EventView> {
+        if effects.is_empty() || self.validate_runtime_effects(effects).is_err() {
+            return Vec::new();
+        }
+        let mut events = Vec::new();
+        for effect in effects {
+            match effect {
+                EffectDescriptor::AdvanceClock {
+                    clock_id,
+                    amount,
+                    reason,
+                } => events.extend(self.advance_clock(
+                    clock_id,
+                    *amount,
+                    actor_id,
+                    reason.as_deref().unwrap_or("job_contribution"),
+                )),
+                EffectDescriptor::SetTag {
+                    tag_id,
+                    scope,
+                    scope_id,
+                    label,
+                    kind,
+                    expires,
+                    reason,
+                } => {
+                    let tag = RpgTagState {
+                        id: tag_id.clone(),
+                        scope: scope.clone(),
+                        scope_id: *scope_id,
+                        label: label.clone(),
+                        kind: kind.clone(),
+                        active: true,
+                        source_event_seq: Some(source_event_seq),
+                        expires: expires.clone(),
+                    };
+                    if let Some(event) = self.set_rpg_tag(
+                        tag,
+                        actor_id,
+                        reason.as_deref().unwrap_or("job_contribution"),
+                    ) {
+                        events.push(event);
+                    }
+                }
+                EffectDescriptor::ClearTag { tag_id, reason } => {
+                    if let Some(event) = self.clear_rpg_tag(
+                        tag_id,
+                        actor_id,
+                        reason.as_deref().unwrap_or("job_contribution"),
+                    ) {
+                        events.push(event);
+                    }
+                }
+                EffectDescriptor::SetJobStatus {
+                    job_id,
+                    status,
+                    reason,
+                } => events.extend(self.set_job_status_events(
+                    job_id,
+                    status,
+                    actor_id,
+                    reason.as_deref().unwrap_or("job_contribution"),
+                )),
             }
         }
         events
@@ -17243,33 +17812,13 @@ impl RuntimeWorld {
     }
 
     fn work_available(&self, actor_id: u64) -> bool {
-        let Some(actor) = self.actor_by_id(actor_id) else {
-            return false;
-        };
-        actor.status == CW_ACTOR_ACTIVE
-            && self
-                .active_progress_clock_id_for_location(actor.location_id)
-                .is_some()
-            && !self.tired_tag_active(actor_id)
+        self.job_contribution_intent(actor_id, "work", None, None, None)
+            .is_some()
     }
 
     fn help_available(&self, actor_id: u64) -> bool {
-        let Some(actor) = self.actor_by_id(actor_id) else {
-            return false;
-        };
-        actor.status == CW_ACTOR_ACTIVE
-            && self
-                .active_progress_clock_id_for_location(actor.location_id)
-                .is_some()
-            && !self.tired_tag_active(actor_id)
-            && self.world.actors[..self.world.actor_count]
-                .iter()
-                .any(|other| {
-                    other.id != actor_id
-                        && Self::actor_is_active_avatar(*other)
-                        && other.location_id == actor.location_id
-                        && self.actor_visible_in_projection(*other, Some(actor_id), None)
-                })
+        self.job_contribution_intent(actor_id, "help", None, None, None)
+            .is_some()
     }
 
     fn active_progress_clock_id_for_location(&self, location_id: u64) -> Option<String> {
@@ -17321,6 +17870,223 @@ impl RuntimeWorld {
             })
             .find(|(_, clock)| clock.filled < clock.segments)
             .map(|(job, _)| job)
+    }
+
+    fn contribution_strategy_binding_is_active(&self, strategy: &JobContributionStrategy) -> bool {
+        let Some(binding) = resolved_action_binding(&strategy.action_kind) else {
+            return false;
+        };
+        let pack_matches = active_content()
+            .manifest
+            .packs
+            .iter()
+            .any(|pack| pack.id == strategy.pack_id && pack.version == strategy.pack_version);
+        strategy.version == JOB_CONTRIBUTION_SCHEMA_VERSION
+            && strategy.rules_profile == active_content().manifest.rules_profile
+            && strategy.rules_action == binding.rules_action
+            && strategy.operation == binding.operation
+            && strategy.rules_pack_id == binding.pack_id
+            && strategy.rules_pack_version == binding.pack_version
+            && pack_matches
+    }
+
+    fn contribution_requirement_met(
+        &self,
+        actor_id: u64,
+        requirement: &ContributionRequirement,
+    ) -> bool {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return false;
+        };
+        match requirement {
+            ContributionRequirement::AtLocation { location_id } => {
+                actor.location_id == *location_id
+            }
+            ContributionRequirement::HeldItem { item_id } => self
+                .item_by_id(*item_id)
+                .is_some_and(|item| item.holder_actor_id == actor_id),
+            ContributionRequirement::ActiveTag { tag_id } => {
+                self.tags.get(tag_id).is_some_and(|tag| tag.active)
+            }
+            ContributionRequirement::RoomFeature {
+                location_id,
+                feature_key,
+            } => {
+                actor.location_id == *location_id
+                    && active_content().room_features.iter().any(|feature| {
+                        feature.location_id == *location_id && feature.key == *feature_key
+                    })
+            }
+        }
+    }
+
+    fn resolve_contribution_target(
+        &self,
+        actor_id: u64,
+        job: &JobState,
+        strategy: &JobContributionStrategy,
+        target_hint: Option<(&str, &str)>,
+    ) -> Option<ResolvedContributionTarget> {
+        let actor = self.actor_by_id(actor_id)?;
+        let descriptor = &strategy.target;
+        if let Some(id) = descriptor.id.as_deref() {
+            if target_hint
+                .is_some_and(|(kind, target_id)| kind != descriptor.kind || target_id != id)
+            {
+                return None;
+            }
+            let available = match descriptor.kind.as_str() {
+                "job" => id == job.id,
+                "room" => id
+                    .parse::<u64>()
+                    .ok()
+                    .is_some_and(|location_id| actor.location_id == location_id),
+                "feature" => job.location_ids.contains(&actor.location_id),
+                "actor" => id.parse::<u64>().ok().is_some_and(|target_actor_id| {
+                    target_actor_id != actor_id
+                        && self.actor_by_id(target_actor_id).is_some_and(|target| {
+                            Self::actor_is_active_avatar(target)
+                                && target.location_id == actor.location_id
+                                && self.actor_visible_in_projection(target, Some(actor_id), None)
+                                && !self.actors_blocked(actor_id, target_actor_id)
+                        })
+                }),
+                "item" => id.parse::<u64>().ok().is_some_and(|item_id| {
+                    self.item_by_id(item_id).is_some_and(|item| {
+                        item.holder_actor_id == actor_id || item.location_id == actor.location_id
+                    })
+                }),
+                _ => false,
+            };
+            return available.then(|| ResolvedContributionTarget {
+                kind: descriptor.kind.clone(),
+                id: id.to_string(),
+                label: descriptor.label.clone(),
+            });
+        }
+
+        match descriptor.predicate.as_deref()? {
+            "current_room" => Some(ResolvedContributionTarget {
+                kind: "room".to_string(),
+                id: actor.location_id.to_string(),
+                label: self
+                    .location_name(actor.location_id)
+                    .unwrap_or_else(|| descriptor.label.clone()),
+            }),
+            "job_participant_here" => job
+                .participant_ids
+                .iter()
+                .filter_map(|target_actor_id| self.actor_by_id(*target_actor_id))
+                .find(|target| {
+                    target.id != actor_id
+                        && Self::actor_is_active_avatar(*target)
+                        && target.location_id == actor.location_id
+                        && self.actor_visible_in_projection(*target, Some(actor_id), None)
+                        && !self.actors_blocked(actor_id, target.id)
+                })
+                .map(|target| ResolvedContributionTarget {
+                    kind: "actor".to_string(),
+                    id: target.id.to_string(),
+                    label: self
+                        .actor_name(target.id)
+                        .unwrap_or_else(|| descriptor.label.clone()),
+                }),
+            "co_present_avatar" => self.world.actors[..self.world.actor_count]
+                .iter()
+                .find(|target| {
+                    target.id != actor_id
+                        && Self::actor_is_active_avatar(**target)
+                        && target.location_id == actor.location_id
+                        && self.actor_visible_in_projection(**target, Some(actor_id), None)
+                        && !self.actors_blocked(actor_id, target.id)
+                })
+                .map(|target| ResolvedContributionTarget {
+                    kind: "actor".to_string(),
+                    id: target.id.to_string(),
+                    label: self
+                        .actor_name(target.id)
+                        .unwrap_or_else(|| descriptor.label.clone()),
+                }),
+            _ => None,
+        }
+    }
+
+    fn job_contribution_intent(
+        &self,
+        actor_id: u64,
+        action_kind: &str,
+        requested_job_id: Option<&str>,
+        requested_strategy_id: Option<&str>,
+        target_hint: Option<(&str, &str)>,
+    ) -> Option<JobContributionIntent> {
+        let actor = self.actor_by_id(actor_id)?;
+        if !Self::actor_is_active_avatar(actor) || self.tired_tag_active(actor_id) {
+            return None;
+        }
+        self.jobs
+            .values()
+            .filter(|job| job.delivery.is_none())
+            .filter(|job| {
+                requested_job_id.is_none_or(|requested| job.id == requested)
+                    && job.location_ids.contains(&actor.location_id)
+                    && self.job_status(job) == "active"
+                    && job.contribution_schema_version == JOB_CONTRIBUTION_SCHEMA_VERSION
+            })
+            .flat_map(|job| {
+                job.contribution_strategies
+                    .iter()
+                    .map(move |strategy| (job, strategy))
+            })
+            .filter(|(_, strategy)| {
+                strategy.action_kind == action_kind
+                    && requested_strategy_id.is_none_or(|requested| strategy.id == requested)
+                    && self.contribution_strategy_binding_is_active(strategy)
+                    && strategy
+                        .requirements
+                        .iter()
+                        .all(|requirement| self.contribution_requirement_met(actor_id, requirement))
+                    && self
+                        .clocks
+                        .get(&strategy.clock_id)
+                        .is_some_and(|clock| clock.filled < clock.segments)
+            })
+            .filter_map(|(job, strategy)| {
+                let target =
+                    self.resolve_contribution_target(actor_id, job, strategy, target_hint)?;
+                let claim_key = Self::contribution_claim_key(actor_id, &job.id, strategy, &target);
+                if claim_key
+                    .as_ref()
+                    .is_some_and(|claim_key| self.rpg_claims.contains(claim_key))
+                {
+                    return None;
+                }
+                Some(JobContributionIntent {
+                    job_id: job.id.clone(),
+                    strategy: strategy.clone(),
+                    target,
+                })
+            })
+            .min_by(|left, right| {
+                left.job_id
+                    .cmp(&right.job_id)
+                    .then_with(|| left.strategy.id.cmp(&right.strategy.id))
+                    .then_with(|| left.target.id.cmp(&right.target.id))
+            })
+    }
+
+    fn contribution_progress_amount(&self, actor_id: u64, intent: &JobContributionIntent) -> u8 {
+        let prepared = self
+            .actor_by_id(actor_id)
+            .is_some_and(|actor| self.prepared_tag_active(actor_id, actor.location_id));
+        intent
+            .strategy
+            .baseline_progress
+            .saturating_add(intent.strategy.success_progress)
+            .saturating_add(if prepared {
+                intent.strategy.prepared_bonus_progress
+            } else {
+                0
+            })
     }
 
     fn ensure_delivery_need_job(
@@ -17447,6 +18213,9 @@ impl RuntimeWorld {
                         "Pick up a physical item at {origin_name}, travel with it, then give, drop, or use it at {destination_name}."
                     ),
                 },
+                contribution_schema_version: 0,
+                contribution_strategies: Vec::new(),
+                narrated_thresholds: Vec::new(),
                 delivery: Some(DeliveryJobSpec {
                     resource: trade.resource.clone(),
                     origin_location_id: trade.from_location_id,
@@ -18223,24 +18992,24 @@ impl RuntimeWorld {
     }
 
     fn work_project_progress_amount(&self, actor_id: u64, location_id: u64) -> u8 {
-        if !self.prepared_tag_active(actor_id, location_id) {
-            return 2;
-        }
-        self.prepared_project_progress_amount(actor_id, location_id)
+        self.job_contribution_intent(actor_id, "work", None, None, None)
+            .filter(|_| {
+                self.actor_by_id(actor_id)
+                    .is_some_and(|actor| actor.location_id == location_id)
+            })
+            .map(|intent| self.contribution_progress_amount(actor_id, &intent))
+            .unwrap_or(0)
     }
 
     fn work_finishes_active_progress(&self, actor_id: u64) -> bool {
-        let Some(actor) = self.actor_by_id(actor_id) else {
+        let Some(intent) = self.job_contribution_intent(actor_id, "work", None, None, None) else {
             return false;
         };
-        let Some(clock_id) = self.active_progress_clock_id_for_location(actor.location_id) else {
-            return false;
-        };
-        let Some(clock) = self.clocks.get(&clock_id) else {
+        let Some(clock) = self.clocks.get(&intent.strategy.clock_id) else {
             return false;
         };
         let remaining = clock.segments.saturating_sub(clock.filled);
-        remaining > 0 && self.work_project_progress_amount(actor_id, actor.location_id) >= remaining
+        remaining > 0 && self.contribution_progress_amount(actor_id, &intent) >= remaining
     }
 
     fn project_headway_text(&self, clock_id: &str, amount: u8) -> String {
@@ -18261,12 +19030,13 @@ impl RuntimeWorld {
     }
 
     fn help_project_progress_amount(&self, actor_id: u64, location_id: u64) -> u8 {
-        if !self.prepared_tag_active(actor_id, location_id) {
-            return 1;
-        }
-        self.prepared_project_progress_amount(actor_id, location_id)
-            .saturating_sub(1)
-            .max(1)
+        self.job_contribution_intent(actor_id, "help", None, None, None)
+            .filter(|_| {
+                self.actor_by_id(actor_id)
+                    .is_some_and(|actor| actor.location_id == location_id)
+            })
+            .map(|intent| self.contribution_progress_amount(actor_id, &intent))
+            .unwrap_or(0)
     }
 
     fn helped_room_tag_active(&self, location_id: u64) -> bool {
@@ -18353,9 +19123,13 @@ impl RuntimeWorld {
     }
 
     fn job_status(&self, job: &JobState) -> String {
-        let explicit = job.status.trim();
-        if matches!(explicit, "completed" | "failed") {
-            return explicit.to_string();
+        let danger_filled = self
+            .clocks
+            .get(&job.danger_clock_id)
+            .map(|clock| clock.filled >= clock.segments)
+            .unwrap_or(false);
+        if danger_filled {
+            return "failed".to_string();
         }
         let progress_filled = self
             .clocks
@@ -18365,13 +19139,11 @@ impl RuntimeWorld {
         if progress_filled {
             return "completed".to_string();
         }
-        let danger_filled = self
-            .clocks
-            .get(&job.danger_clock_id)
-            .map(|clock| clock.filled >= clock.segments)
-            .unwrap_or(false);
-        if danger_filled {
-            return "failed".to_string();
+        let explicit = job.status.trim();
+        if matches!(explicit, "completed" | "failed") {
+            // Legacy snapshots may only have the terminal status. New quest state
+            // derives its terminal phase from journaled clock/effect events first.
+            return explicit.to_string();
         }
         if explicit.is_empty() {
             "active".to_string()
@@ -19043,19 +19815,13 @@ impl RuntimeWorld {
                     command: "listen".to_string(),
                 });
             }
-            if self.actor_by_id(actor_id).is_some_and(|actor| {
-                actor.location_id == MOONLIT_TRAIL_LOCATION_ID
-                    || !self
-                        .contextual_action_contributions(actor_id, "srd5.2.1:study")
-                        .1
-                        .is_empty()
-            }) {
-                let (authored_label, _, _) =
-                    self.contextual_action_contributions(actor_id, "srd5.2.1:study");
+            if let Some(contribution) =
+                self.job_contribution_intent(actor_id, "study", None, None, None)
+            {
                 options.push(ActionOption {
                     kind: "study".to_string(),
-                    label: authored_label.unwrap_or_else(|| "Study".to_string()),
-                    command: "study the moonlit signs".to_string(),
+                    label: contribution.strategy.strategy_label,
+                    command: format!("study {}", contribution.target.label),
                 });
             }
         }
@@ -19913,25 +20679,53 @@ impl RuntimeWorld {
     }
 
     fn action_offer_project(&self, kind: &str, actor_id: u64) -> Option<ActionProjectView> {
-        if !matches!(kind, "prepare" | "work" | "help") {
+        if !matches!(kind, "prepare" | "work" | "help" | "study") {
             return None;
         }
         let actor = self.actor_by_id(actor_id)?;
-        let progress_clock_id = self.active_progress_clock_id_for_location(actor.location_id)?;
+        let contribution = (kind != "prepare")
+            .then(|| self.job_contribution_intent(actor_id, kind, None, None, None))
+            .flatten();
+        let progress_clock_id = contribution
+            .as_ref()
+            .map(|intent| intent.strategy.clock_id.clone())
+            .or_else(|| self.active_progress_clock_id_for_location(actor.location_id))?;
         let verb = self
             .action_vocabulary_for_actor(actor_id)
             .map(|vocabulary| vocabulary.contribute.clone())
             .unwrap_or_else(|| "Contribute".to_string());
-        if let Some(job) = self
-            .active_job_for_location(actor.location_id)
-            .filter(|job| job.progress_clock_id == progress_clock_id)
-        {
+        let job = contribution
+            .as_ref()
+            .and_then(|intent| self.jobs.get(&intent.job_id))
+            .or_else(|| {
+                self.active_job_for_location(actor.location_id)
+                    .filter(|job| job.progress_clock_id == progress_clock_id)
+            });
+        if let Some(job) = job {
+            let claim_key = contribution.as_ref().and_then(|intent| {
+                Self::contribution_claim_key(
+                    actor_id,
+                    &intent.job_id,
+                    &intent.strategy,
+                    &intent.target,
+                )
+            });
             return Some(ActionProjectView {
                 id: job.id.clone(),
                 verb,
                 label: self.job_action_label(job),
                 summary: self.job_action_summary(job),
                 progress_clock_id,
+                strategy_id: contribution
+                    .as_ref()
+                    .map(|intent| intent.strategy.id.clone()),
+                strategy_label: contribution
+                    .as_ref()
+                    .map(|intent| intent.strategy.strategy_label.clone()),
+                resolution: contribution.as_ref().map(|intent| {
+                    contribution_resolution_label(&intent.strategy.resolution).to_string()
+                }),
+                claim_key,
             });
         }
         let label = self
@@ -19947,6 +20741,10 @@ impl RuntimeWorld {
             summary: format!("Choose how to help with {label}."),
             label,
             progress_clock_id,
+            strategy_id: None,
+            strategy_label: None,
+            resolution: None,
+            claim_key: None,
         })
     }
 
@@ -20134,7 +20932,7 @@ impl RuntimeWorld {
                     id: Some(target.id),
                     label: self.actor_name(target.id),
                 }),
-            "prepare" | "work" => {
+            "prepare" => {
                 self.active_job_for_location(actor.location_id)
                     .map(|job| ActionTargetView {
                         kind: "project".to_string(),
@@ -20142,12 +20940,12 @@ impl RuntimeWorld {
                         label: Some(format!("{} ({})", job.premise, job.id)),
                     })
             }
-            "help" => self
-                .default_chat_target(actor_id)
-                .map(|target| ActionTargetView {
-                    kind: "actor".to_string(),
-                    id: Some(target.id),
-                    label: self.actor_name(target.id),
+            "work" | "help" | "study" => self
+                .job_contribution_intent(actor_id, kind, None, None, None)
+                .map(|intent| ActionTargetView {
+                    kind: intent.target.kind,
+                    id: intent.target.id.parse::<u64>().ok(),
+                    label: Some(intent.target.label),
                 }),
             "use_feature" => self
                 .default_player_feature_use_candidate(actor_id)
@@ -20219,11 +21017,6 @@ impl RuntimeWorld {
                     id: Some(target.location_id),
                     label: Some(target.name),
                 }),
-            "study" => Some(ActionTargetView {
-                kind: "feature".to_string(),
-                id: Some(actor.location_id),
-                label: Some("the moonlit signs".to_string()),
-            }),
             "cast_spell" => Some(ActionTargetView {
                 kind: "actor".to_string(),
                 id: Some(actor_id),
@@ -20293,9 +21086,14 @@ impl RuntimeWorld {
             "check" if self.location_is_frontier(actor.location_id) => {
                 Some("listening again out here may tire you".to_string())
             }
-            "study" if self.location_is_frontier(actor.location_id) => {
-                Some("a mistaken reading may leave the signs unresolved".to_string())
-            }
+            "study" => self
+                .job_contribution_intent(actor_id, "study", None, None, None)
+                .and_then(|intent| match intent.strategy.resolution {
+                    ContributionResolutionPolicy::SrdCheck { dc, .. } => Some(format!(
+                        "the authored check is DC {dc}; on failure, only the careful groundwork and declared consequences remain"
+                    )),
+                    _ => None,
+                }),
             "influence" => Some(
                 "the resident may cooperate or cautiously decline; no reward or attitude is chosen by narration"
                     .to_string(),
@@ -20322,11 +21120,16 @@ impl RuntimeWorld {
     fn action_offer_progress(&self, kind: &str, actor_id: u64) -> Option<u8> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
-            "check" => lifecycle_effects_for("on_listen", "room", &actor.location_id.to_string())
-                .into_iter()
-                .find_map(|effect| match effect {
-                    EffectDescriptor::AdvanceClock { amount, .. } => Some(amount),
-                    _ => None,
+            "check" => self
+                .job_contribution_intent(actor_id, "check", None, None, None)
+                .map(|intent| self.contribution_progress_amount(actor_id, &intent))
+                .or_else(|| {
+                    lifecycle_effects_for("on_listen", "room", &actor.location_id.to_string())
+                        .into_iter()
+                        .find_map(|effect| match effect {
+                            EffectDescriptor::AdvanceClock { amount, .. } => Some(amount),
+                            _ => None,
+                        })
                 }),
             "prepare" => Some(self.prepared_project_progress_amount(actor_id, actor.location_id)),
             "defend" if self.prepare_available(actor_id) => {
@@ -20334,18 +21137,21 @@ impl RuntimeWorld {
             }
             "work"
                 if self
-                    .active_progress_clock_id_for_location(actor.location_id)
+                    .job_contribution_intent(actor_id, "work", None, None, None)
                     .is_some() =>
             {
                 Some(self.work_project_progress_amount(actor_id, actor.location_id))
             }
             "help"
                 if self
-                    .active_progress_clock_id_for_location(actor.location_id)
+                    .job_contribution_intent(actor_id, "help", None, None, None)
                     .is_some() =>
             {
                 Some(self.help_project_progress_amount(actor_id, actor.location_id))
             }
+            "study" => self
+                .job_contribution_intent(actor_id, "study", None, None, None)
+                .map(|intent| self.contribution_progress_amount(actor_id, &intent)),
             _ => None,
         }
     }
@@ -20366,6 +21172,14 @@ impl RuntimeWorld {
                     )
                 }),
             "check" => {
+                if let Some(intent) =
+                    self.job_contribution_intent(actor_id, "check", None, None, None)
+                {
+                    return Some(format!(
+                        "lets the room share one useful clue about {}; success helps the shared work through {}",
+                        intent.target.label, intent.strategy.strategy_label
+                    ));
+                }
                 if self.listen_attempt_claimed_at(actor_id, actor.location_id) {
                     return Some(
                         "listens once more, though the room may have nothing new yet"
@@ -20383,10 +21197,16 @@ impl RuntimeWorld {
                     )
                 }
             }
-            "study" => Some(
-                "reasons through the moonlit signs and records one understood truth"
-                    .to_string(),
-            ),
+            "study" => self
+                .job_contribution_intent(actor_id, "study", None, None, None)
+                .map(|intent| {
+                    format!(
+                        "{} examines {}; its {} result can help the shared work",
+                        intent.strategy.strategy_label,
+                        intent.target.label,
+                        contribution_resolution_label(&intent.strategy.resolution)
+                    )
+                }),
             "cast_spell" => Some(
                 "spends Steady Light and gives one nearby traveler a glow until rest"
                     .to_string(),
@@ -20416,23 +21236,22 @@ impl RuntimeWorld {
             }
             "defend" => Some("raises a careful guard".to_string()),
             "work" => self
-                .active_progress_clock_id_for_location(actor.location_id)
-                .map(|clock_id| {
+                .job_contribution_intent(actor_id, "work", None, None, None)
+                .map(|intent| {
                     self.project_headway_text(
-                        &clock_id,
-                        self.work_project_progress_amount(actor_id, actor.location_id),
+                        &intent.strategy.clock_id,
+                        self.contribution_progress_amount(actor_id, &intent),
                     )
                 }),
             "help" => self
-                .active_progress_clock_id_for_location(actor.location_id)
-                .map(|clock_id| {
-                    let amount = self.help_project_progress_amount(actor_id, actor.location_id);
-                    let progress_effect = self.project_headway_text(&clock_id, amount);
-                    if let Some(target) = self.default_chat_target(actor_id) {
-                        let target_name = self
-                            .actor_name(target.id)
-                            .unwrap_or_else(|| format!("Resident {}", target.id));
-                        let claim_key = help_bond_claim_key(actor_id, target.id);
+                .job_contribution_intent(actor_id, "help", None, None, None)
+                .map(|intent| {
+                    let amount = self.contribution_progress_amount(actor_id, &intent);
+                    let progress_effect =
+                        self.project_headway_text(&intent.strategy.clock_id, amount);
+                    if let Ok(target_actor_id) = intent.target.id.parse::<u64>() {
+                        let target_name = intent.target.label;
+                        let claim_key = help_bond_claim_key(actor_id, target_actor_id);
                         if !self.rpg_claims.contains(&claim_key) {
                             format!(
                                 "helps {target_name}; {progress_effect}; first help brings you closer to {target_name}"
@@ -20584,13 +21403,34 @@ impl RuntimeWorld {
             "influence" => self
                 .default_chat_target(actor_id)
                 .map(|target| format!("influence:{}:{}:local-lead", actor_id, target.id)),
-            "check" => Some(ability_check_success_claim_key(
-                actor_id,
-                actor.location_id,
-                LISTEN_ABILITY,
-                LISTEN_DC as i16,
-            )),
-            "study" => Some(format!("discovery:{}:{}", actor_id, actor.location_id)),
+            "study" | "work" | "help" | "check" => self
+                .job_contribution_intent(actor_id, kind, None, None, None)
+                .and_then(|intent| {
+                    Self::contribution_claim_key(
+                        actor_id,
+                        &intent.job_id,
+                        &intent.strategy,
+                        &intent.target,
+                    )
+                })
+                .or_else(|| {
+                    (kind == "check").then(|| {
+                        ability_check_success_claim_key(
+                            actor_id,
+                            actor.location_id,
+                            LISTEN_ABILITY,
+                            LISTEN_DC as i16,
+                        )
+                    })
+                })
+                .or_else(|| {
+                    (kind == "help")
+                        .then(|| self.job_contribution_intent(actor_id, "help", None, None, None))
+                        .flatten()
+                        .and_then(|intent| intent.target.id.parse::<u64>().ok())
+                        .map(|target_actor_id| help_bond_claim_key(actor_id, target_actor_id))
+                        .filter(|claim_key| !self.rpg_claims.contains(claim_key))
+                }),
             "cast_spell" => self
                 .default_spell_card(actor_id)
                 .map(|spell| format!("spell_use:{}:{}", actor_id, spell.id)),
@@ -20598,10 +21438,6 @@ impl RuntimeWorld {
                 .default_theft_candidate(actor_id)
                 .map(|(target, item)| format!("theft:{}:{}:{}", actor_id, target.id, item.id)),
             "rest" => Some(tired_tag_id(actor_id)),
-            "help" => self.default_chat_target(actor_id).and_then(|target| {
-                let claim_key = help_bond_claim_key(actor_id, target.id);
-                (!self.rpg_claims.contains(&claim_key)).then_some(claim_key)
-            }),
             "create_bond" => self
                 .default_bondable_resident(actor_id)
                 .map(|target| bond_id(actor_id, target.id)),
@@ -27028,6 +27864,19 @@ async fn submit_action_offer(
                 .is_some_and(|submitted| target.id != Some(submitted))
         }) {
             Err("submitted payload target does not match the authoritative offer")
+        } else if offer.project.as_ref().is_some_and(|project| {
+            submission
+                .payload
+                .get("job_id")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|job_id| job_id != project.id)
+                || submission
+                    .payload
+                    .get("strategy_id")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|strategy_id| project.strategy_id.as_deref() != Some(strategy_id))
+        }) {
+            Err("submitted contribution does not match the authoritative quest strategy")
         } else {
             Ok(())
         }
@@ -27090,7 +27939,7 @@ async fn submit_action_offer(
             study(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(parsed!(CheckRequest)),
+                Json(parsed!(StudyContributionRequest)),
             )
             .await
         }
@@ -27194,7 +28043,7 @@ async fn submit_action_offer(
             work(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(parsed!(ActorRequest)),
+                Json(parsed!(JobContributionRequest)),
             )
             .await
         }
@@ -27202,7 +28051,7 @@ async fn submit_action_offer(
             help_room(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(parsed!(ActorRequest)),
+                Json(parsed!(JobContributionRequest)),
             )
             .await
         }
@@ -29959,11 +30808,13 @@ async fn command_inner(
             let Json(response) = study(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(CheckRequest {
+                Json(StudyContributionRequest {
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
                     ability: "intelligence".to_string(),
                     dc: Some(LISTEN_DC),
+                    job_id: None,
+                    strategy_id: None,
                 }),
             )
             .await;
@@ -30552,9 +31403,11 @@ async fn command_inner(
             let Json(response) = work(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(ActorRequest {
+                Json(JobContributionRequest {
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
+                    job_id: None,
+                    strategy_id: None,
                 }),
             )
             .await;
@@ -30564,9 +31417,11 @@ async fn command_inner(
             let Json(response) = help_room(
                 ConnectInfo(client_addr),
                 State(state),
-                Json(ActorRequest {
+                Json(JobContributionRequest {
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
+                    job_id: None,
+                    strategy_id: None,
                 }),
             )
             .await;
@@ -33988,7 +34843,15 @@ async fn ability_check(
             events: Vec::new(),
         });
     }
-    apply_and_broadcast(
+    let contribution_mutations = {
+        let runtime = state.inner.lock().await;
+        runtime
+            .job_contribution_intent(payload.actor_id, "check", None, None, None)
+            .map(|intent| ProjectionMutation::ResolveJobContribution { intent })
+            .into_iter()
+            .collect()
+    };
+    apply_and_broadcast_with_mutations(
         state,
         CwAction {
             kind: CW_ACTION_RULES_SEARCH,
@@ -33998,6 +34861,7 @@ async fn ability_check(
             ..CwAction::default()
         },
         payload.actor_session.as_deref(),
+        contribution_mutations,
     )
     .await
 }
@@ -34005,7 +34869,7 @@ async fn ability_check(
 async fn study(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
-    Json(payload): Json<CheckRequest>,
+    Json(payload): Json<StudyContributionRequest>,
 ) -> Json<ActionResponse> {
     if !allow_actor_mutation(
         &state,
@@ -34025,20 +34889,20 @@ async fn study(
             events: Vec::new(),
         });
     }
-    let is_authored_here = {
+    let contribution = {
         let runtime = state.inner.lock().await;
-        runtime.actor_by_id(payload.actor_id).is_some_and(|actor| {
-            actor.location_id == MOONLIT_TRAIL_LOCATION_ID
-                || !runtime
-                    .contextual_action_contributions(payload.actor_id, "srd5.2.1:study")
-                    .2
-                    .is_empty()
-        })
+        runtime.job_contribution_intent(
+            payload.actor_id,
+            "study",
+            payload.job_id.as_deref(),
+            payload.strategy_id.as_deref(),
+            None,
+        )
     };
-    if !is_authored_here {
+    let Some(intent) = contribution else {
         return action_offer_rejected("Study has no authored subject in this scene");
-    }
-    apply_and_broadcast(
+    };
+    apply_and_broadcast_with_mutations(
         state,
         CwAction {
             kind: CW_ACTION_RULES_STUDY,
@@ -34048,6 +34912,7 @@ async fn study(
             ..CwAction::default()
         },
         payload.actor_session.as_deref(),
+        vec![ProjectionMutation::ResolveJobContribution { intent }],
     )
     .await
 }
@@ -34203,7 +35068,22 @@ async fn use_item(
     ) {
         return action_rate_limited_response();
     }
-    apply_and_broadcast(
+    let item_target_id = payload.item_id.to_string();
+    let contribution_mutations = {
+        let runtime = state.inner.lock().await;
+        runtime
+            .job_contribution_intent(
+                payload.actor_id,
+                "use_item",
+                None,
+                None,
+                Some(("item", item_target_id.as_str())),
+            )
+            .map(|intent| ProjectionMutation::ResolveJobContribution { intent })
+            .into_iter()
+            .collect()
+    };
+    apply_and_broadcast_with_mutations(
         state,
         CwAction {
             kind: CW_ACTION_USE_ITEM,
@@ -34213,6 +35093,7 @@ async fn use_item(
             ..CwAction::default()
         },
         payload.actor_session.as_deref(),
+        contribution_mutations,
     )
     .await
 }
@@ -35153,7 +36034,7 @@ async fn prepare(
 async fn work(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
-    Json(payload): Json<ActorRequest>,
+    Json(payload): Json<JobContributionRequest>,
 ) -> Json<ActionResponse> {
     if !allow_actor_mutation(
         &state,
@@ -35195,15 +36076,22 @@ async fn work(
         });
     };
     let location_id = actor.location_id;
-    let Some(clock_id) = runtime.active_progress_clock_id_for_location(location_id) else {
+    let Some(intent) = runtime.job_contribution_intent(
+        payload.actor_id,
+        "work",
+        payload.job_id.as_deref(),
+        payload.strategy_id.as_deref(),
+        None,
+    ) else {
         return Json(ActionResponse {
             ok: false,
             status: 409,
             events: Vec::new(),
         });
     };
+    let clock_id = intent.strategy.clock_id.clone();
     let prepared = runtime.prepared_tag_active(payload.actor_id, location_id);
-    let progress_amount = runtime.work_project_progress_amount(payload.actor_id, location_id);
+    let progress_amount = runtime.contribution_progress_amount(payload.actor_id, &intent);
     let progress_reason = if prepared && progress_amount > 2 {
         "informed_work"
     } else if prepared {
@@ -35224,11 +36112,7 @@ async fn work(
     record.bind_offer_kind("work");
     record
         .projection_mutations
-        .push(ProjectionMutation::AdvanceClock {
-            clock_id: clock_id.clone(),
-            amount: progress_amount,
-            reason: progress_reason.to_string(),
-        });
+        .push(ProjectionMutation::ResolveJobContribution { intent });
     if let Some(pathway_id) = &pathway_upgrade_id {
         record
             .projection_mutations
@@ -35308,7 +36192,7 @@ async fn work(
 async fn help_room(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
-    Json(payload): Json<ActorRequest>,
+    Json(payload): Json<JobContributionRequest>,
 ) -> Json<ActionResponse> {
     if !allow_actor_mutation(
         &state,
@@ -35350,17 +36234,27 @@ async fn help_room(
         });
     };
     let location_id = actor.location_id;
-    let Some(clock_id) = runtime.active_progress_clock_id_for_location(location_id) else {
+    let Some(intent) = runtime.job_contribution_intent(
+        payload.actor_id,
+        "help",
+        payload.job_id.as_deref(),
+        payload.strategy_id.as_deref(),
+        None,
+    ) else {
         return Json(ActionResponse {
             ok: false,
             status: 409,
             events: Vec::new(),
         });
     };
+    let clock_id = intent.strategy.clock_id.clone();
+    let contribution_target_actor_id = (intent.target.kind == "actor")
+        .then(|| intent.target.id.parse::<u64>().ok())
+        .flatten();
     let prepared = runtime.prepared_tag_active(payload.actor_id, location_id);
     let repeated_unprepared_help_tires =
         runtime.repeated_unprepared_help_tires(payload.actor_id, location_id);
-    let progress_amount = runtime.help_project_progress_amount(payload.actor_id, location_id);
+    let progress_amount = runtime.contribution_progress_amount(payload.actor_id, &intent);
     let progress_reason = if prepared && progress_amount > 2 {
         "informed_help"
     } else if prepared {
@@ -35381,11 +36275,7 @@ async fn help_room(
     record.bind_offer_kind("help");
     record
         .projection_mutations
-        .push(ProjectionMutation::AdvanceClock {
-            clock_id: clock_id.clone(),
-            amount: progress_amount,
-            reason: progress_reason.to_string(),
-        });
+        .push(ProjectionMutation::ResolveJobContribution { intent });
     if let Some(pathway_id) = &pathway_upgrade_id {
         record
             .projection_mutations
@@ -35409,12 +36299,12 @@ async fn help_room(
             },
             reason: "help".to_string(),
         });
-    if let Some(target) = runtime.default_chat_target(payload.actor_id) {
+    if let Some(target_actor_id) = contribution_target_actor_id {
         record
             .projection_mutations
             .push(ProjectionMutation::DeepenBond {
-                target_actor_id: target.id,
-                claim_key: help_bond_claim_key(payload.actor_id, target.id),
+                target_actor_id,
+                claim_key: help_bond_claim_key(payload.actor_id, target_actor_id),
                 event_reason: "help_project".to_string(),
                 ledger_reason: "help_project".to_string(),
             });
@@ -36975,6 +37865,22 @@ async fn apply_and_broadcast_with_resident_reply(
         .await
 }
 
+async fn apply_and_broadcast_with_mutations(
+    state: AppState,
+    action: CwAction,
+    actor_session: Option<&str>,
+    mutations: Vec<ProjectionMutation>,
+) -> Json<ActionResponse> {
+    apply_and_broadcast_with_resident_reply_and_hosted_access_and_mutations(
+        state,
+        action,
+        actor_session,
+        None,
+        mutations,
+    )
+    .await
+}
+
 fn causal_target_conflict_event(
     runtime: &RuntimeWorld,
     action: &CwAction,
@@ -37040,6 +37946,23 @@ async fn apply_and_broadcast_with_resident_reply_and_hosted_access(
     actor_session: Option<&str>,
     hosted_access_grant: Option<HostedAccessJournalGrant>,
 ) -> Json<ActionResponse> {
+    apply_and_broadcast_with_resident_reply_and_hosted_access_and_mutations(
+        state,
+        action,
+        actor_session,
+        hosted_access_grant,
+        Vec::new(),
+    )
+    .await
+}
+
+async fn apply_and_broadcast_with_resident_reply_and_hosted_access_and_mutations(
+    state: AppState,
+    action: CwAction,
+    actor_session: Option<&str>,
+    hosted_access_grant: Option<HostedAccessJournalGrant>,
+    mutations: Vec<ProjectionMutation>,
+) -> Json<ActionResponse> {
     let actor_id = action.actor_id;
     let was_active = actor_session
         .and_then(|token| actor_session_active_for_actor(&state.actor_sessions, actor_id, token))
@@ -37065,6 +37988,7 @@ async fn apply_and_broadcast_with_resident_reply_and_hosted_access(
         return response;
     }
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
+    record.projection_mutations.extend(mutations);
     if action_is_discovery_check(&record.action) {
         record
             .projection_mutations
@@ -38348,6 +39272,76 @@ fn generated_pathway_job_id(pathway_id: &str) -> String {
     format!("{pathway_id}:community-work")
 }
 
+fn generated_pathway_contribution_strategies(
+    job_id: &str,
+    progress_clock_id: &str,
+) -> Vec<JobContributionStrategy> {
+    let pack_id = "cosyworld.core";
+    let pack_version = active_content()
+        .manifest
+        .packs
+        .iter()
+        .find(|pack| pack.id == pack_id)
+        .map(|pack| pack.version.clone())
+        .unwrap_or_default();
+    ["work", "help"]
+        .into_iter()
+        .filter_map(|action_kind| {
+            let binding = resolved_action_binding(action_kind)?;
+            let (target, baseline_progress, prepared_bonus_progress, strategy_label) =
+                if action_kind == "work" {
+                    (
+                        ContributionTargetDescriptor {
+                            kind: "job".to_string(),
+                            id: Some(job_id.to_string()),
+                            predicate: None,
+                            label: "the newly found way".to_string(),
+                        },
+                        2,
+                        1,
+                        "Mark and steady the route",
+                    )
+                } else {
+                    (
+                        ContributionTargetDescriptor {
+                            kind: "actor".to_string(),
+                            id: None,
+                            predicate: Some("co_present_avatar".to_string()),
+                            label: "a nearby traveler".to_string(),
+                        },
+                        1,
+                        1,
+                        "Work beside another traveler",
+                    )
+                };
+            Some(JobContributionStrategy {
+                version: JOB_CONTRIBUTION_SCHEMA_VERSION,
+                id: format!("pathway-{action_kind}"),
+                action_kind: action_kind.to_string(),
+                rules_action: binding.rules_action,
+                operation: binding.operation,
+                target,
+                requirements: Vec::new(),
+                resolution: ContributionResolutionPolicy::Certain,
+                clock_id: progress_clock_id.to_string(),
+                baseline_progress,
+                success_progress: 0,
+                prepared_bonus_progress,
+                on_success: Vec::new(),
+                on_failure: Vec::new(),
+                claim_policy: ContributionClaimPolicy::Repeatable,
+                strategy_label: strategy_label.to_string(),
+                narration_key: format!("pathway.familiarity.{action_kind}"),
+                rules_profile: active_content().manifest.rules_profile.clone(),
+                rules_pack_id: binding.pack_id,
+                rules_pack_version: binding.pack_version,
+                pack_id: pack_id.to_string(),
+                pack_version: pack_version.clone(),
+            })
+        })
+        .collect()
+}
+
 fn pathway_edge_key(left: u64, right: u64) -> String {
     let (origin, destination) = canonical_pathway_anchors(left, right);
     format!("{origin}:{destination}")
@@ -38941,6 +39935,9 @@ fn action_offer_requires_target(kind: &str) -> bool {
             | "give_item"
             | "trade_item"
             | "search"
+            | "study"
+            | "work"
+            | "help"
             | "craft"
             | "move"
             | "create_bond"
@@ -38956,7 +39953,9 @@ fn action_offer_is_reachable(offer: &RankedActionOffer) -> bool {
     if action_offer_requires_target(&offer.kind) && offer.target.is_none() {
         return false;
     }
-    if matches!(offer.kind.as_str(), "prepare" | "work" | "help") && offer.project.is_none() {
+    if matches!(offer.kind.as_str(), "prepare" | "work" | "help" | "study")
+        && offer.project.is_none()
+    {
         return false;
     }
     true
@@ -39107,6 +40106,14 @@ fn action_offer_intention(kind: &str) -> &str {
         "move" => "travel",
         "work" | "help" => "contribute",
         _ => kind,
+    }
+}
+
+fn contribution_resolution_label(policy: &ContributionResolutionPolicy) -> &'static str {
+    match policy {
+        ContributionResolutionPolicy::Certain => "certain",
+        ContributionResolutionPolicy::SrdCheck { .. } => "srd_check",
+        ContributionResolutionPolicy::ExistingKernelOutcome { .. } => "existing_kernel_outcome",
     }
 }
 
@@ -42557,6 +43564,24 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    }
+
+    fn quest_projection_signature(runtime: &RuntimeWorld) -> serde_json::Value {
+        serde_json::json!({
+            "progress": runtime.clocks.get(MOONLIT_PROGRESS_CLOCK_ID),
+            "danger": runtime.clocks.get(MOONLIT_DANGER_CLOCK_ID),
+            "claims": runtime.rpg_claims,
+            "events": runtime.event_log.iter().filter(|event| matches!(
+                event.type_name.as_str(),
+                "ability_check.rolled"
+                    | "job.contribution.resolved"
+                    | "clock.updated"
+                    | "clock.threshold"
+                    | "tag.applied"
+                    | "tag.cleared"
+                    | "job.updated"
+            )).collect::<Vec<_>>(),
+        })
     }
 
     fn arrange_test_transfer_items(runtime: &mut RuntimeWorld) {
@@ -49317,7 +50342,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.3.3");
+        assert_eq!(location_reference.pack_version, "1.3.4");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");
@@ -49794,9 +50819,11 @@ mod tests {
         let first_work = work(
             ConnectInfo("127.0.0.1:43126".parse().unwrap()),
             State(state.clone()),
-            Json(ActorRequest {
+            Json(JobContributionRequest {
                 actor_id: 5000,
                 actor_session: Some(first_session),
+                job_id: None,
+                strategy_id: None,
             }),
         )
         .await
@@ -49807,9 +50834,11 @@ mod tests {
         let second_help = help_room(
             ConnectInfo("127.0.0.1:43127".parse().unwrap()),
             State(state.clone()),
-            Json(ActorRequest {
+            Json(JobContributionRequest {
                 actor_id: 5001,
                 actor_session: Some(second_session),
+                job_id: None,
+                strategy_id: None,
             }),
         )
         .await
@@ -54306,11 +55335,13 @@ mod tests {
         let direct = study(
             ConnectInfo("127.0.0.1:44130".parse().expect("client address")),
             State(direct_state),
-            Json(CheckRequest {
+            Json(StudyContributionRequest {
                 actor_id: 5000,
                 actor_session: Some(direct_session),
                 ability: "intelligence".to_string(),
                 dc: Some(LISTEN_DC),
+                job_id: None,
+                strategy_id: None,
             }),
         )
         .await
@@ -56190,9 +57221,11 @@ mod tests {
         let response = work(
             ConnectInfo(client_addr),
             State(state.clone()),
-            Json(ActorRequest {
+            Json(JobContributionRequest {
                 actor_id: 5000,
                 actor_session: Some(actor_session),
+                job_id: None,
+                strategy_id: None,
             }),
         )
         .await
@@ -56204,7 +57237,8 @@ mod tests {
             event.type_name == "clock.updated"
                 && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
                 && event.clock_delta == Some(3)
-                && event.content.as_deref() == Some("informed_work")
+                && event.content.as_deref()
+                    == Some("job_contribution:moonlit-trail:quiet-the-echo:steady-trail")
         }));
         assert!(response.events.iter().any(|event| {
             event.type_name == "tag.cleared" && event.tag_label.as_deref() == Some("prepared")
@@ -56276,6 +57310,399 @@ mod tests {
         assert!(finish_help_offer.progress.is_some_and(|amount| amount > 0));
     }
 
+    #[test]
+    fn authored_study_contribution_uses_declared_roll_claim_and_causal_trace() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Moonlit Reader",
+        );
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let intent = runtime
+            .job_contribution_intent(5000, "study", None, None, None)
+            .expect("Moonlit Trail declares a Study strategy");
+        assert_eq!(intent.job_id, MOONLIT_JOB_ID);
+        assert_eq!(intent.strategy.id, "read-moonlit-signs");
+        assert!(matches!(
+            intent.strategy.resolution,
+            ContributionResolutionPolicy::SrdCheck {
+                ref ability,
+                dc: 12
+            } if ability == "intelligence"
+        ));
+
+        let mut study_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_RULES_STUDY,
+                actor_id: 5000,
+                ability: 3,
+                dc: LISTEN_DC,
+                ..CwAction::default()
+            },
+            82_001,
+        )
+        .into_player_card();
+        study_record.bind_offer_kind("study");
+        study_record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveJobContribution {
+                intent: intent.clone(),
+            });
+        let (status, first_events) = runtime.apply_journal_record(&study_record);
+        assert_eq!(status, CW_OK);
+        let check = first_events
+            .iter()
+            .find(|event| event.type_name == "ability_check.rolled")
+            .expect("Study resolves through the kernel check");
+        assert_eq!(check.dc, Some(12));
+        let contribution = first_events
+            .iter()
+            .find(|event| event.type_name == "job.contribution.resolved")
+            .expect("Study writes a structured contribution trace");
+        let trace = serde_json::from_str::<JobContributionTrace>(
+            contribution
+                .content
+                .as_deref()
+                .expect("contribution trace is serialized"),
+        )
+        .expect("contribution trace schema");
+        let succeeded = check.success
+            && check
+                .total
+                .zip(check.dc)
+                .is_some_and(|(total, dc)| total >= dc);
+        assert_eq!(trace.resolution, "srd_check");
+        assert_eq!(trace.outcome, if succeeded { "success" } else { "failure" });
+        assert_eq!(trace.total_progress, 1 + u8::from(succeeded));
+        assert_eq!(trace.source_event_seqs, vec![check.seq]);
+        assert_eq!(contribution.caused_by_event_seq, Some(check.seq));
+        assert_eq!(trace.rules_profile, active_content().manifest.rules_profile);
+        assert_eq!(trace.rules_pack_id, "cosyworld.rules-profile-srd5");
+        assert_eq!(trace.pack_id, "cosyworld.core");
+        let clock_event = first_events
+            .iter()
+            .find(|event| {
+                event.type_name == "clock.updated"
+                    && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
+            })
+            .expect("the named contribution advances its named clock");
+        assert_eq!(
+            clock_event.clock_delta,
+            Some(i16::from(trace.total_progress))
+        );
+        assert_eq!(clock_event.caused_by_event_seq, Some(contribution.seq));
+
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        let inspected = state
+            .inspector
+            .jobs
+            .iter()
+            .find(|job| job.id == MOONLIT_JOB_ID)
+            .and_then(|job| {
+                job.contribution_strategies
+                    .iter()
+                    .find(|strategy| strategy.strategy.id == "read-moonlit-signs")
+            })
+            .expect("inspector exposes the authored Study strategy");
+        assert!(inspected.source_event_seqs.contains(&check.seq));
+        assert!(inspected.source_event_seqs.contains(&contribution.seq));
+        assert!(!inspected.available, "once-per-target Study is now claimed");
+
+        let before_retry = runtime
+            .clocks
+            .get(MOONLIT_PROGRESS_CLOCK_ID)
+            .expect("progress clock")
+            .filled;
+        let mut retry_record = study_record.clone();
+        retry_record.seed = 82_002;
+        let (_, retry_events) = runtime.apply_journal_record(&retry_record);
+        assert!(!retry_events
+            .iter()
+            .any(|event| event.type_name == "job.contribution.resolved"));
+        assert_eq!(
+            runtime.clocks[MOONLIT_PROGRESS_CLOCK_ID].filled, before_retry,
+            "the same target cannot contribute twice"
+        );
+
+        let expected = quest_projection_signature(&runtime);
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("contribution snapshot restores");
+        assert_eq!(quest_projection_signature(&restored), expected);
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-contribution snapshot restores");
+        assert_eq!(replayed.apply_journal_record(&study_record).0, CW_OK);
+        assert_eq!(replayed.apply_journal_record(&retry_record).0, CW_OK);
+        assert_eq!(quest_projection_signature(&replayed), expected);
+    }
+
+    #[test]
+    fn certain_work_is_named_targeted_and_fills_authored_effects_once() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Trail Steward",
+        );
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let intent = runtime
+            .job_contribution_intent(5000, "work", None, None, None)
+            .expect("Moonlit Trail declares a Work strategy");
+        assert_eq!(intent.strategy.id, "steady-trail");
+        assert!(matches!(
+            intent.strategy.resolution,
+            ContributionResolutionPolicy::Certain
+        ));
+
+        let work_record = |seed| {
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: 5000,
+                    ..CwAction::default()
+                },
+                seed,
+            )
+            .into_player_card();
+            record.bind_offer_kind("work");
+            record
+                .projection_mutations
+                .push(ProjectionMutation::ResolveJobContribution {
+                    intent: intent.clone(),
+                });
+            record
+        };
+        let first_record = work_record(82_101);
+        let second_record = work_record(82_102);
+        let third_record = work_record(82_103);
+        let (_, first_events) = runtime.apply_journal_record(&first_record);
+        assert!(!first_events
+            .iter()
+            .any(|event| event.type_name == "ability_check.rolled"));
+        let first_trace = first_events
+            .iter()
+            .find(|event| event.type_name == "job.contribution.resolved")
+            .and_then(|event| event.content.as_deref())
+            .and_then(|content| serde_json::from_str::<JobContributionTrace>(content).ok())
+            .expect("certain Work writes its trace");
+        assert_eq!(first_trace.resolution, "certain");
+        assert_eq!(first_trace.outcome, "certain");
+        assert_eq!(first_trace.total_progress, 2);
+        assert!(first_trace.source_event_seqs.is_empty());
+        assert!(first_events.iter().any(|event| {
+            event.type_name == "clock.threshold"
+                && event.content.as_deref()
+                    == Some("The echo loosens; footsteps begin to sound like travelers again.")
+        }));
+
+        let (_, second_events) = runtime.apply_journal_record(&second_record);
+        assert_eq!(runtime.clocks[MOONLIT_PROGRESS_CLOCK_ID].filled, 4);
+        assert_eq!(
+            runtime.job_status(&runtime.jobs[MOONLIT_JOB_ID]),
+            "completed"
+        );
+        assert!(second_events
+            .iter()
+            .any(|event| event.type_name == "job.updated"));
+        let (_, third_events) = runtime.apply_journal_record(&third_record);
+        assert!(!third_events
+            .iter()
+            .any(|event| event.type_name == "job.contribution.resolved"));
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == "clock.threshold"
+                        && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
+                })
+                .count(),
+            1
+        );
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| {
+                    event.type_name == "job.updated"
+                        && event
+                            .content
+                            .as_deref()
+                            .is_some_and(|content| content.contains(":completed:"))
+                })
+                .count(),
+            1,
+            "clock fill effects apply once"
+        );
+
+        let expected = quest_projection_signature(&runtime);
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("work replay base restores");
+        for record in [&first_record, &second_record, &third_record] {
+            assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
+        }
+        assert_eq!(quest_projection_signature(&replayed), expected);
+    }
+
+    #[test]
+    fn quest_strategy_legality_ignores_avatar_identity_practice_and_controller() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Unlabeled Helper",
+        );
+        let baseline = runtime
+            .job_contribution_intent(5000, "work", None, None, None)
+            .expect("baseline Work strategy");
+        runtime.actors.get_mut(&5000).expect("actor metadata").title =
+            "Grand Courier of the Ninth Lantern".to_string();
+        runtime.callings.insert(
+            5000,
+            CallingState {
+                actor_id: 5000,
+                statement: "I study old maps, never trails.".to_string(),
+                source_event_seq: None,
+            },
+        );
+        runtime.actor_practices.insert(
+            5000,
+            ActorPracticeState {
+                primary: Some(DeedCategory::Lore),
+                secondary: Some(DeedCategory::Delivery),
+                updated_event_seq: 99,
+                ..ActorPracticeState::default()
+            },
+        );
+        runtime.actor_autonomy.insert(
+            5000,
+            ActorAutonomyState {
+                control_mode: ActorControlMode::LocalAi,
+                ..ActorAutonomyState::default()
+            },
+        );
+        let relabeled = runtime
+            .job_contribution_intent(5000, "work", None, None, None)
+            .expect("the same Work strategy remains legal");
+        assert_eq!(
+            serde_json::to_value(&relabeled).expect("serialize relabeled intent"),
+            serde_json::to_value(&baseline).expect("serialize baseline intent")
+        );
+    }
+
+    #[test]
+    fn two_avatars_can_choose_different_strategies_but_targetless_work_cannot_advance() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Signs Reader",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Trail Tender",
+        );
+        let study_intent = runtime
+            .job_contribution_intent(5000, "study", None, None, None)
+            .expect("first avatar can Study");
+        let work_intent = runtime
+            .job_contribution_intent(5001, "work", None, None, None)
+            .expect("second avatar can Work");
+        assert_ne!(study_intent.strategy.id, work_intent.strategy.id);
+        assert_eq!(study_intent.job_id, work_intent.job_id);
+
+        let mut study_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_RULES_STUDY,
+                actor_id: 5000,
+                ability: 3,
+                dc: LISTEN_DC,
+                ..CwAction::default()
+            },
+            82_201,
+        )
+        .into_player_card();
+        study_record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveJobContribution {
+                intent: study_intent,
+            });
+        let mut work_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5001,
+                ..CwAction::default()
+            },
+            82_202,
+        )
+        .into_player_card();
+        work_record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveJobContribution {
+                intent: work_intent,
+            });
+        let (_, study_events) = runtime.apply_journal_record(&study_record);
+        let (_, work_events) = runtime.apply_journal_record(&work_record);
+        let traces = study_events
+            .iter()
+            .chain(work_events.iter())
+            .filter(|event| event.type_name == "job.contribution.resolved")
+            .map(|event| {
+                serde_json::from_str::<JobContributionTrace>(
+                    event.content.as_deref().expect("trace content"),
+                )
+                .expect("trace schema")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(traces.len(), 2);
+        assert_eq!(traces[0].job_id, MOONLIT_JOB_ID);
+        assert_eq!(traces[1].job_id, MOONLIT_JOB_ID);
+        assert_ne!(traces[0].strategy_id, traces[1].strategy_id);
+
+        let mut targetless = RuntimeWorld::seeded();
+        create_test_human(
+            &mut targetless,
+            5002,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Targetless Worker",
+        );
+        assert!(targetless
+            .active_progress_clock_id_for_location(MOONLIT_TRAIL_LOCATION_ID)
+            .is_some());
+        targetless
+            .jobs
+            .get_mut(MOONLIT_JOB_ID)
+            .expect("Moonlit job")
+            .contribution_strategies
+            .clear();
+        assert!(!targetless.work_available(5002));
+        assert!(!targetless.help_available(5002));
+        let before = targetless.clocks[MOONLIT_PROGRESS_CLOCK_ID].filled;
+        let generic = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5002,
+                ..CwAction::default()
+            },
+            82_203,
+        )
+        .into_player_card();
+        let (_, generic_events) = targetless.apply_journal_record(&generic);
+        assert!(!generic_events
+            .iter()
+            .any(|event| event.type_name == "clock.updated"));
+        assert_eq!(targetless.clocks[MOONLIT_PROGRESS_CLOCK_ID].filled, before);
+    }
+
     #[tokio::test]
     async fn project_help_trades_speed_for_safe_bond_progress() {
         let mut runtime = RuntimeWorld::seeded();
@@ -56324,9 +57751,11 @@ mod tests {
         let response = help_room(
             ConnectInfo("127.0.0.1:43111".parse().expect("client address")),
             State(state.clone()),
-            Json(ActorRequest {
+            Json(JobContributionRequest {
                 actor_id: 5000,
                 actor_session: Some(actor_session.clone()),
+                job_id: None,
+                strategy_id: None,
             }),
         )
         .await
@@ -56337,7 +57766,8 @@ mod tests {
             event.type_name == "clock.updated"
                 && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
                 && event.clock_delta == Some(1)
-                && event.content.as_deref() == Some("help")
+                && event.content.as_deref()
+                    == Some("job_contribution:moonlit-trail:quiet-the-echo:steady-beside-traveler")
         }));
         assert!(response.events.iter().any(|event| {
             event.type_name == "bond.deepened"
@@ -56385,9 +57815,11 @@ mod tests {
         let repeat_response = help_room(
             ConnectInfo("127.0.0.1:43112".parse().expect("client address")),
             State(state.clone()),
-            Json(ActorRequest {
+            Json(JobContributionRequest {
                 actor_id: 5000,
                 actor_session: Some(actor_session),
+                job_id: None,
+                strategy_id: None,
             }),
         )
         .await
@@ -56398,7 +57830,8 @@ mod tests {
             event.type_name == "clock.updated"
                 && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
                 && event.clock_delta == Some(1)
-                && event.content.as_deref() == Some("help")
+                && event.content.as_deref()
+                    == Some("job_contribution:moonlit-trail:quiet-the-echo:steady-beside-traveler")
         }));
         assert!(repeat_response.events.iter().any(|event| {
             event.type_name == "tag.applied" && event.tag_label.as_deref() == Some("tired")
@@ -56888,9 +58321,11 @@ mod tests {
         let work_response = work(
             ConnectInfo("127.0.0.1:43105".parse().expect("client address")),
             State(state.clone()),
-            Json(ActorRequest {
+            Json(JobContributionRequest {
                 actor_id: 5000,
                 actor_session: Some(actor_session.clone()),
+                job_id: None,
+                strategy_id: None,
             }),
         )
         .await
@@ -56933,9 +58368,11 @@ mod tests {
                 work(
                     ConnectInfo("127.0.0.1:43106".parse().expect("client address")),
                     State(state.clone()),
-                    Json(ActorRequest {
+                    Json(JobContributionRequest {
                         actor_id: 5000,
                         actor_session: Some(actor_session.clone()),
+                        job_id: None,
+                        strategy_id: None,
                     }),
                 )
                 .await
@@ -56959,9 +58396,11 @@ mod tests {
                 help_room(
                     ConnectInfo("127.0.0.1:43108".parse().expect("client address")),
                     State(state.clone()),
-                    Json(ActorRequest {
+                    Json(JobContributionRequest {
                         actor_id: 5000,
                         actor_session: Some(actor_session.clone()),
+                        job_id: None,
+                        strategy_id: None,
                     }),
                 )
                 .await
@@ -57048,9 +58487,11 @@ mod tests {
         let first_work = work(
             ConnectInfo("127.0.0.1:43113".parse().expect("client address")),
             State(state.clone()),
-            Json(ActorRequest {
+            Json(JobContributionRequest {
                 actor_id: 5000,
                 actor_session: Some(actor_session.clone()),
+                job_id: None,
+                strategy_id: None,
             }),
         )
         .await
@@ -57090,9 +58531,11 @@ mod tests {
         let finishing_work = work(
             ConnectInfo("127.0.0.1:43115".parse().expect("client address")),
             State(state.clone()),
-            Json(ActorRequest {
+            Json(JobContributionRequest {
                 actor_id: 5000,
                 actor_session: Some(actor_session),
+                job_id: None,
+                strategy_id: None,
             }),
         )
         .await

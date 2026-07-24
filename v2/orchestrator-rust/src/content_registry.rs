@@ -1112,7 +1112,7 @@ mod tests {
             registry.content().manifest.rules_profile,
             "cosyworld.srd5/1"
         );
-        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.3.3");
+        assert_eq!(registry.pack("cosyworld.core").unwrap().version, "1.3.4");
         assert_eq!(
             registry.capability_provider("cosyworld.core/world"),
             Some("cosyworld.core")

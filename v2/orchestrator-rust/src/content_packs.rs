@@ -350,7 +350,7 @@ mod tests {
         assert_eq!(core.asset_providers.len(), 2);
         assert!(core.asset_providers.iter().all(|provider| {
             provider.provider == "cosyworld.core/assets"
-                && provider.cache_namespace.contains("cosyworld.core@1.3.3")
+                && provider.cache_namespace.contains("cosyworld.core@1.3.4")
                 && provider.content_hash.starts_with("sha256:")
         }));
 

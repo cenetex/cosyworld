@@ -4910,7 +4910,11 @@
           ].filter(Boolean).join(" · "),
           effect: workOffer?.effect,
           risk: workOffer?.risk,
-          run: () => action("/actions/work", { actor_id: actorId }),
+          run: () => action("/actions/work", {
+            actor_id: actorId,
+            job_id: workOffer?.project?.id,
+            strategy_id: workOffer?.project?.strategy_id,
+          }),
         });
       }
       const actorTired = (view.tags || []).some((tag) => (
@@ -4957,7 +4961,11 @@
           ].filter(Boolean).join(" · "),
           effect: helpOffer?.effect,
           risk: helpOffer?.risk,
-          run: () => action("/actions/help", { actor_id: actorId }),
+          run: () => action("/actions/help", {
+            actor_id: actorId,
+            job_id: helpOffer?.project?.id,
+            strategy_id: helpOffer?.project?.strategy_id,
+          }),
         });
       }
       if (contributionStrategies.length) {
@@ -5050,7 +5058,13 @@
           modalSummary: "Reason through what the signs mean.",
           effect: studyOffer?.effect || "an understood truth joins your Visit Ledger",
           risk: studyOffer?.risk,
-          run: () => action("/actions/study", { actor_id: actorId, ability: "intelligence", dc: 12 }),
+          run: () => action("/actions/study", {
+            actor_id: actorId,
+            ability: "intelligence",
+            dc: 12,
+            job_id: studyOffer?.project?.id,
+            strategy_id: studyOffer?.project?.strategy_id,
+          }),
         });
       }
       if (options.has("influence")) {
@@ -6254,7 +6268,9 @@
       "item.used",
       "item.given",
       "item.traded",
+      "job.contribution.resolved",
       "clock.updated",
+      "clock.threshold",
       "job.updated",
       "ledger.banked",
       "calling.revised",
@@ -6457,7 +6473,9 @@
         || event.type === "item.traded"
         || event.type === "avatar.evolved"
         || event.type === "rule.rejected"
+        || event.type === "job.contribution.resolved"
         || event.type === "clock.updated"
+        || event.type === "clock.threshold"
         || event.type === "tag.applied"
         || event.type === "tag.cleared"
         || event.type === "calling.set"
@@ -7178,6 +7196,12 @@
       if (event.type === "ability_check.rolled") {
         return { kind: "roll", label: "roll", text: cleanStatusText(listenEventText(event)) };
       }
+      if (event.type === "job.contribution.resolved") {
+        return { kind: "world", label: "approach", text: cleanStatusText(jobContributionEventText(event)) };
+      }
+      if (event.type === "clock.threshold") {
+        return { kind: "world", label: "turning point", text: cleanStatusText(event.content || "The shared work reaches a turning point.") };
+      }
       if (event.type === "combat.attack.attempt") {
         return { kind: "roll", label: "roll", text: cleanStatusText(eventText(event)) };
       }
@@ -7208,7 +7232,14 @@
       if (type === "encounter.reset") return "combat";
       if (type === "hand.shuffled") return "hand";
       if (type.startsWith("turn.")) return "hand";
-      if (type === "clock.updated" || type === "tag.applied" || type === "tag.cleared" || type === "job.updated") return "world";
+      if (
+        type === "job.contribution.resolved"
+        || type === "clock.updated"
+        || type === "clock.threshold"
+        || type === "tag.applied"
+        || type === "tag.cleared"
+        || type === "job.updated"
+      ) return "world";
       return "status";
     }
 
@@ -7220,7 +7251,9 @@
       if (type === "encounter.reset") return "frontier";
       if (type === "hand.shuffled") return "hand";
       if (type.startsWith("turn.")) return "turn";
+      if (type === "job.contribution.resolved") return "approach";
       if (type === "clock.updated") return "clock";
+      if (type === "clock.threshold") return "turning point";
       if (type.startsWith("tag.")) return "tag";
       if (type === "job.updated") return "job";
       return "event";
@@ -8014,8 +8047,21 @@
         const skill = abilityLabel(String(event.content || "").split(":")[0], "an ability");
         return `${actor} practices ${skill}. Its checks now come a little more easily.`;
       }
+      if (type === "job.contribution.resolved") {
+        const trace = jobContributionTrace(event);
+        if (!trace) return `${actor} finds a way to move the shared work forward.`;
+        const steps = Number(trace.total_progress || 0);
+        const headway = `${steps} ${steps === 1 ? "step" : "steps"} of headway`;
+        const outcome = trace.outcome === "failure"
+          ? " The attempt falls short, but its groundwork still counts."
+          : "";
+        return `${actor} tries to ${lowerInitial(trace.strategy_label || "help")} at ${trace.target?.label || "the shared task"}, making ${headway}.${outcome}`;
+      }
       if (type === "clock.updated") {
         return `The shared work shifts beneath ${possessive(actor)} hands; ${withoutFinalPeriod(eventText(event))}.`;
+      }
+      if (type === "clock.threshold") {
+        return finishSentence(cleanStatusText(event.content || "The shared work reaches a turning point"));
       }
       if (type === "job.updated") {
         return `Under ${possessive(actor)} hands, ${withoutFinalPeriod(jobEventLabel(event))}.`;
@@ -8299,6 +8345,7 @@
       if (event.type === "branch.expired") return `lets a choice with ${event.target_actor_name} fade.`;
       if (event.type === "hand.shuffled") return "draws a new hand.";
       if (event.type === "ability_check.rolled") return listenEventText(event);
+      if (event.type === "job.contribution.resolved") return jobContributionEventText(event);
       if (event.type === "clock.updated") {
         const label = event.clock_label || "something in the room";
         const filled = Number.isFinite(Number(event.clock_filled)) ? Number(event.clock_filled) : 0;
@@ -8307,6 +8354,9 @@
         if (segments > 0 && filled >= segments) return `${label} comes due.`;
         if (delta < 0) return `${label} eases back.`;
         return `${label} draws closer.`;
+      }
+      if (event.type === "clock.threshold") {
+        return finishSentence(cleanStatusText(event.content || "the shared work reaches a turning point"));
       }
       if (event.type === "tag.applied") return `is now ${event.tag_label || "changed"}.`;
       if (event.type === "tag.cleared") return `shakes off ${event.tag_label || "what was lingering"}.`;
@@ -8390,6 +8440,31 @@
       if (status === "active") return "the work begins";
       if (status === "failed") return "the work falls quiet for now";
       return "the work changes";
+    }
+
+    function lowerInitial(value) {
+      const text = String(value || "").trim();
+      return text ? `${text.charAt(0).toLowerCase()}${text.slice(1)}` : "";
+    }
+
+    function jobContributionTrace(event) {
+      try {
+        const trace = JSON.parse(String(event?.content || "{}"));
+        return trace && typeof trace === "object" && trace.schema_version === 1 ? trace : null;
+      } catch (_error) {
+        return null;
+      }
+    }
+
+    function jobContributionEventText(event) {
+      const trace = jobContributionTrace(event);
+      if (!trace) return "finds a way to move the shared work forward.";
+      const steps = Number(trace.total_progress || 0);
+      const headway = `${steps} ${steps === 1 ? "step" : "steps"}`;
+      const outcome = trace.outcome === "failure"
+        ? " The attempt falls short, but its groundwork still counts."
+        : "";
+      return `tries to ${lowerInitial(trace.strategy_label || "help")} at ${trace.target?.label || "the shared task"}; the work gains ${headway}.${outcome}`;
     }
 
     function listenEventText(event) {

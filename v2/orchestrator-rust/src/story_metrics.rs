@@ -1007,7 +1007,9 @@ fn story_action_category(event: &EventView) -> &'static str {
     match event.type_name.as_str() {
         "message.created" => "social",
         type_name if type_name.starts_with("bond.") => "friendship",
-        "job.updated" | "clock.updated" => "shared_work",
+        "job.contribution.resolved" | "clock.updated" | "clock.threshold" | "job.updated" => {
+            "shared_work"
+        }
         type_name if type_name.starts_with("item.") => "item_care",
         type_name if type_name.starts_with("combat.") => "conflict",
         "feature.searched" | "location.searched" | "exit.discovered" | "avatar.discovered" => {
