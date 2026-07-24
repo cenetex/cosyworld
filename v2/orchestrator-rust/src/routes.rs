@@ -80,6 +80,10 @@ pub(super) fn app_router(state: AppState) -> Router {
             "/story/world-beat-exposures",
             post(acknowledge_world_beat_exposure),
         )
+        .route(
+            "/story/clock-presentations",
+            post(acknowledge_clock_presentation),
+        )
         .route("/inspect", get(inspect_view))
         .route("/world", get(world_view))
         .route("/events", get(events_view))

@@ -2270,6 +2270,15 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 clock.id, clock.scope_id
             ));
         }
+        if clock.visible_to_players
+            && (!clock_presentation_is_valid(&clock.presentation)
+                || !(0..=100).contains(&clock.presentation.priority))
+        {
+            return Err(format!(
+                "player-visible clock {} has invalid presentation v{}",
+                clock.id, CLOCK_PRESENTATION_SCHEMA_VERSION
+            ));
+        }
     }
 
     let job_ids = content

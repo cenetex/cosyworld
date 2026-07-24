@@ -1639,6 +1639,34 @@ for (const clock of clocks) {
   if (clock.on_fill !== undefined && !Array.isArray(clock.on_fill)) {
     fail(`clock ${clock.id} on_fill must be an array`);
   }
+  if (clock.visible_to_players) {
+    const presentation = clock.presentation;
+    if (
+      !isObject(presentation)
+      || presentation.version !== 1
+      || !isNonEmptyString(presentation.question)
+      || ![
+        "immediate",
+        "session",
+        "multi_session",
+        "construction",
+        "civic",
+        "seasonal",
+      ].includes(presentation.rhythm)
+      || !["immediate", "local", "communal", "background"].includes(
+        presentation.attention,
+      )
+      || !Number.isInteger(presentation.priority)
+      || presentation.priority < 0
+      || presentation.priority > 100
+      || !isNonEmptyString(presentation.situation)
+      || !isNonEmptyString(presentation.stakes)
+      || !isNonEmptyString(presentation.outcome)
+      || !isNonEmptyString(presentation.completion_memory)
+    ) {
+      fail(`player-visible clock ${clock.id} has invalid presentation v1`);
+    }
+  }
 }
 
 for (const job of jobs) {

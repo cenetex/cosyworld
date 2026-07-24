@@ -10,6 +10,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Can travelers quiet the Moonlit Trail before its echoes turn every step against them?",
+      "rhythm": "session",
+      "attention": "immediate",
+      "priority": 95,
+      "situation": "The trail repeats each footstep until no traveler can tell which sound is their own.",
+      "stakes": "Every rest gives the returning echo another chance to sharpen.",
+      "outcome": "Footsteps sound like travelers again, and the trail becomes safe to trust.",
+      "completion_memory": "Travelers listened, marked the catches in the path, and quieted the Moonlit Trail together."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -23,6 +34,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Will the returning echo shatter the Moonlit Trail first?",
+      "rhythm": "session",
+      "attention": "background",
+      "priority": 30,
+      "situation": "Each unanswered echo returns a little sharper than before.",
+      "stakes": "If it hardens completely, quiet movement along the trail becomes impossible.",
+      "outcome": "The echo fractures the trail into uncertain, hostile footsteps.",
+      "completion_memory": "The returning echo sharpened until the Moonlit Trail could no longer be trusted."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -36,6 +58,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Can the Solar Temple and the Darkest Ocean hear one shared interval in the drowned bell?",
+      "rhythm": "seasonal",
+      "attention": "communal",
+      "priority": 82,
+      "situation": "The same drowned bell sounds like absence above and a deeper song below.",
+      "stakes": "Without someone hearing both sides, each community will mistake the other for desecration.",
+      "outcome": "The bell's two songs become an accord that both height and depth can recognize.",
+      "completion_memory": "Listeners carried the drowned bell's two songs together until a shared interval could be heard."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -49,6 +82,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Will the bell schism harden before either side hears the other?",
+      "rhythm": "seasonal",
+      "attention": "background",
+      "priority": 25,
+      "situation": "Height and depth are beginning to call each other's song a wound.",
+      "stakes": "A hardened schism turns one bell into a lasting reason for distrust.",
+      "outcome": "The Solar Temple and the Abyssal Residents reject each other's song.",
+      "completion_memory": "The drowned bell became a boundary after neither side could hear the other's song."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -62,6 +106,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Can Nib name one fair price that explains the wanting without owning the wanter?",
+      "rhythm": "session",
+      "attention": "local",
+      "priority": 76,
+      "situation": "Nib has three prices for every useful thing and trusts none of them.",
+      "stakes": "An unnamed bargain lets every promise become collateral.",
+      "outcome": "One clear bargain closes the loophole freely and leaves everyone able to walk away.",
+      "completion_memory": "Nib and the cave learned a fair price that named the wanting without owning the wanter."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -75,6 +130,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Will the loophole become leverage before the bargain is made fair?",
+      "rhythm": "session",
+      "attention": "background",
+      "priority": 20,
+      "situation": "Every vague promise gives the loophole another edge.",
+      "stakes": "If it hardens, every future bargain begins as a threat.",
+      "outcome": "The cave turns every promise into collateral.",
+      "completion_memory": "The loophole hardened into leverage, and the cave learned to distrust every promise."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -88,6 +154,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Can a guest prove they can cross the Mansion's threshold without taking from it?",
+      "rhythm": "session",
+      "attention": "local",
+      "priority": 74,
+      "situation": "The Warden remembers careless guests and watches every hand near the door.",
+      "stakes": "Force will confirm the Warden's fear and close the house to everyone.",
+      "outcome": "The Mansion recognizes restraint and opens its threshold to careful guests.",
+      "completion_memory": "Careful guests earned the Mansion's threshold by entering without taking."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -101,6 +178,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Will the Warden bar every door before a guest earns trust?",
+      "rhythm": "session",
+      "attention": "background",
+      "priority": 20,
+      "situation": "Each careless approach gives the Warden another reason to turn the key.",
+      "stakes": "A fully barred Mansion leaves no path for later guests to make amends.",
+      "outcome": "The Warden seals the Mansion and calls the empty house safe.",
+      "completion_memory": "The Warden barred every door after no guest could show the Mansion restraint."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -114,6 +202,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Can Beetle's grudge ledger be amended before one bad landing becomes swamp law?",
+      "rhythm": "civic",
+      "attention": "local",
+      "priority": 72,
+      "situation": "One bad landing has been copied through the ledger until it reads like a feud.",
+      "stakes": "If nobody corrects the record, Beetle will defend a slight that everyone else has forgotten.",
+      "outcome": "One honest amendment outweighs the ledger's repeated slights.",
+      "completion_memory": "The swamp amended Beetle's ledger and let one honest correction outweigh an old grudge."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -127,6 +226,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Will Beetle's old grudge harden into law?",
+      "rhythm": "civic",
+      "attention": "background",
+      "priority": 18,
+      "situation": "Every uncorrected line makes the old slight feel more official.",
+      "stakes": "Once the grudge becomes law, the swamp will inherit a quarrel it never chose.",
+      "outcome": "The old grudge becomes the rule by which Beetle meets every traveler.",
+      "completion_memory": "The old grudge hardened into swamp law after the ledger went unamended."
+    },
     "pack_id": "cosyworld.core"
   },
   {
@@ -140,6 +250,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Can travelers find Rowan Vale and rekindle the Mothwood beacon?",
+      "rhythm": "construction",
+      "attention": "immediate",
+      "priority": 96,
+      "situation": "The last lamps point north, but the tower and its keeper have both gone dark.",
+      "stakes": "An unlit road gives the borrowed shadows time to learn every traveler's shape.",
+      "outcome": "The beacon burns again and makes the Mothwood road trustworthy after dusk.",
+      "completion_memory": "Travelers followed the last lamps, found Rowan Vale, and rekindled the Mothwood beacon."
+    },
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
@@ -153,6 +274,17 @@
     "filled": 0,
     "visible_to_players": true,
     "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Will the Mothwood road go fully dark before the beacon returns?",
+      "rhythm": "construction",
+      "attention": "background",
+      "priority": 32,
+      "situation": "Borrowed shadows are lingering longer between the last surviving lamps.",
+      "stakes": "If the road goes fully dark, the shadows will know every shape that travels it.",
+      "outcome": "The dark road becomes a lantern for borrowed shadows.",
+      "completion_memory": "The Mothwood road went fully dark, and the borrowed shadows learned its travelers."
+    },
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
   }
 ]

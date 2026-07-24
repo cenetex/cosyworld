@@ -551,8 +551,23 @@ pub(crate) fn command_response_output_for_actor(
     } else {
         events.iter().collect()
     };
-    for event in output_events {
-        let Some(line) = command_event_output(event) else {
+    for event in &output_events {
+        if matches!(
+            event.type_name.as_str(),
+            "clock.updated" | "clock.threshold" | "job.updated"
+        ) && (causal_job_contribution(&output_events, event).is_some()
+            || physical_delivery_for_event(&output_events, event).is_some())
+        {
+            continue;
+        }
+        let line = if event.type_name == "job.contribution.resolved" {
+            job_contribution_receipt(event, &output_events)
+        } else if event.type_name == "world.logistics.completed" {
+            physical_delivery_receipt(event, &output_events)
+        } else {
+            command_event_output(event)
+        };
+        let Some(line) = line else {
             continue;
         };
         if !lines.iter().any(|existing| existing == &line) {
@@ -560,6 +575,124 @@ pub(crate) fn command_response_output_for_actor(
         }
     }
     (!lines.is_empty()).then(|| lines.join("\n"))
+}
+
+fn causal_job_contribution<'a>(
+    events: &'a [&EventView],
+    event: &EventView,
+) -> Option<&'a EventView> {
+    let mut cause = event.caused_by_event_seq?;
+    for _ in 0..events.len() {
+        let parent = events
+            .iter()
+            .copied()
+            .find(|candidate| candidate.seq == cause)?;
+        if parent.type_name == "job.contribution.resolved" {
+            return Some(parent);
+        }
+        cause = parent.caused_by_event_seq?;
+    }
+    None
+}
+
+fn job_contribution_receipt(event: &EventView, events: &[&EventView]) -> Option<String> {
+    let trace = event
+        .content
+        .as_deref()
+        .and_then(|content| serde_json::from_str::<JobContributionTrace>(content).ok())?;
+    let descendants = events
+        .iter()
+        .copied()
+        .filter(|candidate| {
+            candidate.seq != event.seq
+                && causal_job_contribution(events, candidate)
+                    .is_some_and(|root| root.seq == event.seq)
+        })
+        .collect::<Vec<_>>();
+    let clock = descendants.iter().copied().find(|candidate| {
+        candidate.type_name == "clock.updated"
+            && candidate.clock_id.as_deref() == Some(trace.clock_id.as_str())
+    });
+    let threshold = descendants
+        .iter()
+        .copied()
+        .find(|candidate| candidate.type_name == "clock.threshold");
+    let settled = descendants
+        .iter()
+        .any(|candidate| candidate.type_name == "job.updated");
+    let headway = if trace.total_progress == 1 {
+        "1 step".to_string()
+    } else {
+        format!("{} steps", trace.total_progress)
+    };
+    let outcome = if trace.outcome == "failure" {
+        " The attempt falls short, but the careful groundwork still counts."
+    } else {
+        ""
+    };
+    let progress = clock
+        .and_then(|clock| clock.clock_filled.zip(clock.clock_segments))
+        .map(|(filled, segments)| format!(" Progress: {filled}/{segments}."))
+        .unwrap_or_default();
+    let credit = clock
+        .is_some()
+        .then_some(" Your contribution is remembered here.")
+        .unwrap_or_default();
+    let revelation = threshold
+        .and_then(|threshold| threshold.content.as_deref())
+        .map(|text| format!(" {}", text.trim().trim_end_matches('.')))
+        .filter(|text| !text.trim().is_empty())
+        .map(|text| format!("{text}."))
+        .unwrap_or_default();
+    let completion = settled
+        .then_some(" The shared question is settled.")
+        .unwrap_or_default();
+    Some(format!(
+        "You try to {} at {}; the shared work gains {headway}.{progress}{credit}{outcome}{revelation}{completion}",
+        trace.strategy_label.to_lowercase(),
+        trace.target.label
+    ))
+}
+
+fn physical_delivery_for_event<'a>(
+    events: &'a [&EventView],
+    event: &EventView,
+) -> Option<&'a EventView> {
+    let cause = event.caused_by_event_seq?;
+    events.iter().copied().find(|candidate| {
+        candidate.type_name == "world.logistics.completed"
+            && candidate.caused_by_event_seq == Some(cause)
+    })
+}
+
+fn physical_delivery_receipt(event: &EventView, events: &[&EventView]) -> Option<String> {
+    let summary = event
+        .content
+        .as_deref()
+        .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
+        .and_then(|evidence| {
+            evidence
+                .get("summary")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+        })?;
+    let progress = event.caused_by_event_seq.and_then(|cause| {
+        events
+            .iter()
+            .copied()
+            .find(|candidate| {
+                candidate.type_name == "clock.updated"
+                    && candidate.caused_by_event_seq == Some(cause)
+            })
+            .and_then(|clock| clock.clock_filled.zip(clock.clock_segments))
+    });
+    Some(match progress {
+        Some((filled, segments)) => format!(
+            "{} The need is answered ({filled}/{segments}), and the contribution is remembered here.",
+            summary.trim().trim_end_matches('.')
+        ),
+        None => summary,
+    })
 }
 
 pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
@@ -2741,33 +2874,60 @@ impl RuntimeWorld {
             ));
         }
 
-        let clocks = self.clock_views(location_id);
-        let jobs = self
-            .job_views(location_id)
-            .into_iter()
-            .filter(|job| job.status == "active")
-            .map(|job| {
-                let progress = clocks
+        let shared_questions = self.shared_question_views(location_id, Some(actor.id));
+        let promoted_questions = shared_questions
+            .iter()
+            .filter(|question| question.promoted)
+            .map(|question| {
+                let strategies = question
+                    .strategies
                     .iter()
-                    .find(|clock| clock.id == job.progress_clock_id)
-                    .map(clock_summary)
-                    .unwrap_or_else(|| job.progress_clock_id.clone());
-                let danger = clocks
-                    .iter()
-                    .find(|clock| clock.id == job.danger_clock_id)
-                    .map(clock_summary)
-                    .unwrap_or_else(|| job.danger_clock_id.clone());
+                    .filter(|strategy| strategy.available)
+                    .map(|strategy| {
+                        format!("{} — target {}", strategy.label, strategy.target_label)
+                    })
+                    .collect::<Vec<_>>();
+                let next = question
+                    .next_revelation
+                    .as_ref()
+                    .map(|milestone| format!(" Next sign: {}", milestone.text))
+                    .unwrap_or_default();
+                let trouble = (question.danger_segments > 0)
+                    .then(|| {
+                        format!(
+                            " Trouble: {}/{}.",
+                            question.danger_filled, question.danger_segments
+                        )
+                    })
+                    .unwrap_or_default();
                 format!(
-                    "{} Stakes: {} Work: {progress}. Trouble: {danger}",
-                    job.premise, job.stakes
+                    "{} {} Progress: {}/{}.{} What finishing changes: {} Try: {}.{}",
+                    question.question,
+                    question.situation,
+                    question.filled,
+                    question.segments,
+                    trouble,
+                    question.outcome,
+                    command_list_or_none(&strategies),
+                    next,
                 )
             })
             .collect::<Vec<_>>();
-        if !jobs.is_empty() {
-            lines.push(format!("Work here: {}.", jobs.join(" | ")));
+        if !promoted_questions.is_empty() {
+            lines.push(format!(
+                "Shared questions: {}",
+                promoted_questions.join(" | ")
+            ));
+        } else if let Some(memory) = shared_questions
+            .iter()
+            .find(|question| question.presentation_state == "completed_memory")
+            .and_then(|question| question.completion_memory.as_ref())
+        {
+            lines.push(format!("What changed here: {memory}"));
         }
 
-        if jobs.is_empty() && !clocks.is_empty() {
+        let clocks = self.clock_views(location_id);
+        if shared_questions.is_empty() && !clocks.is_empty() {
             let clock_lines = clocks.iter().map(clock_summary).collect::<Vec<_>>();
             lines.push(format!("Things unfolding: {}.", clock_lines.join(", ")));
         }
