@@ -8093,11 +8093,9 @@ impl RuntimeWorld {
     ) -> io::Result<()> {
         let mut waiting = Vec::new();
         for event in pending.drain(..) {
-            let location_ready = event.location_id.is_some_and(|location_id| {
-                self.natural_affordances.contains_key(&location_id)
-                    || self.location_meta.contains_key(&location_id)
-                    || self.locations.contains_key(&location_id)
-            });
+            let location_ready = event
+                .location_id
+                .is_some_and(|location_id| self.natural_affordances.contains_key(&location_id));
             if location_ready {
                 self.restore_natural_feature_reveal_evidence(&event)?;
             } else {
