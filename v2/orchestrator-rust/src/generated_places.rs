@@ -56,6 +56,8 @@ pub(super) struct GeneratedPlaceView {
     pub(super) connection_clock_id: String,
     pub(super) settlement_clock_id: String,
     pub(super) building_proposal: Option<GeneratedBuildingProposalState>,
+    pub(super) settlement_buildings: Vec<SettlementBuildingView>,
+    pub(super) building_slots: BuildingSlotView,
 }
 
 pub(super) fn generated_place_anchor_clock_id(location_id: u64) -> String {
@@ -418,6 +420,7 @@ impl RuntimeWorld {
         } else {
             waypoint.meta.terrain.clone()
         };
+        let sanctuary = self.location_has_building_capability(state.location_id, "sanctuary");
         let sheet = self
             .room_sheets
             .entry(state.location_id)
@@ -434,8 +437,13 @@ impl RuntimeWorld {
                 projects: projects.clone(),
                 season_clock_id: None,
             });
-        sheet.safety = "risky".to_string();
-        sheet.zone = ZONE_FRONTIER.to_string();
+        sheet.safety = if sanctuary { "safe" } else { "risky" }.to_string();
+        sheet.zone = if sanctuary {
+            ZONE_SANCTUARY
+        } else {
+            ZONE_FRONTIER
+        }
+        .to_string();
         sheet
             .projects
             .retain(|job_id| job_id != &generated_pathway_job_id(&state.pathway_id));
@@ -556,14 +564,7 @@ impl RuntimeWorld {
     }
 
     fn generated_building_choices(&self, location_id: u64) -> Vec<String> {
-        let mut choices = vec![
-            "dwelling".to_string(),
-            "waystation".to_string(),
-            "workshop".to_string(),
-        ];
-        choices.extend(self.eligible_natural_building_archetypes(location_id));
-        choices.sort();
-        choices.dedup();
+        let mut choices = self.legal_settlement_building_archetype_ids(location_id);
         choices.truncate(MAX_GENERATED_BUILDING_CHOICES);
         choices
     }
@@ -592,6 +593,8 @@ impl RuntimeWorld {
             connection_clock_id: state.connection_clock_id.clone(),
             settlement_clock_id: state.settlement_clock_id.clone(),
             building_proposal: state.building_proposal.clone(),
+            settlement_buildings: self.settlement_building_views(location_id),
+            building_slots: self.settlement_building_slot_view(location_id),
         })
     }
 

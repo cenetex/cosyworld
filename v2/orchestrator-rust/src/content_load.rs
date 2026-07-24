@@ -1371,6 +1371,7 @@ fn validate_seed_rules_profile(bundle: &SeedRuleBundle) -> Result<(), String> {
 }
 
 pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String> {
+    validate_seed_building_archetypes(content)?;
     let packs_by_id = content
         .manifest
         .packs

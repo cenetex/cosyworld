@@ -16,6 +16,7 @@ import {
   collectContentReferenceCandidates,
 } from "./content-references.mjs";
 import { assertAvatarNamingConfig } from "./avatar-naming-schema.mjs";
+import { assertBuildingArchetypeConfig } from "./building-archetype-schema.mjs";
 import { assertNaturalAffordanceConfig } from "./natural-affordance-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -520,6 +521,13 @@ for (const packId of world.packs) {
   const packRoot = path.resolve(worldDir, locked.source.path);
   const manifest = readJson(path.join(packRoot, "pack.json"));
   validateContentPackManifest(manifest, `${packId}/pack.json`);
+  const buildingArchetypes = manifest.extensions?.["x-cosyworld-building-archetypes"];
+  if (buildingArchetypes !== undefined) {
+    assertBuildingArchetypeConfig(
+      buildingArchetypes,
+      `pack ${packId} x-cosyworld-building-archetypes`,
+    );
+  }
   assert(manifest.id === packId, `pack path for ${packId} contains ${manifest.id}`);
   if (!writeLock) {
     assert(manifest.version === locked.version, `pack ${packId} version does not match lockfile`);
