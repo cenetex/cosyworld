@@ -665,6 +665,9 @@ enum EffectDescriptor {
 }
 
 const JOB_CONTRIBUTION_SCHEMA_VERSION: u8 = 1;
+const CLOCK_PRESENTATION_SCHEMA_VERSION: u8 = 1;
+const MAX_PROMOTED_SHARED_QUESTIONS: usize = 3;
+const MAX_RECENT_CLOCK_CONTRIBUTIONS: usize = 3;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 struct ContributionTargetDescriptor {
@@ -795,6 +798,46 @@ struct JobContributionTrace {
     pack_version: String,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+struct ClockPresentation {
+    #[serde(default)]
+    version: u8,
+    #[serde(default)]
+    question: String,
+    #[serde(default)]
+    rhythm: String,
+    #[serde(default)]
+    attention: String,
+    #[serde(default)]
+    priority: i16,
+    #[serde(default)]
+    situation: String,
+    #[serde(default)]
+    stakes: String,
+    #[serde(default)]
+    outcome: String,
+    #[serde(default)]
+    completion_memory: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct ClockContributionMemory {
+    actor_id: u64,
+    strategy_id: String,
+    strategy_label: String,
+    target_label: String,
+    progress: u8,
+    contribution_event_seq: u64,
+    clock_event_seq: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct ClockCompletionMemory {
+    actor_id: u64,
+    event_seq: u64,
+    text: String,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ClockState {
     id: String,
@@ -810,7 +853,13 @@ struct ClockState {
     #[serde(default)]
     status: String,
     #[serde(default)]
+    presentation: ClockPresentation,
+    #[serde(default)]
     on_fill: Vec<EffectDescriptor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    recent_contributions: Vec<ClockContributionMemory>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    completion: Option<ClockCompletionMemory>,
     #[serde(default)]
     created_event_seq: Option<u64>,
     #[serde(default)]
@@ -2406,6 +2455,27 @@ struct WorldBeatExposureReceiptRequest {
 
 #[derive(Clone, Debug, Serialize)]
 struct WorldBeatExposureReceiptResponse {
+    ok: bool,
+    status: u16,
+    exposure_id: String,
+    recorded: bool,
+    error: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ClockPresentationReceiptRequest {
+    actor_id: u64,
+    actor_session: String,
+    exposure_id: String,
+    clock_id: String,
+    interaction: String,
+    transport: String,
+    state_revision: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct ClockPresentationReceiptResponse {
     ok: bool,
     status: u16,
     exposure_id: String,
@@ -6526,6 +6596,77 @@ fn default_zone() -> String {
     ZONE_SANCTUARY.to_string()
 }
 
+fn clock_presentation_is_valid(presentation: &ClockPresentation) -> bool {
+    presentation.version == CLOCK_PRESENTATION_SCHEMA_VERSION
+        && !presentation.question.trim().is_empty()
+        && matches!(
+            presentation.rhythm.as_str(),
+            "immediate" | "session" | "multi_session" | "construction" | "civic" | "seasonal"
+        )
+        && matches!(
+            presentation.attention.as_str(),
+            "immediate" | "local" | "communal" | "background"
+        )
+        && !presentation.situation.trim().is_empty()
+        && !presentation.stakes.trim().is_empty()
+        && !presentation.outcome.trim().is_empty()
+        && !presentation.completion_memory.trim().is_empty()
+}
+
+fn clock_attention_rank(attention: &str) -> u8 {
+    match attention {
+        "immediate" => 4,
+        "local" => 3,
+        "communal" => 2,
+        "background" => 1,
+        _ => 0,
+    }
+}
+
+fn fallback_clock_presentation(clock: &ClockState, job: Option<&JobState>) -> ClockPresentation {
+    let progress = clock.kind == "progress";
+    let question = if progress {
+        format!(
+            "Can we {}?",
+            clock.label.trim_end_matches(['.', '?']).to_lowercase()
+        )
+    } else {
+        format!(
+            "What happens if {}?",
+            clock.label.trim_end_matches(['.', '?']).to_lowercase()
+        )
+    };
+    let situation = job
+        .map(|job| job.premise.clone())
+        .unwrap_or_else(|| format!("{} is still unfolding.", clock.label));
+    let stakes = job
+        .map(|job| job.stakes.clone())
+        .unwrap_or_else(|| "This shared question remains open.".to_string());
+    let outcome = job
+        .map(|job| {
+            if progress {
+                job.reward.label().to_string()
+            } else {
+                job.consequence.clone()
+            }
+        })
+        .unwrap_or_else(|| format!("{} leaves a lasting change here.", clock.label));
+    let completion_memory = job
+        .and_then(|job| (!job.memory_summary.trim().is_empty()).then(|| job.memory_summary.clone()))
+        .unwrap_or_else(|| format!("{} became part of this place's story.", clock.label));
+    ClockPresentation {
+        version: CLOCK_PRESENTATION_SCHEMA_VERSION,
+        question,
+        rhythm: "session".to_string(),
+        attention: if progress { "local" } else { "background" }.to_string(),
+        priority: if progress { 50 } else { 10 },
+        situation,
+        stakes,
+        outcome,
+        completion_memory,
+    }
+}
+
 fn default_pathway_distance() -> u8 {
     1
 }
@@ -7192,23 +7333,62 @@ impl RuntimeWorld {
                 .map(|job| job.id.clone())
                 .collect::<Vec<_>>();
             for job_id in matching_jobs {
-                if let Some(progress_clock_id) = self
+                let Some((progress_clock_id, strategy_label)) = self
                     .jobs
                     .get(&job_id)
-                    .map(|job| job.progress_clock_id.clone())
+                    .map(|job| (job.progress_clock_id.clone(), job.action_copy.label.clone()))
+                else {
+                    continue;
+                };
+                let amount = self
+                    .clocks
+                    .get(&progress_clock_id)
+                    .map(|clock| clock.segments.saturating_sub(clock.filled))
+                    .unwrap_or_default();
+                let mut clock_events = self.advance_clock(
+                    &progress_clock_id,
+                    amount,
+                    evidence.actor_id,
+                    "physical_delivery",
+                );
+                self.link_events_to_cause(&mut clock_events, evidence.delivery_event_seq);
+                if let Some((clock_event_seq, progress)) = clock_events
+                    .iter()
+                    .find(|event| event.type_name == "clock.updated")
+                    .map(|event| {
+                        (
+                            event.seq,
+                            u8::try_from(event.clock_delta.unwrap_or_default()).unwrap_or_default(),
+                        )
+                    })
                 {
-                    if let Some(clock) = self.clocks.get_mut(&progress_clock_id) {
-                        clock.filled = clock.segments;
-                        clock.status = "filled".to_string();
-                        clock.updated_event_seq = Some(evidence.delivery_event_seq);
-                    }
+                    let target_label = self
+                        .location_name(evidence.destination_location_id)
+                        .unwrap_or_else(|| {
+                            format!("Location {}", evidence.destination_location_id)
+                        });
+                    self.push_clock_contribution_memory(
+                        &progress_clock_id,
+                        ClockContributionMemory {
+                            actor_id: evidence.actor_id,
+                            strategy_id: format!("{job_id}:physical-delivery"),
+                            strategy_label,
+                            target_label,
+                            progress,
+                            contribution_event_seq: evidence.delivery_event_seq,
+                            clock_event_seq,
+                        },
+                    );
                 }
-                if let Some(event) = self.set_job_status(
+                projected.extend(clock_events);
+                if let Some(mut event) = self.set_job_status(
                     &job_id,
                     "completed",
                     evidence.actor_id,
                     "physical_delivery",
                 ) {
+                    event.caused_by_event_seq = Some(evidence.delivery_event_seq);
+                    self.replace_projected_event(&event);
                     projected.push(event);
                 }
             }
@@ -7548,6 +7728,18 @@ impl RuntimeWorld {
             if seeded_clock.on_fill.is_empty() {
                 seeded_clock.on_fill = lifecycle_effects_for("on_clock_fill", "clock", &clock.id);
             }
+            let authored_presentation = if clock_presentation_is_valid(&seeded_clock.presentation) {
+                seeded_clock.presentation.clone()
+            } else {
+                fallback_clock_presentation(
+                    &seeded_clock,
+                    active_content().jobs.iter().find(|job| {
+                        job.progress_clock_id == seeded_clock.id
+                            || job.danger_clock_id == seeded_clock.id
+                    }),
+                )
+            };
+            seeded_clock.presentation = authored_presentation.clone();
             self.clocks
                 .entry(seeded_clock.id.clone())
                 .or_insert_with(|| seeded_clock.clone());
@@ -7557,6 +7749,16 @@ impl RuntimeWorld {
                 }
                 if clock.on_fill.is_empty() {
                     clock.on_fill = seeded_clock.on_fill;
+                }
+                if !clock_presentation_is_valid(&clock.presentation) {
+                    clock.presentation = authored_presentation;
+                }
+                if clock.filled >= clock.segments && clock.completion.is_none() {
+                    clock.completion = Some(ClockCompletionMemory {
+                        actor_id: 0,
+                        event_seq: clock.updated_event_seq.unwrap_or_default(),
+                        text: clock.presentation.completion_memory.clone(),
+                    });
                 }
             }
         }
@@ -7892,7 +8094,27 @@ impl RuntimeWorld {
                 },
                 visible_to_players: true,
                 status: if pathway.familiar { "filled" } else { "active" }.to_string(),
+                presentation: ClockPresentation {
+                    version: CLOCK_PRESENTATION_SCHEMA_VERSION,
+                    question: "Can travelers make this newly found way familiar?".to_string(),
+                    rhythm: "construction".to_string(),
+                    attention: "local".to_string(),
+                    priority: 80,
+                    situation:
+                        "The route has been crossed, but its turns still feel wild and changeable."
+                            .to_string(),
+                    stakes: "Until travelers learn it together, the way may shift between visits."
+                        .to_string(),
+                    outcome:
+                        "The route becomes a familiar, lasting path with its own remembered landscape."
+                            .to_string(),
+                    completion_memory:
+                        "Travelers worked together until the newly found way felt familiar."
+                            .to_string(),
+                },
                 on_fill: Vec::new(),
+                recent_contributions: Vec::new(),
+                completion: None,
                 created_event_seq: None,
                 updated_event_seq: None,
             });
@@ -7909,7 +8131,22 @@ impl RuntimeWorld {
                 filled: 0,
                 visible_to_players: true,
                 status: if pathway.familiar { "quiet" } else { "active" }.to_string(),
+                presentation: ClockPresentation {
+                    version: CLOCK_PRESENTATION_SCHEMA_VERSION,
+                    question: "Will the wild way shift before travelers learn it?".to_string(),
+                    rhythm: "construction".to_string(),
+                    attention: "background".to_string(),
+                    priority: 20,
+                    situation: "The route still changes when nobody is paying attention."
+                        .to_string(),
+                    stakes: "A shifting route can unsettle the work already done here.".to_string(),
+                    outcome: "The way changes before it can become familiar.".to_string(),
+                    completion_memory:
+                        "The wild way shifted before travelers could make it familiar.".to_string(),
+                },
                 on_fill: Vec::new(),
+                recent_contributions: Vec::new(),
+                completion: None,
                 created_event_seq: None,
                 updated_event_seq: None,
             });
@@ -11666,6 +11903,13 @@ impl RuntimeWorld {
             "active".to_string()
         };
         clock.updated_event_seq = Some(next_seq);
+        if crossed_fill && clock.completion.is_none() {
+            clock.completion = Some(ClockCompletionMemory {
+                actor_id,
+                event_seq: next_seq,
+                text: clock.presentation.completion_memory.clone(),
+            });
+        }
         let clock = clock.clone();
         let update_event = self.append_clock_event(
             "clock.updated",
@@ -11707,6 +11951,62 @@ impl RuntimeWorld {
             }
         }
         events
+    }
+
+    fn record_clock_contribution(
+        &mut self,
+        actor_id: u64,
+        trace: &JobContributionTrace,
+        contribution_event_seq: u64,
+        clock_event: &EventView,
+    ) {
+        let progress = clock_event
+            .clock_delta
+            .and_then(|delta| u8::try_from(delta).ok())
+            .unwrap_or_default();
+        if progress == 0 {
+            return;
+        }
+        self.push_clock_contribution_memory(
+            &trace.clock_id,
+            ClockContributionMemory {
+                actor_id,
+                strategy_id: trace.strategy_id.clone(),
+                strategy_label: trace.strategy_label.clone(),
+                target_label: trace.target.label.clone(),
+                progress,
+                contribution_event_seq,
+                clock_event_seq: clock_event.seq,
+            },
+        );
+    }
+
+    fn push_clock_contribution_memory(
+        &mut self,
+        clock_id: &str,
+        contribution: ClockContributionMemory,
+    ) {
+        let Some(clock) = self.clocks.get_mut(clock_id) else {
+            return;
+        };
+        if clock
+            .recent_contributions
+            .iter()
+            .any(|entry| entry.contribution_event_seq == contribution.contribution_event_seq)
+        {
+            return;
+        }
+        clock.recent_contributions.push(contribution);
+        clock
+            .recent_contributions
+            .sort_by_key(|entry| entry.contribution_event_seq);
+        if clock.recent_contributions.len() > MAX_RECENT_CLOCK_CONTRIBUTIONS {
+            let discard = clock
+                .recent_contributions
+                .len()
+                .saturating_sub(MAX_RECENT_CLOCK_CONTRIBUTIONS);
+            clock.recent_contributions.drain(..discard);
+        }
     }
 
     fn replace_projected_event(&mut self, replacement: &EventView) {
@@ -12016,6 +12316,18 @@ impl RuntimeWorld {
                 &format!("job_contribution:{}:{}", intent.job_id, intent.strategy.id),
             );
             self.link_events_to_cause(&mut progress_events, contribution_event.seq);
+            if let Some(clock_event) = progress_events
+                .iter()
+                .find(|event| event.type_name == "clock.updated")
+                .cloned()
+            {
+                self.record_clock_contribution(
+                    action.actor_id,
+                    &trace,
+                    contribution_event.seq,
+                    &clock_event,
+                );
+            }
             events.extend(progress_events);
         }
         let authored_effects = if resolved {
@@ -17822,19 +18134,6 @@ impl RuntimeWorld {
     }
 
     fn active_progress_clock_id_for_location(&self, location_id: u64) -> Option<String> {
-        if let Some(pathway) = self
-            .generated_pathway_for_location(location_id)
-            .filter(|pathway| !pathway.familiar)
-        {
-            let clock_id = generated_pathway_progress_clock_id(&pathway.id);
-            if self
-                .clocks
-                .get(&clock_id)
-                .is_some_and(|clock| clock.filled < clock.segments)
-            {
-                return Some(clock_id);
-            }
-        }
         let has_location_job = self.location_has_job(location_id);
         self.active_job_for_location(location_id)
             .map(|job| job.progress_clock_id.clone())
@@ -17868,8 +18167,40 @@ impl RuntimeWorld {
                     .get(&job.progress_clock_id)
                     .map(|clock| (job, clock))
             })
-            .find(|(_, clock)| clock.filled < clock.segments)
+            .filter(|(_, clock)| clock.filled < clock.segments)
+            .min_by(|(left, _), (right, _)| self.compare_job_presentation(left, right))
             .map(|(job, _)| job)
+    }
+
+    fn compare_job_presentation(&self, left: &JobState, right: &JobState) -> std::cmp::Ordering {
+        let presentation_for = |job: &JobState| {
+            self.clocks
+                .get(&job.progress_clock_id)
+                .map(|clock| &clock.presentation)
+        };
+        let left_presentation = presentation_for(left);
+        let right_presentation = presentation_for(right);
+        right_presentation
+            .map(|presentation| presentation.priority)
+            .unwrap_or_default()
+            .cmp(
+                &left_presentation
+                    .map(|presentation| presentation.priority)
+                    .unwrap_or_default(),
+            )
+            .then_with(|| {
+                clock_attention_rank(
+                    right_presentation
+                        .map(|presentation| presentation.attention.as_str())
+                        .unwrap_or_default(),
+                )
+                .cmp(&clock_attention_rank(
+                    left_presentation
+                        .map(|presentation| presentation.attention.as_str())
+                        .unwrap_or_default(),
+                ))
+            })
+            .then_with(|| left.id.cmp(&right.id))
     }
 
     fn contribution_strategy_binding_is_active(&self, strategy: &JobContributionStrategy) -> bool {
@@ -18067,8 +18398,13 @@ impl RuntimeWorld {
                 })
             })
             .min_by(|left, right| {
-                left.job_id
-                    .cmp(&right.job_id)
+                let job_order = self
+                    .jobs
+                    .get(&left.job_id)
+                    .zip(self.jobs.get(&right.job_id))
+                    .map(|(left, right)| self.compare_job_presentation(left, right))
+                    .unwrap_or_else(|| left.job_id.cmp(&right.job_id));
+                job_order
                     .then_with(|| left.strategy.id.cmp(&right.strategy.id))
                     .then_with(|| left.target.id.cmp(&right.target.id))
             })
@@ -18160,7 +18496,34 @@ impl RuntimeWorld {
                 filled: 0,
                 visible_to_players: true,
                 status: "active".to_string(),
+                presentation: ClockPresentation {
+                    version: CLOCK_PRESENTATION_SCHEMA_VERSION,
+                    question: format!(
+                        "Can someone carry {} from {origin_name} to {destination_name}?",
+                        trade.resource
+                    ),
+                    rhythm: "immediate".to_string(),
+                    attention: "local".to_string(),
+                    priority: 70,
+                    situation: format!(
+                        "{destination_name} is waiting for a represented {} to arrive.",
+                        trade.resource
+                    ),
+                    stakes: format!(
+                        "The need is answered only when an avatar physically carries the item from {origin_name}."
+                    ),
+                    outcome: format!(
+                        "{destination_name} receives the {} and remembers who delivered it.",
+                        trade.resource
+                    ),
+                    completion_memory: format!(
+                        "A traveler carried {} from {origin_name} to {destination_name}.",
+                        trade.resource
+                    ),
+                },
                 on_fill: Vec::new(),
+                recent_contributions: Vec::new(),
+                completion: None,
                 created_event_seq: None,
                 updated_event_seq: None,
             },
@@ -18178,7 +18541,34 @@ impl RuntimeWorld {
                 filled: 0,
                 visible_to_players: true,
                 status: "active".to_string(),
+                presentation: ClockPresentation {
+                    version: CLOCK_PRESENTATION_SCHEMA_VERSION,
+                    question: format!(
+                        "How long can {destination_name} wait for {}?",
+                        trade.resource
+                    ),
+                    rhythm: "multi_session".to_string(),
+                    attention: "background".to_string(),
+                    priority: 15,
+                    situation: format!(
+                        "{destination_name} is beginning to feel the missing {}.",
+                        trade.resource
+                    ),
+                    stakes: format!(
+                        "If nobody makes the journey, {destination_name} continues to go without."
+                    ),
+                    outcome: format!(
+                        "{destination_name} has gone too long without {}.",
+                        trade.resource
+                    ),
+                    completion_memory: format!(
+                        "{destination_name} waited in vain for {} from {origin_name}.",
+                        trade.resource
+                    ),
+                },
                 on_fill: Vec::new(),
+                recent_contributions: Vec::new(),
+                completion: None,
                 created_event_seq: None,
                 updated_event_seq: None,
             },
@@ -26862,6 +27252,120 @@ async fn acknowledge_world_beat_exposure(
                 error
             );
             rejected(503, "story metrics store is temporarily unavailable")
+        }
+    }
+}
+
+async fn acknowledge_clock_presentation(
+    State(state): State<AppState>,
+    Json(receipt): Json<ClockPresentationReceiptRequest>,
+) -> Json<ClockPresentationReceiptResponse> {
+    let rejected = |status, error: &str| {
+        Json(ClockPresentationReceiptResponse {
+            ok: false,
+            status,
+            exposure_id: receipt.exposure_id.clone(),
+            recorded: false,
+            error: Some(error.to_string()),
+        })
+    };
+    let Some(exposure) = clock_presentation_exposure(&receipt.exposure_id) else {
+        return rejected(422, "unknown shared-question exposure contract");
+    };
+    if exposure.clock_id != receipt.clock_id
+        || exposure.interaction != receipt.interaction
+        || exposure.state_revision != receipt.state_revision
+    {
+        return rejected(422, "shared-question exposure fields do not match");
+    }
+    if !valid_world_beat_transport(&receipt.transport) {
+        return rejected(422, "unsupported shared-question delivery transport");
+    }
+
+    converge_capacity_for_read(&state, Some(&receipt.actor_session)).await;
+    let (authorized, current_revision, location_id, visible_question, source_event_seq) = {
+        let runtime = state.inner.lock().await;
+        let authorized = client_actor_authorized_for_state(
+            &runtime,
+            &state,
+            receipt.actor_id,
+            Some(&receipt.actor_session),
+        );
+        let location_id = runtime
+            .actor_by_id(receipt.actor_id)
+            .map(|actor| actor.location_id)
+            .unwrap_or_default();
+        let question = runtime
+            .shared_question_views(location_id, Some(receipt.actor_id))
+            .into_iter()
+            .find(|question| question.progress_clock_id == receipt.clock_id);
+        let visible_question =
+            question
+                .as_ref()
+                .is_some_and(|question| match receipt.interaction.as_str() {
+                    "promoted_seen" | "explanation_opened" => {
+                        question.promoted && question.presentation_state == "active"
+                    }
+                    "completion_seen" => question.presentation_state == "completed_memory",
+                    "return_change_seen" => {
+                        !question.recent_contributions.is_empty()
+                            || question.presentation_state == "completed_memory"
+                    }
+                    "comprehension_confirmed" => {
+                        question.promoted || question.presentation_state == "completed_memory"
+                    }
+                    _ => false,
+                });
+        (
+            authorized,
+            runtime.world.next_event_seq.saturating_sub(1),
+            location_id,
+            visible_question,
+            question.and_then(|question| question.updated_event_seq),
+        )
+    };
+    if !authorized {
+        return rejected(403, "actor session is not authorized");
+    }
+    if receipt.state_revision > current_revision {
+        return rejected(409, "state revision is ahead of the canonical world");
+    }
+    if !visible_question || location_id == 0 {
+        return rejected(403, "shared question is not visible to this actor");
+    }
+    let Some(path) = state.event_store_path.as_deref() else {
+        return rejected(503, "story metrics store is not configured");
+    };
+    match record_clock_presentation_exposure_at(
+        path,
+        receipt.actor_id,
+        &receipt.clock_id,
+        location_id,
+        &receipt.interaction,
+        &receipt.exposure_id,
+        &receipt.transport,
+        receipt.state_revision,
+        source_event_seq,
+        now_millis(),
+    ) {
+        Ok(recorded) => Json(ClockPresentationReceiptResponse {
+            ok: true,
+            status: 200,
+            exposure_id: receipt.exposure_id.clone(),
+            recorded,
+            error: None,
+        }),
+        Err(error) => {
+            warn!(
+                "failed to record shared-question exposure {} in {}: {}",
+                receipt.exposure_id,
+                path.display(),
+                error
+            );
+            rejected(
+                503,
+                "shared-question metrics store is temporarily unavailable",
+            )
         }
     }
 }
@@ -44922,6 +45426,146 @@ mod tests {
         fs::remove_file(path).unwrap();
     }
 
+    #[tokio::test]
+    async fn shared_question_exposure_requires_visible_client_confirmation() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-shared-question-exposure-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Visible Question Reader",
+        );
+        let state = test_app_state(runtime, Some(path.clone()));
+        let actor_session = issue_actor_session(&state, 5000).0;
+        let seen_count = || {
+            let conn = open_event_store(&path).expect("open shared-question exposure store");
+            conn.query_row(
+                "SELECT COUNT(*) FROM story_metric_events
+                 WHERE schema_version = ?1 AND event_kind = 'shared_question_seen'",
+                params![STORY_METRICS_SCHEMA_VERSION],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap()
+        };
+
+        assert_eq!(seen_count(), 0);
+        let _ = state_view(
+            State(state.clone()),
+            Query(StateQuery {
+                actor_id: Some(5000),
+                actor_session: Some(actor_session.clone()),
+                wallet_address: None,
+                wallet: None,
+                wallet_session: None,
+                owned_card_ids: None,
+                cards: None,
+                openrouter_connected: None,
+            }),
+        )
+        .await;
+        assert_eq!(
+            seen_count(),
+            0,
+            "reading canonical state cannot imply presentation"
+        );
+
+        let revision = state
+            .inner
+            .lock()
+            .await
+            .world
+            .next_event_seq
+            .saturating_sub(1);
+        let valid_receipt = ClockPresentationReceiptRequest {
+            actor_id: 5000,
+            actor_session: actor_session.clone(),
+            exposure_id: clock_presentation_exposure_id(
+                MOONLIT_PROGRESS_CLOCK_ID,
+                "promoted_seen",
+                revision,
+            ),
+            clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
+            interaction: "promoted_seen".to_string(),
+            transport: "browser".to_string(),
+            state_revision: revision,
+        };
+        let first =
+            acknowledge_clock_presentation(State(state.clone()), Json(valid_receipt.clone()))
+                .await
+                .0;
+        assert!(first.ok && first.recorded);
+        let duplicate =
+            acknowledge_clock_presentation(State(state.clone()), Json(valid_receipt.clone()))
+                .await
+                .0;
+        assert!(duplicate.ok && !duplicate.recorded);
+        assert_eq!(seen_count(), 1);
+
+        let unauthorized = acknowledge_clock_presentation(
+            State(state.clone()),
+            Json(ClockPresentationReceiptRequest {
+                actor_session: "not-a-session".to_string(),
+                ..valid_receipt.clone()
+            }),
+        )
+        .await
+        .0;
+        assert!(!unauthorized.ok && unauthorized.status == 403);
+        let quiet_danger = acknowledge_clock_presentation(
+            State(state.clone()),
+            Json(ClockPresentationReceiptRequest {
+                exposure_id: clock_presentation_exposure_id(
+                    MOONLIT_DANGER_CLOCK_ID,
+                    "promoted_seen",
+                    revision,
+                ),
+                clock_id: MOONLIT_DANGER_CLOCK_ID.to_string(),
+                ..valid_receipt.clone()
+            }),
+        )
+        .await
+        .0;
+        assert!(!quiet_danger.ok && quiet_danger.status == 403);
+        assert_eq!(seen_count(), 1);
+
+        let comprehension = acknowledge_clock_presentation(
+            State(state.clone()),
+            Json(ClockPresentationReceiptRequest {
+                exposure_id: clock_presentation_exposure_id(
+                    MOONLIT_PROGRESS_CLOCK_ID,
+                    "comprehension_confirmed",
+                    revision,
+                ),
+                interaction: "comprehension_confirmed".to_string(),
+                ..valid_receipt
+            }),
+        )
+        .await
+        .0;
+        assert!(comprehension.ok && comprehension.recorded);
+
+        let conn = open_event_store(&path).expect("inspect shared-question metrics");
+        let metrics = read_recent_story_metrics(&conn, 10).unwrap();
+        let metric = metrics
+            .iter()
+            .find(|metric| metric.event_kind == "shared_question_seen")
+            .expect("client receipt writes one privacy-safe metric");
+        let encoded = serde_json::to_string(metric).unwrap();
+        assert!(!encoded.contains("Will the trail's echoes"));
+        assert!(!encoded.contains("Visible Question Reader"));
+        assert!(metrics
+            .iter()
+            .any(|metric| metric.event_kind == "shared_question_comprehension_confirmed"));
+        drop(conn);
+        fs::remove_file(path).unwrap();
+    }
+
     fn canonical_test_command_request(
         runtime: &RuntimeWorld,
         actor_id: u64,
@@ -49225,6 +49869,24 @@ mod tests {
         assert!(INDEX_HTML.contains("/actions/unlock-charm-slot"));
         assert!(INDEX_HTML.contains("/actions/set-charm-equipped"));
         assert!(INDEX_HTML.contains("data-export-journal"));
+        assert!(INDEX_HTML
+            .contains("id=\"shared-questions\" aria-label=\"Shared questions in this place\""));
+        assert!(INDEX_HTML.contains("function renderSharedQuestions"));
+        assert!(INDEX_HTML.contains("role=\"progressbar\""));
+        assert!(INDEX_HTML.contains("question.strategies"));
+        assert!(INDEX_HTML.contains("strategy.target_label"));
+        assert!(INDEX_HTML.contains("/story/clock-presentations"));
+        assert!(INDEX_HTML.contains("explanation_opened"));
+        assert!(INDEX_HTML.contains("return_change_seen"));
+        assert!(INDEX_HTML.contains("comprehension_confirmed"));
+        assert!(INDEX_HTML.contains("data-question-comprehension"));
+        assert!(INDEX_HTML.contains("What is happening, who acted, what changed"));
+        assert!(INDEX_HTML.contains("What we know"));
+        assert!(INDEX_HTML.contains("What we are learning"));
+        assert!(INDEX_HTML.contains("What this could support"));
+        assert!(INDEX_HTML.contains("function causalJobContributionEvent"));
+        assert!(INDEX_HTML.contains("function jobContributionDescendants"));
+        assert!(INDEX_HTML.contains("function physicalDeliveryEventFor"));
 
         assert!(INDEX_HTML.contains("accountPanelPinned && event.key === \"Escape\""));
         assert!(!INDEX_HTML.contains("connect ai"));
@@ -50342,7 +51004,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.3.4");
+        assert_eq!(location_reference.pack_version, "1.3.5");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");
@@ -57393,6 +58055,15 @@ mod tests {
             Some(i16::from(trace.total_progress))
         );
         assert_eq!(clock_event.caused_by_event_seq, Some(contribution.seq));
+        let remembered = &runtime.clocks[MOONLIT_PROGRESS_CLOCK_ID].recent_contributions;
+        assert_eq!(remembered.len(), 1);
+        assert_eq!(remembered[0].actor_id, 5000);
+        assert_eq!(remembered[0].strategy_id, "read-moonlit-signs");
+        assert_eq!(remembered[0].strategy_label, "Read the moonlit signs");
+        assert_eq!(remembered[0].target_label, trace.target.label);
+        assert_eq!(remembered[0].progress, trace.total_progress);
+        assert_eq!(remembered[0].contribution_event_seq, contribution.seq);
+        assert_eq!(remembered[0].clock_event_seq, clock_event.seq);
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         let inspected = state
@@ -57424,6 +58095,13 @@ mod tests {
         assert_eq!(
             runtime.clocks[MOONLIT_PROGRESS_CLOCK_ID].filled, before_retry,
             "the same target cannot contribute twice"
+        );
+        assert_eq!(
+            runtime.clocks[MOONLIT_PROGRESS_CLOCK_ID]
+                .recent_contributions
+                .len(),
+            1,
+            "a no-change retry cannot create a public contribution beat"
         );
 
         let expected = quest_projection_signature(&runtime);
@@ -57498,6 +58176,13 @@ mod tests {
                 && event.content.as_deref()
                     == Some("The echo loosens; footsteps begin to sound like travelers again.")
         }));
+        let first_receipt =
+            command_response_output(None, &first_events).expect("Work returns one causal receipt");
+        assert!(first_receipt.contains("Progress: 2/4."));
+        assert!(first_receipt.contains("Your contribution is remembered here."));
+        assert!(first_receipt
+            .contains("The echo loosens; footsteps begin to sound like travelers again."));
+        assert!(!first_receipt.contains("Quiet the Echo draws closer."));
 
         let (_, second_events) = runtime.apply_journal_record(&second_record);
         assert_eq!(runtime.clocks[MOONLIT_PROGRESS_CLOCK_ID].filled, 4);
@@ -57508,6 +58193,10 @@ mod tests {
         assert!(second_events
             .iter()
             .any(|event| event.type_name == "job.updated"));
+        let completion_receipt = command_response_output(None, &second_events)
+            .expect("finishing Work returns one causal receipt");
+        assert!(completion_receipt.contains("Progress: 4/4."));
+        assert!(completion_receipt.contains("The shared question is settled."));
         let (_, third_events) = runtime.apply_journal_record(&third_record);
         assert!(!third_events
             .iter()
@@ -57538,6 +58227,24 @@ mod tests {
             1,
             "clock fill effects apply once"
         );
+        let completed_question = runtime
+            .shared_question_views(MOONLIT_TRAIL_LOCATION_ID, Some(5000))
+            .into_iter()
+            .find(|question| question.id == MOONLIT_JOB_ID)
+            .expect("completed work remains as a shared-question memory");
+        assert_eq!(completed_question.presentation_state, "completed_memory");
+        assert!(!completed_question.promoted);
+        assert_eq!(
+            completed_question.completion_memory.as_deref(),
+            Some(
+                "Travelers listened, marked the catches in the path, and quieted the Moonlit Trail together."
+            )
+        );
+        assert_eq!(
+            completed_question.recent_contributions.len(),
+            2,
+            "only the two effective contributions are remembered"
+        );
 
         let expected = quest_projection_signature(&runtime);
         let mut replayed = replay_base
@@ -57547,6 +58254,202 @@ mod tests {
             assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
         }
         assert_eq!(quest_projection_signature(&replayed), expected);
+        let replayed_question = replayed
+            .shared_question_views(MOONLIT_TRAIL_LOCATION_ID, Some(5000))
+            .into_iter()
+            .find(|question| question.id == MOONLIT_JOB_ID)
+            .expect("replay restores shared-question memory");
+        assert_eq!(
+            replayed_question.completion_memory,
+            completed_question.completion_memory
+        );
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("shared-question snapshot restores");
+        assert_eq!(
+            restored.clocks[MOONLIT_PROGRESS_CLOCK_ID].completion,
+            runtime.clocks[MOONLIT_PROGRESS_CLOCK_ID].completion
+        );
+    }
+
+    #[test]
+    fn shared_question_promotion_is_bounded_by_story_salience_not_map_order() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Question Reader",
+        );
+        let template_job = runtime.jobs[MOONLIT_JOB_ID].clone();
+        let template_progress = runtime.clocks[MOONLIT_PROGRESS_CLOCK_ID].clone();
+        let template_danger = runtime.clocks[MOONLIT_DANGER_CLOCK_ID].clone();
+        for (id, priority, attention) in [
+            ("a-map-first", 10, "local"),
+            ("z-high-local", 100, "local"),
+            ("y-high-immediate", 99, "immediate"),
+            ("x-second-immediate", 98, "immediate"),
+            ("w-high-communal", 97, "communal"),
+            ("v-second-communal", 96, "communal"),
+        ] {
+            let progress_id = format!("{id}:progress");
+            let danger_id = format!("{id}:danger");
+            let mut progress = template_progress.clone();
+            progress.id = progress_id.clone();
+            progress.presentation.question = format!("Will {id} be answered?");
+            progress.presentation.priority = priority;
+            progress.presentation.attention = attention.to_string();
+            progress.on_fill.clear();
+            progress.recent_contributions.clear();
+            progress.completion = None;
+            let mut danger = template_danger.clone();
+            danger.id = danger_id.clone();
+            danger.presentation.question = format!("What threatens {id}?");
+            danger.presentation.priority = priority;
+            danger.presentation.attention = "background".to_string();
+            danger.on_fill.clear();
+            danger.recent_contributions.clear();
+            danger.completion = None;
+            let mut job = template_job.clone();
+            job.id = id.to_string();
+            job.progress_clock_id = progress_id.clone();
+            job.danger_clock_id = danger_id.clone();
+            for strategy in &mut job.contribution_strategies {
+                strategy.clock_id = progress_id.clone();
+            }
+            for threshold in &mut job.narrated_thresholds {
+                threshold.clock_id = if threshold.clock_id == MOONLIT_DANGER_CLOCK_ID {
+                    danger_id.clone()
+                } else {
+                    progress_id.clone()
+                };
+            }
+            runtime.clocks.insert(progress_id, progress);
+            runtime.clocks.insert(danger_id, danger);
+            runtime.jobs.insert(id.to_string(), job);
+        }
+
+        let questions = runtime.shared_question_views(MOONLIT_TRAIL_LOCATION_ID, Some(5000));
+        let promoted = questions
+            .iter()
+            .filter(|question| question.promoted)
+            .collect::<Vec<_>>();
+        assert_eq!(promoted.len(), MAX_PROMOTED_SHARED_QUESTIONS);
+        assert_eq!(
+            promoted
+                .iter()
+                .map(|question| question.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["z-high-local", "y-high-immediate", "w-high-communal"]
+        );
+        assert_eq!(
+            promoted
+                .iter()
+                .filter(|question| question.attention == "immediate")
+                .count(),
+            1
+        );
+        assert_eq!(
+            promoted
+                .iter()
+                .filter(|question| question.attention == "communal")
+                .count(),
+            1
+        );
+        assert!(questions.iter().any(|question| {
+            question.id == "a-map-first"
+                && !question.promoted
+                && question.presentation_state == "quiet"
+        }));
+        assert!(questions
+            .iter()
+            .all(|question| question.attention != "background" || !question.promoted));
+    }
+
+    #[test]
+    fn shared_question_keeps_only_three_effective_causal_contributions() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime
+            .clocks
+            .get_mut(MOONLIT_PROGRESS_CLOCK_ID)
+            .expect("Moonlit progress clock")
+            .segments = 20;
+        for actor_id in 5000..5004 {
+            create_test_human(
+                &mut runtime,
+                actor_id,
+                MOONLIT_TRAIL_LOCATION_ID,
+                &format!("Helper {actor_id}"),
+            );
+            let intent = runtime
+                .job_contribution_intent(actor_id, "work", None, None, None)
+                .expect("each avatar can choose the same universal Work verb");
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id,
+                    ..CwAction::default()
+                },
+                83_000 + actor_id,
+            )
+            .into_player_card();
+            record.bind_offer_kind("work");
+            record
+                .projection_mutations
+                .push(ProjectionMutation::ResolveJobContribution { intent });
+            let (_, events) = runtime.apply_journal_record(&record);
+            assert!(events
+                .iter()
+                .any(|event| event.type_name == "job.contribution.resolved"));
+        }
+
+        let remembered = &runtime.clocks[MOONLIT_PROGRESS_CLOCK_ID].recent_contributions;
+        assert_eq!(remembered.len(), MAX_RECENT_CLOCK_CONTRIBUTIONS);
+        assert_eq!(
+            remembered
+                .iter()
+                .map(|contribution| contribution.actor_id)
+                .collect::<Vec<_>>(),
+            vec![5001, 5002, 5003]
+        );
+        assert!(remembered
+            .windows(2)
+            .all(|pair| pair[0].contribution_event_seq < pair[1].contribution_event_seq));
+    }
+
+    #[test]
+    fn mud_look_explains_the_same_shared_question_targets_and_stakes() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Text Traveler",
+        );
+        let resolved = runtime
+            .resolve_command(&command_request(5000, "look"), &AccessContext::default())
+            .expect("look resolves through the text transport");
+        let CommandDispatch::Read { output } = resolved.dispatch else {
+            panic!("look must be a read-only command");
+        };
+        let question = runtime
+            .shared_question_views(MOONLIT_TRAIL_LOCATION_ID, Some(5000))
+            .into_iter()
+            .find(|question| question.promoted)
+            .expect("Moonlit Trail has one promoted question");
+        assert!(output.contains("Shared questions:"));
+        assert!(output.contains(&question.question));
+        assert!(output.contains(&question.situation));
+        assert!(output.contains(&question.outcome));
+        for strategy in question
+            .strategies
+            .iter()
+            .filter(|strategy| strategy.available)
+        {
+            assert!(output.contains(&format!("target {}", strategy.target_label)));
+        }
+        assert!(!output.contains(MOONLIT_PROGRESS_CLOCK_ID));
+        assert!(!output.contains(MOONLIT_JOB_ID));
     }
 
     #[test]
@@ -64856,10 +65759,18 @@ mod tests {
             CommandDispatch::Read { output } => {
                 assert!(output.contains("Moonlit Trail"));
                 assert!(output.contains("This place feels a little wild around the edges"));
-                assert!(output.contains("Work here:"));
-                assert!(output.contains("The Moonlit Trail is carrying too much echo"));
-                assert!(output.contains("Quiet the Moonlit Trail — is only just beginning"));
-                assert!(output.contains("Echo Shatters the Trail — is only just beginning"));
+                assert!(output.contains("Shared questions:"));
+                assert!(output.contains(
+                    "Can travelers quiet the Moonlit Trail before its echoes turn every step against them?"
+                ));
+                assert!(output.contains("Progress: 0/4."));
+                assert!(output.contains("Trouble: 0/4."));
+                assert!(
+                    output.contains("What finishing changes: Footsteps sound like travelers again")
+                );
+                assert!(output.contains("Try:"));
+                assert!(!output.contains("Quiet the Moonlit Trail —"));
+                assert!(!output.contains("Echo Shatters the Trail —"));
                 assert!(output.contains("What lingers:"));
                 assert!(output.contains("moonlit threshold crossed"));
                 assert!(output.contains(
@@ -71650,6 +72561,9 @@ mod tests {
             .find(|job| job.delivery.is_some())
             .expect("the opportunity has a concrete job");
         assert_eq!(runtime.job_status(job), "active");
+        let progress_clock = &runtime.clocks[&job.progress_clock_id];
+        assert_eq!(progress_clock.segments, 1);
+        assert_eq!(progress_clock.presentation.rhythm, "immediate");
         assert!(job.premise.contains("physical"));
         assert!(job.action_copy.summary.contains("Pick up a physical item"));
         assert!(
@@ -71723,6 +72637,11 @@ mod tests {
         }]);
 
         assert_eq!(runtime.job_status(&runtime.jobs[&job_id]), "completed");
+        assert!(projected.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.caused_by_event_seq == Some(82)
+                && event.clock_delta == Some(1)
+        }));
         assert!(projected
             .iter()
             .any(|event| event.type_name == "job.updated"));
@@ -71733,6 +72652,21 @@ mod tests {
                 .count(),
             1
         );
+        let receipt = command_response_output(None, &projected)
+            .expect("physical delivery returns one causal receipt");
+        assert!(receipt.contains("The need is answered (1/1)"));
+        assert!(receipt.contains("contribution is remembered here"));
+        assert!(!receipt.contains("The work is done."));
+        let completed = runtime
+            .shared_question_views(RAIN_SOFT_GARDEN_LOCATION_ID, Some(RATI_ACTOR_ID))
+            .into_iter()
+            .find(|question| question.id == job_id)
+            .expect("the completed delivery remains legible at its destination");
+        assert_eq!(completed.presentation_state, "completed_memory");
+        assert!(completed.completion_memory.is_some());
+        assert_eq!(completed.recent_contributions.len(), 1);
+        assert_eq!(completed.recent_contributions[0].actor_id, RATI_ACTOR_ID);
+        assert_eq!(completed.recent_contributions[0].event_seq, 82);
     }
 
     #[test]

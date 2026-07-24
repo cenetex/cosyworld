@@ -39,6 +39,9 @@ do not define V2 behavior.
 - **[Authoritative quest clocks](authoritative-quest-clocks.md)** — named
   contribution strategies, causal evidence, narrated thresholds, and replay
   compatibility.
+- **[Shared clock presentation](shared-clock-presentation.md)** — story-shaped
+  questions, bounded attention, coherent receipts, accessible transports, and
+  client-confirmed exposure.
 - **[Scene concurrency policy](concurrency-policy.md)** — asynchronous
   co-present play, target conflict handling, and explicitly ordered scenes.
 - **[Deck-gated action spike](../v2/docs/deck-gated-action-spike.md)** — the

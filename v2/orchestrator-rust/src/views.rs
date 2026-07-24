@@ -25,6 +25,7 @@ pub(super) struct StateResponse {
     pub(super) room_features: Vec<RoomFeatureView>,
     pub(super) search_available: bool,
     pub(super) clocks: Vec<ClockView>,
+    pub(super) shared_questions: Vec<SharedQuestionView>,
     pub(super) tags: Vec<TagView>,
     pub(super) jobs: Vec<JobView>,
     pub(super) fronts: Vec<FrontView>,
@@ -490,6 +491,84 @@ pub(super) struct ClockView {
 }
 
 #[derive(Debug, Serialize)]
+pub(super) struct SharedQuestionStrategyView {
+    pub(super) id: String,
+    pub(super) action_kind: String,
+    pub(super) label: String,
+    pub(super) target_kind: String,
+    pub(super) target_id: Option<String>,
+    pub(super) target_label: String,
+    pub(super) available: bool,
+    pub(super) availability_reason: String,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct SharedQuestionContributionView {
+    pub(super) actor_id: u64,
+    pub(super) actor_name: String,
+    pub(super) strategy_label: String,
+    pub(super) target_label: String,
+    pub(super) progress: u8,
+    pub(super) event_seq: u64,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct SharedQuestionMilestoneView {
+    pub(super) filled: u8,
+    pub(super) text: String,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct SharedQuestionView {
+    pub(super) id: String,
+    pub(super) provenance: String,
+    pub(super) participant_ids: Vec<u64>,
+    pub(super) participant_names: Vec<String>,
+    pub(super) presentation_version: u8,
+    pub(super) question: String,
+    pub(super) rhythm: String,
+    pub(super) attention: String,
+    pub(super) priority: i16,
+    pub(super) presentation_state: String,
+    pub(super) promoted: bool,
+    pub(super) promotion_rank: Option<usize>,
+    pub(super) situation: String,
+    pub(super) stakes: String,
+    pub(super) outcome: String,
+    pub(super) progress_clock_id: String,
+    pub(super) filled: u8,
+    pub(super) segments: u8,
+    pub(super) danger_clock_id: String,
+    pub(super) danger_filled: u8,
+    pub(super) danger_segments: u8,
+    pub(super) next_revelation: Option<SharedQuestionMilestoneView>,
+    pub(super) strategies: Vec<SharedQuestionStrategyView>,
+    pub(super) recent_contributions: Vec<SharedQuestionContributionView>,
+    pub(super) completion_memory: Option<String>,
+    pub(super) updated_event_seq: Option<u64>,
+}
+
+fn shared_question_attention_rank(attention: &str) -> u8 {
+    match attention {
+        "immediate" => 4,
+        "local" => 3,
+        "communal" => 2,
+        "background" => 1,
+        _ => 0,
+    }
+}
+
+fn shared_question_state_rank(state: &str) -> u8 {
+    match state {
+        "active" => 0,
+        "completed_memory" => 1,
+        "quiet" => 2,
+        "unavailable" => 3,
+        _ => 4,
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub(super) struct TagView {
     pub(super) id: String,
     pub(super) scope: String,
@@ -682,6 +761,9 @@ pub(super) struct ClockInspectorView {
     pub(super) segments: u8,
     pub(super) status: String,
     pub(super) visible_to_players: bool,
+    pub(super) presentation: ClockPresentation,
+    pub(super) recent_contributions: Vec<ClockContributionMemory>,
+    pub(super) completion: Option<ClockCompletionMemory>,
     pub(super) updated_event_seq: Option<u64>,
     pub(super) last_delta: Option<i16>,
     pub(super) last_reason: Option<String>,
@@ -1562,6 +1644,7 @@ impl RuntimeWorld {
                 .map(|id| self.default_search_target(id).is_some())
                 .unwrap_or(false),
             clocks: self.clock_views(location_id),
+            shared_questions: self.shared_question_views(location_id, client_actor_id),
             tags: self.tag_views(client_actor_id, location_id),
             jobs: self.job_views(location_id),
             fronts: self.front_views(location_id),
@@ -1827,6 +1910,307 @@ impl RuntimeWorld {
                 status: clock_status(clock),
             })
             .collect()
+    }
+
+    fn shared_question_strategy_views(
+        &self,
+        job: &JobState,
+        actor_id: Option<u64>,
+    ) -> Vec<SharedQuestionStrategyView> {
+        if let Some(delivery) = job.delivery.as_ref() {
+            let destination = self
+                .location_name(delivery.destination_location_id)
+                .unwrap_or_else(|| format!("Location {}", delivery.destination_location_id));
+            return vec![SharedQuestionStrategyView {
+                id: format!("{}:physical-delivery", job.id),
+                action_kind: "carry".to_string(),
+                label: job.action_copy.label.clone(),
+                target_kind: "location".to_string(),
+                target_id: Some(delivery.destination_location_id.to_string()),
+                target_label: destination,
+                available: actor_id.is_some() && self.job_status(job) == "active",
+                availability_reason: job.action_copy.summary.clone(),
+            }];
+        }
+
+        job.contribution_strategies
+            .iter()
+            .map(|strategy| {
+                let mut available = self.job_status(job) == "active";
+                let mut availability_reason = "This approach is available here.".to_string();
+                let resolved_target = actor_id.and_then(|actor_id| {
+                    if !self.contribution_strategy_binding_is_active(strategy) {
+                        available = false;
+                        availability_reason =
+                            "Its authored rules binding is not active.".to_string();
+                        return None;
+                    }
+                    if self.tired_tag_active(actor_id) {
+                        available = false;
+                        availability_reason = "Rest before making another effort.".to_string();
+                        return None;
+                    }
+                    if let Some(requirement) = strategy.requirements.iter().find(|requirement| {
+                        !self.contribution_requirement_met(actor_id, requirement)
+                    }) {
+                        available = false;
+                        availability_reason = match requirement {
+                            ContributionRequirement::AtLocation { .. } => {
+                                "Reach the required place first.".to_string()
+                            }
+                            ContributionRequirement::HeldItem { item_id } => self
+                                .item_name(*item_id)
+                                .map(|name| format!("Carry {name} first."))
+                                .unwrap_or_else(|| "Carry the required item first.".to_string()),
+                            ContributionRequirement::ActiveTag { .. } => {
+                                "A required world change has not happened yet.".to_string()
+                            }
+                            ContributionRequirement::RoomFeature { .. } => {
+                                "Inspect the required room feature first.".to_string()
+                            }
+                        };
+                        return None;
+                    }
+                    let Some(target) =
+                        self.resolve_contribution_target(actor_id, job, strategy, None)
+                    else {
+                        available = false;
+                        availability_reason =
+                            "Its target is not reachable from here yet.".to_string();
+                        return None;
+                    };
+                    let claim_key =
+                        Self::contribution_claim_key(actor_id, &job.id, strategy, &target);
+                    if claim_key
+                        .as_ref()
+                        .is_some_and(|claim_key| self.rpg_claims.contains(claim_key))
+                    {
+                        available = false;
+                        availability_reason =
+                            "This once-scoped contribution is already part of the story."
+                                .to_string();
+                    } else {
+                        availability_reason = format!("{} is a reachable target.", target.label);
+                    }
+                    Some(target)
+                });
+                if actor_id.is_none() {
+                    available = false;
+                    availability_reason =
+                        "Choose an avatar to see whether this approach is available.".to_string();
+                }
+                if self
+                    .clocks
+                    .get(&strategy.clock_id)
+                    .is_none_or(|clock| clock.filled >= clock.segments)
+                {
+                    available = false;
+                    availability_reason =
+                        "This part of the shared question is settled.".to_string();
+                }
+                SharedQuestionStrategyView {
+                    id: strategy.id.clone(),
+                    action_kind: strategy.action_kind.clone(),
+                    label: strategy.strategy_label.clone(),
+                    target_kind: resolved_target
+                        .as_ref()
+                        .map(|target| target.kind.clone())
+                        .unwrap_or_else(|| strategy.target.kind.clone()),
+                    target_id: resolved_target
+                        .as_ref()
+                        .map(|target| target.id.clone())
+                        .or_else(|| strategy.target.id.clone()),
+                    target_label: resolved_target
+                        .as_ref()
+                        .map(|target| target.label.clone())
+                        .unwrap_or_else(|| strategy.target.label.clone()),
+                    available,
+                    availability_reason,
+                }
+            })
+            .collect()
+    }
+
+    pub(super) fn shared_question_views(
+        &self,
+        location_id: u64,
+        actor_id: Option<u64>,
+    ) -> Vec<SharedQuestionView> {
+        let mut questions = self
+            .jobs
+            .values()
+            .filter(|job| job.location_ids.contains(&location_id))
+            .filter_map(|job| {
+                let progress = self.clocks.get(&job.progress_clock_id)?;
+                let danger = self.clocks.get(&job.danger_clock_id)?;
+                let terminal = self.job_status(job) != "active";
+                let settled_clock = if danger.filled >= danger.segments {
+                    danger
+                } else {
+                    progress
+                };
+                let completion_memory = terminal.then(|| {
+                    settled_clock
+                        .completion
+                        .as_ref()
+                        .map(|memory| memory.text.clone())
+                        .unwrap_or_else(|| settled_clock.presentation.completion_memory.clone())
+                });
+
+                let reached_situation = job
+                    .narrated_thresholds
+                    .iter()
+                    .filter_map(|threshold| {
+                        let clock = self.clocks.get(&threshold.clock_id)?;
+                        (threshold.filled <= clock.filled).then_some((
+                            clock.updated_event_seq.unwrap_or_default(),
+                            threshold.filled,
+                            threshold.text.clone(),
+                        ))
+                    })
+                    .max_by_key(|(event_seq, filled, _)| (*event_seq, *filled))
+                    .map(|(_, _, text)| text);
+                let situation = completion_memory
+                    .clone()
+                    .or(reached_situation)
+                    .unwrap_or_else(|| progress.presentation.situation.clone());
+
+                let next_revelation = job
+                    .narrated_thresholds
+                    .iter()
+                    .filter_map(|threshold| {
+                        let clock = self.clocks.get(&threshold.clock_id)?;
+                        (threshold.filled > clock.filled)
+                            .then_some((threshold.filled.saturating_sub(clock.filled), threshold))
+                    })
+                    .min_by_key(|(distance, threshold)| {
+                        (
+                            *distance,
+                            threshold.clock_id != progress.id,
+                            threshold.filled,
+                        )
+                    })
+                    .map(|(_, threshold)| SharedQuestionMilestoneView {
+                        filled: threshold.filled,
+                        text: threshold.text.clone(),
+                    });
+
+                let strategies = self.shared_question_strategy_views(job, actor_id);
+                let available = strategies.iter().any(|strategy| strategy.available);
+                let mut recent = progress
+                    .recent_contributions
+                    .iter()
+                    .chain(danger.recent_contributions.iter())
+                    .cloned()
+                    .collect::<Vec<_>>();
+                recent.sort_by_key(|entry| std::cmp::Reverse(entry.contribution_event_seq));
+                recent.truncate(MAX_RECENT_CLOCK_CONTRIBUTIONS);
+                let recent_contributions = recent
+                    .into_iter()
+                    .map(|entry| SharedQuestionContributionView {
+                        actor_id: entry.actor_id,
+                        actor_name: self
+                            .actor_name(entry.actor_id)
+                            .unwrap_or_else(|| "Earlier travelers".to_string()),
+                        strategy_label: entry.strategy_label,
+                        target_label: entry.target_label,
+                        progress: entry.progress,
+                        event_seq: entry.contribution_event_seq,
+                    })
+                    .collect();
+                Some(SharedQuestionView {
+                    id: job.id.clone(),
+                    provenance: if job.pack_id.is_empty() {
+                        "runtime-generated".to_string()
+                    } else {
+                        job.pack_id.clone()
+                    },
+                    participant_ids: job.participant_ids.clone(),
+                    participant_names: job
+                        .participant_ids
+                        .iter()
+                        .map(|actor_id| {
+                            self.actor_name(*actor_id)
+                                .unwrap_or_else(|| format!("Actor {actor_id}"))
+                        })
+                        .collect(),
+                    presentation_version: progress.presentation.version,
+                    question: progress.presentation.question.clone(),
+                    rhythm: progress.presentation.rhythm.clone(),
+                    attention: progress.presentation.attention.clone(),
+                    priority: progress.presentation.priority,
+                    presentation_state: if terminal {
+                        "completed_memory"
+                    } else if available {
+                        "active"
+                    } else {
+                        "unavailable"
+                    }
+                    .to_string(),
+                    promoted: false,
+                    promotion_rank: None,
+                    situation,
+                    stakes: progress.presentation.stakes.clone(),
+                    outcome: progress.presentation.outcome.clone(),
+                    progress_clock_id: progress.id.clone(),
+                    filled: progress.filled,
+                    segments: progress.segments,
+                    danger_clock_id: danger.id.clone(),
+                    danger_filled: danger.filled,
+                    danger_segments: danger.segments,
+                    next_revelation,
+                    strategies,
+                    recent_contributions,
+                    completion_memory,
+                    updated_event_seq: progress.updated_event_seq.max(danger.updated_event_seq),
+                })
+            })
+            .collect::<Vec<_>>();
+
+        questions.sort_by(|left, right| {
+            right
+                .priority
+                .cmp(&left.priority)
+                .then_with(|| {
+                    shared_question_attention_rank(&right.attention)
+                        .cmp(&shared_question_attention_rank(&left.attention))
+                })
+                .then_with(|| right.updated_event_seq.cmp(&left.updated_event_seq))
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        let mut promoted = 0usize;
+        let mut immediate = 0usize;
+        let mut communal = 0usize;
+        for question in &mut questions {
+            if question.presentation_state != "active"
+                || question.attention == "background"
+                || promoted >= MAX_PROMOTED_SHARED_QUESTIONS
+                || (question.attention == "immediate" && immediate >= 1)
+                || (question.attention == "communal" && communal >= 1)
+            {
+                if question.presentation_state == "active" {
+                    question.presentation_state = "quiet".to_string();
+                }
+                continue;
+            }
+            promoted += 1;
+            immediate += usize::from(question.attention == "immediate");
+            communal += usize::from(question.attention == "communal");
+            question.promoted = true;
+            question.promotion_rank = Some(promoted);
+        }
+        questions.sort_by(|left, right| {
+            left.promotion_rank
+                .unwrap_or(usize::MAX)
+                .cmp(&right.promotion_rank.unwrap_or(usize::MAX))
+                .then_with(|| {
+                    shared_question_state_rank(&left.presentation_state)
+                        .cmp(&shared_question_state_rank(&right.presentation_state))
+                })
+                .then_with(|| right.updated_event_seq.cmp(&left.updated_event_seq))
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        questions
     }
 
     pub(super) fn tag_views(&self, actor_id: Option<u64>, location_id: u64) -> Vec<TagView> {
@@ -2176,6 +2560,9 @@ impl RuntimeWorld {
                     segments: clock.segments,
                     status: clock_status(clock),
                     visible_to_players: clock.visible_to_players,
+                    presentation: clock.presentation.clone(),
+                    recent_contributions: clock.recent_contributions.clone(),
+                    completion: clock.completion.clone(),
                     updated_event_seq: clock.updated_event_seq,
                     last_delta: last_event.and_then(|event| event.clock_delta),
                     last_reason: last_event.and_then(|event| event.content.clone()),

@@ -52,6 +52,51 @@ describe("Content Pack Manifest v1", () => {
     }
   });
 
+  it("authors a versioned story question for every player-visible clock", () => {
+    const allowedRhythms = new Set([
+      "immediate",
+      "session",
+      "multi_session",
+      "construction",
+      "civic",
+      "seasonal",
+    ]);
+    const allowedAttention = new Set([
+      "immediate",
+      "local",
+      "communal",
+      "background",
+    ]);
+    const clocks = [
+      "v2/content/core/clocks.json",
+      "v2/content/the-lantern-keeper/clocks.json",
+    ].flatMap((relativePath) =>
+      JSON.parse(fs.readFileSync(path.join(repoRoot, relativePath), "utf8")),
+    );
+    const visible = clocks.filter((clock) => clock.visible_to_players);
+    expect(visible.length).toBeGreaterThan(0);
+    const rhythms = new Set(visible.map((clock) => clock.presentation?.rhythm));
+    for (const rhythm of ["session", "construction", "civic", "seasonal"]) {
+      expect(rhythms.has(rhythm), rhythm).toBe(true);
+    }
+    for (const clock of visible) {
+      expect(clock.presentation?.version, clock.id).toBe(1);
+      expect(clock.presentation.question.trim(), clock.id).not.toBe("");
+      expect(clock.presentation.situation.trim(), clock.id).not.toBe("");
+      expect(clock.presentation.stakes.trim(), clock.id).not.toBe("");
+      expect(clock.presentation.outcome.trim(), clock.id).not.toBe("");
+      expect(clock.presentation.completion_memory.trim(), clock.id).not.toBe(
+        "",
+      );
+      expect(allowedRhythms.has(clock.presentation.rhythm), clock.id).toBe(true);
+      expect(allowedAttention.has(clock.presentation.attention), clock.id).toBe(
+        true,
+      );
+      expect(clock.presentation.priority, clock.id).toBeGreaterThanOrEqual(0);
+      expect(clock.presentation.priority, clock.id).toBeLessThanOrEqual(100);
+    }
+  });
+
   it("locks the exact official dependency closure, capabilities, IDs, and licenses", () => {
     const lock = JSON.parse(fs.readFileSync(
       path.join(repoRoot, "v2/worlds/official/pack.lock.json"),
@@ -307,6 +352,7 @@ describe("Content Pack Manifest v1", () => {
       "sha256:f97d77e008a46d79d9c9d83e607b257a16ef66d591b037297495b99f21fdafa5",
       "sha256:226996ee96150505c53df2a999297e8c5fa771b0dd81e6d03eb82e62daccc290",
       "sha256:b6060bef1242f551185ad54fbadf284f55980b6aecfe9a8f490a1467b6a23171",
+      "sha256:aca13f4075a97d37ffb13c6626eb6247793a87e6f76ac217a84e417c07b687ff",
     ]);
   });
 

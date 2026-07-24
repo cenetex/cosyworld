@@ -304,6 +304,97 @@
     .room-memory[hidden] {
       display: none;
     }
+    .shared-questions {
+      margin-top: 9px;
+      display: grid;
+      gap: 7px;
+    }
+    .shared-questions[hidden] {
+      display: none;
+    }
+    .shared-question {
+      min-width: 0;
+      border: 1px solid rgba(129, 255, 167, 0.22);
+      border-radius: 8px;
+      background: rgba(8, 19, 12, 0.72);
+      padding: 9px 11px;
+      color: var(--text);
+    }
+    .shared-question.completed-memory {
+      border-color: rgba(226, 187, 121, 0.28);
+      background: rgba(24, 19, 10, 0.66);
+    }
+    .shared-question-heading {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 9px;
+      align-items: start;
+    }
+    .shared-question-kicker {
+      color: var(--amber);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .shared-question h2 {
+      margin: 2px 0 0;
+      font: inherit;
+      font-weight: 800;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+    .shared-question-progress {
+      min-width: 4.5ch;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 900;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .shared-question-situation {
+      margin-top: 5px;
+      color: var(--dim);
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .shared-question details {
+      margin-top: 7px;
+      border-top: 1px solid rgba(129, 255, 167, 0.14);
+      padding-top: 6px;
+    }
+    .shared-question summary {
+      color: var(--green);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .shared-question-detail {
+      margin-top: 7px;
+      display: grid;
+      gap: 6px;
+      color: var(--dim);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .shared-question-detail strong {
+      color: var(--amber);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .shared-question-strategies,
+    .shared-question-contributors {
+      margin: 0;
+      padding-left: 18px;
+    }
+    .shared-question-strategies li + li,
+    .shared-question-contributors li + li {
+      margin-top: 3px;
+    }
+    .shared-question-strategies .unavailable {
+      color: var(--faint);
+    }
     .memory-summary {
       min-width: 0;
       color: var(--text);
@@ -2889,6 +2980,7 @@
           <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="room-memory" hidden><span class="room-log-kicker">log</span><span class="room-log-latest" id="room-log-latest"></span></button>
           <span id="avatar"></span>
         </div>
+        <section class="shared-questions" id="shared-questions" aria-label="Shared questions in this place" hidden></section>
         <div class="room-memory" id="room-memory" hidden></div>
         <div class="room-copy" id="location-copy"></div>
       </section>
@@ -3060,6 +3152,9 @@
     const worldBeatPresentationContractVersion = 1;
     const worldBeatReceiptState = new Map();
     let worldBeatVisibilityFrame = null;
+    const clockPresentationContractVersion = 1;
+    const clockPresentationReceiptState = new Map();
+    let clockPresentationVisibilityFrame = null;
     let streamReplayFloorSeq = 0;
     let stream = null;
     let refreshInFlight = null;
@@ -3206,7 +3301,10 @@
       modalReturnFocus.delete(modalId);
       window.requestAnimationFrame(() => {
         if (returnTarget?.isConnected && !returnTarget.closest("[inert]")) returnTarget.focus();
-        if (!activeModal()) scheduleVisibleWorldBeatReceipts();
+        if (!activeModal()) {
+          scheduleVisibleWorldBeatReceipts();
+          scheduleVisibleClockPresentationReceipts();
+        }
       });
     }
 
@@ -4225,7 +4323,12 @@
         const match = text.match(/(?:advances \+|sets up \+|setup \+|by )([1-9]\d*)/i);
         return match ? Number(match[1]) : fallback;
       };
-      const activeProject = (view.jobs || []).find((job) => job.status === "active") || null;
+      const promotedQuestion = (view.shared_questions || []).find((question) => (
+        question.promoted && question.presentation_state === "active"
+      )) || null;
+      const activeProject = (view.jobs || []).find((job) => (
+        job.status === "active" && (!promotedQuestion || job.id === promotedQuestion.id)
+      )) || (view.jobs || []).find((job) => job.status === "active") || null;
       const currentLocationId = Number(view.location?.id || 0);
       const roomZone = String(view.room_sheet?.zone || "").toLowerCase();
       const roomSafety = String(view.room_sheet?.safety || "").toLowerCase();
@@ -6388,6 +6491,139 @@
       }
     }
 
+    function clockPresentationExposure(question, interaction) {
+      const clockId = String(question?.progress_clock_id || "");
+      const stateRevision = Math.max(
+        1,
+        Number(state?.state_revision || 0),
+        Number(state?.world_seq || 0),
+        latestSeenSeq(),
+      );
+      if (!clockId || !["promoted_seen", "explanation_opened", "completion_seen", "return_change_seen", "comprehension_confirmed"].includes(interaction)) {
+        return null;
+      }
+      return {
+        clockId,
+        interaction,
+        stateRevision,
+        exposureId: `clock-presentation:v${clockPresentationContractVersion}:${interaction}:${stateRevision}:${clockId}`,
+      };
+    }
+
+    function clockPresentationRowIsActuallyVisible(row, panel) {
+      if (!row?.isConnected || !panel?.isConnected || row.getClientRects().length === 0) return false;
+      const style = window.getComputedStyle(row);
+      if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) return false;
+      const rowRect = row.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const top = Math.max(panelRect.top, 0);
+      const left = Math.max(panelRect.left, 0);
+      const bottom = Math.min(panelRect.bottom, window.innerHeight);
+      const right = Math.min(panelRect.right, window.innerWidth);
+      return rowRect.bottom > top && rowRect.top < bottom && rowRect.right > left && rowRect.left < right;
+    }
+
+    function scheduleVisibleClockPresentationReceipts() {
+      if (clockPresentationVisibilityFrame !== null) return;
+      clockPresentationVisibilityFrame = window.requestAnimationFrame(() => {
+        clockPresentationVisibilityFrame = null;
+        acknowledgeVisibleClockPresentations();
+      });
+    }
+
+    function acknowledgeVisibleClockPresentations() {
+      if (!actorId || !actorSession || document.visibilityState !== "visible" || activeModal()) return;
+      if (libraryPanelPinned || accountPanelPinned) return;
+      const panel = $("shared-questions");
+      if (!panel || panel.hidden || panel.getClientRects().length === 0) return;
+      for (const row of panel.querySelectorAll("[data-clock-presentation][data-clock-id]")) {
+        if (!clockPresentationRowIsActuallyVisible(row, panel)) continue;
+        const clockId = String(row.dataset.clockId || "");
+        const question = (state?.shared_questions || []).find((candidate) => (
+          String(candidate?.progress_clock_id || "") === clockId
+        ));
+        if (!question) continue;
+        const interaction = row.dataset.questionState === "completed_memory"
+          ? "completion_seen"
+          : "promoted_seen";
+        void acknowledgeClockPresentation(question, interaction);
+        const updatedEventSeq = Number(question.updated_event_seq || 0);
+        const lastSeenEventSeq = clockPresentationLastSeenEventSeq(clockId);
+        if (
+          lastSeenEventSeq > 0
+          && updatedEventSeq > lastSeenEventSeq
+          && (
+            (question.recent_contributions || []).some((entry) => Number(entry.event_seq || 0) > lastSeenEventSeq)
+            || question.presentation_state === "completed_memory"
+          )
+        ) {
+          void acknowledgeClockPresentation(question, "return_change_seen");
+        }
+        if (updatedEventSeq > lastSeenEventSeq) {
+          rememberClockPresentationEventSeq(clockId, updatedEventSeq);
+        }
+      }
+    }
+
+    function clockPresentationLastSeenEventSeq(clockId) {
+      try {
+        return Number(localStorage.getItem(`cosyworld.clock-presentation.last-seen.${clockId}`) || 0);
+      } catch (_error) {
+        return 0;
+      }
+    }
+
+    function rememberClockPresentationEventSeq(clockId, eventSeq) {
+      try {
+        localStorage.setItem(
+          `cosyworld.clock-presentation.last-seen.${clockId}`,
+          String(Math.max(0, Number(eventSeq || 0))),
+        );
+      } catch (_error) {
+        // Presentation remains usable when storage is unavailable.
+      }
+    }
+
+    async function acknowledgeClockPresentation(question, interaction) {
+      const exposure = clockPresentationExposure(question, interaction);
+      if (!exposure) return;
+      const previous = clockPresentationReceiptState.get(exposure.exposureId);
+      if (["in_flight", "acknowledged", "rejected"].includes(previous?.status)) return;
+      const attempts = Number(previous?.attempts || 0) + 1;
+      clockPresentationReceiptState.set(exposure.exposureId, { status: "in_flight", attempts });
+      try {
+        const result = await post("/story/clock-presentations", {
+          actor_id: actorId,
+          actor_session: actorSession,
+          exposure_id: exposure.exposureId,
+          clock_id: exposure.clockId,
+          interaction: exposure.interaction,
+          transport: "browser",
+          state_revision: exposure.stateRevision,
+        });
+        if (result?.ok) {
+          clockPresentationReceiptState.set(exposure.exposureId, { status: "acknowledged", attempts });
+          return;
+        }
+        const status = Number(result?.status || 0);
+        if ([403, 404, 409, 422].includes(status)) {
+          clockPresentationReceiptState.set(exposure.exposureId, { status: "rejected", attempts });
+          return;
+        }
+        throw new Error(result?.error || "shared-question exposure receipt failed");
+      } catch (error) {
+        clockPresentationReceiptState.set(exposure.exposureId, { status: "retry", attempts });
+        if (attempts < 3) {
+          window.setTimeout(
+            () => void acknowledgeClockPresentation(question, interaction),
+            attempts * 1000,
+          );
+        } else {
+          console.warn("Shared-question exposure receipt was not recorded", exposure.exposureId, error);
+        }
+      }
+    }
+
     const mechanicalCommandOutputPrefixes = [
       "Visit Ledger marked:",
       "Visit Ledger banked:",
@@ -6583,6 +6819,7 @@
         document.querySelector(".room")?.classList.add("collapsed");
       }
       renderRoomCopy(location.id);
+      renderSharedQuestions();
       renderTimelines();
       renderCommands();
     }
@@ -6762,7 +6999,14 @@
       }
       const sharedWork = findIntention("contribute") || findAction("prepare");
       if (sharedWork) {
-        return makeThread(sharedWork, `There is shared work waiting in ${view?.location?.name || "this room"}`, "work");
+        const question = (view?.shared_questions || []).find((candidate) => (
+          candidate.promoted && candidate.presentation_state === "active"
+        ));
+        return makeThread(
+          sharedWork,
+          question?.question || `There is shared work waiting in ${view?.location?.name || "this room"}`,
+          "work",
+        );
       }
       const danger = findAction("attack", "defend", "flee");
       if (danger) {
@@ -6830,6 +7074,72 @@
         ? memory.recent.map(roomMemoryEntryHtml).join("")
         : roomMemoryEntryHtml(memory.latest);
       panel.innerHTML = `<div class="memory-summary">${escapeHtml(memory.summary)}</div><div class="memory-recent">${recent}</div>`;
+    }
+
+    function sharedQuestionsForPresentation(view = state) {
+      const questions = Array.isArray(view?.shared_questions) ? view.shared_questions : [];
+      const promoted = questions
+        .filter((question) => question.promoted && question.presentation_state === "active")
+        .sort((left, right) => Number(left.promotion_rank || 999) - Number(right.promotion_rank || 999));
+      if (promoted.length) return promoted;
+      return questions
+        .filter((question) => question.presentation_state === "completed_memory")
+        .sort((left, right) => Number(right.updated_event_seq || 0) - Number(left.updated_event_seq || 0))
+        .slice(0, 1);
+    }
+
+    function sharedQuestionStrategyHtml(strategy) {
+      const available = strategy?.available === true;
+      const target = String(strategy?.target_label || "the shared work");
+      const reason = String(strategy?.availability_reason || "");
+      const label = String(strategy?.label || "Contribute");
+      return `<li class="${available ? "available" : "unavailable"}"><strong>${escapeHtml(label)}</strong> — ${escapeHtml(target)}${reason ? ` · ${escapeHtml(reason)}` : ""}</li>`;
+    }
+
+    function sharedQuestionHtml(question) {
+      const completed = question.presentation_state === "completed_memory";
+      const rhythm = String(question.rhythm || "shared").replaceAll("_", " ");
+      const progress = `${Number(question.filled || 0)}/${Number(question.segments || 0)}`;
+      const available = (question.strategies || []).filter((strategy) => strategy.available);
+      const nearbyUnavailable = (question.strategies || []).find((strategy) => !strategy.available);
+      const strategies = [...available.slice(0, 3)];
+      if (nearbyUnavailable && strategies.length < 3) strategies.push(nearbyUnavailable);
+      const strategyHtml = strategies.length
+        ? `<div><strong>Ways to help</strong><ul class="shared-question-strategies">${strategies.map(sharedQuestionStrategyHtml).join("")}</ul></div>`
+        : "";
+      const contributors = (question.recent_contributions || []).slice(0, 3);
+      const contributorHtml = contributors.length
+        ? `<div><strong>Recent hands</strong><ul class="shared-question-contributors">${contributors.map((entry) => `<li>${escapeHtml(entry.actor_name || "A traveler")} — ${escapeHtml(entry.strategy_label || "helped")} at ${escapeHtml(entry.target_label || "the shared work")}</li>`).join("")}</ul></div>`
+        : "";
+      const participants = (question.participant_names || []).slice(0, 4);
+      const participantHtml = participants.length
+        ? `<div><strong>Already involved</strong> ${escapeHtml(participants.join(", "))}</div>`
+        : "";
+      const danger = Number(question.danger_segments || 0) > 0
+        ? `<div><strong>If trouble grows</strong> ${escapeHtml(`${question.danger_filled}/${question.danger_segments} — ${question.stakes}`)}</div>`
+        : "";
+      const next = question.next_revelation?.text
+        ? `<div><strong>What we are learning</strong> ${escapeHtml(question.next_revelation.text)}</div>`
+        : "";
+      const aria = [
+        question.question,
+        question.situation,
+        `Progress ${progress}.`,
+        `What finishing changes: ${question.outcome}.`,
+        ...strategies.map((strategy) => `${strategy.label}; target ${strategy.target_label}.`),
+      ].filter(Boolean).join(" ");
+      if (completed) {
+        return `<article class="shared-question completed-memory" data-clock-presentation data-clock-id="${escapeAttr(question.progress_clock_id || "")}" data-question-state="completed_memory" aria-label="${escapeAttr(aria)}"><div class="shared-question-kicker">what changed here</div><h2>${escapeHtml(question.completion_memory || question.situation)}</h2><div class="shared-question-detail">${participantHtml}${contributorHtml}<div><strong>Can you tell?</strong> What was happening, who acted, what changed, and what remains?</div><button type="button" data-question-comprehension>I can name what changed</button></div></article>`;
+      }
+      return `<article class="shared-question active" data-clock-presentation data-clock-id="${escapeAttr(question.progress_clock_id || "")}" data-question-state="active" aria-label="${escapeAttr(aria)}"><div class="shared-question-heading"><div><div class="shared-question-kicker">${escapeHtml(rhythm)} question</div><h2>${escapeHtml(question.question)}</h2></div><div class="shared-question-progress" role="progressbar" aria-label="Shared question progress" aria-valuemin="0" aria-valuemax="${Number(question.segments || 0)}" aria-valuenow="${Number(question.filled || 0)}">${escapeHtml(progress)}</div></div><div class="shared-question-situation"><strong>What we know</strong> ${escapeHtml(question.situation)}</div><details><summary>Why this matters and ways to help</summary><div class="shared-question-detail"><div><strong>What this could support</strong> ${escapeHtml(question.outcome)}</div>${next}${danger}${strategyHtml}${participantHtml}${contributorHtml}<div><strong>Can you tell?</strong> What is happening, who acted, what changed, and what question remains?</div><button type="button" data-question-comprehension>I can name the story so far</button></div></details></article>`;
+    }
+
+    function renderSharedQuestions() {
+      const panel = $("shared-questions");
+      const questions = sharedQuestionsForPresentation();
+      panel.hidden = questions.length === 0;
+      panel.innerHTML = questions.map(sharedQuestionHtml).join("");
+      if (questions.length) scheduleVisibleClockPresentationReceipts();
     }
 
     function roomMemoryModel() {
@@ -6954,6 +7264,12 @@
     function roomMemoryEntryForEvent(event) {
       if (!event) return null;
       if (event.type === "message.created") {
+        return null;
+      }
+      if (
+        ["clock.updated", "clock.threshold", "job.updated"].includes(String(event.type || ""))
+        && (causalJobContributionEvent(event) || physicalDeliveryEventFor(event))
+      ) {
         return null;
       }
       if (
@@ -7991,7 +8307,14 @@
       if (type === "world.logistics.completed") {
         try {
           const evidence = JSON.parse(String(event.content || "{}"));
-          return finishSentence(cleanStatusText(evidence.summary || "A traveler completes a physical delivery"));
+          const clock = logEvents.find((candidate) => (
+            candidate.type === "clock.updated"
+            && Number(candidate.caused_by_event_seq || 0) === Number(event.caused_by_event_seq || 0)
+          ));
+          const progress = Number(clock?.clock_segments || 0) > 0
+            ? ` The need is answered (${Number(clock.clock_filled || 0)}/${Number(clock.clock_segments || 0)}), and the contribution is remembered here.`
+            : "";
+          return `${finishSentence(cleanStatusText(evidence.summary || "A traveler completes a physical delivery"))}${progress}`;
         } catch (_error) {
           return "A traveler completes a physical delivery.";
         }
@@ -8456,6 +8779,35 @@
       }
     }
 
+    function causalJobContributionEvent(event) {
+      let cause = Number(event?.caused_by_event_seq || 0);
+      const visited = new Set();
+      while (cause > 0 && !visited.has(cause)) {
+        visited.add(cause);
+        const parent = logEvents.find((candidate) => Number(candidate?.seq || 0) === cause);
+        if (!parent) return null;
+        if (parent.type === "job.contribution.resolved") return parent;
+        cause = Number(parent.caused_by_event_seq || 0);
+      }
+      return null;
+    }
+
+    function physicalDeliveryEventFor(event) {
+      const cause = Number(event?.caused_by_event_seq || 0);
+      if (!cause) return null;
+      return logEvents.find((candidate) => (
+        candidate.type === "world.logistics.completed"
+        && Number(candidate.caused_by_event_seq || 0) === cause
+      )) || null;
+    }
+
+    function jobContributionDescendants(event) {
+      return logEvents.filter((candidate) => {
+        const root = causalJobContributionEvent(candidate);
+        return root && Number(root.seq || 0) === Number(event?.seq || 0);
+      });
+    }
+
     function jobContributionEventText(event) {
       const trace = jobContributionTrace(event);
       if (!trace) return "finds a way to move the shared work forward.";
@@ -8464,7 +8816,29 @@
       const outcome = trace.outcome === "failure"
         ? " The attempt falls short, but its groundwork still counts."
         : "";
-      return `tries to ${lowerInitial(trace.strategy_label || "help")} at ${trace.target?.label || "the shared task"}; the work gains ${headway}.${outcome}`;
+      const descendants = jobContributionDescendants(event);
+      const clock = descendants.find((candidate) => (
+        candidate.type === "clock.updated"
+        && String(candidate.clock_id || "") === String(trace.clock_id || "")
+      ));
+      const threshold = descendants.find((candidate) => candidate.type === "clock.threshold");
+      const settled = descendants.some((candidate) => candidate.type === "job.updated");
+      const question = (state?.shared_questions || []).find((candidate) => (
+        String(candidate.progress_clock_id || "") === String(trace.clock_id || "")
+      ));
+      const filled = Number(clock?.clock_filled ?? question?.filled);
+      const segments = Number(clock?.clock_segments ?? question?.segments);
+      const progress = Number.isFinite(filled) && Number.isFinite(segments) && segments > 0
+        ? ` Progress is ${filled}/${segments}.`
+        : "";
+      const credit = clock ? " The contribution is remembered here." : "";
+      const revelation = cleanStatusText(threshold?.content || "");
+      const now = revelation || cleanStatusText(question?.situation || "");
+      const changed = now ? ` Now: ${finishSentence(now)}` : "";
+      const completion = settled || question?.presentation_state === "completed_memory"
+        ? " The shared question is settled."
+        : "";
+      return `tries to ${lowerInitial(trace.strategy_label || "help")} at ${trace.target?.label || "the shared task"}; the work gains ${headway}.${progress}${credit}${outcome}${changed}${completion}`;
     }
 
     function listenEventText(event) {
@@ -10938,8 +11312,35 @@
     });
 
     $("log").addEventListener("scroll", scheduleVisibleWorldBeatReceipts, { passive: true });
+    $("shared-questions").addEventListener("toggle", (event) => {
+      const details = event.target.closest("details");
+      if (!details?.open) return;
+      const row = details.closest("[data-clock-presentation][data-clock-id]");
+      const clockId = String(row?.dataset.clockId || "");
+      const question = (state?.shared_questions || []).find((candidate) => (
+        String(candidate?.progress_clock_id || "") === clockId
+      ));
+      if (question) void acknowledgeClockPresentation(question, "explanation_opened");
+    }, true);
+    $("shared-questions").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-question-comprehension]");
+      if (!button) return;
+      const row = button.closest("[data-clock-presentation][data-clock-id]");
+      const clockId = String(row?.dataset.clockId || "");
+      const question = (state?.shared_questions || []).find((candidate) => (
+        String(candidate?.progress_clock_id || "") === clockId
+      ));
+      if (!question) return;
+      button.disabled = true;
+      button.textContent = "Story understood";
+      void acknowledgeClockPresentation(question, "comprehension_confirmed");
+    });
+    window.addEventListener("scroll", scheduleVisibleClockPresentationReceipts, { passive: true });
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") scheduleVisibleWorldBeatReceipts();
+      if (document.visibilityState === "visible") {
+        scheduleVisibleWorldBeatReceipts();
+        scheduleVisibleClockPresentationReceipts();
+      }
     });
 
     window.addEventListener("pagehide", leavePresence);
@@ -10949,6 +11350,7 @@
         renderEconomy();
         reconcileHand();
         renderCommands();
+        scheduleVisibleClockPresentationReceipts();
       }
     });
 

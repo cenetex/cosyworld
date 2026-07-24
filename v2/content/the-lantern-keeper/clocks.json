@@ -9,7 +9,18 @@
     "segments": 6,
     "filled": 0,
     "visible_to_players": true,
-    "status": "active"
+    "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Can travelers find Rowan Vale and rekindle the Mothwood beacon?",
+      "rhythm": "construction",
+      "attention": "immediate",
+      "priority": 96,
+      "situation": "The last lamps point north, but the tower and its keeper have both gone dark.",
+      "stakes": "An unlit road gives the borrowed shadows time to learn every traveler's shape.",
+      "outcome": "The beacon burns again and makes the Mothwood road trustworthy after dusk.",
+      "completion_memory": "Travelers followed the last lamps, found Rowan Vale, and rekindled the Mothwood beacon."
+    }
   },
   {
     "id": "lantern-keeper.darkness",
@@ -21,6 +32,17 @@
     "segments": 6,
     "filled": 0,
     "visible_to_players": true,
-    "status": "active"
+    "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Will the Mothwood road go fully dark before the beacon returns?",
+      "rhythm": "construction",
+      "attention": "background",
+      "priority": 32,
+      "situation": "Borrowed shadows are lingering longer between the last surviving lamps.",
+      "stakes": "If the road goes fully dark, the shadows will know every shape that travels it.",
+      "outcome": "The dark road becomes a lantern for borrowed shadows.",
+      "completion_memory": "The Mothwood road went fully dark, and the borrowed shadows learned its travelers."
+    }
   }
 ]

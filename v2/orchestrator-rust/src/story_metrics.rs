@@ -3,12 +3,14 @@ use sha2::{Digest, Sha256};
 
 pub(super) const STORY_METRICS_SCHEMA_VERSION: u32 = 2;
 pub(super) const WORLD_BEAT_PRESENTATION_CONTRACT_VERSION: u32 = 1;
+pub(super) const CLOCK_PRESENTATION_CONTRACT_VERSION: u32 = 1;
 pub(super) const DEFAULT_STORY_METRICS_RETENTION_DAYS: u64 = 400;
 const MAX_STORY_METRICS_RETENTION_DAYS: u64 = 3_650;
 const STORY_METRICS_DAY_MS: u64 = 86_400_000;
 const STORY_METRICS_BACKFILL_KEY: &str = "world_events_v1";
 const STORY_METRICS_NAMESPACE: &str = "cosyworld.story-metrics/2";
 const WORLD_BEAT_EXPOSURE_PREFIX: &str = "world-beat:v1:";
+const CLOCK_PRESENTATION_EXPOSURE_PREFIX: &str = "clock-presentation:v1:";
 const RETURN_WINDOW_DAYS: u64 = 30;
 const HEALTH_WINDOW_DAYS: u64 = 7;
 const STALLED_EVENT_GAP: u64 = 128;
@@ -851,6 +853,52 @@ pub(super) fn world_beat_exposure_id(source_event_seq: u64) -> String {
     format!("{WORLD_BEAT_EXPOSURE_PREFIX}{source_event_seq}")
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct ClockPresentationExposure {
+    pub(super) interaction: String,
+    pub(super) state_revision: u64,
+    pub(super) clock_id: String,
+}
+
+pub(super) fn valid_clock_presentation_interaction(interaction: &str) -> bool {
+    matches!(
+        interaction,
+        "promoted_seen"
+            | "explanation_opened"
+            | "completion_seen"
+            | "return_change_seen"
+            | "comprehension_confirmed"
+    )
+}
+
+pub(super) fn clock_presentation_exposure_id(
+    clock_id: &str,
+    interaction: &str,
+    state_revision: u64,
+) -> String {
+    format!("{CLOCK_PRESENTATION_EXPOSURE_PREFIX}{interaction}:{state_revision}:{clock_id}")
+}
+
+pub(super) fn clock_presentation_exposure(exposure_id: &str) -> Option<ClockPresentationExposure> {
+    let remainder = exposure_id.strip_prefix(CLOCK_PRESENTATION_EXPOSURE_PREFIX)?;
+    let mut parts = remainder.splitn(3, ':');
+    let interaction = parts.next()?.to_string();
+    let state_revision = parts.next()?.parse::<u64>().ok()?;
+    let clock_id = parts.next()?.to_string();
+    if !valid_clock_presentation_interaction(&interaction)
+        || state_revision == 0
+        || clock_id.trim().is_empty()
+        || clock_presentation_exposure_id(&clock_id, &interaction, state_revision) != exposure_id
+    {
+        return None;
+    }
+    Some(ClockPresentationExposure {
+        interaction,
+        state_revision,
+        clock_id,
+    })
+}
+
 pub(super) fn world_beat_exposure_seq(exposure_id: &str) -> Option<u64> {
     let source_event_seq = exposure_id
         .strip_prefix(WORLD_BEAT_EXPOSURE_PREFIX)?
@@ -858,6 +906,68 @@ pub(super) fn world_beat_exposure_seq(exposure_id: &str) -> Option<u64> {
         .ok()?;
     (source_event_seq > 0 && world_beat_exposure_id(source_event_seq) == exposure_id)
         .then_some(source_event_seq)
+}
+
+pub(super) fn record_clock_presentation_exposure_at(
+    path: &Path,
+    actor_id: u64,
+    clock_id: &str,
+    location_id: u64,
+    interaction: &str,
+    exposure_id: &str,
+    transport: &str,
+    state_revision: u64,
+    source_event_seq: Option<u64>,
+    now_ms: u64,
+) -> io::Result<bool> {
+    if !valid_clock_presentation_interaction(interaction)
+        || !valid_world_beat_transport(transport)
+        || clock_presentation_exposure_id(clock_id, interaction, state_revision) != exposure_id
+    {
+        return Ok(false);
+    }
+    let event_kind = match interaction {
+        "promoted_seen" => "shared_question_seen",
+        "explanation_opened" => "shared_question_opened",
+        "completion_seen" => "shared_question_completion_seen",
+        "return_change_seen" => "shared_question_return_change_seen",
+        "comprehension_confirmed" => "shared_question_comprehension_confirmed",
+        _ => return Ok(false),
+    };
+    init_event_store(path)?;
+    let mut conn = open_event_store(path)?;
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(sqlite_error)?;
+    let player_ref = story_player_ref(actor_id);
+    let session_ref = story_session_ref(&player_ref, story_day_index(now_ms));
+    let location_ref = story_location_ref(location_id);
+    let question_ref = story_subject_ref("shared-question", clock_id);
+    let inserted = insert_story_metric(
+        &tx,
+        NewStoryMetric {
+            event_id: story_event_id(&[event_kind, &player_ref, exposure_id]),
+            player_ref: &player_ref,
+            session_ref: &session_ref,
+            event_kind,
+            source_event_seq,
+            location_ref: Some(&location_ref),
+            target_player_ref: None,
+            subject_ref: Some(&question_ref),
+            attributes: serde_json::json!({
+                "clock_ref": question_ref.clone(),
+                "exposure_id": exposure_id,
+                "interaction": interaction,
+                "presentation_contract_version": CLOCK_PRESENTATION_CONTRACT_VERSION,
+                "state_revision": state_revision,
+                "transport": transport,
+            }),
+            occurred_at_ms: now_ms,
+        },
+        now_ms,
+    )?;
+    tx.commit().map_err(sqlite_error)?;
+    Ok(inserted)
 }
 
 pub(super) fn world_beat_is_renderable(event: &EventView) -> bool {

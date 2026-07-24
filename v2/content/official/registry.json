@@ -28,7 +28,8 @@
         "sha256:df51e114ca12face0fc9aa97516826e350792db5937209b6f441df0675a0e691",
         "sha256:f97d77e008a46d79d9c9d83e607b257a16ef66d591b037297495b99f21fdafa5",
         "sha256:226996ee96150505c53df2a999297e8c5fa771b0dd81e6d03eb82e62daccc290",
-        "sha256:b6060bef1242f551185ad54fbadf284f55980b6aecfe9a8f490a1467b6a23171"
+        "sha256:b6060bef1242f551185ad54fbadf284f55980b6aecfe9a8f490a1467b6a23171",
+        "sha256:aca13f4075a97d37ffb13c6626eb6247793a87e6f76ac217a84e417c07b687ff"
       ]
     },
     "rules_profile": "cosyworld.srd5/1",
@@ -614,7 +615,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:aca13f4075a97d37ffb13c6626eb6247793a87e6f76ac217a84e417c07b687ff",
+    "bundle_hash": "sha256:1e74056abb3b5ffadf78a0f5b4ec62b511c2a727c216c0b7bd1a6cd3ca7b04f1",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -778,7 +779,7 @@
         "id": "cosyworld.core",
         "name": "CosyWorld Core",
         "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-        "version": "1.3.4",
+        "version": "1.3.5",
         "kind": "world",
         "license": "MIT",
         "license_url": "https://opensource.org/license/mit",
@@ -863,7 +864,7 @@
           "type": "workspace",
           "path": "../../content/core"
         },
-        "integrity": "sha256:0442f36ad4a726c462a382d13e8c0eca454a102c9f43c5a0629dfed903a2e678"
+        "integrity": "sha256:fd28db4e1925f15705b16f52a4e30cd2fa5343e6ee6b2c065393e86071e74bff"
       },
       {
         "id": "cosyworld.rules-srd-5.1",
@@ -944,7 +945,7 @@
         "id": "cosyworld.campaign.the-lantern-keeper",
         "name": "The Lantern Keeper",
         "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-        "version": "0.1.3",
+        "version": "0.1.4",
         "kind": "campaign",
         "license": "CC-BY-4.0",
         "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -1042,7 +1043,7 @@
           "type": "workspace",
           "path": "../../content/the-lantern-keeper"
         },
-        "integrity": "sha256:c3c6c2c75b6a5173f3cb5ffb1e52d96f3524faa692df4eef61b3764acb8c2472"
+        "integrity": "sha256:f97ca7b7a59c6b4966522ac07bbbc1f3d6aecf261fb07ff937b853e21682e533"
       },
       {
         "id": "cosyworld.lonely-forest.characters",
@@ -6884,6 +6885,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Can travelers quiet the Moonlit Trail before its echoes turn every step against them?",
+          "rhythm": "session",
+          "attention": "immediate",
+          "priority": 95,
+          "situation": "The trail repeats each footstep until no traveler can tell which sound is their own.",
+          "stakes": "Every rest gives the returning echo another chance to sharpen.",
+          "outcome": "Footsteps sound like travelers again, and the trail becomes safe to trust.",
+          "completion_memory": "Travelers listened, marked the catches in the path, and quieted the Moonlit Trail together."
+        },
         "pack_id": "cosyworld.core"
       },
       {
@@ -6897,6 +6909,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Will the returning echo shatter the Moonlit Trail first?",
+          "rhythm": "session",
+          "attention": "background",
+          "priority": 30,
+          "situation": "Each unanswered echo returns a little sharper than before.",
+          "stakes": "If it hardens completely, quiet movement along the trail becomes impossible.",
+          "outcome": "The echo fractures the trail into uncertain, hostile footsteps.",
+          "completion_memory": "The returning echo sharpened until the Moonlit Trail could no longer be trusted."
+        },
         "pack_id": "cosyworld.core"
       },
       {
@@ -6910,6 +6933,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Can the Solar Temple and the Darkest Ocean hear one shared interval in the drowned bell?",
+          "rhythm": "seasonal",
+          "attention": "communal",
+          "priority": 82,
+          "situation": "The same drowned bell sounds like absence above and a deeper song below.",
+          "stakes": "Without someone hearing both sides, each community will mistake the other for desecration.",
+          "outcome": "The bell's two songs become an accord that both height and depth can recognize.",
+          "completion_memory": "Listeners carried the drowned bell's two songs together until a shared interval could be heard."
+        },
         "pack_id": "cosyworld.core"
       },
       {
@@ -6923,6 +6957,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Will the bell schism harden before either side hears the other?",
+          "rhythm": "seasonal",
+          "attention": "background",
+          "priority": 25,
+          "situation": "Height and depth are beginning to call each other's song a wound.",
+          "stakes": "A hardened schism turns one bell into a lasting reason for distrust.",
+          "outcome": "The Solar Temple and the Abyssal Residents reject each other's song.",
+          "completion_memory": "The drowned bell became a boundary after neither side could hear the other's song."
+        },
         "pack_id": "cosyworld.core"
       },
       {
@@ -6936,6 +6981,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Can Nib name one fair price that explains the wanting without owning the wanter?",
+          "rhythm": "session",
+          "attention": "local",
+          "priority": 76,
+          "situation": "Nib has three prices for every useful thing and trusts none of them.",
+          "stakes": "An unnamed bargain lets every promise become collateral.",
+          "outcome": "One clear bargain closes the loophole freely and leaves everyone able to walk away.",
+          "completion_memory": "Nib and the cave learned a fair price that named the wanting without owning the wanter."
+        },
         "pack_id": "cosyworld.core"
       },
       {
@@ -6949,6 +7005,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Will the loophole become leverage before the bargain is made fair?",
+          "rhythm": "session",
+          "attention": "background",
+          "priority": 20,
+          "situation": "Every vague promise gives the loophole another edge.",
+          "stakes": "If it hardens, every future bargain begins as a threat.",
+          "outcome": "The cave turns every promise into collateral.",
+          "completion_memory": "The loophole hardened into leverage, and the cave learned to distrust every promise."
+        },
         "pack_id": "cosyworld.core"
       },
       {
@@ -6962,6 +7029,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Can a guest prove they can cross the Mansion's threshold without taking from it?",
+          "rhythm": "session",
+          "attention": "local",
+          "priority": 74,
+          "situation": "The Warden remembers careless guests and watches every hand near the door.",
+          "stakes": "Force will confirm the Warden's fear and close the house to everyone.",
+          "outcome": "The Mansion recognizes restraint and opens its threshold to careful guests.",
+          "completion_memory": "Careful guests earned the Mansion's threshold by entering without taking."
+        },
         "pack_id": "cosyworld.core"
       },
       {
@@ -6975,6 +7053,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Will the Warden bar every door before a guest earns trust?",
+          "rhythm": "session",
+          "attention": "background",
+          "priority": 20,
+          "situation": "Each careless approach gives the Warden another reason to turn the key.",
+          "stakes": "A fully barred Mansion leaves no path for later guests to make amends.",
+          "outcome": "The Warden seals the Mansion and calls the empty house safe.",
+          "completion_memory": "The Warden barred every door after no guest could show the Mansion restraint."
+        },
         "pack_id": "cosyworld.core"
       },
       {
@@ -6988,6 +7077,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Can Beetle's grudge ledger be amended before one bad landing becomes swamp law?",
+          "rhythm": "civic",
+          "attention": "local",
+          "priority": 72,
+          "situation": "One bad landing has been copied through the ledger until it reads like a feud.",
+          "stakes": "If nobody corrects the record, Beetle will defend a slight that everyone else has forgotten.",
+          "outcome": "One honest amendment outweighs the ledger's repeated slights.",
+          "completion_memory": "The swamp amended Beetle's ledger and let one honest correction outweigh an old grudge."
+        },
         "pack_id": "cosyworld.core"
       },
       {
@@ -7001,6 +7101,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Will Beetle's old grudge harden into law?",
+          "rhythm": "civic",
+          "attention": "background",
+          "priority": 18,
+          "situation": "Every uncorrected line makes the old slight feel more official.",
+          "stakes": "Once the grudge becomes law, the swamp will inherit a quarrel it never chose.",
+          "outcome": "The old grudge becomes the rule by which Beetle meets every traveler.",
+          "completion_memory": "The old grudge hardened into swamp law after the ledger went unamended."
+        },
         "pack_id": "cosyworld.core"
       },
       {
@@ -7014,6 +7125,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Can travelers find Rowan Vale and rekindle the Mothwood beacon?",
+          "rhythm": "construction",
+          "attention": "immediate",
+          "priority": 96,
+          "situation": "The last lamps point north, but the tower and its keeper have both gone dark.",
+          "stakes": "An unlit road gives the borrowed shadows time to learn every traveler's shape.",
+          "outcome": "The beacon burns again and makes the Mothwood road trustworthy after dusk.",
+          "completion_memory": "Travelers followed the last lamps, found Rowan Vale, and rekindled the Mothwood beacon."
+        },
         "pack_id": "cosyworld.campaign.the-lantern-keeper"
       },
       {
@@ -7027,6 +7149,17 @@
         "filled": 0,
         "visible_to_players": true,
         "status": "active",
+        "presentation": {
+          "version": 1,
+          "question": "Will the Mothwood road go fully dark before the beacon returns?",
+          "rhythm": "construction",
+          "attention": "background",
+          "priority": 32,
+          "situation": "Borrowed shadows are lingering longer between the last surviving lamps.",
+          "stakes": "If the road goes fully dark, the shadows will know every shape that travels it.",
+          "outcome": "The dark road becomes a lantern for borrowed shadows.",
+          "completion_memory": "The Mothwood road went fully dark, and the borrowed shadows learned its travelers."
+        },
         "pack_id": "cosyworld.campaign.the-lantern-keeper"
       }
     ],
@@ -7081,7 +7214,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           },
           {
             "version": 1,
@@ -7114,7 +7247,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           },
           {
             "version": 1,
@@ -7146,7 +7279,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           },
           {
             "version": 1,
@@ -7171,7 +7304,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           },
           {
             "version": 1,
@@ -7196,7 +7329,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           }
         ],
         "narrated_thresholds": [
@@ -7270,7 +7403,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           },
           {
             "version": 1,
@@ -7297,7 +7430,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           },
           {
             "version": 1,
@@ -7322,7 +7455,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           },
           {
             "version": 1,
@@ -7347,7 +7480,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           }
         ],
         "narrated_thresholds": [
@@ -7414,7 +7547,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           },
           {
             "version": 1,
@@ -7439,7 +7572,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           }
         ],
         "narrated_thresholds": [
@@ -7506,7 +7639,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           },
           {
             "version": 1,
@@ -7531,7 +7664,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           }
         ],
         "narrated_thresholds": [
@@ -7598,7 +7731,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           },
           {
             "version": 1,
@@ -7623,7 +7756,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.core",
-            "pack_version": "1.3.4"
+            "pack_version": "1.3.5"
           }
         ],
         "narrated_thresholds": [
@@ -7698,7 +7831,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.campaign.the-lantern-keeper",
-            "pack_version": "0.1.3"
+            "pack_version": "0.1.4"
           },
           {
             "version": 1,
@@ -7725,7 +7858,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.campaign.the-lantern-keeper",
-            "pack_version": "0.1.3"
+            "pack_version": "0.1.4"
           },
           {
             "version": 1,
@@ -7752,7 +7885,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.campaign.the-lantern-keeper",
-            "pack_version": "0.1.3"
+            "pack_version": "0.1.4"
           },
           {
             "version": 1,
@@ -7784,7 +7917,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.campaign.the-lantern-keeper",
-            "pack_version": "0.1.3"
+            "pack_version": "0.1.4"
           },
           {
             "version": 1,
@@ -7816,7 +7949,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.campaign.the-lantern-keeper",
-            "pack_version": "0.1.3"
+            "pack_version": "0.1.4"
           },
           {
             "version": 1,
@@ -7848,7 +7981,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.campaign.the-lantern-keeper",
-            "pack_version": "0.1.3"
+            "pack_version": "0.1.4"
           },
           {
             "version": 1,
@@ -7873,7 +8006,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.campaign.the-lantern-keeper",
-            "pack_version": "0.1.3"
+            "pack_version": "0.1.4"
           },
           {
             "version": 1,
@@ -7898,7 +8031,7 @@
             "rules_pack_id": "cosyworld.rules-profile-srd5",
             "rules_pack_version": "1.0.0",
             "pack_id": "cosyworld.campaign.the-lantern-keeper",
-            "pack_version": "0.1.3"
+            "pack_version": "0.1.4"
           }
         ],
         "narrated_thresholds": [
@@ -11595,8 +11728,8 @@
   "assets": [
     {
       "pack_id": "cosyworld.core",
-      "pack_version": "1.3.4",
-      "pack_integrity": "sha256:0442f36ad4a726c462a382d13e8c0eca454a102c9f43c5a0629dfed903a2e678",
+      "pack_version": "1.3.5",
+      "pack_integrity": "sha256:fd28db4e1925f15705b16f52a4e30cd2fa5343e6ee6b2c065393e86071e74bff",
       "provider": "cosyworld.core/assets",
       "mount": "generated/cards",
       "root": "core",
@@ -11608,8 +11741,8 @@
     },
     {
       "pack_id": "cosyworld.core",
-      "pack_version": "1.3.4",
-      "pack_integrity": "sha256:0442f36ad4a726c462a382d13e8c0eca454a102c9f43c5a0629dfed903a2e678",
+      "pack_version": "1.3.5",
+      "pack_integrity": "sha256:fd28db4e1925f15705b16f52a4e30cd2fa5343e6ee6b2c065393e86071e74bff",
       "provider": "cosyworld.core/assets",
       "mount": "locations",
       "root": "core",
@@ -13359,7 +13492,7 @@
   "contributions": [
     {
       "pack_id": "cosyworld.core",
-      "pack_version": "1.3.4",
+      "pack_version": "1.3.5",
       "rules_profile": "cosyworld.srd5/1",
       "reskins": [],
       "offers": [
@@ -13501,7 +13634,7 @@
     {
       "pack_id": "cosyworld.core",
       "name": "CosyWorld Core",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {
@@ -13537,7 +13670,7 @@
     {
       "pack_id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "license_identifier": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
       "provenance": {
@@ -14235,7 +14368,7 @@
   "character_creation": [
     {
       "pack_id": "cosyworld.campaign.the-lantern-keeper",
-      "pack_version": "0.1.3",
+      "pack_version": "0.1.4",
       "profiles": [
         {
           "schema_version": 2,
@@ -14340,7 +14473,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/actor/8301",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "actor",
         "local_id": "8301",
         "legacy_runtime_id": 8301,
@@ -14349,7 +14482,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/actor/8302",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "actor",
         "local_id": "8302",
         "legacy_runtime_id": 8302,
@@ -14358,7 +14491,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/actor/8303",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "actor",
         "local_id": "8303",
         "legacy_runtime_id": 8303,
@@ -14367,7 +14500,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/actor/8304",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "actor",
         "local_id": "8304",
         "legacy_runtime_id": 8304,
@@ -14376,7 +14509,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-barrow",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-barrow",
         "runtime_handle": 2693745143565876
@@ -14384,7 +14517,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-chapel",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-chapel",
         "runtime_handle": 485182594396993
@@ -14392,7 +14525,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-dawn-oil",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-dawn-oil",
         "runtime_handle": 2918403238373891
@@ -14400,7 +14533,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-ember",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-ember",
         "runtime_handle": 6023960511621204
@@ -14408,7 +14541,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-inn",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-inn",
         "runtime_handle": 2167662595818650
@@ -14416,7 +14549,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-key",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-key",
         "runtime_handle": 8905115040499656
@@ -14424,7 +14557,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-knight",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-knight",
         "runtime_handle": 7581163987072796
@@ -14432,7 +14565,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-mara",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-mara",
         "runtime_handle": 2237714680835428
@@ -14440,7 +14573,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-mothglass",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-mothglass",
         "runtime_handle": 5170986584558554
@@ -14448,7 +14581,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-mothwood",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-mothwood",
         "runtime_handle": 1673786737892201
@@ -14456,7 +14589,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-pip",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-pip",
         "runtime_handle": 6288898560895936
@@ -14464,7 +14597,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-rowan",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-rowan",
         "runtime_handle": 1658308598845697
@@ -14472,7 +14605,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/card/lantern-keeper-tower",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "card",
         "local_id": "lantern-keeper-tower",
         "runtime_handle": 5850818207762215
@@ -14480,7 +14613,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/character-profile/the-lantern-keeper",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "character-profile",
         "local_id": "the-lantern-keeper",
         "runtime_handle": 6074007409727657
@@ -14488,7 +14621,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/clock/lantern-keeper.darkness",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "clock",
         "local_id": "lantern-keeper.darkness",
         "runtime_handle": 3497107257475399
@@ -14496,7 +14629,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/clock/lantern-keeper.light",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "clock",
         "local_id": "lantern-keeper.light",
         "runtime_handle": 1743073783466389
@@ -14504,7 +14637,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/front/lantern-keeper%3Ahollow-light",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "front",
         "local_id": "lantern-keeper:hollow-light",
         "runtime_handle": 8897349519357189
@@ -14512,7 +14645,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/item/8401",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "item",
         "local_id": "8401",
         "legacy_runtime_id": 8401,
@@ -14521,7 +14654,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/item/8402",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "item",
         "local_id": "8402",
         "legacy_runtime_id": 8402,
@@ -14530,7 +14663,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/item/8403",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "item",
         "local_id": "8403",
         "legacy_runtime_id": 8403,
@@ -14539,7 +14672,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/item/8404",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "item",
         "local_id": "8404",
         "legacy_runtime_id": 8404,
@@ -14548,7 +14681,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/job/lantern-keeper%3Arekindle-the-beacon",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "job",
         "local_id": "lantern-keeper:rekindle-the-beacon",
         "runtime_handle": 3517284423041433
@@ -14556,7 +14689,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/location/800",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "location",
         "local_id": "800",
         "legacy_runtime_id": 800,
@@ -14565,7 +14698,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/location/801",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "location",
         "local_id": "801",
         "legacy_runtime_id": 801,
@@ -14574,7 +14707,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/location/802",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "location",
         "local_id": "802",
         "legacy_runtime_id": 802,
@@ -14583,7 +14716,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/location/803",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "location",
         "local_id": "803",
         "legacy_runtime_id": 803,
@@ -14592,7 +14725,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/location/804",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "location",
         "local_id": "804",
         "legacy_runtime_id": 804,
@@ -14601,7 +14734,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/room-sheet/room%3A800",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "room-sheet",
         "local_id": "room:800",
         "runtime_handle": 485005815750293
@@ -14609,7 +14742,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/room-sheet/room%3A801",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "room-sheet",
         "local_id": "room:801",
         "runtime_handle": 5114262777545579
@@ -14617,7 +14750,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/room-sheet/room%3A802",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "room-sheet",
         "local_id": "room:802",
         "runtime_handle": 3932833224947827
@@ -14625,7 +14758,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/room-sheet/room%3A803",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "room-sheet",
         "local_id": "room:803",
         "runtime_handle": 7094111250995550
@@ -14633,7 +14766,7 @@
       {
         "canonical_ref": "pack://cosyworld.campaign.the-lantern-keeper/room-sheet/room%3A804",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.3",
+        "pack_version": "0.1.4",
         "kind": "room-sheet",
         "local_id": "room:804",
         "runtime_handle": 112964325215682
@@ -14641,7 +14774,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1001",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1001",
         "legacy_runtime_id": 1001,
@@ -14650,7 +14783,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1002",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1002",
         "legacy_runtime_id": 1002,
@@ -14659,7 +14792,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1003",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1003",
         "legacy_runtime_id": 1003,
@@ -14668,7 +14801,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1004",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1004",
         "legacy_runtime_id": 1004,
@@ -14677,7 +14810,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1005",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1005",
         "legacy_runtime_id": 1005,
@@ -14686,7 +14819,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1040",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1040",
         "legacy_runtime_id": 1040,
@@ -14695,7 +14828,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1041",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1041",
         "legacy_runtime_id": 1041,
@@ -14704,7 +14837,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1042",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1042",
         "legacy_runtime_id": 1042,
@@ -14713,7 +14846,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1043",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1043",
         "legacy_runtime_id": 1043,
@@ -14722,7 +14855,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1044",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1044",
         "legacy_runtime_id": 1044,
@@ -14731,7 +14864,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1045",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1045",
         "legacy_runtime_id": 1045,
@@ -14740,7 +14873,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1046",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1046",
         "legacy_runtime_id": 1046,
@@ -14749,7 +14882,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1047",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1047",
         "legacy_runtime_id": 1047,
@@ -14758,7 +14891,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1048",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1048",
         "legacy_runtime_id": 1048,
@@ -14767,7 +14900,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1049",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1049",
         "legacy_runtime_id": 1049,
@@ -14776,7 +14909,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1050",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1050",
         "legacy_runtime_id": 1050,
@@ -14785,7 +14918,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1051",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1051",
         "legacy_runtime_id": 1051,
@@ -14794,7 +14927,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1052",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1052",
         "legacy_runtime_id": 1052,
@@ -14803,7 +14936,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1053",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1053",
         "legacy_runtime_id": 1053,
@@ -14812,7 +14945,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1054",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1054",
         "legacy_runtime_id": 1054,
@@ -14821,7 +14954,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1055",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1055",
         "legacy_runtime_id": 1055,
@@ -14830,7 +14963,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1056",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1056",
         "legacy_runtime_id": 1056,
@@ -14839,7 +14972,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1057",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1057",
         "legacy_runtime_id": 1057,
@@ -14848,7 +14981,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1058",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1058",
         "legacy_runtime_id": 1058,
@@ -14857,7 +14990,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1059",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1059",
         "legacy_runtime_id": 1059,
@@ -14866,7 +14999,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1060",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1060",
         "legacy_runtime_id": 1060,
@@ -14875,7 +15008,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1061",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1061",
         "legacy_runtime_id": 1061,
@@ -14884,7 +15017,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1062",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1062",
         "legacy_runtime_id": 1062,
@@ -14893,7 +15026,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1063",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1063",
         "legacy_runtime_id": 1063,
@@ -14902,7 +15035,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1064",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1064",
         "legacy_runtime_id": 1064,
@@ -14911,7 +15044,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1065",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1065",
         "legacy_runtime_id": 1065,
@@ -14920,7 +15053,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1066",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1066",
         "legacy_runtime_id": 1066,
@@ -14929,7 +15062,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1067",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1067",
         "legacy_runtime_id": 1067,
@@ -14938,7 +15071,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1068",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1068",
         "legacy_runtime_id": 1068,
@@ -14947,7 +15080,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1069",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1069",
         "legacy_runtime_id": 1069,
@@ -14956,7 +15089,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/actor/1070",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "actor",
         "local_id": "1070",
         "legacy_runtime_id": 1070,
@@ -14965,7 +15098,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-abbey-bookmark",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-abbey-bookmark",
         "runtime_handle": 138956494956560
@@ -14973,7 +15106,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-azazoth",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-azazoth",
         "runtime_handle": 2742827434789688
@@ -14981,7 +15114,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-cottage",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-cottage",
         "runtime_handle": 3679023710615970
@@ -14989,7 +15122,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-dewbright-button",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-dewbright-button",
         "runtime_handle": 7543879359126606
@@ -14997,7 +15130,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-hearth-tonic",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-hearth-tonic",
         "runtime_handle": 6099844187041316
@@ -15005,7 +15138,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-hearthstone-tag",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-hearthstone-tag",
         "runtime_handle": 445803431082645
@@ -15013,7 +15146,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-moonlit-echo",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-moonlit-echo",
         "runtime_handle": 3701779326615881
@@ -15021,7 +15154,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-moonlit-trail",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-moonlit-trail",
         "runtime_handle": 3706559719582066
@@ -15029,7 +15162,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-moonwool-thread",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-moonwool-thread",
         "runtime_handle": 3248987744606910
@@ -15037,7 +15170,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-mossglass-bead",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-mossglass-bead",
         "runtime_handle": 406732117808934
@@ -15045,7 +15178,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-old-oak",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-old-oak",
         "runtime_handle": 6806929065153819
@@ -15053,7 +15186,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-pearl-deep-resident",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-pearl-deep-resident",
         "runtime_handle": 8634483881055898
@@ -15061,7 +15194,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-rain-soft-garden",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-rain-soft-garden",
         "runtime_handle": 8636127016066734
@@ -15069,7 +15202,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-skull",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-skull",
         "runtime_handle": 8174630967825761
@@ -15077,7 +15210,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-story-button",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-story-button",
         "runtime_handle": 3151408643854036
@@ -15085,7 +15218,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-threadbare-map-scrap",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-threadbare-map-scrap",
         "runtime_handle": 4482891498418887
@@ -15093,7 +15226,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-vowbright-angel",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-vowbright-angel",
         "runtime_handle": 7966555082684141
@@ -15101,7 +15234,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-watch-bell",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-watch-bell",
         "runtime_handle": 6205526622615328
@@ -15109,7 +15242,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-whiskerwind",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-whiskerwind",
         "runtime_handle": 5669444972898140
@@ -15117,7 +15250,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-wolfprint-charm",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-wolfprint-charm",
         "runtime_handle": 915703357568385
@@ -15125,7 +15258,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/cosy-zadkiel-dark-angel",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "cosy-zadkiel-dark-angel",
         "runtime_handle": 8315124370132858
@@ -15133,7 +15266,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/item-ashwood-practice-blade",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "item-ashwood-practice-blade",
         "runtime_handle": 3640187639484502
@@ -15141,7 +15274,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/item-patchwork-satchel",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "item-patchwork-satchel",
         "runtime_handle": 804106637155376
@@ -15149,7 +15282,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/item-steady-light",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "item-steady-light",
         "runtime_handle": 8614146586928189
@@ -15157,7 +15290,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-armored-winged-hero",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-armored-winged-hero",
         "runtime_handle": 6600128378329146
@@ -15165,7 +15298,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-badger-cub",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-badger-cub",
         "runtime_handle": 3524217422483260
@@ -15173,7 +15306,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-beetle-armor",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-beetle-armor",
         "runtime_handle": 7880939887467250
@@ -15181,7 +15314,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-blue-shadow-man",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-blue-shadow-man",
         "runtime_handle": 3755993660754793
@@ -15189,7 +15322,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-blue-squirrel",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-blue-squirrel",
         "runtime_handle": 3374679645864704
@@ -15197,7 +15330,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-cloaked-mouse-reader",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-cloaked-mouse-reader",
         "runtime_handle": 3997082335066109
@@ -15205,7 +15338,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-forest-dryad",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-forest-dryad",
         "runtime_handle": 8662818472079145
@@ -15213,7 +15346,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-garden-rabbit",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-garden-rabbit",
         "runtime_handle": 2730391876987516
@@ -15221,7 +15354,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-golden-squirrel",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-golden-squirrel",
         "runtime_handle": 162503682361987
@@ -15229,7 +15362,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-golden-winged-boy",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-golden-winged-boy",
         "runtime_handle": 4342854739894551
@@ -15237,7 +15370,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-grey-winged-boy",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-grey-winged-boy",
         "runtime_handle": 1250802238685798
@@ -15245,7 +15378,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-llama-scholar",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-llama-scholar",
         "runtime_handle": 6908093676132939
@@ -15253,7 +15386,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-mouse-wanderer",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-mouse-wanderer",
         "runtime_handle": 4601206403124060
@@ -15261,7 +15394,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-neon-tiger",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-neon-tiger",
         "runtime_handle": 6229971572743818
@@ -15269,7 +15402,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-rabbit-scribe",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-rabbit-scribe",
         "runtime_handle": 8634110685852129
@@ -15277,7 +15410,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-red-shadow-figure",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-red-shadow-figure",
         "runtime_handle": 3112884101630158
@@ -15285,7 +15418,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-shadow-wolf",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-shadow-wolf",
         "runtime_handle": 4273988789998875
@@ -15293,7 +15426,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-steampunk-mouse",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-steampunk-mouse",
         "runtime_handle": 4441668646189737
@@ -15301,7 +15434,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-sunlit-winged-boy",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-sunlit-winged-boy",
         "runtime_handle": 8615932867192302
@@ -15309,7 +15442,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-tavern-blond-boy",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-tavern-blond-boy",
         "runtime_handle": 1835702442135722
@@ -15317,7 +15450,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-veiled-forest-ghost",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-veiled-forest-ghost",
         "runtime_handle": 4799858469869419
@@ -15325,7 +15458,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-white-ferret-noble",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-white-ferret-noble",
         "runtime_handle": 5084247526999701
@@ -15333,7 +15466,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-wolf-pup",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-wolf-pup",
         "runtime_handle": 236437027581609
@@ -15341,7 +15474,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/lf-woodland-bear",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "lf-woodland-bear",
         "runtime_handle": 9000656934868850
@@ -15349,7 +15482,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-alpine-forest",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-alpine-forest",
         "runtime_handle": 8242458519360113
@@ -15357,7 +15490,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-circle-of-the-moon",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-circle-of-the-moon",
         "runtime_handle": 1930856172148870
@@ -15365,7 +15498,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-dark-abyss",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-dark-abyss",
         "runtime_handle": 7382677506125331
@@ -15373,7 +15506,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-darkest-ocean",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-darkest-ocean",
         "runtime_handle": 5061075064260629
@@ -15381,7 +15514,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-digital-realm",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-digital-realm",
         "runtime_handle": 5887686546418438
@@ -15389,7 +15522,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-endless-ocean",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-endless-ocean",
         "runtime_handle": 5401754774320525
@@ -15397,7 +15530,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-flower-meadow",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-flower-meadow",
         "runtime_handle": 7614022144101722
@@ -15405,7 +15538,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-goblin-cave",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-goblin-cave",
         "runtime_handle": 3499001612672709
@@ -15413,7 +15546,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-great-library",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-great-library",
         "runtime_handle": 7328586258800562
@@ -15421,7 +15554,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-haunted-mansion",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-haunted-mansion",
         "runtime_handle": 7484239537948286
@@ -15429,7 +15562,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-lofty-peak",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-lofty-peak",
         "runtime_handle": 2456240765655012
@@ -15437,7 +15570,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-lost-woods",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-lost-woods",
         "runtime_handle": 6580883718503069
@@ -15445,7 +15578,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-old-oak-tree",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-old-oak-tree",
         "runtime_handle": 2838379433219254
@@ -15453,7 +15586,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-quiet-abbey",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-quiet-abbey",
         "runtime_handle": 4838231888638100
@@ -15461,7 +15594,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-solar-temple",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-solar-temple",
         "runtime_handle": 450219611871818
@@ -15469,7 +15602,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-summit-trail",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-summit-trail",
         "runtime_handle": 8064929121549612
@@ -15477,7 +15610,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-the-heavens",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-the-heavens",
         "runtime_handle": 6396411156616223
@@ -15485,7 +15618,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-turgid-swamp",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-turgid-swamp",
         "runtime_handle": 6935773679641332
@@ -15493,7 +15626,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/location-wilting-jungle",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "location-wilting-jungle",
         "runtime_handle": 5897394732936641
@@ -15501,7 +15634,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/card/rati",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "card",
         "local_id": "rati",
         "runtime_handle": 1392254580257493
@@ -15509,7 +15642,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/clock/goblin-cave.fair-bargain",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "clock",
         "local_id": "goblin-cave.fair-bargain",
         "runtime_handle": 8054949801377040
@@ -15517,7 +15650,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/clock/goblin-cave.leverage",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "clock",
         "local_id": "goblin-cave.leverage",
         "runtime_handle": 1065707925425919
@@ -15525,7 +15658,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/clock/haunted-mansion.threshold",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "clock",
         "local_id": "haunted-mansion.threshold",
         "runtime_handle": 4535315091897137
@@ -15533,7 +15666,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/clock/haunted-mansion.warden-rage",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "clock",
         "local_id": "haunted-mansion.warden-rage",
         "runtime_handle": 6257115991159330
@@ -15541,7 +15674,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/clock/moonlit-trail.danger",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "clock",
         "local_id": "moonlit-trail.danger",
         "runtime_handle": 257345026365457
@@ -15549,7 +15682,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/clock/moonlit-trail.progress",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "clock",
         "local_id": "moonlit-trail.progress",
         "runtime_handle": 6085238183587093
@@ -15557,7 +15690,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/clock/solar-abyss.drowned-bell",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "clock",
         "local_id": "solar-abyss.drowned-bell",
         "runtime_handle": 3555240757788262
@@ -15565,7 +15698,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/clock/solar-abyss.schism",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "clock",
         "local_id": "solar-abyss.schism",
         "runtime_handle": 4589004266308223
@@ -15573,7 +15706,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/clock/turgid-swamp.amends",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "clock",
         "local_id": "turgid-swamp.amends",
         "runtime_handle": 4432023342275341
@@ -15581,7 +15714,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/clock/turgid-swamp.old-grudge",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "clock",
         "local_id": "turgid-swamp.old-grudge",
         "runtime_handle": 8536373757408084
@@ -15589,7 +15722,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/faction/abyssal_residents",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "faction",
         "local_id": "abyssal_residents",
         "runtime_handle": 1688333275188302
@@ -15597,7 +15730,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/faction/digital_strays",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "faction",
         "local_id": "digital_strays",
         "runtime_handle": 5048545454289654
@@ -15605,7 +15738,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/faction/farthest_mists",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "faction",
         "local_id": "farthest_mists",
         "runtime_handle": 350962558801960
@@ -15613,7 +15746,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/faction/goblin_market",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "faction",
         "local_id": "goblin_market",
         "runtime_handle": 3490418888358082
@@ -15621,7 +15754,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/faction/great_library",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "faction",
         "local_id": "great_library",
         "runtime_handle": 991170045564473
@@ -15629,7 +15762,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/faction/haunted_remnants",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "faction",
         "local_id": "haunted_remnants",
         "runtime_handle": 4900866309718573
@@ -15637,7 +15770,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/faction/hearthbound",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "faction",
         "local_id": "hearthbound",
         "runtime_handle": 4046513959484943
@@ -15645,7 +15778,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/faction/lonely_forest_court",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "faction",
         "local_id": "lonely_forest_court",
         "runtime_handle": 5495209280499345
@@ -15653,7 +15786,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/faction/moon_circle",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "faction",
         "local_id": "moon_circle",
         "runtime_handle": 3594504273910135
@@ -15661,7 +15794,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/faction/quiet_abbey",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "faction",
         "local_id": "quiet_abbey",
         "runtime_handle": 7894097855005461
@@ -15669,7 +15802,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/faction/solar_temple",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "faction",
         "local_id": "solar_temple",
         "runtime_handle": 2642136344425509
@@ -15677,7 +15810,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/front/goblin-cave%3Amarket-leverage",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "front",
         "local_id": "goblin-cave:market-leverage",
         "runtime_handle": 5093973293074428
@@ -15685,7 +15818,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/front/haunted-mansion%3Abarred-threshold",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "front",
         "local_id": "haunted-mansion:barred-threshold",
         "runtime_handle": 6295078661322495
@@ -15693,7 +15826,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/front/moonlit-trail%3Aecho-front",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "front",
         "local_id": "moonlit-trail:echo-front",
         "runtime_handle": 3643385637336037
@@ -15701,7 +15834,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/front/solar-abyss%3Abell-front",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "front",
         "local_id": "solar-abyss:bell-front",
         "runtime_handle": 591496292254136
@@ -15709,7 +15842,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/front/turgid-swamp%3Aold-grudge",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "front",
         "local_id": "turgid-swamp:old-grudge",
         "runtime_handle": 5644962986267984
@@ -15717,7 +15850,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/hidden-exit/darkest-ocean%3Adark-abyss",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "hidden-exit",
         "local_id": "darkest-ocean:dark-abyss",
         "runtime_handle": 456562266146446
@@ -15725,7 +15858,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2001",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2001",
         "legacy_runtime_id": 2001,
@@ -15734,7 +15867,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2002",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2002",
         "legacy_runtime_id": 2002,
@@ -15743,7 +15876,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2003",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2003",
         "legacy_runtime_id": 2003,
@@ -15752,7 +15885,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2004",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2004",
         "legacy_runtime_id": 2004,
@@ -15761,7 +15894,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2005",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2005",
         "legacy_runtime_id": 2005,
@@ -15770,7 +15903,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2006",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2006",
         "legacy_runtime_id": 2006,
@@ -15779,7 +15912,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2007",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2007",
         "legacy_runtime_id": 2007,
@@ -15788,7 +15921,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2008",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2008",
         "legacy_runtime_id": 2008,
@@ -15797,7 +15930,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2009",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2009",
         "legacy_runtime_id": 2009,
@@ -15806,7 +15939,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2010",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2010",
         "legacy_runtime_id": 2010,
@@ -15815,7 +15948,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2012",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2012",
         "legacy_runtime_id": 2012,
@@ -15824,7 +15957,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2013",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2013",
         "legacy_runtime_id": 2013,
@@ -15833,7 +15966,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/item/2014",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "item",
         "local_id": "2014",
         "legacy_runtime_id": 2014,
@@ -15842,7 +15975,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/job/goblin-cave%3Aname-the-price",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "job",
         "local_id": "goblin-cave:name-the-price",
         "runtime_handle": 3094113202720990
@@ -15850,7 +15983,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/job/haunted-mansion%3Aearn-the-threshold",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "job",
         "local_id": "haunted-mansion:earn-the-threshold",
         "runtime_handle": 7833342030263292
@@ -15858,7 +15991,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/job/moonlit-trail%3Aquiet-the-echo",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "job",
         "local_id": "moonlit-trail:quiet-the-echo",
         "runtime_handle": 3184352149003600
@@ -15866,7 +15999,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/job/solar-abyss%3Adrowned-bell",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "job",
         "local_id": "solar-abyss:drowned-bell",
         "runtime_handle": 681263158451131
@@ -15874,7 +16007,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/job/turgid-swamp%3Aamend-the-ledger",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "job",
         "local_id": "turgid-swamp:amend-the-ledger",
         "runtime_handle": 477973030695414
@@ -15882,7 +16015,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/1",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "1",
         "legacy_runtime_id": 1,
@@ -15891,7 +16024,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/2",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "2",
         "legacy_runtime_id": 2,
@@ -15900,7 +16033,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/3",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "3",
         "legacy_runtime_id": 3,
@@ -15909,7 +16042,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/30",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "30",
         "legacy_runtime_id": 30,
@@ -15918,7 +16051,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/31",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "31",
         "legacy_runtime_id": 31,
@@ -15927,7 +16060,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/32",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "32",
         "legacy_runtime_id": 32,
@@ -15936,7 +16069,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/33",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "33",
         "legacy_runtime_id": 33,
@@ -15945,7 +16078,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/34",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "34",
         "legacy_runtime_id": 34,
@@ -15954,7 +16087,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/35",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "35",
         "legacy_runtime_id": 35,
@@ -15963,7 +16096,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/36",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "36",
         "legacy_runtime_id": 36,
@@ -15972,7 +16105,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/40",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "40",
         "legacy_runtime_id": 40,
@@ -15981,7 +16114,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/41",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "41",
         "legacy_runtime_id": 41,
@@ -15990,7 +16123,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/42",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "42",
         "legacy_runtime_id": 42,
@@ -15999,7 +16132,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/43",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "43",
         "legacy_runtime_id": 43,
@@ -16008,7 +16141,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/44",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "44",
         "legacy_runtime_id": 44,
@@ -16017,7 +16150,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/50",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "50",
         "legacy_runtime_id": 50,
@@ -16026,7 +16159,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/60",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "60",
         "legacy_runtime_id": 60,
@@ -16035,7 +16168,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/61",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "61",
         "legacy_runtime_id": 61,
@@ -16044,7 +16177,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/62",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "62",
         "legacy_runtime_id": 62,
@@ -16053,7 +16186,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/63",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "63",
         "legacy_runtime_id": 63,
@@ -16062,7 +16195,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/64",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "64",
         "legacy_runtime_id": 64,
@@ -16071,7 +16204,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/location/65",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "location",
         "local_id": "65",
         "legacy_runtime_id": 65,
@@ -16080,7 +16213,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/recipe/3001",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "recipe",
         "local_id": "3001",
         "runtime_handle": 828439639934659
@@ -16088,7 +16221,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/recipe/3002",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "recipe",
         "local_id": "3002",
         "runtime_handle": 8276819746843037
@@ -16096,7 +16229,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/recipe/3003",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "recipe",
         "local_id": "3003",
         "runtime_handle": 2153429270847803
@@ -16104,7 +16237,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/recipe/3004",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "recipe",
         "local_id": "3004",
         "runtime_handle": 4118340134299628
@@ -16112,7 +16245,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A1",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:1",
         "runtime_handle": 3639178970696137
@@ -16120,7 +16253,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A2",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:2",
         "runtime_handle": 4328625160851383
@@ -16128,7 +16261,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A3",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:3",
         "runtime_handle": 272728635448160
@@ -16136,7 +16269,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A30",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:30",
         "runtime_handle": 4949881785988127
@@ -16144,7 +16277,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A31",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:31",
         "runtime_handle": 12158853449275
@@ -16152,7 +16285,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A32",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:32",
         "runtime_handle": 3065031734117441
@@ -16160,7 +16293,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A33",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:33",
         "runtime_handle": 8635481635081203
@@ -16168,7 +16301,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A34",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:34",
         "runtime_handle": 3415405010788251
@@ -16176,7 +16309,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A35",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:35",
         "runtime_handle": 8268805670112054
@@ -16184,7 +16317,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A36",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:36",
         "runtime_handle": 1278082739662403
@@ -16192,7 +16325,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A40",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:40",
         "runtime_handle": 2373835638704337
@@ -16200,7 +16333,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A41",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:41",
         "runtime_handle": 302978963504637
@@ -16208,7 +16341,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A42",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:42",
         "runtime_handle": 4669140359619141
@@ -16216,7 +16349,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A43",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:43",
         "runtime_handle": 3577060339822743
@@ -16224,7 +16357,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A44",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:44",
         "runtime_handle": 4396167510730171
@@ -16232,7 +16365,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A50",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:50",
         "runtime_handle": 1673766510642920
@@ -16240,7 +16373,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A60",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:60",
         "runtime_handle": 5586350793250546
@@ -16248,7 +16381,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A61",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:61",
         "runtime_handle": 6162116676111910
@@ -16256,7 +16389,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A62",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:62",
         "runtime_handle": 897159537111265
@@ -16264,7 +16397,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A63",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:63",
         "runtime_handle": 7446099757621175
@@ -16272,7 +16405,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A64",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:64",
         "runtime_handle": 4767551281449957
@@ -16280,7 +16413,7 @@
       {
         "canonical_ref": "pack://cosyworld.core/room-sheet/room%3A65",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.4",
+        "pack_version": "1.3.5",
         "kind": "room-sheet",
         "local_id": "room:65",
         "runtime_handle": 389717939014779
