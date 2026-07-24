@@ -296,6 +296,7 @@ pub(super) struct ActorView {
     pub(super) name: String,
     pub(super) title: String,
     pub(super) description: String,
+    pub(super) practice: Option<ActorPracticeView>,
     pub(super) control_mode: ActorControlMode,
     pub(super) kind: String,
     pub(super) status: String,
@@ -592,6 +593,7 @@ pub(super) struct BondView {
 #[derive(Debug, Serialize)]
 pub(super) struct InspectorView {
     pub(super) location_id: u64,
+    pub(super) practice: Option<ActorPracticeView>,
     pub(super) room: RoomInspectorView,
     pub(super) suggested_action: Option<ActionInspectorView>,
     pub(super) jobs: Vec<JobInspectorView>,
@@ -944,6 +946,7 @@ impl RuntimeWorld {
                 .unwrap_or_else(|| format!("Actor {}", actor.id)),
             title: meta.map(|m| m.title.clone()).unwrap_or_default(),
             description: meta.map(|m| m.description.clone()).unwrap_or_default(),
+            practice: self.actor_practice_view(actor.id),
             control_mode: self.actor_control_mode(actor.id),
             kind: actor_kind(actor.kind).to_string(),
             status: actor_status(actor.status).to_string(),
@@ -1509,7 +1512,12 @@ impl RuntimeWorld {
         let primary_action = self.primary_action(client_actor_id, access);
         let action_offers = self.ranked_action_offers(client_actor_id, access, &primary_action);
         let action_hand = compose_action_hand(&action_offers);
-        let inspector = self.inspector_view(location_id, &primary_action, &action_offers);
+        let inspector = self.inspector_view(
+            location_id,
+            client_actor_id,
+            &primary_action,
+            &action_offers,
+        );
         let recent_events = self
             .event_log
             .iter()
@@ -1931,6 +1939,7 @@ impl RuntimeWorld {
     pub(super) fn inspector_view(
         &self,
         location_id: u64,
+        actor_id: Option<u64>,
         primary_action: &PrimaryAction,
         action_offers: &[RankedActionOffer],
     ) -> InspectorView {
@@ -1989,6 +1998,7 @@ impl RuntimeWorld {
 
         InspectorView {
             location_id,
+            practice: actor_id.and_then(|id| self.actor_practice_view(id)),
             room: RoomInspectorView {
                 name: self
                     .location_name(location_id)

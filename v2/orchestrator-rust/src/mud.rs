@@ -792,7 +792,12 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             event.target_actor_name.as_deref().unwrap_or("someone")
         )),
         "job.updated" => Some(
-            match event_content_part(event, 1).unwrap_or("changed") {
+            match event
+                .content
+                .as_deref()
+                .and_then(|content| content.rsplitn(3, ':').nth(1))
+                .unwrap_or("changed")
+            {
                 "complete" | "completed" => "The work is done.",
                 "active" => "The work begins.",
                 "failed" => "The work falls quiet for now.",
@@ -800,6 +805,17 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             }
             .to_string(),
         ),
+        "world.logistics.completed" => event
+            .content
+            .as_deref()
+            .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
+            .and_then(|evidence| {
+                evidence
+                    .get("summary")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string)
+            })
+            .or_else(|| Some("A physical delivery is completed.".to_string())),
         "combat.defend" => Some("You raise a careful guard.".to_string()),
         "combat.encounter.started" => Some(format!(
             "The scuffle with {} begins.",

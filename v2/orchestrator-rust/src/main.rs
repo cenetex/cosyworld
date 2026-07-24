@@ -1,5 +1,6 @@
 mod account_auth;
 mod activation;
+mod actor_practice;
 mod ai_gateway;
 mod avatar_identity;
 mod canonical_journal;
@@ -21,10 +22,12 @@ mod routes;
 mod story_metrics;
 mod turns;
 mod views;
+mod world_causality;
 mod world_simulation;
 
 use account_auth::*;
 use activation::*;
+use actor_practice::*;
 use ai_gateway::*;
 use avatar_identity::*;
 use axum::{
@@ -85,6 +88,7 @@ use tokio_stream::{
 use tracing::{error, info, warn};
 use turns::*;
 use views::*;
+use world_causality::*;
 use world_simulation::*;
 
 #[derive(Clone)]
@@ -1065,6 +1069,8 @@ struct ItemProvenanceState {
     current_location_id: Option<u64>,
     transfer_count: u32,
     source_event_seq: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    possession_journey: Option<PossessionJourneyState>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -1238,6 +1244,16 @@ enum ActorControlMode {
 }
 
 impl ActorControlMode {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::DirectInput => "direct_input",
+            Self::ReactiveAi => "reactive_ai",
+            Self::LocalAi => "local_ai",
+            Self::RoamingAi => "roaming_ai",
+            Self::DelegatedAi => "delegated_ai",
+        }
+    }
+
     fn is_direct_input(self) -> bool {
         self == Self::DirectInput
     }
@@ -1429,6 +1445,9 @@ struct RuntimeWorld {
     search_memories: BTreeMap<String, SearchMemoryState>,
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
+    deeds: BTreeMap<String, DeedRecord>,
+    deed_ids_by_actor: BTreeMap<u64, Vec<String>>,
+    actor_practices: BTreeMap<u64, ActorPracticeState>,
     transfer_offers: BTreeMap<String, TransferOfferState>,
     gift_auto_accepts: BTreeMap<String, GiftAutoAcceptPolicy>,
     actor_safety: BTreeMap<u64, ActorSafetyState>,
@@ -1529,6 +1548,12 @@ struct RuntimeSnapshot {
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     #[serde(default)]
     actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
+    #[serde(default)]
+    deeds: BTreeMap<String, DeedRecord>,
+    #[serde(default)]
+    deed_ids_by_actor: BTreeMap<u64, Vec<String>>,
+    #[serde(default)]
+    actor_practices: BTreeMap<u64, ActorPracticeState>,
     #[serde(default)]
     transfer_offers: BTreeMap<String, TransferOfferState>,
     #[serde(default)]
@@ -6056,6 +6081,9 @@ impl RuntimeSnapshot {
             search_memories: runtime.search_memories.clone(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: runtime.actor_autonomy.clone(),
+            deeds: runtime.deeds.clone(),
+            deed_ids_by_actor: runtime.deed_ids_by_actor.clone(),
+            actor_practices: runtime.actor_practices.clone(),
             transfer_offers: runtime.transfer_offers.clone(),
             gift_auto_accepts: runtime.gift_auto_accepts.clone(),
             actor_safety: runtime.actor_safety.clone(),
@@ -6253,6 +6281,9 @@ impl RuntimeSnapshot {
             search_memories: self.search_memories,
             resident_continuities: self.resident_continuities,
             actor_autonomy: self.actor_autonomy,
+            deeds: self.deeds,
+            deed_ids_by_actor: self.deed_ids_by_actor,
+            actor_practices: self.actor_practices,
             transfer_offers: self.transfer_offers,
             gift_auto_accepts: self.gift_auto_accepts,
             actor_safety: self.actor_safety,
@@ -6276,6 +6307,7 @@ impl RuntimeSnapshot {
             runtime.backfill_listen_attempt_claims_from_events();
             runtime.refresh_all_resident_continuities();
             runtime.ensure_actor_autonomy();
+            runtime.rebuild_deed_index();
             runtime.ensure_world_simulation();
             let mint_seed = runtime.next_seed;
             runtime.ensure_canonical_identities(mint_seed);
@@ -6619,6 +6651,9 @@ impl RuntimeWorld {
             search_memories: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: BTreeMap::new(),
+            deeds: BTreeMap::new(),
+            deed_ids_by_actor: BTreeMap::new(),
+            actor_practices: BTreeMap::new(),
             transfer_offers: BTreeMap::new(),
             gift_auto_accepts: BTreeMap::new(),
             actor_safety: BTreeMap::new(),
@@ -6737,6 +6772,7 @@ impl RuntimeWorld {
                     current_location_id: opt_id(item.location_id),
                     transfer_count: 0,
                     source_event_seq: None,
+                    possession_journey: None,
                 });
         }
     }
@@ -6794,33 +6830,108 @@ impl RuntimeWorld {
         });
     }
 
-    fn update_item_provenance(&mut self, events: &[EventView]) {
-        for event in events.iter().filter(|event| {
-            event.success
-                && matches!(
-                    event.type_name.as_str(),
-                    "item.picked_up"
-                        | "item.dropped"
-                        | "item.given"
-                        | "item.traded"
-                        | "item.stolen"
-                        | "item.found"
-                        | "item.created"
-                )
-        }) {
+    fn update_item_provenance(&mut self, events: &[EventView]) -> Vec<DeliveryEvidence> {
+        let mut deliveries = Vec::new();
+        for event in events.iter().filter(|event| event.success) {
+            if matches!(
+                event.type_name.as_str(),
+                "actor.moved" | "combat.flee.success"
+            ) {
+                let (Some(actor_id), Some(source_location_id), Some(destination_location_id)) = (
+                    event.actor_id,
+                    event.location_id,
+                    event.destination_location_id,
+                ) else {
+                    continue;
+                };
+                for state in self.item_provenance.values_mut() {
+                    if let Some(journey) = state.possession_journey.as_mut() {
+                        journey.record_movement(
+                            actor_id,
+                            source_location_id,
+                            destination_location_id,
+                            event.seq,
+                        );
+                    }
+                }
+                continue;
+            }
+
+            let tracked_possession_event = matches!(
+                event.type_name.as_str(),
+                "item.picked_up"
+                    | "item.dropped"
+                    | "item.given"
+                    | "item.traded"
+                    | "item.stolen"
+                    | "item.found"
+                    | "item.created"
+            );
+            let delivery_event = matches!(
+                event.type_name.as_str(),
+                "item.given" | "item.dropped" | "item.used"
+            );
+            if !tracked_possession_event && !delivery_event {
+                continue;
+            }
+
+            if delivery_event {
+                if let (Some(actor_id), Some(item_id), Some(destination_location_id)) =
+                    (event.actor_id, event.item_id, event.location_id)
+                {
+                    if let Some(evidence) = self
+                        .item_provenance
+                        .get(&item_id)
+                        .and_then(|state| state.possession_journey.as_ref())
+                        .and_then(|journey| {
+                            journey.delivery_evidence(
+                                item_id,
+                                actor_id,
+                                destination_location_id,
+                                event.seq,
+                            )
+                        })
+                    {
+                        deliveries.push(evidence);
+                    }
+                }
+            }
+
+            if event.type_name == "item.used" {
+                let Some(item_id) = event.item_id else {
+                    continue;
+                };
+                let holder = self
+                    .item_by_id(item_id)
+                    .and_then(|item| opt_id(item.holder_actor_id));
+                if let Some(state) = self.item_provenance.get_mut(&item_id) {
+                    state.possession_journey =
+                        holder
+                            .zip(event.location_id)
+                            .map(|(actor_id, location_id)| {
+                                PossessionJourneyState::new(actor_id, location_id, event.seq)
+                            });
+                }
+                continue;
+            }
+
             let mut item_ids = event.item_id.into_iter().collect::<Vec<_>>();
             if event.type_name == "item.traded" {
                 item_ids.extend(event.target_item_id);
             }
+            item_ids.sort_unstable();
+            item_ids.dedup();
             for item_id in item_ids {
                 let Some(item) = self.item_by_id(item_id) else {
                     continue;
                 };
+                let holder = opt_id(item.holder_actor_id);
+                let item_location = opt_id(item.location_id);
+                let journey_location = event.location_id.or(item_location);
                 let previous_holder = self
                     .item_provenance
                     .get(&item_id)
                     .and_then(|state| state.current_holder_actor_id);
-                let holder = opt_id(item.holder_actor_id);
                 let state =
                     self.item_provenance
                         .entry(item_id)
@@ -6833,17 +6944,365 @@ impl RuntimeWorld {
                             current_location_id: None,
                             transfer_count: 0,
                             source_event_seq: None,
+                            possession_journey: None,
                         });
                 if previous_holder != holder {
                     state.transfer_count = state.transfer_count.saturating_add(1);
                     state.previous_holder_actor_id = previous_holder;
                 }
                 state.current_holder_actor_id = holder;
-                state.current_location_id = opt_id(item.location_id);
+                state.current_location_id = item_location;
                 state.acquisition = event.type_name.clone();
                 state.source_event_seq = Some(event.seq);
+                state.possession_journey =
+                    holder.zip(journey_location).map(|(actor_id, location_id)| {
+                        PossessionJourneyState::new(actor_id, location_id, event.seq)
+                    });
             }
         }
+        deliveries
+    }
+
+    fn apply_actor_causal_logistics(
+        &mut self,
+        deliveries: Vec<DeliveryEvidence>,
+    ) -> Vec<EventView> {
+        let mut projected = Vec::new();
+        for evidence in deliveries {
+            let Some(actor) = self.actor_by_id(evidence.actor_id) else {
+                continue;
+            };
+            if !Self::actor_is_active_avatar(actor) || self.item_by_id(evidence.item_id).is_none() {
+                continue;
+            }
+            let claim_key = format!(
+                "world:logistics:{}:{}:{}:{}",
+                evidence.actor_id,
+                evidence.item_id,
+                evidence.acquisition_event_seq,
+                evidence.destination_location_id
+            );
+            if !self.rpg_claims.insert(claim_key) {
+                continue;
+            }
+
+            let actor_name = self
+                .actor_name(evidence.actor_id)
+                .unwrap_or_else(|| format!("Actor {}", evidence.actor_id));
+            let item_name = self
+                .item_name(evidence.item_id)
+                .unwrap_or_else(|| format!("Item {}", evidence.item_id));
+            let origin_name = self
+                .location_name(evidence.origin_location_id)
+                .unwrap_or_else(|| format!("Location {}", evidence.origin_location_id));
+            let destination_name = self
+                .location_name(evidence.destination_location_id)
+                .unwrap_or_else(|| format!("Location {}", evidence.destination_location_id));
+            let content = serde_json::json!({
+                "schema_version": 1,
+                "summary": format!(
+                    "{actor_name} carries {item_name} from {origin_name} to {destination_name} and puts it to use."
+                ),
+                "actor_id": evidence.actor_id,
+                "item_id": evidence.item_id,
+                "origin_location_id": evidence.origin_location_id,
+                "destination_location_id": evidence.destination_location_id,
+                "acquisition_event_seq": evidence.acquisition_event_seq,
+                "pickup_event_seq": evidence.acquisition_event_seq,
+                "movement_event_seqs": evidence.movement_event_seqs.clone(),
+                "delivery_event_seq": evidence.delivery_event_seq,
+                "causal_event_seqs": evidence.causal_event_seqs(),
+            })
+            .to_string();
+            let event = EventView {
+                world_id: official_world_id(),
+                world_epoch: official_world_epoch(),
+                seq: self.world.next_event_seq,
+                type_name: "world.logistics.completed".to_string(),
+                success: true,
+                actor_id: Some(evidence.actor_id),
+                actor_name: Some(actor_name),
+                location_id: Some(evidence.origin_location_id),
+                location_name: Some(origin_name),
+                destination_location_id: Some(evidence.destination_location_id),
+                destination_location_name: Some(destination_name),
+                content: Some(content),
+                item_id: Some(evidence.item_id),
+                item_name: Some(item_name),
+                caused_by_event_seq: Some(evidence.delivery_event_seq),
+                source_world_tick: Some(self.world.tick),
+                source_location_id: Some(evidence.origin_location_id),
+                ..EventView::default()
+            };
+            self.world.next_event_seq = self.world.next_event_seq.saturating_add(1);
+            self.push_projected_event(event.clone());
+            projected.push(event);
+        }
+        projected
+    }
+
+    fn project_qualifying_deeds(&mut self, source_events: &[EventView]) {
+        let mut changed_actor_ids = BTreeSet::new();
+        for event in source_events {
+            let Some(deed) = self.qualifying_deed_from_event(event) else {
+                continue;
+            };
+            if self.deeds.contains_key(&deed.claim_key) {
+                continue;
+            }
+            let actor_id = deed.actor_id;
+            let claim_key = deed.claim_key.clone();
+            self.deeds.insert(claim_key.clone(), deed);
+            let actor_deed_ids = self.deed_ids_by_actor.entry(actor_id).or_default();
+            actor_deed_ids.push(claim_key);
+            if actor_deed_ids.len() > PRACTICE_WINDOW {
+                actor_deed_ids.drain(0..actor_deed_ids.len() - PRACTICE_WINDOW);
+            }
+            changed_actor_ids.insert(actor_id);
+        }
+        for actor_id in changed_actor_ids {
+            self.recompute_actor_practice(actor_id);
+        }
+    }
+
+    fn rebuild_deed_index(&mut self) {
+        let mut ordered = self
+            .deeds
+            .values()
+            .map(|deed| {
+                (
+                    deed.actor_id,
+                    deed.latest_source_seq(),
+                    deed.id.clone(),
+                    deed.claim_key.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        ordered.sort();
+        self.deed_ids_by_actor.clear();
+        for (actor_id, _, _, claim_key) in ordered {
+            let actor_deed_ids = self.deed_ids_by_actor.entry(actor_id).or_default();
+            actor_deed_ids.push(claim_key);
+            if actor_deed_ids.len() > PRACTICE_WINDOW {
+                actor_deed_ids.drain(0..actor_deed_ids.len() - PRACTICE_WINDOW);
+            }
+        }
+        let actor_ids = self.deed_ids_by_actor.keys().copied().collect::<Vec<_>>();
+        for actor_id in actor_ids {
+            self.recompute_actor_practice(actor_id);
+        }
+    }
+
+    fn actor_deeds(&self, actor_id: u64) -> Vec<&DeedRecord> {
+        self.deed_ids_by_actor
+            .get(&actor_id)
+            .into_iter()
+            .flatten()
+            .filter_map(|claim_key| self.deeds.get(claim_key))
+            .collect()
+    }
+
+    fn qualifying_deed_from_event(&self, event: &EventView) -> Option<DeedRecord> {
+        if !event.success || event.seq == 0 {
+            return None;
+        }
+        let actor_id = event.actor_id?;
+        let actor = self.actor_by_id(actor_id)?;
+        if !Self::actor_is_active_avatar(actor) {
+            return None;
+        }
+        let (category, source_action, target_kind, target_id, location_id) =
+            match event.type_name.as_str() {
+                "exit.discovered" | "pathway.discovered" | "location.discovered" => {
+                    let target = event.destination_location_id.or(event.location_id)?;
+                    (
+                        DeedCategory::Exploration,
+                        "srd5.2.1:search",
+                        "location",
+                        target.to_string(),
+                        event.location_id,
+                    )
+                }
+                "avatar.discovered" => (
+                    DeedCategory::Exploration,
+                    "srd5.2.1:search",
+                    "actor",
+                    event.target_actor_id?.to_string(),
+                    event.location_id,
+                ),
+                "item.created" => (
+                    DeedCategory::Craft,
+                    "srd5.2.1:craft",
+                    "item",
+                    event.item_id?.to_string(),
+                    event.location_id,
+                ),
+                "world.logistics.completed" => {
+                    let evidence = event.content.as_deref().and_then(|content| {
+                        serde_json::from_str::<serde_json::Value>(content).ok()
+                    })?;
+                    let origin = evidence.get("origin_location_id")?.as_u64()?;
+                    let destination = evidence.get("destination_location_id")?.as_u64()?;
+                    let item_id = evidence.get("item_id")?.as_u64()?;
+                    (
+                        DeedCategory::Delivery,
+                        "cosyworld:physical_delivery",
+                        "route_item",
+                        format!("{origin}->{destination}:{item_id}"),
+                        Some(destination),
+                    )
+                }
+                "job.updated"
+                    if event
+                        .content
+                        .as_deref()
+                        .and_then(job_status_from_event_content)
+                        .is_some_and(|status| status == "completed") =>
+                {
+                    (
+                        DeedCategory::Stewardship,
+                        "cosyworld:complete_project",
+                        "project",
+                        job_id_from_event_content(event.content.as_deref()?)?,
+                        event.location_id,
+                    )
+                }
+                "pathway.familiarized" => (
+                    DeedCategory::Stewardship,
+                    "cosyworld:familiarize_path",
+                    "location",
+                    event
+                        .destination_location_id
+                        .or(event.location_id)?
+                        .to_string(),
+                    event.location_id,
+                ),
+                "item.used"
+                    if event.damage.is_some_and(|damage| damage < 0)
+                        && event.target_actor_id.is_some()
+                        && event.target_actor_id != Some(actor_id) =>
+                {
+                    (
+                        DeedCategory::Care,
+                        "srd5.2.1:utilize",
+                        "actor",
+                        event.target_actor_id?.to_string(),
+                        event.location_id,
+                    )
+                }
+                "combat.defend" if event.target_actor_id.is_some() => (
+                    DeedCategory::Care,
+                    "srd5.2.1:defend",
+                    "actor",
+                    event.target_actor_id?.to_string(),
+                    event.location_id,
+                ),
+                "bond.resolved" | "influence.committed" => (
+                    DeedCategory::Mediation,
+                    "srd5.2.1:influence",
+                    "actor",
+                    event.target_actor_id?.to_string(),
+                    event.location_id,
+                ),
+                "combat.encounter.resolved" if event.target_actor_id.is_some() => (
+                    DeedCategory::Mediation,
+                    "cosyworld:resolve_conflict",
+                    "actor",
+                    event.target_actor_id?.to_string(),
+                    event.location_id,
+                ),
+                "lore.shared" | "knowledge.recorded" => {
+                    let (target_kind, target_id) =
+                        if let Some(target_actor_id) = event.target_actor_id {
+                            ("actor", target_actor_id.to_string())
+                        } else {
+                            ("location", event.location_id?.to_string())
+                        };
+                    (
+                        DeedCategory::Lore,
+                        "srd5.2.1:study",
+                        target_kind,
+                        target_id,
+                        event.location_id,
+                    )
+                }
+                _ => return None,
+            };
+        let source_event_seqs = if event.type_name == "world.logistics.completed" {
+            event
+                .content
+                .as_deref()
+                .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
+                .and_then(|evidence| {
+                    evidence
+                        .get("causal_event_seqs")
+                        .and_then(serde_json::Value::as_array)
+                        .map(|sequences| {
+                            sequences
+                                .iter()
+                                .filter_map(serde_json::Value::as_u64)
+                                .collect::<Vec<_>>()
+                        })
+                })
+                .filter(|sequences| !sequences.is_empty())
+                .unwrap_or_else(|| vec![event.seq])
+        } else {
+            let mut sequences = event.caused_by_event_seq.into_iter().collect::<Vec<_>>();
+            sequences.push(event.seq);
+            sequences.sort_unstable();
+            sequences.dedup();
+            sequences
+        };
+        let claim_key = format!(
+            "deed:v{}:{actor_id}:{}:{target_kind}:{target_id}:{}",
+            DEED_SCHEMA_VERSION,
+            category.as_str(),
+            event.seq
+        );
+        let contributing_pack_id = event
+            .content_context
+            .references
+            .first()
+            .map(|reference| reference.pack_id.clone())
+            .unwrap_or_else(|| active_content().manifest.id.clone());
+        Some(DeedRecord {
+            schema_version: DEED_SCHEMA_VERSION,
+            id: claim_key.clone(),
+            actor_id,
+            controller_mode: self.actor_control_mode(actor_id).as_str().to_string(),
+            category,
+            source_action: source_action.to_string(),
+            operation: event.type_name.clone(),
+            rules_profile: active_content().manifest.rules_profile.clone(),
+            contributing_pack_id,
+            source_event_seqs,
+            target_kind: target_kind.to_string(),
+            target_id,
+            location_id,
+            durable_public_trace: true,
+            claim_key,
+        })
+    }
+
+    fn recompute_actor_practice(&mut self, actor_id: u64) {
+        let current = self
+            .actor_practices
+            .get(&actor_id)
+            .cloned()
+            .unwrap_or_default();
+        let projected = {
+            let deeds = self.actor_deeds(actor_id);
+            project_practice(&current, &deeds)
+        };
+        if projected.primary.is_some() {
+            self.actor_practices.insert(actor_id, projected);
+        }
+    }
+
+    fn actor_practice_view(&self, actor_id: u64) -> Option<ActorPracticeView> {
+        let state = self.actor_practices.get(&actor_id)?;
+        let deeds = self.actor_deeds(actor_id);
+        practice_view(actor_id, state, &deeds)
     }
 
     fn ensure_seed_rpg_projection(&mut self) {
@@ -9008,7 +9467,9 @@ impl RuntimeWorld {
                 self.clear_resident_pending_action(action.actor_id);
             }
             self.reconcile_card_zones();
-            self.update_item_provenance(&events);
+            let delivery_evidence = self.update_item_provenance(&events);
+            events.extend(self.apply_actor_causal_logistics(delivery_evidence));
+            self.project_qualifying_deeds(&events);
             self.apply_resident_memory_projection(&action, &events);
             if advances_world_tick {
                 let committed_events = events.clone();
@@ -11122,16 +11583,14 @@ impl RuntimeWorld {
             let Some(content) = event.content.as_deref() else {
                 continue;
             };
-            let mut parts = content.rsplitn(3, ':');
-            let _reason = parts.next();
-            let Some(status) = parts.next() else {
+            let Some(status) = job_status_from_event_content(content) else {
                 continue;
             };
-            let Some(job_id) = parts.next().filter(|part| !part.trim().is_empty()) else {
+            let Some(job_id) = job_id_from_event_content(content) else {
                 continue;
             };
             if matches!(status, "completed" | "failed") {
-                resolved_jobs.push((job_id.to_string(), event.actor_id.unwrap_or(0)));
+                resolved_jobs.push((job_id, event.actor_id.unwrap_or(0)));
             }
         }
         let mut cleared = Vec::new();
@@ -11804,6 +12263,7 @@ impl RuntimeWorld {
                 current_location_id: None,
                 transfer_count: 0,
                 source_event_seq: Some(receipt.source_event_seq),
+                possession_journey: None,
             },
         );
         vec![self.append_deck_event(
@@ -37869,6 +38329,358 @@ fn normalize_job_status(value: &str) -> Option<&'static str> {
     }
 }
 
+fn job_status_from_event_content(content: &str) -> Option<&'static str> {
+    let mut parts = content.rsplitn(3, ':');
+    let _reason = parts.next()?;
+    normalize_job_status(parts.next()?)
+}
+
+fn job_id_from_event_content(content: &str) -> Option<String> {
+    let mut parts = content.rsplitn(3, ':');
+    let _reason = parts.next()?;
+    let _status = parts.next()?;
+    parts
+        .next()
+        .map(str::trim)
+        .filter(|job_id| !job_id.is_empty())
+        .map(str::to_string)
+}
+
+#[cfg(test)]
+mod incremental_evidence_regressions {
+    use super::*;
+
+    fn item_event(
+        seq: u64,
+        type_name: &str,
+        actor_id: u64,
+        item_id: u64,
+        location_id: u64,
+    ) -> EventView {
+        EventView {
+            seq,
+            type_name: type_name.to_string(),
+            success: true,
+            actor_id: Some(actor_id),
+            location_id: Some(location_id),
+            item_id: Some(item_id),
+            ..EventView::default()
+        }
+    }
+
+    fn set_item_holder(
+        runtime: &mut RuntimeWorld,
+        item_id: u64,
+        holder_actor_id: Option<u64>,
+        location_id: u64,
+    ) {
+        let item = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == item_id)
+            .expect("seed item");
+        item.holder_actor_id = holder_actor_id.unwrap_or(0);
+        item.location_id = holder_actor_id
+            .is_some()
+            .then_some(0)
+            .unwrap_or(location_id);
+    }
+
+    fn exploration_event(actor_id: u64, seq: u64, target_location_id: u64) -> EventView {
+        EventView {
+            seq,
+            type_name: "location.discovered".to_string(),
+            success: true,
+            actor_id: Some(actor_id),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            destination_location_id: Some(target_location_id),
+            ..EventView::default()
+        }
+    }
+
+    fn logistics_event(events: &[EventView]) -> &EventView {
+        events
+            .iter()
+            .find(|event| event.type_name == "world.logistics.completed")
+            .expect("action completes a physical cross-location delivery")
+    }
+
+    #[test]
+    fn delivery_evidence_survives_snapshot_and_the_event_log_cap() {
+        let mut runtime = RuntimeWorld::seeded();
+        set_item_holder(
+            &mut runtime,
+            DEWBRIGHT_BUTTON_ITEM_ID,
+            Some(RATI_ACTOR_ID),
+            COSY_COTTAGE_LOCATION_ID,
+        );
+        let pickup = item_event(
+            10,
+            "item.picked_up",
+            RATI_ACTOR_ID,
+            DEWBRIGHT_BUTTON_ITEM_ID,
+            COSY_COTTAGE_LOCATION_ID,
+        );
+        runtime.push_projected_event(pickup.clone());
+        assert!(runtime.update_item_provenance(&[pickup]).is_empty());
+
+        let movement = EventView {
+            seq: 11,
+            type_name: "actor.moved".to_string(),
+            success: true,
+            actor_id: Some(RATI_ACTOR_ID),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            destination_location_id: Some(RAIN_SOFT_GARDEN_LOCATION_ID),
+            ..EventView::default()
+        };
+        runtime.push_projected_event(movement.clone());
+        assert!(runtime.update_item_provenance(&[movement]).is_empty());
+
+        let mut restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("possession journey survives snapshot");
+        for seq in 100..700 {
+            restored.push_projected_event(EventView {
+                seq,
+                type_name: "test.noise".to_string(),
+                success: true,
+                ..EventView::default()
+            });
+        }
+        assert!(
+            restored.event_log.iter().all(|event| event.seq != 10),
+            "the acquisition event should have fallen out of the capped log"
+        );
+
+        set_item_holder(
+            &mut restored,
+            DEWBRIGHT_BUTTON_ITEM_ID,
+            None,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
+        let drop = item_event(
+            700,
+            "item.dropped",
+            RATI_ACTOR_ID,
+            DEWBRIGHT_BUTTON_ITEM_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
+        restored.push_projected_event(drop.clone());
+        let evidence = restored.update_item_provenance(&[drop]);
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(evidence[0].causal_event_seqs(), vec![10, 11, 700]);
+
+        restored.world.next_event_seq = 701;
+        let logistics = restored.apply_actor_causal_logistics(evidence);
+        assert_eq!(logistics.len(), 1);
+        restored.project_qualifying_deeds(&logistics);
+        assert_eq!(
+            restored
+                .deeds
+                .values()
+                .filter(|deed| deed.category == DeedCategory::Delivery)
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn journal_replay_rebuilds_the_same_delivery_and_deed() {
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = COSY_COTTAGE_LOCATION_ID;
+        let mut create_record = JournalRecord::new(create, 4_000);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Replay Courier".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Button Bearer".to_string(),
+                description: "A test avatar carrying one physical item.".to_string(),
+            },
+        );
+        let records = vec![
+            create_record,
+            JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_MOVE,
+                    actor_id: 5000,
+                    destination_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                4_001,
+            ),
+            JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_PICK_UP_ITEM,
+                    actor_id: 5000,
+                    item_id: DEWBRIGHT_BUTTON_ITEM_ID,
+                    ..CwAction::default()
+                },
+                4_002,
+            ),
+            JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_MOVE,
+                    actor_id: 5000,
+                    destination_location_id: COSY_COTTAGE_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                4_003,
+            ),
+            JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_DROP_ITEM,
+                    actor_id: 5000,
+                    item_id: DEWBRIGHT_BUTTON_ITEM_ID,
+                    ..CwAction::default()
+                },
+                4_004,
+            ),
+        ];
+
+        let replay = |records: &[JournalRecord]| {
+            let mut runtime = RuntimeWorld::seeded();
+            let mut final_events = Vec::new();
+            for record in records {
+                let (status, events) = runtime.apply_journal_record(record);
+                assert_eq!(status, CW_OK);
+                final_events = events;
+            }
+            (runtime, final_events)
+        };
+        let (first, first_events) = replay(&records);
+        let (second, second_events) = replay(&records);
+        assert_eq!(
+            logistics_event(&first_events).seq,
+            logistics_event(&second_events).seq
+        );
+        assert_eq!(
+            logistics_event(&first_events).content,
+            logistics_event(&second_events).content
+        );
+        assert_eq!(first.deeds, second.deeds);
+        assert_eq!(first.deed_ids_by_actor, second.deed_ids_by_actor);
+        assert_eq!(
+            first
+                .deeds
+                .values()
+                .filter(|deed| deed.category == DeedCategory::Delivery)
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn trade_starts_a_canonical_journey_for_both_new_holders() {
+        let mut runtime = RuntimeWorld::seeded();
+        set_item_holder(
+            &mut runtime,
+            DEWBRIGHT_BUTTON_ITEM_ID,
+            Some(BLUE_SQUIRREL_ACTOR_ID),
+            COSY_COTTAGE_LOCATION_ID,
+        );
+        set_item_holder(
+            &mut runtime,
+            STORY_BUTTON_ITEM_ID,
+            Some(RATI_ACTOR_ID),
+            COSY_COTTAGE_LOCATION_ID,
+        );
+        let trade = EventView {
+            seq: 80,
+            type_name: "item.traded".to_string(),
+            success: true,
+            actor_id: Some(RATI_ACTOR_ID),
+            target_actor_id: Some(BLUE_SQUIRREL_ACTOR_ID),
+            location_id: Some(COSY_COTTAGE_LOCATION_ID),
+            item_id: Some(DEWBRIGHT_BUTTON_ITEM_ID),
+            target_item_id: Some(STORY_BUTTON_ITEM_ID),
+            ..EventView::default()
+        };
+        assert!(runtime.update_item_provenance(&[trade]).is_empty());
+        assert_eq!(
+            runtime.item_provenance[&DEWBRIGHT_BUTTON_ITEM_ID]
+                .possession_journey
+                .as_ref()
+                .map(|journey| journey.actor_id),
+            Some(BLUE_SQUIRREL_ACTOR_ID)
+        );
+        assert_eq!(
+            runtime.item_provenance[&STORY_BUTTON_ITEM_ID]
+                .possession_journey
+                .as_ref()
+                .map(|journey| journey.actor_id),
+            Some(RATI_ACTOR_ID)
+        );
+    }
+
+    #[test]
+    fn colon_bearing_job_ids_project_the_complete_job_not_an_id_fragment() {
+        let runtime = RuntimeWorld::seeded();
+        for content in [
+            "generated-place:42:current-need:completed:delivered on schedule",
+            "world-delivery:1:2:res:5:complete:on time",
+        ] {
+            let event = EventView {
+                seq: 90,
+                type_name: "job.updated".to_string(),
+                success: true,
+                actor_id: Some(RATI_ACTOR_ID),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                content: Some(content.to_string()),
+                ..EventView::default()
+            };
+            let deed = runtime
+                .qualifying_deed_from_event(&event)
+                .expect("completed job qualifies");
+            assert_eq!(
+                deed.target_id,
+                content.rsplitn(3, ':').nth(2).expect("job id")
+            );
+        }
+    }
+
+    #[test]
+    fn repeated_deeds_are_occurrence_idempotent_and_actor_indexed() {
+        let mut runtime = RuntimeWorld::seeded();
+        let events = (0..24)
+            .map(|offset| {
+                exploration_event(RATI_ACTOR_ID, 1_000 + offset, 40 + u64::from(offset % 4))
+            })
+            .collect::<Vec<_>>();
+        runtime.project_qualifying_deeds(&events);
+        runtime.project_qualifying_deeds(&events);
+
+        assert_eq!(runtime.deeds.len(), 24);
+        assert_eq!(
+            runtime.deed_ids_by_actor[&RATI_ACTOR_ID].len(),
+            PRACTICE_WINDOW
+        );
+        assert_eq!(
+            runtime
+                .actor_practice_view(RATI_ACTOR_ID)
+                .expect("bounded evidence establishes practice")
+                .primary,
+            "exploration"
+        );
+
+        let mut snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        snapshot.deed_ids_by_actor.clear();
+        snapshot.actor_practices.clear();
+        let restored = snapshot
+            .into_runtime()
+            .expect("legacy snapshot rebuilds its actor deed index and practice");
+        assert_eq!(
+            restored.deed_ids_by_actor[&RATI_ACTOR_ID].len(),
+            PRACTICE_WINDOW
+        );
+        assert_eq!(restored.actor_practices, runtime.actor_practices);
+    }
+}
+
 fn action_is_listen_check(action: &CwAction) -> bool {
     matches!(
         action.kind,
@@ -53911,6 +54723,7 @@ mod tests {
                 current_location_id: None,
                 transfer_count: 0,
                 source_event_seq: None,
+                possession_journey: None,
             },
         );
         assert_eq!(runtime.skill_bonus_for_ability(RATI_ACTOR_ID, 2), 1);
