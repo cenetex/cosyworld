@@ -3792,6 +3792,16 @@ struct CharacterCreationSelection {
     class: Option<SeedCharacterCreationChoice>,
 }
 
+fn avatar_naming_context(
+    selection: Option<&CharacterCreationSelection>,
+) -> Option<cosyworld_ai_model::AvatarNamingContext> {
+    selection.map(|selection| cosyworld_ai_model::AvatarNamingContext {
+        profile_id: Some(selection.profile.id.clone()),
+        species_id: selection.species.as_ref().map(|species| species.id.clone()),
+        origin_id: selection.origin.as_ref().map(|origin| origin.id.clone()),
+    })
+}
+
 fn character_creation_profile(profile_id: Option<&str>) -> Option<SeedCharacterCreationProfile> {
     let profiles = active_content()
         .character_creation
@@ -4621,21 +4631,23 @@ fn schedule_avatar_identity_refinement(
     };
     let state = state.clone();
     tokio::spawn(async move {
-        let identity = match request_ai_avatar_identity(&config, actor_id).await {
-            Ok(identity) => apply_avatar_creation_flavor(
-                identity,
-                character_selection.as_ref(),
-                &initial_calling,
-            ),
-            Err(error) => {
-                warn!(
-                    "AI avatar identity refinement failed for actor {}: {}",
-                    actor_id, error
-                );
-                let _ = fallback_identity;
-                return;
-            }
-        };
+        let naming_context = avatar_naming_context(character_selection.as_ref());
+        let identity =
+            match request_ai_avatar_identity(&config, actor_id, naming_context.as_ref()).await {
+                Ok(identity) => apply_avatar_creation_flavor(
+                    identity,
+                    character_selection.as_ref(),
+                    &initial_calling,
+                ),
+                Err(error) => {
+                    warn!(
+                        "AI avatar identity refinement failed for actor {}: {}",
+                        actor_id, error
+                    );
+                    let _ = fallback_identity;
+                    return;
+                }
+            };
         let actor_meta = ActorMeta {
             name: identity.name.clone(),
             speech_mode: "prose".to_string(),
@@ -26260,11 +26272,14 @@ async fn create_avatar(
     // Avatar creation is a card action, so it commits with a deterministic
     // identity immediately. Unnamed avatars are refined by AI after the
     // response has returned and announced over the event stream.
-    let base_identity = payload
-        .name
-        .as_deref()
-        .map(|name| cosyworld_ai_model::generate_avatar_identity(actor_id, Some(name)).into())
-        .unwrap_or_else(|| fallback_avatar_identity(actor_id));
+    let naming_context = avatar_naming_context(character_selection.as_ref());
+    let base_identity = cosyworld_ai_model::generate_avatar_identity_with_naming(
+        actor_id,
+        payload.name.as_deref(),
+        active_content().manifest.avatar_naming.as_ref(),
+        naming_context.as_ref(),
+    )
+    .into();
     let identity = apply_avatar_creation_flavor(
         base_identity,
         character_selection.as_ref(),
@@ -32469,14 +32484,22 @@ fn trim_to_chars(value: &str, max_chars: usize) -> String {
 async fn request_ai_avatar_identity(
     config: &AiConfig,
     actor_id: u64,
+    naming_context: Option<&cosyworld_ai_model::AvatarNamingContext>,
 ) -> Result<GeneratedAvatarIdentity, String> {
-    let fallback = fallback_avatar_identity(actor_id);
+    let fallback = fallback_avatar_identity_with_naming_context(actor_id, naming_context);
+    let naming_style = active_content()
+        .manifest
+        .avatar_naming
+        .as_ref()
+        .and_then(|config| cosyworld_ai_model::avatar_naming_style_prompt(config, naming_context))
+        .unwrap_or("Use a warm, memorable fantasy name that feels rooted in a lived-in community.");
     let system = "You generate compact JSON for a player avatar in a cozy shared MUD. Every identity must feel warm, playful, and safe to meet. Output valid JSON only. Do not mention AI, prompts, models, policies, tools, wallets, NFTs, or UI.";
     let user = format!(
         "Create one new CosyWorld player avatar for The Cosy Cottage.\n\
          Tone: grounded, gentle storybook comedy - a character with one small fondness, one harmless habit, and one slightly impractical plan. Mischief may be clumsy or curious but never hungry, hostile, cruel, threatening, or mean. Do not use grudges, schemes, insults, weapons, danger, or villain language.\n\
+         Naming tradition from the active worldpack: {naming_style}\n\
          Avoid existing resident names: Rati, Gust, Skull, Coach, Badger, Toad.\n\
-         Output exactly this shape: {{\"name\":\"Two words, 28 chars max, ASCII letters/spaces/hyphen/apostrophe only\",\"title\":\"warm portable card epithet, 2-5 words and 36 chars max; never include a location or the words The Cosy Cottage\",\"description\":\"one warm third-person persona sentence about a fondness, habit, or curiosity, 220 chars max\",\"visual_prompt\":\"stable appearance-only physical description, 360 chars max: anatomy/species, face, skin/fur, hair, build, age impression, distinctive features, and practical clothing; no pose, camera, art style, text, or location\"}}\n\
+         Output exactly this shape: {{\"name\":\"1-3 words following that tradition, 28 chars max, ASCII letters/spaces/hyphen/apostrophe only\",\"title\":\"warm portable card epithet, 2-5 words and 36 chars max; never include a location or the words The Cosy Cottage\",\"description\":\"one warm third-person persona sentence about a fondness, habit, or curiosity, 220 chars max\",\"visual_prompt\":\"stable appearance-only physical description, 360 chars max: anatomy/species, face, skin/fur, hair, build, age impression, distinctive features, and practical clothing; no pose, camera, art style, text, or location\"}}\n\
          If unsure, use this fallback as inspiration but do not copy it exactly: {name} / {title} / {description}",
         name = fallback.name,
         title = fallback.title,
@@ -32499,7 +32522,7 @@ async fn request_ai_avatar_identity(
     )
     .await
     .map_err(|error| error.to_string())?;
-    parse_avatar_identity_json(&completion.text, actor_id)
+    parse_avatar_identity_json_with_naming_context(&completion.text, actor_id, naming_context)
         .ok_or_else(|| "AI avatar identity response was not usable JSON".to_string())
 }
 

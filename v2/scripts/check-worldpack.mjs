@@ -13,6 +13,7 @@ import {
   collectContentReferenceCandidates,
   parseCanonicalContentReference,
 } from "./content-references.mjs";
+import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -391,6 +392,11 @@ if (worldBearingPacks.length > 0 && !isNonEmptyString(manifest.entry_location)) 
 }
 if (worldBearingPacks.length === 0 && manifest.entry_location !== undefined) {
   fail("services-only worldpack manifest must not invent an entry_location");
+}
+if (manifest.avatar_naming !== undefined) {
+  for (const error of avatarNamingValidationErrors(manifest.avatar_naming, "worldpack avatar_naming")) {
+    fail(error);
+  }
 }
 const entitlementGrants = new Map();
 for (const pack of packs) {

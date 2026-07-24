@@ -15,6 +15,7 @@ import {
   buildContentReferenceMapping,
   collectContentReferenceCandidates,
 } from "./content-references.mjs";
+import { assertAvatarNamingConfig } from "./avatar-naming-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
@@ -107,6 +108,31 @@ function assert(condition, message) {
 
 function json(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function loadAvatarNaming(world, worldDir) {
+  if (world.avatar_naming === undefined) return null;
+  assert(
+    typeof world.avatar_naming === "string" && world.avatar_naming.trim(),
+    "world avatar_naming must be a relative JSON path",
+  );
+  const filePath = path.resolve(worldDir, world.avatar_naming);
+  const worldsRoot = path.resolve(worldDir, "..");
+  const relativePath = path.relative(worldsRoot, filePath);
+  assert(
+    relativePath
+      && relativePath !== ".."
+      && !relativePath.startsWith(`..${path.sep}`)
+      && !path.isAbsolute(relativePath),
+    "world avatar_naming must stay within v2/worlds",
+  );
+  const config = readJson(filePath);
+  assert(
+    config && typeof config === "object" && !Array.isArray(config),
+    "world avatar_naming must contain an object",
+  );
+  assertAvatarNamingConfig(config, "world avatar_naming");
+  return config;
 }
 
 function sha256(parts) {
@@ -443,6 +469,7 @@ runContributionSchemaMutationTests();
 
 const engineVersion = readJson(path.resolve(v2Root, "../package.json")).version;
 const world = readJson(path.join(worldDir, "world.json"));
+const avatarNaming = loadAvatarNaming(world, worldDir);
 const lockPath = path.join(worldDir, "pack.lock.json");
 const legacyLockPath = path.join(worldDir, "world.lock.json");
 const lock = readJson(
@@ -826,9 +853,14 @@ const contentReferences = buildContentReferenceMapping(
   }),
   CANONICAL_ID_MAPPING_VERSION,
 );
-const { persistence_compatibility: _persistenceCompatibility, ...worldIdentity } = world;
+const {
+  persistence_compatibility: _persistenceCompatibility,
+  avatar_naming: _avatarNamingSource,
+  ...worldIdentity
+} = world;
 const bundleHash = sha256([
   json(worldIdentity),
+  ...(avatarNaming ? [json(avatarNaming)] : []),
   json(packSummary),
   ...Object.values(resources).map(json),
   json(externalCards),
@@ -861,6 +893,7 @@ const manifest = {
   rules_profile: world.rules_profile,
   active_rules_variants: activeRulesVariants,
   active_rules_extensions: activeRulesExtensions,
+  ...(avatarNaming ? { avatar_naming: avatarNaming } : {}),
   bundle_hash: bundleHash,
   packs: packSummary,
   files: resourceFiles,

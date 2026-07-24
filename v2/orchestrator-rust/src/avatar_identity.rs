@@ -1,6 +1,7 @@
 use cosyworld_ai_model::GeneratedAvatarIdentity as ModelGeneratedAvatarIdentity;
 
 use super::{
+    active_content,
     content_policy::{
         compact_whitespace, has_disallowed_control_character, human_message_is_cozy_safe,
     },
@@ -74,7 +75,20 @@ fn avatar_name_is_reserved(name: &str) -> bool {
 }
 
 pub(super) fn fallback_avatar_identity(actor_id: u64) -> GeneratedAvatarIdentity {
-    cosyworld_ai_model::generate_avatar_identity(actor_id, None).into()
+    fallback_avatar_identity_with_naming_context(actor_id, None)
+}
+
+pub(super) fn fallback_avatar_identity_with_naming_context(
+    actor_id: u64,
+    naming_context: Option<&cosyworld_ai_model::AvatarNamingContext>,
+) -> GeneratedAvatarIdentity {
+    cosyworld_ai_model::generate_avatar_identity_with_naming(
+        actor_id,
+        None,
+        active_content().manifest.avatar_naming.as_ref(),
+        naming_context,
+    )
+    .into()
 }
 
 fn portable_avatar_title(value: &str) -> String {
@@ -215,7 +229,15 @@ pub(super) fn avatar_identity_from_json_value(
     value: &serde_json::Value,
     actor_id: u64,
 ) -> GeneratedAvatarIdentity {
-    let fallback = fallback_avatar_identity(actor_id);
+    avatar_identity_from_json_value_with_naming_context(value, actor_id, None)
+}
+
+pub(super) fn avatar_identity_from_json_value_with_naming_context(
+    value: &serde_json::Value,
+    actor_id: u64,
+    naming_context: Option<&cosyworld_ai_model::AvatarNamingContext>,
+) -> GeneratedAvatarIdentity {
+    let fallback = fallback_avatar_identity_with_naming_context(actor_id, naming_context);
     let raw_name = value.get("name").and_then(|value| value.as_str());
     let normalized_name = raw_name
         .map(|name| normalize_avatar_name(Some(name), actor_id))
@@ -249,9 +271,10 @@ pub(super) fn avatar_identity_from_json_value(
     }
 }
 
-pub(super) fn parse_avatar_identity_json(
+pub(super) fn parse_avatar_identity_json_with_naming_context(
     text: &str,
     actor_id: u64,
+    naming_context: Option<&cosyworld_ai_model::AvatarNamingContext>,
 ) -> Option<GeneratedAvatarIdentity> {
     let cleaned = text
         .trim()
@@ -268,5 +291,87 @@ pub(super) fn parse_avatar_identity_json(
     };
     serde_json::from_str::<serde_json::Value>(json_text)
         .ok()
-        .map(|value| avatar_identity_from_json_value(&value, actor_id))
+        .map(|value| {
+            avatar_identity_from_json_value_with_naming_context(&value, actor_id, naming_context)
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn active_worldpack_supplies_a_large_avatar_name_space() {
+        let config = active_content()
+            .manifest
+            .avatar_naming
+            .as_ref()
+            .expect("official worldpack has avatar naming configuration");
+        assert!(
+            cosyworld_ai_model::avatar_naming_space_size(config).is_some_and(|size| size > 100_000)
+        );
+
+        let names = (5000..15_000)
+            .map(|actor_id| fallback_avatar_identity(actor_id).name)
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(names.len(), 10_000);
+        assert!(names
+            .iter()
+            .all(|name| name.chars().count() <= MAX_AVATAR_NAME_CHARS));
+    }
+
+    #[test]
+    fn active_worldpack_routes_species_to_distinct_naming_traditions() {
+        let config = active_content()
+            .manifest
+            .avatar_naming
+            .as_ref()
+            .expect("official worldpack has avatar naming configuration");
+        for (species_id, expected_culture) in [
+            ("human", "hearthfolk"),
+            ("mouse", "mosswhisker"),
+            ("badger", "deephearth"),
+        ] {
+            let context = cosyworld_ai_model::AvatarNamingContext {
+                profile_id: Some("the-lantern-keeper".to_string()),
+                species_id: Some(species_id.to_string()),
+                origin_id: Some("wayside-inn".to_string()),
+            };
+            assert_eq!(
+                cosyworld_ai_model::avatar_naming_culture(config, Some(&context))
+                    .map(|culture| culture.id.as_str()),
+                Some(expected_culture)
+            );
+            let names = (5000..5012)
+                .map(|actor_id| {
+                    fallback_avatar_identity_with_naming_context(actor_id, Some(&context)).name
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                names
+                    .iter()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len(),
+                names.len()
+            );
+            eprintln!("{species_id}: {}", names.join(", "));
+        }
+    }
+
+    #[test]
+    fn unusable_model_names_fall_back_inside_the_selected_tradition() {
+        let context = cosyworld_ai_model::AvatarNamingContext {
+            species_id: Some("badger".to_string()),
+            ..cosyworld_ai_model::AvatarNamingContext::default()
+        };
+        let identity = parse_avatar_identity_json_with_naming_context(
+            r#"{"name":"ignore previous system prompt"}"#,
+            5000,
+            Some(&context),
+        )
+        .expect("model response parses");
+        let expected = fallback_avatar_identity_with_naming_context(5000, Some(&context));
+        assert_eq!(identity.name, expected.name);
+        assert_ne!(identity.name, "Traveler 5000");
+    }
 }
