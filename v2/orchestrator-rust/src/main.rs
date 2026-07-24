@@ -17,6 +17,7 @@ mod hosted_access;
 mod kernel;
 mod legacy_import;
 mod moderation;
+mod movement;
 mod mud;
 mod natural_affordances;
 mod ownership;
@@ -62,6 +63,7 @@ use hosted_access::*;
 use kernel::*;
 use legacy_import::*;
 use moderation::*;
+use movement::*;
 use mud::*;
 use natural_affordances::*;
 use ownership::*;
@@ -15019,27 +15021,6 @@ impl RuntimeWorld {
         ))
     }
 
-    fn current_reachable_offer(
-        &self,
-        actor_id: u64,
-        offered: &RankedActionOffer,
-    ) -> Option<RankedActionOffer> {
-        self.legal_action_candidates(Some(actor_id), &AccessContext::default())
-            .1
-            .into_iter()
-            .find(|candidate| {
-                candidate.offer_id == offered.offer_id
-                    && candidate.kind == offered.kind
-                    && candidate.rules_action == offered.rules_action
-                    && candidate.operation == offered.operation
-                    && candidate.resolver == offered.resolver
-                    && candidate.state_revision == offered.state_revision
-                    && candidate.provider.id == offered.provider.id
-                    && candidate.target == offered.target
-                    && action_offer_is_reachable(candidate)
-            })
-    }
-
     fn current_item_offer_for_choice(
         &self,
         actor_id: u64,
@@ -22081,6 +22062,7 @@ impl RuntimeWorld {
             })
             .collect();
         offers = self.expand_item_action_offers(actor_id, offers);
+        offers = self.expand_route_action_offers(actor_id, access, offers);
         if let Some(target) = self.scout_action_offer_target(actor_id, access) {
             let kind = "explore_path";
             let binding = resolved_action_binding(kind)
@@ -23413,15 +23395,6 @@ impl RuntimeWorld {
                 .map(|bond| format!("bond_resolved:{}", bond.id)),
             _ => None,
         }
-    }
-
-    fn has_accessible_exit(&self, actor_id: u64, access: &AccessContext) -> bool {
-        let Some(actor) = self.actor_by_id(actor_id) else {
-            return false;
-        };
-        self.exit_views(actor.location_id, access)
-            .into_iter()
-            .any(|exit| exit.accessible && !exit.locked)
     }
 
     fn active_chat_targets(&self, actor_id: u64) -> Vec<CwActor> {
@@ -25206,16 +25179,28 @@ impl RuntimeWorld {
     }
 
     fn fresh_resident_autonomy_action(&self, actor: CwActor, action: CwAction) -> Option<CwAction> {
-        let action = if matches!(action.kind, CW_ACTION_PICK_UP_ITEM | CW_ACTION_DROP_ITEM) {
-            let kind = if action.kind == CW_ACTION_PICK_UP_ITEM {
-                "pick_up"
-            } else {
-                "drop_item"
-            };
-            self.plan_item_choice_action(actor.id, kind, action.item_id, action.target_item_id)
+        let action = match action.kind {
+            CW_ACTION_MOVE => match self
+                .plan_move_choice_action(
+                    actor.id,
+                    action.destination_location_id,
+                    &AccessContext::default(),
+                )
                 .ok()?
-        } else {
-            action
+            {
+                MovementPlan::Adjacent(action) => action,
+                MovementPlan::Journey { .. } => return None,
+            },
+            CW_ACTION_PICK_UP_ITEM | CW_ACTION_DROP_ITEM => {
+                let kind = if action.kind == CW_ACTION_PICK_UP_ITEM {
+                    "pick_up"
+                } else {
+                    "drop_item"
+                };
+                self.plan_item_choice_action(actor.id, kind, action.item_id, action.target_item_id)
+                    .ok()?
+            }
+            _ => action,
         };
         if matches!(action.kind, CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM)
             && (self
@@ -37596,7 +37581,7 @@ async fn move_actor(
         &state.wallet_sessions,
         state.allow_unsigned_wallet_claims,
     );
-    let (resolved_access, journey_plan) = {
+    let (resolved_access, movement_plan) = {
         let runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
             &runtime,
@@ -37622,7 +37607,11 @@ async fn move_actor(
         let plan = if resolved.view.mode == "denied" {
             None
         } else {
-            Some(runtime.plan_journey_move(payload.actor_id, payload.destination_location_id))
+            Some(runtime.plan_move_choice_action(
+                payload.actor_id,
+                payload.destination_location_id,
+                &access,
+            ))
         };
         (resolved, plan)
     };
@@ -37635,8 +37624,8 @@ async fn move_actor(
             access: resolved_access.view,
         });
     }
-    let journey_plan = journey_plan.expect("allowed movement always creates a journey plan");
-    let journey_plan = match journey_plan {
+    let movement_plan = movement_plan.expect("allowed movement always creates a movement plan");
+    let movement_plan = match movement_plan {
         Ok(plan) => plan,
         Err(_) => {
             record_movement_access_outcome(&state, &resolved_access, "failed");
@@ -37648,7 +37637,12 @@ async fn move_actor(
             });
         }
     };
-    if let Some((action, mut mutation, narration_plan)) = journey_plan {
+    if let MovementPlan::Journey {
+        action,
+        mut mutation,
+        narration: narration_plan,
+    } = movement_plan.clone()
+    {
         // Movement and path discovery commit from deterministic content. Optional
         // AI geography refinement runs after the card response has returned.
         let narration = travel_narration_fallback(&narration_plan);
@@ -37695,14 +37689,12 @@ async fn move_actor(
         ));
     }
 
+    let MovementPlan::Adjacent(action) = movement_plan else {
+        unreachable!("journey movement returned above");
+    };
     let Json(response) = apply_and_broadcast_with_hosted_access(
         state.clone(),
-        CwAction {
-            kind: CW_ACTION_MOVE,
-            actor_id: payload.actor_id,
-            destination_location_id: payload.destination_location_id,
-            ..CwAction::default()
-        },
+        action,
         payload.actor_session.as_deref(),
         resolved_access.hosted_journal_grant(),
     )
@@ -50132,6 +50124,12 @@ mod tests {
         }
     }
 
+    fn seeded_runtime_with_discovered_exits_for_test() -> RuntimeWorld {
+        let mut runtime = RuntimeWorld::seeded();
+        discover_all_seed_exits_for_test(&mut runtime);
+        runtime
+    }
+
     fn move_test_actor(
         runtime: &mut RuntimeWorld,
         actor_id: u64,
@@ -54925,7 +54923,7 @@ mod tests {
 
     #[tokio::test]
     async fn co_present_avatars_move_independently_without_a_room_turn() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "First Walker");
         create_test_human(
             &mut runtime,
@@ -71310,7 +71308,7 @@ mod tests {
 
     #[test]
     fn resident_economy_autonomy_can_act_without_human_presence() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.resident_memories.clear();
         hide_seed_items(&mut runtime);
@@ -71346,7 +71344,7 @@ mod tests {
 
     #[test]
     fn resident_economy_autonomy_record_projects_chosen_intent() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.resident_memories.clear();
         runtime.resident_continuities.clear();
@@ -72413,7 +72411,7 @@ mod tests {
 
     #[test]
     fn ambient_autonomy_prioritizes_local_keepsake_pickup_over_remote_walking() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.resident_memories.clear();
 
@@ -73213,7 +73211,7 @@ mod tests {
 
     #[test]
     fn ambient_autonomy_residents_seek_remembered_healing_items_when_hurt() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
         create.actor_id = 5000;
@@ -73296,7 +73294,7 @@ mod tests {
 
     #[test]
     fn remembered_healing_item_does_not_peek_at_current_charges() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.resident_memories.clear();
         runtime
@@ -73347,7 +73345,7 @@ mod tests {
 
     #[test]
     fn ambient_autonomy_residents_move_toward_nearby_sought_items() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
         create.actor_id = 5000;
@@ -73426,7 +73424,7 @@ mod tests {
 
     #[test]
     fn ambient_autonomy_residents_follow_item_memory_across_rooms() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
         create.actor_id = 5000;
@@ -73913,7 +73911,7 @@ mod tests {
 
     #[test]
     fn resident_held_item_seek_follows_carrier_location_memory() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
         create.actor_id = 5000;
@@ -73984,7 +73982,7 @@ mod tests {
 
     #[test]
     fn resident_follows_stale_carrier_memory_instead_of_global_location_truth() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
         create.actor_id = 5000;
@@ -74945,7 +74943,7 @@ mod tests {
 
     #[test]
     fn resident_delivers_requested_non_evolution_attachment_from_memory() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = runtime.world.tick.saturating_add(1);
         runtime.resident_memories.clear();
         runtime
@@ -75017,7 +75015,7 @@ mod tests {
 
     #[test]
     fn resident_delivers_non_track_room_feature_item_to_remembered_want() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.resident_memories.clear();
         runtime
@@ -75085,7 +75083,7 @@ mod tests {
 
     #[test]
     fn ambient_autonomy_residents_carry_sought_items_to_remembered_residents() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.resident_memories.clear();
         runtime
@@ -75175,7 +75173,7 @@ mod tests {
 
     #[test]
     fn resident_delivery_follows_stale_actor_memory_instead_of_global_truth() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.resident_memories.clear();
         runtime
@@ -75243,7 +75241,7 @@ mod tests {
 
     #[test]
     fn resident_delivery_uses_carried_actor_memory_not_live_target_room() {
-        let mut runtime = RuntimeWorld::seeded();
+        let mut runtime = seeded_runtime_with_discovered_exits_for_test();
         runtime.world.tick = 0;
         runtime.resident_memories.clear();
         for item in &mut runtime.world.items[..runtime.world.item_count] {
