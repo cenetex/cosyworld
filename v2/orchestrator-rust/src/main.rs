@@ -8087,6 +8087,15 @@ impl RuntimeWorld {
             delivery: None,
             loot: None,
         });
+        if revealed {
+            if let Some(clock) = self.clocks.get_mut(&state.investigation_clock_id) {
+                clock.filled = clock.segments;
+                clock.status = "filled".to_string();
+            }
+            if let Some(job) = self.jobs.get_mut(&state.investigation_job_id) {
+                job.status = "completed".to_string();
+            }
+        }
     }
 
     fn record_natural_investigation_contribution(
@@ -19439,6 +19448,12 @@ impl RuntimeWorld {
             .location_ids
             .iter()
             .any(|id| self.location_is_frontier(*id))
+        {
+            return false;
+        }
+        if job.participant_ids.is_empty()
+            || job.danger_clock_id.trim().is_empty()
+            || !self.clocks.contains_key(&job.danger_clock_id)
         {
             return false;
         }
@@ -62430,6 +62445,134 @@ mod tests {
                     .is_some_and(|content| content.contains("completed"))
         }));
         assert_eq!(runtime.orb_balance(5000), before_second_completion + 2);
+    }
+
+    #[test]
+    fn durable_frontier_projects_never_reset_as_encounters_and_repair_from_evidence() {
+        let mut runtime = RuntimeWorld::seeded();
+        let pathway = runtime.generated_pathway(
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            MOONLIT_TRAIL_LOCATION_ID,
+            2,
+        );
+        let waypoint_id = pathway.waypoints[0].id;
+        runtime
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway.clone());
+        runtime.ensure_generated_pathway_edge(&pathway, RAIN_SOFT_GARDEN_LOCATION_ID, waypoint_id);
+        create_test_human(&mut runtime, 5000, waypoint_id, "Durable Builder");
+
+        let place = runtime.generated_places[&waypoint_id].clone();
+        let natural = runtime.natural_affordances[&waypoint_id].clone();
+        let mut reveal = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            718_900,
+        );
+        reveal
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: natural.investigation_clock_id.clone(),
+                amount: runtime.clocks[&natural.investigation_clock_id].segments,
+                reason: "durable_frontier_test_reveal".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&reveal).0, CW_OK);
+        let revealed_natural = runtime.natural_affordances[&waypoint_id].clone();
+
+        let anchor_intent = runtime
+            .job_contribution_intent(5000, "work", Some(&place.anchor_job_id), None, None)
+            .expect("anchor work is available");
+        let mut anchor = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            718_901,
+        );
+        anchor
+            .projection_mutations
+            .push(ProjectionMutation::ResolveJobContribution {
+                intent: anchor_intent,
+            });
+        assert_eq!(runtime.apply_journal_record(&anchor).0, CW_OK);
+
+        runtime.world.next_event_seq = runtime
+            .world
+            .next_event_seq
+            .saturating_add(ENCOUNTER_RESET_PLAYER_TICKS);
+        let mut later_tick = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: 5000,
+                content_id: 718_902,
+                ..CwAction::default()
+            },
+            718_902,
+        );
+        later_tick.content_upserts.insert(
+            718_902,
+            "The work should still be here when we return.".to_string(),
+        );
+        let (status, later_events) = runtime.apply_journal_record(&later_tick);
+        assert_eq!(status, CW_OK);
+        assert!(!later_events.iter().any(|event| {
+            event.type_name == "encounter.reset"
+                && event.content.as_deref().is_some_and(|content| {
+                    content.starts_with(&natural.investigation_job_id)
+                        || content.starts_with(&place.anchor_job_id)
+                })
+        }));
+        assert_eq!(
+            runtime.clocks[&natural.investigation_clock_id].filled,
+            runtime.clocks[&natural.investigation_clock_id].segments
+        );
+        assert_eq!(
+            runtime.clocks[&place.anchor_clock_id].filled,
+            runtime.clocks[&place.anchor_clock_id].segments
+        );
+
+        for clock_id in [&natural.investigation_clock_id, &place.anchor_clock_id] {
+            let clock = runtime.clocks.get_mut(clock_id).expect("durable clock");
+            clock.filled = 0;
+            clock.status = "active".to_string();
+        }
+        runtime
+            .jobs
+            .get_mut(&natural.investigation_job_id)
+            .expect("natural investigation job")
+            .status = "active".to_string();
+        runtime
+            .jobs
+            .get_mut(&place.anchor_job_id)
+            .expect("anchor job")
+            .status = "active".to_string();
+
+        runtime.ensure_natural_investigation_project(&revealed_natural);
+        runtime.ensure_generated_place_for_waypoint(
+            &pathway,
+            waypoint_id,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
+        assert_eq!(
+            runtime.clocks[&natural.investigation_clock_id].filled,
+            runtime.clocks[&natural.investigation_clock_id].segments
+        );
+        assert_eq!(
+            runtime.job_status(&runtime.jobs[&natural.investigation_job_id]),
+            "completed"
+        );
+        assert_eq!(
+            runtime.clocks[&place.anchor_clock_id].filled,
+            runtime.clocks[&place.anchor_clock_id].segments
+        );
+        assert!(runtime
+            .generated_place_milestones(waypoint_id)
+            .contains(&"Anchor".to_string()));
     }
 
     #[test]
