@@ -51549,6 +51549,11 @@ mod tests {
         assert!(INDEX_HTML.contains("help by ${helpers.join(\", \")}"));
         assert!(INDEX_HTML.contains("function causalJobContributionEvent"));
         assert!(INDEX_HTML.contains("function jobContributionDescendants"));
+        assert!(
+            INDEX_HTML.contains(".filter((candidate) => candidate.type === \"clock.threshold\")")
+        );
+        assert!(INDEX_HTML.contains("Number(right.seq || 0) - Number(left.seq || 0)"));
+        assert!(INDEX_HTML.contains("function naturalFeatureEventText"));
         assert!(INDEX_HTML.contains("function physicalDeliveryEventFor"));
 
         assert!(INDEX_HTML.contains("accountPanelPinned && event.key === \"Escape\""));

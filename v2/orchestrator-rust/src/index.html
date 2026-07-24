@@ -9430,7 +9430,9 @@
         candidate.type === "clock.updated"
         && String(candidate.clock_id || "") === String(trace.clock_id || "")
       ));
-      const threshold = descendants.find((candidate) => candidate.type === "clock.threshold");
+      const threshold = descendants
+        .filter((candidate) => candidate.type === "clock.threshold")
+        .sort((left, right) => Number(right.seq || 0) - Number(left.seq || 0))[0];
       const settled = descendants.some((candidate) => candidate.type === "job.updated");
       const question = (state?.shared_questions || []).find((candidate) => (
         String(candidate.progress_clock_id || "") === String(trace.clock_id || "")
