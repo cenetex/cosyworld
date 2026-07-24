@@ -6952,6 +6952,7 @@ impl RuntimeWorld {
         let records = read_action_journal_with_seq(path)?;
         let mut canonical_natural_features =
             read_canonical_natural_feature_reveals_by_journal_seq(path)?;
+        let mut pending_natural_features = Vec::new();
         let mut migrated_bundle_hashes = BTreeSet::new();
         for (journal_seq, record) in records {
             let compatibility = persisted_worldpack_replay_compatibility(
@@ -6993,16 +6994,11 @@ impl RuntimeWorld {
 
             let _ = runtime.apply_journal_record(&record);
             if let Some(events) = canonical_natural_features.remove(&journal_seq) {
-                for event in events {
-                    runtime.restore_natural_feature_reveal_evidence(&event)?;
-                }
+                pending_natural_features.extend(events);
             }
+            runtime.restore_ready_natural_feature_evidence(&mut pending_natural_features)?;
         }
-        for events in canonical_natural_features.into_values() {
-            for event in events {
-                runtime.restore_natural_feature_reveal_evidence(&event)?;
-            }
-        }
+        pending_natural_features.extend(canonical_natural_features.into_values().flatten());
         if !migrated_bundle_hashes.is_empty() {
             warn!(
                 "replayed action journal through declared worldpack migration(s) from [{}] to {}",
@@ -7018,6 +7014,10 @@ impl RuntimeWorld {
         runtime.ensure_seed_rpg_projection();
         runtime.backfill_generated_avatar_flavor();
         runtime.ensure_actor_autonomy();
+        runtime.restore_ready_natural_feature_evidence(&mut pending_natural_features)?;
+        for event in pending_natural_features {
+            runtime.restore_natural_feature_reveal_evidence(&event)?;
+        }
         runtime.backfill_generated_place_governance();
         runtime.backfill_settlement_buildings();
         let mint_seed = runtime.next_seed;
@@ -8084,6 +8084,27 @@ impl RuntimeWorld {
                 text: completion_text,
             });
         }
+        Ok(())
+    }
+
+    fn restore_ready_natural_feature_evidence(
+        &mut self,
+        pending: &mut Vec<EventView>,
+    ) -> io::Result<()> {
+        let mut waiting = Vec::new();
+        for event in pending.drain(..) {
+            let location_ready = event.location_id.is_some_and(|location_id| {
+                self.natural_affordances.contains_key(&location_id)
+                    || self.location_meta.contains_key(&location_id)
+                    || self.locations.contains_key(&location_id)
+            });
+            if location_ready {
+                self.restore_natural_feature_reveal_evidence(&event)?;
+            } else {
+                waiting.push(event);
+            }
+        }
+        *pending = waiting;
         Ok(())
     }
 
@@ -63043,7 +63064,7 @@ mod tests {
         let actor_id = 5000;
         let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
 
-        let (waypoint_id, reveal_journal_seq, reveal_record) = {
+        let (waypoint_id, pre_location_journal_seq, reveal_journal_seq, reveal_record) = {
             let mut runtime = state.inner.blocking_lock();
             let mut create = JournalRecord::new(
                 CwAction {
@@ -63087,6 +63108,8 @@ mod tests {
                 .0,
                 CW_OK
             );
+            let pre_location_journal_seq =
+                latest_action_journal_seq(&path).expect("pre-location journal sequence");
 
             let (search, search_mutation, _) = runtime
                 .plan_journey_move(actor_id, MOONLIT_TRAIL_LOCATION_ID)
@@ -63157,6 +63180,7 @@ mod tests {
                 .any(|event| event.type_name == "natural_feature.revealed"));
             (
                 waypoint_id,
+                pre_location_journal_seq,
                 latest_action_journal_seq(&path).expect("reveal journal sequence"),
                 reveal_record,
             )
@@ -63167,13 +63191,35 @@ mod tests {
         historical_gap.refresh_content_context();
         let historical_gap_json =
             serde_json::to_string(&historical_gap).expect("serialize replay-gap fixture");
-        open_event_store(&path)
-            .expect("open replay-gap store")
+        let replay_gap_store = open_event_store(&path).expect("open replay-gap store");
+        replay_gap_store
             .execute(
                 "UPDATE action_journal SET record_json = ?1 WHERE journal_seq = ?2",
                 params![historical_gap_json, reveal_journal_seq as i64],
             )
             .expect("simulate the historical projection gap");
+        replay_gap_store
+            .execute(
+                "UPDATE canonical_commits SET action_journal_seq = -1
+                 WHERE action_journal_seq = ?1",
+                params![reveal_journal_seq as i64],
+            )
+            .expect("stage reveal cursor swap");
+        replay_gap_store
+            .execute(
+                "UPDATE canonical_commits SET action_journal_seq = ?1
+                 WHERE action_journal_seq = ?2",
+                params![reveal_journal_seq as i64, pre_location_journal_seq as i64],
+            )
+            .expect("move the earlier commit out of the way");
+        replay_gap_store
+            .execute(
+                "UPDATE canonical_commits SET action_journal_seq = ?1
+                 WHERE action_journal_seq = -1",
+                params![pre_location_journal_seq as i64],
+            )
+            .expect("bind natural evidence before its generated location exists");
+        drop(replay_gap_store);
 
         let (decision_id, selected_archetype_id, building_id) = {
             let mut runtime = state.inner.blocking_lock();
