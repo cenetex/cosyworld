@@ -332,7 +332,7 @@ impl RuntimeWorld {
                 consequence: "The place remains unanchored.".to_string(),
                 memory_summary: "A lasting fixture anchored the place.".to_string(),
                 action_copy: JobActionCopy {
-                    label: "Place a fixture".to_string(),
+                    label: "the anchor fixture".to_string(),
                     summary: "Make one durable, inspectable change.".to_string(),
                 },
                 contribution_schema_version: JOB_CONTRIBUTION_SCHEMA_VERSION,
@@ -398,7 +398,7 @@ impl RuntimeWorld {
                 consequence: "No building choice opens yet.".to_string(),
                 memory_summary: "Distinct travelers made a building choice possible.".to_string(),
                 action_copy: JobActionCopy {
-                    label: "Help the place settle".to_string(),
+                    label: "the place toward settlement".to_string(),
                     summary: "Contribute once in a way another traveler can witness.".to_string(),
                 },
                 contribution_schema_version: JOB_CONTRIBUTION_SCHEMA_VERSION,

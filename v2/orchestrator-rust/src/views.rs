@@ -2123,13 +2123,16 @@ impl RuntimeWorld {
             .filter(|job| job.location_ids.contains(&location_id))
             .filter_map(|job| {
                 let progress = self.clocks.get(&job.progress_clock_id)?;
-                let danger = self.clocks.get(&job.danger_clock_id)?;
-                let terminal = self.job_status(job) != "active";
-                let settled_clock = if danger.filled >= danger.segments {
-                    danger
+                let danger = if job.danger_clock_id.trim().is_empty() {
+                    None
                 } else {
-                    progress
+                    Some(self.clocks.get(&job.danger_clock_id)?)
                 };
+                let job_status = self.job_status(job);
+                let terminal = matches!(job_status.as_str(), "completed" | "failed");
+                let settled_clock = danger
+                    .filter(|clock| clock.filled >= clock.segments)
+                    .unwrap_or(progress);
                 let natural_completion_memory = self
                     .natural_affordances
                     .values()
@@ -2229,9 +2232,11 @@ impl RuntimeWorld {
                 let mut recent = progress
                     .recent_contributions
                     .iter()
-                    .chain(danger.recent_contributions.iter())
                     .cloned()
                     .collect::<Vec<_>>();
+                if let Some(danger) = danger {
+                    recent.extend(danger.recent_contributions.iter().cloned());
+                }
                 recent.sort_by_key(|entry| std::cmp::Reverse(entry.contribution_event_seq));
                 recent.truncate(MAX_RECENT_CLOCK_CONTRIBUTIONS);
                 let recent_contributions = recent
@@ -2270,7 +2275,7 @@ impl RuntimeWorld {
                     priority: progress.presentation.priority,
                     presentation_state: if terminal {
                         "completed_memory"
-                    } else if available {
+                    } else if job_status == "active" && available {
                         "active"
                     } else {
                         "unavailable"
@@ -2284,14 +2289,16 @@ impl RuntimeWorld {
                     progress_clock_id: progress.id.clone(),
                     filled: progress.filled,
                     segments: progress.segments,
-                    danger_clock_id: danger.id.clone(),
-                    danger_filled: danger.filled,
-                    danger_segments: danger.segments,
+                    danger_clock_id: danger.map(|clock| clock.id.clone()).unwrap_or_default(),
+                    danger_filled: danger.map(|clock| clock.filled).unwrap_or_default(),
+                    danger_segments: danger.map(|clock| clock.segments).unwrap_or_default(),
                     next_revelation,
                     strategies,
                     recent_contributions,
                     completion_memory,
-                    updated_event_seq: progress.updated_event_seq.max(danger.updated_event_seq),
+                    updated_event_seq: danger
+                        .map(|clock| progress.updated_event_seq.max(clock.updated_event_seq))
+                        .unwrap_or(progress.updated_event_seq),
                 })
             })
             .collect::<Vec<_>>();
