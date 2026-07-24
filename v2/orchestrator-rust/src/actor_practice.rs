@@ -343,4 +343,26 @@ mod tests {
             Some(DeedCategory::Craft)
         );
     }
+
+    #[test]
+    fn practice_projection_is_controller_neutral() {
+        let direct = (1..=5)
+            .map(|seq| deed(seq, DeedCategory::Exploration, &seq.to_string()))
+            .collect::<Vec<_>>();
+        let mut inferred = direct.clone();
+        for deed in &mut inferred {
+            deed.controller_mode = "local_ai".to_string();
+        }
+
+        let direct_state = project_practice(&ActorPracticeState::default(), &refs(&direct));
+        let inferred_state = project_practice(&ActorPracticeState::default(), &refs(&inferred));
+
+        assert_eq!(direct_state, inferred_state);
+        assert_eq!(
+            serde_json::to_value(practice_view(1, &direct_state, &refs(&direct)))
+                .expect("serialize direct-input practice"),
+            serde_json::to_value(practice_view(1, &inferred_state, &refs(&inferred)))
+                .expect("serialize inferred practice")
+        );
+    }
 }

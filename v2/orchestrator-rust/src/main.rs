@@ -20986,6 +20986,22 @@ impl RuntimeWorld {
         )
     }
 
+    fn practice_recognition_for_offer(&self, actor_id: u64, kind: &str) -> Option<String> {
+        let practice = self.actor_practice_view(actor_id)?;
+        let recognized_category = std::iter::once(practice.primary.as_str())
+            .chain(practice.secondary.as_deref())
+            .find(|category| practice_category_matches_offer(category, kind))?;
+        let evidence = practice
+            .evidence
+            .iter()
+            .find(|evidence| evidence.category == recognized_category)?;
+        Some(format!(
+            "Known for {}; recent evidence: {}",
+            practice.known_for,
+            evidence.description.trim_end_matches('.')
+        ))
+    }
+
     fn ranked_action_offers(
         &self,
         actor_id: Option<u64>,
@@ -21233,6 +21249,14 @@ impl RuntimeWorld {
                 claim_key: None,
                 reason: "ranked from an unrevealed journey edge or long route".to_string(),
             });
+        }
+        for offer in &mut offers {
+            let Some(recognition) = self.practice_recognition_for_offer(actor_id, &offer.kind)
+            else {
+                continue;
+            };
+            offer.rank = offer.rank.saturating_sub(5);
+            offer.reason = recognition;
         }
         offers.sort_by_key(|offer| offer.rank);
         offers
@@ -41286,6 +41310,19 @@ fn action_offer_rank(kind: &str) -> u16 {
     }
 }
 
+fn practice_category_matches_offer(category: &str, kind: &str) -> bool {
+    match category {
+        "exploration" => matches!(kind, "explore_path" | "search" | "check" | "move"),
+        "craft" => matches!(kind, "craft" | "use_feature"),
+        "delivery" => matches!(kind, "move" | "give_item" | "trade_item"),
+        "stewardship" => matches!(kind, "prepare" | "work" | "help"),
+        "care" => matches!(kind, "defend" | "use_item" | "rest"),
+        "mediation" => matches!(kind, "influence" | "chat" | "create_bond" | "resolve_bond"),
+        "lore" => matches!(kind, "study" | "search" | "check"),
+        _ => false,
+    }
+}
+
 fn action_offer_intention(kind: &str) -> &str {
     match kind {
         "check" => "notice",
@@ -51407,7 +51444,9 @@ mod tests {
         assert!(!INDEX_HTML.contains("withActor("));
         assert!(INDEX_HTML.contains("setCreationModalStage(campaignAction, \"species\")"));
         assert!(INDEX_HTML.contains("[\"Then\", \"begin classless at level 0\"]"));
-        assert!(INDEX_HTML.contains("accountRow(\"purpose\", purpose)"));
+        assert!(INDEX_HTML.contains("accountRow(\"calling\", purpose)"));
+        assert!(INDEX_HTML.contains("accountRow(\"campaign identity\", identityCards)"));
+        assert!(INDEX_HTML.contains("accountRow(\"known for\", practiceSummary)"));
         assert!(!INDEX_HTML.contains("detail: \"choose calling\""));
         assert!(!INDEX_HTML.contains("modalTitle: \"choose a calling\""));
         assert!(!INDEX_HTML.contains("id=\"ai-key-modal\""));
@@ -51507,6 +51546,9 @@ mod tests {
         assert!(INDEX_HTML.contains("economy.trade_stance"));
         assert!(INDEX_HTML.contains("function actorEconomyPanelHtml"));
         assert!(INDEX_HTML.contains("actor?.economy"));
+        assert!(INDEX_HTML.contains("function actorPracticePanelHtml"));
+        assert!(INDEX_HTML.contains("(practice.evidence || []).slice(0, 2)"));
+        assert!(INDEX_HTML.contains("economyRowHtml(\"known for\""));
         assert!(INDEX_HTML.contains("function actorControlModeLabel"));
         assert!(INDEX_HTML.contains("controller\", escapeHtml(controller)"));
         assert!(INDEX_HTML.contains("return actors.map((actor) =>"));
@@ -60094,6 +60136,78 @@ mod tests {
             serde_json::to_value(&relabeled).expect("serialize relabeled intent"),
             serde_json::to_value(&baseline).expect("serialize baseline intent")
         );
+    }
+
+    #[test]
+    fn practice_recognition_reranks_but_does_not_unlock_opportunities() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Recognized Explorer",
+        );
+        let access = AccessContext::default();
+        let baseline = runtime.state_response(Some(5000), &access);
+        let baseline_kinds = baseline
+            .action_offers
+            .iter()
+            .map(|offer| offer.kind.as_str())
+            .collect::<BTreeSet<_>>();
+        let baseline_notice = baseline
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "check")
+            .expect("Notice is already legal before practice recognition");
+
+        for seq in 1..=5 {
+            let claim_key = format!("test:practice:exploration:{seq}");
+            runtime.deeds.insert(
+                claim_key.clone(),
+                DeedRecord {
+                    schema_version: DEED_SCHEMA_VERSION,
+                    id: claim_key.clone(),
+                    actor_id: 5000,
+                    controller_mode: "direct_input".to_string(),
+                    category: DeedCategory::Exploration,
+                    source_action: "srd5.2.1:search".to_string(),
+                    operation: "location.discovered".to_string(),
+                    rules_profile: active_content().manifest.rules_profile.clone(),
+                    contributing_pack_id: active_content().manifest.id.clone(),
+                    source_event_seqs: vec![80_000 + seq],
+                    target_kind: "location".to_string(),
+                    target_id: seq.to_string(),
+                    location_id: Some(seq),
+                    durable_public_trace: true,
+                    claim_key,
+                },
+            );
+        }
+        runtime.rebuild_deed_index();
+
+        let recognized = runtime.state_response(Some(5000), &access);
+        let recognized_kinds = recognized
+            .action_offers
+            .iter()
+            .map(|offer| offer.kind.as_str())
+            .collect::<BTreeSet<_>>();
+        let recognized_notice = recognized
+            .action_offers
+            .iter()
+            .find(|offer| offer.kind == "check")
+            .expect("Notice remains legal after practice recognition");
+
+        assert_eq!(recognized_kinds, baseline_kinds);
+        assert_eq!(
+            recognized_notice.rank,
+            baseline_notice.rank.saturating_sub(5)
+        );
+        assert!(recognized_notice.reason.starts_with("Known for"));
+        let practice = runtime
+            .actor_practice_view(5000)
+            .expect("five public exploration deeds establish practice");
+        assert_eq!(practice.epithet, "Explorer");
+        assert_eq!(practice.evidence.len(), 5);
     }
 
     #[test]
