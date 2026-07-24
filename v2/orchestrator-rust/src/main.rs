@@ -414,7 +414,6 @@ const ZONE_FRONTIER: &str = "frontier";
 const COSY_COTTAGE_LOCATION_ID: u64 = 1;
 const RAIN_SOFT_GARDEN_LOCATION_ID: u64 = 2;
 const FIRST_TALE_JOB_ID: &str = "rain-soft-garden:trustworthy-path";
-#[cfg(test)]
 const FIRST_TALE_PROGRESS_CLOCK_ID: &str = "rain-soft-garden.trustworthy-path";
 const FIRST_TALE_TRACE_SCHEMA_VERSION: u8 = 1;
 #[cfg(test)]
@@ -12100,9 +12099,14 @@ impl RuntimeWorld {
         action: &CwAction,
         events: &[EventView],
     ) -> Vec<EventView> {
+        let shared_question_complete = self
+            .clocks
+            .get(FIRST_TALE_PROGRESS_CLOCK_ID)
+            .is_some_and(|clock| clock.filled >= clock.segments);
         if !action_is_discovery_check(action)
             || self.first_tale_trace_event_seq(action.actor_id).is_some()
             || !self.listen_attempt_claimed_at(action.actor_id, COSY_COTTAGE_LOCATION_ID)
+            || !shared_question_complete
         {
             return Vec::new();
         }
@@ -21962,15 +21966,25 @@ impl RuntimeWorld {
                     id: Some(recipe.id),
                     label: Some(recipe.name.clone()),
                 }),
-            "move" | "flee" => self
-                .exit_views(actor.location_id, access)
-                .into_iter()
-                .find(|exit| exit.accessible && !exit.locked)
-                .map(|exit| ActionTargetView {
-                    kind: "location".to_string(),
-                    id: Some(exit.destination_location_id),
-                    label: Some(exit.destination_location_name),
-                }),
+            "move" | "flee" => {
+                let journey_next_location_id = (kind == "move")
+                    .then(|| {
+                        self.journey_view(actor_id)
+                            .and_then(|journey| journey.next_location_id)
+                    })
+                    .flatten();
+                self.exit_views(actor.location_id, access)
+                    .into_iter()
+                    .filter(|exit| exit.accessible && !exit.locked)
+                    .min_by_key(|exit| {
+                        usize::from(journey_next_location_id != Some(exit.destination_location_id))
+                    })
+                    .map(|exit| ActionTargetView {
+                        kind: "location".to_string(),
+                        id: Some(exit.destination_location_id),
+                        label: Some(exit.destination_location_name),
+                    })
+            }
             "create_bond" => {
                 self.default_bondable_resident(actor_id)
                     .map(|target| ActionTargetView {
@@ -50417,6 +50431,14 @@ mod tests {
             .find(|offer| offer.kind == "move")
             .expect("the revealed adjacent segment has a Travel offer");
         assert_eq!(first_travel_offer.intention, "travel");
+        assert_eq!(
+            first_travel_offer
+                .target
+                .as_ref()
+                .and_then(|target| target.id),
+            Some(first_waypoint_id),
+            "the route handoff points at the newly revealed waypoint"
+        );
         assert!(first_travel_offer
             .accessible_label
             .starts_with("Travel to "));
@@ -51584,6 +51606,7 @@ mod tests {
         assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
         assert!(INDEX_HTML.contains("const tale = view.first_tale;"));
         assert!(INDEX_HTML.contains("rain-soft-garden.trustworthy-path"));
+        assert!(INDEX_HTML.contains("view?.first_tale?.next_invitation"));
         assert!(INDEX_HTML.contains("view?.first_tale?.completion_memory"));
         assert!(!INDEX_HTML.contains("notice one little clue."));
         assert!(!INDEX_HTML.contains("keep the clue — let it change you."));
@@ -60084,6 +60107,58 @@ mod tests {
                 .apply_first_tale_public_trace_projection(&action, &events)
                 .is_empty(),
             "the per-avatar public trace is idempotent"
+        );
+    }
+
+    #[test]
+    fn generic_garden_check_cannot_skip_the_first_tale_shared_question() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Early Path Listener",
+        );
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(5000, COSY_COTTAGE_LOCATION_ID));
+        assert_eq!(
+            runtime.clocks[FIRST_TALE_PROGRESS_CLOCK_ID].filled, 0,
+            "the shared question starts unanswered"
+        );
+
+        let action = CwAction {
+            kind: CW_ACTION_ABILITY_CHECK,
+            actor_id: 5000,
+            ability: LISTEN_ABILITY,
+            dc: LISTEN_DC,
+            ..CwAction::default()
+        };
+        let check = EventView {
+            seq: 91_000,
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            actor_name: Some("Early Path Listener".to_string()),
+            location_id: Some(RAIN_SOFT_GARDEN_LOCATION_ID),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            total: Some(LISTEN_DC as i16),
+            dc: Some(LISTEN_DC as i16),
+            ..EventView::default()
+        };
+
+        assert!(
+            runtime
+                .apply_first_tale_public_trace_projection(&action, &[check])
+                .is_empty(),
+            "a generic check cannot stand in for a contribution while the path question is active"
+        );
+        assert_eq!(
+            runtime
+                .first_tale_view(5000)
+                .expect("first tale remains active")
+                .phase,
+            "contribute"
         );
     }
 

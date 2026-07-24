@@ -7466,7 +7466,8 @@
 
     function firstTaleCompletionText(view = state) {
       return String(
-        view?.first_tale?.completion_memory
+        view?.first_tale?.next_invitation
+          || view?.first_tale?.completion_memory
           || "you changed the shared world and left the next visitor a clearer way."
       );
     }

@@ -907,7 +907,7 @@ impl RuntimeWorld {
                 "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way."
                     .to_string(),
             next_invitation:
-                "The uncovered line continues toward the riverside. What is making the water worth investigating?"
+                "Follow the uncovered line toward the riverside and investigate what makes its water worth returning to."
                     .to_string(),
             public_trace_created: trace_event_seq.is_some(),
             trace_event_seq,

@@ -776,7 +776,12 @@ class Game:
             return f"[{seq}] {actor} flees from {location} to {destination}."
         if type_name == "rule.rejected":
             return f"[{seq}] Rule rejected for {actor} (reason {event.get('reason')})."
-        return f"[{seq}] {type_name}: {event}"
+        label = str(type_name or "event").replace(".", " ")
+        content = " ".join(str(event.get("content") or "").split())
+        if content and not content.startswith(("{", "[")):
+            compact = content if len(content) <= 180 else f"{content[:177].rstrip()}..."
+            return f"[{seq}] {label}: {compact}"
+        return f"[{seq}] {label}."
 
     def with_actor_session(self, payload: dict[str, object]) -> dict[str, object]:
         next_payload = dict(payload)
@@ -1131,7 +1136,11 @@ def location_label(location_id: object) -> str:
 
 
 def event_is_hidden_context(event: dict[str, object]) -> bool:
-    return event.get("type") in {"world.bootstrapped", "actor.presence"}
+    return event.get("type") in {
+        "world.bootstrapped",
+        "actor.presence",
+        "action.receipt",
+    }
 
 
 def world_beat_is_renderable(event: dict[str, object]) -> bool:
