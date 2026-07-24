@@ -225,7 +225,7 @@ pub(super) fn generated_building_governance_decision_id_for_slot(
     }
 }
 
-fn building_choice_label(archetype_id: &str) -> String {
+pub(super) fn building_choice_label(archetype_id: &str) -> String {
     archetype_id
         .split('_')
         .filter(|part| !part.is_empty())

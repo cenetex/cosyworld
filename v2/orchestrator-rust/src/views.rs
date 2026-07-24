@@ -2130,12 +2130,45 @@ impl RuntimeWorld {
                 } else {
                     progress
                 };
+                let natural_completion_memory = self
+                    .natural_affordances
+                    .values()
+                    .find(|state| state.investigation_job_id == job.id)
+                    .and_then(|state| state.revealed_feature.as_ref())
+                    .map(|feature| {
+                        let buildings = feature
+                            .building_archetypes
+                            .iter()
+                            .map(|building| building_choice_label(building.key()))
+                            .collect::<Vec<_>>();
+                        let supported = match buildings.as_slice() {
+                            [] => String::new(),
+                            [only] => only.clone(),
+                            [left, right] => format!("{left} and {right}"),
+                            _ => format!(
+                                "{}, and {}",
+                                buildings[..buildings.len() - 1].join(", "),
+                                buildings.last().cloned().unwrap_or_default()
+                            ),
+                        };
+                        if supported.is_empty() {
+                            format!("Travelers found {} here.", feature.resource_kind.label())
+                        } else {
+                            format!(
+                                "Travelers found {} here; it can support {}.",
+                                feature.resource_kind.label(),
+                                supported
+                            )
+                        }
+                    });
                 let completion_memory = terminal.then(|| {
-                    settled_clock
-                        .completion
-                        .as_ref()
-                        .map(|memory| memory.text.clone())
-                        .unwrap_or_else(|| settled_clock.presentation.completion_memory.clone())
+                    natural_completion_memory.unwrap_or_else(|| {
+                        settled_clock
+                            .completion
+                            .as_ref()
+                            .map(|memory| memory.text.clone())
+                            .unwrap_or_else(|| settled_clock.presentation.completion_memory.clone())
+                    })
                 });
 
                 let reached_situation = job

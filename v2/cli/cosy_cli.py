@@ -600,7 +600,7 @@ class Game:
             marker = " you" if actor.get("id") == self.actor_id else ""
             print(
                 f"  {actor['id']}: {actor['name']} "
-                f"({actor['kind']}, hp {actor['hp']}, lvl {actor['stats']['level']}){marker}"
+                f"(hp {actor['hp']}, lvl {actor['stats']['level']}){marker}"
             )
 
     def print_items(self, items: list[dict[str, object]]) -> None:
@@ -731,6 +731,31 @@ class Game:
                 f"[{seq}] {event.get('clock_label') or 'A room clock'} advances to "
                 f"{event.get('clock_filled') or 0}/{event.get('clock_segments') or 0}."
             )
+        if type_name == "clock.threshold":
+            turning_point = " ".join(str(event.get("content") or "").split())
+            return f"[{seq}] {turning_point or 'The shared work reaches a turning point.'}"
+        if type_name == "natural_feature.revealed":
+            try:
+                evidence = json.loads(str(event.get("content") or "{}"))
+            except json.JSONDecodeError:
+                evidence = {}
+            feature = evidence.get("feature") if isinstance(evidence, dict) else {}
+            feature = feature if isinstance(feature, dict) else {}
+            resource = str(feature.get("resource_kind") or "natural feature").replace("_", " ")
+            if resource == "fish rich water":
+                resource = "fish-rich water"
+            raw_buildings = feature.get("building_archetypes")
+            buildings = (
+                [str(value).replace("_", " ").title() for value in raw_buildings if value]
+                if isinstance(raw_buildings, list)
+                else []
+            )
+            if len(buildings) > 1:
+                support = f"{', '.join(buildings[:-1])}, and {buildings[-1]}"
+            else:
+                support = buildings[0] if buildings else ""
+            consequence = f"; it can support {support}" if support else ""
+            return f"[{seq}] {actor} reveals {resource}{consequence}."
         if type_name == "tag.applied":
             return f"[{seq}] {location} gains {event.get('tag_label') or 'a condition'}."
         if type_name == "tag.cleared":

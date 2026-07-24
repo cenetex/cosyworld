@@ -850,6 +850,24 @@ mod tests {
         let room_after = serde_json::to_string(&runtime.room_sheet_view(waypoint_id)).unwrap();
         assert!(room_after.contains("fish_rich_water"));
         assert!(room_after.contains("fishery"));
+        let completed_question = runtime
+            .shared_question_views(waypoint_id, Some(5000))
+            .into_iter()
+            .find(|question| question.id == job_id)
+            .expect("revealed feature remains legible as completed shared knowledge");
+        assert_eq!(
+            completed_question.completion_memory.as_deref(),
+            Some(
+                "Travelers found fish-rich water here; it can support Fishery, Smokehouse, and Boathouse."
+            )
+        );
+        assert_eq!(
+            completed_question.situation,
+            completed_question
+                .completion_memory
+                .clone()
+                .expect("completed investigation has durable one-sentence memory")
+        );
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
             .expect("natural projection survives snapshot restore");
