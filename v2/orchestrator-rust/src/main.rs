@@ -28318,8 +28318,7 @@ async fn create_avatar(
     let selection_requested = payload.character_creation_id.is_some()
         || payload.character_choice_id.is_some()
         || payload.species_id.is_some()
-        || payload.origin_id.is_some()
-        || payload.calling.is_none();
+        || payload.origin_id.is_some();
     let character_selection = if selection_requested {
         let Some(selection) = character_creation_selection(
             payload.character_creation_id.as_deref(),
@@ -55411,6 +55410,42 @@ mod tests {
                 .unwrap_or_else(|| panic!("{type_name} should promise a resident reaction"));
             assert_eq!(reply.speaker_actor_id, RATI_ACTOR_ID, "{type_name}");
         }
+    }
+
+    #[tokio::test]
+    async fn avatar_creation_without_campaign_ids_defaults_to_the_shared_cottage() {
+        let state = test_app_state(RuntimeWorld::seeded(), None);
+        let response = create_avatar(
+            ConnectInfo("127.0.0.1:45109".parse().expect("client address")),
+            State(state.clone()),
+            Json(CreateAvatarRequest {
+                name: Some("Terminal Sprig".to_string()),
+                calling: None,
+                wallet_session: None,
+                character_creation_id: None,
+                character_choice_id: None,
+                species_id: None,
+                origin_id: None,
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok, "{response:?}");
+        let actor = response.actor.expect("shared-world avatar");
+        assert_eq!(actor.location_id, COSY_COTTAGE_LOCATION_ID);
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime
+                .callings
+                .get(&actor.id)
+                .map(|calling| calling.statement.as_str()),
+            Some(default_calling_statement())
+        );
+        assert!(
+            !runtime.character_identities.contains_key(&actor.id),
+            "optional campaign identity requires explicit campaign ids"
+        );
     }
 
     #[tokio::test]
