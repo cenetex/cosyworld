@@ -19993,6 +19993,10 @@ impl RuntimeWorld {
         let actor = self.actor_by_id(actor_id)?;
         self.active_chat_targets(actor_id)
             .into_iter()
+            .filter(|target| {
+                !self.actor_control_mode(target.id).is_direct_input()
+                    && !self.actors_blocked(actor_id, target.id)
+            })
             .find_map(|target| {
                 self.actor_held_items(target.id)
                     .into_iter()
@@ -42314,6 +42318,7 @@ mod tests {
             "/actions/transfer-offer",
             "/actions/actor-safety",
             "function eventIsMuted",
+            "Boolean(actor && actor.control_mode !== \"direct_input\")",
         ] {
             assert!(
                 INDEX_HTML.contains(contract),
@@ -53982,6 +53987,56 @@ mod tests {
     }
 
     #[test]
+    fn theft_targets_inference_controllers_and_fails_closed_for_players_and_blocks() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Would-be Thief",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Protected Holder",
+        );
+        let tonic = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == 2001)
+            .expect("Hearth Tonic exists");
+        tonic.location_id = 0;
+        tonic.holder_actor_id = 5001;
+        tonic.zone = CW_CARD_ZONE_CARRIED;
+
+        assert!(
+            runtime.default_theft_candidate(5000).is_none(),
+            "a direct-input avatar never becomes an implicit theft target"
+        );
+
+        runtime.actor_autonomy.entry(5001).or_default().control_mode = ActorControlMode::LocalAi;
+        let (target, item) = runtime
+            .default_theft_candidate(5000)
+            .expect("the same avatar is eligible when inference controls it");
+        assert_eq!(target.id, 5001);
+        assert_eq!(item.id, 2001);
+
+        runtime
+            .actor_safety
+            .entry(5001)
+            .or_default()
+            .blocked_actor_ids
+            .insert(5000);
+        assert!(
+            runtime.default_theft_candidate(5000).is_none(),
+            "a block in either direction removes the theft target"
+        );
+    }
+
+    #[test]
     fn banked_advancement_points_train_once_per_rest_and_skill_bonus() {
         let mut runtime = RuntimeWorld::seeded();
         assert_eq!(normalize_skill_id("nimble_hands"), Some("nimble_hands"));
@@ -56335,6 +56390,48 @@ mod tests {
             .options
             .iter()
             .any(|option| matches!(option.kind.as_str(), "prepare" | "work" | "help")));
+    }
+
+    #[test]
+    fn combat_jobs_target_inference_controllers_and_fail_closed_for_players_and_blocks() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Consent Checker",
+        );
+        assert_eq!(
+            runtime.combat_job_for_actor(5000, Some(1004)),
+            Some((MOONLIT_JOB_ID.to_string(), 1004)),
+            "the authored inference-controlled encounter remains playable"
+        );
+
+        runtime
+            .actor_autonomy
+            .get_mut(&1004)
+            .expect("encounter target has controller provenance")
+            .control_mode = ActorControlMode::DirectInput;
+        assert!(
+            runtime.combat_job_for_actor(5000, Some(1004)).is_none(),
+            "a directly controlled avatar is not implicit combat consent"
+        );
+
+        runtime
+            .actor_autonomy
+            .get_mut(&1004)
+            .expect("encounter target retains controller provenance")
+            .control_mode = ActorControlMode::LocalAi;
+        runtime
+            .actor_safety
+            .entry(5000)
+            .or_default()
+            .blocked_actor_ids
+            .insert(1004);
+        assert!(
+            runtime.combat_job_for_actor(5000, Some(1004)).is_none(),
+            "a block in either direction removes the combat target"
+        );
     }
 
     #[test]
@@ -59743,6 +59840,96 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
         assert!(!saw_reply, "no fallback reply should follow without AI");
+    }
+
+    #[test]
+    fn direct_player_economy_is_private_and_world_population_uses_controller_provenance() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Economy Viewer",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Private Holder",
+        );
+        let tonic = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == 2001)
+            .expect("Hearth Tonic exists");
+        tonic.location_id = 0;
+        tonic.holder_actor_id = 5001;
+        tonic.zone = CW_CARD_ZONE_CARRIED;
+
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        let viewer = state
+            .actors
+            .iter()
+            .find(|actor| actor.id == 5000)
+            .expect("viewing avatar is projected");
+        assert!(
+            viewer.resident_economy.is_some(),
+            "an avatar may inspect its own economy"
+        );
+        let other_player = state
+            .actors
+            .iter()
+            .find(|actor| actor.id == 5001)
+            .expect("co-present avatar is projected");
+        assert!(
+            other_player.resident_economy.is_none(),
+            "another direct player's private economy is not projected"
+        );
+        let inference_actor = state
+            .actors
+            .iter()
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("co-present inference avatar is projected");
+        assert!(
+            inference_actor.resident_economy.is_some(),
+            "inference-controlled economy remains a public world affordance"
+        );
+
+        let world = runtime.world_response(Some(5000), &AccessContext::default());
+        let cottage = world
+            .locations
+            .iter()
+            .find(|location| location.id == COSY_COTTAGE_LOCATION_ID)
+            .expect("Cottage is present in the world projection");
+        assert_eq!(cottage.actor_count, cottage.actors.len());
+        assert_eq!(
+            cottage.direct_input_actor_count + cottage.inference_actor_count,
+            cottage.actor_count
+        );
+        assert_eq!(
+            cottage.legacy_direct_input_actor_count,
+            cottage.direct_input_actor_count
+        );
+        assert_eq!(
+            cottage.legacy_inference_actor_count,
+            cottage.inference_actor_count
+        );
+        assert!(cottage
+            .actors
+            .iter()
+            .filter(|actor| actor.control_mode.is_direct_input())
+            .all(|actor| actor.resident_economy.is_none()));
+        let cottage_json = serde_json::to_value(cottage).expect("serialize location projection");
+        assert_eq!(
+            cottage_json["human_count"],
+            cottage_json["direct_input_actor_count"]
+        );
+        assert_eq!(
+            cottage_json["resident_count"],
+            cottage_json["inference_actor_count"]
+        );
     }
 
     #[test]

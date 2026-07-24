@@ -144,7 +144,11 @@ The Rust orchestrator currently owns:
   composition traces, and stale/tampered submission rejection.
 - Signed-ownership item materialization with durable receipts, reversible
   Collection returns, and possession provenance.
-- Session-touched and heartbeat-refreshed live human presence, so stale generated avatars do not crowd active rooms.
+- Session-touched and heartbeat-refreshed direct-input presence, so stale
+  directly controlled avatars do not crowd active rooms.
+- Controller-based safety policy: directly controlled avatars cannot be theft
+  or combat targets without durable consent, blocks fail closed, and private
+  economy details are visible only to the controlling avatar.
 - Generated human avatar flavor: name, title, description, and runtime avatar card.
 - Advancement-backed `Chat` for beginning a friendship, plus moderated human-authored `say` lines for shared room speech.
 - OpenAI-compatible contextual resident replies with no deterministic dialogue substitute when inference is unavailable.
@@ -666,6 +670,11 @@ Locations are live channels:
 
 - `/state?actor_id=...` returns the actor's current location, visible presence, available actions, active-human room turn state, and room-scoped recent events.
 - `/world?actor_id=...&actor_session=...&wallet_session=...` returns the shared room map, gated/public status, accessible room contents, and locked-room summaries without exposing locked actor/item details.
+- Each `/world` location reports `actor_count` as all visible avatars, plus
+  `direct_input_actor_count` and `inference_actor_count` from authoritative
+  controller provenance. The transitional `human_count` and `resident_count`
+  fields alias those controller counts for older clients; they no longer inspect
+  kernel actor kind.
 - `/stream?actor_id=...&actor_session=...&wallet_session=...` broadcasts accepted world events over SSE after filtering to public Cottage events plus rooms visible to that actor/wallet. SSE messages include the world event sequence as their event id, and reconnects can replay missed visible events with `after=<seq>` or the native `Last-Event-ID` header. A lagged broadcast receiver is closed so EventSource reconnects from its last delivered id instead of silently skipping room lines. If the bounded replay cannot reach the subscribe-time sequence, the stream emits a named `gap` event and the browser reloads `/state` before continuing live updates.
 - `/events` uses the same visibility query parameters for replay; walletless requests only receive public Cottage-visible events. The response is `{ "world_id": "world://cosyworld/official", "world_epoch": 1, "events": [...], "next_after": 123, "through_seq": 123, "caught_up": true }`, so each event's `seq` completes its canonical public identity tuple. Replay defaults to the latest 80 visible events, accepts `limit=...`, and caps explicit requests at 500. Polling clients pass `next_after` into the next request so the cursor advances across events hidden by room or card visibility; each request scans at most 1,000 raw events.
 - Human presence in `/state` and `/world` is filtered to the current actor plus recently touched actor sessions; durable old avatars are not treated as online occupants.

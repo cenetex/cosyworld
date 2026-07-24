@@ -223,6 +223,12 @@ pub(super) struct WorldLocationView {
     pub(super) access_reason: Option<String>,
     pub(super) card: CardView,
     pub(super) actor_count: usize,
+    pub(super) direct_input_actor_count: usize,
+    pub(super) inference_actor_count: usize,
+    #[serde(rename = "human_count")]
+    pub(super) legacy_direct_input_actor_count: usize,
+    #[serde(rename = "resident_count")]
+    pub(super) legacy_inference_actor_count: usize,
     pub(super) item_count: usize,
     pub(super) actors: Vec<ActorView>,
     pub(super) items: Vec<ItemView>,
@@ -1254,6 +1260,11 @@ impl RuntimeWorld {
         client_actor_id: Option<u64>,
     ) -> Option<ResidentEconomyView> {
         if !Self::actor_is_active_avatar(resident) {
+            return None;
+        }
+        if self.actor_control_mode(resident.id).is_direct_input()
+            && client_actor_id != Some(resident.id)
+        {
             return None;
         }
         let held_items_raw = self.actor_held_items(resident.id);
@@ -2325,11 +2336,12 @@ impl RuntimeWorld {
                             && !self.forgotten_search_item_at_location(*item, location.id)
                     })
                     .collect();
-                let actor_count = visible_actors_in_location
+                let actor_count = visible_actors_in_location.len();
+                let direct_input_actor_count = visible_actors_in_location
                     .iter()
-                    .copied()
-                    .filter(|actor| Self::actor_is_active_avatar(*actor))
+                    .filter(|actor| self.actor_control_mode(actor.id).is_direct_input())
                     .count();
+                let inference_actor_count = actor_count.saturating_sub(direct_input_actor_count);
                 let actors = accessible
                     .then(|| {
                         visible_actors_in_location
@@ -2392,6 +2404,10 @@ impl RuntimeWorld {
                     },
                     card,
                     actor_count,
+                    direct_input_actor_count,
+                    inference_actor_count,
+                    legacy_direct_input_actor_count: direct_input_actor_count,
+                    legacy_inference_actor_count: inference_actor_count,
                     item_count: items_in_location.len(),
                     actors,
                     items,
