@@ -24475,13 +24475,19 @@ impl RuntimeWorld {
         }
         let waiting_for_player_gift = self.resident_waits_for_player_gift(actor);
         let staying_with_active_job = self.resident_stays_with_active_job(actor);
-        if let Some(action) = self.resident_pending_proposed_action(actor) {
+        let pending_proposal = self
+            .resident_continuities
+            .get(&actor.id)
+            .and_then(|continuity| continuity.pending_action.as_ref());
+        if let Some(proposal) = pending_proposal {
+            let action = self.resident_pending_proposed_action(actor)?;
+            if !self.resident_proposed_action_matches_legal_offer(actor.id, proposal, &action) {
+                return None;
+            }
             if !(waiting_for_player_gift || staying_with_active_job)
                 || action.kind != CW_ACTION_MOVE
             {
-                if let Some(action) = self.fresh_resident_autonomy_action(actor, action) {
-                    return Some(action);
-                }
+                return self.fresh_resident_autonomy_action(actor, action);
             }
         }
         if let Some((item, target)) = self.resident_held_healing_item_for_target(actor) {
@@ -24597,6 +24603,89 @@ impl RuntimeWorld {
             }
         }
         None
+    }
+
+    fn resident_proposed_action_matches_legal_offer(
+        &self,
+        actor_id: u64,
+        proposal: &AvatarProposedAction,
+        action: &CwAction,
+    ) -> bool {
+        if action.actor_id != actor_id {
+            return false;
+        }
+        let offer_kind = match action.kind {
+            CW_ACTION_MOVE => "move",
+            CW_ACTION_PICK_UP_ITEM => "pick_up",
+            CW_ACTION_DROP_ITEM => "drop_item",
+            CW_ACTION_GIVE_ITEM => "give_item",
+            CW_ACTION_TRADE_ITEM => "trade_item",
+            CW_ACTION_USE_ITEM => "use_item",
+            _ => return false,
+        };
+        let (_, offers) = self.legal_action_candidates(Some(actor_id), &AccessContext::default());
+        offers
+            .iter()
+            .filter(|offer| offer.kind == offer_kind && action_offer_is_reachable(offer))
+            .any(|offer| match action.kind {
+                CW_ACTION_MOVE => offer.target.as_ref().is_some_and(|target| {
+                    target.kind == "location"
+                        && target.id == proposal.destination_location_id
+                        && target.id == Some(action.destination_location_id)
+                }),
+                CW_ACTION_PICK_UP_ITEM => {
+                    proposal.item_id == Some(action.item_id)
+                        && offer.target.as_ref().is_some_and(|target| {
+                            target.kind == "item" && target.id == Some(action.item_id)
+                        })
+                }
+                CW_ACTION_GIVE_ITEM => {
+                    proposal.item_id == Some(action.item_id)
+                        && proposal.target_actor_id == Some(action.target_actor_id)
+                        && self
+                            .actor_give_candidate(actor_id)
+                            .is_some_and(|(offered, target)| {
+                                offered.id == action.item_id
+                                    && target.id == action.target_actor_id
+                                    && offer.target.as_ref().is_some_and(|offer_target| {
+                                        offer_target.kind == "actor"
+                                            && offer_target.id == Some(target.id)
+                                    })
+                            })
+                }
+                CW_ACTION_TRADE_ITEM => {
+                    proposal.item_id == Some(action.item_id)
+                        && proposal.target_actor_id == Some(action.target_actor_id)
+                        && self.default_item_trade(actor_id).is_some_and(
+                            |(offered, target, requested)| {
+                                offered.id == action.item_id
+                                    && target.id == action.target_actor_id
+                                    && requested.id == action.target_item_id
+                                    && offer.target.as_ref().is_some_and(|offer_target| {
+                                        offer_target.kind == "item"
+                                            && offer_target.id == Some(requested.id)
+                                    })
+                            },
+                        )
+                }
+                CW_ACTION_USE_ITEM => {
+                    proposal.item_id == Some(action.item_id)
+                        && proposal.target_actor_id.unwrap_or(0) == action.target_actor_id
+                        && offer.target.as_ref().is_some_and(|target| {
+                            target.kind == "actor" && target.id == Some(action.target_actor_id)
+                        })
+                        && offer
+                            .provider
+                            .id
+                            .strip_prefix("item:")
+                            .and_then(|item_id| item_id.parse::<u64>().ok())
+                            == Some(action.item_id)
+                }
+                // Drop offers do not yet identify an authoritative item target,
+                // so model-proposed drops fail closed.
+                CW_ACTION_DROP_ITEM => false,
+                _ => false,
+            })
     }
 
     fn resident_stays_with_active_job(&self, actor: CwActor) -> bool {
@@ -70081,7 +70170,20 @@ mod tests {
         runtime.resident_memories.clear();
         runtime.resident_continuities.clear();
         hide_seed_items(&mut runtime);
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
 
+        let offered_destination = runtime
+            .legal_action_candidates(Some(RATI_ACTOR_ID), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| offer.kind == "move")
+            .and_then(|offer| offer.target)
+            .and_then(|target| target.id)
+            .expect("one authoritative Move target");
         runtime.apply_resident_intent_projection(
             RATI_ACTOR_ID,
             &AvatarIntentProposal {
@@ -70095,8 +70197,8 @@ mod tests {
                     kind: "move".to_string(),
                     target_actor_id: None,
                     item_id: None,
-                    destination_location_id: Some(RAIN_SOFT_GARDEN_LOCATION_ID),
-                    reason: Some("the garden is the next reachable room".to_string()),
+                    destination_location_id: Some(offered_destination),
+                    reason: Some("the offered path is the next reachable room".to_string()),
                 }),
             },
             "resident_intent",
@@ -70107,7 +70209,7 @@ mod tests {
             .resident_economy_autonomy_action(rati)
             .expect("pending resident intent becomes a kernel action");
         assert_eq!(action.kind, CW_ACTION_MOVE);
-        assert_eq!(action.destination_location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
+        assert_eq!(action.destination_location_id, offered_destination);
 
         let (status, events) = runtime.apply_journal_record(&JournalRecord::new(action, 70672));
         assert_eq!(status, CW_OK);
@@ -70123,6 +70225,82 @@ mod tests {
             .desires
             .iter()
             .any(|note| note.text.contains("check Rain-Soft Garden")));
+    }
+
+    #[test]
+    fn resident_proposal_outside_the_enumerated_target_fails_closed() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.world.tick = 0;
+        runtime.resident_memories.clear();
+        runtime.resident_continuities.clear();
+        hide_seed_items(&mut runtime);
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
+
+        let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        let proposed_destination = MOONLIT_TRAIL_LOCATION_ID;
+        assert!(!runtime
+            .legal_action_candidates(Some(rati.id), &AccessContext::default())
+            .1
+            .into_iter()
+            .any(|offer| {
+                offer.kind == "move"
+                    && offer
+                        .target
+                        .as_ref()
+                        .is_some_and(|target| target.id == Some(proposed_destination))
+            }));
+        runtime.apply_resident_intent_projection(
+            rati.id,
+            &AvatarIntentProposal {
+                speech: "I should take the other path.".to_string(),
+                intent: Some("move somewhere else".to_string()),
+                belief: None,
+                desire: None,
+                promise: None,
+                refusal: None,
+                proposed_action: Some(AvatarProposedAction {
+                    kind: "move".to_string(),
+                    target_actor_id: None,
+                    item_id: None,
+                    destination_location_id: Some(proposed_destination),
+                    reason: Some("model-selected alternative".to_string()),
+                }),
+            },
+            "resident_intent",
+        );
+        let proposed = runtime
+            .resident_pending_proposed_action(rati)
+            .expect("the proposal maps to its next kernel-legal step");
+        assert_eq!(
+            proposed.destination_location_id,
+            RAIN_SOFT_GARDEN_LOCATION_ID
+        );
+        assert!(runtime.kernel_offer_allows_action(&proposed));
+        let proposal = runtime
+            .resident_continuities
+            .get(&rati.id)
+            .and_then(|continuity| continuity.pending_action.as_ref())
+            .expect("proposal remains pending");
+        assert!(!runtime.resident_proposed_action_matches_legal_offer(rati.id, proposal, &proposed));
+        let before_location = runtime
+            .actor_by_id(rati.id)
+            .expect("Rati remains")
+            .location_id;
+        let before_seq = runtime.world.next_event_seq;
+
+        assert!(runtime.resident_economy_autonomy_action(rati).is_none());
+        assert_eq!(
+            runtime
+                .actor_by_id(rati.id)
+                .expect("Rati remains")
+                .location_id,
+            before_location
+        );
+        assert_eq!(runtime.world.next_event_seq, before_seq);
     }
 
     #[test]
