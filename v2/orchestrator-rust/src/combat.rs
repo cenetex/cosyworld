@@ -407,12 +407,7 @@ pub(super) async fn apply_combat_choice(
         }
     } else if !runtime.combat_actor_is_participant(encounter_id, actor_id) {
         let record = JournalRecord::new(
-            CwAction {
-                kind: CW_ACTION_COMBAT_JOIN,
-                actor_id,
-                content_id: encounter_id,
-                ..CwAction::default()
-            },
+            combat_join_action(actor_id, encounter_id),
             runtime.next_seed_value(),
         )
         .into_system();
@@ -603,6 +598,18 @@ pub(super) async fn apply_combat_choice(
     })
 }
 
+fn combat_join_action(actor_id: u64, encounter_id: u64) -> CwAction {
+    CwAction {
+        kind: CW_ACTION_COMBAT_JOIN,
+        actor_id,
+        content_id: encounter_id,
+        // New journal records declare encounter allegiance explicitly. A zero
+        // modifier remains reserved for historical replay.
+        modifier: 1,
+        ..CwAction::default()
+    }
+}
+
 pub(super) fn combat_encounter_id(job_id: &str) -> u64 {
     let mut hash = 0xcbf2_9ce4_8422_2325u64;
     // Encounter identity predates the finesse rules and remains stable across
@@ -616,4 +623,18 @@ pub(super) fn combat_encounter_id(job_id: &str) -> u64 {
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
     hash.max(1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_combat_join_records_declare_the_initiating_side() {
+        let action = combat_join_action(5001, 9001);
+        assert_eq!(action.kind, CW_ACTION_COMBAT_JOIN);
+        assert_eq!(action.actor_id, 5001);
+        assert_eq!(action.content_id, 9001);
+        assert_eq!(action.modifier, 1);
+    }
 }

@@ -11,6 +11,13 @@ static cw_item *test_find_item(cw_world *world, cw_id item_id) {
   return 0;
 }
 
+static cw_actor *test_find_actor(cw_world *world, cw_id actor_id) {
+  for (size_t i = 0; i < world->actor_count; ++i) {
+    if (world->actors[i].id == actor_id) return &world->actors[i];
+  }
+  return 0;
+}
+
 static void test_kernel_capacities_are_runtime_sized(void) {
   assert(CW_MAX_ACTORS >= 512u);
   assert(CW_MAX_ITEMS >= 1024u);
@@ -1223,6 +1230,62 @@ static void test_search_and_craft_create_without_consuming_inputs(void) {
   assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
 }
 
+static uint8_t test_combat_side(const cw_combat_encounter *encounter, cw_id actor_id) {
+  for (size_t i = 0; i < encounter->participant_count; ++i) {
+    if (encounter->participants[i].actor_id == actor_id) {
+      return encounter->participants[i].side;
+    }
+  }
+  return 0;
+}
+
+static void test_combat_join_preserves_legacy_sides_and_accepts_explicit_sides(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_action create = {0};
+  create.kind = CW_ACTION_CREATE_ACTOR;
+  create.location_id = 3;
+  create.actor_id = 5001;
+  assert(cw_world_apply(&world, &create, 901, &events) == CW_OK);
+  create.actor_id = 5002;
+  assert(cw_world_apply(&world, &create, 902, &events) == CW_OK);
+
+  cw_actor *initiator = test_find_actor(&world, 5001);
+  cw_actor *legacy_human = test_find_actor(&world, 5002);
+  cw_actor *legacy_npc = test_find_actor(&world, 1001);
+  cw_actor *explicit_npc = test_find_actor(&world, 1002);
+  cw_actor *target = test_find_actor(&world, 1004);
+  assert(initiator && legacy_human && legacy_npc && explicit_npc && target);
+  legacy_npc->location_id = 3;
+  explicit_npc->location_id = 3;
+
+  cw_action start = {0};
+  start.kind = CW_ACTION_COMBAT_START;
+  start.actor_id = initiator->id;
+  start.target_actor_id = target->id;
+  start.content_id = 9901;
+  assert(cw_world_apply(&world, &start, 903, &events) == CW_OK);
+
+  cw_action join = {0};
+  join.kind = CW_ACTION_COMBAT_JOIN;
+  join.content_id = start.content_id;
+  join.actor_id = legacy_human->id;
+  assert(cw_world_apply(&world, &join, 904, &events) == CW_OK);
+  join.actor_id = legacy_npc->id;
+  assert(cw_world_apply(&world, &join, 905, &events) == CW_OK);
+  join.actor_id = explicit_npc->id;
+  join.modifier = 1;
+  assert(cw_world_apply(&world, &join, 906, &events) == CW_OK);
+
+  const cw_combat_encounter *encounter = &world.combat_encounters[0];
+  assert(test_combat_side(encounter, legacy_human->id) == 1);
+  assert(test_combat_side(encounter, legacy_npc->id) == 2);
+  assert(test_combat_side(encounter, explicit_npc->id) == 1);
+}
+
 static void apply_replay_sequence(cw_world *world, cw_event *events, size_t *event_count) {
   cw_event_buffer buffer;
   *event_count = 0;
@@ -1297,6 +1360,7 @@ int main(void) {
   test_npc_pickup_can_evolve_self();
   test_inventory_uses_weight_and_container_capacity();
   test_search_and_craft_create_without_consuming_inputs();
+  test_combat_join_preserves_legacy_sides_and_accepts_explicit_sides();
   test_deterministic_replay();
   puts("cosy kernel tests passed");
   return 0;

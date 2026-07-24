@@ -1603,9 +1603,12 @@ static cw_status apply_combat_join(cw_world *world, const cw_action *action, uin
   cw_combat_participant *participant = &encounter->participants[encounter->participant_count++];
   memset(participant, 0, sizeof(*participant));
   participant->actor_id = actor->id;
-  /* Controller provenance is not a combat faction. Callers may choose side 2
-     explicitly; otherwise a joining actor joins the initiating side. */
-  participant->side = action->modifier == 2 ? 2 : 1;
+  /* A zero modifier is the historical journal shape and must retain the
+     original kind-based replay rule. New callers write side 1 or 2
+     explicitly so controller provenance is not used as a faction. */
+  participant->side = action->modifier == 1 || action->modifier == 2
+      ? (uint8_t)action->modifier
+      : (actor->kind == CW_ACTOR_HUMAN ? 1 : 2);
   participant->initiative = (int16_t)(raw + ability_modifier(actor->stats.dexterity));
   sort_combat_participants(encounter);
   for (size_t i = 0; i < encounter->participant_count; ++i) {
