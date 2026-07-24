@@ -527,14 +527,16 @@ Kinds: `aspect` (stable truth), `condition` (temporary/rule-facing), `memory` (p
 
 Progression is earned through play and never bought. It has three surfaces, deliberately light:
 
-- **Bracelet slots step up.** A skill exists in the world as an Item card—a
-  lucky raven feather, brass thimble, carved tooth, or similar charm. Banking
-  Visit Ledger progress unlocks another bracelet slot; it does not create a
-  charm. A charm's authored skill bonus applies only while the avatar possesses
-  and wears it. Gift, trade, drop, or steal the charm and its skill, bonus,
-  rarity, and provenance travel with it; the former holder loses access. A
-  rare skill still has to be found. The current avatar-owned skill-step field
-  is migration state, not the target model.
+- **Bracelet slots answer a concrete loadout need.** A skill exists in the world
+  as an Item card—a lucky raven feather, brass thimble, carved tooth, or similar
+  charm. Deck & Loadout offers `Make room for <Charm>` only when every current
+  slot is occupied, that specific unworn charm is carried, earned advancement
+  is ready, and the bracelet is below its cap. The spend opens one slot; it does
+  not create or equip the charm. A charm's authored skill bonus applies only
+  while the avatar possesses and wears it. Gift, trade, drop, or steal the charm
+  and its skill, bonus, rarity, and provenance travel with it; the former holder
+  loses access. A rare skill still has to be found. The current avatar-owned
+  skill-step field is migration state, not the target model.
 - **Items are the build and the common UI.** Weapons supply Attack profiles;
   skill charms supply check modifiers or specialist qualification; prepared or
   drawn spell cards supply bounded Magic effects; other gear carries charges,
@@ -547,11 +549,15 @@ Progression is earned through play and never bought. It has three surfaces, deli
   active, not how much the avatar can physically carry.
 - **Bonds, Callings, and Covenants are the long game.** Deep bonds unlock resident evolution and reactions; fulfilled callings define milestones; covenant projects open boons and expansions. These are the week-over-week goals the player sets for themselves.
 
-Banking the ledger at a milestone is where a player chooses *how* to grow —
-unlock a bracelet slot, add a bond slot, contribute to a covenant, or revise a
-Calling — so advancement is an expressive choice, not an automatic drip.
+A successful discovery writes its Visit Ledger marks and settles all eligible
+unbanked marks into advancement in the same journaled action. Historical marks,
+bank events, operation identities, snapshots, and replay order remain intact;
+an older save's unbanked marks join the next successful discovery settlement
+exactly once. The standalone Grow action is retired. Players still choose how
+to spend advancement—make room for a specific carried charm, add a bond slot,
+contribute to a covenant, or revise a Calling—so advancement remains expressive.
 Capacity and discovery remain separate: earning a second charm slot does not
-grant the second charm.
+grant or equip the second charm.
 
 ## Economy
 

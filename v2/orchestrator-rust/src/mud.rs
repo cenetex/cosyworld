@@ -129,7 +129,6 @@ pub(crate) enum CommandDispatch {
     Work,
     Help,
     Rest,
-    BankLedger,
     UnlockCharmSlot,
     SetCharmEquipped {
         item_id: u64,
@@ -460,9 +459,8 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::Work => "That work is not ready for you right now.",
         CommandDispatch::Help => "No one needs that kind of help here right now.",
         CommandDispatch::Rest => "You are already fresh enough to keep going.",
-        CommandDispatch::BankLedger => "You have not found anything to grow from yet.",
         CommandDispatch::UnlockCharmSlot => {
-            "That bracelet slot cannot open right now. Check your available advancement."
+            "That loadout need changed. Check Deck & Loadout for a specific charm."
         }
         CommandDispatch::SetCharmEquipped { .. } => {
             "That charm loadout changed while you were choosing. Check your carried deck."
@@ -480,7 +478,7 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::CreateBond { .. } => "There is not a friendship ready to grow just now.",
         CommandDispatch::ReviseBond { .. } => "That friendship cannot change right now.",
         CommandDispatch::TrainSkill { .. } => {
-            "Keep a memory, Grow from it, then you can practice that knack."
+            "Earn advancement through play, then you can practice that knack."
         }
         CommandDispatch::Say { .. } | CommandDispatch::Emote { .. } => {
             "The room did not hear that. Try once more."
@@ -901,9 +899,9 @@ fn journal_memory_summary(ledger: &VisitLedgerView) -> Option<&'static str> {
         (true, true, _) => Some(
             "Your journal holds something new, and a kept memory is ready to shape what comes next.",
         ),
-        (true, false, _) => {
-            Some("Your journal holds something new. Grow when you are ready to keep it.")
-        }
+        (true, false, _) => Some(
+            "Your journal holds an older unsettled memory. Your next successful discovery will settle it automatically.",
+        ),
         (false, true, _) => {
             Some("A kept memory is ready to shape a knack or friendship.")
         }
@@ -991,7 +989,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, deck, bracelet unlock, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, work, assist, rest, more, grow, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -1070,45 +1068,28 @@ impl RuntimeWorld {
                         },
                     });
                 }
-                if self.charm_slot_count(actor.id) >= MAX_CHARM_SLOTS {
+                let Some(charm) = self.charm_slot_expansion_candidate(actor.id) else {
                     return Ok(ResolvedCommand {
                         command: "bracelet unlock".to_string(),
                         verb,
-                        action: Some(command_action(
-                            "unlock_charm_slot",
-                            "Expand Bracelet",
-                            "bracelet unlock",
-                        )),
+                        action: None,
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Your bracelet already has every available charm slot."
-                                .to_string(),
+                            output: "Deck & Loadout offers bracelet space only when every current slot is full, you carry a specific unworn charm, earned advancement is ready, and the bracelet is below its cap.".to_string(),
                         },
                     });
-                }
-                if self.advancement_points_available(actor.id) < usize::from(CHARM_SLOT_COST) {
-                    return Ok(ResolvedCommand {
-                        command: "bracelet unlock".to_string(),
-                        verb,
-                        action: Some(command_action(
-                            "unlock_charm_slot",
-                            "Expand Bracelet",
-                            "bracelet unlock",
-                        )),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "Grow from a memory first. Advancement opens the slot; it never grants a charm."
-                                .to_string(),
-                        },
-                    });
-                }
+                };
+                let charm_name = self
+                    .item_name(charm.id)
+                    .unwrap_or_else(|| format!("Item {}", charm.id));
+                let label = format!("Make room for {charm_name}");
                 Ok(ResolvedCommand {
-                    command: "bracelet unlock".to_string(),
+                    command: format!("bracelet make room for {charm_name}"),
                     verb,
                     action: Some(command_action(
                         "unlock_charm_slot",
-                        "Expand Bracelet",
-                        "bracelet unlock",
+                        &label,
+                        &format!("bracelet make room for {charm_name}"),
                     )),
                     dispatch: CommandDispatch::UnlockCharmSlot,
                 })
@@ -1859,7 +1840,7 @@ impl RuntimeWorld {
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
                             output: format!(
-                                "Grow first, then Chat can begin a friendship with {target_name}."
+                                "Earn advancement first, then Chat can begin a friendship with {target_name}."
                             ),
                         },
                     });
@@ -2078,23 +2059,13 @@ impl RuntimeWorld {
                 },
             }),
             "bank" => {
-                let ledger = self.visit_ledger_view(actor.id);
-                if ledger.unbanked_count == 0 {
-                    return Ok(ResolvedCommand {
-                        command: "bank ledger".to_string(),
-                        verb,
-                        action: Some(command_action("bank_ledger", "Grow", "bank ledger")),
-                        dispatch: CommandDispatch::Disabled {
-                            status: 409,
-                            output: "You have not found anything to grow from yet.".to_string(),
-                        },
-                    });
-                }
                 Ok(ResolvedCommand {
                     command: "bank ledger".to_string(),
                     verb,
-                    action: Some(command_action("bank_ledger", "Grow", "bank ledger")),
-                    dispatch: CommandDispatch::BankLedger,
+                    action: None,
+                    dispatch: CommandDispatch::Read {
+                        output: "That standalone progress command has retired. A successful Notice or Study records and settles earned advancement in the same action; older unsettled memories join that settlement once.".to_string(),
+                    },
                 })
             }
             "skill" => {
@@ -2164,7 +2135,8 @@ impl RuntimeWorld {
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Grow from a memory first, then practice a knack.".to_string(),
+                            output: "Earn advancement through play first, then practice a knack."
+                                .to_string(),
                         },
                     });
                 }
@@ -2205,7 +2177,7 @@ impl RuntimeWorld {
                         action: Some(command_action("revise_calling", "Change Purpose", &payload.command)),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Grow first, then you can choose a new purpose."
+                            output: "Earn advancement first, then you can choose a new purpose."
                                 .to_string(),
                         },
                     });
@@ -2292,13 +2264,13 @@ impl RuntimeWorld {
                             verb,
                             action: Some(command_action(
                                 "create_bond",
-                                "Grow Closer",
+                                "Deepen Friendship",
                                 &format!("bond {target_name}: {statement}"),
                             )),
                             dispatch: CommandDispatch::Disabled {
                                 status: 409,
                                 output: format!(
-                                    "Grow first, then you can grow closer to {target_name}."
+                                    "Earn advancement first, then you can grow closer to {target_name}."
                                 ),
                             },
                         });
@@ -2308,7 +2280,7 @@ impl RuntimeWorld {
                         verb,
                         action: Some(command_action(
                             "create_bond",
-                            "Grow Closer",
+                            "Deepen Friendship",
                             &format!("bond {target_name}: {statement}"),
                         )),
                         dispatch: CommandDispatch::CreateBond {
@@ -2328,7 +2300,7 @@ impl RuntimeWorld {
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Grow first, then you can see this friendship differently."
+                            output: "Earn advancement first, then you can see this friendship differently."
                                 .to_string(),
                         },
                     });
@@ -2559,7 +2531,7 @@ impl RuntimeWorld {
                 &command,
                 &verb,
                 404,
-                "I do not know that one yet. Try help, look, search, who, go, say, take, give, chat, listen, grow, practice, purpose, friendship, remember, rest, pass, need time, or more.",
+                "I do not know that one yet. Try help, look, search, who, go, say, take, give, chat, listen, practice, purpose, friendship, remember, rest, pass, need time, or more.",
             )),
         }
     }

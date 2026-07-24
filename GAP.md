@@ -388,7 +388,7 @@ Status: `Partial`. This section summarizes status at a glance; `docs/systems/09-
 Evidence:
 
 - `v2/content/core/clocks.json`, `jobs.json`, `factions.json`, `fronts.json`, `access_gates.json`, `lifecycle_hooks.json`, `room_sheets.json`.
-- Live routes: `/actions/prepare`, `/actions/rest`, `/actions/work`, `/actions/help`, `/actions/bank-ledger`, `/actions/revise-calling`, `/actions/create-bond`, `/actions/revise-bond`, `/actions/train-skill`, `/actions/resolve-bond`.
+- Live progression routes include `/actions/prepare`, `/actions/rest`, `/actions/work`, `/actions/help`, `/actions/revise-calling`, `/actions/create-bond`, `/actions/revise-bond`, `/actions/train-skill`, and `/actions/resolve-bond`. Discovery now settles Visit Ledger growth in the same action; the old `/actions/bank-ledger` route remains compatibility-only and is not offered to new clients.
 - RPG Bible "Runtime status" note (Phases 1-4 landed in some form, Phase 3/4 described as "first slice landed").
 
 Implemented (per the RPG Bible's own tracking):

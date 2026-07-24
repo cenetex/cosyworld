@@ -918,6 +918,9 @@ enum ProjectionMutation {
     BankVisitLedger {
         reason: String,
     },
+    SettleVisitLedgerAfterDiscovery {
+        reason: String,
+    },
     MarkVisitLedger {
         category: String,
         label: String,
@@ -955,6 +958,11 @@ enum ProjectionMutation {
         reason: String,
     },
     UnlockCharmSlot {
+        cost: u8,
+        reason: String,
+    },
+    UnlockCharmSlotForCharm {
+        item_id: u64,
         cost: u8,
         reason: String,
     },
@@ -8974,7 +8982,22 @@ impl RuntimeWorld {
             events.extend(self.apply_resident_feature_bond_projection(&events));
             events.extend(self.apply_resident_witness_ledger_projection(&events));
             self.record_listen_attempt(&action, &events);
-            events.extend(self.apply_listen_rpg_projection(&action, &events, was_repeat_listen));
+            let discovery_settlement_reason =
+                record
+                    .projection_mutations
+                    .iter()
+                    .find_map(|mutation| match mutation {
+                        ProjectionMutation::SettleVisitLedgerAfterDiscovery { reason } => {
+                            Some(reason.as_str())
+                        }
+                        _ => None,
+                    });
+            events.extend(self.apply_listen_rpg_projection(
+                &action,
+                &events,
+                was_repeat_listen,
+                discovery_settlement_reason,
+            ));
             let committed_events = events.clone();
             events.extend(self.clear_job_resolved_tags_from_events(&committed_events));
             self.apply_automatic_orb_rewards(&action, &events);
@@ -9734,6 +9757,11 @@ impl RuntimeWorld {
                         events.push(event);
                     }
                 }
+                ProjectionMutation::SettleVisitLedgerAfterDiscovery { .. } => {
+                    // Discovery settlement runs after the current action's marks
+                    // have been projected. Keeping this as an explicit journal
+                    // mutation preserves the historical order for older records.
+                }
                 ProjectionMutation::MarkVisitLedger {
                     category,
                     label,
@@ -9812,6 +9840,18 @@ impl RuntimeWorld {
                 }
                 ProjectionMutation::UnlockCharmSlot { cost, reason } => {
                     events.extend(self.unlock_charm_slot(action.actor_id, *cost, reason));
+                }
+                ProjectionMutation::UnlockCharmSlotForCharm {
+                    item_id,
+                    cost,
+                    reason,
+                } => {
+                    events.extend(self.unlock_charm_slot_for_charm(
+                        action.actor_id,
+                        *item_id,
+                        *cost,
+                        reason,
+                    ));
                 }
                 ProjectionMutation::SetCharmEquipped {
                     item_id,
@@ -10600,6 +10640,7 @@ impl RuntimeWorld {
         action: &CwAction,
         events: &[EventView],
         was_repeat_listen: bool,
+        settlement_reason: Option<&str>,
     ) -> Vec<EventView> {
         if !action_is_discovery_check(action) {
             return Vec::new();
@@ -10625,8 +10666,10 @@ impl RuntimeWorld {
                 .zip(listen_event.dc)
                 .map(|(total, dc)| total >= dc)
                 .unwrap_or(false);
-        if let Some(event) = self.bank_visit_ledger(action.actor_id, discovery_mode) {
-            projected.push(event);
+        if settlement_reason.is_none() {
+            if let Some(event) = self.bank_visit_ledger(action.actor_id, discovery_mode) {
+                projected.push(event);
+            }
         }
         if listen_succeeded {
             projected.extend(self.apply_listen_ledger_projection(
@@ -10645,6 +10688,11 @@ impl RuntimeWorld {
                 action.actor_id,
                 listen_event.seq,
             ));
+            if let Some(reason) = settlement_reason {
+                if let Some(event) = self.bank_visit_ledger(action.actor_id, reason) {
+                    projected.push(event);
+                }
+            }
         }
 
         if was_repeat_listen && self.location_is_frontier(location_id) {
@@ -11411,6 +11459,32 @@ impl RuntimeWorld {
     }
 
     fn unlock_charm_slot(&mut self, actor_id: u64, cost: u8, reason: &str) -> Vec<EventView> {
+        self.unlock_charm_slot_with_demand(actor_id, None, cost, reason)
+    }
+
+    fn unlock_charm_slot_for_charm(
+        &mut self,
+        actor_id: u64,
+        item_id: u64,
+        cost: u8,
+        reason: &str,
+    ) -> Vec<EventView> {
+        if self
+            .charm_slot_expansion_candidate(actor_id)
+            .is_none_or(|candidate| candidate.id != item_id)
+        {
+            return Vec::new();
+        }
+        self.unlock_charm_slot_with_demand(actor_id, Some(item_id), cost, reason)
+    }
+
+    fn unlock_charm_slot_with_demand(
+        &mut self,
+        actor_id: u64,
+        charm_item_id: Option<u64>,
+        cost: u8,
+        reason: &str,
+    ) -> Vec<EventView> {
         let current_slots = self.charm_slot_count(actor_id);
         if cost == 0
             || current_slots >= MAX_CHARM_SLOTS
@@ -11418,12 +11492,16 @@ impl RuntimeWorld {
         {
             return Vec::new();
         }
+        let charm_name = charm_item_id.and_then(|item_id| self.item_name(item_id));
         let spend_seq = self.world.next_event_seq;
         let spend = AdvancementSpendState {
             id: advancement_spend_id(actor_id, "charm_slot", spend_seq),
             actor_id,
             kind: "charm_slot".to_string(),
-            label: "Bracelet charm slot".to_string(),
+            label: charm_name
+                .as_ref()
+                .map(|name| format!("Make room for {name}"))
+                .unwrap_or_else(|| "Bracelet charm slot".to_string()),
             cost,
             source_event_seq: spend_seq,
         };
@@ -11435,12 +11513,18 @@ impl RuntimeWorld {
         let mut events = vec![self.append_advancement_event("advancement.spent", &spend, reason)];
         let next_slots = current_slots.saturating_add(1).min(MAX_CHARM_SLOTS);
         self.charm_slots.insert(actor_id, next_slots);
-        events.push(self.append_deck_event(
-            "charm_slot.unlocked",
-            actor_id,
-            None,
-            format!("bracelet_slots:{next_slots}:{reason}"),
-        ));
+        events.push(
+            self.append_deck_event(
+                "charm_slot.unlocked",
+                actor_id,
+                charm_item_id,
+                charm_name
+                    .map(|name| {
+                        format!("bracelet_slots:{next_slots}:make_room_for:{name}:{reason}")
+                    })
+                    .unwrap_or_else(|| format!("bracelet_slots:{next_slots}:{reason}")),
+            ),
+        );
         events
     }
 
@@ -12958,6 +13042,28 @@ impl RuntimeWorld {
             .collect()
     }
 
+    fn charm_slot_expansion_candidate(&self, actor_id: u64) -> Option<CwItem> {
+        let slots = self.charm_slot_count(actor_id);
+        if slots >= MAX_CHARM_SLOTS
+            || self.advancement_points_available(actor_id) < usize::from(CHARM_SLOT_COST)
+        {
+            return None;
+        }
+        let equipped = self.equipped_charm_items(actor_id);
+        if equipped.len() != usize::from(slots) {
+            return None;
+        }
+        let equipped_ids = equipped
+            .into_iter()
+            .map(|item| item.id)
+            .collect::<BTreeSet<_>>();
+        self.actor_held_items(actor_id).into_iter().find(|item| {
+            item.role == CW_ITEM_ROLE_SKILL_CHARM
+                && item.zone != CW_CARD_ZONE_EQUIPPED
+                && !equipped_ids.contains(&item.id)
+        })
+    }
+
     fn deck_view(&self, actor_id: Option<u64>) -> DeckView {
         let Some(actor_id) = actor_id else {
             return DeckView {
@@ -12970,6 +13076,7 @@ impl RuntimeWorld {
                 bracelet_slots: 0,
                 equipped_charms: Vec::new(),
                 available_charms: Vec::new(),
+                charm_slot_expansion: None,
                 spell_cards: Vec::new(),
                 prepared_spell_cards: Vec::new(),
                 exhausted_spell_cards: Vec::new(),
@@ -12984,6 +13091,27 @@ impl RuntimeWorld {
             };
         };
         let carried = self.actor_held_items(actor_id);
+        let charm_slot_expansion =
+            self.charm_slot_expansion_candidate(actor_id).map(|charm| {
+                let name = self
+                    .item_name(charm.id)
+                    .unwrap_or_else(|| format!("Item {}", charm.id));
+                let description = self
+                    .items
+                    .get(&charm.id)
+                    .map(|meta| meta.description.trim())
+                    .filter(|description| !description.is_empty())
+                    .unwrap_or("This charm could add another knack to your bracelet.");
+                let advancement = self.advancement_points_available(actor_id);
+                CharmSlotExpansionView {
+                    charm: self.item_view(charm),
+                    label: format!("Make room for {name}"),
+                    explanation: format!(
+                        "{description} Your Journal holds {advancement} earned advancement; spend {CHARM_SLOT_COST} to open one slot. The charm stays carried until you choose to wear it."
+                    ),
+                    advancement_cost: CHARM_SLOT_COST,
+                }
+            });
         let equipped_ids = self
             .equipped_charm_items(actor_id)
             .into_iter()
@@ -13105,6 +13233,7 @@ impl RuntimeWorld {
                 })
                 .map(|item| self.item_view(item))
                 .collect(),
+            charm_slot_expansion,
             spell_cards: carried
                 .iter()
                 .copied()
@@ -18233,10 +18362,6 @@ impl RuntimeWorld {
         let can_work = self.work_available(actor_id);
         let can_help = self.help_available(actor_id);
         let can_rest = self.rest_available(actor_id);
-        let has_unbanked_ledger = self.unbanked_visit_ledger_count(actor_id) > 0;
-        let can_unlock_charm_slot = self.advancement_points_available(actor_id)
-            >= usize::from(CHARM_SLOT_COST)
-            && self.charm_slot_count(actor_id) < MAX_CHARM_SLOTS;
         let can_create_bond = self.default_bondable_resident(actor_id).is_some();
         let can_resolve_bond = self.default_resolvable_bond(actor_id).is_some();
         let can_cast_spell = self.default_spell_card(actor_id).is_some();
@@ -18255,13 +18380,7 @@ impl RuntimeWorld {
             });
         }
         if offers.option_flags & CW_OFFER_CHECK != 0 {
-            if has_unbanked_ledger {
-                options.push(ActionOption {
-                    kind: "bank_ledger".to_string(),
-                    label: "Grow".to_string(),
-                    command: "bank ledger".to_string(),
-                });
-            } else if self.listen_offerable(actor_id) {
+            if self.listen_offerable(actor_id) {
                 options.push(ActionOption {
                     kind: "check".to_string(),
                     label: "Check".to_string(),
@@ -18413,13 +18532,6 @@ impl RuntimeWorld {
                 command: "cast steady light".to_string(),
             });
         }
-        if can_unlock_charm_slot {
-            options.push(ActionOption {
-                kind: "unlock_charm_slot".to_string(),
-                label: "Expand Bracelet".to_string(),
-                command: "unlock charm slot".to_string(),
-            });
-        }
         if can_create_bond {
             let command = self
                 .default_bond_command(actor_id)
@@ -18472,8 +18584,6 @@ impl RuntimeWorld {
                 "work" if self.work_finishes_active_progress(actor_id) => "Finish",
                 "work" => "Work",
                 "help" => "Help",
-                "bank_ledger" => "Grow",
-                "unlock_charm_slot" => "Expand Bracelet",
                 "create_bond" => "Chat",
                 "resolve_bond" => "Remember",
                 _ => "Act",
@@ -18504,8 +18614,6 @@ impl RuntimeWorld {
                 "prepare" => "prepare".to_string(),
                 "work" => "work".to_string(),
                 "help" => "assist".to_string(),
-                "bank_ledger" => "bank ledger".to_string(),
-                "unlock_charm_slot" => "unlock charm slot".to_string(),
                 "create_bond" => self
                     .default_bond_command(actor_id)
                     .unwrap_or_else(|| "bond".to_string()),
@@ -18831,13 +18939,6 @@ impl RuntimeWorld {
                 _ => {}
             }
         }
-        if kind == "bank_ledger" && self.unbanked_visit_ledger_count(actor_id) > 0 {
-            return if self.rest_available(actor_id) {
-                24
-            } else {
-                34
-            };
-        }
         if kind == "check"
             && self
                 .actor_by_id(actor_id)
@@ -18854,9 +18955,6 @@ impl RuntimeWorld {
                 .is_some_and(|actor| !self.location_is_frontier(actor.location_id))
         {
             return 84;
-        }
-        if kind == "unlock_charm_slot" && self.default_bondable_resident(actor_id).is_some() {
-            return 78;
         }
         action_offer_rank(kind)
     }
@@ -18972,9 +19070,8 @@ impl RuntimeWorld {
             );
         }
 
-        if matches!(kind, "bank_ledger" | "train_skill" | "create_bond") {
+        if matches!(kind, "train_skill" | "create_bond") {
             let reason = match kind {
-                "bank_ledger" => "From what your Journal remembers",
                 "train_skill" => "From growth recorded in your Journal",
                 "create_bond" => "From growth recorded in your Journal",
                 _ => unreachable!(),
@@ -19613,10 +19710,6 @@ impl RuntimeWorld {
                     )
                 }),
             "check" => {
-                let unbanked = self.unbanked_visit_ledger_count(actor_id);
-                if unbanked > 0 {
-                    return Some("keeps what this visit taught you".to_string());
-                }
                 if self.listen_attempt_claimed_at(actor_id, actor.location_id) {
                     return Some(
                         "listens once more, though the room may have nothing new yet"
@@ -19746,12 +19839,6 @@ impl RuntimeWorld {
                     "creates {output} from present items without consuming the inputs"
                 )
             }),
-            "bank_ledger" => {
-                let count = self.unbanked_visit_ledger_count(actor_id);
-                (count > 0).then(|| "lets this visit become part of you".to_string())
-            }
-            "unlock_charm_slot" => (self.charm_slot_count(actor_id) < MAX_CHARM_SLOTS)
-                .then(|| "opens room for one more found skill charm; no charm is granted".to_string()),
             "create_bond" => self.default_bondable_resident(actor_id).and_then(|target| {
                 self.actor_name(target.id)
                     .map(|name| format!("a friendship with {name} begins"))
@@ -22724,11 +22811,14 @@ fn hosted_guest_progression_mutation_restricted(mutation: &ProjectionMutation) -
             | ProjectionMutation::SetJobStatus { .. }
             | ProjectionMutation::LegacyAcceptQuest { .. }
             | ProjectionMutation::BankVisitLedger { .. }
+            | ProjectionMutation::SettleVisitLedgerAfterDiscovery { .. }
             | ProjectionMutation::MarkVisitLedger { .. }
             | ProjectionMutation::ReviseCalling { .. }
             | ProjectionMutation::CreateBond { .. }
             | ProjectionMutation::ReviseBond { .. }
             | ProjectionMutation::TrainSkill { .. }
+            | ProjectionMutation::UnlockCharmSlot { .. }
+            | ProjectionMutation::UnlockCharmSlotForCharm { .. }
             | ProjectionMutation::DeepenBond { .. }
             | ProjectionMutation::ResolveBond { .. }
     )
@@ -29831,18 +29921,6 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
-        CommandDispatch::BankLedger => {
-            let Json(response) = bank_ledger(
-                ConnectInfo(client_addr),
-                State(state),
-                Json(ActorRequest {
-                    actor_id: payload.actor_id,
-                    actor_session: payload.actor_session,
-                }),
-            )
-            .await;
-            command_action_response_with_events(resolved, response, presence_events)
-        }
         CommandDispatch::UnlockCharmSlot => {
             let Json(response) = unlock_charm_slot(
                 ConnectInfo(client_addr),
@@ -35157,15 +35235,13 @@ async fn unlock_charm_slot(
     ) {
         return client_actor_rejected_response();
     }
-    if runtime.charm_slot_count(payload.actor_id) >= MAX_CHARM_SLOTS
-        || runtime.advancement_points_available(payload.actor_id) < usize::from(CHARM_SLOT_COST)
-    {
+    let Some(charm) = runtime.charm_slot_expansion_candidate(payload.actor_id) else {
         return Json(ActionResponse {
             ok: false,
             status: 409,
             events: Vec::new(),
         });
-    }
+    };
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -35177,9 +35253,10 @@ async fn unlock_charm_slot(
     .into_player_card();
     record
         .projection_mutations
-        .push(ProjectionMutation::UnlockCharmSlot {
+        .push(ProjectionMutation::UnlockCharmSlotForCharm {
+            item_id: charm.id,
             cost: CHARM_SLOT_COST,
-            reason: "advancement".to_string(),
+            reason: "deck_loadout".to_string(),
         });
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
@@ -36317,6 +36394,13 @@ async fn apply_and_broadcast_with_resident_reply_and_hosted_access(
         return response;
     }
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
+    if action_is_discovery_check(&record.action) {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::SettleVisitLedgerAfterDiscovery {
+                reason: "discovery".to_string(),
+            });
+    }
     record.hosted_access_grant = hosted_access_grant;
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         drop(runtime);
@@ -37872,7 +37956,7 @@ fn action_offer_hand_group(offer: &RankedActionOffer) -> String {
 fn action_offer_is_generally_useful(offer: &RankedActionOffer) -> bool {
     matches!(
         offer.kind.as_str(),
-        "check" | "search" | "move" | "chat" | "rest" | "bank_ledger"
+        "check" | "search" | "move" | "chat" | "rest"
     )
 }
 
@@ -37984,8 +38068,7 @@ fn action_offer_rank(kind: &str) -> u16 {
         "cast_spell" => 22,
         "chat" => 70,
         "trade_item" => 74,
-        "bank_ledger" => 75,
-        "unlock_charm_slot" | "train_skill" => 76,
+        "train_skill" => 76,
         "create_bond" => 77,
         "resolve_bond" => 79,
         "move" => 80,
@@ -38069,9 +38152,7 @@ fn action_offer_category(kind: &str) -> &'static str {
         "check" | "search" => "discovery",
         "prepare" | "work" => "project",
         "rest" => "recovery",
-        "bank_ledger" | "unlock_charm_slot" | "train_skill" | "revise_calling" | "revise_bond" => {
-            "growth"
-        }
+        "train_skill" | "revise_calling" | "revise_bond" => "growth",
         _ => "other",
     }
 }
@@ -42338,6 +42419,26 @@ mod tests {
                 banked: true,
             },
         );
+    }
+
+    fn give_test_skill_charm(runtime: &mut RuntimeWorld, actor_id: u64, item_id: u64, name: &str) {
+        let mut charm = runtime
+            .item_by_id(2003)
+            .expect("seeded Wolfprint Charm supplies the test profile");
+        charm.id = item_id;
+        charm.location_id = 0;
+        charm.holder_actor_id = actor_id;
+        charm.zone = CW_CARD_ZONE_CARRIED;
+        runtime.world.items[runtime.world.item_count] = charm;
+        runtime.world.item_count += 1;
+        let mut meta = runtime
+            .items
+            .get(&2003)
+            .cloned()
+            .expect("seeded Wolfprint Charm metadata exists");
+        meta.name = name.to_string();
+        meta.description = format!("{name} carries a test-authored knack.");
+        runtime.items.insert(item_id, meta);
     }
 
     #[tokio::test]
@@ -47065,9 +47166,8 @@ mod tests {
         assert!(INDEX_HTML.contains("[\"settings\", \"orbs & settings\"]"));
         assert!(INDEX_HTML.contains("physical cards, not a fixed card count"));
         assert!(INDEX_HTML.contains("carried weight · base"));
-        assert!(
-            INDEX_HTML.contains("Advancement opens a bracelet slot; it never creates the charm")
-        );
+        assert!(INDEX_HTML.contains("deck.charm_slot_expansion"));
+        assert!(INDEX_HTML.contains("Make room"));
         assert!(INDEX_HTML.contains("Only prepared spell cards can be cast"));
         assert!(INDEX_HTML.contains("data-materialize-card"));
         assert!(INDEX_HTML.contains("data-unmaterialize-receipt"));
@@ -47133,8 +47233,8 @@ mod tests {
         assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
         assert!(INDEX_HTML.contains("notice one little clue."));
         assert!(INDEX_HTML.contains("ledger.banked_count"));
-        assert!(INDEX_HTML.contains("choose a friendship to grow."));
-        assert!(INDEX_HTML.contains("open room for another found skill charm."));
+        assert!(!INDEX_HTML.contains("keep the clue — let it change you."));
+        assert!(!INDEX_HTML.contains("choose friendship or bracelet space."));
         assert!(!INDEX_HTML.contains("listen to the room — it may have a clue just for you."));
         assert!(INDEX_HTML.contains("white-space: normal;"));
         assert!(INDEX_HTML.contains(
@@ -47197,8 +47297,8 @@ mod tests {
         assert!(INDEX_HTML.contains("view.action_hand?.entries"));
         assert!(INDEX_HTML.contains("handProviderReason(action)"));
 
-        assert!(INDEX_HTML.contains("const buildGrowAction"));
-        assert!(INDEX_HTML.contains("const buildUnlockCharmSlotAction"));
+        assert!(!INDEX_HTML.contains("const buildGrowAction"));
+        assert!(!INDEX_HTML.contains("const buildUnlockCharmSlotAction"));
         assert!(INDEX_HTML.contains("id=\"turn-ping-pill\""));
         assert!(INDEX_HTML.contains("ordered combat — your turn"));
         assert!(INDEX_HTML.contains("Receive one ambient lead from the room."));
@@ -47341,17 +47441,13 @@ mod tests {
         assert!(INDEX_HTML.contains("bond.revised"));
         assert!(INDEX_HTML.contains("bond.created"));
         assert!(INDEX_HTML.contains("bond.resolved"));
-        assert!(INDEX_HTML.contains("/actions/bank-ledger"));
+        assert!(!INDEX_HTML.contains("/actions/bank-ledger"));
         assert!(INDEX_HTML.contains("/actions/unlock-charm-slot"));
-        assert!(INDEX_HTML.contains("const buildEvolveAction = () =>"));
-        assert!(INDEX_HTML.contains("label: growAction ? \"grow\" : \"expand bracelet\""));
-        assert!(INDEX_HTML.contains("cardType: \"evolve\""));
-        assert!(INDEX_HTML.contains("choose how to grow"));
-        assert!(INDEX_HTML.contains("choose one of two lessons"));
-        assert!(INDEX_HTML.contains("practiceChoices.slice(0, growAction ? 1 : 2)"));
-        assert!(INDEX_HTML.contains("opens bracelet space; the charm itself must still be found"));
-
-        assert!(INDEX_HTML.contains("action.evolveModes?.includes(\"practice\")"));
+        assert!(!INDEX_HTML.contains("const buildEvolveAction = () =>"));
+        assert!(INDEX_HTML.contains("data-unlock-charm-slot"));
+        assert!(INDEX_HTML.contains("expansion.explanation"));
+        assert!(INDEX_HTML.contains("expansion.advancement_cost"));
+        assert!(!INDEX_HTML.contains("action.evolveModes?.includes(\"practice\")"));
         assert!(INDEX_HTML.contains("/actions/create-bond"));
         assert!(INDEX_HTML.contains("label: \"chat\""));
         assert!(INDEX_HTML.contains("choose someone to chat with"));
@@ -48811,6 +48907,27 @@ mod tests {
             "Bracelet Tester",
         );
         grant_test_advancement(&mut runtime, 5000, "test:bracelet-receipt");
+        let wolfprint = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == 2003)
+            .expect("Wolfprint Charm exists");
+        wolfprint.location_id = 0;
+        wolfprint.holder_actor_id = 5000;
+        wolfprint.zone = CW_CARD_ZONE_CARRIED;
+        assert!(!runtime
+            .set_charm_equipped(5000, 2003, true, "test")
+            .is_empty());
+        give_test_skill_charm(&mut runtime, 5000, 2900, "Thimble Charm");
+        let deck_before = runtime.deck_view(Some(5000));
+        let carried_count = deck_before.carried_cards.len();
+        let expansion = deck_before
+            .charm_slot_expansion
+            .expect("a full bracelet and an unworn charm expose concrete demand");
+        assert_eq!(expansion.label, "Make room for Thimble Charm");
+        assert!(expansion.explanation.contains("Your Journal holds 1"));
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
 
@@ -48831,10 +48948,9 @@ mod tests {
             .events
             .iter()
             .any(|event| event.type_name == "advancement.spent"));
-        assert!(response
-            .events
-            .iter()
-            .any(|event| event.type_name == "charm_slot.unlocked"));
+        assert!(response.events.iter().any(|event| {
+            event.type_name == "charm_slot.unlocked" && event.item_id == Some(2900)
+        }));
         let receipt = response
             .events
             .iter()
@@ -48845,6 +48961,18 @@ mod tests {
         assert_eq!(receipt["state"]["deck"]["bracelet_slots"], 2);
         assert_eq!(receipt["state"]["ledger"]["spent_count"], 1);
         assert_eq!(receipt["state"]["ledger"]["advancement_points"], 0);
+        assert_eq!(
+            receipt["state"]["deck"]["carried_cards"]
+                .as_array()
+                .map(Vec::len),
+            Some(carried_count)
+        );
+        assert_eq!(
+            receipt["state"]["deck"]["equipped_charms"]
+                .as_array()
+                .map(Vec::len),
+            Some(1)
+        );
         assert!(receipt["state"]["primary_action"]["options"]
             .as_array()
             .is_some_and(|options| options
@@ -52737,7 +52865,7 @@ mod tests {
     }
 
     #[test]
-    fn visit_ledger_banking_converts_marks_to_advancement_points() {
+    fn successful_discovery_settles_current_and_legacy_marks_once() {
         let mut runtime = RuntimeWorld::seeded();
         let mut create = CwAction::default();
         create.kind = CW_ACTION_CREATE_ACTOR;
@@ -52747,10 +52875,10 @@ mod tests {
         create_record.actor_meta_upserts.insert(
             5000,
             ActorMeta {
-                name: "Memory Banker".to_string(),
+                name: "Memory Keeper".to_string(),
                 speech_mode: "prose".to_string(),
                 title: "Visit Mark Tester".to_string(),
-                description: "A test avatar banking visit marks.".to_string(),
+                description: "A test avatar settling visit marks.".to_string(),
             },
         );
         assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
@@ -52775,109 +52903,75 @@ mod tests {
                 .0,
             CW_OK
         );
-        let earned_state = runtime.state_response(Some(5000), &AccessContext::default());
-        assert_eq!(earned_state.ledger.unbanked_count, 2);
-        assert_eq!(earned_state.ledger.banked_count, 0);
-        assert_eq!(earned_state.ledger.advancement_points, 0);
-        assert_eq!(earned_state.ledger.learned_truth_count, 1);
-        let grow_offer = earned_state
+        let legacy_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(legacy_state.ledger.unbanked_count, 2);
+        assert_eq!(legacy_state.ledger.banked_count, 0);
+        assert_eq!(legacy_state.ledger.advancement_points, 0);
+        assert!(legacy_state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "bank_ledger")
-            .expect("grow is exposed once marks are unbanked");
-        assert_eq!(grow_offer.label, "Grow");
-        assert_eq!(grow_offer.rank, 34);
-        assert!(
-            !earned_state
-                .action_offers
-                .iter()
-                .any(|offer| matches!(offer.kind.as_str(), "chat" | "create_bond")),
-            "Chat stays unavailable until growth has been banked"
-        );
-        assert!(grow_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("visit become part of you")));
+            .all(|offer| offer.kind != "bank_ledger"));
+        assert!(legacy_state
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "check"));
 
         let bank_command = runtime
             .resolve_command(&command_request(5000, "grow"), &AccessContext::default())
-            .expect("grow resolves");
+            .expect("retired grow command remains explained");
         match bank_command.dispatch {
-            CommandDispatch::BankLedger => {}
-            other => panic!("bank ledger should dispatch banking, got {other:?}"),
+            CommandDispatch::Read { output } => {
+                assert!(output.contains("standalone progress command has retired"));
+            }
+            other => panic!("retired grow should be informational, got {other:?}"),
         }
 
-        let mut bank_action = CwAction::default();
-        bank_action.kind = CW_ACTION_NONE;
-        bank_action.actor_id = 5000;
-        let mut bank_record = JournalRecord::new(bank_action, 7090);
-        bank_record
-            .projection_mutations
-            .push(ProjectionMutation::BankVisitLedger {
-                reason: "visit_ledger".to_string(),
-            });
-        let (status, events) = runtime.apply_journal_record(&bank_record);
+        move_test_actor(&mut runtime, 5000, 2, 7090);
+        let mut discovery = CwAction::default();
+        discovery.kind = CW_ACTION_ABILITY_CHECK;
+        discovery.actor_id = 5000;
+        discovery.ability = LISTEN_ABILITY;
+        discovery.dc = LISTEN_DC;
+        let mut discovery_record = JournalRecord::new(discovery, 7091);
+        discovery_record.projection_mutations.push(
+            ProjectionMutation::SettleVisitLedgerAfterDiscovery {
+                reason: "discovery".to_string(),
+            },
+        );
+        let (status, events) = runtime.apply_journal_record(&discovery_record);
         assert_eq!(status, CW_OK);
-        assert!(events.iter().any(|event| {
-            event.type_name == "ledger.banked"
-                && event.actor_id == Some(5000)
-                && event.total == Some(2)
-                && event
-                    .content
-                    .as_deref()
-                    .map(|content| content.starts_with("2:"))
-                    .unwrap_or(false)
-        }));
-        let banked_state = runtime.state_response(Some(5000), &AccessContext::default());
-        assert_eq!(banked_state.ledger.unbanked_count, 0);
-        assert!(banked_state.ledger.unbanked_marks.is_empty());
-        assert_eq!(banked_state.ledger.banked_count, 2);
-        assert_eq!(banked_state.ledger.advancement_points, 2);
-        assert_eq!(banked_state.ledger.learned_truth_count, 1);
-        let lowered_memory = banked_state.room_memory.summary.to_lowercase();
-        assert!(!lowered_memory.contains("ledger"));
-        assert!(!lowered_memory.contains("advancement"));
-        assert!(!lowered_memory.contains("banked"));
-        assert!(!banked_state
-            .primary_action
-            .options
+        let marked_index = events
             .iter()
-            .any(|option| option.kind == "bank_ledger"));
-        assert!(banked_state
-            .primary_action
-            .options
+            .rposition(|event| event.type_name == "ledger.marked")
+            .expect("current discovery marks growth");
+        let settled_index = events
             .iter()
-            .any(|option| option.kind == "create_bond" && option.label == "Chat"));
+            .position(|event| event.type_name == "ledger.banked")
+            .expect("current and legacy marks settle");
+        assert!(
+            marked_index < settled_index,
+            "settlement follows all marks from the current discovery"
+        );
+        let settled_count = events[settled_index].total.expect("settled count");
+        assert!(
+            settled_count > 2,
+            "legacy and current marks settle together"
+        );
+        let settled_state = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(settled_state.ledger.unbanked_count, 0);
+        assert_eq!(settled_state.ledger.banked_count, settled_count as usize);
+        assert_eq!(
+            settled_state.ledger.advancement_points,
+            settled_count as usize
+        );
         assert!(runtime
             .ledger_marks
             .values()
             .filter(|mark| mark.actor_id == 5000)
             .all(|mark| mark.banked));
 
-        let blocked_command = runtime
-            .resolve_command(
-                &command_request(5000, "bank ledger"),
-                &AccessContext::default(),
-            )
-            .expect("bank ledger remains recognized");
-        match blocked_command.dispatch {
-            CommandDispatch::Disabled { status, output } => {
-                assert_eq!(status, 409);
-                assert!(output.contains("not found anything to grow from"));
-            }
-            other => panic!("bank ledger should be disabled after banking, got {other:?}"),
-        }
-
-        let mut repeat_action = CwAction::default();
-        repeat_action.kind = CW_ACTION_NONE;
-        repeat_action.actor_id = 5000;
-        let mut repeat_record = JournalRecord::new(repeat_action, 7091);
-        repeat_record
-            .projection_mutations
-            .push(ProjectionMutation::BankVisitLedger {
-                reason: "visit_ledger".to_string(),
-            });
-        let (status, events) = runtime.apply_journal_record(&repeat_record);
+        let (status, events) = runtime.apply_journal_record(&discovery_record);
         assert_eq!(status, CW_OK);
         assert!(!events
             .iter()
@@ -52888,8 +52982,81 @@ mod tests {
             .expect("snapshot restores claimed memory marks");
         let restored_state = restored.state_response(Some(5000), &AccessContext::default());
         assert_eq!(restored_state.ledger.unbanked_count, 0);
-        assert_eq!(restored_state.ledger.banked_count, 2);
-        assert_eq!(restored_state.ledger.advancement_points, 2);
+        assert_eq!(
+            restored_state.ledger.banked_count,
+            settled_state.ledger.banked_count
+        );
+        assert_eq!(
+            restored_state.ledger.advancement_points,
+            settled_state.ledger.advancement_points
+        );
+    }
+
+    #[test]
+    fn failed_discovery_does_not_mark_or_settle_growth() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Careful Listener",
+        );
+        runtime.ledger_marks.insert(
+            "legacy:unsettled".to_string(),
+            VisitLedgerMarkState {
+                id: "legacy:unsettled".to_string(),
+                actor_id: 5000,
+                category: "witness".to_string(),
+                label: "An older unsettled memory".to_string(),
+                source_event_seq: runtime.world.next_event_seq,
+                banked: false,
+            },
+        );
+        if let Some(actor) = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+        {
+            actor.stats.wisdom = 1;
+        }
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(5000, COSY_COTTAGE_LOCATION_ID));
+        let discovery = CwAction {
+            kind: CW_ACTION_ABILITY_CHECK,
+            actor_id: 5000,
+            ability: LISTEN_ABILITY,
+            dc: LISTEN_DC,
+            ..CwAction::default()
+        };
+        let mut record = JournalRecord::new(discovery, 70_999);
+        record
+            .projection_mutations
+            .push(ProjectionMutation::SettleVisitLedgerAfterDiscovery {
+                reason: "discovery".to_string(),
+            });
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(
+            events.iter().any(|event| {
+                event.type_name == "ability_check.rolled"
+                    && event.actor_id == Some(5000)
+                    && event
+                        .total
+                        .zip(event.dc)
+                        .is_some_and(|(total, dc)| total < dc)
+            }),
+            "failed discovery events: {events:#?}"
+        );
+        assert!(events
+            .iter()
+            .all(|event| !matches!(event.type_name.as_str(), "ledger.marked" | "ledger.banked")));
+        let ledger = runtime.visit_ledger_view(5000);
+        assert_eq!(ledger.unbanked_count, 1);
+        assert_eq!(ledger.banked_count, 0);
+        assert_eq!(ledger.advancement_points, 0);
     }
 
     #[test]
@@ -52916,6 +53083,10 @@ mod tests {
         assert_eq!(before.bracelet_slots, 1);
         assert!(before.equipped_charms.is_empty());
         assert_eq!(before.available_charms.len(), 1);
+        assert!(
+            before.charm_slot_expansion.is_none(),
+            "an empty current slot never prompts expansion"
+        );
 
         let deck_command = runtime
             .resolve_command(&command_request(5000, "deck"), &AccessContext::default())
@@ -52962,6 +53133,7 @@ mod tests {
             }
         ));
 
+        give_test_skill_charm(&mut runtime, 5000, 2901, "Thimble Charm");
         runtime.ledger_marks.insert(
             "test:charm-slot-point".to_string(),
             VisitLedgerMarkState {
@@ -52983,8 +53155,21 @@ mod tests {
             unlock_command.dispatch,
             CommandDispatch::UnlockCharmSlot
         ));
+        assert_eq!(
+            unlock_command
+                .action
+                .as_ref()
+                .map(|action| action.label.as_str()),
+            Some("Make room for Thimble Charm")
+        );
+        let demand = runtime
+            .deck_view(Some(5000))
+            .charm_slot_expansion
+            .expect("full bracelet plus carried charm exposes demand");
+        assert_eq!(demand.charm.id, 2901);
         let item_count = runtime.world.item_count;
-        let unlock_events = runtime.unlock_charm_slot(5000, CHARM_SLOT_COST, "advancement");
+        let unlock_events =
+            runtime.unlock_charm_slot_for_charm(5000, 2901, CHARM_SLOT_COST, "deck_loadout");
         assert!(unlock_events
             .iter()
             .any(|event| event.type_name == "charm_slot.unlocked"));
@@ -53000,6 +53185,8 @@ mod tests {
         let restored_deck = restored.deck_view(Some(5000));
         assert_eq!(restored_deck.bracelet_slots, 2);
         assert_eq!(restored_deck.equipped_charms.len(), 1);
+        assert_eq!(restored_deck.available_charms.len(), 1);
+        assert!(restored_deck.charm_slot_expansion.is_none());
         assert_eq!(restored.skill_bonus_for_ability(5000, 2), 1);
     }
 
@@ -53852,21 +54039,11 @@ mod tests {
         assert_eq!(runtime.apply_journal_record(&bank_record).0, CW_OK);
         let banked_state = runtime.state_response(Some(5000), &AccessContext::default());
         assert_eq!(banked_state.ledger.advancement_points, 2);
-        assert!(banked_state.primary_action.options.iter().any(|option| {
-            option.kind == "unlock_charm_slot"
-                && option.label == "Expand Bracelet"
-                && option.command == "unlock charm slot"
-        }));
-        let slot_offer = banked_state
+        assert!(banked_state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "unlock_charm_slot")
-            .expect("bracelet slot offer is exposed once advancement points are banked");
-        assert_eq!(slot_offer.rank, 78);
-        assert!(slot_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("no charm is granted")));
+            .all(|offer| offer.kind != "unlock_charm_slot"));
+        assert!(banked_state.deck.charm_slot_expansion.is_none());
 
         let command = runtime
             .resolve_command(
@@ -54048,12 +54225,11 @@ mod tests {
             .options
             .iter()
             .any(|option| option.kind == "rest"));
-        let repeat_slot_offer = rested_state
+        assert!(rested_state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "unlock_charm_slot")
-            .expect("bracelet slot offer remains while advancement is available");
-        assert_eq!(repeat_slot_offer.rank, 78);
+            .all(|offer| offer.kind != "unlock_charm_slot"));
+        assert!(rested_state.deck.charm_slot_expansion.is_none());
 
         let command = runtime
             .resolve_command(
@@ -54192,16 +54368,11 @@ mod tests {
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         assert_eq!(state.ledger.advancement_points, 2);
-        let slot_offer = state
+        assert!(state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "unlock_charm_slot")
-            .expect("bracelet slot offer is exposed after contextual marks are banked");
-        assert_eq!(slot_offer.command, "unlock charm slot");
-        assert!(slot_offer
-            .effect
-            .as_deref()
-            .is_some_and(|effect| effect.contains("no charm is granted")));
+            .all(|offer| offer.kind != "unlock_charm_slot"));
+        assert!(state.deck.charm_slot_expansion.is_none());
 
         let command = runtime
             .resolve_command(
@@ -54443,15 +54614,10 @@ mod tests {
             .effect
             .as_deref()
             .is_some_and(|effect| effect.contains("keeps what mattered with Rati")));
-        let grow_offer = mature_state
+        assert!(mature_state
             .action_offers
             .iter()
-            .find(|offer| offer.kind == "bank_ledger")
-            .expect("deepening a bond leaves something to grow from");
-        assert!(
-            grow_offer.rank < settle_offer.rank,
-            "grow should come before remembering another mature bond"
-        );
+            .all(|offer| offer.kind != "bank_ledger"));
 
         let mut settle_action = CwAction::default();
         settle_action.kind = CW_ACTION_NONE;
@@ -58590,8 +58756,6 @@ mod tests {
                 .is_some_and(action_offer_is_generally_useful)
         }));
 
-        let baseline_calling_hand =
-            serde_json::to_value(&calling_state.action_hand).expect("serialize baseline hand");
         assert!(calling_runtime
             .mark_visit_ledger(
                 5000,
@@ -58602,15 +58766,29 @@ mod tests {
             )
             .is_some());
         let journal_state = calling_runtime.state_response(Some(5000), &AccessContext::default());
-        assert_ne!(
-            serde_json::to_value(&journal_state.action_hand).expect("serialize journal hand"),
-            baseline_calling_hand
+        assert_eq!(
+            journal_state
+                .action_hand
+                .entries
+                .iter()
+                .map(|entry| entry.kind.as_str())
+                .collect::<Vec<_>>(),
+            calling_state
+                .action_hand
+                .entries
+                .iter()
+                .map(|entry| entry.kind.as_str())
+                .collect::<Vec<_>>()
         );
-        assert!(journal_state.action_hand.entries.iter().any(|entry| {
-            entry.kind == "bank_ledger"
-                && entry.provider.kind == "journal"
-                && entry.provider.reason == "From what your Journal remembers"
-        }));
+        assert!(journal_state
+            .action_offers
+            .iter()
+            .all(|offer| offer.kind != "bank_ledger"));
+        assert!(journal_state
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.kind == "check"));
         assert!(calling_runtime
             .bank_visit_ledger(5000, "action_hand_fixture")
             .is_some());
@@ -58624,7 +58802,7 @@ mod tests {
         assert!(growth_state
             .action_offers
             .iter()
-            .any(|offer| offer.kind == "unlock_charm_slot"));
+            .all(|offer| offer.kind != "unlock_charm_slot"));
         assert!(growth_kinds.contains("create_bond"));
 
         let mut friendship_runtime = RuntimeWorld::seeded();
@@ -61488,7 +61666,8 @@ mod tests {
                 assert!(output.contains("drop <item>"));
                 assert!(output.contains("more"));
                 assert!(output.contains("deck"));
-                assert!(output.contains("bracelet unlock"));
+                assert!(!output.contains("bracelet unlock"));
+                assert!(!output.contains(", grow,"));
                 assert!(output.contains("wear <skill charm>"));
                 assert!(output.contains("remove <skill charm>"));
                 assert!(!output.contains("practice <knack>"));
@@ -62032,7 +62211,7 @@ mod tests {
                 assert!(output.contains("What lingers:"));
                 assert!(output.contains("moonlit threshold crossed"));
                 assert!(output.contains(
-                    "Your journal holds something new. Grow when you are ready to keep it."
+                    "Your journal holds an older unsettled memory. Your next successful discovery will settle it automatically."
                 ));
                 assert!(!output.contains("frontier"));
                 assert!(!output.contains("growth left"));
@@ -65965,7 +66144,7 @@ mod tests {
         match blocked_revision.dispatch {
             CommandDispatch::Disabled { status, output } => {
                 assert_eq!(status, 409);
-                assert!(output.contains("Grow first"));
+                assert!(output.contains("Earn advancement first"));
             }
             other => panic!("unbanked bond revision should be disabled, got {other:?}"),
         }

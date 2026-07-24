@@ -3540,9 +3540,7 @@
       if (!isTired) recoveryPromptPending = false;
       else if (!wasTired || locationChanged) recoveryPromptPending = true;
       actions = buildActions(state);
-      const firstThread = firstThreadModel(state, actions);
-      const storyGrowthComesFirst = firstThread?.stage === 2 && Boolean(firstThread.actionKey);
-      if (recoveryPromptPending && !storyGrowthComesFirst) {
+      if (recoveryPromptPending) {
         const prompted = promotePendingRecoveryAction();
         if (prompted || actions.some((action) => action.focusKey === "rest")) {
           recoveryPromptPending = false;
@@ -3958,7 +3956,6 @@
         if (intention === "travel") add("move");
         if (intention === "flee") add("flee");
         if (intention === "contribute") add("work", "help");
-        if (action?.evolveModes?.includes("grow") || focusKey === "bank-ledger") add("bank_ledger");
         if (action?.evolveModes?.includes("practice") || focusKey.startsWith("train")) add("train_skill");
         if (action?.kind === "orb-chat") add("chat");
         if (action?.kind === "advancement-chat" || label === "chat") add("create_bond");
@@ -4007,138 +4004,6 @@
         project: offer?.project || null,
         accessibleLabel: String(accessibleLabel || offer?.accessible_label || "").trim(),
       });
-      const buildGrowAction = () => {
-        if (!options.has("bank_ledger") || Number(ledger.unbanked_count || 0) <= 0) return null;
-        const unbanked = Number(ledger.unbanked_count || 0);
-        return {
-          label: "grow",
-          detail: "from what you learned",
-          command: "bank ledger",
-          focusKey: "bank-ledger",
-          card: cardForActor(actorId) || cardForLocation(view.location?.id),
-          shape: "avatar",
-          priority: options.has("rest") ? 24 : 68,
-          memoryCount: unbanked,
-          growthCount: unbanked,
-          effect: offerFor("bank_ledger")?.effect,
-          run: () => action("/actions/bank-ledger", { actor_id: actorId }),
-        };
-      };
-      const buildUnlockCharmSlotAction = () => {
-        if (!options.has("unlock_charm_slot") || Number(ledger.advancement_points || 0) <= 0) return null;
-        const slots = Number(view.deck?.bracelet_slots || 0);
-        if (!slots || slots >= 6) return null;
-        const advancement = Number(ledger.advancement_points || 0);
-        const abilityCandidates = [{ id: "charm_slot", label: "charm slot", detail: "room for one more found skill charm" }];
-        const unlockAction = {
-          label: "expand bracelet",
-          detail: `open charm slot ${slots + 1} · spend one growth (${smallNumberWord(advancement)} ready)`,
-          command: "unlock charm slot",
-          focusKey: "unlock-charm-slot",
-          focusKeys: ["charm-slot"],
-          card: cardForActor(actorId) || cardForLocation(view.location?.id),
-          shape: "avatar",
-          priority: options.has("create_bond") ? 78 : 76,
-          growthAvailable: advancement,
-          braceletSlot: slots + 1,
-          modalTitle: "unlock another charm slot",
-          modalSummary: `Spend one banked growth (${smallNumberWord(advancement)} ready) to open bracelet slot ${slots + 1}. The skill charm itself must still be found in the world.`,
-          effect: `spends one growth and opens bracelet slot ${slots + 1} without creating a charm`,
-        };
-        unlockAction.run = () => action("/actions/unlock-charm-slot", { actor_id: actorId });
-        unlockAction.abilityCandidates = abilityCandidates;
-        return unlockAction;
-      };
-      const buildEvolveAction = () => {
-        const growAction = buildGrowAction();
-        const practiceAction = buildUnlockCharmSlotAction();
-        if (!growAction && !practiceAction) return null;
-
-        const choiceSeed = [
-          actorId,
-          Number(view.world_tick || 0),
-          Number(ledger.unbanked_count || 0),
-          Number(ledger.banked_count || 0),
-          Number(ledger.spent_count || 0),
-          skills.map((skill) => `${skill.skill_id}:${skill.rank}`).sort().join(","),
-        ].join(":");
-        const practiceChoices = (practiceAction?.abilityCandidates || [])
-          .map((ability) => ({
-            label: "unlock another charm slot",
-            detail: "opens bracelet space; the charm itself must still be found",
-            value: `practice:${ability.id}`,
-            card: practiceAction.card,
-          }))
-          .sort((left, right) => (
-            handHash(`${choiceSeed}:${left.value}`, handDealNonce)
-              - handHash(`${choiceSeed}:${right.value}`, handDealNonce)
-            || left.value.localeCompare(right.value)
-          ));
-        const evolutionChoices = [];
-        if (growAction) {
-          evolutionChoices.push({
-            label: "keep the lesson",
-            detail: "carry what mattered forward as growth you can use later",
-            value: "grow",
-            card: growAction.card,
-          });
-        }
-        evolutionChoices.push(...practiceChoices.slice(0, growAction ? 1 : 2));
-
-        const oneChoice = evolutionChoices.length === 1;
-        const selectedChoice = evolutionChoices[0]?.value || "grow";
-        const evolveAction = {
-          label: growAction ? "grow" : "expand bracelet",
-          detail: growAction && practiceAction
-            ? "choose one of two lessons"
-            : (growAction
-              ? "from what you learned"
-              : practiceAction.detail),
-          command: growAction ? "grow" : "unlock charm slot",
-          focusKey: growAction?.focusKey || practiceAction?.focusKey || "evolve",
-          focusKeys: [...new Set([
-            ...(growAction?.focusKeys || []),
-            ...(practiceAction?.focusKeys || []),
-            growAction?.focusKey,
-            practiceAction?.focusKey,
-          ].filter(Boolean))],
-          card: growAction?.card || practiceAction?.card,
-          shape: "avatar",
-          cardType: "evolve",
-          priority: Math.min(
-            Number(growAction?.priority ?? 100),
-            Number(practiceAction?.priority ?? 100),
-          ),
-          memoryCount: growAction?.memoryCount,
-          growthCount: growAction?.growthCount,
-          growthAvailable: practiceAction?.growthAvailable,
-          braceletSlot: practiceAction?.braceletSlot,
-          evolveModes: [growAction ? "grow" : "", practiceAction ? "practice" : ""].filter(Boolean),
-          modalTitle: oneChoice
-            ? (growAction ? "grow" : "expand bracelet")
-            : "choose how to grow",
-          modalSummary: oneChoice
-            ? (growAction
-              ? "Keep what mattered."
-              : practiceAction.modalSummary)
-            : (growAction
-              ? "Keep the lesson, or open another bracelet slot."
-              : "Open another bracelet slot."),
-          effect: oneChoice
-            ? (growAction?.effect || practiceAction?.effect)
-            : (growAction
-              ? "your choice either keeps this lesson for later or opens bracelet space for a charm you find"
-              : "opens bracelet space for a charm you find"),
-          selectedChoice,
-          ...(oneChoice ? {} : { choices: evolutionChoices }),
-        };
-        evolveAction.run = () => {
-          const selected = String(evolveAction.selectedChoice || selectedChoice);
-          if (selected === "grow") return growAction.run();
-          return action("/actions/unlock-charm-slot", { actor_id: actorId });
-        };
-        return evolveAction;
-      };
       const buildChatAction = () => {
         if (!options.has("create_bond") || Number(ledger.advancement_points || 0) <= 0) return null;
         const chatOffer = offerFor("create_bond");
@@ -5228,8 +5093,6 @@
           }),
         });
       }
-      const evolveAction = buildEvolveAction();
-      if (evolveAction) built.push(evolveAction);
       if (options.has("resolve_bond")) {
         const offer = offerFor("resolve_bond");
         const targetId = Number(offer?.target?.id || 0);
@@ -5504,7 +5367,6 @@
       if (label === "listen" || label === "listen again" || label === "search" || label === "look" || command === "search" || command.startsWith("search ")) return "listen";
       if (label === "evolve" || command === "evolve") return "evolve";
       if (label === "practice" || label === "train" || command.startsWith("skill ")) return "train";
-      if (label === "grow" || label === "bank") return "bank";
       if (label === "trade" || label === "give") return "trade";
       if (label === "take" || label === "swap") return "item";
       if (label === "use") return detail.includes("progress") ? "craft" : "item";
@@ -5858,8 +5720,6 @@
         "/actions/work": ["work"],
         "/actions/help": ["help"],
         "/actions/rest": ["rest"],
-        "/actions/bank-ledger": ["bank_ledger"],
-        "/actions/unlock-charm-slot": ["unlock_charm_slot"],
         "/actions/create-bond": ["create_bond"],
         "/actions/resolve-bond": ["resolve_bond"],
       };
@@ -6815,10 +6675,9 @@
         firstTaleStageSeen = Math.max(firstTaleStageSeen, Number(firstThread.stage || 0));
       } else if (
         currentActorId
-        && firstTaleStageSeen >= 3
+        && firstTaleStageSeen >= 1
         && !firstTaleCompletionSeen
         && Number(state?.ledger?.banked_count || 0) > 0
-        && Number(state?.ledger?.spent_count || 0) > 0
       ) {
         firstTaleCelebration = true;
         firstTaleCompletionSeen = true;
@@ -6833,25 +6692,15 @@
     }
 
     function firstTaleCompletionText(view = state) {
-      if (Array.isArray(view?.bonds) && view.bonds.length) {
-        return "you noticed a clue, grew from it, and made a new friend.";
-      }
-      if (Number(view?.deck?.bracelet_slots || 0) > 1) {
-        return "you noticed a clue, grew from it, and opened room for another skill charm.";
-      }
-      return "you noticed a clue, grew from it, and chose what to care about.";
+      return "you noticed a clue, and your Journal kept what mattered.";
     }
 
     function firstTaleIsComplete(view = state) {
       const ledger = view?.ledger || {};
-      const shapedIdentity = (Array.isArray(view?.bonds) && view.bonds.length)
-        || Number(view?.deck?.bracelet_slots || 0) > 1;
       return Boolean(
         actorId
           && Number(ledger.learned_truth_count || 0) > 0
           && Number(ledger.banked_count || 0) > 0
-          && Number(ledger.spent_count || 0) > 0
-          && shapedIdentity
       );
     }
 
@@ -6937,13 +6786,6 @@
       const hook = (view?.room_sheet?.hooks || []).map((value) => String(value || "").trim()).find(Boolean);
       if (hook) {
         return makeThread(null, `${hook.charAt(0).toUpperCase()}${hook.slice(1)}`, "room");
-      }
-      const evolve = availableActions.find((action) => (
-        Array.isArray(action?.evolveModes)
-          && action.evolveModes.includes("practice")
-      )) || findAction("expand bracelet", "practice");
-      if (evolve) {
-        return makeThread(evolve, "Something you learned can open room for another found charm", "evolve");
       }
       return null;
     }
@@ -7505,9 +7347,9 @@
       const validationErrors = Array.isArray(deck.validation_errors) ? deck.validation_errors : [];
       const bagPreviews = Array.isArray(deck.bag_previews) ? deck.bag_previews : [];
       const slots = Number(deck.bracelet_slots || 0);
-      const advancement = Number(state?.ledger?.advancement_points || 0);
-      const unlock = slots > 0 && slots < 6
-        ? `<button class="account-button secondary" type="button" data-unlock-charm-slot${advancement < 1 ? " disabled" : ""}>unlock another slot · 1 advancement</button>`
+      const expansion = deck.charm_slot_expansion || null;
+      const unlock = expansion
+        ? `<div class="keepsake-note"><strong>${escapeHtml(expansion.label || "Make room")}</strong><br>${escapeHtml(expansion.explanation || "")}</div><button class="account-button secondary" type="button" data-unlock-charm-slot>${escapeHtml(expansion.label || "Make room")} · ${Number(expansion.advancement_cost || 1)} advancement</button>`
         : "";
       const charmRows = [
         ...equipped.map((card) => deckCardRow(card, `<button class="account-button secondary" type="button" data-set-charm="${card.id}" data-equipped="false">remove</button>`)),
@@ -7553,7 +7395,7 @@
       const exhaustedRows = exhaustedCards.length
         ? exhaustedCards.map((card) => deckCardRow(card, `<span class="account-wallet">exhausted</span>`)).join("")
         : `<div class="deck-empty">No cards are exhausted.</div>`;
-      return `<div class="account-title"><h2 id="account-panel-title">your deck</h2><span class="account-wallet">physical cards, not a fixed card count</span></div><div class="deck-summary"><div class="deck-stat"><strong>${escapeHtml(deckWeightLabel(deck.carried_weight_tenths))} / ${escapeHtml(deckWeightLabel(deck.carrying_capacity_tenths))}</strong><small>carried weight · base ${escapeHtml(deckWeightLabel(deck.base_carrying_capacity_tenths))} + equipped bags ${escapeHtml(deckWeightLabel(deck.container_capacity_tenths))}</small></div><div class="deck-stat"><strong>${equipped.length} / ${slots}</strong><small>bracelet charm slots</small></div><div class="deck-stat"><strong>${preparedSpells.length} / ${spellSlots}</strong><small>prepared spell cards</small></div></div>${validation}${previews}<div class="account-section-title">equipped loadout</div>${loadoutRows ? `<div class="deck-card-list">${loadoutRows}</div>` : `<div class="deck-empty">No weapon or bag is equipped.</div>`}<div class="account-section-title">containers</div>${containerRows || `<div class="deck-empty">No container cards are carried.</div>`}<div class="account-section-title">skill charms</div><div class="keepsake-note">Advancement opens a bracelet slot; it never creates the charm that goes in it.</div>${charmRows ? `<div class="deck-card-list">${charmRows}</div>` : `<div class="deck-empty">Find, earn, trade, or steal a skill charm before you can wear it.</div>`}${unlock}<div class="account-section-title">spell deck</div><div class="keepsake-note">Only prepared spell cards can be cast. Spent cards remain in the deck as exhausted until a rule refreshes them.</div><div class="deck-card-list">${spellRows}</div><div class="account-section-title">exhausted / discard</div><div class="deck-card-list">${exhaustedRows}</div><div class="account-section-title">all carried cards</div><div class="deck-card-list">${carriedRows}</div>`;
+      return `<div class="account-title"><h2 id="account-panel-title">your deck</h2><span class="account-wallet">physical cards, not a fixed card count</span></div><div class="deck-summary"><div class="deck-stat"><strong>${escapeHtml(deckWeightLabel(deck.carried_weight_tenths))} / ${escapeHtml(deckWeightLabel(deck.carrying_capacity_tenths))}</strong><small>carried weight · base ${escapeHtml(deckWeightLabel(deck.base_carrying_capacity_tenths))} + equipped bags ${escapeHtml(deckWeightLabel(deck.container_capacity_tenths))}</small></div><div class="deck-stat"><strong>${equipped.length} / ${slots}</strong><small>bracelet charm slots</small></div><div class="deck-stat"><strong>${preparedSpells.length} / ${spellSlots}</strong><small>prepared spell cards</small></div></div>${validation}${previews}<div class="account-section-title">equipped loadout</div>${loadoutRows ? `<div class="deck-card-list">${loadoutRows}</div>` : `<div class="deck-empty">No weapon or bag is equipped.</div>`}<div class="account-section-title">containers</div>${containerRows || `<div class="deck-empty">No container cards are carried.</div>`}<div class="account-section-title">skill charms</div>${charmRows ? `<div class="deck-card-list">${charmRows}</div>` : `<div class="deck-empty">Find, earn, trade, or steal a skill charm before you can wear it.</div>`}${unlock}<div class="account-section-title">spell deck</div><div class="keepsake-note">Only prepared spell cards can be cast. Spent cards remain in the deck as exhausted until a rule refreshes them.</div><div class="deck-card-list">${spellRows}</div><div class="account-section-title">exhausted / discard</div><div class="deck-card-list">${exhaustedRows}</div><div class="account-section-title">all carried cards</div><div class="deck-card-list">${carriedRows}</div>`;
     }
 
     function journalPanelHtml() {
@@ -9115,27 +8957,6 @@
       $("action-modal-image").alt = choice?.label || card?.display_name || action?.detail || actionTitle(action);
     }
 
-    function bankLedgerPlan(action) {
-      const text = `${action?.detail || ""} ${action?.effect || ""}`;
-      const detailMatch = text.match(/([1-9]\d*)\s+(?:memory\s+)?marks?.*?\+([1-9]\d*)\s+(?:growth\s+)?points?/i);
-      const effectMatch = text.match(/banks\s+([1-9]\d*)\s+Visit Ledger marks?\s+into\s+([1-9]\d*)\s+advancement points?/i);
-      const growthMatch = text.match(/turns\s+([1-9]\d*)\s+memory marks?\s+into\s+([1-9]\d*)\s+growth points?/i);
-      const count = Number(action?.memoryCount || detailMatch?.[1] || growthMatch?.[1] || effectMatch?.[1] || 0);
-      const points = Number(action?.growthCount || detailMatch?.[2] || growthMatch?.[2] || effectMatch?.[2] || count || 0);
-      if (!count && !points) return null;
-      const memoryCount = count || points;
-      const growthCount = points || count;
-      return {
-        count: memoryCount,
-        points: growthCount,
-        summary: "Keep what mattered.",
-        rows: [
-          ["What stays", "the little things you noticed this visit"],
-          ["What opens", "new ways to strengthen a friendship or open bracelet space"],
-        ],
-      };
-    }
-
     function smallNumberWord(value) {
       const number = Math.max(0, Number(value) || 0);
       return ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"][number]
@@ -9162,7 +8983,6 @@
         return String(action?.accessibleLabel || action?.label || "action").toLowerCase();
       }
       const label = String(action?.label || action?.command || "action").toLowerCase();
-      if (label === "grow" || label === "bank") return "grow";
       if (label === "evolve") return action?.choices?.length ? "choose how to evolve" : "evolve";
       if (label === "nudge" || label === "ping") {
         const currentName = String(state?.turn?.current_actor_name || action?.detail || "them")
@@ -9198,7 +9018,6 @@
         return label || String(action?.project?.verb || action?.intention || "act").toLowerCase();
       }
       if (String(action?.command || "").trim().toLowerCase() === "create avatar") return "begin";
-      if (label === "grow" || label === "bank") return "grow";
       if (label === "evolve") return "evolve";
       if (label === "travel") return "go";
       if (label === "listen again") return "listen again";
@@ -9353,37 +9172,9 @@
           ["Then", "what mattered stays with you"],
         ];
       }
-      if (String(action?.label || "").toLowerCase() === "expand bracelet") {
-        const available = Math.max(1, Number(action?.growthAvailable || 1));
-        const nextSlot = Math.max(1, Number(action?.braceletSlot || 0));
-        return [
-          ["Spend", `one growth (${smallNumberWord(available)} ready)`],
-          ["Then", nextSlot ? `bracelet slot ${nextSlot} opens` : "another bracelet charm slot opens"],
-          ["Still needed", "find, earn, trade, or steal the charm itself"],
-        ];
-      }
       if (String(action?.label || "").toLowerCase() === "evolve") {
-        if (action?.choices?.length) {
-          const canKeepLesson = Array.isArray(action?.evolveModes)
-            && action.evolveModes.includes("grow");
-          return canKeepLesson
-            ? [
-                ["Choose", "one of two lessons"],
-                ["Keep it", "save this visit as growth you can use later"],
-                ["Expand bracelet", "open space for another found skill charm"],
-                ["Still needed", "the charm itself is not granted"],
-              ]
-            : [
-                ["Spend", "one advancement point"],
-                ["Then", "another bracelet charm slot opens"],
-                ["Still needed", "find the charm itself in the world"],
-              ];
-        }
-        if (Array.isArray(action?.evolveModes) && action.evolveModes.includes("grow")) {
-          return bankLedgerPlan(action)?.rows || [];
-        }
         return [
-          ["What changes", friendlyActionText(action?.effect) || "another bracelet charm slot opens"],
+          ["What changes", friendlyActionText(action?.effect)],
         ];
       }
       if (String(action?.label || "").toLowerCase() === "rest") {
@@ -9416,9 +9207,6 @@
           ["Your reply", "lets everyone know you're still here"],
         ];
       }
-      if (["grow", "bank"].includes(String(action?.label || "").toLowerCase())) {
-        return bankLedgerPlan(action)?.rows || [];
-      }
       return [
         ["Focus", action?.detail],
         ["What changes", friendlyActionText(action?.effect)],
@@ -9433,10 +9221,6 @@
       }
       if (["i'm here", "pong"].includes(String(action?.label || "").toLowerCase())) {
         return "Let the room know you're here and ready for the next choice.";
-      }
-      if (["grow", "bank"].includes(String(action?.label || "").toLowerCase())) {
-        const plan = bankLedgerPlan(action);
-        if (plan) return plan.summary;
       }
       const detail = String(action?.detail || "").trim();
       const effect = friendlyActionText(action?.effect);
@@ -9468,7 +9252,6 @@
       }
       if (label === "begin again") return "begin again";
       if (String(action?.command || "").trim().toLowerCase() === "create avatar") return "begin";
-      if (label === "grow" || label === "bank") return "grow";
       if (label === "evolve") return "evolve";
       if (label === "travel") return "go";
       if (label === "listen") return "listen";
@@ -9753,9 +9536,6 @@
       if (!actorId || !view || view?.primary_action?.kind === "create_avatar") return null;
       const ledger = view.ledger || {};
       const findAction = (predicate) => availableActions.find(predicate) || null;
-      const banked = Number(ledger.banked_count || 0);
-      const spent = Number(ledger.spent_count || 0);
-      const growth = Number(ledger.advancement_points || 0);
       const unbankedMarks = Array.isArray(ledger.unbanked_marks) ? ledger.unbanked_marks : [];
       const unbankedListenMemory = unbankedMarks.some((mark) => mark?.category === "learned_truth");
       const hasListenMemory = Number(ledger.learned_truth_count || 0) > 0 || unbankedListenMemory;
@@ -9768,7 +9548,7 @@
         const next = listenAttempted ? (search || meet || listen) : listen;
         return {
           stage: 1,
-          total: 3,
+          total: 1,
           actionKey: next ? actionHandKey(next) : "",
           text: listenAttempted
             ? "no clue yet — inspect what catches your eye."
@@ -9776,55 +9556,7 @@
         };
       }
 
-      if (unbankedListenMemory) {
-        const grow = findAction((action) => (
-          action.focusKey === "bank-ledger"
-            || action.label === "grow"
-            || action.evolveModes?.includes("grow")
-        ));
-        return {
-          stage: 2,
-          total: 3,
-          actionKey: grow ? actionHandKey(grow) : "",
-          text: "keep the clue — let it change you.",
-        };
-      }
-
-      if (banked > 0) {
-        if (spent > 0 || growth <= 0) return null;
-        const bond = findAction((action) => ["chat", "grow closer", "bond"].includes(action.label));
-        const bracelet = findAction((action) => (
-          ["practice", "train"].includes(action.label)
-            || action.evolveModes?.includes("practice")
-        ));
-        const next = bond || bracelet;
-        const identityActionKeys = [bond, bracelet]
-          .filter(Boolean)
-          .map((action) => actionHandKey(action))
-          .filter(Boolean);
-        return {
-          stage: 3,
-          total: 3,
-          actionKey: next ? actionHandKey(next) : "",
-          actionKeys: identityActionKeys,
-          text: bond && bracelet
-            ? "choose friendship or bracelet space."
-            : bond
-            ? "choose a friendship to grow."
-            : bracelet
-              ? "open room for another found skill charm."
-              : "strengthen a friendship or open bracelet space.",
-        };
-      }
-
-      const search = findAction((action) => action.label === "search");
-      const meet = findAction((action) => ["chat", "bond", "remember", "help"].includes(action.label));
-      return {
-        stage: 1,
-        total: 3,
-        actionKey: search ? actionHandKey(search) : (meet ? actionHandKey(meet) : ""),
-        text: "follow the clue — search or meet someone.",
-      };
+      return null;
     }
 
     function dealtStoryGuide(view = state, availableActions = actions) {
@@ -9875,8 +9607,6 @@
       const focus = String(action?.focusKey || "").split(":")[0];
       const label = String(action?.label || "").toLowerCase();
       const byFocus = {
-        "bank-ledger": ["bank_ledger"],
-        "unlock-charm-slot": ["unlock_charm_slot"],
         check: ["check"],
         study: ["study"],
         influence: ["influence"],
@@ -9912,8 +9642,6 @@
         work: ["work"],
         finish: ["work"],
         help: ["help"],
-        grow: ["bank_ledger"],
-        "expand bracelet": ["unlock_charm_slot"],
         "grow closer": ["create_bond"],
         remember: ["resolve_bond"],
       };

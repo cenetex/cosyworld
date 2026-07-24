@@ -554,8 +554,6 @@ class Game:
             "/actions/work": {"work"},
             "/actions/help": {"help"},
             "/actions/rest": {"rest"},
-            "/actions/bank-ledger": {"bank_ledger"},
-            "/actions/unlock-charm-slot": {"unlock_charm_slot"},
             "/actions/create-bond": {"create_bond"},
             "/actions/resolve-bond": {"resolve_bond"},
         }

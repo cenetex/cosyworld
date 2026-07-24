@@ -216,9 +216,12 @@ represents learned technique: it adds its authored bonus when the check calls
 for that skill, and some specialist tasks may explicitly require an equipped charm.
 There is no independent avatar skill inventory in the target model.
 
-Advancement unlocks **bracelet slots**; it does not create a charm or increase
-one automatically. A second active skill requires both an earned second slot
-and finding, earning, crafting, receiving, trading for, or stealing the charm.
+Advancement can unlock **bracelet slots**; it does not create a charm or increase
+one automatically. Deck & Loadout offers `Make room for <Charm>` only when every
+current slot is occupied, that specific eligible unworn charm is carried,
+advancement is available, and the slot cap has not been reached. A second active
+skill therefore requires both an earned second slot and finding, earning,
+crafting, receiving, trading for, or stealing the charm.
 Rare skills can therefore remain rare world objects. If a charm is gifted,
 traded, dropped, or stolen through an authoritative action, its skill, bonus,
 and provenance travel with it and the former holder loses access. Character
