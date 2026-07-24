@@ -17,6 +17,7 @@ import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
 import { buildingArchetypeValidationErrors } from "./building-archetype-schema.mjs";
 import { lootTableValidationErrors } from "./loot-table-schema.mjs";
 import { naturalAffordanceValidationErrors } from "./natural-affordance-schema.mjs";
+import { versionedRecipeValidationErrors } from "./recipe-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -507,7 +508,17 @@ for (const pack of packs) {
 }
 
 const mountedLootTableIds = new Set();
+const mountedLootTemplateIds = new Set();
+const mountedBuildingCapabilities = new Set();
+const mountedBuildingRecipeTags = new Set();
+const mountedBuildingArchetypes = [];
 for (const pack of packs) {
+  for (const template of pack.extensions?.["x-cosyworld-loot-tables"]?.item_templates ?? []) {
+    if (mountedLootTemplateIds.has(template.id)) {
+      fail(`loot item template ${template.id} is mounted more than once`);
+    }
+    mountedLootTemplateIds.add(template.id);
+  }
   for (const table of pack.extensions?.["x-cosyworld-loot-tables"]?.tables ?? []) {
     if (mountedLootTableIds.has(table.id)) {
       fail(`loot table ${table.id} is mounted more than once`);
@@ -520,6 +531,13 @@ for (const pack of packs) {
     const archetype
     of pack.extensions?.["x-cosyworld-building-archetypes"]?.archetypes ?? []
   ) {
+    mountedBuildingArchetypes.push(archetype);
+    for (const capability of archetype.capabilities ?? []) {
+      mountedBuildingCapabilities.add(capability);
+    }
+    for (const tag of archetype.recipe_tags ?? []) {
+      mountedBuildingRecipeTags.add(tag);
+    }
     if (
       archetype.loot_table_id !== undefined
       && !mountedLootTableIds.has(archetype.loot_table_id)
@@ -2038,6 +2056,134 @@ for (const recipe of recipes) {
   }
   recipeIds.add(recipe.id);
   validateRequiredStrings("recipe", recipe, ["key", "name", "description"]);
+  if (recipe.schema_version === 2) {
+    for (const error of versionedRecipeValidationErrors(
+      recipe,
+      {
+        templateIds: mountedLootTemplateIds,
+        buildingArchetypes: mountedBuildingArchetypes,
+      },
+      `recipe ${recipe.id}`,
+    )) {
+      fail(error);
+    }
+    if (!Array.isArray(recipe.inputs) || recipe.inputs.length < 1 || recipe.inputs.length > 2) {
+      fail(`recipe ${recipe.id} must declare one or two physical inputs`);
+    }
+    const inputTemplates = new Set();
+    let physicalInputCount = 0;
+    for (const input of recipe.inputs ?? []) {
+      if (!isObject(input)
+          || !isNonEmptyString(input.template_id)
+          || !mountedLootTemplateIds.has(input.template_id)
+          || inputTemplates.has(input.template_id)) {
+        fail(`recipe ${recipe.id} has an orphan or duplicate input template ${input?.template_id}`);
+      }
+      inputTemplates.add(input?.template_id);
+      if (!Number.isInteger(input?.quantity)
+          || input.quantity < 1
+          || input.quantity > 2) {
+        fail(`recipe ${recipe.id} input ${input?.template_id} must use supported quantity 1 or 2`);
+      } else {
+        physicalInputCount += input.quantity;
+      }
+      if (!Number.isInteger(input?.min_charges ?? 0)
+          || (input?.min_charges ?? 0) < 0
+          || (input?.min_charges ?? 0) > 20) {
+        fail(`recipe ${recipe.id} input ${input?.template_id} has invalid charge requirements`);
+      }
+      if (!Array.isArray(input?.zones)
+          || input.zones.length === 0
+          || new Set(input.zones).size !== input.zones.length
+          || input.zones.some((zone) => !["carried", "world"].includes(zone))) {
+        fail(`recipe ${recipe.id} input ${input?.template_id} has ambiguous zones`);
+      }
+      if (!["persistent", "consume", "exhaust", "transform"].includes(input?.disposition)) {
+        fail(`recipe ${recipe.id} input ${input?.template_id} has undeclared consumption`);
+      }
+    }
+    if (physicalInputCount < 1 || physicalInputCount > 2) {
+      fail(`recipe ${recipe.id} must resolve to one or two physical items`);
+    }
+    const requirements = recipe.requires;
+    const buildingCapabilities = requirements?.building_capabilities ?? [];
+    const buildingRecipeTags = requirements?.recipe_tags ?? [];
+    const naturalFeatures = requirements?.natural_features ?? [];
+    const locationFeatures = requirements?.location_features ?? [];
+    if (!isObject(requirements)
+        || !Array.isArray(buildingCapabilities)
+        || !Array.isArray(buildingRecipeTags)
+        || !Array.isArray(naturalFeatures)
+        || !Array.isArray(locationFeatures)
+        || (buildingCapabilities.length === 0
+          && buildingRecipeTags.length === 0
+          && naturalFeatures.length === 0
+          && locationFeatures.length === 0)) {
+      fail(`recipe ${recipe.id} has no physical place eligibility`);
+    }
+    if ((buildingCapabilities.length === 0) !== (buildingRecipeTags.length === 0)
+        || (buildingCapabilities.length > 0
+          && !buildingCapabilities.includes("transformation_recipes"))
+        || buildingCapabilities.some(
+          (capability) => !mountedBuildingCapabilities.has(capability),
+        )) {
+      fail(`recipe ${recipe.id} has missing or unknown capability tags`);
+    }
+    if (buildingRecipeTags.some((tag) => !mountedBuildingRecipeTags.has(tag))) {
+      fail(`recipe ${recipe.id} has missing or unknown building recipe tags`);
+    }
+    if (buildingCapabilities.length > 0
+        && !mountedBuildingArchetypes.some((archetype) =>
+      buildingCapabilities.every(
+        (capability) => (archetype.capabilities ?? []).includes(capability),
+      )
+      && buildingRecipeTags.every(
+        (tag) => (archetype.recipe_tags ?? []).includes(tag),
+      ))) {
+      fail(`recipe ${recipe.id} has an impossible capability and recipe-tag combination`);
+    }
+    const validNaturalFeatures = new Set([
+      "fish_rich_water",
+      "ore_seam",
+      "clay_bank",
+      "ancient_woodland",
+      "fast_river",
+      "reliable_upland_wind",
+      "hot_spring",
+      "rich_soil",
+      "rare_herb_habitat",
+      "old_ruins",
+    ]);
+    if (!Array.isArray(naturalFeatures)
+        || naturalFeatures.length > 1
+        || naturalFeatures.some((feature) => !validNaturalFeatures.has(feature))) {
+      fail(`recipe ${recipe.id} names ambiguous or unknown natural features`);
+    }
+    if (locationFeatures.length > 1
+        || locationFeatures.some((feature) => feature !== "generated_place_anchor_site")) {
+      fail(`recipe ${recipe.id} names ambiguous or unknown location features`);
+    }
+    const output = recipe.output;
+    if (!isObject(output) || !mountedLootTemplateIds.has(output?.template_id)) {
+      fail(`recipe ${recipe.id} has an orphan output template ${output?.template_id}`);
+    }
+    if (!["actor_hand", "location_floor", "installed_at_location"].includes(output?.destination)) {
+      fail(`recipe ${recipe.id} has impossible destination ${output?.destination}`);
+    }
+    if (output?.fallback_destination !== "location_floor") {
+      fail(`recipe ${recipe.id} is missing a location_floor fallback`);
+    }
+    if (!["portable", "installed_fixture"].includes(output?.effect)
+        || !["per_receipt", "per_location", "per_world"].includes(output?.uniqueness)
+        || (output?.destination === "installed_at_location"
+          && output?.effect !== "installed_fixture")) {
+      fail(`recipe ${recipe.id} has an invalid typed output effect`);
+    }
+    continue;
+  }
+  if (recipe.schema_version !== undefined && recipe.schema_version !== 1) {
+    fail(`recipe ${recipe.id} has unsupported schema_version ${recipe.schema_version}`);
+  }
   if (!Array.isArray(recipe.input_item_ids) || recipe.input_item_ids.length !== 2 || recipe.input_item_ids[0] === recipe.input_item_ids[1]) {
     fail(`recipe ${recipe.id} must declare exactly two distinct input_item_ids`);
   }
@@ -2419,10 +2565,19 @@ function buildWorldpackReport() {
     recipes: recipes.map((recipe) => ({
       id: recipe.id,
       key: recipe.key,
+      schema_version: recipe.schema_version ?? 1,
       input_item_ids: recipe.input_item_ids,
       input_item_names: (recipe.input_item_ids ?? []).map((itemId) => itemById.get(itemId)?.name ?? null),
+      input_templates: (recipe.inputs ?? []).map((input) => ({
+        template_id: input.template_id,
+        zones: input.zones,
+        disposition: input.disposition,
+      })),
       output_item_id: recipe.output?.item_id ?? null,
       output_item_name: recipe.output?.name ?? null,
+      output_template_id: recipe.output?.template_id ?? null,
+      output_destination: recipe.output?.destination ?? recipe.output?.target_kind ?? null,
+      requirements: recipe.requires ?? null,
       balance: recipe.balance ? `${recipe.balance.kind}:${recipe.balance.target_kind}:${recipe.balance.target_id}` : null,
     })),
     evolution_tracks: evolutionTracks.map((track) => ({
