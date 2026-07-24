@@ -339,6 +339,7 @@ impl RuntimeWorld {
                 contribution_strategies: anchor_strategy,
                 narrated_thresholds: Vec::new(),
                 delivery: None,
+                loot: None,
             });
         self.jobs
             .entry(state.connection_job_id.clone())
@@ -369,6 +370,7 @@ impl RuntimeWorld {
                     created_world_tick: self.world.tick,
                     updated_world_tick: self.world.tick,
                 }),
+                loot: None,
             });
 
         let settlement_strategies = self
@@ -403,6 +405,7 @@ impl RuntimeWorld {
                 contribution_strategies: settlement_strategies.unwrap_or_default(),
                 narrated_thresholds: Vec::new(),
                 delivery: None,
+                loot: None,
             });
 
         let mut projects = vec![

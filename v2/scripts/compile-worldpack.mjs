@@ -17,6 +17,7 @@ import {
 } from "./content-references.mjs";
 import { assertAvatarNamingConfig } from "./avatar-naming-schema.mjs";
 import { assertBuildingArchetypeConfig } from "./building-archetype-schema.mjs";
+import { assertLootTableConfig } from "./loot-table-schema.mjs";
 import { assertNaturalAffordanceConfig } from "./natural-affordance-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -527,6 +528,13 @@ for (const packId of world.packs) {
       buildingArchetypes,
       `pack ${packId} x-cosyworld-building-archetypes`,
     );
+  }
+  const lootTables = manifest.extensions?.["x-cosyworld-loot-tables"];
+  if (lootTables !== undefined) {
+    assertLootTableConfig(lootTables, `pack ${packId} x-cosyworld-loot-tables`);
+    for (const table of lootTables.tables) {
+      assert(table.id.startsWith(`${packId}:loot/`), `pack ${packId} owns foreign loot table ${table.id}`);
+    }
   }
   assert(manifest.id === packId, `pack path for ${packId} contains ${manifest.id}`);
   if (!writeLock) {

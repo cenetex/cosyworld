@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.core",
   "name": "CosyWorld Core",
-  "version": "1.3.8",
+  "version": "1.3.9",
   "kind": "world",
   "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
   "license": "MIT",
@@ -360,6 +360,182 @@
           "quest_templates": ["expedition.old_ruins"],
           "recipe_tags": [],
           "cache_policy": "none"
+        }
+      ]
+    },
+    "x-cosyworld-loot-tables": {
+      "schema_version": 1,
+      "replay_version": "weighted-fnv1a-v1",
+      "item_templates": [
+        {
+          "id": "river_sprat",
+          "name": "River Sprat",
+          "description": "A small silver fish caught through patient shared work.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "generic",
+          "weight_tenths": 4,
+          "size": "small"
+        },
+        {
+          "id": "glassfin_scale",
+          "name": "Glassfin Scale",
+          "description": "A rare clear scale that keeps a ribbon of river light.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "generic",
+          "weight_tenths": 1,
+          "size": "tiny"
+        },
+        {
+          "id": "iron_nodule",
+          "name": "Iron Nodule",
+          "description": "A workable dark nodule brought out by represented mining.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "generic",
+          "weight_tenths": 20,
+          "size": "small"
+        },
+        {
+          "id": "quartz_chip",
+          "name": "Quartz Chip",
+          "description": "A pale mineral chip with one clean shining edge.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "generic",
+          "weight_tenths": 5,
+          "size": "small"
+        },
+        {
+          "id": "orchard_apple",
+          "name": "Orchard Apple",
+          "description": "A firm apple gathered after tending the shared grove.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "generic",
+          "weight_tenths": 3,
+          "size": "small"
+        },
+        {
+          "id": "amber_pear",
+          "name": "Amber Pear",
+          "description": "A golden pear with a warm speckled skin.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "generic",
+          "weight_tenths": 4,
+          "size": "small"
+        },
+        {
+          "id": "garden_beans",
+          "name": "Garden Beans",
+          "description": "A tied bundle of crisp beans from the public garden.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "generic",
+          "weight_tenths": 3,
+          "size": "small"
+        },
+        {
+          "id": "moon_carrot",
+          "name": "Moon Carrot",
+          "description": "A pale carrot curled like a small crescent.",
+          "kind": "keepsake",
+          "charges": 1,
+          "role": "generic",
+          "weight_tenths": 2,
+          "size": "small"
+        }
+      ],
+      "tables": [
+        {
+          "id": "cosyworld.core:loot/fishery-catch",
+          "version": 1,
+          "allocation_policy": "building_public_cache",
+          "quantity": {"min": 1, "max": 1},
+          "eligibility": {
+            "quest_templates": ["production.fishery"],
+            "natural_resources": ["fish_rich_water"],
+            "building_capabilities": ["fishing"]
+          },
+          "entries": [
+            {"template_id": "river_sprat", "weight": 9, "rarity": "common"},
+            {"template_id": "glassfin_scale", "weight": 1, "rarity": "rare", "unique": true}
+          ],
+          "fallback_template_id": "river_sprat",
+          "already_present_policy": "fallback",
+          "unavailable_policy": "fallback",
+          "presentation": {
+            "label": "Fishery catch",
+            "summary": "The completed fishing work leaves one physical catch in the Fishery Public Cache."
+          }
+        },
+        {
+          "id": "cosyworld.core:loot/shallow-mine-ore",
+          "version": 1,
+          "allocation_policy": "building_public_cache",
+          "quantity": {"min": 1, "max": 1},
+          "eligibility": {
+            "quest_templates": ["production.shallow_mine"],
+            "natural_resources": ["ore_seam"],
+            "building_capabilities": ["mining"]
+          },
+          "entries": [
+            {"template_id": "iron_nodule", "weight": 4, "rarity": "common"},
+            {"template_id": "quartz_chip", "weight": 1, "rarity": "uncommon"}
+          ],
+          "fallback_template_id": "iron_nodule",
+          "already_present_policy": "allow_duplicate",
+          "unavailable_policy": "fallback",
+          "presentation": {
+            "label": "Mine yield",
+            "summary": "The completed mining work leaves one physical find in the Shallow Mine Public Cache."
+          }
+        },
+        {
+          "id": "cosyworld.core:loot/orchard-harvest",
+          "version": 1,
+          "allocation_policy": "location_stockpile",
+          "quantity": {"min": 1, "max": 1},
+          "eligibility": {
+            "quest_templates": ["production.orchard"],
+            "natural_resources": ["rich_soil"],
+            "building_capabilities": ["cultivation"]
+          },
+          "entries": [
+            {"template_id": "orchard_apple", "weight": 4, "rarity": "common"},
+            {"template_id": "amber_pear", "weight": 1, "rarity": "uncommon"}
+          ],
+          "fallback_template_id": "orchard_apple",
+          "already_present_policy": "allow_duplicate",
+          "unavailable_policy": "fallback",
+          "presentation": {
+            "label": "Orchard harvest",
+            "summary": "The completed tending work leaves one physical fruit at the Orchard."
+          }
+        },
+        {
+          "id": "cosyworld.core:loot/market-garden-harvest",
+          "version": 1,
+          "allocation_policy": "location_stockpile",
+          "quantity": {"min": 1, "max": 1},
+          "eligibility": {
+            "quest_templates": ["production.market_garden"],
+            "natural_resources": ["rich_soil"],
+            "building_capabilities": ["cultivation"]
+          },
+          "entries": [
+            {"template_id": "garden_beans", "weight": 4, "rarity": "common"},
+            {"template_id": "moon_carrot", "weight": 1, "rarity": "uncommon"}
+          ],
+          "fallback_template_id": "garden_beans",
+          "already_present_policy": "allow_duplicate",
+          "unavailable_policy": "fallback",
+          "presentation": {
+            "label": "Garden harvest",
+            "summary": "The completed garden work leaves one physical harvest at the Market Garden."
+          }
         }
       ]
     }
