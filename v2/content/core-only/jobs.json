@@ -22,6 +22,165 @@
       "label": "Quiet the echo",
       "summary": "Choose how to steady the Moonlit Trail before its echoes grow louder."
     },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "listen-for-echo",
+        "action_kind": "check",
+        "rules_action": "srd5.2.1:search",
+        "target": {
+          "kind": "room",
+          "id": "3",
+          "label": "the echo along the Moonlit Trail"
+        },
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 12
+        },
+        "clock_id": "moonlit-trail.progress",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_actor_target",
+        "strategy_label": "Listen for where the echo catches",
+        "narration_key": "moonlit.echo.listen",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      },
+      {
+        "version": 1,
+        "id": "read-moonlit-signs",
+        "action_kind": "study",
+        "rules_action": "srd5.2.1:study",
+        "target": {
+          "kind": "feature",
+          "id": "moonlit-signs",
+          "label": "the moonlit signs"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 3
+          }
+        ],
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "intelligence",
+          "dc": 12
+        },
+        "clock_id": "moonlit-trail.progress",
+        "baseline_progress": 1,
+        "success_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Read the moonlit signs",
+        "narration_key": "moonlit.echo.study",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      },
+      {
+        "version": 1,
+        "id": "set-wolfprint-marker",
+        "action_kind": "use_item",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "item",
+          "id": "2003",
+          "label": "the wolfprint marker"
+        },
+        "requirements": [
+          {
+            "kind": "held_item",
+            "item_id": 2003
+          }
+        ],
+        "resolution": {
+          "kind": "existing_kernel_outcome",
+          "event_type": "item.used"
+        },
+        "clock_id": "moonlit-trail.progress",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Set the wolfprint marker",
+        "narration_key": "moonlit.echo.marker",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      },
+      {
+        "version": 1,
+        "id": "steady-trail",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "moonlit-trail:quiet-the-echo",
+          "label": "the echo-heavy trail"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "moonlit-trail.progress",
+        "baseline_progress": 2,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Steady the trail",
+        "narration_key": "moonlit.echo.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      },
+      {
+        "version": 1,
+        "id": "steady-beside-traveler",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "a nearby traveler"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "moonlit-trail.progress",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Steady the trail together",
+        "narration_key": "moonlit.echo.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "moonlit-trail.progress",
+        "filled": 2,
+        "narration_key": "moonlit.echo.softens",
+        "text": "The echo loosens; footsteps begin to sound like travelers again."
+      },
+      {
+        "clock_id": "moonlit-trail.danger",
+        "filled": 2,
+        "narration_key": "moonlit.echo.sharpens",
+        "text": "The returning echo sharpens enough to make every quiet step uncertain."
+      }
+    ],
     "pack_id": "cosyworld.core"
   },
   {
@@ -52,6 +211,127 @@
       "label": "Hear both songs",
       "summary": "Choose how to bring the drowned bell's two songs into accord."
     },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "hear-solar-silence",
+        "action_kind": "check",
+        "rules_action": "srd5.2.1:search",
+        "target": {
+          "kind": "room",
+          "id": "36",
+          "label": "the bell's absence in the Solar Temple"
+        },
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 12
+        },
+        "clock_id": "solar-abyss.drowned-bell",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_actor_target",
+        "strategy_label": "Hear the solar silence",
+        "narration_key": "solar-abyss.listen.solar",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      },
+      {
+        "version": 1,
+        "id": "hear-abyssal-song",
+        "action_kind": "check",
+        "rules_action": "srd5.2.1:search",
+        "target": {
+          "kind": "room",
+          "id": "64",
+          "label": "the bell's deeper song in the Darkest Ocean"
+        },
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 12
+        },
+        "clock_id": "solar-abyss.drowned-bell",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_actor_target",
+        "strategy_label": "Hear the abyssal song",
+        "narration_key": "solar-abyss.listen.abyss",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      },
+      {
+        "version": 1,
+        "id": "tune-the-accord",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "solar-abyss:drowned-bell",
+          "label": "the two-toned bell accord"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "solar-abyss.drowned-bell",
+        "baseline_progress": 2,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Tune the two songs together",
+        "narration_key": "solar-abyss.accord.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      },
+      {
+        "version": 1,
+        "id": "compare-the-songs",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "a nearby listener"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "solar-abyss.drowned-bell",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Compare the songs together",
+        "narration_key": "solar-abyss.accord.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "solar-abyss.drowned-bell",
+        "filled": 2,
+        "narration_key": "solar-abyss.accord.heard",
+        "text": "The two songs stop drowning each other out; a shared interval can be heard."
+      },
+      {
+        "clock_id": "solar-abyss.schism",
+        "filled": 2,
+        "narration_key": "solar-abyss.schism.hardens",
+        "text": "Each side begins calling the other's song a wound instead of an answer."
+      }
+    ],
     "pack_id": "cosyworld.core"
   },
   {
@@ -77,6 +357,73 @@
       "label": "Name the fair price",
       "summary": "Choose how to help Nib name a bargain everyone can trust."
     },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "name-the-terms",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "goblin-cave:name-the-price",
+          "label": "the unfinished bargain"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "goblin-cave.fair-bargain",
+        "baseline_progress": 2,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Name the bargain's terms",
+        "narration_key": "goblin-bargain.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      },
+      {
+        "version": 1,
+        "id": "witness-the-bargain",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "a nearby witness"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "goblin-cave.fair-bargain",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Witness the bargain together",
+        "narration_key": "goblin-bargain.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "goblin-cave.fair-bargain",
+        "filled": 2,
+        "narration_key": "goblin-bargain.trust",
+        "text": "One price finally names what is wanted without turning the promise into collateral."
+      },
+      {
+        "clock_id": "goblin-cave.leverage",
+        "filled": 2,
+        "narration_key": "goblin-bargain.leverage",
+        "text": "The loopholes begin to sound more important than the promise itself."
+      }
+    ],
     "pack_id": "cosyworld.core"
   },
   {
@@ -102,6 +449,73 @@
       "label": "Earn the threshold",
       "summary": "Choose how to prove the Mansion can welcome a careful guest."
     },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "demonstrate-restraint",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "haunted-mansion:earn-the-threshold",
+          "label": "the Warden's threshold"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "haunted-mansion.threshold",
+        "baseline_progress": 2,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Demonstrate careful restraint",
+        "narration_key": "haunted-threshold.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      },
+      {
+        "version": 1,
+        "id": "vouch-for-a-guest",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "a careful guest"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "haunted-mansion.threshold",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Vouch for a careful guest",
+        "narration_key": "haunted-threshold.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "haunted-mansion.threshold",
+        "filled": 2,
+        "narration_key": "haunted-threshold.considers",
+        "text": "The Warden still watches, but no longer treats every careful hand as a thief."
+      },
+      {
+        "clock_id": "haunted-mansion.warden-rage",
+        "filled": 2,
+        "narration_key": "haunted-threshold.bars",
+        "text": "The Warden tests the locks twice and begins naming caution as the only welcome."
+      }
+    ],
     "pack_id": "cosyworld.core"
   },
   {
@@ -127,6 +541,73 @@
       "label": "Amend the ledger",
       "summary": "Choose how to turn one old slight into an honest amendment."
     },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "write-the-amendment",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "turgid-swamp:amend-the-ledger",
+          "label": "Beetle's grudge ledger"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "turgid-swamp.amends",
+        "baseline_progress": 2,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Write an honest amendment",
+        "narration_key": "swamp-ledger.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      },
+      {
+        "version": 1,
+        "id": "remember-the-landing",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "another witness"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "turgid-swamp.amends",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Remember the landing together",
+        "narration_key": "swamp-ledger.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.4"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "turgid-swamp.amends",
+        "filled": 2,
+        "narration_key": "swamp-ledger.reconsiders",
+        "text": "The old landing is still recorded, but the margin now makes room for what happened next."
+      },
+      {
+        "clock_id": "turgid-swamp.old-grudge",
+        "filled": 2,
+        "narration_key": "swamp-ledger.hardens",
+        "text": "The ledger's oldest line is being repeated as if repetition could make it law."
+      }
+    ],
     "pack_id": "cosyworld.core"
   }
 ]

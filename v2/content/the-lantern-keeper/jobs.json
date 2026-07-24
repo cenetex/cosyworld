@@ -14,6 +14,250 @@
     "action_copy": {
       "label": "Rekindle the beacon",
       "summary": "Choose how to restore the Mothwood beacon before borrowed shadows learn the road."
-    }
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "follow-rowan-footprints",
+        "action_kind": "check",
+        "rules_action": "srd5.2.1:search",
+        "target": {
+          "kind": "room",
+          "id": "801",
+          "label": "Rowan's last footprints"
+        },
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 12
+        },
+        "clock_id": "lantern-keeper.light",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_actor_target",
+        "strategy_label": "Follow Rowan's footprints",
+        "narration_key": "lantern-keeper.footprints",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "pack_version": "0.1.3"
+      },
+      {
+        "version": 1,
+        "id": "learn-keeper-warning",
+        "action_kind": "check",
+        "rules_action": "srd5.2.1:search",
+        "target": {
+          "kind": "room",
+          "id": "802",
+          "label": "the keeper's warning"
+        },
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 12
+        },
+        "clock_id": "lantern-keeper.light",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_actor_target",
+        "strategy_label": "Learn the keeper's warning",
+        "narration_key": "lantern-keeper.warning",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "pack_version": "0.1.3"
+      },
+      {
+        "version": 1,
+        "id": "find-dawn-oil-trail",
+        "action_kind": "check",
+        "rules_action": "srd5.2.1:search",
+        "target": {
+          "kind": "room",
+          "id": "803",
+          "label": "the dawn-oil trail"
+        },
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 12
+        },
+        "clock_id": "lantern-keeper.light",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_actor_target",
+        "strategy_label": "Find the dawn-oil trail",
+        "narration_key": "lantern-keeper.dawn-oil",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "pack_version": "0.1.3"
+      },
+      {
+        "version": 1,
+        "id": "open-inner-lens",
+        "action_kind": "use_item",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "item",
+          "id": "8401",
+          "label": "the inner lens"
+        },
+        "requirements": [
+          {
+            "kind": "held_item",
+            "item_id": 8401
+          }
+        ],
+        "resolution": {
+          "kind": "existing_kernel_outcome",
+          "event_type": "item.used"
+        },
+        "clock_id": "lantern-keeper.light",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Open the inner lens",
+        "narration_key": "lantern-keeper.inner-lens",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "pack_version": "0.1.3"
+      },
+      {
+        "version": 1,
+        "id": "see-rowan-in-shadow",
+        "action_kind": "use_item",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "item",
+          "id": "8402",
+          "label": "the shadow glass"
+        },
+        "requirements": [
+          {
+            "kind": "held_item",
+            "item_id": 8402
+          }
+        ],
+        "resolution": {
+          "kind": "existing_kernel_outcome",
+          "event_type": "item.used"
+        },
+        "clock_id": "lantern-keeper.light",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Find Rowan inside the shadow",
+        "narration_key": "lantern-keeper.shadow-glass",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "pack_version": "0.1.3"
+      },
+      {
+        "version": 1,
+        "id": "separate-keeper-shadow",
+        "action_kind": "use_item",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "item",
+          "id": "8403",
+          "label": "the dawn wick"
+        },
+        "requirements": [
+          {
+            "kind": "held_item",
+            "item_id": 8403
+          }
+        ],
+        "resolution": {
+          "kind": "existing_kernel_outcome",
+          "event_type": "item.used"
+        },
+        "clock_id": "lantern-keeper.light",
+        "baseline_progress": 0,
+        "success_progress": 1,
+        "claim_policy": "once_per_target",
+        "strategy_label": "Separate keeper from shadow",
+        "narration_key": "lantern-keeper.dawn-wick",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "pack_version": "0.1.3"
+      },
+      {
+        "version": 1,
+        "id": "rekindle-beacon",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "lantern-keeper:rekindle-the-beacon",
+          "label": "the dark Mothwood beacon"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "lantern-keeper.light",
+        "baseline_progress": 2,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Rekindle the beacon",
+        "narration_key": "lantern-keeper.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "pack_version": "0.1.3"
+      },
+      {
+        "version": 1,
+        "id": "tend-beacon-together",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "a nearby lantern-tender"
+        },
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "lantern-keeper.light",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Tend the beacon together",
+        "narration_key": "lantern-keeper.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.campaign.the-lantern-keeper",
+        "pack_version": "0.1.3"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "lantern-keeper.light",
+        "filled": 3,
+        "narration_key": "lantern-keeper.glass-warms",
+        "text": "The beacon glass warms; one true line of light reaches the road below."
+      },
+      {
+        "clock_id": "lantern-keeper.darkness",
+        "filled": 3,
+        "narration_key": "lantern-keeper.shadows-learn",
+        "text": "Borrowed shadows begin repeating the shapes of travelers who have not yet arrived."
+      }
+    ]
   }
 ]

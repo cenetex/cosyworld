@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "cosyworld.core",
   "name": "CosyWorld Core",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "kind": "world",
   "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
   "license": "MIT",

@@ -36,6 +36,9 @@ do not define V2 behavior.
   trade authorization, single-use gift requests, and mute/block/report controls.
 - **[Emergent actor practices](actor-practices.md)** — durable deeds,
   incremental delivery evidence, and scoreless identities earned from play.
+- **[Authoritative quest clocks](authoritative-quest-clocks.md)** — named
+  contribution strategies, causal evidence, narrated thresholds, and replay
+  compatibility.
 - **[Scene concurrency policy](concurrency-policy.md)** — asynchronous
   co-present play, target conflict handling, and explicitly ordered scenes.
 - **[Deck-gated action spike](../v2/docs/deck-gated-action-spike.md)** — the

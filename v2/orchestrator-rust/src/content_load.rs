@@ -2272,20 +2272,171 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
         }
     }
 
-    let mut job_ids = BTreeSet::new();
+    let job_ids = content
+        .jobs
+        .iter()
+        .map(|job| job.id.clone())
+        .collect::<BTreeSet<_>>();
+    if job_ids.len() != content.jobs.len() {
+        return Err("duplicate seed job id".to_string());
+    }
     for job in &content.jobs {
         if job.id.trim().is_empty()
             || job.premise.trim().is_empty()
             || job.stakes.trim().is_empty()
             || job.reward.label().trim().is_empty()
             || job.reward.orbs() < 0
-            || !job_ids.insert(job.id.clone())
             || !clock_ids.contains(&job.progress_clock_id)
             || !clock_ids.contains(&job.danger_clock_id)
             || (job.action_copy.label.trim().is_empty()
                 != job.action_copy.summary.trim().is_empty())
         {
             return Err(format!("invalid seed job {}", job.id));
+        }
+        if job.contribution_schema_version != JOB_CONTRIBUTION_SCHEMA_VERSION
+            || job.contribution_strategies.is_empty()
+        {
+            return Err(format!(
+                "seed job {} is missing contribution schema v{}",
+                job.id, JOB_CONTRIBUTION_SCHEMA_VERSION
+            ));
+        }
+        let mut strategy_ids = BTreeSet::new();
+        for strategy in &job.contribution_strategies {
+            let target_identity_count = usize::from(strategy.target.id.is_some())
+                + usize::from(strategy.target.predicate.is_some());
+            let pack_matches =
+                content.manifest.packs.iter().any(|pack| {
+                    pack.id == strategy.pack_id && pack.version == strategy.pack_version
+                });
+            let rules_pack_matches = content.manifest.packs.iter().any(|pack| {
+                pack.id == strategy.rules_pack_id && pack.version == strategy.rules_pack_version
+            });
+            let binding_count = usize::from(strategy.rules_action.is_some())
+                + usize::from(strategy.operation.is_some());
+            if strategy.version != JOB_CONTRIBUTION_SCHEMA_VERSION
+                || strategy.id.trim().is_empty()
+                || !strategy_ids.insert(strategy.id.clone())
+                || strategy.action_kind.trim().is_empty()
+                || binding_count != 1
+                || strategy.target.kind.trim().is_empty()
+                || strategy.target.label.trim().is_empty()
+                || target_identity_count != 1
+                || strategy.strategy_label.trim().is_empty()
+                || strategy.narration_key.trim().is_empty()
+                || strategy.rules_profile != content.manifest.rules_profile
+                || strategy.rules_pack_id.trim().is_empty()
+                || !rules_pack_matches
+                || strategy.pack_id != job.pack_id
+                || !pack_matches
+                || (strategy.clock_id != job.progress_clock_id
+                    && strategy.clock_id != job.danger_clock_id)
+                || strategy
+                    .baseline_progress
+                    .saturating_add(strategy.success_progress)
+                    .saturating_add(strategy.prepared_bonus_progress)
+                    == 0
+            {
+                return Err(format!(
+                    "job {} has invalid contribution strategy {}",
+                    job.id, strategy.id
+                ));
+            }
+            if let Some(predicate) = strategy.target.predicate.as_deref() {
+                if !matches!(
+                    predicate,
+                    "current_room" | "job_participant_here" | "co_present_avatar"
+                ) {
+                    return Err(format!(
+                        "job {} strategy {} has invalid target predicate {}",
+                        job.id, strategy.id, predicate
+                    ));
+                }
+            }
+            match &strategy.resolution {
+                ContributionResolutionPolicy::Certain => {}
+                ContributionResolutionPolicy::SrdCheck { ability, dc } => {
+                    if !matches!(
+                        ability.to_ascii_lowercase().as_str(),
+                        "strength"
+                            | "dexterity"
+                            | "constitution"
+                            | "intelligence"
+                            | "wisdom"
+                            | "charisma"
+                    ) || *dc == 0
+                    {
+                        return Err(format!(
+                            "job {} strategy {} has invalid SRD check",
+                            job.id, strategy.id
+                        ));
+                    }
+                }
+                ContributionResolutionPolicy::ExistingKernelOutcome { event_type } => {
+                    if event_type.trim().is_empty() {
+                        return Err(format!(
+                            "job {} strategy {} has empty outcome event",
+                            job.id, strategy.id
+                        ));
+                    }
+                }
+            }
+            for requirement in &strategy.requirements {
+                let valid = match requirement {
+                    ContributionRequirement::AtLocation { location_id } => {
+                        location_ids.contains(location_id)
+                    }
+                    ContributionRequirement::HeldItem { item_id } => item_ids.contains(item_id),
+                    ContributionRequirement::ActiveTag { tag_id } => !tag_id.trim().is_empty(),
+                    ContributionRequirement::RoomFeature {
+                        location_id,
+                        feature_key,
+                    } => content.room_features.iter().any(|feature| {
+                        feature.location_id == *location_id && feature.key == *feature_key
+                    }),
+                };
+                if !valid {
+                    return Err(format!(
+                        "job {} strategy {} has invalid requirement",
+                        job.id, strategy.id
+                    ));
+                }
+            }
+            for effect in strategy.on_success.iter().chain(strategy.on_failure.iter()) {
+                validate_seed_effect_descriptor(
+                    &format!("job {} strategy {}", job.id, strategy.id),
+                    effect,
+                    &actor_ids,
+                    &item_ids,
+                    &location_ids,
+                    &clock_ids,
+                    &job_ids,
+                )?;
+            }
+        }
+        let mut threshold_keys = BTreeSet::new();
+        for threshold in &job.narrated_thresholds {
+            let Some(clock) = content
+                .clocks
+                .iter()
+                .find(|clock| clock.id == threshold.clock_id)
+            else {
+                return Err(format!(
+                    "job {} has threshold for missing clock {}",
+                    job.id, threshold.clock_id
+                ));
+            };
+            if !threshold_keys.insert((threshold.clock_id.clone(), threshold.filled))
+                || threshold.filled == 0
+                || threshold.filled >= clock.segments
+                || threshold.narration_key.trim().is_empty()
+                || threshold.text.trim().is_empty()
+            {
+                return Err(format!(
+                    "job {} has invalid narrated threshold {}:{}",
+                    job.id, threshold.clock_id, threshold.filled
+                ));
+            }
         }
         for location_id in &job.location_ids {
             if !location_ids.contains(location_id) {
