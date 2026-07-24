@@ -748,6 +748,17 @@ struct JobState {
     memory_summary: String,
     #[serde(default)]
     action_copy: JobActionCopy,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    delivery: Option<DeliveryJobSpec>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+struct DeliveryJobSpec {
+    resource: String,
+    origin_location_id: u64,
+    destination_location_id: u64,
+    created_world_tick: u64,
+    updated_world_tick: u64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -6998,6 +7009,40 @@ impl RuntimeWorld {
                 continue;
             }
 
+            let matching_jobs = self
+                .jobs
+                .values()
+                .filter(|job| self.job_status(job) == "active")
+                .filter(|job| {
+                    job.delivery.as_ref().is_some_and(|delivery| {
+                        delivery.origin_location_id == evidence.origin_location_id
+                            && delivery.destination_location_id == evidence.destination_location_id
+                    })
+                })
+                .map(|job| job.id.clone())
+                .collect::<Vec<_>>();
+            for job_id in matching_jobs {
+                if let Some(progress_clock_id) = self
+                    .jobs
+                    .get(&job_id)
+                    .map(|job| job.progress_clock_id.clone())
+                {
+                    if let Some(clock) = self.clocks.get_mut(&progress_clock_id) {
+                        clock.filled = clock.segments;
+                        clock.status = "filled".to_string();
+                        clock.updated_event_seq = Some(evidence.delivery_event_seq);
+                    }
+                }
+                if let Some(event) = self.set_job_status(
+                    &job_id,
+                    "completed",
+                    evidence.actor_id,
+                    "physical_delivery",
+                ) {
+                    projected.push(event);
+                }
+            }
+
             let actor_name = self
                 .actor_name(evidence.actor_id)
                 .unwrap_or_else(|| format!("Actor {}", evidence.actor_id));
@@ -7728,6 +7773,7 @@ impl RuntimeWorld {
                 summary: "Choose how to help this newly found route settle into a familiar way."
                     .to_string(),
             },
+            delivery: None,
         });
     }
 
@@ -9480,7 +9526,11 @@ impl RuntimeWorld {
             }
             self.reconcile_card_zones();
             let delivery_evidence = self.update_item_provenance(&events);
-            events.extend(self.apply_actor_causal_logistics(delivery_evidence));
+            let logistics_events = self.apply_actor_causal_logistics(delivery_evidence);
+            let public_beat_available = logistics_events
+                .iter()
+                .all(|event| !event.type_name.starts_with("world."));
+            events.extend(logistics_events);
             self.project_qualifying_deeds(&events);
             self.apply_resident_memory_projection(&action, &events);
             if advances_world_tick {
@@ -9491,6 +9541,7 @@ impl RuntimeWorld {
                     &action,
                     record.seed,
                     &committed_events,
+                    public_beat_available,
                 ));
             }
             self.record_autonomous_action(record);
@@ -17254,12 +17305,13 @@ impl RuntimeWorld {
     fn location_has_job(&self, location_id: u64) -> bool {
         self.jobs
             .values()
-            .any(|job| job.location_ids.contains(&location_id))
+            .any(|job| job.delivery.is_none() && job.location_ids.contains(&location_id))
     }
 
     fn active_job_for_location(&self, location_id: u64) -> Option<&JobState> {
         self.jobs
             .values()
+            .filter(|job| job.delivery.is_none())
             .filter(|job| job.location_ids.contains(&location_id))
             .filter(|job| self.job_status(job) == "active")
             .filter_map(|job| {
@@ -17269,6 +17321,153 @@ impl RuntimeWorld {
             })
             .find(|(_, clock)| clock.filled < clock.segments)
             .map(|(job, _)| job)
+    }
+
+    fn ensure_delivery_need_job(
+        &mut self,
+        pulse: &WorldPulse,
+        source_location_id: Option<u64>,
+        caused_by_event_seq: Option<u64>,
+    ) -> Option<EventView> {
+        let trade = &pulse.trade;
+        let existing_id = self.jobs.values().find_map(|job| {
+            let delivery = job.delivery.as_ref()?;
+            (self.job_status(job) == "active"
+                && delivery.origin_location_id == trade.from_location_id
+                && delivery.destination_location_id == trade.to_location_id
+                && delivery.resource == trade.resource)
+                .then(|| job.id.clone())
+        });
+        if let Some(job_id) = existing_id {
+            let destination_name = self
+                .location_name(trade.to_location_id)
+                .unwrap_or_else(|| format!("Location {}", trade.to_location_id));
+            if let Some(job) = self.jobs.get_mut(&job_id) {
+                if let Some(delivery) = job.delivery.as_mut() {
+                    delivery.updated_world_tick = pulse.source_world_tick;
+                }
+                job.stakes = format!(
+                    "{destination_name} needs a represented item, carried there by an actor."
+                );
+            }
+            return None;
+        }
+
+        let origin_name = self
+            .location_name(trade.from_location_id)
+            .unwrap_or_else(|| format!("Location {}", trade.from_location_id));
+        let destination_name = self
+            .location_name(trade.to_location_id)
+            .unwrap_or_else(|| format!("Location {}", trade.to_location_id));
+        let resource_key = trade
+            .resource
+            .chars()
+            .map(|character| {
+                if character.is_ascii_alphanumeric() {
+                    character.to_ascii_lowercase()
+                } else {
+                    '-'
+                }
+            })
+            .collect::<String>();
+        let job_id = format!(
+            "world-delivery:{}:{}:{}:{}",
+            trade.from_location_id, trade.to_location_id, resource_key, pulse.pulse_index
+        );
+        let progress_clock_id = format!("{job_id}:arrived");
+        let danger_clock_id = format!("{job_id}:waiting");
+        let zone = if self.location_is_frontier(trade.to_location_id) {
+            ZONE_FRONTIER
+        } else {
+            ZONE_SANCTUARY
+        };
+        self.clocks.insert(
+            progress_clock_id.clone(),
+            ClockState {
+                id: progress_clock_id.clone(),
+                scope: "room".to_string(),
+                scope_id: trade.to_location_id,
+                kind: "progress".to_string(),
+                zone: zone.to_string(),
+                label: format!("Bring {} from {origin_name}", trade.resource),
+                segments: 1,
+                filled: 0,
+                visible_to_players: true,
+                status: "active".to_string(),
+                on_fill: Vec::new(),
+                created_event_seq: None,
+                updated_event_seq: None,
+            },
+        );
+        self.clocks.insert(
+            danger_clock_id.clone(),
+            ClockState {
+                id: danger_clock_id.clone(),
+                scope: "room".to_string(),
+                scope_id: trade.to_location_id,
+                kind: "danger".to_string(),
+                zone: zone.to_string(),
+                label: format!("{destination_name} goes without"),
+                segments: 4,
+                filled: 0,
+                visible_to_players: true,
+                status: "active".to_string(),
+                on_fill: Vec::new(),
+                created_event_seq: None,
+                updated_event_seq: None,
+            },
+        );
+        self.jobs.insert(
+            job_id.clone(),
+            JobState {
+                pack_id: String::new(),
+                id: job_id,
+                premise: format!(
+                    "Bring a physical {} from {origin_name} to {destination_name}.",
+                    trade.resource
+                ),
+                stakes: format!(
+                    "{destination_name} needs an actor to carry a represented item there."
+                ),
+                location_ids: vec![trade.from_location_id, trade.to_location_id],
+                participant_ids: Vec::new(),
+                progress_clock_id,
+                danger_clock_id,
+                status: "active".to_string(),
+                reward: JobReward::Label(format!(
+                    "{destination_name} remembers who answered the need."
+                )),
+                consequence: format!("{destination_name} continues to go without."),
+                memory_summary: format!(
+                    "A physical delivery connected {origin_name} and {destination_name}."
+                ),
+                action_copy: JobActionCopy {
+                    label: format!("Carry {} to {destination_name}", trade.resource),
+                    summary: format!(
+                        "Pick up a physical item at {origin_name}, travel with it, then give, drop, or use it at {destination_name}."
+                    ),
+                },
+                delivery: Some(DeliveryJobSpec {
+                    resource: trade.resource.clone(),
+                    origin_location_id: trade.from_location_id,
+                    destination_location_id: trade.to_location_id,
+                    created_world_tick: pulse.source_world_tick,
+                    updated_world_tick: pulse.source_world_tick,
+                }),
+            },
+        );
+        Some(self.append_world_history_event(
+            "world.delivery.needed",
+            trade.from_location_id,
+            Some(trade.to_location_id),
+            format!(
+                "{destination_name} is running short of {}. A physical item picked up at {origin_name} can be carried there.",
+                trade.resource
+            ),
+            pulse.source_world_tick,
+            source_location_id,
+            caused_by_event_seq,
+        ))
     }
 
     fn world_stakes_consent(
@@ -17339,6 +17538,7 @@ impl RuntimeWorld {
         action: &CwAction,
         entropy: u64,
         source_events: &[EventView],
+        allow_public_beat: bool,
     ) -> Vec<EventView> {
         let Some(actor) = self.actor_by_id(action.actor_id) else {
             return Vec::new();
@@ -17370,113 +17570,97 @@ impl RuntimeWorld {
         };
 
         let mut events = Vec::new();
-        let weather_location = self
-            .location_name(pulse.weather.location_id)
-            .unwrap_or_else(|| format!("Location {}", pulse.weather.location_id));
-        events.push(self.append_world_history_event(
-            "world.weather.shifted",
-            pulse.weather.location_id,
-            None,
-            format!(
-                "At {weather_location}, {} gives way to {}. The changed air asks nothing of anyone.",
-                pulse.weather.before,
-                pulse.weather.after
-            ),
-            pulse.source_world_tick,
-            source_location_id,
-            caused_by_event_seq,
-        ));
-
-        let trade_origin = self
-            .location_name(pulse.trade.from_location_id)
-            .unwrap_or_else(|| format!("Location {}", pulse.trade.from_location_id));
-        let trade_destination = self
-            .location_name(pulse.trade.to_location_id)
-            .unwrap_or_else(|| format!("Location {}", pulse.trade.to_location_id));
-        let (trade_type, trade_content) = if pulse.trade.moved {
-            (
-                "world.trade.flowed",
-                format!(
-                    "A caravan carries {} {} from {trade_origin} to {trade_destination}; {}. The road is open enough to follow.",
-                    pulse.trade.amount,
-                    pulse.trade.resource,
-                    pulse.trade.reason
-                ),
-            )
-        } else {
-            (
-                "world.trade.disrupted",
-                format!(
-                    "The {} between {trade_origin} and {trade_destination} cannot find its way; {}. Either end of the road may need a visitor.",
-                    pulse.trade.resource,
-                    pulse.trade.reason
-                ),
-            )
-        };
-        events.push(self.append_world_history_event(
-            trade_type,
-            pulse.trade.from_location_id,
-            Some(pulse.trade.to_location_id),
-            trade_content,
-            pulse.source_world_tick,
-            source_location_id,
-            caused_by_event_seq,
-        ));
-
-        if let Some(faction) = pulse.faction.as_ref() {
-            let from_name = self
-                .location_name(faction.from_location_id)
-                .unwrap_or_else(|| format!("Location {}", faction.from_location_id));
-            let to_name = self
-                .location_name(faction.to_location_id)
-                .unwrap_or_else(|| format!("Location {}", faction.to_location_id));
-            events.push(self.append_world_history_event(
-                "world.faction.influence_shifted",
-                faction.from_location_id,
-                Some(faction.to_location_id),
-                format!(
-                    "{} carries its promises from {from_name} toward {to_name}. By evening, {to_name} has heard the claim.",
-                    faction.faction_name
-                ),
-                pulse.source_world_tick,
-                source_location_id,
-                caused_by_event_seq,
-            ));
-        }
-
-        if pulse.conflict.after != pulse.conflict.before || pulse.conflict.escalated {
-            let conflict_location = self
-                .location_name(pulse.conflict.location_id)
-                .unwrap_or_else(|| format!("Location {}", pulse.conflict.location_id));
-            let event_type = if pulse.conflict.escalated {
-                "world.conflict.escalated"
-            } else if pulse.conflict.after > pulse.conflict.before {
-                "world.conflict.pressure_grew"
-            } else {
-                "world.conflict.pressure_eased"
-            };
-            let conflict_cause = if pulse.conflict.class == PulseEffectClass::Stakes {
-                stakes_consent.as_ref().map(|(_, event_seq, _)| *event_seq)
-            } else {
-                caused_by_event_seq
-            };
-            events.push(self.append_world_history_event(
-                event_type,
-                pulse.conflict.location_id,
-                None,
-                if pulse.conflict.escalated {
-                    format!("In {conflict_location}, old strains meet and the air hardens.")
-                } else if pulse.conflict.after > pulse.conflict.before {
-                    format!(
-                        "The air in {conflict_location} draws taut around an unanswered strain."
-                    )
-                } else {
-                    format!("Whatever pressed on {conflict_location} loosens, for now.")
-                },
-                pulse.source_world_tick,
-                source_location_id,
-                conflict_cause,
-            ));
+        if allow_public_beat {
+            match pulse.public_beat {
+                Some(PulseBeatKind::Weather) if pulse.weather.notable => {
+                    let weather_location = self
+                        .location_name(pulse.weather.location_id)
+                        .unwrap_or_else(|| format!("Location {}", pulse.weather.location_id));
+                    events.push(self.append_world_history_event(
+                        "world.weather.shifted",
+                        pulse.weather.location_id,
+                        None,
+                        format!(
+                            "At {weather_location}, {} gives way to {}. Travelers there may need to change their plans.",
+                            pulse.weather.before, pulse.weather.after
+                        ),
+                        pulse.source_world_tick,
+                        source_location_id,
+                        caused_by_event_seq,
+                    ));
+                }
+                Some(PulseBeatKind::DeliveryNeed) if pulse.trade.needs_delivery => {
+                    if let Some(event) = self.ensure_delivery_need_job(
+                        &pulse,
+                        source_location_id,
+                        caused_by_event_seq,
+                    ) {
+                        events.push(event);
+                    }
+                }
+                Some(PulseBeatKind::Faction) => {
+                    if let Some(faction) = pulse.faction.as_ref() {
+                        let from_name = self
+                            .location_name(faction.from_location_id)
+                            .unwrap_or_else(|| format!("Location {}", faction.from_location_id));
+                        let to_name = self
+                            .location_name(faction.to_location_id)
+                            .unwrap_or_else(|| format!("Location {}", faction.to_location_id));
+                        events.push(self.append_world_history_event(
+                            "world.faction.influence_shifted",
+                            faction.from_location_id,
+                            Some(faction.to_location_id),
+                            format!(
+                                "{} carries its promises from {from_name} toward {to_name}. People at {to_name} now have a new claim to answer.",
+                                faction.faction_name
+                            ),
+                            pulse.source_world_tick,
+                            source_location_id,
+                            caused_by_event_seq,
+                        ));
+                    }
+                }
+                Some(PulseBeatKind::Conflict)
+                    if pulse.conflict.after != pulse.conflict.before
+                        || pulse.conflict.escalated =>
+                {
+                    let conflict_location = self
+                        .location_name(pulse.conflict.location_id)
+                        .unwrap_or_else(|| format!("Location {}", pulse.conflict.location_id));
+                    let event_type = if pulse.conflict.escalated {
+                        "world.conflict.escalated"
+                    } else if pulse.conflict.after > pulse.conflict.before {
+                        "world.conflict.pressure_grew"
+                    } else {
+                        "world.conflict.pressure_eased"
+                    };
+                    let conflict_cause = if pulse.conflict.class == PulseEffectClass::Stakes {
+                        stakes_consent.as_ref().map(|(_, event_seq, _)| *event_seq)
+                    } else {
+                        caused_by_event_seq
+                    };
+                    events.push(self.append_world_history_event(
+                        event_type,
+                        pulse.conflict.location_id,
+                        None,
+                        if pulse.conflict.escalated {
+                            format!(
+                                "In {conflict_location}, old strains meet and the air hardens."
+                            )
+                        } else if pulse.conflict.after > pulse.conflict.before {
+                            format!(
+                                "The air in {conflict_location} draws taut around an unanswered strain."
+                            )
+                        } else {
+                            format!("Whatever pressed on {conflict_location} loosens, for now.")
+                        },
+                        pulse.source_world_tick,
+                        source_location_id,
+                        conflict_cause,
+                    ));
+                }
+                _ => {}
+            }
         }
 
         if pulse.conflict.escalated && pulse.conflict.class == PulseEffectClass::Stakes {
@@ -48261,6 +48445,8 @@ mod tests {
         assert!(INDEX_HTML.contains("const worldTranscriptEventTypes = new Set(["));
         assert!(INDEX_HTML.contains("world.weather.shifted"));
         assert!(INDEX_HTML.contains("world.trade.flowed"));
+        assert!(INDEX_HTML.contains("world.delivery.needed"));
+        assert!(INDEX_HTML.contains("world.logistics.completed"));
         assert!(INDEX_HTML.contains("world.faction.influence_shifted"));
         assert!(INDEX_HTML.contains("world.conflict.escalated"));
         assert!(INDEX_HTML.contains(
@@ -50593,12 +50779,12 @@ mod tests {
     #[test]
     fn srd_action_replay_golden_is_byte_stable_and_offline() {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../tests/fixtures/srd-action-replay-golden-v1.json"
+            "../tests/fixtures/srd-action-replay-golden-v2.json"
         ))
         .expect("golden replay fixture is valid JSON");
         assert_eq!(
             fixture.get("schema").and_then(serde_json::Value::as_str),
-            Some("cosyworld.replay-golden/1")
+            Some("cosyworld.replay-golden/2")
         );
         let records: Vec<JournalRecord> = serde_json::from_value(
             fixture
@@ -69821,7 +70007,7 @@ mod tests {
     }
 
     #[test]
-    fn played_time_pulse_mutates_and_records_distant_world_history() {
+    fn played_time_pulse_can_maintain_distant_state_without_public_fiction() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -69844,10 +70030,7 @@ mod tests {
             let (status, events) =
                 runtime.apply_journal_record(&JournalRecord::new(action, 80_001 + offset));
             assert_eq!(status, CW_OK);
-            if events
-                .iter()
-                .any(|event| event.type_name == "world.weather.shifted")
-            {
+            if runtime.world.tick % WORLD_PULSE_INTERVAL_TICKS == 0 {
                 pulse_events = events;
             }
         }
@@ -69858,13 +70041,23 @@ mod tests {
             runtime.world_simulation.last_advanced_tick,
             runtime.world.tick
         );
-        assert!(pulse_events
-            .iter()
-            .any(|event| event.type_name == "world.weather.shifted"));
-        assert!(pulse_events.iter().any(|event| matches!(
+        assert!(
+            pulse_events
+                .iter()
+                .filter(|event| event.type_name.starts_with("world."))
+                .count()
+                <= 1
+        );
+        assert!(!pulse_events.iter().any(|event| matches!(
             event.type_name.as_str(),
-            "world.trade.flowed" | "world.trade.disrupted"
+            "world.trade.flowed" | "world.trade.disrupted" | "world.logistics.completed"
         )));
+        assert!(pulse_events.iter().all(|event| {
+            let content = event.content.as_deref().unwrap_or_default().to_lowercase();
+            !["caravan", "courier", "shipment"]
+                .iter()
+                .any(|claim| content.contains(claim))
+        }));
         assert!(!pulse_events
             .iter()
             .any(|event| event.type_name == "world.conflict.escalated"));
@@ -69884,7 +70077,6 @@ mod tests {
 
         let world = runtime.world_response(Some(5000), &AccessContext::default());
         assert_eq!(world.simulation.pulse_index, 1);
-        assert!(!world.simulation.recent_history.is_empty());
         assert!(world.simulation.recent_history.windows(2).all(|pair| {
             pair[0].source_world_tick > pair[1].source_world_tick
                 || (pair[0].source_world_tick == pair[1].source_world_tick
@@ -69961,6 +70153,188 @@ mod tests {
     }
 
     #[test]
+    fn aggregate_scarcity_creates_a_physical_delivery_job_without_claiming_completion() {
+        let mut runtime = RuntimeWorld::seeded();
+        let pulse = WorldPulse {
+            pulse_index: 4,
+            source_world_tick: 24,
+            weather: WeatherShift {
+                class: PulseEffectClass::Ambient,
+                location_id: MOONLIT_TRAIL_LOCATION_ID,
+                before: "settled".to_string(),
+                after: "settled".to_string(),
+                intensity: 0,
+                changed: false,
+                notable: false,
+            },
+            trade: TradeOutcome {
+                class: PulseEffectClass::Opportunity,
+                from_location_id: MOONLIT_TRAIL_LOCATION_ID,
+                to_location_id: 2,
+                resource: "herbs".to_string(),
+                moved: false,
+                amount: 0,
+                reason: "useful stores are running thin".to_string(),
+                needs_delivery: true,
+            },
+            faction: None,
+            conflict: ConflictOutcome {
+                class: PulseEffectClass::Opportunity,
+                location_id: MOONLIT_TRAIL_LOCATION_ID,
+                before: 0,
+                after: 0,
+                escalated: false,
+                front_ids: Vec::new(),
+                faction_ids: Vec::new(),
+                reason: "quiet".to_string(),
+            },
+            public_beat: Some(PulseBeatKind::DeliveryNeed),
+        };
+        let event = runtime
+            .ensure_delivery_need_job(&pulse, Some(1), Some(77))
+            .expect("a new need creates one public opportunity");
+        assert_eq!(event.type_name, "world.delivery.needed");
+        assert_eq!(event.location_id, Some(MOONLIT_TRAIL_LOCATION_ID));
+        assert_eq!(event.destination_location_id, Some(2));
+        assert_eq!(event.caused_by_event_seq, Some(77));
+        assert!(!runtime
+            .event_log
+            .iter()
+            .any(|event| event.type_name == "world.logistics.completed"));
+        let job = runtime
+            .jobs
+            .values()
+            .find(|job| job.delivery.is_some())
+            .expect("the opportunity has a concrete job");
+        assert_eq!(runtime.job_status(job), "active");
+        assert!(job.premise.contains("physical"));
+        assert!(job.action_copy.summary.contains("Pick up a physical item"));
+        assert!(
+            runtime.active_progress_clock_id_for_location(2).is_none(),
+            "generic Work cannot abstractly complete a physical delivery"
+        );
+        assert!(
+            runtime
+                .ensure_delivery_need_job(&pulse, Some(1), Some(78))
+                .is_none(),
+            "the same active need updates silently instead of duplicating public news"
+        );
+    }
+
+    #[test]
+    fn causal_delivery_evidence_completes_the_matching_delivery_job() {
+        let mut runtime = RuntimeWorld::seeded();
+        let pulse = WorldPulse {
+            pulse_index: 5,
+            source_world_tick: 30,
+            weather: WeatherShift {
+                class: PulseEffectClass::Ambient,
+                location_id: MOONLIT_TRAIL_LOCATION_ID,
+                before: "settled".to_string(),
+                after: "settled".to_string(),
+                intensity: 0,
+                changed: false,
+                notable: false,
+            },
+            trade: TradeOutcome {
+                class: PulseEffectClass::Opportunity,
+                from_location_id: MOONLIT_TRAIL_LOCATION_ID,
+                to_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                resource: "herbs".to_string(),
+                moved: false,
+                amount: 0,
+                reason: "useful stores are running thin".to_string(),
+                needs_delivery: true,
+            },
+            faction: None,
+            conflict: ConflictOutcome {
+                class: PulseEffectClass::Opportunity,
+                location_id: MOONLIT_TRAIL_LOCATION_ID,
+                before: 0,
+                after: 0,
+                escalated: false,
+                front_ids: Vec::new(),
+                faction_ids: Vec::new(),
+                reason: "quiet".to_string(),
+            },
+            public_beat: Some(PulseBeatKind::DeliveryNeed),
+        };
+        runtime
+            .ensure_delivery_need_job(&pulse, Some(COSY_COTTAGE_LOCATION_ID), Some(77))
+            .expect("delivery need");
+        let job_id = runtime
+            .jobs
+            .values()
+            .find(|job| job.delivery.is_some())
+            .map(|job| job.id.clone())
+            .expect("delivery job");
+
+        let projected = runtime.apply_actor_causal_logistics(vec![DeliveryEvidence {
+            actor_id: RATI_ACTOR_ID,
+            item_id: DEWBRIGHT_BUTTON_ITEM_ID,
+            origin_location_id: MOONLIT_TRAIL_LOCATION_ID,
+            destination_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+            acquisition_event_seq: 80,
+            movement_event_seqs: vec![81],
+            delivery_event_seq: 82,
+        }]);
+
+        assert_eq!(runtime.job_status(&runtime.jobs[&job_id]), "completed");
+        assert!(projected
+            .iter()
+            .any(|event| event.type_name == "job.updated"));
+        assert_eq!(
+            projected
+                .iter()
+                .filter(|event| event.type_name == "world.logistics.completed")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn sixty_world_ticks_without_a_delivery_chain_never_invent_logistics() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Quiet Witness",
+        );
+        for seed in 97_000..97_060 {
+            assert_eq!(
+                runtime
+                    .apply_journal_record(&JournalRecord::new(
+                        CwAction {
+                            kind: CW_ACTION_ABILITY_CHECK,
+                            actor_id: 5000,
+                            ability: LISTEN_ABILITY,
+                            dc: LISTEN_DC,
+                            ..CwAction::default()
+                        },
+                        seed,
+                    ))
+                    .0,
+                CW_OK
+            );
+        }
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| event.type_name == "world.logistics.completed")
+                .count(),
+            0
+        );
+        assert!(runtime.event_log.iter().all(|event| {
+            let content = event.content.as_deref().unwrap_or_default().to_lowercase();
+            !["caravan", "courier", "shipment", "carried item"]
+                .iter()
+                .any(|claim| content.contains(claim))
+        }));
+    }
+
+    #[test]
     fn consented_frontier_pulse_classifies_beats_and_advances_only_the_local_clock() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -70006,24 +70380,16 @@ mod tests {
             },
             91_337,
             std::slice::from_ref(&source_event),
+            true,
         );
-        let weather = events
-            .iter()
-            .find(|event| event.type_name == "world.weather.shifted")
-            .expect("ambient beat is public history");
-        assert!(weather
-            .content
-            .as_deref()
-            .is_some_and(|content| content.starts_with("At ")
-                && content.ends_with("The changed air asks nothing of anyone.")));
-        let trade = events
-            .iter()
-            .find(|event| event.type_name.starts_with("world.trade."))
-            .expect("opportunity beat is public history");
-        assert!(trade
-            .content
-            .as_deref()
-            .is_some_and(|content| content.contains("road") || content.contains("visitor")));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| event.type_name.starts_with("world."))
+                .count(),
+            1,
+            "a due pulse publishes at most its highest-priority material beat"
+        );
         let escalation = events
             .iter()
             .find(|event| event.type_name == "world.conflict.escalated")

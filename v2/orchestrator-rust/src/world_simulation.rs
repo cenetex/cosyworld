@@ -49,6 +49,14 @@ pub(crate) enum PulseEffectClass {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PulseBeatKind {
+    Weather,
+    DeliveryNeed,
+    Faction,
+    Conflict,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct WorldStakesConsent {
     pub location_id: u64,
 }
@@ -101,6 +109,7 @@ pub(crate) struct WorldPulse {
     pub trade: TradeOutcome,
     pub faction: Option<FactionAction>,
     pub conflict: ConflictOutcome,
+    pub public_beat: Option<PulseBeatKind>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -110,6 +119,8 @@ pub(crate) struct WeatherShift {
     pub before: String,
     pub after: String,
     pub intensity: u8,
+    pub changed: bool,
+    pub notable: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -121,6 +132,7 @@ pub(crate) struct TradeOutcome {
     pub moved: bool,
     pub amount: u8,
     pub reason: String,
+    pub needs_delivery: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -228,8 +240,13 @@ impl WorldSimulationState {
 
         let weather = self.advance_weather(seed, route.from_location_id, entropy, world_tick);
         let trade = self.advance_trade(seed, route, &weather, entropy, world_tick);
-        let faction =
-            self.advance_faction(seed, entropy, source_location_id, trade.moved, world_tick);
+        let faction = self.advance_faction(
+            seed,
+            entropy,
+            source_location_id,
+            !trade.needs_delivery,
+            world_tick,
+        );
         let conflict = self.advance_conflict(
             seed,
             &trade,
@@ -237,6 +254,14 @@ impl WorldSimulationState {
             &weather,
             stakes_consent,
             world_tick,
+        );
+        let public_beat = select_public_beat(
+            entropy,
+            self.pulse_index,
+            &weather,
+            &trade,
+            faction.as_ref(),
+            &conflict,
         );
 
         Some(WorldPulse {
@@ -246,6 +271,7 @@ impl WorldSimulationState {
             trade,
             faction,
             conflict,
+            public_beat,
         })
     }
 
@@ -308,20 +334,32 @@ impl WorldSimulationState {
         let palette = weather_palette(biome);
         let location = self.locations.entry(location_id).or_default();
         let before = location.weather.clone();
-        let mut index = deterministic_index(entropy, self.pulse_index ^ location_id, palette.len());
-        if palette[index].0 == before && palette.len() > 1 {
-            index = (index + 1) % palette.len();
-        }
-        let (after, intensity) = palette[index];
-        location.weather = after.to_string();
+        let before_intensity = location.weather_intensity;
+        let change_weather =
+            deterministic_index(entropy, self.pulse_index ^ location_id ^ 0x57ea_7e12, 3) == 0;
+        let index = deterministic_index(entropy, self.pulse_index ^ location_id, palette.len());
+        let (candidate, candidate_intensity) = palette[index];
+        let (after, intensity) = if change_weather {
+            (candidate.to_string(), candidate_intensity)
+        } else {
+            (before.clone(), before_intensity)
+        };
+        let changed = after != before || intensity != before_intensity;
+        let notable = changed
+            && (intensity >= 3
+                || before_intensity >= 3
+                || before_intensity.abs_diff(intensity) >= 2);
+        location.weather = after.clone();
         location.weather_intensity = intensity;
         location.last_pulse_tick = world_tick;
         WeatherShift {
             class: PulseEffectClass::Ambient,
             location_id,
             before,
-            after: after.to_string(),
+            after,
             intensity,
+            changed,
+            notable,
         }
     }
 
@@ -352,42 +390,16 @@ impl WorldSimulationState {
             .get(&route.from_location_id)
             .map(|location| location.trade_stock)
             .unwrap_or_default();
-        let blocked_reason = if weather.intensity >= 3 {
-            Some(format!("{} makes the route unsafe", weather.after))
-        } else if origin_stock <= 0 {
-            Some("the source market has nothing left to send".to_string())
-        } else {
-            None
-        };
-
-        if let Some(reason) = blocked_reason {
-            if let Some(origin) = self.locations.get_mut(&route.from_location_id) {
-                origin.trade_pressure = origin
-                    .trade_pressure
-                    .saturating_add(1)
-                    .min(MAX_TRADE_PRESSURE);
-                origin.last_pulse_tick = world_tick;
-            }
-            if let Some(destination) = self.locations.get_mut(&route.to_location_id) {
-                destination.trade_pressure = destination
-                    .trade_pressure
-                    .saturating_add(1)
-                    .min(MAX_TRADE_PRESSURE);
-                destination.last_pulse_tick = world_tick;
-            }
-            return TradeOutcome {
-                class: PulseEffectClass::Opportunity,
-                from_location_id: route.from_location_id,
-                to_location_id: route.to_location_id,
-                resource,
-                moved: false,
-                amount: 0,
-                reason,
-            };
-        }
-
+        let destination_stock = self
+            .locations
+            .get(&route.to_location_id)
+            .map(|location| location.trade_stock)
+            .unwrap_or_default();
+        // Regional stock is pressure, not represented cargo. Sources
+        // replenish and destinations consume locally; only actor/item events
+        // may claim that anything travelled.
         if let Some(origin) = self.locations.get_mut(&route.from_location_id) {
-            origin.trade_stock = origin.trade_stock.saturating_sub(1).max(0);
+            origin.trade_stock = origin.trade_stock.saturating_add(1).min(MAX_TRADE_STOCK);
             origin.trade_pressure = origin
                 .trade_pressure
                 .saturating_sub(1)
@@ -395,26 +407,32 @@ impl WorldSimulationState {
             origin.last_pulse_tick = world_tick;
         }
         if let Some(destination) = self.locations.get_mut(&route.to_location_id) {
-            destination.trade_stock = destination
-                .trade_stock
-                .saturating_add(1)
-                .min(MAX_TRADE_STOCK);
+            destination.trade_stock = destination.trade_stock.saturating_sub(1).max(0);
             destination.trade_pressure = destination
                 .trade_pressure
-                .saturating_sub(1)
-                .max(MIN_TRADE_PRESSURE);
-            let imports = destination.imports.entry(resource.clone()).or_default();
-            *imports = imports.saturating_add(1);
+                .saturating_add(1)
+                .min(MAX_TRADE_PRESSURE);
             destination.last_pulse_tick = world_tick;
         }
+        let needs_delivery = weather.intensity >= 3 || origin_stock <= 0 || destination_stock <= 2;
+        let reason = if weather.intensity >= 3 {
+            format!("{} leaves the route difficult to supply", weather.after)
+        } else if origin_stock <= 0 {
+            "the source has too little to answer the need".to_string()
+        } else if destination_stock <= 2 {
+            "useful stores at the destination are running thin".to_string()
+        } else {
+            "local stores changed without a represented delivery".to_string()
+        };
         TradeOutcome {
             class: PulseEffectClass::Opportunity,
             from_location_id: route.from_location_id,
             to_location_id: route.to_location_id,
             resource,
-            moved: true,
-            amount: 1,
-            reason: "the route held through the weather".to_string(),
+            moved: false,
+            amount: 0,
+            reason,
+            needs_delivery,
         }
     }
 
@@ -423,7 +441,7 @@ impl WorldSimulationState {
         seed: &WorldSimulationSeed,
         entropy: u64,
         source_location_id: Option<u64>,
-        trade_moved: bool,
+        local_supply_steady: bool,
         world_tick: u64,
     ) -> Option<FactionAction> {
         let zone_by_location = seed
@@ -495,7 +513,7 @@ impl WorldSimulationState {
             .collect::<Vec<_>>();
 
         let faction = self.factions.entry(faction_id.clone()).or_default();
-        faction.momentum = if trade_moved {
+        faction.momentum = if local_supply_steady {
             faction.momentum.saturating_add(1)
         } else {
             faction.momentum.saturating_sub(1)
@@ -631,6 +649,43 @@ impl WorldSimulationState {
             reason: reason.to_string(),
         }
     }
+}
+
+fn select_public_beat(
+    entropy: u64,
+    pulse_index: u64,
+    weather: &WeatherShift,
+    trade: &TradeOutcome,
+    faction: Option<&FactionAction>,
+    conflict: &ConflictOutcome,
+) -> Option<PulseBeatKind> {
+    if conflict.escalated {
+        return Some(PulseBeatKind::Conflict);
+    }
+    // A due pulse is a scheduling opportunity. Most due pulses quietly
+    // maintain bounded state and publish nothing.
+    if deterministic_index(entropy, pulse_index ^ 0xbea7_0001, 4) != 0 {
+        return None;
+    }
+    let mut candidates = Vec::new();
+    if trade.needs_delivery {
+        candidates.push(PulseBeatKind::DeliveryNeed);
+    }
+    if weather.notable {
+        candidates.push(PulseBeatKind::Weather);
+    }
+    if faction.is_some_and(|action| action.influence_after != action.influence_before) {
+        candidates.push(PulseBeatKind::Faction);
+    }
+    if conflict.after != conflict.before && (conflict.after == 0 || conflict.after >= 3) {
+        candidates.push(PulseBeatKind::Conflict);
+    }
+    choose(
+        &candidates,
+        entropy.rotate_left(13),
+        pulse_index ^ 0xbea7_0002,
+    )
+    .copied()
 }
 
 fn default_weather() -> String {
@@ -814,6 +869,44 @@ mod tests {
     }
 
     #[test]
+    fn a_due_pulse_can_be_a_deterministic_public_no_op() {
+        let seed = test_seed();
+        let entropy = (1_u64..=256)
+            .find(|entropy| {
+                let mut candidate = WorldSimulationState::default();
+                candidate
+                    .advance_if_due(&seed, WORLD_PULSE_INTERVAL_TICKS, *entropy, Some(1), None)
+                    .is_some_and(|pulse| pulse.public_beat.is_none())
+            })
+            .expect("the scheduler admits silent due pulses");
+        let mut left = WorldSimulationState::default();
+        let mut right = WorldSimulationState::default();
+        let left_pulse = left
+            .advance_if_due(&seed, WORLD_PULSE_INTERVAL_TICKS, entropy, Some(1), None)
+            .expect("left pulse");
+        let right_pulse = right
+            .advance_if_due(&seed, WORLD_PULSE_INTERVAL_TICKS, entropy, Some(1), None)
+            .expect("right pulse");
+        assert_eq!(left_pulse, right_pulse);
+        assert_eq!(left_pulse.public_beat, None);
+        assert_eq!(left, right);
+    }
+
+    #[test]
+    fn due_pulses_do_not_force_weather_to_change() {
+        let seed = test_seed();
+        let held = (1_u64..=256).find_map(|entropy| {
+            let mut state = WorldSimulationState::default();
+            state
+                .advance_if_due(&seed, WORLD_PULSE_INTERVAL_TICKS, entropy, Some(1), None)
+                .filter(|pulse| !pulse.weather.changed)
+        });
+        let pulse = held.expect("some due weather maintenance is intentionally quiet");
+        assert_eq!(pulse.weather.before, pulse.weather.after);
+        assert!(!pulse.weather.notable);
+    }
+
+    #[test]
     fn different_committed_seeds_can_create_different_history() {
         let seed = test_seed();
         let mut baseline_state = WorldSimulationState::default();
@@ -849,6 +942,7 @@ mod tests {
             moved: false,
             amount: 0,
             reason: "blocked".to_string(),
+            needs_delivery: true,
         };
         let faction = FactionAction {
             class: PulseEffectClass::Opportunity,
@@ -866,6 +960,8 @@ mod tests {
             before: "settled".to_string(),
             after: "a ridge storm".to_string(),
             intensity: 3,
+            changed: true,
+            notable: true,
         };
         let conflict = state.advance_conflict(&seed, &trade, Some(&faction), &weather, None, 6);
         assert!(!conflict.escalated);
@@ -901,8 +997,7 @@ mod tests {
         let mut state = WorldSimulationState::default();
         let mut weather_locations = BTreeSet::new();
         let mut faction_ids = BTreeSet::new();
-        let mut saw_trade = false;
-        let mut saw_disruption = false;
+        let mut saw_delivery_need = false;
         let mut saw_conflict_change = false;
         let mut saw_stakes = false;
 
@@ -913,8 +1008,11 @@ mod tests {
                 .advance_if_due(&seed, tick, entropy, None, None)
                 .expect("each interval produces a pulse");
             weather_locations.insert(pulse.weather.location_id);
-            saw_trade |= pulse.trade.moved;
-            saw_disruption |= !pulse.trade.moved;
+            assert!(
+                !pulse.trade.moved,
+                "aggregate maintenance never claims physical movement"
+            );
+            saw_delivery_need |= pulse.trade.needs_delivery;
             if let Some(faction) = pulse.faction {
                 faction_ids.insert(faction.faction_id);
             }
@@ -926,8 +1024,10 @@ mod tests {
             weather_locations.len() >= 2,
             "weather should roam between rooms"
         );
-        assert!(saw_trade, "clear routes should move real stock");
-        assert!(saw_disruption, "storms or scarcity should interrupt trade");
+        assert!(
+            saw_delivery_need,
+            "local use and difficult weather should eventually expose a delivery need"
+        );
         assert!(faction_ids.len() >= 2, "multiple factions should propagate");
         assert!(
             saw_conflict_change,
@@ -937,7 +1037,7 @@ mod tests {
         assert!(state
             .locations
             .values()
-            .any(|location| !location.imports.is_empty()));
+            .all(|location| location.imports.is_empty()));
     }
 
     #[test]
