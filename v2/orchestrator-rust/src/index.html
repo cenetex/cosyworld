@@ -1533,10 +1533,22 @@
     .caret {
       display: grid;
       place-items: center;
-      width: 28px;
+      align-content: center;
+      gap: 1px;
+      width: 42px;
+      min-height: 58px;
+      border: 1px solid rgba(101, 230, 138, 0.3);
+      border-radius: 4px;
+      background: rgba(101, 230, 138, 0.06);
       color: var(--green);
       font-weight: 900;
       font-size: 18px;
+    }
+    .caret small {
+      color: var(--dim);
+      font-size: 9px;
+      line-height: 1;
+      text-transform: uppercase;
     }
     .cmd {
       --cmd-accent: var(--type-utility);
@@ -1961,8 +1973,90 @@
       font: inherit;
       font-weight: 800;
     }
+    .all-actions-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: grid;
+      place-items: end center;
+      padding: 18px;
+      background: rgba(3, 5, 4, 0.76);
+    }
+    .all-actions-modal[hidden] { display: none; }
+    .all-actions-dialog {
+      width: min(520px, calc(100vw - 28px));
+      max-height: min(72vh, 620px);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      background: #0a100c;
+      box-shadow: 0 22px 80px rgba(0, 0, 0, 0.72);
+      padding: 12px;
+    }
+    .all-actions-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .all-actions-heading h2 {
+      margin: 0;
+      color: var(--amber);
+      font-size: 18px;
+    }
+    .all-actions-close {
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--terminal-2);
+      color: var(--amber);
+      font-weight: 900;
+    }
+    .all-actions-list {
+      min-height: 0;
+      display: grid;
+      align-content: start;
+      gap: 5px;
+      overflow: auto;
+    }
+    .all-actions-choice,
+    .all-actions-command {
+      min-height: 44px;
+      display: grid;
+      grid-template-columns: minmax(86px, auto) minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      border: 1px solid rgba(216, 247, 220, 0.14);
+      border-radius: 4px;
+      background: rgba(216, 247, 220, 0.04);
+      color: var(--text);
+      padding: 8px 10px;
+      text-align: left;
+    }
+    .all-actions-choice-label {
+      color: var(--green);
+      font-weight: 900;
+      text-transform: lowercase;
+    }
+    .all-actions-choice-detail {
+      min-width: 0;
+      color: var(--dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .all-actions-command {
+      display: block;
+      color: var(--green);
+      font-weight: 900;
+      text-align: center;
+    }
     .card-modal,
     .action-modal,
+    .all-actions-modal,
     .wallet-modal,
     .ai-modal {
       position: fixed;
@@ -1975,6 +2069,7 @@
     }
     .card-modal[hidden],
     .action-modal[hidden],
+    .all-actions-modal[hidden],
     .wallet-modal[hidden],
     .ai-modal[hidden] { display: none; }
     .card-dialog,
@@ -2625,8 +2720,8 @@
         display: flex;
       }
       .caret {
-        flex: 0 0 20px;
-        width: 20px;
+        flex: 0 0 38px;
+        width: 38px;
       }
       .cmd {
         flex: 1 1 0;
@@ -3278,7 +3373,7 @@
     <div class="status" id="error" role="status" aria-live="polite" aria-atomic="true"></div>
     <footer class="prompt">
       <div class="turn-ping-pill" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true" hidden></div>
-      <div class="caret">&gt;</div>
+      <button class="caret" id="command-toggle" type="button" aria-label="Say something or enter a world command"><span>&gt;</span><small>say</small></button>
       <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="tertiary" data-player-concept="action" data-analytics-event="action.select"></button>
@@ -3290,6 +3385,16 @@
       <span class="command-caret">&gt;</span>
       <input class="command-input" id="command-input" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="World command" placeholder="Command" />
     </form>
+  </div>
+  <div class="all-actions-modal" id="all-actions-modal" hidden>
+    <section class="all-actions-dialog" role="dialog" aria-modal="true" aria-labelledby="all-actions-title" tabindex="-1">
+      <header class="all-actions-heading">
+        <h2 id="all-actions-title">All actions</h2>
+        <button class="all-actions-close" id="all-actions-close" type="button" aria-label="Close all actions">x</button>
+      </header>
+      <div class="all-actions-list" id="all-actions-list"></div>
+      <button class="all-actions-command" id="all-actions-command" type="button">Say or enter a command</button>
+    </section>
   </div>
   <div class="card-modal" id="card-modal" hidden>
     <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-modal-name" tabindex="-1" data-player-concept="keepsake">
@@ -3563,7 +3668,7 @@
     }
 
     function activeModal() {
-      return ["wallet-modal", "action-modal", "card-modal"]
+      return ["wallet-modal", "action-modal", "all-actions-modal", "card-modal"]
         .map((id) => $(id))
         .find((modal) => modal && !modal.hidden) || null;
     }
@@ -4262,7 +4367,7 @@
           card: cardForLocation(creationProfile.entry_location_id || view.location?.id),
           shape: "location",
           modalTitle: creationProfile.prompt || "what kind of campaign traveler arrives?",
-          modalSummary: `${creationProfile.description} Campaign rules; every avatar keeps every verb.`,
+          modalSummary: `Optional ${creationProfile.name} campaign rules shape this traveler while every avatar keeps every verb.`,
           effect: `begins the optional ${creationProfile.name} campaign rules`,
           choices: campaignChoices,
           selectedChoice: stagedCreation
@@ -4351,45 +4456,16 @@
         return {
           offerKinds,
           handProvider: selected?.provider || null,
+          offerRank: Number.isFinite(Number(selected?.rank)) ? Number(selected.rank) : null,
         };
-      };
-      const inferredOfferKinds = (action) => {
-        const kinds = [...(Array.isArray(action?.offerKinds) ? action.offerKinds : [])];
-        const intention = String(action?.intention || "").toLowerCase();
-        const label = String(action?.label || "").toLowerCase();
-        const focusKey = String(action?.focusKey || "").toLowerCase();
-        const add = (...values) => values.forEach((value) => {
-          if (value && !kinds.includes(value)) kinds.push(value);
-        });
-        if (intention === "notice") add("check");
-        if (intention === "inspect") add("search");
-        if (intention === "scout") add("explore_path");
-        if (intention === "travel") add("move");
-        if (intention === "flee") add("flee");
-        if (intention === "contribute") add("work", "help");
-        if (action?.evolveModes?.includes("practice") || focusKey.startsWith("train")) add("train_skill");
-        if (action?.kind === "orb-chat") add("chat");
-        if (action?.kind === "advancement-chat" || label === "chat") add("create_bond");
-        if (label === "give") add("give_item");
-        if (label === "trade") add("trade_item");
-        if (["take", "swap"].includes(label)) add("pick_up");
-        if (label === "use") {
-          if (action?.useChoiceKind !== "feature") add("use_item");
-          if (action?.useChoiceKind !== "care") add("use_feature");
-        }
-        if (label === "attack") add("attack");
-        if (label === "defend") add("defend");
-        if (label === "prepare") add("prepare");
-        if (label === "rest") add("rest");
-        if (["grow closer", "bond"].includes(label)) add("create_bond");
-        if (label === "remember") add("resolve_bond");
-        return kinds;
       };
       const decorateActionHand = (action) => {
         if (!action) return action;
-        const kinds = inferredOfferKinds(action);
+        const kinds = Array.isArray(action.offerKinds)
+          ? action.offerKinds.map((kind) => String(kind || "")).filter(Boolean)
+          : [];
         const providerProjection = offerHand(kinds.map(offerFor));
-        action.offerKinds = [...new Set([...kinds, ...providerProjection.offerKinds])];
+        action.offerKinds = [...new Set(kinds)];
         action.handProvider = action.handProvider || providerProjection.handProvider || {
           kind: "location",
           id: `location:${view.location?.id || "current"}`,
@@ -4430,6 +4506,7 @@
         const oneChat = chatCandidates.length === 1;
         const firstTargetName = firstChat.name || actorLabel(firstChat);
         const chatAction = {
+          ...semanticAction(chatOffer, "chat"),
           kind: "advancement-chat",
           label: "chat",
           detail: oneChat
@@ -4727,6 +4804,7 @@
             `item:${candidate.item.id}`,
           ]))];
           const giveAction = {
+            ...semanticAction(giveOffer, "give"),
             label: "give",
             detail: oneChoice
               ? `${firstGift.item.name} to ${actorLabel(firstGift.target)}`
@@ -4813,6 +4891,7 @@
           const firstTrade = tradeCandidates[0];
           const oneTrade = tradeCandidates.length === 1;
           const tradeAction = {
+            ...semanticAction(tradeOfferDefault, "trade"),
             label: "trade",
             detail: oneTrade
               ? `${firstTrade.offeredItem.name} for ${firstTrade.targetItem.name} with ${firstTrade.targetName}`
@@ -4870,6 +4949,7 @@
         const item = (view.items || []).find((candidate) => Number(candidate.id || 0) === itemId);
         const targetActorId = Number(item?.holder_actor_id || 0);
         if (itemId && targetActorId) built.push({
+          ...semanticAction(theftOffer, "take"),
           label: theftOffer?.label || "steal",
           detail: theftOffer?.target?.label || item?.name || "a carried card",
           command: `steal ${item?.name || "item"}`,
@@ -4934,7 +5014,9 @@
           const heldItemName = firstCandidate.exchangeItem?.name || "what you carry";
           const swapping = Boolean(firstCandidate.exchangeItem);
           const oneItem = takeCandidates.length === 1;
+          const takeOffer = offerFor("pick_up");
           const takeAction = {
+            ...semanticAction(takeOffer, "take"),
             label: swapping ? "swap" : "take",
             detail: oneItem
               ? (swapping ? `${heldItemName} for ${firstItem.name}` : firstItem.name)
@@ -5010,6 +5092,7 @@
         const effect = String(offer?.effect || "").trim();
         if (item && featureName && featureKey && command && effect) {
           built.push({
+            ...semanticAction(offer, "use"),
             label: "use",
             detail: `${item.name} with ${featureName}`,
             command,
@@ -5156,7 +5239,9 @@
           const firstUse = useCandidates[0];
           const oneUse = useCandidates.length === 1;
           const sameItem = useCandidates.every((candidate) => candidate.item.id === firstUse.item.id);
+          const useOffer = offerFor("use_item");
           const useAction = {
+            ...semanticAction(useOffer, "use"),
             label: "use",
             detail: oneUse
               ? `${firstUse.item.name} on ${firstUse.targetName}`
@@ -5212,6 +5297,31 @@
           built.push(useAction);
         }
       }
+      if (options.has("craft")) {
+        const craftOffer = offerFor("craft");
+        const recipeId = Number(craftOffer?.target?.id || 0);
+        if (recipeId) {
+          const recipeName = String(craftOffer?.target?.label || "something useful").trim();
+          const craftVerb = offerVerb(craftOffer, "Craft");
+          built.push({
+            ...semanticAction(craftOffer, "craft"),
+            label: craftVerb.toLowerCase(),
+            detail: recipeName,
+            command: String(craftOffer?.command || `${craftVerb} ${recipeName}`).trim(),
+            focusKey: `craft:${recipeId}`,
+            card: cardForItem(recipeId) || cardForLocation(view.location?.id),
+            shape: "item",
+            priority: Number(craftOffer?.rank || 70),
+            modalSummary: `Make ${recipeName} from what you carry.`,
+            effect: craftOffer?.effect,
+            risk: craftOffer?.risk,
+            run: () => action("/actions/craft", {
+              actor_id: actorId,
+              recipe_id: recipeId,
+            }),
+          });
+        }
+      }
       if (options.has("attack")) {
         const offer = offerFor("attack");
         const attackRisk = String(offer?.risk || "");
@@ -5221,6 +5331,7 @@
           const oneTarget = attackTargets.length === 1;
           const firstTargetLabel = actorLabel(firstTarget);
           const attackAction = {
+            ...semanticAction(offer, "attack"),
             label: "attack",
             detail: oneTarget
               ? (attackRisk.includes("danger +1") ? `${firstTargetLabel}, trouble draws near` : firstTargetLabel)
@@ -5269,6 +5380,7 @@
           ? `guard, ${setupDetail}`
           : "guard";
         built.push({
+          ...semanticAction(offer, "defend"),
           label: "defend",
           detail: defendDetail,
           command: "defend",
@@ -5283,6 +5395,7 @@
       if (options.has("prepare")) {
         const offer = offerFor("prepare");
         built.push({
+          ...semanticAction(offer, "prepare"),
           label: "prepare",
           detail: "make the next try count",
           command: "prepare",
@@ -5342,6 +5455,7 @@
         const warmedRest = String(offer?.effect || "").includes("hearth tonic warmth");
         const restPriority = frontierRoom ? 25 : 84;
         built.push({
+          ...semanticAction(offer, "rest"),
           label: "rest",
           detail: warmedRest ? "feel fresh, use the warmth" : (offer?.risk ? "feel fresh, trouble draws near" : "feel fresh"),
           command: "rest",
@@ -5393,6 +5507,7 @@
             "contribute",
             oneStrategy ? firstStrategy.label : `${contributionVerb} to ${projectLabel}`,
           ),
+          ...offerHand(workOffer, helpOffer),
           project: contributionProject,
           label: oneStrategy ? firstStrategy.label.toLowerCase() : projectLabel.toLowerCase(),
           detail: oneStrategy
@@ -5464,6 +5579,7 @@
       if (options.has("study")) {
         const studyOffer = offerFor("study");
         built.push({
+          ...semanticAction(studyOffer, "study"),
           label: studyOffer?.label || "study",
           detail: studyOffer?.target?.label || "the moonlit signs",
           command: studyOffer?.command || "study the moonlit signs",
@@ -5487,6 +5603,7 @@
         const influenceOffer = offerFor("influence");
         const targetId = Number(influenceOffer?.target?.id || 0);
         if (targetId) built.push({
+          ...semanticAction(influenceOffer, "influence"),
           label: influenceOffer?.label || "influence",
           detail: influenceOffer?.target?.label || "a nearby avatar",
           command: influenceOffer?.command || "ask for a local lead",
@@ -5507,6 +5624,7 @@
         const spellOffer = offerFor("cast_spell");
         const spellId = Number(spellOffer?.source_collectible?.instance_id || 0);
         if (spellId) built.push({
+          ...semanticAction(spellOffer, "cast"),
           label: spellOffer?.label || "cast",
           detail: cardForItem(spellId)?.display_name || "Steady Light",
           command: spellOffer?.command || "cast steady light",
@@ -5542,6 +5660,7 @@
           const oneMemory = rememberCandidates.length === 1;
           const firstTargetName = firstMemory.target.name || actorLabel(firstMemory.target);
           const rememberAction = {
+            ...semanticAction(offer, "remember"),
             label: "remember",
             detail: oneMemory
               ? `${actorLabel(firstMemory.target)}, keep what mattered`
@@ -5601,7 +5720,7 @@
     }
 
     function mergeDuplicateUseCards(builtActions) {
-      const uses = builtActions.filter((action) => String(action?.label || "").toLowerCase() === "use");
+      const uses = builtActions.filter((action) => action?.offerKinds?.includes("use_item"));
       if (uses.length <= 1) return;
 
       const modes = [];
@@ -5644,6 +5763,9 @@
         return mode;
       };
       const merged = {
+        offerKinds: [...new Set(uses.flatMap((action) => action.offerKinds || []))],
+        handProvider: uses.find((action) => action.handProvider)?.handProvider || null,
+        offerRank: Math.min(...uses.map((action) => Number(action.offerRank)).filter(Number.isFinite)),
         label: "use",
         detail: sameItem ? `${itemNames[0]} · choose how` : "choose what to use",
         command: "use",
@@ -5722,34 +5844,9 @@
     }
 
     function actionRank(action) {
+      if (Number.isFinite(Number(action.offerRank))) return Number(action.offerRank);
       if (Number.isFinite(Number(action.priority))) return Number(action.priority);
-      const label = String(action.label || "").toLowerCase();
-      const ranks = {
-        "give": 10,
-        "give item": 10,
-        "use": 20,
-        "rest": 25,
-        "take": 30,
-        "swap": 30,
-        "prepare": 32,
-        "attack": 40,
-        "defend": 45,
-        "work": 48,
-        "help": 49,
-        "flee": 50,
-        "search": 55,
-        "listen": 60,
-        "listen again": 60,
-        "chat": 70,
-        "trade": 74,
-        "bank": 75,
-        "train": 76,
-        "evolve": 76,
-        "bond": 77,
-        "remember": 79,
-        "travel": 80,
-      };
-      return ranks[label] || 100;
+      return 500;
     }
 
     function normalizeActionCardType(type) {
@@ -6132,7 +6229,7 @@
       const byPath = {
         "/actions/chat": ["create_bond"],
         "/actions/move": ["move"],
-        "/actions/explore-path": ["search"],
+        "/actions/explore-path": ["explore_path"],
         "/actions/flee": ["flee"],
         "/actions/check": ["check"],
         "/actions/study": ["study"],
@@ -6155,9 +6252,10 @@
       };
       if (path === "/actions/use-item") {
         const selected = actionCard?.selectedMode?.()?.source || actionCard;
-        return [selected?.useChoiceKind === "feature" ? "use_feature" : "use_item"];
+        return (selected?.offerKinds || []).filter((kind) => kind === "use_item");
       }
-      return byPath[path] || [];
+      const explicitKinds = new Set(actionCard?.offerKinds || []);
+      return (byPath[path] || []).filter((kind) => explicitKinds.has(kind));
     }
 
     function offerPayloadTarget(path, offer, payload) {
@@ -6474,6 +6572,15 @@
     }
 
     function appendLogEvent(event) {
+      if (event?.type === "study.resolved") {
+        const rollIndex = logEvents.findLastIndex((prior) => (
+          prior?.type === "ability_check.rolled"
+          && Number(prior.actor_id || 0) === Number(event.actor_id || 0)
+          && Number(prior.seq || 0) < Number(event.seq || 0)
+          && Number(event.seq || 0) - Number(prior.seq || 0) <= 2
+        ));
+        if (rollIndex >= 0) logEvents.splice(rollIndex, 1);
+      }
       const messageKey = inferredMessageCollapseKey(event);
       if (messageKey) {
         let inferredMessagesSeen = 0;
@@ -6674,6 +6781,7 @@
       "pathway.familiarized",
       "chat.failed",
       "ability_check.rolled",
+      "study.resolved",
       "feature.searched",
       "location.searched",
       "exit.discovered",
@@ -7981,7 +8089,21 @@
         return { kind: "search", label: "entrance", text: cleanStatusText(eventText(event)) };
       }
       if (event.type === "ability_check.rolled") {
-        return { kind: "roll", label: "roll", text: cleanStatusText(listenEventText(event)) };
+        const studying = event.content === "study";
+        return {
+          kind: "roll",
+          label: studying ? "study" : "check",
+          text: cleanStatusText(abilityCheckEventText(event)),
+        };
+      }
+      if (event.type === "study.resolved") {
+        return {
+          kind: "roll",
+          label: "study",
+          text: event.content?.includes("yielded")
+            ? "the signs yield one understood truth"
+            : "the signs remain unresolved",
+        };
       }
       if (event.type === "job.contribution.resolved") {
         return { kind: "world", label: "approach", text: cleanStatusText(jobContributionEventText(event)) };
@@ -9010,20 +9132,20 @@
       const actor = event.actor_name || "Someone";
       return success
         ? {
-            label: "listen",
+            label: "check",
             symbol: "✦",
-            title: `${actor} listens; the room answers`,
+            title: `${actor} checks carefully; the room answers`,
             detail: hint,
             result: "a clue appears",
-            story: `The room answers a careful listen: ${hint}`,
+            story: `The room answers a careful check: ${hint}`,
           }
         : {
-            label: "listen",
+            label: "check",
             symbol: "~",
-            title: `${actor} listens; the room stays shy`,
+            title: `${actor} checks carefully; the room stays shy`,
             detail: hint,
             result: "try another way",
-            story: `A careful listen leaves the room's secret tucked away.`,
+            story: `A careful check leaves the room's secret tucked away.`,
           };
     }
 
@@ -9138,7 +9260,12 @@
       if (event.type === "branch.resolved") return `finishes a choice with ${event.target_actor_name}.`;
       if (event.type === "branch.expired") return `lets a choice with ${event.target_actor_name} fade.`;
       if (event.type === "hand.shuffled") return "draws a new hand.";
-      if (event.type === "ability_check.rolled") return listenEventText(event);
+      if (event.type === "ability_check.rolled") return abilityCheckEventText(event);
+      if (event.type === "study.resolved") {
+        return event.content?.includes("yielded")
+          ? "studies the signs and understands their meaning."
+          : "studies the signs, but their meaning stays unclear.";
+      }
       if (event.type === "job.contribution.resolved") return jobContributionEventText(event);
       if (event.type === "clock.updated") {
         const label = event.clock_label || "something in the room";
@@ -9331,9 +9458,14 @@
       }
     }
 
-    function listenEventText(event) {
+    function abilityCheckEventText(event) {
+      if (event.content === "study") {
+        return event.success
+          ? "studies the signs and understands their meaning."
+          : "studies the signs, but their meaning stays unclear.";
+      }
       const hint = listenHintForLocation(event.location_id, event.success);
-      return `listens: ${hint}`;
+      return `checks carefully: ${hint}`;
     }
 
     function listenHintForLocation(id, success) {
@@ -10237,14 +10369,8 @@
         : null;
       syncActionChoicePreview(action, selectedChoice);
       $("action-modal-title").textContent = label;
-      $("action-modal-summary").textContent = actionSummary(action);
-      const modalRows = actionModalRows(action);
-      const providerReason = handProviderReason(action);
-      if (providerReason) modalRows.unshift(["Why this action", providerReason]);
-      $("action-modal-meta").innerHTML = modalRows.map(([key, value]) => {
-        const rowClass = key === "Watch for" ? " risk" : "";
-        return `<div class="action-row${rowClass}"><span class="action-row-key">${escapeHtml(key)}</span><span class="action-row-value">${escapeHtml(value)}</span></div>`;
-      }).join("");
+      $("action-modal-summary").textContent = journalSentence(actionSummary(action));
+      $("action-modal-meta").innerHTML = "";
       renderActionChoices(action);
       $("action-modal-confirm").textContent = actionConfirmLabel(action);
       $("action-modal-cancel").textContent = action?.creationStage === "origin" ? "back" : "cancel";
@@ -10265,8 +10391,7 @@
           || profile.default_species_id
           || action.choices[0]?.value;
         action.modalTitle = profile.prompt || "what kind of traveler arrives?";
-        action.modalSummary = profile.description
-          || "Choose a campaign Species. Deeds and emergent practice remain separate.";
+        action.modalSummary = `Choose a ${profile.name || "campaign"} Species; these optional rules stay separate from Calling, deeds, and emergent practice.`;
         return;
       }
       action.choices = (profile.origins || []).map((choice) => ({
@@ -10563,51 +10688,6 @@
       return index;
     }
 
-    function actionOfferKindCandidates(action) {
-      const focus = String(action?.focusKey || "").split(":")[0];
-      const label = String(action?.label || "").toLowerCase();
-      const byFocus = {
-        check: ["check"],
-        study: ["study"],
-        influence: ["influence"],
-        spell: ["cast_spell"],
-        defend: ["defend"],
-        prepare: ["prepare"],
-        work: ["work"],
-        help: ["help"],
-        rest: ["rest"],
-        theft: ["theft"],
-      };
-      if (byFocus[focus]) return byFocus[focus];
-      const byLabel = {
-        chat: ["create_bond"],
-        influence: ["influence"],
-        travel: ["move"],
-        flee: ["flee"],
-        give: ["give_item"],
-        "give item": ["give_item"],
-        trade: ["trade_item"],
-        steal: ["theft"],
-        use: ["use_item", "use_feature"],
-        rest: ["rest"],
-        attack: ["attack"],
-        defend: ["defend"],
-        take: ["pick_up"],
-        search: ["search"],
-        listen: ["check"],
-        "listen again": ["check"],
-        study: ["study"],
-        cast: ["cast_spell"],
-        prepare: ["prepare"],
-        work: ["work"],
-        finish: ["work"],
-        help: ["help"],
-        "grow closer": ["create_bond"],
-        remember: ["resolve_bond"],
-      };
-      return byLabel[label] || [];
-    }
-
     function orderedActionIndexesForHand() {
       const indexes = actions.map((_, index) => index);
       if (state?.branch) return indexes;
@@ -10633,8 +10713,7 @@
     }
 
     function handCapacity() {
-      if (state?.branch) return 3;
-      return window.matchMedia("(max-width: 520px)").matches ? 2 : 3;
+      return 3;
     }
 
     function validActionHandKeySet() {
@@ -10681,49 +10760,13 @@
       const nextAuthoritativeIdentity = (state?.action_hand?.entries || [])
         .map((offer) => offer.offer_id || `${offer.kind}:${offer.state_revision}`)
         .join("|");
-      if (nextAuthoritativeIdentity !== authoritativeHandIdentity) {
-        authoritativeHandIdentity = nextAuthoritativeIdentity;
-        handKeys = playerPromotedHandKey ? [playerPromotedHandKey] : [];
-        discardedHandKeys = [];
-      }
-      const capacity = handCapacity();
-      const validKeys = validActionHandKeySet();
-      if (playerPromotedHandKey && !validKeys.has(playerPromotedHandKey)) {
-        const reboundIndex = actionIndexForKey(focusedKey);
-        const reboundKey = reboundIndex >= 0 ? actionHandKey(actions[reboundIndex]) : "";
-        playerPromotedHandKey = validKeys.has(reboundKey) ? reboundKey : "";
-        if (playerPromotedHandKey) {
-          handKeys = [
-            playerPromotedHandKey,
-            ...handKeys.filter((key) => key !== playerPromotedHandKey),
-          ];
-        }
-      }
-      pruneDiscardedHandKeys(validKeys);
-      const kept = [];
-      const seen = new Set();
-      const pushHandKey = (key) => {
-        if (!key || seen.has(key)) return;
-        if (!validKeys.has(key) || discardedHandKeys.includes(key)) return;
-        kept.push(key);
-        seen.add(key);
-      };
-      const focusedActionIndex = focusedKey ? actionIndexForKey(focusedKey) : -1;
-      const focusedActionHandKey = focusedActionIndex >= 0
-        ? actionHandKey(actions[focusedActionIndex])
-        : "";
-      const playerPromotedFocus = focusedActionHandKey && handKeys[0] === focusedActionHandKey;
-      if (playerPromotedFocus) pushHandKey(focusedActionHandKey);
-      for (const key of handKeys) {
-        if (kept.length >= capacity) break;
-        pushHandKey(key);
-      }
-      dealHandKeys(kept, seen, capacity);
-      if (!kept.length && validKeys.size && discardedHandKeys.length) {
-        discardedHandKeys = [];
-        dealHandKeys(kept, seen, capacity);
-      }
-      handKeys = kept.slice(0, capacity);
+      authoritativeHandIdentity = nextAuthoritativeIdentity;
+      handKeys = orderedActionIndexesForHand()
+        .slice(0, handCapacity())
+        .map((index) => actionHandKey(actions[index]))
+        .filter(Boolean);
+      discardedHandKeys = [];
+      playerPromotedHandKey = "";
     }
 
     function promoteActionToHand(index, key = "") {
@@ -10804,8 +10847,6 @@
       libraryPanelPinned = false;
       focusIndex = ((index % actions.length) + actions.length) % actions.length;
       focusedKey = key || actions[focusIndex]?.focusKey || "";
-      playerPromotedHandKey = actionHandKey(actions[focusIndex]) || "";
-      promoteActionToHand(focusIndex, focusedKey);
       render();
     }
 
@@ -10906,7 +10947,7 @@
       );
       if (cardType === "shuffle") {
         button.classList.add("has-copy");
-        button.innerHTML = `<span class="shuffle-glyph" aria-hidden="true">•••</span><span class="cmd-label">${emojiHtml(actionEmoji(action))}more</span>`;
+        button.innerHTML = `<span class="shuffle-glyph" aria-hidden="true">•••</span><span class="cmd-label">${emojiHtml(actionEmoji(action))}${escapeHtml(compactActionLabel(action) || "all")}</span>`;
         return;
       }
       const thumb = thumbnailHtml(action, false, "action-mini-card");
@@ -10939,28 +10980,6 @@
       const storyActionKeys = new Set(
         storyGuide?.kind === "first-tale" ? storyGuide.actionKeys || [] : [],
       );
-      const guidedHandKeys = [...storyActionKeys]
-        .map((key) => actionIndexForKey(key))
-        .filter((index) => index >= 0)
-        .map((index) => actionHandKey(actions[index]))
-        .filter(Boolean);
-      if (guidedHandKeys.length) {
-        const guidedSet = new Set(guidedHandKeys);
-        discardedHandKeys = discardedHandKeys.filter((key) => !guidedSet.has(key));
-        const playerPromotedFocus = Boolean(
-          playerPromotedHandKey
-            && handKeys[0] === playerPromotedHandKey
-            && !guidedSet.has(playerPromotedHandKey)
-        );
-        const pinned = playerPromotedFocus ? [playerPromotedHandKey] : [];
-        for (const key of guidedHandKeys) {
-          if (!pinned.includes(key)) pinned.push(key);
-        }
-        for (const key of handKeys) {
-          if (!pinned.includes(key)) pinned.push(key);
-        }
-        handKeys = pinned.slice(0, handCapacity());
-      }
       const entries = [];
       for (const key of handKeys) {
         const index = actionIndexForHandKey(key);
@@ -10979,18 +10998,34 @@
       return entries;
     }
 
+    function visibleFocusedAction() {
+      const visible = actionBarActions();
+      return visible.find((action) => action.actionIndex === focusIndex) || visible[0] || null;
+    }
+
+    function moveVisibleActionFocus(delta) {
+      const visible = actionBarActions();
+      if (!visible.length) return;
+      const current = visible.findIndex((action) => action.actionIndex === focusIndex);
+      const next = current < 0
+        ? (delta > 0 ? 0 : visible.length - 1)
+        : ((current + delta) % visible.length + visible.length) % visible.length;
+      const action = visible[next];
+      focusIndex = action.actionIndex;
+      focusedKey = action.focusKey || "";
+      renderCommands();
+      $((["primary", "secondary", "tertiary"])[next])?.focus();
+    }
+
     function shuffleAction() {
-      const otherCardCount = Math.max(0, validActionHandKeySet().size - new Set(handKeys).size);
       return {
-        label: "more",
-        detail: actorId
-          ? `${otherCardCount} other ${otherCardCount === 1 ? "action" : "actions"}`
-          : "after avatar",
-        focusKey: "shuffle-hand",
+        label: "all",
+        detail: "all actions",
+        focusKey: "all-actions",
         cardType: "shuffle",
         card: cardForLocation(state?.location?.id),
         shape: "location",
-        run: () => shuffleHand(),
+        run: () => openAllActions(),
       };
     }
 
@@ -10999,8 +11034,7 @@
       if (!actorId || !actorSession || state?.primary_action?.kind === "create_avatar" || state?.branch) {
         return false;
       }
-      const visibleKeys = new Set(handKeys.filter((key) => actionIndexForHandKey(key) >= 0));
-      return validActionHandKeySet().size > visibleKeys.size;
+      return actions.length > 0;
     }
 
     function advanceHandPage() {
@@ -11049,8 +11083,8 @@
         }
         if (canShowShuffleAction()) {
           renderButton("shuffle", {
-            label: "more",
-            detail: "new actions",
+            label: "all",
+            detail: "all actions",
             cardType: "shuffle",
             busy: true,
           });
@@ -11087,6 +11121,29 @@
         return null;
       }
       return actions[actionIndex] || null;
+    }
+
+    function renderAllActions() {
+      const list = $("all-actions-list");
+      if (!list) return;
+      const indexes = orderedActionIndexesForHand();
+      list.innerHTML = indexes.map((actionIndex) => {
+        const entry = actions[actionIndex];
+        const label = compactActionLabel(entry) || entry?.command || "act";
+        const detail = friendlyActionText(entry?.detail || entry?.target?.label || "");
+        const aria = [label, detail].filter(Boolean).join(", ");
+        return `<button class="all-actions-choice" type="button" data-all-action-index="${actionIndex}" aria-label="${escapeAttr(aria)}"><span class="all-actions-choice-label">${escapeHtml(label)}</span><span class="all-actions-choice-detail">${escapeHtml(detail)}</span></button>`;
+      }).join("");
+    }
+
+    function openAllActions() {
+      if (actionBusy || !actions.length) return;
+      renderAllActions();
+      openModal("all-actions-modal", $("all-actions-list")?.querySelector("button"));
+    }
+
+    function closeAllActions() {
+      closeModal("all-actions-modal");
     }
 
     function openCommandPalette(seed = "", force = false) {
@@ -11145,10 +11202,6 @@
       try {
         const result = await action.run();
         if (result?.ok === false) cancelPendingChat(pendingChatId);
-        const handKey = action.handKey || actionHandKey(action);
-        if (!state?.branch && handKey && result?.ok !== false) {
-          discardHandKey(handKey);
-        }
       } catch (error) {
         cancelPendingChat(pendingChatId);
         setError(String(error.message || error));
@@ -11699,7 +11752,23 @@
     });
 
     $("shuffle").addEventListener("click", () => {
-      shuffleHand();
+      openAllActions();
+    });
+
+    $("command-toggle").addEventListener("click", () => openCommandPalette("say "));
+    $("all-actions-close").addEventListener("click", closeAllActions);
+    $("all-actions-command").addEventListener("click", () => {
+      closeAllActions();
+      openCommandPalette("say ", true);
+    });
+    $("all-actions-list").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-all-action-index]");
+      if (!button) return;
+      const actionIndex = Number(button.dataset.allActionIndex);
+      const selected = Number.isInteger(actionIndex) ? actions[actionIndex] : null;
+      if (!selected) return;
+      closeAllActions();
+      openActionModal(selected);
     });
 
     $("command-form").addEventListener("submit", async (event) => {
@@ -11755,6 +11824,14 @@
         }
         return;
       }
+      if (!$("all-actions-modal").hidden) {
+        if (trapModalFocus(event, $("all-actions-modal"))) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeAllActions();
+        }
+        return;
+      }
       if (!$("card-modal").hidden) {
         if (trapModalFocus(event, $("card-modal"))) return;
         if (event.key === "Escape") {
@@ -11784,7 +11861,12 @@
         return;
       }
       if (journalOpen) return;
-      if (event.target?.matches?.("button, a, input, select, textarea, [role='button'], [contenteditable='true']")) return;
+      const actionArrow = ["ArrowLeft", "ArrowRight"].includes(event.key)
+        && Boolean(event.target?.closest?.(".actions .cmd"));
+      if (
+        event.target?.matches?.("button, a, input, select, textarea, [role='button'], [contenteditable='true']")
+        && !actionArrow
+      ) return;
       const plainKey = !event.metaKey && !event.ctrlKey && !event.altKey;
       if ((event.key === "/" || event.code === "Slash") && plainKey) {
         event.preventDefault();
@@ -11798,17 +11880,17 @@
       }
       if (event.key === "Enter") {
         event.preventDefault();
-        const action = state?.branch ? actions[0] : focusedAction();
+        const action = state?.branch ? actions[0] : visibleFocusedAction();
         if (action) openActionModal(action);
       } else if (event.key === " ") {
         event.preventDefault();
         if (state?.branch && actions[1]) openActionModal(actions[1]);
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
-        focusAction(focusIndex + 1);
+        moveVisibleActionFocus(1);
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
-        focusAction(focusIndex - 1);
+        moveVisibleActionFocus(-1);
       }
     });
 

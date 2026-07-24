@@ -561,7 +561,19 @@ pub(crate) fn command_response_output_for_actor(
     } else {
         events.iter().collect()
     };
+    let crafted = output_events
+        .iter()
+        .any(|event| event.type_name == "item.crafted" && event.success);
+    let studied = output_events
+        .iter()
+        .any(|event| event.type_name == "study.resolved");
     for event in &output_events {
+        if crafted && event.type_name == "item.created" {
+            continue;
+        }
+        if studied && event.type_name == "ability_check.rolled" {
+            continue;
+        }
         if matches!(
             event.type_name.as_str(),
             "clock.updated" | "clock.threshold" | "job.updated"
@@ -817,11 +829,18 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             event.item_name.as_deref().unwrap_or("the item"),
             event.target_actor_name.as_deref().unwrap_or("the avatar")
         )),
-        "item.crafted" => Some(format!(
-            "You craft with {} and {}.",
-            event.item_name.as_deref().unwrap_or("one item"),
-            event.target_item_name.as_deref().unwrap_or("another item")
-        )),
+        "item.crafted" => event.content.clone().or_else(|| {
+            Some(match event.target_item_name.as_deref() {
+                Some(second) => format!(
+                    "You craft with {} and {second}.",
+                    event.item_name.as_deref().unwrap_or("one item")
+                ),
+                None => format!(
+                    "You craft with {}.",
+                    event.item_name.as_deref().unwrap_or("one item")
+                ),
+            })
+        }),
         "item.created" => Some(format!(
             "{} joins the world.",
             event.item_name.as_deref().unwrap_or("Something new")
@@ -866,10 +885,27 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             event.item_name.as_deref().unwrap_or("the prepared spell")
         )),
         "influence.committed" => event.content.clone(),
-        "ability_check.rolled" => Some(if event.success {
-            "You listen closely, and the room answers.".to_string()
-        } else {
-            "You listen closely, but the room keeps its secret.".to_string()
+        "study.resolved" => Some(
+            if event
+                .content
+                .as_deref()
+                .is_some_and(|content| content.contains("yielded"))
+            {
+                "You study the signs and understand their meaning."
+            } else {
+                "You study the signs, but their meaning stays unclear."
+            }
+            .to_string(),
+        ),
+        "ability_check.rolled" => Some(match (event.content.as_deref(), event.success) {
+            (Some("study"), true) => {
+                "You study the signs and understand their meaning.".to_string()
+            }
+            (Some("study"), false) => {
+                "You study the signs, but their meaning stays unclear.".to_string()
+            }
+            (_, true) => "You check carefully, and the room answers.".to_string(),
+            (_, false) => "You check carefully, but the room keeps its secret.".to_string(),
         }),
         "job.contribution.resolved" => event
             .content
