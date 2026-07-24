@@ -1703,6 +1703,14 @@ impl RuntimeWorld {
                         active_direct_actor_ids,
                     )
                     .map_err(|output| command_error(&command, "request", 404, output))?;
+                if !self.economy_known_by(actor.id, holder.id) {
+                    return Err(command_error(
+                        &command,
+                        "request",
+                        409,
+                        "You do not know what that avatar is carrying yet.",
+                    ));
+                }
                 let item = self
                     .resolve_actor_held_item(
                         holder.id,
@@ -1950,6 +1958,14 @@ impl RuntimeWorld {
                             ),
                         )
                     })?;
+                if !self.economy_known_by(actor.id, target.id) {
+                    return Err(command_error(
+                        &command,
+                        "trade",
+                        409,
+                        "You do not know what that avatar is carrying yet.",
+                    ));
+                }
                 let target_item = self
                     .resolve_actor_held_item(
                         target.id,
@@ -2000,6 +2016,14 @@ impl RuntimeWorld {
                             active_direct_actor_ids,
                         )
                         .map_err(|output| command_error(&command, "steal", 404, output))?;
+                    if !self.economy_known_by(actor.id, target.id) {
+                        return Err(command_error(
+                            &command,
+                            "steal",
+                            409,
+                            "You do not know what that avatar is carrying yet.",
+                        ));
+                    }
                     let item = self
                         .resolve_actor_held_item(
                             target.id,

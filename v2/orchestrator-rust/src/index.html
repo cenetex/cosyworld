@@ -8096,9 +8096,10 @@
       }
       if (event.type === "ability_check.rolled") {
         const studying = event.content === "study";
+        const noticing = event.content === "notice";
         return {
           kind: "roll",
-          label: studying ? "study" : "check",
+          label: studying ? "study" : (noticing ? "notice" : "check"),
           text: cleanStatusText(abilityCheckEventText(event)),
         };
       }
@@ -9139,6 +9140,27 @@
               story: `${target} slips clear of ${actor}.`,
             };
       }
+      if (event.content === "notice") {
+        const actor = event.actor_name || "Someone";
+        const target = event.target_actor_name || "the other avatar";
+        return success
+          ? {
+              label: "notice",
+              symbol: "✦",
+              title: `${actor} reads ${target}`,
+              detail: "What they carry and seek is now known.",
+              result: "noticed",
+              story: `${actor} notices what ${target} carries and seeks.`,
+            }
+          : {
+              label: "notice",
+              symbol: "~",
+              title: `${target} stays hard to read`,
+              detail: `${actor} learns nothing certain yet.`,
+              result: "unclear",
+              story: `${target} remains hard to read.`,
+            };
+      }
       const hint = listenHintForLocation(event.location_id, success);
       const actor = event.actor_name || "Someone";
       return success
@@ -9472,6 +9494,12 @@
     }
 
     function abilityCheckEventText(event) {
+      if (event.content === "notice") {
+        const target = event.target_actor_name || "the other avatar";
+        return event.success
+          ? `notices what ${target} carries and seeks.`
+          : `${target} remains hard to read.`;
+      }
       if (event.content === "study") {
         return event.success
           ? "studies the signs and understands their meaning."
@@ -9868,6 +9896,7 @@
     function actorSafetyPanelHtml(actor) {
       if (!actor || Number(actor.id || 0) === Number(actorId || 0)) return "";
       const actorNumericId = Number(actor.id || 0);
+      const economyKnown = Boolean(actor?.economy);
       const giftAvailable = Boolean(transferActionForActor("give", actorNumericId));
       const tradeAvailable = Boolean(transferActionForActor("trade", actorNumericId));
       const incoming = (state?.safety?.incoming_offers || [])
@@ -9893,7 +9922,13 @@
       ].join("");
       const muteVerb = actor.muted_by_you ? "unmute" : "mute";
       const blockVerb = actor.blocked_by_you ? "unblock" : "block";
-      return `${offerHtml}<div class="avatar-controls" aria-label="Controls for ${escapeAttr(actorLabel(actor))}"><button class="account-button" type="button" data-avatar-transfer="give" data-avatar-id="${actorNumericId}"${giftAvailable ? "" : " disabled"}>offer gift</button><button class="account-button" type="button" data-avatar-transfer="trade" data-avatar-id="${actorNumericId}"${tradeAvailable ? "" : " disabled"}>offer trade</button>${giftRequestHtml}<button class="account-button" type="button" data-avatar-safety="${muteVerb}" data-avatar-id="${actorNumericId}">${muteVerb}</button><button class="account-button" type="button" data-avatar-safety="${blockVerb}" data-avatar-id="${actorNumericId}">${blockVerb}</button><button class="account-button" type="button" data-avatar-report="${actorNumericId}">report</button></div>`;
+      const noticeButton = economyKnown
+        ? ""
+        : `<button class="account-button" type="button" data-avatar-notice="${actorNumericId}">notice</button>`;
+      const tradeButton = economyKnown
+        ? `<button class="account-button" type="button" data-avatar-transfer="trade" data-avatar-id="${actorNumericId}"${tradeAvailable ? "" : " disabled"}>offer trade</button>`
+        : "";
+      return `${offerHtml}<div class="avatar-controls" aria-label="Controls for ${escapeAttr(actorLabel(actor))}">${noticeButton}<button class="account-button" type="button" data-avatar-transfer="give" data-avatar-id="${actorNumericId}"${giftAvailable ? "" : " disabled"}>offer gift</button>${tradeButton}${giftRequestHtml}<button class="account-button" type="button" data-avatar-safety="${muteVerb}" data-avatar-id="${actorNumericId}">${muteVerb}</button><button class="account-button" type="button" data-avatar-safety="${blockVerb}" data-avatar-id="${actorNumericId}">${blockVerb}</button><button class="account-button" type="button" data-avatar-report="${actorNumericId}">report</button></div>`;
     }
 
     function actorEconomyPanelHtml(actor) {
@@ -9904,7 +9939,12 @@
       const controller = actorControlModeLabel(actor);
       if (controller) rows.push(economyRowHtml("controller", escapeHtml(controller)));
       const economy = actor?.economy || null;
-      if (!economy) return `${rows.join("")}${actorSafetyPanelHtml(actor)}`;
+      if (!economy) {
+        if (Number(actor.id || 0) !== Number(actorId || 0)) {
+          rows.push(economyRowHtml("today", "nothing known yet"));
+        }
+        return `${rows.join("")}${actorSafetyPanelHtml(actor)}`;
+      }
       const motive = economyMotiveSummary(actor, economy);
       if (motive && !economyMotiveRepeatsRows(actor, economy, motive)) {
         rows.push(economyRowHtml("today", escapeHtml(motive)));
@@ -11552,6 +11592,25 @@
     });
 
     $("card-modal").addEventListener("click", (event) => {
+      const notice = event.target.closest("[data-avatar-notice]");
+      if (notice) {
+        event.preventDefault();
+        event.stopPropagation();
+        const targetActorId = Number(notice.getAttribute("data-avatar-notice") || 0);
+        if (!targetActorId) return;
+        notice.disabled = true;
+        action("/actions/check", {
+          actor_id: actorId,
+          target_actor_id: targetActorId,
+          ability: "wisdom",
+          dc: 12,
+        }).then(async () => {
+          await refresh();
+          const updated = cardForActor(targetActorId);
+          if (updated) openCardModal(updated);
+        });
+        return;
+      }
       const transfer = event.target.closest("[data-avatar-transfer]");
       if (transfer) {
         event.preventDefault();

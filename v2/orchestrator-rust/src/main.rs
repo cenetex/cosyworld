@@ -3566,6 +3566,8 @@ struct CheckRequest {
     actor_session: Option<String>,
     ability: String,
     dc: Option<u16>,
+    #[serde(default)]
+    target_actor_id: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -10453,6 +10455,7 @@ impl RuntimeWorld {
                 record.initial_origin_id.as_deref(),
                 record.initial_physical_description.as_deref(),
             ));
+            self.apply_economy_disclosure_projection(&action, &mut events);
             if action.kind == CW_ACTION_RULES_STUDY {
                 if let Some(check) = events.iter().find(|event| {
                     event.type_name == "ability_check.rolled"
@@ -14969,6 +14972,131 @@ impl RuntimeWorld {
             .is_some_and(|safety| safety.muted_actor_ids.contains(&target_actor_id))
     }
 
+    fn economy_known_by(&self, viewer_actor_id: u64, target_actor_id: u64) -> bool {
+        viewer_actor_id == target_actor_id
+            || self.rpg_claims.contains(&economy_disclosure_claim_key(
+                viewer_actor_id,
+                target_actor_id,
+            ))
+    }
+
+    fn record_economy_disclosure(&mut self, viewer_actor_id: u64, target_actor_id: u64) -> bool {
+        viewer_actor_id != 0
+            && target_actor_id != 0
+            && viewer_actor_id != target_actor_id
+            && self.rpg_claims.insert(economy_disclosure_claim_key(
+                viewer_actor_id,
+                target_actor_id,
+            ))
+    }
+
+    fn economy_notice_target_is_valid(&self, viewer_actor_id: u64, target_actor_id: u64) -> bool {
+        self.actor_by_id(viewer_actor_id)
+            .zip(self.actor_by_id(target_actor_id))
+            .is_some_and(|(viewer, target)| {
+                viewer.id != target.id
+                    && Self::actor_is_active_avatar(viewer)
+                    && Self::actor_is_active_avatar(target)
+                    && viewer.location_id == target.location_id
+                    && !self.actors_blocked(viewer.id, target.id)
+            })
+    }
+
+    fn speech_discloses_economy(&self, speaker: CwActor, text: &str) -> bool {
+        let lowered = text.to_lowercase();
+        let disclosure_phrases = [
+            "i want",
+            "i need",
+            "i seek",
+            "i'm looking for",
+            "i am looking for",
+            "i carry",
+            "i have",
+            "i've got",
+            "i am holding",
+            "i'm holding",
+            "i can trade",
+            "i'll trade",
+            "i will trade",
+            "i offer",
+            "i show",
+            "here is my",
+            "here's my",
+        ];
+        let statement = lowered.trim_start();
+        if !disclosure_phrases
+            .iter()
+            .any(|phrase| statement.starts_with(phrase))
+        {
+            return false;
+        }
+
+        let mut relevant_item_ids = self
+            .actor_held_items(speaker.id)
+            .into_iter()
+            .map(|item| item.id)
+            .collect::<BTreeSet<_>>();
+        relevant_item_ids.extend(self.resident_desired_item_ids(speaker));
+        relevant_item_ids.extend(self.resident_sought_item_ids(speaker));
+        relevant_item_ids.into_iter().any(|item_id| {
+            self.item_name(item_id)
+                .is_some_and(|name| lowered.contains(&name.to_lowercase()))
+        })
+    }
+
+    fn apply_economy_disclosure_projection(&mut self, action: &CwAction, events: &mut [EventView]) {
+        if action.kind == CW_ACTION_RULES_SEARCH
+            && action.target_actor_id != 0
+            && self.economy_notice_target_is_valid(action.actor_id, action.target_actor_id)
+        {
+            let target_name = self.actor_name(action.target_actor_id);
+            if let Some(check) = events.iter_mut().find(|event| {
+                event.type_name == "ability_check.rolled" && event.actor_id == Some(action.actor_id)
+            }) {
+                check.target_actor_id = Some(action.target_actor_id);
+                check.target_actor_name = target_name;
+                check.content = Some("notice".to_string());
+                let succeeded = check.success
+                    && check
+                        .total
+                        .zip(check.dc)
+                        .is_some_and(|(total, dc)| total >= dc);
+                self.replace_projected_event(check);
+                if succeeded {
+                    self.record_economy_disclosure(action.actor_id, action.target_actor_id);
+                }
+            }
+        }
+
+        if action.kind != CW_ACTION_SAY {
+            return;
+        }
+        let Some(speaker) = self.actor_by_id(action.actor_id) else {
+            return;
+        };
+        let Some(text) = self.content.get(&action.content_id) else {
+            return;
+        };
+        if !Self::actor_is_active_avatar(speaker) || !self.speech_discloses_economy(speaker, text) {
+            return;
+        }
+        let viewer_ids = self.world.actors[..self.world.actor_count]
+            .iter()
+            .copied()
+            .filter(|viewer| {
+                viewer.id != speaker.id
+                    && Self::actor_is_active_avatar(*viewer)
+                    && viewer.location_id == speaker.location_id
+                    && !self.actors_blocked(viewer.id, speaker.id)
+                    && !self.actor_muted(viewer.id, speaker.id)
+            })
+            .map(|viewer| viewer.id)
+            .collect::<Vec<_>>();
+        for viewer_id in viewer_ids {
+            self.record_economy_disclosure(viewer_id, speaker.id);
+        }
+    }
+
     fn transfer_offer_status(&self, offer: &TransferOfferState) -> TransferOfferStatus {
         if offer.status == TransferOfferStatus::Pending && self.world.tick >= offer.expires_tick {
             TransferOfferStatus::Expired
@@ -16935,7 +17063,7 @@ impl RuntimeWorld {
         client_actor_id: Option<u64>,
     ) -> String {
         let Some(economy) = self.resident_economy_view(resident, client_actor_id) else {
-            return "Actor economy: no item economy is active.".to_string();
+            return "Actor economy: nothing known yet.".to_string();
         };
 
         let mut parts = Vec::new();
@@ -22555,7 +22683,9 @@ impl RuntimeWorld {
                         .actor_name(target.id)
                         .unwrap_or_else(|| format!("Avatar {}", target.id));
                     let request_reason = self
-                        .resident_request_for_holder(target, actor_id)
+                        .economy_known_by(actor_id, target.id)
+                        .then(|| self.resident_request_for_holder(target, actor_id))
+                        .flatten()
                         .filter(|request| request.item_id == offered_item.id)
                         .map(|request| request.reason)
                         .unwrap_or_else(|| format!("{target_name} can receive {item_name}"));
@@ -22709,7 +22839,8 @@ impl RuntimeWorld {
         self.active_chat_targets(actor_id)
             .into_iter()
             .filter(|target| {
-                !self.actor_control_mode(target.id).is_direct_input()
+                self.economy_known_by(actor_id, target.id)
+                    && !self.actor_control_mode(target.id).is_direct_input()
                     && !self.actors_blocked(actor_id, target.id)
             })
             .find_map(|target| {
@@ -22770,6 +22901,7 @@ impl RuntimeWorld {
 
         let mut candidates = Vec::new();
         let mut targets = self.active_chat_targets(actor_id);
+        targets.retain(|target| self.economy_known_by(actor_id, target.id));
         targets.sort_by_key(|target| target.id);
         for target in targets {
             let Some(request) = self.resident_request_for_holder(target, actor_id) else {
@@ -22942,6 +23074,7 @@ impl RuntimeWorld {
         }
 
         let mut targets = self.active_chat_targets(actor_id);
+        targets.retain(|target| self.economy_known_by(actor_id, target.id));
         targets.sort_by_key(|target| target.id);
         let mut candidates = Vec::new();
         for target in targets {
@@ -23642,7 +23775,8 @@ impl RuntimeWorld {
         }
         let actor_meta = self.actors.get(&actor_id);
         let target_meta = self.actors.get(&target_actor_id);
-        let missing_need = (target.stats.level < 2)
+        let missing_need = (self.economy_known_by(actor_id, target_actor_id)
+            && target.stats.level < 2)
             .then(|| self.first_missing_evolution_item_name(target_actor_id))
             .flatten();
         let target_actor_name = self
@@ -24018,7 +24152,7 @@ impl RuntimeWorld {
             } else if !self.actor_uses_inference(responder.id) {
                 DIRECTLY_CONTROLLED_REACTION_CONTEXT.to_string()
             } else {
-                self.resident_economy_prompt_note(responder, Some(speaker_actor_id))
+                self.resident_economy_prompt_note(responder, Some(responder.id))
             };
         Some(AvatarReplyPlan {
             speaker_actor_id: target_actor_id,
@@ -32168,6 +32302,7 @@ async fn command_inner(
                     actor_session: payload.actor_session,
                     ability: "wisdom".to_string(),
                     dc: Some(LISTEN_DC),
+                    target_actor_id: None,
                 }),
             )
             .await;
@@ -34530,6 +34665,17 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
                 .unwrap_or_else(|| "a useful natural feature".to_string());
             format!("{actor_name} revealed {feature} here")
         }
+        "ability_check.rolled" if event.content.as_deref() == Some("notice") => {
+            let target_name = event
+                .target_actor_name
+                .as_deref()
+                .unwrap_or("the other avatar");
+            if event.success {
+                format!("{actor_name} noticed what {target_name} carries and seeks")
+            } else {
+                format!("{target_name} stayed hard for {actor_name} to read")
+            }
+        }
         "ability_check.rolled" if event.content.as_deref() == Some("study") => {
             format!(
                 "{} studied the signs and {}",
@@ -36425,19 +36571,40 @@ async fn ability_check(
             events: Vec::new(),
         });
     }
+    let target_actor_id = payload.target_actor_id.unwrap_or_default();
     let contribution_mutations = {
         let runtime = state.inner.lock().await;
-        runtime
-            .job_contribution_intent(payload.actor_id, "check", None, None, None)
-            .map(|intent| ProjectionMutation::ResolveJobContribution { intent })
-            .into_iter()
-            .collect()
+        if target_actor_id != 0
+            && !client_actor_authorized_for_state(
+                &runtime,
+                &state,
+                payload.actor_id,
+                payload.actor_session.as_deref(),
+            )
+        {
+            return client_actor_rejected_response();
+        }
+        if target_actor_id != 0
+            && !runtime.economy_notice_target_is_valid(payload.actor_id, target_actor_id)
+        {
+            return action_offer_rejected("That avatar is not close enough to notice");
+        }
+        if target_actor_id == 0 {
+            runtime
+                .job_contribution_intent(payload.actor_id, "check", None, None, None)
+                .map(|intent| ProjectionMutation::ResolveJobContribution { intent })
+                .into_iter()
+                .collect()
+        } else {
+            Vec::new()
+        }
     };
     apply_and_broadcast_with_mutations(
         state,
         CwAction {
             kind: CW_ACTION_RULES_SEARCH,
             actor_id: payload.actor_id,
+            target_actor_id,
             ability: LISTEN_ABILITY,
             dc: LISTEN_DC,
             ..CwAction::default()
@@ -36904,18 +37071,21 @@ async fn trade_item(
         }
         let target_actor_id = payload.target_actor_id.unwrap_or_default();
         let target_item_id = payload.target_item_id.unwrap_or_default();
+        if !runtime.economy_known_by(payload.actor_id, target_actor_id) {
+            return action_offer_rejected("You do not know what that avatar is carrying yet.");
+        }
+        if let Err(reason) = runtime.actor_trade_is_legal(
+            payload.actor_id,
+            target_actor_id,
+            payload.item_id,
+            target_item_id,
+        ) {
+            return action_offer_rejected(reason);
+        }
         if runtime
             .actor_control_mode(target_actor_id)
             .is_direct_input()
         {
-            if let Err(reason) = runtime.actor_trade_is_legal(
-                payload.actor_id,
-                target_actor_id,
-                payload.item_id,
-                target_item_id,
-            ) {
-                return action_offer_rejected(reason);
-            }
             if let Some(existing) = runtime.matching_pending_transfer_offer(
                 TransferOfferKind::Trade,
                 payload.actor_id,
@@ -37324,6 +37494,7 @@ async fn request_gift_auto_accept(
                 && recipient.location_id == holder.location_id
                 && item.holder_actor_id == holder.id
                 && !runtime.actors_blocked(recipient.id, holder.id)
+                && runtime.economy_known_by(recipient.id, holder.id)
                 && runtime.actor_can_receive_item(recipient, item.id)
         });
     if !valid {
@@ -40673,6 +40844,10 @@ fn ability_check_success_claim_key(
     format!("ability_check_success:{actor_id}:{location_id}:{ability}:{dc}")
 }
 
+fn economy_disclosure_claim_key(viewer_actor_id: u64, target_actor_id: u64) -> String {
+    format!("economy_disclosed:{viewer_actor_id}:{target_actor_id}")
+}
+
 fn listen_attempt_claim_key(actor_id: u64, location_id: u64) -> String {
     format!("listen_attempt:{actor_id}:{location_id}")
 }
@@ -41544,6 +41719,7 @@ fn action_is_listen_check(action: &CwAction) -> bool {
         CW_ACTION_ABILITY_CHECK | CW_ACTION_RULES_SEARCH
     ) && action.ability == LISTEN_ABILITY
         && action.dc == LISTEN_DC
+        && action.target_actor_id == 0
 }
 
 fn action_is_discovery_check(action: &CwAction) -> bool {
@@ -45521,6 +45697,7 @@ mod tests {
             "Requesting Receiver",
         );
         arrange_test_transfer_items(&mut runtime);
+        runtime.record_economy_disclosure(5001, 5000);
         let state = test_app_state(runtime, None);
         let giver_session = issue_actor_session(&state, 5000).0;
         let receiver_session = issue_actor_session(&state, 5001).0;
@@ -45617,6 +45794,7 @@ mod tests {
             "Trade Decider",
         );
         arrange_test_transfer_items(&mut runtime);
+        runtime.record_economy_disclosure(5000, 5001);
         let state = test_app_state(runtime, None);
         let proposer_session = issue_actor_session(&state, 5000).0;
         let decider_session = issue_actor_session(&state, 5001).0;
@@ -46148,8 +46326,11 @@ mod tests {
     }
 
     #[test]
-    fn avatar_inspector_exposes_transfer_and_safety_controls() {
+    fn avatar_inspector_exposes_notice_transfer_and_safety_controls() {
         for contract in [
+            "data-avatar-notice=",
+            "nothing known yet",
+            "target_actor_id: targetActorId",
             "data-avatar-transfer=\"give\"",
             "data-avatar-transfer=\"trade\"",
             "data-avatar-safety=",
@@ -46176,6 +46357,8 @@ mod tests {
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "CLI Holder");
         create_test_human(&mut runtime, 5001, COSY_COTTAGE_LOCATION_ID, "CLI Decider");
         arrange_test_transfer_items(&mut runtime);
+        runtime.record_economy_disclosure(5000, 5001);
+        runtime.record_economy_disclosure(5001, 5000);
         let access = AccessContext::default();
         let request = runtime
             .resolve_command(
@@ -49828,6 +50011,16 @@ mod tests {
             dc: Some(13),
             ..EventView::default()
         };
+        let notice = EventView {
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_name: Some("Moss Lantern".to_string()),
+            target_actor_name: Some("Rati".to_string()),
+            content: Some("notice".to_string()),
+            total: Some(16),
+            dc: Some(12),
+            ..EventView::default()
+        };
         let clock = EventView {
             type_name: "clock.updated".to_string(),
             success: true,
@@ -49847,10 +50040,14 @@ mod tests {
             Some("Moss Lantern met empty air, while Moonlit Echo slipped clear")
         );
         assert_eq!(
+            room_memory_log_text(&notice).as_deref(),
+            Some("Moss Lantern noticed what Rati carries and seeks")
+        );
+        assert_eq!(
             room_memory_log_text(&clock).as_deref(),
             Some("Quiet the Moonlit Trail draws closer")
         );
-        for text in [&listen, &clash, &clock]
+        for text in [&listen, &notice, &clash, &clock]
             .into_iter()
             .filter_map(room_memory_log_text)
         {
@@ -56515,6 +56712,7 @@ mod tests {
                 actor_session: Some(actor_session),
                 ability: "wisdom".to_string(),
                 dc: Some(LISTEN_DC),
+                target_actor_id: None,
             }),
         )
         .await
@@ -56554,6 +56752,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn targeted_notice_endpoint_reveals_only_after_a_successful_check() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Endpoint Observer",
+        );
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("observer exists")
+            .stats
+            .wisdom = i8::MAX;
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+
+        let response = ability_check(
+            ConnectInfo("127.0.0.1:43110".parse().expect("client address")),
+            State(state.clone()),
+            Json(CheckRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+                ability: "wisdom".to_string(),
+                dc: Some(LISTEN_DC),
+                target_actor_id: Some(RATI_ACTOR_ID),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(response.ok);
+        let notice = response
+            .events
+            .iter()
+            .find(|event| event.type_name == "ability_check.rolled")
+            .expect("targeted notice event");
+        assert!(notice.success);
+        assert_eq!(notice.content.as_deref(), Some("notice"));
+        assert_eq!(notice.target_actor_id, Some(RATI_ACTOR_ID));
+        assert!(!response
+            .events
+            .iter()
+            .any(|event| event.type_name == "job.contribution.resolved"));
+        let runtime = state.inner.lock().await;
+        assert!(runtime.economy_known_by(5000, RATI_ACTOR_ID));
+        assert!(runtime
+            .state_response(Some(5000), &AccessContext::default())
+            .actors
+            .iter()
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .is_some_and(|actor| actor.resident_economy.is_some()));
+    }
+
+    #[tokio::test]
     async fn ability_check_endpoint_rejects_noncanonical_dc_and_ability() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -56575,6 +56830,7 @@ mod tests {
                 actor_session: Some(actor_session),
                 ability: "charisma".to_string(),
                 dc: Some(u16::MAX),
+                target_actor_id: None,
             }),
         )
         .await
@@ -58933,6 +59189,7 @@ mod tests {
         );
 
         runtime.actor_autonomy.entry(5001).or_default().control_mode = ActorControlMode::LocalAi;
+        runtime.record_economy_disclosure(5000, 5001);
         let (target, item) = runtime
             .default_theft_candidate(5000)
             .expect("the same avatar is eligible when inference controls it");
@@ -63673,6 +63930,7 @@ mod tests {
                 actor_session: Some(actor_session),
                 ability: "wisdom".to_string(),
                 dc: Some(LISTEN_DC),
+                target_actor_id: None,
             }),
         )
         .await
@@ -63734,6 +63992,7 @@ mod tests {
                 actor_session: Some(actor_session),
                 ability: "wisdom".to_string(),
                 dc: Some(LISTEN_DC),
+                target_actor_id: None,
             }),
         )
         .await
@@ -63781,6 +64040,7 @@ mod tests {
                 actor_session: Some(actor_session),
                 ability: "wisdom".to_string(),
                 dc: Some(LISTEN_DC),
+                target_actor_id: None,
             }),
         )
         .await
@@ -66296,6 +66556,7 @@ mod tests {
         runtime
             .prepare_resident_local_memories(RATI_ACTOR_ID)
             .expect("Rati observes the arranged trade inventory");
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let access = AccessContext::default();
         let state = runtime.state_response(Some(5000), &access);
@@ -66403,6 +66664,7 @@ mod tests {
         runtime
             .prepare_resident_local_memories(RATI_ACTOR_ID)
             .expect("Rati observes the arranged trade inventory");
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
@@ -66462,7 +66724,7 @@ mod tests {
     }
 
     #[test]
-    fn direct_player_economy_is_private_and_world_population_uses_controller_provenance() {
+    fn avatar_economy_is_hidden_and_revealed_without_controller_exceptions() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -66512,8 +66774,12 @@ mod tests {
             .find(|actor| actor.id == RATI_ACTOR_ID)
             .expect("co-present inference avatar is projected");
         assert!(
-            inference_actor.resident_economy.is_some(),
-            "inference-controlled economy remains a public world affordance"
+            inference_actor.resident_economy.is_none(),
+            "inference control does not make economy state public"
+        );
+        assert!(
+            state.items.iter().all(|item| item.id != 2001),
+            "another avatar's held item is absent before disclosure"
         );
 
         let world = runtime.world_response(Some(5000), &AccessContext::default());
@@ -66538,7 +66804,7 @@ mod tests {
         assert!(cottage
             .actors
             .iter()
-            .filter(|actor| actor.control_mode.is_direct_input())
+            .filter(|actor| actor.id != 5000)
             .all(|actor| actor.resident_economy.is_none()));
         let cottage_json = serde_json::to_value(cottage).expect("serialize location projection");
         assert_eq!(
@@ -66549,6 +66815,193 @@ mod tests {
             cottage_json["resident_count"],
             cottage_json["inference_actor_count"]
         );
+
+        assert!(runtime.record_economy_disclosure(5000, 5001));
+        assert!(runtime.record_economy_disclosure(5000, RATI_ACTOR_ID));
+        let revealed = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(revealed
+            .actors
+            .iter()
+            .find(|actor| actor.id == 5001)
+            .is_some_and(|actor| actor.resident_economy.is_some()));
+        assert!(revealed
+            .actors
+            .iter()
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .is_some_and(|actor| actor.resident_economy.is_some()));
+        assert!(
+            revealed.items.iter().any(|item| item.id == 2001),
+            "disclosure reveals held item cards through the same viewer-target fact"
+        );
+    }
+
+    #[test]
+    fn notice_disclosure_is_success_gated_and_survives_snapshot_and_replay() {
+        std::thread::Builder::new()
+            .name("economy-disclosure-replay".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(|| {
+                let mut runtime = RuntimeWorld::seeded();
+                create_test_human(
+                    &mut runtime,
+                    5000,
+                    COSY_COTTAGE_LOCATION_ID,
+                    "Careful Observer",
+                );
+                let target_actor_id = RATI_ACTOR_ID;
+                assert!(runtime
+                    .resident_economy_view(
+                        runtime.actor_by_id(target_actor_id).expect("Rati exists"),
+                        Some(5000),
+                    )
+                    .is_none());
+
+                let failed_record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_RULES_SEARCH,
+                        actor_id: 5000,
+                        target_actor_id,
+                        ability: LISTEN_ABILITY,
+                        dc: LISTEN_DC,
+                        modifier: -100,
+                        ..CwAction::default()
+                    },
+                    86_001,
+                );
+                let (status, failed_events) = runtime.apply_journal_record(&failed_record);
+                assert_eq!(status, CW_OK);
+                let failed = failed_events
+                    .iter()
+                    .find(|event| event.type_name == "ability_check.rolled")
+                    .expect("notice check event");
+                assert_eq!(failed.content.as_deref(), Some("notice"));
+                assert_eq!(failed.target_actor_id, Some(target_actor_id));
+                assert!(!runtime.economy_known_by(5000, target_actor_id));
+
+                let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+                let successful_record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_RULES_SEARCH,
+                        actor_id: 5000,
+                        target_actor_id,
+                        ability: LISTEN_ABILITY,
+                        dc: LISTEN_DC,
+                        modifier: 100,
+                        ..CwAction::default()
+                    },
+                    86_002,
+                );
+                let (status, successful_events) = runtime.apply_journal_record(&successful_record);
+                assert_eq!(status, CW_OK);
+                let successful = successful_events
+                    .iter()
+                    .find(|event| event.type_name == "ability_check.rolled")
+                    .expect("successful notice event");
+                assert!(successful.success);
+                assert_eq!(successful.content.as_deref(), Some("notice"));
+                assert!(runtime.economy_known_by(5000, target_actor_id));
+                assert!(runtime
+                    .resident_economy_view(
+                        runtime.actor_by_id(target_actor_id).expect("Rati exists"),
+                        Some(5000),
+                    )
+                    .is_some());
+
+                let persisted = RuntimeSnapshot::from_runtime(&runtime);
+                drop(runtime);
+                let restored = persisted
+                    .into_runtime()
+                    .expect("economy disclosure snapshot restores");
+                assert!(restored.economy_known_by(5000, target_actor_id));
+                drop(restored);
+
+                let mut replayed = replay_base
+                    .into_runtime()
+                    .expect("pre-disclosure snapshot restores");
+                assert_eq!(replayed.apply_journal_record(&successful_record).0, CW_OK);
+                assert!(replayed.economy_known_by(5000, target_actor_id));
+            })
+            .expect("spawn economy disclosure replay test")
+            .join()
+            .expect("economy disclosure replay test completes");
+    }
+
+    #[test]
+    fn explicit_item_speech_discloses_economy_for_every_controller_mode() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Conversation Listener",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Direct Speaker",
+        );
+        let tonic = runtime
+            .world
+            .items
+            .iter_mut()
+            .take(runtime.world.item_count)
+            .find(|item| item.id == 2001)
+            .expect("Hearth Tonic exists");
+        tonic.location_id = 0;
+        tonic.holder_actor_id = 5001;
+        tonic.zone = CW_CARD_ZONE_CARRIED;
+
+        let generic_content_id = runtime.next_content_id_value();
+        let mut generic = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: RATI_ACTOR_ID,
+                content_id: generic_content_id,
+                ..CwAction::default()
+            },
+            86_010,
+        );
+        generic
+            .content_upserts
+            .insert(generic_content_id, "The rain sounds gentle.".to_string());
+        assert_eq!(runtime.apply_journal_record(&generic).0, CW_OK);
+        assert!(!runtime.economy_known_by(5000, RATI_ACTOR_ID));
+
+        let inferred_content_id = runtime.next_content_id_value();
+        let mut inferred = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: RATI_ACTOR_ID,
+                content_id: inferred_content_id,
+                ..CwAction::default()
+            },
+            86_011,
+        );
+        inferred.content_upserts.insert(
+            inferred_content_id,
+            "I want Story Button for my blue scarf.".to_string(),
+        );
+        assert_eq!(runtime.apply_journal_record(&inferred).0, CW_OK);
+        assert!(runtime.economy_known_by(5000, RATI_ACTOR_ID));
+
+        let direct_content_id = runtime.next_content_id_value();
+        let mut direct = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: 5001,
+                content_id: direct_content_id,
+                ..CwAction::default()
+            },
+            86_012,
+        );
+        direct.content_upserts.insert(
+            direct_content_id,
+            "I have Hearth Tonic in my carried deck.".to_string(),
+        );
+        assert_eq!(runtime.apply_journal_record(&direct).0, CW_OK);
+        assert!(runtime.actor_control_mode(5001).is_direct_input());
+        assert!(runtime.economy_known_by(5000, 5001));
     }
 
     #[test]
@@ -66586,6 +67039,7 @@ mod tests {
         runtime
             .prepare_resident_local_memories(RATI_ACTOR_ID)
             .expect("Rati observes the arranged trade inventory");
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         let rati = state
@@ -66798,6 +67252,7 @@ mod tests {
         assert!(!evolution_track_item_ids(MOUSE_WANDERER_ACTOR_ID)
             .unwrap_or_default()
             .contains(&THREADBARE_MAP_SCRAP_ITEM_ID));
+        runtime.record_economy_disclosure(5000, MOUSE_WANDERER_ACTOR_ID);
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         let mouse = state
@@ -66921,6 +67376,7 @@ mod tests {
             .expect("same-room player-held personal desire is requestable");
         assert_eq!(immediate_request.item_id, DEWBRIGHT_BUTTON_ITEM_ID);
         assert!(immediate_request.reason.contains("tiny rain engine"));
+        runtime.record_economy_disclosure(5000, STEAMPUNK_MOUSE_ACTOR_ID);
 
         let mouse = runtime
             .prepare_resident_local_memories(STEAMPUNK_MOUSE_ACTOR_ID)
@@ -66986,6 +67442,7 @@ mod tests {
         runtime
             .prepare_resident_local_memories(STEAMPUNK_MOUSE_ACTOR_ID)
             .expect("Doctor Cogwhisker observes the trade item");
+        runtime.record_economy_disclosure(5000, STEAMPUNK_MOUSE_ACTOR_ID);
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         let mouse = state
             .actors
@@ -67075,6 +67532,7 @@ mod tests {
             }
         }
         runtime.resident_memories.clear();
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         let economy = state
@@ -67131,6 +67589,7 @@ mod tests {
             item.holder_actor_id = holder_actor_id;
             item.held_since_tick = runtime.world.tick;
         }
+        runtime.record_economy_disclosure(5000, 5001);
 
         let targets = runtime.active_chat_targets(5000);
         assert_eq!(
@@ -67370,6 +67829,7 @@ mod tests {
         runtime
             .prepare_resident_local_memories(RATI_ACTOR_ID)
             .expect("Rati observes the player-held medicine");
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         let rati = state
@@ -67426,6 +67886,7 @@ mod tests {
         runtime
             .prepare_resident_local_memories(RATI_ACTOR_ID)
             .expect("Rati observes the player-held medicine");
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         let economy = state
@@ -67490,6 +67951,7 @@ mod tests {
             request.reason,
             "Rati could use Watch Bell with Low Doorway."
         );
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let state = runtime.state_response(Some(5000), &AccessContext::default());
         let economy = state
@@ -67534,6 +67996,7 @@ mod tests {
         runtime
             .prepare_resident_local_memories(RATI_ACTOR_ID)
             .expect("Rati observes the offered player item");
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let refusal = runtime
             .resident_trade_is_willing(
@@ -67607,6 +68070,7 @@ mod tests {
         runtime
             .prepare_resident_local_memories(RATI_ACTOR_ID)
             .expect("Rati observes the offered player item");
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let hearth_tonic = runtime
@@ -67747,6 +68211,7 @@ mod tests {
         runtime
             .prepare_resident_local_memories(RATI_ACTOR_ID)
             .expect("Rati observes the player-held attached item");
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let request = runtime
             .resident_request_for_holder(
@@ -67841,6 +68306,7 @@ mod tests {
         runtime
             .prepare_resident_local_memories(SKULL_ACTOR_ID)
             .expect("Skull notices the player-held bell");
+        runtime.record_economy_disclosure(5000, SKULL_ACTOR_ID);
 
         let candidate = runtime
             .default_actor_gift_candidate(5000)
@@ -69863,7 +70329,7 @@ mod tests {
                 item.id == STORY_BUTTON_ITEM_ID && item.holder_actor_id == RATI_ACTOR_ID
             }));
         let economy = runtime
-            .resident_economy_view(rati, Some(5000))
+            .resident_economy_view(rati, None)
             .expect("resident economy view");
         assert!(economy.desired_item_ids.contains(&STORY_BUTTON_ITEM_ID));
     }
@@ -70230,7 +70696,7 @@ mod tests {
         );
         let rati = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
         let economy = runtime
-            .resident_economy_view(rati, Some(5000))
+            .resident_economy_view(rati, None)
             .expect("resident economy view");
         assert_eq!(economy.seeking_item_id, Some(2001));
         assert!(economy.motive.contains("remembers Hearth Tonic"));
@@ -70369,7 +70835,7 @@ mod tests {
         );
 
         let economy = runtime
-            .resident_economy_view(actor, Some(5000))
+            .resident_economy_view(actor, None)
             .expect("resident economy view");
         assert_eq!(economy.seeking_item_id, Some(sought_item_id));
         assert_eq!(economy.seeking_location_id, Some(destination_location_id));
@@ -70499,7 +70965,7 @@ mod tests {
             .actor_by_id(WHISKERWIND_ACTOR_ID)
             .expect("Gust exists");
         let economy = runtime
-            .resident_economy_view(whiskerwind, Some(5000))
+            .resident_economy_view(whiskerwind, None)
             .expect("resident economy view");
         assert_eq!(economy.seeking_item_id, Some(DEWBRIGHT_BUTTON_ITEM_ID));
         assert_eq!(
@@ -70937,7 +71403,7 @@ mod tests {
         assert_eq!(memory.holder_actor_id, Some(5000));
         assert_eq!(memory.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
         let economy = runtime
-            .resident_economy_view(rati, Some(5000))
+            .resident_economy_view(rati, None)
             .expect("resident economy view");
         assert!(economy.motive.contains("with Carrier Guest"));
 
@@ -72113,7 +72579,7 @@ mod tests {
         assert_eq!(delivery.target.id, WHISKERWIND_ACTOR_ID);
         assert_eq!(delivery.target_location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
         let economy = runtime
-            .resident_economy_view(rati, Some(5000))
+            .resident_economy_view(rati, None)
             .expect("resident economy view");
         assert!(economy
             .motive
@@ -72694,6 +73160,7 @@ mod tests {
             RESIDENT_OBSERVED_MEMORY_SALIENCE,
             Some(WHISKERWIND_ACTOR_ID),
         );
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
 
         let plan = runtime
             .avatar_chat_plan_for(5000, 1001)
