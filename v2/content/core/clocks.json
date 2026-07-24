@@ -1,5 +1,51 @@
 [
   {
+    "id": "rain-soft-garden.trustworthy-path",
+    "scope": "room",
+    "scope_id": 2,
+    "kind": "progress",
+    "zone": "sanctuary",
+    "label": "Make the Washed Path Trustworthy",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Can we make the washed garden path trustworthy before the next visitor?",
+      "rhythm": "session",
+      "attention": "immediate",
+      "priority": 100,
+      "situation": "Rain has hidden the first stepping stones and left the drain carrying water across the path.",
+      "stakes": "Someone following the blurred edge could lose the safe way toward the river.",
+      "outcome": "The first stones show clearly again and leave a trustworthy lead toward the riverside.",
+      "completion_memory": "Visitors noticed the washed path, uncovered its stones, and left a clearer way toward the river."
+    }
+  },
+  {
+    "id": "rain-soft-garden.path-washes-out",
+    "scope": "room",
+    "scope_id": 2,
+    "kind": "danger",
+    "zone": "sanctuary",
+    "label": "The Rain Hides the Path",
+    "segments": 4,
+    "filled": 0,
+    "visible_to_players": true,
+    "status": "active",
+    "presentation": {
+      "version": 1,
+      "question": "Will the rain hide the garden path completely?",
+      "rhythm": "session",
+      "attention": "background",
+      "priority": 10,
+      "situation": "Water keeps carrying soft soil across the lowest stones.",
+      "stakes": "If every edge disappears, the next visitor will have no honest lead to follow.",
+      "outcome": "The path vanishes beneath rainwash until someone finds its line again.",
+      "completion_memory": "The rain covered the old path after its first stones went unattended."
+    }
+  },
+  {
     "id": "moonlit-trail.progress",
     "scope": "room",
     "scope_id": 3,

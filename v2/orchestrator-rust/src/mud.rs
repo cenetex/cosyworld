@@ -2819,7 +2819,7 @@ impl RuntimeWorld {
         })
     }
 
-    fn room_command_output(
+    pub(super) fn room_command_output(
         &self,
         actor: CwActor,
         access: &AccessContext,
@@ -2872,6 +2872,23 @@ impl RuntimeWorld {
                 room_zone_feeling(&sheet.zone),
                 aspects
             ));
+        }
+
+        if let Some(first_tale) = self.first_tale_view(actor.id) {
+            if first_tale.phase == "complete" {
+                lines.push(format!(
+                    "Your first tale: {} Next: {}",
+                    first_tale.completion_memory, first_tale.next_invitation
+                ));
+            } else {
+                lines.push(format!(
+                    "Your first tale: {} Target: {} What finishing changes: {} Next: {}",
+                    first_tale.question,
+                    first_tale.target_label,
+                    first_tale.consequence,
+                    first_tale.instruction
+                ));
+            }
         }
 
         let shared_questions = self.shared_question_views(location_id, Some(actor.id));

@@ -3192,6 +3192,7 @@
     let firstTaleStageSeen = 0;
     let firstTaleCelebration = false;
     let firstTaleCompletionSeen = false;
+    let firstTaleRenderSignature = "";
     const defeatTransitionStorageKey = "cosyworld.defeatTransition";
     let defeatTransition = wantsReset ? null : loadDefeatTransition();
     if (wantsReset) sessionStorage.removeItem(defeatTransitionStorageKey);
@@ -3901,80 +3902,101 @@
       if (view.primary_action?.kind === "create_avatar") {
         const beginningAgain = Boolean(defeatTransition);
         const creationProfile = (view.character_creation || [])[0] || null;
-        const stagedCreation = creationProfile?.schema_version === 2
-          && creationProfile?.species?.length
-          && creationProfile?.origins?.length;
-        const creationChoices = stagedCreation
-          ? creationProfile.species.map((choice) => ({
-              label: choice.label,
-              detail: choice.detail,
-              value: choice.id,
-            }))
-          : creationProfile?.choices?.length
-          ? creationProfile.choices.map((choice) => ({
-              label: choice.label,
-              detail: choice.detail,
-              value: choice.id,
-            }))
-          : authoredCallingChoices.map((choice) => ({
-              label: choice.label,
-              detail: choice.detail,
-              value: choice.statement,
-            }));
-        const defaultChoice = stagedCreation
-          ? creationProfile.default_species_id
-          : (creationProfile?.default_choice_id || authoredCallingChoices[0].statement);
+        const callingChoices = authoredCallingChoices.map((choice) => ({
+          label: choice.label,
+          detail: choice.detail,
+          value: choice.statement,
+        }));
         const action = {
           handProvider: {
             kind: "rules",
             id: "rules:create-avatar",
             label: "World rules",
-            reason: "From the campaign beginning",
+            reason: "From the shared-world beginning",
             priority: 0,
           },
           kind: "avatar-arrival",
           label: beginningAgain ? "begin again" : "begin",
           detail: beginningAgain
             ? "make a new avatar"
-            : (creationProfile ? `enter ${creationProfile.name}` : "choose what draws you in"),
+            : "choose what draws you into the shared world",
           command: "create avatar",
           focusKey: "create-avatar",
           card: cardForLocation(view.location?.id),
           shape: "location",
           modalTitle: beginningAgain
             ? "begin another tale"
-            : (creationProfile?.prompt || "what draws you in?"),
+            : "what draws you in?",
           modalSummary: beginningAgain
-            ? (stagedCreation
-              ? "Choose what your next avatar is. Their class will emerge after their first choice in the world."
-              : "Choose what draws your next avatar into the world.")
-            : (creationProfile?.description || "Pick the sort of trouble your avatar can't resist."),
-          effect: beginningAgain
-            ? "starts a new avatar's tale"
-            : (creationProfile
-              ? `begins ${creationProfile.name}`
-              : "brings your new avatar into The Cosy Cottage"),
-          choices: creationChoices,
-          selectedChoice: defaultChoice,
+            ? "Choose the aspiration that draws your next avatar into the world."
+            : "Choose an aspiration, then let deeds reveal what this avatar becomes known for.",
+          effect: "brings your new avatar into The Cosy Cottage",
+          choices: callingChoices,
+          selectedChoice: authoredCallingChoices[0].statement,
           busyLabel: "arriving",
-          busyDetail: creationProfile ? "the last lantern is making room…" : "the cottage is making room…",
+          busyDetail: "the cottage is making room…",
+        };
+        action.run = () => createAvatar({
+          calling: action.selectedChoice || authoredCallingChoices[0].statement,
+        });
+        if (!creationProfile) return [action];
+
+        const stagedCreation = creationProfile?.schema_version === 2
+          && creationProfile?.species?.length
+          && creationProfile?.origins?.length;
+        const campaignChoices = stagedCreation
+          ? creationProfile.species.map((choice) => ({
+              label: choice.label,
+              detail: choice.detail,
+              value: choice.id,
+            }))
+          : (creationProfile.choices || []).map((choice) => ({
+              label: choice.label,
+              detail: choice.detail,
+              value: choice.id,
+            }));
+        const campaignAction = {
+          handProvider: {
+            kind: "campaign",
+            id: `campaign:${creationProfile.id}`,
+            label: `${creationProfile.name} campaign rules`,
+            reason: "Optional mounted campaign rules",
+            priority: 20,
+          },
+          kind: "campaign-avatar-arrival",
+          label: "campaign rules",
+          detail: `begin with ${creationProfile.name}`,
+          command: "create campaign avatar",
+          focusKey: `create-avatar:${creationProfile.id}`,
+          card: cardForLocation(creationProfile.entry_location_id || view.location?.id),
+          shape: "location",
+          modalTitle: creationProfile.prompt || "what kind of campaign traveler arrives?",
+          modalSummary: `${creationProfile.description} Campaign rules; every avatar keeps every verb.`,
+          effect: `begins the optional ${creationProfile.name} campaign rules`,
+          choices: campaignChoices,
+          selectedChoice: stagedCreation
+            ? creationProfile.default_species_id
+            : creationProfile.default_choice_id,
+          busyLabel: "arriving",
+          busyDetail: "the campaign threshold is making room…",
+          creationProfile,
         };
         if (stagedCreation) {
-          action.creationProfile = creationProfile;
-          action.selectedSpeciesId = creationProfile.default_species_id;
-          action.selectedOriginId = creationProfile.default_origin_id;
-          setCreationModalStage(action, "species");
+          campaignAction.selectedSpeciesId = creationProfile.default_species_id;
+          campaignAction.selectedOriginId = creationProfile.default_origin_id;
+          setCreationModalStage(campaignAction, "species");
         }
-        action.run = () => createAvatar(creationProfile
-          ? (stagedCreation
-            ? {
-                profileId: creationProfile.id,
-                speciesId: action.selectedSpeciesId || creationProfile.default_species_id,
-                originId: action.selectedOriginId || creationProfile.default_origin_id,
-              }
-            : { profileId: creationProfile.id, choiceId: action.selectedChoice || defaultChoice })
-          : { calling: action.selectedChoice || defaultChoice });
-        return [action];
+        campaignAction.run = () => createAvatar(stagedCreation
+          ? {
+              profileId: creationProfile.id,
+              speciesId: campaignAction.selectedSpeciesId || creationProfile.default_species_id,
+              originId: campaignAction.selectedOriginId || creationProfile.default_origin_id,
+            }
+          : {
+              profileId: creationProfile.id,
+              choiceId: campaignAction.selectedChoice || creationProfile.default_choice_id,
+            });
+        return [action, campaignAction];
       }
 
       const characterIdentity = view.character_identity || null;
@@ -3989,22 +4011,22 @@
           }));
           const action = {
             handProvider: {
-              kind: "identity",
+              kind: "campaign",
               id: `identity:${characterIdentity.profile_id}:class`,
-              label: "Your first choice",
-              reason: "From what you just did in the world",
-              priority: 0,
+              label: `${creationProfile.name} campaign rules`,
+              reason: "Optional mounted campaign rules after a shared-world contribution",
+              priority: 20,
             },
             kind: "choose-class",
-            label: "choose class",
-            detail: "your first action revealed three paths",
-            command: "choose class",
+            label: "campaign class",
+            detail: "optional rules for this campaign",
+            command: "choose campaign class",
             focusKey: "choose-class",
             card: cardForActor(actorId),
             shape: "avatar",
-            modalTitle: creationProfile.class_prompt || "what did your first choice reveal?",
-            modalSummary: `${characterIdentity.species_label} from ${characterIdentity.origin_label}: choose your path.`,
-            effect: "raises this classless traveler from level zero to level one",
+            modalTitle: creationProfile.class_prompt || "which campaign path will you use?",
+            modalSummary: `${characterIdentity.species_label} from ${characterIdentity.origin_label}: campaign class; practice stays emergent.`,
+            effect: "applies this campaign's level and starting-knack rules without changing universal verb permissions",
             choices,
             selectedChoice: creationProfile.default_choice_id || choices[0].value,
             busyLabel: "becoming",
@@ -5918,7 +5940,7 @@
       }
       if (status === 503 && path.includes("fund-image")) return "The image workshop is unavailable, so no Orb was taken.";
       if (status === 403) return "Your avatar slipped out of reach. Begin again or reconnect your account.";
-      if (status === 409) return "The target changed before your write committed. Nothing extra happened; check the current state and choose again.";
+      if (status === 409) return "That choice changed while you were deciding. Nothing else happened; check what is here and choose again.";
       if (status === 423) return "This is an explicitly ordered scene. The named combat participant acts now; chat and inspection stay available.";
       if (status === 429) return "The room needs a breath. Try again in a moment.";
       if (status === 502) return "That reply got lost. Try talking again in a moment.";
@@ -5930,7 +5952,7 @@
       if (output) return output;
       const status = Number(result.status || 0);
       if (status === 403) return "Your avatar slipped out of reach. Begin again or reconnect your account.";
-      if (status === 409) return "The target changed before your write committed. Nothing extra happened; look again.";
+      if (status === 409) return "That choice changed while you were deciding. Nothing else happened; look again.";
       if (status === 423) return "This is an explicitly ordered scene. The named combat participant acts now; chat and inspection stay available.";
       if (status === 429) return "The room needs a breath. Try again in a moment.";
       return "The room did not catch that. Look around and try another choice.";
@@ -6929,39 +6951,39 @@
         firstTaleStageSeen = 0;
         firstTaleCelebration = false;
         firstTaleCompletionSeen = false;
+        firstTaleRenderSignature = "";
       }
       const firstThread = firstThreadModel();
       if (firstThread) {
         firstTaleStageSeen = Math.max(firstTaleStageSeen, Number(firstThread.stage || 0));
-      } else if (
-        currentActorId
-        && firstTaleStageSeen >= 1
-        && !firstTaleCompletionSeen
-        && Number(state?.ledger?.banked_count || 0) > 0
-      ) {
-        firstTaleCelebration = true;
-        firstTaleCompletionSeen = true;
       }
+      firstTaleCelebration = Boolean(
+        currentActorId && state?.first_tale?.phase === "complete"
+      );
+      firstTaleCompletionSeen = firstTaleCelebration;
       updates.hidden = !firstThread && !firstTaleCelebration;
       const firstTaleEnding = firstTaleCompletionText(state);
-      updates.innerHTML = firstThread
+      const html = firstThread
         ? `<span class="updates-guide">your first tale</span><div class="updates-list"><div class="update-pill first-thread" aria-label="Your first tale. Next: ${escapeAttr(firstThread.text)}"><span class="update-label" aria-hidden="true">next</span><span class="update-text">${escapeHtml(firstThread.text)}</span></div></div>`
         : firstTaleCelebration
           ? `<span class="updates-guide">your first tale</span><div class="updates-list"><div class="update-pill first-thread complete" aria-label="Your first tale is yours. ${escapeAttr(firstTaleEnding.charAt(0).toUpperCase() + firstTaleEnding.slice(1))}"><span class="update-label" aria-hidden="true">✦</span><span class="update-text">your first tale is yours — ${escapeHtml(firstTaleEnding)}</span></div></div>`
           : "";
+      const signature = `${currentActorId}:${state?.first_tale?.phase || ""}:${state?.first_tale?.trace_event_seq || 0}:${firstThread?.text || firstTaleEnding}`;
+      if (signature !== firstTaleRenderSignature) {
+        updates.innerHTML = html;
+        firstTaleRenderSignature = signature;
+      }
     }
 
     function firstTaleCompletionText(view = state) {
-      return "you noticed a clue, and your Journal kept what mattered.";
+      return String(
+        view?.first_tale?.completion_memory
+          || "you changed the shared world and left the next visitor a clearer way."
+      );
     }
 
     function firstTaleIsComplete(view = state) {
-      const ledger = view?.ledger || {};
-      return Boolean(
-        actorId
-          && Number(ledger.learned_truth_count || 0) > 0
-          && Number(ledger.banked_count || 0) > 0
-      );
+      return Boolean(actorId && view?.first_tale?.phase === "complete");
     }
 
     function nextStoryThreadModel(view = state, availableActions = actions) {
@@ -9528,8 +9550,8 @@
     }
 
     function actionModalRows(action) {
-      if (String(action?.command || "").trim().toLowerCase() === "create avatar") {
-        const creationProfile = action?.creationProfile || (state?.character_creation || [])[0] || null;
+      if (["avatar-arrival", "campaign-avatar-arrival"].includes(String(action?.kind || ""))) {
+        const creationProfile = action?.creationProfile || null;
         if (creationProfile) {
           const entryName = creationProfile.entry_location_name
             || cardForLocation(creationProfile.entry_location_id)?.display_name
@@ -9563,9 +9585,10 @@
       }
       if (String(action?.kind || "") === "choose-class") {
         return [
-          ["Right now", "classless · level 0"],
-          ["Choose", "the Class revealed by your first action"],
-          ["Then", "become level 1 and gain its starting knack"],
+          ["Rules", "optional mounted campaign rules"],
+          ["Choose", "a campaign Class, separate from emergent practice"],
+          ["Then", "apply this campaign's level and starting-knack rules"],
+          ["Ordinary verbs", "remain available to every avatar"],
         ];
       }
       if (String(action?.intention || "").toLowerCase() === "notice"
@@ -9708,7 +9731,7 @@
       const label = String(action?.label || "").toLowerCase();
       if (action?.creationStage === "species") return "next";
       if (action?.creationStage === "origin") return "begin";
-      if (String(action?.kind || "") === "choose-class") return "choose class";
+      if (String(action?.kind || "") === "choose-class") return "choose campaign class";
       if (String(action?.intention || "") === "contribute") {
         return String(action?.project?.verb || "contribute").toLowerCase();
       }
@@ -9775,7 +9798,7 @@
           || action.choices[0]?.value;
         action.modalTitle = profile.prompt || "what kind of traveler arrives?";
         action.modalSummary = profile.description
-          || "Choose what your traveler is. Their class will emerge from play.";
+          || "Choose a campaign Species. Deeds and emergent practice remain separate.";
         return;
       }
       action.choices = (profile.origins || []).map((choice) => ({
@@ -9787,7 +9810,7 @@
         || profile.default_origin_id
         || action.choices[0]?.value;
       action.modalTitle = "where did your traveler come from?";
-      action.modalSummary = "Choose the place that shaped them. You will enter classless at level 0; your first meaningful choice in the world will reveal the Class cards.";
+      action.modalSummary = "Choose the campaign Origin that shaped them. These mounted rules are separate from Calling, deeds, and the practices the world later recognizes.";
     }
 
     function renderActionChoices(action) {
@@ -9999,29 +10022,33 @@
 
     function firstThreadModel(view = state, availableActions = actions) {
       if (!actorId || !view || view?.primary_action?.kind === "create_avatar") return null;
-      const ledger = view.ledger || {};
-      const findAction = (predicate) => availableActions.find(predicate) || null;
-      const unbankedMarks = Array.isArray(ledger.unbanked_marks) ? ledger.unbanked_marks : [];
-      const unbankedListenMemory = unbankedMarks.some((mark) => mark?.category === "learned_truth");
-      const hasListenMemory = Number(ledger.learned_truth_count || 0) > 0 || unbankedListenMemory;
-      const listenAttempted = view?.economy?.listen_attempted_here === true;
-
-      if (!hasListenMemory) {
-        const listen = findAction((action) => action.intention === "notice" || action.focusKey === "check");
-        const search = findAction((action) => action.intention === "inspect");
-        const meet = findAction((action) => ["chat", "bond", "remember", "help"].includes(action.label));
-        const next = listenAttempted ? (search || meet || listen) : listen;
-        return {
-          stage: 1,
-          total: 1,
-          actionKey: next ? actionHandKey(next) : "",
-          text: listenAttempted
-            ? "no clue yet — inspect what catches your eye."
-            : "notice one little clue.",
-        };
-      }
-
-      return null;
+      const tale = view.first_tale;
+      if (!tale || tale.phase === "complete") return null;
+      const matchesPhase = (action) => {
+        if (tale.phase === "notice") {
+          return action.intention === "notice" || action.focusKey === "check";
+        }
+        if (tale.phase === "follow_lead") {
+          return action.intention === "travel"
+            && (String(action?.target?.id || "") === "2"
+              || actionFocusKeys(action).includes("exit:2"));
+        }
+        if (tale.phase === "contribute") {
+          return String(action?.project?.progress_clock_id || "") === "rain-soft-garden.trustworthy-path"
+            || action.intention === "notice"
+            || action.focusKey === "check";
+        }
+        return false;
+      };
+      const matching = availableActions.filter(matchesPhase);
+      const stage = tale.phase === "notice" ? 1 : (tale.phase === "follow_lead" ? 2 : 3);
+      return {
+        stage,
+        total: 3,
+        actionKey: matching[0] ? actionHandKey(matching[0]) : "",
+        actionKeys: matching.map(actionHandKey),
+        text: String(tale.instruction || ""),
+      };
     }
 
     function dealtStoryGuide(view = state, availableActions = actions) {

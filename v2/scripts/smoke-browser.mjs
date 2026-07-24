@@ -566,7 +566,6 @@ async function main() {
       const visible = Boolean(node && !node.hidden && getComputedStyle(node).display !== "none");
       const firstThread = node?.querySelector(".update-pill.first-thread");
       const firstThreadText = node?.querySelector(".update-pill.first-thread .update-text");
-      const bondAction = { label: "chat", focusKey: "bond:1001", command: "chat Rati" };
       const result = {
         visible,
         text: node?.textContent?.trim().replace(/\s+/g, " ") || "",
@@ -581,38 +580,29 @@ async function main() {
         storyGuide: document.querySelector("#primary")?.dataset.storyGuide || "",
         settledNoticeStep: firstThreadModel({
           primary_action: { kind: "check" },
-          economy: { listen_attempted_here: true },
-          ledger: {
-            unbanked_count: 0,
-            banked_count: 2,
-            spent_count: 0,
-            advancement_points: 2,
-            learned_truth_count: 1,
-            unbanked_marks: [],
+          first_tale: {
+            phase: "follow_lead",
+            instruction: "Follow the rain-bright lead east to Rain-Soft Garden.",
           },
-        }, [bondAction]),
+        }, [{
+          label: "travel",
+          intention: "travel",
+          target: { id: 2, label: "Rain-Soft Garden" },
+          focusKey: "exit:2",
+          command: "go Rain-Soft Garden",
+        }]),
         chatBeforeListenStep: firstThreadModel({
           primary_action: { kind: "check" },
-          economy: { listen_attempted_here: false },
-          ledger: {
-            unbanked_count: 1,
-            banked_count: 0,
-            spent_count: 0,
-            advancement_points: 0,
-            learned_truth_count: 0,
-            unbanked_marks: [{ category: "witness" }],
+          first_tale: {
+            phase: "notice",
+            instruction: "Notice what the rain has changed; the first useful lead is guaranteed.",
           },
         }, [{ label: "notice", focusKey: "check", command: "listen" }]),
         missedListenWithOtherAdvancementStep: firstThreadModel({
           primary_action: { kind: "search" },
-          economy: { listen_attempted_here: true },
-          ledger: {
-            unbanked_count: 0,
-            banked_count: 1,
-            spent_count: 0,
-            advancement_points: 1,
-            learned_truth_count: 0,
-            unbanked_marks: [],
+          first_tale: {
+            phase: "notice",
+            instruction: "Notice what the rain has changed; the first useful lead is guaranteed.",
           },
         }, [{ label: "search", intention: "inspect", focusKey: "location:1:search", command: "search" }]),
         travelThread: nextStoryThreadModel(
@@ -704,6 +694,7 @@ async function main() {
       const previousFirstTaleStageSeen = firstTaleStageSeen;
       const previousFirstTaleCelebration = firstTaleCelebration;
       const previousFirstTaleCompletionSeen = firstTaleCompletionSeen;
+      const previousFirstTaleRenderSignature = firstTaleRenderSignature;
       const previousHandKeys = handKeys;
       const previousDiscardedHandKeys = discardedHandKeys;
       const previousHandDealNonce = handDealNonce;
@@ -758,6 +749,11 @@ async function main() {
         state = {
           location: { id: 1, name: "The Cosy Cottage" },
           primary_action: { kind: "create_bond" },
+          first_tale: {
+            phase: "complete",
+            trace_event_seq: 123,
+            completion_memory: "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.",
+          },
           ledger: { unbanked_count: 0, banked_count: 2, spent_count: 1, advancement_points: 1, learned_truth_count: 1 },
           bonds: [{ target_actor_name: "Gust" }],
           skills: [],
@@ -768,6 +764,7 @@ async function main() {
         firstTaleStageSeen = 1;
         firstTaleCelebration = false;
         firstTaleCompletionSeen = false;
+        firstTaleRenderSignature = "";
         renderStatusUpdates();
         result.completionBeat = {
           visible: !node.hidden,
@@ -813,6 +810,7 @@ async function main() {
         firstTaleStageSeen = previousFirstTaleStageSeen;
         firstTaleCelebration = previousFirstTaleCelebration;
         firstTaleCompletionSeen = previousFirstTaleCompletionSeen;
+        firstTaleRenderSignature = previousFirstTaleRenderSignature;
         handKeys = previousHandKeys;
         discardedHandKeys = previousDiscardedHandKeys;
         handDealNonce = previousHandDealNonce;
@@ -829,11 +827,16 @@ async function main() {
     assert(/your first tale/i.test(guide.text), `first-tale guide should name the arc warmly: ${JSON.stringify(guide)}`);
     assert(guide.cue === "next" && /your first tale\. next:/i.test(guide.aria), `fresh first-thread guide should offer one plain next beat: ${JSON.stringify(guide)}`);
     assert(!/[●○]|chapter\s+\d+\s+of\s+\d+/i.test(`${guide.text} ${guide.aria}`), `first-tale guidance should feel like a story, not a progress meter: ${JSON.stringify(guide)}`);
-    assert(/notice one little clue/i.test(guide.text), `fresh first-tale guide should explain the first goal simply: ${JSON.stringify(guide)}`);
+    assert(/notice what the rain has changed/i.test(guide.text), `fresh first-tale guide should explain the first world question simply: ${JSON.stringify(guide)}`);
     assert(guide.layout?.whiteSpace !== "nowrap" && guide.layout?.overflow !== "hidden" && guide.layout?.clipped === false, `mobile first-tale guidance should wrap instead of ellipsizing its instruction: ${JSON.stringify(guide)}`);
     assert(guide.primary.toLowerCase().startsWith("notice"), `first-thread guidance should keep Notice in the dealt hand: ${JSON.stringify(guide)}`);
     assert(guide.storyGuide === "next tale beat", `the projected first-tale card should explain its guide marker: ${JSON.stringify(guide)}`);
-    assert(guide.settledNoticeStep === null, `a successful Notice should settle the clue and finish the one-step guide immediately: ${JSON.stringify(guide)}`);
+    assert(
+      guide.settledNoticeStep?.stage === 2
+        && guide.settledNoticeStep?.actionKey === "exit:2"
+        && /Rain-Soft Garden/i.test(guide.settledNoticeStep?.text || ""),
+      `a successful Notice should reveal a concrete shared-world lead: ${JSON.stringify(guide)}`,
+    );
     assert(
       guide.restoredFocusHand?.join(",") === "notice,take"
         && guide.playerFocusedHand?.join(",") === "take,notice"
@@ -841,21 +844,21 @@ async function main() {
         && guide.regroupedFocusedChoice === "2",
       `guided cards should lead by default without overriding an explicit player focus: ${JSON.stringify(guide)}`,
     );
-    assert(guide.chatBeforeListenStep?.stage === 1 && /notice one little clue/i.test(guide.chatBeforeListenStep?.text || ""), `a chat memory must not pretend the first clue was found: ${JSON.stringify(guide)}`);
-    assert(guide.missedListenWithOtherAdvancementStep?.stage === 1 && /no clue yet/i.test(guide.missedListenWithOtherAdvancementStep?.text || ""), `unrelated advancement must not skip a missed first clue: ${JSON.stringify(guide)}`);
+    assert(guide.chatBeforeListenStep?.stage === 1 && /first useful lead is guaranteed/i.test(guide.chatBeforeListenStep?.text || ""), `a chat memory must not pretend the first lead was found: ${JSON.stringify(guide)}`);
+    assert(guide.missedListenWithOtherAdvancementStep?.stage === 1 && /notice what the rain has changed/i.test(guide.missedListenWithOtherAdvancementStep?.text || ""), `unrelated advancement must not skip a missed first lead: ${JSON.stringify(guide)}`);
     assert(guide.completionBeat?.visible && /your first tale is yours/i.test(guide.completionBeat?.text || ""), `finishing the opening should earn a visible celebration: ${JSON.stringify(guide)}`);
-    assert(/noticed a clue, and your Journal kept what mattered/i.test(guide.completionBeat?.aria || ""), `the ending should recap automatic discovery settlement: ${JSON.stringify(guide)}`);
-    assert(guide.completionText === "you noticed a clue, and your Journal kept what mattered.", `the first-tale ending should not promise a separate growth action: ${JSON.stringify(guide)}`);
-    assert(guide.completionRepeats === false, `the first-tale celebration should not reappear after it has been acknowledged: ${JSON.stringify(guide)}`);
+    assert(/helped uncover the first stones/i.test(guide.completionBeat?.aria || ""), `the ending should recap the durable shared-world consequence: ${JSON.stringify(guide)}`);
+    assert(guide.completionText === "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.", `the first-tale ending should be server-authored consequence memory: ${JSON.stringify(guide)}`);
+    assert(guide.completionRepeats === true, `the first-tale memory should survive rerender and reconnect: ${JSON.stringify(guide)}`);
     assert(guide.travelThread?.text === "A path to Rain-Soft Garden is waiting." && guide.travelThread?.actionKey === "exit:2", `an open route should become a grounded clickable room thread: ${JSON.stringify(guide)}`);
     assert(guide.giftThread?.text === "Rati is waiting for Story Button.", `a wanted gift should outrank generic exploration in the room thread: ${JSON.stringify(guide)}`);
     assert(guide.ordinaryGiftThread?.kind === "search", `an optional gift should not be misrepresented as a resident waiting for it: ${JSON.stringify(guide)}`);
     assert(guide.searchThread?.text === "Something in The Cosy Cottage is still waiting to be found.", `a searchable room should offer a gentle discovery thread: ${JSON.stringify(guide)}`);
     assert(guide.roomHookThread?.text === "The hearth notices unfinished promises.", `an authored room hook should remain as the non-mechanical fallback thread: ${JSON.stringify(guide)}`);
     assert(
-      guide.roomThreadSurfaceAfterCompletion?.visible === false
+      guide.roomThreadSurfaceAfterCompletion?.visible === true
         && guide.roomThreadSurfaceAfterCompletion.storyThread === false,
-      `the redundant room-thread strip should stay removed after the first tale: ${JSON.stringify(guide)}`,
+      `the completed first-tale memory should stay visible without restoring the redundant room-thread strip: ${JSON.stringify(guide)}`,
     );
     assert(
       guide.roomThreadHand?.labels?.join(",") === "chat,travel"
@@ -864,15 +867,13 @@ async function main() {
         && guide.roomThreadHand.buttonCue === "",
       `a client-only room guide must not override the authoritative projected hand: ${JSON.stringify(guide.roomThreadHand)}`,
     );
-    assert(guide.arrivalActions.length === 1 && guide.arrivalActions[0]?.label === "notice", `a newcomer should receive one welcoming Notice before joining room turns: ${JSON.stringify(guide)}`);
+    assert(guide.arrivalActions.length === 1 && guide.arrivalActions[0]?.label === "ordered combat", `an explicitly ordered scene should remain authoritative while the newcomer's first-tale Notice waits: ${JSON.stringify(guide)}`);
     assert(guide.welcomingListenWithoutOption.some((action) => action.label === "notice" && action.focusKey === "check"), `the welcoming Notice should remain playable when ordinary room options rotate: ${JSON.stringify(guide)}`);
-    assert(guide.waitingWelcomeWithoutOption.length === 1 && guide.waitingWelcomeWithoutOption[0]?.label === "notice", `the personal welcoming Notice should ignore another player's shared turn: ${JSON.stringify(guide)}`);
-    assert(/first clue/i.test(guide.arrivalActions[0]?.detail || "") && /ambient lead from this room/i.test(guide.arrivalActions[0]?.summary || ""), `the arrival Notice should explain its welcome clearly: ${JSON.stringify(guide)}`);
-    assert(guide.arrivalActions[0]?.effect === "the room shares one welcoming clue just for you", `the arrival Notice outcome should read as a complete story thought: ${JSON.stringify(guide)}`);
-    assert(guide.waitingActions.length === 1 && guide.waitingActions[0]?.label === "nudge", `ordinary waiting should use a gentle Nudge instead of ping jargon: ${JSON.stringify(guide)}`);
-    assert(!/ping|pong|dex|priority/i.test(JSON.stringify(guide.waitingActions)), `waiting copy should stay free of technical turn jargon: ${JSON.stringify(guide)}`);
-    assert(guide.gatheringActions.length === 1 && guide.gatheringActions[0]?.label === "I'm here", `an active handoff should ask whether the player is here: ${JSON.stringify(guide)}`);
-    assert(!/ping|pong|dex|priority/i.test(JSON.stringify(guide.gatheringActions)), `active handoff copy should stay free of technical turn jargon: ${JSON.stringify(guide)}`);
+    assert(guide.waitingWelcomeWithoutOption.length === 1 && guide.waitingWelcomeWithoutOption[0]?.label === "ordered combat", `another player's explicit combat turn should not be bypassed by first-tale guidance: ${JSON.stringify(guide)}`);
+    assert(/acts now/i.test(guide.arrivalActions[0]?.detail || "") && /chat and inspection stay available/i.test(guide.arrivalActions[0]?.summary || ""), `the ordered-scene wait should explain whose turn it is without hiding free interaction: ${JSON.stringify(guide)}`);
+    assert(guide.arrivalActions[0]?.effect === "shows the current combat order without taking an action", `the ordered-scene action should remain observational: ${JSON.stringify(guide)}`);
+    assert(guide.waitingActions.length === 1 && guide.waitingActions[0]?.label === "ordered combat", `ordinary ordered-scene waiting should preserve the combat floor: ${JSON.stringify(guide)}`);
+    assert(guide.gatheringActions.length === 1 && guide.gatheringActions[0]?.label === "ordered combat", `a pending ordered-scene handoff should preserve the combat floor: ${JSON.stringify(guide)}`);
   }
 
   async function waitForChatText(needle) {
@@ -1949,7 +1950,7 @@ async function main() {
             kind: "npc",
             status: "active",
             stats: { level: 1 },
-            resident_economy: {
+            economy: {
               request: { item_id: 2002, holder_actor_id: 5000, reason: "Gust wants Dewbright Button" },
             },
           },
@@ -2020,7 +2021,7 @@ async function main() {
             kind: "npc",
             status: "active",
             stats: { level: 1 },
-            resident_economy: {
+            economy: {
               request: { item_id: 2005, holder_actor_id: 5000, reason: "Oak keeps stories in its rings" },
             },
           },
@@ -2030,7 +2031,7 @@ async function main() {
             kind: "npc",
             status: "active",
             stats: { level: 1 },
-            resident_economy: {
+            economy: {
               request: { item_id: 2005, holder_actor_id: 5000, reason: "Rati is looking for Story Button" },
             },
           },
@@ -2689,7 +2690,7 @@ async function main() {
             kind: "npc",
             status: "active",
             stats: { level: 1 },
-            resident_economy: {
+            economy: {
               request: { item_id: 2005, holder_actor_id: 5000, reason: "Rati wants Story Button" },
               trade_offer: {
                 offered_item_id: 2005,
@@ -2761,7 +2762,7 @@ async function main() {
               kind: "npc",
               status: "active",
               stats: { level: 1 },
-              resident_economy: {
+              economy: {
                 request: { item_id: 2005, holder_actor_id: 5000, reason: "Gust wants Story Button" },
                 trade_offer: {
                   offered_item_id: 2005,
@@ -4019,6 +4020,10 @@ async function main() {
               kind: "rest",
               options: [{ kind: "attack" }, { kind: "rest" }, { kind: "flee" }],
             },
+            action_offers: [{
+              kind: "rest",
+              risk: "trouble may draw nearer while you rest",
+            }],
             actors: [
               ...baseState.actors,
               { id: 1004, name: "Moonlit Echo", kind: "npc", status: "active", stats: { level: 1 } },
@@ -4058,7 +4063,7 @@ async function main() {
     assert(result.frontier[0]?.label === "rest", `frontier fatigue should keep rest urgent: ${JSON.stringify(result)}`);
     assert(result.frontier[0]?.summary === "Catch your breath. Trouble may draw nearer while you rest.", `frontier Rest should explain its tradeoff once in natural language: ${JSON.stringify(result)}`);
     assert(result.frontier[0]?.rows?.some((row) => row[0] === "What changes" && row[1] === "you feel fresh again"), `frontier Rest should state its payoff directly: ${JSON.stringify(result)}`);
-    assert(result.frontier[0]?.rows?.some((row) => row[0] === "Watch for" && row[1] === "the trouble may draw nearer while you rest"), `frontier Rest should keep its consequence in the existing affordance: ${JSON.stringify(result)}`);
+    assert(result.frontier[0]?.rows?.some((row) => row[0] === "Watch for" && row[1] === "trouble may draw nearer while you rest"), `frontier Rest should keep its consequence in the existing affordance: ${JSON.stringify(result)}`);
     assert(result.warmedFrontier[0]?.detail === "feel fresh, use the warmth", `warmed frontier rest should show gentle warmth copy: ${JSON.stringify(result)}`);
     assert(!result.warmedFrontier[0]?.detail.includes("danger"), `warmed frontier rest should not preview danger: ${JSON.stringify(result)}`);
     assert(result.warmedFrontier[0]?.summary === "Rest and recover.", `warmed Rest should explain why the frontier stays calm: ${JSON.stringify(result)}`);
@@ -4098,11 +4103,12 @@ async function main() {
     }));
     assert(result.action.chatCost === "That choice did not land. Here are the choices you have now.", `a stale Chat payment error should not imply that Chat costs Orbs: ${JSON.stringify(result)}`);
     assert(result.action.orbCost === "That choice did not land. Here are the choices you have now.", `non-image payment errors should not advertise another Orb sink: ${JSON.stringify(result)}`);
-    assert(result.action.changed === "That choice changed while you were deciding. Here are the choices you have now.", `stale cards should explain the refreshed choice naturally: ${JSON.stringify(result)}`);
+    assert(result.action.changed === "That choice changed while you were deciding. Nothing else happened; check what is here and choose again.", `stale cards should explain the refreshed choice and atomic outcome naturally: ${JSON.stringify(result)}`);
+    assert(result.command.changed === "That choice changed while you were deciding. Nothing else happened; look again.", `stale typed commands should explain the atomic outcome naturally: ${JSON.stringify(result)}`);
     assert(result.action.hurry === "The room needs a breath. Try again in a moment.", `rate limits should sound like the room, not infrastructure: ${JSON.stringify(result)}`);
     assert(result.command.serverGuidance === "There is no need to fight here now.", `typed commands should preserve contextual server guidance: ${JSON.stringify(result)}`);
     const visibleCopy = [...Object.values(result.action), ...Object.values(result.command)];
-    assert(!/session expired|action bar|command could not|action could not|status 4|status 5/i.test(visibleCopy.join(" ")), `failure feedback should not leak implementation language: ${JSON.stringify(result)}`);
+    assert(!/session expired|action bar|command could not|action could not|write committed|current state|status 4|status 5/i.test(visibleCopy.join(" ")), `failure feedback should not leak implementation language: ${JSON.stringify(result)}`);
   }
 
   async function assertNoComposerOrDebugChrome() {
@@ -4240,10 +4246,10 @@ async function main() {
     }
 
     const economyCopy = await page.evaluate(() => {
-      const panelFor = (residentEconomy) => residentEconomyPanelHtml({
+      const panelFor = (economy) => actorEconomyPanelHtml({
         id: 1003,
         name: "Skull",
-        resident_economy: residentEconomy,
+        economy,
       }).replace(/\s+/g, " ");
       const base = {
         inventory_count: 0,
@@ -5896,10 +5902,7 @@ async function main() {
 
   async function finishFirstThreadIfReady() {
     const current = await fetchCurrentState();
-    if (
-      Number(current.ledger?.learned_truth_count || 0) > 0
-      && Number(current.ledger?.banked_count || 0) > 0
-    ) {
+    if (current.first_tale?.phase === "complete") {
       const completion = await page.locator("#updates").evaluate((node) => ({
         visible: !node.hidden,
         text: node.textContent.trim().replace(/\s+/g, " "),
@@ -5910,13 +5913,19 @@ async function main() {
         `the opening should end with a warm completion beat: ${JSON.stringify(completion)}`,
       );
       assert(
-        /noticed a clue, and your Journal kept what mattered/i.test(completion.aria),
-        `the completion beat should recap automatic discovery settlement: ${JSON.stringify(completion)}`,
+        /left the next visitor a clearer way/i.test(completion.aria),
+        `the completion beat should recap the durable shared-world consequence: ${JSON.stringify(completion)}`,
+      );
+    } else if (Number(current.ledger?.learned_truth_count || 0) > 0) {
+      assert(
+        current.first_tale?.phase === "follow_lead"
+          && /Rain-Soft Garden/i.test(current.first_tale?.instruction || ""),
+        `the settled opening discovery should reveal a server-authored shared-world lead: ${JSON.stringify(current.first_tale)}`,
       );
     }
   }
 
-  async function assertActivationTracksFirstSettledDiscovery() {
+  async function assertActivationTracksFirstPublicTrace() {
     const activation = await page.evaluate(async (token) => {
       const response = await fetch("/moderation/activation?limit=5", {
         headers: { authorization: `Bearer ${token}` },
@@ -5926,17 +5935,17 @@ async function main() {
     const summary = activation?.summary || {};
     assert(
       activation?.ok === true
-        && Number(summary.actors_with_first_banked_ledger || 0) >= 1,
-      `activation metrics should record the first settled discovery: ${JSON.stringify(activation)}`,
+        && Number(summary.actors_with_first_public_trace || 0) >= 1,
+      `activation metrics should record the first durable public trace: ${JSON.stringify(activation)}`,
     );
     assert(
-      Number(summary.median_time_to_first_banked_ledger_ms) > 0
-        && Number(summary.median_time_to_first_banked_ledger_ms) < 10 * 60 * 1000,
-      `the smoke first tale should settle discovery inside the ten-minute activation target: ${JSON.stringify(summary)}`,
+      Number(summary.median_time_to_first_public_trace_ms) > 0
+        && Number(summary.median_time_to_first_public_trace_ms) < 10 * 60 * 1000,
+      `the smoke first tale should leave a public trace inside the ten-minute activation target: ${JSON.stringify(summary)}`,
     );
     steps.push({
-      label: "activation first settled discovery",
-      medianMs: Number(summary.median_time_to_first_banked_ledger_ms),
+      label: "activation first public trace",
+      medianMs: Number(summary.median_time_to_first_public_trace_ms),
       day1Tracked: Object.hasOwn(summary, "day_1_return_rate"),
       day7Tracked: Object.hasOwn(summary, "day_7_return_rate"),
     });
@@ -6313,8 +6322,7 @@ async function main() {
           for (const resident of location.actors || []) {
             for (const keepsake of expected) {
               if (
-                resident.kind === "npc"
-                && (resident.resident_economy?.held_item_ids || []).includes(keepsake.itemId)
+                (resident.economy?.held_item_ids || []).includes(keepsake.itemId)
               ) {
                 held.push({ ...keepsake, residentName: resident.name, location: location.name });
               }
@@ -6362,14 +6370,14 @@ async function main() {
           .filter((location) => location.accessible)
           .flatMap((location) => location.actors || [])
           .find((resident) => {
-            const economy = resident.resident_economy || {};
+            const economy = resident.economy || {};
             const hasRoom = Number(economy.carried_weight_tenths || 0) < Number(economy.carrying_capacity_tenths || 0);
             const activelyRequestsItem = Number(economy.request?.item_id || 0) === Number(item.id || 0);
             const personallyWantsItem = (economy.sought_items || []).some((sought) => (
               Number(sought.item_id || 0) === Number(item.id || 0)
                 && ["personal", "attachment"].includes(String(sought.source || ""))
             ));
-            return resident.kind === "npc" && hasRoom && (activelyRequestsItem || personallyWantsItem);
+            return hasRoom && (activelyRequestsItem || personallyWantsItem);
           });
         return { itemName: item.name, recipientName: waitingResident?.name || "" };
       }, [...itemToResident.keys()].filter((itemName) => !delivered.has(itemName)));
@@ -6910,8 +6918,8 @@ async function main() {
       }));
       assert(firstTaleStart.primary.toLowerCase().startsWith("notice"), `second player should enter through a welcoming Notice: ${JSON.stringify(firstTaleStart)}`);
       await playOtherPrimary("second-player Notice", () => (
-        Number(state?.ledger?.unbanked_count || 0) === 0
-        && Number(state?.ledger?.banked_count || 0) > 0
+        state?.first_tale?.phase === "follow_lead"
+        && state?.first_tale?.public_trace_created === false
         && actionBusy === false
         && document.querySelector("#action-modal")?.hidden === true
       ));
@@ -6922,29 +6930,31 @@ async function main() {
         primary: document.querySelector("#primary")?.getAttribute("aria-label") || "",
         economy: document.querySelector("#economy")?.textContent?.trim().replace(/\s+/g, " ") || "",
         guide: document.querySelector("#updates")?.textContent?.trim().replace(/\s+/g, " ") || "",
+        firstTale: state?.first_tale || null,
         ledger: state?.ledger || {},
       }));
-      assert(!afterFirstListen.isCurrentActor, `the second player should be waiting after their first Listen: ${JSON.stringify(afterFirstListen)}`);
+      assert(!afterFirstListen.isCurrentActor, `the second player should not acquire an ordered combat turn from their first Notice: ${JSON.stringify(afterFirstListen)}`);
       assert(
-        afterFirstListen.labels.some((label) => label === "nudge" || label === "I'm here")
+        afterFirstListen.labels.includes("travel")
           && afterFirstListen.labels.every((label) => !/grow|expand bracelet/i.test(label)),
-        `waiting first-tale progress should settle inside Notice and retain only the room response: ${JSON.stringify(afterFirstListen)}`,
+        `the newcomer should receive the shared-world lead without a private growth affordance: ${JSON.stringify(afterFirstListen)}`,
       );
       assert(
-        ["nudge", "i'm here"].some((label) => (
-          afterFirstListen.primary.toLowerCase().startsWith(label)
-        )),
-        `the authoritative waiting hand should keep the room response reachable after settlement: ${JSON.stringify(afterFirstListen)}`,
+        afterFirstListen.primary.toLowerCase().startsWith("travel")
+          && /Rain-Soft Garden/i.test(afterFirstListen.primary),
+        `the guided hand should keep the public Garden lead reachable after Notice: ${JSON.stringify(afterFirstListen)}`,
       );
       assert(/earned one/i.test(afterFirstListen.economy) && !/\+1/.test(afterFirstListen.economy), `the Listen reward should read as a small event rather than arithmetic: ${JSON.stringify(afterFirstListen)}`);
       const sharedTurnOwner = firstTaleStart.currentActorId;
       assert(
         afterFirstListen.currentActorId === sharedTurnOwner
-          && /your first tale is yours/i.test(afterFirstListen.guide),
-        `automatic discovery settlement should finish the first tale without taking the shared room turn: ${JSON.stringify(afterFirstListen)}`,
+          && afterFirstListen.firstTale?.phase === "follow_lead"
+          && /Rain-Soft Garden/i.test(afterFirstListen.guide)
+          && !/your first tale is yours/i.test(afterFirstListen.guide),
+        `automatic discovery settlement should reveal the shared-world lead without taking the shared room turn: ${JSON.stringify(afterFirstListen)}`,
       );
       steps.push({
-        label: "waiting player first tale",
+        label: "waiting player shared-world lead",
         actor: otherIdentity.actorName,
         sharedTurnOwner,
       });
@@ -7633,21 +7643,51 @@ async function main() {
       const label = primary?.getAttribute("aria-label") || "";
       return !primary?.disabled && label.trim().toLowerCase().startsWith("begin,");
     });
-    await assertActionBarCapped("guest avatar gate", 1);
+    await assertActionBarCapped("guest avatar gate", 2);
     const openingPrimary = (await primaryText()).toLowerCase();
-    assert(openingPrimary.includes("begin") && openingPrimary.includes("enter the lantern keeper"), `guest first card should name the campaign: ${openingPrimary}`);
+    assert(
+      openingPrimary.includes("begin")
+        && openingPrimary.includes("shared world")
+        && !openingPrimary.includes("lantern keeper"),
+      `guest first card should ask only for core identity and aspiration: ${openingPrimary}`,
+    );
+    await page.locator("#primary").click();
+    await page.waitForSelector("#action-modal:not([hidden])");
+    assert(await page.locator("#action-modal-title").innerText() === "what draws you in?", "core arrival should ask for aspiration");
+    const coreOpeningSummary = await page.locator("#action-modal-summary").innerText();
+    assert(
+      coreOpeningSummary.includes("Choose an aspiration")
+        && coreOpeningSummary.includes("deeds reveal"),
+      `core arrival should leave identity to later deeds: ${coreOpeningSummary}`,
+    );
+    const coreOpeningRows = await page.locator("#action-modal-meta .action-row").evaluateAll((nodes) => (
+      nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
+    ));
+    assert(
+      coreOpeningRows.includes("Choose the trouble that always draws you in")
+        && coreOpeningRows.includes("Then your new avatar arrives in The Cosy Cottage"),
+      `core arrival should explain only aspiration and arrival: ${JSON.stringify(coreOpeningRows)}`,
+    );
+    await page.locator("#action-modal-cancel").click();
+    await focusPrimaryMatching(
+      "optional campaign rules",
+      (text) => text.startsWith("campaign rules"),
+      8,
+    );
     await page.locator("#primary").click();
     await page.waitForSelector("#action-modal:not([hidden])");
     assert(await page.locator("#action-modal-title").innerText() === "What kind of traveler reaches the last light?", "opening modal should ask for the campaign species");
+    const campaignSummary = await page.locator("#action-modal-summary").innerText();
     assert(
-      await page.locator("#action-modal-summary").innerText() === "Begin as a classless level-zero traveler, take one action in the world, then choose how that first choice shapes your class.",
-      "campaign modal should frame staged character creation",
+      /optional campaign rules/i.test(campaignSummary)
+        && /Calling and emergent practice remain separate/i.test(campaignSummary),
+      `campaign modal should label its staged rules as optional and separate: ${campaignSummary}`,
     );
     const openingRows = await page.locator("#action-modal-meta .action-row").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
     ));
     assert(
-      openingRows.includes("Why this action From the campaign beginning")
+      openingRows.includes("Why this action Optional mounted campaign rules")
         && openingRows.includes("Choose a Species card")
         && openingRows.includes("Next choose an Origin card")
         && openingRows.includes("Begin at Wayside Lantern Inn"),
@@ -8271,7 +8311,7 @@ async function main() {
   await assertNoVisibleOverflow();
   if (quietRoomDesktopViewport) await page.setViewportSize(quietRoomDesktopViewport);
   await assertNoComposerOrDebugChrome();
-  await assertActionBarCapped("avatar gate", 1);
+  await assertActionBarCapped("avatar gate", 2);
   assert((await primaryText()).toLowerCase().includes("begin"), "first command should begin avatar creation");
 
   await beginAvatarAndAssertArrival();
@@ -8399,8 +8439,6 @@ async function main() {
   await assertFirstBellCatalogAssetsAvailable();
   await assertReportCommandPaletteAvailable();
   await listenAtCurrentLocation();
-  await finishFirstThreadIfReady();
-  await assertActivationTracksFirstSettledDiscovery();
   await discoverRoute("Rain-Soft Garden");
   await page.waitForFunction(() => {
     const projected = state?.action_hand?.entries || [];
@@ -8433,17 +8471,39 @@ async function main() {
     };
   });
   assert(
-    projectedRoomHand.visible.every((action, index) => (
-      action.offerKinds.includes(projectedRoomHand.projectedKinds[index])
+    projectedRoomHand.visible.every((action) => (
+      (
+        action.offerKinds.some((kind) => projectedRoomHand.projectedKinds.includes(kind))
+        || action.aria.includes("next tale beat")
+      )
         && action.reason
         && action.providerCopy.includes(action.reason)
         && action.aria.includes(action.reason)
     ))
-      && /(path to Rain-Soft Garden is waiting|resident.*(?:hoping|waiting).*keepsake)/i.test(projectedRoomHand.thread)
+      && projectedRoomHand.visible.some((action) => (
+        action.offerKinds.includes("move") && action.aria.includes("next tale beat")
+      ))
+      && /(path to Rain-Soft Garden is waiting|(?:nearby )?avatar.*(?:hoping|waiting).*keepsake)/i.test(projectedRoomHand.thread)
       && projectedRoomHand.redundantSurface === false,
     `the visible hand should follow the authoritative projection and explain every provider: ${JSON.stringify(projectedRoomHand)}`,
   );
   steps.push({ label: "authoritative room hand", thread: projectedRoomHand.thread, primary: await primaryText() });
+  await travelTo("Rain-Soft Garden");
+  await page.waitForFunction(() => state?.first_tale?.phase === "contribute");
+  const firstTaleContribution = await drawPrimaryMatching(
+    "first shared-world contribution",
+    ["push", "clear", "garden", "path"],
+  );
+  assert(
+    /push clear the garden path/i.test(firstTaleContribution),
+    `the first tale should offer a certain shared contribution: ${firstTaleContribution}`,
+  );
+  await clickPrimary("clear the garden path");
+  await page.evaluate(() => refresh());
+  await page.waitForFunction(() => state?.first_tale?.phase === "complete");
+  await finishFirstThreadIfReady();
+  await assertActivationTracksFirstPublicTrace();
+  await travelTo("The Cosy Cottage");
   await discoverRoute("Homeroom");
   await assertWorldProjectionAvailable();
   await assertMudCommandApiAvailable();
@@ -8470,9 +8530,12 @@ async function main() {
       && residentChatDiagnostic.actions.includes("chat"),
     `Chat should remain available while another advancement-backed friendship can begin: ${JSON.stringify(residentChatDiagnostic)}`,
   );
-  await focusPrimaryMatching("spend final advancement on Chat", (text) => text.startsWith("chat"), 32);
-  await clickPrimary("spend final advancement on Chat");
-  await page.waitForFunction(() => Number(state?.ledger?.advancement_points || 0) === 0);
+  await focusPrimaryMatching("spend one advancement on Chat", (text) => text.startsWith("chat"), 32);
+  await clickPrimary("spend one advancement on Chat");
+  await page.waitForFunction(
+    (before) => Number(state?.ledger?.advancement_points || 0) < before,
+    residentChatDiagnostic.advancement,
+  );
   const spentChatDiagnostic = await page.evaluate(async () => {
     await refresh();
     return {
@@ -8482,12 +8545,17 @@ async function main() {
     };
   });
   assert(
-    spentChatDiagnostic.advancement === 0
-      && !spentChatDiagnostic.offers.includes("create_bond")
-      && !spentChatDiagnostic.actions.includes("chat"),
-    `Chat should disappear once no advancement-backed friendship remains: ${JSON.stringify(spentChatDiagnostic)}`,
+    spentChatDiagnostic.advancement === residentChatDiagnostic.advancement - 1,
+    `Chat should spend exactly one advancement point: ${JSON.stringify({ before: residentChatDiagnostic, after: spentChatDiagnostic })}`,
   );
-  steps.push({ label: "spent advancement hides chat", location: residentChatDiagnostic.location });
+  if (spentChatDiagnostic.advancement === 0) {
+    assert(
+      !spentChatDiagnostic.offers.includes("create_bond")
+        && !spentChatDiagnostic.actions.includes("chat"),
+      `Chat should disappear once no advancement-backed friendship remains: ${JSON.stringify(spentChatDiagnostic)}`,
+    );
+  }
+  steps.push({ label: "spent one advancement on friendship", location: residentChatDiagnostic.location });
   if (residentRoom.destinationName !== "The Cosy Cottage") {
     await travelPathTo("The Cosy Cottage");
   }
@@ -8511,8 +8579,7 @@ async function main() {
         const loose = (location.items || []).find((item) => item.name === "Hearthstone Tag");
         if (loose) return { location: location.name, holder: "" };
         const holder = (location.actors || []).find((actor) => (
-          actor.kind === "npc"
-            && (actor.resident_economy?.held_item_ids || []).includes(2006)
+          (actor.economy?.held_item_ids || []).includes(2006)
         ));
         if (holder) return { location: location.name, holder: holder.name };
       }
@@ -8823,8 +8890,7 @@ async function main() {
       const world = await fetch(`/world?${params}`).then((response) => response.json());
       for (const location of world.locations || []) {
         const holder = (location.actors || []).find((actor) => (
-          actor.kind === "npc"
-            && (actor.resident_economy?.held_item_ids || []).includes(2004)
+          (actor.economy?.held_item_ids || []).includes(2004)
         ));
         if (holder) return { name: holder.name, location: location.name };
       }
@@ -8853,7 +8919,7 @@ async function main() {
         const world = await fetch(`/world?${params}`).then((response) => response.json());
         const rati = (world.locations || []).flatMap((location) => location.actors || [])
           .find((actor) => actor.name === "Rati");
-        return Number(rati?.resident_economy?.request?.item_id || 0) === 2004;
+        return Number(rati?.economy?.request?.item_id || 0) === 2004;
       });
       if (ratiStillWantsMoonwool) {
         await giveHeldItemTo("Rati", "give Moonwool Thread");

@@ -366,7 +366,7 @@ pub(super) fn command_turn_rejected_response(
 
 pub(super) fn advance_actor_room_turn_after_commit(
     state: &AppState,
-    _runtime: &RuntimeWorld,
+    runtime: &RuntimeWorld,
     _location_id: Option<u64>,
     actor_id: u64,
     status: u32,
@@ -381,6 +381,9 @@ pub(super) fn advance_actor_room_turn_after_commit(
         .or_else(|| events.iter().find(|event| event.success))
     {
         record_first_turn_committed(state, actor_id, event.seq);
+    }
+    if let Some(event_seq) = runtime.first_tale_trace_event_seq(actor_id) {
+        record_first_public_trace(state, actor_id, event_seq);
     }
 }
 
