@@ -6949,9 +6949,11 @@ impl RuntimeWorld {
 
     fn from_action_journal(path: &Path) -> io::Result<Self> {
         let mut runtime = Self::seeded();
-        let records = read_action_journal(path)?;
+        let records = read_action_journal_with_seq(path)?;
+        let mut canonical_natural_features =
+            read_canonical_natural_feature_reveals_by_journal_seq(path)?;
         let mut migrated_bundle_hashes = BTreeSet::new();
-        for record in records {
+        for (journal_seq, record) in records {
             let compatibility = persisted_worldpack_replay_compatibility(
                 &record.worldpack_bundle_hash,
                 "action journal",
@@ -6990,6 +6992,16 @@ impl RuntimeWorld {
             validate_journal_rule_binding(&record)?;
 
             let _ = runtime.apply_journal_record(&record);
+            if let Some(events) = canonical_natural_features.remove(&journal_seq) {
+                for event in events {
+                    runtime.restore_natural_feature_reveal_evidence(&event)?;
+                }
+            }
+        }
+        for events in canonical_natural_features.into_values() {
+            for event in events {
+                runtime.restore_natural_feature_reveal_evidence(&event)?;
+            }
         }
         if !migrated_bundle_hashes.is_empty() {
             warn!(
@@ -43335,26 +43347,81 @@ fn fail_or_retry_actor_job(path: &Path, job: &ActorJob, error: &str) -> io::Resu
     Ok(())
 }
 
+#[cfg(test)]
 fn read_action_journal(path: &Path) -> io::Result<Vec<JournalRecord>> {
+    Ok(read_action_journal_with_seq(path)?
+        .into_iter()
+        .map(|(_, record)| record)
+        .collect())
+}
+
+fn read_action_journal_with_seq(path: &Path) -> io::Result<Vec<(u64, JournalRecord)>> {
     init_event_store(path)?;
     let conn = open_event_store(path)?;
     let mut stmt = conn
-        .prepare("SELECT record_json FROM action_journal ORDER BY journal_seq ASC")
+        .prepare("SELECT journal_seq, record_json FROM action_journal ORDER BY journal_seq ASC")
         .map_err(sqlite_error)?;
     let rows = stmt
-        .query_map([], |row| row.get::<_, String>(0))
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })
         .map_err(sqlite_error)?;
     let mut records = Vec::new();
     for row in rows {
-        let payload = row.map_err(sqlite_error)?;
+        let (journal_seq, payload) = row.map_err(sqlite_error)?;
+        let journal_seq = u64::try_from(journal_seq)
+            .map_err(|_| snapshot_error("action journal returned a negative sequence"))?;
         let mut record: JournalRecord = serde_json::from_str(&payload)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         if content_reference_context_is_empty(&record.content_context) {
             record.refresh_content_context();
         }
-        records.push(record);
+        records.push((journal_seq, record));
     }
     Ok(records)
+}
+
+fn read_canonical_natural_feature_reveals_by_journal_seq(
+    path: &Path,
+) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT commits.action_journal_seq, events.payload_json
+             FROM canonical_commits AS commits
+             JOIN world_events AS events
+               ON events.world_id = commits.world_id
+              AND events.world_epoch = commits.world_epoch
+              AND events.seq BETWEEN commits.first_world_seq AND commits.last_world_seq
+             WHERE commits.world_id = ?1
+               AND commits.world_epoch = ?2
+               AND events.event_type = 'natural_feature.revealed'
+             ORDER BY commits.action_journal_seq ASC, events.seq ASC",
+        )
+        .map_err(sqlite_error)?;
+    let rows = stmt
+        .query_map(
+            params![OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH as i64],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+        )
+        .map_err(sqlite_error)?;
+    let mut events_by_journal_seq = BTreeMap::<u64, Vec<EventView>>::new();
+    for row in rows {
+        let (journal_seq, payload) = row.map_err(sqlite_error)?;
+        let journal_seq = u64::try_from(journal_seq)
+            .map_err(|_| snapshot_error("canonical commit returned a negative journal sequence"))?;
+        let mut event: EventView = serde_json::from_str(&payload)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if content_reference_context_is_empty(&event.content_context) {
+            event.refresh_content_context();
+        }
+        events_by_journal_seq
+            .entry(journal_seq)
+            .or_default()
+            .push(event);
+    }
+    Ok(events_by_journal_seq)
 }
 
 fn load_actor_sessions(path: &Path) -> io::Result<ActorSessions> {
@@ -62963,6 +63030,305 @@ mod tests {
             "completed"
         );
         let _ = fs::remove_file(evidence_path);
+    }
+
+    #[test]
+    fn canonical_natural_feature_replays_before_dependent_governance() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-natural-governance-replay-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let actor_id = 5000;
+        let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+
+        let (waypoint_id, reveal_journal_seq, reveal_record) = {
+            let mut runtime = state.inner.blocking_lock();
+            let mut create = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_CREATE_ACTOR,
+                    actor_id,
+                    location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                    ..CwAction::default()
+                },
+                718_950,
+            );
+            create.actor_meta_upserts.insert(
+                actor_id,
+                ActorMeta {
+                    name: "Evidence Keeper".to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Replay Tester".to_string(),
+                    description: "A test avatar preserving one discovered place.".to_string(),
+                },
+            );
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, create)
+                    .expect("commit replay actor")
+                    .0,
+                CW_OK
+            );
+            assert_eq!(
+                commit_journal_record(
+                    &state,
+                    &mut runtime,
+                    JournalRecord::new(
+                        CwAction {
+                            kind: CW_ACTION_PICK_UP_ITEM,
+                            actor_id,
+                            item_id: DEWBRIGHT_BUTTON_ITEM_ID,
+                            ..CwAction::default()
+                        },
+                        718_951,
+                    ),
+                )
+                .expect("commit carried connection item")
+                .0,
+                CW_OK
+            );
+
+            let (search, search_mutation, _) = runtime
+                .plan_journey_move(actor_id, MOONLIT_TRAIL_LOCATION_ID)
+                .expect("plan generated pathway")
+                .expect("generated pathway has a waypoint");
+            let mut search_record = JournalRecord::new(search, 718_952);
+            search_record.projection_mutations.push(search_mutation);
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, search_record)
+                    .expect("commit pathway discovery")
+                    .0,
+                CW_OK
+            );
+            let waypoint_id = runtime.journeys[&actor_id].path[1];
+            let (travel, travel_mutation, _) = runtime
+                .plan_journey_move(actor_id, waypoint_id)
+                .expect("plan waypoint travel")
+                .expect("waypoint is adjacent");
+            let mut travel_record = JournalRecord::new(travel, 718_953);
+            travel_record.projection_mutations.push(travel_mutation);
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, travel_record)
+                    .expect("commit waypoint travel")
+                    .0,
+                CW_OK
+            );
+            assert_eq!(
+                commit_journal_record(
+                    &state,
+                    &mut runtime,
+                    JournalRecord::new(
+                        CwAction {
+                            kind: CW_ACTION_DROP_ITEM,
+                            actor_id,
+                            item_id: DEWBRIGHT_BUTTON_ITEM_ID,
+                            ..CwAction::default()
+                        },
+                        718_954,
+                    ),
+                )
+                .expect("commit physical connection delivery")
+                .0,
+                CW_OK
+            );
+
+            let natural = runtime.natural_affordances[&waypoint_id].clone();
+            let mut reveal_record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id,
+                    location_id: waypoint_id,
+                    ..CwAction::default()
+                },
+                718_955,
+            );
+            reveal_record
+                .projection_mutations
+                .push(ProjectionMutation::AdvanceClock {
+                    clock_id: natural.investigation_clock_id.clone(),
+                    amount: runtime.clocks[&natural.investigation_clock_id].segments,
+                    reason: "canonical_replay_test_reveal".to_string(),
+                });
+            let (_, reveal_events) =
+                commit_journal_record(&state, &mut runtime, reveal_record.clone())
+                    .expect("commit typed natural evidence");
+            assert!(reveal_events
+                .iter()
+                .any(|event| event.type_name == "natural_feature.revealed"));
+            (
+                waypoint_id,
+                latest_action_journal_seq(&path).expect("reveal journal sequence"),
+                reveal_record,
+            )
+        };
+
+        let mut historical_gap = reveal_record;
+        historical_gap.projection_mutations.clear();
+        historical_gap.refresh_content_context();
+        let historical_gap_json =
+            serde_json::to_string(&historical_gap).expect("serialize replay-gap fixture");
+        open_event_store(&path)
+            .expect("open replay-gap store")
+            .execute(
+                "UPDATE action_journal SET record_json = ?1 WHERE journal_seq = ?2",
+                params![historical_gap_json, reveal_journal_seq as i64],
+            )
+            .expect("simulate the historical projection gap");
+
+        let (decision_id, selected_archetype_id, building_id) = {
+            let mut runtime = state.inner.blocking_lock();
+            let place = runtime.generated_places[&waypoint_id].clone();
+            let anchor_intent = runtime
+                .job_contribution_intent(actor_id, "work", Some(&place.anchor_job_id), None, None)
+                .expect("anchor work is available");
+            let mut anchor_record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id,
+                    location_id: waypoint_id,
+                    ..CwAction::default()
+                },
+                718_956,
+            );
+            anchor_record
+                .projection_mutations
+                .push(ProjectionMutation::ResolveJobContribution {
+                    intent: anchor_intent,
+                });
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, anchor_record)
+                    .expect("commit anchor contribution")
+                    .0,
+                CW_OK
+            );
+
+            let mut create_second = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_CREATE_ACTOR,
+                    actor_id: 5001,
+                    location_id: waypoint_id,
+                    ..CwAction::default()
+                },
+                718_957,
+            );
+            create_second.actor_meta_upserts.insert(
+                5001,
+                ActorMeta {
+                    name: "Second Hand".to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Replay Tester".to_string(),
+                    description: "A second test avatar making settlement shared.".to_string(),
+                },
+            );
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, create_second)
+                    .expect("commit second settlement actor")
+                    .0,
+                CW_OK
+            );
+            for (contributor_id, action_kind, target_hint, seed) in [
+                (actor_id, "work", None, 718_958),
+                (5001, "work", None, 718_959),
+                (actor_id, "help", Some(("actor", "5001")), 718_960),
+            ] {
+                let intent = runtime
+                    .job_contribution_intent(
+                        contributor_id,
+                        action_kind,
+                        Some(&place.settlement_job_id),
+                        None,
+                        target_hint,
+                    )
+                    .expect("distinct settlement contribution is available");
+                let mut record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_NONE,
+                        actor_id: contributor_id,
+                        location_id: waypoint_id,
+                        ..CwAction::default()
+                    },
+                    seed,
+                );
+                record
+                    .projection_mutations
+                    .push(ProjectionMutation::ResolveJobContribution { intent });
+                assert_eq!(
+                    commit_journal_record(&state, &mut runtime, record)
+                        .expect("commit settlement contribution")
+                        .0,
+                    CW_OK
+                );
+            }
+
+            let proposal = runtime.generated_places[&waypoint_id]
+                .building_proposal
+                .clone()
+                .expect("settlement opens governance");
+            let universal = ["dwelling", "smithy", "waystation", "workshop"];
+            let selected_archetype_id = proposal
+                .eligible_archetype_ids
+                .iter()
+                .find(|archetype_id| !universal.contains(&archetype_id.as_str()))
+                .cloned()
+                .expect("revealed nature contributes a non-universal building");
+            let decision_id = proposal.governance_decision_id;
+            let mut choice = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id,
+                    location_id: waypoint_id,
+                    ..CwAction::default()
+                },
+                718_961,
+            );
+            choice
+                .projection_mutations
+                .push(ProjectionMutation::ApplyGovernance {
+                    action: GovernanceAction::Select {
+                        decision_id: decision_id.clone(),
+                        alternative_id: selected_archetype_id.clone(),
+                    },
+                });
+            assert_eq!(
+                commit_journal_record(&state, &mut runtime, choice)
+                    .expect("commit natural building selection")
+                    .0,
+                CW_OK
+            );
+            let building_id = runtime
+                .settlement_buildings
+                .values()
+                .find(|building| building.governance_decision_id == decision_id)
+                .map(|building| building.id.clone())
+                .expect("selection opens construction");
+            (decision_id, selected_archetype_id, building_id)
+        };
+
+        let mut replayed =
+            RuntimeWorld::from_action_journal(&path).expect("replay canonical journal");
+        assert_eq!(
+            replayed.governance_decisions[&decision_id]
+                .selection
+                .as_ref()
+                .map(|selection| selection.alternative_id.as_str()),
+            Some(selected_archetype_id.as_str())
+        );
+        assert_eq!(
+            replayed.settlement_buildings[&building_id].status,
+            SettlementBuildingStatus::Constructing
+        );
+        let building_count = replayed.settlement_buildings.len();
+        hydrate_runtime_canonical_state(&mut replayed, &path)
+            .expect("canonical hydration remains idempotent");
+        assert_eq!(replayed.settlement_buildings.len(), building_count);
+        assert_eq!(
+            replayed.governance_decisions[&decision_id]
+                .selection
+                .as_ref()
+                .map(|selection| selection.alternative_id.as_str()),
+            Some(selected_archetype_id.as_str())
+        );
+        let _ = fs::remove_file(path);
     }
 
     #[test]
