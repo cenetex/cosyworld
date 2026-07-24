@@ -2,7 +2,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TIMEOUT_SECS="${COSYWORLD_CARGO_TIMEOUT_SECS:-120}"
+DEFAULT_TIMEOUT_SECS=120
+if [ "${CI:-}" = "true" ]; then
+  DEFAULT_TIMEOUT_SECS=300
+fi
+TIMEOUT_SECS="${COSYWORLD_CARGO_TIMEOUT_SECS:-$DEFAULT_TIMEOUT_SECS}"
 
 run_with_timeout() {
   local label="$1"
