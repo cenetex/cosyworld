@@ -1,16 +1,16 @@
 [
   {
     "pack_id": "cosyworld.campaign.the-lantern-keeper",
-    "pack_version": "0.1.4",
+    "pack_version": "0.1.5",
     "profiles": [
       {
         "schema_version": 2,
         "id": "the-lantern-keeper",
         "name": "The Lantern Keeper",
-        "description": "Begin as a classless level-zero traveler, take one action in the world, then choose how that first choice shapes your class.",
+        "description": "Optional campaign rules for a Lantern Keeper traveler. Species, Origin, Class, level, and starting knack belong to this campaign; Calling and emergent practice remain separate.",
         "entry_location_id": 800,
         "prompt": "What kind of traveler reaches the last light?",
-        "class_prompt": "What did your first choice reveal about you?",
+        "class_prompt": "Which Lantern Keeper campaign path will you use?",
         "default_choice_id": "lantern-warden",
         "default_species_id": "human",
         "default_origin_id": "wayside-inn",

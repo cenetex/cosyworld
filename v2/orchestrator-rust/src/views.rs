@@ -12,6 +12,20 @@ pub(super) struct JourneyView {
     pub(super) next_location_name: Option<String>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct FirstTaleView {
+    pub(super) schema_version: u8,
+    pub(super) phase: String,
+    pub(super) question: String,
+    pub(super) instruction: String,
+    pub(super) target_label: String,
+    pub(super) consequence: String,
+    pub(super) completion_memory: String,
+    pub(super) next_invitation: String,
+    pub(super) public_trace_created: bool,
+    pub(super) trace_event_seq: Option<u64>,
+}
+
 #[derive(Debug, Serialize)]
 pub(super) struct StateResponse {
     pub(super) world_id: String,
@@ -31,6 +45,7 @@ pub(super) struct StateResponse {
     pub(super) fronts: Vec<FrontView>,
     pub(super) room_sheet: Option<RoomSheetView>,
     pub(super) journey: Option<JourneyView>,
+    pub(super) first_tale: Option<FirstTaleView>,
     pub(super) calling: Option<CallingView>,
     pub(super) skills: Vec<SkillView>,
     pub(super) ledger: VisitLedgerView,
@@ -834,6 +849,58 @@ pub(super) fn faction_refs_for_location(location_id: u64) -> Vec<FactionRefView>
 }
 
 impl RuntimeWorld {
+    pub(super) fn first_tale_view(&self, actor_id: u64) -> Option<FirstTaleView> {
+        let actor = self.actor_by_id(actor_id)?;
+        if !Self::actor_is_active_avatar(actor) {
+            return None;
+        }
+        let trace_event_seq = self.first_tale_trace_event_seq(actor_id);
+        let has_lead = self.listen_attempt_claimed_at(actor_id, COSY_COTTAGE_LOCATION_ID);
+        let phase = if trace_event_seq.is_some() {
+            "complete"
+        } else if !has_lead {
+            "notice"
+        } else if actor.location_id != RAIN_SOFT_GARDEN_LOCATION_ID {
+            "follow_lead"
+        } else {
+            "contribute"
+        };
+        let instruction = match phase {
+            "notice" => {
+                "Notice what the rain has changed; the first useful lead is guaranteed."
+            }
+            "follow_lead" => {
+                "Follow the rain-bright lead east to Rain-Soft Garden."
+            }
+            "contribute" => {
+                "Inspect the buried stones, clear the drain, or help another traveler lift them."
+            }
+            _ => {
+                "The first stones are visible. The damp line beyond them points toward the riverside."
+            }
+        };
+        Some(FirstTaleView {
+            schema_version: FIRST_TALE_TRACE_SCHEMA_VERSION,
+            phase: phase.to_string(),
+            question:
+                "Can we make the washed garden path trustworthy before the next visitor?"
+                    .to_string(),
+            instruction: instruction.to_string(),
+            target_label: "the washed path in Rain-Soft Garden".to_string(),
+            consequence:
+                "The first stones will give the next visitor an honest footing and reveal a lead toward the river."
+                    .to_string(),
+            completion_memory:
+                "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way."
+                    .to_string(),
+            next_invitation:
+                "The uncovered line continues toward the riverside. What is making the water worth investigating?"
+                    .to_string(),
+            public_trace_created: trace_event_seq.is_some(),
+            trace_event_seq,
+        })
+    }
+
     pub(super) fn location_view(&self, location_id: u64) -> LocationView {
         let name = self
             .location_name(location_id)
@@ -1650,6 +1717,7 @@ impl RuntimeWorld {
             fronts: self.front_views(location_id),
             room_sheet: self.room_sheet_view(location_id),
             journey: client_actor_id.and_then(|id| self.journey_view(id)),
+            first_tale: client_actor_id.and_then(|id| self.first_tale_view(id)),
             calling: client_actor_id.and_then(|id| self.calling_view(id)),
             skills: client_actor_id
                 .map(|id| self.skill_views(id))

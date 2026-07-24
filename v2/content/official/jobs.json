@@ -1,5 +1,140 @@
 [
   {
+    "id": "rain-soft-garden:trustworthy-path",
+    "premise": "Rain has washed soft soil across the first garden stones.",
+    "stakes": "Without a clear first footing, the route toward the river cannot be trusted.",
+    "location_ids": [
+      2
+    ],
+    "participant_ids": [],
+    "progress_clock_id": "rain-soft-garden.trustworthy-path",
+    "danger_clock_id": "rain-soft-garden.path-washes-out",
+    "status": "active",
+    "reward": {
+      "label": "a trustworthy riverside lead",
+      "orbs": 1
+    },
+    "consequence": "the rain hides the old garden path",
+    "memory_summary": "Visitors are uncovering the first stones of the washed garden path.",
+    "action_copy": {
+      "label": "Clear the garden path",
+      "summary": "Choose how to reveal a safe first footing and leave the next visitor a clearer way."
+    },
+    "contribution_schema_version": 1,
+    "contribution_strategies": [
+      {
+        "version": 1,
+        "id": "inspect-washed-stones",
+        "action_kind": "check",
+        "rules_action": "srd5.2.1:search",
+        "target": {
+          "kind": "room",
+          "id": "2",
+          "label": "the rain-covered stepping stones"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 2
+          }
+        ],
+        "resolution": {
+          "kind": "srd_check",
+          "ability": "wisdom",
+          "dc": 10
+        },
+        "clock_id": "rain-soft-garden.trustworthy-path",
+        "baseline_progress": 1,
+        "success_progress": 1,
+        "claim_policy": "once_per_actor_target",
+        "strategy_label": "Inspect where the stones disappeared",
+        "narration_key": "rain-soft.path.inspect",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.6"
+      },
+      {
+        "version": 1,
+        "id": "clear-garden-drain",
+        "action_kind": "work",
+        "rules_action": "srd5.2.1:utilize",
+        "target": {
+          "kind": "job",
+          "id": "rain-soft-garden:trustworthy-path",
+          "label": "the drain carrying water across the path"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 2
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "rain-soft-garden.trustworthy-path",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Clear the drain beside the path",
+        "narration_key": "rain-soft.path.work",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.6"
+      },
+      {
+        "version": 1,
+        "id": "lift-stones-together",
+        "action_kind": "help",
+        "rules_action": "srd5.2.1:help",
+        "target": {
+          "kind": "actor",
+          "predicate": "co_present_avatar",
+          "label": "a nearby traveler at the buried stones"
+        },
+        "requirements": [
+          {
+            "kind": "at_location",
+            "location_id": 2
+          }
+        ],
+        "resolution": {
+          "kind": "certain"
+        },
+        "clock_id": "rain-soft-garden.trustworthy-path",
+        "baseline_progress": 1,
+        "prepared_bonus_progress": 1,
+        "claim_policy": "repeatable",
+        "strategy_label": "Lift the buried stones together",
+        "narration_key": "rain-soft.path.help",
+        "rules_profile": "cosyworld.srd5/1",
+        "rules_pack_id": "cosyworld.rules-profile-srd5",
+        "rules_pack_version": "1.0.0",
+        "pack_id": "cosyworld.core",
+        "pack_version": "1.3.6"
+      }
+    ],
+    "narrated_thresholds": [
+      {
+        "clock_id": "rain-soft-garden.trustworthy-path",
+        "filled": 1,
+        "narration_key": "rain-soft.path.first-stone",
+        "text": "The first stone shows through the wash, giving the next visitor one honest footing."
+      },
+      {
+        "clock_id": "rain-soft-garden.trustworthy-path",
+        "filled": 3,
+        "narration_key": "rain-soft.path.riverside-line",
+        "text": "The uncovered stones bend toward a damp track that continues toward the riverside."
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
     "id": "moonlit-trail:quiet-the-echo",
     "premise": "The Moonlit Trail is carrying too much echo.",
     "stakes": "If nobody steadies the trail, every rest makes its danger louder.",
@@ -49,7 +184,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       },
       {
         "version": 1,
@@ -82,7 +217,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       },
       {
         "version": 1,
@@ -114,7 +249,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       },
       {
         "version": 1,
@@ -139,7 +274,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       },
       {
         "version": 1,
@@ -164,7 +299,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       }
     ],
     "narrated_thresholds": [
@@ -238,7 +373,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       },
       {
         "version": 1,
@@ -265,7 +400,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       },
       {
         "version": 1,
@@ -290,7 +425,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       },
       {
         "version": 1,
@@ -315,7 +450,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       }
     ],
     "narrated_thresholds": [
@@ -382,7 +517,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       },
       {
         "version": 1,
@@ -407,7 +542,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       }
     ],
     "narrated_thresholds": [
@@ -474,7 +609,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       },
       {
         "version": 1,
@@ -499,7 +634,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       }
     ],
     "narrated_thresholds": [
@@ -566,7 +701,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       },
       {
         "version": 1,
@@ -591,7 +726,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.core",
-        "pack_version": "1.3.5"
+        "pack_version": "1.3.6"
       }
     ],
     "narrated_thresholds": [
@@ -666,7 +801,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.4"
+        "pack_version": "0.1.5"
       },
       {
         "version": 1,
@@ -693,7 +828,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.4"
+        "pack_version": "0.1.5"
       },
       {
         "version": 1,
@@ -720,7 +855,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.4"
+        "pack_version": "0.1.5"
       },
       {
         "version": 1,
@@ -752,7 +887,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.4"
+        "pack_version": "0.1.5"
       },
       {
         "version": 1,
@@ -784,7 +919,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.4"
+        "pack_version": "0.1.5"
       },
       {
         "version": 1,
@@ -816,7 +951,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.4"
+        "pack_version": "0.1.5"
       },
       {
         "version": 1,
@@ -841,7 +976,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.4"
+        "pack_version": "0.1.5"
       },
       {
         "version": 1,
@@ -866,7 +1001,7 @@
         "rules_pack_id": "cosyworld.rules-profile-srd5",
         "rules_pack_version": "1.0.0",
         "pack_id": "cosyworld.campaign.the-lantern-keeper",
-        "pack_version": "0.1.4"
+        "pack_version": "0.1.5"
       }
     ],
     "narrated_thresholds": [

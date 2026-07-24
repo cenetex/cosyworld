@@ -401,6 +401,10 @@ const ZONE_SANCTUARY: &str = "sanctuary";
 const ZONE_FRONTIER: &str = "frontier";
 const COSY_COTTAGE_LOCATION_ID: u64 = 1;
 const RAIN_SOFT_GARDEN_LOCATION_ID: u64 = 2;
+const FIRST_TALE_JOB_ID: &str = "rain-soft-garden:trustworthy-path";
+#[cfg(test)]
+const FIRST_TALE_PROGRESS_CLOCK_ID: &str = "rain-soft-garden.trustworthy-path";
+const FIRST_TALE_TRACE_SCHEMA_VERSION: u8 = 1;
 #[cfg(test)]
 const GREAT_LIBRARY_LOCATION_ID: u64 = 50;
 #[cfg(test)]
@@ -7584,6 +7588,13 @@ impl RuntimeWorld {
                         .to_string(),
                     event.location_id,
                 ),
+                "first_tale.public_trace" => (
+                    DeedCategory::Stewardship,
+                    "cosyworld:maintain_shared_path",
+                    "location",
+                    event.location_id?.to_string(),
+                    event.location_id,
+                ),
                 "item.used"
                     if event.damage.is_some_and(|damage| damage < 0)
                         && event.target_actor_id.is_some()
@@ -9912,7 +9923,7 @@ impl RuntimeWorld {
                 &committed_events,
                 &record.projection_mutations,
             ));
-            events.extend(self.apply_class_readiness_projection(record, &action));
+            events.extend(self.apply_class_readiness_projection(record, &action, &events));
             let committed_events = events.clone();
             events.extend(self.apply_bounded_magic_projection(&action, &committed_events));
             let committed_events = events.clone();
@@ -9954,6 +9965,9 @@ impl RuntimeWorld {
                 discovery_settlement_reason,
                 &authoritative_contribution_clock_ids,
             ));
+            let committed_events = events.clone();
+            events
+                .extend(self.apply_first_tale_public_trace_projection(&action, &committed_events));
             let committed_events = events.clone();
             events.extend(self.clear_job_resolved_tags_from_events(&committed_events));
             self.apply_automatic_orb_rewards(&action, &events);
@@ -11165,6 +11179,7 @@ impl RuntimeWorld {
         &mut self,
         record: &JournalRecord,
         action: &CwAction,
+        committed_events: &[EventView],
     ) -> Vec<EventView> {
         if action.actor_id == 0
             || action.kind == CW_ACTION_CREATE_ACTOR
@@ -11182,6 +11197,18 @@ impl RuntimeWorld {
                 .iter()
                 .all(|mutation| matches!(mutation, ProjectionMutation::ShuffleHand { .. }))
         {
+            return Vec::new();
+        }
+        let shared_world_contribution = committed_events.iter().any(|event| {
+            event.type_name == "job.contribution.resolved"
+                && event.actor_id == Some(action.actor_id)
+                && event
+                    .content
+                    .as_deref()
+                    .and_then(|content| serde_json::from_str::<JobContributionTrace>(content).ok())
+                    .is_some_and(|trace| trace.total_progress > 0)
+        });
+        if !shared_world_contribution {
             return Vec::new();
         }
         let became_ready = {
@@ -11202,7 +11229,7 @@ impl RuntimeWorld {
                     action.actor_id,
                     None,
                     Some(
-                        "Your first choice in the world reveals how you want to meet it."
+                        "Your contribution changed the shared world. Optional campaign rules are now available."
                             .to_string(),
                     ),
                 )
@@ -11716,6 +11743,49 @@ impl RuntimeWorld {
         }
 
         projected
+    }
+
+    fn apply_first_tale_public_trace_projection(
+        &mut self,
+        action: &CwAction,
+        events: &[EventView],
+    ) -> Vec<EventView> {
+        if !action_is_discovery_check(action)
+            || self.first_tale_trace_event_seq(action.actor_id).is_some()
+            || !self.listen_attempt_claimed_at(action.actor_id, COSY_COTTAGE_LOCATION_ID)
+        {
+            return Vec::new();
+        }
+        let Some(check) = events.iter().find(|event| {
+            event.type_name == "ability_check.rolled"
+                && event.actor_id == Some(action.actor_id)
+                && event.location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+        }) else {
+            return Vec::new();
+        };
+        if !check.success
+            || !check
+                .total
+                .zip(check.dc)
+                .is_some_and(|(total, dc)| total >= dc)
+        {
+            return Vec::new();
+        }
+
+        let mut trace = self.append_async_job_event(
+            "first_tale.public_trace",
+            action.actor_id,
+            None,
+            Some(
+                "marked the first uncovered stone so the next visitor can trust the washed path"
+                    .to_string(),
+            ),
+        );
+        trace.caused_by_event_seq = Some(check.seq);
+        self.replace_projected_event(&trace);
+        self.rpg_claims
+            .insert(first_tale_trace_claim_key(action.actor_id, trace.seq));
+        vec![trace]
     }
 
     fn apply_bounded_magic_projection(
@@ -12306,6 +12376,15 @@ impl RuntimeWorld {
         contribution_event.clock_id = Some(intent.strategy.clock_id.clone());
         contribution_event.caused_by_event_seq = source_event_seqs.last().copied();
         self.replace_projected_event(&contribution_event);
+        if total_progress > 0
+            && intent.job_id == FIRST_TALE_JOB_ID
+            && self.first_tale_trace_event_seq(action.actor_id).is_none()
+        {
+            self.rpg_claims.insert(first_tale_trace_claim_key(
+                action.actor_id,
+                contribution_event.seq,
+            ));
+        }
 
         let mut events = vec![contribution_event.clone()];
         if total_progress > 0 {
@@ -18006,6 +18085,14 @@ impl RuntimeWorld {
             return false;
         }
         self.listen_attempt_claimed_at(actor_id, actor.location_id)
+    }
+
+    fn first_tale_trace_event_seq(&self, actor_id: u64) -> Option<u64> {
+        let prefix = first_tale_trace_claim_prefix(actor_id);
+        self.rpg_claims
+            .iter()
+            .filter_map(|claim| claim.strip_prefix(&prefix)?.parse::<u64>().ok())
+            .min()
     }
 
     fn listen_cost_orbs(&self, _actor_id: u64) -> i32 {
@@ -33423,6 +33510,7 @@ fn room_memory_label(event: &EventView) -> String {
         "advancement.spent" => "growth",
         "skill.stepped" => "skill",
         "calling.set" | "calling.revised" => "purpose",
+        "first_tale.public_trace" => "trace",
         "bond.deepened" | "bond.created" | "bond.revised" | "bond.resolved" => "friendship",
         "clock.updated" => "clock",
         "tag.applied" | "tag.cleared" => "tag",
@@ -33446,6 +33534,7 @@ fn room_memory_kind(event: &EventView) -> String {
         "clock.updated" | "tag.applied" | "tag.cleared" | "job.updated" | "avatar.evolved" => {
             "world"
         }
+        "first_tale.public_trace" => "world",
         "feature.searched" | "location.searched" | "exit.discovered" => "search",
         "bond.deepened" | "bond.created" | "bond.revised" | "bond.resolved" => "bond",
         "calling.set" | "calling.revised" => "calling",
@@ -33528,6 +33617,9 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
         | "pathway.familiarized" => event.content.clone().unwrap_or_else(|| {
             format!("{actor_name} carries the path a little farther into the world")
         }),
+        "first_tale.public_trace" => format!(
+            "{actor_name} marked the first uncovered stone so the next visitor can trust the washed path"
+        ),
         "ability_check.rolled" => {
             format!(
                 "{} listened, and the room {}",
@@ -39533,6 +39625,14 @@ fn ability_check_success_claim_key(
 
 fn listen_attempt_claim_key(actor_id: u64, location_id: u64) -> String {
     format!("listen_attempt:{actor_id}:{location_id}")
+}
+
+fn first_tale_trace_claim_prefix(actor_id: u64) -> String {
+    format!("first_tale:v{FIRST_TALE_TRACE_SCHEMA_VERSION}:actor:{actor_id}:event:")
+}
+
+fn first_tale_trace_claim_key(actor_id: u64, event_seq: u64) -> String {
+    format!("{}{event_seq}", first_tale_trace_claim_prefix(actor_id))
 }
 
 fn clock_fill_claim_key(clock_id: &str, event_seq: u64) -> String {
@@ -49942,8 +50042,10 @@ mod tests {
         assert!(INDEX_HTML.contains("your first tale"));
         assert!(INDEX_HTML.contains("Your first tale. Next:"));
         assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
-        assert!(INDEX_HTML.contains("notice one little clue."));
-        assert!(INDEX_HTML.contains("ledger.banked_count"));
+        assert!(INDEX_HTML.contains("const tale = view.first_tale;"));
+        assert!(INDEX_HTML.contains("rain-soft-garden.trustworthy-path"));
+        assert!(INDEX_HTML.contains("view?.first_tale?.completion_memory"));
+        assert!(!INDEX_HTML.contains("notice one little clue."));
         assert!(!INDEX_HTML.contains("keep the clue — let it change you."));
         assert!(!INDEX_HTML.contains("choose friendship or bracelet space."));
         assert!(!INDEX_HTML.contains("listen to the room — it may have a clue just for you."));
@@ -49982,7 +50084,7 @@ mod tests {
         assert!(INDEX_HTML.contains("event?.type !== \"action.receipt\""));
         assert!(INDEX_HTML.contains("state.state_revision"));
         assert!(INDEX_HTML.contains("if (result?.ok === false) cancelPendingChat"));
-        assert!(INDEX_HTML.contains("learned_truth_count"));
+        assert!(INDEX_HTML.contains("state?.first_tale?.phase"));
         assert!(INDEX_HTML.contains("function quietRoomSceneHtml"));
         assert!(INDEX_HTML.contains("the room is listening"));
         assert!(INDEX_HTML.contains("a new tale is waiting"));
@@ -50070,8 +50172,10 @@ mod tests {
         assert!(INDEX_HTML.contains("stuck doors"));
         assert!(INDEX_HTML.contains("arrive as"));
         assert!(INDEX_HTML.contains("What draws you in:"));
-        assert!(INDEX_HTML.contains("`enter ${creationProfile.name}`"));
-        assert!(INDEX_HTML.contains(": (creationProfile?.prompt || \"what draws you in?\")"));
+        assert!(INDEX_HTML.contains("`${creationProfile.name} campaign rules`"));
+        assert!(INDEX_HTML.contains(
+            "modalTitle: creationProfile.prompt || \"what kind of campaign traveler arrives?\""
+        ));
         assert!(INDEX_HTML.contains("function captureDefeatTransition"));
         assert!(INDEX_HTML.contains("this tale has ended"));
         assert!(INDEX_HTML.contains("Choose begin again below when you are ready."));
@@ -50083,8 +50187,8 @@ mod tests {
         assert!(INDEX_HTML.contains("/avatar/class"));
         assert!(INDEX_HTML.contains("actor_id: actorId,\n        character_creation_id:"));
         assert!(!INDEX_HTML.contains("withActor("));
-        assert!(INDEX_HTML.contains("setCreationModalStage(action, \"species\")"));
-        assert!(INDEX_HTML.contains("classless · level 0"));
+        assert!(INDEX_HTML.contains("setCreationModalStage(campaignAction, \"species\")"));
+        assert!(INDEX_HTML.contains("[\"Then\", \"begin classless at level 0\"]"));
         assert!(INDEX_HTML.contains("accountRow(\"purpose\", purpose)"));
         assert!(!INDEX_HTML.contains("detail: \"choose calling\""));
         assert!(!INDEX_HTML.contains("modalTitle: \"choose a calling\""));
@@ -51004,7 +51108,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.3.5");
+        assert_eq!(location_reference.pack_version, "1.3.6");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");
@@ -53789,7 +53893,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn lantern_keeper_creation_stages_identity_then_reveals_a_class() {
+    async fn lantern_keeper_creation_stages_identity_then_reveals_campaign_class_after_shared_work()
+    {
         let runtime = RuntimeWorld::seeded();
         let guest = runtime.state_response(None, &AccessContext::default());
         assert_eq!(guest.character_creation.len(), 1);
@@ -53847,7 +53952,7 @@ mod tests {
                 .contains_key(&skill_state_id(actor.id, "steadiness")));
         }
 
-        let readiness_events = {
+        let speech_events = {
             let mut runtime = state.inner.lock().await;
             let content_id = runtime.next_content_id_value();
             let action = CwAction {
@@ -53864,6 +53969,51 @@ mod tests {
                 .expect("first player card commits")
                 .1
         };
+        assert!(!speech_events
+            .iter()
+            .any(|event| event.type_name == "class.selection_ready"));
+        {
+            let mut runtime = state.inner.lock().await;
+            let identity = runtime
+                .character_identities
+                .get(&actor.id)
+                .expect("campaign identity remains staged");
+            assert!(!identity.class_selection_ready);
+            assert_eq!(identity.qualifying_world_actions, 0);
+            assert_eq!(identity.class_id, None);
+
+            let actor_index = runtime.world.actors[..runtime.world.actor_count]
+                .iter()
+                .position(|candidate| candidate.id == actor.id)
+                .expect("campaign avatar remains mounted");
+            runtime.world.actors[actor_index].location_id = 801;
+        }
+
+        let readiness_events = {
+            let mut runtime = state.inner.lock().await;
+            let intent = runtime
+                .job_contribution_intent(actor.id, "work", None, None, None)
+                .expect("the mounted campaign declares shared Work");
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: actor.id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            )
+            .into_player_card();
+            record.bind_offer_kind("work");
+            record
+                .projection_mutations
+                .push(ProjectionMutation::ResolveJobContribution { intent });
+            commit_journal_record(&state, &mut runtime, record)
+                .expect("shared campaign contribution commits")
+                .1
+        };
+        assert!(readiness_events
+            .iter()
+            .any(|event| event.type_name == "job.contribution.resolved"));
         assert!(readiness_events
             .iter()
             .any(|event| event.type_name == "class.selection_ready"));
@@ -53872,7 +54022,7 @@ mod tests {
             let identity = runtime
                 .character_identities
                 .get(&actor.id)
-                .expect("identity becomes ready");
+                .expect("identity becomes ready after shared work");
             assert!(identity.class_selection_ready);
             assert_eq!(identity.qualifying_world_actions, 1);
             assert_eq!(identity.class_id, None);
@@ -58118,6 +58268,218 @@ mod tests {
     }
 
     #[test]
+    fn first_tale_follows_a_shared_question_and_replays_one_durable_trace() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Path Listener",
+        );
+        let notice = runtime.first_tale_view(5000).expect("first tale projects");
+        assert_eq!(notice.phase, "notice");
+        assert_eq!(
+            notice.question,
+            "Can we make the washed garden path trustworthy before the next visitor?"
+        );
+        assert!(notice
+            .instruction
+            .contains("first useful lead is guaranteed"));
+        let mud_notice = runtime.room_command_output(
+            runtime.actor_by_id(5000).expect("test avatar"),
+            &AccessContext::default(),
+            None,
+        );
+        assert!(mud_notice.contains(&notice.question));
+        assert!(mud_notice.contains("What finishing changes:"));
+
+        runtime.ledger_marks.insert(
+            "first-tale-test-lead".to_string(),
+            VisitLedgerMarkState {
+                id: "first-tale-test-lead".to_string(),
+                actor_id: 5000,
+                category: "learned_truth".to_string(),
+                label: "The rain has blurred the old garden path.".to_string(),
+                source_event_seq: 70_001,
+                banked: false,
+            },
+        );
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(5000, COSY_COTTAGE_LOCATION_ID));
+        assert_eq!(
+            runtime.first_tale_view(5000).expect("lead projects").phase,
+            "follow_lead"
+        );
+
+        let actor_index = runtime.world.actors[..runtime.world.actor_count]
+            .iter()
+            .position(|actor| actor.id == 5000)
+            .expect("test avatar remains mounted");
+        runtime.world.actors[actor_index].location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+        let contribution = runtime
+            .first_tale_view(5000)
+            .expect("Garden contribution projects");
+        assert_eq!(contribution.phase, "contribute");
+        assert!(contribution.instruction.contains("clear the drain"));
+
+        let intent = runtime
+            .job_contribution_intent(5000, "work", None, None, None)
+            .expect("Garden declares a certain Work strategy");
+        assert_eq!(intent.job_id, FIRST_TALE_JOB_ID);
+        assert_eq!(intent.strategy.clock_id, FIRST_TALE_PROGRESS_CLOCK_ID);
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            82_051,
+        )
+        .into_player_card();
+        record.bind_offer_kind("work");
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveJobContribution { intent });
+
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let (_, events) = runtime.apply_journal_record(&record);
+        let contribution_event = events
+            .iter()
+            .find(|event| event.type_name == "job.contribution.resolved")
+            .expect("shared contribution is journaled");
+        assert!(events.iter().any(|event| {
+            event.type_name == "clock.threshold"
+                && event.content.as_deref()
+                    == Some(
+                        "The first stone shows through the wash, giving the next visitor one honest footing.",
+                    )
+        }));
+        let complete = runtime
+            .first_tale_view(5000)
+            .expect("completed tale projects");
+        assert_eq!(complete.phase, "complete");
+        assert!(complete.public_trace_created);
+        assert_eq!(complete.trace_event_seq, Some(contribution_event.seq));
+        assert!(complete.completion_memory.contains("left the next visitor"));
+        assert!(complete.next_invitation.contains("riverside"));
+        let trace_prefix = first_tale_trace_claim_prefix(5000);
+        assert_eq!(
+            runtime
+                .rpg_claims
+                .iter()
+                .filter(|claim| claim.starts_with(&trace_prefix))
+                .count(),
+            1
+        );
+        let mud_complete = runtime.room_command_output(
+            runtime.actor_by_id(5000).expect("test avatar"),
+            &AccessContext::default(),
+            None,
+        );
+        assert!(mud_complete.contains(&complete.completion_memory));
+        assert!(mud_complete.contains(&complete.next_invitation));
+
+        let expected =
+            serde_json::to_value(runtime.first_tale_view(5000)).expect("first tale serializes");
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("completed first tale restores");
+        assert_eq!(
+            serde_json::to_value(restored.first_tale_view(5000))
+                .expect("restored first tale serializes"),
+            expected
+        );
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-contribution snapshot restores");
+        assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(
+            serde_json::to_value(replayed.first_tale_view(5000))
+                .expect("replayed first tale serializes"),
+            expected
+        );
+
+        let original_trace_seq = runtime.first_tale_trace_event_seq(5000);
+        let _ = runtime.apply_journal_record(&record);
+        assert_eq!(runtime.first_tale_trace_event_seq(5000), original_trace_seq);
+        assert_eq!(
+            runtime
+                .rpg_claims
+                .iter()
+                .filter(|claim| claim.starts_with(&trace_prefix))
+                .count(),
+            1,
+            "a retry cannot complete the first tale twice"
+        );
+    }
+
+    #[test]
+    fn first_tale_trace_remains_available_after_the_shared_clock_is_complete() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Late Path Listener",
+        );
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(5000, COSY_COTTAGE_LOCATION_ID));
+        let clock = runtime
+            .clocks
+            .get_mut(FIRST_TALE_PROGRESS_CLOCK_ID)
+            .expect("first tale clock is seeded");
+        clock.filled = clock.segments;
+
+        let action = CwAction {
+            kind: CW_ACTION_ABILITY_CHECK,
+            actor_id: 5000,
+            ability: LISTEN_ABILITY,
+            dc: LISTEN_DC,
+            ..CwAction::default()
+        };
+        let check = EventView {
+            seq: 91_001,
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            actor_name: Some("Late Path Listener".to_string()),
+            location_id: Some(RAIN_SOFT_GARDEN_LOCATION_ID),
+            location_name: Some("Rain-Soft Garden".to_string()),
+            total: Some(LISTEN_DC as i16),
+            dc: Some(LISTEN_DC as i16),
+            ..EventView::default()
+        };
+        let events = runtime.apply_first_tale_public_trace_projection(&action, &[check]);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].type_name, "first_tale.public_trace");
+        assert_eq!(events[0].caused_by_event_seq, Some(91_001));
+        assert_eq!(
+            runtime
+                .first_tale_view(5000)
+                .expect("late first tale completes")
+                .phase,
+            "complete"
+        );
+        assert!(room_memory_entry_for_event(&events[0])
+            .expect("public trace enters room memory")
+            .text
+            .contains("next visitor"));
+        runtime.project_qualifying_deeds(&events);
+        assert!(runtime.actor_deeds(5000).iter().any(|deed| {
+            deed.operation == "first_tale.public_trace"
+                && deed.category == DeedCategory::Stewardship
+        }));
+        assert!(
+            runtime
+                .apply_first_tale_public_trace_projection(&action, &events)
+                .is_empty(),
+            "the per-avatar public trace is idempotent"
+        );
+    }
+
+    #[test]
     fn certain_work_is_named_targeted_and_fills_authored_effects_once() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
@@ -61147,12 +61509,22 @@ mod tests {
         assert_eq!(content.hidden_exits.len(), 1);
         assert_eq!(content.room_features.len(), 37);
         assert_eq!(content.room_sheets.len(), 48);
-        assert_eq!(content.clocks.len(), 12);
-        assert_eq!(content.jobs.len(), 6);
+        assert_eq!(content.clocks.len(), 14);
+        assert_eq!(content.jobs.len(), 7);
         assert!(content
             .jobs
             .iter()
-            .all(|job| job.reward.orbs() == 2 && !job.reward.label().is_empty()));
+            .all(|job| job.reward.orbs() > 0 && !job.reward.label().is_empty()));
+        assert_eq!(
+            content
+                .jobs
+                .iter()
+                .find(|job| job.id == FIRST_TALE_JOB_ID)
+                .expect("first tale job is mounted")
+                .reward
+                .orbs(),
+            1
+        );
         assert_eq!(content.fronts.len(), 6);
         assert_eq!(content.cards.len(), 118);
         assert_eq!(content.lifecycle_hooks.len(), 27);
@@ -72524,7 +72896,7 @@ mod tests {
             trade: TradeOutcome {
                 class: PulseEffectClass::Opportunity,
                 from_location_id: MOONLIT_TRAIL_LOCATION_ID,
-                to_location_id: 2,
+                to_location_id: COSY_COTTAGE_LOCATION_ID,
                 resource: "herbs".to_string(),
                 moved: false,
                 amount: 0,
@@ -72549,7 +72921,10 @@ mod tests {
             .expect("a new need creates one public opportunity");
         assert_eq!(event.type_name, "world.delivery.needed");
         assert_eq!(event.location_id, Some(MOONLIT_TRAIL_LOCATION_ID));
-        assert_eq!(event.destination_location_id, Some(2));
+        assert_eq!(
+            event.destination_location_id,
+            Some(COSY_COTTAGE_LOCATION_ID)
+        );
         assert_eq!(event.caused_by_event_seq, Some(77));
         assert!(!runtime
             .event_log
@@ -72567,7 +72942,9 @@ mod tests {
         assert!(job.premise.contains("physical"));
         assert!(job.action_copy.summary.contains("Pick up a physical item"));
         assert!(
-            runtime.active_progress_clock_id_for_location(2).is_none(),
+            runtime
+                .active_progress_clock_id_for_location(COSY_COTTAGE_LOCATION_ID)
+                .is_none(),
             "generic Work cannot abstractly complete a physical delivery"
         );
         assert!(

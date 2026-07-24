@@ -1,13 +1,15 @@
 use super::*;
 
 const ACTIVATION_DAY_MS: i64 = 86_400_000;
-const WORLD_EVENTS_BACKFILL_KEY: &str = "world_events_v2";
+const WORLD_EVENTS_BACKFILL_KEY: &str = "world_events_v3";
 
 #[derive(Clone, Debug, Serialize, Default)]
 pub(super) struct ActivationMetricsSummary {
     avatar_created_count: u64,
     actors_with_first_turn_committed: u64,
     first_turn_committed_rate: Option<f64>,
+    actors_with_first_public_trace: u64,
+    first_public_trace_rate: Option<f64>,
     actors_with_first_banked_ledger: u64,
     first_banked_ledger_rate: Option<f64>,
     actors_with_day_1_return: u64,
@@ -15,6 +17,7 @@ pub(super) struct ActivationMetricsSummary {
     actors_with_day_7_return: u64,
     day_7_return_rate: Option<f64>,
     median_time_to_first_turn_committed_ms: Option<u64>,
+    median_time_to_first_public_trace_ms: Option<u64>,
     median_time_to_first_banked_ledger_ms: Option<u64>,
 }
 
@@ -90,6 +93,16 @@ pub(super) fn record_first_ledger_banked(state: &AppState, actor_id: u64, event_
         actor_id,
         "first_ledger_banked",
         "first_ledger_banked",
+        serde_json::json!({ "event_seq": event_seq }),
+    );
+}
+
+pub(super) fn record_first_public_trace(state: &AppState, actor_id: u64, event_seq: u64) {
+    record_activation_event(
+        state,
+        actor_id,
+        "first_public_trace",
+        "first_public_trace",
         serde_json::json!({ "event_seq": event_seq }),
     );
 }
@@ -258,6 +271,16 @@ fn backfill_activation_from_world_events(conn: &Connection) -> io::Result<()> {
                 created_at_ms,
             )?;
         }
+        if event_is_first_public_trace(&event) {
+            insert_activation_event_conn(
+                conn,
+                actor_id,
+                "first_public_trace",
+                "first_public_trace",
+                serde_json::json!({ "event_seq": event.seq, "source": "world_events_backfill" }),
+                created_at_ms,
+            )?;
+        }
         if event_counts_as_first_committed_turn(&event) {
             insert_activation_event_conn(
                 conn,
@@ -281,6 +304,27 @@ fn backfill_activation_from_world_events(conn: &Connection) -> io::Result<()> {
     )
     .map_err(sqlite_error)?;
     Ok(())
+}
+
+fn event_is_first_public_trace(event: &EventView) -> bool {
+    if !event.success {
+        return false;
+    }
+    if event.type_name == "first_tale.public_trace" {
+        return true;
+    }
+    event.type_name == "job.contribution.resolved"
+        && event.content.as_deref().is_some_and(|content| {
+            serde_json::from_str::<serde_json::Value>(content)
+                .ok()
+                .is_some_and(|trace| {
+                    trace.get("job_id").and_then(|value| value.as_str()) == Some(FIRST_TALE_JOB_ID)
+                        && trace
+                            .get("total_progress")
+                            .and_then(|value| value.as_u64())
+                            .is_some_and(|progress| progress > 0)
+                })
+        })
 }
 
 fn event_counts_as_first_committed_turn(event: &EventView) -> bool {
@@ -401,11 +445,14 @@ fn read_activation_metrics(path: &Path, limit: usize) -> io::Result<ActivationMe
     init_activation_store(&conn)?;
     let avatar_created_count = count_distinct_actors(&conn, "avatar_created")?;
     let actors_with_first_turn_committed = count_distinct_actors(&conn, "first_turn_committed")?;
+    let actors_with_first_public_trace = count_distinct_actors(&conn, "first_public_trace")?;
     let actors_with_first_banked_ledger = count_distinct_actors(&conn, "first_ledger_banked")?;
     let actors_with_day_1_return = count_returning_actors(&conn, 1)?;
     let actors_with_day_7_return = count_returning_actors(&conn, 7)?;
     let median_time_to_first_turn_committed_ms =
         median_u64(first_event_deltas(&conn, "first_turn_committed")?);
+    let median_time_to_first_public_trace_ms =
+        median_u64(first_event_deltas(&conn, "first_public_trace")?);
     let median_time_to_first_banked_ledger_ms =
         median_u64(first_event_deltas(&conn, "first_ledger_banked")?);
     let recent_events = read_recent_activation_events(&conn, limit)?;
@@ -419,6 +466,8 @@ fn read_activation_metrics(path: &Path, limit: usize) -> io::Result<ActivationMe
                 actors_with_first_turn_committed,
                 avatar_created_count,
             ),
+            actors_with_first_public_trace,
+            first_public_trace_rate: ratio(actors_with_first_public_trace, avatar_created_count),
             actors_with_first_banked_ledger,
             first_banked_ledger_rate: ratio(actors_with_first_banked_ledger, avatar_created_count),
             actors_with_day_1_return,
@@ -426,6 +475,7 @@ fn read_activation_metrics(path: &Path, limit: usize) -> io::Result<ActivationMe
             actors_with_day_7_return,
             day_7_return_rate: ratio(actors_with_day_7_return, avatar_created_count),
             median_time_to_first_turn_committed_ms,
+            median_time_to_first_public_trace_ms,
             median_time_to_first_banked_ledger_ms,
         },
         recent_events,
@@ -614,9 +664,18 @@ mod tests {
         append_activation_event_at(
             &path,
             5000,
-            "first_ledger_banked",
-            "first_ledger_banked",
+            "first_public_trace",
+            "first_public_trace",
             serde_json::json!({ "event_seq": 42 }),
+            50_010,
+        )
+        .expect("record first public trace");
+        append_activation_event_at(
+            &path,
+            5000,
+            "first_ledger_banked",
+            "first_ledger_banked",
+            serde_json::json!({ "event_seq": 43 }),
             70_010,
         )
         .expect("record first ledger bank");
@@ -635,6 +694,8 @@ mod tests {
         assert_eq!(response.summary.avatar_created_count, 2);
         assert_eq!(response.summary.actors_with_first_turn_committed, 1);
         assert_eq!(response.summary.first_turn_committed_rate, Some(0.5));
+        assert_eq!(response.summary.actors_with_first_public_trace, 1);
+        assert_eq!(response.summary.first_public_trace_rate, Some(0.5));
         assert_eq!(response.summary.actors_with_first_banked_ledger, 1);
         assert_eq!(response.summary.actors_with_day_7_return, 1);
         assert_eq!(
@@ -642,10 +703,14 @@ mod tests {
             Some(30_000)
         );
         assert_eq!(
+            response.summary.median_time_to_first_public_trace_ms,
+            Some(50_000)
+        );
+        assert_eq!(
             response.summary.median_time_to_first_banked_ledger_ms,
             Some(70_000)
         );
-        assert_eq!(response.recent_events.len(), 6);
+        assert_eq!(response.recent_events.len(), 7);
 
         let _ = fs::remove_file(path);
     }
@@ -720,14 +785,28 @@ mod tests {
             ..EventView::default()
         };
         let banked = EventView {
-            seq: 13,
+            seq: 14,
             type_name: "ledger.banked".to_string(),
             success: true,
             actor_id: Some(5000),
             ..EventView::default()
         };
+        let public_trace = EventView {
+            seq: 13,
+            type_name: "job.contribution.resolved".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            content: Some(
+                serde_json::json!({
+                    "job_id": FIRST_TALE_JOB_ID,
+                    "total_progress": 1
+                })
+                .to_string(),
+            ),
+            ..EventView::default()
+        };
         let later_visit = EventView {
-            seq: 14,
+            seq: 15,
             type_name: "message.created".to_string(),
             success: true,
             actor_id: Some(5000),
@@ -737,6 +816,7 @@ mod tests {
             (&created, 1_000_u64),
             (&presence, 2_000_u64),
             (&first_turn, 31_000_u64),
+            (&public_trace, 46_000_u64),
             (&banked, 61_000_u64),
             (&later_visit, ACTIVATION_DAY_MS as u64 * 7 + 1_000),
         ] {
@@ -760,11 +840,16 @@ mod tests {
         let response = read_activation_metrics(&path, 10).expect("read backfilled metrics");
         assert_eq!(response.summary.avatar_created_count, 1);
         assert_eq!(response.summary.actors_with_first_turn_committed, 1);
+        assert_eq!(response.summary.actors_with_first_public_trace, 1);
         assert_eq!(response.summary.actors_with_first_banked_ledger, 1);
         assert_eq!(response.summary.actors_with_day_7_return, 1);
         assert_eq!(
             response.summary.median_time_to_first_turn_committed_ms,
             Some(30_000)
+        );
+        assert_eq!(
+            response.summary.median_time_to_first_public_trace_ms,
+            Some(45_000)
         );
         assert_eq!(
             response.summary.median_time_to_first_banked_ledger_ms,

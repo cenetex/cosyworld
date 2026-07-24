@@ -42,7 +42,9 @@
       "dew": 3,
       "shelter": 1
     },
-    "projects": [],
+    "projects": [
+      "rain-soft-garden:trustworthy-path"
+    ],
     "pack_id": "cosyworld.core"
   },
   {

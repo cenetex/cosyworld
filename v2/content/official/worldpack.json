@@ -10,6 +10,7 @@
   "persistence_compatibility": {
     "schema_version": 1,
     "replay_compatible_bundle_hashes": [
+      "sha256:1e74056abb3b5ffadf78a0f5b4ec62b511c2a727c216c0b7bd1a6cd3ca7b04f1",
       "sha256:a613a3ec525fc08e10794a775ee0baeb9239733da1c65779ab4dc1df481f9718",
       "sha256:0a1129ce8f3315946c972bb3e5f5a6e4b3f65cb7dac7d1ea3fe441f398c84d32",
       "sha256:2a9b9fb5c049a0b06dcd02131e2b74be5f5e106e6e8d78b891e40f7b093eb49a",
@@ -613,7 +614,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:1e74056abb3b5ffadf78a0f5b4ec62b511c2a727c216c0b7bd1a6cd3ca7b04f1",
+  "bundle_hash": "sha256:fd5012d745f00283c16bea59c0d014393dd064e9751c7728b0e2e6ba6a39690c",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -777,7 +778,7 @@
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.5",
+      "version": "1.3.6",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -838,8 +839,8 @@
         "hidden_exits": 1,
         "room_features": 16,
         "room_sheets": 22,
-        "clocks": 10,
-        "jobs": 5,
+        "clocks": 12,
+        "jobs": 6,
         "action_vocabulary": 1,
         "fronts": 5,
         "cards": 68,
@@ -862,7 +863,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:fd28db4e1925f15705b16f52a4e30cd2fa5343e6ee6b2c065393e86071e74bff"
+      "integrity": "sha256:fe9e0c4a56eedd6e4481c1b62ef926d48fe2585e5cfafe37732dcb0d81277329"
     },
     {
       "id": "cosyworld.rules-srd-5.1",
@@ -943,7 +944,7 @@
       "id": "cosyworld.campaign.the-lantern-keeper",
       "name": "The Lantern Keeper",
       "description": "A short fifth-edition-inspired campaign about a missing keeper and a beacon going dark.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "kind": "campaign",
       "license": "CC-BY-4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -1041,7 +1042,7 @@
         "type": "workspace",
         "path": "../../content/the-lantern-keeper"
       },
-      "integrity": "sha256:f97ca7b7a59c6b4966522ac07bbbc1f3d6aecf261fb07ff937b853e21682e533"
+      "integrity": "sha256:16523d55b283bb0e89a147a1d88bb4b1977a09ae9a75fe76d7a866f9cac7dd65"
     },
     {
       "id": "cosyworld.lonely-forest.characters",
