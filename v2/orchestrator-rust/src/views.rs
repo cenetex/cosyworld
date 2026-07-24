@@ -1441,10 +1441,10 @@ impl RuntimeWorld {
         if !Self::actor_is_active_avatar(resident) {
             return None;
         }
-        if self.actor_control_mode(resident.id).is_direct_input()
-            && client_actor_id != Some(resident.id)
-        {
-            return None;
+        if let Some(viewer_actor_id) = client_actor_id {
+            if !self.economy_known_by(viewer_actor_id, resident.id) {
+                return None;
+            }
         }
         let held_items_raw = self.actor_held_items(resident.id);
         let inventory_count = held_items_raw.len();
@@ -1641,6 +1641,7 @@ impl RuntimeWorld {
         let location_id = actor.map(|actor| actor.location_id).unwrap_or(1);
         let location = self.location_view(location_id);
 
+        let projection_viewer_id = Some(client_actor_id.unwrap_or_default());
         let actors: Vec<ActorView> = self.world.actors[..self.world.actor_count]
             .iter()
             .copied()
@@ -1648,7 +1649,7 @@ impl RuntimeWorld {
             .filter(|actor| {
                 self.actor_visible_in_projection(*actor, client_actor_id, active_direct_actor_ids)
             })
-            .map(|actor| self.actor_view_for_client(actor, client_actor_id))
+            .map(|actor| self.actor_view_for_client(actor, projection_viewer_id))
             .collect();
         let visible_actor_ids = actors.iter().map(|actor| actor.id).collect::<BTreeSet<_>>();
 
@@ -1658,11 +1659,11 @@ impl RuntimeWorld {
             .filter(|item| {
                 (item.location_id == location_id
                     && !self.forgotten_search_item_at_location(*item, location_id))
-                    || (item.holder_actor_id != 0
-                        && visible_actor_ids.contains(&item.holder_actor_id))
-                    || client_actor_id
-                        .map(|id| item.holder_actor_id == id)
-                        .unwrap_or(false)
+                    || client_actor_id.is_some_and(|id| {
+                        item.holder_actor_id == id
+                            || (visible_actor_ids.contains(&item.holder_actor_id)
+                                && self.economy_known_by(id, item.holder_actor_id))
+                    })
             })
             .map(|item| self.item_view(item))
             .collect();
@@ -2985,7 +2986,12 @@ impl RuntimeWorld {
                         visible_actors_in_location
                             .iter()
                             .copied()
-                            .map(|actor| self.actor_view(actor))
+                            .map(|actor| {
+                                self.actor_view_for_client(
+                                    actor,
+                                    Some(client_actor_id.unwrap_or_default()),
+                                )
+                            })
                             .collect()
                     })
                     .unwrap_or_default();
