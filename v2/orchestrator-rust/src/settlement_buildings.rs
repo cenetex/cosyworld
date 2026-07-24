@@ -1956,6 +1956,11 @@ mod tests {
         assert_eq!(allocation.item_ids.len(), 1);
         let item_id = allocation.item_ids[0];
         assert!(runtime.item_by_id(item_id).is_some());
+        assert_eq!(
+            runtime.physical_item_template_id(item_id).as_deref(),
+            Some("river_sprat"),
+            "the walking-skeleton fixture keeps one transformable physical reward"
+        );
         let item_name = runtime.item_name(item_id).expect("loot item has a name");
         let cache_name = runtime.settlement_buildings[&building.id]
             .public_cache
@@ -2024,5 +2029,173 @@ mod tests {
             .expect("post-allocation snapshot restores");
         assert_eq!(restored.loot_allocations, runtime.loot_allocations);
         assert!(restored.item_by_id(item_id).is_some());
+
+        runtime.settlement_buildings.insert(
+            "test-return-smokehouse".to_string(),
+            SettlementBuildingState {
+                schema_version: SETTLEMENT_BUILDING_SCHEMA_VERSION,
+                id: "test-return-smokehouse".to_string(),
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                slot_index: 1,
+                slot_class: "major".to_string(),
+                archetype_id: "smokehouse".to_string(),
+                name: "Smokehouse".to_string(),
+                pack_id: "cosyworld.core".to_string(),
+                pack_version: runtime.active_pack_version("cosyworld.core"),
+                governance_decision_id: "test-return-smokehouse-choice".to_string(),
+                selected_event_seq: 3,
+                construction_clock_id: "test-return-smokehouse-clock".to_string(),
+                construction_job_id: "test-return-smokehouse-job".to_string(),
+                status: SettlementBuildingStatus::Completed,
+                completed_event_seq: Some(4),
+                declared_capabilities: vec![
+                    "transformation_recipes".to_string(),
+                    "preservation".to_string(),
+                ],
+                installed_capabilities: vec![
+                    "transformation_recipes".to_string(),
+                    "preservation".to_string(),
+                ],
+                quest_templates: vec!["service.smokehouse".to_string()],
+                recipe_tags: vec!["smokehouse".to_string(), "preservation".to_string()],
+                access_policy: "public".to_string(),
+                covenant_required: false,
+                loot_table_id: None,
+                public_cache: None,
+                upgrade_clock_id: None,
+                upgrade_job_id: None,
+                upgrade_level: 0,
+                upgraded_event_seq: None,
+                follow_up_job_ids: Vec::new(),
+            },
+        );
+        let pickup_seed = runtime.next_seed_value();
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_PICK_UP_ITEM,
+                        actor_id: RATI_ACTOR_ID,
+                        item_id,
+                        ..CwAction::default()
+                    },
+                    pickup_seed,
+                ))
+                .0,
+            CW_OK
+        );
+        let travel_seed = runtime.next_seed_value();
+        let (_, travel_events) = runtime.apply_journal_record(&JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_MOVE,
+                actor_id: RATI_ACTOR_ID,
+                destination_location_id: COSY_COTTAGE_LOCATION_ID,
+                ..CwAction::default()
+            },
+            travel_seed,
+        ));
+        assert!(travel_events
+            .iter()
+            .any(|event| event.type_name == "actor.moved"));
+        let delivery_seed = runtime.next_seed_value();
+        let (_, delivery_events) = runtime.apply_journal_record(&JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_DROP_ITEM,
+                actor_id: RATI_ACTOR_ID,
+                item_id,
+                ..CwAction::default()
+            },
+            delivery_seed,
+        ));
+        assert!(delivery_events
+            .iter()
+            .any(|event| event.type_name == "world.logistics.completed"));
+
+        let craft = runtime
+            .versioned_craft_plan(RATI_ACTOR_ID, 3104, Some("riverside-return-smoke"))
+            .expect("the delivered catch can be transformed at the capable Smokehouse");
+        let mut craft_record = JournalRecord::new(craft.action, runtime.next_seed_value());
+        craft_record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveCraft {
+                receipt: craft.receipt,
+            });
+        let (craft_status, craft_events) = runtime.apply_journal_record(&craft_record);
+        assert_eq!(craft_status, CW_OK);
+        assert!(craft_events
+            .iter()
+            .any(|event| event.type_name == "item.transformed"));
+        assert!(craft_events.iter().any(|event| {
+            event.type_name == "item.crafted"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("Smoked River Sprat"))
+        }));
+        let smoked_item_id = runtime.craft_receipts["riverside-return-smoke"].output_item_id;
+        assert_eq!(
+            runtime.physical_item_template_id(smoked_item_id).as_deref(),
+            Some("smoked_river_sprat")
+        );
+        let deed_categories = runtime
+            .deeds
+            .values()
+            .filter(|deed| deed.actor_id == RATI_ACTOR_ID)
+            .map(|deed| deed.category)
+            .collect::<BTreeSet<_>>();
+        assert!(deed_categories.contains(&DeedCategory::Delivery));
+        assert!(deed_categories.contains(&DeedCategory::Craft));
+
+        let late_actor_id = 6_000;
+        runtime.actors.insert(
+            late_actor_id,
+            ActorMeta {
+                name: "Late Reed".to_string(),
+                speech_mode: "prose".to_string(),
+                title: String::new(),
+                description: "A late-arriving caretaker.".to_string(),
+            },
+        );
+        runtime.ensure_actor(
+            late_actor_id,
+            CW_ACTOR_HUMAN,
+            location_id,
+            CwStatBlock {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 12,
+                charisma: 10,
+                hp_base: 10,
+                level: 1,
+            },
+        );
+        runtime
+            .actor_autonomy
+            .entry(late_actor_id)
+            .or_default()
+            .control_mode = ActorControlMode::DirectInput;
+        let late_state = runtime.state_response(Some(late_actor_id), &AccessContext::default());
+        assert!(
+            late_state.action_offers.iter().any(|offer| {
+                matches!(offer.kind.as_str(), "work" | "help" | "study" | "check")
+                    && offer.project.as_ref().is_some_and(|project| {
+                        completed
+                            .follow_up_job_ids
+                            .iter()
+                            .any(|job_id| job_id == &project.id)
+                    })
+            }),
+            "late-arrival offers: {}; fishery follow-ups: {:?}",
+            serde_json::to_string_pretty(&late_state.action_offers)
+                .expect("serialize late-arrival offers"),
+            completed.follow_up_job_ids,
+        );
+        let late_actor = runtime.actor_by_id(late_actor_id).expect("late avatar");
+        let look = runtime.room_command_output(late_actor, &AccessContext::default(), None);
+        assert!(look.contains("Recent changes:"));
+        assert!(look.contains("Fishery"));
+        assert!(look.contains("River Sprat"));
     }
 }
