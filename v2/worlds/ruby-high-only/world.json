@@ -6,6 +6,7 @@
   "description": "A standalone First Bell boot fixture with no CosyWorld Core pack mounted.",
   "entry_location": "ruby-high.first-bell:location/11",
   "entry_grant_id": "ruby-high.first-bell:location-homeroom",
+  "avatar_naming": "../shared/cozy-fantasy-avatar-naming.json",
   "rules_profile": "cosyworld.srd5/1",
   "packs": [
     "ruby-high.first-bell",

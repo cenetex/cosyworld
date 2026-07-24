@@ -305,6 +305,7 @@ describe("Content Pack Manifest v1", () => {
       "sha256:d68f40900aeb645e99cbdca92fe4e9ac90460c3ad8b1445e36caaf258d9a20bb",
       "sha256:df51e114ca12face0fc9aa97516826e350792db5937209b6f441df0675a0e691",
       "sha256:f97d77e008a46d79d9c9d83e607b257a16ef66d591b037297495b99f21fdafa5",
+      "sha256:226996ee96150505c53df2a999297e8c5fa771b0dd81e6d03eb82e62daccc290",
     ]);
   });
 
@@ -329,6 +330,14 @@ describe("Content Pack Manifest v1", () => {
       }
       fs.writeFileSync(path.join(worldDir, "world.json"), JSON.stringify(world, null, 2));
       fs.writeFileSync(path.join(worldDir, "pack.lock.json"), JSON.stringify(lock, null, 2));
+      if (typeof world.avatar_naming === "string") {
+        const namingTarget = path.resolve(worldDir, world.avatar_naming);
+        fs.mkdirSync(path.dirname(namingTarget), { recursive: true });
+        fs.copyFileSync(
+          path.resolve(officialWorldDir, world.avatar_naming),
+          namingTarget,
+        );
+      }
       const result = spawnSync(process.execPath, [
         compilerPath,
         "--world-dir",

@@ -154,6 +154,32 @@ This is intentionally narrower than a tabletop character builder. Packs cannot
 set arbitrary kernel statistics, grant unvalidated items, invent classes, or
 add spell slots through character-creation JSON.
 
+## World-defined avatar naming
+
+A world composition may set `avatar_naming` to a JSON file below `v2/worlds`.
+The compiler validates that file, includes it in bundle identity, and embeds it
+in the runtime manifest. The current `culture-grammar/1` strategy defines:
+
+- one `default_culture` and an ordered list of cultures;
+- optional profile, species, and origin selectors for each culture;
+- a short `style_prompt` shared with AI identity refinement;
+- weighted name forms such as `{given} {family_root}{family_tail}`,
+  `{given} of {place_root}{place_tail}`, or
+  `{clan_root}{clan_tail} {given}`; and
+- named component pools referenced by those forms.
+
+Selection uses the most specific matching culture and falls back to
+`default_culture`. Deterministic generation walks each weighted form without
+reusing combinations until that form's component space is exhausted. Forms,
+components, selectors, output length, and duplicate values are all validated at
+worldpack compile time and again when the runtime loads the manifest.
+
+The official compositions share
+`worlds/shared/cozy-fantasy-avatar-naming.json`. World authors can point at a
+different file to establish their own cultural naming texture without changing
+Rust code. Component pools should be original setting material; published name
+tables are useful as structural inspiration, not as text to copy.
+
 ## Commands
 
 ```sh

@@ -75,6 +75,8 @@ pub(super) struct SeedWorldpackManifest {
     #[serde(default)]
     pub(super) persistence_compatibility: SeedPersistenceCompatibility,
     #[serde(default)]
+    pub(super) avatar_naming: Option<cosyworld_ai_model::AvatarNamingConfig>,
+    #[serde(default)]
     pub(super) packs: Vec<SeedWorldpackPack>,
     #[serde(default)]
     pub(super) registry: String,
@@ -1000,6 +1002,10 @@ pub(super) fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> R
         || manifest.packs.is_empty()
     {
         return Err("worldpack manifest is missing id, name, or version".to_string());
+    }
+    if let Some(avatar_naming) = manifest.avatar_naming.as_ref() {
+        cosyworld_ai_model::validate_avatar_naming_config(avatar_naming)
+            .map_err(|error| format!("invalid worldpack avatar_naming: {error}"))?;
     }
     let mut pack_ids = BTreeSet::new();
     for pack in &manifest.packs {
