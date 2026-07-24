@@ -288,7 +288,7 @@ pub(super) struct NaturalAffordanceState {
     pub(super) revealed_feature: Option<NaturalFeatureState>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct NaturalFeatureRevealEvidence {
     pub(super) schema_version: u8,
     pub(super) feature: NaturalFeatureState,

@@ -7987,6 +7987,94 @@ impl RuntimeWorld {
         }
     }
 
+    fn restore_natural_feature_reveal_evidence(&mut self, event: &EventView) -> io::Result<()> {
+        if event.type_name != "natural_feature.revealed" {
+            return Ok(());
+        }
+        let content = event.content.as_deref().ok_or_else(|| {
+            snapshot_error("natural feature reveal evidence has no typed payload")
+        })?;
+        let evidence: NaturalFeatureRevealEvidence = serde_json::from_str(content)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        let feature = evidence.feature;
+        let location_id = feature.location_id;
+        if evidence.schema_version != NATURAL_AFFORDANCE_SCHEMA_VERSION
+            || feature.schema_version != NATURAL_AFFORDANCE_SCHEMA_VERSION
+            || evidence.investigation_job_id != natural_investigation_job_id(location_id)
+            || evidence.investigation_clock_id != natural_investigation_clock_id(location_id)
+            || event.location_id != Some(location_id)
+            || event.clock_id.as_deref() != Some(evidence.investigation_clock_id.as_str())
+            || event
+                .actor_id
+                .is_some_and(|actor_id| actor_id != feature.revealed_by_actor_id)
+        {
+            return Err(snapshot_error(
+                "natural feature reveal evidence does not match its canonical event",
+            ));
+        }
+        self.ensure_natural_affordance_for_location(
+            location_id,
+            &feature.generation.source,
+            &feature.generation.pack_id,
+            &feature.generation.pack_version,
+        );
+        let Some(state) = self.natural_affordances.get(&location_id) else {
+            return Err(snapshot_error(
+                "natural feature reveal evidence has no matching location affordance",
+            ));
+        };
+        let Some(latent) = state.latent_potential.as_ref() else {
+            return Err(snapshot_error(
+                "natural feature reveal evidence has no matching frozen potential",
+            ));
+        };
+        if latent.resource_kind != feature.resource_kind
+            || latent.richness != feature.richness
+            || latent.character != feature.character
+            || latent.building_archetypes != feature.building_archetypes
+            || latent.presentation_key != feature.presentation_key
+        {
+            return Err(snapshot_error(
+                "natural feature reveal evidence conflicts with its frozen potential",
+            ));
+        }
+        let should_replace = state
+            .revealed_feature
+            .as_ref()
+            .is_none_or(|current| current.revealed_event_seq < feature.revealed_event_seq);
+        if should_replace {
+            if let Some(state) = self.natural_affordances.get_mut(&location_id) {
+                state.environment = evidence.environment;
+                state.generation = feature.generation.clone();
+                state
+                    .causal_action_event_seqs
+                    .extend(feature.causal_action_event_seqs.iter().copied());
+                state.causal_action_event_seqs.sort_unstable();
+                state.causal_action_event_seqs.dedup();
+                state.revealed_feature = Some(feature);
+            }
+        }
+        let state = self
+            .natural_affordances
+            .get(&location_id)
+            .cloned()
+            .ok_or_else(|| snapshot_error("natural feature reveal evidence was not restored"))?;
+        let restored_feature = state
+            .revealed_feature
+            .as_ref()
+            .ok_or_else(|| snapshot_error("natural feature reveal evidence was not restored"))?;
+        self.ensure_natural_investigation_project(&state);
+        if let Some(clock) = self.clocks.get_mut(&state.investigation_clock_id) {
+            let completion_text = clock.presentation.completion_memory.clone();
+            clock.completion.get_or_insert(ClockCompletionMemory {
+                actor_id: restored_feature.revealed_by_actor_id,
+                event_seq: restored_feature.revealed_event_seq,
+                text: completion_text,
+            });
+        }
+        Ok(())
+    }
+
     fn ensure_natural_investigation_project(&mut self, state: &NaturalAffordanceState) {
         let Some(latent) = state.latent_potential.as_ref() else {
             return;
@@ -41871,6 +41959,11 @@ fn hydrate_runtime_canonical_state(runtime: &mut RuntimeWorld, path: &Path) -> i
     merge_runtime_canonical_entity_versions(runtime, &versions);
     let claims = load_canonical_claims(path, OFFICIAL_WORLD_ID)?;
     merge_runtime_canonical_claims(runtime, &claims);
+    for event in read_event_store_by_type(path, "natural_feature.revealed")? {
+        runtime.restore_natural_feature_reveal_evidence(&event)?;
+    }
+    runtime.backfill_generated_place_governance();
+    runtime.backfill_settlement_buildings();
     Ok(())
 }
 
@@ -42795,6 +42888,12 @@ fn init_event_store(path: &Path) -> io::Result<()> {
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_world_events_canonical_identity
          ON world_events(world_id, world_epoch, seq)",
+        [],
+    )
+    .map_err(sqlite_error)?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_world_events_canonical_type_seq
+         ON world_events(world_id, world_epoch, event_type, seq)",
         [],
     )
     .map_err(sqlite_error)?;
@@ -44111,6 +44210,41 @@ fn read_event_store_event(path: &Path, seq: u64) -> io::Result<Option<EventView>
         event.refresh_content_context();
     }
     Ok(Some(event))
+}
+
+fn read_event_store_by_type(path: &Path, event_type: &str) -> io::Result<Vec<EventView>> {
+    init_event_store(path)?;
+    let conn = open_event_store(path)?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT payload_json FROM world_events
+             WHERE world_id = ?1 AND world_epoch = ?2 AND event_type = ?3
+             ORDER BY seq ASC
+             LIMIT ?4",
+        )
+        .map_err(sqlite_error)?;
+    let rows = stmt
+        .query_map(
+            params![
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH as i64,
+                event_type,
+                CW_MAX_LOCATIONS as i64
+            ],
+            |row| row.get::<_, String>(0),
+        )
+        .map_err(sqlite_error)?;
+    let mut events = Vec::new();
+    for row in rows {
+        let payload = row.map_err(sqlite_error)?;
+        let mut event: EventView = serde_json::from_str(&payload)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if content_reference_context_is_empty(&event.content_context) {
+            event.refresh_content_context();
+        }
+        events.push(event);
+    }
+    Ok(events)
 }
 
 fn read_event_store_between(
@@ -62528,7 +62662,13 @@ mod tests {
                 amount: runtime.clocks[&natural.investigation_clock_id].segments,
                 reason: "durable_frontier_test_reveal".to_string(),
             });
-        assert_eq!(runtime.apply_journal_record(&reveal).0, CW_OK);
+        let (reveal_status, reveal_events) = runtime.apply_journal_record(&reveal);
+        assert_eq!(reveal_status, CW_OK);
+        let reveal_event = reveal_events
+            .iter()
+            .find(|event| event.type_name == "natural_feature.revealed")
+            .cloned()
+            .expect("typed natural feature reveal evidence");
         let revealed_feature = runtime.natural_affordances[&waypoint_id]
             .revealed_feature
             .clone()
@@ -62641,6 +62781,55 @@ mod tests {
         assert!(runtime
             .generated_place_milestones(waypoint_id)
             .contains(&"Anchor".to_string()));
+
+        let evidence_path = std::env::temp_dir().join(format!(
+            "cosyworld-natural-evidence-{}-{}.sqlite",
+            std::process::id(),
+            now_millis()
+        ));
+        append_event_store(&evidence_path, &[reveal_event]).expect("persist reveal evidence");
+        let mut rehydrated = RuntimeWorld::seeded();
+        rehydrated
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway.clone());
+        rehydrated.ensure_generated_pathway_edge(
+            &pathway,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            waypoint_id,
+        );
+        assert!(rehydrated.natural_affordances[&waypoint_id]
+            .revealed_feature
+            .is_none());
+        assert!(rehydrated.clocks[&natural.investigation_clock_id]
+            .completion
+            .is_none());
+
+        hydrate_runtime_canonical_state(&mut rehydrated, &evidence_path)
+            .expect("canonical reveal evidence hydrates");
+        let hydrated_feature = rehydrated.natural_affordances[&waypoint_id]
+            .revealed_feature
+            .as_ref()
+            .expect("canonical reveal evidence restores the feature");
+        assert_eq!(
+            hydrated_feature.resource_kind,
+            revealed_feature.resource_kind
+        );
+        assert_eq!(
+            hydrated_feature.building_archetypes,
+            revealed_feature.building_archetypes
+        );
+        assert_eq!(
+            rehydrated.clocks[&natural.investigation_clock_id].filled,
+            rehydrated.clocks[&natural.investigation_clock_id].segments
+        );
+        assert!(rehydrated.clocks[&natural.investigation_clock_id]
+            .completion
+            .is_some());
+        assert_eq!(
+            rehydrated.job_status(&rehydrated.jobs[&natural.investigation_job_id]),
+            "completed"
+        );
+        let _ = fs::remove_file(evidence_path);
     }
 
     #[test]
