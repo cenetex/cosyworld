@@ -917,6 +917,7 @@ impl RuntimeWorld {
                     text: format!("{} needs one final committed contribution.", building.name),
                 }],
                 delivery: None,
+                loot: None,
             });
         if let Some(job) = self.jobs.get_mut(&building.construction_job_id) {
             job.status = if building.status == SettlementBuildingStatus::Completed {
@@ -1008,6 +1009,7 @@ impl RuntimeWorld {
             contribution_strategies: strategies,
             narrated_thresholds: Vec::new(),
             delivery: None,
+            loot: None,
         });
         if let Some(sheet) = self.room_sheets.get_mut(&building.location_id) {
             if !sheet.projects.contains(&job_id) {
@@ -1106,6 +1108,10 @@ impl RuntimeWorld {
             contribution_strategies: strategies,
             narrated_thresholds: Vec::new(),
             delivery: None,
+            loot: production
+                .then(|| building.loot_table_id.as_deref())
+                .flatten()
+                .and_then(|table_id| loot_spec_for_table(table_id, template_id)),
         });
         if let Some(sheet) = self.room_sheets.get_mut(&building.location_id) {
             if !sheet.projects.contains(&job_id) {
@@ -1169,6 +1175,7 @@ impl RuntimeWorld {
             contribution_strategies: strategies,
             narrated_thresholds: Vec::new(),
             delivery: None,
+            loot: None,
         });
         if let Some(sheet) = self.room_sheets.get_mut(&location_id) {
             if !sheet.projects.contains(&job_id) {
@@ -1880,7 +1887,7 @@ mod tests {
         );
         runtime.reconcile_settlement_buildings(RATI_ACTOR_ID, BuildingReconcileMode::EmitEvents);
 
-        let completed = &runtime.settlement_buildings[&building.id];
+        let completed = runtime.settlement_buildings[&building.id].clone();
         assert_eq!(completed.status, SettlementBuildingStatus::Completed);
         assert_eq!(
             completed.loot_table_id.as_deref(),
@@ -1905,5 +1912,115 @@ mod tests {
                 .map(|feature| feature.resource_kind),
             Some(NaturalResourceKind::FishRichWater)
         );
+
+        let production_job = completed
+            .follow_up_job_ids
+            .iter()
+            .filter_map(|job_id| runtime.jobs.get(job_id))
+            .find(|job| job.loot.is_some())
+            .cloned()
+            .expect("fishery production quest carries authored loot");
+        assert_eq!(
+            production_job
+                .loot
+                .as_ref()
+                .map(|loot| loot.table_id.as_str()),
+            Some("cosyworld.core:loot/fishery-catch")
+        );
+        let before_completion = RuntimeSnapshot::from_runtime(&runtime);
+        let production_segments = runtime.clocks[&production_job.progress_clock_id].segments;
+        let completion_events = runtime.advance_clock(
+            &production_job.progress_clock_id,
+            production_segments,
+            RATI_ACTOR_ID,
+            "test_fishery_reward_quest",
+        );
+        let loot_events = runtime.reconcile_quest_loot(&completion_events);
+        assert_eq!(loot_events.len(), 1);
+        assert_eq!(loot_events[0].type_name, "quest.loot_allocated");
+        assert_eq!(
+            loot_events[0]
+                .content
+                .as_deref()
+                .map(|summary| summary.matches('.').count()),
+            Some(1)
+        );
+        let allocation = runtime
+            .loot_allocations
+            .values()
+            .next()
+            .cloned()
+            .expect("one durable allocation");
+        assert_eq!(allocation.item_ids.len(), 1);
+        let item_id = allocation.item_ids[0];
+        assert!(runtime.item_by_id(item_id).is_some());
+        let item_name = runtime.item_name(item_id).expect("loot item has a name");
+        let cache_name = runtime.settlement_buildings[&building.id]
+            .public_cache
+            .as_ref()
+            .expect("cache remains installed")
+            .name
+            .clone();
+        let summary = loot_events[0]
+            .content
+            .as_deref()
+            .expect("concise loot line");
+        assert!(summary.contains(&item_name));
+        assert!(summary.contains(&cache_name));
+        assert_eq!(
+            (
+                allocation.table_id.as_str(),
+                allocation.pack_id.as_str(),
+                allocation.pack_version.as_str(),
+            ),
+            (
+                "cosyworld.core:loot/fishery-catch",
+                "cosyworld.core",
+                "1.3.9",
+            )
+        );
+        assert_eq!(
+            runtime.item_provenance[&item_id].acquisition,
+            "quest.loot_allocated"
+        );
+        assert!(runtime.item_provenance[&item_id]
+            .origin
+            .contains("cosyworld.core:loot/fishery-catch@1"));
+        assert_eq!(
+            runtime.settlement_buildings[&building.id]
+                .public_cache
+                .as_ref()
+                .map(|cache| cache.item_ids.as_slice()),
+            Some(allocation.item_ids.as_slice())
+        );
+        assert!(runtime.reconcile_quest_loot(&completion_events).is_empty());
+        assert_eq!(runtime.world.item_count, item_count + 1);
+
+        let mut replay = before_completion
+            .into_runtime()
+            .expect("pre-completion snapshot restores");
+        let replay_completion_events = replay.advance_clock(
+            &production_job.progress_clock_id,
+            production_segments,
+            RATI_ACTOR_ID,
+            "test_fishery_reward_quest",
+        );
+        assert_eq!(
+            replay.reconcile_quest_loot(&replay_completion_events).len(),
+            1
+        );
+        assert_eq!(replay.loot_allocations, runtime.loot_allocations);
+        assert_eq!(
+            replay.settlement_buildings[&building.id]
+                .public_cache
+                .as_ref()
+                .map(|cache| cache.item_ids.clone()),
+            Some(allocation.item_ids.clone())
+        );
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("post-allocation snapshot restores");
+        assert_eq!(restored.loot_allocations, runtime.loot_allocations);
+        assert!(restored.item_by_id(item_id).is_some());
     }
 }

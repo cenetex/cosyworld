@@ -20,6 +20,7 @@ mod mud;
 mod natural_affordances;
 mod ownership;
 mod prompts;
+mod quest_loot;
 mod rate_limit;
 mod routes;
 mod settlement_buildings;
@@ -64,6 +65,7 @@ use natural_affordances::*;
 use ownership::*;
 use prompts::*;
 use qrcode::{render::svg, QrCode};
+use quest_loot::*;
 use rand::{rngs::OsRng, RngCore};
 use rate_limit::*;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -951,6 +953,8 @@ struct JobState {
     narrated_thresholds: Vec<JobNarratedThreshold>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     delivery: Option<DeliveryJobSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    loot: Option<JobLootSpec>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -1649,6 +1653,7 @@ struct RuntimeWorld {
     governance_decisions: BTreeMap<String, GovernanceDecisionState>,
     settlement_buildings: BTreeMap<String, SettlementBuildingState>,
     building_footprint_claims: BTreeMap<String, BuildingFootprintClaimState>,
+    loot_allocations: BTreeMap<String, LootAllocationState>,
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     journeys: BTreeMap<u64, JourneyState>,
@@ -1743,6 +1748,8 @@ struct RuntimeSnapshot {
     settlement_buildings: BTreeMap<String, SettlementBuildingState>,
     #[serde(default)]
     building_footprint_claims: BTreeMap<String, BuildingFootprintClaimState>,
+    #[serde(default)]
+    loot_allocations: BTreeMap<String, LootAllocationState>,
     #[serde(default)]
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     #[serde(default)]
@@ -6328,7 +6335,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 7,
+            version: 8,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6365,6 +6372,7 @@ impl RuntimeSnapshot {
             governance_decisions: runtime.governance_decisions.clone(),
             settlement_buildings: runtime.settlement_buildings.clone(),
             building_footprint_claims: runtime.building_footprint_claims.clone(),
+            loot_allocations: runtime.loot_allocations.clone(),
             natural_affordances: runtime.natural_affordances.clone(),
             community_art_generations: runtime.community_art_generations.clone(),
             journeys: runtime.journeys.clone(),
@@ -6570,6 +6578,7 @@ impl RuntimeSnapshot {
             governance_decisions: self.governance_decisions,
             settlement_buildings: self.settlement_buildings,
             building_footprint_claims: self.building_footprint_claims,
+            loot_allocations: self.loot_allocations,
             natural_affordances: self.natural_affordances,
             community_art_generations: self.community_art_generations,
             journeys: self.journeys,
@@ -7020,6 +7029,7 @@ impl RuntimeWorld {
             governance_decisions: BTreeMap::new(),
             settlement_buildings: BTreeMap::new(),
             building_footprint_claims: BTreeMap::new(),
+            loot_allocations: BTreeMap::new(),
             natural_affordances: BTreeMap::new(),
             community_art_generations: BTreeMap::new(),
             journeys: BTreeMap::new(),
@@ -8063,6 +8073,7 @@ impl RuntimeWorld {
                 },
             ],
             delivery: None,
+            loot: None,
         });
     }
 
@@ -10287,6 +10298,8 @@ impl RuntimeWorld {
                 action.actor_id,
                 BuildingReconcileMode::EmitEvents,
             ));
+            let loot_sources = events.clone();
+            events.extend(self.reconcile_quest_loot(&loot_sources));
             self.project_qualifying_deeds(&events);
             self.apply_resident_memory_projection(&action, &events);
             if advances_world_tick {
@@ -12664,6 +12677,13 @@ impl RuntimeWorld {
             .baseline_progress
             .saturating_add(success_progress)
             .saturating_add(prepared_bonus_progress);
+        if total_progress > 0 {
+            if let Some(job) = self.jobs.get_mut(&intent.job_id) {
+                job.participant_ids.push(action.actor_id);
+                job.participant_ids.sort_unstable();
+                job.participant_ids.dedup();
+            }
+        }
         let trace = JobContributionTrace {
             schema_version: JOB_CONTRIBUTION_SCHEMA_VERSION,
             job_id: intent.job_id.clone(),
@@ -19057,6 +19077,7 @@ impl RuntimeWorld {
                     created_world_tick: pulse.source_world_tick,
                     updated_world_tick: pulse.source_world_tick,
                 }),
+                loot: None,
             },
         );
         Some(self.append_world_history_event(
@@ -52152,7 +52173,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.3.8");
+        assert_eq!(location_reference.pack_version, "1.3.9");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");

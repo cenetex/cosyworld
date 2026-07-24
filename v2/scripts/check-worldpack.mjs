@@ -15,6 +15,7 @@ import {
 } from "./content-references.mjs";
 import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
 import { buildingArchetypeValidationErrors } from "./building-archetype-schema.mjs";
+import { lootTableValidationErrors } from "./loot-table-schema.mjs";
 import { naturalAffordanceValidationErrors } from "./natural-affordance-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -412,6 +413,20 @@ for (const pack of packs) {
       fail(error);
     }
   }
+  const lootTables = pack.extensions?.["x-cosyworld-loot-tables"];
+  if (lootTables !== undefined) {
+    for (const error of lootTableValidationErrors(
+      lootTables,
+      `pack ${pack.id} x-cosyworld-loot-tables`,
+    )) {
+      fail(error);
+    }
+    for (const table of lootTables.tables ?? []) {
+      if (!table.id.startsWith(`${pack.id}:loot/`)) {
+        fail(`pack ${pack.id} owns foreign loot table ${table.id}`);
+      }
+    }
+  }
   if (!allowedPackKinds.has(pack.kind)) {
     fail(`worldpack pack ${pack.id} has unsupported kind ${pack.kind}`);
   }
@@ -487,6 +502,29 @@ for (const pack of packs) {
       }
       if (!has(authorityIds, grant.authority_id)) fail(`pack ${pack.id} grant ${grant.id} references unknown authority`);
       entitlementGrants.set(grant.id, { ...grant, pack_id: pack.id });
+    }
+  }
+}
+
+const mountedLootTableIds = new Set();
+for (const pack of packs) {
+  for (const table of pack.extensions?.["x-cosyworld-loot-tables"]?.tables ?? []) {
+    if (mountedLootTableIds.has(table.id)) {
+      fail(`loot table ${table.id} is mounted more than once`);
+    }
+    mountedLootTableIds.add(table.id);
+  }
+}
+for (const pack of packs) {
+  for (
+    const archetype
+    of pack.extensions?.["x-cosyworld-building-archetypes"]?.archetypes ?? []
+  ) {
+    if (
+      archetype.loot_table_id !== undefined
+      && !mountedLootTableIds.has(archetype.loot_table_id)
+    ) {
+      fail(`building ${archetype.id} references missing loot table ${archetype.loot_table_id}`);
     }
   }
 }

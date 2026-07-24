@@ -118,7 +118,25 @@ describe("worldpack Manifest v1 validation", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "requires missing capability cosyworld.core/missing from cosyworld.core@1.3.8",
+      "requires missing capability cosyworld.core/missing from cosyworld.core@1.3.9",
+    );
+  });
+
+  it("rejects a building whose authored loot table is absent", () => {
+    const root = worldpackFixture();
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));
+    const core = manifest.packs.find((pack) => pack.id === "cosyworld.core");
+    const loot = core.extensions["x-cosyworld-loot-tables"];
+    loot.tables = loot.tables.filter(
+      (table) => table.id !== "cosyworld.core:loot/fishery-catch",
+    );
+    writeJson(root, "worldpack.json", manifest);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "building fishery references missing loot table cosyworld.core:loot/fishery-catch",
     );
   });
 
