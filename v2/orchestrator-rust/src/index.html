@@ -3935,7 +3935,10 @@
     }
 
     async function createAvatar(selection = null) {
-      const profile = (state?.character_creation || [])[0] || null;
+      const profile = selection?.profileId
+        ? (state?.character_creation || [])
+          .find((candidate) => candidate.id === selection.profileId) || null
+        : null;
       const choiceId = selection?.choiceId || profile?.default_choice_id || null;
       const payload = profile
         ? {
@@ -7987,7 +7990,9 @@
     }
 
     function eventIsLowSignalStatus(event) {
-      return event?.type === "world.reset" || event?.type === "advancement.spent";
+      return event?.type === "world.reset"
+        || event?.type === "advancement.spent"
+        || String(event?.type || "").startsWith("community_art.");
     }
 
     function statusUpdateHtml(event) {

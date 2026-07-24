@@ -51603,6 +51603,14 @@ mod tests {
         assert!(INDEX_HTML.contains("const storyGuideLabel"));
         assert!(INDEX_HTML.contains("✦ ${escapeHtml(storyGuideLabel)}"));
         assert!(INDEX_HTML.contains("kind: \"avatar-arrival\""));
+        assert!(INDEX_HTML.contains(
+            "const profile = selection?.profileId\n        ? (state?.character_creation || [])"
+        ));
+        assert!(INDEX_HTML
+            .contains(".find((candidate) => candidate.id === selection.profileId) || null"));
+        assert!(INDEX_HTML
+            .contains(": { calling: selection?.calling || authoredCallingChoices[0].statement };"));
+        assert!(INDEX_HTML.contains("String(event?.type || \"\").startsWith(\"community_art.\")"));
         assert!(INDEX_HTML.contains("function pendingAvatarArrivalHtml"));
         assert!(INDEX_HTML.contains("the cottage is making room"));
         assert!(INDEX_HTML.contains("your first little moment is waiting"));
