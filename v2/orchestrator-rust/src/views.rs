@@ -120,6 +120,7 @@ pub(super) struct DeckView {
     pub(super) bracelet_slots: u8,
     pub(super) equipped_charms: Vec<ItemView>,
     pub(super) available_charms: Vec<ItemView>,
+    pub(super) charm_slot_expansion: Option<CharmSlotExpansionView>,
     pub(super) spell_cards: Vec<ItemView>,
     pub(super) prepared_spell_cards: Vec<ItemView>,
     pub(super) exhausted_spell_cards: Vec<ItemView>,
@@ -131,6 +132,14 @@ pub(super) struct DeckView {
     pub(super) zone_counts: BTreeMap<String, usize>,
     pub(super) validation_errors: Vec<String>,
     pub(super) bag_previews: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct CharmSlotExpansionView {
+    pub(super) charm: ItemView,
+    pub(super) label: String,
+    pub(super) explanation: String,
+    pub(super) advancement_cost: u8,
 }
 
 #[derive(Debug, Serialize)]
