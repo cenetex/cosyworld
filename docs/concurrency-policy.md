@@ -13,12 +13,26 @@ Every operation belongs to one concurrency policy:
   explanation without a duplicate effect;
 - **scene-turn** — combat and another explicitly authored ordered procedure name the current
   participant and reject out-of-order mechanics with a causal explanation;
-- **governed-choice** — scarce communal choices use the governance contract tracked in GitHub issue
-  #164 rather than turn ownership.
+- **governed-choice** — scarce communal choices use a versioned chooser, covenant, competing-project,
+  explicit-delegation, or authored-automatic policy rather than turn ownership.
 
 Serialization of the journal remains authoritative for every policy. “Concurrent” describes what
 players may attempt without an artificial room gate; it does not permit races to bypass ownership,
 authorization, capacity, governance, or compare-and-set checks.
+
+## Governed choices
+
+`choice` shows the open alternatives, named authority or quorum, incompatibilities, consequence,
+closure treatment, permanence, and timeout behavior in one sentence. `support <project>`,
+`choose <project>`, and `delegate choice to <avatar>` commit through the canonical journal without
+taking a room-wide turn. Inference-controlled avatars may support an authored policy, but a lasting
+named choice requires explicit delegation; controller mode, legacy actor kind, title, Calling, and
+practice never create authority.
+
+Generated settlements name the earliest directly controlled credited settler as chooser, or wait
+for the first directly controlled arrival when none participated. Selection closes incompatible
+alternatives while retaining their public support history, and the founding footprint remains a
+construction opportunity rather than becoming a sanctuary automatically.
 
 ## Ordered scenes
 

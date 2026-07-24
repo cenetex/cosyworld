@@ -12,6 +12,10 @@ pub(super) struct GeneratedBuildingProposalState {
     pub(super) location_id: u64,
     pub(super) eligible_archetype_ids: Vec<String>,
     pub(super) opened_event_seq: u64,
+    #[serde(default)]
+    pub(super) governance_decision_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) selected_archetype_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -699,21 +703,33 @@ impl RuntimeWorld {
                 .building_proposal
                 .as_ref()
                 .map(|proposal| proposal.eligible_archetype_ids.clone());
-            if existing_choices.as_ref() == Some(&choices) {
-                continue;
-            }
             let opened_event_seq = state
                 .building_proposal
                 .as_ref()
                 .map(|proposal| proposal.opened_event_seq)
                 .unwrap_or(self.world.next_event_seq);
+            let governance_outcome =
+                self.sync_generated_place_governance(location_id, &choices, opened_event_seq);
+            let governance_decision_id = generated_building_governance_decision_id(location_id);
+            let selected_archetype_id = self
+                .governance_decisions
+                .get(&governance_decision_id)
+                .and_then(|decision| decision.selection.as_ref())
+                .map(|selection| selection.alternative_id.clone());
             if let Some(place) = self.generated_places.get_mut(&location_id) {
                 place.building_proposal = Some(GeneratedBuildingProposalState {
                     schema_version: GENERATED_PLACE_SCHEMA_VERSION,
                     location_id,
                     eligible_archetype_ids: choices.clone(),
                     opened_event_seq,
+                    governance_decision_id: governance_decision_id.clone(),
+                    selected_archetype_id,
                 });
+            }
+            if existing_choices.as_ref() == Some(&choices)
+                && governance_outcome == GovernanceSyncOutcome::Unchanged
+            {
+                continue;
             }
             let event_type = if existing_choices.is_some() {
                 "generated_place.building_proposal_updated"
@@ -740,6 +756,11 @@ impl RuntimeWorld {
             event.location_name = Some(name);
             event.caused_by_event_seq = caused_by_event_seq;
             self.replace_projected_event(&event);
+            if governance_outcome == GovernanceSyncOutcome::Updated {
+                if let Some(decision) = self.governance_decisions.get_mut(&governance_decision_id) {
+                    decision.updated_event_seq = Some(event.seq);
+                }
+            }
             events.push(event);
         }
         events

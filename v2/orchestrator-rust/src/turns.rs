@@ -135,6 +135,7 @@ pub(super) fn command_concurrency_policy(dispatch: &CommandDispatch) -> Concurre
         | CommandDispatch::SetSpellPrepared { .. }
         | CommandDispatch::SetItemEquipped { .. }
         | CommandDispatch::SetItemContained { .. } => ConcurrencyPolicy::TargetSerialized,
+        CommandDispatch::Governance { .. } => ConcurrencyPolicy::GovernedChoice,
         _ => ConcurrencyPolicy::Concurrent,
     }
 }
@@ -304,7 +305,10 @@ pub(super) fn actor_action_turn_rejection(
 }
 
 pub(super) fn command_dispatch_consumes_room_turn(dispatch: &CommandDispatch) -> bool {
-    if command_concurrency_policy(dispatch) == ConcurrencyPolicy::SceneTurn {
+    if matches!(
+        command_concurrency_policy(dispatch),
+        ConcurrencyPolicy::SceneTurn | ConcurrencyPolicy::GovernedChoice
+    ) {
         return false;
     }
     !matches!(
