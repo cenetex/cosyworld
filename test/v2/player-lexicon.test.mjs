@@ -16,7 +16,7 @@ describe("player-facing action, keepsake, pass, bundle, and world-pack lexicon",
       {
         task: "make the avatar do something now",
         concept: 'data-player-concept="action"',
-        cue: "Choose an action below. Someone here will answer.",
+        cue: "Chat with someone here or explore the room.",
         analytics: 'data-analytics-event="action.select"',
       },
       {

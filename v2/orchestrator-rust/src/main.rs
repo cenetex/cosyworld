@@ -50437,8 +50437,14 @@ mod tests {
     #[test]
     fn browser_index_contract_stays_chat_mud_shell() {
         assert!(INDEX_HTML.contains("role=\"log\""));
-        assert!(INDEX_HTML.contains("Status updates"));
         assert!(INDEX_HTML.contains("Shared room chat"));
+        assert!(INDEX_HTML.contains("id=\"journal-view\" aria-label=\"Journal\" hidden"));
+        assert!(INDEX_HTML.contains("aria-expanded=\"false\" aria-controls=\"journal-view\""));
+        assert!(INDEX_HTML.contains("function setJournalOpen"));
+        assert!(INDEX_HTML.contains("terminal?.classList.toggle(\"journal-open\", open)"));
+        assert!(INDEX_HTML.contains("function journalRowHtml"));
+        assert!(INDEX_HTML.contains("white-space: nowrap;"));
+        assert!(!INDEX_HTML.contains("Why this matters"));
         assert!(INDEX_HTML.contains("eventIsStatusUpdate"));
         assert!(INDEX_HTML.contains("footer class=\"prompt\""));
         assert!(INDEX_HTML.contains("id=\"primary\""));
@@ -50479,10 +50485,10 @@ mod tests {
         assert!(INDEX_HTML.contains("return_change_seen"));
         assert!(INDEX_HTML.contains("comprehension_confirmed"));
         assert!(INDEX_HTML.contains("data-question-comprehension"));
-        assert!(INDEX_HTML.contains("What is happening, who acted, what changed"));
-        assert!(INDEX_HTML.contains("What we know"));
-        assert!(INDEX_HTML.contains("What we are learning"));
-        assert!(INDEX_HTML.contains("What this could support"));
+        assert!(
+            INDEX_HTML.contains("finishing could ${lowerInitial(journalClause(question.outcome))}")
+        );
+        assert!(INDEX_HTML.contains("help by ${helpers.join(\", \")}"));
         assert!(INDEX_HTML.contains("function causalJobContributionEvent"));
         assert!(INDEX_HTML.contains("function jobContributionDescendants"));
         assert!(INDEX_HTML.contains("function physicalDeliveryEventFor"));
@@ -50538,8 +50544,7 @@ mod tests {
         assert!(INDEX_HTML.contains("A path to ${destination} is waiting"));
         assert!(INDEX_HTML.contains("is still waiting to be found"));
         assert!(INDEX_HTML.contains("room thread"));
-        assert!(INDEX_HTML.contains("your first tale"));
-        assert!(INDEX_HTML.contains("Your first tale. Next:"));
+        assert!(INDEX_HTML.contains("Your first tale continues when you"));
         assert!(!INDEX_HTML.contains("chapter ${firstThread.stage} of ${firstThread.total}"));
         assert!(INDEX_HTML.contains("const tale = view.first_tale;"));
         assert!(INDEX_HTML.contains("rain-soft-garden.trustworthy-path"));
@@ -50556,7 +50561,10 @@ mod tests {
             "log.innerHTML = `${visibleEvents.map(transcriptEventHtml).join(\"\")}${pendingConversation}${pendingChatReplies}`;"
         ));
         assert!(INDEX_HTML.contains("return event?.type === \"message.created\""));
-        assert!(INDEX_HTML.contains("|| event?.type === \"chat.failed\""));
+        assert!(INDEX_HTML.contains("function renderJournalLog"));
+        assert!(
+            INDEX_HTML.contains("narratedTranscriptEvents(logEvents.filter(eventIsJournalEvent))")
+        );
         assert!(INDEX_HTML.contains("function transcriptEventHtml"));
         assert!(!INDEX_HTML.contains("function openingRoomLineHtml"));
         assert!(!INDEX_HTML.contains("visibleEvents.map(timelineEventHtml)"));
@@ -50585,9 +50593,8 @@ mod tests {
         assert!(INDEX_HTML.contains("if (result?.ok === false) cancelPendingChat"));
         assert!(INDEX_HTML.contains("state?.first_tale?.phase"));
         assert!(INDEX_HTML.contains("function quietRoomSceneHtml"));
-        assert!(INDEX_HTML.contains("the room is listening"));
-        assert!(INDEX_HTML.contains("a new tale is waiting"));
-        assert!(INDEX_HTML.contains("Choose an action below. Someone here will answer."));
+        assert!(INDEX_HTML.contains("Chat with someone here or explore the room."));
+        assert!(INDEX_HTML.contains("discover the room through play"));
         assert!(INDEX_HTML.contains("options.has(\"check\") || listenKnownUnattempted"));
         assert!(INDEX_HTML.contains("data-story-guide"));
         assert!(INDEX_HTML.contains("const storyGuideLabel"));
@@ -50602,7 +50609,7 @@ mod tests {
         assert!(INDEX_HTML.contains("local tale"));
         assert!(!INDEX_HTML.contains(": \"nothing yet\""));
         assert!(!INDEX_HTML.contains(": \"no one yet\""));
-        assert!(INDEX_HTML.contains("your first tale is yours"));
+        assert!(INDEX_HTML.contains("Your first tale is yours"));
         assert!(INDEX_HTML.contains("firstTaleCelebration"));
         assert!(INDEX_HTML.contains("function dealtStoryGuide"));
         assert!(!INDEX_HTML.contains("storyGuideActionKeys"));
@@ -50739,9 +50746,8 @@ mod tests {
         assert!(INDEX_HTML.contains("world.logistics.completed"));
         assert!(INDEX_HTML.contains("world.faction.influence_shifted"));
         assert!(INDEX_HTML.contains("world.conflict.escalated"));
-        assert!(INDEX_HTML.contains(
-            "worldTranscriptEventTypes.has(event?.type) && eventMatchesCurrentLocation(event)"
-        ));
+        assert!(INDEX_HTML.contains("function eventIsJournalEvent"));
+        assert!(INDEX_HTML.contains("&& !eventMatchesCurrentLocation(event)"));
         assert!(INDEX_HTML.contains("function sceneCardEventHtml"));
         assert!(INDEX_HTML.contains("Story beat. ${text}"));
         assert!(INDEX_HTML.contains("makes room for ${actor}"));

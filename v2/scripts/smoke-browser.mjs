@@ -563,14 +563,17 @@ async function main() {
   async function assertFirstThreadGuide() {
     const guide = await page.evaluate(() => {
       const node = document.querySelector("#updates");
-      const visible = Boolean(node && !node.hidden && getComputedStyle(node).display !== "none");
-      const firstThread = node?.querySelector(".update-pill.first-thread");
-      const firstThreadText = node?.querySelector(".update-pill.first-thread .update-text");
+      const journal = document.querySelector("#journal-view");
+      const visible = Boolean(node && !node.hidden);
+      const firstThread = node?.querySelector(".journal-row.first-thread");
+      const firstThreadText = firstThread?.querySelector(".journal-row-summary");
       const result = {
         visible,
+        roomClean: Boolean(journal?.hidden && node?.getClientRects().length === 0),
         text: node?.textContent?.trim().replace(/\s+/g, " ") || "",
         aria: firstThread?.getAttribute("aria-label") || "",
-        cue: firstThread?.querySelector(".update-label")?.textContent?.trim() || "",
+        detail: firstThread?.querySelector(".journal-row-detail p")?.textContent?.trim() || "",
+        cue: firstThread?.querySelector(".journal-row-label")?.textContent?.trim() || "",
         layout: firstThreadText ? {
           whiteSpace: getComputedStyle(firstThreadText).whiteSpace,
           overflow: getComputedStyle(firstThreadText).overflow,
@@ -769,15 +772,16 @@ async function main() {
         result.completionBeat = {
           visible: !node.hidden,
           text: node.textContent.trim().replace(/\s+/g, " "),
-          aria: node.querySelector(".update-pill")?.getAttribute("aria-label") || "",
+          aria: node.querySelector(".journal-row")?.getAttribute("aria-label") || "",
+          detail: node.querySelector(".journal-row-detail p")?.textContent?.trim() || "",
         };
         result.completionText = firstTaleCompletionText();
         firstTaleCelebration = false;
         renderStatusUpdates();
-        result.completionRepeats = Boolean(node.querySelector(".update-pill.first-thread.complete"));
+        result.completionRepeats = Boolean(node.querySelector(".journal-row.first-thread.complete"));
         result.roomThreadSurfaceAfterCompletion = {
           visible: !node.hidden,
-          storyThread: Boolean(node.querySelector(".update-pill.story-thread")),
+          storyThread: Boolean(node.querySelector(".journal-row.story-thread")),
         };
         const travelAction = actions[0];
         state.action_hand = {
@@ -827,12 +831,11 @@ async function main() {
       }
       return result;
     });
-    assert(guide.visible, `new avatar should see a first-thread guide: ${JSON.stringify(guide)}`);
-    assert(/your first tale/i.test(guide.text), `first-tale guide should name the arc warmly: ${JSON.stringify(guide)}`);
-    assert(guide.cue === "next" && /your first tale\. next:/i.test(guide.aria), `fresh first-thread guide should offer one plain next beat: ${JSON.stringify(guide)}`);
+    assert(guide.visible && guide.roomClean, `new-avatar guidance should exist inside the closed Journal without occupying chat: ${JSON.stringify(guide)}`);
+    assert(guide.cue === "next" && /notice what the rain has changed/i.test(guide.aria), `fresh first-thread guidance should be one compact next beat: ${JSON.stringify(guide)}`);
     assert(!/[●○]|chapter\s+\d+\s+of\s+\d+/i.test(`${guide.text} ${guide.aria}`), `first-tale guidance should feel like a story, not a progress meter: ${JSON.stringify(guide)}`);
     assert(/notice what the rain has changed/i.test(guide.text), `fresh first-tale guide should explain the first world question simply: ${JSON.stringify(guide)}`);
-    assert(guide.layout?.whiteSpace !== "nowrap" && guide.layout?.overflow !== "hidden" && guide.layout?.clipped === false, `mobile first-tale guidance should wrap instead of ellipsizing its instruction: ${JSON.stringify(guide)}`);
+    assert(guide.layout?.whiteSpace === "nowrap" && guide.layout?.overflow === "hidden", `collapsed Journal guidance should stay on one line: ${JSON.stringify(guide)}`);
     assert(guide.primary.toLowerCase().startsWith("notice"), `first-thread guidance should keep Notice in the dealt hand: ${JSON.stringify(guide)}`);
     assert(guide.storyGuide === "next tale beat", `the projected first-tale card should explain its guide marker: ${JSON.stringify(guide)}`);
     assert(
@@ -851,7 +854,7 @@ async function main() {
     assert(guide.chatBeforeListenStep?.stage === 1 && /first useful lead is guaranteed/i.test(guide.chatBeforeListenStep?.text || ""), `a chat memory must not pretend the first lead was found: ${JSON.stringify(guide)}`);
     assert(guide.missedListenWithOtherAdvancementStep?.stage === 1 && /notice what the rain has changed/i.test(guide.missedListenWithOtherAdvancementStep?.text || ""), `unrelated advancement must not skip a missed first lead: ${JSON.stringify(guide)}`);
     assert(guide.completionBeat?.visible && /your first tale is yours/i.test(guide.completionBeat?.text || ""), `finishing the opening should earn a visible celebration: ${JSON.stringify(guide)}`);
-    assert(/helped uncover the first stones/i.test(guide.completionBeat?.aria || ""), `the ending should recap the durable shared-world consequence: ${JSON.stringify(guide)}`);
+    assert(/helped uncover the first stones/i.test(guide.completionBeat?.detail || ""), `the ending should recap the durable shared-world consequence in one expanded sentence: ${JSON.stringify(guide)}`);
     assert(guide.completionText === "You noticed the washed path, helped uncover the first stones, and left the next visitor a clearer way.", `the first-tale ending should be server-authored consequence memory: ${JSON.stringify(guide)}`);
     assert(guide.completionRepeats === true, `the first-tale memory should survive rerender and reconnect: ${JSON.stringify(guide)}`);
     assert(guide.travelThread?.text === "A path to Rain-Soft Garden is waiting." && guide.travelThread?.actionKey === "exit:2", `an open route should become a grounded clickable room thread: ${JSON.stringify(guide)}`);
@@ -892,24 +895,16 @@ async function main() {
   async function waitForTimelineText(needle) {
     await page.waitForFunction((text) => {
       const chat = document.querySelector("#log")?.textContent || "";
-      const updates = document.querySelector("#updates")?.textContent || "";
-      const room = [
-        document.querySelector("#room-log-latest")?.textContent || "",
-        document.querySelector("#room-memory")?.textContent || "",
-      ].join("\n");
-      return `${chat}\n${updates}\n${room}`.includes(text);
+      const journal = document.querySelector("#journal-view")?.textContent || "";
+      return `${chat}\n${journal}`.includes(text);
     }, needle);
   }
 
   async function waitForTimelineAll(needles) {
     await page.waitForFunction((expected) => {
       const chat = document.querySelector("#log")?.textContent || "";
-      const updates = document.querySelector("#updates")?.textContent || "";
-      const room = [
-        document.querySelector("#room-log-latest")?.textContent || "",
-        document.querySelector("#room-memory")?.textContent || "",
-      ].join("\n");
-      const text = `${chat}\n${updates}\n${room}`;
+      const journal = document.querySelector("#journal-view")?.textContent || "";
+      const text = `${chat}\n${journal}`;
       return expected.every((needle) => text.includes(needle));
     }, needles);
   }
@@ -917,12 +912,8 @@ async function main() {
   async function waitForTimelineAny(needles) {
     await page.waitForFunction((expected) => {
       const chat = document.querySelector("#log")?.textContent || "";
-      const updates = document.querySelector("#updates")?.textContent || "";
-      const room = [
-        document.querySelector("#room-log-latest")?.textContent || "",
-        document.querySelector("#room-memory")?.textContent || "",
-      ].join("\n");
-      const text = `${chat}\n${updates}\n${room}`;
+      const journal = document.querySelector("#journal-view")?.textContent || "";
+      const text = `${chat}\n${journal}`;
       return expected.some((needle) => text.includes(needle));
     }, needles);
   }
@@ -4429,6 +4420,7 @@ async function main() {
         seenSeq: [...seenSeq],
         accountPanelPinned,
         libraryPanelPinned,
+        journalOpen,
         actorId,
         actorSession,
         state,
@@ -4442,6 +4434,7 @@ async function main() {
       try {
         accountPanelPinned = false;
         libraryPanelPinned = false;
+        journalOpen = false;
         actorId = Number(actorId || 5000);
         actorSession = actorSession || "browser-smoke-session";
         state = {
@@ -4478,14 +4471,20 @@ async function main() {
         logEvents = [authored];
         seenSeq.clear();
         seenSeq.add(authored.seq);
-        renderLog();
+        renderTimelines();
+        await waitForFrames();
+        await new Promise((resolve) => window.setTimeout(resolve, 25));
+        const callsWhileJournalClosed = calls.length;
+
+        journalOpen = true;
+        renderTimelines();
         await waitForFrames();
         await new Promise((resolve) => window.setTimeout(resolve, 25));
         const row = document.querySelector(`[data-world-beat-exposure="world-beat:v1:${authored.seq}"]`);
         const visibleAuthoredText = row?.textContent?.trim().replace(/\s+/g, " ") || "";
 
-        renderLog();
-        renderLog();
+        renderJournalLog();
+        renderJournalLog();
         await waitForFrames();
         await new Promise((resolve) => window.setTimeout(resolve, 25));
         const callsAfterRepeatedRender = calls.length;
@@ -4503,19 +4502,20 @@ async function main() {
           location_id: 1,
           content: "raw uncovered state",
         }];
-        renderLog();
+        renderTimelines();
         await waitForFrames();
         await new Promise((resolve) => window.setTimeout(resolve, 25));
         const callsAfterSuppressedEvents = calls.length;
 
         accountPanelPinned = true;
         logEvents = [{ ...authored, seq: 990500004 }];
-        renderLog();
+        renderTimelines();
         await waitForFrames();
         await new Promise((resolve) => window.setTimeout(resolve, 25));
         const callsWhileMenuHidden = calls.length;
         return {
           calls,
+          callsWhileJournalClosed,
           callsAfterRepeatedRender,
           callsAfterSuppressedEvents,
           callsWhileMenuHidden,
@@ -4529,6 +4529,7 @@ async function main() {
         for (const seq of previous.seenSeq) seenSeq.add(seq);
         accountPanelPinned = previous.accountPanelPinned;
         libraryPanelPinned = previous.libraryPanelPinned;
+        journalOpen = previous.journalOpen;
         actorId = previous.actorId;
         actorSession = previous.actorSession;
         state = previous.state;
@@ -4537,6 +4538,7 @@ async function main() {
         renderTimelines();
       }
     });
+    assert(result.callsWhileJournalClosed === 0, `a world beat hidden behind the closed Journal must not count as seen: ${JSON.stringify(result)}`);
     assert(result.calls.length === 1, `one visible world beat should send one receipt: ${JSON.stringify(result)}`);
     assert(result.callsAfterRepeatedRender === 1, `repeat renders and reconnect-style rebuilds should remain idempotent: ${JSON.stringify(result)}`);
     assert(result.callsAfterSuppressedEvents === 1, `raw or suppressed world events must not send exposure receipts: ${JSON.stringify(result)}`);
@@ -4824,6 +4826,14 @@ async function main() {
           eventMarks: [...document.querySelectorAll("#log .line.event:not(.room) .event-label")]
             .map((node) => node.textContent.trim()),
           eventCount: document.querySelectorAll("#log .line.event:not(.room)").length,
+          journalHidden: document.querySelector("#journal-view")?.hidden === true,
+          journalRows: [...document.querySelectorAll("#journal-log .journal-row")]
+            .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
+          journalSummariesOneLine: [...document.querySelectorAll("#journal-log .journal-row > summary")]
+            .every((node) => {
+              const style = getComputedStyle(node.querySelector(".journal-row-summary"));
+              return style.whiteSpace === "nowrap" && style.overflow === "hidden";
+            }),
           roomLatest: document.querySelector("#room-log-latest")?.textContent?.trim().replace(/\s+/g, " ") || "",
           preferredPlayerBeat: preferredRoomLogEntry([
             {
@@ -4930,6 +4940,13 @@ async function main() {
     assert(!result.updatesText.includes("Alpine Forest -> Summit Trail"), `mechanical events should not enter the first-thread strip: ${JSON.stringify(result)}`);
     assert(!result.updatesText.includes("Lorecraft skill step"), `skill events should not enter the first-thread strip: ${JSON.stringify(result)}`);
     assert(result.eventCount === 0 && result.roomRows === 0, `world events should stay out of group chat entirely: ${JSON.stringify(result)}`);
+    assert(
+      result.journalHidden
+        && result.journalSummariesOneLine
+        && result.journalRows.some((row) => /Lorecraft|lorecraft/i.test(row))
+        && result.journalRows.some((row) => /Homeroom|search/i.test(row)),
+      `system and discovery history should remain available as compact rows in the closed Journal: ${JSON.stringify(result)}`,
+    );
     assert(/A path to Homeroom opened/i.test(result.roomLatest), `the room headline should follow the card's discovery instead of stale bookkeeping: ${JSON.stringify(result)}`);
     assert(result.preferredPlayerBeat === "Thimble Guest listened; the room answered", `the collapsed log should keep the player's card beat above derived memories and resident ripples: ${JSON.stringify(result)}`);
     assert(result.preferredReportBeat === "Report submitted for Gust.", `direct safety confirmations should still become the collapsed room headline: ${JSON.stringify(result)}`);
@@ -5925,16 +5942,17 @@ async function main() {
     const current = await fetchCurrentState();
     if (current.first_tale?.phase === "complete") {
       const completion = await page.locator("#updates").evaluate((node) => ({
-        visible: !node.hidden,
+        rendered: !node.hidden,
+        roomClean: document.querySelector("#journal-view")?.hidden === true,
         text: node.textContent.trim().replace(/\s+/g, " "),
-        aria: node.querySelector(".update-pill")?.getAttribute("aria-label") || "",
+        detail: node.querySelector(".journal-row-detail p")?.textContent?.trim() || "",
       }));
       assert(
-        completion.visible && /your first tale is yours/i.test(completion.text),
-        `the opening should end with a warm completion beat: ${JSON.stringify(completion)}`,
+        completion.rendered && completion.roomClean && /your first tale is yours/i.test(completion.text),
+        `the opening should end with a warm completion beat inside the closed Journal: ${JSON.stringify(completion)}`,
       );
       assert(
-        /left the next visitor a clearer way/i.test(completion.aria),
+        /left the next visitor a clearer way/i.test(completion.detail),
         `the completion beat should recap the durable shared-world consequence: ${JSON.stringify(completion)}`,
       );
     } else if (Number(current.ledger?.learned_truth_count || 0) > 0) {
@@ -6790,7 +6808,11 @@ async function main() {
       look = await submitLook();
     }
     assert(look.ok === true, `look command palette request should succeed: ${JSON.stringify(look)}`);
-    await waitForTimelineAll(["The Cosy Cottage", "Ways onward:"]);
+    assert(
+      look.output.includes("The Cosy Cottage") && look.output.includes("Ways onward:"),
+      `look command should keep its complete machine-readable response: ${JSON.stringify(look)}`,
+    );
+    await waitForTimelineText("The Cosy Cottage");
     await openCommandPaletteShortcut();
     await page.keyboard.press("ArrowUp");
     assert(await page.locator("#command-input").inputValue() === "look", "command palette should recall the previous command");
@@ -7117,7 +7139,7 @@ async function main() {
     const overflow = await page.evaluate(() => {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
-      const selector = ".shell,.topbar,.terminal,.room,.room-log-toggle,.room-memory,.memory-entry,.room-avatar-pfp,.chat-pfp,.updates,.update-pill,.log,.line,.speaker,.text,.status,.prompt,.cmd,.thumb,.location-pill";
+      const selector = ".shell,.topbar,.terminal,.room,.room-log-toggle,.journal-view,.journal-heading,.journal-stream,.journal-row,.journal-row-summary,.room-memory,.room-avatar-pfp,.chat-pfp,.updates,.log,.line,.speaker,.text,.status,.prompt,.cmd,.thumb,.location-pill";
       return [...document.querySelectorAll(selector)]
         .filter((node) => {
           const style = getComputedStyle(node);
@@ -7128,7 +7150,7 @@ async function main() {
           const rect = node.getBoundingClientRect();
           return {
             selector: node.id ? `#${node.id}` : node.className || node.tagName,
-            inScrollableLog: Boolean(node.closest("#log")),
+            inScrollableLog: Boolean(node.closest("#log, .journal-stream")),
             left: rect.left,
             right: rect.right,
             top: rect.top,
@@ -7318,8 +7340,9 @@ async function main() {
     assert(layout.status.bottom <= layout.prompt.top + 0.5, `${label}: status should end before prompt begins: ${JSON.stringify(layout)}`);
   }
 
-  async function assertRoomMemoryContextPanel(label) {
-    const collapsed = await page.evaluate(() => {
+  async function assertJournalModeContract(label) {
+    await page.evaluate(() => setJournalOpen(false));
+    const room = await page.evaluate(() => {
       const visible = (node) => {
         if (!node) return false;
         const style = getComputedStyle(node);
@@ -7329,54 +7352,119 @@ async function main() {
       return {
         latest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
         expanded: document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") || "",
+        journalVisible: visible(document.querySelector("#journal-view")),
+        heroVisible: visible(document.querySelector("#room-hero")),
         memoryVisible: visible(document.querySelector("#room-memory")),
+        questionsVisible: visible(document.querySelector("#shared-questions")),
+        updatesVisible: visible(document.querySelector("#updates")),
         transcriptVisible: visible(document.querySelector("#log")),
+        promptVisible: visible(document.querySelector("footer.prompt")),
         chatRows: document.querySelectorAll("#log .line.chat").length,
         roomRows: document.querySelectorAll("#log .line.event.room").length,
         sceneRows: document.querySelectorAll("#log .line.event.scene-card, #log .roll-line").length,
-        quietScene: document.querySelectorAll("#log .room-scene").length,
+        quietScene: document.querySelectorAll("#log .chat-empty").length,
         unexpectedRows: document.querySelectorAll("#log .line:not(.chat):not(.event.room):not(.scene-card)").length,
+        stateSignature: JSON.stringify({
+          sharedQuestions: state?.shared_questions,
+          roomMemory: state?.room_memory,
+          stateRevision: state?.state_revision,
+        }),
       };
     });
-    assert(collapsed.latest.length > 8, `${label}: collapsed room log should show the latest entry: ${JSON.stringify(collapsed)}`);
-    assert(collapsed.expanded === "false", `${label}: room memory should start collapsed: ${JSON.stringify(collapsed)}`);
-    assert(!collapsed.memoryVisible, `${label}: memory panel should be hidden while collapsed: ${JSON.stringify(collapsed)}`);
-    assert(collapsed.unexpectedRows === 0, `${label}: normal feed should keep bookkeeping rows out of the scene: ${JSON.stringify(collapsed)}`);
+    assert(room.latest.length > 8, `${label}: Journal should retain the latest room context: ${JSON.stringify(room)}`);
+    assert(room.expanded === "false" && !room.journalVisible, `${label}: Journal should start closed: ${JSON.stringify(room)}`);
+    assert(!room.memoryVisible && !room.questionsVisible && !room.updatesVisible, `${label}: status and story panels must not occupy the room: ${JSON.stringify(room)}`);
+    assert(room.heroVisible && room.transcriptVisible && room.promptVisible, `${label}: room mode should show location, chat, and actions: ${JSON.stringify(room)}`);
+    assert(room.unexpectedRows === 0 && room.roomRows === 0 && room.sceneRows === 0, `${label}: normal chat should keep system chrome out of the transcript: ${JSON.stringify(room)}`);
     assert(
-      !collapsed.transcriptVisible
-        || collapsed.chatRows > 0
-        || collapsed.sceneRows > 0
-        || collapsed.quietScene === 1,
-      `${label}: a visible transcript should show speech, an authored scene beat, or its quiet empty state: ${JSON.stringify(collapsed)}`,
+      room.chatRows > 0 || room.quietScene === 1,
+      `${label}: the room should show speech or a single quiet chat invitation: ${JSON.stringify(room)}`,
     );
 
     await page.locator("#room-log-toggle").click();
-    const expanded = await page.evaluate(() => {
-      const entries = [...document.querySelectorAll("#room-memory .memory-entry")]
-        .map((node) => node.textContent.trim().replace(/\s+/g, " "));
-      const summary = document.querySelector("#room-memory .memory-summary")?.textContent?.trim().replace(/\s+/g, " ") || "";
-      const rectFor = (selector) => {
-        const node = document.querySelector(selector);
-        if (!node) return null;
-        const rect = node.getBoundingClientRect();
-        return { top: rect.top, bottom: rect.bottom, height: rect.height };
-      };
+    await page.waitForFunction(() => (
+      document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") === "true"
+      && document.querySelector("#journal-view")?.hidden === false
+    ));
+    const journal = await page.evaluate((stateSignature) => {
+      const visible = (node) => Boolean(
+        node
+        && getComputedStyle(node).display !== "none"
+        && getComputedStyle(node).visibility !== "hidden"
+        && node.getClientRects().length
+      );
+      const rows = [...document.querySelectorAll("#journal-view .journal-row")];
+      const summaries = rows.map((row) => row.querySelector(".journal-row-summary")).filter(Boolean);
+      const detailNodes = rows.map((row) => row.querySelector(".journal-row-detail p")).filter(Boolean);
+      const terminalRect = document.querySelector(".terminal")?.getBoundingClientRect();
+      const journalRect = document.querySelector("#journal-view")?.getBoundingClientRect();
       return {
         expanded: document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") || "",
-        summary,
-        entries,
-        memory: rectFor("#room-memory"),
-        prompt: rectFor("footer.prompt"),
+        journalVisible: visible(document.querySelector("#journal-view")),
+        heroVisible: visible(document.querySelector("#room-hero")),
+        transcriptVisible: visible(document.querySelector("#log")),
+        promptVisible: visible(document.querySelector("footer.prompt")),
+        role: document.querySelector("#journal-log")?.getAttribute("role") || "",
+        rowCount: rows.length,
+        allCollapsed: rows.every((row) => !row.open),
+        rowsCompact: rows.every((row) => row.getBoundingClientRect().height <= 42),
+        summariesOneLine: summaries.every((node) => {
+          const style = getComputedStyle(node);
+          return style.whiteSpace === "nowrap"
+            && style.overflow === "hidden"
+            && node.scrollHeight <= Math.ceil(Number.parseFloat(style.lineHeight) * 1.5);
+        }),
+        detailsHidden: detailNodes.every((node) => !visible(node)),
+        noDashboardCopy: !/why this matters|what we know/i.test(document.querySelector("#journal-view")?.textContent || ""),
+        insideTerminal: Boolean(
+          terminalRect
+          && journalRect
+          && journalRect.top >= terminalRect.top - 1
+          && journalRect.bottom <= terminalRect.bottom + 1
+        ),
+        stateUnchanged: stateSignature === JSON.stringify({
+          sharedQuestions: state?.shared_questions,
+          roomMemory: state?.room_memory,
+          stateRevision: state?.state_revision,
+        }),
+      };
+    }, room.stateSignature);
+    assert(journal.expanded === "true" && journal.journalVisible, `${label}: Journal should open from beside the location name: ${JSON.stringify(journal)}`);
+    assert(!journal.heroVisible && !journal.transcriptVisible && !journal.promptVisible, `${label}: Journal should take over the location/chat/action region: ${JSON.stringify(journal)}`);
+    assert(journal.role === "log" && journal.rowCount >= 2, `${label}: Journal should expose current context and chronological history: ${JSON.stringify(journal)}`);
+    assert(journal.allCollapsed && journal.rowsCompact && journal.summariesOneLine && journal.detailsHidden, `${label}: Journal rows should begin as true one-line summaries: ${JSON.stringify(journal)}`);
+    assert(journal.noDashboardCopy && journal.insideTerminal && journal.stateUnchanged, `${label}: Journal should stay minimalist without changing inference-facing state: ${JSON.stringify(journal)}`);
+
+    const rowCount = await page.locator("#journal-view .journal-row > summary").count();
+    assert(rowCount >= 1, `${label}: Journal should have an expandable row`);
+    await page.locator("#journal-view .journal-row > summary").first().click();
+    const expandedRow = await page.evaluate(() => {
+      const open = document.querySelector("#journal-view .journal-row[open]");
+      const detail = open?.querySelector(".journal-row-detail p")?.textContent?.trim() || "";
+      const endings = detail.match(/[.!?…]+(?:["')\]]+)?(?:\s|$)/g) || [];
+      const sentenceCount = detail ? Math.max(1, endings.length) : 0;
+      return {
+        detail,
+        sentenceCount,
+        openCount: document.querySelectorAll("#journal-view .journal-row[open]").length,
       };
     });
-    assert(expanded.expanded === "true", `${label}: room memory should expand from the location bar: ${JSON.stringify(expanded)}`);
-    assert(expanded.summary.includes("shared memory") || expanded.summary.length > 24, `${label}: expanded memory should include a shared summary: ${JSON.stringify(expanded)}`);
-    assert(expanded.entries.length >= 1 && expanded.entries.length <= 8, `${label}: expanded memory should show a small recent tail: ${JSON.stringify(expanded)}`);
-    assert(new Set(expanded.entries.map((entry) => entry.toLowerCase())).size === expanded.entries.length, `${label}: expanded memory should not repeat identical entries: ${JSON.stringify(expanded)}`);
-    assert(!expanded.entries.some((entry) => /[.!?]{2,}/.test(entry)), `${label}: expanded memory should use clean sentence endings: ${JSON.stringify(expanded)}`);
-    assert(!expanded.entries.some((entry) => /^ledger\b/i.test(entry)), `${label}: expanded memory should say memory rather than ledger: ${JSON.stringify(expanded)}`);
-    assert(expanded.memory && expanded.prompt && expanded.memory.bottom <= expanded.prompt.top + 0.5, `${label}: memory panel should not overlap actions: ${JSON.stringify(expanded)}`);
+    assert(expandedRow.openCount === 1 && expandedRow.detail && expandedRow.sentenceCount === 1, `${label}: expanding a row should reveal exactly one sentence: ${JSON.stringify(expandedRow)}`);
+
     await page.locator("#room-log-toggle").click();
+    await page.waitForFunction(() => (
+      document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") === "false"
+      && document.querySelector("#journal-view")?.hidden === true
+    ));
+    const restored = await page.evaluate(() => {
+      const visible = (node) => Boolean(node && getComputedStyle(node).display !== "none" && node.getClientRects().length);
+      return {
+        hero: visible(document.querySelector("#room-hero")),
+        chat: visible(document.querySelector("#log")),
+        prompt: visible(document.querySelector("footer.prompt")),
+      };
+    });
+    assert(restored.hero && restored.chat && restored.prompt, `${label}: closing Journal should restore the chatroom intact: ${JSON.stringify(restored)}`);
   }
 
   async function assertMudShellVisualContract(label) {
@@ -7454,6 +7542,7 @@ async function main() {
         handThumbCount: document.querySelectorAll("footer.prompt .thumb").length,
         roomLogVisible: visible(roomLogToggle),
         roomLogLatest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
+        journalVisible: visible(document.querySelector("#journal-view")),
         memoryVisible: visible(document.querySelector("#room-memory")),
         transcriptVisible: visible(transcript),
         buttons,
@@ -7477,17 +7566,17 @@ async function main() {
     assert(
       shell.roomLineCount === 0
         && shell.rollLineCount === 0
-        && shell.sceneLineCount === shell.chatFailureSceneCount
-        && shell.chatFailureSceneCount <= 1
-        && shell.lineCount === shell.chatLineCount + shell.chatFailureSceneCount,
-      `${label}: group chat should contain speech plus at most one explicit Chat failure/refund notice: ${JSON.stringify(shell)}`,
+        && shell.sceneLineCount === 0
+        && shell.chatFailureSceneCount === 0
+        && shell.lineCount === shell.chatLineCount,
+      `${label}: group chat should contain speech and no system rows: ${JSON.stringify(shell)}`,
     );
     assert(shell.unexpectedLineCount === 0, `${label}: normal feed should not show bookkeeping rows: ${JSON.stringify(shell)}`);
     assert(shell.legacyListChromeCount === 0, `${label}: inline item/location/avatar lists should be absent: ${JSON.stringify(shell)}`);
     assert(shell.avatarRailCount > 0, `${label}: room hero should still show avatar card art: ${JSON.stringify(shell)}`);
     assert(shell.handThumbCount > 0, `${label}: action hand should still show card thumbnails: ${JSON.stringify(shell)}`);
-    assert(shell.roomLogVisible && shell.roomLogLatest.length > 8, `${label}: room header should show latest log context: ${JSON.stringify(shell)}`);
-    assert(!shell.memoryVisible, `${label}: normal shell should keep expanded memory collapsed: ${JSON.stringify(shell)}`);
+    assert(shell.roomLogVisible && shell.roomLogLatest.length > 8, `${label}: room header should expose a Journal button while retaining its state: ${JSON.stringify(shell)}`);
+    assert(!shell.journalVisible && !shell.memoryVisible, `${label}: normal shell should keep Journal content out of chat: ${JSON.stringify(shell)}`);
     assert(shell.roomCollapsed, `${label}: room header should default to collapsed: ${JSON.stringify(shell)}`);
     assert(!shell.avatarSubtitleVisible && !shell.roomCopyVisible, `${label}: collapsed room should hide subtitle and prose: ${JSON.stringify(shell)}`);
     const actionButtons = shell.buttons.filter((button) => !/^more\b/i.test(button.ariaLabel || ""));
@@ -8280,29 +8369,28 @@ async function main() {
   await page.waitForSelector("#primary");
   await page.waitForFunction(() => (document.querySelector("#primary")?.innerText || "").trim().length > 0);
   const quietRoomScene = await page.evaluate(() => {
-    const node = document.querySelector("#log .room-scene");
+    const node = document.querySelector("#log .chat-empty");
     const parent = node?.parentElement;
     if (!node || !parent) return null;
     return {
       text: node.textContent.trim().replace(/\s+/g, " "),
-      aria: node.getAttribute("aria-label") || "",
       centered: getComputedStyle(parent).justifyContent === "center",
       width: node.getBoundingClientRect().width,
+      oneLine: node.scrollHeight <= Math.ceil(Number.parseFloat(getComputedStyle(node).lineHeight) * 1.5),
     };
   });
-  assert(quietRoomScene, "a quiet-room vignette should remain mounted while it is inspected");
+  assert(quietRoomScene, "a quiet chat invitation should remain mounted while it is inspected");
   assert(
-    /a new tale is waiting/i.test(quietRoomScene.text)
-      && /begin with the trouble you can't resist/i.test(quietRoomScene.text)
-      && /Firelight warms The Cosy Cottage/i.test(quietRoomScene.aria),
-    `a quiet room should feel like a waiting story rather than an empty panel: ${JSON.stringify(quietRoomScene)}`,
+    /discover the room through play/i.test(quietRoomScene.text)
+      && !/Firelight warms|new tale is waiting/i.test(quietRoomScene.text),
+    `an empty chat should offer one minimal invitation instead of a status vignette: ${JSON.stringify(quietRoomScene)}`,
   );
-  assert(quietRoomScene.centered && quietRoomScene.width > 220, `quiet-room vignette should occupy the story stage: ${JSON.stringify(quietRoomScene)}`);
+  assert(quietRoomScene.centered && quietRoomScene.oneLine, `quiet-room invitation should remain a centered one-liner: ${JSON.stringify(quietRoomScene)}`);
   const quietRoomDesktopViewport = page.viewportSize();
   await page.setViewportSize({ width: 430, height: 860 });
-  await page.waitForFunction(() => Boolean(document.querySelector("#log .room-scene")?.parentElement));
+  await page.waitForFunction(() => Boolean(document.querySelector("#log .chat-empty")?.parentElement));
   const quietRoomMobile = await page.evaluate(() => {
-    const node = document.querySelector("#log .room-scene");
+    const node = document.querySelector("#log .chat-empty");
     const log = node?.parentElement || null;
     if (!node || !log) return null;
     const rect = node.getBoundingClientRect();
@@ -8319,15 +8407,15 @@ async function main() {
       viewportHeight: window.innerHeight,
     };
   });
-  assert(quietRoomMobile, "a quiet-room vignette should remain mounted at the mobile viewport");
+  assert(quietRoomMobile, "a quiet chat invitation should remain mounted at the mobile viewport");
   assert(
     quietRoomMobile
       && quietRoomMobile.left >= 0
       && quietRoomMobile.right <= quietRoomMobile.viewportWidth
       && quietRoomMobile.top >= quietRoomMobile.logTop
       && quietRoomMobile.bottom <= quietRoomMobile.logBottom
-      && quietRoomMobile.width > 250,
-    `quiet-room vignette should fit the mobile story stage: ${JSON.stringify(quietRoomMobile)}`,
+      && quietRoomMobile.width > 180,
+    `quiet chat invitation should fit the mobile story stage: ${JSON.stringify(quietRoomMobile)}`,
   );
   await assertNoVisibleOverflow();
   if (quietRoomDesktopViewport) await page.setViewportSize(quietRoomDesktopViewport);
@@ -8446,7 +8534,7 @@ async function main() {
   await assertCompactDescriptionAndCardModal();
   await assertRoomSummaryStaysFlatAndMechanical();
   await assertStatusBarDoesNotOverlayTranscript("mobile status row");
-  await assertRoomMemoryContextPanel("mobile room memory");
+  await assertJournalModeContract("mobile Journal");
   await assertUiAccessibilityContract("mobile accessibility and navigation");
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
@@ -8488,7 +8576,7 @@ async function main() {
       projectedKinds: projected.map((entry) => entry.kind),
       visible,
       thread: thread?.text || "",
-      redundantSurface: Boolean(document.querySelector("#updates .update-pill.story-thread")),
+      redundantSurface: Boolean(document.querySelector("#updates .journal-row.story-thread")),
     };
   });
   assert(
@@ -9049,7 +9137,7 @@ async function main() {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.waitForTimeout(150);
   await assertStatusBarDoesNotOverlayTranscript("desktop status row");
-  await assertRoomMemoryContextPanel("desktop room memory");
+  await assertJournalModeContract("desktop Journal");
   if (!runLivingWorldStress) {
     await assertMudShellVisualContract(runLivingWorldStress ? "desktop visual shell stress" : "desktop visual shell");
   }
