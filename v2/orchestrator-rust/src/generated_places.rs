@@ -373,6 +373,7 @@ impl RuntimeWorld {
                 loot: None,
             });
 
+        self.reconcile_generated_place_durable_progress(state);
         let settlement_strategies = self
             .generated_place_settlement_ready(state)
             .then(|| self.generated_place_settlement_strategies(state));
@@ -453,6 +454,60 @@ impl RuntimeWorld {
         sheet.projects.extend(projects);
         sheet.projects.sort();
         sheet.projects.dedup();
+    }
+
+    fn reconcile_generated_place_durable_progress(&mut self, state: &GeneratedPlaceState) {
+        let anchor_complete = self
+            .clocks
+            .get(&state.anchor_clock_id)
+            .is_some_and(|clock| clock.completion.is_some())
+            || self
+                .tags
+                .get(&generated_place_anchor_fixture_tag_id(state.location_id))
+                .is_some_and(|tag| {
+                    tag.active
+                        && tag.scope == "room"
+                        && tag.scope_id == state.location_id
+                        && tag.kind == "boon"
+                });
+        let connection_complete =
+            self.clocks
+                .get(&state.connection_clock_id)
+                .is_some_and(|clock| {
+                    clock.completion.is_some()
+                        || clock.recent_contributions.iter().any(|contribution| {
+                            contribution.strategy_id
+                                == format!("{}:physical-delivery", state.connection_job_id)
+                        })
+                });
+        let settlement_complete = state.building_proposal.is_some()
+            || self
+                .clocks
+                .get(&state.settlement_clock_id)
+                .is_some_and(|clock| {
+                    clock.completion.is_some()
+                        || clock.recent_contributions.len() >= usize::from(clock.segments)
+                            && clock
+                                .recent_contributions
+                                .iter()
+                                .map(|contribution| contribution.actor_id)
+                                .collect::<BTreeSet<_>>()
+                                .len()
+                                >= 2
+                });
+        for (clock_id, complete) in [
+            (&state.anchor_clock_id, anchor_complete),
+            (&state.connection_clock_id, connection_complete),
+            (&state.settlement_clock_id, settlement_complete),
+        ] {
+            if !complete {
+                continue;
+            }
+            if let Some(clock) = self.clocks.get_mut(clock_id) {
+                clock.filled = clock.segments;
+                clock.status = "filled".to_string();
+            }
+        }
     }
 
     fn generated_place_settlement_strategies(
