@@ -15019,6 +15019,54 @@ impl RuntimeWorld {
         ))
     }
 
+    fn plan_scout_offer(
+        &self,
+        actor_id: u64,
+        offer: &RankedActionOffer,
+    ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
+        if offer.kind != "explore_path" || !action_offer_is_reachable(offer) {
+            return Err("Scout needs a current reachable route offer.".to_string());
+        }
+        let current_offer = self
+            .legal_action_candidates(Some(actor_id), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|candidate| {
+                candidate.offer_id == offer.offer_id
+                    && candidate.kind == offer.kind
+                    && candidate.target == offer.target
+                    && action_offer_is_reachable(candidate)
+            })
+            .ok_or_else(|| "That Scout offer is no longer current.".to_string())?;
+        let destination_location_id = current_offer
+            .target
+            .as_ref()
+            .filter(|target| target.kind == "location")
+            .and_then(|target| target.id)
+            .ok_or_else(|| "Scout has no route destination.".to_string())?;
+        if let Some(journey) = self.journeys.get(&actor_id) {
+            if journey.destination_location_id != destination_location_id {
+                return Err("Scout target no longer matches the active journey.".to_string());
+            }
+            return self.plan_pathway_search(actor_id);
+        }
+        self.plan_journey_move(actor_id, destination_location_id)?
+            .ok_or_else(|| "Scout needs a route longer than one open step.".to_string())
+    }
+
+    fn plan_scout_action(
+        &self,
+        actor_id: u64,
+    ) -> Result<(CwAction, ProjectionMutation, JourneyNarrationPlan), String> {
+        let offer = self
+            .legal_action_candidates(Some(actor_id), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| offer.kind == "explore_path" && action_offer_is_reachable(offer))
+            .ok_or_else(|| "There is no route to Scout here.".to_string())?;
+        self.plan_scout_offer(actor_id, &offer)
+    }
+
     fn actor_by_id(&self, actor_id: u64) -> Option<CwActor> {
         self.world.actors[..self.world.actor_count]
             .iter()
@@ -25120,7 +25168,7 @@ impl RuntimeWorld {
         Some(record)
     }
 
-    fn resident_record_for_search_or_craft_offer(
+    fn resident_record_for_search_craft_or_scout_offer(
         &self,
         actor: CwActor,
         offer: &RankedActionOffer,
@@ -25134,6 +25182,18 @@ impl RuntimeWorld {
             .next_event_seq
             .saturating_sub(RESIDENT_AUTONOMY_REPEAT_EVENT_WINDOW);
         let mut record = match offer.kind.as_str() {
+            "explore_path" => {
+                let (action, mut mutation, narration_plan) =
+                    self.plan_scout_offer(actor.id, offer).ok()?;
+                if let ProjectionMutation::JourneyTransition { narration, .. } = &mut mutation {
+                    *narration = travel_narration_fallback(&narration_plan);
+                }
+                let mut record =
+                    JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
+                record.bind_offer_kind("explore_path");
+                record.projection_mutations.push(mutation);
+                record
+            }
             "search" => {
                 let target = self.default_search_target(actor.id)?;
                 let target_matches = offer.target.as_ref().is_some_and(|offer_target| {
@@ -25205,18 +25265,26 @@ impl RuntimeWorld {
         Some(record)
     }
 
-    fn resident_search_or_craft_autonomy_record(
+    fn resident_search_craft_or_scout_autonomy_record(
         &self,
         actor: CwActor,
         seed: u64,
     ) -> Option<JournalRecord> {
         let (_, offers) = self.legal_action_candidates(Some(actor.id), &AccessContext::default());
-        offers.into_iter().find_map(|offer| {
-            if !matches!(offer.kind.as_str(), "search" | "craft") {
-                return None;
-            };
-            self.resident_record_for_search_or_craft_offer(actor, &offer, seed)
-        })
+        offers
+            .iter()
+            .filter(|offer| matches!(offer.kind.as_str(), "search" | "craft"))
+            .find_map(|offer| {
+                self.resident_record_for_search_craft_or_scout_offer(actor, offer, seed)
+            })
+            .or_else(|| {
+                offers
+                    .iter()
+                    .filter(|offer| offer.kind == "explore_path")
+                    .find_map(|offer| {
+                        self.resident_record_for_search_craft_or_scout_offer(actor, offer, seed)
+                    })
+            })
     }
 
     fn resident_economy_autonomy_record(&self, actor: CwActor, seed: u64) -> Option<JournalRecord> {
@@ -25237,7 +25305,7 @@ impl RuntimeWorld {
             self.append_resident_autonomy_intent_projection(actor, &mut record);
             return Some(record);
         }
-        self.resident_search_or_craft_autonomy_record(actor, seed)
+        self.resident_search_craft_or_scout_autonomy_record(actor, seed)
     }
 
     fn append_resident_autonomy_intent_projection(
@@ -25337,6 +25405,22 @@ impl RuntimeWorld {
                 .projection_mutations
                 .iter()
                 .find_map(|mutation| match mutation {
+                    ProjectionMutation::JourneyTransition {
+                        journey: Some(journey),
+                        ..
+                    } => {
+                        proposed_action.kind = "scout".to_string();
+                        proposed_action.destination_location_id =
+                            Some(journey.destination_location_id);
+                        let destination = self
+                            .location_name(journey.destination_location_id)
+                            .unwrap_or_else(|| {
+                                format!("Location {}", journey.destination_location_id)
+                            });
+                        Some(format!(
+                            "{actor_name} intends to scout toward {destination}."
+                        ))
+                    }
                     ProjectionMutation::UseFeature {
                         item_id,
                         location_id,
@@ -25514,6 +25598,13 @@ impl RuntimeWorld {
                 ProjectionMutation::ResolveCraft { .. } => Some("craft"),
                 ProjectionMutation::SearchFeature { .. }
                 | ProjectionMutation::SearchLocation { .. } => Some("search"),
+                ProjectionMutation::JourneyTransition { .. } => {
+                    Some(if record.action.kind == CW_ACTION_MOVE {
+                        "move"
+                    } else {
+                        "explore_path"
+                    })
+                }
                 _ => None,
             })
         {
@@ -25547,6 +25638,22 @@ impl RuntimeWorld {
         let action = &record.action;
         if offer.kind != Self::resident_record_offer_kind(record) {
             return false;
+        }
+        if let Some(destination_location_id) =
+            record
+                .projection_mutations
+                .iter()
+                .find_map(|mutation| match mutation {
+                    ProjectionMutation::JourneyTransition {
+                        journey: Some(journey),
+                        ..
+                    } if action.kind != CW_ACTION_MOVE => Some(journey.destination_location_id),
+                    _ => None,
+                })
+        {
+            return offer.target.as_ref().is_some_and(|target| {
+                target.kind == "location" && target.id == Some(destination_location_id)
+            });
         }
         if let Some(intent) = record
             .projection_mutations
@@ -37076,7 +37183,7 @@ async fn explore_pathway(
         ) {
             return client_actor_rejected_response();
         }
-        runtime.plan_pathway_search(payload.actor_id)
+        runtime.plan_scout_action(payload.actor_id)
     };
     let (action, mut mutation, narration_plan) = match planned {
         Ok(plan) => plan,
@@ -70797,7 +70904,7 @@ mod tests {
                 && event.destination_location_id == Some(undiscovered.to_location_id)
         }));
         assert!(runtime
-            .resident_record_for_search_or_craft_offer(actor, &offer, seed)
+            .resident_record_for_search_craft_or_scout_offer(actor, &offer, seed)
             .is_none());
         let expected = quest_projection_signature(&runtime);
         let mut replayed = replay_base
@@ -70805,6 +70912,164 @@ mod tests {
             .expect("pre-search snapshot restores");
         assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
         assert_eq!(quest_projection_signature(&replayed), expected);
+    }
+
+    #[test]
+    fn resident_scout_uses_the_player_offer_and_replays_pathway_discovery() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.world.tick = 0;
+        runtime.resident_memories.clear();
+        runtime.callings.remove(&RATI_ACTOR_ID);
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("Rati exists")
+            .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+        runtime
+            .actor_autonomy
+            .entry(RATI_ACTOR_ID)
+            .or_default()
+            .control_mode = ActorControlMode::LocalAi;
+
+        let inference_offers = runtime
+            .legal_action_candidates(Some(RATI_ACTOR_ID), &AccessContext::default())
+            .1;
+        let offer = inference_offers
+            .iter()
+            .find(|offer| offer.kind == "explore_path")
+            .cloned()
+            .expect("the resident sees the player-facing Scout offer without an Explorer title");
+        assert!(offer.target.as_ref().is_some_and(|target| {
+            target.kind == "location" && target.id == Some(MOONLIT_TRAIL_LOCATION_ID)
+        }));
+
+        runtime
+            .actor_autonomy
+            .entry(RATI_ACTOR_ID)
+            .or_default()
+            .control_mode = ActorControlMode::DirectInput;
+        let direct_offers = runtime
+            .legal_action_candidates(Some(RATI_ACTOR_ID), &AccessContext::default())
+            .1;
+        assert_eq!(
+            serde_json::to_value(&direct_offers).expect("direct offers serialize"),
+            serde_json::to_value(&inference_offers).expect("inference offers serialize"),
+            "controller mode cannot change legal Scout enumeration"
+        );
+        let (player_action, player_mutation, player_narration) = runtime
+            .plan_scout_action(RATI_ACTOR_ID)
+            .expect("the player Scout offer plans an initial pathway discovery");
+        let (resident_action, resident_mutation, resident_narration) = runtime
+            .plan_scout_offer(RATI_ACTOR_ID, &offer)
+            .expect("the resident uses the same Scout planner");
+        assert_eq!(
+            serde_json::to_value(resident_action).expect("resident action serializes"),
+            serde_json::to_value(player_action).expect("player action serializes")
+        );
+        assert_eq!(
+            serde_json::to_value(&resident_mutation).expect("resident mutation serializes"),
+            serde_json::to_value(&player_mutation).expect("player mutation serializes")
+        );
+        assert_eq!(
+            travel_narration_fallback(&resident_narration),
+            travel_narration_fallback(&player_narration)
+        );
+
+        runtime
+            .actor_autonomy
+            .entry(RATI_ACTOR_ID)
+            .or_default()
+            .control_mode = ActorControlMode::LocalAi;
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati remains");
+        let record = runtime
+            .resident_record_for_search_craft_or_scout_offer(actor, &offer, 98_001)
+            .expect("the resident can select the current Scout offer");
+        assert_eq!(record.origin, JournalOrigin::ActorConsequence);
+        assert_eq!(record.rules_action, offer.rules_action);
+        assert_eq!(record.operation, offer.operation);
+        assert_eq!(record.resolver.as_deref(), Some(offer.resolver.as_str()));
+        let continuity = record
+            .projection_mutations
+            .iter()
+            .find_map(|mutation| match mutation {
+                ProjectionMutation::UpdateResidentContinuity { proposal, .. } => Some(proposal),
+                _ => None,
+            })
+            .expect("Scout records a resident continuity intent");
+        let proposed = continuity
+            .proposed_action
+            .as_ref()
+            .expect("Scout continuity describes the chosen action");
+        assert_eq!(proposed.kind, "scout");
+        assert_eq!(
+            proposed.destination_location_id,
+            Some(MOONLIT_TRAIL_LOCATION_ID)
+        );
+
+        let (rank, score) = runtime.resident_autonomy_record_priority(actor, &record);
+        let record = runtime
+            .attach_resident_decision_trace(ResidentAutonomyCandidate {
+                actor_id: actor.id,
+                rank,
+                score,
+                record,
+            })
+            .record;
+        let trace = record
+            .resident_decision
+            .as_ref()
+            .expect("Scout selection carries a decision trace");
+        assert_eq!(trace.choice.offer_kind, "explore_path");
+        assert_eq!(
+            trace.choice.offer_id.as_deref(),
+            Some(offer.offer_id.as_str())
+        );
+        assert!(trace.candidates.iter().any(|candidate| {
+            candidate.offer_id == offer.offer_id
+                && candidate.kind == "explore_path"
+                && candidate.selected
+        }));
+
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let before_location = actor.location_id;
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "pathway.discovered"
+                && event.actor_id == Some(RATI_ACTOR_ID)
+                && event.destination_location_id == Some(MOONLIT_TRAIL_LOCATION_ID)
+        }));
+        assert_eq!(
+            runtime
+                .actor_by_id(RATI_ACTOR_ID)
+                .expect("Scout keeps Rati at the path edge")
+                .location_id,
+            before_location
+        );
+        let journey = runtime
+            .journeys
+            .get(&RATI_ACTOR_ID)
+            .expect("Scout starts the shared journey");
+        assert_eq!(journey.destination_location_id, MOONLIT_TRAIL_LOCATION_ID);
+        assert_eq!(journey.current_step, 0);
+        assert!(runtime
+            .resident_record_for_search_craft_or_scout_offer(actor, &offer, 98_002)
+            .is_none());
+
+        let expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+            .expect("state serializes");
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-Scout snapshot restores");
+        assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(
+            serde_json::to_value(RuntimeSnapshot::from_runtime(&replayed))
+                .expect("replayed state serializes"),
+            expected
+        );
     }
 
     #[test]
