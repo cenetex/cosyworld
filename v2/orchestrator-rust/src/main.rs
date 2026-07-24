@@ -18747,6 +18747,12 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return false;
         };
+        if self
+            .job_contribution_intent(actor_id, "prepare", None, None, None)
+            .is_some()
+        {
+            return true;
+        }
         let clock_id = if let Some(job) = self.active_job_for_location(actor.location_id) {
             if !job
                 .contribution_strategies
@@ -21768,9 +21774,7 @@ impl RuntimeWorld {
             return None;
         }
         let actor = self.actor_by_id(actor_id)?;
-        let contribution = (kind != "prepare")
-            .then(|| self.job_contribution_intent(actor_id, kind, None, None, None))
-            .flatten();
+        let contribution = self.job_contribution_intent(actor_id, kind, None, None, None);
         let progress_clock_id = contribution
             .as_ref()
             .map(|intent| intent.strategy.clock_id.clone())
@@ -22017,14 +22021,21 @@ impl RuntimeWorld {
                     id: Some(target.id),
                     label: self.actor_name(target.id),
                 }),
-            "prepare" => {
-                self.active_job_for_location(actor.location_id)
-                    .map(|job| ActionTargetView {
-                        kind: "project".to_string(),
-                        id: Some(actor.location_id),
-                        label: Some(format!("{} ({})", job.premise, job.id)),
-                    })
-            }
+            "prepare" => self
+                .job_contribution_intent(actor_id, "prepare", None, None, None)
+                .map(|intent| ActionTargetView {
+                    kind: intent.target.kind,
+                    id: intent.target.id.parse::<u64>().ok(),
+                    label: Some(intent.target.label),
+                })
+                .or_else(|| {
+                    self.active_job_for_location(actor.location_id)
+                        .map(|job| ActionTargetView {
+                            kind: "project".to_string(),
+                            id: Some(actor.location_id),
+                            label: Some(format!("{} ({})", job.premise, job.id)),
+                        })
+                }),
             "work" | "help" | "study" => self
                 .job_contribution_intent(actor_id, kind, None, None, None)
                 .map(|intent| ActionTargetView {
@@ -22226,7 +22237,12 @@ impl RuntimeWorld {
                             _ => None,
                         })
                 }),
-            "prepare" => Some(self.prepared_project_progress_amount(actor_id, actor.location_id)),
+            "prepare" => self
+                .job_contribution_intent(actor_id, "prepare", None, None, None)
+                .map(|intent| self.contribution_progress_amount(actor_id, &intent))
+                .or_else(|| {
+                    Some(self.prepared_project_progress_amount(actor_id, actor.location_id))
+                }),
             "defend" if self.prepare_available(actor_id) => {
                 Some(self.prepared_project_progress_amount(actor_id, actor.location_id))
             }
@@ -22307,6 +22323,14 @@ impl RuntimeWorld {
                     .to_string(),
             ),
             "prepare" => {
+                if let Some(intent) =
+                    self.job_contribution_intent(actor_id, "prepare", None, None, None)
+                {
+                    return Some(self.project_headway_text(
+                        &intent.strategy.clock_id,
+                        self.contribution_progress_amount(actor_id, &intent),
+                    ));
+                }
                 let amount = self.prepared_project_progress_amount(actor_id, actor.location_id);
                 let setup_effect = "makes the next try count";
                 let multi_room_partial = self
@@ -37466,6 +37490,8 @@ async fn prepare(
     if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
         return response;
     }
+    let contribution_intent =
+        runtime.job_contribution_intent(payload.actor_id, "prepare", None, None, None);
     if !runtime.prepare_available(payload.actor_id) {
         return Json(ActionResponse {
             ok: false,
@@ -37490,21 +37516,36 @@ async fn prepare(
     )
     .into_player_card();
     record.bind_offer_kind("prepare");
-    record
-        .projection_mutations
-        .push(ProjectionMutation::SetTag {
-            tag: RpgTagState {
-                id: prepared_tag_id(payload.actor_id, actor.location_id),
-                scope: "actor".to_string(),
-                scope_id: payload.actor_id,
-                label: "prepared".to_string(),
-                kind: "aspect".to_string(),
-                active: true,
-                source_event_seq: None,
-                expires: Some("after_work".to_string()),
-            },
-            reason: "prepare".to_string(),
-        });
+    if let Some(intent) = contribution_intent {
+        let clock_id = intent.strategy.clock_id.clone();
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveJobContribution { intent });
+        if let Some(pathway_id) = runtime.generated_pathway_id_for_progress_clock(&clock_id) {
+            record
+                .projection_mutations
+                .push(ProjectionMutation::UpgradePathwayIfReady {
+                    pathway_id,
+                    progress_clock_id: clock_id,
+                });
+        }
+    } else {
+        record
+            .projection_mutations
+            .push(ProjectionMutation::SetTag {
+                tag: RpgTagState {
+                    id: prepared_tag_id(payload.actor_id, actor.location_id),
+                    scope: "actor".to_string(),
+                    scope_id: payload.actor_id,
+                    label: "prepared".to_string(),
+                    kind: "aspect".to_string(),
+                    active: true,
+                    source_event_seq: None,
+                    expires: Some("after_work".to_string()),
+                },
+                reason: "prepare".to_string(),
+            });
+    }
 
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
@@ -61689,6 +61730,98 @@ mod tests {
         assert!(prepare_response.events.iter().any(|event| {
             event.type_name == "tag.applied" && event.tag_label.as_deref() == Some("prepared")
         }));
+    }
+
+    #[tokio::test]
+    async fn authored_prepare_strategy_contributes_instead_of_setting_legacy_tag() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Groundwork Builder",
+        );
+        let binding = resolved_action_binding("prepare").expect("prepare binding");
+        let mut strategy = runtime.jobs[MOONLIT_JOB_ID]
+            .contribution_strategies
+            .iter()
+            .find(|strategy| strategy.action_kind == "work")
+            .cloned()
+            .expect("seed job work strategy");
+        strategy.id = "prepare-the-ground".to_string();
+        strategy.action_kind = "prepare".to_string();
+        strategy.rules_action = binding.rules_action;
+        strategy.operation = binding.operation;
+        strategy.target = ContributionTargetDescriptor {
+            kind: "room".to_string(),
+            id: Some(MOONLIT_TRAIL_LOCATION_ID.to_string()),
+            predicate: None,
+            label: "the shared building".to_string(),
+        };
+        strategy.resolution = ContributionResolutionPolicy::Certain;
+        strategy.baseline_progress = 1;
+        strategy.success_progress = 0;
+        strategy.prepared_bonus_progress = 0;
+        strategy.claim_policy = ContributionClaimPolicy::Repeatable;
+        strategy.strategy_label = "Prepare the ground".to_string();
+        runtime
+            .jobs
+            .get_mut(MOONLIT_JOB_ID)
+            .expect("seed job")
+            .contribution_strategies
+            .push(strategy);
+
+        assert!(runtime.prepare_available(5000));
+        let offer = runtime
+            .state_response(Some(5000), &AccessContext::default())
+            .action_offers
+            .into_iter()
+            .find(|offer| offer.kind == "prepare")
+            .expect("authored prepare contribution is offered");
+        assert_eq!(offer.progress, Some(1));
+        assert_eq!(
+            offer
+                .project
+                .as_ref()
+                .and_then(|project| project.strategy_id.as_deref()),
+            Some("prepare-the-ground")
+        );
+        assert_eq!(
+            offer.target.as_ref().map(|target| target.kind.as_str()),
+            Some("room")
+        );
+
+        let before = runtime.clocks[MOONLIT_PROGRESS_CLOCK_ID].filled;
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, 5000);
+        let response = prepare(
+            ConnectInfo("127.0.0.1:43111".parse().expect("client address")),
+            State(state.clone()),
+            Json(ActorRequest {
+                actor_id: 5000,
+                actor_session: Some(actor_session),
+            }),
+        )
+        .await
+        .0;
+        assert!(response.ok);
+        assert_eq!(response.status, CW_OK);
+        assert!(response.events.iter().any(|event| {
+            event.type_name == "job.contribution.resolved"
+                && event
+                    .content
+                    .as_deref()
+                    .is_some_and(|content| content.contains("\"action_kind\":\"prepare\""))
+        }));
+        assert!(response.events.iter().any(|event| {
+            event.type_name == "clock.updated"
+                && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
+                && event.clock_delta == Some(1)
+        }));
+
+        let runtime = state.inner.lock().await;
+        assert_eq!(runtime.clocks[MOONLIT_PROGRESS_CLOCK_ID].filled, before + 1);
+        assert!(!runtime.prepared_tag_active(5000, MOONLIT_TRAIL_LOCATION_ID));
     }
 
     #[tokio::test]
