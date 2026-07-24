@@ -8661,13 +8661,18 @@
               || (composedIdentity.class_selection_ready ? "Class ready to choose" : "Class veiled"),
           ].filter(Boolean).join(" · ")
         : "";
+      const practice = avatar?.practice || null;
+      const practiceSummary = practice?.primary
+        ? [practice.epithet, practice.known_for].filter(Boolean).join(" — ")
+        : "still emerging from shared deeds";
       const level = Number(composedIdentity?.level ?? avatar?.stats?.level ?? 1);
       const rows = [
         accountRow("level", composedIdentity && !composedIdentity.class_id
           ? `${level} · classless`
           : String(level)),
-        ...(identityCards ? [accountRow("identity cards", identityCards)] : []),
-        accountRow("purpose", purpose),
+        ...(identityCards ? [accountRow("campaign identity", identityCards)] : []),
+        accountRow("calling", purpose),
+        accountRow("known for", practiceSummary),
         accountRow("journal", growthSummary),
       ];
       const equippedCharms = Array.isArray(state?.deck?.equipped_charms) ? state.deck.equipped_charms : [];
@@ -9827,6 +9832,23 @@
       }[String(actor?.control_mode || "")] || "";
     }
 
+    function actorPracticePanelHtml(actor) {
+      const practice = actor?.practice;
+      if (!practice?.primary) return "";
+      const rows = [
+        economyRowHtml("known for", escapeHtml(
+          [practice.epithet, practice.known_for].filter(Boolean).join(" — ")
+        )),
+      ];
+      for (const [index, evidence] of (practice.evidence || []).slice(0, 2).entries()) {
+        const description = cleanEconomyText(evidence?.description);
+        if (description) {
+          rows.push(economyRowHtml(index === 0 ? "because" : "and", escapeHtml(description)));
+        }
+      }
+      return rows.join("");
+    }
+
     function transferActionForActor(kind, targetActorId) {
       const actorKey = `actor:${Number(targetActorId || 0)}`;
       return (actions || []).find((candidate) => (
@@ -9869,6 +9891,8 @@
     function actorEconomyPanelHtml(actor) {
       if (!actor) return "";
       const rows = [];
+      const practice = actorPracticePanelHtml(actor);
+      if (practice) rows.push(practice);
       const controller = actorControlModeLabel(actor);
       if (controller) rows.push(economyRowHtml("controller", escapeHtml(controller)));
       const economy = actor?.economy || null;
