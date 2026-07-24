@@ -684,7 +684,7 @@ enum EffectDescriptor {
 
 const JOB_CONTRIBUTION_SCHEMA_VERSION: u8 = 1;
 const CLOCK_PRESENTATION_SCHEMA_VERSION: u8 = 1;
-const MAX_PROMOTED_SHARED_QUESTIONS: usize = 3;
+const MAX_PROMOTED_SHARED_QUESTIONS: usize = 1;
 const MAX_RECENT_CLOCK_CONTRIBUTIONS: usize = 3;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -60323,7 +60323,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_question_promotion_is_bounded_by_story_salience_not_map_order() {
+    fn shared_question_promotion_keeps_one_story_salient_question() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(
             &mut runtime,
@@ -60390,24 +60390,20 @@ mod tests {
                 .iter()
                 .map(|question| question.id.as_str())
                 .collect::<Vec<_>>(),
-            vec!["z-high-local", "y-high-immediate", "w-high-communal"]
-        );
-        assert_eq!(
-            promoted
-                .iter()
-                .filter(|question| question.attention == "immediate")
-                .count(),
-            1
-        );
-        assert_eq!(
-            promoted
-                .iter()
-                .filter(|question| question.attention == "communal")
-                .count(),
-            1
+            vec!["z-high-local"]
         );
         assert!(questions.iter().any(|question| {
             question.id == "a-map-first"
+                && !question.promoted
+                && question.presentation_state == "quiet"
+        }));
+        assert!(questions.iter().any(|question| {
+            question.id == "y-high-immediate"
+                && !question.promoted
+                && question.presentation_state == "quiet"
+        }));
+        assert!(questions.iter().any(|question| {
+            question.id == "w-high-communal"
                 && !question.promoted
                 && question.presentation_state == "quiet"
         }));

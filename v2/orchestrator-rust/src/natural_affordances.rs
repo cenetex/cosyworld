@@ -754,6 +754,42 @@ mod tests {
         );
         runtime.actors.get_mut(&5000).unwrap().title = "River Reader".to_string();
 
+        let open_questions = runtime.shared_question_views(waypoint_id, Some(5000));
+        assert_eq!(
+            open_questions
+                .iter()
+                .filter(|question| question.promoted)
+                .map(|question| question.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![job_id.as_str()],
+            "the Journal promotes only the most salient concrete question"
+        );
+        let anchor_job_id = generated_place_anchor_job_id(waypoint_id);
+        let connection_job_id = generated_place_connection_job_id(waypoint_id);
+        let settlement_job_id = generated_place_settlement_job_id(waypoint_id);
+        let anchor_question = open_questions
+            .iter()
+            .find(|question| question.id == anchor_job_id)
+            .expect("dangerless anchor work remains visible");
+        assert_eq!(anchor_question.presentation_state, "quiet");
+        assert!(anchor_question.danger_clock_id.is_empty());
+        assert_eq!(anchor_question.danger_segments, 0);
+        assert_eq!(
+            open_questions
+                .iter()
+                .find(|question| question.id == connection_job_id)
+                .map(|question| question.presentation_state.as_str()),
+            Some("quiet")
+        );
+        assert_eq!(
+            open_questions
+                .iter()
+                .find(|question| question.id == settlement_job_id)
+                .map(|question| question.presentation_state.as_str()),
+            Some("unavailable"),
+            "waiting work is not misreported as a completed memory"
+        );
+
         let failed = resolve_investigation_strategy(
             &mut runtime,
             5002,
@@ -867,6 +903,31 @@ mod tests {
                 .completion_memory
                 .clone()
                 .expect("completed investigation has durable one-sentence memory")
+        );
+        add_test_avatar(&mut runtime, 5003, CW_ACTOR_HUMAN, waypoint_id);
+        let revealed_questions = runtime.shared_question_views(waypoint_id, Some(5003));
+        assert_eq!(
+            revealed_questions
+                .iter()
+                .filter(|question| question.promoted)
+                .map(|question| question.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![anchor_job_id.as_str()],
+            "the anchor becomes the one concrete question after discovery"
+        );
+        assert_eq!(
+            revealed_questions
+                .iter()
+                .find(|question| question.id == connection_job_id)
+                .map(|question| question.presentation_state.as_str()),
+            Some("quiet")
+        );
+        assert_eq!(
+            revealed_questions
+                .iter()
+                .find(|question| question.id == settlement_job_id)
+                .map(|question| question.presentation_state.as_str()),
+            Some("unavailable")
         );
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
