@@ -7934,11 +7934,56 @@ impl RuntimeWorld {
             );
             self.natural_affordances.insert(location_id, state);
         }
+        self.reconcile_revealed_natural_affordance(location_id);
         let Some(state) = self.natural_affordances.get(&location_id).cloned() else {
             return;
         };
         if state.latent_potential.is_some() || state.revealed_feature.is_some() {
             self.ensure_natural_investigation_project(&state);
+        }
+    }
+
+    fn reconcile_revealed_natural_affordance(&mut self, location_id: u64) {
+        let Some(state) = self.natural_affordances.get(&location_id).cloned() else {
+            return;
+        };
+        if state.revealed_feature.is_some() {
+            return;
+        }
+        let Some(latent) = state.latent_potential else {
+            return;
+        };
+        let Some(clock) = self.clocks.get(&state.investigation_clock_id) else {
+            return;
+        };
+        let Some(completion) = clock.completion.as_ref() else {
+            return;
+        };
+        let mut causal_action_event_seqs = state.causal_action_event_seqs;
+        causal_action_event_seqs.extend(
+            clock
+                .recent_contributions
+                .iter()
+                .map(|contribution| contribution.contribution_event_seq),
+        );
+        causal_action_event_seqs.sort_unstable();
+        causal_action_event_seqs.dedup();
+        let feature = NaturalFeatureState {
+            schema_version: NATURAL_AFFORDANCE_SCHEMA_VERSION,
+            location_id,
+            resource_kind: latent.resource_kind,
+            richness: latent.richness,
+            character: latent.character,
+            building_archetypes: latent.building_archetypes,
+            presentation_key: latent.presentation_key,
+            environment_profile_version: state.environment.version,
+            revealed_by_actor_id: completion.actor_id,
+            revealed_event_seq: completion.event_seq,
+            causal_action_event_seqs,
+            generation: state.generation,
+        };
+        if let Some(state) = self.natural_affordances.get_mut(&location_id) {
+            state.revealed_feature = Some(feature);
         }
     }
 
@@ -62450,13 +62495,16 @@ mod tests {
     #[test]
     fn durable_frontier_projects_never_reset_as_encounters_and_repair_from_evidence() {
         let mut runtime = RuntimeWorld::seeded();
-        let pathway = runtime.generated_pathway(
+        let mut pathway = runtime.generated_pathway(
             5000,
             RAIN_SOFT_GARDEN_LOCATION_ID,
             MOONLIT_TRAIL_LOCATION_ID,
             2,
         );
         let waypoint_id = pathway.waypoints[0].id;
+        pathway
+            .revealed_edges
+            .insert(pathway_edge_key(RAIN_SOFT_GARDEN_LOCATION_ID, waypoint_id));
         runtime
             .generated_pathways
             .insert(pathway.id.clone(), pathway.clone());
@@ -62481,7 +62529,10 @@ mod tests {
                 reason: "durable_frontier_test_reveal".to_string(),
             });
         assert_eq!(runtime.apply_journal_record(&reveal).0, CW_OK);
-        let revealed_natural = runtime.natural_affordances[&waypoint_id].clone();
+        let revealed_feature = runtime.natural_affordances[&waypoint_id]
+            .revealed_feature
+            .clone()
+            .expect("natural feature is revealed");
 
         let anchor_intent = runtime
             .job_contribution_intent(5000, "work", Some(&place.anchor_job_id), None, None)
@@ -62551,12 +62602,29 @@ mod tests {
             .get_mut(&place.anchor_job_id)
             .expect("anchor job")
             .status = "active".to_string();
+        runtime
+            .natural_affordances
+            .get_mut(&waypoint_id)
+            .expect("natural affordance")
+            .revealed_feature = None;
 
-        runtime.ensure_natural_investigation_project(&revealed_natural);
+        runtime.ensure_seed_rpg_projection();
         runtime.ensure_generated_place_for_waypoint(
             &pathway,
             waypoint_id,
             RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
+        let repaired_feature = runtime.natural_affordances[&waypoint_id]
+            .revealed_feature
+            .as_ref()
+            .expect("completion evidence repairs the natural feature");
+        assert_eq!(
+            repaired_feature.resource_kind,
+            revealed_feature.resource_kind
+        );
+        assert_eq!(
+            repaired_feature.building_archetypes,
+            revealed_feature.building_archetypes
         );
         assert_eq!(
             runtime.clocks[&natural.investigation_clock_id].filled,
