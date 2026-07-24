@@ -641,6 +641,8 @@ pub(super) struct RoomSheetView {
     pub(super) generated_place: Option<GeneratedPlaceView>,
     pub(super) eligible_building_archetypes: Vec<String>,
     pub(super) governance_decisions: Vec<GovernanceDecisionView>,
+    pub(super) settlement_buildings: Vec<SettlementBuildingView>,
+    pub(super) building_slots: BuildingSlotView,
     pub(super) projects: Vec<String>,
 }
 
@@ -715,6 +717,8 @@ pub(super) struct RoomInspectorView {
     pub(super) resources: BTreeMap<String, i16>,
     pub(super) eligible_building_archetypes: Vec<String>,
     pub(super) governance_decisions: Vec<GovernanceDecisionView>,
+    pub(super) settlement_buildings: Vec<SettlementBuildingView>,
+    pub(super) building_slots: BuildingSlotView,
     pub(super) projects: Vec<String>,
     pub(super) features: Vec<String>,
     pub(super) listen_reason: Option<String>,
@@ -2395,6 +2399,8 @@ impl RuntimeWorld {
                     self.eligible_natural_building_archetypes(location_id)
                 },
                 governance_decisions: self.governance_decision_views(location_id),
+                settlement_buildings: self.settlement_building_views(location_id),
+                building_slots: self.settlement_building_slot_view(location_id),
                 projects: sheet.projects.clone(),
             })
             .or_else(|| {
@@ -2429,6 +2435,8 @@ impl RuntimeWorld {
                     eligible_building_archetypes: self
                         .generated_place_building_choices(location_id),
                     governance_decisions: self.governance_decision_views(location_id),
+                    settlement_buildings: self.settlement_building_views(location_id),
+                    building_slots: self.settlement_building_slot_view(location_id),
                     projects,
                 })
             })
@@ -2525,6 +2533,8 @@ impl RuntimeWorld {
                     self.eligible_natural_building_archetypes(location_id)
                 },
                 governance_decisions: self.governance_decision_views(location_id),
+                settlement_buildings: self.settlement_building_views(location_id),
+                building_slots: self.settlement_building_slot_view(location_id),
                 projects: room_sheet
                     .map(|sheet| sheet.projects.clone())
                     .unwrap_or_default(),

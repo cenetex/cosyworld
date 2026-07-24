@@ -14,6 +14,7 @@ import {
   parseCanonicalContentReference,
 } from "./content-references.mjs";
 import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
+import { buildingArchetypeValidationErrors } from "./building-archetype-schema.mjs";
 import { naturalAffordanceValidationErrors } from "./natural-affordance-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -402,6 +403,15 @@ if (manifest.avatar_naming !== undefined) {
 const entitlementGrants = new Map();
 for (const pack of packs) {
   validateRequiredStrings("worldpack pack", pack, ["name", "description", "version", "kind", "license", "integrity"]);
+  const buildingArchetypes = pack.extensions?.["x-cosyworld-building-archetypes"];
+  if (buildingArchetypes !== undefined) {
+    for (const error of buildingArchetypeValidationErrors(
+      buildingArchetypes,
+      `pack ${pack.id} x-cosyworld-building-archetypes`,
+    )) {
+      fail(error);
+    }
+  }
   if (!allowedPackKinds.has(pack.kind)) {
     fail(`worldpack pack ${pack.id} has unsupported kind ${pack.kind}`);
   }

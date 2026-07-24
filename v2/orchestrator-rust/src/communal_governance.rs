@@ -214,6 +214,17 @@ pub(super) fn generated_building_governance_decision_id(location_id: u64) -> Str
     format!("generated-place:{location_id}:founding-building")
 }
 
+pub(super) fn generated_building_governance_decision_id_for_slot(
+    location_id: u64,
+    slot_index: u8,
+) -> String {
+    if slot_index <= 1 {
+        generated_building_governance_decision_id(location_id)
+    } else {
+        format!("generated-place:{location_id}:building-slot-{slot_index}")
+    }
+}
+
 fn building_choice_label(archetype_id: &str) -> String {
     archetype_id
         .split('_')
@@ -241,7 +252,7 @@ fn building_choice_consequence(archetype_id: &str) -> String {
             "Construction can make declared transformations and repair work available here."
         }
         "fishery" => "Construction can open fishing quests and a named public catch cache.",
-        "mine" => "Construction can open mineral quests without creating passive cargo.",
+        "shallow_mine" => "Construction can open mineral quests without creating passive cargo.",
         "kiln" => "Construction can open declared pottery and building-component recipes.",
         "watermill" => "Construction can open water-powered work authored for this place.",
         "windmill" => "Construction can open wind-powered work authored for this place.",
@@ -474,15 +485,40 @@ impl RuntimeWorld {
         eligible_archetype_ids: &[String],
         opened_event_seq: u64,
     ) -> GovernanceSyncOutcome {
-        let decision_id = generated_building_governance_decision_id(location_id);
+        self.sync_generated_place_governance_for_slot(
+            location_id,
+            1,
+            eligible_archetype_ids,
+            opened_event_seq,
+        )
+    }
+
+    pub(super) fn sync_generated_place_governance_for_slot(
+        &mut self,
+        location_id: u64,
+        slot_index: u8,
+        eligible_archetype_ids: &[String],
+        opened_event_seq: u64,
+    ) -> GovernanceSyncOutcome {
+        let decision_id =
+            generated_building_governance_decision_id_for_slot(location_id, slot_index);
         let chooser_actor_id = self.generated_place_named_chooser(location_id);
         let Some(existing) = self.governance_decisions.get(&decision_id).cloned() else {
             let decision = GovernanceDecisionState {
                 schema_version: GOVERNANCE_SCHEMA_VERSION,
                 id: decision_id.clone(),
                 location_id,
-                subject_kind: "founding_building".to_string(),
-                subject_id: location_id.to_string(),
+                subject_kind: if slot_index <= 1 {
+                    "founding_building"
+                } else {
+                    "settlement_building"
+                }
+                .to_string(),
+                subject_id: if slot_index <= 1 {
+                    location_id.to_string()
+                } else {
+                    format!("{location_id}:major:{slot_index}")
+                },
                 policy: GovernancePolicy::NamedChooser {
                     chooser_actor_id,
                     chooser_rule: "The earliest directly controlled credited settler chooses; if none was present, the first directly controlled arrival may choose.".to_string(),

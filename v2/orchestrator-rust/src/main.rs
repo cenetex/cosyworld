@@ -22,6 +22,7 @@ mod ownership;
 mod prompts;
 mod rate_limit;
 mod routes;
+mod settlement_buildings;
 mod story_metrics;
 mod turns;
 mod views;
@@ -67,6 +68,7 @@ use rand::{rngs::OsRng, RngCore};
 use rate_limit::*;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use settlement_buildings::*;
 use std::{
     cmp::Reverse,
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -1645,6 +1647,8 @@ struct RuntimeWorld {
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
     generated_places: BTreeMap<u64, GeneratedPlaceState>,
     governance_decisions: BTreeMap<String, GovernanceDecisionState>,
+    settlement_buildings: BTreeMap<String, SettlementBuildingState>,
+    building_footprint_claims: BTreeMap<String, BuildingFootprintClaimState>,
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     journeys: BTreeMap<u64, JourneyState>,
@@ -1735,6 +1739,10 @@ struct RuntimeSnapshot {
     generated_places: BTreeMap<u64, GeneratedPlaceState>,
     #[serde(default)]
     governance_decisions: BTreeMap<String, GovernanceDecisionState>,
+    #[serde(default)]
+    settlement_buildings: BTreeMap<String, SettlementBuildingState>,
+    #[serde(default)]
+    building_footprint_claims: BTreeMap<String, BuildingFootprintClaimState>,
     #[serde(default)]
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     #[serde(default)]
@@ -6320,7 +6328,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 6,
+            version: 7,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6355,6 +6363,8 @@ impl RuntimeSnapshot {
             generated_pathways: runtime.generated_pathways.clone(),
             generated_places: runtime.generated_places.clone(),
             governance_decisions: runtime.governance_decisions.clone(),
+            settlement_buildings: runtime.settlement_buildings.clone(),
+            building_footprint_claims: runtime.building_footprint_claims.clone(),
             natural_affordances: runtime.natural_affordances.clone(),
             community_art_generations: runtime.community_art_generations.clone(),
             journeys: runtime.journeys.clone(),
@@ -6558,6 +6568,8 @@ impl RuntimeSnapshot {
             generated_pathways: self.generated_pathways,
             generated_places: self.generated_places,
             governance_decisions: self.governance_decisions,
+            settlement_buildings: self.settlement_buildings,
+            building_footprint_claims: self.building_footprint_claims,
             natural_affordances: self.natural_affordances,
             community_art_generations: self.community_art_generations,
             journeys: self.journeys,
@@ -6604,6 +6616,7 @@ impl RuntimeSnapshot {
             runtime.refresh_all_resident_continuities();
             runtime.ensure_actor_autonomy();
             runtime.backfill_generated_place_governance();
+            runtime.backfill_settlement_buildings();
             runtime.rebuild_deed_index();
             runtime.ensure_world_simulation();
             let mint_seed = runtime.next_seed;
@@ -6974,6 +6987,7 @@ impl RuntimeWorld {
         runtime.backfill_generated_avatar_flavor();
         runtime.ensure_actor_autonomy();
         runtime.backfill_generated_place_governance();
+        runtime.backfill_settlement_buildings();
         let mint_seed = runtime.next_seed;
         runtime.ensure_canonical_identities(mint_seed);
         runtime.refresh_all_canonical_events();
@@ -7004,6 +7018,8 @@ impl RuntimeWorld {
             generated_pathways: BTreeMap::new(),
             generated_places: BTreeMap::new(),
             governance_decisions: BTreeMap::new(),
+            settlement_buildings: BTreeMap::new(),
+            building_footprint_claims: BTreeMap::new(),
             natural_affordances: BTreeMap::new(),
             community_art_generations: BTreeMap::new(),
             journeys: BTreeMap::new(),
@@ -10267,6 +10283,10 @@ impl RuntimeWorld {
             events.extend(logistics_events);
             let generated_place_cause = events.last().map(|event| event.seq);
             events.extend(self.reconcile_generated_places(action.actor_id, generated_place_cause));
+            events.extend(self.reconcile_settlement_buildings(
+                action.actor_id,
+                BuildingReconcileMode::EmitEvents,
+            ));
             self.project_qualifying_deeds(&events);
             self.apply_resident_memory_projection(&action, &events);
             if advances_world_tick {
@@ -18498,6 +18518,9 @@ impl RuntimeWorld {
     }
 
     fn location_is_frontier(&self, location_id: u64) -> bool {
+        if self.location_has_building_capability(location_id, "sanctuary") {
+            return false;
+        }
         if self.generated_places.contains_key(&location_id)
             || self.generated_pathway_for_location(location_id).is_some()
         {
@@ -50458,7 +50481,12 @@ mod tests {
                     .any(|building| proposal.eligible_archetype_ids.contains(building))
         );
         let governance_decision_id = proposal.governance_decision_id.clone();
-        let selected_alternative_id = proposal.eligible_archetype_ids[0].clone();
+        let selected_alternative_id = proposal
+            .eligible_archetype_ids
+            .iter()
+            .find(|archetype_id| archetype_id.as_str() == "dwelling")
+            .cloned()
+            .expect("universal cottage remains available");
         let governance = runtime
             .governance_decisions
             .get(&governance_decision_id)
@@ -50586,6 +50614,154 @@ mod tests {
                 .as_ref()
                 .and_then(|proposal| proposal.selected_archetype_id.as_deref()),
             Some(selected_alternative_id.as_str())
+        );
+        let building = runtime
+            .settlement_buildings
+            .values()
+            .find(|building| building.governance_decision_id == governance_decision_id)
+            .cloned()
+            .expect("selection atomically claims a footprint and opens construction");
+        assert_eq!(building.status, SettlementBuildingStatus::Constructing);
+        assert_eq!(
+            runtime.settlement_building_claim_count(first_waypoint_id),
+            1
+        );
+        assert_eq!(
+            runtime.clocks[&building.construction_clock_id].filled, 0,
+            "selection never completes construction on its first click"
+        );
+        assert!(choice_events
+            .iter()
+            .any(|event| event.type_name == "building.construction_opened"));
+
+        for world in [&mut runtime, &mut replay] {
+            world.actor_autonomy.entry(5001).or_default().control_mode = ActorControlMode::LocalAi;
+        }
+        let item_count_before_construction = runtime.world.item_count;
+        for (actor_id, seed) in [
+            (5000, 910_014),
+            (5001, 910_015),
+            (5000, 910_016),
+            (5001, 910_017),
+        ] {
+            let intent = runtime
+                .job_contribution_intent(
+                    actor_id,
+                    "work",
+                    Some(&building.construction_job_id),
+                    None,
+                    None,
+                )
+                .expect("every controller uses the same construction action surface");
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id,
+                    location_id: first_waypoint_id,
+                    ..CwAction::default()
+                },
+                seed,
+            );
+            record
+                .projection_mutations
+                .push(ProjectionMutation::ResolveJobContribution { intent });
+            apply_pair(&mut runtime, &mut replay, &record);
+        }
+        let completed = runtime
+            .settlement_buildings
+            .get(&building.id)
+            .expect("construction remains projected");
+        assert_eq!(completed.status, SettlementBuildingStatus::Completed);
+        assert_eq!(
+            runtime.clocks[&building.construction_clock_id].filled,
+            runtime.clocks[&building.construction_clock_id].segments
+        );
+        assert!(completed
+            .installed_capabilities
+            .iter()
+            .any(|capability| capability == "sanctuary"));
+        assert_eq!(runtime.room_sheets[&first_waypoint_id].safety, "safe");
+        assert!(!runtime.location_is_frontier(first_waypoint_id));
+        assert_eq!(
+            runtime.world.item_count, item_count_before_construction,
+            "a building and its natural prerequisites never mint passive cargo"
+        );
+        assert!(!completed.follow_up_job_ids.is_empty());
+        assert_eq!(
+            runtime
+                .event_log
+                .iter()
+                .filter(|event| event.type_name == "building.completed")
+                .count(),
+            1,
+            "completion capabilities install exactly once"
+        );
+        assert!(runtime
+            .reconcile_settlement_buildings(5000, BuildingReconcileMode::EmitEvents)
+            .is_empty());
+
+        let civic_clock_id = settlement_civic_clock_id(first_waypoint_id);
+        let mut civic_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: first_waypoint_id,
+                ..CwAction::default()
+            },
+            910_018,
+        );
+        civic_record
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: civic_clock_id.clone(),
+                amount: runtime.clocks[&civic_clock_id].segments,
+                reason: "generated_place_test_civic_slot".to_string(),
+            });
+        apply_pair(&mut runtime, &mut replay, &civic_record);
+        let slot_view = runtime.settlement_building_slot_view(first_waypoint_id);
+        assert_eq!(slot_view.capacity, 2);
+        assert_eq!(slot_view.claimed, 1);
+        assert_eq!(slot_view.available, 1);
+        assert!(runtime.governance_decisions.contains_key(
+            &generated_building_governance_decision_id_for_slot(first_waypoint_id, 2)
+        ));
+        let second_decision_id =
+            generated_building_governance_decision_id_for_slot(first_waypoint_id, 2);
+        let second_alternative_id = runtime.governance_decisions[&second_decision_id]
+            .alternatives
+            .iter()
+            .find(|alternative| alternative.status == GovernanceAlternativeStatus::Open)
+            .map(|alternative| alternative.id.clone())
+            .expect("the civic slot has a legal governed alternative");
+        let mut second_choice_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: first_waypoint_id,
+                ..CwAction::default()
+            },
+            910_019,
+        );
+        second_choice_record
+            .projection_mutations
+            .push(ProjectionMutation::ApplyGovernance {
+                action: GovernanceAction::Select {
+                    decision_id: second_decision_id.clone(),
+                    alternative_id: second_alternative_id,
+                },
+            });
+        apply_pair(&mut runtime, &mut replay, &second_choice_record);
+        let full_slots = runtime.settlement_building_slot_view(first_waypoint_id);
+        assert_eq!(full_slots.capacity, 2);
+        assert_eq!(full_slots.claimed, 2);
+        assert_eq!(full_slots.available, 0);
+        assert_eq!(
+            runtime
+                .settlement_buildings
+                .values()
+                .filter(|building| building.location_id == first_waypoint_id)
+                .count(),
+            2
         );
         assert_eq!(
             serde_json::to_value(runtime.generated_place_view(first_waypoint_id))
@@ -51976,7 +52152,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.3.7");
+        assert_eq!(location_reference.pack_version, "1.3.8");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");
