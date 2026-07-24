@@ -1537,7 +1537,27 @@ impl RuntimeWorld {
         let mut events = self.install_selected_buildings(actor_id, mode);
         events.extend(self.complete_and_upgrade_buildings(actor_id, mode));
         events.extend(self.open_unlocked_building_slots(actor_id, mode));
+        self.reconcile_building_public_caches();
         events
+    }
+
+    fn reconcile_building_public_caches(&mut self) {
+        let world_items = self.world.items[..self.world.item_count]
+            .iter()
+            .map(|item| (item.id, *item))
+            .collect::<BTreeMap<_, _>>();
+        for building in self.settlement_buildings.values_mut() {
+            let Some(cache) = building.public_cache.as_mut() else {
+                continue;
+            };
+            cache.item_ids.retain(|item_id| {
+                world_items.get(item_id).is_some_and(|item| {
+                    item.holder_actor_id == 0
+                        && item.location_id == building.location_id
+                        && item.zone == CW_CARD_ZONE_WORLD
+                })
+            });
+        }
     }
 
     pub(super) fn backfill_settlement_buildings(&mut self) {
@@ -2149,6 +2169,8 @@ mod tests {
                 follow_up_job_ids: Vec::new(),
             },
         );
+        let before_pickup = serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime))
+            .expect("serialize pre-pickup replay fixture");
         let pickup_seed = runtime.next_seed_value();
         assert_eq!(
             runtime
@@ -2164,6 +2186,56 @@ mod tests {
                 .0,
             CW_OK
         );
+        assert!(
+            runtime.settlement_buildings[&building.id]
+                .public_cache
+                .as_ref()
+                .is_some_and(|cache| cache.item_ids.is_empty()),
+            "taking the catch removes it from the public cache"
+        );
+        assert!(
+            runtime
+                .settlement_building_views(location_id)
+                .iter()
+                .find(|view| view.id == building.id)
+                .and_then(|view| view.public_cache.as_ref())
+                .is_some_and(|cache| cache.item_ids.is_empty()),
+            "the cache view cannot expose stale membership"
+        );
+        let replay_building_id = building.id.clone();
+        std::thread::Builder::new()
+            .name("public-cache-pickup-replay".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(move || {
+                let mut pickup_replay = serde_json::from_slice::<RuntimeSnapshot>(&before_pickup)
+                    .expect("deserialize pre-pickup replay fixture")
+                    .into_runtime()
+                    .expect("pre-pickup snapshot restores");
+                assert_eq!(
+                    pickup_replay
+                        .apply_journal_record(&JournalRecord::new(
+                            CwAction {
+                                kind: CW_ACTION_PICK_UP_ITEM,
+                                actor_id: RATI_ACTOR_ID,
+                                item_id,
+                                ..CwAction::default()
+                            },
+                            pickup_seed,
+                        ))
+                        .0,
+                    CW_OK
+                );
+                assert!(
+                    pickup_replay.settlement_buildings[&replay_building_id]
+                        .public_cache
+                        .as_ref()
+                        .is_some_and(|cache| cache.item_ids.is_empty()),
+                    "journal replay removes the catch from the public cache"
+                );
+            })
+            .expect("spawn public cache pickup replay")
+            .join()
+            .expect("public cache pickup replay completes");
         let travel_seed = runtime.next_seed_value();
         let (_, travel_events) = runtime.apply_journal_record(&JournalRecord::new(
             CwAction {
@@ -2217,6 +2289,42 @@ mod tests {
             runtime.physical_item_template_id(smoked_item_id).as_deref(),
             Some("smoked_river_sprat")
         );
+        assert!(
+            runtime.settlement_buildings[&building.id]
+                .public_cache
+                .as_ref()
+                .is_some_and(|cache| cache.item_ids.is_empty()),
+            "transforming the catch cannot restore stale cache membership"
+        );
+        runtime
+            .settlement_buildings
+            .get_mut(&building.id)
+            .and_then(|building| building.public_cache.as_mut())
+            .expect("cache remains installed")
+            .item_ids
+            .push(item_id);
+        let stale_cache_snapshot = serde_json::to_vec(&RuntimeSnapshot::from_runtime(&runtime))
+            .expect("serialize legacy stale-cache snapshot");
+        let restored_building_id = building.id.clone();
+        std::thread::Builder::new()
+            .name("public-cache-snapshot-backfill".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(move || {
+                let restored = serde_json::from_slice::<RuntimeSnapshot>(&stale_cache_snapshot)
+                    .expect("deserialize legacy stale-cache snapshot")
+                    .into_runtime()
+                    .expect("legacy stale-cache snapshot restores");
+                assert!(
+                    restored.settlement_buildings[&restored_building_id]
+                        .public_cache
+                        .as_ref()
+                        .is_some_and(|cache| cache.item_ids.is_empty()),
+                    "snapshot backfill removes cache entries for missing items"
+                );
+            })
+            .expect("spawn public cache snapshot backfill")
+            .join()
+            .expect("public cache snapshot backfill completes");
         let deed_categories = runtime
             .deeds
             .values()
