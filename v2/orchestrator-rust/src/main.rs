@@ -34496,7 +34496,7 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
                 .unwrap_or("a represented item changed form");
             format!("{actor_name} completed the change: {change}")
         }
-        _ => command_event_output(event).unwrap_or_else(|| event.type_name.replace('.', " ")),
+        _ => command_event_output(event)?,
     };
     room_memory_text(Some(&text))
 }
@@ -49339,6 +49339,40 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].kind, "item");
         assert!(entries[0].text.contains("Dewbright Button"));
+    }
+
+    #[test]
+    fn room_memory_log_entries_exclude_unknown_system_events() {
+        for type_name in [
+            "avatar.refined",
+            "pathway.refined",
+            "community_art.funded",
+            "community_art.ready",
+        ] {
+            let event = EventView {
+                type_name: type_name.to_string(),
+                success: true,
+                actor_name: Some("Moss Lantern".to_string()),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                ..EventView::default()
+            };
+            assert!(
+                room_memory_entry_for_event(&event).is_none(),
+                "{type_name} must not become player-facing room memory"
+            );
+        }
+
+        assert!(
+            room_memory_entry_for_event(&EventView {
+                type_name: "hand.shuffled".to_string(),
+                success: true,
+                actor_name: Some("Moss Lantern".to_string()),
+                location_id: Some(COSY_COTTAGE_LOCATION_ID),
+                ..EventView::default()
+            })
+            .is_some(),
+            "known story-facing events remain available"
+        );
     }
 
     #[test]
