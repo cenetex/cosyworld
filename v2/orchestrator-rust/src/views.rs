@@ -1686,8 +1686,7 @@ impl RuntimeWorld {
         let chat_bond_claimed_target_ids = client_actor_id
             .map(|id| self.chat_bond_claimed_target_ids(id, location_id))
             .unwrap_or_default();
-        let primary_action = self.primary_action(client_actor_id, access);
-        let action_offers = self.ranked_action_offers(client_actor_id, access, &primary_action);
+        let (primary_action, action_offers) = self.legal_action_candidates(client_actor_id, access);
         let action_hand = compose_action_hand(&action_offers);
         let inspector = self.inspector_view(
             location_id,

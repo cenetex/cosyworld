@@ -21404,6 +21404,16 @@ impl RuntimeWorld {
         ))
     }
 
+    fn legal_action_candidates(
+        &self,
+        actor_id: Option<u64>,
+        access: &AccessContext,
+    ) -> (PrimaryAction, Vec<RankedActionOffer>) {
+        let primary_action = self.primary_action(actor_id, access);
+        let action_offers = self.ranked_action_offers(actor_id, access, &primary_action);
+        (primary_action, action_offers)
+    }
+
     fn ranked_action_offers(
         &self,
         actor_id: Option<u64>,
@@ -24773,9 +24783,29 @@ impl RuntimeWorld {
     }
 
     fn preferred_job_contribution_intent(&self, actor_id: u64) -> Option<JobContributionIntent> {
-        ["prepare", "work", "help", "check", "study"]
+        let (_, offers) = self.legal_action_candidates(Some(actor_id), &AccessContext::default());
+        offers
             .into_iter()
-            .find_map(|kind| self.job_contribution_intent(actor_id, kind, None, None, None))
+            .filter(action_offer_is_reachable)
+            .filter(|offer| matches!(offer.kind.as_str(), "prepare" | "work" | "help" | "study"))
+            .find_map(|offer| {
+                let project = offer.project?;
+                let intent = self.job_contribution_intent(
+                    actor_id,
+                    &offer.kind,
+                    Some(&project.id),
+                    project.strategy_id.as_deref(),
+                    None,
+                )?;
+                let target_matches = offer.target.as_ref().is_some_and(|target| {
+                    target.kind == intent.target.kind
+                        && target.id == intent.target.id.parse::<u64>().ok()
+                });
+                (target_matches
+                    && project.progress_clock_id == intent.strategy.clock_id
+                    && project.strategy_id.as_deref() == Some(intent.strategy.id.as_str()))
+                .then_some(intent)
+            })
     }
 
     fn resident_job_autonomy_record(&self, actor: CwActor, seed: u64) -> Option<JournalRecord> {
@@ -29416,8 +29446,7 @@ async fn submit_action_offer(
     );
     let validation = {
         let runtime = state.inner.lock().await;
-        let primary = runtime.primary_action(Some(actor_id), &access);
-        let offers = runtime.ranked_action_offers(Some(actor_id), &access, &primary);
+        let (_, offers) = runtime.legal_action_candidates(Some(actor_id), &access);
         let Some(offer) = offers
             .iter()
             .find(|offer| offer.offer_id == submission.offer_id)
@@ -70000,6 +70029,9 @@ mod tests {
                     .expect("Rati exists")
                     .location_id = MOONLIT_TRAIL_LOCATION_ID;
 
+                let inference_candidates = runtime
+                    .legal_action_candidates(Some(resident_id), &AccessContext::default())
+                    .1;
                 let inference_intent = runtime
                     .preferred_job_contribution_intent(resident_id)
                     .expect("the resident sees an authored local contribution");
@@ -70008,6 +70040,15 @@ mod tests {
                     .entry(resident_id)
                     .or_default()
                     .control_mode = ActorControlMode::DirectInput;
+                let direct_candidates = runtime
+                    .legal_action_candidates(Some(resident_id), &AccessContext::default())
+                    .1;
+                assert_eq!(
+                    serde_json::to_value(&direct_candidates).expect("direct candidates serialize"),
+                    serde_json::to_value(&inference_candidates)
+                        .expect("inference candidates serialize"),
+                    "controller mode cannot change legal candidate enumeration"
+                );
                 let direct_intent = runtime
                     .preferred_job_contribution_intent(resident_id)
                     .expect("the same avatar keeps the contribution under direct input");
@@ -70055,6 +70096,24 @@ mod tests {
                     .expect("pre-contribution snapshot restores");
                 assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
                 assert_eq!(quest_projection_signature(&replayed), expected);
+
+                let local_clock_ids = runtime
+                    .jobs
+                    .values()
+                    .filter(|job| job.location_ids.contains(&MOONLIT_TRAIL_LOCATION_ID))
+                    .map(|job| job.progress_clock_id.clone())
+                    .collect::<Vec<_>>();
+                for clock_id in local_clock_ids {
+                    if let Some(clock) = runtime.clocks.get_mut(&clock_id) {
+                        clock.filled = clock.segments;
+                    }
+                }
+                assert!(runtime
+                    .preferred_job_contribution_intent(resident_id)
+                    .is_none());
+                assert!(runtime
+                    .resident_job_autonomy_record(resident, 97_002)
+                    .is_none());
             })
             .expect("spawn resident job autonomy test")
             .join()
