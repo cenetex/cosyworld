@@ -835,7 +835,7 @@ mod tests {
             event.type_name == "item.crafted" && event.actor_id == Some(actor.id)
         }));
         assert!(runtime
-            .resident_record_for_search_craft_or_scout_offer(actor, &offer, 81_001)
+            .resident_record_for_shared_offer(actor, &offer, 81_001)
             .is_none());
         let expected_receipts = runtime.craft_receipts.clone();
         let expected_items = serde_json::to_value(&runtime.world.items[..runtime.world.item_count])

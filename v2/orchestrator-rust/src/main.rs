@@ -15019,6 +15019,144 @@ impl RuntimeWorld {
         ))
     }
 
+    fn current_reachable_offer(
+        &self,
+        actor_id: u64,
+        offered: &RankedActionOffer,
+    ) -> Option<RankedActionOffer> {
+        self.legal_action_candidates(Some(actor_id), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|candidate| {
+                candidate.offer_id == offered.offer_id
+                    && candidate.kind == offered.kind
+                    && candidate.rules_action == offered.rules_action
+                    && candidate.operation == offered.operation
+                    && candidate.resolver == offered.resolver
+                    && candidate.state_revision == offered.state_revision
+                    && candidate.provider.id == offered.provider.id
+                    && candidate.target == offered.target
+                    && action_offer_is_reachable(candidate)
+            })
+    }
+
+    fn plan_notice_action(
+        &self,
+        actor_id: u64,
+        target_actor_id: u64,
+    ) -> Result<(CwAction, Vec<ProjectionMutation>), String> {
+        let actor = self
+            .actor_by_id(actor_id)
+            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .ok_or_else(|| "Notice requires an active avatar.".to_string())?;
+        if target_actor_id != 0 && !self.economy_notice_target_is_valid(actor_id, target_actor_id) {
+            return Err("That avatar is not close enough to notice.".to_string());
+        }
+        let mutations = if target_actor_id == 0 {
+            self.job_contribution_intent(actor_id, "check", None, None, None)
+                .map(|intent| ProjectionMutation::ResolveJobContribution { intent })
+                .into_iter()
+                .collect()
+        } else {
+            Vec::new()
+        };
+        Ok((
+            CwAction {
+                kind: CW_ACTION_RULES_SEARCH,
+                actor_id,
+                target_actor_id,
+                location_id: actor.location_id,
+                ability: LISTEN_ABILITY,
+                dc: LISTEN_DC,
+                ..CwAction::default()
+            },
+            mutations,
+        ))
+    }
+
+    fn plan_influence_action(
+        &self,
+        actor_id: u64,
+        target_actor_id: u64,
+    ) -> Result<CwAction, String> {
+        let actor = self
+            .actor_by_id(actor_id)
+            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .ok_or_else(|| "Influence requires an active avatar.".to_string())?;
+        let target_is_legal = self.actor_by_id(target_actor_id).is_some_and(|target| {
+            Self::actor_is_active_avatar(target)
+                && target.location_id == actor.location_id
+                && !self.actors_blocked(actor_id, target.id)
+                && self
+                    .default_chat_target(actor_id)
+                    .is_some_and(|default| default.id == target.id)
+        });
+        if !target_is_legal
+            || self
+                .contextual_action_contributions(actor_id, "srd5.2.1:influence")
+                .2
+                .is_empty()
+        {
+            return Err(
+                "Influence target or authored cooperation is no longer available.".to_string(),
+            );
+        }
+        Ok(CwAction {
+            kind: CW_ACTION_RULES_INFLUENCE,
+            actor_id,
+            target_actor_id,
+            ability: 5,
+            dc: LISTEN_DC,
+            ..CwAction::default()
+        })
+    }
+
+    fn plan_rest_mutations(&self, actor_id: u64) -> Result<Vec<ProjectionMutation>, String> {
+        if !self.rest_available(actor_id) {
+            return Err("Rest is not needed here.".to_string());
+        }
+        let location_id = self
+            .actor_by_id(actor_id)
+            .map(|actor| actor.location_id)
+            .ok_or_else(|| "Rest requires an active avatar.".to_string())?;
+        let mut mutations = vec![
+            ProjectionMutation::ClearTag {
+                tag_id: tired_tag_id(actor_id),
+                reason: "rest".to_string(),
+            },
+            ProjectionMutation::ClearTag {
+                tag_id: trained_since_rest_tag_id(actor_id),
+                reason: "rest".to_string(),
+            },
+        ];
+        mutations.extend(
+            self.frontier_travel_since_rest_tag_ids(actor_id)
+                .into_iter()
+                .map(|tag_id| ProjectionMutation::ClearTag {
+                    tag_id,
+                    reason: "rest".to_string(),
+                }),
+        );
+        if let Some(clock_id) = self
+            .active_danger_clock_id_for_location(location_id)
+            .filter(|clock_id| self.clock_is_frontier(clock_id))
+        {
+            if self.hearth_tonic_warmth_guards_rest(location_id) {
+                mutations.push(ProjectionMutation::ClearTag {
+                    tag_id: HEARTH_TONIC_WARMTH_TAG_ID.to_string(),
+                    reason: "rest_warmed".to_string(),
+                });
+            } else {
+                mutations.push(ProjectionMutation::AdvanceClock {
+                    clock_id,
+                    amount: 1,
+                    reason: "rest".to_string(),
+                });
+            }
+        }
+        Ok(mutations)
+    }
+
     fn plan_scout_offer(
         &self,
         actor_id: u64,
@@ -15028,15 +15166,7 @@ impl RuntimeWorld {
             return Err("Scout needs a current reachable route offer.".to_string());
         }
         let current_offer = self
-            .legal_action_candidates(Some(actor_id), &AccessContext::default())
-            .1
-            .into_iter()
-            .find(|candidate| {
-                candidate.offer_id == offer.offer_id
-                    && candidate.kind == offer.kind
-                    && candidate.target == offer.target
-                    && action_offer_is_reachable(candidate)
-            })
+            .current_reachable_offer(actor_id, offer)
             .ok_or_else(|| "That Scout offer is no longer current.".to_string())?;
         let destination_location_id = current_offer
             .target
@@ -25168,23 +25298,80 @@ impl RuntimeWorld {
         Some(record)
     }
 
-    fn resident_record_for_search_craft_or_scout_offer(
+    fn resident_record_for_shared_offer(
         &self,
         actor: CwActor,
         offer: &RankedActionOffer,
         seed: u64,
     ) -> Option<JournalRecord> {
-        if !action_offer_is_reachable(offer) {
-            return None;
-        }
+        let offer = self.current_reachable_offer(actor.id, offer)?;
         let min_seq = self
             .world
             .next_event_seq
             .saturating_sub(RESIDENT_AUTONOMY_REPEAT_EVENT_WINDOW);
         let mut record = match offer.kind.as_str() {
+            "rest" => {
+                let mutations = self.plan_rest_mutations(actor.id).ok()?;
+                let mut record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_NONE,
+                        actor_id: actor.id,
+                        ..CwAction::default()
+                    },
+                    seed,
+                )
+                .into_actor_consequence(self.world.tick, None);
+                record.bind_offer_kind("rest");
+                record.projection_mutations.extend(mutations);
+                record
+            }
+            "check" => {
+                if self.event_log.iter().rev().any(|event| {
+                    event.seq >= min_seq
+                        && event.success
+                        && event.type_name == "ability_check.rolled"
+                        && event.actor_id == Some(actor.id)
+                        && event.location_id == Some(actor.location_id)
+                }) {
+                    return None;
+                }
+                let target_matches = offer.target.as_ref().is_some_and(|target| {
+                    target.kind == "location" && target.id == Some(actor.location_id)
+                });
+                if !target_matches {
+                    return None;
+                }
+                let (action, mutations) = self.plan_notice_action(actor.id, 0).ok()?;
+                let mut record =
+                    JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
+                record.bind_offer_kind("check");
+                record.projection_mutations.extend(mutations);
+                record
+            }
+            "influence" => {
+                let target_actor_id = offer
+                    .target
+                    .as_ref()
+                    .filter(|target| target.kind == "actor")
+                    .and_then(|target| target.id)?;
+                if self.event_log.iter().rev().any(|event| {
+                    event.seq >= min_seq
+                        && event.success
+                        && event.type_name == "influence.committed"
+                        && event.actor_id == Some(actor.id)
+                        && event.target_actor_id == Some(target_actor_id)
+                }) {
+                    return None;
+                }
+                let action = self.plan_influence_action(actor.id, target_actor_id).ok()?;
+                let mut record =
+                    JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
+                record.bind_offer_kind("influence");
+                record
+            }
             "explore_path" => {
                 let (action, mut mutation, narration_plan) =
-                    self.plan_scout_offer(actor.id, offer).ok()?;
+                    self.plan_scout_offer(actor.id, &offer).ok()?;
                 if let ProjectionMutation::JourneyTransition { narration, .. } = &mut mutation {
                     *narration = travel_narration_fallback(&narration_plan);
                 }
@@ -25265,31 +25452,41 @@ impl RuntimeWorld {
         Some(record)
     }
 
-    fn resident_search_craft_or_scout_autonomy_record(
+    fn resident_shared_offer_autonomy_record_for_kinds(
+        &self,
+        actor: CwActor,
+        seed: u64,
+        kinds: &[&str],
+    ) -> Option<JournalRecord> {
+        let (_, offers) = self.legal_action_candidates(Some(actor.id), &AccessContext::default());
+        kinds.iter().find_map(|kind| {
+            offers
+                .iter()
+                .filter(|offer| offer.kind == *kind)
+                .find_map(|offer| self.resident_record_for_shared_offer(actor, offer, seed))
+        })
+    }
+
+    fn resident_shared_offer_autonomy_record(
         &self,
         actor: CwActor,
         seed: u64,
     ) -> Option<JournalRecord> {
-        let (_, offers) = self.legal_action_candidates(Some(actor.id), &AccessContext::default());
-        offers
-            .iter()
-            .filter(|offer| matches!(offer.kind.as_str(), "search" | "craft"))
-            .find_map(|offer| {
-                self.resident_record_for_search_craft_or_scout_offer(actor, offer, seed)
-            })
-            .or_else(|| {
-                offers
-                    .iter()
-                    .filter(|offer| offer.kind == "explore_path")
-                    .find_map(|offer| {
-                        self.resident_record_for_search_craft_or_scout_offer(actor, offer, seed)
-                    })
-            })
+        self.resident_shared_offer_autonomy_record_for_kinds(
+            actor,
+            seed,
+            &["search", "craft", "influence", "check", "explore_path"],
+        )
     }
 
     fn resident_economy_autonomy_record(&self, actor: CwActor, seed: u64) -> Option<JournalRecord> {
         if !Self::actor_is_active_avatar(actor) || !self.actor_uses_inference(actor.id) {
             return None;
+        }
+        if let Some(record) =
+            self.resident_shared_offer_autonomy_record_for_kinds(actor, seed, &["rest"])
+        {
+            return Some(record);
         }
         if self.resident_held_healing_item(actor).is_none() {
             if let Some(record) = self.resident_feature_use_autonomy_record(actor, seed) {
@@ -25305,7 +25502,7 @@ impl RuntimeWorld {
             self.append_resident_autonomy_intent_projection(actor, &mut record);
             return Some(record);
         }
-        self.resident_search_craft_or_scout_autonomy_record(actor, seed)
+        self.resident_shared_offer_autonomy_record(actor, seed)
     }
 
     fn append_resident_autonomy_intent_projection(
@@ -25401,6 +25598,38 @@ impl RuntimeWorld {
                     .unwrap_or_else(|| format!("Item {}", action.item_id));
                 format!("{actor_name} intends to use {item}.")
             }
+            CW_ACTION_RULES_SEARCH => {
+                if let Some(job_intent) =
+                    record
+                        .projection_mutations
+                        .iter()
+                        .find_map(|mutation| match mutation {
+                            ProjectionMutation::ResolveJobContribution { intent } => Some(intent),
+                            _ => None,
+                        })
+                {
+                    proposed_action.kind = job_intent.strategy.action_kind.clone();
+                    proposed_action.target_actor_id = (job_intent.target.kind == "actor")
+                        .then(|| job_intent.target.id.parse::<u64>().ok())
+                        .flatten();
+                    format!(
+                        "{actor_name} intends to {}.",
+                        job_intent.strategy.strategy_label.trim_end_matches('.')
+                    )
+                } else {
+                    proposed_action.kind = "check".to_string();
+                    proposed_action.destination_location_id = Some(actor.location_id);
+                    format!("{actor_name} intends to notice what has changed here.")
+                }
+            }
+            CW_ACTION_RULES_INFLUENCE => {
+                proposed_action.kind = "influence".to_string();
+                proposed_action.target_actor_id = Some(action.target_actor_id);
+                let target = self
+                    .actor_name(action.target_actor_id)
+                    .unwrap_or_else(|| format!("Actor {}", action.target_actor_id));
+                format!("{actor_name} intends to ask {target} for a useful local lead.")
+            }
             CW_ACTION_NONE => record
                 .projection_mutations
                 .iter()
@@ -25448,6 +25677,10 @@ impl RuntimeWorld {
                             "{actor_name} intends to {}.",
                             intent.strategy.strategy_label.trim_end_matches('.')
                         ))
+                    }
+                    ProjectionMutation::ClearTag { reason, .. } if reason == "rest" => {
+                        proposed_action.kind = "rest".to_string();
+                        Some(format!("{actor_name} intends to rest."))
                     }
                     _ => None,
                 })
@@ -25574,6 +25807,18 @@ impl RuntimeWorld {
                 (50, score)
             }
             CW_ACTION_MOVE => (60, RESIDENT_DEFAULT_ITEM_SCORE),
+            CW_ACTION_RULES_INFLUENCE => (70, 0),
+            CW_ACTION_RULES_SEARCH => (80, 0),
+            CW_ACTION_NONE
+                if record.projection_mutations.iter().any(|mutation| {
+                    matches!(
+                        mutation,
+                        ProjectionMutation::ClearTag { reason, .. } if reason == "rest"
+                    )
+                }) =>
+            {
+                (5, RESIDENT_DESIRED_ITEM_SCORE)
+            }
             CW_ACTION_NONE
                 if record
                     .projection_mutations
@@ -25605,6 +25850,7 @@ impl RuntimeWorld {
                         "explore_path"
                     })
                 }
+                ProjectionMutation::ClearTag { reason, .. } if reason == "rest" => Some("rest"),
                 _ => None,
             })
         {
@@ -25613,7 +25859,9 @@ impl RuntimeWorld {
         match record.action.kind {
             CW_ACTION_MOVE => "move",
             CW_ACTION_ABILITY_CHECK => "check",
-            CW_ACTION_RULES_SEARCH | CW_ACTION_SEARCH => "search",
+            CW_ACTION_RULES_SEARCH => "check",
+            CW_ACTION_RULES_INFLUENCE => "influence",
+            CW_ACTION_SEARCH => "search",
             CW_ACTION_RULES_STUDY => "study",
             CW_ACTION_RULES_MAGIC => "cast_spell",
             CW_ACTION_PICK_UP_ITEM => "pick_up",
@@ -25653,6 +25901,11 @@ impl RuntimeWorld {
         {
             return offer.target.as_ref().is_some_and(|target| {
                 target.kind == "location" && target.id == Some(destination_location_id)
+            });
+        }
+        if action.kind == CW_ACTION_RULES_SEARCH && offer.kind == "check" {
+            return offer.target.as_ref().is_some_and(|target| {
+                target.kind == "location" && target.id == Some(action.location_id)
             });
         }
         if let Some(intent) = record
@@ -25696,6 +25949,9 @@ impl RuntimeWorld {
             }),
             CW_ACTION_ABILITY_CHECK => offer.target.as_ref().is_some_and(|target| {
                 target.kind == "location" && target.id == Some(action.location_id)
+            }),
+            CW_ACTION_RULES_INFLUENCE => offer.target.as_ref().is_some_and(|target| {
+                target.kind == "actor" && target.id == Some(action.target_actor_id)
             }),
             CW_ACTION_RULES_SEARCH | CW_ACTION_SEARCH | CW_ACTION_NONE
                 if offer.kind == "search" =>
@@ -25747,6 +26003,15 @@ impl RuntimeWorld {
             CW_ACTION_ATTACK | CW_ACTION_DEFEND => offer.target.as_ref().is_some_and(|target| {
                 target.kind == "actor" && target.id == Some(action.target_actor_id)
             }),
+            CW_ACTION_NONE if offer.kind == "rest" => {
+                offer.target.is_none()
+                    && record.projection_mutations.iter().any(|mutation| {
+                        matches!(
+                            mutation,
+                            ProjectionMutation::ClearTag { reason, .. } if reason == "rest"
+                        )
+                    })
+            }
             _ => false,
         }
     }
@@ -37279,7 +37544,7 @@ async fn ability_check(
         });
     }
     let target_actor_id = payload.target_actor_id.unwrap_or_default();
-    let contribution_mutations = {
+    let plan = {
         let runtime = state.inner.lock().await;
         if target_actor_id != 0
             && !client_actor_authorized_for_state(
@@ -37291,35 +37556,13 @@ async fn ability_check(
         {
             return client_actor_rejected_response();
         }
-        if target_actor_id != 0
-            && !runtime.economy_notice_target_is_valid(payload.actor_id, target_actor_id)
-        {
-            return action_offer_rejected("That avatar is not close enough to notice");
-        }
-        if target_actor_id == 0 {
-            runtime
-                .job_contribution_intent(payload.actor_id, "check", None, None, None)
-                .map(|intent| ProjectionMutation::ResolveJobContribution { intent })
-                .into_iter()
-                .collect()
-        } else {
-            Vec::new()
-        }
+        runtime.plan_notice_action(payload.actor_id, target_actor_id)
     };
-    apply_and_broadcast_with_mutations(
-        state,
-        CwAction {
-            kind: CW_ACTION_RULES_SEARCH,
-            actor_id: payload.actor_id,
-            target_actor_id,
-            ability: LISTEN_ABILITY,
-            dc: LISTEN_DC,
-            ..CwAction::default()
-        },
-        payload.actor_session.as_deref(),
-        contribution_mutations,
-    )
-    .await
+    let Ok((action, mutations)) = plan else {
+        return action_offer_rejected("That Notice offer is no longer available");
+    };
+    apply_and_broadcast_with_mutations(state, action, payload.actor_session.as_deref(), mutations)
+        .await
 }
 
 async fn study(
@@ -37387,44 +37630,16 @@ async fn influence(
     ) {
         return action_rate_limited_response();
     }
-    let legal = {
+    let action = {
         let runtime = state.inner.lock().await;
-        let Some(actor) = runtime.actor_by_id(payload.actor_id) else {
-            return action_offer_rejected("Influence requires an active avatar");
-        };
-        runtime
-            .actor_by_id(payload.target_actor_id)
-            .is_some_and(|target| {
-                RuntimeWorld::actor_is_active_avatar(target)
-                    && target.location_id == actor.location_id
-                    && !runtime.actors_blocked(payload.actor_id, target.id)
-                    && runtime
-                        .default_chat_target(payload.actor_id)
-                        .is_some_and(|default| default.id == target.id)
-            })
-            && !runtime
-                .contextual_action_contributions(payload.actor_id, "srd5.2.1:influence")
-                .2
-                .is_empty()
+        runtime.plan_influence_action(payload.actor_id, payload.target_actor_id)
     };
-    if !legal {
+    let Ok(action) = action else {
         return action_offer_rejected(
             "Influence target or authored cooperation is no longer available",
         );
-    }
-    apply_and_broadcast(
-        state,
-        CwAction {
-            kind: CW_ACTION_RULES_INFLUENCE,
-            actor_id: payload.actor_id,
-            target_actor_id: payload.target_actor_id,
-            ability: 5,
-            dc: LISTEN_DC,
-            ..CwAction::default()
-        },
-        payload.actor_session.as_deref(),
-    )
-    .await
+    };
+    apply_and_broadcast(state, action, payload.actor_session.as_deref()).await
 }
 
 async fn cast_spell(
@@ -38932,18 +39147,13 @@ async fn rest(
     if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
         return response;
     }
-    if !runtime.rest_available(payload.actor_id) {
+    let Ok(mutations) = runtime.plan_rest_mutations(payload.actor_id) else {
         return Json(ActionResponse {
             ok: false,
             status: 409,
             events: Vec::new(),
         });
-    }
-
-    let location_id = runtime
-        .actor_by_id(payload.actor_id)
-        .map(|actor| actor.location_id)
-        .unwrap_or(0);
+    };
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -38953,47 +39163,8 @@ async fn rest(
         runtime.next_seed_value(),
     )
     .into_player_card();
-    record
-        .projection_mutations
-        .push(ProjectionMutation::ClearTag {
-            tag_id: tired_tag_id(payload.actor_id),
-            reason: "rest".to_string(),
-        });
-    record
-        .projection_mutations
-        .push(ProjectionMutation::ClearTag {
-            tag_id: trained_since_rest_tag_id(payload.actor_id),
-            reason: "rest".to_string(),
-        });
-    for tag_id in runtime.frontier_travel_since_rest_tag_ids(payload.actor_id) {
-        record
-            .projection_mutations
-            .push(ProjectionMutation::ClearTag {
-                tag_id,
-                reason: "rest".to_string(),
-            });
-    }
-    if let Some(clock_id) = runtime
-        .active_danger_clock_id_for_location(location_id)
-        .filter(|clock_id| runtime.clock_is_frontier(clock_id))
-    {
-        if runtime.hearth_tonic_warmth_guards_rest(location_id) {
-            record
-                .projection_mutations
-                .push(ProjectionMutation::ClearTag {
-                    tag_id: HEARTH_TONIC_WARMTH_TAG_ID.to_string(),
-                    reason: "rest_warmed".to_string(),
-                });
-        } else {
-            record
-                .projection_mutations
-                .push(ProjectionMutation::AdvanceClock {
-                    clock_id,
-                    amount: 1,
-                    reason: "rest".to_string(),
-                });
-        }
-    }
+    record.bind_offer_kind("rest");
+    record.projection_mutations.extend(mutations);
 
     let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record) else {
         return Json(ActionResponse {
@@ -42465,6 +42636,7 @@ fn action_offer_requires_target(kind: &str) -> bool {
     matches!(
         kind,
         "chat"
+            | "influence"
             | "attack"
             | "defend"
             | "flee"
@@ -70904,7 +71076,7 @@ mod tests {
                 && event.destination_location_id == Some(undiscovered.to_location_id)
         }));
         assert!(runtime
-            .resident_record_for_search_craft_or_scout_offer(actor, &offer, seed)
+            .resident_record_for_shared_offer(actor, &offer, seed)
             .is_none());
         let expected = quest_projection_signature(&runtime);
         let mut replayed = replay_base
@@ -70985,7 +71157,7 @@ mod tests {
             .control_mode = ActorControlMode::LocalAi;
         let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati remains");
         let record = runtime
-            .resident_record_for_search_craft_or_scout_offer(actor, &offer, 98_001)
+            .resident_record_for_shared_offer(actor, &offer, 98_001)
             .expect("the resident can select the current Scout offer");
         assert_eq!(record.origin, JournalOrigin::ActorConsequence);
         assert_eq!(record.rules_action, offer.rules_action);
@@ -71056,7 +71228,7 @@ mod tests {
         assert_eq!(journey.destination_location_id, MOONLIT_TRAIL_LOCATION_ID);
         assert_eq!(journey.current_step, 0);
         assert!(runtime
-            .resident_record_for_search_craft_or_scout_offer(actor, &offer, 98_002)
+            .resident_record_for_shared_offer(actor, &offer, 98_002)
             .is_none());
 
         let expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
@@ -71070,6 +71242,329 @@ mod tests {
                 .expect("replayed state serializes"),
             expected
         );
+    }
+
+    #[test]
+    fn resident_notice_uses_the_player_offer_and_replays_the_roll() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime
+            .actor_autonomy
+            .entry(RATI_ACTOR_ID)
+            .or_default()
+            .control_mode = ActorControlMode::LocalAi;
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        let inference_offers = runtime
+            .legal_action_candidates(Some(actor.id), &AccessContext::default())
+            .1;
+        let offer = inference_offers
+            .iter()
+            .find(|offer| offer.kind == "check")
+            .cloned()
+            .expect("the resident sees the player-facing Notice offer");
+        assert!(offer.target.as_ref().is_some_and(|target| {
+            target.kind == "location" && target.id == Some(actor.location_id)
+        }));
+
+        runtime
+            .actor_autonomy
+            .entry(actor.id)
+            .or_default()
+            .control_mode = ActorControlMode::DirectInput;
+        let direct_offers = runtime
+            .legal_action_candidates(Some(actor.id), &AccessContext::default())
+            .1;
+        assert_eq!(
+            serde_json::to_value(&direct_offers).expect("direct offers serialize"),
+            serde_json::to_value(&inference_offers).expect("inference offers serialize"),
+            "controller mode cannot change legal Notice enumeration"
+        );
+        let (player_action, player_mutations) = runtime
+            .plan_notice_action(actor.id, 0)
+            .expect("the player Notice planner accepts the current offer");
+
+        runtime
+            .actor_autonomy
+            .entry(actor.id)
+            .or_default()
+            .control_mode = ActorControlMode::LocalAi;
+        let record = runtime
+            .resident_record_for_shared_offer(actor, &offer, 98_101)
+            .expect("the resident can select the current Notice offer");
+        assert_eq!(
+            serde_json::to_value(record.action).expect("resident action serializes"),
+            serde_json::to_value(player_action).expect("player action serializes")
+        );
+        let resident_mutations = record
+            .projection_mutations
+            .iter()
+            .filter(|mutation| {
+                !matches!(
+                    mutation,
+                    ProjectionMutation::UpdateResidentContinuity { .. }
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            serde_json::to_value(resident_mutations).expect("resident mutations serialize"),
+            serde_json::to_value(player_mutations).expect("player mutations serialize")
+        );
+        let (rank, score) = runtime.resident_autonomy_record_priority(actor, &record);
+        let record = runtime
+            .attach_resident_decision_trace(ResidentAutonomyCandidate {
+                actor_id: actor.id,
+                rank,
+                score,
+                record,
+            })
+            .record;
+        let trace = record
+            .resident_decision
+            .as_ref()
+            .expect("Notice selection carries a decision trace");
+        assert_eq!(trace.choice.offer_kind, "check");
+        assert_eq!(
+            trace.choice.offer_id.as_deref(),
+            Some(offer.offer_id.as_str())
+        );
+
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "ability_check.rolled"
+                && event.actor_id == Some(actor.id)
+                && event.location_id == Some(actor.location_id)
+        }));
+        assert!(runtime
+            .resident_record_for_shared_offer(actor, &offer, 98_102)
+            .is_none());
+        let expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+            .expect("state serializes");
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-Notice snapshot restores");
+        assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(
+            serde_json::to_value(RuntimeSnapshot::from_runtime(&replayed))
+                .expect("replayed state serializes"),
+            expected
+        );
+    }
+
+    #[test]
+    fn resident_rest_uses_the_player_offer_and_replays_recovery() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime
+            .actor_autonomy
+            .entry(RATI_ACTOR_ID)
+            .or_default()
+            .control_mode = ActorControlMode::LocalAi;
+        let tired_tag = tired_tag_id(RATI_ACTOR_ID);
+        runtime.tags.insert(
+            tired_tag.clone(),
+            RpgTagState {
+                id: tired_tag.clone(),
+                scope: "actor".to_string(),
+                scope_id: RATI_ACTOR_ID,
+                label: "tired".to_string(),
+                kind: "condition".to_string(),
+                active: true,
+                source_event_seq: None,
+                expires: Some("after_rest".to_string()),
+            },
+        );
+        move_test_actor(
+            &mut runtime,
+            RATI_ACTOR_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            98_201,
+        );
+        move_test_actor(
+            &mut runtime,
+            RATI_ACTOR_ID,
+            MOONLIT_TRAIL_LOCATION_ID,
+            98_202,
+        );
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        let offer = runtime
+            .legal_action_candidates(Some(actor.id), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| offer.kind == "rest")
+            .expect("the player candidate surface offers Rest");
+        let player_mutations = runtime
+            .plan_rest_mutations(actor.id)
+            .expect("the player Rest planner accepts the current offer");
+        let record = runtime
+            .resident_economy_autonomy_record(actor, 98_203)
+            .expect("urgent resident autonomy selects the same Rest offer");
+        assert_eq!(record.action.kind, CW_ACTION_NONE);
+        assert_eq!(record.rules_action, offer.rules_action);
+        assert_eq!(record.operation, offer.operation);
+        assert_eq!(record.resolver.as_deref(), Some(offer.resolver.as_str()));
+        let resident_mutations = record
+            .projection_mutations
+            .iter()
+            .filter(|mutation| {
+                !matches!(
+                    mutation,
+                    ProjectionMutation::UpdateResidentContinuity { .. }
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            serde_json::to_value(resident_mutations).expect("resident mutations serialize"),
+            serde_json::to_value(player_mutations).expect("player mutations serialize")
+        );
+        let continuity = record
+            .projection_mutations
+            .iter()
+            .find_map(|mutation| match mutation {
+                ProjectionMutation::UpdateResidentContinuity { proposal, .. } => Some(proposal),
+                _ => None,
+            })
+            .expect("Rest records a resident continuity intent");
+        assert_eq!(
+            continuity
+                .proposed_action
+                .as_ref()
+                .map(|action| action.kind.as_str()),
+            Some("rest")
+        );
+        let (rank, score) = runtime.resident_autonomy_record_priority(actor, &record);
+        assert_eq!(rank, 5);
+        let record = runtime
+            .attach_resident_decision_trace(ResidentAutonomyCandidate {
+                actor_id: actor.id,
+                rank,
+                score,
+                record,
+            })
+            .record;
+        assert_eq!(
+            record
+                .resident_decision
+                .as_ref()
+                .and_then(|trace| trace.choice.offer_id.as_deref()),
+            Some(offer.offer_id.as_str())
+        );
+
+        let travel_tags = runtime.frontier_travel_since_rest_tag_ids(actor.id);
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "tag.cleared" && event.tag_id.as_deref() == Some(tired_tag.as_str())
+        }));
+        assert!(travel_tags
+            .iter()
+            .all(|tag_id| { runtime.tags.get(tag_id).is_some_and(|tag| !tag.active) }));
+        assert!(!runtime.rest_available(actor.id));
+        assert!(runtime
+            .resident_record_for_shared_offer(actor, &offer, 98_204)
+            .is_none());
+        let expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+            .expect("state serializes");
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-Rest snapshot restores");
+        assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(
+            serde_json::to_value(RuntimeSnapshot::from_runtime(&replayed))
+                .expect("replayed state serializes"),
+            expected
+        );
+    }
+
+    #[test]
+    fn resident_influence_uses_the_player_offer_and_replays_cooperation() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Influence Neighbor",
+        );
+        let mut greeting = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: 5000,
+                content_id: 98_301,
+                ..CwAction::default()
+            },
+            98_301,
+        );
+        greeting
+            .content_upserts
+            .insert(98_301, "Hello, Rati.".to_string());
+        assert_eq!(runtime.apply_journal_record(&greeting).0, CW_OK);
+        runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
+        let actor = runtime.actor_by_id(5000).expect("the human avatar exists");
+        let offer = runtime
+            .legal_action_candidates(Some(actor.id), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| offer.kind == "influence")
+            .expect("the player candidate surface offers Influence");
+        assert!(offer
+            .target
+            .as_ref()
+            .is_some_and(|target| { target.kind == "actor" && target.id == Some(RATI_ACTOR_ID) }));
+        let player_action = runtime
+            .plan_influence_action(actor.id, RATI_ACTOR_ID)
+            .expect("the player Influence planner accepts the current offer");
+        let record = runtime
+            .resident_record_for_shared_offer(actor, &offer, 98_302)
+            .expect("the resident can select the same Influence offer");
+        assert_eq!(
+            serde_json::to_value(record.action).expect("resident action serializes"),
+            serde_json::to_value(player_action).expect("player action serializes")
+        );
+        let (rank, score) = runtime.resident_autonomy_record_priority(actor, &record);
+        let record = runtime
+            .attach_resident_decision_trace(ResidentAutonomyCandidate {
+                actor_id: actor.id,
+                rank,
+                score,
+                record,
+            })
+            .record;
+        assert_eq!(
+            record
+                .resident_decision
+                .as_ref()
+                .and_then(|trace| trace.choice.offer_id.as_deref()),
+            Some(offer.offer_id.as_str())
+        );
+
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "influence.committed"
+                && event.actor_id == Some(actor.id)
+                && event.target_actor_id == Some(RATI_ACTOR_ID)
+        }));
+        assert!(runtime
+            .resident_record_for_shared_offer(actor, &offer, 98_303)
+            .is_none());
+        let mut expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+            .expect("state serializes");
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-Influence snapshot restores");
+        assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
+        let mut actual = serde_json::to_value(RuntimeSnapshot::from_runtime(&replayed))
+            .expect("replayed state serializes");
+        expected
+            .as_object_mut()
+            .expect("snapshot is an object")
+            .remove("recent_room_lines");
+        actual
+            .as_object_mut()
+            .expect("snapshot is an object")
+            .remove("recent_room_lines");
+        assert_eq!(actual, expected);
     }
 
     #[test]
