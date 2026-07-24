@@ -269,7 +269,9 @@ impl RuntimeWorld {
     pub(super) fn location_has_unresolved_combat(&self, location_id: u64) -> bool {
         self.location_allows_combat(location_id)
             && self.jobs.values().any(|job| {
-                job.location_ids.contains(&location_id) && self.job_status(job) == "active"
+                !job.participant_ids.is_empty()
+                    && job.location_ids.contains(&location_id)
+                    && self.job_status(job) == "active"
             })
     }
 

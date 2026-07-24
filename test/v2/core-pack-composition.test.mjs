@@ -77,6 +77,9 @@ describe("independently mountable CosyWorld Core", () => {
       world_evolution_tracks: [{ actor_id: 1001 }],
       world_combat_encounters: [{ location_id: 3, participants: [{ actor_id: 1001 }] }],
       actor_meta: { 1001: { name: "Rati" } },
+      natural_affordances: { 3: { location_id: 3 } },
+      clocks: { "natural-investigation:3:survey": { scope_id: 3 } },
+      jobs: { "natural-investigation:3": { location_ids: [3] } },
       branches: { 1: { actor_id: 5000, target_actor_id: 1001 } },
       bonds: { bond: { actor_id: 5000, target_actor_id: 1001 } },
       resident_continuities: { 1001: { resident_id: 1001 } },
@@ -92,7 +95,7 @@ describe("independently mountable CosyWorld Core", () => {
     for (const field of ["world_evolution_tracks", "world_combat_encounters"]) {
       expect(result.snapshot[field]).toEqual([]);
     }
-    for (const field of ["actor_meta", "branches", "bonds", "resident_continuities", "resident_memories", "search_memories", "tags"]) {
+    for (const field of ["actor_meta", "natural_affordances", "clocks", "jobs", "branches", "bonds", "resident_continuities", "resident_memories", "search_memories", "tags"]) {
       expect(result.snapshot[field]).toEqual({});
     }
     expect(result.snapshot.world_simulation).toEqual({ locations: {}, factions: {} });

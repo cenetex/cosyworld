@@ -6396,6 +6396,7 @@
       "job.contribution.resolved",
       "clock.updated",
       "clock.threshold",
+      "natural_feature.revealed",
       "job.updated",
       "ledger.banked",
       "calling.revised",
@@ -6734,6 +6735,7 @@
         || event.type === "job.contribution.resolved"
         || event.type === "clock.updated"
         || event.type === "clock.threshold"
+        || event.type === "natural_feature.revealed"
         || event.type === "tag.applied"
         || event.type === "tag.cleared"
         || event.type === "calling.set"
@@ -7540,6 +7542,9 @@
       if (event.type === "clock.threshold") {
         return { kind: "world", label: "turning point", text: cleanStatusText(event.content || "The shared work reaches a turning point.") };
       }
+      if (event.type === "natural_feature.revealed") {
+        return { kind: "world", label: "discovery", text: naturalFeatureEventText(event) };
+      }
       if (event.type === "combat.attack.attempt") {
         return { kind: "roll", label: "roll", text: cleanStatusText(eventText(event)) };
       }
@@ -7574,6 +7579,7 @@
         type === "job.contribution.resolved"
         || type === "clock.updated"
         || type === "clock.threshold"
+        || type === "natural_feature.revealed"
         || type === "tag.applied"
         || type === "tag.cleared"
         || type === "job.updated"
@@ -7592,6 +7598,7 @@
       if (type === "job.contribution.resolved") return "approach";
       if (type === "clock.updated") return "clock";
       if (type === "clock.threshold") return "turning point";
+      if (type === "natural_feature.revealed") return "discovery";
       if (type.startsWith("tag.")) return "tag";
       if (type === "job.updated") return "job";
       return "event";
@@ -8861,6 +8868,25 @@
         ? " The shared question is settled."
         : "";
       return `tries to ${lowerInitial(trace.strategy_label || "help")} at ${trace.target?.label || "the shared task"}; the work gains ${headway}.${progress}${credit}${outcome}${changed}${completion}`;
+    }
+
+    function naturalFeatureEventText(event) {
+      try {
+        const evidence = JSON.parse(String(event?.content || "{}"));
+        const resource = String(evidence?.feature?.resource_kind || "natural feature")
+          .replaceAll("_", " ");
+        const buildings = Array.isArray(evidence?.feature?.building_archetypes)
+          ? evidence.feature.building_archetypes
+              .map((building) => String(building || "").replaceAll("_", " "))
+              .filter(Boolean)
+          : [];
+        const support = buildings.length
+          ? ` It can support ${buildings.join(", ")}.`
+          : "";
+        return cleanStatusText(`reveals ${resource}.${support}`);
+      } catch (_error) {
+        return "reveals a natural feature and the building forms it can support.";
+      }
     }
 
     function listenEventText(event) {

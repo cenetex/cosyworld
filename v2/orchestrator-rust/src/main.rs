@@ -15,6 +15,7 @@ mod kernel;
 mod legacy_import;
 mod moderation;
 mod mud;
+mod natural_affordances;
 mod ownership;
 mod prompts;
 mod rate_limit;
@@ -54,6 +55,7 @@ use kernel::*;
 use legacy_import::*;
 use moderation::*;
 use mud::*;
+use natural_affordances::*;
 use ownership::*;
 use prompts::*;
 use qrcode::{render::svg, QrCode};
@@ -541,6 +543,10 @@ struct LocationMeta {
     biome: String,
     #[serde(default)]
     terrain: Vec<String>,
+    #[serde(default)]
+    environment: EnvironmentProfile,
+    #[serde(default)]
+    natural_potentials: Vec<NaturalPotentialRule>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     image_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1631,6 +1637,7 @@ struct RuntimeWorld {
     jobs: BTreeMap<String, JobState>,
     room_sheets: BTreeMap<u64, RoomSheetState>,
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
+    natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     journeys: BTreeMap<u64, JourneyState>,
     character_identities: BTreeMap<u64, AvatarIdentityState>,
@@ -1716,6 +1723,8 @@ struct RuntimeSnapshot {
     room_sheets: BTreeMap<u64, RoomSheetState>,
     #[serde(default)]
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
+    #[serde(default)]
+    natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     #[serde(default)]
     community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     #[serde(default)]
@@ -4336,6 +4345,8 @@ fn seed_location_meta() -> BTreeMap<u64, LocationMeta> {
                     memory: location.memory.clone(),
                     biome,
                     terrain,
+                    environment: location.environment.clone(),
+                    natural_potentials: location.natural_potentials.clone(),
                     image_url: None,
                     art_prompt: None,
                 },
@@ -6330,6 +6341,7 @@ impl RuntimeSnapshot {
             jobs: runtime.jobs.clone(),
             room_sheets: runtime.room_sheets.clone(),
             generated_pathways: runtime.generated_pathways.clone(),
+            natural_affordances: runtime.natural_affordances.clone(),
             community_art_generations: runtime.community_art_generations.clone(),
             journeys: runtime.journeys.clone(),
             character_identities: runtime.character_identities.clone(),
@@ -6530,6 +6542,7 @@ impl RuntimeSnapshot {
             jobs: self.jobs,
             room_sheets: self.room_sheets,
             generated_pathways: self.generated_pathways,
+            natural_affordances: self.natural_affordances,
             community_art_generations: self.community_art_generations,
             journeys: self.journeys,
             character_identities: self.character_identities,
@@ -6971,6 +6984,7 @@ impl RuntimeWorld {
             jobs: BTreeMap::new(),
             room_sheets: BTreeMap::new(),
             generated_pathways: BTreeMap::new(),
+            natural_affordances: BTreeMap::new(),
             community_art_generations: BTreeMap::new(),
             journeys: BTreeMap::new(),
             character_identities: BTreeMap::new(),
@@ -7778,6 +7792,345 @@ impl RuntimeWorld {
                 .entry(job.id.clone())
                 .or_insert_with(|| job.clone());
         }
+        self.ensure_authored_natural_affordances();
+        self.ensure_revealed_generated_natural_affordances();
+    }
+
+    fn active_pack_version(&self, pack_id: &str) -> String {
+        active_content()
+            .manifest
+            .packs
+            .iter()
+            .find(|pack| pack.id == pack_id)
+            .map(|pack| pack.version.clone())
+            .unwrap_or_default()
+    }
+
+    fn ensure_authored_natural_affordances(&mut self) {
+        let authored = active_content()
+            .locations
+            .iter()
+            .filter(|location| !location.natural_potentials.is_empty())
+            .map(|location| {
+                (
+                    location.id,
+                    location.pack_id.clone(),
+                    self.active_pack_version(&location.pack_id),
+                )
+            })
+            .collect::<Vec<_>>();
+        for (location_id, pack_id, pack_version) in authored {
+            self.ensure_natural_affordance_for_location(
+                location_id,
+                "authored_constraints",
+                &pack_id,
+                &pack_version,
+            );
+        }
+    }
+
+    fn ensure_revealed_generated_natural_affordances(&mut self) {
+        let location_ids = self
+            .generated_pathways
+            .values()
+            .flat_map(|pathway| pathway.waypoints.iter().map(|waypoint| waypoint.id))
+            .filter(|location_id| self.generated_location_is_revealed(*location_id))
+            .collect::<Vec<_>>();
+        let pack_id = "cosyworld.core";
+        let pack_version = self.active_pack_version(pack_id);
+        for location_id in location_ids {
+            self.ensure_natural_affordance_for_location(
+                location_id,
+                "generated_environment",
+                pack_id,
+                &pack_version,
+            );
+        }
+    }
+
+    fn ensure_natural_affordance_for_location(
+        &mut self,
+        location_id: u64,
+        source: &str,
+        pack_id: &str,
+        pack_version: &str,
+    ) {
+        if !self.natural_affordances.contains_key(&location_id) {
+            let meta = self.location_meta_for(location_id);
+            let rules = if meta.natural_potentials.is_empty() && source == "generated_environment" {
+                generated_potential_rules(&meta.environment)
+            } else {
+                meta.natural_potentials
+            };
+            if rules.is_empty() {
+                return;
+            }
+            let state = freeze_natural_affordance(
+                &official_world_id(),
+                location_id,
+                meta.environment,
+                rules,
+                source,
+                pack_id,
+                pack_version,
+            );
+            self.natural_affordances.insert(location_id, state);
+        }
+        let Some(state) = self.natural_affordances.get(&location_id).cloned() else {
+            return;
+        };
+        if state.latent_potential.is_some() || state.revealed_feature.is_some() {
+            self.ensure_natural_investigation_project(&state);
+        }
+    }
+
+    fn ensure_natural_investigation_project(&mut self, state: &NaturalAffordanceState) {
+        let Some(latent) = state.latent_potential.as_ref() else {
+            return;
+        };
+        let location_id = state.location_id;
+        let progress_clock_id = state.investigation_clock_id.clone();
+        let danger_clock_id = natural_investigation_danger_clock_id(location_id);
+        let job_id = state.investigation_job_id.clone();
+        let revealed = state.revealed_feature.is_some();
+        self.clocks
+            .entry(progress_clock_id.clone())
+            .or_insert_with(|| ClockState {
+                id: progress_clock_id.clone(),
+                scope: "room".to_string(),
+                scope_id: location_id,
+                kind: "progress".to_string(),
+                zone: default_zone_for_scope("room", location_id).to_string(),
+                label: "Survey the useful ground".to_string(),
+                segments: NATURAL_INVESTIGATION_SEGMENTS,
+                filled: if revealed {
+                    NATURAL_INVESTIGATION_SEGMENTS
+                } else {
+                    0
+                },
+                visible_to_players: true,
+                status: if revealed { "filled" } else { "active" }.to_string(),
+                presentation: ClockPresentation {
+                    version: CLOCK_PRESENTATION_SCHEMA_VERSION,
+                    question: "What can this place support if travelers study it together?"
+                        .to_string(),
+                    rhythm: "investigation".to_string(),
+                    attention: "local".to_string(),
+                    priority: 75,
+                    situation:
+                        "The landscape is plain to see, but its useful specificity is still unknown."
+                            .to_string(),
+                    stakes:
+                        "Careful shared evidence can reveal a durable natural affordance; guessing cannot."
+                            .to_string(),
+                    outcome:
+                        "The survey records a typed natural feature and the building forms it can support."
+                            .to_string(),
+                    completion_memory:
+                        "Travelers investigated the place until its useful natural affordance became shared knowledge."
+                            .to_string(),
+                },
+                on_fill: vec![EffectDescriptor::SetJobStatus {
+                    job_id: job_id.clone(),
+                    status: "completed".to_string(),
+                    reason: Some("natural_feature_revealed".to_string()),
+                }],
+                recent_contributions: Vec::new(),
+                completion: None,
+                created_event_seq: None,
+                updated_event_seq: None,
+            });
+        self.clocks
+            .entry(danger_clock_id.clone())
+            .or_insert_with(|| ClockState {
+                id: danger_clock_id.clone(),
+                scope: "room".to_string(),
+                scope_id: location_id,
+                kind: "danger".to_string(),
+                zone: default_zone_for_scope("room", location_id).to_string(),
+                label: "The signs go cold".to_string(),
+                segments: NATURAL_INVESTIGATION_SEGMENTS,
+                filled: 0,
+                visible_to_players: true,
+                status: "quiet".to_string(),
+                presentation: ClockPresentation {
+                    version: CLOCK_PRESENTATION_SCHEMA_VERSION,
+                    question: "Will the useful signs be overlooked?".to_string(),
+                    rhythm: "investigation".to_string(),
+                    attention: "background".to_string(),
+                    priority: 5,
+                    situation: "The place keeps its evidence without changing the frozen result."
+                        .to_string(),
+                    stakes:
+                        "Delay may cool the trail, but it cannot reroll what the place supports."
+                            .to_string(),
+                    outcome: "The survey remains unfinished.".to_string(),
+                    completion_memory: "The signs went cold before the survey was completed."
+                        .to_string(),
+                },
+                on_fill: Vec::new(),
+                recent_contributions: Vec::new(),
+                completion: None,
+                created_event_seq: None,
+                updated_event_seq: None,
+            });
+        self.jobs.entry(job_id.clone()).or_insert_with(|| JobState {
+            pack_id: state.generation.pack_id.clone(),
+            id: job_id.clone(),
+            premise:
+                "Investigate the visible landscape until its useful natural specificity is known."
+                    .to_string(),
+            stakes:
+                "The answer must come from shared, typed evidence rather than a narrated guess."
+                    .to_string(),
+            location_ids: vec![location_id],
+            participant_ids: Vec::new(),
+            progress_clock_id: progress_clock_id.clone(),
+            danger_clock_id,
+            status: if revealed { "completed" } else { "active" }.to_string(),
+            reward: JobReward::Label(
+                "A durable natural feature and its approved building affordances become public."
+                    .to_string(),
+            ),
+            consequence: "The exact natural affordance remains unknown.".to_string(),
+            memory_summary:
+                "Travelers learned what natural affordance this place can support.".to_string(),
+            action_copy: JobActionCopy {
+                label: "Investigate this place".to_string(),
+                summary:
+                    "Search its signs or study its patterns; both contribute to the same shared survey."
+                        .to_string(),
+            },
+            contribution_schema_version: JOB_CONTRIBUTION_SCHEMA_VERSION,
+            contribution_strategies: natural_investigation_contribution_strategies(state),
+            narrated_thresholds: vec![
+                JobNarratedThreshold {
+                    clock_id: progress_clock_id.clone(),
+                    filled: 1,
+                    narration_key: "natural.investigation.signs".to_string(),
+                    text: "Repeated signs distinguish a useful site from the surrounding scenery."
+                        .to_string(),
+                },
+                JobNarratedThreshold {
+                    clock_id: progress_clock_id.clone(),
+                    filled: 2,
+                    narration_key: "natural.investigation.family".to_string(),
+                    text: natural_resource_family_threshold(latent.resource_kind).to_string(),
+                },
+                JobNarratedThreshold {
+                    clock_id: progress_clock_id,
+                    filled: 3,
+                    narration_key: "natural.investigation.site".to_string(),
+                    text:
+                        "The evidence narrows to one exact site; one more corroborating approach will make it shared knowledge."
+                            .to_string(),
+                },
+            ],
+            delivery: None,
+        });
+    }
+
+    fn record_natural_investigation_contribution(
+        &mut self,
+        job_id: &str,
+        contribution_event_seq: u64,
+    ) {
+        let Some(state) = self
+            .natural_affordances
+            .values_mut()
+            .find(|state| state.investigation_job_id == job_id)
+        else {
+            return;
+        };
+        if !state
+            .causal_action_event_seqs
+            .contains(&contribution_event_seq)
+        {
+            state.causal_action_event_seqs.push(contribution_event_seq);
+        }
+    }
+
+    fn reveal_natural_feature_for_clock(
+        &mut self,
+        clock_id: &str,
+        actor_id: u64,
+        clock_event_seq: u64,
+    ) -> Vec<EventView> {
+        let Some(location_id) = self
+            .natural_affordances
+            .iter()
+            .find_map(|(location_id, state)| {
+                (state.investigation_clock_id == clock_id).then_some(*location_id)
+            })
+        else {
+            return Vec::new();
+        };
+        let reveal_event_seq = self.world.next_event_seq;
+        let evidence = {
+            let Some(state) = self.natural_affordances.get_mut(&location_id) else {
+                return Vec::new();
+            };
+            if state.revealed_feature.is_some() {
+                return Vec::new();
+            }
+            let Some(latent) = state.latent_potential.clone() else {
+                return Vec::new();
+            };
+            let feature = NaturalFeatureState {
+                schema_version: NATURAL_AFFORDANCE_SCHEMA_VERSION,
+                location_id,
+                resource_kind: latent.resource_kind,
+                richness: latent.richness,
+                character: latent.character,
+                building_archetypes: latent.building_archetypes,
+                presentation_key: latent.presentation_key,
+                environment_profile_version: state.environment.version,
+                revealed_by_actor_id: actor_id,
+                revealed_event_seq: reveal_event_seq,
+                causal_action_event_seqs: state.causal_action_event_seqs.clone(),
+                generation: state.generation.clone(),
+            };
+            state.revealed_feature = Some(feature.clone());
+            NaturalFeatureRevealEvidence {
+                schema_version: NATURAL_AFFORDANCE_SCHEMA_VERSION,
+                feature,
+                environment: state.environment.clone(),
+                investigation_job_id: state.investigation_job_id.clone(),
+                investigation_clock_id: state.investigation_clock_id.clone(),
+            }
+        };
+        let mut event = self.append_async_job_event(
+            "natural_feature.revealed",
+            actor_id,
+            None,
+            serde_json::to_string(&evidence).ok(),
+        );
+        event.location_id = Some(location_id);
+        event.location_name = self.location_name(location_id);
+        event.clock_id = Some(clock_id.to_string());
+        event.caused_by_event_seq = Some(clock_event_seq);
+        self.replace_projected_event(&event);
+        vec![event]
+    }
+
+    fn revealed_natural_features(&self, location_id: u64) -> Vec<NaturalFeatureState> {
+        self.natural_affordances
+            .get(&location_id)
+            .and_then(|state| state.revealed_feature.clone())
+            .into_iter()
+            .collect()
+    }
+
+    fn eligible_natural_building_archetypes(&self, location_id: u64) -> Vec<String> {
+        let mut buildings = self
+            .revealed_natural_features(location_id)
+            .into_iter()
+            .flat_map(|feature| feature.building_archetypes)
+            .map(|building| building.key().to_string())
+            .collect::<Vec<_>>();
+        buildings.sort();
+        buildings.dedup();
+        buildings
     }
 
     fn world_simulation_seed(&self) -> WorldSimulationSeed {
@@ -8049,7 +8402,17 @@ impl RuntimeWorld {
     }
 
     fn ensure_generated_pathway_topology(&mut self) {
-        for pathway in self.generated_pathways.values_mut() {
+        let pathway_ids = self.generated_pathways.keys().cloned().collect::<Vec<_>>();
+        for pathway_id in pathway_ids {
+            let Some(pathway_snapshot) = self.generated_pathways.get(&pathway_id).cloned() else {
+                continue;
+            };
+            let origin_meta = self.location_meta_for(pathway_snapshot.origin_location_id);
+            let destination_meta = self.location_meta_for(pathway_snapshot.destination_location_id);
+            let waypoint_count = pathway_snapshot.waypoints.len();
+            let Some(pathway) = self.generated_pathways.get_mut(&pathway_id) else {
+                continue;
+            };
             if pathway.distance >= 2 {
                 pathway.art_eligible = true;
             }
@@ -8063,6 +8426,21 @@ impl RuntimeWorld {
                     model: "none".to_string(),
                     attempts: 0,
                 };
+            }
+            for (index, waypoint) in pathway.waypoints.iter_mut().enumerate() {
+                let environment = interpolated_environment_profile(
+                    &origin_meta.environment,
+                    &destination_meta.environment,
+                    index,
+                    waypoint_count,
+                );
+                let natural_potentials = generated_potential_rules(&environment);
+                waypoint.meta.environment = environment.clone();
+                waypoint.meta.natural_potentials = natural_potentials.clone();
+                if let Some(meta) = self.location_meta.get_mut(&waypoint.id) {
+                    meta.environment = environment;
+                    meta.natural_potentials = natural_potentials;
+                }
             }
         }
         let pathways = self
@@ -8231,6 +8609,22 @@ impl RuntimeWorld {
         }
         self.ensure_exit(from_location_id, to_location_id, 0);
         self.ensure_exit(to_location_id, from_location_id, 0);
+        let pack_id = "cosyworld.core";
+        let pack_version = self.active_pack_version(pack_id);
+        for location_id in [from_location_id, to_location_id] {
+            if pathway
+                .waypoints
+                .iter()
+                .any(|waypoint| waypoint.id == location_id)
+            {
+                self.ensure_natural_affordance_for_location(
+                    location_id,
+                    "generated_environment",
+                    pack_id,
+                    &pack_version,
+                );
+            }
+        }
     }
 
     fn backfill_generated_avatar_flavor(&mut self) {
@@ -12007,6 +12401,12 @@ impl RuntimeWorld {
             self.replace_projected_event(&event);
             events.push(event);
         }
+        if crossed_fill {
+            let mut natural_events =
+                self.reveal_natural_feature_for_clock(&clock.id, actor_id, update_event.seq);
+            self.link_events_to_cause(&mut natural_events, update_event.seq);
+            events.extend(natural_events);
+        }
         if crossed_fill && !clock.on_fill.is_empty() {
             let claim_key = clock_fill_claim_key(&clock.id, update_event.seq);
             if self.rpg_claims.insert(claim_key) {
@@ -12376,6 +12776,9 @@ impl RuntimeWorld {
         contribution_event.clock_id = Some(intent.strategy.clock_id.clone());
         contribution_event.caused_by_event_seq = source_event_seqs.last().copied();
         self.replace_projected_event(&contribution_event);
+        if total_progress > 0 {
+            self.record_natural_investigation_contribution(&intent.job_id, contribution_event.seq);
+        }
         if total_progress > 0
             && intent.job_id == FIRST_TALE_JOB_ID
             && self.first_tale_trace_event_seq(action.actor_id).is_none()
@@ -13811,6 +14214,8 @@ impl RuntimeWorld {
                 memory: Vec::new(),
                 biome: "unknown".to_string(),
                 terrain: Vec::new(),
+                environment: EnvironmentProfile::default(),
+                natural_potentials: Vec::new(),
                 image_url: None,
                 art_prompt: None,
             })
@@ -13917,6 +14322,13 @@ impl RuntimeWorld {
                     index,
                     waypoint_count,
                 );
+                let environment = interpolated_environment_profile(
+                    &origin_meta.environment,
+                    &destination_meta.environment,
+                    index,
+                    waypoint_count,
+                );
+                let natural_potentials = generated_potential_rules(&environment);
                 let terrain_phrase = terrain
                     .iter()
                     .take(3)
@@ -13940,6 +14352,8 @@ impl RuntimeWorld {
                         )],
                         biome: format!("{} to {}", origin_meta.biome, destination_meta.biome),
                         terrain,
+                        environment,
+                        natural_potentials,
                         image_url: Some(format!("/assets/generated/pathways/{id}.svg")),
                         art_prompt: Some(art_prompt),
                     },
@@ -18201,8 +18615,21 @@ impl RuntimeWorld {
         let Some(actor) = self.actor_by_id(actor_id) else {
             return false;
         };
-        let Some(clock_id) = self.active_progress_clock_id_for_location(actor.location_id) else {
-            return false;
+        let clock_id = if let Some(job) = self.active_job_for_location(actor.location_id) {
+            if !job
+                .contribution_strategies
+                .iter()
+                .any(|strategy| strategy.prepared_bonus_progress > 0)
+            {
+                return false;
+            }
+            job.progress_clock_id.clone()
+        } else {
+            let Some(clock_id) = self.active_progress_clock_id_for_location(actor.location_id)
+            else {
+                return false;
+            };
+            clock_id
         };
         actor.status == CW_ACTOR_ACTIVE
             && !self.prepared_tag_active(actor_id, actor.location_id)
@@ -39876,6 +40303,78 @@ fn generated_pathway_job_id(pathway_id: &str) -> String {
     format!("{pathway_id}:community-work")
 }
 
+fn natural_resource_family_threshold(resource_kind: NaturalResourceKind) -> &'static str {
+    match resource_kind {
+        NaturalResourceKind::FishRichWater
+        | NaturalResourceKind::FastRiver
+        | NaturalResourceKind::HotSpring => {
+            "The signs resolve into a water-borne natural resource family, though its exact affordance is not public yet."
+        }
+        NaturalResourceKind::OreSeam | NaturalResourceKind::ClayBank => {
+            "The signs resolve into a geological natural resource family, though its exact affordance is not public yet."
+        }
+        NaturalResourceKind::AncientWoodland
+        | NaturalResourceKind::RichSoil
+        | NaturalResourceKind::RareHerbHabitat => {
+            "The signs resolve into a living-land natural resource family, though its exact affordance is not public yet."
+        }
+        NaturalResourceKind::ReliableUplandWind => {
+            "The signs resolve into a wind-and-height natural resource family, though its exact affordance is not public yet."
+        }
+        NaturalResourceKind::OldRuins => {
+            "The signs resolve into a cultural-landscape resource family, though its exact affordance is not public yet."
+        }
+    }
+}
+
+fn natural_investigation_contribution_strategies(
+    state: &NaturalAffordanceState,
+) -> Vec<JobContributionStrategy> {
+    [
+        ("check", "wisdom", "Read the visible signs"),
+        ("study", "intelligence", "Compare the place's patterns"),
+    ]
+    .into_iter()
+    .filter_map(|(action_kind, ability, strategy_label)| {
+        let binding = resolved_action_binding(action_kind)?;
+        Some(JobContributionStrategy {
+            version: JOB_CONTRIBUTION_SCHEMA_VERSION,
+            id: format!("natural-investigation-{action_kind}"),
+            action_kind: action_kind.to_string(),
+            rules_action: binding.rules_action,
+            operation: binding.operation,
+            target: ContributionTargetDescriptor {
+                kind: "room".to_string(),
+                id: Some(state.location_id.to_string()),
+                predicate: None,
+                label: "the visible landscape".to_string(),
+            },
+            requirements: vec![ContributionRequirement::AtLocation {
+                location_id: state.location_id,
+            }],
+            resolution: ContributionResolutionPolicy::SrdCheck {
+                ability: ability.to_string(),
+                dc: LISTEN_DC as u16,
+            },
+            clock_id: state.investigation_clock_id.clone(),
+            baseline_progress: 0,
+            success_progress: 2,
+            prepared_bonus_progress: 0,
+            on_success: Vec::new(),
+            on_failure: Vec::new(),
+            claim_policy: ContributionClaimPolicy::OncePerActor,
+            strategy_label: strategy_label.to_string(),
+            narration_key: format!("natural.investigation.{action_kind}"),
+            rules_profile: active_content().manifest.rules_profile.clone(),
+            rules_pack_id: binding.pack_id,
+            rules_pack_version: binding.pack_version,
+            pack_id: state.generation.pack_id.clone(),
+            pack_version: state.generation.pack_version.clone(),
+        })
+    })
+    .collect()
+}
+
 fn generated_pathway_contribution_strategies(
     job_id: &str,
     progress_clock_id: &str,
@@ -51108,7 +51607,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.3.6");
+        assert_eq!(location_reference.pack_version, "1.3.7");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");
@@ -55515,7 +56014,7 @@ mod tests {
             state.room_sheet.as_ref().map(|sheet| sheet.zone.as_str()),
             Some(ZONE_FRONTIER)
         );
-        assert_eq!(state.clocks.len(), 2);
+        assert_eq!(state.clocks.len(), 4);
         assert!(state.clocks.iter().all(|clock| clock.zone == ZONE_FRONTIER));
         assert!(state.clocks.iter().any(|clock| {
             clock.id == MOONLIT_PROGRESS_CLOCK_ID
@@ -55528,6 +56027,18 @@ mod tests {
                 && clock.kind == "danger"
                 && clock.filled == 0
                 && clock.segments == 4
+        }));
+        assert!(state.clocks.iter().any(|clock| {
+            clock.id == natural_investigation_clock_id(MOONLIT_TRAIL_LOCATION_ID)
+                && clock.kind == "progress"
+                && clock.filled == 0
+                && clock.segments == NATURAL_INVESTIGATION_SEGMENTS
+        }));
+        assert!(state.clocks.iter().any(|clock| {
+            clock.id == natural_investigation_danger_clock_id(MOONLIT_TRAIL_LOCATION_ID)
+                && clock.kind == "danger"
+                && clock.filled == 0
+                && clock.segments == NATURAL_INVESTIGATION_SEGMENTS
         }));
     }
 
@@ -57747,9 +58258,15 @@ mod tests {
                 .map(|sheet| sheet.safety.as_str()),
             Some("dangerous")
         );
-        assert_eq!(initial.jobs.len(), 1);
-        assert_eq!(initial.jobs[0].id, MOONLIT_JOB_ID);
-        assert_eq!(initial.jobs[0].status, "active");
+        assert_eq!(initial.jobs.len(), 2);
+        assert!(initial
+            .jobs
+            .iter()
+            .any(|job| job.id == MOONLIT_JOB_ID && job.status == "active"));
+        assert!(initial.jobs.iter().any(|job| {
+            job.id == natural_investigation_job_id(MOONLIT_TRAIL_LOCATION_ID)
+                && job.status == "active"
+        }));
         assert!(initial
             .primary_action
             .options
@@ -60114,7 +60631,14 @@ mod tests {
                     .is_some_and(|content| content.contains("failed"))
         }));
         let failed = runtime.state_response(Some(5000), &AccessContext::default());
-        assert_eq!(failed.jobs[0].status, "failed");
+        assert_eq!(
+            failed
+                .jobs
+                .iter()
+                .find(|job| job.id == MOONLIT_JOB_ID)
+                .map(|job| job.status.as_str()),
+            Some("failed")
+        );
         assert!(!failed
             .primary_action
             .options

@@ -766,6 +766,10 @@ pub(super) struct SeedLocationContent {
     #[serde(default)]
     pub(super) terrain: Vec<String>,
     #[serde(default)]
+    pub(super) environment: EnvironmentProfile,
+    #[serde(default)]
+    pub(super) natural_potentials: Vec<NaturalPotentialRule>,
+    #[serde(default)]
     pub(super) allow_combat: bool,
 }
 

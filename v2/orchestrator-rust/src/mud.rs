@@ -2872,6 +2872,23 @@ impl RuntimeWorld {
                 room_zone_feeling(&sheet.zone),
                 aspects
             ));
+            if !sheet.natural_features.is_empty() {
+                let features = sheet
+                    .natural_features
+                    .iter()
+                    .map(|feature| feature.resource_kind.label().to_string())
+                    .collect::<Vec<_>>();
+                let buildings = sheet
+                    .eligible_building_archetypes
+                    .iter()
+                    .map(|building| building.replace('_', " "))
+                    .collect::<Vec<_>>();
+                lines.push(format!(
+                    "Known natural features: {}. They can support: {}.",
+                    command_list_or_none(&features),
+                    command_list_or_none(&buildings)
+                ));
+            }
         }
 
         if let Some(first_tale) = self.first_tale_view(actor.id) {

@@ -42,6 +42,9 @@ do not define V2 behavior.
 - **[Shared clock presentation](shared-clock-presentation.md)** — story-shaped
   questions, bounded attention, coherent receipts, accessible transports, and
   client-confirmed exposure.
+- **[Natural affordances](natural-affordances.md)** — typed environment
+  profiles, deterministic latent resources, shared investigation, and bounded
+  building eligibility.
 - **[Scene concurrency policy](concurrency-policy.md)** — asynchronous
   co-present play, target conflict handling, and explicitly ordered scenes.
 - **[Deck-gated action spike](../v2/docs/deck-gated-action-spike.md)** — the

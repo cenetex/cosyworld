@@ -88,9 +88,14 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
 
   for (const field of ["actor_meta", "actor_autonomy", "callings", "orb_balances"]) deleteMapKeys(snapshot[field], actorIds);
   for (const field of ["item_meta"]) deleteMapKeys(snapshot[field], itemIds);
-  for (const field of ["location_names", "location_meta", "room_sheets"]) deleteMapKeys(snapshot[field], locationIds);
+  for (const field of ["location_names", "location_meta", "room_sheets", "natural_affordances"]) {
+    deleteMapKeys(snapshot[field], locationIds);
+  }
   deleteMapKeys(snapshot.clocks, packResourceIds(sourceRegistry, packId, "clocks"));
   deleteMapKeys(snapshot.jobs, packResourceIds(sourceRegistry, packId, "jobs"));
+  deleteMapValues(snapshot.clocks, (clock) => locationIds.has(clock.scope_id));
+  deleteMapValues(snapshot.jobs, (job) =>
+    (job.location_ids ?? []).some((locationId) => locationIds.has(locationId)));
   deleteMapKeys(snapshot.world_simulation?.locations, locationIds);
   deleteMapKeys(snapshot.world_simulation?.factions, packResourceIds(sourceRegistry, packId, "factions"));
 

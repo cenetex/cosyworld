@@ -14,6 +14,7 @@ import {
   parseCanonicalContentReference,
 } from "./content-references.mjs";
 import { avatarNamingValidationErrors } from "./avatar-naming-schema.mjs";
+import { naturalAffordanceValidationErrors } from "./natural-affordance-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -1447,6 +1448,12 @@ for (const location of locations) {
   }
   if (typeof location.allow_combat !== "boolean") {
     fail(`location ${location.id} must declare allow_combat`);
+  }
+  for (const error of naturalAffordanceValidationErrors(
+    location,
+    `location ${location.id}`,
+  )) {
+    fail(error);
   }
 }
 
