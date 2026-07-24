@@ -5077,6 +5077,57 @@
           built.push(takeAction);
         }
       }
+      if (options.has("drop_item")) {
+        const dropOffers = (state?.action_offers || []).filter((offer) => (
+          offer.kind === "drop_item"
+            && offer?.target?.kind === "item"
+            && Number(offer?.target?.id || 0) > 0
+        ));
+        const dropCandidates = heldItems.filter((item) => (
+          dropOffers.some((offer) => Number(offer.target.id) === Number(item.id))
+        ));
+        if (dropCandidates.length) {
+          const firstItem = dropCandidates[0];
+          const oneItem = dropCandidates.length === 1;
+          const dropOffer = dropOffers.find((offer) => (
+            Number(offer.target.id) === Number(firstItem.id)
+          )) || offerFor("drop_item");
+          const dropAction = {
+            ...semanticAction(dropOffer, "drop"),
+            label: "drop",
+            detail: oneItem ? firstItem.name : "choose a keepsake",
+            command: oneItem ? `drop ${firstItem.name}` : "drop",
+            focusKey: oneItem
+              ? `item:${firstItem.id}`
+              : `drop:${dropCandidates.map((item) => item.id).join("|")}`,
+            focusKeys: dropCandidates.map((item) => `item:${item.id}`),
+            card: cardForItem(firstItem.id),
+            shape: "item",
+            modalTitle: oneItem ? undefined : "choose what to drop",
+            modalSummary: oneItem
+              ? `Leave ${firstItem.name} here for someone else to find.`
+              : "Leave one carried keepsake in this room.",
+            effect: oneItem
+              ? `${firstItem.name} stays in ${view.location?.name || "the room"}`
+              : "the keepsake you choose stays in this room",
+            ...(oneItem ? {} : {
+              choices: dropCandidates.map((item) => ({
+                label: item.name,
+                detail: item.description || cardForItem(item.id)?.title || "a carried keepsake",
+                value: String(item.id),
+                card: cardForItem(item.id),
+              })),
+              selectedChoice: String(firstItem.id),
+            }),
+          };
+          dropAction.selectedPayload = () => ({
+            actor_id: actorId,
+            item_id: Number(dropAction.selectedChoice || firstItem.id),
+          });
+          dropAction.run = () => action("/actions/drop", dropAction.selectedPayload());
+          built.push(dropAction);
+        }
+      }
       if (options.has("use_feature")) {
         const offer = offerFor("use_feature");
         const command = String(offer?.command || "");
