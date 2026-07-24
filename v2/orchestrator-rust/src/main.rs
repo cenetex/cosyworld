@@ -6,6 +6,7 @@ mod avatar_identity;
 mod canonical_journal;
 mod canonical_world;
 mod combat;
+mod communal_governance;
 mod content_load;
 mod content_packs;
 mod content_policy;
@@ -45,6 +46,7 @@ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use canonical_journal::*;
 use canonical_world::*;
 use combat::*;
+use communal_governance::*;
 use content_load::*;
 use content_packs::*;
 use content_policy::*;
@@ -1112,6 +1114,9 @@ enum ProjectionMutation {
     ResolveJobContribution {
         intent: JobContributionIntent,
     },
+    ApplyGovernance {
+        action: GovernanceAction,
+    },
     SetTag {
         tag: RpgTagState,
         reason: String,
@@ -1639,6 +1644,7 @@ struct RuntimeWorld {
     room_sheets: BTreeMap<u64, RoomSheetState>,
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
     generated_places: BTreeMap<u64, GeneratedPlaceState>,
+    governance_decisions: BTreeMap<String, GovernanceDecisionState>,
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     journeys: BTreeMap<u64, JourneyState>,
@@ -1727,6 +1733,8 @@ struct RuntimeSnapshot {
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
     #[serde(default)]
     generated_places: BTreeMap<u64, GeneratedPlaceState>,
+    #[serde(default)]
+    governance_decisions: BTreeMap<String, GovernanceDecisionState>,
     #[serde(default)]
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     #[serde(default)]
@@ -6312,7 +6320,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 5,
+            version: 6,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6346,6 +6354,7 @@ impl RuntimeSnapshot {
             room_sheets: runtime.room_sheets.clone(),
             generated_pathways: runtime.generated_pathways.clone(),
             generated_places: runtime.generated_places.clone(),
+            governance_decisions: runtime.governance_decisions.clone(),
             natural_affordances: runtime.natural_affordances.clone(),
             community_art_generations: runtime.community_art_generations.clone(),
             journeys: runtime.journeys.clone(),
@@ -6548,6 +6557,7 @@ impl RuntimeSnapshot {
             room_sheets: self.room_sheets,
             generated_pathways: self.generated_pathways,
             generated_places: self.generated_places,
+            governance_decisions: self.governance_decisions,
             natural_affordances: self.natural_affordances,
             community_art_generations: self.community_art_generations,
             journeys: self.journeys,
@@ -6593,6 +6603,7 @@ impl RuntimeSnapshot {
             runtime.backfill_listen_attempt_claims_from_events();
             runtime.refresh_all_resident_continuities();
             runtime.ensure_actor_autonomy();
+            runtime.backfill_generated_place_governance();
             runtime.rebuild_deed_index();
             runtime.ensure_world_simulation();
             let mint_seed = runtime.next_seed;
@@ -6962,6 +6973,7 @@ impl RuntimeWorld {
         runtime.ensure_seed_rpg_projection();
         runtime.backfill_generated_avatar_flavor();
         runtime.ensure_actor_autonomy();
+        runtime.backfill_generated_place_governance();
         let mint_seed = runtime.next_seed;
         runtime.ensure_canonical_identities(mint_seed);
         runtime.refresh_all_canonical_events();
@@ -6991,6 +7003,7 @@ impl RuntimeWorld {
             room_sheets: BTreeMap::new(),
             generated_pathways: BTreeMap::new(),
             generated_places: BTreeMap::new(),
+            governance_decisions: BTreeMap::new(),
             natural_affordances: BTreeMap::new(),
             community_art_generations: BTreeMap::new(),
             journeys: BTreeMap::new(),
@@ -10992,6 +11005,11 @@ impl RuntimeWorld {
                         &contribution_sources,
                         intent,
                     ));
+                }
+                ProjectionMutation::ApplyGovernance {
+                    action: governance_action,
+                } => {
+                    events.extend(self.apply_governance_action(action.actor_id, governance_action));
                 }
                 ProjectionMutation::SetTag { tag, reason } => {
                     if let Some(event) = self.set_rpg_tag(tag.clone(), action.actor_id, reason) {
@@ -32340,6 +32358,105 @@ async fn command_inner(
             .await;
             command_action_response_with_events(resolved, response, presence_events)
         }
+        CommandDispatch::Governance { action } => {
+            if !allow_actor_mutation(
+                &state,
+                client_addr,
+                payload.actor_id,
+                "action-actor",
+                GENERAL_ACTION_LIMIT,
+            ) {
+                return command_rate_limited_response_with_events(resolved, presence_events);
+            }
+            let mut runtime = state.inner.lock().await;
+            if !client_actor_authorized_for_state(
+                &runtime,
+                &state,
+                payload.actor_id,
+                payload.actor_session.as_deref(),
+            ) {
+                return Json(CommandResponse {
+                    ok: false,
+                    status: 403,
+                    command: resolved.command,
+                    verb: resolved.verb,
+                    output: Some(
+                        "Your avatar slipped out of reach. Begin again or reconnect your account."
+                            .to_string(),
+                    ),
+                    action: resolved.action,
+                    receipt: None,
+                    events: presence_events,
+                });
+            }
+            if let Err(output) = runtime.validate_governance_action(payload.actor_id, &action) {
+                return Json(CommandResponse {
+                    ok: false,
+                    status: 409,
+                    command: resolved.command,
+                    verb: resolved.verb,
+                    output: Some(output),
+                    action: resolved.action,
+                    receipt: None,
+                    events: presence_events,
+                });
+            }
+            let location_id = runtime
+                .actor_by_id(payload.actor_id)
+                .map(|actor| actor.location_id)
+                .unwrap_or_default();
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: payload.actor_id,
+                    location_id,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            )
+            .into_player_card();
+            record
+                .projection_mutations
+                .push(ProjectionMutation::ApplyGovernance { action });
+            let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record)
+            else {
+                return Json(CommandResponse {
+                    ok: false,
+                    status: 500,
+                    command: resolved.command,
+                    verb: resolved.verb,
+                    output: Some(
+                        "That choice got lost before the room could answer. Try once more."
+                            .to_string(),
+                    ),
+                    action: resolved.action,
+                    receipt: None,
+                    events: presence_events,
+                });
+            };
+            let ripple_reply_plan = advance_turn_and_capture_player_tick_observation(
+                &state,
+                &mut runtime,
+                Some(location_id),
+                payload.actor_id,
+                status,
+                &mut events,
+            );
+            drop(runtime);
+            broadcast_events(&state, &events);
+            if let Some(plan) = ripple_reply_plan {
+                schedule_player_tick_observation(&state, plan);
+            }
+            command_action_response_with_events(
+                resolved,
+                ActionResponse {
+                    ok: status == CW_OK && !events.is_empty(),
+                    status: if events.is_empty() { 409 } else { status },
+                    events,
+                },
+                presence_events,
+            )
+        }
         CommandDispatch::Rest => {
             let Json(response) = rest(
                 ConnectInfo(client_addr),
@@ -50340,6 +50457,26 @@ mod tests {
                     .iter()
                     .any(|building| proposal.eligible_archetype_ids.contains(building))
         );
+        let governance_decision_id = proposal.governance_decision_id.clone();
+        let selected_alternative_id = proposal.eligible_archetype_ids[0].clone();
+        let governance = runtime
+            .governance_decisions
+            .get(&governance_decision_id)
+            .expect("settlement opens an explicit governance policy");
+        assert_eq!(governance.schema_version, GOVERNANCE_SCHEMA_VERSION);
+        assert_eq!(governance.status, GovernanceDecisionStatus::Open);
+        assert!(matches!(
+            governance.policy,
+            GovernancePolicy::NamedChooser {
+                chooser_actor_id: Some(5000),
+                ..
+            }
+        ));
+        assert!(governance
+            .alternatives
+            .iter()
+            .all(|alternative| !alternative.expected_consequence.is_empty()
+                && !alternative.incompatible_alternative_ids.is_empty()));
         let settled_sheet = runtime
             .room_sheet_view(first_waypoint_id)
             .expect("settled place remains inspectable");
@@ -50350,6 +50487,106 @@ mod tests {
             .event_log
             .iter()
             .any(|event| event.type_name == "generated_place.building_proposal_opened"));
+        assert_eq!(settled_sheet.governance_decisions.len(), 1);
+        assert_eq!(
+            settled_sheet.governance_decisions[0].policy_kind,
+            "named_chooser"
+        );
+        assert!(runtime
+            .governance_command_output(first_waypoint_id)
+            .starts_with("Choice:"));
+
+        let mut support_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5001,
+                location_id: first_waypoint_id,
+                ..CwAction::default()
+            },
+            910_012,
+        );
+        support_record
+            .projection_mutations
+            .push(ProjectionMutation::ApplyGovernance {
+                action: GovernanceAction::Support {
+                    decision_id: governance_decision_id.clone(),
+                    alternative_id: selected_alternative_id.clone(),
+                },
+            });
+        let support_events = apply_pair(&mut runtime, &mut replay, &support_record);
+        assert_eq!(
+            support_events
+                .iter()
+                .filter(|event| event.type_name.starts_with("governance."))
+                .count(),
+            1
+        );
+        assert!(support_events
+            .iter()
+            .any(|event| event.type_name == "governance.supported"));
+        assert_eq!(
+            runtime.governance_decisions[&governance_decision_id]
+                .support
+                .len(),
+            1
+        );
+
+        let mut choice_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: first_waypoint_id,
+                ..CwAction::default()
+            },
+            910_013,
+        );
+        let choice_action = GovernanceAction::Select {
+            decision_id: governance_decision_id.clone(),
+            alternative_id: selected_alternative_id.clone(),
+        };
+        choice_record
+            .projection_mutations
+            .push(ProjectionMutation::ApplyGovernance {
+                action: choice_action.clone(),
+            });
+        let choice_events = apply_pair(&mut runtime, &mut replay, &choice_record);
+        assert_eq!(
+            choice_events
+                .iter()
+                .filter(|event| event.type_name.starts_with("governance."))
+                .count(),
+            1
+        );
+        assert!(choice_events
+            .iter()
+            .any(|event| event.type_name == "governance.selected"));
+        let selected = &runtime.governance_decisions[&governance_decision_id];
+        assert_eq!(selected.status, GovernanceDecisionStatus::Selected);
+        assert_eq!(selected.support.len(), 1);
+        assert_eq!(
+            selected
+                .selection
+                .as_ref()
+                .map(|selection| selection.alternative_id.as_str()),
+            Some(selected_alternative_id.as_str())
+        );
+        assert!(selected.alternatives.iter().all(|alternative| {
+            alternative.id == selected_alternative_id
+                || matches!(
+                    alternative.status,
+                    GovernanceAlternativeStatus::Closed | GovernanceAlternativeStatus::Invalidated
+                )
+        }));
+        assert!(runtime
+            .validate_governance_action(5000, &choice_action)
+            .is_err());
+        assert_eq!(
+            runtime.generated_places[&first_waypoint_id]
+                .building_proposal
+                .as_ref()
+                .and_then(|proposal| proposal.selected_archetype_id.as_deref()),
+            Some(selected_alternative_id.as_str())
+        );
         assert_eq!(
             serde_json::to_value(runtime.generated_place_view(first_waypoint_id))
                 .expect("serialize generated place"),
@@ -50366,9 +50603,16 @@ mod tests {
             serde_json::to_value(restored.generated_place_view(first_waypoint_id))
                 .expect("serialize restored generated place")
         );
+        assert_eq!(
+            serde_json::to_value(runtime.governance_decision_views(first_waypoint_id))
+                .expect("serialize pre-snapshot governance"),
+            serde_json::to_value(restored.governance_decision_views(first_waypoint_id))
+                .expect("serialize restored governance")
+        );
 
         let mut legacy_snapshot = RuntimeSnapshot::from_runtime(&runtime);
         legacy_snapshot.generated_places.clear();
+        legacy_snapshot.governance_decisions.clear();
         let mut legacy_clock = legacy_snapshot.clocks[&place.anchor_clock_id].clone();
         legacy_clock.id = generated_pathway_progress_clock_id(&pathway_id);
         legacy_snapshot

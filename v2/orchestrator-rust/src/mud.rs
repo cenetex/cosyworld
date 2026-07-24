@@ -128,6 +128,9 @@ pub(crate) enum CommandDispatch {
     Prepare,
     Work,
     Help,
+    Governance {
+        action: GovernanceAction,
+    },
     Rest,
     UnlockCharmSlot,
     SetCharmEquipped {
@@ -252,6 +255,10 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "prepare" | "ready" => "prepare",
         "work" | "repair" => "work",
         "assist" | "aid" => "assist",
+        "choice" | "choices" | "decision" | "projects" => "governance",
+        "support" | "vote" | "back" => "support",
+        "choose" | "select" => "choose",
+        "delegate" => "delegate",
         "rest" | "breathe" | "catch" => "rest",
         "shuffle" | "deal" | "more" | "redraw" => "shuffle",
         "grow" | "bank" | "review" | "advance" => "bank",
@@ -458,6 +465,9 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::Prepare => "There is nothing here to prepare for right now.",
         CommandDispatch::Work => "That work is not ready for you right now.",
         CommandDispatch::Help => "No one needs that kind of help here right now.",
+        CommandDispatch::Governance { .. } => {
+            "That shared choice changed while you were choosing; try choice again."
+        }
         CommandDispatch::Rest => "You are already fresh enough to keep going.",
         CommandDispatch::UnlockCharmSlot => {
             "That loadout need changed. Check Deck & Loadout for a specific charm."
@@ -1161,7 +1171,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -1454,6 +1464,124 @@ impl RuntimeWorld {
                     ),
                 },
             }),
+            "governance" => Ok(ResolvedCommand {
+                command: "choice".to_string(),
+                verb,
+                action: None,
+                dispatch: CommandDispatch::Read {
+                    output: self.governance_command_output(actor.location_id),
+                },
+            }),
+            "support" | "choose" => {
+                let decision = self
+                    .current_governance_decision(actor.location_id)
+                    .ok_or_else(|| {
+                        command_error(
+                            &command,
+                            &verb,
+                            404,
+                            "No shared choice is open here.",
+                        )
+                    })?;
+                let alternative_id = self
+                    .resolve_governance_alternative_id(decision, rest)
+                    .map_err(|output| command_error(&command, &verb, 409, output))?;
+                let governance_action = if verb == "support" {
+                    GovernanceAction::Support {
+                        decision_id: decision.id.clone(),
+                        alternative_id: alternative_id.clone(),
+                    }
+                } else {
+                    GovernanceAction::Select {
+                        decision_id: decision.id.clone(),
+                        alternative_id: alternative_id.clone(),
+                    }
+                };
+                self.validate_governance_action(actor.id, &governance_action)
+                    .map_err(|output| command_error(&command, &verb, 409, output))?;
+                let label = decision
+                    .alternatives
+                    .iter()
+                    .find(|alternative| alternative.id == alternative_id)
+                    .map(|alternative| alternative.label.clone())
+                    .unwrap_or_else(|| alternative_id.replace('_', " "));
+                let canonical = format!(
+                    "{} {label}",
+                    if verb == "support" {
+                        "support"
+                    } else {
+                        "choose"
+                    }
+                );
+                Ok(ResolvedCommand {
+                    command: canonical.clone(),
+                    verb: verb.clone(),
+                    action: Some(command_action(
+                        if verb == "support" {
+                            "governance_support"
+                        } else {
+                            "governance_select"
+                        },
+                        if verb == "support" {
+                            "Support"
+                        } else {
+                            "Choose"
+                        },
+                        &canonical,
+                    )),
+                    dispatch: CommandDispatch::Governance {
+                        action: governance_action,
+                    },
+                })
+            }
+            "delegate" => {
+                let target_query = rest
+                    .strip_prefix("choice to ")
+                    .or_else(|| rest.strip_prefix("decision to "))
+                    .or_else(|| rest.strip_prefix("to "))
+                    .unwrap_or(rest)
+                    .trim();
+                let target = self
+                    .resolve_room_actor(
+                        actor,
+                        target_query,
+                        CommandActorFilter::ActiveActor,
+                        active_direct_actor_ids,
+                    )
+                    .map_err(|output| command_error(&command, &verb, 404, output))?;
+                let decision = self
+                    .current_governance_decision(actor.location_id)
+                    .ok_or_else(|| {
+                        command_error(
+                            &command,
+                            &verb,
+                            404,
+                            "No shared choice is open here.",
+                        )
+                    })?;
+                let governance_action = GovernanceAction::Delegate {
+                    decision_id: decision.id.clone(),
+                    delegate_actor_id: target.id,
+                };
+                self.validate_governance_action(actor.id, &governance_action)
+                    .map_err(|output| command_error(&command, &verb, 409, output))?;
+                let target_name = self
+                    .actor_name(target.id)
+                    .unwrap_or_else(|| format!("Avatar {}", target.id));
+                let canonical = format!("delegate choice to {target_name}");
+                Ok(ResolvedCommand {
+                    command: canonical.clone(),
+                    verb,
+                    action: Some(command_action(
+                        "governance_delegate",
+                        "Delegate choice",
+                        &canonical,
+                    )),
+                    dispatch: CommandDispatch::Governance {
+                        action: governance_action,
+                    },
+                })
+            }
             "go" => {
                 let destination = self.resolve_exit_destination(actor, rest, access).map_err(|output| {
                     command_error(&command, "go", 404, output)
@@ -2888,6 +3016,9 @@ impl RuntimeWorld {
                     command_list_or_none(&features),
                     command_list_or_none(&buildings)
                 ));
+            }
+            if !sheet.governance_decisions.is_empty() {
+                lines.push(self.governance_command_output(location_id));
             }
         }
 

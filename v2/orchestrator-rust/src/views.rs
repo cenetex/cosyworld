@@ -640,6 +640,7 @@ pub(super) struct RoomSheetView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) generated_place: Option<GeneratedPlaceView>,
     pub(super) eligible_building_archetypes: Vec<String>,
+    pub(super) governance_decisions: Vec<GovernanceDecisionView>,
     pub(super) projects: Vec<String>,
 }
 
@@ -713,6 +714,7 @@ pub(super) struct RoomInspectorView {
     pub(super) hooks: Vec<String>,
     pub(super) resources: BTreeMap<String, i16>,
     pub(super) eligible_building_archetypes: Vec<String>,
+    pub(super) governance_decisions: Vec<GovernanceDecisionView>,
     pub(super) projects: Vec<String>,
     pub(super) features: Vec<String>,
     pub(super) listen_reason: Option<String>,
@@ -2392,6 +2394,7 @@ impl RuntimeWorld {
                 } else {
                     self.eligible_natural_building_archetypes(location_id)
                 },
+                governance_decisions: self.governance_decision_views(location_id),
                 projects: sheet.projects.clone(),
             })
             .or_else(|| {
@@ -2425,6 +2428,7 @@ impl RuntimeWorld {
                     generated_place: self.generated_place_view(location_id),
                     eligible_building_archetypes: self
                         .generated_place_building_choices(location_id),
+                    governance_decisions: self.governance_decision_views(location_id),
                     projects,
                 })
             })
@@ -2520,6 +2524,7 @@ impl RuntimeWorld {
                 } else {
                     self.eligible_natural_building_archetypes(location_id)
                 },
+                governance_decisions: self.governance_decision_views(location_id),
                 projects: room_sheet
                     .map(|sheet| sheet.projects.clone())
                     .unwrap_or_default(),
