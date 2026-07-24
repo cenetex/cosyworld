@@ -3903,6 +3903,16 @@ async function main() {
             actor_id: 5000,
             content: "I listen for odd jobs.:chosen_calling",
           }),
+          naturalFeatureStatus: statusUpdateMeta({
+            type: "natural_feature.revealed",
+            content: JSON.stringify({
+              schema_version: 1,
+              feature: {
+                resource_kind: "fish_rich_water",
+                building_archetypes: ["fishery", "smokehouse", "boathouse"],
+              },
+            }),
+          }),
           buttonTitle: simpleButtonTitle,
           finishButtonTitle,
           setupButtonTitle,
@@ -3957,6 +3967,11 @@ async function main() {
     assert(result.friendshipMemory?.label === "friendship" && result.friendshipMemory?.text === "became friends with Gust", `room memory should remember friendship in everyday language: ${JSON.stringify(result)}`);
     assert(result.purposeText === "chooses what draws them in: I listen for odd jobs.", `purpose events should avoid visible Calling terminology: ${JSON.stringify(result)}`);
     assert(result.purposeStatus?.label === "purpose" && result.purposeStatus?.text === "What draws you in: I listen for odd jobs.", `purpose status should use immediate identity language: ${JSON.stringify(result)}`);
+    assert(
+      result.naturalFeatureStatus?.label === "discovery"
+        && result.naturalFeatureStatus?.text === "reveals fish rich water. It can support fishery, smokehouse, boathouse.",
+      `Natural-feature events should become readable discovery copy instead of raw evidence JSON: ${JSON.stringify(result)}`,
+    );
     const visibleFriendshipFeedback = [
       result.friendshipText,
       result.friendshipStatus?.label,

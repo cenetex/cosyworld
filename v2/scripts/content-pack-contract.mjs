@@ -63,6 +63,8 @@ const WORLD_ENTITY_FIELDS = Object.freeze({
     "memory",
     "biome",
     "terrain",
+    "environment",
+    "natural_potentials",
     "allow_combat",
   ]),
 });

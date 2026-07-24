@@ -24,6 +24,53 @@
       "broad leaves",
       "soft garden soil"
     ],
+    "environment": {
+      "version": 1,
+      "climate": "temperate",
+      "landforms": [
+        "garden",
+        "riverbank"
+      ],
+      "geology": [
+        "alluvial",
+        "clay_bearing"
+      ],
+      "hydrology": [
+        "flowing_river",
+        "wet_ground"
+      ],
+      "anomalies": []
+    },
+    "natural_potentials": [
+      {
+        "resource_kind": "fish_rich_water",
+        "policy": "guaranteed",
+        "richness": "rich",
+        "character": "renewable",
+        "building_archetypes": [
+          "fishery",
+          "smokehouse",
+          "boathouse"
+        ],
+        "presentation_key": "natural.fish_rich_water.rain_soft"
+      },
+      {
+        "resource_kind": "ore_seam",
+        "policy": "impossible"
+      },
+      {
+        "resource_kind": "clay_bank",
+        "policy": "weighted",
+        "weight": 3,
+        "richness": "modest",
+        "character": "finite",
+        "building_archetypes": [
+          "kiln",
+          "pottery"
+        ],
+        "presentation_key": "natural.clay_bank.rain_soft"
+      }
+    ],
     "memory": [
       "A dewbright button was found here at first light.",
       "The path from the cottage arrives smelling of tea and wet wool."
@@ -41,6 +88,41 @@
       "silver pine",
       "cold earth",
       "wolf-worn trail"
+    ],
+    "environment": {
+      "version": 1,
+      "climate": "cool_temperate",
+      "landforms": [
+        "woodland",
+        "trail"
+      ],
+      "geology": [
+        "sedimentary"
+      ],
+      "hydrology": [
+        "seasonal_stream"
+      ],
+      "anomalies": [
+        "moon_touched"
+      ]
+    },
+    "natural_potentials": [
+      {
+        "resource_kind": "ancient_woodland",
+        "policy": "weighted",
+        "weight": 6,
+        "richness": "modest",
+        "character": "renewable",
+        "building_archetypes": [
+          "carpenters_lodge",
+          "herbalist"
+        ],
+        "presentation_key": "natural.ancient_woodland.moonlit"
+      },
+      {
+        "resource_kind": "hot_spring",
+        "policy": "impossible"
+      }
     ],
     "memory": [
       "Coach waits here.",

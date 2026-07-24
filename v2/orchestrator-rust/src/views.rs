@@ -636,6 +636,8 @@ pub(super) struct RoomSheetView {
     pub(super) boons: Vec<String>,
     pub(super) hooks: Vec<String>,
     pub(super) resources: BTreeMap<String, i16>,
+    pub(super) natural_features: Vec<NaturalFeatureState>,
+    pub(super) eligible_building_archetypes: Vec<String>,
     pub(super) projects: Vec<String>,
 }
 
@@ -708,6 +710,7 @@ pub(super) struct RoomInspectorView {
     pub(super) boons: Vec<String>,
     pub(super) hooks: Vec<String>,
     pub(super) resources: BTreeMap<String, i16>,
+    pub(super) eligible_building_archetypes: Vec<String>,
     pub(super) projects: Vec<String>,
     pub(super) features: Vec<String>,
     pub(super) listen_reason: Option<String>,
@@ -2143,6 +2146,10 @@ impl RuntimeWorld {
                     .or(reached_situation)
                     .unwrap_or_else(|| progress.presentation.situation.clone());
 
+                let natural_investigation = self
+                    .natural_affordances
+                    .values()
+                    .any(|state| state.investigation_job_id == job.id);
                 let next_revelation = job
                     .narrated_thresholds
                     .iter()
@@ -2160,7 +2167,18 @@ impl RuntimeWorld {
                     })
                     .map(|(_, threshold)| SharedQuestionMilestoneView {
                         filled: threshold.filled,
-                        text: threshold.text.clone(),
+                        text: if natural_investigation {
+                            match threshold.filled {
+                                1 => "The next survey milestone will distinguish useful signs."
+                                    .to_string(),
+                                2 => "The next survey milestone will identify a resource family."
+                                    .to_string(),
+                                _ => "The next survey milestone will narrow the exact site."
+                                    .to_string(),
+                            }
+                        } else {
+                            threshold.text.clone()
+                        },
                     });
 
                 let strategies = self.shared_question_strategy_views(job, actor_id);
@@ -2365,12 +2383,19 @@ impl RuntimeWorld {
                 boons: sheet.boons.clone(),
                 hooks: sheet.hooks.clone(),
                 resources: sheet.resources.clone(),
+                natural_features: self.revealed_natural_features(location_id),
+                eligible_building_archetypes: self
+                    .eligible_natural_building_archetypes(location_id),
                 projects: sheet.projects.clone(),
             })
             .or_else(|| {
                 let pathway = self.generated_pathway_for_location(location_id)?;
                 let familiar = pathway.familiar;
                 let meta = self.location_meta_for(location_id);
+                let mut projects = vec![generated_pathway_job_id(&pathway.id)];
+                if self.natural_affordances.contains_key(&location_id) {
+                    projects.push(natural_investigation_job_id(location_id));
+                }
                 Some(RoomSheetView {
                     id: format!("generated-pathway-room:{location_id}"),
                     location_id,
@@ -2400,7 +2425,10 @@ impl RuntimeWorld {
                         "Work together until the wild way becomes familiar.".to_string()
                     }],
                     resources: BTreeMap::new(),
-                    projects: vec![generated_pathway_job_id(&pathway.id)],
+                    natural_features: self.revealed_natural_features(location_id),
+                    eligible_building_archetypes: self
+                        .eligible_natural_building_archetypes(location_id),
+                    projects,
                 })
             })
     }
@@ -2416,7 +2444,11 @@ impl RuntimeWorld {
         let zone = room_sheet
             .map(|sheet| room_sheet_zone(sheet).to_string())
             .unwrap_or_else(|| default_zone_for_scope("room", location_id).to_string());
-        let features = Vec::new();
+        let features = self
+            .revealed_natural_features(location_id)
+            .into_iter()
+            .map(|feature| feature.resource_kind.label().to_string())
+            .collect();
         let listen_offer = action_offers.iter().find(|offer| offer.kind == "check");
         let listen_reason = listen_offer
             .map(|offer| {
@@ -2486,6 +2518,8 @@ impl RuntimeWorld {
                 resources: room_sheet
                     .map(|sheet| sheet.resources.clone())
                     .unwrap_or_default(),
+                eligible_building_archetypes: self
+                    .eligible_natural_building_archetypes(location_id),
                 projects: room_sheet
                     .map(|sheet| sheet.projects.clone())
                     .unwrap_or_default(),

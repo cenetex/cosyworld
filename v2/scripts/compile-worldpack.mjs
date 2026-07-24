@@ -16,6 +16,7 @@ import {
   collectContentReferenceCandidates,
 } from "./content-references.mjs";
 import { assertAvatarNamingConfig } from "./avatar-naming-schema.mjs";
+import { assertNaturalAffordanceConfig } from "./natural-affordance-schema.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
@@ -657,6 +658,12 @@ for (const pack of packs) {
     for (const row of rows) {
       assert(row && typeof row === "object" && !Array.isArray(row), `pack ${pack.manifest.id} resource ${resource} contains a non-object row`);
       validateWorldEntityResource(pack.manifest.id, resource, row);
+      if (resource === "locations") {
+        assertNaturalAffordanceConfig(
+          row,
+          `pack ${pack.manifest.id} location ${String(row.id ?? "unknown")}`,
+        );
+      }
       assert(!row.pack_id || row.pack_id === pack.manifest.id, `pack ${pack.manifest.id} resource ${resource} contains conflicting pack_id ${row.pack_id}`);
       const { requires_packs: requiresPacks = [], ...compiledRow } = row;
       assert(Array.isArray(requiresPacks), `pack ${pack.manifest.id} resource ${resource} requires_packs must be an array`);

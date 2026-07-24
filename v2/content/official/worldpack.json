@@ -28,7 +28,8 @@
       "sha256:f97d77e008a46d79d9c9d83e607b257a16ef66d591b037297495b99f21fdafa5",
       "sha256:226996ee96150505c53df2a999297e8c5fa771b0dd81e6d03eb82e62daccc290",
       "sha256:b6060bef1242f551185ad54fbadf284f55980b6aecfe9a8f490a1467b6a23171",
-      "sha256:aca13f4075a97d37ffb13c6626eb6247793a87e6f76ac217a84e417c07b687ff"
+      "sha256:aca13f4075a97d37ffb13c6626eb6247793a87e6f76ac217a84e417c07b687ff",
+      "sha256:fd5012d745f00283c16bea59c0d014393dd064e9751c7728b0e2e6ba6a39690c"
     ]
   },
   "rules_profile": "cosyworld.srd5/1",
@@ -614,7 +615,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:fd5012d745f00283c16bea59c0d014393dd064e9751c7728b0e2e6ba6a39690c",
+  "bundle_hash": "sha256:02147a6629b038e2e9a28039f829bc6ad67881fe3391a0edabf744fd362427df",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -778,7 +779,7 @@
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.6",
+      "version": "1.3.7",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -863,7 +864,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:fe9e0c4a56eedd6e4481c1b62ef926d48fe2585e5cfafe37732dcb0d81277329"
+      "integrity": "sha256:1826318ca2c1425133ff5f67306d828e087815b8f603ae0b1754c2cc04dc3da1"
     },
     {
       "id": "cosyworld.rules-srd-5.1",

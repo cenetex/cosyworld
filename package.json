@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.105",
+  "version": "0.0.106",
   "description": "Shared AI MUD runtime with a deterministic C kernel and Rust orchestrator",
   "type": "module",
   "private": true,
@@ -24,7 +24,7 @@
     "v2:check": "./v2/mvp.sh check",
     "v2:stop": "./v2/mvp.sh stop",
     "v2:worldpack": "npm run v2:worldpack:official && npm run v2:worldpack:compositions && npm run v2:proof-world -- --strict",
-    "v2:worldpack:official": "node v2/scripts/import-srd-5.1.mjs --check && node v2/scripts/import-srd-5.2.1.mjs --check && node v2/scripts/compile-worldpack.mjs --check && node v2/scripts/check-worldpack.mjs",
+    "v2:worldpack:official": "node --test v2/scripts/natural-affordance-schema.test.mjs && node v2/scripts/import-srd-5.1.mjs --check && node v2/scripts/import-srd-5.2.1.mjs --check && node v2/scripts/compile-worldpack.mjs --check && node v2/scripts/check-worldpack.mjs",
     "v2:worldpack:compositions": "node v2/scripts/compile-worldpack.mjs --world-dir v2/worlds/core-only --output-dir v2/content/core-only --check && node v2/scripts/check-worldpack.mjs v2/content/core-only && node v2/scripts/compile-worldpack.mjs --world-dir v2/worlds/ruby-high-only --output-dir v2/content/ruby-high-only --check && node v2/scripts/check-worldpack.mjs v2/content/ruby-high-only && node v2/scripts/compile-worldpack.mjs --world-dir v2/worlds/services-only --output-dir v2/content/services-only --check && node v2/scripts/check-worldpack.mjs v2/content/services-only",
     "v2:worldpack:sync": "node v2/scripts/sync-worldpacks.mjs",
     "v2:worldpack:compile": "node v2/scripts/compile-worldpack.mjs",
