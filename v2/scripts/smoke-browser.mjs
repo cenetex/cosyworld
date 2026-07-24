@@ -798,7 +798,11 @@ async function main() {
         renderButton("primary", roomThreadHand[0]);
         result.roomThreadHand = {
           labels: roomThreadHand.map((action) => action.label),
-          guided: roomThreadHand.map((action) => `${action.label}:${action.storyGuideLabel || ""}`),
+          guided: roomThreadHand.map((action) => ({
+            label: action.label,
+            storyGuide: action.storyGuide,
+            storyGuideLabel: action.storyGuideLabel,
+          })),
           buttonGuide: document.querySelector("#primary")?.getAttribute("data-story-guide") || "",
           buttonCue: document.querySelector("#primary .story-call")?.textContent.trim() || "",
         };
@@ -862,7 +866,9 @@ async function main() {
     );
     assert(
       guide.roomThreadHand?.labels?.join(",") === "chat,travel"
-        && guide.roomThreadHand.guided?.every((entry) => !entry.endsWith(":room thread"))
+        && guide.roomThreadHand.guided?.every((entry) => (
+          entry.storyGuide === false && entry.storyGuideLabel === ""
+        ))
         && guide.roomThreadHand.buttonGuide === ""
         && guide.roomThreadHand.buttonCue === "",
       `a client-only room guide must not override the authoritative projected hand: ${JSON.stringify(guide.roomThreadHand)}`,

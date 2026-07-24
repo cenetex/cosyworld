@@ -10468,14 +10468,14 @@
       if (!actions.length) return [];
       reconcileHand();
       const storyGuide = dealtStoryGuide();
-      const storyActionKeys = new Set(storyGuide?.actionKeys || []);
-      const guidedHandKeys = storyGuide?.kind === "room-thread"
-        ? []
-        : [...storyActionKeys]
-          .map((key) => actionIndexForKey(key))
-          .filter((index) => index >= 0)
-          .map((index) => actionHandKey(actions[index]))
-          .filter(Boolean);
+      const storyActionKeys = new Set(
+        storyGuide?.kind === "first-tale" ? storyGuide.actionKeys || [] : [],
+      );
+      const guidedHandKeys = [...storyActionKeys]
+        .map((key) => actionIndexForKey(key))
+        .filter((index) => index >= 0)
+        .map((index) => actionHandKey(actions[index]))
+        .filter(Boolean);
       if (guidedHandKeys.length) {
         const guidedSet = new Set(guidedHandKeys);
         discardedHandKeys = discardedHandKeys.filter((key) => !guidedSet.has(key));
