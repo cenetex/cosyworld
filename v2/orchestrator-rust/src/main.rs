@@ -15040,6 +15040,117 @@ impl RuntimeWorld {
             })
     }
 
+    fn current_item_offer_for_choice(
+        &self,
+        actor_id: u64,
+        kind: &str,
+        item_id: u64,
+    ) -> Result<RankedActionOffer, String> {
+        self.legal_action_candidates(Some(actor_id), &AccessContext::default())
+            .1
+            .into_iter()
+            .filter(action_offer_is_reachable)
+            .find(|offer| {
+                offer.kind == kind
+                    && offer
+                        .target
+                        .as_ref()
+                        .is_some_and(|target| target.kind == "item" && target.id == Some(item_id))
+            })
+            .ok_or_else(|| format!("That {kind} item offer is no longer current."))
+    }
+
+    fn plan_item_offer_action(
+        &self,
+        actor_id: u64,
+        offer: &RankedActionOffer,
+        exchange_item_id: u64,
+    ) -> Result<CwAction, String> {
+        if !matches!(offer.kind.as_str(), "pick_up" | "drop_item")
+            || !action_offer_is_reachable(offer)
+        {
+            return Err("Item action needs a current reachable offer.".to_string());
+        }
+        let current_offer = self
+            .current_reachable_offer(actor_id, offer)
+            .ok_or_else(|| "That item offer is no longer current.".to_string())?;
+        let item_id = current_offer
+            .target
+            .as_ref()
+            .filter(|target| target.kind == "item")
+            .and_then(|target| target.id)
+            .ok_or_else(|| "Item offer has no exact target.".to_string())?;
+        let actor = self
+            .actor_by_id(actor_id)
+            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .ok_or_else(|| "Item action requires an active avatar.".to_string())?;
+        let action = match current_offer.kind.as_str() {
+            "pick_up" => {
+                let incoming = self
+                    .item_by_id(item_id)
+                    .filter(|item| {
+                        item.holder_actor_id == 0
+                            && item.location_id == actor.location_id
+                            && item.zone == CW_CARD_ZONE_WORLD
+                    })
+                    .ok_or_else(|| "That item is no longer available here.".to_string())?;
+                let target_item_id = if self.actor_can_receive_item(actor, item_id) {
+                    if exchange_item_id != 0 {
+                        return Err("That pickup does not need an exchange item.".to_string());
+                    }
+                    0
+                } else {
+                    let outgoing = self
+                        .item_by_id(exchange_item_id)
+                        .filter(|item| item.holder_actor_id == actor_id)
+                        .ok_or_else(|| "Choose an item you carry for this exchange.".to_string())?;
+                    if !self.actor_can_exchange_items(actor_id, Some(outgoing), incoming) {
+                        return Err("That exchange would exceed carrying capacity.".to_string());
+                    }
+                    outgoing.id
+                };
+                CwAction {
+                    kind: CW_ACTION_PICK_UP_ITEM,
+                    actor_id,
+                    item_id,
+                    target_item_id,
+                    ..CwAction::default()
+                }
+            }
+            "drop_item" => {
+                if exchange_item_id != 0
+                    || !self
+                        .item_by_id(item_id)
+                        .is_some_and(|item| item.holder_actor_id == actor_id)
+                {
+                    return Err("That carried item is no longer available to drop.".to_string());
+                }
+                CwAction {
+                    kind: CW_ACTION_DROP_ITEM,
+                    actor_id,
+                    item_id,
+                    ..CwAction::default()
+                }
+            }
+            _ => unreachable!(),
+        };
+        if !self.kernel_offer_allows_action(&action) {
+            return Err("The kernel no longer offers that item action.".to_string());
+        }
+        Ok(action)
+    }
+
+    fn plan_item_choice_action(
+        &self,
+        actor_id: u64,
+        kind: &str,
+        item_id: u64,
+        exchange_item_id: u64,
+    ) -> Result<CwAction, String> {
+        let offer = self.current_item_offer_for_choice(actor_id, kind, item_id)?;
+        self.plan_item_offer_action(actor_id, &offer, exchange_item_id)
+    }
+
     fn plan_notice_action(
         &self,
         actor_id: u64,
@@ -21518,6 +21629,13 @@ impl RuntimeWorld {
                 command: "take".to_string(),
             });
         }
+        if offers.option_flags & CW_OFFER_DROP_ITEM != 0 {
+            options.push(ActionOption {
+                kind: "drop_item".to_string(),
+                label: "Drop".to_string(),
+                command: "drop".to_string(),
+            });
+        }
         if offers.option_flags & CW_OFFER_USE_ITEM != 0 && self.has_useful_usable_item(actor_id) {
             options.push(ActionOption {
                 kind: "use_item".to_string(),
@@ -21666,6 +21784,7 @@ impl RuntimeWorld {
                 "attack" => "Attack",
                 "defend" => "Defend",
                 "pick_up" => "Take",
+                "drop_item" => "Drop",
                 "check" => "Listen",
                 "study" => "Study",
                 "cast_spell" => "Cast",
@@ -21697,6 +21816,7 @@ impl RuntimeWorld {
                 "attack" => "attack".to_string(),
                 "defend" => "defend".to_string(),
                 "pick_up" => "take".to_string(),
+                "drop_item" => "drop".to_string(),
                 "check" => "listen".to_string(),
                 "study" => "study the moonlit signs".to_string(),
                 "cast_spell" => "cast steady light".to_string(),
@@ -21960,6 +22080,7 @@ impl RuntimeWorld {
                 }
             })
             .collect();
+        offers = self.expand_item_action_offers(actor_id, offers);
         if let Some(target) = self.scout_action_offer_target(actor_id, access) {
             let kind = "explore_path";
             let binding = resolved_action_binding(kind)
@@ -22601,6 +22722,105 @@ impl RuntimeWorld {
         })
     }
 
+    fn pickup_offer_items(&self, actor_id: u64) -> Vec<CwItem> {
+        let Some(actor) = self
+            .actor_by_id(actor_id)
+            .filter(|actor| Self::actor_is_active_avatar(*actor))
+        else {
+            return Vec::new();
+        };
+        let held_items = self.actor_held_items(actor_id);
+        self.loose_items_at_location(actor.location_id)
+            .into_iter()
+            .filter(|incoming| {
+                self.actor_can_receive_item(actor, incoming.id)
+                    || held_items.iter().any(|outgoing| {
+                        self.actor_can_exchange_items(actor_id, Some(*outgoing), *incoming)
+                    })
+            })
+            .collect()
+    }
+
+    fn drop_offer_items(&self, actor_id: u64) -> Vec<CwItem> {
+        let mut items = self.actor_held_items(actor_id);
+        items.sort_by_key(|item| item.id);
+        items
+    }
+
+    fn item_action_offer_items(&self, kind: &str, actor_id: u64) -> Vec<CwItem> {
+        match kind {
+            "pick_up" => self.pickup_offer_items(actor_id),
+            "drop_item" => self.drop_offer_items(actor_id),
+            _ => Vec::new(),
+        }
+    }
+
+    fn retarget_item_action_offer(
+        &self,
+        actor_id: u64,
+        mut offer: RankedActionOffer,
+        item: CwItem,
+    ) -> RankedActionOffer {
+        let item_name = self
+            .item_name(item.id)
+            .unwrap_or_else(|| format!("Item {}", item.id));
+        let target = ActionTargetView {
+            kind: "item".to_string(),
+            id: Some(item.id),
+            label: Some(item_name.clone()),
+        };
+        let verb = self.action_offer_verb(&offer.kind, actor_id);
+        let command = match offer.kind.as_str() {
+            "pick_up" => format!("take {item_name}"),
+            "drop_item" => format!("drop {item_name}"),
+            _ => offer.command.clone(),
+        };
+        let legacy_id = format!("{}:{}", offer.kind, item.id);
+        offer.id = legacy_id.clone();
+        offer.offer_id = format!(
+            "{}:{}:{}",
+            offer.rules_profile, offer.state_revision, legacy_id
+        );
+        offer.verb = verb.clone();
+        offer.label = format!("{verb} {item_name}");
+        offer.accessible_label = offer.label.clone();
+        offer.command = normalize_command_text(&command);
+        offer.target = Some(target.clone());
+        offer.composition_trace.target = Some(target);
+        offer.effect = match offer.kind.as_str() {
+            "pick_up" => self.actor_by_id(actor_id).map(|actor| {
+                if self.actor_can_receive_item(actor, item.id) {
+                    "adds the item card to your carried deck".to_string()
+                } else {
+                    "keeps the chosen item and leaves one carried item here".to_string()
+                }
+            }),
+            "drop_item" => Some("leaves the item card in this room".to_string()),
+            _ => offer.effect,
+        };
+        offer
+    }
+
+    fn expand_item_action_offers(
+        &self,
+        actor_id: u64,
+        offers: Vec<RankedActionOffer>,
+    ) -> Vec<RankedActionOffer> {
+        let mut expanded = Vec::new();
+        for offer in offers {
+            if !matches!(offer.kind.as_str(), "pick_up" | "drop_item") {
+                expanded.push(offer);
+                continue;
+            }
+            expanded.extend(
+                self.item_action_offer_items(&offer.kind, actor_id)
+                    .into_iter()
+                    .map(|item| self.retarget_item_action_offer(actor_id, offer.clone(), item)),
+            );
+        }
+        expanded
+    }
+
     fn action_offer_target(
         &self,
         kind: &str,
@@ -22699,10 +22919,19 @@ impl RuntimeWorld {
                             .unwrap_or_else(|| format!("Resident {}", target.id))
                     )),
                 }),
-            "pick_up" => self.world.items[..self.world.item_count]
-                .iter()
-                .filter(|item| item.location_id == actor.location_id)
-                .min_by_key(|item| item.id)
+            "pick_up" => self
+                .pickup_offer_items(actor_id)
+                .into_iter()
+                .next()
+                .map(|item| ActionTargetView {
+                    kind: "item".to_string(),
+                    id: Some(item.id),
+                    label: self.item_name(item.id),
+                }),
+            "drop_item" => self
+                .drop_offer_items(actor_id)
+                .into_iter()
+                .next()
                 .map(|item| ActionTargetView {
                     kind: "item".to_string(),
                     id: Some(item.id),
@@ -24958,9 +25187,12 @@ impl RuntimeWorld {
                             .and_then(|item_id| item_id.parse::<u64>().ok())
                             == Some(action.item_id)
                 }
-                // Drop offers do not yet identify an authoritative item target,
-                // so model-proposed drops fail closed.
-                CW_ACTION_DROP_ITEM => false,
+                CW_ACTION_DROP_ITEM => {
+                    proposal.item_id == Some(action.item_id)
+                        && offer.target.as_ref().is_some_and(|target| {
+                            target.kind == "item" && target.id == Some(action.item_id)
+                        })
+                }
                 _ => false,
             })
     }
@@ -24974,6 +25206,17 @@ impl RuntimeWorld {
     }
 
     fn fresh_resident_autonomy_action(&self, actor: CwActor, action: CwAction) -> Option<CwAction> {
+        let action = if matches!(action.kind, CW_ACTION_PICK_UP_ITEM | CW_ACTION_DROP_ITEM) {
+            let kind = if action.kind == CW_ACTION_PICK_UP_ITEM {
+                "pick_up"
+            } else {
+                "drop_item"
+            };
+            self.plan_item_choice_action(actor.id, kind, action.item_id, action.target_item_id)
+                .ok()?
+        } else {
+            action
+        };
         if matches!(action.kind, CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM)
             && (self
                 .actor_control_mode(action.target_actor_id)
@@ -26011,7 +26254,10 @@ impl RuntimeWorld {
                 .target
                 .as_ref()
                 .is_some_and(|target| target.kind == "item" && target.id == Some(action.item_id)),
-            CW_ACTION_DROP_ITEM => offer.target.is_none(),
+            CW_ACTION_DROP_ITEM => offer
+                .target
+                .as_ref()
+                .is_some_and(|target| target.kind == "item" && target.id == Some(action.item_id)),
             CW_ACTION_GIVE_ITEM => {
                 self.actor_give_candidate(action.actor_id)
                     .is_some_and(|(item, target)| {
@@ -37735,18 +37981,33 @@ async fn pick_up_item(
     ) {
         return action_rate_limited_response();
     }
-    apply_and_broadcast(
-        state,
-        CwAction {
-            kind: CW_ACTION_PICK_UP_ITEM,
-            actor_id: payload.actor_id,
-            item_id: payload.item_id,
-            target_item_id: payload.target_item_id.unwrap_or_default(),
-            ..CwAction::default()
-        },
-        payload.actor_session.as_deref(),
-    )
-    .await
+    let action = {
+        let runtime = state.inner.lock().await;
+        runtime
+            .plan_item_choice_action(
+                payload.actor_id,
+                "pick_up",
+                payload.item_id,
+                payload.target_item_id.unwrap_or_default(),
+            )
+            .or_else(|reason| {
+                runtime
+                    .item_by_id(payload.item_id)
+                    .filter(|item| item.holder_actor_id != 0)
+                    .map(|_| CwAction {
+                        kind: CW_ACTION_PICK_UP_ITEM,
+                        actor_id: payload.actor_id,
+                        item_id: payload.item_id,
+                        target_item_id: payload.target_item_id.unwrap_or_default(),
+                        ..CwAction::default()
+                    })
+                    .ok_or(reason)
+            })
+    };
+    let Ok(action) = action else {
+        return action_offer_rejected("That Pick Up offer is no longer available.");
+    };
+    apply_and_broadcast(state, action, payload.actor_session.as_deref()).await
 }
 
 async fn drop_item(
@@ -37763,17 +38024,14 @@ async fn drop_item(
     ) {
         return action_rate_limited_response();
     }
-    apply_and_broadcast(
-        state,
-        CwAction {
-            kind: CW_ACTION_DROP_ITEM,
-            actor_id: payload.actor_id,
-            item_id: payload.item_id,
-            ..CwAction::default()
-        },
-        payload.actor_session.as_deref(),
-    )
-    .await
+    let action = {
+        let runtime = state.inner.lock().await;
+        runtime.plan_item_choice_action(payload.actor_id, "drop_item", payload.item_id, 0)
+    };
+    let Ok(action) = action else {
+        return action_offer_rejected("That Drop offer is no longer available.");
+    };
+    apply_and_broadcast(state, action, payload.actor_session.as_deref()).await
 }
 
 async fn use_item(
@@ -42838,6 +43096,7 @@ fn action_offer_rank(kind: &str) -> u16 {
         "use_item" | "use_feature" => 20,
         "rest" => 25,
         "pick_up" => 30,
+        "drop_item" => 30,
         "craft" => 31,
         "prepare" => 32,
         "attack" => 40,
@@ -42902,6 +43161,8 @@ fn default_action_offer_verb(kind: &str) -> &str {
         "help" => "Help",
         "flee" => "Flee",
         "prepare" => "Prepare",
+        "pick_up" => "Take",
+        "drop_item" => "Drop",
         _ => "Act",
     }
 }
@@ -42951,7 +43212,9 @@ fn action_offer_category(kind: &str) -> &'static str {
         "create_avatar" => "system",
         "move" | "flee" | "explore_path" => "travel",
         "attack" | "defend" => "danger",
-        "pick_up" | "use_item" | "use_feature" | "give_item" | "trade_item" => "inventory",
+        "pick_up" | "drop_item" | "use_item" | "use_feature" | "give_item" | "trade_item" => {
+            "inventory"
+        }
         "craft" => "craft",
         "chat" | "help" | "create_bond" | "resolve_bond" => "social",
         "check" | "search" => "discovery",
@@ -71280,6 +71543,193 @@ mod tests {
             before_location
         );
         assert_eq!(runtime.world.next_event_seq, before_seq);
+    }
+
+    #[test]
+    fn pickup_and_drop_offers_bind_exact_items_for_every_controller() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Item Offer Tester",
+        );
+        let item_ids = [2001, STORY_BUTTON_ITEM_ID];
+        for item in &mut runtime.world.items[..runtime.world.item_count] {
+            item.location_id = 0;
+            item.holder_actor_id = 0;
+            item.zone = CW_CARD_ZONE_WORLD;
+            item.container_item_id = 0;
+            if item_ids.contains(&item.id) {
+                item.location_id = COSY_COTTAGE_LOCATION_ID;
+            }
+        }
+
+        let pickup_offers = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .filter(|offer| offer.kind == "pick_up")
+            .collect::<Vec<_>>();
+        assert_eq!(pickup_offers.len(), item_ids.len());
+        assert_eq!(
+            pickup_offers
+                .iter()
+                .filter_map(|offer| offer.target.as_ref().and_then(|target| target.id))
+                .collect::<Vec<_>>(),
+            item_ids
+        );
+        assert!(pickup_offers.iter().all(|offer| {
+            offer.target.as_ref().is_some_and(|target| {
+                target.kind == "item"
+                    && target
+                        .label
+                        .as_deref()
+                        .is_some_and(|label| offer.label.contains(label))
+            })
+        }));
+
+        runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
+        let inference_pickup_offers = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .filter(|offer| offer.kind == "pick_up")
+            .collect::<Vec<_>>();
+        assert_eq!(
+            serde_json::to_value(&inference_pickup_offers)
+                .expect("inference pickup offers serialize"),
+            serde_json::to_value(&pickup_offers).expect("direct pickup offers serialize"),
+            "controller mode cannot change pickup enumeration or targets"
+        );
+
+        let pickup_offer = pickup_offers
+            .iter()
+            .find(|offer| {
+                offer.target.as_ref().and_then(|target| target.id) == Some(STORY_BUTTON_ITEM_ID)
+            })
+            .expect("Story Button has an exact pickup offer")
+            .clone();
+        let pickup = runtime
+            .plan_item_offer_action(5000, &pickup_offer, 0)
+            .expect("the exact pickup offer plans");
+        assert_eq!(pickup.kind, CW_ACTION_PICK_UP_ITEM);
+        assert_eq!(pickup.item_id, STORY_BUTTON_ITEM_ID);
+
+        let trace = runtime.resident_decision_trace(&ResidentAutonomyCandidate {
+            actor_id: 5000,
+            rank: 40,
+            score: 0,
+            record: JournalRecord::new(pickup, 97_100)
+                .into_actor_consequence(runtime.world.tick, None),
+        });
+        assert_eq!(
+            trace.choice.offer_id.as_deref(),
+            Some(pickup_offer.offer_id.as_str())
+        );
+        assert!(trace.candidates.iter().any(|candidate| {
+            candidate.selected
+                && candidate.target.as_ref().is_some_and(|target| {
+                    target.kind == "item" && target.id == Some(STORY_BUTTON_ITEM_ID)
+                })
+        }));
+
+        let mut forged_pickup_offer = pickup_offer.clone();
+        forged_pickup_offer
+            .target
+            .as_mut()
+            .expect("pickup target exists")
+            .id = Some(999_999);
+        assert!(runtime
+            .plan_item_offer_action(5000, &forged_pickup_offer, 0)
+            .is_err());
+
+        for item in &mut runtime.world.items[..runtime.world.item_count] {
+            item.location_id = 0;
+            item.holder_actor_id = 0;
+            item.zone = CW_CARD_ZONE_WORLD;
+            item.container_item_id = 0;
+            if item_ids.contains(&item.id) {
+                item.holder_actor_id = 5000;
+                item.zone = CW_CARD_ZONE_CARRIED;
+            }
+        }
+        runtime.actor_autonomy.entry(5000).or_default().control_mode =
+            ActorControlMode::DirectInput;
+        let (_, direct_drop_offers) =
+            runtime.legal_action_candidates(Some(5000), &AccessContext::default());
+        let drop_offers = direct_drop_offers
+            .into_iter()
+            .filter(|offer| offer.kind == "drop_item")
+            .collect::<Vec<_>>();
+        assert_eq!(drop_offers.len(), item_ids.len());
+        assert_eq!(
+            drop_offers
+                .iter()
+                .filter_map(|offer| offer.target.as_ref().and_then(|target| target.id))
+                .collect::<Vec<_>>(),
+            item_ids
+        );
+        assert!(runtime
+            .primary_action(Some(5000), &AccessContext::default())
+            .options
+            .iter()
+            .any(|option| option.kind == "drop_item"));
+
+        runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
+        let inference_drop_offers = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .filter(|offer| offer.kind == "drop_item")
+            .collect::<Vec<_>>();
+        assert_eq!(
+            serde_json::to_value(&inference_drop_offers).expect("inference drop offers serialize"),
+            serde_json::to_value(&drop_offers).expect("direct drop offers serialize"),
+            "controller mode cannot change drop enumeration or targets"
+        );
+
+        let drop_offer = drop_offers
+            .iter()
+            .find(|offer| {
+                offer.target.as_ref().and_then(|target| target.id) == Some(STORY_BUTTON_ITEM_ID)
+            })
+            .expect("Story Button has an exact drop offer")
+            .clone();
+        let drop_action = runtime
+            .plan_item_offer_action(5000, &drop_offer, 0)
+            .expect("the exact drop offer plans");
+        let exact_proposal = AvatarProposedAction {
+            kind: "drop".to_string(),
+            target_actor_id: None,
+            item_id: Some(STORY_BUTTON_ITEM_ID),
+            destination_location_id: None,
+            reason: None,
+        };
+        assert!(runtime.resident_proposed_action_matches_legal_offer(
+            5000,
+            &exact_proposal,
+            &drop_action
+        ));
+        let forged_proposal = AvatarProposedAction {
+            item_id: Some(2001),
+            ..exact_proposal.clone()
+        };
+        assert!(!runtime.resident_proposed_action_matches_legal_offer(
+            5000,
+            &forged_proposal,
+            &drop_action
+        ));
+
+        assert_eq!(
+            runtime
+                .apply_journal_record(&JournalRecord::new(drop_action, 97_101))
+                .0,
+            CW_OK
+        );
+        assert!(runtime
+            .plan_item_offer_action(5000, &drop_offer, 0)
+            .is_err());
     }
 
     #[test]
