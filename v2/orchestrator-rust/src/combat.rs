@@ -203,6 +203,7 @@ impl RuntimeWorld {
             })
             .filter_map(|participant| self.actor_by_id(participant.actor_id))
             .filter(|target| target.status == CW_ACTOR_ACTIVE)
+            .filter(|target| !self.actors_blocked(actor_id, target.id))
             .min_by_key(|target| (target.damage, target.id))
             .map(|target| target.id)
     }
@@ -282,6 +283,161 @@ impl RuntimeWorld {
                 location.id == location_id && (location.flags & CW_LOCATION_ALLOW_COMBAT) != 0
             })
     }
+
+    fn current_combat_offer_for_choice(
+        &self,
+        actor_id: u64,
+        choice: CombatChoice,
+    ) -> Option<RankedActionOffer> {
+        self.legal_action_candidates(Some(actor_id), &AccessContext::default())
+            .1
+            .into_iter()
+            .filter(action_offer_is_reachable)
+            .find(|offer| match choice {
+                CombatChoice::Attack { target_actor_id } => {
+                    offer.kind == "attack"
+                        && offer.target.as_ref().is_some_and(|target| {
+                            target.kind == "actor" && target.id == Some(target_actor_id)
+                        })
+                }
+                CombatChoice::Dodge => offer.kind == "defend",
+                CombatChoice::Escape {
+                    destination_location_id,
+                } => {
+                    offer.kind == "flee"
+                        && offer.target.as_ref().is_some_and(|target| {
+                            target.kind == "location" && target.id == Some(destination_location_id)
+                        })
+                }
+                CombatChoice::Pass | CombatChoice::NeedTime => false,
+            })
+    }
+
+    pub(super) fn plan_combat_offer_action(
+        &self,
+        actor_id: u64,
+        offered: &RankedActionOffer,
+    ) -> Result<CwAction, String> {
+        let offer = self
+            .current_reachable_offer(actor_id, offered)
+            .ok_or_else(|| "That combat choice is no longer available.".to_string())?;
+        let encounter = self
+            .active_combat_encounter_for_actor(actor_id)
+            .ok_or_else(|| "There is no active encounter for that avatar.".to_string())?;
+        if self.combat_current_actor_id(encounter.id) != Some(actor_id) {
+            return Err("It is not that avatar's turn.".to_string());
+        }
+
+        match offer.kind.as_str() {
+            "attack" => {
+                let target_actor_id = offer
+                    .target
+                    .as_ref()
+                    .filter(|target| target.kind == "actor")
+                    .and_then(|target| target.id)
+                    .ok_or_else(|| "Attack needs a current opponent.".to_string())?;
+                if self.combat_target_for_actor(encounter.id, actor_id) != Some(target_actor_id)
+                    || self.actors_blocked(actor_id, target_actor_id)
+                {
+                    return Err("That opponent is no longer available.".to_string());
+                }
+                Ok(CwAction {
+                    kind: CW_ACTION_COMBAT_FINESSE_ATTACK,
+                    actor_id,
+                    target_actor_id,
+                    content_id: encounter.id,
+                    ..CwAction::default()
+                })
+            }
+            "defend" => {
+                let target_actor_id = offer
+                    .target
+                    .as_ref()
+                    .filter(|target| target.kind == "actor")
+                    .and_then(|target| target.id)
+                    .ok_or_else(|| "Defend needs a current opponent.".to_string())?;
+                if self.combat_target_for_actor(encounter.id, actor_id) != Some(target_actor_id)
+                    || self.actors_blocked(actor_id, target_actor_id)
+                {
+                    return Err("That opponent is no longer available.".to_string());
+                }
+                Ok(CwAction {
+                    kind: CW_ACTION_COMBAT_DODGE,
+                    actor_id,
+                    content_id: encounter.id,
+                    ..CwAction::default()
+                })
+            }
+            "flee" => {
+                let destination_location_id = offer
+                    .target
+                    .as_ref()
+                    .filter(|target| target.kind == "location")
+                    .and_then(|target| target.id)
+                    .ok_or_else(|| "Flee needs a current exit.".to_string())?;
+                Ok(CwAction {
+                    kind: CW_ACTION_COMBAT_ESCAPE,
+                    actor_id,
+                    destination_location_id,
+                    content_id: encounter.id,
+                    ..CwAction::default()
+                })
+            }
+            _ => Err("That offer is not a combat choice.".to_string()),
+        }
+    }
+
+    pub(super) fn resident_combat_autonomy_record(
+        &self,
+        encounter_id: u64,
+        seed: u64,
+        caused_by_event_seq: Option<u64>,
+    ) -> Option<JournalRecord> {
+        let actor_id = self.combat_current_actor_id(encounter_id)?;
+        let actor = self.actor_by_id(actor_id)?;
+        if !Self::actor_is_active_avatar(actor) || !self.actor_uses_inference(actor_id) {
+            return None;
+        }
+        let offers = self
+            .legal_action_candidates(Some(actor_id), &AccessContext::default())
+            .1
+            .into_iter()
+            .filter(action_offer_is_reachable)
+            .filter(|offer| matches!(offer.kind.as_str(), "attack" | "defend" | "flee"))
+            .collect::<Vec<_>>();
+        let hp_base = i32::from(actor.stats.hp_base.max(1));
+        let damage = i32::from(actor.damage.max(0));
+        let preferred_kinds: &[&str] = if damage.saturating_mul(4) >= hp_base.saturating_mul(3) {
+            &["flee", "defend", "attack"]
+        } else if damage.saturating_mul(2) >= hp_base {
+            &["defend", "flee", "attack"]
+        } else {
+            &["attack", "defend", "flee"]
+        };
+        let offer = preferred_kinds
+            .iter()
+            .find_map(|kind| offers.iter().find(|offer| offer.kind == *kind))?;
+        let action = self.plan_combat_offer_action(actor_id, offer).ok()?;
+        let (rank, score) = match offer.kind.as_str() {
+            "flee" => (0, i16::try_from(damage).unwrap_or(i16::MAX)),
+            "defend" => (1, i16::try_from(damage).unwrap_or(i16::MAX)),
+            _ => (2, i16::try_from(hp_base - damage).unwrap_or_default()),
+        };
+        let mut record = JournalRecord::new(action, seed)
+            .into_actor_consequence(self.world.tick, caused_by_event_seq);
+        record.bind_offer_kind(&offer.kind);
+        record.source_location_id = Some(actor.location_id);
+        self.append_resident_autonomy_intent_projection(actor, &mut record);
+        Some(
+            self.attach_resident_decision_trace(ResidentAutonomyCandidate {
+                actor_id,
+                rank,
+                score,
+                record,
+            })
+            .record,
+        )
+    }
 }
 
 fn drive_combat_inference_turns(
@@ -300,20 +456,13 @@ fn drive_combat_inference_turns(
         if !runtime.actor_uses_inference(actor.id) {
             return Ok(CW_OK);
         }
-        let Some(target_actor_id) = runtime.combat_target_for_actor(encounter_id, actor_id) else {
+        let Some(record) = runtime.resident_combat_autonomy_record(
+            encounter_id,
+            runtime.next_seed_value(),
+            events.last().map(|event| event.seq),
+        ) else {
             return Ok(CW_OK);
         };
-        let record = JournalRecord::new(
-            CwAction {
-                kind: CW_ACTION_COMBAT_FINESSE_ATTACK,
-                actor_id,
-                target_actor_id,
-                content_id: encounter_id,
-                ..CwAction::default()
-            },
-            runtime.next_seed_value(),
-        )
-        .into_system();
         let (status, inference_events) = commit_journal_record(state, runtime, record)?;
         events.extend(inference_events);
         if status != CW_OK {
@@ -362,8 +511,38 @@ pub(super) async fn apply_combat_choice(
         | CombatChoice::Pass
         | CombatChoice::NeedTime => None,
     };
-    let Some((job_id, encounter_target_id)) =
-        runtime.combat_job_for_actor(actor_id, requested_target_id)
+    if runtime
+        .active_combat_encounter_for_actor(actor_id)
+        .is_none()
+        && !matches!(choice, CombatChoice::Pass | CombatChoice::NeedTime)
+        && runtime
+            .current_combat_offer_for_choice(actor_id, choice)
+            .is_none()
+    {
+        drop(runtime);
+        broadcast_events(&state, &released_events);
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    let active_encounter_context = runtime
+        .active_combat_encounter_for_actor(actor_id)
+        .and_then(|encounter| {
+            runtime
+                .combat_job_id_for_encounter(encounter.id)
+                .map(|job_id| {
+                    (
+                        job_id,
+                        runtime
+                            .combat_target_for_actor(encounter.id, actor_id)
+                            .unwrap_or_default(),
+                    )
+                })
+        });
+    let Some((job_id, encounter_target_id)) = active_encounter_context
+        .or_else(|| runtime.combat_job_for_actor(actor_id, requested_target_id))
     else {
         drop(runtime);
         broadcast_events(&state, &released_events);
@@ -509,28 +688,29 @@ pub(super) async fn apply_combat_choice(
     }
 
     let action = match choice {
-        CombatChoice::Attack { target_actor_id } => CwAction {
-            kind: CW_ACTION_COMBAT_FINESSE_ATTACK,
-            actor_id,
-            target_actor_id,
-            content_id: encounter_id,
-            ..CwAction::default()
-        },
-        CombatChoice::Dodge => CwAction {
-            kind: CW_ACTION_COMBAT_DODGE,
-            actor_id,
-            content_id: encounter_id,
-            ..CwAction::default()
-        },
-        CombatChoice::Escape {
-            destination_location_id,
-        } => CwAction {
-            kind: CW_ACTION_COMBAT_ESCAPE,
-            actor_id,
-            destination_location_id,
-            content_id: encounter_id,
-            ..CwAction::default()
-        },
+        CombatChoice::Attack { .. } | CombatChoice::Dodge | CombatChoice::Escape { .. } => {
+            let Some(offer) = runtime.current_combat_offer_for_choice(actor_id, choice) else {
+                drop(runtime);
+                broadcast_events(&state, &released_events);
+                broadcast_events(&state, &events);
+                return Json(ActionResponse {
+                    ok: false,
+                    status: 409,
+                    events,
+                });
+            };
+            let Ok(action) = runtime.plan_combat_offer_action(actor_id, &offer) else {
+                drop(runtime);
+                broadcast_events(&state, &released_events);
+                broadcast_events(&state, &events);
+                return Json(ActionResponse {
+                    ok: false,
+                    status: 409,
+                    events,
+                });
+            };
+            action
+        }
         CombatChoice::Pass => CwAction {
             kind: CW_ACTION_COMBAT_PASS,
             actor_id,
