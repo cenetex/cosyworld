@@ -21392,18 +21392,22 @@ impl RuntimeWorld {
                     options: Vec::new(),
                 };
             }
-            let mut options = vec![
-                ActionOption {
+            let mut options = Vec::new();
+            if self
+                .combat_target_for_actor(encounter.id, actor_id)
+                .is_some()
+            {
+                options.push(ActionOption {
                     kind: "attack".to_string(),
                     label: "Attack".to_string(),
                     command: "attack".to_string(),
-                },
-                ActionOption {
+                });
+                options.push(ActionOption {
                     kind: "defend".to_string(),
                     label: "Dodge".to_string(),
                     command: "defend".to_string(),
-                },
-            ];
+                });
+            }
             if self.has_accessible_exit(actor_id, access) {
                 options.push(ActionOption {
                     kind: "flee".to_string(),
@@ -21411,10 +21415,19 @@ impl RuntimeWorld {
                     command: "flee".to_string(),
                 });
             }
+            let Some(selected) = options.first() else {
+                return PrimaryAction {
+                    kind: "wait".to_string(),
+                    label: "Wait".to_string(),
+                    command: "wait".to_string(),
+                    disabled: true,
+                    options: Vec::new(),
+                };
+            };
             return PrimaryAction {
-                kind: "attack".to_string(),
-                label: "Attack".to_string(),
-                command: "attack".to_string(),
+                kind: selected.kind.clone(),
+                label: selected.label.clone(),
+                command: selected.command.clone(),
                 disabled: false,
                 options,
             };
@@ -22611,8 +22624,13 @@ impl RuntimeWorld {
             }
 
             "attack" | "defend" => self
-                .combat_job_for_actor(actor_id, None)
-                .and_then(|(_, target_id)| self.actor_by_id(target_id))
+                .active_combat_encounter_for_actor(actor_id)
+                .and_then(|encounter| self.combat_target_for_actor(encounter.id, actor_id))
+                .or_else(|| {
+                    self.combat_job_for_actor(actor_id, None)
+                        .map(|(_, target_id)| target_id)
+                })
+                .and_then(|target_id| self.actor_by_id(target_id))
                 .map(|target| ActionTargetView {
                     kind: "actor".to_string(),
                     id: Some(target.id),
@@ -25537,6 +25555,26 @@ impl RuntimeWorld {
             reason: None,
         };
         let intent = match action.kind {
+            CW_ACTION_COMBAT_ATTACK | CW_ACTION_COMBAT_FINESSE_ATTACK => {
+                proposed_action.kind = "attack".to_string();
+                proposed_action.target_actor_id = Some(action.target_actor_id);
+                let target = self
+                    .actor_name(action.target_actor_id)
+                    .unwrap_or_else(|| format!("Actor {}", action.target_actor_id));
+                format!("{actor_name} intends to press the attack against {target}.")
+            }
+            CW_ACTION_COMBAT_DODGE => {
+                proposed_action.kind = "defend".to_string();
+                format!("{actor_name} intends to guard and watch for an opening.")
+            }
+            CW_ACTION_COMBAT_ESCAPE => {
+                proposed_action.kind = "flee".to_string();
+                proposed_action.destination_location_id = Some(action.destination_location_id);
+                let destination = self
+                    .location_name(action.destination_location_id)
+                    .unwrap_or_else(|| format!("Location {}", action.destination_location_id));
+                format!("{actor_name} intends to escape toward {destination}.")
+            }
             CW_ACTION_MOVE => {
                 proposed_action.kind = "move".to_string();
                 proposed_action.destination_location_id = Some(action.destination_location_id);
@@ -25870,9 +25908,11 @@ impl RuntimeWorld {
             CW_ACTION_TRADE_ITEM => "trade_item",
             CW_ACTION_USE_ITEM => "use_item",
             CW_ACTION_CRAFT => "craft",
-            CW_ACTION_ATTACK => "attack",
-            CW_ACTION_DEFEND => "defend",
-            CW_ACTION_FLEE => "flee",
+            CW_ACTION_ATTACK | CW_ACTION_COMBAT_ATTACK | CW_ACTION_COMBAT_FINESSE_ATTACK => {
+                "attack"
+            }
+            CW_ACTION_DEFEND | CW_ACTION_COMBAT_DODGE => "defend",
+            CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE => "flee",
             _ => "act",
         }
         .to_string()
@@ -25944,9 +25984,11 @@ impl RuntimeWorld {
                 && offer.provider.id == format!("item:{item_id}");
         }
         match action.kind {
-            CW_ACTION_MOVE | CW_ACTION_FLEE => offer.target.as_ref().is_some_and(|target| {
-                target.kind == "location" && target.id == Some(action.destination_location_id)
-            }),
+            CW_ACTION_MOVE | CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE => {
+                offer.target.as_ref().is_some_and(|target| {
+                    target.kind == "location" && target.id == Some(action.destination_location_id)
+                })
+            }
             CW_ACTION_ABILITY_CHECK => offer.target.as_ref().is_some_and(|target| {
                 target.kind == "location" && target.id == Some(action.location_id)
             }),
@@ -26000,8 +26042,17 @@ impl RuntimeWorld {
             CW_ACTION_CRAFT => offer.target.as_ref().is_some_and(|target| {
                 target.kind == "recipe" && target.id == Some(action.content_id)
             }),
-            CW_ACTION_ATTACK | CW_ACTION_DEFEND => offer.target.as_ref().is_some_and(|target| {
+            CW_ACTION_ATTACK | CW_ACTION_COMBAT_ATTACK | CW_ACTION_COMBAT_FINESSE_ATTACK => {
+                offer.target.as_ref().is_some_and(|target| {
+                    target.kind == "actor" && target.id == Some(action.target_actor_id)
+                })
+            }
+            CW_ACTION_DEFEND => offer.target.as_ref().is_some_and(|target| {
                 target.kind == "actor" && target.id == Some(action.target_actor_id)
+            }),
+            CW_ACTION_COMBAT_DODGE => offer.target.as_ref().is_some_and(|target| {
+                target.kind == "actor"
+                    && self.combat_target_for_actor(action.content_id, action.actor_id) == target.id
             }),
             CW_ACTION_NONE if offer.kind == "rest" => {
                 offer.target.is_none()
@@ -63623,6 +63674,310 @@ mod tests {
             runtime.combat_job_for_actor(5000, Some(1004)).is_none(),
             "a block in either direction removes the combat target"
         );
+    }
+
+    #[tokio::test]
+    async fn combat_offers_are_controller_neutral_exact_and_block_aware() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Combat Offer Driver",
+        );
+        discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
+        let actor = runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("test human exists");
+        actor.stats.dexterity = 100;
+        actor.stats.hp_base = 100;
+        let echo = runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 1004)
+            .expect("Moonlit encounter target exists");
+        echo.stats.dexterity = -100;
+        echo.stats.hp_base = 100;
+        let encounter_id = combat_encounter_id(MOONLIT_JOB_ID);
+        let start = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_START,
+                actor_id: 5000,
+                target_actor_id: 1004,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            71_720,
+        )
+        .into_system();
+        assert_eq!(runtime.apply_journal_record(&start).0, CW_OK);
+        assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(5000));
+
+        let direct_offers = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .filter(|offer| matches!(offer.kind.as_str(), "attack" | "defend" | "flee"))
+            .collect::<Vec<_>>();
+        assert_eq!(direct_offers.len(), 3);
+        assert!(direct_offers
+            .iter()
+            .filter(|offer| matches!(offer.kind.as_str(), "attack" | "defend"))
+            .all(|offer| offer
+                .target
+                .as_ref()
+                .is_some_and(|target| { target.kind == "actor" && target.id == Some(1004) })));
+        let attack_offer = direct_offers
+            .iter()
+            .find(|offer| offer.kind == "attack")
+            .expect("Attack is offered")
+            .clone();
+        let defend_offer = direct_offers
+            .iter()
+            .find(|offer| offer.kind == "defend")
+            .expect("Defend is offered");
+        let flee_offer = direct_offers
+            .iter()
+            .find(|offer| offer.kind == "flee")
+            .expect("Flee is offered");
+        let attack = runtime
+            .plan_combat_offer_action(5000, &attack_offer)
+            .expect("current Attack plans");
+        assert_eq!(attack.kind, CW_ACTION_COMBAT_FINESSE_ATTACK);
+        assert_eq!(attack.target_actor_id, 1004);
+        assert_eq!(attack.content_id, encounter_id);
+        assert_eq!(
+            runtime
+                .plan_combat_offer_action(5000, defend_offer)
+                .expect("current Defend plans")
+                .kind,
+            CW_ACTION_COMBAT_DODGE
+        );
+        let flee = runtime
+            .plan_combat_offer_action(5000, flee_offer)
+            .expect("current Flee plans");
+        assert_eq!(flee.kind, CW_ACTION_COMBAT_ESCAPE);
+        assert_eq!(
+            flee.destination_location_id,
+            flee_offer
+                .target
+                .as_ref()
+                .and_then(|target| target.id)
+                .expect("Flee binds the exit")
+        );
+
+        runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
+        let inference_offers = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .filter(|offer| matches!(offer.kind.as_str(), "attack" | "defend" | "flee"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            serde_json::to_value(&inference_offers).expect("inference offers serialize"),
+            serde_json::to_value(&direct_offers).expect("direct offers serialize"),
+            "controller mode cannot change combat enumeration or targets"
+        );
+
+        let mut forged_offer = attack_offer.clone();
+        forged_offer
+            .target
+            .as_mut()
+            .expect("Attack target exists")
+            .id = Some(1003);
+        assert!(runtime
+            .plan_combat_offer_action(5000, &forged_offer)
+            .is_err());
+
+        runtime
+            .actor_safety
+            .entry(5000)
+            .or_default()
+            .blocked_actor_ids
+            .insert(1004);
+        let protected_offers = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1;
+        assert!(protected_offers
+            .iter()
+            .all(|offer| !matches!(offer.kind.as_str(), "attack" | "defend")));
+        assert!(protected_offers.iter().any(|offer| offer.kind == "flee"));
+        assert!(runtime
+            .plan_combat_offer_action(5000, &attack_offer)
+            .is_err());
+
+        let destination_location_id = protected_offers
+            .iter()
+            .find(|offer| offer.kind == "flee")
+            .and_then(|offer| offer.target.as_ref())
+            .and_then(|target| target.id)
+            .expect("the safety path keeps an exact exit");
+        runtime.actor_autonomy.entry(5000).or_default().control_mode =
+            ActorControlMode::DirectInput;
+        let state = test_app_state(runtime, None);
+        let actor_session = issue_actor_session(&state, 5000).0;
+        let response = apply_combat_choice(
+            state,
+            5000,
+            CombatChoice::Escape {
+                destination_location_id,
+            },
+            Some(&actor_session),
+        )
+        .await
+        .0;
+        assert!(response.ok);
+        assert!(response.events.iter().any(|event| {
+            event.type_name == "combat.flee.success" && event.actor_id == Some(5000)
+        }));
+    }
+
+    #[test]
+    fn inferred_human_combat_prefers_attack_defend_then_flee_and_replays_trace() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-resident-combat-trace-{}.sqlite",
+            random_hex(8)
+        ));
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Inferred Combat Human",
+        );
+        discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
+        runtime.actor_autonomy.entry(5000).or_default().control_mode = ActorControlMode::LocalAi;
+        let actor = runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("test human exists");
+        actor.stats.dexterity = 100;
+        actor.stats.hp_base = 100;
+        actor.damage = 0;
+        let echo = runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 1004)
+            .expect("Moonlit encounter target exists");
+        echo.stats.dexterity = -100;
+        echo.stats.hp_base = 100;
+        let encounter_id = combat_encounter_id(MOONLIT_JOB_ID);
+        let start = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_START,
+                actor_id: 5000,
+                target_actor_id: 1004,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            71_721,
+        )
+        .into_system();
+        assert_eq!(runtime.apply_journal_record(&start).0, CW_OK);
+        assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(5000));
+
+        let attack = runtime
+            .resident_combat_autonomy_record(encounter_id, 71_722, None)
+            .expect("healthy inferred avatar chooses");
+        assert_eq!(attack.action.kind, CW_ACTION_COMBAT_FINESSE_ATTACK);
+        assert_eq!(attack.action.target_actor_id, 1004);
+
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("test human remains")
+            .damage = 50;
+        let defend = runtime
+            .resident_combat_autonomy_record(encounter_id, 71_723, None)
+            .expect("hurt inferred avatar chooses");
+        assert_eq!(defend.action.kind, CW_ACTION_COMBAT_DODGE);
+
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == 5000)
+            .expect("test human remains")
+            .damage = 80;
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let flee = runtime
+            .resident_combat_autonomy_record(encounter_id, 71_724, Some(77))
+            .expect("badly hurt inferred avatar chooses");
+        assert_eq!(flee.origin, JournalOrigin::ActorConsequence);
+        assert_eq!(flee.action.kind, CW_ACTION_COMBAT_ESCAPE);
+        let trace = flee
+            .resident_decision
+            .as_ref()
+            .expect("combat choice carries a trace");
+        assert_eq!(trace.controller, "local_ai");
+        assert_eq!(trace.choice.offer_kind, "flee");
+        assert_eq!(
+            trace.choice.offer_id.as_deref(),
+            trace
+                .candidates
+                .iter()
+                .find(|candidate| candidate.kind == "flee")
+                .map(|candidate| candidate.offer_id.as_str())
+        );
+        assert!(trace
+            .candidates
+            .iter()
+            .any(|candidate| candidate.kind == "attack" && !candidate.selected));
+        assert!(flee.projection_mutations.iter().any(|mutation| {
+            matches!(
+                mutation,
+                ProjectionMutation::UpdateResidentContinuity { proposal, .. }
+                    if proposal.proposed_action.as_ref().is_some_and(|action| {
+                        action.kind == "flee"
+                            && action.destination_location_id
+                                == Some(flee.action.destination_location_id)
+                    })
+            )
+        }));
+
+        let state = test_app_state(runtime.clone(), Some(path.clone()));
+        let (status, events) =
+            commit_journal_record(&state, &mut runtime, flee).expect("Flee commits");
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "combat.flee.success" && event.actor_id == Some(5000)
+        }));
+        let persisted = read_action_journal(&path).expect("combat journal reads");
+        let persisted_record = persisted.last().expect("combat decision persists");
+        let outcome = persisted_record
+            .resident_decision
+            .as_ref()
+            .and_then(|trace| trace.outcome.as_ref())
+            .expect("combat outcome is finalized");
+        assert_eq!(outcome.status, CW_OK);
+        assert!(outcome
+            .events
+            .iter()
+            .any(|event| event.event_type == "combat.flee.success" && event.success));
+
+        let expected = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+            .expect("committed state serializes");
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-combat-choice snapshot restores");
+        assert_eq!(replayed.apply_journal_record(persisted_record).0, CW_OK);
+        assert_eq!(
+            serde_json::to_value(RuntimeSnapshot::from_runtime(&replayed))
+                .expect("replayed state serializes"),
+            expected
+        );
+
+        drop(state);
+        let _ = fs::remove_file(path);
     }
 
     #[test]
