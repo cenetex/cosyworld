@@ -127,6 +127,21 @@ static cw_item *find_item(cw_world *world, cw_id item_id) {
   return 0;
 }
 
+static void remove_item(cw_world *world, cw_id item_id) {
+  for (size_t i = 0; i < world->item_count; ++i) {
+    if (world->items[i].id != item_id) continue;
+    if (i + 1 < world->item_count) {
+      memmove(
+          &world->items[i],
+          &world->items[i + 1],
+          (world->item_count - i - 1) * sizeof(world->items[0]));
+    }
+    world->item_count--;
+    memset(&world->items[world->item_count], 0, sizeof(world->items[0]));
+    return;
+  }
+}
+
 static const cw_item *find_item_const(const cw_world *world, cw_id item_id) {
   for (size_t i = 0; i < world->item_count; ++i) {
     if (world->items[i].id == item_id) return &world->items[i];
@@ -283,6 +298,12 @@ static cw_status create_item(cw_world *world, cw_id item_id, uint8_t kind, uint8
       item->held_since_tick = 0;
       item->zone = CW_CARD_ZONE_WORLD;
       break;
+    case CW_PLACEMENT_LOCATION_FIXTURE:
+      item->holder_actor_id = 0;
+      item->location_id = target_id;
+      item->held_since_tick = 0;
+      item->zone = CW_CARD_ZONE_INSTALLED;
+      break;
     default:
       world->item_count--;
       return CW_ERR_INVALID;
@@ -394,12 +415,12 @@ cw_status cw_world_set_item_zone(
     cw_id item_id,
     uint8_t zone,
     cw_id container_item_id) {
-  if (!world || !item_id || zone < CW_CARD_ZONE_WORLD || zone > CW_CARD_ZONE_ESCROW) {
+  if (!world || !item_id || zone < CW_CARD_ZONE_WORLD || zone > CW_CARD_ZONE_INSTALLED) {
     return CW_ERR_INVALID;
   }
   cw_item *item = find_item(world, item_id);
   if (!item) return CW_ERR_NOT_FOUND;
-  if (zone == CW_CARD_ZONE_WORLD) {
+  if (zone == CW_CARD_ZONE_WORLD || zone == CW_CARD_ZONE_INSTALLED) {
     if (item->holder_actor_id || !item->location_id || container_item_id) return CW_ERR_RULE;
   } else {
     if (!item->holder_actor_id || item->location_id) return CW_ERR_RULE;
@@ -719,7 +740,9 @@ static cw_status apply_pick_up_item(cw_world *world, const cw_action *action, cw
 
   cw_item *item = find_item(world, action->item_id);
   if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
-  if (item->holder_actor_id || item->location_id != actor->location_id) {
+  if (item->holder_actor_id
+      || item->location_id != actor->location_id
+      || item->zone != CW_CARD_ZONE_WORLD) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
 
@@ -1113,30 +1136,94 @@ static cw_status apply_search(cw_world *world, const cw_action *action, cw_event
   return CW_OK;
 }
 
+static int craft_disposition_removes_item(uint8_t disposition) {
+  return disposition == CW_CRAFT_INPUT_CONSUMED
+      || disposition == CW_CRAFT_INPUT_TRANSFORMED;
+}
+
+static int actor_can_accept_craft_output(
+    const cw_world *world,
+    const cw_actor *actor,
+    const cw_action *action,
+    const cw_item *output) {
+  uint32_t weight = 0;
+  uint32_t capacity = actor_base_capacity_tenths(actor);
+  for (size_t i = 0; i < world->item_count; ++i) {
+    const cw_item *item = &world->items[i];
+    if (item->holder_actor_id != actor->id) continue;
+    if ((item->id == action->item_id
+            && craft_disposition_removes_item(action->item_disposition))
+        || (item->id == action->target_item_id
+            && craft_disposition_removes_item(action->target_item_disposition))) {
+      continue;
+    }
+    weight += item_weight_tenths(item);
+    capacity += item_container_capacity_tenths(item);
+  }
+  weight += item_weight_tenths(output);
+  capacity += item_container_capacity_tenths(output);
+  return weight <= capacity;
+}
+
+static size_t craft_removed_item_count(const cw_world *world, const cw_action *action) {
+  size_t count = 0;
+  if (craft_disposition_removes_item(action->item_disposition)
+      && find_item_const(world, action->item_id)) {
+    count++;
+  }
+  if (action->target_item_id
+      && craft_disposition_removes_item(action->target_item_disposition)
+      && find_item_const(world, action->target_item_id)) {
+    count++;
+  }
+  return count;
+}
+
 static cw_status validate_output_slot(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
   if (!action->output_item_id) return CW_OK;
   if (!action->output_target_id || !action->output_target_kind || !action->output_item_kind || !action->output_item_charges) {
     return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
   }
+  const uint16_t output_weight = action->output_item_weight_tenths
+      ? action->output_item_weight_tenths : CW_ITEM_DEFAULT_WEIGHT_TENTHS;
+  const uint8_t output_size = action->output_item_size_class
+      ? action->output_item_size_class : CW_ITEM_SIZE_SMALL;
+  const uint8_t output_role = action->output_item_role
+      ? action->output_item_role
+      : (action->output_item_kind == CW_ITEM_POTION ? CW_ITEM_ROLE_CONSUMABLE : CW_ITEM_ROLE_GENERIC);
+  if (!output_weight
+      || output_size < CW_ITEM_SIZE_TINY
+      || output_size > CW_ITEM_SIZE_LARGE
+      || output_role > CW_ITEM_ROLE_RELIC
+      || (action->output_container_capacity_tenths && output_role != CW_ITEM_ROLE_CONTAINER)) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
   if (find_item(world, action->output_item_id)) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
-  if (world->item_count >= CW_MAX_ITEMS) return CW_ERR_FULL;
+  if (world->item_count - craft_removed_item_count(world, action) >= CW_MAX_ITEMS) {
+    return CW_ERR_FULL;
+  }
   switch (action->output_target_kind) {
     case CW_PLACEMENT_ACTOR_HAND: {
       cw_actor *target = find_actor(world, action->output_target_id);
       if (!target || !actor_is_active(target)) return reject(world, out_events, action, CW_REASON_TARGET_NOT_FOUND);
       cw_item output;
       memset(&output, 0, sizeof(output));
-      output.weight_tenths = CW_ITEM_DEFAULT_WEIGHT_TENTHS;
-      output.size_class = CW_ITEM_SIZE_SMALL;
-      output.role = action->output_item_kind == CW_ITEM_POTION ? CW_ITEM_ROLE_CONSUMABLE : CW_ITEM_ROLE_GENERIC;
-      if (!actor_can_exchange(world, target, 0, &output)) {
+      output.weight_tenths = output_weight;
+      output.container_capacity_tenths = action->output_container_capacity_tenths;
+      output.size_class = output_size;
+      output.role = output_role;
+      const int capacity_ok = target->id == action->actor_id
+          ? actor_can_accept_craft_output(world, target, action, &output)
+          : actor_can_exchange(world, target, 0, &output);
+      if (!capacity_ok) {
         return reject(world, out_events, action, CW_REASON_CAPACITY_EXCEEDED);
       }
       return CW_OK;
     }
     case CW_PLACEMENT_LOCATION_FLOOR:
+    case CW_PLACEMENT_LOCATION_FIXTURE:
       if (!find_location(world, action->output_target_id)) return reject(world, out_events, action, CW_REASON_LOCATION_NOT_FOUND);
       return CW_OK;
     default:
@@ -1144,24 +1231,96 @@ static cw_status validate_output_slot(cw_world *world, const cw_action *action, 
   }
 }
 
+static int valid_craft_input_disposition(uint8_t disposition) {
+  return disposition <= CW_CRAFT_INPUT_TRANSFORMED;
+}
+
+static int craft_input_is_local(const cw_item *item, const cw_actor *actor) {
+  return item && actor
+      && ((item->holder_actor_id == actor->id && item->location_id == 0)
+          || (item->holder_actor_id == 0 && item->location_id == actor->location_id));
+}
+
+static void append_craft_input_transition(
+    cw_world *world,
+    cw_event_buffer *out_events,
+    const cw_action *action,
+    const cw_actor *actor,
+    cw_id item_id,
+    uint8_t disposition) {
+  uint8_t event_type = CW_EVENT_NONE;
+  switch (disposition) {
+    case CW_CRAFT_INPUT_CONSUMED: event_type = CW_EVENT_ITEM_CONSUMED; break;
+    case CW_CRAFT_INPUT_EXHAUSTED: event_type = CW_EVENT_ITEM_EXHAUSTED; break;
+    case CW_CRAFT_INPUT_TRANSFORMED: event_type = CW_EVENT_ITEM_TRANSFORMED; break;
+    default: return;
+  }
+  append_event(world, out_events, event_type);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = actor->location_id;
+    event->content_id = action->content_id;
+    event->item_id = item_id;
+    event->target_item_id = action->output_item_id;
+  }
+}
+
+static void apply_craft_input_disposition(
+    cw_world *world,
+    cw_event_buffer *out_events,
+    const cw_action *action,
+    const cw_actor *actor,
+    cw_id item_id,
+    uint8_t disposition) {
+  if (disposition == CW_CRAFT_INPUT_PERSISTS) return;
+  append_craft_input_transition(world, out_events, action, actor, item_id, disposition);
+  if (disposition == CW_CRAFT_INPUT_EXHAUSTED) {
+    cw_item *item = find_item(world, item_id);
+    if (!item) return;
+    item->charges = 0;
+    if (item->holder_actor_id == actor->id) item->zone = CW_CARD_ZONE_EXHAUSTED;
+    return;
+  }
+  remove_item(world, item_id);
+}
+
 static cw_status apply_craft(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
   if (status != CW_OK) return status;
-  if (!action->content_id || !action->item_id || !action->target_item_id || action->item_id == action->target_item_id) {
+  if (!action->content_id || !action->item_id
+      || (action->target_item_id && action->item_id == action->target_item_id)
+      || !valid_craft_input_disposition(action->item_disposition)
+      || !valid_craft_input_disposition(action->target_item_disposition)
+      || (!action->target_item_id && action->target_item_disposition != CW_CRAFT_INPUT_PERSISTS)) {
     return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
   }
 
-  cw_item *held = find_item(world, action->item_id);
-  cw_item *floor = find_item(world, action->target_item_id);
-  if (!held || !floor) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
-  if (held->holder_actor_id != actor->id || floor->holder_actor_id != 0 || floor->location_id != actor->location_id) {
+  cw_item *first = find_item(world, action->item_id);
+  cw_item *second = action->target_item_id ? find_item(world, action->target_item_id) : 0;
+  if (!first || (action->target_item_id && !second)) {
+    return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
+  }
+  const int legacy_two_input = action->target_item_id
+      && action->item_disposition == CW_CRAFT_INPUT_PERSISTS
+      && action->target_item_disposition == CW_CRAFT_INPUT_PERSISTS;
+  if ((legacy_two_input
+          && (first->holder_actor_id != actor->id
+              || second->holder_actor_id != 0
+              || second->location_id != actor->location_id))
+      || (!legacy_two_input
+          && (!craft_input_is_local(first, actor)
+              || (second && !craft_input_is_local(second, actor))))) {
     return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
   }
 
   status = validate_output_slot(world, action, out_events);
   if (status != CW_OK) return status;
 
+  const cw_id first_id = first->id;
+  const cw_id second_id = second ? second->id : 0;
   append_event(world, out_events, CW_EVENT_ITEM_CRAFTED);
   if (out_events && out_events->count > 0) {
     cw_event *event = &out_events->events[out_events->count - 1];
@@ -1169,12 +1328,19 @@ static cw_status apply_craft(cw_world *world, const cw_action *action, cw_event_
     event->actor_id = actor->id;
     event->location_id = actor->location_id;
     event->content_id = action->content_id;
-    event->item_id = held->id;
-    event->target_item_id = floor->id;
+    event->item_id = first_id;
+    event->target_item_id = second_id;
     event->destination_location_id =
-        action->output_target_kind == CW_PLACEMENT_LOCATION_FLOOR ? action->output_target_id : 0;
+        action->output_target_kind == CW_PLACEMENT_ACTOR_HAND ? 0 : action->output_target_id;
     event->target_actor_id =
         action->output_target_kind == CW_PLACEMENT_ACTOR_HAND ? action->output_target_id : 0;
+  }
+
+  apply_craft_input_disposition(
+      world, out_events, action, actor, first_id, action->item_disposition);
+  if (second_id) {
+    apply_craft_input_disposition(
+        world, out_events, action, actor, second_id, action->target_item_disposition);
   }
 
   if (action->output_item_id) {
@@ -1186,6 +1352,17 @@ static cw_status apply_craft(cw_world *world, const cw_action *action, cw_event_
         action->output_target_kind,
         action->output_target_id);
     if (status != CW_OK) return status;
+    cw_item *output = find_item(world, action->output_item_id);
+    if (output) {
+      output->weight_tenths = action->output_item_weight_tenths
+          ? action->output_item_weight_tenths : CW_ITEM_DEFAULT_WEIGHT_TENTHS;
+      output->container_capacity_tenths = action->output_container_capacity_tenths;
+      output->size_class = action->output_item_size_class
+          ? action->output_item_size_class : CW_ITEM_SIZE_SMALL;
+      output->role = action->output_item_role
+          ? action->output_item_role
+          : (action->output_item_kind == CW_ITEM_POTION ? CW_ITEM_ROLE_CONSUMABLE : CW_ITEM_ROLE_GENERIC);
+    }
 
     append_event(world, out_events, CW_EVENT_ITEM_CREATED);
     if (out_events && out_events->count > 0) {
@@ -1193,19 +1370,23 @@ static cw_status apply_craft(cw_world *world, const cw_action *action, cw_event_
       event->success = 1;
       event->actor_id = actor->id;
       event->location_id =
-          action->output_target_kind == CW_PLACEMENT_LOCATION_FLOOR ? action->output_target_id : actor->location_id;
+          action->output_target_kind == CW_PLACEMENT_ACTOR_HAND
+              ? actor->location_id
+              : action->output_target_id;
       event->target_actor_id =
           action->output_target_kind == CW_PLACEMENT_ACTOR_HAND ? action->output_target_id : 0;
       event->destination_location_id =
-          action->output_target_kind == CW_PLACEMENT_LOCATION_FLOOR ? action->output_target_id : 0;
+          action->output_target_kind == CW_PLACEMENT_ACTOR_HAND
+              ? 0
+              : action->output_target_id;
       event->content_id = action->content_id;
       event->item_id = action->output_item_id;
-      event->target_item_id = floor->id;
+      event->target_item_id = second_id;
     }
     maybe_evolve_after_placement(world, actor->id, action->output_item_id, out_events);
   } else {
-    maybe_evolve_after_placement(world, actor->id, held->id, out_events);
-    maybe_evolve_after_placement(world, actor->id, floor->id, out_events);
+    maybe_evolve_after_placement(world, actor->id, first_id, out_events);
+    if (second_id) maybe_evolve_after_placement(world, actor->id, second_id, out_events);
   }
   return CW_OK;
 }
@@ -2031,7 +2212,9 @@ cw_status cw_get_action_offers(const cw_world *world, cw_id actor_id, cw_action_
   }
   for (size_t i = 0; i < world->item_count; ++i) {
     const cw_item *item = &world->items[i];
-    if (!item->holder_actor_id && item->location_id == actor->location_id) {
+    if (!item->holder_actor_id
+        && item->location_id == actor->location_id
+        && item->zone == CW_CARD_ZONE_WORLD) {
       room_has_loose_item = 1;
       if (actor_can_pick_up(world, actor, item)) {
         out_offers->option_flags |= CW_OFFER_PICK_UP;
@@ -2111,6 +2294,9 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_ITEM_STOLEN: return "item.stolen";
     case CW_EVENT_COMBAT_PASS: return "combat.pass";
     case CW_EVENT_COMBAT_NEED_TIME: return "combat.need_time";
+    case CW_EVENT_ITEM_CONSUMED: return "item.consumed";
+    case CW_EVENT_ITEM_EXHAUSTED: return "item.exhausted";
+    case CW_EVENT_ITEM_TRANSFORMED: return "item.transformed";
     default: return "unknown";
   }
 }

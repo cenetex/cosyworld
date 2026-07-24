@@ -911,29 +911,87 @@ pub(super) struct SeedEvolutionRequirementContent {
     pub(super) target_id: u64,
 }
 
-#[derive(Debug, Deserialize)]
+fn default_recipe_schema_version() -> u8 {
+    1
+}
+
+fn default_recipe_input_quantity() -> u8 {
+    1
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedRecipeContent {
+    #[serde(default = "default_recipe_schema_version")]
+    pub(super) schema_version: u8,
     pub(super) id: u64,
     pub(super) key: String,
     pub(super) name: String,
     pub(super) description: String,
+    #[serde(default)]
+    pub(super) pack_id: String,
+    #[serde(default)]
     pub(super) input_item_ids: Vec<u64>,
+    #[serde(default)]
+    pub(super) inputs: Vec<SeedRecipeInputContent>,
+    #[serde(default)]
+    pub(super) requires: SeedRecipeRequirementsContent,
     pub(super) output: Option<SeedRecipeOutputContent>,
-    pub(super) balance: SeedRecipeBalanceContent,
+    #[serde(default)]
+    pub(super) balance: Option<SeedRecipeBalanceContent>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct SeedRecipeInputContent {
+    pub(super) template_id: String,
+    #[serde(default = "default_recipe_input_quantity")]
+    pub(super) quantity: u8,
+    pub(super) zones: Vec<String>,
+    #[serde(default)]
+    pub(super) min_charges: u8,
+    pub(super) disposition: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub(super) struct SeedRecipeRequirementsContent {
+    #[serde(default)]
+    pub(super) building_capabilities: Vec<String>,
+    #[serde(default)]
+    pub(super) recipe_tags: Vec<String>,
+    #[serde(default)]
+    pub(super) natural_features: Vec<String>,
+    #[serde(default)]
+    pub(super) location_features: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedRecipeOutputContent {
+    #[serde(default)]
     pub(super) item_id: u64,
+    #[serde(default)]
+    pub(super) template_id: String,
+    #[serde(default)]
     pub(super) name: String,
+    #[serde(default)]
     pub(super) description: String,
+    #[serde(default)]
     pub(super) kind: String,
+    #[serde(default)]
     pub(super) charges: u8,
+    #[serde(default)]
     pub(super) target_kind: String,
+    #[serde(default)]
     pub(super) target_id: u64,
+    #[serde(default)]
+    pub(super) destination: String,
+    #[serde(default)]
+    pub(super) fallback_destination: String,
+    #[serde(default)]
+    pub(super) effect: String,
+    #[serde(default)]
+    pub(super) uniqueness: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedRecipeBalanceContent {
     pub(super) kind: String,
     pub(super) target_kind: String,
@@ -2801,47 +2859,133 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             || recipe.key.trim().is_empty()
             || recipe.name.trim().is_empty()
             || recipe.description.trim().is_empty()
+        {
+            return Err(format!("invalid seed recipe {}", recipe.id));
+        }
+        if recipe.schema_version == 2 {
+            let mut input_templates = BTreeSet::new();
+            let physical_input_count = recipe
+                .inputs
+                .iter()
+                .map(|input| usize::from(input.quantity))
+                .sum::<usize>();
+            if !recipe.input_item_ids.is_empty()
+                || recipe.inputs.is_empty()
+                || recipe.inputs.len() > 2
+                || physical_input_count == 0
+                || physical_input_count > 2
+                || recipe.inputs.iter().any(|input| {
+                    input.template_id.trim().is_empty()
+                        || !(1..=2).contains(&input.quantity)
+                        || input.min_charges > 20
+                        || input.zones.is_empty()
+                        || input
+                            .zones
+                            .iter()
+                            .any(|zone| !matches!(zone.as_str(), "carried" | "world"))
+                        || !matches!(
+                            input.disposition.as_str(),
+                            "persistent" | "consume" | "exhaust" | "transform"
+                        )
+                        || !input_templates.insert(input.template_id.as_str())
+                })
+                || (recipe.requires.building_capabilities.is_empty()
+                    && recipe.requires.recipe_tags.is_empty()
+                    && recipe.requires.natural_features.is_empty()
+                    && recipe.requires.location_features.is_empty())
+                || (recipe.requires.building_capabilities.is_empty()
+                    != recipe.requires.recipe_tags.is_empty())
+                || (!recipe.requires.building_capabilities.is_empty()
+                    && !recipe
+                        .requires
+                        .building_capabilities
+                        .iter()
+                        .any(|capability| capability == "transformation_recipes"))
+                || recipe.requires.natural_features.len() > 1
+                || recipe.requires.natural_features.iter().any(|feature| {
+                    !matches!(
+                        feature.as_str(),
+                        "fish_rich_water"
+                            | "ore_seam"
+                            | "clay_bank"
+                            | "ancient_woodland"
+                            | "fast_river"
+                            | "reliable_upland_wind"
+                            | "hot_spring"
+                            | "rich_soil"
+                            | "rare_herb_habitat"
+                            | "old_ruins"
+                    )
+                })
+                || recipe
+                    .requires
+                    .location_features
+                    .iter()
+                    .any(|feature| feature != "generated_place_anchor_site")
+                || recipe.output.as_ref().is_none_or(|output| {
+                    output.template_id.trim().is_empty()
+                        || !matches!(
+                            output.destination.as_str(),
+                            "actor_hand" | "location_floor" | "installed_at_location"
+                        )
+                        || output.fallback_destination != "location_floor"
+                        || !matches!(output.effect.as_str(), "portable" | "installed_fixture")
+                        || !matches!(
+                            output.uniqueness.as_str(),
+                            "per_receipt" | "per_location" | "per_world"
+                        )
+                        || (output.destination == "installed_at_location"
+                            && output.effect != "installed_fixture")
+                })
+            {
+                return Err(format!("invalid versioned seed recipe {}", recipe.id));
+            }
+            continue;
+        }
+        let Some(balance) = recipe.balance.as_ref() else {
+            return Err(format!("legacy recipe {} is missing balance", recipe.id));
+        };
+        if recipe.schema_version != 1
             || recipe.input_item_ids.len() != 2
             || recipe.input_item_ids[0] == recipe.input_item_ids[1]
             || recipe
                 .input_item_ids
                 .iter()
                 .any(|item_id| !item_ids.contains(item_id))
-            || recipe.balance.kind.trim().is_empty()
-            || recipe.balance.reason.trim().is_empty()
+            || balance.kind.trim().is_empty()
+            || balance.reason.trim().is_empty()
         {
             return Err(format!("invalid seed recipe {}", recipe.id));
         }
         if !matches!(
-            recipe.balance.kind.as_str(),
+            balance.kind.as_str(),
             "location" | "avatar" | "resident" | "covenant" | "evolution"
         ) {
             return Err(format!(
                 "recipe {} has invalid balance kind {}",
-                recipe.id, recipe.balance.kind
+                recipe.id, balance.kind
             ));
         }
-        let Some(balance_target_kind) = placement_target_kind_from_str(&recipe.balance.target_kind)
-        else {
+        let Some(balance_target_kind) = placement_target_kind_from_str(&balance.target_kind) else {
             return Err(format!(
                 "recipe {} has invalid balance target kind {}",
-                recipe.id, recipe.balance.target_kind
+                recipe.id, balance.target_kind
             ));
         };
         match balance_target_kind {
             CW_PLACEMENT_ACTOR_HAND => {
-                if !actor_ids.contains(&recipe.balance.target_id) {
+                if !actor_ids.contains(&balance.target_id) {
                     return Err(format!(
                         "recipe {} balance references missing actor {}",
-                        recipe.id, recipe.balance.target_id
+                        recipe.id, balance.target_id
                     ));
                 }
             }
             CW_PLACEMENT_LOCATION_FLOOR => {
-                if !location_ids.contains(&recipe.balance.target_id) {
+                if !location_ids.contains(&balance.target_id) {
                     return Err(format!(
                         "recipe {} balance references missing location {}",
-                        recipe.id, recipe.balance.target_id
+                        recipe.id, balance.target_id
                     ));
                 }
             }
@@ -2884,9 +3028,7 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 }
                 _ => {}
             }
-            if output.target_kind != recipe.balance.target_kind
-                || output.target_id != recipe.balance.target_id
-            {
+            if output.target_kind != balance.target_kind || output.target_id != balance.target_id {
                 return Err(format!(
                     "recipe {} output slot must match its balance declaration",
                     recipe.id

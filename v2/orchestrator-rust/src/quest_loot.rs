@@ -106,6 +106,13 @@ struct MountedLootTable {
     templates: BTreeMap<String, LootItemTemplateDefinition>,
 }
 
+#[derive(Clone, Debug)]
+pub(super) struct MountedLootItemTemplate {
+    pub(super) pack_id: String,
+    pub(super) pack_version: String,
+    pub(super) template: LootItemTemplateDefinition,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct JobLootSpec {
     pub(super) table_id: String,
@@ -406,6 +413,26 @@ fn mounted_loot_table(table_id: &str) -> Option<MountedLootTable> {
     None
 }
 
+pub(super) fn mounted_loot_item_template(template_id: &str) -> Option<MountedLootItemTemplate> {
+    for pack in &active_content().manifest.packs {
+        let Ok(Some(catalog)) = parse_loot_catalog(pack) else {
+            continue;
+        };
+        if let Some(template) = catalog
+            .item_templates
+            .into_iter()
+            .find(|template| template.id == template_id)
+        {
+            return Some(MountedLootItemTemplate {
+                pack_id: pack.id.clone(),
+                pack_version: pack.version.clone(),
+                template,
+            });
+        }
+    }
+    None
+}
+
 pub(super) fn loot_spec_for_table(table_id: &str, quest_template_id: &str) -> Option<JobLootSpec> {
     let mounted = mounted_loot_table(table_id)?;
     Some(JobLootSpec {
@@ -435,7 +462,7 @@ fn loot_item_id(allocation_id: &str, index: usize) -> u64 {
             % LOOT_ITEM_ID_RANGE
 }
 
-fn loot_item_role(value: &str) -> Option<u8> {
+pub(super) fn loot_item_role(value: &str) -> Option<u8> {
     match value {
         "generic" => Some(CW_ITEM_ROLE_GENERIC),
         "consumable" => Some(CW_ITEM_ROLE_CONSUMABLE),

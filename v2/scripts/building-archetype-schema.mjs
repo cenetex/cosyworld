@@ -29,6 +29,7 @@ const capabilities = new Set([
   "preservation",
   "boating",
   "mining",
+  "metalworking",
   "prospecting",
   "pottery",
   "carpentry",

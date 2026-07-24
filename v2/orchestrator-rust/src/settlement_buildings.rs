@@ -237,6 +237,7 @@ fn allowed_building_capability(value: &str) -> bool {
             | "preservation"
             | "boating"
             | "mining"
+            | "metalworking"
             | "prospecting"
             | "pottery"
             | "carpentry"
@@ -779,6 +780,7 @@ impl RuntimeWorld {
         })
     }
 
+    #[cfg(test)]
     pub(super) fn location_building_recipe_tags(&self, location_id: u64) -> Vec<String> {
         let mut tags = self
             .settlement_buildings
@@ -1976,7 +1978,7 @@ mod tests {
             (
                 "cosyworld.core:loot/fishery-catch",
                 "cosyworld.core",
-                "1.3.9",
+                "1.3.10",
             )
         );
         assert_eq!(

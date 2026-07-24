@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define CW_KERNEL_VERSION 5u
+#define CW_KERNEL_VERSION 6u
 
 #define CW_MAX_ACTORS 512u
 #define CW_MAX_ITEMS 1024u
@@ -58,7 +58,8 @@ typedef enum {
 typedef enum {
   CW_PLACEMENT_NONE = 0,
   CW_PLACEMENT_ACTOR_HAND = 1,
-  CW_PLACEMENT_LOCATION_FLOOR = 2
+  CW_PLACEMENT_LOCATION_FLOOR = 2,
+  CW_PLACEMENT_LOCATION_FIXTURE = 3
 } cw_placement_target_kind;
 
 typedef enum {
@@ -95,7 +96,8 @@ typedef enum {
   CW_CARD_ZONE_SPELL_DECK = 4,
   CW_CARD_ZONE_EXHAUSTED = 5,
   CW_CARD_ZONE_CONTAINED = 6,
-  CW_CARD_ZONE_ESCROW = 7
+  CW_CARD_ZONE_ESCROW = 7,
+  CW_CARD_ZONE_INSTALLED = 8
 } cw_card_zone;
 
 typedef enum {
@@ -190,8 +192,18 @@ typedef enum {
   CW_EVENT_ITEM_THEFT_ATTEMPT = 32,
   CW_EVENT_ITEM_STOLEN = 33,
   CW_EVENT_COMBAT_PASS = 34,
-  CW_EVENT_COMBAT_NEED_TIME = 35
+  CW_EVENT_COMBAT_NEED_TIME = 35,
+  CW_EVENT_ITEM_CONSUMED = 36,
+  CW_EVENT_ITEM_EXHAUSTED = 37,
+  CW_EVENT_ITEM_TRANSFORMED = 38
 } cw_event_type;
+
+typedef enum {
+  CW_CRAFT_INPUT_PERSISTS = 0,
+  CW_CRAFT_INPUT_CONSUMED = 1,
+  CW_CRAFT_INPUT_EXHAUSTED = 2,
+  CW_CRAFT_INPUT_TRANSFORMED = 3
+} cw_craft_input_disposition;
 
 typedef enum {
   CW_COMBAT_ENCOUNTER_NONE = 0,
@@ -289,6 +301,14 @@ typedef struct {
   uint8_t output_item_kind;
   uint8_t output_item_charges;
   uint8_t roll_mode;
+  uint8_t item_disposition;
+  uint8_t target_item_disposition;
+  uint16_t reserved;
+  uint16_t output_item_weight_tenths;
+  uint16_t output_container_capacity_tenths;
+  uint8_t output_item_size_class;
+  uint8_t output_item_role;
+  uint16_t reserved2;
 } cw_action;
 
 typedef struct {

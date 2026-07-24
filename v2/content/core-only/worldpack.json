@@ -590,7 +590,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:3202897189e0c14f02b44d668218dfed9866eefbbb3aeff2feb7f1ad234e141e",
+  "bundle_hash": "sha256:e2eb8afc02eacea57562cbe8d662793d3baad6b1d6df8bc04059ec0be6d7a907",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -754,7 +754,7 @@
       "id": "cosyworld.core",
       "name": "CosyWorld Core",
       "description": "The first-party CosyWorld rooms, residents, items, cards, and world systems.",
-      "version": "1.3.9",
+      "version": "1.3.10",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -823,7 +823,7 @@
         "card_bindings": 0,
         "lifecycle_hooks": 19,
         "evolution_tracks": 3,
-        "recipes": 4,
+        "recipes": 8,
         "sentences": 21,
         "external_cards": 0,
         "assets": 2,
@@ -917,6 +917,29 @@
               "recipe_tags": [
                 "workshop",
                 "repair"
+              ],
+              "cache_policy": "none"
+            },
+            {
+              "id": "smithy",
+              "name": "Smithy",
+              "description": "A shared forge for declared metal transformations and repairs.",
+              "classification": "universal",
+              "capabilities": [
+                "transformation_recipes",
+                "metalworking",
+                "repair_jobs",
+                "stewardship"
+              ],
+              "upgrade_capabilities": [
+                "carpentry"
+              ],
+              "quest_templates": [
+                "service.workshop"
+              ],
+              "recipe_tags": [
+                "smithy",
+                "refinement"
               ],
               "cache_policy": "none"
             },
@@ -1371,6 +1394,16 @@
               "size": "small"
             },
             {
+              "id": "smoked_river_sprat",
+              "name": "Smoked River Sprat",
+              "description": "A represented catch preserved at a completed smokehouse for later journeys.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 3,
+              "size": "small"
+            },
+            {
               "id": "glassfin_scale",
               "name": "Glassfin Scale",
               "description": "A rare clear scale that keeps a ribbon of river light.",
@@ -1388,6 +1421,26 @@
               "charges": 1,
               "role": "generic",
               "weight_tenths": 20,
+              "size": "small"
+            },
+            {
+              "id": "iron_bloom",
+              "name": "Iron Bloom",
+              "description": "A compact bloom refined from represented ore at a working smithy.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 14,
+              "size": "small"
+            },
+            {
+              "id": "waystone_bracket",
+              "name": "Waystone Bracket",
+              "description": "A fitted iron bracket made to hold one lasting marker in place.",
+              "kind": "keepsake",
+              "charges": 1,
+              "role": "generic",
+              "weight_tenths": 12,
               "size": "small"
             },
             {
@@ -1607,7 +1660,7 @@
         "type": "workspace",
         "path": "../../content/core"
       },
-      "integrity": "sha256:4c3865165cca611003e8827aaa673c1f51cbb155e3fffc6b6b9253dc44dea8f0"
+      "integrity": "sha256:0804c5ae39cf5f6cc24e0bbcc2ae8422dbeb23291c8be199d0dfcbd6e923a35f"
     }
   ],
   "files": {

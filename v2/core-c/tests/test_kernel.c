@@ -1228,6 +1228,65 @@ static void test_search_and_craft_create_without_consuming_inputs(void) {
   assert(cw_world_apply(&world, &craft, 77, &events) == CW_ERR_RULE);
   assert(events.count == 1);
   assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+
+  cw_item *ore = test_find_item(&world, 2002);
+  assert(ore);
+  ore->holder_actor_id = 5001;
+  ore->location_id = 0;
+  ore->zone = CW_CARD_ZONE_CARRIED;
+  cw_action refine = {0};
+  refine.kind = CW_ACTION_CRAFT;
+  refine.actor_id = 5001;
+  refine.content_id = 3101;
+  refine.item_id = 2002;
+  refine.item_disposition = CW_CRAFT_INPUT_TRANSFORMED;
+  refine.output_item_id = 9201;
+  refine.output_target_kind = CW_PLACEMENT_LOCATION_FLOOR;
+  refine.output_target_id = 1;
+  refine.output_item_kind = CW_ITEM_KEEPSAKE;
+  refine.output_item_charges = 1;
+  refine.output_item_weight_tenths = 14;
+  refine.output_item_size_class = CW_ITEM_SIZE_SMALL;
+  refine.output_item_role = CW_ITEM_ROLE_GENERIC;
+  const size_t before_refine_count = world.item_count;
+  assert(cw_world_apply(&world, &refine, 78, &events) == CW_OK);
+  assert(events.count == 3);
+  assert(events.events[0].type == CW_EVENT_ITEM_CRAFTED);
+  assert(events.events[1].type == CW_EVENT_ITEM_TRANSFORMED);
+  assert(events.events[2].type == CW_EVENT_ITEM_CREATED);
+  assert(events.events[1].item_id == 2002);
+  assert(events.events[1].target_item_id == 9201);
+  assert(test_find_item(&world, 2002) == 0);
+  assert(test_find_item(&world, 9201)->location_id == 1);
+  assert(test_find_item(&world, 9201)->weight_tenths == 14);
+  assert(world.item_count == before_refine_count);
+  assert(cw_world_apply(&world, &refine, 79, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+  assert(world.item_count == before_refine_count);
+
+  cw_action install = refine;
+  install.content_id = 3103;
+  install.item_id = 9201;
+  install.output_item_id = 9202;
+  install.output_target_kind = CW_PLACEMENT_LOCATION_FIXTURE;
+  assert(cw_world_apply(&world, &install, 80, &events) == CW_OK);
+  assert(events.count == 3);
+  assert(events.events[0].type == CW_EVENT_ITEM_CRAFTED);
+  assert(events.events[1].type == CW_EVENT_ITEM_TRANSFORMED);
+  assert(events.events[2].type == CW_EVENT_ITEM_CREATED);
+  assert(test_find_item(&world, 9201) == 0);
+  assert(test_find_item(&world, 9202)->location_id == 1);
+  assert(test_find_item(&world, 9202)->zone == CW_CARD_ZONE_INSTALLED);
+
+  cw_action pickup_fixture = {0};
+  pickup_fixture.kind = CW_ACTION_PICK_UP_ITEM;
+  pickup_fixture.actor_id = 5001;
+  pickup_fixture.item_id = 9202;
+  assert(cw_world_apply(&world, &pickup_fixture, 81, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+  assert(test_find_item(&world, 9202)->zone == CW_CARD_ZONE_INSTALLED);
 }
 
 static uint8_t test_combat_side(const cw_combat_encounter *encounter, cw_id actor_id) {

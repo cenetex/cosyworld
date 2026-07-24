@@ -17,7 +17,7 @@ pub const CW_MAX_COMBAT_ENCOUNTERS: usize = 32;
 pub const CW_MAX_COMBAT_PARTICIPANTS: usize = 16;
 pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
-pub const CW_KERNEL_VERSION: u32 = 5;
+pub const CW_KERNEL_VERSION: u32 = 6;
 
 pub const CW_OK: u32 = 0;
 pub const CW_ERR_RULE: u32 = 4;
@@ -43,6 +43,7 @@ pub const CW_EXIT_LOCKED: u32 = 1 << 0;
 
 pub const CW_PLACEMENT_ACTOR_HAND: u8 = 1;
 pub const CW_PLACEMENT_LOCATION_FLOOR: u8 = 2;
+pub const CW_PLACEMENT_LOCATION_FIXTURE: u8 = 3;
 
 pub const CW_ITEM_POTION: u8 = 1;
 pub const CW_ITEM_EVOLUTION: u8 = 2;
@@ -69,6 +70,7 @@ pub const CW_CARD_ZONE_SPELL_DECK: u8 = 4;
 pub const CW_CARD_ZONE_EXHAUSTED: u8 = 5;
 pub const CW_CARD_ZONE_CONTAINED: u8 = 6;
 pub const CW_CARD_ZONE_ESCROW: u8 = 7;
+pub const CW_CARD_ZONE_INSTALLED: u8 = 8;
 
 pub const CW_ROLL_NORMAL: u8 = 0;
 pub const CW_ROLL_ADVANTAGE: u8 = 1;
@@ -128,6 +130,14 @@ pub const CW_EVENT_ITEM_THEFT_ATTEMPT: u8 = 32;
 pub const CW_EVENT_ITEM_STOLEN: u8 = 33;
 pub const CW_EVENT_COMBAT_PASS: u8 = 34;
 pub const CW_EVENT_COMBAT_NEED_TIME: u8 = 35;
+pub const CW_EVENT_ITEM_CONSUMED: u8 = 36;
+pub const CW_EVENT_ITEM_EXHAUSTED: u8 = 37;
+pub const CW_EVENT_ITEM_TRANSFORMED: u8 = 38;
+
+pub const CW_CRAFT_INPUT_PERSISTS: u8 = 0;
+pub const CW_CRAFT_INPUT_CONSUMED: u8 = 1;
+pub const CW_CRAFT_INPUT_EXHAUSTED: u8 = 2;
+pub const CW_CRAFT_INPUT_TRANSFORMED: u8 = 3;
 
 pub const CW_OFFER_CHAT: u32 = 1 << 0;
 pub const CW_OFFER_CHECK: u32 = 1 << 1;
@@ -247,6 +257,22 @@ pub struct CwAction {
     pub output_item_charges: u8,
     #[serde(default)]
     pub roll_mode: u8,
+    #[serde(default)]
+    pub item_disposition: u8,
+    #[serde(default)]
+    pub target_item_disposition: u8,
+    #[serde(default)]
+    pub reserved: u16,
+    #[serde(default)]
+    pub output_item_weight_tenths: u16,
+    #[serde(default)]
+    pub output_container_capacity_tenths: u16,
+    #[serde(default)]
+    pub output_item_size_class: u8,
+    #[serde(default)]
+    pub output_item_role: u8,
+    #[serde(default)]
+    pub reserved2: u16,
 }
 
 #[repr(C)]

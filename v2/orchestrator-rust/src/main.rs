@@ -11,6 +11,7 @@ mod content_load;
 mod content_packs;
 mod content_policy;
 mod content_registry;
+mod crafting;
 mod generated_places;
 mod hosted_access;
 mod kernel;
@@ -54,6 +55,7 @@ use content_packs::*;
 use content_policy::*;
 use content_registry::*;
 use cosyworld_ai_model::ResidentReplyModelInput;
+use crafting::*;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use generated_places::*;
 use hosted_access::*;
@@ -994,6 +996,9 @@ struct RoomSheetState {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum ProjectionMutation {
+    ResolveCraft {
+        receipt: CraftReceiptState,
+    },
     CreateTransferOffer {
         offer: TransferOfferState,
     },
@@ -1666,6 +1671,7 @@ struct RuntimeWorld {
     npc_cooperation: BTreeMap<String, NpcCooperationState>,
     item_provenance: BTreeMap<u64, ItemProvenanceState>,
     materialization_receipts: BTreeMap<String, MaterializationReceiptState>,
+    craft_receipts: BTreeMap<String, CraftReceiptState>,
     ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
     advancement_spends: BTreeMap<String, AdvancementSpendState>,
     bonds: BTreeMap<String, BondState>,
@@ -1774,6 +1780,8 @@ struct RuntimeSnapshot {
     item_provenance: BTreeMap<u64, ItemProvenanceState>,
     #[serde(default)]
     materialization_receipts: BTreeMap<String, MaterializationReceiptState>,
+    #[serde(default)]
+    craft_receipts: BTreeMap<String, CraftReceiptState>,
     #[serde(default)]
     ledger_marks: BTreeMap<String, VisitLedgerMarkState>,
     #[serde(default)]
@@ -1920,7 +1928,7 @@ impl JournalRecord {
             })
             .unwrap_or_default();
         Self {
-            version: 6,
+            version: 7,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry()
                 .content_reference_context(action_content_handles(&action)),
@@ -3668,6 +3676,8 @@ struct CraftRequest {
     actor_id: u64,
     actor_session: Option<String>,
     recipe_id: u64,
+    #[serde(default)]
+    receipt_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -6335,7 +6345,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 8,
+            version: 9,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6385,6 +6395,7 @@ impl RuntimeSnapshot {
             npc_cooperation: runtime.npc_cooperation.clone(),
             item_provenance: runtime.item_provenance.clone(),
             materialization_receipts: runtime.materialization_receipts.clone(),
+            craft_receipts: runtime.craft_receipts.clone(),
             ledger_marks: runtime.ledger_marks.clone(),
             advancement_spends: runtime.advancement_spends.clone(),
             bonds: runtime.bonds.clone(),
@@ -6591,6 +6602,7 @@ impl RuntimeSnapshot {
             npc_cooperation: self.npc_cooperation,
             item_provenance: self.item_provenance,
             materialization_receipts: self.materialization_receipts,
+            craft_receipts: self.craft_receipts,
             ledger_marks: self.ledger_marks,
             advancement_spends: self.advancement_spends,
             bonds: self.bonds,
@@ -7042,6 +7054,7 @@ impl RuntimeWorld {
             npc_cooperation: BTreeMap::new(),
             item_provenance: BTreeMap::new(),
             materialization_receipts: BTreeMap::new(),
+            craft_receipts: BTreeMap::new(),
             ledger_marks: BTreeMap::new(),
             advancement_spends: BTreeMap::new(),
             bonds: BTreeMap::new(),
@@ -10231,6 +10244,7 @@ impl RuntimeWorld {
                 &committed_events,
                 &record.projection_mutations,
             ));
+            self.refresh_craft_event_presentation(&mut events);
             events.extend(self.apply_class_readiness_projection(record, &action, &events));
             let committed_events = events.clone();
             events.extend(self.apply_bounded_magic_projection(&action, &committed_events));
@@ -10314,6 +10328,7 @@ impl RuntimeWorld {
                 ));
             }
             self.record_autonomous_action(record);
+            self.refresh_craft_event_presentation(&mut events);
             if record.source_world_tick.is_some() {
                 for event in &mut events {
                     event.apply_async_causality(record);
@@ -10347,6 +10362,9 @@ impl RuntimeWorld {
         let mut events = Vec::new();
         for mutation in mutations {
             match mutation {
+                ProjectionMutation::ResolveCraft { receipt } => {
+                    self.apply_craft_resolution(receipt, committed_events);
+                }
                 ProjectionMutation::CreateTransferOffer { offer } => {
                     self.transfer_offers
                         .entry(offer.id.clone())
@@ -13874,8 +13892,11 @@ impl RuntimeWorld {
             .recipe_name(event.content_id)
             .unwrap_or_else(|| "Craft".to_string());
         let held_name = self.item_name(event.item_id)?;
-        let floor_name = self.item_name(event.target_item_id)?;
-        Some(format!("{recipe_name}: {held_name} met {floor_name}."))
+        if let Some(floor_name) = self.item_name(event.target_item_id) {
+            Some(format!("{recipe_name}: {held_name} met {floor_name}."))
+        } else {
+            Some(format!("{recipe_name}: {held_name} changed."))
+        }
     }
 
     fn item_created_event_context(&self, event: &CwEvent) -> Option<String> {
@@ -15124,6 +15145,7 @@ impl RuntimeWorld {
             .filter(|item| {
                 item.holder_actor_id == 0
                     && item.location_id == location_id
+                    && item.zone == CW_CARD_ZONE_WORLD
                     && !self.forgotten_search_item_at_location(*item, location_id)
             })
             .collect::<Vec<_>>();
@@ -15852,6 +15874,11 @@ impl RuntimeWorld {
     }
 
     fn craft_action_for_recipe(&self, actor_id: u64, recipe_id: u64) -> Option<CwAction> {
+        if self.recipe_by_id(recipe_id)?.schema_version == 2 {
+            return self
+                .versioned_craft_plan(actor_id, recipe_id, None)
+                .map(|plan| plan.action);
+        }
         let actor = self.actor_by_id(actor_id)?;
         if actor.status != CW_ACTOR_ACTIVE {
             return None;
@@ -17188,6 +17215,15 @@ impl RuntimeWorld {
     }
 
     fn kernel_offer_allows_action(&self, action: &CwAction) -> bool {
+        if action.kind == CW_ACTION_CRAFT
+            && self
+                .recipe_by_id(action.content_id)
+                .is_some_and(|recipe| recipe.schema_version == 2)
+        {
+            return self
+                .versioned_craft_plan(action.actor_id, action.content_id, None)
+                .is_some();
+        }
         let required_offer = match action.kind {
             CW_ACTION_NONE | CW_ACTION_SAY | CW_ACTION_CREATE_ACTOR => return true,
             CW_ACTION_MOVE => CW_OFFER_MOVE,
@@ -20731,14 +20767,12 @@ impl RuntimeWorld {
                 command: format!("search {}", target.name),
             });
         }
-        if offers.option_flags & CW_OFFER_CRAFT != 0 {
-            if let Some(recipe) = default_craft_recipe {
-                options.push(ActionOption {
-                    kind: "craft".to_string(),
-                    label: "Craft".to_string(),
-                    command: format!("craft {}", recipe.name),
-                });
-            }
+        if let Some(recipe) = default_craft_recipe {
+            options.push(ActionOption {
+                kind: "craft".to_string(),
+                label: "Craft".to_string(),
+                command: format!("craft {}", recipe.name),
+            });
         }
         if offers.option_flags & CW_OFFER_GIVE_ITEM != 0 && has_actor_gift {
             options.push(ActionOption {
@@ -22166,14 +22200,16 @@ impl RuntimeWorld {
                 }
             }),
             "craft" => self.default_craft_recipe(actor_id).map(|recipe| {
-                let output = recipe
-                    .output
-                    .as_ref()
-                    .map(|output| output.name.as_str())
-                    .unwrap_or("a new keepsake");
-                format!(
-                    "creates {output} from present items without consuming the inputs"
-                )
+                if recipe.schema_version == 2 {
+                    recipe.description.clone()
+                } else {
+                    let output = recipe
+                        .output
+                        .as_ref()
+                        .map(|output| output.name.as_str())
+                        .unwrap_or("a new keepsake");
+                    format!("creates {output} from the two present keepsakes")
+                }
             }),
             "create_bond" => self.default_bondable_resident(actor_id).and_then(|target| {
                 self.actor_name(target.id)
@@ -32319,6 +32355,7 @@ async fn command_inner(
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
                     recipe_id,
+                    receipt_id: None,
                 }),
             )
             .await;
@@ -36941,7 +36978,7 @@ async fn craft(
     ) {
         return action_rate_limited_response();
     }
-    let action = {
+    let (action, mutation) = {
         let runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
             &runtime,
@@ -36951,17 +36988,64 @@ async fn craft(
         ) {
             return client_actor_rejected_response();
         }
-        let Some(action) = runtime.craft_action_for_recipe(payload.actor_id, payload.recipe_id)
-        else {
-            return Json(ActionResponse {
-                ok: false,
-                status: 409,
-                events: Vec::new(),
-            });
+        let Some(recipe) = runtime.recipe_by_id(payload.recipe_id) else {
+            return action_offer_rejected("recipe is not available");
         };
-        action
+        if recipe.schema_version == 2 {
+            if let Some(receipt_id) = payload.receipt_id.as_deref() {
+                if let Some(existing) = runtime.craft_receipts.get(receipt_id) {
+                    return Json(ActionResponse {
+                        ok: existing.actor_id == payload.actor_id
+                            && existing.recipe_id == payload.recipe_id,
+                        status: if existing.actor_id == payload.actor_id
+                            && existing.recipe_id == payload.recipe_id
+                        {
+                            CW_OK
+                        } else {
+                            409
+                        },
+                        events: Vec::new(),
+                    });
+                }
+            }
+            let Some(plan) = runtime.versioned_craft_plan(
+                payload.actor_id,
+                payload.recipe_id,
+                payload.receipt_id.as_deref(),
+            ) else {
+                return action_offer_rejected(
+                    "physical inputs, place capability, access, or output space changed",
+                );
+            };
+            (
+                plan.action,
+                Some(ProjectionMutation::ResolveCraft {
+                    receipt: plan.receipt,
+                }),
+            )
+        } else {
+            let Some(action) = runtime.craft_action_for_recipe(payload.actor_id, payload.recipe_id)
+            else {
+                return Json(ActionResponse {
+                    ok: false,
+                    status: 409,
+                    events: Vec::new(),
+                });
+            };
+            (action, None)
+        }
     };
-    apply_and_broadcast(state, action, payload.actor_session.as_deref()).await
+    if let Some(mutation) = mutation {
+        apply_and_broadcast_with_mutations(
+            state,
+            action,
+            payload.actor_session.as_deref(),
+            vec![mutation],
+        )
+        .await
+    } else {
+        apply_and_broadcast(state, action, payload.actor_session.as_deref()).await
+    }
 }
 
 async fn attack(
@@ -44359,6 +44443,7 @@ fn card_zone(zone: u8, holder_actor_id: u64, location_id: u64) -> &'static str {
         CW_CARD_ZONE_EXHAUSTED => "exhausted",
         CW_CARD_ZONE_CONTAINED => "contained",
         CW_CARD_ZONE_ESCROW => "escrow",
+        CW_CARD_ZONE_INSTALLED => "installed",
         _ if holder_actor_id != 0 => "carried",
         _ if location_id != 0 => "world",
         _ => "collection",
@@ -52165,7 +52250,7 @@ mod tests {
         assert!(action_journal_has_records(&path).expect("has records"));
         let records = read_action_journal(&path).expect("read records");
         assert_eq!(records.len(), 2);
-        assert_eq!(records[0].version, 6);
+        assert_eq!(records[0].version, 7);
         assert_eq!(records[0].content_context.mapping_version, 1);
         let location_reference = records[0]
             .content_context
@@ -52173,7 +52258,7 @@ mod tests {
             .iter()
             .find(|reference| reference.canonical_ref == "pack://cosyworld.core/location/1")
             .expect("journal persists its canonical location reference");
-        assert_eq!(location_reference.pack_version, "1.3.9");
+        assert_eq!(location_reference.pack_version, "1.3.10");
         assert_eq!(location_reference.legacy_runtime_id, Some(1));
 
         let replayed = RuntimeWorld::from_action_journal(&path).expect("replay runtime");
@@ -62619,7 +62704,7 @@ mod tests {
         assert_eq!(content.cards.len(), 118);
         assert_eq!(content.lifecycle_hooks.len(), 27);
         assert_eq!(content.evolution_tracks.len(), 3);
-        assert_eq!(content.recipes.len(), 4);
+        assert_eq!(content.recipes.len(), 8);
         assert_eq!(content.rules.len(), 3);
 
         let nib = content
