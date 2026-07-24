@@ -1848,6 +1848,59 @@ enum JournalOrigin {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+struct ResidentDecisionCandidateTrace {
+    offer_id: String,
+    kind: String,
+    provider_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    target: Option<ActionTargetView>,
+    rank: u16,
+    selected: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rejection_reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ResidentDecisionChoiceTrace {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    offer_id: Option<String>,
+    offer_kind: String,
+    policy_rank: u8,
+    policy_score: i16,
+    action: CwAction,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ResidentDecisionOutcomeEventTrace {
+    seq: u64,
+    event_type: String,
+    success: bool,
+    reason: u16,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ResidentDecisionOutcomeTrace {
+    status: u32,
+    events: Vec<ResidentDecisionOutcomeEventTrace>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    deed_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ResidentDecisionTrace {
+    schema_version: u32,
+    actor_id: u64,
+    location_id: u64,
+    controller: String,
+    world_tick: u64,
+    observed_through_seq: u64,
+    candidates: Vec<ResidentDecisionCandidateTrace>,
+    choice: ResidentDecisionChoiceTrace,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    outcome: Option<ResidentDecisionOutcomeTrace>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct JournalRecord {
     version: u32,
     #[serde(default)]
@@ -1876,6 +1929,8 @@ struct JournalRecord {
     observed_through_seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     source_location_id: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resident_decision: Option<ResidentDecisionTrace>,
     action: CwAction,
     seed: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1943,6 +1998,7 @@ impl JournalRecord {
             source_world_tick: None,
             observed_through_seq: None,
             source_location_id: None,
+            resident_decision: None,
             action,
             seed,
             ripple_source: None,
@@ -2000,6 +2056,31 @@ impl JournalRecord {
             self.operation = binding.operation;
             self.resolver = Some(binding.resolver);
         }
+    }
+
+    fn finalize_resident_decision_outcome(
+        &mut self,
+        status: u32,
+        events: &[EventView],
+        mut deed_ids: Vec<String>,
+    ) {
+        let Some(trace) = self.resident_decision.as_mut() else {
+            return;
+        };
+        deed_ids.sort();
+        trace.outcome = Some(ResidentDecisionOutcomeTrace {
+            status,
+            events: events
+                .iter()
+                .map(|event| ResidentDecisionOutcomeEventTrace {
+                    seq: event.seq,
+                    event_type: event.type_name.clone(),
+                    success: event.success,
+                    reason: event.reason,
+                })
+                .collect(),
+            deed_ids,
+        });
     }
 
     fn into_player_card(mut self) -> Self {
@@ -25421,6 +25502,214 @@ impl RuntimeWorld {
         }
     }
 
+    fn resident_record_offer_kind(record: &JournalRecord) -> String {
+        if let Some(kind) = record
+            .projection_mutations
+            .iter()
+            .find_map(|mutation| match mutation {
+                ProjectionMutation::ResolveJobContribution { intent } => {
+                    Some(intent.strategy.action_kind.as_str())
+                }
+                ProjectionMutation::UseFeature { .. } => Some("use_feature"),
+                ProjectionMutation::ResolveCraft { .. } => Some("craft"),
+                ProjectionMutation::SearchFeature { .. }
+                | ProjectionMutation::SearchLocation { .. } => Some("search"),
+                _ => None,
+            })
+        {
+            return kind.to_string();
+        }
+        match record.action.kind {
+            CW_ACTION_MOVE => "move",
+            CW_ACTION_ABILITY_CHECK => "check",
+            CW_ACTION_RULES_SEARCH | CW_ACTION_SEARCH => "search",
+            CW_ACTION_RULES_STUDY => "study",
+            CW_ACTION_RULES_MAGIC => "cast_spell",
+            CW_ACTION_PICK_UP_ITEM => "pick_up",
+            CW_ACTION_DROP_ITEM => "drop_item",
+            CW_ACTION_GIVE_ITEM => "give_item",
+            CW_ACTION_TRADE_ITEM => "trade_item",
+            CW_ACTION_USE_ITEM => "use_item",
+            CW_ACTION_CRAFT => "craft",
+            CW_ACTION_ATTACK => "attack",
+            CW_ACTION_DEFEND => "defend",
+            CW_ACTION_FLEE => "flee",
+            _ => "act",
+        }
+        .to_string()
+    }
+
+    fn resident_offer_matches_record(
+        &self,
+        offer: &RankedActionOffer,
+        record: &JournalRecord,
+    ) -> bool {
+        let action = &record.action;
+        if offer.kind != Self::resident_record_offer_kind(record) {
+            return false;
+        }
+        if let Some(intent) = record
+            .projection_mutations
+            .iter()
+            .find_map(|mutation| match mutation {
+                ProjectionMutation::ResolveJobContribution { intent } => Some(intent),
+                _ => None,
+            })
+        {
+            return offer.target.as_ref().is_some_and(|target| {
+                target.kind == intent.target.kind
+                    && target.id == intent.target.id.parse::<u64>().ok()
+            }) && offer.project.as_ref().is_some_and(|project| {
+                project.id == intent.job_id
+                    && project.strategy_id.as_deref() == Some(intent.strategy.id.as_str())
+            });
+        }
+        if let Some((item_id, location_id)) =
+            record
+                .projection_mutations
+                .iter()
+                .find_map(|mutation| match mutation {
+                    ProjectionMutation::UseFeature {
+                        item_id,
+                        location_id,
+                        ..
+                    } => Some((*item_id, *location_id)),
+                    _ => None,
+                })
+        {
+            return offer
+                .target
+                .as_ref()
+                .is_some_and(|target| target.kind == "feature" && target.id == Some(location_id))
+                && offer.provider.id == format!("item:{item_id}");
+        }
+        match action.kind {
+            CW_ACTION_MOVE | CW_ACTION_FLEE => offer.target.as_ref().is_some_and(|target| {
+                target.kind == "location" && target.id == Some(action.destination_location_id)
+            }),
+            CW_ACTION_ABILITY_CHECK => offer.target.as_ref().is_some_and(|target| {
+                target.kind == "location" && target.id == Some(action.location_id)
+            }),
+            CW_ACTION_RULES_SEARCH | CW_ACTION_SEARCH | CW_ACTION_NONE
+                if offer.kind == "search" =>
+            {
+                offer.target.as_ref().is_some_and(|target| {
+                    target.kind == "feature" && target.id == Some(action.location_id)
+                })
+            }
+            CW_ACTION_RULES_STUDY => offer.project.is_some(),
+            CW_ACTION_RULES_MAGIC => offer
+                .target
+                .as_ref()
+                .is_some_and(|target| target.kind == "actor" && target.id == Some(action.actor_id)),
+            CW_ACTION_PICK_UP_ITEM => offer
+                .target
+                .as_ref()
+                .is_some_and(|target| target.kind == "item" && target.id == Some(action.item_id)),
+            CW_ACTION_DROP_ITEM => offer.target.is_none(),
+            CW_ACTION_GIVE_ITEM => {
+                self.actor_give_candidate(action.actor_id)
+                    .is_some_and(|(item, target)| {
+                        item.id == action.item_id
+                            && target.id == action.target_actor_id
+                            && offer.target.as_ref().is_some_and(|offer_target| {
+                                offer_target.kind == "actor"
+                                    && offer_target.id == Some(action.target_actor_id)
+                            })
+                    })
+            }
+            CW_ACTION_TRADE_ITEM => self.default_item_trade(action.actor_id).is_some_and(
+                |(item, target, target_item)| {
+                    item.id == action.item_id
+                        && target.id == action.target_actor_id
+                        && target_item.id == action.target_item_id
+                        && offer.target.as_ref().is_some_and(|offer_target| {
+                            offer_target.kind == "item"
+                                && offer_target.id == Some(action.target_item_id)
+                        })
+                },
+            ),
+            CW_ACTION_USE_ITEM => {
+                offer.target.as_ref().is_some_and(|target| {
+                    target.kind == "actor" && target.id == Some(action.target_actor_id)
+                }) && offer.provider.id == format!("item:{}", action.item_id)
+            }
+            CW_ACTION_CRAFT => offer.target.as_ref().is_some_and(|target| {
+                target.kind == "recipe" && target.id == Some(action.content_id)
+            }),
+            CW_ACTION_ATTACK | CW_ACTION_DEFEND => offer.target.as_ref().is_some_and(|target| {
+                target.kind == "actor" && target.id == Some(action.target_actor_id)
+            }),
+            _ => false,
+        }
+    }
+
+    fn resident_decision_trace(
+        &self,
+        candidate: &ResidentAutonomyCandidate,
+    ) -> ResidentDecisionTrace {
+        let actor = self
+            .actor_by_id(candidate.actor_id)
+            .expect("resident autonomy candidate must reference an active actor");
+        let offer_kind = Self::resident_record_offer_kind(&candidate.record);
+        let (_, offers) =
+            self.legal_action_candidates(Some(candidate.actor_id), &AccessContext::default());
+        let offers = offers
+            .into_iter()
+            .filter(action_offer_is_reachable)
+            .collect::<Vec<_>>();
+        let chosen_offer_id = offers
+            .iter()
+            .find(|offer| self.resident_offer_matches_record(offer, &candidate.record))
+            .map(|offer| offer.offer_id.clone());
+        let candidates = offers
+            .into_iter()
+            .map(|offer| {
+                let selected = chosen_offer_id
+                    .as_deref()
+                    .is_some_and(|offer_id| offer.offer_id == offer_id);
+                ResidentDecisionCandidateTrace {
+                    offer_id: offer.offer_id,
+                    kind: offer.kind,
+                    provider_id: offer.provider.id,
+                    target: offer.target,
+                    rank: offer.rank,
+                    selected,
+                    rejection_reason: (!selected)
+                        .then(|| "not_selected_by_resident_policy".to_string()),
+                }
+            })
+            .collect();
+        ResidentDecisionTrace {
+            schema_version: 1,
+            actor_id: candidate.actor_id,
+            location_id: actor.location_id,
+            controller: self
+                .actor_control_mode(candidate.actor_id)
+                .as_str()
+                .to_string(),
+            world_tick: self.world.tick,
+            observed_through_seq: self.world.next_event_seq.saturating_sub(1),
+            candidates,
+            choice: ResidentDecisionChoiceTrace {
+                offer_id: chosen_offer_id,
+                offer_kind,
+                policy_rank: candidate.rank,
+                policy_score: candidate.score,
+                action: candidate.record.action,
+            },
+            outcome: None,
+        }
+    }
+
+    fn attach_resident_decision_trace(
+        &self,
+        mut candidate: ResidentAutonomyCandidate,
+    ) -> ResidentAutonomyCandidate {
+        candidate.record.resident_decision = Some(self.resident_decision_trace(&candidate));
+        candidate
+    }
+
     fn sort_resident_autonomy_candidates(candidates: &mut [ResidentAutonomyCandidate]) {
         candidates.sort_by(|left, right| {
             left.rank
@@ -25466,7 +25755,10 @@ impl RuntimeWorld {
             });
         }
         Self::sort_resident_autonomy_candidates(&mut candidates);
-        candidates.into_iter().next()
+        candidates
+            .into_iter()
+            .next()
+            .map(|candidate| self.attach_resident_decision_trace(candidate))
     }
 
     fn best_resident_ripple_candidate(
@@ -25497,7 +25789,10 @@ impl RuntimeWorld {
             });
         }
         Self::sort_resident_autonomy_candidates(&mut candidates);
-        candidates.into_iter().next()
+        candidates
+            .into_iter()
+            .next()
+            .map(|candidate| self.attach_resident_decision_trace(candidate))
     }
 
     #[cfg(test)]
@@ -42753,7 +43048,7 @@ fn canonical_fallback_command_response(
 fn commit_journal_record(
     state: &AppState,
     runtime: &mut RuntimeWorld,
-    record: JournalRecord,
+    mut record: JournalRecord,
 ) -> io::Result<(u32, Vec<EventView>)> {
     if hosted_guest_record_restricted(state, runtime, &record) {
         return Ok((CW_ERR_RULE, Vec::new()));
@@ -42773,6 +43068,13 @@ fn commit_journal_record(
     let pre_orb_reward_claims = runtime.orb_reward_claims.clone();
     let pre_entity_versions = runtime.canonical_identities.entity_versions.clone();
     let pre_claims = canonical_claim_snapshot(runtime);
+    let pre_actor_deed_ids = runtime
+        .deed_ids_by_actor
+        .get(&record.action.actor_id)
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect::<BTreeSet<_>>();
     let initial_record_partitions = canonical_partitions_for_record(runtime, &record);
     let command_context = CANONICAL_COMMAND_COMMIT_CONTEXT
         .try_with(Arc::clone)
@@ -42850,6 +43152,16 @@ fn commit_journal_record(
                 )
             })?;
             let (status, events) = runtime.apply_journal_record(&record);
+            let new_deed_ids = runtime
+                .deed_ids_by_actor
+                .get(&record.action.actor_id)
+                .into_iter()
+                .flatten()
+                .filter(|deed_id| !pre_actor_deed_ids.contains(*deed_id))
+                .cloned()
+                .collect();
+            record.finalize_resident_decision_outcome(status, &events, new_deed_ids);
+            update_action_journal_record(&tx, action_journal_seq, &record)?;
             if status == CW_OK {
                 if let Some(grant) = record.hosted_access_grant.as_ref() {
                     activate_hosted_access_entry_in_transaction(
@@ -43110,6 +43422,15 @@ fn commit_journal_record(
         committed
     } else {
         let (status, events) = runtime.apply_journal_record(&record);
+        let new_deed_ids = runtime
+            .deed_ids_by_actor
+            .get(&record.action.actor_id)
+            .into_iter()
+            .flatten()
+            .filter(|deed_id| !pre_actor_deed_ids.contains(*deed_id))
+            .cloned()
+            .collect();
+        record.finalize_resident_decision_outcome(status, &events, new_deed_ids);
         if let Some(context) = command_context.as_ref() {
             context.finish_commit();
         }
@@ -43665,6 +43986,30 @@ fn insert_action_journal(conn: &Connection, record: &JournalRecord) -> io::Resul
         ],
     )
     .map_err(sqlite_error)?;
+    Ok(())
+}
+
+fn update_action_journal_record(
+    conn: &Connection,
+    journal_seq: u64,
+    record: &JournalRecord,
+) -> io::Result<()> {
+    let mut persisted = record.clone();
+    persisted.refresh_content_context();
+    let payload = serde_json::to_string(&persisted)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    let updated = conn
+        .execute(
+            "UPDATE action_journal SET record_json = ?1 WHERE journal_seq = ?2",
+            params![payload, journal_seq as i64],
+        )
+        .map_err(sqlite_error)?;
+    if updated != 1 {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("action journal record {journal_seq} disappeared before finalization"),
+        ));
+    }
     Ok(())
 }
 
@@ -70583,6 +70928,28 @@ mod tests {
             .expect("resident feature use is recordable autonomy");
         assert_eq!(record.action.kind, CW_ACTION_NONE);
         assert_eq!(record.action.actor_id, RATI_ACTOR_ID);
+        let trace = record
+            .resident_decision
+            .as_ref()
+            .expect("resident selection carries a decision trace");
+        assert_eq!(trace.schema_version, 1);
+        assert_eq!(trace.actor_id, RATI_ACTOR_ID);
+        assert_eq!(trace.location_id, COSY_COTTAGE_LOCATION_ID);
+        assert_eq!(trace.controller, "local_ai");
+        assert_eq!(trace.choice.offer_kind, "use_feature");
+        assert_eq!(trace.choice.action.actor_id, RATI_ACTOR_ID);
+        assert!(trace.outcome.is_none());
+        assert!(trace.candidates.iter().any(|candidate| {
+            candidate.kind == "use_feature"
+                && candidate.selected
+                && candidate.rejection_reason.is_none()
+        }));
+        assert!(trace
+            .candidates
+            .iter()
+            .filter(|candidate| !candidate.selected)
+            .all(|candidate| candidate.rejection_reason.as_deref()
+                == Some("not_selected_by_resident_policy")));
         match record.projection_mutations.as_slice() {
             [ProjectionMutation::UseFeature {
                 item_id,
@@ -70619,6 +70986,88 @@ mod tests {
             SCARF_BASKET_FEATURE_KEY,
             STORY_BUTTON_ITEM_ID,
         ));
+    }
+
+    #[test]
+    fn committed_resident_decision_trace_finalizes_and_replays() {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-resident-decision-trace-{}.sqlite",
+            random_hex(8)
+        ));
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.world.tick = 0;
+        runtime.resident_memories.clear();
+        for item in &mut runtime.world.items[..runtime.world.item_count] {
+            if item.id == STORY_BUTTON_ITEM_ID {
+                item.location_id = 0;
+                item.holder_actor_id = RATI_ACTOR_ID;
+                item.held_since_tick = 1;
+            }
+        }
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let record = runtime
+            .ambient_autonomy_record(70702)
+            .expect("resident decision is recordable");
+        let state = test_app_state(runtime.clone(), Some(path.clone()));
+
+        let (status, events) =
+            commit_journal_record(&state, &mut runtime, record).expect("decision commits");
+        assert_eq!(status, CW_OK);
+        assert!(!events.is_empty());
+        let persisted = read_action_journal(&path).expect("decision journal reads");
+        let persisted_record = persisted.last().expect("one persisted decision");
+        let trace = persisted_record
+            .resident_decision
+            .as_ref()
+            .expect("persisted decision carries its trace");
+        let outcome = trace
+            .outcome
+            .as_ref()
+            .expect("the canonical transaction finalized the outcome");
+        assert_eq!(outcome.status, CW_OK);
+        assert!(outcome
+            .events
+            .iter()
+            .any(|event| event.event_type == "item.used" && event.success));
+
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-decision snapshot restores");
+        let before_deeds = replayed
+            .deed_ids_by_actor
+            .get(&RATI_ACTOR_ID)
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        let (replay_status, replay_events) = replayed.apply_journal_record(persisted_record);
+        let replay_deeds = replayed
+            .deed_ids_by_actor
+            .get(&RATI_ACTOR_ID)
+            .into_iter()
+            .flatten()
+            .filter(|deed_id| !before_deeds.contains(*deed_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut replay_record = persisted_record.clone();
+        replay_record.finalize_resident_decision_outcome(
+            replay_status,
+            &replay_events,
+            replay_deeds,
+        );
+        assert_eq!(
+            serde_json::to_value(
+                replay_record
+                    .resident_decision
+                    .as_ref()
+                    .and_then(|trace| trace.outcome.as_ref())
+            )
+            .expect("replayed outcome serializes"),
+            serde_json::to_value(Some(outcome)).expect("persisted outcome serializes")
+        );
+
+        drop(state);
+        let _ = fs::remove_file(path);
     }
 
     #[test]
