@@ -24772,6 +24772,56 @@ impl RuntimeWorld {
         Some(record)
     }
 
+    fn preferred_job_contribution_intent(&self, actor_id: u64) -> Option<JobContributionIntent> {
+        ["prepare", "work", "help", "check", "study"]
+            .into_iter()
+            .find_map(|kind| self.job_contribution_intent(actor_id, kind, None, None, None))
+    }
+
+    fn resident_job_autonomy_record(&self, actor: CwActor, seed: u64) -> Option<JournalRecord> {
+        let intent = self.preferred_job_contribution_intent(actor.id)?;
+        let action_kind = intent.strategy.action_kind.clone();
+        let clock_id = intent.strategy.clock_id.clone();
+        let action = match action_kind.as_str() {
+            "check" => CwAction {
+                kind: CW_ACTION_RULES_SEARCH,
+                actor_id: actor.id,
+                ability: LISTEN_ABILITY,
+                dc: LISTEN_DC,
+                ..CwAction::default()
+            },
+            "study" => CwAction {
+                kind: CW_ACTION_RULES_STUDY,
+                actor_id: actor.id,
+                ability: 3,
+                dc: LISTEN_DC,
+                ..CwAction::default()
+            },
+            "prepare" | "work" | "help" => CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: actor.id,
+                ..CwAction::default()
+            },
+            _ => return None,
+        };
+        let mut record =
+            JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
+        record.bind_offer_kind(&action_kind);
+        record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveJobContribution { intent });
+        if let Some(pathway_id) = self.generated_pathway_id_for_progress_clock(&clock_id) {
+            record
+                .projection_mutations
+                .push(ProjectionMutation::UpgradePathwayIfReady {
+                    pathway_id,
+                    progress_clock_id: clock_id,
+                });
+        }
+        self.append_resident_autonomy_intent_projection(actor, &mut record);
+        Some(record)
+    }
+
     fn resident_economy_autonomy_record(&self, actor: CwActor, seed: u64) -> Option<JournalRecord> {
         if !Self::actor_is_active_avatar(actor) || !self.actor_uses_inference(actor.id) {
             return None;
@@ -24780,6 +24830,9 @@ impl RuntimeWorld {
             if let Some(record) = self.resident_feature_use_autonomy_record(actor, seed) {
                 return Some(record);
             }
+        }
+        if let Some(record) = self.resident_job_autonomy_record(actor, seed) {
+            return Some(record);
         }
         self.resident_economy_autonomy_action(actor).map(|action| {
             let mut record =
@@ -24885,13 +24938,12 @@ impl RuntimeWorld {
             CW_ACTION_NONE => record
                 .projection_mutations
                 .iter()
-                .find_map(|mutation| {
-                    if let ProjectionMutation::UseFeature {
+                .find_map(|mutation| match mutation {
+                    ProjectionMutation::UseFeature {
                         item_id,
                         location_id,
                         ..
-                    } = mutation
-                    {
+                    } => {
                         proposed_action.kind = "use".to_string();
                         proposed_action.item_id = Some(*item_id);
                         proposed_action.destination_location_id = Some(*location_id);
@@ -24904,9 +24956,18 @@ impl RuntimeWorld {
                         Some(format!(
                             "{actor_name} intends to use {item} on a room feature in {location}."
                         ))
-                    } else {
-                        None
                     }
+                    ProjectionMutation::ResolveJobContribution { intent } => {
+                        proposed_action.kind = intent.strategy.action_kind.clone();
+                        proposed_action.target_actor_id = (intent.target.kind == "actor")
+                            .then(|| intent.target.id.parse::<u64>().ok())
+                            .flatten();
+                        Some(format!(
+                            "{actor_name} intends to {}.",
+                            intent.strategy.strategy_label.trim_end_matches('.')
+                        ))
+                    }
+                    _ => None,
                 })
                 .unwrap_or_else(|| format!("{actor_name} intends to wait and observe.")),
             _ => format!("{actor_name} intends to wait and observe."),
@@ -24988,6 +25049,19 @@ impl RuntimeWorld {
                 .map(|item| self.resident_item_offer_score(actor, item))
                 .unwrap_or(RESIDENT_DEFAULT_ITEM_SCORE)
         };
+        if let Some(intent) = record
+            .projection_mutations
+            .iter()
+            .find_map(|mutation| match mutation {
+                ProjectionMutation::ResolveJobContribution { intent } => Some(intent),
+                _ => None,
+            })
+        {
+            return (
+                35,
+                i16::from(self.contribution_progress_amount(actor.id, intent)),
+            );
+        }
         match record.action.kind {
             CW_ACTION_USE_ITEM => (0, item_score(record.action.item_id)),
             CW_ACTION_TRADE_ITEM => {
@@ -69907,6 +69981,84 @@ mod tests {
             .desires
             .iter()
             .any(|note| note.text.contains("check Rain-Soft Garden")));
+    }
+
+    #[test]
+    fn resident_job_autonomy_uses_the_controller_neutral_contribution_intent_and_replays() {
+        std::thread::Builder::new()
+            .name("resident-job-autonomy-replay".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(|| {
+                let mut runtime = RuntimeWorld::seeded();
+                let resident_id = RATI_ACTOR_ID;
+                runtime
+                    .world
+                    .actors
+                    .iter_mut()
+                    .take(runtime.world.actor_count)
+                    .find(|actor| actor.id == resident_id)
+                    .expect("Rati exists")
+                    .location_id = MOONLIT_TRAIL_LOCATION_ID;
+
+                let inference_intent = runtime
+                    .preferred_job_contribution_intent(resident_id)
+                    .expect("the resident sees an authored local contribution");
+                runtime
+                    .actor_autonomy
+                    .entry(resident_id)
+                    .or_default()
+                    .control_mode = ActorControlMode::DirectInput;
+                let direct_intent = runtime
+                    .preferred_job_contribution_intent(resident_id)
+                    .expect("the same avatar keeps the contribution under direct input");
+                assert_eq!(direct_intent.job_id, inference_intent.job_id);
+                assert_eq!(direct_intent.strategy.id, inference_intent.strategy.id);
+                assert_eq!(direct_intent.target, inference_intent.target);
+
+                runtime
+                    .actor_autonomy
+                    .entry(resident_id)
+                    .or_default()
+                    .control_mode = ActorControlMode::LocalAi;
+                let resident = runtime
+                    .actor_by_id(resident_id)
+                    .expect("Rati remains active");
+                let record = runtime
+                    .resident_job_autonomy_record(resident, 97_001)
+                    .expect("inference control may select the legal contribution");
+                assert_eq!(record.origin, JournalOrigin::ActorConsequence);
+                let selected = record
+                    .projection_mutations
+                    .iter()
+                    .find_map(|mutation| match mutation {
+                        ProjectionMutation::ResolveJobContribution { intent } => Some(intent),
+                        _ => None,
+                    })
+                    .expect("the resident record carries the authoritative intent");
+                assert_eq!(selected.job_id, direct_intent.job_id);
+                assert_eq!(selected.strategy.id, direct_intent.strategy.id);
+                let progress_clock_id = selected.strategy.clock_id.clone();
+                let before_filled = runtime.clocks[&progress_clock_id].filled;
+                let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+
+                let (status, events) = runtime.apply_journal_record(&record);
+                assert_eq!(status, CW_OK);
+                assert!(events.iter().any(|event| {
+                    event.type_name == "job.contribution.resolved"
+                        && event.actor_id == Some(resident_id)
+                }));
+                assert!(runtime.clocks[&progress_clock_id].filled > before_filled);
+                let expected = quest_projection_signature(&runtime);
+
+                let mut replayed = replay_base
+                    .into_runtime()
+                    .expect("pre-contribution snapshot restores");
+                assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
+                assert_eq!(quest_projection_signature(&replayed), expected);
+            })
+            .expect("spawn resident job autonomy test")
+            .join()
+            .expect("resident job autonomy test completes");
     }
 
     #[test]
