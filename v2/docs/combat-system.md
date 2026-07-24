@@ -50,9 +50,13 @@ remain explicit exclusions, not browser approximations.
 ## Product integration
 
 Encounters attach to active worldpack jobs. Rust derives the encounter id from
-the job, limits targets to active declared participants, commits deterministic
-NPC turns, and advances the job only after the player side wins. Sanctuary
-rooms reject encounter creation regardless of pack reskins.
+the job, limits targets to active declared participants, and advances the job
+only after the player side wins. Inference-controlled participants can take
+deterministic turns. A directly controlled avatar is never selected as an
+encounter target without an explicit durable consent policy; until that policy
+exists, the orchestrator fails closed. A block in either direction also removes
+the target. Sanctuary rooms reject encounter creation regardless of pack
+reskins.
 
 The browser and terminal submit current action-offer envelopes through
 `POST /actions/submit`; compatibility endpoints remain `/actions/attack`,

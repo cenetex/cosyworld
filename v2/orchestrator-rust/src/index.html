@@ -5969,7 +5969,8 @@
       if (event?.type !== "message.created") return false;
       const numericActorId = Number(event.actor_id || 0);
       const actor = actorForId(numericActorId);
-      return event.source_world_tick != null || actor?.control_mode !== "direct_input";
+      return event.source_world_tick != null
+        || Boolean(actor && actor.control_mode !== "direct_input");
     }
 
     function pacedChatTranscriptEvents(events) {

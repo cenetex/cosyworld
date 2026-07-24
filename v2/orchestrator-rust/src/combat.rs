@@ -135,6 +135,8 @@ impl RuntimeWorld {
                         self.actor_by_id(*target_id).is_some_and(|target| {
                             Self::actor_is_active_avatar(target)
                                 && target.location_id == actor.location_id
+                                && !self.actor_control_mode(target.id).is_direct_input()
+                                && !self.actors_blocked(actor.id, target.id)
                         })
                     })
                     .map(|target_id| (job.id.clone(), target_id))
