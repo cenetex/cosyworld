@@ -525,6 +525,7 @@ async function main() {
   await assertModerationCanSuspendActor(moderationProbeAvatar);
   let chatPendingChecked = false;
   let reservedStoryButtonTake = null;
+  let useFocusedActionOnNextClick = false;
 
   async function primaryText() {
     return page.locator("#primary").evaluate((node) => {
@@ -544,7 +545,7 @@ async function main() {
   }
 
   async function visibleCommandButtons() {
-    return page.locator("footer.prompt button:visible:not(#shuffle)").evaluateAll((nodes) => (
+    return page.locator("footer.prompt button:visible:not(#shuffle):not(#command-toggle)").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean)
     ));
@@ -2662,6 +2663,19 @@ async function main() {
             { kind: "move" },
           ],
         },
+        action_offers: [
+          { offer_id: "give", kind: "give_item", rank: 10, provider: { kind: "rules", id: "give", priority: 10 } },
+          { offer_id: "trade", kind: "trade_item", rank: 20, provider: { kind: "rules", id: "trade", priority: 20 } },
+          { offer_id: "check", kind: "check", verb: "Notice", rank: 30, provider: { kind: "rules", id: "check", priority: 30 } },
+          { offer_id: "move", kind: "move", verb: "Travel", rank: 40, provider: { kind: "rules", id: "move", priority: 40 } },
+        ],
+        action_hand: {
+          entries: [
+            { offer_id: "give", kind: "give_item", provider: { kind: "rules", id: "give", priority: 10 } },
+            { offer_id: "trade", kind: "trade_item", provider: { kind: "rules", id: "trade", priority: 20 } },
+            { offer_id: "check", kind: "check", provider: { kind: "rules", id: "check", priority: 30 } },
+          ],
+        },
         economy: {
           orbs: 1,
           can_chat_with_orbs: true,
@@ -2722,7 +2736,7 @@ async function main() {
       renderCommands();
       try {
         const tradeAction = actions.find((action) => action.label === "trade") || null;
-        const visibleButtons = () => [...document.querySelectorAll("footer.prompt button:not(#shuffle)")]
+        const visibleButtons = () => [...document.querySelectorAll("footer.prompt button:not(#shuffle):not(#command-toggle)")]
             .filter((button) => getComputedStyle(button).display !== "none")
             .map((button) => {
               const label = button.querySelector(".cmd-label")?.cloneNode(true);
@@ -2731,24 +2745,22 @@ async function main() {
               return `${label?.textContent || ""} ${detail}`.trim().replace(/\s+/g, " ");
             })
             .filter(Boolean);
-        const moreLabel = document.querySelector("#shuffle")?.innerText?.trim().replace(/\s+/g, " ") || "";
-        const beforeShuffle = visibleButtons();
-        advanceHandPage();
-        renderCommands();
-        const afterShuffle = visibleButtons();
-        const seenExchangeLabels = new Set();
-        const snapshots = [];
-        for (let turn = 0; turn < 8; turn += 1) {
-          const labels = visibleButtons();
-          snapshots.push(labels);
-          for (const label of labels) {
-            if (label.startsWith("give ")) seenExchangeLabels.add("give");
-            if (label.startsWith("trade ")) seenExchangeLabels.add("trade");
-          }
-          if (seenExchangeLabels.has("give") && seenExchangeLabels.has("trade")) break;
-          advanceHandPage();
-          renderCommands();
-        }
+        const allLabel = document.querySelector("#shuffle")?.innerText?.trim().replace(/\s+/g, " ") || "";
+        const beforeAll = visibleButtons();
+        openAllActions();
+        const allActions = [...document.querySelectorAll("#all-actions-list [data-all-action-index]")]
+          .map((button) => button.innerText.trim().replace(/\s+/g, " "));
+        closeAllActions();
+        const afterAll = visibleButtons();
+        const semanticBindings = actions.map((action) => ({
+          label: action.label,
+          kinds: action.offerKinds || [],
+        }));
+        const giveBinding = actions.find((action) => action.offerKinds?.includes("give_item"));
+        const giveKindsBeforeRename = [...(giveBinding?.offerKinds || [])];
+        if (giveBinding) giveBinding.label = "offer";
+        const giveKindsAfterRename = [...(giveBinding?.offerKinds || [])];
+        if (giveBinding) giveBinding.label = "give";
         const multiTradeState = {
           ...fakeState,
           actors: [
@@ -2790,83 +2802,25 @@ async function main() {
           selectedPayload: multiTrade.selectedPayload(),
         } : null;
 
-        const capacity = handCapacity();
-        const deckSize = capacity * 2 + 2;
-        state = {
-          location: { id: 1, name: "The Cosy Cottage" },
-          primary_action: { kind: "travel" },
-          economy: { listen_attempted_here: true },
-          ledger: {
-            learned_truth_count: 1,
-            banked_count: 1,
-            spent_count: 1,
-            advancement_points: 0,
-            unbanked_marks: [],
-          },
-        };
-        actions = Array.from({ length: deckSize }, (_, index) => ({
-          label: `card ${index + 1}`,
-          detail: `choice ${index + 1}`,
-          focusKey: `deck:${index + 1}`,
-          command: `card ${index + 1}`,
-        }));
-        handKeys = [];
-        discardedHandKeys = [];
-        focusedKey = "";
-        focusIndex = 0;
-        handCompositionSignature = authoritativeHandSignature(state);
-        reconcileHand();
-        const deckPages = [];
-        const seenDeckKeys = new Set();
-        const repeatedBeforeExhaustion = [];
-        while (seenDeckKeys.size < deckSize) {
-          const pageKeys = handKeys.slice();
-          deckPages.push(pageKeys);
-          for (const key of pageKeys) {
-            if (seenDeckKeys.has(key)) repeatedBeforeExhaustion.push(key);
-            seenDeckKeys.add(key);
-          }
-          if (seenDeckKeys.size < deckSize) advanceHandPage();
-        }
-        const finalPageSize = handKeys.length;
-        const moreVisibleOnFinalPage = canShowShuffleAction();
-        advanceHandPage();
-        const restartedPageSize = handKeys.length;
-        const restartedWithCleanHistory = discardedHandKeys.length === 0;
-        actions = actions.slice(0, capacity);
-        handKeys = [];
-        discardedHandKeys = [];
-        reconcileHand();
-        const moreHiddenForOnePageDeck = !canShowShuffleAction();
-
         state = fakeState;
         actions = buildActions(fakeState);
         return {
           handKeys: handKeys.slice(),
           discardedHandKeys: discardedHandKeys.slice(),
           actionLabels: actions.map((action) => `${action.label} ${action.detail || ""}`.trim()),
-          beforeShuffle,
-          afterShuffle,
-          snapshots,
-          moreLabel,
-          seenExchangeLabels: [...seenExchangeLabels],
+          beforeAll,
+          afterAll,
+          allActions,
+          allLabel,
+          semanticBindings,
+          giveKindsBeforeRename,
+          giveKindsAfterRename,
           tradeCopy: tradeAction ? {
             detail: tradeAction.detail,
             title: actionTitle(tradeAction),
             summary: actionSummary(tradeAction),
           } : null,
           multiTrade: multiTradeSnapshot,
-          deckCycle: {
-            capacity,
-            deckSize,
-            pages: deckPages,
-            repeatedBeforeExhaustion,
-            finalPageSize,
-            moreVisibleOnFinalPage,
-            restartedPageSize,
-            restartedWithCleanHistory,
-            moreHiddenForOnePageDeck,
-          },
         };
       } finally {
         state = previousState;
@@ -2895,19 +2849,16 @@ async function main() {
     assert(result.multiTrade?.selectedPayload?.target_actor_id === 1002 && result.multiTrade?.selectedPayload?.item_id === 2005 && result.multiTrade?.selectedPayload?.target_item_id === 2007, `Trade should submit the resident and both keepsakes selected inside the card: ${JSON.stringify(result)}`);
     assert(result.multiTrade?.rows?.some((row) => row[0] === "Then" && row[1] === "both keepsakes change hands"), `Trade should explain its atomic exchange in plain language: ${JSON.stringify(result)}`);
     assert(!/eager|willingness|accepted/i.test(JSON.stringify(result.tradeCopy)), `trade copy should hide resident-economy state tags: ${JSON.stringify(result)}`);
-    assert(result.moreLabel.endsWith("more"), `redraw control should visibly say more instead of looking like a blank card: ${JSON.stringify(result)}`);
+    assert(result.allLabel.endsWith("all"), `stable action control should visibly say All: ${JSON.stringify(result)}`);
     assert(
-      result.beforeShuffle.every((label) => !result.afterShuffle.includes(label)),
-      `More should page past every visible card without client-side guide pinning: ${JSON.stringify(result)}`,
+      JSON.stringify(result.beforeAll) === JSON.stringify(result.afterAll),
+      `opening All actions must not redeal or reorder suggestions: ${JSON.stringify(result)}`,
     );
-    assert(result.seenExchangeLabels.includes("give"), `give should be drawable through the deck: ${JSON.stringify(result)}`);
-    assert(result.seenExchangeLabels.includes("trade"), `trade should be drawable through the deck: ${JSON.stringify(result)}`);
-    assert(result.deckCycle?.repeatedBeforeExhaustion?.length === 0, `cards should not repeat before the whole deck has been seen: ${JSON.stringify(result.deckCycle)}`);
-    assert(result.deckCycle?.pages?.flat().length === result.deckCycle?.deckSize, `each card should appear exactly once per deck cycle: ${JSON.stringify(result.deckCycle)}`);
-    assert(result.deckCycle?.finalPageSize === 2, `the last page should stay clean instead of padding itself with repeated cards: ${JSON.stringify(result.deckCycle)}`);
-    assert(result.deckCycle?.moreVisibleOnFinalPage === true, `the last partial page should offer a fresh pass through the deck: ${JSON.stringify(result.deckCycle)}`);
-    assert(result.deckCycle?.restartedPageSize === result.deckCycle?.capacity && result.deckCycle?.restartedWithCleanHistory === true, `the next pass should begin as a fresh full hand: ${JSON.stringify(result.deckCycle)}`);
-    assert(result.deckCycle?.moreHiddenForOnePageDeck === true, `More should disappear when every available card already fits in hand: ${JSON.stringify(result.deckCycle)}`);
+    assert(result.beforeAll.length === 3, `the authoritative suggestion hand should always expose three actions: ${JSON.stringify(result)}`);
+    assert(result.allActions.some((label) => label.startsWith("give ")) && result.allActions.some((label) => label.startsWith("trade ")), `All actions should preserve the complete legal surface: ${JSON.stringify(result)}`);
+    assert(result.semanticBindings.find((entry) => entry.label === "give")?.kinds?.includes("give_item"), `Give must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
+    assert(result.semanticBindings.find((entry) => entry.label === "trade")?.kinds?.includes("trade_item"), `Trade must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
+    assert(JSON.stringify(result.giveKindsBeforeRename) === JSON.stringify(result.giveKindsAfterRename), `renaming display copy must not change semantic execution: ${JSON.stringify(result)}`);
   }
 
   async function assertDiscoverySettlementDoesNotSurfaceGrowAction() {
@@ -3920,9 +3871,9 @@ async function main() {
         actorId = previousActorId;
       }
     });
-    assert(result.rollTitle === "Lantern Stitch listens; the room answers", `Listen chance feedback should name who heard the clue: ${JSON.stringify(result)}`);
-    assert(result.rollDetail === "A small iron pawprint glints at the edge of the practice circle.", `Listen chance feedback should offer one vivid lead instead of an inventory: ${JSON.stringify(result)}`);
-    assert(result.rollResult === "a clue appears", `Listen chance feedback should end with a plain outcome: ${JSON.stringify(result)}`);
+    assert(result.rollTitle === "Lantern Stitch checks carefully; the room answers", `Check feedback should name who found the clue: ${JSON.stringify(result)}`);
+    assert(result.rollDetail === "A small iron pawprint glints at the edge of the practice circle.", `Check feedback should offer one vivid lead instead of an inventory: ${JSON.stringify(result)}`);
+    assert(result.rollResult === "a clue appears", `Check feedback should end with a plain outcome: ${JSON.stringify(result)}`);
     assert(
       result.focusedListenHints.every((hint) => !/[,;]|\band\b/i.test(hint)),
       `each successful Listen should reveal one simple lead rather than a list: ${JSON.stringify(result)}`,
@@ -5192,43 +5143,26 @@ async function main() {
         && refreshInFlight === null
         && document.querySelector("#action-modal")?.hidden === true
     ), null, { timeout: 35_000 });
-    for (let i = 0; i < attempts; i += 1) {
-      const text = await primaryText();
-      if (predicate(text.toLowerCase())) return text;
-      const candidates = await page.evaluate(() => actions.map((action, index) => ({
-        index,
-        text: [
-          compactActionLabel(action),
-          friendlyActionText(action?.detail),
-          action?.command,
-        ].filter(Boolean).join(" "),
-      })));
-      const match = candidates.find((candidate) => predicate(candidate.text.toLowerCase()));
-      if (match) {
-        await page.evaluate((index) => focusAction(index), match.index);
-      } else {
-        await page.evaluate(() => focusAction(focusIndex + 1));
-      }
-      await page.waitForTimeout(75);
-    }
-    throw new Error(`${label} was not reachable; primary was ${await primaryText()}`);
+    const candidates = await page.evaluate(() => actions.map((action, index) => ({
+      index,
+      text: [
+        compactActionLabel(action),
+        friendlyActionText(action?.detail),
+        action?.command,
+      ].filter(Boolean).join(" "),
+    })));
+    const match = candidates.find((candidate) => predicate(candidate.text.toLowerCase()));
+    if (!match) throw new Error(`${label} was not reachable: ${JSON.stringify(candidates)}`);
+    await page.evaluate((index) => {
+      focusIndex = index;
+      focusedKey = actionHandKey(actions[index]);
+    }, match.index);
+    useFocusedActionOnNextClick = true;
+    return match.text;
   }
 
   async function focusPrimaryMatchingAcrossShuffles(label, predicate, shuffles = 8) {
-    let lastError = null;
-    for (let deal = 0; deal <= shuffles; deal += 1) {
-      try {
-        return await focusPrimaryMatching(label, predicate, 64);
-      } catch (error) {
-        lastError = error;
-      }
-      if (deal >= shuffles) break;
-      const shuffleVisible = await page.locator("#shuffle:visible").count();
-      assert(shuffleVisible > 0, `${label} was not in the current hand and shuffle was unavailable; primary was ${await primaryText()}`);
-      await page.locator("#shuffle").click();
-      await page.waitForTimeout(250);
-    }
-    throw lastError || new Error(`${label} was not reachable after shuffling`);
+    return focusPrimaryMatching(label, predicate, Math.max(64, shuffles));
   }
 
   async function drawPrimaryMatching(label, needles) {
@@ -5268,43 +5202,25 @@ async function main() {
         return terms.every((term) => choiceText.includes(term));
       });
       if (selectedChoice) actions[index].selectedChoice = selectedChoice.value;
-      focusAction(index, actionHandKey(actions[index]));
       return {
         ok: true,
+        index,
         choiceMatched: Boolean(selectedChoice),
-        primary: document.querySelector("#primary")?.innerText?.replace(/\s+/g, " ").trim() || "",
+        text: actionText(actions[index]),
       };
     }, normalizedNeedles);
     assert(result.ok, `${label} card was not drawable from actions: ${JSON.stringify(result)}`);
-    await page.waitForTimeout(75);
+    await page.evaluate((index) => {
+      focusIndex = index;
+      focusedKey = actionHandKey(actions[index]);
+    }, result.index);
+    useFocusedActionOnNextClick = true;
     await assertNoVisibleOverflow();
-    let text = await primaryText();
-    for (let attempt = 1; attempt <= 2 && !result.choiceMatched && !normalizedNeedles.every((term) => text.toLowerCase().includes(term)); attempt += 1) {
-      await page.evaluate((terms) => {
-        const actionText = (action) => [
-          action?.label,
-          action?.detail,
-          action?.command,
-          action?.cost,
-          action?.risk,
-          action?.effect,
-          action?.card?.display_name,
-          action?.card?.title,
-          action?.card?.blurb,
-          ...(action?.choices || []).flatMap((choice) => [choice.label, choice.detail]),
-        ].filter(Boolean).join(" ").toLowerCase();
-        const index = actions.findIndex((action) => terms.every((term) => actionText(action).includes(term)));
-        if (index < 0) return;
-        focusAction(index, actionHandKey(actions[index]));
-      }, normalizedNeedles);
-      await page.waitForTimeout(75);
-      text = await primaryText();
-    }
     assert(
-      result.choiceMatched || normalizedNeedles.every((term) => text.toLowerCase().includes(term)),
-      `${label} card draw selected ${text}`,
+      result.choiceMatched || normalizedNeedles.every((term) => result.text.includes(term)),
+      `${label} card draw selected ${result.text}`,
     );
-    return text;
+    return result.text;
   }
 
   async function drawRoomSearch(label, extraNeedles = []) {
@@ -5370,15 +5286,26 @@ async function main() {
         `${candidate.label || ""} ${candidate.detail || ""}`.toLowerCase().includes(destination)
       ));
       if (choice) route.selectedChoice = choice.value;
-      focusAction(index, choice ? `exit:${choice.value}` : actionHandKey(route));
-      return { ok: true, choice: choice?.label || "" };
+      focusIndex = index;
+      focusedKey = choice ? `exit:${choice.value}` : actionHandKey(route);
+      return {
+        ok: true,
+        index,
+        choice: choice?.label || "",
+        intention: String(route?.intention || "").toLowerCase(),
+        text: [route?.label, route?.detail, route?.command, choice?.label, choice?.detail]
+          .filter(Boolean)
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim(),
+      };
     }, needle);
     let last = null;
     for (let attempt = 1; attempt <= 4; attempt += 1) {
       const result = await focus();
-      await page.waitForTimeout(75);
-      const primary = await primaryText();
-      const routeVisible = primary.toLowerCase().includes("travel")
+      const primary = String(result?.text || "");
+      const routeVisible = ["travel", "scout", "flee"].includes(result?.intention)
+        || primary.toLowerCase().includes("travel")
         || primary.toLowerCase().includes("go")
         || primary.toLowerCase().includes("head to")
         || primary.toLowerCase().includes("flee")
@@ -5386,6 +5313,7 @@ async function main() {
         || primary.toLowerCase().startsWith("search")
         || primary.toLowerCase().includes("search pathway");
       if (result.ok && routeVisible) {
+        useFocusedActionOnNextClick = true;
         await assertNoVisibleOverflow();
         return primary;
       }
@@ -5417,7 +5345,7 @@ async function main() {
           || String(action?.label || "").toLowerCase() === "flee";
         if (!routeLike) return { clicked: false, focusedKey: String(focusedKey || "") };
         const key = String(focusedKey || "");
-        document.querySelector("#primary")?.click();
+        openActionModal(action);
         return {
           clicked: true,
           focusedKey: key,
@@ -5521,7 +5449,12 @@ async function main() {
   }
 
   async function clickPrimary(label) {
-    await page.locator("#primary").click({ force: true });
+    if (useFocusedActionOnNextClick) {
+      await page.evaluate(() => openActionModal(focusedAction()));
+      useFocusedActionOnNextClick = false;
+    } else {
+      await page.locator("#primary").click({ force: true });
+    }
     await confirmActionModalIfOpen();
     await page.waitForTimeout(200);
     await assertNoVisibleOverflow();
@@ -5548,8 +5481,9 @@ async function main() {
         ].filter(Boolean).join(" ").toLowerCase();
         const index = actions.findIndex((action) => terms.every((term) => actionText(action).includes(term)));
         if (index < 0) return { ok: false, actions: actions.map(actionText) };
-        focusAction(index);
-        document.querySelector("#primary")?.click();
+        focusIndex = index;
+        focusedKey = actionHandKey(actions[index]);
+        openActionModal(actions[index]);
         return { ok: true, action: actionText(actions[index]) };
       }, normalizedNeedles);
       assert(selected.ok, `${label} card was not atomically selectable: ${JSON.stringify(selected)}`);
@@ -5705,8 +5639,9 @@ async function main() {
   }
 
   async function travelTo(name) {
-    steps.push({ label: `focus ${name}`, primary: await focusRoute(name) });
-    const route = (await primaryText()).toLowerCase();
+    const focusedRoute = await focusRoute(name);
+    steps.push({ label: `focus ${name}`, primary: focusedRoute });
+    const route = focusedRoute.toLowerCase();
     const routeIntention = await page.evaluate(() => String(actions[focusIndex]?.intention || "").toLowerCase());
     assert(
       ["travel", "flee", "scout"].includes(routeIntention) || /\b(go|travel|flee|scout)\b/.test(route),
@@ -6167,15 +6102,16 @@ async function main() {
 
   async function attackTarget(name) {
     const nameLower = name.toLowerCase();
+    const attackCard = await focusPrimaryMatching(
+      `${name} attack`,
+      (text) => text.includes("attack") && text.includes(nameLower),
+      64,
+    );
     steps.push({
       label: `focus ${name} combat`,
-      primary: await focusPrimaryMatching(
-        `${name} attack`,
-        (text) => text.includes("attack") && text.includes(nameLower),
-        64,
-      ),
+      primary: attackCard,
     });
-    assert((await primaryText()).toLowerCase().includes("attack"), `${name} focus should attack in a combat location`);
+    assert(attackCard.toLowerCase().includes("attack"), `${name} focus should attack in a combat location`);
     await clickPrimary(`attack ${name}`);
     await waitForTimelineAll(["roll", "ac"]);
     await assertActionBarCapped("combat attack action bar");
@@ -6789,6 +6725,22 @@ async function main() {
   }
 
   async function assertMudCommandPaletteAvailable() {
+    await page.locator("#command-toggle").click();
+    await page.waitForSelector("#command-palette:not([hidden]) #command-input");
+    assert(await page.locator("#command-input").inputValue() === "say ", "touch speech control should seed a say command");
+    await page.keyboard.press("Escape");
+    const suggestionsBeforeAll = await visibleCommandButtons();
+    await page.locator("#shuffle").click();
+    await page.waitForSelector("#all-actions-modal:not([hidden])");
+    const allActionCount = await page.locator("#all-actions-list [data-all-action-index]").count();
+    assert(allActionCount >= suggestionsBeforeAll.length, "All actions should include every visible suggestion");
+    await page.locator("#all-actions-close").click();
+    const suggestionsAfterAll = await visibleCommandButtons();
+    assert(
+      JSON.stringify(suggestionsBeforeAll) === JSON.stringify(suggestionsAfterAll),
+      `opening All actions must preserve suggestion order: ${JSON.stringify({ suggestionsBeforeAll, suggestionsAfterAll })}`,
+    );
+
     const submitLook = async () => {
       await openCommandPaletteShortcut();
       await page.locator("#command-input").fill("look");
@@ -7473,7 +7425,7 @@ async function main() {
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
-        && [...document.querySelectorAll("footer.prompt button:not(#shuffle)")]
+        && [...document.querySelectorAll("footer.prompt button:not(#shuffle):not(#command-toggle)")]
           .some((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
     ));
     await assertNoVisibleOverflow();
@@ -7502,6 +7454,7 @@ async function main() {
           const thumb = button.querySelector(".thumb");
           const labelNode = button.querySelector(".cmd-label");
           return {
+            id: button.id,
             text: button.innerText.trim().replace(/\s+/g, " "),
             ariaLabel: button.getAttribute("aria-label") || "",
             hasMiniCard: Boolean(thumb?.classList.contains("action-mini-card")),
@@ -7579,12 +7532,12 @@ async function main() {
     assert(!shell.journalVisible && !shell.memoryVisible, `${label}: normal shell should keep Journal content out of chat: ${JSON.stringify(shell)}`);
     assert(shell.roomCollapsed, `${label}: room header should default to collapsed: ${JSON.stringify(shell)}`);
     assert(!shell.avatarSubtitleVisible && !shell.roomCopyVisible, `${label}: collapsed room should hide subtitle and prose: ${JSON.stringify(shell)}`);
-    const actionButtons = shell.buttons.filter((button) => !/^more\b/i.test(button.ariaLabel || ""));
+    const actionButtons = shell.buttons.filter((button) => ["primary", "secondary", "tertiary"].includes(button.id));
     assert(actionButtons.length >= 1 && actionButtons.length <= 3, `${label}: shell should expose a capped action bar: ${JSON.stringify(shell.buttons)}`);
     assert(actionButtons.every((button) => button.hasMiniCard && button.hasImage), `${label}: action hand should use mini card images: ${JSON.stringify(shell.buttons)}`);
     if (shell.viewport.startsWith("430x")) {
-      assert(actionButtons.length <= 2, `${label}: narrow screens should show two readable cards plus More: ${JSON.stringify(shell.buttons)}`);
-      assert(actionButtons.every((button) => button.width >= 120 && !button.labelClipped), `${label}: mobile card verbs should remain readable: ${JSON.stringify(shell.buttons)}`);
+      assert(actionButtons.length === 3, `${label}: narrow screens should preserve all three authoritative suggestions: ${JSON.stringify(shell.buttons)}`);
+      assert(actionButtons.every((button) => button.width >= 60 && !button.labelClipped), `${label}: mobile card verbs should remain readable: ${JSON.stringify(shell.buttons)}`);
       assert(shell.roomFallbackStacked, `${label}: mobile room story should use the full transcript width: ${JSON.stringify(shell)}`);
       assert(!shell.roomFallbackClipped, `${label}: mobile room story should not end mid-sentence: ${JSON.stringify(shell)}`);
     } else {
@@ -7774,9 +7727,8 @@ async function main() {
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
     ));
     assert(
-      coreOpeningRows.includes("Choose the trouble that always draws you in")
-        && coreOpeningRows.includes("Then your new avatar arrives in The Cosy Cottage"),
-      `core arrival should explain only aspiration and arrival: ${JSON.stringify(coreOpeningRows)}`,
+      coreOpeningRows.length === 0,
+      `core arrival should keep its expanded description to one sentence: ${JSON.stringify(coreOpeningRows)}`,
     );
     await page.locator("#action-modal-cancel").click();
     await focusPrimaryMatching(
@@ -7784,24 +7736,22 @@ async function main() {
       (text) => text.startsWith("campaign rules"),
       8,
     );
-    await page.locator("#primary").click();
+    await page.evaluate(() => openActionModal(focusedAction()));
+    useFocusedActionOnNextClick = false;
     await page.waitForSelector("#action-modal:not([hidden])");
     assert(await page.locator("#action-modal-title").innerText() === "What kind of traveler reaches the last light?", "opening modal should ask for the campaign species");
     const campaignSummary = await page.locator("#action-modal-summary").innerText();
     assert(
-      /optional campaign rules/i.test(campaignSummary)
-        && /Calling and emergent practice remain separate/i.test(campaignSummary),
+      /optional rules/i.test(campaignSummary)
+        && /Calling, deeds, and emergent practice/i.test(campaignSummary),
       `campaign modal should label its staged rules as optional and separate: ${campaignSummary}`,
     );
     const openingRows = await page.locator("#action-modal-meta .action-row").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
     ));
     assert(
-      openingRows.includes("Why this action Optional mounted campaign rules")
-        && openingRows.includes("Choose a Species card")
-        && openingRows.includes("Next choose an Origin card")
-        && openingRows.includes("Begin at Wayside Lantern Inn"),
-      `opening modal should explain the campaign-backed staged choice: ${JSON.stringify(openingRows)}`,
+      openingRows.length === 0,
+      `opening modal should stay to one sentence plus its choices: ${JSON.stringify(openingRows)}`,
     );
     const speciesChoices = await page.locator("#action-modal-choices .action-choice").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
@@ -8465,12 +8415,13 @@ async function main() {
       .includes("take")
   )));
   if (collectibleAvailable) {
+    const collectibleCard = await focusPrimaryMatching("collectible card", (text) => text.includes("take"), 64);
     steps.push({
       label: "focus collectible card",
-      primary: await focusPrimaryMatching("collectible card", (text) => text.includes("take"), 64),
+      primary: collectibleCard,
     });
-    assert((await primaryText()).toLowerCase().includes("take"), "a room with a collectible should keep Take drawable before Chat");
-    await assertPrimaryOmitsActionCounter("normal play collectible");
+    assert(collectibleCard.toLowerCase().includes("take"), "a room with a collectible should keep Take available in All actions before Chat");
+    useFocusedActionOnNextClick = false;
   }
   assert(!(await primaryText()).toLowerCase().includes("orb chat"), "chat command should not show an Orb cost suffix");
   const legacyListChrome = await page.locator("#route-map,#presence,#features,.route-node,.chip,.feature-pill").count();
@@ -9102,7 +9053,7 @@ async function main() {
       branchEvents,
       fleeEvents,
       trailExitEvents,
-      buttons: [...document.querySelectorAll("footer.prompt button:not(#shuffle)")]
+      buttons: [...document.querySelectorAll("footer.prompt button:not(#shuffle):not(#command-toggle)")]
         .filter((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
         .map((button) => button.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean),

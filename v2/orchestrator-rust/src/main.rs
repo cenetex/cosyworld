@@ -23476,8 +23476,12 @@ impl RuntimeWorld {
                 "{actor_name} just arrived in {}.",
                 subject.as_deref().unwrap_or("the room")
             ),
+            "ability_check.rolled" if event.content.as_deref() == Some("study") => format!(
+                "{actor_name} studied {} and tested its meaning.",
+                subject.as_deref().unwrap_or("the signs")
+            ),
             "ability_check.rolled" => format!(
-                "{actor_name} listened carefully to {} and caught a clue.",
+                "{actor_name} checked {} carefully and caught a clue.",
                 subject.as_deref().unwrap_or("the room")
             ),
             "feature.searched" => {
@@ -28744,7 +28748,7 @@ fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
     match path {
         "/actions/chat" => kind == "create_bond",
         "/actions/move" => kind == "move",
-        "/actions/explore-path" => kind == "search",
+        "/actions/explore-path" => kind == "explore_path",
         "/actions/flee" => kind == "flee",
         "/actions/check" => kind == "check",
         "/actions/study" => kind == "study",
@@ -34140,9 +34144,20 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
         "first_tale.public_trace" => format!(
             "{actor_name} marked the first uncovered stone so the next visitor can trust the washed path"
         ),
+        "ability_check.rolled" if event.content.as_deref() == Some("study") => {
+            format!(
+                "{} studied the signs and {}",
+                event.actor_name.as_deref().unwrap_or("someone"),
+                if event.success {
+                    "understood their meaning"
+                } else {
+                    "found their meaning still unclear"
+                }
+            )
+        }
         "ability_check.rolled" => {
             format!(
-                "{} listened, and the room {}",
+                "{} checked carefully, and the room {}",
                 event.actor_name.as_deref().unwrap_or("someone"),
                 if event.success {
                     "answered"
@@ -48273,7 +48288,59 @@ mod tests {
 
         assert_eq!(
             command_response_output_for_actor(None, &events, None).as_deref(),
-            Some("You listen closely, and the room answers.")
+            Some("You check carefully, and the room answers.")
+        );
+    }
+
+    #[test]
+    fn semantic_offer_paths_use_the_authoritative_offer_kind() {
+        assert!(action_path_accepts_kind(
+            "/actions/explore-path",
+            "explore_path"
+        ));
+        assert!(!action_path_accepts_kind("/actions/explore-path", "search"));
+    }
+
+    #[test]
+    fn study_and_crafting_return_one_semantic_receipt() {
+        let study_roll = EventView {
+            type_name: "ability_check.rolled".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            ..EventView::default()
+        };
+        let study_receipt = EventView {
+            type_name: "study.resolved".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            content: Some("The authored signs yielded one understood truth.".to_string()),
+            ..EventView::default()
+        };
+        assert_eq!(
+            command_response_output_for_actor(None, &[study_roll, study_receipt], Some(5000))
+                .as_deref(),
+            Some("You study the signs and understand their meaning.")
+        );
+
+        let crafted = EventView {
+            seq: 1,
+            type_name: "item.crafted".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            content: Some("Smoked Sprat: River Sprat changed.".to_string()),
+            ..EventView::default()
+        };
+        let created = EventView {
+            seq: 2,
+            type_name: "item.created".to_string(),
+            success: true,
+            actor_id: Some(5000),
+            item_name: Some("Smoked Sprat".to_string()),
+            ..EventView::default()
+        };
+        assert_eq!(
+            command_response_output_for_actor(None, &[crafted, created], Some(5000)).as_deref(),
+            Some("Smoked Sprat: River Sprat changed.")
         );
     }
 
@@ -49129,7 +49196,7 @@ mod tests {
 
         assert_eq!(
             room_memory_log_text(&listen).as_deref(),
-            Some("Moss Lantern listened, and the room answered")
+            Some("Moss Lantern checked carefully, and the room answered")
         );
         assert_eq!(
             room_memory_log_text(&clash).as_deref(),
@@ -49448,7 +49515,7 @@ mod tests {
             room_memory_view_for_state(&state, &location, &[listen.clone(), item_before_listen]);
         assert!(listened_view
             .summary
-            .contains("Moss Lantern listened, and the room answered"));
+            .contains("Moss Lantern checked carefully, and the room answered"));
 
         let after_item_view =
             room_memory_view_for_state(&state, &location, &[item_after_listen, listen]);
@@ -51398,7 +51465,7 @@ mod tests {
         assert!(INDEX_HTML.contains("makes room for ${actor}"));
         assert!(INDEX_HTML.contains("The way opens, and ${actor} steps into"));
         assert!(!INDEX_HTML.contains("function sceneCardEventLabel"));
-        assert!(INDEX_HTML.contains("listens; the room answers"));
+        assert!(INDEX_HTML.contains("checks carefully; the room answers"));
         assert!(!INDEX_HTML.contains("recentDistinctVoices.length < 2"));
         assert!(INDEX_HTML.contains("quiet-mode"));
         assert!(INDEX_HTML.contains("ledger.banked"));
