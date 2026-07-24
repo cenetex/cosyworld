@@ -1044,6 +1044,203 @@ impl RuntimeWorld {
             .collect()
     }
 
+    pub(super) fn restore_canonical_quest_loot_evidence(
+        &mut self,
+        record: &JournalRecord,
+        event: &EventView,
+    ) -> io::Result<()> {
+        if event.type_name != "quest.loot_allocated" {
+            return Ok(());
+        }
+        let loot_job_ids = record
+            .projection_mutations
+            .iter()
+            .filter_map(|mutation| match mutation {
+                ProjectionMutation::ResolveJobContribution { intent }
+                    if self
+                        .jobs
+                        .get(&intent.job_id)
+                        .is_some_and(|job| job.loot.is_some()) =>
+                {
+                    Some(intent.job_id.clone())
+                }
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+        if loot_job_ids.len() != 1 {
+            return Err(snapshot_error(
+                "canonical quest loot evidence does not identify one completed loot job",
+            ));
+        }
+        let job_id = loot_job_ids
+            .into_iter()
+            .next()
+            .expect("one canonical loot job");
+        let job = self
+            .jobs
+            .get(&job_id)
+            .cloned()
+            .ok_or_else(|| snapshot_error("canonical quest loot job is unavailable"))?;
+        let loot = job
+            .loot
+            .as_ref()
+            .ok_or_else(|| snapshot_error("canonical quest loot job has no loot specification"))?;
+        let mounted = mounted_loot_table(&loot.table_id)
+            .ok_or_else(|| snapshot_error("canonical quest loot table is unavailable"))?;
+        if mounted.table.quantity.min != 1 || mounted.table.quantity.max != 1 {
+            return Err(snapshot_error(
+                "canonical quest loot evidence requires a single-item loot table",
+            ));
+        }
+        let actor_id = event
+            .actor_id
+            .ok_or_else(|| snapshot_error("canonical quest loot evidence has no actor"))?;
+        let completion_event_seq = event.caused_by_event_seq.ok_or_else(|| {
+            snapshot_error("canonical quest loot evidence has no completion event")
+        })?;
+        let destination = self
+            .resolve_loot_destination(actor_id, &job, loot)
+            .ok_or_else(|| snapshot_error("canonical quest loot destination is unavailable"))?;
+        if event.location_id != Some(destination.location_id) {
+            return Err(snapshot_error(
+                "canonical quest loot evidence does not match its destination",
+            ));
+        }
+        let item_id = event
+            .item_id
+            .ok_or_else(|| snapshot_error("canonical quest loot evidence has no item"))?;
+        let item_name = event
+            .item_name
+            .as_deref()
+            .ok_or_else(|| snapshot_error("canonical quest loot evidence has no item name"))?;
+        let templates = mounted
+            .templates
+            .values()
+            .filter(|template| template.name == item_name)
+            .cloned()
+            .collect::<Vec<_>>();
+        let [template] = templates.as_slice() else {
+            return Err(snapshot_error(
+                "canonical quest loot evidence does not identify one mounted item template",
+            ));
+        };
+        let allocation_id = loot_allocation_id(
+            &job.id,
+            completion_event_seq,
+            &mounted.table.id,
+            mounted.table.version,
+        );
+        if loot_item_id(&allocation_id, 0) != item_id {
+            return Err(snapshot_error(
+                "canonical quest loot item does not match its deterministic allocation",
+            ));
+        }
+
+        let replayed_allocation_ids = self
+            .loot_allocations
+            .values()
+            .filter(|allocation| allocation.job_id == job.id)
+            .map(|allocation| allocation.id.clone())
+            .collect::<Vec<_>>();
+        for replayed_allocation_id in replayed_allocation_ids {
+            if let Some(allocation) = self.loot_allocations.remove(&replayed_allocation_id) {
+                for replayed_item_id in allocation.item_ids {
+                    self.remove_quest_loot_item(replayed_item_id);
+                }
+            }
+        }
+
+        let (item, meta, canonical_ref, provenance) = self
+            .prepare_loot_item(
+                &allocation_id,
+                0,
+                template,
+                &destination,
+                completion_event_seq,
+                &mounted,
+            )
+            .ok_or_else(|| snapshot_error("canonical quest loot item could not be restored"))?;
+        self.world.items[self.world.item_count] = item;
+        self.world.item_count += 1;
+        self.items.insert(item.id, meta);
+        self.canonical_identities
+            .item_refs
+            .insert(item.id, canonical_ref.clone());
+        self.canonical_identities
+            .entity_versions
+            .entry(canonical_ref)
+            .or_insert(1);
+        self.item_provenance.insert(item.id, provenance);
+        if let Some(building_id) = destination.building_id.as_deref() {
+            let cache = self
+                .settlement_buildings
+                .get_mut(building_id)
+                .and_then(|building| building.public_cache.as_mut())
+                .ok_or_else(|| snapshot_error("canonical quest loot cache is unavailable"))?;
+            cache.item_ids.push(item.id);
+            cache.item_ids.sort_unstable();
+            cache.item_ids.dedup();
+        }
+        let roll_input = format!(
+            "{}:{}:{}:{}:{}",
+            job.id, completion_event_seq, mounted.table.id, mounted.table.version, destination.id
+        );
+        self.loot_allocations.insert(
+            allocation_id.clone(),
+            LootAllocationState {
+                schema_version: QUEST_LOOT_SCHEMA_VERSION,
+                id: allocation_id,
+                job_id: job.id,
+                quest_template_id: loot.quest_template_id.clone(),
+                table_id: mounted.table.id,
+                table_version: mounted.table.version,
+                replay_version: mounted.replay_version,
+                pack_id: mounted.pack_id,
+                pack_version: mounted.pack_version,
+                rules_profile: active_content().manifest.rules_profile.clone(),
+                completion_event_seq,
+                allocation_event_seq: event.seq,
+                roll_seed: loot_roll_seed(&roll_input),
+                roll_input,
+                selected_template_ids: vec![template.id.clone()],
+                item_ids: vec![item.id],
+                allocation_policy: loot.allocation_policy.clone(),
+                destination_kind: destination.kind,
+                destination_id: destination.id,
+                recipient_actor_id: destination.recipient_actor_id,
+                location_id: destination.location_id,
+            },
+        );
+        Ok(())
+    }
+
+    fn remove_quest_loot_item(&mut self, item_id: u64) {
+        if let Some(index) = self.world.items[..self.world.item_count]
+            .iter()
+            .position(|item| item.id == item_id)
+        {
+            for slot in index..self.world.item_count.saturating_sub(1) {
+                self.world.items[slot] = self.world.items[slot + 1];
+            }
+            self.world.item_count = self.world.item_count.saturating_sub(1);
+            self.world.items[self.world.item_count] = CwItem::default();
+        }
+        self.items.remove(&item_id);
+        self.item_provenance.remove(&item_id);
+        if let Some(canonical_ref) = self.canonical_identities.item_refs.remove(&item_id) {
+            self.canonical_identities
+                .entity_versions
+                .remove(&canonical_ref);
+        }
+        for building in self.settlement_buildings.values_mut() {
+            if let Some(cache) = building.public_cache.as_mut() {
+                cache
+                    .item_ids
+                    .retain(|cached_item_id| *cached_item_id != item_id);
+            }
+        }
+    }
+
     pub(super) fn loot_allocation_views(&self, location_id: u64) -> Vec<LootAllocationView> {
         let mut allocations = self
             .loot_allocations

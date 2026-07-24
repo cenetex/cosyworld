@@ -166,7 +166,7 @@ fn generated_place_strategy(
 }
 
 impl RuntimeWorld {
-    fn generated_place_connection_source(
+    pub(super) fn generated_place_connection_source(
         &self,
         pathway: &GeneratedPathwayState,
         location_id: u64,

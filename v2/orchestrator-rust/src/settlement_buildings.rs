@@ -1930,6 +1930,8 @@ mod tests {
             Some("cosyworld.core:loot/fishery-catch")
         );
         let before_completion = RuntimeSnapshot::from_runtime(&runtime);
+        let migrated_before_completion =
+            serde_json::to_vec(&before_completion).expect("serialize migration replay fixture");
         let production_segments = runtime.clocks[&production_job.progress_clock_id].segments;
         let completion_events = runtime.advance_clock(
             &production_job.progress_clock_id,
@@ -2024,6 +2026,84 @@ mod tests {
                 .map(|cache| cache.item_ids.clone()),
             Some(allocation.item_ids.clone())
         );
+        let migrated_job = production_job.clone();
+        let canonical_loot_event = loot_events[0].clone();
+        let canonical_item_ids = allocation.item_ids.clone();
+        std::thread::Builder::new()
+            .name("canonical-loot-replay".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(move || {
+                let mut migrated_replay =
+                    serde_json::from_slice::<RuntimeSnapshot>(&migrated_before_completion)
+                        .expect("deserialize migration replay fixture")
+                        .into_runtime()
+                        .expect("migration replay fixture restores");
+                migrated_replay.world.next_event_seq =
+                    migrated_replay.world.next_event_seq.saturating_add(113);
+                let migrated_completion_events = migrated_replay.advance_clock(
+                    &migrated_job.progress_clock_id,
+                    production_segments,
+                    RATI_ACTOR_ID,
+                    "test_migrated_fishery_reward_quest",
+                );
+                assert_eq!(
+                    migrated_replay
+                        .reconcile_quest_loot(&migrated_completion_events)
+                        .len(),
+                    1
+                );
+                let rerolled_item_id = migrated_replay
+                    .loot_allocations
+                    .values()
+                    .next()
+                    .and_then(|allocation| allocation.item_ids.first())
+                    .copied()
+                    .expect("migration replay initially rerolls one item");
+                assert_ne!(rerolled_item_id, item_id);
+                let strategy = migrated_job
+                    .contribution_strategies
+                    .first()
+                    .cloned()
+                    .expect("production quest contribution strategy");
+                let mut canonical_record = JournalRecord::new(
+                    CwAction {
+                        kind: CW_ACTION_NONE,
+                        actor_id: RATI_ACTOR_ID,
+                        location_id,
+                        ..CwAction::default()
+                    },
+                    91_337,
+                );
+                canonical_record.projection_mutations.push(
+                    ProjectionMutation::ResolveJobContribution {
+                        intent: JobContributionIntent {
+                            job_id: migrated_job.id.clone(),
+                            strategy,
+                            target: ResolvedContributionTarget {
+                                kind: "room".to_string(),
+                                id: location_id.to_string(),
+                                label: "the shared building".to_string(),
+                            },
+                        },
+                    },
+                );
+                migrated_replay
+                    .restore_canonical_quest_loot_evidence(&canonical_record, &canonical_loot_event)
+                    .expect("canonical allocation replaces the replayed roll");
+                assert!(migrated_replay.item_by_id(item_id).is_some());
+                assert!(migrated_replay.item_by_id(rerolled_item_id).is_none());
+                assert_eq!(
+                    migrated_replay
+                        .loot_allocations
+                        .values()
+                        .next()
+                        .map(|allocation| allocation.item_ids.as_slice()),
+                    Some(canonical_item_ids.as_slice())
+                );
+            })
+            .expect("spawn canonical loot replay")
+            .join()
+            .expect("canonical loot replay completes");
         let restored = RuntimeSnapshot::from_runtime(&runtime)
             .into_runtime()
             .expect("post-allocation snapshot restores");

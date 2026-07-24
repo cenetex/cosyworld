@@ -6952,6 +6952,7 @@ impl RuntimeWorld {
         let records = read_action_journal_with_seq(path)?;
         let mut canonical_natural_features =
             read_canonical_natural_feature_reveals_by_journal_seq(path)?;
+        let mut canonical_quest_loot = read_canonical_quest_loot_allocations_by_journal_seq(path)?;
         let mut pending_natural_features = Vec::new();
         let mut migrated_bundle_hashes = BTreeSet::new();
         for (journal_seq, record) in records {
@@ -6997,8 +6998,18 @@ impl RuntimeWorld {
                 pending_natural_features.extend(events);
             }
             runtime.restore_ready_natural_feature_evidence(&mut pending_natural_features)?;
+            if let Some(events) = canonical_quest_loot.remove(&journal_seq) {
+                for event in events {
+                    runtime.restore_canonical_quest_loot_evidence(&record, &event)?;
+                }
+            }
         }
         pending_natural_features.extend(canonical_natural_features.into_values().flatten());
+        if !canonical_quest_loot.is_empty() {
+            return Err(snapshot_error(
+                "canonical quest loot evidence has no matching action journal record",
+            ));
+        }
         if !migrated_bundle_hashes.is_empty() {
             warn!(
                 "replayed action journal through declared worldpack migration(s) from [{}] to {}",
@@ -8093,6 +8104,7 @@ impl RuntimeWorld {
     ) -> io::Result<()> {
         let mut waiting = Vec::new();
         for event in pending.drain(..) {
+            self.ensure_generated_natural_replay_projection(&event)?;
             let location_ready = event
                 .location_id
                 .is_some_and(|location_id| self.natural_affordances.contains_key(&location_id));
@@ -8103,6 +8115,65 @@ impl RuntimeWorld {
             }
         }
         *pending = waiting;
+        Ok(())
+    }
+
+    fn ensure_generated_natural_replay_projection(&mut self, event: &EventView) -> io::Result<()> {
+        let Some(location_id) = event.location_id else {
+            return Ok(());
+        };
+        if !self.generated_location_is_revealed(location_id) {
+            return Ok(());
+        }
+        let Some(pathway) = self.generated_pathway_for_location(location_id).cloned() else {
+            return Ok(());
+        };
+        let connected_from_location_id =
+            self.generated_place_connection_source(&pathway, location_id);
+        self.ensure_generated_place_for_waypoint(&pathway, location_id, connected_from_location_id);
+        let content = event.content.as_deref().ok_or_else(|| {
+            snapshot_error("natural feature reveal evidence has no typed payload")
+        })?;
+        let evidence: NaturalFeatureRevealEvidence = serde_json::from_str(content)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if evidence.feature.location_id != location_id {
+            return Err(snapshot_error(
+                "natural feature reveal evidence does not match its generated location",
+            ));
+        }
+        let feature = &evidence.feature;
+        let projection_matches = self
+            .natural_affordances
+            .get(&location_id)
+            .and_then(|state| state.latent_potential.as_ref())
+            .is_some_and(|latent| {
+                latent.resource_kind == feature.resource_kind
+                    && latent.richness == feature.richness
+                    && latent.character == feature.character
+                    && latent.building_archetypes == feature.building_archetypes
+                    && latent.presentation_key == feature.presentation_key
+            });
+        if !projection_matches {
+            let rule = NaturalPotentialRule {
+                resource_kind: feature.resource_kind,
+                policy: NaturalPotentialPolicy::Guaranteed,
+                weight: 0,
+                richness: feature.richness,
+                character: feature.character,
+                building_archetypes: feature.building_archetypes.clone(),
+                presentation_key: feature.presentation_key.clone(),
+            };
+            let state = freeze_natural_affordance(
+                &official_world_id(),
+                location_id,
+                evidence.environment.clone(),
+                vec![rule],
+                &feature.generation.source,
+                &feature.generation.pack_id,
+                &feature.generation.pack_version,
+            );
+            self.natural_affordances.insert(location_id, state);
+        }
         Ok(())
     }
 
@@ -43403,6 +43474,20 @@ fn read_action_journal_with_seq(path: &Path) -> io::Result<Vec<(u64, JournalReco
 fn read_canonical_natural_feature_reveals_by_journal_seq(
     path: &Path,
 ) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
+    read_canonical_events_by_journal_seq(path, "natural_feature.revealed", CW_MAX_LOCATIONS as i64)
+}
+
+fn read_canonical_quest_loot_allocations_by_journal_seq(
+    path: &Path,
+) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
+    read_canonical_events_by_journal_seq(path, "quest.loot_allocated", CW_MAX_ITEMS as i64)
+}
+
+fn read_canonical_events_by_journal_seq(
+    path: &Path,
+    event_type: &str,
+    limit: i64,
+) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
     init_event_store(path)?;
     let conn = open_event_store(path)?;
     let mut stmt = conn
@@ -43420,9 +43505,9 @@ fn read_canonical_natural_feature_reveals_by_journal_seq(
              FROM world_events AS events
              WHERE events.world_id = ?1
                AND events.world_epoch = ?2
-               AND events.event_type = 'natural_feature.revealed'
+               AND events.event_type = ?3
              ORDER BY events.seq ASC
-             LIMIT ?3",
+             LIMIT ?4",
         )
         .map_err(sqlite_error)?;
     let rows = stmt
@@ -43430,7 +43515,8 @@ fn read_canonical_natural_feature_reveals_by_journal_seq(
             params![
                 OFFICIAL_WORLD_ID,
                 OFFICIAL_WORLD_EPOCH as i64,
-                CW_MAX_LOCATIONS as i64
+                event_type,
+                limit
             ],
             |row| Ok((row.get::<_, Option<i64>>(0)?, row.get::<_, String>(1)?)),
         )
@@ -63062,6 +63148,80 @@ mod tests {
             "completed"
         );
         let _ = fs::remove_file(evidence_path);
+    }
+
+    #[test]
+    fn canonical_natural_feature_restores_legacy_generated_place_projection() {
+        let mut source = RuntimeWorld::seeded();
+        let mut pathway = source.generated_pathway(
+            5000,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            MOONLIT_TRAIL_LOCATION_ID,
+            2,
+        );
+        let waypoint = pathway.waypoints[0].clone();
+        pathway
+            .revealed_edges
+            .insert(pathway_edge_key(RAIN_SOFT_GARDEN_LOCATION_ID, waypoint.id));
+        source
+            .generated_pathways
+            .insert(pathway.id.clone(), pathway.clone());
+        source.ensure_generated_pathway_edge(&pathway, RAIN_SOFT_GARDEN_LOCATION_ID, waypoint.id);
+        create_test_human(&mut source, 5000, waypoint.id, "Legacy Surveyor");
+        let natural = source.natural_affordances[&waypoint.id].clone();
+        let mut reveal = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: waypoint.id,
+                ..CwAction::default()
+            },
+            718_940,
+        );
+        reveal
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: natural.investigation_clock_id.clone(),
+                amount: source.clocks[&natural.investigation_clock_id].segments,
+                reason: "legacy_generated_place_replay_test".to_string(),
+            });
+        let (_, events) = source.apply_journal_record(&reveal);
+        let reveal_event = events
+            .into_iter()
+            .find(|event| event.type_name == "natural_feature.revealed")
+            .expect("typed natural feature reveal evidence");
+
+        let mut legacy_pathway = pathway;
+        let legacy_waypoint = legacy_pathway
+            .waypoints
+            .iter_mut()
+            .find(|candidate| candidate.id == waypoint.id)
+            .expect("legacy waypoint");
+        legacy_waypoint.meta.environment = EnvironmentProfile::default();
+        legacy_waypoint.meta.natural_potentials.clear();
+        let mut replayed = RuntimeWorld::seeded();
+        replayed
+            .locations
+            .insert(waypoint.id, legacy_waypoint.name.clone());
+        replayed
+            .location_meta
+            .insert(waypoint.id, legacy_waypoint.meta.clone());
+        replayed
+            .generated_pathways
+            .insert(legacy_pathway.id.clone(), legacy_pathway);
+        assert!(!replayed.generated_places.contains_key(&waypoint.id));
+        assert!(!replayed.natural_affordances.contains_key(&waypoint.id));
+
+        let mut pending = vec![reveal_event];
+        replayed
+            .restore_ready_natural_feature_evidence(&mut pending)
+            .expect("legacy generated reveal restores at its journal cursor");
+
+        assert!(pending.is_empty());
+        assert!(replayed.generated_places.contains_key(&waypoint.id));
+        assert!(replayed.natural_affordances[&waypoint.id]
+            .revealed_feature
+            .is_some());
     }
 
     #[test]
