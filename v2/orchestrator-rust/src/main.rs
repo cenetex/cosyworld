@@ -16242,6 +16242,104 @@ impl RuntimeWorld {
         ))
     }
 
+    fn search_record_for_target(
+        &self,
+        actor_id: u64,
+        target: &RoomSearchTarget,
+        seed: u64,
+    ) -> JournalRecord {
+        let candidates = self.search_reveal_candidates_for_feature(target.location_id, &target.key);
+        let revealed_candidate = self.select_search_reveal_candidate(seed, actor_id, &candidates);
+        let found_item_id = match revealed_candidate.as_ref() {
+            Some(SearchRevealCandidate::Item { item_id }) => Some(*item_id),
+            _ => None,
+        };
+        let content_id = found_item_id
+            .map(|_| self.next_content_id_value())
+            .unwrap_or(0);
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: if found_item_id.is_some() {
+                    CW_ACTION_SEARCH
+                } else {
+                    CW_ACTION_NONE
+                },
+                actor_id,
+                location_id: target.location_id,
+                content_id,
+                item_id: found_item_id.unwrap_or(0),
+                ..CwAction::default()
+            },
+            seed,
+        );
+        record.bind_offer_kind("search");
+        if found_item_id.is_some() {
+            record
+                .content_upserts
+                .insert(content_id, target.output.clone());
+        }
+        if target.key == "room" {
+            record
+                .projection_mutations
+                .push(ProjectionMutation::SearchLocation {
+                    location_id: target.location_id,
+                    content: target.output.clone(),
+                    reason: "search_location".to_string(),
+                });
+        } else {
+            record
+                .projection_mutations
+                .push(ProjectionMutation::SearchFeature {
+                    location_id: target.location_id,
+                    feature_key: target.key.clone(),
+                    feature_name: target.name.clone(),
+                    content: target.output.clone(),
+                    reason: "search_feature".to_string(),
+                });
+        }
+        if let Some(item_id) = found_item_id {
+            record
+                .projection_mutations
+                .push(ProjectionMutation::RememberSearchItem {
+                    item_id,
+                    location_id: target.location_id,
+                    reason: "search_location".to_string(),
+                });
+        }
+        if let Some(candidate) = revealed_candidate {
+            match candidate {
+                SearchRevealCandidate::SeedExit {
+                    from_location_id,
+                    to_location_id,
+                } => record
+                    .projection_mutations
+                    .push(ProjectionMutation::DiscoverSeedExit {
+                        from_location_id,
+                        to_location_id,
+                        reason: "search_location".to_string(),
+                    }),
+                SearchRevealCandidate::HiddenExit { hidden_exit_id } => record
+                    .projection_mutations
+                    .push(ProjectionMutation::DiscoverHiddenExit {
+                        hidden_exit_id,
+                        reason: "search_location".to_string(),
+                    }),
+                SearchRevealCandidate::Avatar {
+                    actor_id,
+                    location_id,
+                } => record
+                    .projection_mutations
+                    .push(ProjectionMutation::DiscoverAvatar {
+                        actor_id,
+                        location_id,
+                        reason: "search_location".to_string(),
+                    }),
+                SearchRevealCandidate::Item { .. } => {}
+            }
+        }
+        record
+    }
+
     fn recipe_by_id(&self, recipe_id: u64) -> Option<&'static SeedRecipeContent> {
         active_content()
             .recipes
@@ -24852,6 +24950,105 @@ impl RuntimeWorld {
         Some(record)
     }
 
+    fn resident_record_for_search_or_craft_offer(
+        &self,
+        actor: CwActor,
+        offer: &RankedActionOffer,
+        seed: u64,
+    ) -> Option<JournalRecord> {
+        if !action_offer_is_reachable(offer) {
+            return None;
+        }
+        let min_seq = self
+            .world
+            .next_event_seq
+            .saturating_sub(RESIDENT_AUTONOMY_REPEAT_EVENT_WINDOW);
+        let mut record = match offer.kind.as_str() {
+            "search" => {
+                let target = self.default_search_target(actor.id)?;
+                let target_matches = offer.target.as_ref().is_some_and(|offer_target| {
+                    offer_target.kind == "feature"
+                        && offer_target.id == Some(target.location_id)
+                        && offer_target.label.as_deref() == Some(target.name.as_str())
+                });
+                if !target_matches
+                    || self.event_log.iter().rev().any(|event| {
+                        event.seq >= min_seq
+                            && event.success
+                            && event.actor_id == Some(actor.id)
+                            && event.location_id == Some(target.location_id)
+                            && matches!(
+                                event.type_name.as_str(),
+                                "location.searched" | "feature.searched"
+                            )
+                    })
+                {
+                    return None;
+                }
+                self.search_record_for_target(actor.id, &target, seed)
+                    .into_actor_consequence(self.world.tick, None)
+            }
+            "craft" => {
+                let recipe_id = offer
+                    .target
+                    .as_ref()
+                    .filter(|target| target.kind == "recipe")
+                    .and_then(|target| target.id)?;
+                let recipe = self.default_craft_recipe(actor.id)?;
+                if recipe.id != recipe_id
+                    || self.event_log.iter().rev().any(|event| {
+                        event.seq >= min_seq
+                            && event.success
+                            && event.type_name == "item.crafted"
+                            && event.actor_id == Some(actor.id)
+                            && event.content_id == Some(recipe_id)
+                    })
+                {
+                    return None;
+                }
+                let (action, mutation) = if recipe.schema_version == 2 {
+                    let plan = self.versioned_craft_plan(actor.id, recipe_id, None)?;
+                    (
+                        plan.action,
+                        Some(ProjectionMutation::ResolveCraft {
+                            receipt: plan.receipt,
+                        }),
+                    )
+                } else {
+                    (self.craft_action_for_recipe(actor.id, recipe_id)?, None)
+                };
+                if !self.kernel_offer_allows_action(&action) {
+                    return None;
+                }
+                let mut record =
+                    JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
+                record.bind_offer_kind("craft");
+                if let Some(mutation) = mutation {
+                    record.projection_mutations.push(mutation);
+                }
+                record
+            }
+            _ => return None,
+        };
+        record.source_location_id = Some(actor.location_id);
+        self.append_resident_autonomy_intent_projection(actor, &mut record);
+        Some(record)
+    }
+
+    fn resident_search_or_craft_autonomy_record(
+        &self,
+        actor: CwActor,
+        seed: u64,
+    ) -> Option<JournalRecord> {
+        let (_, offers) = self.legal_action_candidates(Some(actor.id), &AccessContext::default());
+        offers.into_iter().find_map(|offer| {
+            if !matches!(offer.kind.as_str(), "search" | "craft") {
+                return None;
+            };
+            self.resident_record_for_search_or_craft_offer(actor, &offer, seed)
+        })
+    }
+
     fn resident_economy_autonomy_record(&self, actor: CwActor, seed: u64) -> Option<JournalRecord> {
         if !Self::actor_is_active_avatar(actor) || !self.actor_uses_inference(actor.id) {
             return None;
@@ -24864,12 +25061,13 @@ impl RuntimeWorld {
         if let Some(record) = self.resident_job_autonomy_record(actor, seed) {
             return Some(record);
         }
-        self.resident_economy_autonomy_action(actor).map(|action| {
+        if let Some(action) = self.resident_economy_autonomy_action(actor) {
             let mut record =
                 JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
             self.append_resident_autonomy_intent_projection(actor, &mut record);
-            record
-        })
+            return Some(record);
+        }
+        self.resident_search_or_craft_autonomy_record(actor, seed)
     }
 
     fn append_resident_autonomy_intent_projection(
@@ -32583,100 +32781,15 @@ async fn command_inner(
                 });
             }
             let seed = runtime.next_seed_value();
-            let revealed_candidate =
-                runtime.select_search_reveal_candidate(seed, payload.actor_id, &candidates);
-            let found_item_id = match revealed_candidate.as_ref() {
-                Some(SearchRevealCandidate::Item { item_id }) => Some(*item_id),
-                _ => None,
+            let target = RoomSearchTarget {
+                location_id,
+                key: feature_key,
+                name: feature_name,
+                output: output.clone(),
             };
-            let content_id = found_item_id
-                .map(|_| runtime.next_content_id_value())
-                .unwrap_or(0);
-            let mut record = JournalRecord::new(
-                CwAction {
-                    kind: if found_item_id.is_some() {
-                        CW_ACTION_SEARCH
-                    } else {
-                        CW_ACTION_NONE
-                    },
-                    actor_id: payload.actor_id,
-                    location_id,
-                    content_id,
-                    item_id: found_item_id.unwrap_or(0),
-                    ..CwAction::default()
-                },
-                seed,
-            )
-            .into_player_card();
-            record.bind_offer_kind("search");
-            if found_item_id.is_some() {
-                record.content_upserts.insert(content_id, output.clone());
-            }
-            if feature_key == "room" {
-                record
-                    .projection_mutations
-                    .push(ProjectionMutation::SearchLocation {
-                        location_id,
-                        content: output.clone(),
-                        reason: "search_location".to_string(),
-                    });
-            } else {
-                record
-                    .projection_mutations
-                    .push(ProjectionMutation::SearchFeature {
-                        location_id,
-                        feature_key: feature_key.clone(),
-                        feature_name: feature_name.clone(),
-                        content: output.clone(),
-                        reason: "search_feature".to_string(),
-                    });
-            }
-            if let Some(item_id) = found_item_id {
-                record
-                    .projection_mutations
-                    .push(ProjectionMutation::RememberSearchItem {
-                        item_id,
-                        location_id,
-                        reason: "search_location".to_string(),
-                    });
-            }
-            if let Some(candidate) = revealed_candidate {
-                match candidate {
-                    SearchRevealCandidate::SeedExit {
-                        from_location_id,
-                        to_location_id,
-                    } => {
-                        record
-                            .projection_mutations
-                            .push(ProjectionMutation::DiscoverSeedExit {
-                                from_location_id,
-                                to_location_id,
-                                reason: "search_location".to_string(),
-                            });
-                    }
-                    SearchRevealCandidate::HiddenExit { hidden_exit_id } => {
-                        record
-                            .projection_mutations
-                            .push(ProjectionMutation::DiscoverHiddenExit {
-                                hidden_exit_id,
-                                reason: "search_location".to_string(),
-                            });
-                    }
-                    SearchRevealCandidate::Avatar {
-                        actor_id,
-                        location_id,
-                    } => {
-                        record
-                            .projection_mutations
-                            .push(ProjectionMutation::DiscoverAvatar {
-                                actor_id,
-                                location_id,
-                                reason: "search_location".to_string(),
-                            });
-                    }
-                    SearchRevealCandidate::Item { .. } => {}
-                }
-            }
+            let record = runtime
+                .search_record_for_target(payload.actor_id, &target, seed)
+                .into_player_card();
             let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record)
             else {
                 return Json(CommandResponse {
@@ -70118,6 +70231,57 @@ mod tests {
             .expect("spawn resident job autonomy test")
             .join()
             .expect("resident job autonomy test completes");
+    }
+
+    #[test]
+    fn resident_search_uses_the_player_offer_and_replays_route_discovery() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        assert_eq!(actor.location_id, COSY_COTTAGE_LOCATION_ID);
+        let undiscovered = runtime
+            .seed_exit_candidate_for_search(COSY_COTTAGE_LOCATION_ID)
+            .expect("the cottage has an undiscovered route");
+        let candidate = SearchRevealCandidate::SeedExit {
+            from_location_id: undiscovered.from_location_id,
+            to_location_id: undiscovered.to_location_id,
+        };
+        let seed = (1..100_000)
+            .find(|seed| runtime.search_candidate_succeeds(*seed, actor.id, &candidate))
+            .expect("a deterministic route-discovery seed");
+        let offer = runtime
+            .legal_action_candidates(Some(actor.id), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| offer.kind == "search")
+            .expect("the player candidate surface offers Search");
+        let record = runtime
+            .resident_economy_autonomy_record(actor, seed)
+            .expect("the resident selects the same Search offer");
+        assert_eq!(record.origin, JournalOrigin::ActorConsequence);
+        assert_eq!(record.rules_action, offer.rules_action);
+        assert_eq!(record.operation, offer.operation);
+        assert_eq!(record.resolver.as_deref(), Some(offer.resolver.as_str()));
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "location.searched" && event.actor_id == Some(actor.id)
+        }));
+        assert!(events.iter().any(|event| {
+            event.type_name == "exit.discovered"
+                && event.destination_location_id == Some(undiscovered.to_location_id)
+        }));
+        assert!(runtime
+            .resident_record_for_search_or_craft_offer(actor, &offer, seed)
+            .is_none());
+        let expected = quest_projection_signature(&runtime);
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-search snapshot restores");
+        assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(quest_projection_signature(&replayed), expected);
     }
 
     #[test]

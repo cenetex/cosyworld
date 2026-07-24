@@ -781,6 +781,78 @@ mod tests {
     }
 
     #[test]
+    fn resident_craft_uses_the_player_typed_recipe_offer_and_replays() {
+        let location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+        let mut runtime = prepared_craft_runtime(location_id);
+        let local_clock_ids = runtime
+            .jobs
+            .values()
+            .filter(|job| job.location_ids.contains(&location_id))
+            .map(|job| job.progress_clock_id.clone())
+            .collect::<Vec<_>>();
+        for clock_id in local_clock_ids {
+            if let Some(clock) = runtime.clocks.get_mut(&clock_id) {
+                clock.filled = clock.segments;
+            }
+        }
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("Rati exists");
+        runtime.append_location_search_event(
+            actor.id,
+            location_id,
+            "already looked here",
+            "search_location",
+        );
+        let offer = runtime
+            .legal_action_candidates(Some(actor.id), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| {
+                offer.kind == "craft"
+                    && offer
+                        .target
+                        .as_ref()
+                        .is_some_and(|target| target.id == Some(3101))
+            })
+            .expect("the player candidate surface offers the typed recipe");
+        let record = runtime
+            .resident_economy_autonomy_record(actor, 81_001)
+            .expect("the resident selects the same Craft offer");
+        assert_eq!(record.origin, JournalOrigin::ActorConsequence);
+        assert_eq!(record.action.kind, CW_ACTION_CRAFT);
+        assert_eq!(record.action.content_id, 3101);
+        assert_eq!(record.rules_action, offer.rules_action);
+        assert_eq!(record.operation, offer.operation);
+        assert_eq!(record.resolver.as_deref(), Some(offer.resolver.as_str()));
+        assert!(record
+            .projection_mutations
+            .iter()
+            .any(|mutation| matches!(mutation, ProjectionMutation::ResolveCraft { .. })));
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert!(events.iter().any(|event| {
+            event.type_name == "item.crafted" && event.actor_id == Some(actor.id)
+        }));
+        assert!(runtime
+            .resident_record_for_search_or_craft_offer(actor, &offer, 81_001)
+            .is_none());
+        let expected_receipts = runtime.craft_receipts.clone();
+        let expected_items = serde_json::to_value(&runtime.world.items[..runtime.world.item_count])
+            .expect("crafted items serialize");
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("pre-craft snapshot restores");
+        assert_eq!(replayed.apply_journal_record(&record).0, CW_OK);
+        assert_eq!(replayed.craft_receipts, expected_receipts);
+        assert_eq!(
+            serde_json::to_value(&replayed.world.items[..replayed.world.item_count])
+                .expect("replayed items serialize"),
+            expected_items
+        );
+    }
+
+    #[test]
     fn quest_ore_requires_a_smithy_and_transforms_exactly_once() {
         let mut runtime = RuntimeWorld::seeded();
         let location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
