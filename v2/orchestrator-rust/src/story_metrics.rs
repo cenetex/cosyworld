@@ -874,6 +874,8 @@ pub(super) fn world_beat_is_renderable(event: &EventView) -> bool {
                 | "world.weather.held"
                 | "world.trade.flowed"
                 | "world.trade.disrupted"
+                | "world.delivery.needed"
+                | "world.logistics.completed"
                 | "world.faction.influence_shifted"
                 | "world.conflict.pressure_grew"
                 | "world.conflict.pressure_eased"
@@ -1017,7 +1019,10 @@ fn story_action_category(event: &EventView) -> &'static str {
 }
 
 fn story_world_beat_kind(type_name: &str) -> &'static str {
-    if type_name.starts_with("world.trade.") {
+    if type_name.starts_with("world.trade.")
+        || type_name.starts_with("world.delivery.")
+        || type_name.starts_with("world.logistics.")
+    {
         "trade"
     } else if type_name.starts_with("world.faction.") {
         "faction"

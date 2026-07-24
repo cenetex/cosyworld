@@ -1,0 +1,78 @@
+{
+  "schema": "cosyworld.replay-golden/2",
+  "description": "Offline append-only replay covering legacy combat/2-style attack, combat/3 encounter start, generic checks, project projection, the active SRD Search/Study profile, and sparse due pulses that reserve no public event sequence when nothing material happens.",
+  "records": [
+    {
+      "version": 1,
+      "action": {"kind":1,"ability":0,"dc":0,"actor_id":5000,"target_actor_id":0,"location_id":3,"destination_location_id":0,"content_id":0,"item_id":0,"target_item_id":0,"output_item_id":0,"output_target_id":0,"modifier":0,"output_target_kind":0,"output_item_kind":0,"output_item_charges":0,"roll_mode":0},
+      "seed": 4200
+    },
+    {
+      "version": 1,
+      "action": {"kind":7,"ability":0,"dc":0,"actor_id":5000,"target_actor_id":1004,"location_id":0,"destination_location_id":0,"content_id":0,"item_id":0,"target_item_id":0,"output_item_id":0,"output_target_id":0,"modifier":0,"output_target_kind":0,"output_item_kind":0,"output_item_charges":0,"roll_mode":0},
+      "seed": 4201
+    },
+    {
+      "version": 1,
+      "action": {"kind":4,"ability":4,"dc":10,"actor_id":5000,"target_actor_id":0,"location_id":0,"destination_location_id":0,"content_id":0,"item_id":0,"target_item_id":0,"output_item_id":0,"output_target_id":0,"modifier":0,"output_target_kind":0,"output_item_kind":0,"output_item_charges":0,"roll_mode":0},
+      "seed": 4202
+    },
+    {
+      "version": 1,
+      "action": {"kind":0,"ability":0,"dc":0,"actor_id":5000,"target_actor_id":0,"location_id":0,"destination_location_id":0,"content_id":0,"item_id":0,"target_item_id":0,"output_item_id":0,"output_target_id":0,"modifier":0,"output_target_kind":0,"output_item_kind":0,"output_item_charges":0,"roll_mode":0},
+      "seed": 4203,
+      "projection_mutations": [
+        {"kind":"advance_clock","clock_id":"moonlit-trail.progress","amount":1,"reason":"golden_project"}
+      ]
+    },
+    {
+      "version": 6,
+      "rules_profile": "cosyworld.srd5/1",
+      "rules_action": "srd5.2.1:search",
+      "resolver": "discovery_search_v1",
+      "origin": "player_card",
+      "action": {"kind":21,"ability":4,"dc":10,"actor_id":5000,"target_actor_id":0,"location_id":0,"destination_location_id":0,"content_id":0,"item_id":0,"target_item_id":0,"output_item_id":0,"output_target_id":0,"modifier":0,"output_target_kind":0,"output_item_kind":0,"output_item_charges":0,"roll_mode":0},
+      "seed": 4204
+    },
+    {
+      "version": 6,
+      "rules_profile": "cosyworld.srd5/1",
+      "rules_action": "srd5.2.1:study",
+      "resolver": "discovery_study_v1",
+      "origin": "player_card",
+      "action": {"kind":22,"ability":3,"dc":10,"actor_id":5000,"target_actor_id":0,"location_id":0,"destination_location_id":0,"content_id":0,"item_id":0,"target_item_id":0,"output_item_id":0,"output_target_id":0,"modifier":0,"output_target_kind":0,"output_item_kind":0,"output_item_charges":0,"roll_mode":0},
+      "seed": 4205
+    },
+    {
+      "version": 1,
+      "action": {"kind":15,"ability":0,"dc":0,"actor_id":5000,"target_actor_id":1004,"location_id":0,"destination_location_id":0,"content_id":9003,"item_id":0,"target_item_id":0,"output_item_id":0,"output_target_id":0,"modifier":0,"output_target_kind":0,"output_item_kind":0,"output_item_charges":0,"roll_mode":0},
+      "seed": 4206
+    }
+  ],
+  "expected": {
+    "rules_profile": "cosyworld.srd5/1",
+    "kernel_version": 5,
+    "world_tick": 8,
+    "next_event_seq": 17,
+    "actor": {"id":5000,"location_id":3,"status":1,"damage":0},
+    "echo": {"id":1004,"status":1,"damage":4,"current_hp":2},
+    "project_clock": 1,
+    "encounter": {"id":9003,"status":1,"round":1,"participant_count":2},
+    "events": [
+      [2,"actor.created",true,5000,null,null,null,null,null,null,12,null,null,null,null],
+      [3,"actor.entered_location",true,5000,null,null,null,null,null,null,null,null,null,null,null],
+      [5,"combat.attack.attempt",true,5000,1004,17,1,18,11,null,null,null,null,null,null],
+      [6,"combat.attack.hit",true,5000,1004,17,1,18,11,4,2,null,null,null,null],
+      [7,"clock.updated",true,5000,null,null,null,null,null,null,null,"moonlit-trail.danger",1,1,"attack"],
+      [8,"ability_check.rolled",true,5000,null,12,2,14,10,null,null,null,null,null,null],
+      [9,"clock.updated",true,5000,null,null,null,null,null,null,null,"moonlit-trail.progress",1,1,"golden_project"],
+      [10,"ability_check.rolled",false,5000,null,2,2,4,10,null,null,null,null,null,null],
+      [11,"ability_check.rolled",false,5000,null,2,1,3,10,null,null,null,null,null,null],
+      [12,"study.resolved",true,5000,null,null,null,null,null,null,null,null,null,null,"The authored signs remain unresolved."],
+      [13,"combat.encounter.started",true,5000,1004,null,null,null,null,null,null,null,null,null,null],
+      [14,"combat.initiative.rolled",true,5000,null,4,null,4,null,null,null,null,null,null,null],
+      [15,"combat.initiative.rolled",true,1004,null,13,1,14,null,null,null,null,null,null,null],
+      [16,"combat.turn.started",true,1004,null,null,null,1,null,null,null,null,null,null,null]
+    ]
+  }
+}

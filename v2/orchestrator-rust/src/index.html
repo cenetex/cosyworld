@@ -6272,6 +6272,8 @@
       "world.weather.held",
       "world.trade.flowed",
       "world.trade.disrupted",
+      "world.delivery.needed",
+      "world.logistics.completed",
       "world.faction.influence_shifted",
       "world.conflict.pressure_grew",
       "world.conflict.pressure_eased",
@@ -6283,6 +6285,8 @@
       "world.weather.held",
       "world.trade.flowed",
       "world.trade.disrupted",
+      "world.delivery.needed",
+      "world.logistics.completed",
       "world.faction.influence_shifted",
       "world.conflict.pressure_grew",
       "world.conflict.pressure_eased",
@@ -7943,10 +7947,21 @@
         return finishSentence(cleanStatusText(event.content || "The weather settles in and stays"));
       }
       if (type === "world.trade.flowed") {
-        return finishSentence(cleanStatusText(event.content || "Something useful finds its way along the road"));
+        return "Supplies at the far end of the road have changed.";
       }
       if (type === "world.trade.disrupted") {
-        return finishSentence(cleanStatusText(event.content || "Something useful cannot find its way along the road"));
+        return "A distant place is running short, and someone could answer the need.";
+      }
+      if (type === "world.delivery.needed") {
+        return finishSentence(cleanStatusText(event.content || "A distant place needs a physical delivery"));
+      }
+      if (type === "world.logistics.completed") {
+        try {
+          const evidence = JSON.parse(String(event.content || "{}"));
+          return finishSentence(cleanStatusText(evidence.summary || "A traveler completes a physical delivery"));
+        } catch (_error) {
+          return "A traveler completes a physical delivery.";
+        }
       }
       if (type === "world.faction.influence_shifted") {
         return finishSentence(cleanStatusText(event.content || "A familiar presence carries farther today"));
