@@ -18672,6 +18672,16 @@ impl RuntimeWorld {
             .map(|(job, _)| job)
     }
 
+    fn is_completed_building_follow_up_job(&self, job_id: &str) -> bool {
+        self.settlement_buildings.values().any(|building| {
+            building.status == SettlementBuildingStatus::Completed
+                && building
+                    .follow_up_job_ids
+                    .iter()
+                    .any(|follow_up_job_id| follow_up_job_id == job_id)
+        })
+    }
+
     fn compare_job_presentation(&self, left: &JobState, right: &JobState) -> std::cmp::Ordering {
         let presentation_for = |job: &JobState| {
             self.clocks
@@ -18680,14 +18690,18 @@ impl RuntimeWorld {
         };
         let left_presentation = presentation_for(left);
         let right_presentation = presentation_for(right);
-        right_presentation
-            .map(|presentation| presentation.priority)
-            .unwrap_or_default()
-            .cmp(
-                &left_presentation
+        self.is_completed_building_follow_up_job(&right.id)
+            .cmp(&self.is_completed_building_follow_up_job(&left.id))
+            .then_with(|| {
+                right_presentation
                     .map(|presentation| presentation.priority)
-                    .unwrap_or_default(),
-            )
+                    .unwrap_or_default()
+                    .cmp(
+                        &left_presentation
+                            .map(|presentation| presentation.priority)
+                            .unwrap_or_default(),
+                    )
+            })
             .then_with(|| {
                 clock_attention_rank(
                     right_presentation
@@ -23232,6 +23246,35 @@ impl RuntimeWorld {
             .collect::<Vec<_>>();
         activity.reverse();
         activity
+    }
+
+    fn recent_room_consequences(&self, location_id: u64, limit: usize) -> Vec<String> {
+        let mut consequences = self
+            .event_log
+            .iter()
+            .rev()
+            .filter(|event| {
+                event.success
+                    && event_visible_in_location(event, location_id)
+                    && matches!(
+                        event.type_name.as_str(),
+                        "pathway.discovered"
+                            | "first_tale.public_trace"
+                            | "natural_feature.revealed"
+                            | "governance.selected"
+                            | "building.completed"
+                            | "quest.loot_allocated"
+                            | "world.logistics.completed"
+                            | "item.crafted"
+                            | "item.transformed"
+                    )
+            })
+            .filter_map(|event| room_memory_entry_for_event_at_location(event, location_id))
+            .take(limit.min(3))
+            .map(|entry| entry.text)
+            .collect::<Vec<_>>();
+        consequences.reverse();
+        consequences
     }
 
     fn narrative_goal_lines(&self, actor_id: Option<u64>, location_id: u64) -> Vec<String> {
@@ -34051,7 +34094,10 @@ fn room_memory_label(event: &EventView) -> String {
         "actor.created" | "actor.entered_location" => "join",
         "move.blocked" => "locked",
         "hand.shuffled" => "hand",
-        "feature.searched" | "location.searched" | "exit.discovered" => "search",
+        "feature.searched"
+        | "location.searched"
+        | "exit.discovered"
+        | "natural_feature.revealed" => "search",
         "ability_check.rolled" | "combat.attack.attempt" => "roll",
         "ledger.marked" => "ledger",
         "ledger.banked" => "bank",
@@ -34062,10 +34108,14 @@ fn room_memory_label(event: &EventView) -> String {
         "bond.deepened" | "bond.created" | "bond.revised" | "bond.resolved" => "friendship",
         "clock.updated" => "clock",
         "tag.applied" | "tag.cleared" => "tag",
-        "job.updated" => "job",
+        "job.contribution.resolved" | "job.updated" => "work",
+        "governance.selected" => "choice",
+        "building.construction_opened" | "building.completed" | "building.upgraded" => "place",
+        "quest.loot_allocated" => "reward",
+        "world.logistics.completed" => "delivery",
         "avatar.evolved" => "change",
         "item.picked_up" | "item.dropped" | "item.used" | "item.given" | "item.traded"
-        | "item.found" | "item.crafted" | "item.created" => "item",
+        | "item.found" | "item.crafted" | "item.created" | "item.transformed" => "item",
         type_name if type_name.starts_with("combat.") => "combat",
         _ => "event",
     }
@@ -34079,9 +34129,19 @@ fn room_memory_kind(event: &EventView) -> String {
         type_name if type_name.starts_with("item.") => "item",
         type_name if type_name.starts_with("combat.") => "combat",
         "actor.moved" | "actor.created" | "actor.entered_location" | "move.blocked" => "move",
-        "clock.updated" | "tag.applied" | "tag.cleared" | "job.updated" | "avatar.evolved" => {
-            "world"
-        }
+        "clock.updated"
+        | "tag.applied"
+        | "tag.cleared"
+        | "job.contribution.resolved"
+        | "job.updated"
+        | "natural_feature.revealed"
+        | "governance.selected"
+        | "building.construction_opened"
+        | "building.completed"
+        | "building.upgraded"
+        | "quest.loot_allocated"
+        | "world.logistics.completed"
+        | "avatar.evolved" => "world",
         "first_tale.public_trace" => "world",
         "feature.searched" | "location.searched" | "exit.discovered" => "search",
         "bond.deepened" | "bond.created" | "bond.revised" | "bond.resolved" => "bond",
@@ -34168,6 +34228,21 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
         "first_tale.public_trace" => format!(
             "{actor_name} marked the first uncovered stone so the next visitor can trust the washed path"
         ),
+        "natural_feature.revealed" => {
+            let feature = event
+                .content
+                .as_deref()
+                .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
+                .and_then(|content| {
+                    content
+                        .get("feature")
+                        .and_then(|feature| feature.get("resource_kind"))
+                        .and_then(serde_json::Value::as_str)
+                        .map(|resource| resource.replace('_', " "))
+                })
+                .unwrap_or_else(|| "a useful natural feature".to_string());
+            format!("{actor_name} revealed {feature} here")
+        }
         "ability_check.rolled" if event.content.as_deref() == Some("study") => {
             format!(
                 "{} studied the signs and {}",
@@ -34283,6 +34358,61 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
             "{} found a new shape",
             event.target_actor_name.as_deref().unwrap_or("someone")
         ),
+        "job.contribution.resolved" => event
+            .content
+            .as_deref()
+            .and_then(|content| serde_json::from_str::<JobContributionTrace>(content).ok())
+            .map(|trace| {
+                let progress = if trace.total_progress == 1 {
+                    "one step".to_string()
+                } else {
+                    format!("{} steps", trace.total_progress)
+                };
+                format!(
+                    "{actor_name} tried to {} at {}; the shared work gained {progress}",
+                    trace.strategy_label.to_lowercase(),
+                    trace.target.label
+                )
+            })
+            .unwrap_or_else(|| format!("{actor_name} changed the shared work")),
+        "governance.selected" => event
+            .content
+            .as_deref()
+            .map(str::trim)
+            .filter(|content| !content.is_empty())
+            .map(|content| content.trim_end_matches('.').to_string())
+            .unwrap_or_else(|| format!("{actor_name} left a lasting change here")),
+        "building.construction_opened" | "building.completed" | "building.upgraded" => {
+            let change = event
+                .content
+                .as_deref()
+                .map(str::trim)
+                .filter(|content| !content.is_empty())
+                .map(|content| content.trim_end_matches('.'))
+                .unwrap_or("the place gained new work");
+            format!("{actor_name} changed the place; {change}")
+        }
+        "quest.loot_allocated" => {
+            let reward = event
+                .content
+                .as_deref()
+                .map(str::trim)
+                .filter(|content| !content.is_empty())
+                .map(|content| content.trim_end_matches('.'))
+                .unwrap_or("a physical reward entered the world");
+            format!("{actor_name} completed the quest; {reward}")
+        }
+        "world.logistics.completed" => event
+            .content
+            .as_deref()
+            .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
+            .and_then(|content| {
+                content
+                    .get("summary")
+                    .and_then(serde_json::Value::as_str)
+                    .map(|summary| summary.trim_end_matches('.').to_string())
+            })
+            .unwrap_or_else(|| format!("{actor_name} completed a physical delivery here")),
         "clock.updated" => {
             let filled = event.clock_filled.unwrap_or(0);
             let segments = event.clock_segments.unwrap_or(0);
@@ -34356,6 +34486,16 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
                 .filter(|content| !content.is_empty())
                 .unwrap_or("a shared care task");
             format!("{actor_name} completed {contribution}")
+        }
+        "item.transformed" => {
+            let change = event
+                .content
+                .as_deref()
+                .map(str::trim)
+                .filter(|content| !content.is_empty())
+                .map(|content| content.trim_end_matches('.'))
+                .unwrap_or("a represented item changed form");
+            format!("{actor_name} completed the change: {change}")
         }
         _ => command_event_output(event).unwrap_or_else(|| event.type_name.replace('.', " ")),
     };
@@ -49368,6 +49508,120 @@ mod tests {
                 Some(expected)
             );
         }
+    }
+
+    #[test]
+    fn riverside_return_memory_names_people_and_consequences_without_system_copy() {
+        let location_id = COSY_COTTAGE_LOCATION_ID;
+        let events = vec![
+            EventView {
+                seq: 1,
+                type_name: "natural_feature.revealed".to_string(),
+                success: true,
+                actor_name: Some("Mabel Reed".to_string()),
+                location_id: Some(location_id),
+                content: Some(
+                    serde_json::json!({
+                        "feature": {"resource_kind": "fish_rich_water"}
+                    })
+                    .to_string(),
+                ),
+                ..EventView::default()
+            },
+            EventView {
+                seq: 2,
+                type_name: "building.completed".to_string(),
+                success: true,
+                actor_name: Some("Pip Thistle".to_string()),
+                location_id: Some(location_id),
+                content: Some(
+                    "Fishery is complete; fishing work and its public cache are ready.".to_string(),
+                ),
+                ..EventView::default()
+            },
+            EventView {
+                seq: 3,
+                type_name: "quest.loot_allocated".to_string(),
+                success: true,
+                actor_name: Some("Mabel Reed".to_string()),
+                location_id: Some(location_id),
+                content: Some(
+                    "Fishery catch placed River Sprat in Fishery Public Cache.".to_string(),
+                ),
+                ..EventView::default()
+            },
+            EventView {
+                seq: 4,
+                type_name: "world.logistics.completed".to_string(),
+                success: true,
+                actor_name: Some("Pip Thistle".to_string()),
+                location_id: Some(location_id),
+                content: Some(
+                    serde_json::json!({
+                        "summary": "Pip Thistle carried River Sprat to the Smokehouse."
+                    })
+                    .to_string(),
+                ),
+                ..EventView::default()
+            },
+            EventView {
+                seq: 5,
+                type_name: "item.transformed".to_string(),
+                success: true,
+                actor_name: Some("Pip Thistle".to_string()),
+                location_id: Some(location_id),
+                content: Some("River Sprat became Smoked River Sprat.".to_string()),
+                ..EventView::default()
+            },
+        ];
+        let entries = events
+            .iter()
+            .map(|event| room_memory_entry_for_event(event).expect("public consequence memory"))
+            .collect::<Vec<_>>();
+        let copy = entries
+            .iter()
+            .map(|entry| entry.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        assert!(copy.contains("Mabel Reed revealed fish rich water"));
+        assert!(copy.contains("Pip Thistle changed the place; Fishery is complete"));
+        assert!(copy.contains("Mabel Reed completed the quest; Fishery catch placed River Sprat"));
+        assert!(copy.contains("Pip Thistle carried River Sprat to the Smokehouse"));
+        assert!(copy.contains("Pip Thistle completed the change: River Sprat became"));
+        assert!(entries
+            .iter()
+            .all(|entry| !entry.text.contains('\n') && !entry.text.ends_with('.')));
+        assert!(!copy.contains("clock"));
+        assert!(!copy.contains("job."));
+        assert!(!copy.contains("loot_allocated"));
+
+        let mut runtime = RuntimeWorld::seeded();
+        let location = runtime.location_view(COSY_COTTAGE_LOCATION_ID);
+        let summary = fallback_room_memory_summary(&location, &entries, &[]);
+        assert!(
+            summary.matches('.').count() <= 4,
+            "one atmosphere line plus at most three causal changes: {summary}"
+        );
+        runtime.event_log = events;
+        assert_eq!(
+            runtime.recent_room_consequences(location_id, 3),
+            vec![
+                "Mabel Reed completed the quest; Fishery catch placed River Sprat in Fishery Public Cache",
+                "Pip Thistle carried River Sprat to the Smokehouse",
+                "Pip Thistle completed the change: River Sprat became Smoked River Sprat",
+            ]
+        );
+        let actor = runtime.actor_by_id(RATI_ACTOR_ID).expect("seed avatar");
+        let look = runtime.room_command_output(actor, &AccessContext::default(), None);
+        let changes = look
+            .lines()
+            .find(|line| line.starts_with("Recent changes:"))
+            .expect("MUD look exposes the same compact return memory");
+        assert_eq!(changes.matches(" | ").count(), 2);
+        assert!(changes.contains("Mabel Reed completed the quest"));
+        assert!(changes.contains("Pip Thistle carried River Sprat"));
+        assert!(changes.contains("Pip Thistle completed the change"));
     }
 
     #[test]

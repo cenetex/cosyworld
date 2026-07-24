@@ -3058,6 +3058,14 @@ impl RuntimeWorld {
             }
         }
 
+        let recent_consequences = self.recent_room_consequences(location_id, 3);
+        if !recent_consequences.is_empty() {
+            lines.push(format!(
+                "Recent changes: {}.",
+                recent_consequences.join(" | ")
+            ));
+        }
+
         if let Some(first_tale) = self.first_tale_view(actor.id) {
             if first_tale.phase == "complete" {
                 lines.push(format!(
