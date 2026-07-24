@@ -712,7 +712,6 @@ mod tests {
         runtime
             .generated_pathways
             .insert(pathway.id.clone(), pathway.clone());
-        runtime.ensure_generated_pathway_project(&pathway);
         runtime.ensure_generated_pathway_edge(&pathway, RAIN_SOFT_GARDEN_LOCATION_ID, waypoint_id);
 
         let state = runtime

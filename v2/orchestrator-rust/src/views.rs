@@ -637,6 +637,8 @@ pub(super) struct RoomSheetView {
     pub(super) hooks: Vec<String>,
     pub(super) resources: BTreeMap<String, i16>,
     pub(super) natural_features: Vec<NaturalFeatureState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) generated_place: Option<GeneratedPlaceView>,
     pub(super) eligible_building_archetypes: Vec<String>,
     pub(super) projects: Vec<String>,
 }
@@ -2384,15 +2386,22 @@ impl RuntimeWorld {
                 hooks: sheet.hooks.clone(),
                 resources: sheet.resources.clone(),
                 natural_features: self.revealed_natural_features(location_id),
-                eligible_building_archetypes: self
-                    .eligible_natural_building_archetypes(location_id),
+                generated_place: self.generated_place_view(location_id),
+                eligible_building_archetypes: if self.generated_places.contains_key(&location_id) {
+                    self.generated_place_building_choices(location_id)
+                } else {
+                    self.eligible_natural_building_archetypes(location_id)
+                },
                 projects: sheet.projects.clone(),
             })
             .or_else(|| {
-                let pathway = self.generated_pathway_for_location(location_id)?;
-                let familiar = pathway.familiar;
+                self.generated_pathway_for_location(location_id)?;
                 let meta = self.location_meta_for(location_id);
-                let mut projects = vec![generated_pathway_job_id(&pathway.id)];
+                let mut projects = vec![
+                    generated_place_anchor_job_id(location_id),
+                    generated_place_connection_job_id(location_id),
+                    generated_place_settlement_job_id(location_id),
+                ];
                 if self.natural_affordances.contains_key(&location_id) {
                     projects.push(natural_investigation_job_id(location_id));
                 }
@@ -2402,32 +2411,20 @@ impl RuntimeWorld {
                     name: self
                         .location_name(location_id)
                         .unwrap_or_else(|| "Newly Found Path".to_string()),
-                    safety: if familiar { "safe" } else { "risky" }.to_string(),
-                    zone: if familiar {
-                        ZONE_SANCTUARY
-                    } else {
-                        ZONE_FRONTIER
-                    }
-                    .to_string(),
+                    safety: "risky".to_string(),
+                    zone: ZONE_FRONTIER.to_string(),
                     aspects: if meta.terrain.is_empty() {
                         vec!["unfinished ground".to_string()]
                     } else {
                         meta.terrain.clone()
                     },
-                    boons: vec![if familiar {
-                        "Travelers know how to find their footing here.".to_string()
-                    } else {
-                        "Every careful hand helps the route take shape.".to_string()
-                    }],
-                    hooks: vec![if familiar {
-                        "The settled way remembers who helped make it familiar.".to_string()
-                    } else {
-                        "Work together until the wild way becomes familiar.".to_string()
-                    }],
+                    boons: vec!["Careful deeds leave lasting marks here.".to_string()],
+                    hooks: vec!["Anchor, connect, then settle this place.".to_string()],
                     resources: BTreeMap::new(),
                     natural_features: self.revealed_natural_features(location_id),
+                    generated_place: self.generated_place_view(location_id),
                     eligible_building_archetypes: self
-                        .eligible_natural_building_archetypes(location_id),
+                        .generated_place_building_choices(location_id),
                     projects,
                 })
             })
@@ -2518,8 +2515,11 @@ impl RuntimeWorld {
                 resources: room_sheet
                     .map(|sheet| sheet.resources.clone())
                     .unwrap_or_default(),
-                eligible_building_archetypes: self
-                    .eligible_natural_building_archetypes(location_id),
+                eligible_building_archetypes: if self.generated_places.contains_key(&location_id) {
+                    self.generated_place_building_choices(location_id)
+                } else {
+                    self.eligible_natural_building_archetypes(location_id)
+                },
                 projects: room_sheet
                     .map(|sheet| sheet.projects.clone())
                     .unwrap_or_default(),

@@ -10,6 +10,7 @@ mod content_load;
 mod content_packs;
 mod content_policy;
 mod content_registry;
+mod generated_places;
 mod hosted_access;
 mod kernel;
 mod legacy_import;
@@ -50,6 +51,7 @@ use content_policy::*;
 use content_registry::*;
 use cosyworld_ai_model::ResidentReplyModelInput;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use generated_places::*;
 use hosted_access::*;
 use kernel::*;
 use legacy_import::*;
@@ -519,7 +521,6 @@ const NARRATIVE_MOVE_SIGNATURE_TTL: Duration = Duration::from_secs(5 * 60);
 const NARRATIVE_MOVE_SIGNATURE_FUTURE_SKEW_SECS: u64 = 60;
 const NARRATIVE_MOVE_DELEGATION_MAX_TTL: Duration = Duration::from_secs(12 * 60 * 60);
 const GENERATED_PATHWAY_LOCATION_ID_BASE: u64 = 100_000;
-const GENERATED_PATHWAY_FAMILIARITY_SEGMENTS: u8 = 6;
 const EXPLORER_CALLING_STATEMENT: &str = "I explore the paths nobody has named yet.";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1637,6 +1638,7 @@ struct RuntimeWorld {
     jobs: BTreeMap<String, JobState>,
     room_sheets: BTreeMap<u64, RoomSheetState>,
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
+    generated_places: BTreeMap<u64, GeneratedPlaceState>,
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     community_art_generations: BTreeMap<String, CommunityArtGenerationState>,
     journeys: BTreeMap<u64, JourneyState>,
@@ -1723,6 +1725,8 @@ struct RuntimeSnapshot {
     room_sheets: BTreeMap<u64, RoomSheetState>,
     #[serde(default)]
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
+    #[serde(default)]
+    generated_places: BTreeMap<u64, GeneratedPlaceState>,
     #[serde(default)]
     natural_affordances: BTreeMap<u64, NaturalAffordanceState>,
     #[serde(default)]
@@ -6308,7 +6312,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 4,
+            version: 5,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6341,6 +6345,7 @@ impl RuntimeSnapshot {
             jobs: runtime.jobs.clone(),
             room_sheets: runtime.room_sheets.clone(),
             generated_pathways: runtime.generated_pathways.clone(),
+            generated_places: runtime.generated_places.clone(),
             natural_affordances: runtime.natural_affordances.clone(),
             community_art_generations: runtime.community_art_generations.clone(),
             journeys: runtime.journeys.clone(),
@@ -6542,6 +6547,7 @@ impl RuntimeSnapshot {
             jobs: self.jobs,
             room_sheets: self.room_sheets,
             generated_pathways: self.generated_pathways,
+            generated_places: self.generated_places,
             natural_affordances: self.natural_affordances,
             community_art_generations: self.community_art_generations,
             journeys: self.journeys,
@@ -6984,6 +6990,7 @@ impl RuntimeWorld {
             jobs: BTreeMap::new(),
             room_sheets: BTreeMap::new(),
             generated_pathways: BTreeMap::new(),
+            generated_places: BTreeMap::new(),
             natural_affordances: BTreeMap::new(),
             community_art_generations: BTreeMap::new(),
             journeys: BTreeMap::new(),
@@ -8385,22 +8392,6 @@ impl RuntimeWorld {
         }
     }
 
-    fn prepare_projection_mutations(&mut self, mutations: &[ProjectionMutation]) {
-        for mutation in mutations {
-            let ProjectionMutation::JourneyTransition {
-                pathway,
-                reveal_edges,
-                ..
-            } = mutation
-            else {
-                continue;
-            };
-            for (from_location_id, to_location_id) in reveal_edges {
-                self.ensure_generated_pathway_edge(pathway, *from_location_id, *to_location_id);
-            }
-        }
-    }
-
     fn ensure_generated_pathway_topology(&mut self) {
         let pathway_ids = self.generated_pathways.keys().cloned().collect::<Vec<_>>();
         for pathway_id in pathway_ids {
@@ -8449,140 +8440,14 @@ impl RuntimeWorld {
             .cloned()
             .collect::<Vec<_>>();
         for pathway in pathways {
-            self.ensure_generated_pathway_project(&pathway);
             for edge in &pathway.revealed_edges {
                 let Some((from_location_id, to_location_id)) = parse_pathway_edge_key(edge) else {
                     continue;
                 };
                 self.ensure_generated_pathway_edge(&pathway, from_location_id, to_location_id);
             }
+            self.migrate_generated_pathway_projection(&pathway);
         }
-    }
-
-    fn ensure_generated_pathway_project(&mut self, pathway: &GeneratedPathwayState) {
-        let Some(scope_id) = pathway.waypoints.first().map(|waypoint| waypoint.id) else {
-            return;
-        };
-        let progress_clock_id = generated_pathway_progress_clock_id(&pathway.id);
-        let danger_clock_id = generated_pathway_danger_clock_id(&pathway.id);
-        let job_id = generated_pathway_job_id(&pathway.id);
-        self.clocks
-            .entry(progress_clock_id.clone())
-            .or_insert_with(|| ClockState {
-                id: progress_clock_id.clone(),
-                scope: "room".to_string(),
-                scope_id,
-                kind: "progress".to_string(),
-                zone: ZONE_FRONTIER.to_string(),
-                label: "Make this way familiar".to_string(),
-                segments: GENERATED_PATHWAY_FAMILIARITY_SEGMENTS,
-                filled: if pathway.familiar {
-                    GENERATED_PATHWAY_FAMILIARITY_SEGMENTS
-                } else {
-                    0
-                },
-                visible_to_players: true,
-                status: if pathway.familiar { "filled" } else { "active" }.to_string(),
-                presentation: ClockPresentation {
-                    version: CLOCK_PRESENTATION_SCHEMA_VERSION,
-                    question: "Can travelers make this newly found way familiar?".to_string(),
-                    rhythm: "construction".to_string(),
-                    attention: "local".to_string(),
-                    priority: 80,
-                    situation:
-                        "The route has been crossed, but its turns still feel wild and changeable."
-                            .to_string(),
-                    stakes: "Until travelers learn it together, the way may shift between visits."
-                        .to_string(),
-                    outcome:
-                        "The route becomes a familiar, lasting path with its own remembered landscape."
-                            .to_string(),
-                    completion_memory:
-                        "Travelers worked together until the newly found way felt familiar."
-                            .to_string(),
-                },
-                on_fill: Vec::new(),
-                recent_contributions: Vec::new(),
-                completion: None,
-                created_event_seq: None,
-                updated_event_seq: None,
-            });
-        self.clocks
-            .entry(danger_clock_id.clone())
-            .or_insert_with(|| ClockState {
-                id: danger_clock_id.clone(),
-                scope: "room".to_string(),
-                scope_id,
-                kind: "danger".to_string(),
-                zone: ZONE_FRONTIER.to_string(),
-                label: "The wild way shifts".to_string(),
-                segments: GENERATED_PATHWAY_FAMILIARITY_SEGMENTS,
-                filled: 0,
-                visible_to_players: true,
-                status: if pathway.familiar { "quiet" } else { "active" }.to_string(),
-                presentation: ClockPresentation {
-                    version: CLOCK_PRESENTATION_SCHEMA_VERSION,
-                    question: "Will the wild way shift before travelers learn it?".to_string(),
-                    rhythm: "construction".to_string(),
-                    attention: "background".to_string(),
-                    priority: 20,
-                    situation: "The route still changes when nobody is paying attention."
-                        .to_string(),
-                    stakes: "A shifting route can unsettle the work already done here.".to_string(),
-                    outcome: "The way changes before it can become familiar.".to_string(),
-                    completion_memory:
-                        "The wild way shifted before travelers could make it familiar.".to_string(),
-                },
-                on_fill: Vec::new(),
-                recent_contributions: Vec::new(),
-                completion: None,
-                created_event_seq: None,
-                updated_event_seq: None,
-            });
-        self.jobs.entry(job_id.clone()).or_insert_with(|| JobState {
-            pack_id: String::new(),
-            id: job_id.clone(),
-            premise: "Make the newly found way familiar.".to_string(),
-            stakes: "Until enough travelers help, the route stays wild and changeable.".to_string(),
-            location_ids: pathway
-                .waypoints
-                .iter()
-                .map(|waypoint| waypoint.id)
-                .collect(),
-            participant_ids: Vec::new(),
-            progress_clock_id: progress_clock_id.clone(),
-            danger_clock_id,
-            status: if pathway.familiar {
-                "completed"
-            } else {
-                "active"
-            }
-            .to_string(),
-            reward: JobReward::Label(
-                "The route settles and earns a lasting illustrated landscape.".to_string(),
-            ),
-            consequence: "The route remains a wild frontier.".to_string(),
-            memory_summary: "Travelers worked together until the new way felt familiar."
-                .to_string(),
-            action_copy: JobActionCopy {
-                label: "Make this way familiar".to_string(),
-                summary: "Choose how to help this newly found route settle into a familiar way."
-                    .to_string(),
-            },
-            contribution_schema_version: JOB_CONTRIBUTION_SCHEMA_VERSION,
-            contribution_strategies: generated_pathway_contribution_strategies(
-                &job_id,
-                &progress_clock_id,
-            ),
-            narrated_thresholds: vec![JobNarratedThreshold {
-                clock_id: progress_clock_id.clone(),
-                filled: 2,
-                narration_key: "pathway.familiarity.taking-shape".to_string(),
-                text: "The route is beginning to feel remembered rather than merely crossed."
-                    .to_string(),
-            }],
-            delivery: None,
-        });
     }
 
     fn ensure_generated_pathway_edge(
@@ -8622,6 +8487,16 @@ impl RuntimeWorld {
                     "generated_environment",
                     pack_id,
                     &pack_version,
+                );
+                let connected_from_location_id = if location_id == from_location_id {
+                    to_location_id
+                } else {
+                    from_location_id
+                };
+                self.ensure_generated_place_for_waypoint(
+                    pathway,
+                    location_id,
+                    connected_from_location_id,
                 );
             }
         }
@@ -10237,7 +10112,6 @@ impl RuntimeWorld {
                 _ => None,
             })
             .collect::<BTreeSet<_>>();
-        self.prepare_projection_mutations(&record.projection_mutations);
         let projection_only_blocked_by_combat = advances_world_tick
             && action.kind == CW_ACTION_NONE
             && self
@@ -10378,6 +10252,8 @@ impl RuntimeWorld {
                 .iter()
                 .all(|event| !event.type_name.starts_with("world."));
             events.extend(logistics_events);
+            let generated_place_cause = events.last().map(|event| event.seq);
+            events.extend(self.reconcile_generated_places(action.actor_id, generated_place_cause));
             self.project_qualifying_deeds(&events);
             self.apply_resident_memory_projection(&action, &events);
             if advances_world_tick {
@@ -10677,10 +10553,14 @@ impl RuntimeWorld {
                         next_pathway
                             .revealed_edges
                             .insert(pathway_edge_key(*from_location_id, *to_location_id));
+                        self.ensure_generated_pathway_edge(
+                            &next_pathway,
+                            *from_location_id,
+                            *to_location_id,
+                        );
                     }
                     self.generated_pathways
                         .insert(next_pathway.id.clone(), next_pathway.clone());
-                    self.ensure_generated_pathway_project(&next_pathway);
                     if let Some(journey) = journey {
                         self.journeys.insert(action.actor_id, journey.clone());
                     } else {
@@ -10693,12 +10573,19 @@ impl RuntimeWorld {
                             (event_type == "journey.completed")
                                 .then_some(action.destination_location_id)
                         });
-                    events.push(self.append_journey_event(
+                    let event = self.append_journey_event(
                         event_type,
                         action.actor_id,
                         narration,
                         journey_destination,
-                    ));
+                    );
+                    self.record_generated_place_discovery(
+                        &next_pathway,
+                        reveal_edges,
+                        action.actor_id,
+                        event.seq,
+                    );
+                    events.push(event);
                 }
                 ProjectionMutation::UpgradePathwayIfReady {
                     pathway_id,
@@ -18593,8 +18480,10 @@ impl RuntimeWorld {
     }
 
     fn location_is_frontier(&self, location_id: u64) -> bool {
-        if let Some(pathway) = self.generated_pathway_for_location(location_id) {
-            return !pathway.familiar;
+        if self.generated_places.contains_key(&location_id)
+            || self.generated_pathway_for_location(location_id).is_some()
+        {
+            return true;
         }
         self.room_sheets
             .get(&location_id)
@@ -20152,7 +20041,13 @@ impl RuntimeWorld {
                     return None;
                 }
                 if let Some(pathway) = self.generated_pathway_for_location(subject_id) {
-                    return (pathway.familiar && pathway.art_eligible).then_some(1);
+                    return (pathway.art_eligible
+                        && self
+                            .generated_places
+                            .get(&subject_id)
+                            .and_then(|place| place.building_proposal.as_ref())
+                            .is_some())
+                    .then_some(1);
                 }
                 Some(1)
             }
@@ -40375,76 +40270,6 @@ fn natural_investigation_contribution_strategies(
     .collect()
 }
 
-fn generated_pathway_contribution_strategies(
-    job_id: &str,
-    progress_clock_id: &str,
-) -> Vec<JobContributionStrategy> {
-    let pack_id = "cosyworld.core";
-    let pack_version = active_content()
-        .manifest
-        .packs
-        .iter()
-        .find(|pack| pack.id == pack_id)
-        .map(|pack| pack.version.clone())
-        .unwrap_or_default();
-    ["work", "help"]
-        .into_iter()
-        .filter_map(|action_kind| {
-            let binding = resolved_action_binding(action_kind)?;
-            let (target, baseline_progress, prepared_bonus_progress, strategy_label) =
-                if action_kind == "work" {
-                    (
-                        ContributionTargetDescriptor {
-                            kind: "job".to_string(),
-                            id: Some(job_id.to_string()),
-                            predicate: None,
-                            label: "the newly found way".to_string(),
-                        },
-                        2,
-                        1,
-                        "Mark and steady the route",
-                    )
-                } else {
-                    (
-                        ContributionTargetDescriptor {
-                            kind: "actor".to_string(),
-                            id: None,
-                            predicate: Some("co_present_avatar".to_string()),
-                            label: "a nearby traveler".to_string(),
-                        },
-                        1,
-                        1,
-                        "Work beside another traveler",
-                    )
-                };
-            Some(JobContributionStrategy {
-                version: JOB_CONTRIBUTION_SCHEMA_VERSION,
-                id: format!("pathway-{action_kind}"),
-                action_kind: action_kind.to_string(),
-                rules_action: binding.rules_action,
-                operation: binding.operation,
-                target,
-                requirements: Vec::new(),
-                resolution: ContributionResolutionPolicy::Certain,
-                clock_id: progress_clock_id.to_string(),
-                baseline_progress,
-                success_progress: 0,
-                prepared_bonus_progress,
-                on_success: Vec::new(),
-                on_failure: Vec::new(),
-                claim_policy: ContributionClaimPolicy::Repeatable,
-                strategy_label: strategy_label.to_string(),
-                narration_key: format!("pathway.familiarity.{action_kind}"),
-                rules_profile: active_content().manifest.rules_profile.clone(),
-                rules_pack_id: binding.pack_id,
-                rules_pack_version: binding.pack_version,
-                pack_id: pack_id.to_string(),
-                pack_version: pack_version.clone(),
-            })
-        })
-        .collect()
-}
-
 fn pathway_edge_key(left: u64, right: u64) -> String {
     let (origin, destination) = canonical_pathway_anchors(left, right);
     format!("{origin}:{destination}")
@@ -49995,10 +49820,15 @@ mod tests {
         assert_eq!(frontier_sheet.zone, ZONE_FRONTIER);
         assert_eq!(frontier_sheet.safety, "risky");
         assert!(runtime.work_available(5000));
-        assert!(frontier_state
+        let generated_clock_labels = frontier_state
             .clocks
             .iter()
-            .any(|clock| clock.label == "Make this way familiar"));
+            .map(|clock| clock.label.as_str())
+            .collect::<BTreeSet<_>>();
+        assert!(generated_clock_labels.contains("Anchor"));
+        assert!(generated_clock_labels.contains("Connection"));
+        assert!(generated_clock_labels.contains("Settlement"));
+        assert!(!generated_clock_labels.contains("Make this way familiar"));
         let next_scout = frontier_state
             .action_offers
             .iter()
@@ -50201,85 +50031,374 @@ mod tests {
     }
 
     #[test]
-    fn community_work_familiarizes_generated_pathway_and_unlocks_community_art() {
+    fn generated_place_lifecycle_is_typed_causal_bounded_and_replayable() {
+        fn apply_pair(
+            first: &mut RuntimeWorld,
+            replay: &mut RuntimeWorld,
+            record: &JournalRecord,
+        ) -> Vec<EventView> {
+            let (first_status, first_events) = first.apply_journal_record(record);
+            let (replay_status, replay_events) = replay.apply_journal_record(record);
+            assert_eq!(first_status, CW_OK);
+            assert_eq!(replay_status, CW_OK);
+            assert_eq!(
+                serde_json::to_value(&first_events).expect("serialize first events"),
+                serde_json::to_value(&replay_events).expect("serialize replay events")
+            );
+            first_events
+        }
+
+        fn avatar_record(actor_id: u64, location_id: u64, name: &str, seed: u64) -> JournalRecord {
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_CREATE_ACTOR,
+                    actor_id,
+                    location_id,
+                    ..CwAction::default()
+                },
+                seed,
+            );
+            record.actor_meta_upserts.insert(
+                actor_id,
+                ActorMeta {
+                    name: name.to_string(),
+                    speech_mode: "prose".to_string(),
+                    title: "Place Maker".to_string(),
+                    description: "A separately controlled test avatar.".to_string(),
+                },
+            );
+            record
+        }
+
         let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
+        let mut replay = RuntimeWorld::seeded();
+        apply_pair(
             &mut runtime,
+            &mut replay,
+            &avatar_record(5000, RAIN_SOFT_GARDEN_LOCATION_ID, "Trail Builder", 910_000),
+        );
+        let rejected_pathway = runtime.generated_pathway(
             5000,
             RAIN_SOFT_GARDEN_LOCATION_ID,
-            "Trail Builder",
+            MOONLIT_TRAIL_LOCATION_ID,
+            2,
         );
+        let rejected_waypoint_id = rejected_pathway.waypoints[0].id;
+        let mut rejected_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_MOVE,
+                actor_id: 5000,
+                destination_location_id: rejected_waypoint_id,
+                ..CwAction::default()
+            },
+            909_999,
+        );
+        rejected_record
+            .projection_mutations
+            .push(ProjectionMutation::JourneyTransition {
+                pathway: rejected_pathway,
+                journey: None,
+                reveal_edges: vec![(RAIN_SOFT_GARDEN_LOCATION_ID, rejected_waypoint_id)],
+                narration: "A rejected discovery leaves no projection behind.".to_string(),
+                event_type: "pathway.discovered".to_string(),
+            });
+        assert_ne!(runtime.apply_journal_record(&rejected_record).0, CW_OK);
+        assert_ne!(replay.apply_journal_record(&rejected_record).0, CW_OK);
+        assert!(!runtime.generated_places.contains_key(&rejected_waypoint_id));
+        assert!(!runtime.room_sheets.contains_key(&rejected_waypoint_id));
+        assert!(!runtime
+            .world_simulation_seed()
+            .locations
+            .iter()
+            .any(|location| location.id == rejected_waypoint_id));
+
         let (search, search_mutation, _) = runtime
             .plan_journey_move(5000, MOONLIT_TRAIL_LOCATION_ID)
             .expect("pathway search planning succeeds")
             .expect("the garden-to-trail route has distance");
         let mut search_record = JournalRecord::new(search, 910_001);
         search_record.projection_mutations.push(search_mutation);
-        assert_eq!(runtime.apply_journal_record(&search_record).0, CW_OK);
+        let discovery_events = apply_pair(&mut runtime, &mut replay, &search_record);
 
         let pathway_id =
             generated_pathway_id(RAIN_SOFT_GARDEN_LOCATION_ID, MOONLIT_TRAIL_LOCATION_ID);
         let first_waypoint_id = runtime.journeys[&5000].path[1];
+        let place = runtime.generated_places[&first_waypoint_id].clone();
+        assert_eq!(place.schema_version, GENERATED_PLACE_SCHEMA_VERSION);
+        assert_eq!(
+            place.discovered_event_seq,
+            discovery_events
+                .iter()
+                .find(|event| event.type_name == "pathway.discovered")
+                .map(|event| event.seq)
+        );
+        assert_eq!(
+            runtime.generated_place_milestones(first_waypoint_id),
+            vec!["Discovered"]
+        );
+        let sheet = runtime
+            .room_sheet_view(first_waypoint_id)
+            .expect("discovery creates an authoritative room sheet");
+        assert_eq!(sheet.zone, ZONE_FRONTIER);
+        assert_eq!(sheet.safety, "risky");
+        assert!(sheet.generated_place.is_some());
+        assert!(sheet.eligible_building_archetypes.is_empty());
+        assert!(runtime
+            .world_simulation_seed()
+            .locations
+            .iter()
+            .any(|location| location.id == first_waypoint_id));
+        for clock_id in [
+            &place.anchor_clock_id,
+            &place.connection_clock_id,
+            &place.settlement_clock_id,
+        ] {
+            assert_eq!(runtime.clocks[clock_id].filled, 0);
+        }
+        assert!(!runtime
+            .jobs
+            .contains_key(&generated_pathway_job_id(&pathway_id)));
+        assert!(!runtime
+            .clocks
+            .contains_key(&generated_pathway_progress_clock_id(&pathway_id)));
+
+        let mut speech = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_SAY,
+                actor_id: 5000,
+                content_id: 91_000,
+                ..CwAction::default()
+            },
+            910_002,
+        );
+        speech
+            .content_upserts
+            .insert(91_000, "This place is definitely settled now.".to_string());
+        apply_pair(&mut runtime, &mut replay, &speech);
+        assert_eq!(
+            runtime.generated_place_milestones(first_waypoint_id),
+            vec!["Discovered"]
+        );
+
+        let carried_item_id = STORY_BUTTON_ITEM_ID;
+        for world in [&mut runtime, &mut replay] {
+            let item = world.world.items[..world.world.item_count]
+                .iter_mut()
+                .find(|item| item.id == carried_item_id)
+                .expect("seed item exists");
+            item.location_id = place.connected_from_location_id;
+            item.holder_actor_id = 0;
+            item.zone = CW_CARD_ZONE_WORLD;
+        }
+        apply_pair(
+            &mut runtime,
+            &mut replay,
+            &JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_PICK_UP_ITEM,
+                    actor_id: 5000,
+                    item_id: carried_item_id,
+                    ..CwAction::default()
+                },
+                910_003,
+            ),
+        );
         let (travel, travel_mutation, _) = runtime
             .plan_journey_move(5000, first_waypoint_id)
             .expect("first pathway travel planning succeeds")
             .expect("the first revealed edge is travelable");
-        let mut travel_record = JournalRecord::new(travel, 910_002);
+        let mut travel_record = JournalRecord::new(travel, 910_004);
         travel_record.projection_mutations.push(travel_mutation);
-        assert_eq!(runtime.apply_journal_record(&travel_record).0, CW_OK);
-        assert!(runtime.location_is_frontier(first_waypoint_id));
+        apply_pair(&mut runtime, &mut replay, &travel_record);
+        let delivery_events = apply_pair(
+            &mut runtime,
+            &mut replay,
+            &JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_DROP_ITEM,
+                    actor_id: 5000,
+                    item_id: carried_item_id,
+                    ..CwAction::default()
+                },
+                910_005,
+            ),
+        );
+        assert!(delivery_events
+            .iter()
+            .any(|event| event.type_name == "world.logistics.completed"));
+        assert_eq!(
+            runtime.generated_place_milestones(first_waypoint_id),
+            vec!["Discovered", "Connection"]
+        );
 
-        let clock_id = generated_pathway_progress_clock_id(&pathway_id);
-        let mut familiarized_events = Vec::new();
-        for index in 0..3 {
+        let anchor_intent = runtime
+            .job_contribution_intent(5000, "work", Some(&place.anchor_job_id), None, None)
+            .expect("explicit fixture work is available");
+        let mut anchor_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            910_006,
+        );
+        anchor_record
+            .projection_mutations
+            .push(ProjectionMutation::ResolveJobContribution {
+                intent: anchor_intent,
+            });
+        apply_pair(&mut runtime, &mut replay, &anchor_record);
+        assert_eq!(
+            runtime.generated_place_milestones(first_waypoint_id),
+            vec!["Discovered", "Anchor", "Connection"]
+        );
+        assert_eq!(runtime.jobs[&place.settlement_job_id].status, "active");
+
+        let investigation_clock_id = runtime.natural_affordances[&first_waypoint_id]
+            .investigation_clock_id
+            .clone();
+        let investigation_segments = runtime.clocks[&investigation_clock_id].segments;
+        let latent_buildings = runtime.natural_affordances[&first_waypoint_id]
+            .latent_potential
+            .as_ref()
+            .map(|potential| {
+                potential
+                    .building_archetypes
+                    .iter()
+                    .map(|building| building.key().to_string())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        assert!(runtime
+            .generated_place_building_choices(first_waypoint_id)
+            .is_empty());
+        let mut reveal_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            910_007,
+        );
+        reveal_record
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: investigation_clock_id,
+                amount: investigation_segments,
+                reason: "generated_place_test_reveal".to_string(),
+            });
+        apply_pair(&mut runtime, &mut replay, &reveal_record);
+
+        apply_pair(
+            &mut runtime,
+            &mut replay,
+            &avatar_record(5001, first_waypoint_id, "Bridge Keeper", 910_008),
+        );
+        for (actor_id, action_kind, target_hint, seed) in [
+            (5000, "work", None, 910_009),
+            (5001, "work", None, 910_010),
+            (5000, "help", Some(("actor", "5001")), 910_011),
+        ] {
+            let intent = runtime
+                .job_contribution_intent(
+                    actor_id,
+                    action_kind,
+                    Some(&place.settlement_job_id),
+                    None,
+                    target_hint,
+                )
+                .expect("one distinct settlement contribution is available");
             let mut record = JournalRecord::new(
                 CwAction {
                     kind: CW_ACTION_NONE,
-                    actor_id: 5000,
+                    actor_id,
                     ..CwAction::default()
                 },
-                910_010 + index,
+                seed,
             );
             record
                 .projection_mutations
-                .push(ProjectionMutation::AdvanceClock {
-                    clock_id: clock_id.clone(),
-                    amount: 2,
-                    reason: "community_work_test".to_string(),
-                });
-            record
-                .projection_mutations
-                .push(ProjectionMutation::UpgradePathwayIfReady {
-                    pathway_id: pathway_id.clone(),
-                    progress_clock_id: clock_id.clone(),
-                });
-            let (status, events) = runtime.apply_journal_record(&record);
-            assert_eq!(status, CW_OK);
-            familiarized_events.extend(events);
+                .push(ProjectionMutation::ResolveJobContribution { intent });
+            apply_pair(&mut runtime, &mut replay, &record);
         }
-
-        assert!(familiarized_events
-            .iter()
-            .any(|event| event.type_name == "pathway.familiarized"));
-        assert!(runtime.generated_pathways[&pathway_id].familiar);
-        assert!(!runtime.location_is_frontier(first_waypoint_id));
-        let familiar_sheet = runtime
-            .room_sheet_view(first_waypoint_id)
-            .expect("familiar pathway keeps its generated room sheet");
-        assert_eq!(familiar_sheet.zone, ZONE_SANCTUARY);
-        assert_eq!(familiar_sheet.safety, "safe");
+        assert!(runtime
+            .job_contribution_intent(5000, "work", Some(&place.settlement_job_id), None, None,)
+            .is_none());
         assert_eq!(
-            runtime.job_status(&runtime.jobs[&generated_pathway_job_id(&pathway_id)]),
-            "completed"
+            runtime.generated_place_milestones(first_waypoint_id),
+            vec!["Discovered", "Anchor", "Connection", "Settlement"]
         );
-        let state = runtime.state_response(Some(5000), &AccessContext::default());
-        let art = state.cards.locations[&first_waypoint_id]
-            .community_art
+        let proposal = runtime.generated_places[&first_waypoint_id]
+            .building_proposal
             .as_ref()
-            .expect("familiar generated location unlocks one community image");
-        assert_eq!(art.level, 1);
-        assert_eq!(art.required_orbs, 1);
-        assert_eq!(art.status, "available");
+            .expect("settlement opens a proposal");
+        assert!(!proposal.eligible_archetype_ids.is_empty());
+        assert!(proposal.eligible_archetype_ids.len() <= 6);
+        assert!(
+            latent_buildings.is_empty()
+                || latent_buildings
+                    .iter()
+                    .any(|building| proposal.eligible_archetype_ids.contains(building))
+        );
+        let settled_sheet = runtime
+            .room_sheet_view(first_waypoint_id)
+            .expect("settled place remains inspectable");
+        assert_eq!(settled_sheet.zone, ZONE_FRONTIER);
+        assert_eq!(settled_sheet.safety, "risky");
+        assert!(runtime.location_is_frontier(first_waypoint_id));
+        assert!(runtime
+            .event_log
+            .iter()
+            .any(|event| event.type_name == "generated_place.building_proposal_opened"));
+        assert_eq!(
+            serde_json::to_value(runtime.generated_place_view(first_waypoint_id))
+                .expect("serialize generated place"),
+            serde_json::to_value(replay.generated_place_view(first_waypoint_id))
+                .expect("serialize replayed generated place")
+        );
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("generated-place snapshot restores");
+        assert_eq!(
+            serde_json::to_value(runtime.generated_place_view(first_waypoint_id))
+                .expect("serialize pre-snapshot generated place"),
+            serde_json::to_value(restored.generated_place_view(first_waypoint_id))
+                .expect("serialize restored generated place")
+        );
+
+        let mut legacy_snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        legacy_snapshot.generated_places.clear();
+        let mut legacy_clock = legacy_snapshot.clocks[&place.anchor_clock_id].clone();
+        legacy_clock.id = generated_pathway_progress_clock_id(&pathway_id);
+        legacy_snapshot
+            .clocks
+            .insert(legacy_clock.id.clone(), legacy_clock);
+        let mut legacy_job = legacy_snapshot.jobs[&place.anchor_job_id].clone();
+        legacy_job.id = generated_pathway_job_id(&pathway_id);
+        legacy_job.progress_clock_id = generated_pathway_progress_clock_id(&pathway_id);
+        legacy_snapshot
+            .jobs
+            .insert(legacy_job.id.clone(), legacy_job);
+        legacy_snapshot
+            .room_sheets
+            .get_mut(&first_waypoint_id)
+            .expect("legacy sheet exists")
+            .projects
+            .push(generated_pathway_job_id(&pathway_id));
+        let migrated = legacy_snapshot
+            .into_runtime()
+            .expect("legacy generated pathway projection migrates");
+        assert!(migrated.generated_places.contains_key(&first_waypoint_id));
+        assert!(!migrated
+            .jobs
+            .contains_key(&generated_pathway_job_id(&pathway_id)));
+        assert!(!migrated
+            .clocks
+            .contains_key(&generated_pathway_progress_clock_id(&pathway_id)));
+        assert!(!migrated.room_sheets[&first_waypoint_id]
+            .projects
+            .contains(&generated_pathway_job_id(&pathway_id)));
     }
 
     #[test]
