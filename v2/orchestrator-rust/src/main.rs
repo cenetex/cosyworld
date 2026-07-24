@@ -43409,29 +43409,42 @@ fn read_canonical_natural_feature_reveals_by_journal_seq(
     let conn = open_event_store(path)?;
     let mut stmt = conn
         .prepare(
-            "SELECT commits.action_journal_seq, events.payload_json
-             FROM canonical_commits AS commits
-             JOIN world_events AS events
-               ON events.world_id = commits.world_id
-              AND events.world_epoch = commits.world_epoch
-              AND events.seq BETWEEN commits.first_world_seq AND commits.last_world_seq
-             WHERE commits.world_id = ?1
-               AND commits.world_epoch = ?2
+            "SELECT (
+                 SELECT commits.action_journal_seq
+                 FROM canonical_commits AS commits
+                 WHERE commits.world_id = events.world_id
+                   AND commits.world_epoch = events.world_epoch
+                   AND events.seq BETWEEN commits.first_world_seq AND commits.last_world_seq
+                 ORDER BY (commits.last_world_seq - commits.first_world_seq) ASC,
+                          commits.action_journal_seq ASC
+                 LIMIT 1
+             ), events.payload_json
+             FROM world_events AS events
+             WHERE events.world_id = ?1
+               AND events.world_epoch = ?2
                AND events.event_type = 'natural_feature.revealed'
-             ORDER BY commits.action_journal_seq ASC, events.seq ASC",
+             ORDER BY events.seq ASC
+             LIMIT ?3",
         )
         .map_err(sqlite_error)?;
     let rows = stmt
         .query_map(
-            params![OFFICIAL_WORLD_ID, OFFICIAL_WORLD_EPOCH as i64],
-            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+            params![
+                OFFICIAL_WORLD_ID,
+                OFFICIAL_WORLD_EPOCH as i64,
+                CW_MAX_LOCATIONS as i64
+            ],
+            |row| Ok((row.get::<_, Option<i64>>(0)?, row.get::<_, String>(1)?)),
         )
         .map_err(sqlite_error)?;
     let mut events_by_journal_seq = BTreeMap::<u64, Vec<EventView>>::new();
     for row in rows {
         let (journal_seq, payload) = row.map_err(sqlite_error)?;
-        let journal_seq = u64::try_from(journal_seq)
-            .map_err(|_| snapshot_error("canonical commit returned a negative journal sequence"))?;
+        let journal_seq = journal_seq
+            .map(u64::try_from)
+            .transpose()
+            .map_err(|_| snapshot_error("canonical commit returned a negative journal sequence"))?
+            .unwrap_or(u64::MAX);
         let mut event: EventView = serde_json::from_str(&payload)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         if content_reference_context_is_empty(&event.content_context) {
