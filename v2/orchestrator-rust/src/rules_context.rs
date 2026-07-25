@@ -50,6 +50,8 @@ pub(super) struct SceneRulesContextView {
     pub(super) location_id: u64,
     pub(super) location_pack_id: String,
     pub(super) rules_profile: String,
+    pub(super) selector_scope: String,
+    pub(super) selector_id: String,
     pub(super) selected_by_pack_id: String,
     pub(super) capability_id: String,
     pub(super) provider_pack_id: String,
@@ -145,16 +147,32 @@ impl RuntimeWorld {
         state_revision: u64,
     ) -> Option<SceneRulesContextView> {
         let location_pack_id = self.scene_location_pack_id(location_id)?;
-        let selected = content_registry().active_ruleset_for_pack(&location_pack_id)?;
+        let authored_location = active_content()
+            .locations
+            .iter()
+            .find(|location| location.id == location_id);
+        let zone = self
+            .room_sheets
+            .get(&location_id)
+            .map(room_sheet_zone)
+            .unwrap_or_else(|| default_zone_for_scope("room", location_id));
+        let selected = content_registry().active_ruleset_for_scene(
+            &location_pack_id,
+            zone,
+            location_id,
+            authored_location.and_then(|location| location.ruleset.as_deref()),
+        )?;
         Some(SceneRulesContextView {
             schema_version: SCENE_RULES_CONTEXT_SCHEMA_VERSION,
             location_id,
             location_pack_id,
             rules_profile: active_content().manifest.rules_profile.clone(),
-            selected_by_pack_id: selected.selected_by_pack_id.clone(),
-            capability_id: selected.capability_id.clone(),
-            provider_pack_id: selected.provider_pack_id.clone(),
-            provider_pack_version: selected.provider_pack_version.clone(),
+            selector_scope: selected.selector_scope,
+            selector_id: selected.selector_id,
+            selected_by_pack_id: selected.context.selected_by_pack_id,
+            capability_id: selected.context.capability_id,
+            provider_pack_id: selected.context.provider_pack_id,
+            provider_pack_version: selected.context.provider_pack_version,
             state_revision,
         })
     }
@@ -277,6 +295,8 @@ mod tests {
         let cottage_context = cottage.rules_context.expect("cottage rules context");
         assert!(!cottage.action_offers.is_empty());
         assert_eq!(cottage_context.location_pack_id, "cosyworld.core");
+        assert_eq!(cottage_context.selector_scope, "pack");
+        assert_eq!(cottage_context.selector_id, "cosyworld.core");
         assert_eq!(cottage_context.selected_by_pack_id, "cosyworld.core");
         assert_eq!(cottage_context.capability_id, "cosyworld.core/rules");
         assert!(cottage.action_offers.iter().all(|offer| {
@@ -308,6 +328,11 @@ mod tests {
         let homeroom_context = homeroom.rules_context.expect("homeroom rules context");
         assert!(!homeroom.action_offers.is_empty());
         assert_eq!(homeroom_context.location_pack_id, "ruby-high.first-bell");
+        assert_eq!(homeroom_context.selector_scope, "location");
+        assert_eq!(
+            homeroom_context.selector_id,
+            "pack://ruby-high.first-bell/location/11"
+        );
         assert_eq!(homeroom_context.selected_by_pack_id, "ruby-high.first-bell");
         assert_eq!(homeroom_context.capability_id, "ruby-high.first-bell/rules");
         assert!(homeroom.action_offers.iter().all(|offer| {
@@ -328,6 +353,26 @@ mod tests {
                 .get(&offer.kind)
                 .is_some_and(|composition_id| composition_id != &offer.composition_id)
         }));
+
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5000)
+            .expect("test actor")
+            .location_id = 12;
+        let library = runtime
+            .state_response(Some(5000), &AccessContext::default())
+            .rules_context
+            .expect("library rules context");
+        assert_eq!(library.location_pack_id, "ruby-high.first-bell");
+        assert_eq!(library.selector_scope, "zone");
+        assert_eq!(
+            library.selector_id,
+            "pack://ruby-high.first-bell/zone/sanctuary"
+        );
+        assert_eq!(library.capability_id, "ruby-high.first-bell/rules");
 
         runtime
             .world

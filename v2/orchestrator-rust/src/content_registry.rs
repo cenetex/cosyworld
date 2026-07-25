@@ -33,6 +33,29 @@ pub(super) struct ActiveRulesetContext {
     pub(super) provider_pack_version: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct SceneRulesetSelection {
+    pub(super) context: ActiveRulesetContext,
+    pub(super) selector_scope: String,
+    pub(super) selector_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PackRulesContextExtension {
+    schema_version: u8,
+    zones: Vec<ZoneRulesetSelector>,
+    #[serde(default, rename = "vocabulary")]
+    _vocabulary: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ZoneRulesetSelector {
+    zone: String,
+    ruleset: String,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct ContentReferenceContext {
     pub(super) mapping_version: u32,
@@ -87,6 +110,7 @@ pub(super) struct ContentRegistry {
     content_references_by_handle: BTreeMap<u64, String>,
     legacy_content_references: BTreeMap<(String, u64), String>,
     active_rulesets: Vec<ActiveRulesetContext>,
+    zone_rulesets: BTreeMap<(String, String), String>,
     // Kept mounted for pack-aware consumers added by later engine versions.
     #[allow(dead_code)]
     additional_resources: BTreeMap<String, serde_json::Value>,
@@ -185,6 +209,38 @@ impl ContentRegistry {
                 })
             })
             .collect();
+        let mut zone_rulesets = BTreeMap::new();
+        for pack in &content.manifest.packs {
+            let Some(value) = pack.extensions.get("x-cosyworld-rules-context") else {
+                continue;
+            };
+            let config: PackRulesContextExtension =
+                serde_json::from_value(value.clone()).map_err(|error| {
+                    format!(
+                        "pack {} has invalid x-cosyworld-rules-context: {error}",
+                        pack.id
+                    )
+                })?;
+            if config.schema_version != 1 {
+                return Err(format!(
+                    "pack {} has unsupported rules context schema {}",
+                    pack.id, config.schema_version
+                ));
+            }
+            for selector in config.zones {
+                if selector.zone.trim().is_empty()
+                    || selector.ruleset.trim().is_empty()
+                    || zone_rulesets
+                        .insert((pack.id.clone(), selector.zone.clone()), selector.ruleset)
+                        .is_some()
+                {
+                    return Err(format!(
+                        "pack {} has invalid or conflicting rules selector for zone {}",
+                        pack.id, selector.zone
+                    ));
+                }
+            }
+        }
         let registry = Self {
             content,
             packs_by_id,
@@ -194,33 +250,32 @@ impl ContentRegistry {
             content_references_by_handle,
             legacy_content_references,
             active_rulesets,
+            zone_rulesets,
             additional_resources: resources,
         };
         for pack in &registry.content.manifest.packs {
             let Some(default_ruleset) = pack.default_ruleset.as_deref() else {
                 continue;
             };
-            let provider_id = registry
-                .capability_provider(default_ruleset)
-                .ok_or_else(|| {
-                    format!(
-                        "pack {}@{} selects unavailable rules capability {}",
-                        pack.id, pack.version, default_ruleset
-                    )
-                })?;
-            let provider = registry
-                .pack(provider_id)
-                .expect("capability provider exists");
-            if !provider
-                .capabilities
-                .iter()
-                .any(|capability| capability.id == default_ruleset && capability.kind == "rules")
-            {
-                return Err(format!(
-                    "pack {}@{} selects non-rules capability {} from {}@{}",
-                    pack.id, pack.version, default_ruleset, provider.id, provider.version
-                ));
-            }
+            registry.validate_pack_ruleset_reference(pack, default_ruleset)?;
+        }
+        for ((pack_id, _), ruleset) in &registry.zone_rulesets {
+            let pack = registry
+                .pack(pack_id)
+                .expect("zone rules selector pack exists");
+            registry.validate_pack_ruleset_reference(pack, ruleset)?;
+        }
+        for location in &registry.content.locations {
+            let Some(ruleset) = location.ruleset.as_deref() else {
+                continue;
+            };
+            let pack = registry.pack(&location.pack_id).ok_or_else(|| {
+                format!(
+                    "location {} references missing pack {}",
+                    location.id, location.pack_id
+                )
+            })?;
+            registry.validate_pack_ruleset_reference(pack, ruleset)?;
         }
         Ok(registry)
     }
@@ -258,6 +313,92 @@ impl ContentRegistry {
         });
         let selected = inherited.next()?;
         inherited.next().is_none().then_some(selected)
+    }
+
+    fn validate_pack_ruleset_reference(
+        &self,
+        pack: &SeedWorldpackPack,
+        ruleset: &str,
+    ) -> Result<(), String> {
+        let declared = pack
+            .capabilities
+            .iter()
+            .any(|capability| capability.id == ruleset && capability.kind == "rules")
+            || pack
+                .dependency_requirements
+                .iter()
+                .any(|dependency| dependency.capabilities.iter().any(|id| id == ruleset));
+        if !declared {
+            return Err(format!(
+                "pack {}@{} selects undeclared rules capability {}",
+                pack.id, pack.version, ruleset
+            ));
+        }
+        let provider_id = self.capability_provider(ruleset).ok_or_else(|| {
+            format!(
+                "pack {}@{} selects unavailable rules capability {}",
+                pack.id, pack.version, ruleset
+            )
+        })?;
+        let provider = self.pack(provider_id).expect("capability provider exists");
+        if !provider
+            .capabilities
+            .iter()
+            .any(|capability| capability.id == ruleset && capability.kind == "rules")
+        {
+            return Err(format!(
+                "pack {}@{} selects non-rules capability {} from {}@{}",
+                pack.id, pack.version, ruleset, provider.id, provider.version
+            ));
+        }
+        Ok(())
+    }
+
+    fn active_ruleset_for_reference(
+        &self,
+        selected_by_pack_id: &str,
+        capability_id: &str,
+    ) -> Option<ActiveRulesetContext> {
+        let provider_id = self.capability_provider(capability_id)?;
+        let provider = self.pack(provider_id)?;
+        Some(ActiveRulesetContext {
+            selected_by_pack_id: selected_by_pack_id.to_string(),
+            capability_id: capability_id.to_string(),
+            provider_pack_id: provider.id.clone(),
+            provider_pack_version: provider.version.clone(),
+        })
+    }
+
+    pub(super) fn active_ruleset_for_scene(
+        &self,
+        pack_id: &str,
+        zone: &str,
+        location_id: u64,
+        location_ruleset: Option<&str>,
+    ) -> Option<SceneRulesetSelection> {
+        if let Some(ruleset) = location_ruleset {
+            return Some(SceneRulesetSelection {
+                context: self.active_ruleset_for_reference(pack_id, ruleset)?,
+                selector_scope: "location".to_string(),
+                selector_id: format!("pack://{pack_id}/location/{location_id}"),
+            });
+        }
+        if let Some(ruleset) = self
+            .zone_rulesets
+            .get(&(pack_id.to_string(), zone.to_string()))
+        {
+            return Some(SceneRulesetSelection {
+                context: self.active_ruleset_for_reference(pack_id, ruleset)?,
+                selector_scope: "zone".to_string(),
+                selector_id: format!("pack://{pack_id}/zone/{zone}"),
+            });
+        }
+        let context = self.active_ruleset_for_pack(pack_id)?.clone();
+        Some(SceneRulesetSelection {
+            selector_scope: "pack".to_string(),
+            selector_id: context.selected_by_pack_id.clone(),
+            context,
+        })
     }
 
     pub(super) fn asset_mounts(&self) -> &[SeedAssetMount] {
