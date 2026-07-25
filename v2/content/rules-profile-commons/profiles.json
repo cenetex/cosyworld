@@ -1,0 +1,32 @@
+[
+  {
+    "id": "cosyworld.commons5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "compatibility_claim": "bounded_profile",
+    "default": true,
+    "excluded_systems": [
+      "classes",
+      "class_levels",
+      "complete_spell_lists",
+      "saving_throws",
+      "encounter_budgets",
+      "srd_rest_cadence",
+      "death_saves",
+      "complete_equipment_economy",
+      "executable_srd_conditions"
+    ],
+    "cosyworld_deltas": [
+      "authored ability checks replace saving throws",
+      "combat is authored, bounded, and nonlethal",
+      "only prepared bounded item effects are executable magic",
+      "rest uses the CosyWorld scene-rest operation rather than SRD cadence",
+      "the action hand projects only legal profile actions and universal operations"
+    ],
+    "source_reference": "SRD 5.2.1, Rules Glossary: Actions",
+    "import_transform": "manual Five E Commons bounded-profile adaptation",
+    "modified": true
+  }
+]
