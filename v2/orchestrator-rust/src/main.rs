@@ -41171,7 +41171,7 @@ fn action_offer_is_generally_useful(offer: &RankedActionOffer) -> bool {
 }
 
 fn compose_action_hand(offers: &[RankedActionOffer]) -> ActionHandView {
-    const CAPACITY: usize = 3;
+    const CAPACITY: usize = 2;
     let mut candidates: Vec<_> = offers
         .iter()
         .filter(|offer| action_offer_is_reachable(offer))
@@ -51476,7 +51476,7 @@ mod tests {
         assert!(INDEX_HTML.contains("atmosphericMemoryBeat"));
         assert!(INDEX_HTML.contains("room-title-main"));
         assert!(INDEX_HTML.contains("room-avatar-rail"));
-        assert!(INDEX_HTML.contains("id=\"shuffle\""));
+        assert!(!INDEX_HTML.contains("id=\"shuffle\""));
         assert!(INDEX_HTML.contains("function firstThreadModel"));
         assert!(INDEX_HTML.contains("function nextStoryThreadModel"));
         assert!(INDEX_HTML.contains("function firstTaleIsComplete"));
@@ -57626,7 +57626,7 @@ mod tests {
     }
 
     #[test]
-    fn authoritative_action_hand_is_the_deterministic_top_three_legal_offers() {
+    fn authoritative_action_hand_is_the_deterministic_top_two_legal_offers() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Hand Tester");
         let access = AccessContext::default();
@@ -57654,8 +57654,8 @@ mod tests {
         assert!(left_hand
             .iter()
             .all(|offer_id| legal_ids.contains(offer_id)));
-        assert!(left.action_hand.entries.len() <= 3);
-        assert!(left.action_offers.len() >= left.action_hand.entries.len());
+        assert_eq!(left.action_hand.capacity, 2);
+        assert_eq!(left.action_hand.entries.len(), 2);
     }
 
     #[tokio::test]
@@ -65268,9 +65268,9 @@ mod tests {
         let repeated_calling_state =
             calling_runtime.state_response(Some(5000), &AccessContext::default());
         assert_eq!(calling_state.action_hand.schema_version, 1);
-        assert_eq!(calling_state.action_hand.capacity, 3);
+        assert_eq!(calling_state.action_hand.capacity, 2);
         assert!(!calling_state.action_hand.entries.is_empty());
-        assert!(calling_state.action_hand.entries.len() <= 3);
+        assert!(calling_state.action_hand.entries.len() <= 2);
         assert_eq!(
             serde_json::to_value(&calling_state.action_hand).expect("serialize action hand"),
             serde_json::to_value(&repeated_calling_state.action_hand)
@@ -65406,15 +65406,11 @@ mod tests {
             serde_json::to_value(&held_item_state.action_hand)
                 .expect("serialize hand after held item")
         );
-        assert!(
-            held_item_state.action_hand.entries.iter().any(|entry| {
-                entry.provider.kind == "held_item"
-                    && entry.provider.reason == "From Hearth Tonic in your hand"
-            }),
-            "held-item hand: {}",
-            serde_json::to_string_pretty(&held_item_state.action_hand)
-                .expect("serialize held-item hand for failure")
-        );
+        assert!(held_item_state
+            .action_hand
+            .entries
+            .iter()
+            .any(|entry| entry.provider.kind == "item" && entry.provider.id == "item:2001"));
 
         let restored = RuntimeSnapshot::from_runtime(&held_item_runtime)
             .into_runtime()

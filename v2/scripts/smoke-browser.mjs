@@ -554,7 +554,7 @@ async function main() {
   async function assertActionBarCapped(label, expectedCount = null) {
     const buttons = await visibleCommandButtons();
     if (expectedCount === null) {
-      assert(buttons.length >= 1 && buttons.length <= 3, `${label} should expose one to three actions: ${JSON.stringify(buttons)}`);
+      assert(buttons.length >= 1 && buttons.length <= 2, `${label} should expose one or two actions: ${JSON.stringify(buttons)}`);
     } else {
       assert(buttons.length === expectedCount, `${label} should expose ${expectedCount} action${expectedCount === 1 ? "" : "s"}: ${JSON.stringify(buttons)}`);
     }
@@ -1133,7 +1133,7 @@ async function main() {
       if (focusIndex < 0) focusIndex = 0;
       focusedKey = actions[focusIndex]?.focusKey || "";
       try {
-        for (const id of ["primary", "secondary", "tertiary"]) {
+        for (const id of ["primary", "secondary"]) {
           document.querySelector(`#${id}`).style.display = "flex";
         }
         renderButton("primary", {
@@ -1149,12 +1149,6 @@ async function main() {
           command: "listen",
           card: cardForLocation(11),
           shape: "location",
-        });
-        renderButton("tertiary", {
-          label: "chat",
-          detail: "Lantern Stitch",
-          command: "chat",
-          shape: "avatar",
         });
         const labels = [...document.querySelectorAll("footer.prompt .cmd-label")]
           .map((node) => {
@@ -2337,11 +2331,10 @@ async function main() {
           bonds: [],
           action_hand: {
             schema_version: 1,
-            capacity: 3,
+            capacity: 2,
             entries: [
               { offer_id: "move:go", kind: "move", provider: { kind: "location", id: "location:1" } },
               { offer_id: "rest:rest", kind: "rest", provider: { kind: "rules", id: "rules:recovery" } },
-              { offer_id: "chat:chat", kind: "chat", provider: { kind: "friendship", id: "bond:5000:1002" } },
             ],
           },
         };
@@ -2359,10 +2352,10 @@ async function main() {
         focusedKey = "";
         playerPromotedHandKey = "";
         equippedCardIds = [];
-        const unequippedLabels = orderedActionIndexesForHand().slice(0, 3).map((index) => actions[index].label);
+        const unequippedLabels = orderedActionIndexesForHand().slice(0, 2).map((index) => actions[index].label);
         equippedCardIds = [gust.card_id, tonic.card_id, homeroom.card_id];
         saveKeepsakeLoadout();
-        const orderedLabels = orderedActionIndexesForHand().slice(0, 3).map((index) => actions[index].label);
+        const orderedLabels = orderedActionIndexesForHand().slice(0, 2).map((index) => actions[index].label);
         const guides = Object.fromEntries(actions.map((action) => [
           action.label,
           keepsakeGuideForAction(action)?.display_name || "",
@@ -2442,7 +2435,7 @@ async function main() {
       }
     });
     assert(
-      JSON.stringify(result.orderedLabels) === JSON.stringify(["travel", "rest", "chat"])
+      JSON.stringify(result.orderedLabels) === JSON.stringify(["travel", "rest"])
         && JSON.stringify(result.orderedLabels) === JSON.stringify(result.unequippedLabels),
       `equipped keepsakes must not change the authoritative scene-action order: ${JSON.stringify(result)}`,
     );
@@ -2687,7 +2680,6 @@ async function main() {
           entries: [
             { offer_id: "give", kind: "give_item", provider: { kind: "rules", id: "give", priority: 10 } },
             { offer_id: "trade", kind: "trade_item", provider: { kind: "rules", id: "trade", priority: 20 } },
-            { offer_id: "check", kind: "check", provider: { kind: "rules", id: "check", priority: 30 } },
           ],
         },
         economy: {
@@ -2739,7 +2731,7 @@ async function main() {
       actorId = 5000;
       actorSession = "deck-test";
       actions = buildActions(fakeState);
-      handKeys = ["check", "exit:2", "feature:hearth"];
+      handKeys = ["check", "exit:2"];
       discardedHandKeys = [];
       focusedKey = "";
       focusIndex = 0;
@@ -2759,13 +2751,7 @@ async function main() {
               return `${label?.textContent || ""} ${detail}`.trim().replace(/\s+/g, " ");
             })
             .filter(Boolean);
-        const allLabel = document.querySelector("#shuffle")?.innerText?.trim().replace(/\s+/g, " ") || "";
-        const beforeAll = visibleButtons();
-        openAllActions();
-        const allActions = [...document.querySelectorAll("#all-actions-list [data-all-action-index]")]
-          .map((button) => button.innerText.trim().replace(/\s+/g, " "));
-        closeAllActions();
-        const afterAll = visibleButtons();
+        const visibleHand = visibleButtons();
         const semanticBindings = actions.map((action) => ({
           label: action.label,
           kinds: action.offerKinds || [],
@@ -2822,10 +2808,9 @@ async function main() {
           handKeys: handKeys.slice(),
           discardedHandKeys: discardedHandKeys.slice(),
           actionLabels: actions.map((action) => `${action.label} ${action.detail || ""}`.trim()),
-          beforeAll,
-          afterAll,
-          allActions,
-          allLabel,
+          visibleHand,
+          hasThirdCard: Boolean(document.querySelector("#tertiary")),
+          hasShuffleCard: Boolean(document.querySelector("#shuffle")),
           semanticBindings,
           giveKindsBeforeRename,
           giveKindsAfterRename,
@@ -2863,13 +2848,9 @@ async function main() {
     assert(result.multiTrade?.selectedPayload?.target_actor_id === 1002 && result.multiTrade?.selectedPayload?.item_id === 2005 && result.multiTrade?.selectedPayload?.target_item_id === 2007, `Trade should submit the resident and both keepsakes selected inside the card: ${JSON.stringify(result)}`);
     assert(result.multiTrade?.rows?.some((row) => row[0] === "Then" && row[1] === "both keepsakes change hands"), `Trade should explain its atomic exchange in plain language: ${JSON.stringify(result)}`);
     assert(!/eager|willingness|accepted/i.test(JSON.stringify(result.tradeCopy)), `trade copy should hide resident-economy state tags: ${JSON.stringify(result)}`);
-    assert(result.allLabel.endsWith("all"), `stable action control should visibly say All: ${JSON.stringify(result)}`);
-    assert(
-      JSON.stringify(result.beforeAll) === JSON.stringify(result.afterAll),
-      `opening All actions must not redeal or reorder suggestions: ${JSON.stringify(result)}`,
-    );
-    assert(result.beforeAll.length === 3, `the authoritative suggestion hand should always expose three actions: ${JSON.stringify(result)}`);
-    assert(result.allActions.some((label) => label.startsWith("give ")) && result.allActions.some((label) => label.startsWith("trade ")), `All actions should preserve the complete legal surface: ${JSON.stringify(result)}`);
+    assert(result.visibleHand.length === 2, `the authoritative browser hand should expose exactly two actions: ${JSON.stringify(result)}`);
+    assert(!result.hasThirdCard && !result.hasShuffleCard, `the browser hand should have no third or shuffle card: ${JSON.stringify(result)}`);
+    assert(result.actionLabels.some((label) => label.startsWith("give ")) && result.actionLabels.some((label) => label.startsWith("trade ")), `actions outside the hand should remain in the complete legal surface: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "give")?.kinds?.includes("give_item"), `Give must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "trade")?.kinds?.includes("trade_item"), `Trade must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
     assert(JSON.stringify(result.giveKindsBeforeRename) === JSON.stringify(result.giveKindsAfterRename), `renaming display copy must not change semantic execution: ${JSON.stringify(result)}`);
@@ -6773,17 +6754,7 @@ async function main() {
     await page.waitForSelector("#command-palette:not([hidden]) #command-input");
     assert(await page.locator("#command-input").inputValue() === "say ", "touch speech control should seed a say command");
     await page.keyboard.press("Escape");
-    const suggestionsBeforeAll = await visibleCommandButtons();
-    await page.locator("#shuffle").click();
-    await page.waitForSelector("#all-actions-modal:not([hidden])");
-    const allActionCount = await page.locator("#all-actions-list [data-all-action-index]").count();
-    assert(allActionCount >= suggestionsBeforeAll.length, "All actions should include every visible suggestion");
-    await page.locator("#all-actions-close").click();
-    const suggestionsAfterAll = await visibleCommandButtons();
-    assert(
-      JSON.stringify(suggestionsBeforeAll) === JSON.stringify(suggestionsAfterAll),
-      `opening All actions must preserve suggestion order: ${JSON.stringify({ suggestionsBeforeAll, suggestionsAfterAll })}`,
-    );
+    assert(await page.locator("#tertiary, #shuffle").count() === 0, "the room footer should contain only two action slots and chat");
 
     const submitLook = async () => {
       await openCommandPaletteShortcut();
@@ -6814,11 +6785,6 @@ async function main() {
     assert(await page.locator("#command-input").inputValue() === "look", "command palette should recall the previous command");
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
-    await openCommandPaletteShortcut();
-    await page.locator("#command-input").fill("more");
-    await page.keyboard.press("Enter");
-    await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
-    await page.waitForFunction(() => (document.querySelector("#error")?.textContent || "") === "A fresh hand appears.");
     await openCommandPaletteShortcut("KeyT");
     assert(await page.locator("#command-input").inputValue() === "say ", "quick speech key should seed a say command");
     await page.locator("#command-input").type("palette hello");
@@ -6831,7 +6797,7 @@ async function main() {
     await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
     await waitForChatText("tests the hearth.");
     await assertNoComposerOrDebugChrome();
-    steps.push({ label: "mud command palette", command: "look / more / say palette hello / /me tests the hearth" });
+    steps.push({ label: "mud command palette", command: "look / say palette hello / /me tests the hearth" });
   }
 
   async function assertReportCommandPaletteAvailable() {
@@ -7571,11 +7537,11 @@ async function main() {
     assert(!shell.journalVisible && !shell.memoryVisible, `${label}: normal shell should keep Journal content out of chat: ${JSON.stringify(shell)}`);
     assert(shell.roomCollapsed, `${label}: room header should default to collapsed: ${JSON.stringify(shell)}`);
     assert(!shell.avatarSubtitleVisible && !shell.roomCopyVisible, `${label}: collapsed room should hide subtitle and prose: ${JSON.stringify(shell)}`);
-    const actionButtons = shell.buttons.filter((button) => ["primary", "secondary", "tertiary"].includes(button.id));
-    assert(actionButtons.length >= 1 && actionButtons.length <= 3, `${label}: shell should expose a capped action bar: ${JSON.stringify(shell.buttons)}`);
+    const actionButtons = shell.buttons.filter((button) => ["primary", "secondary"].includes(button.id));
+    assert(actionButtons.length >= 1 && actionButtons.length <= 2, `${label}: shell should expose at most two action cards: ${JSON.stringify(shell.buttons)}`);
     assert(actionButtons.every((button) => button.hasMiniCard && button.hasImage), `${label}: action hand should use mini card images: ${JSON.stringify(shell.buttons)}`);
     if (shell.viewport.startsWith("430x")) {
-      assert(actionButtons.length === 3, `${label}: narrow screens should preserve all three authoritative suggestions: ${JSON.stringify(shell.buttons)}`);
+      assert(actionButtons.length === 2, `${label}: narrow screens should preserve both authoritative suggestions: ${JSON.stringify(shell.buttons)}`);
       assert(actionButtons.every((button) => button.width >= 60 && !button.labelClipped), `${label}: mobile card verbs should remain readable: ${JSON.stringify(shell.buttons)}`);
       assert(shell.roomFallbackStacked, `${label}: mobile room story should use the full transcript width: ${JSON.stringify(shell)}`);
       assert(!shell.roomFallbackClipped, `${label}: mobile room story should not end mid-sentence: ${JSON.stringify(shell)}`);
@@ -8443,7 +8409,7 @@ async function main() {
       `an inferred opening welcome should be visibly warm and attributed to Rati: ${JSON.stringify(openingWelcome)}`,
     );
   }
-  await assertActionBarCapped("normal play", 3);
+  await assertActionBarCapped("normal play", 2);
   await assertFirstThreadGuide();
   await assertNoComposerOrDebugChrome();
   const collectibleAvailable = await page.evaluate(() => actions.some((action) => (
@@ -9134,7 +9100,7 @@ async function main() {
   }
   assert(finalState.avatarMessages.length >= 2, "moderated player speech should remain in the shared channel");
   assert(finalState.branchEvents.length === 0, `normal play should not emit branch lifecycle events: ${JSON.stringify(finalState.branchEvents)}`);
-  assert(finalState.buttons.length >= 1 && finalState.buttons.length <= 3, `the journey should finish with a capped action bar: ${JSON.stringify(finalState.buttons)}`);
+  assert(finalState.buttons.length >= 1 && finalState.buttons.length <= 2, `the journey should finish with at most two action cards: ${JSON.stringify(finalState.buttons)}`);
   await assertNoComposerOrDebugChrome();
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.waitForTimeout(150);
