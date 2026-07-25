@@ -1,0 +1,8 @@
+[
+  {"id":"strength","label":"Strength","source_reference":"SRD 5.2.1, Ability Scores","modified":false},
+  {"id":"dexterity","label":"Dexterity","source_reference":"SRD 5.2.1, Ability Scores","modified":false},
+  {"id":"constitution","label":"Constitution","source_reference":"SRD 5.2.1, Ability Scores","modified":false},
+  {"id":"intelligence","label":"Intelligence","source_reference":"SRD 5.2.1, Ability Scores","modified":false},
+  {"id":"wisdom","label":"Wisdom","source_reference":"SRD 5.2.1, Ability Scores","modified":false},
+  {"id":"charisma","label":"Charisma","source_reference":"SRD 5.2.1, Ability Scores","modified":false}
+]

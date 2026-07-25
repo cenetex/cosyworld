@@ -1,0 +1,21 @@
+[
+  {"id":"cosyworld.operation/move","domain":"movement","label":"Move","aliases":["move","go","travel"],"resolver_kind":"kernel_move","source_reference":"CosyWorld protocol","modified":true},
+  {"id":"cosyworld.operation/escape","domain":"movement","label":"Escape","aliases":["escape","flee"],"resolver_kind":"combat_escape_v3","source_reference":"CosyWorld combat/3","modified":true},
+  {"id":"cosyworld.operation/chat","domain":"communication","label":"Chat","aliases":["chat","talk"],"resolver_kind":"orb_chat_v1","source_reference":"CosyWorld communication","modified":true},
+  {"id":"cosyworld.operation/say","domain":"communication","label":"Say","aliases":["say","speak"],"resolver_kind":"message_create","source_reference":"CosyWorld communication","modified":true},
+  {"id":"cosyworld.operation/take","domain":"object_transfer","label":"Take","aliases":["take","pick up"],"resolver_kind":"kernel_pick_up","source_reference":"CosyWorld kernel","modified":true},
+  {"id":"cosyworld.operation/drop","domain":"object_transfer","label":"Drop","aliases":["drop","leave"],"resolver_kind":"kernel_drop","source_reference":"CosyWorld kernel","modified":true},
+  {"id":"cosyworld.operation/give","domain":"object_transfer","label":"Give","aliases":["give"],"resolver_kind":"kernel_give","source_reference":"CosyWorld kernel","modified":true},
+  {"id":"cosyworld.operation/trade","domain":"object_transfer","label":"Trade","aliases":["trade","swap"],"resolver_kind":"kernel_trade","source_reference":"CosyWorld kernel","modified":true},
+  {"id":"cosyworld.operation/craft","domain":"procedure","label":"Craft","aliases":["craft","make"],"resolver_kind":"kernel_craft","source_reference":"CosyWorld kernel","modified":true},
+  {"id":"cosyworld.operation/rest","domain":"procedure","label":"Rest","aliases":["rest","recover"],"resolver_kind":"rest_v1","source_reference":"CosyWorld RPG","modified":true},
+  {"id":"cosyworld.operation/wait","domain":"procedure","label":"Wait","aliases":["wait","pass"],"resolver_kind":"turn_wait","source_reference":"CosyWorld room turns","modified":true},
+  {"id":"cosyworld.operation/grow","domain":"cosy_advancement","label":"Grow","aliases":["grow","evolve","remember"],"resolver_kind":"visit_ledger_v1","source_reference":"CosyWorld RPG","modified":true},
+  {"id":"cosyworld.operation/create-avatar","domain":"interface_meta","label":"Create Avatar","aliases":["create avatar","begin"],"resolver_kind":"avatar_create","source_reference":"CosyWorld identity","modified":true},
+  {"id":"cosyworld.operation/deck","domain":"interface_meta","label":"Deck","aliases":["deck","inventory"],"resolver_kind":"read_only_projection","source_reference":"CosyWorld interface","modified":true},
+  {"id":"cosyworld.operation/report","domain":"interface_meta","label":"Report","aliases":["report"],"resolver_kind":"moderation_report","source_reference":"CosyWorld moderation","modified":true},
+  {"id":"cosyworld.operation/theft","domain":"object_transfer","label":"Steal","aliases":["steal","take secretly"],"resolver_kind":"kernel_theft_v1","source_reference":"CosyWorld card zones","modified":true},
+  {"id":"cosyworld.operation/equip","domain":"object_transfer","label":"Equip","aliases":["equip","wield","wear"],"resolver_kind":"loadout_zone_v1","source_reference":"CosyWorld card zones","modified":true},
+  {"id":"cosyworld.operation/contain","domain":"object_transfer","label":"Stow","aliases":["stow","unstow"],"resolver_kind":"container_zone_v1","source_reference":"CosyWorld card zones","modified":true},
+  {"id":"cosyworld.operation/materialize","domain":"object_transfer","label":"Materialize","aliases":["materialize","bring into world"],"resolver_kind":"materialization_receipt_v1","source_reference":"CosyWorld collection bridge","modified":true}
+]

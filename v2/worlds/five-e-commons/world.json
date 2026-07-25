@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.five-e-commons",
+  "name": "Five E Commons",
+  "version": 1,
+  "description": "The standalone Five E Commons rules composition, ready for its independently packaged adventure.",
+  "rules_profile": "cosyworld.commons5/1",
+  "packs": [
+    "cosyworld.rules-srd-5.2.1",
+    "cosyworld.rules-profile-commons"
+  ]
+}

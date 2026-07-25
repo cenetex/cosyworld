@@ -1,0 +1,20 @@
+[
+  {"id":"acrobatics","label":"Acrobatics","ability":"dexterity","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"animal_handling","label":"Animal Handling","ability":"wisdom","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"arcana","label":"Arcana","ability":"intelligence","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"athletics","label":"Athletics","ability":"strength","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"deception","label":"Deception","ability":"charisma","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"history","label":"History","ability":"intelligence","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"insight","label":"Insight","ability":"wisdom","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"intimidation","label":"Intimidation","ability":"charisma","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"investigation","label":"Investigation","ability":"intelligence","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"medicine","label":"Medicine","ability":"wisdom","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"nature","label":"Nature","ability":"intelligence","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"perception","label":"Perception","ability":"wisdom","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"performance","label":"Performance","ability":"charisma","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"persuasion","label":"Persuasion","ability":"charisma","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"religion","label":"Religion","ability":"intelligence","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"sleight_of_hand","label":"Sleight of Hand","ability":"dexterity","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"stealth","label":"Stealth","ability":"dexterity","source_reference":"SRD 5.2.1, Skills"},
+  {"id":"survival","label":"Survival","ability":"wisdom","source_reference":"SRD 5.2.1, Skills"}
+]

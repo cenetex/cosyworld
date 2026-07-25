@@ -62,6 +62,14 @@ resolvers. Dash, Disengage, and Hide are explicitly unsupported and produce no
 offers. Each supported action's conformance row records legal targets,
 safe/risky behavior, event outputs, CosyWorld deltas, and a real replay fixture.
 
+`cosyworld.commons5/1` is the independently selectable Five E Commons profile.
+It owns distinct `cosyworld.commons5:*` action identities while reusing the
+attributed SRD 5.2.1 reference capability and the same audited resolver
+contracts. Saving throws, executable SRD conditions, complete spell lists,
+death saves, and SRD rest cadence are explicitly excluded; authored ability
+checks, bounded item effects, nonlethal combat, and scene rest are the declared
+replacements. Its standalone composition is `v2/worlds/five-e-commons`.
+
 Core and expansion packs may contribute a presentation reskin, contextual
 offer, explicit tested variant, or namespaced extension. The compiler rejects
 implicit overrides and load-order winners. Profile, variant, and extension
