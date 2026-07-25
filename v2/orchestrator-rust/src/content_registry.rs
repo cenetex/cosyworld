@@ -73,6 +73,16 @@ impl PackMountState {
     pub(super) fn is_empty(&self) -> bool {
         self.0.is_null()
     }
+
+    pub(super) fn composition_revision(&self) -> u64 {
+        self.0
+            .get("history")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|history| history.last())
+            .and_then(|transaction| transaction.get("sequence"))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or_default()
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

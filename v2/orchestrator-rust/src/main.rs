@@ -26933,32 +26933,6 @@ fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
     }
 }
 
-fn submitted_payload_target(
-    path: &str,
-    target: &ActionTargetView,
-    payload: &serde_json::Value,
-) -> Option<u64> {
-    let key = match (path, target.kind.as_str()) {
-        ("/actions/move" | "/actions/flee", "location") => "destination_location_id",
-        ("/actions/craft", "recipe") => "recipe_id",
-        ("/actions/pick-up" | "/actions/drop", "item") => "item_id",
-        ("/actions/trade-item" | "/actions/theft", "item") => "target_item_id",
-        (
-            "/actions/chat"
-            | "/actions/attack"
-            | "/actions/give-item"
-            | "/actions/create-bond"
-            | "/actions/resolve-bond"
-            | "/actions/cast-spell"
-            | "/actions/influence"
-            | "/actions/use-item",
-            "actor",
-        ) => "target_actor_id",
-        _ => return None,
-    };
-    payload.get(key).and_then(serde_json::Value::as_u64)
-}
-
 async fn submit_action_offer(
     ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
@@ -27013,48 +26987,7 @@ async fn submit_action_offer(
     );
     let validation = {
         let runtime = state.inner.lock().await;
-        let (_, offers) = runtime.legal_action_candidates(Some(actor_id), &access);
-        let Some(offer) = offers
-            .iter()
-            .find(|offer| offer.offer_id == submission.offer_id)
-        else {
-            return action_offer_rejected(
-                "that offer expired; refresh the scene and submit a current offer_id",
-            );
-        };
-        if offer.composition_id != submission.composition_id {
-            Err("the scene composition changed; refresh and choose a current action")
-        } else if offer.kind != submission.kind
-            || offer.rules_action != submission.rules_action
-            || offer.operation != submission.operation
-            || offer.rules_profile != submission.rules_profile
-            || offer.state_revision != submission.state_revision
-            || offer.target != submission.target
-            || offer.cost != submission.cost
-            || offer.disabled
-        {
-            Err("offer identity, rules binding, target, cost, or availability was changed")
-        } else if offer.target.as_ref().is_some_and(|target| {
-            submitted_payload_target(&submission.path, target, &submission.payload)
-                .is_some_and(|submitted| target.id != Some(submitted))
-        }) {
-            Err("submitted payload target does not match the authoritative offer")
-        } else if offer.project.as_ref().is_some_and(|project| {
-            submission
-                .payload
-                .get("job_id")
-                .and_then(serde_json::Value::as_str)
-                .is_some_and(|job_id| job_id != project.id)
-                || submission
-                    .payload
-                    .get("strategy_id")
-                    .and_then(serde_json::Value::as_str)
-                    .is_some_and(|strategy_id| project.strategy_id.as_deref() != Some(strategy_id))
-        }) {
-            Err("submitted contribution does not match the authoritative quest strategy")
-        } else {
-            Ok(())
-        }
+        runtime.validate_action_offer_submission(actor_id, &access, &submission)
     };
     if let Err(reason) = validation {
         return action_offer_rejected(reason);
