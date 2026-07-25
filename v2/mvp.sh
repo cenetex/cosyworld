@@ -180,6 +180,11 @@ run_rust_checks() {
   bash "$ROOT/scripts/check-rust.sh" all
 }
 
+run_architecture_checks() {
+  bash "$ROOT/scripts/check-main-size.sh"
+  bash "$ROOT/scripts/check-rust-lint.sh"
+}
+
 run_js_checks() {
   node --check "$ROOT/scripts/smoke-browser.mjs"
   node --check "$ROOT/scripts/smoke-production-profile.mjs"
@@ -285,6 +290,7 @@ check_all() {
   run_kernel_check
   run_ai_model_checks
   run_rust_checks
+  run_architecture_checks
   run_js_checks
   run_cli_checks
   run_production_profile_smoke

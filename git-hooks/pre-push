@@ -1,0 +1,11 @@
+#!/bin/sh
+# cosyworld-version-hook
+set -eu
+
+if [ "${COSYWORLD_SKIP_PREPUSH:-}" = "1" ]; then
+  echo "[pre-push] skipped by COSYWORLD_SKIP_PREPUSH=1." >&2
+  exit 0
+fi
+
+echo "[pre-push] npm run check" >&2
+npm run check
