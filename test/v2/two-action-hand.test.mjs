@@ -11,8 +11,11 @@ const browser = fs.readFileSync(
 );
 
 describe("two-action browser hand", () => {
-  it("keeps chat beside exactly two action slots without a third or shuffle card", () => {
-    expect(browser).toContain('id="command-toggle"');
+  it("keeps the chatroom beside exactly two action slots without command entry or overflow cards", () => {
+    expect(browser).not.toContain('id="command-toggle"');
+    expect(browser).not.toContain('id="command-palette"');
+    expect(browser).not.toContain('id="command-input"');
+    expect(browser).not.toContain('id="all-actions-modal"');
     expect(browser).toContain('id="primary"');
     expect(browser).toContain('id="secondary"');
     expect(browser).not.toContain('id="tertiary"');

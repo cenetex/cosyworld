@@ -1481,7 +1481,7 @@
     }
     .prompt {
       display: grid;
-      grid-template-columns: auto repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 9px;
       align-items: stretch;
       padding: 10px 12px calc(10px + var(--safe-bot));
@@ -1527,29 +1527,9 @@
       font-variant-numeric: tabular-nums;
     }
     .prompt.choice-mode {
-      grid-template-columns: auto repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .prompt[hidden] { display: none; }
-    .caret {
-      display: grid;
-      place-items: center;
-      align-content: center;
-      gap: 1px;
-      width: 42px;
-      min-height: 58px;
-      border: 1px solid rgba(101, 230, 138, 0.3);
-      border-radius: 4px;
-      background: rgba(101, 230, 138, 0.06);
-      color: var(--green);
-      font-weight: 900;
-      font-size: 18px;
-    }
-    .caret small {
-      color: var(--dim);
-      font-size: 9px;
-      line-height: 1;
-      text-transform: uppercase;
-    }
     .cmd {
       --cmd-accent: var(--type-utility);
       --cmd-accent-rgb: var(--type-utility-rgb);
@@ -1938,123 +1918,8 @@
       color: var(--green);
       border-top-color: rgba(101, 230, 138, 0.22);
     }
-    .command-palette {
-      position: fixed;
-      left: 12px;
-      right: 12px;
-      bottom: calc(76px + var(--safe-bot));
-      z-index: 20;
-      border: 1px solid var(--line-strong);
-      background: rgba(8, 11, 9, 0.98);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.44);
-    }
-    .command-palette[hidden] { display: none; }
-    .command-form {
-      display: grid;
-      grid-template-columns: 28px minmax(0, 1fr);
-      align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-    }
-    .command-caret {
-      color: var(--green);
-      font-weight: 900;
-      text-align: center;
-    }
-    .command-input {
-      min-width: 0;
-      min-height: 36px;
-      border: 0;
-      outline: 0;
-      background: transparent;
-      color: var(--text);
-      font: inherit;
-      font-weight: 800;
-    }
-    .all-actions-modal {
-      position: fixed;
-      inset: 0;
-      z-index: 30;
-      display: grid;
-      place-items: end center;
-      padding: 18px;
-      background: rgba(3, 5, 4, 0.76);
-    }
-    .all-actions-modal[hidden] { display: none; }
-    .all-actions-dialog {
-      width: min(520px, calc(100vw - 28px));
-      max-height: min(72vh, 620px);
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr) auto;
-      gap: 10px;
-      overflow: hidden;
-      border: 1px solid var(--line-strong);
-      background: #0a100c;
-      box-shadow: 0 22px 80px rgba(0, 0, 0, 0.72);
-      padding: 12px;
-    }
-    .all-actions-heading {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .all-actions-heading h2 {
-      margin: 0;
-      color: var(--amber);
-      font-size: 18px;
-    }
-    .all-actions-close {
-      width: 34px;
-      height: 34px;
-      border: 1px solid var(--line);
-      border-radius: 4px;
-      background: var(--terminal-2);
-      color: var(--amber);
-      font-weight: 900;
-    }
-    .all-actions-list {
-      min-height: 0;
-      display: grid;
-      align-content: start;
-      gap: 5px;
-      overflow: auto;
-    }
-    .all-actions-choice,
-    .all-actions-command {
-      min-height: 44px;
-      display: grid;
-      grid-template-columns: minmax(86px, auto) minmax(0, 1fr);
-      gap: 10px;
-      align-items: center;
-      border: 1px solid rgba(216, 247, 220, 0.14);
-      border-radius: 4px;
-      background: rgba(216, 247, 220, 0.04);
-      color: var(--text);
-      padding: 8px 10px;
-      text-align: left;
-    }
-    .all-actions-choice-label {
-      color: var(--green);
-      font-weight: 900;
-      text-transform: lowercase;
-    }
-    .all-actions-choice-detail {
-      min-width: 0;
-      color: var(--dim);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .all-actions-command {
-      display: block;
-      color: var(--green);
-      font-weight: 900;
-      text-align: center;
-    }
     .card-modal,
     .action-modal,
-    .all-actions-modal,
     .wallet-modal,
     .ai-modal {
       position: fixed;
@@ -2067,7 +1932,6 @@
     }
     .card-modal[hidden],
     .action-modal[hidden],
-    .all-actions-modal[hidden],
     .wallet-modal[hidden],
     .ai-modal[hidden] { display: none; }
     .card-dialog,
@@ -2717,10 +2581,6 @@
       .prompt.choice-mode {
         display: flex;
       }
-      .caret {
-        flex: 0 0 38px;
-        width: 38px;
-      }
       .cmd {
         flex: 1 1 0;
         min-height: 62px;
@@ -2886,8 +2746,7 @@
     .action-confirm,
     .action-cancel,
     .card-dialog,
-    .card-close,
-    .command-input {
+    .card-close {
       border-radius: 4px;
     }
 
@@ -2910,15 +2769,13 @@
 
     .room-log-toggle,
     .account-button,
-    .turn-ping-pill,
-    .command-input {
+    .turn-ping-pill {
       border-color: var(--line-strong);
       background: rgba(25, 22, 17, 0.86);
       color: var(--text);
     }
 
-    .room-log-toggle::after,
-    .caret {
+    .room-log-toggle::after {
       color: var(--amber);
     }
 
@@ -2953,8 +2810,7 @@
       color: var(--dim);
     }
 
-    .prompt,
-    .command-input {
+    .prompt {
       background: rgba(17, 16, 13, 0.98);
     }
 
@@ -3369,26 +3225,9 @@
     <div class="status" id="error" role="status" aria-live="polite" aria-atomic="true"></div>
     <footer class="prompt">
       <div class="turn-ping-pill" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true" hidden></div>
-      <button class="caret" id="command-toggle" type="button" aria-label="Say something or enter a world command"><span>&gt;</span><small>say</small></button>
       <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
     </footer>
-  </div>
-  <div class="command-palette" id="command-palette" hidden>
-    <form class="command-form" id="command-form">
-      <span class="command-caret">&gt;</span>
-      <input class="command-input" id="command-input" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="World command" placeholder="Command" />
-    </form>
-  </div>
-  <div class="all-actions-modal" id="all-actions-modal" hidden>
-    <section class="all-actions-dialog" role="dialog" aria-modal="true" aria-labelledby="all-actions-title" tabindex="-1">
-      <header class="all-actions-heading">
-        <h2 id="all-actions-title">All actions</h2>
-        <button class="all-actions-close" id="all-actions-close" type="button" aria-label="Close all actions">x</button>
-      </header>
-      <div class="all-actions-list" id="all-actions-list"></div>
-      <button class="all-actions-command" id="all-actions-command" type="button">Say or enter a command</button>
-    </section>
   </div>
   <div class="card-modal" id="card-modal" hidden>
     <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-modal-name" tabindex="-1" data-player-concept="keepsake">
@@ -3568,9 +3407,6 @@
     let lastRoomCopyLocationId = null;
     let economyFlash = null;
     let economyFlashTimer = null;
-    let commandHistory = [];
-    let commandHistoryIndex = 0;
-    let commandDraft = "";
     let presenceHeartbeatTimer = null;
     let announcedTurnHandoffKey = "";
     let walletQrPollTimer = null;
@@ -3653,16 +3489,12 @@
 
     function setModalBackgroundInert(inert) {
       const shell = document.querySelector(".shell");
-      const commandPalette = $("command-palette");
-      for (const node of [shell, commandPalette]) {
-        if (!node) continue;
-        if (inert) node.setAttribute("inert", "");
-        else node.removeAttribute("inert");
-      }
+      if (inert) shell?.setAttribute("inert", "");
+      else shell?.removeAttribute("inert");
     }
 
     function activeModal() {
-      return ["wallet-modal", "action-modal", "all-actions-modal", "card-modal"]
+      return ["wallet-modal", "action-modal", "card-modal"]
         .map((id) => $(id))
         .find((modal) => modal && !modal.hidden) || null;
     }
@@ -11227,68 +11059,6 @@
       return actions[actionIndex] || null;
     }
 
-    function renderAllActions() {
-      const list = $("all-actions-list");
-      if (!list) return;
-      const indexes = orderedActionIndexesForHand();
-      list.innerHTML = indexes.map((actionIndex) => {
-        const entry = actions[actionIndex];
-        const label = compactActionLabel(entry) || entry?.command || "act";
-        const detail = friendlyActionText(entry?.detail || entry?.target?.label || "");
-        const aria = [label, detail].filter(Boolean).join(", ");
-        return `<button class="all-actions-choice" type="button" data-all-action-index="${actionIndex}" aria-label="${escapeAttr(aria)}"><span class="all-actions-choice-label">${escapeHtml(label)}</span><span class="all-actions-choice-detail">${escapeHtml(detail)}</span></button>`;
-      }).join("");
-    }
-
-    function openAllActions() {
-      if (actionBusy || !actions.length) return;
-      renderAllActions();
-      openModal("all-actions-modal", $("all-actions-list")?.querySelector("button"));
-    }
-
-    function closeAllActions() {
-      closeModal("all-actions-modal");
-    }
-
-    function openCommandPalette(seed = "", force = false) {
-      if (actionBusy && !force) return;
-      const palette = $("command-palette");
-      const input = $("command-input");
-      palette.hidden = false;
-      input.value = seed;
-      commandHistoryIndex = commandHistory.length;
-      commandDraft = seed;
-      input.focus();
-      input.setSelectionRange(input.value.length, input.value.length);
-    }
-
-    function closeCommandPalette() {
-      const input = $("command-input");
-      $("command-palette").hidden = true;
-      input.value = "";
-      input.blur();
-      commandHistoryIndex = commandHistory.length;
-      commandDraft = "";
-    }
-
-    function rememberCommand(value) {
-      const command = String(value || "").trim();
-      if (!command) return;
-      if (commandHistory[commandHistory.length - 1] !== command) commandHistory.push(command);
-      commandHistory = commandHistory.slice(-24);
-      commandHistoryIndex = commandHistory.length;
-      commandDraft = "";
-    }
-
-    function stepCommandHistory(delta) {
-      const input = $("command-input");
-      if (!commandHistory.length || !input) return;
-      if (commandHistoryIndex === commandHistory.length) commandDraft = input.value;
-      commandHistoryIndex = Math.max(0, Math.min(commandHistory.length, commandHistoryIndex + delta));
-      input.value = commandHistoryIndex === commandHistory.length ? commandDraft : commandHistory[commandHistoryIndex];
-      input.setSelectionRange(input.value.length, input.value.length);
-    }
-
     async function runAction(action) {
       if (actionBusy) return;
       actionBusy = true;
@@ -11869,56 +11639,8 @@
       if (action) openActionModal(action);
     });
 
-    $("command-toggle").addEventListener("click", () => openCommandPalette("say "));
-    $("all-actions-close").addEventListener("click", closeAllActions);
-    $("all-actions-command").addEventListener("click", () => {
-      closeAllActions();
-      openCommandPalette("say ", true);
-    });
-    $("all-actions-list").addEventListener("click", (event) => {
-      const button = event.target.closest("[data-all-action-index]");
-      if (!button) return;
-      const actionIndex = Number(button.dataset.allActionIndex);
-      const selected = Number.isInteger(actionIndex) ? actions[actionIndex] : null;
-      if (!selected) return;
-      closeAllActions();
-      openActionModal(selected);
-    });
-
-    $("command-form").addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const value = $("command-input").value;
-      rememberCommand(value);
-      closeCommandPalette();
-      actionBusy = true;
-      pendingAction = { label: "...", detail: value, command: value };
-      renderCommands();
-      try {
-        await runCommandText(value);
-      } catch (error) {
-        setError(String(error.message || error));
-      } finally {
-        actionBusy = false;
-        pendingAction = null;
-        render();
-      }
-    });
-
     document.addEventListener("keydown", (event) => {
       if (event.defaultPrevented) return;
-      if (!$("command-palette").hidden) {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          closeCommandPalette();
-        } else if (event.key === "ArrowUp") {
-          event.preventDefault();
-          stepCommandHistory(-1);
-        } else if (event.key === "ArrowDown") {
-          event.preventDefault();
-          stepCommandHistory(1);
-        }
-        return;
-      }
       if (!$("wallet-modal").hidden) {
         if (trapModalFocus(event, $("wallet-modal"))) return;
         if (event.key === "Escape") {
@@ -11935,14 +11657,6 @@
         } else if (event.key === "Enter" && !event.target?.matches?.("button, input, select, textarea, a, label")) {
           event.preventDefault();
           confirmActionModal();
-        }
-        return;
-      }
-      if (!$("all-actions-modal").hidden) {
-        if (trapModalFocus(event, $("all-actions-modal"))) return;
-        if (event.key === "Escape") {
-          event.preventDefault();
-          closeAllActions();
         }
         return;
       }
@@ -11981,17 +11695,6 @@
         event.target?.matches?.("button, a, input, select, textarea, [role='button'], [contenteditable='true']")
         && !actionArrow
       ) return;
-      const plainKey = !event.metaKey && !event.ctrlKey && !event.altKey;
-      if ((event.key === "/" || event.code === "Slash") && plainKey) {
-        event.preventDefault();
-        openCommandPalette();
-        return;
-      }
-      if ((event.key.toLowerCase() === "t" || event.code === "KeyT") && plainKey) {
-        event.preventDefault();
-        openCommandPalette("say ");
-        return;
-      }
       if (event.key === "Enter") {
         event.preventDefault();
         const action = state?.branch ? actions[0] : visibleFocusedAction();
