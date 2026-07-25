@@ -34,6 +34,8 @@ mod rpg;
 mod rules_context;
 mod settlement_buildings;
 mod story_metrics;
+#[cfg(test)]
+mod test_support;
 mod transfers;
 mod turns;
 mod uses;
@@ -103,6 +105,8 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use story_metrics::*;
+#[cfg(test)]
+use test_support::*;
 use tokio::{
     net::TcpListener,
     signal,
@@ -1841,6 +1845,10 @@ enum JournalOrigin {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ResidentDecisionCandidateTrace {
     offer_id: String,
+    #[serde(default)]
+    composition_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    focused_encounter: Option<FocusedEncounterOfferContext>,
     kind: String,
     provider_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1855,6 +1863,10 @@ struct ResidentDecisionCandidateTrace {
 struct ResidentDecisionChoiceTrace {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     offer_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    composition_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    focused_encounter: Option<FocusedEncounterOfferContext>,
     offer_kind: String,
     policy_rank: u8,
     policy_score: i16,
@@ -1958,6 +1970,8 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
+const JOURNAL_RECORD_VERSION: u32 = 9;
+
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
         let origin = match action.kind {
@@ -1976,7 +1990,7 @@ impl JournalRecord {
             .unwrap_or_default();
         let focused_encounter = focused_encounter_context_for_action(&action);
         Self {
-            version: FOCUSED_ENCOUNTER_JOURNAL_VERSION,
+            version: JOURNAL_RECORD_VERSION,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry()
                 .content_reference_context(action_content_handles(&action)),
@@ -5246,6 +5260,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     configured_content_registry().map_err(io::Error::other)?;
     let state = AppState::bootstrap().await?;
     let _canonical_capacity_scheduler = start_canonical_capacity_scheduler(state.clone());
+    start_focused_encounter_scheduler(state.clone());
     start_actor_job_worker(state.clone());
     start_event_store_retry_scheduler(state.clone());
     start_ownership_refresh_scheduler(state.clone());
@@ -5253,7 +5268,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     start_moderation_retention_scheduler(state.clone());
     start_story_metrics_retention_scheduler(state.clone());
     let app = routes::app_router(state);
-
     let addr: SocketAddr = std::env::var("COSYWORLD_V2_ADDR")
         .unwrap_or_else(|_| "127.0.0.1:3102".to_string())
         .parse()?;
@@ -23161,18 +23175,26 @@ impl RuntimeWorld {
             .into_iter()
             .filter(action_offer_is_reachable)
             .collect::<Vec<_>>();
-        let chosen_offer_id = offers
+        let chosen_offer = offers
             .iter()
             .find(|offer| self.resident_offer_matches_record(offer, &candidate.record))
-            .map(|offer| offer.offer_id.clone());
+            .map(|offer| {
+                (
+                    offer.offer_id.clone(),
+                    offer.composition_id.clone(),
+                    offer.composition_trace.focused_encounter.clone(),
+                )
+            });
         let candidates = offers
             .into_iter()
             .map(|offer| {
-                let selected = chosen_offer_id
-                    .as_deref()
-                    .is_some_and(|offer_id| offer.offer_id == offer_id);
+                let selected = chosen_offer
+                    .as_ref()
+                    .is_some_and(|(offer_id, _, _)| offer.offer_id == *offer_id);
                 ResidentDecisionCandidateTrace {
                     offer_id: offer.offer_id,
+                    composition_id: offer.composition_id,
+                    focused_encounter: offer.composition_trace.focused_encounter,
                     kind: offer.kind,
                     provider_id: offer.provider.id,
                     target: offer.target,
@@ -23195,7 +23217,14 @@ impl RuntimeWorld {
             observed_through_seq: self.world.next_event_seq.saturating_sub(1),
             candidates,
             choice: ResidentDecisionChoiceTrace {
-                offer_id: chosen_offer_id,
+                offer_id: chosen_offer
+                    .as_ref()
+                    .map(|(offer_id, _, _)| offer_id.clone()),
+                composition_id: chosen_offer
+                    .as_ref()
+                    .map(|(_, composition_id, _)| composition_id.clone()),
+                focused_encounter: chosen_offer
+                    .and_then(|(_, _, focused_encounter)| focused_encounter),
                 offer_kind,
                 policy_rank: candidate.rank,
                 policy_score: candidate.score,
@@ -42265,88 +42294,6 @@ mod tests {
         assert!(resolve_process_id(Some("api-a"), Some("api-b"), "local").is_err());
     }
 
-    fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<PathBuf>) -> AppState {
-        let (tx, _) = broadcast::channel(32);
-        let canonical_fanout_seq = runtime.world.next_event_seq.saturating_sub(1);
-        let canonical_region_id = DEFAULT_CANONICAL_REGION_ID.to_string();
-        let canonical_store_id = if let Some(path) = event_store_path.as_deref() {
-            init_event_store(path).expect("initialize canonical test store");
-            let store_id = ensure_canonical_store_identity(
-                path,
-                OFFICIAL_WORLD_ID,
-                OFFICIAL_WORLD_EPOCH,
-                &format!("test-store:{}", random_hex(8)),
-                now_millis(),
-            )
-            .expect("canonical test store identity");
-            ensure_region_authority(
-                path,
-                OFFICIAL_WORLD_ID,
-                OFFICIAL_WORLD_EPOCH,
-                &canonical_region_id,
-                now_millis(),
-            )
-            .expect("canonical test region authority");
-            store_id
-        } else {
-            format!("test-memory:{}", random_hex(8))
-        };
-        AppState {
-            inner: Arc::new(Mutex::new(runtime)),
-            tx,
-            deployment: DeploymentConfig::local(),
-            snapshot_path: None,
-            resident_continuity_path: None,
-            event_store_path: event_store_path.clone().map(Arc::new),
-            event_store_health: Arc::new(StdMutex::new(EventStoreHealth::default())),
-            account_auth: AccountAuth::for_test(event_store_path.clone().map(Arc::new)),
-            ownership_index: Arc::new(RwLock::new(OwnershipIndex::default())),
-            trust_client_card_ids: false,
-            dev_reset_enabled: false,
-            ai_config: Arc::new(None),
-            generation_controls: Arc::new(GenerationControls::default()),
-            avatar_art_config: Arc::new(None),
-            generated_asset_dir: Arc::new(std::env::temp_dir().join("cosyworld-test-generated")),
-            ambient: AmbientConfig {
-                quiet_after: Duration::from_secs(1),
-            },
-            box_burn_verifier: Arc::new(None),
-            ownership_feed: Arc::new(OwnershipFeedConfig::default()),
-            ownership_feed_health: Arc::new(StdMutex::new(OwnershipFeedHealth::default())),
-            hosted_access_config: Arc::new(HostedAccessConfig::default()),
-            last_world_event_at: Arc::new(StdMutex::new(Instant::now())),
-            wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
-            qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
-            wallet_actor_links: Arc::new(StdMutex::new(BTreeMap::new())),
-            actor_sessions: Arc::new(StdMutex::new(ActorSessions::default())),
-            actor_suspensions: Arc::new(StdMutex::new(BTreeMap::new())),
-            rate_limiter: Arc::new(StdMutex::new(RateLimiter::default())),
-            inactive_inventory_release_conflicts: Arc::new(StdMutex::new(BTreeSet::new())),
-            canonical_command_lock: Arc::new(Mutex::new(())),
-            canonical_owner_id: Arc::new(format!("test:{}", random_hex(8))),
-            canonical_store_id: Arc::new(canonical_store_id),
-            canonical_region_id: Arc::new(canonical_region_id),
-            canonical_lease_ttl: DEFAULT_CANONICAL_LEASE_TTL,
-            canonical_applied_journal_seq: Arc::new(AtomicU64::new(0)),
-            canonical_fanout_seq: Arc::new(AtomicU64::new(canonical_fanout_seq)),
-            canonical_fanout_lock: Arc::new(StdMutex::new(())),
-            canonical_routing: Arc::new(CanonicalRoutingConfig::default()),
-            canonical_recovery: Arc::new(None),
-            regional_presence: Arc::new(StdMutex::new(BTreeMap::new())),
-            room_memory_cache: Arc::new(StdMutex::new(BTreeMap::new())),
-            room_memory_jobs: Arc::new(StdMutex::new(BTreeSet::new())),
-            room_chat_heartbeats: Arc::new(StdMutex::new(BTreeSet::new())),
-            actor_job_notify: Arc::new(Notify::new()),
-            avatar_chat_delay: Duration::ZERO,
-            moderation_token: None,
-            moderation_report_retention: ModerationReportRetention {
-                days: Some(DEFAULT_MODERATION_REPORT_RETENTION_DAYS),
-            },
-            story_metrics_retention: StoryMetricsRetention::default(),
-            allow_unsigned_wallet_claims: false,
-        }
-    }
-
     fn configure_capacity_test_state(
         mut state: AppState,
         process_id: &str,
@@ -42431,25 +42378,6 @@ mod tests {
             cards: None,
             envelope: None,
         }
-    }
-
-    fn create_test_human(runtime: &mut RuntimeWorld, actor_id: u64, location_id: u64, name: &str) {
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = actor_id;
-        create.location_id = location_id;
-        let mut record = JournalRecord::new(create, 70_000 + actor_id);
-        record.actor_meta_upserts.insert(
-            actor_id,
-            ActorMeta {
-                name: name.to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Relay Test Avatar".to_string(),
-                description: "A test avatar controlled through the narrative move relay."
-                    .to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
     }
 
     fn quest_projection_signature(runtime: &RuntimeWorld) -> serde_json::Value {
@@ -50240,7 +50168,7 @@ mod tests {
         assert!(action_journal_has_records(&path).expect("has records"));
         let records = read_action_journal(&path).expect("read records");
         assert_eq!(records.len(), 2);
-        assert_eq!(records[0].version, 8);
+        assert_eq!(records[0].version, JOURNAL_RECORD_VERSION);
         assert_eq!(records[0].content_context.mapping_version, 1);
         let location_reference = records[0]
             .content_context
@@ -59708,6 +59636,24 @@ mod tests {
             .find(|offer| offer.kind == "attack")
             .expect("Attack is offered")
             .clone();
+        let focused_offer = attack_offer
+            .composition_trace
+            .focused_encounter
+            .as_ref()
+            .expect("focused combat offers carry encounter identity");
+        assert_eq!(focused_offer.protocol, FOCUSED_ENCOUNTER_PROTOCOL);
+        assert_eq!(focused_offer.encounter_id, encounter_id);
+        assert_eq!(focused_offer.profile_id, FOCUSED_COMBAT_PROFILE_ID);
+        assert_eq!(
+            focused_offer.profile_version,
+            FOCUSED_COMBAT_PROFILE_VERSION
+        );
+        assert_eq!(focused_offer.activation_step, FocusedActivationStep::Commit);
+        assert_eq!(focused_offer.current_actor_id, 5000);
+        assert_eq!(
+            attack_offer.composition_id,
+            attack_offer.composition_trace.certificate()
+        );
         let defend_offer = direct_offers
             .iter()
             .find(|offer| offer.kind == "defend")
@@ -59752,7 +59698,7 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&inference_offers).expect("inference offers serialize"),
             serde_json::to_value(&direct_offers).expect("direct offers serialize"),
-            "controller mode cannot change combat enumeration or targets"
+            "controller mode cannot change combat enumeration, targets, or certificates"
         );
 
         let mut forged_offer = attack_offer.clone();
@@ -59899,6 +59845,22 @@ mod tests {
                 .iter()
                 .find(|candidate| candidate.kind == "flee")
                 .map(|candidate| candidate.offer_id.as_str())
+        );
+        assert_eq!(
+            trace.choice.composition_id.as_deref(),
+            trace
+                .candidates
+                .iter()
+                .find(|candidate| candidate.kind == "flee")
+                .map(|candidate| candidate.composition_id.as_str())
+        );
+        assert_eq!(
+            trace.choice.focused_encounter.as_ref(),
+            trace
+                .candidates
+                .iter()
+                .find(|candidate| candidate.kind == "flee")
+                .and_then(|candidate| candidate.focused_encounter.as_ref())
         );
         assert!(trace
             .candidates
@@ -61644,6 +61606,12 @@ mod tests {
             MOONLIT_TRAIL_LOCATION_ID,
             "Careful Combatant",
         );
+        create_test_human(
+            &mut runtime,
+            5001,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Absent Companion",
+        );
         let actor = runtime
             .world
             .actors
@@ -61653,6 +61621,15 @@ mod tests {
             .expect("combatant");
         actor.stats.dexterity = 100;
         actor.stats.hp_base = 100;
+        let companion = runtime
+            .world
+            .actors
+            .iter_mut()
+            .take(runtime.world.actor_count)
+            .find(|actor| actor.id == 5001)
+            .expect("companion");
+        companion.stats.dexterity = 50;
+        companion.stats.hp_base = 100;
         let echo = runtime
             .world
             .actors
@@ -61676,6 +61653,8 @@ mod tests {
         )
         .into_system();
         assert_eq!(runtime.apply_journal_record(&start).0, CW_OK);
+        let join = JournalRecord::new(combat_join_action(5001, encounter_id), 71_902).into_system();
+        assert_eq!(runtime.apply_journal_record(&join).0, CW_OK);
         assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(5000));
         let replay_base = RuntimeSnapshot::from_runtime(&runtime);
         let path = std::env::temp_dir().join(format!(
@@ -61768,6 +61747,10 @@ mod tests {
         assert!(passed
             .events
             .iter()
+            .any(|event| { event.type_name == "combat.pass" && event.actor_id == Some(5001) }));
+        assert!(passed
+            .events
+            .iter()
             .any(|event| event.type_name == "combat.turn.ended"));
 
         let runtime = state.inner.lock().await;
@@ -61776,6 +61759,12 @@ mod tests {
         let expected_current = runtime.combat_current_actor_id(encounter_id);
         drop(runtime);
         let journal = read_action_journal(&path).expect("ordered scene journal");
+        assert!(journal.iter().any(|record| {
+            record.action.kind == CW_ACTION_COMBAT_PASS
+                && record.action.actor_id == 5001
+                && record.origin == JournalOrigin::System
+                && record.focused_encounter.is_some()
+        }));
 
         let mut replayed = replay_base
             .into_runtime()

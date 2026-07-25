@@ -147,6 +147,8 @@ impl RuntimeWorld {
         let primary_action = self.primary_action(actor_id, access);
         let mut action_offers = self.ranked_action_offers(actor_id, access, &primary_action);
         for offer in &mut action_offers {
+            offer.composition_trace.focused_encounter = actor_id
+                .and_then(|actor_id| focused_encounter_offer_context(self, actor_id, &offer.kind));
             offer.composition_id = offer.composition_trace.certificate();
         }
         (primary_action, action_offers)
