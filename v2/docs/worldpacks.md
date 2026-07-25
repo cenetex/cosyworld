@@ -201,6 +201,7 @@ npm run v2:worldpack:lock
 npm run v2:worldpack:compile
 npm run v2:worldpack
 npm run v2:worldpack:inspect
+npm run v2:composition:smoke
 npm run v2:content-refs:migrate -- --input legacy.json --output migrated.json
 npm run v2:journal:inspect -- --event-db events.sqlite --registry v2/content/core-only/registry.json
 npm run v2:pack:mount -- --input core.json --output core-ruby.json --event-db events.sqlite --registry v2/content/core-only/registry.json --target-registry v2/content/core-ruby/registry.json --pack ruby-high.first-bell
@@ -211,6 +212,11 @@ npm run v2:pack:unmount -- --operation remount --input unmounted.json --output r
 `sync` skips workspace packs and materializes Git-backed packs below `v2/content/imports`. Git sources must use an HTTPS GitHub URL and a full 40-character commit. It never follows a branch or tag at build time.
 
 `lock` recalculates pack integrity after an intentional content change and recompiles the bundle. Ordinary CI uses `v2:worldpack`, which fails if either the lock or compiled bundle is stale.
+
+`v2:composition:smoke` boots the standalone Core, Ruby High, and services
+compositions plus the Core/Ruby pair. Each world completes and recovers a
+journaled action loop; services-only proves its catalogue and licenses remain
+available while avatar creation fails without writing a journal row.
 
 ## Moving a pack to its own repository
 

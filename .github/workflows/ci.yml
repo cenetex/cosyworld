@@ -63,7 +63,7 @@ jobs:
       - name: Build V2 release binary
         run: npm run v2:rust:build
 
-      - name: Verify Core + Ruby composition action loop
+      - name: Verify composition action loops
         run: npm run v2:composition:smoke
         env:
           COSYWORLD_COMPOSITION_SMOKE_BINARY: ${{ github.workspace }}/v2/orchestrator-rust/target/debug/cosyworld-orchestrator

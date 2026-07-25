@@ -188,6 +188,7 @@ run_architecture_checks() {
 run_js_checks() {
   node --check "$ROOT/scripts/smoke-browser.mjs"
   node --check "$ROOT/scripts/smoke-production-profile.mjs"
+  node --check "$ROOT/scripts/smoke-standalone-compositions.mjs"
 }
 
 run_cli_checks() {
@@ -228,6 +229,7 @@ run_production_profile_smoke() {
 }
 
 run_composition_smoke() {
+  node "$ROOT/scripts/smoke-standalone-compositions.mjs"
   node "$ROOT/scripts/smoke-core-ruby-composition.mjs"
 }
 
