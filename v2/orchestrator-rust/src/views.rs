@@ -702,6 +702,8 @@ pub(super) struct InspectorView {
     pub(super) practice: Option<ActorPracticeView>,
     pub(super) room: RoomInspectorView,
     pub(super) suggested_action: Option<ActionInspectorView>,
+    pub(super) actions: Vec<ActionInspectorView>,
+    pub(super) offer_decisions: Vec<ActionOfferDecisionView>,
     pub(super) jobs: Vec<JobInspectorView>,
     pub(super) fronts: Vec<FrontView>,
     pub(super) clocks: Vec<ClockInspectorView>,
@@ -727,7 +729,7 @@ pub(super) struct RoomInspectorView {
     pub(super) listen_reason: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub(super) struct ActionInspectorView {
     pub(super) offer_id: String,
     pub(super) kind: String,
@@ -748,12 +750,59 @@ pub(super) struct ActionInspectorView {
     pub(super) disabled_reason: Option<String>,
     pub(super) zone: String,
     pub(super) source: String,
+    pub(super) provider: ActionProviderView,
     pub(super) target: Option<ActionTargetView>,
     pub(super) claim_key: Option<String>,
     pub(super) reason: String,
     pub(super) effect: Option<String>,
     pub(super) risk: Option<String>,
     pub(super) cost_orbs: Option<i32>,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct ActionOfferDecisionView {
+    pub(super) offer_id: String,
+    pub(super) kind: String,
+    pub(super) available: bool,
+    pub(super) in_hand: bool,
+    pub(super) reason: String,
+}
+
+#[cfg(test)]
+pub(super) fn assert_complete_offer_inspector(state: &StateResponse) {
+    assert!(state
+        .action_offers
+        .windows(2)
+        .all(|pair| pair[0].rank <= pair[1].rank));
+    assert_eq!(state.inspector.actions.len(), state.action_offers.len());
+    assert_eq!(
+        state.inspector.offer_decisions.len(),
+        state.action_offers.len()
+    );
+    let hand_offer_ids = state
+        .action_hand
+        .entries
+        .iter()
+        .map(|entry| entry.offer_id.as_str())
+        .collect::<BTreeSet<_>>();
+    for (offer, action) in state.action_offers.iter().zip(&state.inspector.actions) {
+        assert_eq!(action.offer_id, offer.offer_id);
+        assert_eq!(action.provider.id, offer.provider.id);
+        assert_eq!(action.provider.reason, offer.provider.reason);
+        assert!(!action.reason.is_empty());
+        assert!(!action.composition_id.is_empty());
+    }
+    assert!(state.inspector.offer_decisions.iter().all(|decision| {
+        decision.in_hand == hand_offer_ids.contains(decision.offer_id.as_str())
+            && !decision.reason.is_empty()
+            && (!decision.in_hand || decision.available)
+    }));
+    assert!(state.inspector.offer_decisions.iter().any(|decision| {
+        decision.available
+            && !decision.in_hand
+            && (decision.reason.contains("remains available to inference")
+                || decision.reason.contains("same choice group"))
+    }));
 }
 
 #[derive(Debug, Serialize)]
@@ -1695,6 +1744,7 @@ impl RuntimeWorld {
             client_actor_id,
             &primary_action,
             &action_offers,
+            &action_hand,
         );
         let recent_events = self
             .event_log
@@ -2490,12 +2540,82 @@ impl RuntimeWorld {
             })
     }
 
+    fn action_inspector_view(offer: &RankedActionOffer) -> ActionInspectorView {
+        ActionInspectorView {
+            offer_id: offer.offer_id.clone(),
+            kind: offer.kind.clone(),
+            rules_action: offer.rules_action.clone(),
+            operation: offer.operation.clone(),
+            rules_profile: offer.rules_profile.clone(),
+            resolver: offer.resolver.clone(),
+            source_collectible: offer.source_collectible.clone(),
+            pack_provenance: offer.pack_provenance.clone(),
+            composition_trace: offer.composition_trace.clone(),
+            composition_id: offer.composition_id.clone(),
+            state_revision: offer.state_revision,
+            category: offer.category.clone(),
+            label: offer.label.clone(),
+            command: offer.command.clone(),
+            rank: offer.rank,
+            disabled: offer.disabled,
+            disabled_reason: offer.disabled_reason.clone(),
+            zone: offer.zone.clone(),
+            source: offer.source.clone(),
+            provider: offer.provider.clone(),
+            target: offer.target.clone(),
+            claim_key: offer.claim_key.clone(),
+            reason: offer.reason.clone(),
+            effect: offer.effect.clone(),
+            risk: offer.risk.clone(),
+            cost_orbs: offer.cost.as_ref().map(|cost| cost.orbs),
+        }
+    }
+
+    fn action_offer_decision_view(
+        offer: &RankedActionOffer,
+        hand_offer_ids: &BTreeSet<String>,
+        hand_groups: &BTreeSet<String>,
+    ) -> ActionOfferDecisionView {
+        let in_hand = hand_offer_ids.contains(&offer.offer_id);
+        let available = action_offer_is_reachable(offer);
+        let reason = if in_hand {
+            format!(
+                "Selected by provider priority and action rank; {}.",
+                offer.provider.reason.trim_end_matches(['.', '!', '?'])
+            )
+        } else if offer.disabled {
+            offer
+                .disabled_reason
+                .clone()
+                .unwrap_or_else(|| "The action is disabled in the current scene.".to_string())
+        } else if action_offer_requires_target(&offer.kind) && offer.target.is_none() {
+            "The action has no legal target in the current scene.".to_string()
+        } else if matches!(offer.kind.as_str(), "prepare" | "work" | "help" | "study")
+            && offer.project.is_none()
+        {
+            "The action has no active project in the current scene.".to_string()
+        } else if hand_groups.contains(&action_offer_hand_group(offer)) {
+            "A higher-ranked action from the same choice group occupies the browser hand."
+                .to_string()
+        } else {
+            "This legal action ranks outside the two-card browser hand and remains available to inference and non-browser transports.".to_string()
+        };
+        ActionOfferDecisionView {
+            offer_id: offer.offer_id.clone(),
+            kind: offer.kind.clone(),
+            available,
+            in_hand,
+            reason,
+        }
+    }
+
     pub(super) fn inspector_view(
         &self,
         location_id: u64,
         actor_id: Option<u64>,
         primary_action: &PrimaryAction,
         action_offers: &[RankedActionOffer],
+        action_hand: &ActionHandView,
     ) -> InspectorView {
         let room_sheet = self.room_sheets.get(&location_id);
         let zone = room_sheet
@@ -2527,33 +2647,30 @@ impl RuntimeWorld {
             .iter()
             .find(|offer| offer.kind == primary_action.kind)
             .or_else(|| action_offers.first())
-            .map(|offer| ActionInspectorView {
-                offer_id: offer.offer_id.clone(),
-                kind: offer.kind.clone(),
-                rules_action: offer.rules_action.clone(),
-                operation: offer.operation.clone(),
-                rules_profile: offer.rules_profile.clone(),
-                resolver: offer.resolver.clone(),
-                source_collectible: offer.source_collectible.clone(),
-                pack_provenance: offer.pack_provenance.clone(),
-                composition_trace: offer.composition_trace.clone(),
-                composition_id: offer.composition_id.clone(),
-                state_revision: offer.state_revision,
-                category: offer.category.clone(),
-                label: offer.label.clone(),
-                command: offer.command.clone(),
-                rank: offer.rank,
-                disabled: offer.disabled,
-                disabled_reason: offer.disabled_reason.clone(),
-                zone: offer.zone.clone(),
-                source: offer.source.clone(),
-                target: offer.target.clone(),
-                claim_key: offer.claim_key.clone(),
-                reason: offer.reason.clone(),
-                effect: offer.effect.clone(),
-                risk: offer.risk.clone(),
-                cost_orbs: offer.cost.as_ref().map(|cost| cost.orbs),
-            });
+            .map(Self::action_inspector_view);
+        let actions = action_offers
+            .iter()
+            .map(Self::action_inspector_view)
+            .collect();
+        let hand_offer_ids = action_hand
+            .entries
+            .iter()
+            .map(|entry| entry.offer_id.clone())
+            .collect::<BTreeSet<_>>();
+        let hand_groups = action_hand
+            .entries
+            .iter()
+            .filter_map(|entry| {
+                action_offers
+                    .iter()
+                    .find(|offer| offer.offer_id == entry.offer_id)
+                    .map(action_offer_hand_group)
+            })
+            .collect::<BTreeSet<_>>();
+        let offer_decisions = action_offers
+            .iter()
+            .map(|offer| Self::action_offer_decision_view(offer, &hand_offer_ids, &hand_groups))
+            .collect();
 
         InspectorView {
             location_id,
@@ -2592,6 +2709,8 @@ impl RuntimeWorld {
                 listen_reason,
             },
             suggested_action,
+            actions,
+            offer_decisions,
             jobs: self.job_inspector_views(location_id, actor_id),
             fronts: self.front_views(location_id),
             clocks: self.clock_inspector_views(location_id),
