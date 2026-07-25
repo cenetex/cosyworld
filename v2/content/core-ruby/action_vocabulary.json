@@ -1,0 +1,22 @@
+[
+  {
+    "notice": "Notice",
+    "inspect": "Inspect",
+    "scout": "Scout",
+    "travel": "Travel",
+    "contribute": "Contribute",
+    "push": "Push",
+    "help": "Help",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "notice": "Tune in",
+    "inspect": "Investigate",
+    "scout": "Scope out",
+    "travel": "Head to",
+    "contribute": "Pitch in",
+    "push": "Take point",
+    "help": "Back up",
+    "pack_id": "ruby-high.first-bell"
+  }
+]

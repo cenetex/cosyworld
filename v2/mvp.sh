@@ -227,6 +227,10 @@ run_production_profile_smoke() {
   node "$ROOT/scripts/smoke-production-profile.mjs"
 }
 
+run_composition_smoke() {
+  node "$ROOT/scripts/smoke-core-ruby-composition.mjs"
+}
+
 create_cli_smoke_actor() {
   python3 - "$BASE_URL" "$1" <<'PY'
 import json
@@ -293,6 +297,7 @@ check_all() {
   run_architecture_checks
   run_js_checks
   run_cli_checks
+  run_composition_smoke
   run_production_profile_smoke
   start_deterministic_smoke_server
   run_smoke

@@ -1,0 +1,50 @@
+[
+  {
+    "actor_id": 1001,
+    "requirements": [
+      {
+        "item_id": 2004,
+        "target_kind": "actor_hand",
+        "target_id": 1001
+      },
+      {
+        "item_id": 2005,
+        "target_kind": "location_floor",
+        "target_id": 1
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "actor_id": 1002,
+    "requirements": [
+      {
+        "item_id": 2002,
+        "target_kind": "actor_hand",
+        "target_id": 1002
+      },
+      {
+        "item_id": 2003,
+        "target_kind": "location_floor",
+        "target_id": 3
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "actor_id": 1003,
+    "requirements": [
+      {
+        "item_id": 2007,
+        "target_kind": "actor_hand",
+        "target_id": 1003
+      },
+      {
+        "item_id": 2006,
+        "target_kind": "location_floor",
+        "target_id": 1
+      }
+    ],
+    "pack_id": "cosyworld.core"
+  }
+]
