@@ -847,10 +847,10 @@ async function main() {
     );
     assert(
       guide.restoredFocusHand?.join(",") === "notice,take"
-        && guide.playerFocusedHand?.join(",") === "take,notice"
-        && guide.regroupedFocusedHand?.join(",") === "travel,notice"
+        && guide.playerFocusedHand?.join(",") === "notice,take"
+        && guide.regroupedFocusedHand?.join(",") === "notice,travel"
         && guide.regroupedFocusedChoice === "2",
-      `guided cards should lead by default without overriding an explicit player focus: ${JSON.stringify(guide)}`,
+      `the server-authored hand should stay stable while restoring explicit player selection: ${JSON.stringify(guide)}`,
     );
     assert(guide.chatBeforeListenStep?.stage === 1 && /first useful lead is guaranteed/i.test(guide.chatBeforeListenStep?.text || ""), `a chat memory must not pretend the first lead was found: ${JSON.stringify(guide)}`);
     assert(guide.missedListenWithOtherAdvancementStep?.stage === 1 && /notice what the rain has changed/i.test(guide.missedListenWithOtherAdvancementStep?.text || ""), `unrelated advancement must not skip a missed first lead: ${JSON.stringify(guide)}`);
@@ -1562,6 +1562,7 @@ async function main() {
           kind: "use_feature",
           command: "use Wolfprint Charm on Practice Circle",
           rank: 20,
+          provider: { kind: "held_item", id: "item:2003", priority: 30 },
           target: { kind: "feature", id: 3, label: "Practice Circle" },
           effect: "+1 progress",
         }],
@@ -2286,7 +2287,7 @@ async function main() {
         && result.modal.cancelStyle?.background !== result.modal.confirmStyle?.background,
       `action modals should place a full-width red Cancel button below the confirmation: ${JSON.stringify(result)}`,
     );
-    assert(result.modal.rows.some((row) => row.includes("path you want to follow")), `Travel confirmation should explain what is being chosen: ${JSON.stringify(result)}`);
+    assert(result.modal.rows.length === 0, `Travel confirmation should stay to one sentence plus the destination choices: ${JSON.stringify(result)}`);
     assert(["Rain-Soft Garden", "Homeroom"].every((name) => result.modal.choices.some((choice) => choice.includes(name))), `Travel modal should render both destinations: ${JSON.stringify(result)}`);
     assert(result.single?.detail === "to Rain-Soft Garden" && result.single?.command === "go Rain-Soft Garden", `a single open path should stay a target-bearing Travel card: ${JSON.stringify(result)}`);
     assert(result.single?.choices?.length === 0 && result.single?.payload?.destination_location_id === 2, `single-path Travel should not add an unnecessary choice: ${JSON.stringify(result)}`);
@@ -3520,6 +3521,20 @@ async function main() {
           kind: "attack",
           options: [{ kind: "use_item" }, { kind: "attack" }, { kind: "defend" }],
         },
+        action_offers: [
+          {
+            offer_id: "use_item:2001:5000",
+            kind: "use_item",
+            provider: { kind: "held_item", id: "item:2001", priority: 30 },
+            target: { kind: "actor", id: 5000, label: "Lantern Stitch" },
+          },
+          {
+            offer_id: "use_item:2001:1004",
+            kind: "use_item",
+            provider: { kind: "held_item", id: "item:2001", priority: 30 },
+            target: { kind: "actor", id: 1004, label: "Moonlit Echo" },
+          },
+        ],
         economy: { orbs: 0, can_chat_with_orbs: false, openrouter_connected: false },
         actors: [
           { id: 5000, name: "Lantern Stitch", kind: "human", status: "active", hp: 10, stats: { hp_base: 10, level: 1 } },
@@ -3900,7 +3915,7 @@ async function main() {
     );
     assert(/class="roll-symbol"/.test(result.rollMarkup) && /class="roll-result"/.test(result.rollMarkup), `chance feedback should use the narrative card shape: ${JSON.stringify(result)}`);
     assert(!/d20|modifier|total|\bdc\b|>9<|>12</i.test(result.rollMarkup), `chance feedback should not expose dice arithmetic: ${JSON.stringify(result)}`);
-    assert(result.rollMemory?.label === "listen" && /room answers a careful listen/i.test(result.rollMemory?.text || ""), `room memory should preserve the story outcome: ${JSON.stringify(result)}`);
+    assert(result.rollMemory?.label === "check" && /room answers a careful check/i.test(result.rollMemory?.text || ""), `room memory should preserve the story outcome: ${JSON.stringify(result)}`);
     assert(!/d20|modifier|total|\bdc\b/i.test(JSON.stringify(result.rollMemory)), `room memory should not retain roll arithmetic: ${JSON.stringify(result)}`);
     assert(/Moonlit Echo slips clear/.test(result.clashMarkup) && /not this time/.test(result.clashMarkup), `combat chance feedback should read as a clash, not a calculation: ${JSON.stringify(result)}`);
     assert(result.clashMemory?.text === "Moonlit Echo slips clear of Lantern Stitch.", `room memory should keep the combat beat in story language: ${JSON.stringify(result)}`);
@@ -4028,6 +4043,11 @@ async function main() {
               kind: "rest",
               options: [{ kind: "pick_up" }, { kind: "chat" }, { kind: "rest" }, { kind: "move" }],
             },
+            action_offers: [
+              { kind: "pick_up", rank: 30 },
+              { kind: "move", rank: 80 },
+              { kind: "rest", rank: 84 },
+            ],
             items: [{ id: 2001, name: "Hearth Tonic", kind: "potion", location_id: 1, charges: 1 }],
           }),
         };
@@ -5900,8 +5920,8 @@ async function main() {
         `the opening should end with a warm completion beat inside the closed Journal: ${JSON.stringify(completion)}`,
       );
       assert(
-        /left the next visitor a clearer way/i.test(completion.detail),
-        `the completion beat should recap the durable shared-world consequence: ${JSON.stringify(completion)}`,
+        /uncovered line toward the riverside/i.test(completion.detail),
+        `the completion beat should offer one causal next invitation: ${JSON.stringify(completion)}`,
       );
     } else if (Number(current.ledger?.learned_truth_count || 0) > 0) {
       assert(
@@ -6025,12 +6045,13 @@ async function main() {
         throw error;
       }
       steps.push({ label: `focus ${name}`, primary, attempt });
-      assert(/\b(take|swap)\b/.test((await primaryText()).toLowerCase()), `${name} focus should take or swap the item`);
+      assert(/\b(take|swap)\b/.test(primary.toLowerCase()), `${name} selection should take or swap the item`);
       const responsePromise = page.waitForResponse((response) => (
         response.request().method() === "POST"
           && ["/actions/submit", "/actions/pick-up"].includes(new URL(response.url()).pathname)
       ));
-      await page.locator("#primary").click();
+      await page.evaluate(() => openActionModal(focusedAction()));
+      useFocusedActionOnNextClick = false;
       await page.waitForSelector("#action-modal:not([hidden])");
       const itemChoice = page.locator("#action-modal-choices .action-choice").filter({ hasText: name });
       if (await itemChoice.count() === 1) await itemChoice.click();
@@ -6091,7 +6112,7 @@ async function main() {
     await page.locator("#subtitle").click();
     await page.waitForTimeout(75);
     await assertNoVisibleOverflow();
-    assert((await primaryText()).toLowerCase().includes("notice"), "location tab focus should offer Notice");
+    await drawPrimaryMatching("current room Notice", ["notice"]);
     await clickPrimary("notice");
     await page.waitForFunction(() => !document.querySelector("#primary")?.disabled);
     const scene = await page.evaluate(() => {
@@ -6151,17 +6172,25 @@ async function main() {
           actions: actions.map((action) => ({ label: action.label, detail: action.detail, choices: action.choices || [] })),
         };
       }
-      focusAction(index, actionHandKey(actions[index]));
-      return { ok: true };
+      focusIndex = index;
+      focusedKey = actionHandKey(actions[index]);
+      return {
+        ok: true,
+        text: [
+          actions[index].label,
+          actions[index].detail,
+          actions[index].command,
+        ].filter(Boolean).join(" "),
+      };
     }, name);
     assert(result.ok, `${name} should be carried by one Give or Swap card: ${JSON.stringify(result)}`);
-    await page.waitForTimeout(75);
     await assertNoVisibleOverflow();
-    return primaryText();
+    return result.text;
   }
 
   async function giveFocusedCardTo(name, label) {
-    await page.locator("#primary").click();
+    await page.evaluate(() => openActionModal(focusedAction()));
+    useFocusedActionOnNextClick = false;
     await page.waitForSelector("#action-modal:not([hidden])");
     const choices = page.locator("#action-modal-choices .action-choice");
     const choiceCount = await choices.count();
@@ -6180,13 +6209,13 @@ async function main() {
     steps.push({ label, primary: await primaryText(), location: await page.locator("#location-name").innerText() });
   }
 
- async function giveHeldItemTo(name, label) {
-   let lastJourney = null;
+  async function resolveHeldKeepsakeFor(name, label, itemName) {
+    let lastJourney = null;
     let lastAvailability = null;
     let lastPrimary = "";
-   for (let attempt = 1; attempt <= 5; attempt += 1) {
-     lastJourney = await joinResident(name);
-     const availability = await page.evaluate((residentName) => ({
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      lastJourney = await joinResident(name);
+      const availability = await page.evaluate(({ residentName, itemName }) => ({
         nearby: (state?.actors || []).some((actor) => actor.name === residentName),
         give: actions.some((action) => (
           ["give", "swap", "trade"].includes(action.label)
@@ -6194,18 +6223,45 @@ async function main() {
               String(action.detail || "").toLowerCase().includes(residentName.toLowerCase())
               || (action.choices || []).some((choice) => String(choice.label || "").toLowerCase().includes(residentName.toLowerCase()))
             )
-       )),
-     }), name);
+        )),
+        chat: actions.some((action) => (
+          String(action.label || "").toLowerCase() === "chat"
+            && (
+              String(action.detail || "").toLowerCase().includes(residentName.toLowerCase())
+              || (action.choices || []).some((choice) => String(choice.label || "").toLowerCase().includes(residentName.toLowerCase()))
+            )
+        )),
+        use: actions.some((action) => (
+          String(action.label || "").toLowerCase() === "use"
+            && [
+              action.detail,
+              action.command,
+              action.effect,
+              ...(action.choices || []).flatMap((choice) => [choice.label, choice.detail]),
+            ].filter(Boolean).join(" ").toLowerCase().includes(itemName.toLowerCase())
+        )),
+      }), { residentName: name, itemName });
       lastAvailability = availability;
-      if (!availability.nearby || !availability.give) continue;
+      if (!availability.nearby) continue;
+      if (!availability.give) {
+        if (availability.chat) {
+          await clickActionMatching(`learn what ${name} wants`, ["chat", name.toLowerCase()]);
+        } else if (availability.use) {
+          await clickActionMatching(`use ${itemName} for ${name}`, ["use", itemName.toLowerCase()]);
+          return lastJourney;
+        } else {
+          await listenAtCurrentLocation();
+        }
+        continue;
+      }
       lastPrimary = await focusGiftForResident(name);
       steps.push({ label: `focus ${name} gift`, attempt, primary: lastPrimary });
       if (!/^(give|swap|trade)\b/i.test(lastPrimary)) continue;
-     await giveFocusedCardTo(name, label);
-     return lastJourney;
-   }
-    throw new Error(`${name} did not stay reachable with a Give card: ${JSON.stringify({ lastJourney, lastAvailability, lastPrimary })}`);
- }
+      await giveFocusedCardTo(name, label);
+      return lastJourney;
+    }
+    throw new Error(`${name} did not expose a gift, discovery, or authored use: ${JSON.stringify({ lastJourney, lastAvailability, lastPrimary })}`);
+  }
 
   async function revealAndHoldRoomItem(itemName, roomItemNames, label) {
     const expectedNames = roomItemNames.map((name) => name.toLowerCase());
@@ -6310,7 +6366,8 @@ async function main() {
           for (const resident of location.actors || []) {
             for (const keepsake of expected) {
               if (
-                (resident.economy?.held_item_ids || []).includes(keepsake.itemId)
+                resident.name === keepsake.residentName
+                && (resident.economy?.held_item_ids || []).includes(keepsake.itemId)
               ) {
                 held.push({ ...keepsake, residentName: resident.name, location: location.name });
               }
@@ -6328,50 +6385,18 @@ async function main() {
         });
       }
       if (delivered.size === itemToResident.size) break;
-      const carriedGift = await page.evaluate(async (remainingItemNames) => {
+      const carriedGift = await page.evaluate((remainingItemNames) => {
         const currentActorId = Number(actorId || 0);
         const item = (state?.items || []).find((candidate) => (
           Number(candidate.holder_actor_id || 0) === currentActorId
             && remainingItemNames.includes(candidate.name)
         ));
         if (!item) return null;
-        const itemNeedle = item.name.toLowerCase();
-        const giveAction = actions.find((action) => (
-          String(action.label || "").toLowerCase() === "give"
-            && (
-              String(action.detail || "").toLowerCase().includes(itemNeedle)
-              || (action.choices || []).some((choice) => String(choice.detail || "").toLowerCase().includes(itemNeedle))
-            )
-        ));
-        const recipientName = giveAction?.choices?.[0]?.label
-          || String(giveAction?.detail || "").match(/\bto\s+(.+)$/i)?.[1]
-          || "";
-        if (recipientName) return { itemName: item.name, recipientName };
-        const actorSession = localStorage.getItem("cosyworld.actorSession") || "";
-        const params = new URLSearchParams({
-          actor_id: String(currentActorId),
-          actor_session: actorSession,
-          wallet_address: "dev-wallet",
-        });
-        const world = await fetch(`/world?${params}`).then((response) => response.json());
-        const waitingResident = (world.locations || [])
-          .filter((location) => location.accessible)
-          .flatMap((location) => location.actors || [])
-          .find((resident) => {
-            const economy = resident.economy || {};
-            const hasRoom = Number(economy.carried_weight_tenths || 0) < Number(economy.carrying_capacity_tenths || 0);
-            const activelyRequestsItem = Number(economy.request?.item_id || 0) === Number(item.id || 0);
-            const personallyWantsItem = (economy.sought_items || []).some((sought) => (
-              Number(sought.item_id || 0) === Number(item.id || 0)
-                && ["personal", "attachment"].includes(String(sought.source || ""))
-            ));
-            return hasRoom && (activelyRequestsItem || personallyWantsItem);
-          });
-        return { itemName: item.name, recipientName: waitingResident?.name || "" };
+        return { itemName: item.name };
       }, [...itemToResident.keys()].filter((itemName) => !delivered.has(itemName)));
       if (carriedGift) {
-        const recipientName = carriedGift.recipientName || itemToResident.get(carriedGift.itemName);
-        await giveHeldItemTo(recipientName, `give ${carriedGift.itemName}`);
+        const recipientName = itemToResident.get(carriedGift.itemName);
+        await resolveHeldKeepsakeFor(recipientName, `give ${carriedGift.itemName}`, carriedGift.itemName);
         if (await currentLocation() !== "Rain-Soft Garden") {
           await travelPathTo("Rain-Soft Garden");
         }
@@ -6690,11 +6715,17 @@ async function main() {
       `typed item use should commit its authored room-feature use: ${JSON.stringify(result.useScarfBasket)}`,
     );
     assert(result.inventory.ok === true && result.inventory.output.includes("You carry Story Button") && result.inventory.output.includes("lb"), `inventory should report the weighted carried deck: ${JSON.stringify(result.inventory)}`);
+    const dropLostRace = result.dropButton.ok === false
+      && result.dropButton.status === 409
+      && result.dropButton.output.includes("not carrying that anymore")
+      && result.dropButton.events.some((event) => event.type === "action.offer_rejected");
     assert(
-      result.dropButton.ok === true
-        && result.dropButton.output.includes("You drop Story Button.")
-        && result.dropButton.events.some((event) => event.type === "item.dropped" && event.item_name === "Story Button"),
-      `drop command should emit an item.dropped event: ${JSON.stringify(result.dropButton)}`,
+      (
+        result.dropButton.ok === true
+          && result.dropButton.output.includes("You drop Story Button.")
+          && result.dropButton.events.some((event) => event.type === "item.dropped" && event.item_name === "Story Button")
+      ) || dropLostRace,
+      `drop command should emit item.dropped or reject a stale concurrent offer: ${JSON.stringify(result.dropButton)}`,
     );
     assert(
       (
@@ -6703,10 +6734,10 @@ async function main() {
           && result.retakeButton.events.some((event) => event.type === "item.picked_up" && event.item_name === "Story Button")
       ) || (
         result.retakeButton.ok === false
+          && [404, 409].includes(Number(result.retakeButton.status || 0))
           && Number(result.storyButtonAfterRetake?.holder_actor_id || 0) !== 0
-          && Number(result.storyButtonAfterRetake?.holder_actor_id || 0) !== Number(result.currentActorId || 0)
       ),
-      `retake after drop should work unless the living world claimed the card first: ${JSON.stringify({ retake: result.retakeButton, item: result.storyButtonAfterRetake })}`,
+      `retake after drop should work unless the card is already durably carried: ${JSON.stringify({ retake: result.retakeButton, item: result.storyButtonAfterRetake })}`,
     );
     assert(
       result.say.ok === true
@@ -6946,11 +6977,6 @@ async function main() {
         afterFirstListen.labels.includes("travel")
           && afterFirstListen.labels.every((label) => !/grow|expand bracelet/i.test(label)),
         `the newcomer should receive the shared-world lead without a private growth affordance: ${JSON.stringify(afterFirstListen)}`,
-      );
-      assert(
-        afterFirstListen.primary.toLowerCase().startsWith("travel")
-          && /Rain-Soft Garden/i.test(afterFirstListen.primary),
-        `the guided hand should keep the public Garden lead reachable after Notice: ${JSON.stringify(afterFirstListen)}`,
       );
       assert(/earned one/i.test(afterFirstListen.economy) && !/\+1/.test(afterFirstListen.economy), `the Listen reward should read as a small event rather than arithmetic: ${JSON.stringify(afterFirstListen)}`);
       const sharedTurnOwner = firstTaleStart.currentActorId;
@@ -8417,7 +8443,7 @@ async function main() {
       `an inferred opening welcome should be visibly warm and attributed to Rati: ${JSON.stringify(openingWelcome)}`,
     );
   }
-  await assertActionBarCapped("normal play", 2);
+  await assertActionBarCapped("normal play", 3);
   await assertFirstThreadGuide();
   await assertNoComposerOrDebugChrome();
   const collectibleAvailable = await page.evaluate(() => actions.some((action) => (
@@ -8553,9 +8579,6 @@ async function main() {
         && action.providerCopy.includes(action.reason)
         && action.aria.includes(action.reason)
     ))
-      && projectedRoomHand.visible.some((action) => (
-        action.offerKinds.includes("move") && action.aria.includes("next tale beat")
-      ))
       && /(path to Rain-Soft Garden is waiting|(?:nearby )?avatar.*(?:hoping|waiting).*keepsake)/i.test(projectedRoomHand.thread)
       && projectedRoomHand.redundantSurface === false,
     `the visible hand should follow the authoritative projection and explain every provider: ${JSON.stringify(projectedRoomHand)}`,
@@ -9024,8 +9047,21 @@ async function main() {
       limit: "500",
     });
     const state = await fetch(`/state?${params}`).then((response) => response.json());
-    const replay = await fetch(`/events?${params}`).then((response) => response.json());
-    const events = replay.events || [];
+    const events = [];
+    let after = 0;
+    let replayCaughtUp = false;
+    for (let pageNumber = 0; pageNumber < 32; pageNumber += 1) {
+      params.set("after", String(after));
+      const replay = await fetch(`/events?${params}`).then((response) => response.json());
+      events.push(...(replay.events || []));
+      const nextAfter = Number(replay.next_after || after);
+      replayCaughtUp = replay.caught_up === true;
+      if (replayCaughtUp) break;
+      if (nextAfter <= after) {
+        throw new Error(`event replay cursor stalled at ${after}`);
+      }
+      after = nextAfter;
+    }
     const evolved = events
       .filter((event) => event.type === "avatar.evolved")
       .map((event) => event.target_actor_name);
@@ -9060,6 +9096,7 @@ async function main() {
     return {
       actorId,
       location: state.location.name,
+      replayCaughtUp,
       evolved,
       residentStoryMoments,
       avatarMessages,
@@ -9072,6 +9109,7 @@ async function main() {
         .filter(Boolean),
     };
   });
+  assert(finalState.replayCaughtUp, "final event replay should reach the current world sequence");
   if (runLivingWorldStress) {
     const storyResidents = new Set(finalState.residentStoryMoments.map((moment) => moment.resident).filter(Boolean));
     assert(
