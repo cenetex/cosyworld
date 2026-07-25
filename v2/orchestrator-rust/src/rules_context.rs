@@ -395,10 +395,28 @@ mod tests {
     fn cross_pack_move_changes_context_atomically_without_moving_cards() {
         let mut base = RuntimeWorld::seeded();
         create_test_human(&mut base, 5000, COSY_COTTAGE_LOCATION_ID, "Boundary Tester");
+        let story_button = base
+            .world
+            .items
+            .iter_mut()
+            .take(base.world.item_count)
+            .find(|item| item.id == STORY_BUTTON_ITEM_ID)
+            .expect("seeded Story Button");
+        story_button.location_id = 0;
+        story_button.holder_actor_id = 5000;
+        story_button.held_since_tick = base.world.tick;
         let held_before = human_held_items(&base, 5000);
         let item_count_before = base.world.item_count;
         let actor_meta_before =
             serde_json::to_value(base.actors.get(&5000)).expect("serialize actor identity");
+        let cottage = base.state_response(Some(5000), &AccessContext::default());
+        assert!(cottage.action_offers.iter().any(|offer| {
+            offer.kind == "use_feature"
+                && offer
+                    .source_collectible
+                    .as_ref()
+                    .is_some_and(|source| source.instance_id == STORY_BUTTON_ITEM_ID)
+        }));
         let record = JournalRecord::new(
             CwAction {
                 kind: CW_ACTION_MOVE,
@@ -453,6 +471,12 @@ mod tests {
             persisted_context.provider_pack_version,
             transition.to.provider_pack_version
         );
+        assert!(
+            events
+                .iter()
+                .all(|event| !event.type_name.starts_with("item.")),
+            "crossing a rules boundary cannot mutate the carried card"
+        );
 
         let state = first.state_response(Some(5000), &AccessContext::default());
         assert_eq!(state.location.id, 11);
@@ -463,6 +487,46 @@ mod tests {
                 .map(|context| context.capability_id.as_str()),
             Some("ruby-high.first-bell/rules")
         );
+        assert!(state.action_offers.iter().all(|offer| {
+            offer.kind != "use_feature"
+                || offer
+                    .source_collectible
+                    .as_ref()
+                    .is_none_or(|source| source.instance_id != STORY_BUTTON_ITEM_ID)
+        }));
+        assert_eq!(first.world.item_count, item_count_before);
+        assert_eq!(human_held_items(&first, 5000), held_before);
+        assert_eq!(
+            serde_json::to_value(first.actors.get(&5000)).expect("serialize actor identity"),
+            actor_meta_before
+        );
+
+        let return_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_MOVE,
+                actor_id: 5000,
+                destination_location_id: COSY_COTTAGE_LOCATION_ID,
+                ..CwAction::default()
+            },
+            147_027,
+        );
+        let (return_status, return_events) = first.apply_journal_record(&return_record);
+        assert_eq!(return_status, CW_OK);
+        assert!(
+            return_events
+                .iter()
+                .all(|event| !event.type_name.starts_with("item.")),
+            "returning across a rules boundary cannot mutate the carried card"
+        );
+        let returned = first.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(returned.location.id, COSY_COTTAGE_LOCATION_ID);
+        assert!(returned.action_offers.iter().any(|offer| {
+            offer.kind == "use_feature"
+                && offer
+                    .source_collectible
+                    .as_ref()
+                    .is_some_and(|source| source.instance_id == STORY_BUTTON_ITEM_ID)
+        }));
         assert_eq!(first.world.item_count, item_count_before);
         assert_eq!(human_held_items(&first, 5000), held_before);
         assert_eq!(
