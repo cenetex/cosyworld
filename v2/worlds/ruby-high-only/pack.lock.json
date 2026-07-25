@@ -78,12 +78,12 @@
     },
     {
       "id": "ruby-high.first-bell",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "source": {
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:c6f4718f7a73bb1debce6e7737514af3fa8f420d5c9a4d529e2cf4aeba9b14b9",
+      "integrity": "sha256:e8092c36fb9ef2880a19bfb111385137e9c0b635919ab78bd2f98910a0225847",
       "dependencies": [
         {
           "id": "cosyworld.core",
@@ -191,7 +191,7 @@
     {
       "pack_id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {

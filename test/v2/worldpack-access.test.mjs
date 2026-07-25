@@ -220,6 +220,8 @@ describe("worldpack authored relationships", () => {
       "cosyworld.the-holy-land",
       "cosyworld.lonely-forest.characters",
       "ruby-high.first-bell",
+      "cosyworld.composition.core-ruby",
+      "cosyworld.composition.core-holy-land",
     ]);
     expect(locations).toHaveLength(48);
     expect(rules.map((bundle) => bundle.pack_id)).toEqual([

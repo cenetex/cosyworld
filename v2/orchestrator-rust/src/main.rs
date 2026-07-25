@@ -62242,7 +62242,7 @@ mod tests {
         assert_eq!(content.manifest.version, 1);
         assert_eq!(content.manifest.schema_version, 2);
         assert_eq!(content.manifest.rules_profile, "cosyworld.srd5/1");
-        assert_eq!(content.manifest.packs.len(), 8);
+        assert_eq!(content.manifest.packs.len(), 10);
 
         assert!(content.manifest.bundle_hash.starts_with("sha256:"));
         assert!(content.manifest.description.contains("seed world"));

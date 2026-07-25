@@ -1231,6 +1231,8 @@ const actorIds = idSet("actors", actors, (actor) => actor.id);
 const actorById = new Map(actors.map((actor) => [actor.id, actor]));
 const itemIds = idSet("items", items, (item) => item.id);
 const locationIds = idSet("locations", locations, (location) => location.id);
+const locationPackById = new Map(locations.map((location) => [location.id, location.pack_id]));
+const packById = new Map(packs.map((pack) => [pack.id, pack]));
 idSet("sentences", sentences, (sentence) => sentence.id);
 const clockIds = idSet("clocks", clocks, (clock) => clock.id);
 const jobIds = idSet("jobs", jobs, (job) => job.id);
@@ -1543,6 +1545,19 @@ for (const exit of exits) {
   if (!has(locationIds, exit.from_location_id) || !has(locationIds, exit.to_location_id)) {
     fail(`exit ${exit.from_location_id}->${exit.to_location_id} references missing location`);
   }
+  const fromPackId = locationPackById.get(exit.from_location_id);
+  const toPackId = locationPackById.get(exit.to_location_id);
+  if (fromPackId && toPackId && fromPackId !== toPackId) {
+    const owner = packById.get(exit.pack_id);
+    if (owner?.extensions?.["x-cosyworld-composition"]?.role !== "bridge") {
+      fail(`exit ${exit.from_location_id}->${exit.to_location_id} crosses ${fromPackId} and ${toPackId} outside a composition bridge pack`);
+    } else {
+      const dependencyIds = new Set(owner.dependencies);
+      if (!dependencyIds.has(fromPackId) || !dependencyIds.has(toPackId)) {
+        fail(`composition bridge ${owner.id} must depend on both ${fromPackId} and ${toPackId}`);
+      }
+    }
+  }
   const pair = `${exit.from_location_id}->${exit.to_location_id}`;
   if (exitPairs.has(pair)) {
     fail(`duplicate exit ${pair}`);
@@ -1584,6 +1599,19 @@ for (const hiddenExit of hiddenExits) {
   hiddenExitIds.add(hiddenExit.id);
   if (!has(locationIds, hiddenExit.from_location_id) || !has(locationIds, hiddenExit.to_location_id)) {
     fail(`hidden exit ${hiddenExit.id} references missing location`);
+  }
+  const fromPackId = locationPackById.get(hiddenExit.from_location_id);
+  const toPackId = locationPackById.get(hiddenExit.to_location_id);
+  if (fromPackId && toPackId && fromPackId !== toPackId) {
+    const owner = packById.get(hiddenExit.pack_id);
+    if (owner?.extensions?.["x-cosyworld-composition"]?.role !== "bridge") {
+      fail(`hidden exit ${hiddenExit.id} crosses ${fromPackId} and ${toPackId} outside a composition bridge pack`);
+    } else {
+      const dependencyIds = new Set(owner.dependencies);
+      if (!dependencyIds.has(fromPackId) || !dependencyIds.has(toPackId)) {
+        fail(`composition bridge ${owner.id} must depend on both ${fromPackId} and ${toPackId}`);
+      }
+    }
   }
   if (hiddenExit.from_location_id === hiddenExit.to_location_id) {
     fail(`hidden exit ${hiddenExit.id} cannot return to the same location`);

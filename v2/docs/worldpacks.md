@@ -97,9 +97,14 @@ topological order. Cycles, missing required packs or capabilities, duplicate
 pack or capability declarations, incompatible pack versions, and incompatible
 engine ranges fail before output is written. Optional dependencies may be
 absent; when present, they must satisfy the same version and capability checks.
-Cross-pack links should live in an explicit bridge pack, an official-world
-composition pack, or dependency-guarded rows owned by the extending pack. They
-must never make the depended-on pack point back into optional content.
+Cross-pack paths live in a dedicated composition bridge pack, never in either
+reusable world pack. A bridge is a world pack marked with
+`x-cosyworld-composition` role `bridge`; it may contain only exits, must depend
+on both endpoint world packs, and has no entry point or default ruleset. The
+compiler rejects any visible or hidden path whose endpoint packs differ unless
+the path is owned by such a bridge. Other one-way extension resources may still
+use dependency-guarded rows owned by the extending pack. They must never make
+the depended-on pack point back into optional content.
 
 Two compiled resources preserve the entity/card boundary for expansion-owned
 metadata. `card_bindings` associates a pack-owned external card with a canonical

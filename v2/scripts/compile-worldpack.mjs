@@ -820,6 +820,35 @@ for (const bundle of contributionBundles) {
     }
   }
 }
+const packManifestById = new Map(packs.map((pack) => [pack.manifest.id, pack.manifest]));
+const locationOwnerById = new Map();
+for (const location of resources.locations) {
+  assert(
+    !locationOwnerById.has(location.id),
+    `location ${location.id} is declared by more than one pack`,
+  );
+  locationOwnerById.set(location.id, location.pack_id);
+}
+for (const [resourceName, paths] of [
+  ["exit", resources.exits],
+  ["hidden exit", resources.hidden_exits],
+]) {
+  for (const pathRow of paths) {
+    const fromPackId = locationOwnerById.get(pathRow.from_location_id);
+    const toPackId = locationOwnerById.get(pathRow.to_location_id);
+    if (!fromPackId || !toPackId || fromPackId === toPackId) continue;
+    const owner = packManifestById.get(pathRow.pack_id);
+    assert(
+      owner?.extensions?.["x-cosyworld-composition"]?.role === "bridge",
+      `${resourceName} ${pathRow.from_location_id}->${pathRow.to_location_id} crosses ${fromPackId} and ${toPackId}; cross-pack paths must be owned by a composition bridge pack`,
+    );
+    const dependencyIds = new Set(owner.dependencies.map((dependency) => dependency.id));
+    assert(
+      dependencyIds.has(fromPackId) && dependencyIds.has(toPackId),
+      `composition bridge ${owner.id} must depend on both ${fromPackId} and ${toPackId}`,
+    );
+  }
+}
 const activeRulesExtensions = contributionBundles.flatMap((bundle) => bundle.extensions.map((row) => row.id)).sort();
 const activeRulesVariants = contributionBundles.flatMap((bundle) => bundle.variants.map((row) => row.id)).sort();
 const modifiedMaterial = ruleBundles.flatMap((bundle) => {

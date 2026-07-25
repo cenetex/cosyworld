@@ -32,7 +32,8 @@
       "sha256:fd5012d745f00283c16bea59c0d014393dd064e9751c7728b0e2e6ba6a39690c",
       "sha256:02147a6629b038e2e9a28039f829bc6ad67881fe3391a0edabf744fd362427df",
       "sha256:ef70c61617e4c6f6cf905f049dddbb053e84b520f545ed2d01b3180cf39d75d1",
-      "sha256:f5cd5ce7a1bb8447811afd5af6a6d31d4709a4f6ee1988a77fc254111d572f17"
+      "sha256:f5cd5ce7a1bb8447811afd5af6a6d31d4709a4f6ee1988a77fc254111d572f17",
+      "sha256:5b66ce6369fbf04814b2812f30c5e5940bf6b08100f2aa4bf87be5ddd8d58ecc"
     ]
   },
   "packs": [
@@ -43,6 +44,8 @@
     "cosyworld.campaign.the-lantern-keeper",
     "cosyworld.the-holy-land",
     "cosyworld.lonely-forest.characters",
-    "ruby-high.first-bell"
+    "ruby-high.first-bell",
+    "cosyworld.composition.core-ruby",
+    "cosyworld.composition.core-holy-land"
   ]
 }

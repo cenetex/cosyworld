@@ -153,6 +153,48 @@ export function rulesContextValidationErrors(manifest, label = "pack.json") {
   return errors;
 }
 
+export function compositionPackValidationErrors(manifest, label = "pack.json") {
+  const config = manifest.extensions?.["x-cosyworld-composition"];
+  if (config === undefined) return [];
+  const errors = [];
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return [`${label}: x-cosyworld-composition must be an object`];
+  }
+  for (const field of Object.keys(config)) {
+    if (!["schema_version", "role"].includes(field)) {
+      errors.push(`${label}: x-cosyworld-composition has unknown field ${field}`);
+    }
+  }
+  if (config.schema_version !== 1) {
+    errors.push(`${label}: x-cosyworld-composition schema_version must be 1`);
+  }
+  if (config.role !== "bridge") {
+    errors.push(`${label}: x-cosyworld-composition role must be bridge`);
+  }
+  if (manifest.kind !== "world") {
+    errors.push(`${label}: a composition bridge must be a world pack`);
+  }
+  if (manifest.default_ruleset !== null) {
+    errors.push(`${label}: a composition bridge must set default_ruleset to null`);
+  }
+  if ((manifest.entry_points ?? []).length > 0) {
+    errors.push(`${label}: a composition bridge cannot declare entry points`);
+  }
+  const resourceKinds = Object.keys(manifest.resources ?? {});
+  if (
+    resourceKinds.length === 0
+    || resourceKinds.some((resource) => !["exits", "hidden_exits"].includes(resource))
+  ) {
+    errors.push(`${label}: a composition bridge may contain only exits or hidden_exits`);
+  }
+  const worldDependencies = (manifest.dependencies ?? []).filter((dependency) =>
+    (dependency.capabilities ?? []).some((capability) => capability.endsWith("/world")));
+  if (worldDependencies.length < 2) {
+    errors.push(`${label}: a composition bridge must depend on at least two world packs`);
+  }
+  return errors;
+}
+
 export function validateWorldEntityResource(packId, resource, row) {
   const allowedFields = WORLD_ENTITY_FIELDS[resource];
   if (!allowedFields) return row;
@@ -299,6 +341,9 @@ export function validateContentPackManifest(manifest, label = "pack.json") {
     }
   }
   for (const error of rulesContextValidationErrors(manifest, label)) {
+    contractError(error);
+  }
+  for (const error of compositionPackValidationErrors(manifest, label)) {
     contractError(error);
   }
   return manifest;

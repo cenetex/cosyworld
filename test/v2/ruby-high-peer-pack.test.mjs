@@ -40,7 +40,7 @@ describe("Ruby High: First Bell peer pack", () => {
     expect(rubyOnly.resources.card_bindings).toEqual([]);
   });
 
-  it("declares Core as optional and activates only its Core-facing bridges and facets when mounted", () => {
+  it("declares Core as optional while composition owns paths and Ruby owns facets", () => {
     expect(rubyManifest.dependencies).toEqual([
       {
         id: "cosyworld.core",
@@ -54,7 +54,9 @@ describe("Ruby High: First Bell peer pack", () => {
         capabilities: ["cosyworld.rules-profile-srd5/rules"],
       },
     ]);
-    expect(official.resources.exits.filter((exit) => exit.pack_id === "ruby-high.first-bell")).toHaveLength(24);
+    expect(official.resources.exits.filter((exit) => exit.pack_id === "ruby-high.first-bell")).toHaveLength(16);
+    expect(official.resources.exits.filter((exit) =>
+      exit.pack_id === "cosyworld.composition.core-ruby")).toHaveLength(8);
     expect(official.resources.actor_facets).toEqual([expect.objectContaining({
       pack_id: "ruby-high.first-bell",
       actor_id: 1001,
@@ -87,7 +89,10 @@ describe("Ruby High: First Bell peer pack", () => {
     }
     expect(official.resources.exits
       .filter((exit) => gatedLocationIds.has(exit.from_location_id) || gatedLocationIds.has(exit.to_location_id))
-      .every((exit) => exit.pack_id === "ruby-high.first-bell"))
+      .every((exit) => [
+        "ruby-high.first-bell",
+        "cosyworld.composition.core-ruby",
+      ].includes(exit.pack_id)))
       .toBe(true);
     expect(official.resources.factions.find((faction) => faction.id === "ruby_high")?.pack_id)
       .toBe("ruby-high.first-bell");
