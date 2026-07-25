@@ -1,4 +1,6 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,8 +16,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 const read = (relativePath) => JSON.parse(fs.readFileSync(path.join(repoRoot, relativePath), "utf8"));
 const official = read("v2/content/official/registry.json");
 const coreOnly = read("v2/content/core-only/registry.json");
+const coreRuby = read("v2/content/core-ruby/registry.json");
 const servicesOnly = read("v2/content/services-only/registry.json");
 const coreManifest = read("v2/content/core/pack.json");
+const packMigrationPath = path.join(repoRoot, "v2/scripts/migrate-pack-unmount.mjs");
 
 describe("independently mountable CosyWorld Core", () => {
   it("boots with the shared SRD profile, explicit world rules, and typed effects", () => {
@@ -169,7 +173,7 @@ describe("independently mountable CosyWorld Core", () => {
     occupied.world_actors.push({ id: 5000, kind: 1, location_id: 1 });
     const occupiedBefore = structuredClone(occupied);
     expect(() => migratePackUnmount(occupied, coreOnly, "cosyworld.core", servicesOnly))
-      .toThrow(/human actors 5000 still occupy/);
+      .toThrow(/actors 5000 still occupy/);
     expect(occupied).toEqual(occupiedBefore);
 
     const remounted = migratePackRemount(
@@ -221,6 +225,208 @@ describe("independently mountable CosyWorld Core", () => {
       migratePackRemount(conflicting, servicesOnly, "cosyworld.core", coreOnly))
       .toThrow(/world_items identity 2001 is already active/);
     expect(conflicting).toEqual(conflictingBefore);
+
+    const wrongBundle = structuredClone(vacant);
+    wrongBundle.worldpack_bundle_hash = "sha256:not-the-source";
+    const wrongBundleBefore = structuredClone(wrongBundle);
+    expect(() =>
+      migratePackUnmount(wrongBundle, coreOnly, "cosyworld.core", servicesOnly))
+      .toThrow(/snapshot bundle does not match the source registry/);
+    expect(wrongBundle).toEqual(wrongBundleBefore);
+
+    const wrongRemountBundle = structuredClone(result.snapshot);
+    wrongRemountBundle.worldpack_bundle_hash = "sha256:not-the-target";
+    const wrongRemountBundleBefore = structuredClone(wrongRemountBundle);
+    expect(() =>
+      migratePackRemount(wrongRemountBundle, servicesOnly, "cosyworld.core", coreOnly))
+      .toThrow(/snapshot bundle does not match the source registry/);
+    expect(wrongRemountBundle).toEqual(wrongRemountBundleBefore);
+  });
+
+  it("atomically evacuates occupied expansion rooms through composition policy", () => {
+    const occupied = {
+      worldpack_bundle_hash: coreRuby.manifest.bundle_hash,
+      world_actors: [
+        { id: 5000, kind: 1, location_id: 11 },
+        { id: 5001, kind: 1, location_id: 12 },
+        { id: 5002, kind: 2, location_id: 11 },
+      ],
+      world_items: [
+        {
+          id: 2001,
+          location_id: 11,
+          holder_actor_id: 5000,
+          zone: 3,
+          container_item_id: 0,
+        },
+        {
+          id: 2002,
+          location_id: 11,
+          holder_actor_id: 0,
+          zone: 3,
+          container_item_id: 2001,
+        },
+        {
+          id: 9001,
+          location_id: 12,
+          holder_actor_id: 0,
+          zone: 1,
+          container_item_id: 0,
+        },
+        {
+          id: 9002,
+          location_id: 12,
+          holder_actor_id: 0,
+          zone: 1,
+          container_item_id: 9001,
+        },
+      ],
+      world_locations: [{ id: 1 }, { id: 11 }, { id: 12 }],
+      world_exits: [
+        { from_location_id: 1, to_location_id: 11 },
+        { from_location_id: 11, to_location_id: 12 },
+      ],
+      content_context: {
+        mapping_version: coreRuby.content_references.mapping_version,
+        references: coreRuby.content_references.entries,
+      },
+    };
+    const source = structuredClone(occupied);
+    const result = migratePackUnmount(
+      source,
+      coreRuby,
+      "ruby-high.first-bell",
+      coreOnly,
+    );
+    expect(source).toEqual(occupied);
+    expect(result.evacuated).toEqual([
+      { actor_id: 5000, from_location_id: 11, to_location_id: 1 },
+      { actor_id: 5001, from_location_id: 12, to_location_id: 1 },
+      { actor_id: 5002, from_location_id: 11, to_location_id: 1 },
+    ]);
+    expect(result.removed).toEqual({ actors: 0, items: 2, locations: 2, exits: 2 });
+    expect(result.snapshot.world_actors.map((actor) => actor.location_id)).toEqual([1, 1, 1]);
+    expect(result.snapshot.world_items.map((item) => item.location_id)).toEqual([1, 1]);
+    expect(result.snapshot.world_locations).toEqual([{ id: 1 }]);
+    expect(result.transaction.evacuation).toEqual({
+      mode: "move_occupants",
+      destination_location: "cosyworld.core:location/1",
+      destination_pack_id: "cosyworld.core",
+      destination_location_id: 1,
+      actors: result.evacuated,
+      moved_item_ids: [2001, 2002],
+    });
+    const frozen = result.snapshot.pack_mount_state.frozen["ruby-high.first-bell"];
+    expect(frozen.evacuation).toEqual(result.transaction.evacuation);
+    expect(frozen.arrays.world_items.map(({ value }) => value.id)).toEqual([9001, 9002]);
+
+    const remounted = migratePackRemount(
+      result.snapshot,
+      coreOnly,
+      "ruby-high.first-bell",
+      coreRuby,
+    );
+    expect(remounted.snapshot.world_actors.map((actor) => actor.location_id)).toEqual([1, 1, 1]);
+    expect(remounted.snapshot.world_items.map((item) => item.location_id)).toEqual([
+      1,
+      1,
+      12,
+      12,
+    ]);
+    expect(remounted.snapshot.world_locations).toEqual([
+      { id: 1 },
+      { id: 11 },
+      { id: 12 },
+    ]);
+
+    const missingDestination = structuredClone(occupied);
+    missingDestination.world_locations = [{ id: 11 }, { id: 12 }];
+    const missingDestinationBefore = structuredClone(missingDestination);
+    expect(() => migratePackUnmount(
+      missingDestination,
+      coreRuby,
+      "ruby-high.first-bell",
+      coreOnly,
+    )).toThrow(/destination location 1 is not active/);
+    expect(missingDestination).toEqual(missingDestinationBefore);
+
+    const activeEncounter = structuredClone(occupied);
+    activeEncounter.world_combat_encounters = [{
+      id: 77,
+      location_id: 11,
+      participants: [{ actor_id: 5000 }],
+    }];
+    const activeEncounterBefore = structuredClone(activeEncounter);
+    expect(() => migratePackUnmount(
+      activeEncounter,
+      coreRuby,
+      "ruby-high.first-bell",
+      coreOnly,
+    )).toThrow(/cannot interrupt active encounter 77/);
+    expect(activeEncounter).toEqual(activeEncounterBefore);
+  });
+
+  it("writes an observable evacuation transaction atomically through the admin CLI", () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cosyworld-pack-evacuation-"));
+    try {
+      const inputPath = path.join(tempRoot, "snapshot.json");
+      const outputPath = path.join(tempRoot, "unmounted.json");
+      const snapshot = {
+        worldpack_bundle_hash: coreRuby.manifest.bundle_hash,
+        world_actors: [{ id: 5000, kind: 1, location_id: 11 }],
+        world_items: [],
+        world_locations: [{ id: 1 }, { id: 11 }],
+        world_exits: [{ from_location_id: 1, to_location_id: 11 }],
+      };
+      fs.writeFileSync(inputPath, `${JSON.stringify(snapshot, null, 2)}\n`);
+      const migrated = spawnSync(process.execPath, [
+        packMigrationPath,
+        "--operation",
+        "unmount",
+        "--input",
+        inputPath,
+        "--output",
+        outputPath,
+        "--registry",
+        path.join(repoRoot, "v2/content/core-ruby/registry.json"),
+        "--target-registry",
+        path.join(repoRoot, "v2/content/core-only/registry.json"),
+        "--pack",
+        "ruby-high.first-bell",
+      ], { cwd: repoRoot, encoding: "utf8" });
+      expect(migrated.status, migrated.stderr).toBe(0);
+      expect(migrated.stdout).toContain('"sequence":1');
+      expect(migrated.stdout).toContain('"evacuated_actor_ids":[5000]');
+      expect(JSON.parse(fs.readFileSync(outputPath, "utf8")).world_actors[0].location_id).toBe(1);
+      expect(JSON.parse(fs.readFileSync(inputPath, "utf8"))).toEqual(snapshot);
+
+      const failedInputPath = path.join(tempRoot, "missing-destination.json");
+      const failedOutputPath = path.join(tempRoot, "should-not-exist.json");
+      fs.writeFileSync(failedInputPath, `${JSON.stringify({
+        ...snapshot,
+        world_locations: [{ id: 11 }],
+      }, null, 2)}\n`);
+      const failed = spawnSync(process.execPath, [
+        packMigrationPath,
+        "--operation",
+        "unmount",
+        "--input",
+        failedInputPath,
+        "--output",
+        failedOutputPath,
+        "--registry",
+        path.join(repoRoot, "v2/content/core-ruby/registry.json"),
+        "--target-registry",
+        path.join(repoRoot, "v2/content/core-only/registry.json"),
+        "--pack",
+        "ruby-high.first-bell",
+      ], { cwd: repoRoot, encoding: "utf8" });
+      expect(failed.status).not.toBe(0);
+      expect(failed.stderr).toContain("destination location 1 is not active");
+      expect(fs.existsSync(failedOutputPath)).toBe(false);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it("provides a non-world services composition without silently mounting Core", () => {

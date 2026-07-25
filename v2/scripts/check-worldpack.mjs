@@ -1286,6 +1286,69 @@ for (const gate of accessGates) {
   }
 }
 
+if (manifest.pack_lifecycle !== undefined) {
+  const lifecycle = manifest.pack_lifecycle;
+  if (!isObject(lifecycle) || lifecycle.schema_version !== 1) {
+    fail("worldpack pack_lifecycle must be a schema-version-1 object");
+  } else if (
+    Object.keys(lifecycle).some((field) => !["schema_version", "unmount"].includes(field))
+  ) {
+    fail("worldpack pack_lifecycle has unknown fields");
+  } else {
+    const policies = asArray("worldpack pack_lifecycle unmount", lifecycle.unmount);
+    if (policies.length === 0) {
+      fail("worldpack pack_lifecycle unmount policies cannot be empty");
+    }
+    const policyPackIds = new Set();
+    for (const policy of policies) {
+      if (!isObject(policy) || !isNonEmptyString(policy.pack_id) || !isObject(policy.evacuation)) {
+        fail("worldpack pack_lifecycle contains a malformed unmount policy");
+        continue;
+      }
+      if (Object.keys(policy).some((field) => !["pack_id", "evacuation"].includes(field))) {
+        fail(`worldpack pack_lifecycle ${policy.pack_id} policy has unknown fields`);
+      }
+      if (!has(packIds, policy.pack_id)) {
+        fail(`worldpack pack_lifecycle references missing pack ${policy.pack_id}`);
+      }
+      if (policyPackIds.has(policy.pack_id)) {
+        fail(`worldpack pack_lifecycle duplicates unmount policy for ${policy.pack_id}`);
+      }
+      policyPackIds.add(policy.pack_id);
+      const evacuation = policy.evacuation;
+      if (
+        Object.keys(evacuation).some((field) =>
+          ![
+            "mode",
+            "destination_location",
+            "destination_pack_id",
+            "destination_location_id",
+          ].includes(field))
+      ) {
+        fail(`worldpack pack_lifecycle ${policy.pack_id} evacuation has unknown fields`);
+      }
+      if (evacuation.mode !== "move_occupants") {
+        fail(`worldpack pack_lifecycle ${policy.pack_id} has invalid evacuation mode`);
+      }
+      const destinationId = Number(evacuation.destination_location_id);
+      const destinationPackId = locationPackById.get(destinationId);
+      const expectedReference = `${destinationPackId}:location/${destinationId}`;
+      if (!Number.isInteger(destinationId) || !has(locationIds, destinationId)) {
+        fail(`worldpack pack_lifecycle ${policy.pack_id} references missing evacuation destination`);
+      } else if (
+        evacuation.destination_pack_id !== destinationPackId
+          || evacuation.destination_location !== expectedReference
+      ) {
+        fail(`worldpack pack_lifecycle ${policy.pack_id} evacuation destination identity does not match`);
+      } else if (destinationPackId === policy.pack_id) {
+        fail(`worldpack pack_lifecycle ${policy.pack_id} evacuation destination would unmount`);
+      } else if (gateByLocationId.has(destinationId)) {
+        fail(`worldpack pack_lifecycle ${policy.pack_id} evacuation destination must be public`);
+      }
+    }
+  }
+}
+
 for (const profile of characterCreationProfiles) {
   validateRequiredStrings("character creation profile", profile, [
     "name",

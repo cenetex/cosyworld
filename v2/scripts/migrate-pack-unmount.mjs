@@ -179,6 +179,125 @@ function appendTransaction(state, transaction) {
   return committed;
 }
 
+function evacuateOccupiedActors(
+  snapshot,
+  sourceRegistry,
+  targetRegistry,
+  packId,
+  locationIds,
+  occupied,
+) {
+  if (occupied.length === 0) return null;
+  const policies = sourceRegistry.manifest?.pack_lifecycle?.unmount ?? [];
+  const matches = policies.filter((policy) => policy.pack_id === packId);
+  if (matches.length !== 1) {
+    throw new Error(
+      `cannot unmount ${packId}: actors ${occupied.map((actor) => actor.id).join(", ")} still occupy pack locations and no unique evacuation policy is available`,
+    );
+  }
+  const policy = matches[0];
+  const evacuation = policy.evacuation;
+  if (
+    sourceRegistry.manifest.pack_lifecycle.schema_version !== 1
+      || evacuation?.mode !== "move_occupants"
+      || !Number.isInteger(evacuation.destination_location_id)
+  ) {
+    throw new Error(`cannot unmount ${packId}: evacuation policy is malformed`);
+  }
+  const destinationId = evacuation.destination_location_id;
+  const targetLocation = (targetRegistry.resources?.locations ?? [])
+    .find((location) =>
+      Number(location.id) === destinationId
+        && location.pack_id === evacuation.destination_pack_id);
+  if (
+    !targetLocation
+      || hasId(locationIds, destinationId)
+      || evacuation.destination_location
+        !== `${evacuation.destination_pack_id}:location/${destinationId}`
+  ) {
+    throw new Error(
+      `cannot unmount ${packId}: evacuation destination ${evacuation.destination_location ?? destinationId} is not mounted in the target composition`,
+    );
+  }
+  if (!(snapshot.world_locations ?? []).some((location) => Number(location.id) === destinationId)) {
+    throw new Error(
+      `cannot unmount ${packId}: evacuation destination location ${destinationId} is not active in the snapshot`,
+    );
+  }
+  const occupiedActorIds = new Set(occupied.map((actor) => Number(actor.id)));
+  const blockingEncounter = (snapshot.world_combat_encounters ?? []).find((encounter) =>
+    hasId(locationIds, encounter.location_id)
+      && (encounter.participants ?? [])
+        .some((participant) => occupiedActorIds.has(Number(participant.actor_id))));
+  if (blockingEncounter) {
+    throw new Error(
+      `cannot unmount ${packId}: evacuation cannot interrupt active encounter ${blockingEncounter.id ?? "unknown"}`,
+    );
+  }
+
+  const movedItemIds = new Set();
+  for (const item of snapshot.world_items ?? []) {
+    if (occupiedActorIds.has(Number(item.holder_actor_id))) {
+      movedItemIds.add(Number(item.id));
+    }
+  }
+  let foundNestedItem = true;
+  while (foundNestedItem) {
+    foundNestedItem = false;
+    for (const item of snapshot.world_items ?? []) {
+      if (
+        !movedItemIds.has(Number(item.id))
+          && movedItemIds.has(Number(item.container_item_id))
+      ) {
+        movedItemIds.add(Number(item.id));
+        foundNestedItem = true;
+      }
+    }
+  }
+
+  const actors = [...occupied]
+    .sort((left, right) => Number(left.id) - Number(right.id))
+    .map((actor) => ({
+      actor_id: Number(actor.id),
+      from_location_id: Number(actor.location_id),
+      to_location_id: destinationId,
+    }));
+  for (const actor of occupied) actor.location_id = destinationId;
+  for (const item of snapshot.world_items ?? []) {
+    if (movedItemIds.has(Number(item.id))) item.location_id = destinationId;
+  }
+  return {
+    mode: evacuation.mode,
+    destination_location: evacuation.destination_location,
+    destination_pack_id: evacuation.destination_pack_id,
+    destination_location_id: destinationId,
+    actors,
+    moved_item_ids: [...movedItemIds].sort((left, right) => left - right),
+  };
+}
+
+function frozenItemIds(snapshot, authoredItemIds, actorIds, locationIds) {
+  const itemIds = new Set(authoredItemIds);
+  let foundDependency = true;
+  while (foundDependency) {
+    foundDependency = false;
+    for (const item of snapshot.world_items ?? []) {
+      const itemId = Number(item.id);
+      if (
+        itemIds.has(itemId)
+          || (!hasId(actorIds, item.holder_actor_id)
+            && !hasId(locationIds, item.location_id)
+            && !itemIds.has(Number(item.container_item_id)))
+      ) {
+        continue;
+      }
+      itemIds.add(itemId);
+      foundDependency = true;
+    }
+  }
+  return itemIds;
+}
+
 export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegistry) {
   if (!registryHasPack(sourceRegistry, packId)) {
     throw new Error(`pack ${packId} is not mounted in the source registry`);
@@ -189,6 +308,11 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
   if (registryHasPack(targetRegistry, packId)) {
     throw new Error(`target registry still mounts pack ${packId}`);
   }
+  if (snapshot.worldpack_bundle_hash !== sourceRegistry.manifest.bundle_hash) {
+    throw new Error(
+      `cannot unmount ${packId}: snapshot bundle does not match the source registry`,
+    );
+  }
 
   const migrated = structuredClone(snapshot);
   const mountState = packMountState(migrated, true);
@@ -197,13 +321,25 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
   }
 
   const actorIds = packHandles(sourceRegistry, packId, "actor");
-  const itemIds = packHandles(sourceRegistry, packId, "item");
+  const authoredItemIds = packHandles(sourceRegistry, packId, "item");
   const locationIds = packHandles(sourceRegistry, packId, "location");
   const occupied = (migrated.world_actors ?? [])
-    .filter((actor) => actor.kind === 1 && hasId(locationIds, actor.location_id));
-  if (occupied.length > 0) {
-    throw new Error(`cannot unmount ${packId}: human actors ${occupied.map((actor) => actor.id).join(", ")} still occupy pack locations`);
-  }
+    .filter((actor) =>
+      !hasId(actorIds, actor.id) && hasId(locationIds, actor.location_id));
+  const evacuation = evacuateOccupiedActors(
+    migrated,
+    sourceRegistry,
+    targetRegistry,
+    packId,
+    locationIds,
+    occupied,
+  );
+  const itemIds = frozenItemIds(
+    migrated,
+    authoredItemIds,
+    actorIds,
+    locationIds,
+  );
 
   const before = {
     actors: migrated.world_actors?.length ?? 0,
@@ -404,6 +540,7 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
       transfer_offer_ids: invalidatedOfferIds,
       gift_auto_accept_ids: consumedGiftAutoAcceptIds,
     },
+    ...(evacuation ? { evacuation } : {}),
   };
   const stateHash = frozenStateHash(frozen);
   mountState.frozen[packId] = frozen;
@@ -425,9 +562,15 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
       transfer_offers: invalidatedOfferIds.length,
       gift_auto_accepts: consumedGiftAutoAcceptIds.length,
     },
+    ...(evacuation ? { evacuation } : {}),
   });
 
-  return { snapshot: migrated, removed, transaction };
+  return {
+    snapshot: migrated,
+    removed,
+    evacuated: evacuation?.actors ?? [],
+    transaction,
+  };
 }
 
 export function migratePackRemount(snapshot, sourceRegistry, packId, targetRegistry) {
@@ -436,6 +579,11 @@ export function migratePackRemount(snapshot, sourceRegistry, packId, targetRegis
   }
   if (!targetRegistry || !registryHasPack(targetRegistry, packId)) {
     throw new Error(`target registry does not mount pack ${packId}`);
+  }
+  if (snapshot.worldpack_bundle_hash !== sourceRegistry.manifest.bundle_hash) {
+    throw new Error(
+      `cannot remount ${packId}: snapshot bundle does not match the source registry`,
+    );
   }
   const migrated = structuredClone(snapshot);
   const mountState = packMountState(migrated);
@@ -529,7 +677,17 @@ if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
       ? migratePackUnmount(snapshot, registry, packId, target)
       : migratePackRemount(snapshot, registry, packId, target);
     writeJsonAtomically(output, result.snapshot);
-    console.log(`${operation}ed ${packId}: ${JSON.stringify(result.removed ?? result.restored)}`);
+    console.log(`${operation}ed ${packId}: ${JSON.stringify({
+      counts: result.removed ?? result.restored,
+      transaction: {
+        sequence: result.transaction.sequence,
+        status: result.transaction.status,
+        state_hash: result.transaction.state_hash,
+      },
+      ...(result.evacuated?.length
+        ? { evacuated_actor_ids: result.evacuated.map((entry) => entry.actor_id) }
+        : {}),
+    })}`);
   } catch (error) {
     console.error(`pack mount migration failed: ${error.message}`);
     process.exit(1);

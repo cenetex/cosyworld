@@ -288,22 +288,31 @@ rebuilds contexts that are already present. The tool never changes the numeric
 ids themselves and preserves self-contained contexts for unavailable packs.
 
 Unmounting a world pack is an explicit offline migration, never an implicit
-runtime fallback. `v2:pack:unmount` refuses to proceed while a human actor still
-occupies a location owned by the pack. Once vacant, it removes the pack-owned
-live projection and freezes the exact entities, item/card zones, projection
-maps, and canonical context in the snapshot's versioned `pack_mount_state`.
+runtime fallback. A composition may declare a schema-version-1
+`pack_lifecycle.unmount` policy that moves every non-pack-owned occupant and
+their carried or nested items to one public location owned by a pack that
+remains mounted. Controller type does not change the policy. The
+compiler resolves and validates that destination; the migration verifies it is
+present in both the target registry and active snapshot before moving anything.
+Without one unique policy, or while an occupant is in an active encounter,
+`v2:pack:unmount` refuses to proceed. Once vacant or successfully evacuated, it
+removes the pack-owned live projection and freezes the exact entities,
+item/card zones, projection maps, and canonical context in the snapshot's
+versioned `pack_mount_state`.
 Pending transfer offers that reference the pack become durable `invalidated`
 tombstones, and matching one-use gift policies become consumed; remount never
 revives either transient authorization. Every action composition certificate
 includes the latest mount transaction sequence, so an action card issued before
 unmount remains stale even after the exact pack and entity identities return.
 Each committed operation records source/target bundle hashes, counts, a stable
-state hash, and a monotonic sequence. Remount requires the exact frozen source
-registry and restores the same identities; collisions fail without changing
-the input. The CLI writes through a same-directory temporary file and atomic
-rename. Archive the source snapshot and stop writers before running it; then
-start the single authoritative writer with the exact target registry supplied
-to the tool.
+state hash, a monotonic sequence, and any completed actor/item evacuation.
+Remount requires the exact frozen source registry and restores the same pack
+identities without undoing the actors' completed evacuation; collisions fail
+without changing the input. Both directions require the snapshot's active
+bundle hash to match the supplied source registry. The CLI writes through a
+same-directory temporary file and atomic rename. Archive the source snapshot
+and stop writers before running it; then start the single authoritative writer
+with the exact target registry supplied to the tool.
 
 ## Runtime discovery and access
 

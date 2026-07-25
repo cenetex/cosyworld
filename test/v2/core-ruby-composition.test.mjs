@@ -26,6 +26,18 @@ describe("Core + Ruby High composition", () => {
       "ruby-high.first-bell",
       "cosyworld.composition.core-ruby",
     ]);
+    expect(registry.manifest.pack_lifecycle).toEqual({
+      schema_version: 1,
+      unmount: [{
+        pack_id: "ruby-high.first-bell",
+        evacuation: {
+          mode: "move_occupants",
+          destination_location: "cosyworld.core:location/1",
+          destination_pack_id: "cosyworld.core",
+          destination_location_id: 1,
+        },
+      }],
+    });
     expect(registry.resources.exits.filter((exit) =>
       [1, 11].includes(exit.from_location_id)
       && [1, 11].includes(exit.to_location_id))).toEqual([
@@ -107,6 +119,36 @@ describe("Core + Ruby High composition", () => {
       });
       expect(checked.status).not.toBe(0);
       expect(checked.stderr).toContain("outside a composition bridge pack");
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an evacuation destination that would disappear with its pack", () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cosyworld-evacuation-policy-"));
+    const compiledRoot = path.join(tempRoot, "core-ruby");
+    try {
+      fs.cpSync(path.join(repoRoot, "v2/content/core-ruby"), compiledRoot, {
+        recursive: true,
+      });
+      const manifestPath = path.join(compiledRoot, "worldpack.json");
+      const registryPath = path.join(compiledRoot, "registry.json");
+      const manifestCopy = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      const registryCopy = JSON.parse(fs.readFileSync(registryPath, "utf8"));
+      const evacuation = manifestCopy.pack_lifecycle.unmount[0].evacuation;
+      evacuation.destination_location = "ruby-high.first-bell:location/11";
+      evacuation.destination_pack_id = "ruby-high.first-bell";
+      evacuation.destination_location_id = 11;
+      registryCopy.manifest = manifestCopy;
+      fs.writeFileSync(manifestPath, `${JSON.stringify(manifestCopy, null, 2)}\n`);
+      fs.writeFileSync(registryPath, `${JSON.stringify(registryCopy, null, 2)}\n`);
+
+      const checked = spawnSync(process.execPath, [checkerPath, compiledRoot], {
+        cwd: repoRoot,
+        encoding: "utf8",
+      });
+      expect(checked.status).not.toBe(0);
+      expect(checked.stderr).toContain("evacuation destination would unmount");
     } finally {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }
