@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   CANONICAL_ID_MAPPING_VERSION,
   CONTENT_PACK_CONTRACT,
+  packAcceptsRulesProfile,
   packDeclaresRuleset,
   resolveContentPackGraph,
   validateContentPackManifest,
@@ -24,7 +25,6 @@ import { assertNaturalAffordanceConfig } from "./natural-affordance-schema.mjs";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const v2Root = path.resolve(scriptDir, "..");
 const repoRoot = path.resolve(v2Root, "..");
-const contentRoot = path.join(v2Root, "content");
 const rawArgs = process.argv.slice(2);
 const args = new Set(rawArgs);
 function optionValue(name) {
@@ -33,6 +33,7 @@ function optionValue(name) {
   assert(rawArgs[index + 1] && !rawArgs[index + 1].startsWith("--"), `${name} requires a path`);
   return path.resolve(rawArgs[index + 1]);
 }
+const contentRoot = optionValue("--content-root") ?? path.join(v2Root, "content");
 const worldDir = optionValue("--world-dir") ?? path.join(v2Root, "worlds", "official");
 const outputDir = optionValue("--output-dir") ?? path.join(contentRoot, "official");
 const checkOnly = args.has("--check");
@@ -77,20 +78,6 @@ const supportedRulesAdapters = new Map([
     "magic_effects",
     "conformance",
   ])],
-]);
-const requiredSrdActionIds = new Set([
-  "srd5.2.1:attack",
-  "srd5.2.1:dash",
-  "srd5.2.1:disengage",
-  "srd5.2.1:dodge",
-  "srd5.2.1:help",
-  "srd5.2.1:hide",
-  "srd5.2.1:influence",
-  "srd5.2.1:magic",
-  "srd5.2.1:ready",
-  "srd5.2.1:search",
-  "srd5.2.1:study",
-  "srd5.2.1:utilize",
 ]);
 const contributionKinds = ["reskins", "offers", "variants", "extensions"];
 const reskinFields = new Set([
@@ -327,18 +314,22 @@ function validateRulesV2Resources(packId, profileId, resources) {
   const profiles = resources.profiles ?? [];
   assert(profiles.length === 1, `rules/2 pack ${packId} must declare exactly one profile`);
   assert(profiles[0].id === profileId, `rules/2 pack ${packId} profile does not match ${profileId}`);
-  assert(profiles[0].source_version === "5.2.1", `rules/2 profile ${profileId} must identify SRD 5.2.1`);
-  assert(profiles[0].license === "CC-BY-4.0", `rules/2 profile ${profileId} must preserve its license`);
+  for (const field of ["source_document", "source_version", "source_pack", "license", "compatibility_claim", "source_reference", "import_transform"]) {
+    assert(typeof profiles[0][field] === "string" && profiles[0][field].trim(), `rules/2 profile ${profileId} is missing ${field}`);
+  }
   assert(typeof profiles[0].source_reference === "string" && profiles[0].source_reference.trim(), `rules/2 profile ${profileId} is missing source_reference`);
 
   const actions = resources.actions ?? [];
   const actionIds = uniqueRows(packId, "actions", actions);
-  assert(actionIds.size === requiredSrdActionIds.size, `rules/2 profile ${profileId} must declare all twelve SRD actions`);
-  for (const actionId of requiredSrdActionIds) {
-    assert(actionIds.has(actionId), `rules/2 profile ${profileId} is missing ${actionId}`);
-  }
+  assert(actionIds.size > 0, `rules/2 profile ${profileId} must declare at least one action`);
   for (const action of actions) {
-    assert(action.namespace === "srd5.2.1" && action.domain === "rules_action", `action ${action.id} has invalid namespace or domain`);
+    assert(
+      typeof action.namespace === "string"
+        && action.namespace.trim()
+        && action.id.startsWith(`${action.namespace}:`)
+        && action.domain === "rules_action",
+      `action ${action.id} has invalid namespace or domain`,
+    );
     assert(["kernel", "projection", "unsupported"].includes(action.support_status), `action ${action.id} has invalid support_status`);
     assert(typeof action.label === "string" && action.label.trim(), `action ${action.id} is missing label`);
     assert(typeof action.source_reference === "string" && action.source_reference.trim(), `action ${action.id} is missing source_reference`);
@@ -439,6 +430,7 @@ function validateContributions(pack, rowsByKind, knownActionIds) {
 
 function runContributionSchemaMutationTests() {
   const pack = { id: "fixture.pack" };
+  const fixtureActionIds = new Set(["srd5.2.1:study"]);
   const base = {
     id: "fixture.pack:notes",
     based_on: "srd5.2.1:study",
@@ -449,7 +441,7 @@ function runContributionSchemaMutationTests() {
   try {
     validateContributions(pack, {
       reskins: [{ ...base, scope: { subject_kind: "location", subject_id: 1 }, compatibility: "cosyworld.srd5/1", dc: 9 }],
-    }, requiredSrdActionIds);
+    }, fixtureActionIds);
   } catch {
     rejectedMechanicalReskin = true;
   }
@@ -466,7 +458,7 @@ function runContributionSchemaMutationTests() {
       precedence: { mode: "explicit", priority: 10 },
       fixtures: ["fixture.pack:careful-study-success"],
     }],
-  }, requiredSrdActionIds);
+  }, fixtureActionIds);
 }
 
 runContributionSchemaMutationTests();
@@ -565,13 +557,20 @@ for (const packId of world.packs) {
       `rules pack ${packId} must declare attribution`,
     );
     if (manifest.rules_adapter === "cosyworld.rules/2") {
-      assert(manifest.rules_profile === world.rules_profile, `rules/2 pack ${packId} must provide selected profile ${world.rules_profile}`);
+      assert(
+        manifest.rules_profile === world.rules_profile,
+        `rules/2 pack ${packId} provides ${manifest.rules_profile ?? "no profile"} but world selects ${world.rules_profile}`,
+      );
     } else {
       assert(!manifest.rules_profile, `reference rules/1 pack ${packId} cannot activate a rules profile`);
+      assert(!manifest.rules_compatibility, `reference rules/1 pack ${packId} cannot declare rules compatibility`);
     }
   } else {
     assert(!manifest.rules, `only rules packs may declare rules resources (${packId})`);
-    assert(manifest.rules_profile === world.rules_profile, `pack ${packId} must target selected profile ${world.rules_profile}`);
+    assert(
+      packAcceptsRulesProfile(manifest, world.rules_profile),
+      `pack ${packId} is incompatible with selected profile ${world.rules_profile}; accepted profiles: ${JSON.stringify(manifest.rules_compatibility?.profiles ?? (manifest.rules_profile ? [manifest.rules_profile] : []))}`,
+    );
   }
   const srdDerived = /(?:system reference document|\bsrd\b)/i.test(
     `${manifest.provenance.source_name} ${manifest.attribution?.source_name ?? ""}`,
@@ -730,11 +729,10 @@ for (const pack of packs) {
       rowsByKind[kind] = relativePath ? readJson(path.join(pack.packRoot, relativePath)) : [];
       resourceCounts[kind] = rowsByKind[kind].length;
     }
-    validateContributions(pack.manifest, rowsByKind, requiredSrdActionIds);
     contributionBundles.push({
       pack_id: pack.manifest.id,
       pack_version: pack.manifest.version,
-      rules_profile: pack.manifest.rules_profile,
+      rules_profile: world.rules_profile,
       ...rowsByKind,
     });
   }
@@ -787,6 +785,17 @@ for (const pack of packs) {
     });
     resourceCounts.assets += 1;
   }
+}
+
+const activeRulesBundle = ruleBundles.find(
+  (bundle) => bundle.adapter === "cosyworld.rules/2"
+    && bundle.resources.profiles?.[0]?.id === world.rules_profile,
+);
+const activeActionIds = new Set(
+  (activeRulesBundle?.resources.actions ?? []).map((action) => action.id),
+);
+for (const bundle of contributionBundles) {
+  validateContributions({ id: bundle.pack_id }, bundle, activeActionIds);
 }
 
 const contributionIdentityOwners = new Map();
@@ -870,6 +879,7 @@ const packSummary = packs.map(({ locked, manifest, integrity }) => ({
   ...(manifest.rules_namespace ? { rules_namespace: manifest.rules_namespace } : {}),
   ...(manifest.extensions ? { extensions: manifest.extensions } : {}),
   ...(manifest.rules_profile ? { rules_profile: manifest.rules_profile } : {}),
+  ...(manifest.rules_compatibility ? { rules_compatibility: manifest.rules_compatibility } : {}),
   source: locked.source,
   integrity,
 }));

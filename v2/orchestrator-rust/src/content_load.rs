@@ -136,8 +136,16 @@ pub(super) struct SeedWorldpackPack {
     pub(super) rules_namespace: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) rules_profile: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) rules_compatibility: Option<SeedRulesCompatibility>,
     #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
     pub(super) extensions: serde_json::Value,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(super) struct SeedRulesCompatibility {
+    #[serde(default)]
+    pub(super) profiles: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1060,6 +1068,7 @@ pub(super) fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> R
         || manifest.id.trim().is_empty()
         || manifest.name.trim().is_empty()
         || manifest.version == 0
+        || (!manifest.rules_profile.is_empty() && !valid_rules_profile_id(&manifest.rules_profile))
         || (has_world_pack && manifest.entry_location.trim().is_empty())
         || (!has_world_pack && !manifest.entry_location.trim().is_empty())
         || !valid_sha256_digest(&manifest.bundle_hash)
@@ -1090,6 +1099,30 @@ pub(super) fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> R
         {
             return Err(format!("invalid or duplicate worldpack pack {}", pack.id));
         }
+        if pack.rules_profile.is_some() && pack.rules_compatibility.is_some() {
+            return Err(format!(
+                "pack {} combines legacy rules_profile with rules_compatibility",
+                pack.id
+            ));
+        }
+        if pack
+            .rules_profile
+            .as_deref()
+            .is_some_and(|profile| !valid_rules_profile_id(profile))
+        {
+            return Err(format!("pack {} has an invalid rules profile", pack.id));
+        }
+        if let Some(compatibility) = pack.rules_compatibility.as_ref() {
+            let mut profiles = BTreeSet::new();
+            if compatibility.profiles.is_empty()
+                || compatibility
+                    .profiles
+                    .iter()
+                    .any(|profile| !valid_rules_profile_id(profile) || !profiles.insert(profile))
+            {
+                return Err(format!("pack {} has invalid rules compatibility", pack.id));
+            }
+        }
         if pack.kind == "rules" {
             if !matches!(
                 pack.rules_adapter.as_deref(),
@@ -1106,8 +1139,10 @@ pub(super) fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> R
                     || pack.rules_profile.as_deref() != Some(manifest.rules_profile.as_str())
                 {
                     return Err(format!(
-                        "rules profile pack {} does not provide {}",
-                        pack.id, manifest.rules_profile
+                        "rules profile pack {} provides {} but world selects {}",
+                        pack.id,
+                        pack.rules_profile.as_deref().unwrap_or("no profile"),
+                        manifest.rules_profile
                     ));
                 }
             } else if pack.rules_profile.is_some() {
@@ -1115,13 +1150,24 @@ pub(super) fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> R
                     "reference rules pack {} cannot activate a rules profile",
                     pack.id
                 ));
+            } else if pack.rules_compatibility.is_some() {
+                return Err(format!(
+                    "reference rules pack {} cannot declare rules compatibility",
+                    pack.id
+                ));
             }
         } else if !manifest.rules_profile.is_empty()
-            && pack.rules_profile.as_deref() != Some(manifest.rules_profile.as_str())
+            && !pack_accepts_rules_profile(pack, &manifest.rules_profile)
         {
+            let accepted = pack
+                .rules_compatibility
+                .as_ref()
+                .map(|compatibility| compatibility.profiles.join(", "))
+                .or_else(|| pack.rules_profile.clone())
+                .unwrap_or_else(|| "none".to_string());
             return Err(format!(
-                "pack {} does not target active rules profile {}",
-                pack.id, manifest.rules_profile
+                "pack {} is incompatible with selected rules profile {}; accepted profiles: {}",
+                pack.id, manifest.rules_profile, accepted
             ));
         }
     }
@@ -1164,17 +1210,48 @@ pub(super) fn valid_sha256_digest(value: &str) -> bool {
     })
 }
 
+fn valid_rules_profile_id(value: &str) -> bool {
+    let Some((name, version)) = value.rsplit_once('/') else {
+        return false;
+    };
+    !name.is_empty()
+        && name
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_ascii_lowercase() || character.is_ascii_digit())
+        && name.chars().all(|character| {
+            character.is_ascii_lowercase()
+                || character.is_ascii_digit()
+                || matches!(character, '.' | '-')
+        })
+        && !version.is_empty()
+        && !version.starts_with('0')
+        && version.chars().all(|character| character.is_ascii_digit())
+}
+
+fn pack_accepts_rules_profile(pack: &SeedWorldpackPack, profile: &str) -> bool {
+    pack.rules_compatibility
+        .as_ref()
+        .map(|compatibility| {
+            compatibility
+                .profiles
+                .iter()
+                .any(|candidate| candidate == profile)
+        })
+        .unwrap_or_else(|| pack.rules_profile.as_deref() == Some(profile))
+}
+
 fn validate_seed_rules_profile(bundle: &SeedRuleBundle) -> Result<(), String> {
     let resources = &bundle.resources;
     let profile = resources
         .profiles
         .first()
         .ok_or_else(|| format!("rules/2 bundle {} has no profile", bundle.pack_id))?;
-    if profile.id != "cosyworld.srd5/1"
-        || profile.source_document != "System Reference Document 5.2.1"
-        || profile.source_version != "5.2.1"
-        || profile.source_pack != "cosyworld.rules-srd-5.2.1"
-        || profile.license != "CC-BY-4.0"
+    if !valid_rules_profile_id(&profile.id)
+        || profile.source_document.trim().is_empty()
+        || profile.source_version.trim().is_empty()
+        || profile.source_pack.trim().is_empty()
+        || profile.license.trim().is_empty()
         || profile.compatibility_claim != "bounded_profile"
         || profile.excluded_systems.is_empty()
         || profile.cosyworld_deltas.is_empty()
@@ -1185,25 +1262,11 @@ fn validate_seed_rules_profile(bundle: &SeedRuleBundle) -> Result<(), String> {
         return Err(format!("invalid rules profile {}", profile.id));
     }
 
-    let required_actions = BTreeSet::from([
-        "srd5.2.1:attack",
-        "srd5.2.1:dash",
-        "srd5.2.1:disengage",
-        "srd5.2.1:dodge",
-        "srd5.2.1:help",
-        "srd5.2.1:hide",
-        "srd5.2.1:influence",
-        "srd5.2.1:magic",
-        "srd5.2.1:ready",
-        "srd5.2.1:search",
-        "srd5.2.1:study",
-        "srd5.2.1:utilize",
-    ]);
     let mut action_ids = BTreeSet::new();
     for action in &resources.actions {
         let supported = matches!(action.support_status.as_str(), "kernel" | "projection");
-        if !required_actions.contains(action.id.as_str())
-            || action.namespace != "srd5.2.1"
+        if !action.id.starts_with(&format!("{}:", action.namespace))
+            || action.namespace.trim().is_empty()
             || action.domain != "rules_action"
             || action.label.trim().is_empty()
             || action.source_reference.trim().is_empty()
@@ -1222,8 +1285,8 @@ fn validate_seed_rules_profile(bundle: &SeedRuleBundle) -> Result<(), String> {
             return Err(format!("invalid rules action {}", action.id));
         }
     }
-    if action_ids != required_actions {
-        return Err("rules profile does not declare exactly twelve SRD actions".to_string());
+    if action_ids.is_empty() {
+        return Err("rules profile must declare at least one action".to_string());
     }
 
     let mut conformance_ids = BTreeSet::new();
@@ -1255,7 +1318,7 @@ fn validate_seed_rules_profile(bundle: &SeedRuleBundle) -> Result<(), String> {
         let _ = (&row.legal_targets, &row.event_outputs);
     }
     if conformance_ids != action_ids {
-        return Err("rules conformance does not cover exactly twelve SRD actions".to_string());
+        return Err("rules conformance does not cover every declared action".to_string());
     }
 
     let mut operation_ids = BTreeSet::new();
@@ -3257,4 +3320,82 @@ fn validate_seed_effect_descriptor(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod rules_profile_tests {
+    use super::*;
+
+    fn official_manifest() -> SeedWorldpackManifest {
+        serde_json::from_str(include_str!("../../content/official/worldpack.json"))
+            .expect("official worldpack manifest")
+    }
+
+    fn official_rules_profile() -> SeedRuleBundle {
+        serde_json::from_str::<Vec<SeedRuleBundle>>(include_str!(
+            "../../content/official/rules.json"
+        ))
+        .expect("official rules bundles")
+        .into_iter()
+        .find(|bundle| bundle.adapter == "cosyworld.rules/2")
+        .expect("active rules/2 bundle")
+    }
+
+    #[test]
+    fn manifest_accepts_explicit_profile_membership_and_rejects_mismatch() {
+        let mut manifest = official_manifest();
+        let active_profile = manifest.rules_profile.clone();
+        let pack = manifest
+            .packs
+            .iter_mut()
+            .find(|pack| pack.id == "cosyworld.core")
+            .expect("core pack");
+        pack.rules_profile = None;
+        pack.rules_compatibility = Some(SeedRulesCompatibility {
+            profiles: vec![active_profile.clone(), "fixture.commons/1".to_string()],
+        });
+        validate_worldpack_manifest(&manifest).expect("selected profile is accepted");
+
+        let pack = manifest
+            .packs
+            .iter_mut()
+            .find(|pack| pack.id == "cosyworld.core")
+            .expect("core pack");
+        pack.rules_profile = Some(active_profile.clone());
+        let error = validate_worldpack_manifest(&manifest).expect_err("ambiguous compatibility");
+        assert!(error.contains("combines legacy rules_profile"));
+
+        let pack = manifest
+            .packs
+            .iter_mut()
+            .find(|pack| pack.id == "cosyworld.core")
+            .expect("core pack");
+        pack.rules_profile = None;
+        pack.rules_compatibility = Some(SeedRulesCompatibility {
+            profiles: vec!["fixture.commons/1".to_string()],
+        });
+        let error = validate_worldpack_manifest(&manifest).expect_err("profile mismatch");
+        assert!(error.contains(&active_profile));
+        assert!(error.contains("fixture.commons/1"));
+    }
+
+    #[test]
+    fn profile_owns_its_action_set_and_conformance_must_match_it() {
+        let mut bundle = official_rules_profile();
+        bundle
+            .resources
+            .actions
+            .retain(|action| action.id != "srd5.2.1:dash");
+        bundle
+            .resources
+            .conformance
+            .retain(|row| row.action_id != "srd5.2.1:dash");
+        validate_seed_rules_profile(&bundle).expect("eleven-action profile is complete");
+
+        bundle.resources.conformance.pop();
+        assert_eq!(
+            validate_seed_rules_profile(&bundle).expect_err("incomplete conformance"),
+            "rules conformance does not cover every declared action",
+        );
+    }
 }

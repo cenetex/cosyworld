@@ -1097,6 +1097,7 @@ mod tests {
             rules_adapter: None,
             rules_namespace: None,
             rules_profile: None,
+            rules_compatibility: None,
             extensions: serde_json::Value::Null,
         }
     }

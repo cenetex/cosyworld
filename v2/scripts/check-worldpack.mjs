@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   CANONICAL_ID_MAPPING_VERSION,
   CONTENT_PACK_CONTRACT,
+  packAcceptsRulesProfile,
   packDeclaresRuleset,
   resolveContentPackGraph,
   rulesContextValidationErrors,
@@ -84,11 +85,6 @@ const supportedRulesAdapters = new Map([
     "magic_effects",
     "conformance",
   ])],
-]);
-const requiredSrdActionIds = new Set([
-  "srd5.2.1:attack", "srd5.2.1:dash", "srd5.2.1:disengage", "srd5.2.1:dodge",
-  "srd5.2.1:help", "srd5.2.1:hide", "srd5.2.1:influence", "srd5.2.1:magic",
-  "srd5.2.1:ready", "srd5.2.1:search", "srd5.2.1:study", "srd5.2.1:utilize",
 ]);
 const allowedItemRoles = new Set(["generic", "consumable", "weapon", "skill_charm", "spell", "container", "tool", "relic"]);
 const allowedItemSizes = new Set(["tiny", "small", "medium", "large"]);
@@ -407,6 +403,9 @@ if (manifest.avatar_naming !== undefined) {
 const entitlementGrants = new Map();
 for (const pack of packs) {
   validateRequiredStrings("worldpack pack", pack, ["name", "description", "version", "kind", "license", "integrity"]);
+  if (pack.rules_profile !== undefined && pack.rules_compatibility !== undefined) {
+    fail(`pack ${pack.id} combines legacy rules_profile with rules_compatibility`);
+  }
   const buildingArchetypes = pack.extensions?.["x-cosyworld-building-archetypes"];
   if (buildingArchetypes !== undefined) {
     for (const error of buildingArchetypeValidationErrors(
@@ -444,13 +443,19 @@ for (const pack of packs) {
       fail(`rules pack ${pack.id} has an invalid rules_namespace`);
     }
     if (pack.rules_adapter === "cosyworld.rules/2" && pack.rules_profile !== manifest.rules_profile) {
-      fail(`rules/2 pack ${pack.id} must provide ${manifest.rules_profile}`);
+      fail(`rules/2 pack ${pack.id} provides ${pack.rules_profile ?? "no profile"} but world selects ${manifest.rules_profile}`);
     }
     if (pack.rules_adapter === "cosyworld.rules/1" && pack.rules_profile !== undefined) {
       fail(`reference rules/1 pack ${pack.id} cannot activate a rules profile`);
     }
-  } else if (pack.rules_profile !== manifest.rules_profile) {
-    fail(`pack ${pack.id} must target ${manifest.rules_profile}`);
+    if (pack.rules_adapter === "cosyworld.rules/1" && pack.rules_compatibility !== undefined) {
+      fail(`reference rules/1 pack ${pack.id} cannot declare rules compatibility`);
+    }
+  } else if (!packAcceptsRulesProfile(pack, manifest.rules_profile)) {
+    fail(
+      `pack ${pack.id} is incompatible with selected profile ${manifest.rules_profile}; `
+      + `accepted profiles: ${JSON.stringify(pack.rules_compatibility?.profiles ?? (pack.rules_profile ? [pack.rules_profile] : []))}`,
+    );
   }
   if (!/^sha256:[0-9a-f]{64}$/.test(pack.integrity ?? "")) {
     fail(`worldpack pack ${pack.id} has an invalid integrity hash`);
@@ -710,6 +715,7 @@ let ruleMonsterSeedCount = 0;
 let ruleActionCount = 0;
 let activeRulesProfile = null;
 let rulesConformance = [];
+const activeActionIds = new Set();
 const playableBindingIds = new Set();
 const equipmentProfileIds = new Set();
 const magicEffectIds = new Set();
@@ -757,7 +763,7 @@ for (const bundle of ruleBundles) {
     }
     for (const profile of profiles) {
       validateRequiredStrings("rules profile", profile, ["source_document", "source_version", "source_pack", "license", "compatibility_claim", "source_reference", "import_transform"]);
-      if (profile.source_version !== "5.2.1" || profile.license !== "CC-BY-4.0" || profile.modified !== true) {
+      if (profile.modified !== true) {
         fail(`rules profile ${profile.id} has invalid source or modification metadata`);
       }
     }
@@ -765,14 +771,12 @@ for (const bundle of ruleBundles) {
     const actions = asArray(`rules bundle ${bundle.pack_id} actions`, bundle.resources.actions ?? []);
     const actionIds = idSet(`rules bundle ${bundle.pack_id} actions`, actions, (action) => action.id);
     ruleActionCount += actions.length;
-    if (actionIds.size !== requiredSrdActionIds.size) fail(`profile ${manifest.rules_profile} must contain twelve SRD actions`);
-    for (const actionId of requiredSrdActionIds) {
-      if (!has(actionIds, actionId)) fail(`profile ${manifest.rules_profile} is missing ${actionId}`);
-    }
+    if (actionIds.size === 0) fail(`profile ${manifest.rules_profile} must contain at least one action`);
+    for (const actionId of actionIds) activeActionIds.add(actionId);
     for (const action of actions) {
       playableBindingIds.add(action.id);
       validateRequiredStrings("rules action", action, ["namespace", "domain", "label", "source_reference", "support_status", "resolver_kind", "cosyworld_delta"]);
-      if (action.namespace !== "srd5.2.1" || action.domain !== "rules_action" || !Array.isArray(action.aliases) || action.aliases.length === 0) {
+      if (!action.id.startsWith(`${action.namespace}:`) || action.domain !== "rules_action" || !Array.isArray(action.aliases) || action.aliases.length === 0) {
         fail(`rules action ${action.id} has invalid identity, domain, or aliases`);
       }
       if (!["kernel", "projection", "unsupported"].includes(action.support_status)) {
@@ -943,7 +947,7 @@ for (const bundle of contributionBundles) {
         fail(`invalid or conflicting contribution ${row.id}`);
       }
       contributionIds.add(row.id);
-      if (!has(requiredSrdActionIds, row.based_on) || !isNonEmptyString(row.source_reference)) {
+      if (!has(activeActionIds, row.based_on) || !isNonEmptyString(row.source_reference)) {
         fail(`contribution ${row.id} has invalid base action or source reference`);
       }
       if (kind === "reskins") {
@@ -1080,7 +1084,7 @@ for (const row of modifiedMaterial) {
     fail(`modified-material entry ${key} has incomplete provenance`);
   }
 }
-for (const actionId of requiredSrdActionIds) {
+for (const actionId of activeActionIds) {
   if (!modifiedMaterialKeys.has(`action:${actionId}`)) {
     fail(`modified-material report is missing action ${actionId}`);
   }
