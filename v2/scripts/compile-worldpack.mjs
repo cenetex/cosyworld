@@ -126,6 +126,109 @@ function loadAvatarNaming(world, worldDir) {
   return config;
 }
 
+function loadPackLifecycle(world) {
+  const lifecycle = world.pack_lifecycle;
+  if (lifecycle === undefined) return null;
+  assert(
+    lifecycle && typeof lifecycle === "object" && !Array.isArray(lifecycle),
+    "world pack_lifecycle must be an object",
+  );
+  assert(
+    Object.keys(lifecycle).every((field) => ["schema_version", "unmount"].includes(field)),
+    "world pack_lifecycle has unknown fields",
+  );
+  assert(lifecycle.schema_version === 1, "world pack_lifecycle schema_version must be 1");
+  assert(Array.isArray(lifecycle.unmount), "world pack_lifecycle must declare unmount policies");
+  assert(lifecycle.unmount.length > 0, "world pack_lifecycle unmount policies cannot be empty");
+  const packIds = new Set(world.packs ?? []);
+  const seenPackIds = new Set();
+  for (const policy of lifecycle.unmount) {
+    assert(
+      policy && typeof policy === "object" && !Array.isArray(policy),
+      "world pack_lifecycle unmount policy must be an object",
+    );
+    assert(
+      Object.keys(policy).every((field) => ["pack_id", "evacuation"].includes(field)),
+      "world pack_lifecycle unmount policy has unknown fields",
+    );
+    assert(
+      typeof policy.pack_id === "string" && packIds.has(policy.pack_id),
+      `world pack_lifecycle references unmounted pack ${policy.pack_id}`,
+    );
+    assert(
+      !seenPackIds.has(policy.pack_id),
+      `world pack_lifecycle duplicates unmount policy for ${policy.pack_id}`,
+    );
+    seenPackIds.add(policy.pack_id);
+    const evacuation = policy.evacuation;
+    assert(
+      evacuation && typeof evacuation === "object" && !Array.isArray(evacuation),
+      `world pack_lifecycle ${policy.pack_id} evacuation must be an object`,
+    );
+    assert(
+      Object.keys(evacuation).every((field) =>
+        ["mode", "destination_location"].includes(field)),
+      `world pack_lifecycle ${policy.pack_id} evacuation has unknown fields`,
+    );
+    assert(
+      evacuation.mode === "move_occupants",
+      `world pack_lifecycle ${policy.pack_id} evacuation mode must be move_occupants`,
+    );
+    const destination = String(evacuation.destination_location ?? "");
+    const match = destination.match(/^([a-z0-9][a-z0-9.-]*):location\/([1-9]\d*)$/);
+    assert(
+      match && packIds.has(match[1]),
+      `world pack_lifecycle ${policy.pack_id} has invalid evacuation destination ${destination}`,
+    );
+    assert(
+      match[1] !== policy.pack_id,
+      `world pack_lifecycle ${policy.pack_id} evacuation destination must survive unmount`,
+    );
+  }
+  return lifecycle;
+}
+
+function compilePackLifecycle(lifecycle, resources) {
+  if (!lifecycle) return null;
+  const locationsByReference = new Map(
+    resources.locations.map((location) => [
+      `${location.pack_id}:location/${location.id}`,
+      location,
+    ]),
+  );
+  const packsWithLocations = new Set(resources.locations.map((location) => location.pack_id));
+  const gatedLocationIds = new Set(
+    resources.access_gates.map((gate) => Number(gate.location_id)),
+  );
+  return {
+    schema_version: 1,
+    unmount: lifecycle.unmount.map((policy) => {
+      assert(
+        packsWithLocations.has(policy.pack_id),
+        `world pack_lifecycle ${policy.pack_id} does not own any locations`,
+      );
+      const destination = locationsByReference.get(policy.evacuation.destination_location);
+      assert(
+        destination,
+        `world pack_lifecycle ${policy.pack_id} evacuation destination ${policy.evacuation.destination_location} does not exist`,
+      );
+      assert(
+        !gatedLocationIds.has(Number(destination.id)),
+        `world pack_lifecycle ${policy.pack_id} evacuation destination ${policy.evacuation.destination_location} must be public`,
+      );
+      return {
+        pack_id: policy.pack_id,
+        evacuation: {
+          mode: policy.evacuation.mode,
+          destination_location: policy.evacuation.destination_location,
+          destination_pack_id: destination.pack_id,
+          destination_location_id: Number(destination.id),
+        },
+      };
+    }),
+  };
+}
+
 function sha256(parts) {
   const hash = crypto.createHash("sha256");
   for (const part of parts) {
@@ -466,6 +569,7 @@ runContributionSchemaMutationTests();
 const engineVersion = readJson(path.resolve(v2Root, "../package.json")).version;
 const world = readJson(path.join(worldDir, "world.json"));
 const avatarNaming = loadAvatarNaming(world, worldDir);
+const packLifecycleSource = loadPackLifecycle(world);
 const lockPath = path.join(worldDir, "pack.lock.json");
 const legacyLockPath = path.join(worldDir, "world.lock.json");
 const lock = readJson(
@@ -922,14 +1026,17 @@ const contentReferences = buildContentReferenceMapping(
   }),
   CANONICAL_ID_MAPPING_VERSION,
 );
+const packLifecycle = compilePackLifecycle(packLifecycleSource, resources);
 const {
   persistence_compatibility: _persistenceCompatibility,
   avatar_naming: _avatarNamingSource,
+  pack_lifecycle: _packLifecycleSource,
   ...worldIdentity
 } = world;
 const bundleHash = sha256([
   json(worldIdentity),
   ...(avatarNaming ? [json(avatarNaming)] : []),
+  ...(packLifecycle ? [json(packLifecycle)] : []),
   json(packSummary),
   ...Object.values(resources).map(json),
   json(externalCards),
@@ -959,6 +1066,7 @@ const manifest = {
   entry_location: world.entry_location,
   ...(world.entry_grant_id ? { entry_grant_id: world.entry_grant_id } : {}),
   ...(persistenceCompatibility ? { persistence_compatibility: persistenceCompatibility } : {}),
+  ...(packLifecycle ? { pack_lifecycle: packLifecycle } : {}),
   rules_profile: world.rules_profile,
   active_rules_variants: activeRulesVariants,
   active_rules_extensions: activeRulesExtensions,

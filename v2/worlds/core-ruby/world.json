@@ -7,6 +7,18 @@
   "entry_location": "cosyworld.core:location/1",
   "avatar_naming": "../shared/cozy-fantasy-avatar-naming.json",
   "rules_profile": "cosyworld.srd5/1",
+  "pack_lifecycle": {
+    "schema_version": 1,
+    "unmount": [
+      {
+        "pack_id": "ruby-high.first-bell",
+        "evacuation": {
+          "mode": "move_occupants",
+          "destination_location": "cosyworld.core:location/1"
+        }
+      }
+    ]
+  },
   "packs": [
     "cosyworld.core",
     "ruby-high.first-bell",

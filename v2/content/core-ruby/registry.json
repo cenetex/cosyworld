@@ -9,6 +9,20 @@
     "version": 1,
     "description": "The Core world and Ruby High mounted together as peer world packs.",
     "entry_location": "cosyworld.core:location/1",
+    "pack_lifecycle": {
+      "schema_version": 1,
+      "unmount": [
+        {
+          "pack_id": "ruby-high.first-bell",
+          "evacuation": {
+            "mode": "move_occupants",
+            "destination_location": "cosyworld.core:location/1",
+            "destination_pack_id": "cosyworld.core",
+            "destination_location_id": 1
+          }
+        }
+      ]
+    },
     "rules_profile": "cosyworld.srd5/1",
     "active_rules_variants": [],
     "active_rules_extensions": [],
@@ -592,7 +606,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:abd0a109c955d8534e8f71b3e897a7535a3c6016e5045c6fc398b3bf6669cf18",
+    "bundle_hash": "sha256:710d9bc1c3c8af1828ca0e54beb66ad7053a3c2105623eb80915342e77d14cca",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
