@@ -24,6 +24,7 @@ mod ownership;
 mod prompts;
 mod quest_loot;
 mod rate_limit;
+mod resident_offer_scoring;
 mod routes;
 mod settlement_buildings;
 mod story_metrics;
@@ -16904,11 +16905,6 @@ impl RuntimeWorld {
         Some((item, target))
     }
 
-    fn resident_held_healing_item(&self, resident: CwActor) -> Option<CwItem> {
-        self.resident_held_healing_item_for_target(resident)
-            .map(|(item, _)| item)
-    }
-
     fn resident_needs_medicine(&self, resident: CwActor) -> bool {
         self.resident_healing_target(resident).is_some()
             && self
@@ -25539,44 +25535,6 @@ impl RuntimeWorld {
         })
     }
 
-    fn resident_shared_offer_autonomy_record(
-        &self,
-        actor: CwActor,
-        seed: u64,
-    ) -> Option<JournalRecord> {
-        self.resident_shared_offer_autonomy_record_for_kinds(
-            actor,
-            seed,
-            &["search", "craft", "influence", "check", "explore_path"],
-        )
-    }
-
-    fn resident_economy_autonomy_record(&self, actor: CwActor, seed: u64) -> Option<JournalRecord> {
-        if !Self::actor_is_active_avatar(actor) || !self.actor_uses_inference(actor.id) {
-            return None;
-        }
-        if let Some(record) =
-            self.resident_shared_offer_autonomy_record_for_kinds(actor, seed, &["rest"])
-        {
-            return Some(record);
-        }
-        if self.resident_held_healing_item(actor).is_none() {
-            if let Some(record) = self.resident_feature_use_autonomy_record(actor, seed) {
-                return Some(record);
-            }
-        }
-        if let Some(record) = self.resident_job_autonomy_record(actor, seed) {
-            return Some(record);
-        }
-        if let Some(action) = self.resident_economy_autonomy_action(actor) {
-            let mut record =
-                JournalRecord::new(action, seed).into_actor_consequence(self.world.tick, None);
-            self.append_resident_autonomy_intent_projection(actor, &mut record);
-            return Some(record);
-        }
-        self.resident_shared_offer_autonomy_record(actor, seed)
-    }
-
     fn append_resident_autonomy_intent_projection(
         &self,
         actor: CwActor,
@@ -25846,83 +25804,6 @@ impl RuntimeWorld {
         }
     }
 
-    fn resident_autonomy_record_priority(
-        &self,
-        actor: CwActor,
-        record: &JournalRecord,
-    ) -> (u8, i16) {
-        let item_score = |item_id| {
-            self.item_by_id(item_id)
-                .map(|item| self.resident_item_offer_score(actor, item))
-                .unwrap_or(RESIDENT_DEFAULT_ITEM_SCORE)
-        };
-        if let Some(intent) = record
-            .projection_mutations
-            .iter()
-            .find_map(|mutation| match mutation {
-                ProjectionMutation::ResolveJobContribution { intent } => Some(intent),
-                _ => None,
-            })
-        {
-            return (
-                35,
-                i16::from(self.contribution_progress_amount(actor.id, intent)),
-            );
-        }
-        match record.action.kind {
-            CW_ACTION_USE_ITEM => (0, item_score(record.action.item_id)),
-            CW_ACTION_TRADE_ITEM => {
-                let score = self
-                    .item_by_id(record.action.item_id)
-                    .zip(self.item_by_id(record.action.target_item_id))
-                    .map(|(offered, requested)| {
-                        self.resident_trade_preference(actor.id, offered, requested)
-                            .score
-                    })
-                    .unwrap_or(RESIDENT_DEFAULT_ITEM_SCORE);
-                (10, score)
-            }
-            CW_ACTION_GIVE_ITEM => {
-                let score = self
-                    .actor_by_id(record.action.target_actor_id)
-                    .zip(self.item_by_id(record.action.item_id))
-                    .map(|(target, item)| self.resident_item_offer_score(target, item))
-                    .unwrap_or_else(|| item_score(record.action.item_id));
-                (20, score)
-            }
-            CW_ACTION_PICK_UP_ITEM => (40, item_score(record.action.item_id)),
-            CW_ACTION_DROP_ITEM => {
-                let score = self
-                    .item_by_id(record.action.item_id)
-                    .map(|item| -self.resident_item_keep_score(actor, item))
-                    .unwrap_or(-RESIDENT_DEFAULT_ITEM_SCORE);
-                (50, score)
-            }
-            CW_ACTION_MOVE => (60, RESIDENT_DEFAULT_ITEM_SCORE),
-            CW_ACTION_RULES_INFLUENCE => (70, 0),
-            CW_ACTION_RULES_SEARCH => (80, 0),
-            CW_ACTION_NONE
-                if record.projection_mutations.iter().any(|mutation| {
-                    matches!(
-                        mutation,
-                        ProjectionMutation::ClearTag { reason, .. } if reason == "rest"
-                    )
-                }) =>
-            {
-                (5, RESIDENT_DESIRED_ITEM_SCORE)
-            }
-            CW_ACTION_NONE
-                if record
-                    .projection_mutations
-                    .iter()
-                    .any(|mutation| matches!(mutation, ProjectionMutation::UseFeature { .. })) =>
-            {
-                (30, RESIDENT_DESIRED_ITEM_SCORE)
-            }
-            _ => (90, 0),
-        }
-    }
-
     fn resident_record_offer_kind(record: &JournalRecord) -> String {
         if let Some(kind) = record
             .projection_mutations
@@ -26161,91 +26042,6 @@ impl RuntimeWorld {
     ) -> ResidentAutonomyCandidate {
         candidate.record.resident_decision = Some(self.resident_decision_trace(&candidate));
         candidate
-    }
-
-    fn sort_resident_autonomy_candidates(candidates: &mut [ResidentAutonomyCandidate]) {
-        candidates.sort_by(|left, right| {
-            left.rank
-                .cmp(&right.rank)
-                .then_with(|| right.score.cmp(&left.score))
-                .then_with(|| left.actor_id.cmp(&right.actor_id))
-                .then_with(|| left.record.action.kind.cmp(&right.record.action.kind))
-                .then_with(|| left.record.action.item_id.cmp(&right.record.action.item_id))
-                .then_with(|| {
-                    left.record
-                        .action
-                        .target_actor_id
-                        .cmp(&right.record.action.target_actor_id)
-                })
-        });
-    }
-
-    #[cfg(test)]
-    fn best_resident_economy_autonomy_candidate(
-        &mut self,
-        seed: u64,
-    ) -> Option<ResidentAutonomyCandidate> {
-        let actor_ids = self.resident_economy_autonomy_candidate_ids();
-        if actor_ids.is_empty() {
-            return None;
-        }
-        self.refresh_resident_local_memories_for_ids(&actor_ids);
-
-        let mut candidates = Vec::new();
-        for actor_id in actor_ids {
-            let Some(actor) = self.actor_by_id(actor_id) else {
-                continue;
-            };
-            let Some(record) = self.resident_economy_autonomy_record(actor, seed) else {
-                continue;
-            };
-            let (rank, score) = self.resident_autonomy_record_priority(actor, &record);
-            candidates.push(ResidentAutonomyCandidate {
-                actor_id,
-                rank,
-                score,
-                record,
-            });
-        }
-        Self::sort_resident_autonomy_candidates(&mut candidates);
-        candidates
-            .into_iter()
-            .next()
-            .map(|candidate| self.attach_resident_decision_trace(candidate))
-    }
-
-    fn best_resident_ripple_candidate(
-        &mut self,
-        context: &RippleContext,
-        seed: u64,
-    ) -> Option<ResidentAutonomyCandidate> {
-        let actor_ids = self.resident_ripple_candidate_ids(context);
-        if actor_ids.is_empty() {
-            return None;
-        }
-        self.refresh_resident_local_memories_for_ids(&actor_ids);
-
-        let mut candidates = Vec::new();
-        for actor_id in actor_ids {
-            let Some(actor) = self.actor_by_id(actor_id) else {
-                continue;
-            };
-            let Some(record) = self.resident_economy_autonomy_record(actor, seed) else {
-                continue;
-            };
-            let (rank, score) = self.resident_autonomy_record_priority(actor, &record);
-            candidates.push(ResidentAutonomyCandidate {
-                actor_id,
-                rank,
-                score,
-                record,
-            });
-        }
-        Self::sort_resident_autonomy_candidates(&mut candidates);
-        candidates
-            .into_iter()
-            .next()
-            .map(|candidate| self.attach_resident_decision_trace(candidate))
     }
 
     #[cfg(test)]
