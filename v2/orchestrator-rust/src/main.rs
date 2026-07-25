@@ -1,6 +1,7 @@
 mod account_auth;
 mod activation;
 mod actor_practice;
+mod actor_rules_facets;
 mod ai_gateway;
 mod avatar_identity;
 mod canonical_journal;
@@ -39,6 +40,7 @@ mod world_simulation;
 use account_auth::*;
 use activation::*;
 use actor_practice::*;
+use actor_rules_facets::*;
 use ai_gateway::*;
 use avatar_identity::*;
 use axum::{
@@ -1685,6 +1687,7 @@ struct RuntimeWorld {
     search_memories: BTreeMap<String, SearchMemoryState>,
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
+    actor_rules_facets: BTreeMap<u64, BTreeMap<String, ActorRulesFacetState>>,
     deeds: BTreeMap<String, DeedRecord>,
     deed_ids_by_actor: BTreeMap<u64, Vec<String>>,
     actor_practices: BTreeMap<u64, ActorPracticeState>,
@@ -1802,6 +1805,8 @@ struct RuntimeSnapshot {
     resident_continuities: BTreeMap<u64, ResidentContinuityState>,
     #[serde(default)]
     actor_autonomy: BTreeMap<u64, ActorAutonomyState>,
+    #[serde(default)]
+    actor_rules_facets: BTreeMap<u64, BTreeMap<String, ActorRulesFacetState>>,
     #[serde(default)]
     deeds: BTreeMap<String, DeedRecord>,
     #[serde(default)]
@@ -6458,6 +6463,7 @@ impl RuntimeSnapshot {
             search_memories: runtime.search_memories.clone(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: runtime.actor_autonomy.clone(),
+            actor_rules_facets: runtime.snapshot_actor_rules_facets(),
             deeds: runtime.deeds.clone(),
             deed_ids_by_actor: runtime.deed_ids_by_actor.clone(),
             actor_practices: runtime.actor_practices.clone(),
@@ -6665,6 +6671,7 @@ impl RuntimeSnapshot {
             search_memories: self.search_memories,
             resident_continuities: self.resident_continuities,
             actor_autonomy: self.actor_autonomy,
+            actor_rules_facets: self.actor_rules_facets,
             deeds: self.deeds,
             deed_ids_by_actor: self.deed_ids_by_actor,
             actor_practices: self.actor_practices,
@@ -6686,6 +6693,7 @@ impl RuntimeSnapshot {
         .map(|mut runtime| {
             runtime.backfill_recent_room_lines();
             runtime.ensure_seed_topology();
+            runtime.ensure_active_actor_rules_facets();
             runtime.ensure_seed_rpg_projection();
             runtime.backfill_generated_avatar_flavor();
             runtime.backfill_listen_attempt_claims_from_events();
@@ -7078,6 +7086,7 @@ impl RuntimeWorld {
         }
         runtime.recompute_counters();
         runtime.ensure_seed_topology();
+        runtime.ensure_active_actor_rules_facets();
         runtime.ensure_seed_rpg_projection();
         runtime.backfill_generated_avatar_flavor();
         runtime.ensure_actor_autonomy();
@@ -7140,6 +7149,7 @@ impl RuntimeWorld {
             search_memories: BTreeMap::new(),
             resident_continuities: BTreeMap::new(),
             actor_autonomy: BTreeMap::new(),
+            actor_rules_facets: BTreeMap::new(),
             deeds: BTreeMap::new(),
             deed_ids_by_actor: BTreeMap::new(),
             actor_practices: BTreeMap::new(),
@@ -7160,6 +7170,7 @@ impl RuntimeWorld {
         };
 
         runtime.ensure_seed_topology();
+        runtime.ensure_active_actor_rules_facets();
         runtime.ensure_canonical_identities(0);
         runtime.append_world_bootstrapped_event();
         runtime.ensure_seed_rpg_projection();
@@ -10509,8 +10520,6 @@ impl RuntimeWorld {
                 record.initial_origin_id.as_deref(),
                 record.initial_physical_description.as_deref(),
             ));
-            let committed_events = events.clone();
-            events.extend(self.apply_rules_context_transition_projection(&committed_events));
             self.apply_economy_disclosure_projection(&action, &mut events);
             if action.kind == CW_ACTION_RULES_STUDY {
                 if let Some(check) = events.iter().find(|event| {
@@ -10629,6 +10638,8 @@ impl RuntimeWorld {
                     public_beat_available,
                 ));
             }
+            let committed_events = events.clone();
+            events.extend(self.apply_rules_context_transition_projection(&committed_events));
             self.record_autonomous_action(record);
             self.refresh_craft_event_presentation(&mut events);
             if record.source_world_tick.is_some() {
@@ -10649,6 +10660,7 @@ impl RuntimeWorld {
         }
         self.ensure_canonical_identities(record.seed);
         if status == CW_OK {
+            self.ensure_active_actor_rules_facets();
             self.bump_entity_versions_for_events(&events);
         }
         self.refresh_canonical_events(&mut events);
@@ -11888,78 +11900,6 @@ impl RuntimeWorld {
             })
             .into_iter()
             .collect()
-    }
-
-    fn choose_character_class(
-        &mut self,
-        actor_id: u64,
-        profile_id: &str,
-        class_id: &str,
-        calling_statement: &str,
-        starting_skill_id: &str,
-        actor_meta: &ActorMeta,
-        reason: &str,
-    ) -> Vec<EventView> {
-        let valid_identity = self
-            .character_identities
-            .get(&actor_id)
-            .is_some_and(|identity| {
-                identity.profile_id == profile_id
-                    && identity.class_id.is_none()
-                    && identity.class_selection_ready
-            });
-        if !valid_identity {
-            return Vec::new();
-        }
-        let Some(actor_index) = self.world.actors[..self.world.actor_count]
-            .iter()
-            .position(|actor| actor.id == actor_id && Self::actor_is_active_avatar(*actor))
-        else {
-            return Vec::new();
-        };
-        self.world.actors[actor_index].stats.level = 1;
-        self.actors.insert(actor_id, actor_meta.clone());
-        if let Some(identity) = self.character_identities.get_mut(&actor_id) {
-            identity.class_id = Some(class_id.to_string());
-            identity.class_selection_ready = false;
-        }
-
-        let mut events = Vec::new();
-        let class_event = self.append_async_job_event(
-            "class.chosen",
-            actor_id,
-            None,
-            Some(format!("{class_id}:{reason}")),
-        );
-        if let Some(identity) = self.character_identities.get_mut(&actor_id) {
-            identity.class_source_event_seq = Some(class_event.seq);
-        }
-        events.push(class_event);
-
-        let calling = CallingState {
-            actor_id,
-            statement: normalize_calling_statement(calling_statement)
-                .unwrap_or_else(|| default_calling_statement().to_string()),
-            source_event_seq: events.first().map(|event| event.seq),
-        };
-        self.callings.insert(actor_id, calling.clone());
-        events.push(self.append_calling_event("calling.set", &calling, "class_chosen"));
-
-        if let Some(label) = skill_label(starting_skill_id) {
-            let id = skill_state_id(actor_id, starting_skill_id);
-            if !self.skills.contains_key(&id) {
-                let skill = SkillState {
-                    actor_id,
-                    skill_id: starting_skill_id.to_string(),
-                    label: label.to_string(),
-                    rank: 1,
-                    updated_event_seq: Some(self.world.next_event_seq),
-                };
-                self.skills.insert(id, skill.clone());
-                events.push(self.append_skill_event("skill.stepped", &skill, "class_chosen"));
-            }
-        }
-        events
     }
 
     fn apply_progress_contribution_ledger_projection(
