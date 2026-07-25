@@ -1922,6 +1922,8 @@ struct JournalRecord {
     source_location_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     resident_decision: Option<ResidentDecisionTrace>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    focused_encounter: Option<FocusedEncounterJournalContext>,
     action: CwAction,
     seed: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1972,8 +1974,9 @@ impl JournalRecord {
                 )
             })
             .unwrap_or_default();
+        let focused_encounter = focused_encounter_context_for_action(&action);
         Self {
-            version: 7,
+            version: FOCUSED_ENCOUNTER_JOURNAL_VERSION,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry()
                 .content_reference_context(action_content_handles(&action)),
@@ -1990,6 +1993,7 @@ impl JournalRecord {
             observed_through_seq: None,
             source_location_id: None,
             resident_decision: None,
+            focused_encounter,
             action,
             seed,
             ripple_source: None,
@@ -9999,6 +10003,9 @@ impl RuntimeWorld {
     }
 
     fn apply_journal_record(&mut self, record: &JournalRecord) -> (u32, Vec<EventView>) {
+        if !focused_encounter_journal_context_is_supported(record) {
+            return (CW_ERR_RULE, Vec::new());
+        }
         self.expire_transfer_offers();
         for (actor_id, meta) in &record.actor_meta_upserts {
             self.actors.insert(*actor_id, meta.clone());
@@ -30567,22 +30574,6 @@ fn commit_resident_reply_record(
     (status == CW_OK).then_some(events)
 }
 
-fn advance_turn_and_capture_player_tick_observation(
-    state: &AppState,
-    runtime: &mut RuntimeWorld,
-    location_id: Option<u64>,
-    actor_id: u64,
-    status: u32,
-    events: &mut Vec<EventView>,
-) -> Option<PlayerTickObservation> {
-    advance_actor_room_turn_after_commit(state, runtime, location_id, actor_id, status, events);
-    let observation = player_tick_observation(runtime, location_id, actor_id, status, events);
-    if status == CW_OK {
-        append_action_receipt(state, runtime, actor_id, events);
-    }
-    observation
-}
-
 fn append_action_receipt(
     state: &AppState,
     runtime: &RuntimeWorld,
@@ -50249,7 +50240,7 @@ mod tests {
         assert!(action_journal_has_records(&path).expect("has records"));
         let records = read_action_journal(&path).expect("read records");
         assert_eq!(records.len(), 2);
-        assert_eq!(records[0].version, 7);
+        assert_eq!(records[0].version, 8);
         assert_eq!(records[0].content_context.mapping_version, 1);
         let location_reference = records[0]
             .content_context
