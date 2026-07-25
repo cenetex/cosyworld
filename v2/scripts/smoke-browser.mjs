@@ -545,7 +545,7 @@ async function main() {
   }
 
   async function visibleCommandButtons() {
-    return page.locator("footer.prompt button:visible:not(#shuffle):not(#command-toggle)").evaluateAll((nodes) => (
+    return page.locator("footer.prompt button:visible").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean)
     ));
@@ -2742,7 +2742,7 @@ async function main() {
       renderCommands();
       try {
         const tradeAction = actions.find((action) => action.label === "trade") || null;
-        const visibleButtons = () => [...document.querySelectorAll("footer.prompt button:not(#shuffle):not(#command-toggle)")]
+        const visibleButtons = () => [...document.querySelectorAll("footer.prompt button")]
             .filter((button) => getComputedStyle(button).display !== "none")
             .map((button) => {
               const label = button.querySelector(".cmd-label")?.cloneNode(true);
@@ -6736,105 +6736,66 @@ async function main() {
     steps.push({ label: "mud command api", primaryCommand: result.primaryCommand });
   }
 
-  async function openCommandPaletteShortcut(key = "Slash") {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      await page.keyboard.press(key);
-      try {
-        await page.waitForSelector("#command-palette:not([hidden]) #command-input", { timeout: 1500 });
-        return;
-      } catch {
-        await page.evaluate(() => document.activeElement?.blur?.());
-      }
-    }
-    await page.waitForSelector("#command-palette:not([hidden]) #command-input");
-  }
-
-  async function assertMudCommandPaletteAvailable() {
-    await page.locator("#command-toggle").click();
-    await page.waitForSelector("#command-palette:not([hidden]) #command-input");
-    assert(await page.locator("#command-input").inputValue() === "say ", "touch speech control should seed a say command");
-    await page.keyboard.press("Escape");
-    assert(await page.locator("#tertiary, #shuffle").count() === 0, "the room footer should contain only two action slots and chat");
-
-    const submitLook = async () => {
-      await openCommandPaletteShortcut();
-      await page.locator("#command-input").fill("look");
-      const responsePromise = page.waitForResponse((response) => (
-        response.request().method() === "POST"
-          && new URL(response.url()).pathname === "/commands"
-      ));
-      await page.keyboard.press("Enter");
-      const payload = await (await responsePromise).json();
-      await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
-      return payload;
-    };
-    let look = await submitLook();
-    if (look.ok === false && Number(look.status) === 409 && /stale actor version/i.test(look.output || "")) {
-      await page.evaluate(() => refresh());
-      await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
-      look = await submitLook();
-    }
-    assert(look.ok === true, `look command palette request should succeed: ${JSON.stringify(look)}`);
+  async function assertBrowserCommandEntryAbsent() {
+    const before = await visibleCommandButtons();
     assert(
-      look.output.includes("The Cosy Cottage") && look.output.includes("Ways onward:"),
-      `look command should keep its complete machine-readable response: ${JSON.stringify(look)}`,
+      await page.locator("#command-toggle, #command-palette, #command-input, #all-actions-modal, #tertiary, #shuffle").count() === 0,
+      "the browser room should expose only two world action controls",
     );
-    await waitForTimelineText("The Cosy Cottage");
-    await openCommandPaletteShortcut();
-    await page.keyboard.press("ArrowUp");
-    assert(await page.locator("#command-input").inputValue() === "look", "command palette should recall the previous command");
-    await page.keyboard.press("Escape");
-    await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
-    await openCommandPaletteShortcut("KeyT");
-    assert(await page.locator("#command-input").inputValue() === "say ", "quick speech key should seed a say command");
-    await page.locator("#command-input").type("palette hello");
-    await page.keyboard.press("Enter");
-    await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
-    await waitForChatText("palette hello");
-    await openCommandPaletteShortcut();
-    await page.locator("#command-input").fill("/me tests the hearth");
-    await page.keyboard.press("Enter");
-    await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
-    await waitForChatText("tests the hearth.");
+    await page.evaluate(() => document.activeElement?.blur?.());
+    await page.keyboard.press("Slash");
+    await page.keyboard.press("KeyT");
+    await page.waitForTimeout(100);
+    const after = await visibleCommandButtons();
+    assert(
+      JSON.stringify(before) === JSON.stringify(after),
+      `speech and command shortcuts must not replace the action-only hand: ${JSON.stringify({ before, after })}`,
+    );
     await assertNoComposerOrDebugChrome();
-    steps.push({ label: "mud command palette", command: "look / say palette hello / /me tests the hearth" });
+    steps.push({ label: "action-only browser room", actions: after });
   }
 
-  async function assertReportCommandPaletteAvailable() {
+  async function assertAvatarReportControlAvailable() {
     const reportActions = await page.evaluate(() => (
       buildActions(state).filter((action) => action.label === "report").map((action) => action.command)
     ));
     assert(reportActions.length === 0, `report should stay out of the primary action cycle: ${JSON.stringify(reportActions)}`);
-    const nearbyActor = await page.evaluate(() => (
-      (state?.actors || []).find((actor) => Number(actor.id) !== Number(actorId))?.name || ""
-    ));
-    assert(nearbyActor, "report command smoke needs a nearby resident before the room starts moving");
+    const nearbyActor = await page.evaluate(() => {
+      const actor = (state?.actors || []).find((candidate) => Number(candidate.id) !== Number(actorId));
+      return actor ? { id: Number(actor.id), name: actor.name || "" } : null;
+    });
+    assert(nearbyActor?.id && nearbyActor?.name, "avatar report smoke needs a nearby resident before the room starts moving");
     const submitReport = async () => {
-      await openCommandPaletteShortcut();
-      await page.locator("#command-input").fill(`report ${nearbyActor}: smoke command palette report`);
+      await page.evaluate((targetActorId) => {
+        const card = cardForActor(targetActorId);
+        if (card) openCardModal(card);
+      }, nearbyActor.id);
+      await page.waitForSelector(`#card-modal:not([hidden]) [data-avatar-report="${nearbyActor.id}"]`);
+      await page.locator(`[data-avatar-report="${nearbyActor.id}"]`).click();
+      const form = page.locator(`[data-avatar-report-form="${nearbyActor.id}"]`);
+      await form.locator("input[name='reason']").fill("smoke avatar control report");
       const responsePromise = page.waitForResponse((response) => (
         response.request().method() === "POST"
           && new URL(response.url()).pathname === "/commands"
       ));
-      await page.keyboard.press("Enter");
+      await form.locator("button[type='submit']").click();
       const payload = await (await responsePromise).json();
-      await page.waitForFunction(() => document.querySelector("#command-palette")?.hidden === true);
+      await page.waitForFunction(() => document.querySelector("#card-modal")?.hidden === true);
       return payload;
     };
     let report = await submitReport();
     if (report.ok === false && Number(report.status) === 409 && /stale actor version/i.test(report.output || "")) {
-      await page.evaluate(() => refresh());
       await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
       report = await submitReport();
     }
     assert(
-      report.ok === true && report.output === `Report submitted for ${nearbyActor}.`,
-      `report command should submit for the nearby resident: ${JSON.stringify(report)}`,
+      report.ok === true && report.output === `Report submitted for ${nearbyActor.name}.`,
+      `avatar report control should submit for the nearby resident: ${JSON.stringify(report)}`,
     );
-    await waitForTimelineText(`Report submitted for ${nearbyActor}.`);
+    await waitForTimelineText(`Report submitted for ${nearbyActor.name}.`);
     await page.waitForFunction(() => actionBusy === false && refreshInFlight === null);
     await assertNoComposerOrDebugChrome();
-    steps.push({ label: "report command palette", command: `report ${nearbyActor}` });
+    steps.push({ label: "avatar report control", actor: nearbyActor.name });
   }
 
   async function assertRoomMultiplayerBroadcast() {
@@ -7430,7 +7391,7 @@ async function main() {
     await page.waitForFunction(() => (
       actionBusy === false
         && refreshInFlight === null
-        && [...document.querySelectorAll("footer.prompt button:not(#shuffle):not(#command-toggle)")]
+        && [...document.querySelectorAll("footer.prompt button")]
           .some((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
     ));
     await assertNoVisibleOverflow();
@@ -8425,7 +8386,7 @@ async function main() {
       label: "focus collectible card",
       primary: collectibleCard,
     });
-    assert(collectibleCard.toLowerCase().includes("take"), "a room with a collectible should keep Take available in All actions before Chat");
+    assert(collectibleCard.toLowerCase().includes("take"), "a room with a collectible should keep Take available in the authoritative hand");
     useFocusedActionOnNextClick = false;
   }
   assert(!(await primaryText()).toLowerCase().includes("orb chat"), "chat command should not show an Orb cost suffix");
@@ -8502,7 +8463,8 @@ async function main() {
   await assertClientAuthoredSpeechModerated();
   await assertSeedArtAvailable();
   await assertFirstBellCatalogAssetsAvailable();
-  await assertReportCommandPaletteAvailable();
+  await assertBrowserCommandEntryAbsent();
+  await assertAvatarReportControlAvailable();
   await listenAtCurrentLocation();
   await discoverRoute("Rain-Soft Garden");
   await page.waitForFunction(() => {
@@ -8569,7 +8531,6 @@ async function main() {
   await discoverRoute("Homeroom");
   await assertWorldProjectionAvailable();
   await assertMudCommandApiAvailable();
-  await assertMudCommandPaletteAvailable();
   await assertRoomMultiplayerBroadcast();
   await assertBoundedEventReplay();
   await assertStreamReplaysAfterCursor();
@@ -9069,7 +9030,7 @@ async function main() {
       branchEvents,
       fleeEvents,
       trailExitEvents,
-      buttons: [...document.querySelectorAll("footer.prompt button:not(#shuffle):not(#command-toggle)")]
+      buttons: [...document.querySelectorAll("footer.prompt button")]
         .filter((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
         .map((button) => button.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean),

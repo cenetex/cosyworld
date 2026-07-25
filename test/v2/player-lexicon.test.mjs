@@ -75,8 +75,8 @@ describe("player-facing action, keepsake, pass, bundle, and world-pack lexicon",
       expect(`${index}\n${gates}`).not.toContain(ambiguous);
     }
 
-    expect(index).toContain('<h2 id="all-actions-title">All actions</h2>');
-    expect(index).toContain("data-all-action-index");
+    expect(index).not.toContain('<h2 id="all-actions-title">All actions</h2>');
+    expect(index).not.toContain("data-all-action-index");
     expect(index).toContain('${packs === 1 ? "bundle" : "bundles"}');
     expect(index).toContain('/nft/packs/open');
     expect(index).toContain("data-account-open-pack");
