@@ -8909,6 +8909,13 @@ async function main() {
       ),
       `completed project should stop surfacing stale project actions: ${JSON.stringify(completedProjectState.primary_action)}`,
     );
+    assert(
+      !(completedProjectState.action_offers || []).some((offer) => (
+        offer.kind === "attack"
+          && String(offer.detail || "").toLowerCase().includes("coach")
+      )),
+      "completed project should calm Coach combat immediately",
+    );
     if (projectLeftAvatarTired) {
       const restAlreadyAvailable = await page.evaluate(() => actions.some((action) => (
         String(action.label || "").toLowerCase() === "rest"
@@ -8947,10 +8954,26 @@ async function main() {
         action.label === "attack"
           && String(action.detail || "").toLowerCase().includes("coach")
       )),
+      jobStatus: (state?.jobs || []).find(
+        (job) => job.id === "moonlit-trail:quiet-the-echo",
+      )?.status || "missing",
+      progress: Number((state?.clocks || []).find(
+        (clock) => clock.id === "moonlit-trail.progress",
+      )?.filled || 0),
+      quieted: (state?.tags || []).some((tag) => tag.label === "quieted moonlight"),
     }));
-    assert(!quietedChatAvailability.hasCoachAttack, "completed project should calm Coach combat");
+    if (quietedChatAvailability.hasCoachAttack) {
+      assert(
+        quietedChatAvailability.jobStatus === "active"
+          && quietedChatAvailability.progress === 0
+          && !quietedChatAvailability.quieted,
+        `Coach combat may return only with an authoritative season reset: ${JSON.stringify(quietedChatAvailability)}`,
+      );
+    }
     steps.push({
-      label: "quieted Coach is peaceful",
+      label: quietedChatAvailability.hasCoachAttack
+        ? "Coach returned with a new season"
+        : "quieted Coach is peaceful",
       location: await currentLocation(),
       advancement: quietedChatAvailability.advancement,
       chatAvailableForNewFriend: quietedChatAvailability.hasChat,

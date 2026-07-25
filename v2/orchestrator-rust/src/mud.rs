@@ -748,6 +748,19 @@ pub(crate) fn command_event_output(event: &EventView) -> Option<String> {
             "You find {}.",
             event.item_name.as_deref().unwrap_or("an item")
         )),
+        "item.revealed" => Some(format!(
+            "You reveal {}.",
+            event.item_name.as_deref().unwrap_or("an item")
+        )),
+        "exit.unlocked" => Some(event.content.clone().unwrap_or_else(|| {
+            format!(
+                "The way to {} opens.",
+                event
+                    .destination_location_name
+                    .as_deref()
+                    .unwrap_or("somewhere new")
+            )
+        })),
         "actor.moved" => Some(format!(
             "You move from {} to {}.",
             event.location_name.as_deref().unwrap_or("here"),

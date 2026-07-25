@@ -437,9 +437,9 @@ A descriptor is a closed-vocabulary instruction attached to a clock's `on_fill` 
 
 ### Runtime status
 
-The projection-safe slice is landed. `ClockState` carries `on_fill: Vec<EffectDescriptor>`, `advance_clock` dispatches it when `filled >= segments` crosses for the first time, and the Moonlit Trail clocks use it to apply room tags and set job status. Implemented projection ops are `advance_clock`, `set_tag`, `clear_tag`, and `set_job_status`.
+`ClockState` carries `on_fill: Vec<EffectDescriptor>`, and one staged apply seam now handles lifecycle, contribution, and clock-fill effects. Implemented projection ops are `advance_clock`, `set_tag`, `clear_tag`, and `set_job_status`; implemented authoritative ops are `unlock_exit` and `reveal_item`.
 
-The remaining target shape is broader: resident reactions, job creation, covenant/season movement, authoritative kernel-routed ops, and bounded cascade handling.
+The remaining target shape is broader: resident reactions, job creation, covenant/season movement, the other authoritative ops, and bounded cascade handling.
 
 ### Closed op vocabulary
 
@@ -471,7 +471,7 @@ Authoritative ops never apply in Rust; they are submitted to the C kernel, which
       "label": "quieted moonlight", "kind": "aspect" },
     { "op": "clear_tag", "tag_id": "tag_room_3_echo_unsettled" },
     { "op": "set_job_status", "job_id": "job_moonlit_trail_quiet", "status": "complete" },
-    { "op": "unlock_exit", "from_location_id": 3, "exit_id": "exit_trail_to_grove" }
+    { "op": "unlock_exit", "from_location_id": 3, "to_location_id": 4 }
   ]
 }
 ```

@@ -30,6 +30,7 @@ mod quest_loot;
 mod rate_limit;
 mod resident_offer_scoring;
 mod routes;
+mod rpg;
 mod rules_context;
 mod settlement_buildings;
 mod story_metrics;
@@ -82,6 +83,7 @@ use qrcode::{render::svg, QrCode};
 use quest_loot::*;
 use rand::{rngs::OsRng, RngCore};
 use rate_limit::*;
+use rpg::*;
 use rules_context::*;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -660,39 +662,6 @@ struct JourneyNarrationPlan {
     current_step: usize,
     total_steps: usize,
     discovery: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(tag = "op", rename_all = "snake_case")]
-enum EffectDescriptor {
-    AdvanceClock {
-        clock_id: String,
-        amount: u8,
-        #[serde(default)]
-        reason: Option<String>,
-    },
-    SetTag {
-        tag_id: String,
-        scope: String,
-        scope_id: u64,
-        label: String,
-        kind: String,
-        #[serde(default)]
-        expires: Option<String>,
-        #[serde(default)]
-        reason: Option<String>,
-    },
-    ClearTag {
-        tag_id: String,
-        #[serde(default)]
-        reason: Option<String>,
-    },
-    SetJobStatus {
-        job_id: String,
-        status: String,
-        #[serde(default)]
-        reason: Option<String>,
-    },
 }
 
 const JOB_CONTRIBUTION_SCHEMA_VERSION: u8 = 1;
@@ -6942,6 +6911,7 @@ impl RuntimeWorld {
                     | "item.traded"
                     | "item.stolen"
                     | "item.found"
+                    | "item.revealed"
                     | "item.created"
             );
             let delivery_event = matches!(
@@ -11254,86 +11224,14 @@ impl RuntimeWorld {
                     continue;
                 }
             }
-            projected.extend(self.apply_lifecycle_effects(
-                hook_name,
+            projected.extend(self.apply_effects(
+                EffectApplicationSource::Lifecycle(hook_name),
                 actor_id,
                 source_event_seq,
                 &effects,
             ));
         }
         projected
-    }
-
-    fn apply_lifecycle_effects(
-        &mut self,
-        hook_name: &str,
-        actor_id: u64,
-        source_event_seq: u64,
-        effects: &[EffectDescriptor],
-    ) -> Vec<EventView> {
-        if effects.is_empty() || self.validate_runtime_effects(effects).is_err() {
-            return Vec::new();
-        }
-        let mut events = Vec::new();
-        for effect in effects {
-            match effect {
-                EffectDescriptor::AdvanceClock {
-                    clock_id,
-                    amount,
-                    reason,
-                } => events.extend(self.advance_clock(
-                    clock_id,
-                    *amount,
-                    actor_id,
-                    reason.as_deref().unwrap_or(hook_name),
-                )),
-                EffectDescriptor::SetTag {
-                    tag_id,
-                    scope,
-                    scope_id,
-                    label,
-                    kind,
-                    expires,
-                    reason,
-                } => {
-                    let tag = RpgTagState {
-                        id: tag_id.clone(),
-                        scope: scope.clone(),
-                        scope_id: *scope_id,
-                        label: label.clone(),
-                        kind: kind.clone(),
-                        active: true,
-                        source_event_seq: Some(source_event_seq),
-                        expires: expires.clone(),
-                    };
-                    if let Some(event) =
-                        self.set_rpg_tag(tag, actor_id, reason.as_deref().unwrap_or(hook_name))
-                    {
-                        events.push(event);
-                    }
-                }
-                EffectDescriptor::ClearTag { tag_id, reason } => {
-                    if let Some(event) =
-                        self.clear_rpg_tag(tag_id, actor_id, reason.as_deref().unwrap_or(hook_name))
-                    {
-                        events.push(event);
-                    }
-                }
-                EffectDescriptor::SetJobStatus {
-                    job_id,
-                    status,
-                    reason,
-                } => {
-                    events.extend(self.set_job_status_events(
-                        job_id,
-                        status,
-                        actor_id,
-                        reason.as_deref().unwrap_or(hook_name),
-                    ));
-                }
-            }
-        }
-        events
     }
 
     fn apply_actor_creation_rpg_projection(
@@ -12190,8 +12088,8 @@ impl RuntimeWorld {
         if crossed_fill && !clock.on_fill.is_empty() {
             let claim_key = clock_fill_claim_key(&clock.id, update_event.seq);
             if self.rpg_claims.insert(claim_key) {
-                let mut fill_events = self.apply_clock_fill_effects(
-                    &clock.id,
+                let mut fill_events = self.apply_effects(
+                    EffectApplicationSource::ClockFill(&clock.id),
                     actor_id,
                     update_event.seq,
                     &clock.on_fill,
@@ -12277,97 +12175,6 @@ impl RuntimeWorld {
                 self.replace_projected_event(event);
             }
         }
-    }
-
-    fn apply_clock_fill_effects(
-        &mut self,
-        clock_id: &str,
-        actor_id: u64,
-        source_event_seq: u64,
-        effects: &[EffectDescriptor],
-    ) -> Vec<EventView> {
-        if effects.is_empty() {
-            return Vec::new();
-        }
-        if let Err(error) = self.validate_clock_fill_effects(effects) {
-            return self
-                .clocks
-                .get(clock_id)
-                .cloned()
-                .map(|clock| {
-                    vec![self.append_clock_event(
-                        "clock.fill_effect_rejected",
-                        actor_id,
-                        &clock,
-                        0,
-                        &error,
-                    )]
-                })
-                .unwrap_or_default();
-        }
-
-        let mut events = Vec::new();
-        for effect in effects {
-            match effect {
-                EffectDescriptor::AdvanceClock {
-                    clock_id,
-                    amount,
-                    reason,
-                } => events.extend(self.advance_clock(
-                    clock_id,
-                    *amount,
-                    actor_id,
-                    reason.as_deref().unwrap_or("clock_fill_effect"),
-                )),
-                EffectDescriptor::SetTag {
-                    tag_id,
-                    scope,
-                    scope_id,
-                    label,
-                    kind,
-                    expires,
-                    reason,
-                } => {
-                    let tag = RpgTagState {
-                        id: tag_id.clone(),
-                        scope: scope.clone(),
-                        scope_id: *scope_id,
-                        label: label.clone(),
-                        kind: kind.clone(),
-                        active: true,
-                        source_event_seq: Some(source_event_seq),
-                        expires: expires.clone(),
-                    };
-                    if let Some(event) =
-                        self.set_rpg_tag(tag, actor_id, reason.as_deref().unwrap_or("clock_fill"))
-                    {
-                        events.push(event);
-                    }
-                }
-                EffectDescriptor::ClearTag { tag_id, reason } => {
-                    if let Some(event) = self.clear_rpg_tag(
-                        tag_id,
-                        actor_id,
-                        reason.as_deref().unwrap_or("clock_fill"),
-                    ) {
-                        events.push(event);
-                    }
-                }
-                EffectDescriptor::SetJobStatus {
-                    job_id,
-                    status,
-                    reason,
-                } => {
-                    events.extend(self.set_job_status_events(
-                        job_id,
-                        status,
-                        actor_id,
-                        reason.as_deref().unwrap_or("clock_fill"),
-                    ));
-                }
-            }
-        }
-        events
     }
 
     fn contribution_claim_key(
@@ -12604,7 +12411,8 @@ impl RuntimeWorld {
         } else {
             &intent.strategy.on_failure
         };
-        let mut consequence_events = self.apply_contribution_effects(
+        let mut consequence_events = self.apply_effects(
+            EffectApplicationSource::JobContribution,
             action.actor_id,
             contribution_event.seq,
             authored_effects,
@@ -12612,138 +12420,6 @@ impl RuntimeWorld {
         self.link_events_to_cause(&mut consequence_events, contribution_event.seq);
         events.extend(consequence_events);
         events
-    }
-
-    fn apply_contribution_effects(
-        &mut self,
-        actor_id: u64,
-        source_event_seq: u64,
-        effects: &[EffectDescriptor],
-    ) -> Vec<EventView> {
-        if effects.is_empty() || self.validate_runtime_effects(effects).is_err() {
-            return Vec::new();
-        }
-        let mut events = Vec::new();
-        for effect in effects {
-            match effect {
-                EffectDescriptor::AdvanceClock {
-                    clock_id,
-                    amount,
-                    reason,
-                } => events.extend(self.advance_clock(
-                    clock_id,
-                    *amount,
-                    actor_id,
-                    reason.as_deref().unwrap_or("job_contribution"),
-                )),
-                EffectDescriptor::SetTag {
-                    tag_id,
-                    scope,
-                    scope_id,
-                    label,
-                    kind,
-                    expires,
-                    reason,
-                } => {
-                    let tag = RpgTagState {
-                        id: tag_id.clone(),
-                        scope: scope.clone(),
-                        scope_id: *scope_id,
-                        label: label.clone(),
-                        kind: kind.clone(),
-                        active: true,
-                        source_event_seq: Some(source_event_seq),
-                        expires: expires.clone(),
-                    };
-                    if let Some(event) = self.set_rpg_tag(
-                        tag,
-                        actor_id,
-                        reason.as_deref().unwrap_or("job_contribution"),
-                    ) {
-                        events.push(event);
-                    }
-                }
-                EffectDescriptor::ClearTag { tag_id, reason } => {
-                    if let Some(event) = self.clear_rpg_tag(
-                        tag_id,
-                        actor_id,
-                        reason.as_deref().unwrap_or("job_contribution"),
-                    ) {
-                        events.push(event);
-                    }
-                }
-                EffectDescriptor::SetJobStatus {
-                    job_id,
-                    status,
-                    reason,
-                } => events.extend(self.set_job_status_events(
-                    job_id,
-                    status,
-                    actor_id,
-                    reason.as_deref().unwrap_or("job_contribution"),
-                )),
-            }
-        }
-        events
-    }
-
-    fn validate_clock_fill_effects(&self, effects: &[EffectDescriptor]) -> Result<(), String> {
-        self.validate_runtime_effects(effects)
-    }
-
-    fn validate_runtime_effects(&self, effects: &[EffectDescriptor]) -> Result<(), String> {
-        for effect in effects {
-            match effect {
-                EffectDescriptor::AdvanceClock {
-                    clock_id, amount, ..
-                } => {
-                    let Some(clock) = self.clocks.get(clock_id) else {
-                        return Err(format!("missing clock {clock_id}"));
-                    };
-                    if *amount == 0 || *amount > clock.segments.max(1) {
-                        return Err(format!("invalid clock amount {amount} for {clock_id}"));
-                    }
-                }
-                EffectDescriptor::SetTag {
-                    tag_id,
-                    scope,
-                    scope_id,
-                    label,
-                    kind,
-                    ..
-                } => {
-                    if tag_id.trim().is_empty() || label.trim().is_empty() {
-                        return Err("tag id and label are required".to_string());
-                    }
-                    if !tag_scope_is_allowed(scope) || !tag_kind_is_allowed(kind) {
-                        return Err(format!("invalid tag {scope}/{kind}"));
-                    }
-                    if scope == "actor" && self.actor_by_id(*scope_id).is_none() {
-                        return Err(format!("missing actor {scope_id}"));
-                    }
-                    if scope == "room" && self.location_name(*scope_id).is_none() {
-                        return Err(format!("missing room {scope_id}"));
-                    }
-                }
-                EffectDescriptor::ClearTag { tag_id, .. } => {
-                    if !self.tags.contains_key(tag_id) {
-                        return Err(format!("missing tag {tag_id}"));
-                    }
-                }
-                EffectDescriptor::SetJobStatus { job_id, status, .. } => {
-                    let Some(job) = self.jobs.get(job_id) else {
-                        return Err(format!("missing job {job_id}"));
-                    };
-                    let next = normalize_job_status(status)
-                        .ok_or_else(|| format!("invalid job status {status}"))?;
-                    let current = job.status.trim();
-                    if matches!(current, "completed" | "failed") && current != next {
-                        return Err(format!("illegal job status transition {current}->{next}"));
-                    }
-                }
-            }
-        }
-        Ok(())
     }
 
     fn set_rpg_tag(
@@ -13688,6 +13364,8 @@ impl RuntimeWorld {
                 CW_EVENT_ITEM_TRADED => return self.trade_event_context(event),
                 CW_EVENT_ITEM_PICKED_UP => return self.pickup_event_context(event),
                 CW_EVENT_ITEM_DROPPED => return self.drop_event_context(event),
+                CW_EVENT_ITEM_REVEALED => return self.search_found_event_context(event),
+                CW_EVENT_EXIT_UNLOCKED => return self.exit_unlocked_event_context(event),
                 CW_EVENT_ITEM_USED => return self.use_event_context(event),
                 CW_EVENT_ITEM_GIVEN => return self.give_event_context(event),
                 CW_EVENT_ACTOR_MOVED => return self.move_event_context(event),
@@ -13709,6 +13387,12 @@ impl RuntimeWorld {
         let item_name = self.item_name(event.item_id)?;
         let location_name = self.location_name(event.location_id)?;
         Some(format!("{item_name} turned up in {location_name}."))
+    }
+
+    fn exit_unlocked_event_context(&self, event: &CwEvent) -> Option<String> {
+        let from_name = self.location_name(event.location_id)?;
+        let to_name = self.location_name(event.destination_location_id)?;
+        Some(format!("The way from {from_name} to {to_name} opened."))
     }
 
     fn craft_event_context(&self, event: &CwEvent) -> Option<String> {
@@ -15492,12 +15176,14 @@ impl RuntimeWorld {
                         );
                     }
                 }
-                "item.found" | "item.picked_up" | "item.dropped" | "item.used" | "item.given"
-                | "item.traded" => {
+                "item.found" | "item.revealed" | "item.picked_up" | "item.dropped"
+                | "item.used" | "item.given" | "item.traded" => {
                     let Some(item_id) = event.item_id else {
                         continue;
                     };
-                    if !self.search_item_found(item_id) && event.type_name != "item.found" {
+                    if !self.search_item_found(item_id)
+                        && !matches!(event.type_name.as_str(), "item.found" | "item.revealed")
+                    {
                         continue;
                     }
                     let location_id = event
@@ -31956,7 +31642,8 @@ fn room_memory_label(event: &EventView) -> String {
         "feature.searched"
         | "location.searched"
         | "exit.discovered"
-        | "natural_feature.revealed" => "search",
+        | "natural_feature.revealed"
+        | "exit.unlocked" => "search",
         "ability_check.rolled" | "combat.attack.attempt" => "roll",
         "ledger.marked" => "ledger",
         "ledger.banked" => "bank",
@@ -31974,7 +31661,9 @@ fn room_memory_label(event: &EventView) -> String {
         "world.logistics.completed" => "delivery",
         "avatar.evolved" => "change",
         "item.picked_up" | "item.dropped" | "item.used" | "item.given" | "item.traded"
-        | "item.found" | "item.crafted" | "item.created" | "item.transformed" => "item",
+        | "item.found" | "item.revealed" | "item.crafted" | "item.created" | "item.transformed" => {
+            "item"
+        }
         type_name if type_name.starts_with("combat.") => "combat",
         _ => "event",
     }
@@ -32311,6 +32000,11 @@ fn room_memory_log_text_at_location(event: &EventView, location_id: u64) -> Opti
         ),
         "item.found" => format!(
             "{} found {}",
+            actor_name,
+            event.item_name.as_deref().unwrap_or("something small")
+        ),
+        "item.revealed" => format!(
+            "{} revealed {}",
             actor_name,
             event.item_name.as_deref().unwrap_or("something small")
         ),
@@ -39365,47 +39059,6 @@ fn action_offer_category(kind: &str) -> &'static str {
         "rest" => "recovery",
         "train_skill" | "revise_calling" | "revise_bond" => "growth",
         _ => "other",
-    }
-}
-
-fn effect_descriptor_reason(effect: &EffectDescriptor) -> Option<&str> {
-    match effect {
-        EffectDescriptor::AdvanceClock { reason, .. }
-        | EffectDescriptor::SetTag { reason, .. }
-        | EffectDescriptor::ClearTag { reason, .. }
-        | EffectDescriptor::SetJobStatus { reason, .. } => reason.as_deref(),
-    }
-}
-
-fn summarize_effects(effects: &[EffectDescriptor]) -> Option<String> {
-    let parts: Vec<_> = effects.iter().map(summarize_effect).collect();
-    (!parts.is_empty()).then(|| parts.join("; "))
-}
-
-fn summarize_effect(effect: &EffectDescriptor) -> String {
-    let summary = match effect {
-        EffectDescriptor::AdvanceClock {
-            clock_id, amount, ..
-        } => format!("advances {clock_id} by {amount}"),
-        EffectDescriptor::SetTag {
-            scope,
-            scope_id,
-            label,
-            ..
-        } => format!("sets {scope} tag {label} on {scope_id}"),
-        EffectDescriptor::ClearTag { tag_id, .. } => format!("clears tag {tag_id}"),
-        EffectDescriptor::SetJobStatus { job_id, status, .. } => {
-            let status = normalize_job_status(status).unwrap_or(status);
-            format!("sets job {job_id} to {status}")
-        }
-    };
-    if let Some(reason) = effect_descriptor_reason(effect)
-        .map(str::trim)
-        .filter(|reason| !reason.is_empty())
-    {
-        format!("{summary} ({reason})")
-    } else {
-        summary
     }
 }
 
@@ -61411,6 +61064,276 @@ mod tests {
             Some(selected_archetype_id.as_str())
         );
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn unknown_clock_fill_effect_rejects_the_whole_staged_list() {
+        let mut runtime = RuntimeWorld::seeded();
+        let unknown: EffectDescriptor =
+            serde_json::from_value(serde_json::json!({"op": "future_world_effect"}))
+                .expect("unknown op remains representable for fail-closed runtime handling");
+        assert_eq!(unknown, EffectDescriptor::Unknown);
+        insert_effect_test_clock(
+            &mut runtime,
+            "test:unknown-effect",
+            vec![
+                EffectDescriptor::SetTag {
+                    tag_id: "test:must-not-apply".to_string(),
+                    scope: "room".to_string(),
+                    scope_id: COSY_COTTAGE_LOCATION_ID,
+                    label: "must not apply".to_string(),
+                    kind: "aspect".to_string(),
+                    expires: None,
+                    reason: Some("staged_validation_test".to_string()),
+                },
+                unknown,
+            ],
+        );
+
+        let events = runtime.advance_clock("test:unknown-effect", 1, 1001, "unknown_effect_test");
+
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "clock.fill_effect_rejected"));
+        assert!(!events.iter().any(|event| event.type_name == "tag.applied"));
+        assert!(!runtime.tags.contains_key("test:must-not-apply"));
+        assert_eq!(runtime.clocks["test:unknown-effect"].filled, 1);
+    }
+
+    #[test]
+    fn clock_fill_kernel_rejection_keeps_prior_projection_and_emits_partial() {
+        let mut runtime = RuntimeWorld::seeded();
+        let exit = runtime.world.exits[..runtime.world.exit_count]
+            .iter_mut()
+            .find(|exit| {
+                exit.from_location_id == COSY_COTTAGE_LOCATION_ID && exit.to_location_id == 2
+            })
+            .expect("seed cottage exit");
+        exit.flags |= CW_EXIT_LOCKED;
+        let unlock = EffectDescriptor::UnlockExit {
+            from_location_id: COSY_COTTAGE_LOCATION_ID,
+            to_location_id: 2,
+            reason: Some("pathway_edge_revealed".to_string()),
+        };
+        insert_effect_test_clock(
+            &mut runtime,
+            "test:partial-effect",
+            vec![
+                EffectDescriptor::SetTag {
+                    tag_id: "test:projection-stands".to_string(),
+                    scope: "room".to_string(),
+                    scope_id: COSY_COTTAGE_LOCATION_ID,
+                    label: "projection stands".to_string(),
+                    kind: "aspect".to_string(),
+                    expires: None,
+                    reason: Some("partial_effect_test".to_string()),
+                },
+                unlock.clone(),
+                unlock,
+            ],
+        );
+
+        let events = runtime.advance_clock("test:partial-effect", 1, 1001, "partial_effect_test");
+
+        assert!(runtime
+            .tags
+            .get("test:projection-stands")
+            .is_some_and(|tag| tag.active));
+        assert_eq!(
+            runtime.world.exits[..runtime.world.exit_count]
+                .iter()
+                .find(|exit| {
+                    exit.from_location_id == COSY_COTTAGE_LOCATION_ID && exit.to_location_id == 2
+                })
+                .map(|exit| exit.flags & CW_EXIT_LOCKED),
+            Some(0)
+        );
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "exit.unlocked"));
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "rule.rejected"));
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "clock.fill_effect_partial"));
+    }
+
+    #[test]
+    fn unlock_exit_fails_closed_during_staged_resolution() {
+        let mut runtime = RuntimeWorld::seeded();
+        insert_effect_test_clock(
+            &mut runtime,
+            "test:already-open-exit",
+            vec![EffectDescriptor::UnlockExit {
+                from_location_id: COSY_COTTAGE_LOCATION_ID,
+                to_location_id: 2,
+                reason: Some("already_open_test".to_string()),
+            }],
+        );
+
+        let events = runtime.advance_clock("test:already-open-exit", 1, 1001, "already_open_test");
+
+        assert!(events
+            .iter()
+            .any(|event| event.type_name == "clock.fill_effect_rejected"));
+        assert!(!events
+            .iter()
+            .any(|event| event.type_name == "rule.rejected"));
+        assert!(!events
+            .iter()
+            .any(|event| event.type_name == "exit.unlocked"));
+    }
+
+    #[test]
+    fn reveal_item_effect_respects_the_single_floor_slot() {
+        let mut runtime = RuntimeWorld::seeded();
+        let hidden_item = runtime.world.items[..runtime.world.item_count]
+            .iter_mut()
+            .find(|item| item.id == 2005)
+            .expect("seed reveal item");
+        hidden_item.holder_actor_id = 0;
+        hidden_item.location_id = 0;
+        hidden_item.zone = CW_CARD_ZONE_WORLD;
+        assert!(!runtime.room_floor_empty(COSY_COTTAGE_LOCATION_ID));
+        assert_eq!(
+            runtime.world.items[..runtime.world.item_count]
+                .iter()
+                .find(|item| item.id == 2005)
+                .map(|item| item.location_id),
+            Some(0)
+        );
+        insert_effect_test_clock(
+            &mut runtime,
+            "test:blocked-reveal",
+            vec![EffectDescriptor::RevealItem {
+                item_id: 2005,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                reason: Some("blocked_reveal_test".to_string()),
+            }],
+        );
+        let blocked = runtime.advance_clock("test:blocked-reveal", 1, 1001, "blocked_reveal_test");
+        assert!(blocked
+            .iter()
+            .any(|event| event.type_name == "clock.fill_effect_rejected"));
+        assert_eq!(
+            runtime.world.items[..runtime.world.item_count]
+                .iter()
+                .find(|item| item.id == 2005)
+                .map(|item| item.location_id),
+            Some(0)
+        );
+
+        runtime.hide_loose_items_at_location(COSY_COTTAGE_LOCATION_ID);
+        assert!(runtime.room_floor_empty(COSY_COTTAGE_LOCATION_ID));
+        insert_effect_test_clock(
+            &mut runtime,
+            "test:successful-reveal",
+            vec![EffectDescriptor::RevealItem {
+                item_id: 2005,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                reason: Some("successful_reveal_test".to_string()),
+            }],
+        );
+        let revealed =
+            runtime.advance_clock("test:successful-reveal", 1, 1001, "successful_reveal_test");
+        assert!(revealed
+            .iter()
+            .any(|event| event.type_name == "item.revealed"));
+        assert_eq!(
+            runtime
+                .loose_items_at_location(COSY_COTTAGE_LOCATION_ID)
+                .iter()
+                .map(|item| item.id)
+                .collect::<Vec<_>>(),
+            vec![2005]
+        );
+    }
+
+    #[test]
+    fn clock_fill_authoritative_effect_replays_identically() {
+        let mut initial = RuntimeWorld::seeded();
+        let exit = initial.world.exits[..initial.world.exit_count]
+            .iter_mut()
+            .find(|exit| {
+                exit.from_location_id == COSY_COTTAGE_LOCATION_ID && exit.to_location_id == 2
+            })
+            .expect("seed cottage exit");
+        exit.flags |= CW_EXIT_LOCKED;
+        insert_effect_test_clock(
+            &mut initial,
+            "test:pathway-edge-clock",
+            vec![EffectDescriptor::UnlockExit {
+                from_location_id: COSY_COTTAGE_LOCATION_ID,
+                to_location_id: 2,
+                reason: Some("pathway_edge_revealed".to_string()),
+            }],
+        );
+        let mut replay = RuntimeWorld::seeded();
+        let replay_exit = replay.world.exits[..replay.world.exit_count]
+            .iter_mut()
+            .find(|exit| {
+                exit.from_location_id == COSY_COTTAGE_LOCATION_ID && exit.to_location_id == 2
+            })
+            .expect("replay seed cottage exit");
+        replay_exit.flags |= CW_EXIT_LOCKED;
+        insert_effect_test_clock(
+            &mut replay,
+            "test:pathway-edge-clock",
+            vec![EffectDescriptor::UnlockExit {
+                from_location_id: COSY_COTTAGE_LOCATION_ID,
+                to_location_id: 2,
+                reason: Some("pathway_edge_revealed".to_string()),
+            }],
+        );
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 1001,
+                ..CwAction::default()
+            },
+            8842,
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: "test:pathway-edge-clock".to_string(),
+                amount: 1,
+                reason: "pathway_search".to_string(),
+            });
+
+        let left = initial.apply_journal_record(&record);
+        let right = replay.apply_journal_record(&record);
+
+        assert_eq!(left.0, CW_OK);
+        assert_eq!(right.0, CW_OK);
+        assert_eq!(
+            serde_json::to_value(&left.1).expect("serialize first replay events"),
+            serde_json::to_value(&right.1).expect("serialize second replay events")
+        );
+        assert_eq!(
+            initial.world.exits[..initial.world.exit_count]
+                .iter()
+                .find(|exit| {
+                    exit.from_location_id == COSY_COTTAGE_LOCATION_ID && exit.to_location_id == 2
+                })
+                .map(|exit| exit.flags),
+            replay.world.exits[..replay.world.exit_count]
+                .iter()
+                .find(|exit| {
+                    exit.from_location_id == COSY_COTTAGE_LOCATION_ID && exit.to_location_id == 2
+                })
+                .map(|exit| exit.flags)
+        );
+        assert_eq!(
+            initial.clocks["test:pathway-edge-clock"].filled,
+            replay.clocks["test:pathway-edge-clock"].filled
+        );
+        assert!(initial
+            .rpg_claims
+            .iter()
+            .any(|claim| claim.starts_with("clock_fill:test:pathway-edge-clock:")));
+        assert_eq!(initial.rpg_claims, replay.rpg_claims);
     }
 
     #[test]

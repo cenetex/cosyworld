@@ -17,7 +17,7 @@ pub const CW_MAX_COMBAT_ENCOUNTERS: usize = 32;
 pub const CW_MAX_COMBAT_PARTICIPANTS: usize = 16;
 pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
-pub const CW_KERNEL_VERSION: u32 = 6;
+pub const CW_KERNEL_VERSION: u32 = 7;
 
 pub const CW_OK: u32 = 0;
 pub const CW_ERR_RULE: u32 = 4;
@@ -104,6 +104,8 @@ pub const CW_ACTION_RULES_INFLUENCE: u8 = 24;
 pub const CW_ACTION_THEFT: u8 = 25;
 pub const CW_ACTION_COMBAT_PASS: u8 = 26;
 pub const CW_ACTION_COMBAT_NEED_TIME: u8 = 27;
+pub const CW_ACTION_UNLOCK_EXIT: u8 = 28;
+pub const CW_ACTION_REVEAL_ITEM: u8 = 29;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;
@@ -133,6 +135,8 @@ pub const CW_EVENT_COMBAT_NEED_TIME: u8 = 35;
 pub const CW_EVENT_ITEM_CONSUMED: u8 = 36;
 pub const CW_EVENT_ITEM_EXHAUSTED: u8 = 37;
 pub const CW_EVENT_ITEM_TRANSFORMED: u8 = 38;
+pub const CW_EVENT_EXIT_UNLOCKED: u8 = 39;
+pub const CW_EVENT_ITEM_REVEALED: u8 = 40;
 
 pub const CW_CRAFT_INPUT_PERSISTS: u8 = 0;
 pub const CW_CRAFT_INPUT_CONSUMED: u8 = 1;
