@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "0.0.168",
+  "version": "0.0.169",
   "description": "Shared AI MUD runtime with a deterministic C kernel and Rust orchestrator",
   "type": "module",
   "private": true,
@@ -31,6 +31,7 @@
     "v2:worldpack:compile": "node v2/scripts/compile-worldpack.mjs",
     "v2:worldpack:lock": "node v2/scripts/compile-worldpack.mjs --write-lock",
     "v2:content-refs:migrate": "node v2/scripts/migrate-content-references.mjs",
+    "v2:pack:mount": "node v2/scripts/migrate-pack-unmount.mjs --operation mount",
     "v2:pack:unmount": "node v2/scripts/migrate-pack-unmount.mjs",
     "v2:srd:import": "node v2/scripts/import-srd-5.1.mjs && node v2/scripts/import-srd-5.2.1.mjs",
     "v2:srd:check": "node v2/scripts/import-srd-5.1.mjs --check && node v2/scripts/import-srd-5.2.1.mjs --check",
