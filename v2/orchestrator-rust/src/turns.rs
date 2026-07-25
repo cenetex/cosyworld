@@ -5,6 +5,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::net::SocketAddr;
+use std::time::{Duration, Instant};
 
 use super::*;
 
@@ -33,6 +34,18 @@ pub(super) struct FocusedEncounterJournalContext {
     pub(super) profile_id: String,
     pub(super) profile_version: u16,
     pub(super) activation_step: FocusedActivationStep,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct FocusedEncounterOfferContext {
+    pub(super) protocol: String,
+    pub(super) encounter_id: u64,
+    pub(super) profile_id: String,
+    pub(super) profile_version: u16,
+    pub(super) activation_step: FocusedActivationStep,
+    pub(super) current_actor_id: u64,
+    pub(super) round: u64,
+    pub(super) handoff_key: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -139,6 +152,33 @@ pub(super) struct FocusedEncounterView {
 }
 
 impl FocusedEncounterView {
+    fn handoff_key(&self) -> String {
+        format!(
+            "{}:{}:{}:{}:{}",
+            self.profile_id,
+            self.profile_version,
+            self.encounter_id,
+            self.round,
+            self.current_actor_id
+        )
+    }
+
+    fn offer_context(
+        &self,
+        activation_step: FocusedActivationStep,
+    ) -> FocusedEncounterOfferContext {
+        FocusedEncounterOfferContext {
+            protocol: self.protocol.to_string(),
+            encounter_id: self.encounter_id,
+            profile_id: self.profile_id.clone(),
+            profile_version: self.profile_version,
+            activation_step,
+            current_actor_id: self.current_actor_id,
+            round: self.round,
+            handoff_key: self.handoff_key(),
+        }
+    }
+
     fn validate(&self) -> Result<(), &'static str> {
         if self.schema_version != FOCUSED_ENCOUNTER_SCHEMA_VERSION
             || self.protocol != FOCUSED_ENCOUNTER_PROTOCOL
@@ -395,6 +435,28 @@ pub(super) fn combat_need_time_used(
     })
 }
 
+pub(super) fn active_actor_ids_for_focused_grace(
+    state: &AppState,
+    grace_period_ms: u64,
+) -> BTreeSet<u64> {
+    let active_window = Duration::from_millis(grace_period_ms);
+    let mut ids = active_actor_ids_with_window(&state.actor_sessions, active_window);
+    if let Ok(mut presence) = state.regional_presence.lock() {
+        let now = Instant::now();
+        presence.retain(|_, state| {
+            now.saturating_duration_since(state.last_seen_at) <= ACTIVE_ACTOR_WINDOW
+        });
+        ids.extend(presence.iter().filter_map(|(actor_id, state)| {
+            (state.active && now.saturating_duration_since(state.last_seen_at) <= active_window)
+                .then_some(*actor_id)
+        }));
+    }
+    if let Ok(suspensions) = state.actor_suspensions.lock() {
+        ids.retain(|id| !suspensions.contains_key(id));
+    }
+    ids
+}
+
 fn focused_combat_encounter(runtime: &RuntimeWorld, actor_id: u64) -> Option<FocusedEncounterView> {
     let encounter = runtime.active_combat_encounter_for_actor(actor_id)?;
     let job_id = runtime.combat_job_id_for_encounter(encounter.id)?;
@@ -442,6 +504,19 @@ fn focused_combat_encounter(runtime: &RuntimeWorld, actor_id: u64) -> Option<Foc
     Some(focused)
 }
 
+pub(super) fn focused_encounter_offer_context(
+    runtime: &RuntimeWorld,
+    actor_id: u64,
+    offer_kind: &str,
+) -> Option<FocusedEncounterOfferContext> {
+    let activation_step = match offer_kind {
+        "attack" | "defend" | "flee" => FocusedActivationStep::Commit,
+        _ => return None,
+    };
+    let focused = focused_combat_encounter(runtime, actor_id)?;
+    (focused.current_actor_id == actor_id).then(|| focused.offer_context(activation_step))
+}
+
 pub(super) fn combat_turn_view(
     runtime: &RuntimeWorld,
     actor_id: u64,
@@ -477,10 +552,7 @@ pub(super) fn combat_turn_view(
                 .unwrap_or_default(),
         ),
         need_time_extension_ms: ORDERED_SCENE_NEED_TIME_MS,
-        handoff_key: Some(format!(
-            "combat:{}:{}:{}",
-            focused.encounter_id, focused.round, current_actor_id
-        )),
+        handoff_key: Some(focused.handoff_key()),
         can_request_timeout: false,
         timeout_requests: Vec::new(),
         waiting_actor_ids,
@@ -849,6 +921,44 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&turn).expect("focused turn serializes")["focused"]["protocol"],
             FOCUSED_ENCOUNTER_PROTOCOL
+        );
+
+        let offered = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| offer.kind == "attack")
+            .expect("current actor receives a certified attack");
+        let reconnected = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("focused encounter reconnects from its snapshot");
+        let reconnected_offer = reconnected
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| offer.kind == "attack")
+            .expect("reconnect projects the current attack");
+        assert_eq!(reconnected_offer.offer_id, offered.offer_id);
+        assert_eq!(reconnected_offer.composition_id, offered.composition_id);
+        assert_eq!(
+            reconnected_offer.composition_trace.focused_encounter,
+            offered.composition_trace.focused_encounter
+        );
+
+        let pass = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_PASS,
+                actor_id: 5000,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            81_002,
+        )
+        .into_player_card();
+        assert_eq!(runtime.apply_journal_record(&pass).0, CW_OK);
+        assert!(
+            runtime.plan_combat_offer_action(5000, &offered).is_err(),
+            "the prior turn certificate expires after Pass"
         );
     }
 

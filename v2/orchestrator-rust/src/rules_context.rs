@@ -13,6 +13,8 @@ pub(super) struct ActionCompositionTraceView {
     pub(super) rules_pack_version: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) rules_context: Option<SceneRulesContextView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) focused_encounter: Option<FocusedEncounterOfferContext>,
     pub(super) source_card_instances: Vec<ActionSourceCollectibleView>,
     pub(super) target: Option<ActionTargetView>,
     pub(super) applied_variants: Vec<String>,
@@ -118,6 +120,7 @@ impl RuntimeWorld {
             rules_pack_id: binding.pack_id.clone(),
             rules_pack_version: binding.pack_version.clone(),
             rules_context,
+            focused_encounter: None,
             source_card_instances: contributions.source_card_instances,
             target: contributions.target,
             applied_variants: content.manifest.active_rules_variants.clone(),

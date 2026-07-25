@@ -497,6 +497,124 @@ fn drive_combat_inference_turns(
     Ok(CW_OK)
 }
 
+fn drive_available_combat_turns(
+    state: &AppState,
+    runtime: &mut RuntimeWorld,
+    encounter_id: u64,
+    requesting_actor_id: u64,
+    events: &mut Vec<EventView>,
+) -> io::Result<u32> {
+    for _ in 0..CW_MAX_COMBAT_PARTICIPANTS {
+        let status = drive_combat_inference_turns(state, runtime, encounter_id, events)?;
+        if status != CW_OK {
+            return Ok(status);
+        }
+        let Some(current_actor_id) = runtime.combat_current_actor_id(encounter_id) else {
+            return Ok(CW_OK);
+        };
+        let grace_period_ms = ORDERED_SCENE_BASE_GRACE_MS.saturating_add(
+            if combat_need_time_used(runtime, encounter_id, current_actor_id) {
+                ORDERED_SCENE_NEED_TIME_MS
+            } else {
+                0
+            },
+        );
+        let active_direct_actors = active_actor_ids_for_focused_grace(state, grace_period_ms);
+        if current_actor_id == requesting_actor_id
+            || runtime.actor_uses_inference(current_actor_id)
+            || active_direct_actors.contains(&current_actor_id)
+        {
+            return Ok(CW_OK);
+        }
+        let record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_PASS,
+                actor_id: current_actor_id,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            runtime.next_seed_value(),
+        )
+        .into_system();
+        let (status, pass_events) = commit_journal_record(state, runtime, record)?;
+        events.extend(pass_events);
+        if status != CW_OK {
+            return Ok(status);
+        }
+    }
+    Ok(CW_ERR_RULE)
+}
+
+fn focused_combat_turn_needs_recovery(
+    state: &AppState,
+    runtime: &RuntimeWorld,
+    encounter_id: u64,
+) -> bool {
+    let Some(encounter) = runtime.active_combat_encounter(encounter_id) else {
+        return false;
+    };
+    let Some(current_actor_id) = runtime.combat_current_actor_id(encounter_id) else {
+        return false;
+    };
+    if runtime.actor_uses_inference(current_actor_id) {
+        return true;
+    }
+    let grace_period_ms = ORDERED_SCENE_BASE_GRACE_MS.saturating_add(
+        if combat_need_time_used(runtime, encounter_id, current_actor_id) {
+            ORDERED_SCENE_NEED_TIME_MS
+        } else {
+            0
+        },
+    );
+    let active_direct_actors = active_actor_ids_for_focused_grace(state, grace_period_ms);
+    if active_direct_actors.contains(&current_actor_id) {
+        return false;
+    }
+    encounter.participants[..encounter.participant_count]
+        .iter()
+        .filter(|participant| participant.flags & CW_COMBAT_PARTICIPANT_ESCAPED == 0)
+        .map(|participant| participant.actor_id)
+        .any(|actor_id| {
+            runtime.actor_uses_inference(actor_id) || active_direct_actors.contains(&actor_id)
+        })
+}
+
+async fn recover_available_combat_turns(state: &AppState) -> io::Result<Vec<EventView>> {
+    let mut runtime = state.inner.lock().await;
+    let encounter_ids = runtime.world.combat_encounters[..runtime.world.combat_encounter_count]
+        .iter()
+        .map(|encounter| encounter.id)
+        .filter(|encounter_id| runtime.active_combat_encounter(*encounter_id).is_some())
+        .collect::<Vec<_>>();
+    let mut events = Vec::new();
+    for encounter_id in encounter_ids {
+        if !focused_combat_turn_needs_recovery(state, &runtime, encounter_id) {
+            continue;
+        }
+        let status =
+            drive_available_combat_turns(state, &mut runtime, encounter_id, 0, &mut events)?;
+        if status != CW_OK {
+            return Err(io::Error::other(format!(
+                "focused encounter {encounter_id} recovery failed with status {status}"
+            )));
+        }
+    }
+    Ok(events)
+}
+
+pub(super) fn start_focused_encounter_scheduler(state: AppState) {
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            match recover_available_combat_turns(&state).await {
+                Ok(events) if !events.is_empty() => broadcast_events(&state, &events),
+                Ok(_) => {}
+                Err(error) => warn!("focused encounter recovery failed: {error}"),
+            }
+        }
+    });
+}
+
 pub(super) async fn apply_combat_choice(
     state: AppState,
     actor_id: u64,
@@ -642,11 +760,16 @@ pub(super) async fn apply_combat_choice(
         }
     }
 
-    let inference_status =
-        match drive_combat_inference_turns(&state, &mut runtime, encounter_id, &mut events) {
-            Ok(status) => status,
-            Err(_) => 500,
-        };
+    let inference_status = match drive_available_combat_turns(
+        &state,
+        &mut runtime,
+        encounter_id,
+        actor_id,
+        &mut events,
+    ) {
+        Ok(status) => status,
+        Err(_) => 500,
+    };
     if inference_status != CW_OK {
         drop(runtime);
         broadcast_events(&state, &released_events);
@@ -768,8 +891,13 @@ pub(super) async fn apply_combat_choice(
     };
     events.extend(player_events);
     if status == CW_OK {
-        status = match drive_combat_inference_turns(&state, &mut runtime, encounter_id, &mut events)
-        {
+        status = match drive_available_combat_turns(
+            &state,
+            &mut runtime,
+            encounter_id,
+            actor_id,
+            &mut events,
+        ) {
             Ok(inference_status) => inference_status,
             Err(_) => 500,
         };
@@ -807,7 +935,7 @@ pub(super) async fn apply_combat_choice(
     })
 }
 
-fn combat_join_action(actor_id: u64, encounter_id: u64) -> CwAction {
+pub(super) fn combat_join_action(actor_id: u64, encounter_id: u64) -> CwAction {
     CwAction {
         kind: CW_ACTION_COMBAT_JOIN,
         actor_id,
@@ -908,6 +1036,120 @@ mod tests {
         assert_eq!(action.actor_id, 5001);
         assert_eq!(action.content_id, 9001);
         assert_eq!(action.modifier, 1);
+    }
+
+    #[tokio::test]
+    async fn focused_scheduler_replayably_passes_unavailable_direct_participants() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Present Companion",
+        );
+        create_test_human(
+            &mut runtime,
+            5001,
+            MOONLIT_TRAIL_LOCATION_ID,
+            "Unavailable Companion",
+        );
+        for (actor_id, dexterity) in [(5000, 100), (5001, 50), (1004, 1)] {
+            let actor = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(runtime.world.actor_count)
+                .find(|actor| actor.id == actor_id)
+                .expect("focused scheduler participant");
+            actor.stats.dexterity = dexterity;
+            actor.stats.hp_base = 100;
+            runtime
+                .actor_autonomy
+                .entry(actor_id)
+                .or_default()
+                .control_mode = ActorControlMode::DirectInput;
+        }
+        let encounter_id = combat_encounter_id(MOONLIT_JOB_ID);
+        let start = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_START,
+                actor_id: 5000,
+                target_actor_id: 1004,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            71_910,
+        )
+        .into_system();
+        assert_eq!(runtime.apply_journal_record(&start).0, CW_OK);
+        assert_eq!(
+            runtime
+                .apply_journal_record(
+                    &JournalRecord::new(combat_join_action(5001, encounter_id), 71_911)
+                        .into_system()
+                )
+                .0,
+            CW_OK
+        );
+        let pass = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_PASS,
+                actor_id: 5000,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            71_912,
+        )
+        .into_player_card();
+        assert_eq!(runtime.apply_journal_record(&pass).0, CW_OK);
+        assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(5001));
+
+        let replay_base = RuntimeSnapshot::from_runtime(&runtime);
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-focused-recovery-{}-{}.sqlite",
+            std::process::id(),
+            now_seed()
+        ));
+        let _ = fs::remove_file(&path);
+        let state = test_app_state(runtime, Some(path.clone()));
+        assert!(
+            recover_available_combat_turns(&state)
+                .await
+                .expect("idle recovery succeeds")
+                .is_empty(),
+            "a scene with nobody available must not churn Pass records"
+        );
+
+        let (session, _) = issue_actor_session(&state, 5000);
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &session),
+            Some(5000)
+        );
+        let events = recover_available_combat_turns(&state)
+            .await
+            .expect("focused scheduler recovery succeeds");
+        assert!(events
+            .iter()
+            .any(|event| { event.type_name == "combat.pass" && event.actor_id == Some(5001) }));
+        let runtime = state.inner.lock().await;
+        assert_eq!(runtime.combat_current_actor_id(encounter_id), Some(5000));
+        drop(runtime);
+
+        let journal = read_action_journal(&path).expect("focused recovery journal");
+        assert!(journal.iter().any(|record| {
+            record.action.kind == CW_ACTION_COMBAT_PASS
+                && record.action.actor_id == 5001
+                && record.origin == JournalOrigin::System
+                && record.focused_encounter.is_some()
+        }));
+        let mut replayed = replay_base
+            .into_runtime()
+            .expect("focused recovery checkpoint restores");
+        for record in &journal {
+            assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
+        }
+        assert_eq!(replayed.combat_current_actor_id(encounter_id), Some(5000));
+        let _ = fs::remove_file(path);
     }
 
     #[test]
