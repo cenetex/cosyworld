@@ -78,7 +78,7 @@ Ordered. Priorities 1–3 are the foundation everything else builds on.
 
 ### 1. Decompose the orchestrator
 
-`v2/orchestrator-rust/src/main.rs` is ~39,000 lines. `routes.rs`, `mud.rs`, `kernel.rs`, and `turns.rs` are extracted — `turns.rs` is the model: a system that arrived as its own module with its own tests. Continue along the seams that exist:
+`v2/orchestrator-rust/src/main.rs` remains oversized. `routes.rs`, `mud.rs`, `kernel.rs`, and `turns.rs` are extracted — `turns.rs` is the model: a system that arrived as its own module with its own tests. Continue along the seams that exist:
 
 - `world/` — world projection, presence, placement, resident autonomy.
 - `cards.rs` — card projection and asset resolution.
@@ -88,7 +88,7 @@ Ordered. Priorities 1–3 are the foundation everything else builds on.
 - `persistence.rs` — journal, events, snapshot, sessions.
 - `moderation.rs` — reports, suspension, protected views.
 
-Rule going forward: **no major new system lands in `main.rs`.** The one-slot kernel work, crafting, media jobs, and the ownership chain each arrive as modules. Decomposition is mechanical (move code, keep tests green under `./v2/mvp.sh check`), not a rewrite.
+Rule going forward: **no major new system lands in `main.rs`.** `npm run v2:architecture` ratchets its total physical line count, including inline tests, and the Rust clippy warning count. Extracted systems take their tests with them. A deliberate exception must raise the matching ceiling in the same reviewed diff; every shrink lowers it again. The one-slot kernel work, crafting, media jobs, and the ownership chain each arrive as modules. Decomposition is mechanical (move code, keep tests green under `./v2/mvp.sh check`), not a rewrite.
 
 ### 2. The one-slot world
 

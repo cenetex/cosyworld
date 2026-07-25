@@ -15,28 +15,30 @@ function getRepoRoot() {
 }
 
 function resolveHooksDir(repoRoot) {
-  let hooksDir = path.join(repoRoot, '.git', 'hooks');
   try {
     const configured = execFileSync('git', ['config', '--local', 'core.hooksPath'], { encoding: 'utf8' })
       .toString()
       .trim();
     if (configured) {
-      hooksDir = path.isAbsolute(configured) ? configured : path.resolve(repoRoot, configured);
+      return path.isAbsolute(configured) ? configured : path.resolve(repoRoot, configured);
     }
   } catch {
     // Ignore missing configuration.
   }
-  return hooksDir;
+  try {
+    const resolved = execFileSync('git', ['rev-parse', '--git-path', 'hooks'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    }).trim();
+    return path.isAbsolute(resolved) ? resolved : path.resolve(repoRoot, resolved);
+  } catch {
+    return path.join(repoRoot, '.git', 'hooks');
+  }
 }
 
 function installHooks() {
   const repoRoot = getRepoRoot();
   if (!repoRoot) {
-    return;
-  }
-
-  const gitDir = path.join(repoRoot, '.git');
-  if (!existsSync(gitDir)) {
     return;
   }
 
