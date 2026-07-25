@@ -1691,13 +1691,26 @@ async function main() {
           kind: "use_feature",
           options: [{ kind: "use_feature" }, { kind: "use_item" }, { kind: "chat" }],
         },
-        action_offers: [{
-          kind: "use_feature",
-          command: "use Hearth Tonic on Hearth",
-          rank: 20,
-          target: { kind: "feature", id: 1, label: "Hearth" },
-          effect: "the hearth's warmth keeps trouble back",
-        }],
+        action_offers: [
+          {
+            offer_id: "use_feature:2001:1:hearth",
+            kind: "use_feature",
+            command: "use Hearth Tonic on Hearth",
+            rank: 20,
+            provider: { kind: "item", id: "item:2001", label: "Hearth Tonic", priority: 20 },
+            target: { kind: "feature", id: 1, label: "Hearth" },
+            effect: "the hearth's warmth keeps trouble back",
+          },
+          {
+            offer_id: "use_item:2001:5000",
+            kind: "use_item",
+            command: "use Hearth Tonic on Lantern Stitch",
+            rank: 20,
+            provider: { kind: "item", id: "item:2001", label: "Hearth Tonic", priority: 20 },
+            target: { kind: "actor", id: 5000, label: "Lantern Stitch" },
+            effect: "Lantern Stitch may feel steadier",
+          },
+        ],
         economy: { orbs: 1, can_chat_with_orbs: true, listen_attempted_here: true },
         room_features: [{
           key: "hearth",

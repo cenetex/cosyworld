@@ -5129,40 +5129,45 @@
         }
       }
       if (options.has("use_feature")) {
-        const offer = offerFor("use_feature");
-        const command = String(offer?.command || "");
-        const commandLower = command.toLowerCase();
-        const item = heldItems.find((candidate) => commandLower.includes(String(candidate.name || "").toLowerCase()));
-        const targetLabel = String(offer?.target?.label || "");
-        const feature = (view.room_features || []).find((candidate) => (
-          String(candidate.name || "").toLowerCase() === targetLabel.toLowerCase()
-            || commandLower.includes(String(candidate.name || "").toLowerCase())
+        const featureOffers = (state?.action_offers || []).filter((offer) => (
+          offer.kind === "use_feature"
+            && offer?.provider?.id?.startsWith("item:")
+            && offer?.target?.kind === "feature"
         ));
-        const featureName = String(feature?.name || targetLabel).trim();
-        const featureKey = String(feature?.key || featureName)
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "_")
-          .replace(/^_|_$/g, "");
-        const effect = String(offer?.effect || "").trim();
-        if (item && featureName && featureKey && command && effect) {
-          built.push({
-            ...semanticAction(offer, "use"),
-            label: "use",
-            detail: `${item.name} with ${featureName}`,
-            command,
-            focusKey: `use-feature:${featureKey}:${item.id}`,
-            focusKeys: [`item:${item.id}`, `location:${currentLocationId}`],
-            card: cardForItem(item.id),
-            shape: "item",
-            useChoiceKind: "feature",
-            itemName: item.name,
-            featureName,
-            priority: Number.isFinite(Number(offer?.rank)) ? Number(offer.rank) : 20,
-            modalTitle: `use ${item.name} with ${featureName}`,
-            modalSummary: `See what ${item.name} awakens in ${featureName}.`,
-            effect,
-            run: () => runCommandText(command),
-          });
+        for (const offer of featureOffers) {
+          const itemId = Number(String(offer.provider.id).slice("item:".length));
+          const item = heldItems.find((candidate) => Number(candidate.id) === itemId);
+          const command = String(offer?.command || "");
+          const targetLabel = String(offer?.target?.label || "");
+          const feature = (view.room_features || []).find((candidate) => (
+            String(candidate.name || "").toLowerCase() === targetLabel.toLowerCase()
+          ));
+          const featureName = String(feature?.name || targetLabel).trim();
+          const featureKey = String(feature?.key || featureName)
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "_")
+            .replace(/^_|_$/g, "");
+          const effect = String(offer?.effect || "").trim();
+          if (item && featureName && featureKey && command && effect) {
+            built.push({
+              ...semanticAction(offer, "use"),
+              label: "use",
+              detail: `${item.name} with ${featureName}`,
+              command,
+              focusKey: `use-feature:${featureKey}:${item.id}`,
+              focusKeys: [`item:${item.id}`, `location:${currentLocationId}`],
+              card: cardForItem(item.id),
+              shape: "item",
+              useChoiceKind: "feature",
+              itemName: item.name,
+              featureName,
+              priority: Number.isFinite(Number(offer?.rank)) ? Number(offer.rank) : 20,
+              modalTitle: `use ${item.name} with ${featureName}`,
+              modalSummary: `See what ${item.name} awakens in ${featureName}.`,
+              effect,
+              run: () => runCommandText(command),
+            });
+          }
         }
       }
       const routeExits = (view.exits || []).filter((exit) => (
@@ -5269,9 +5274,19 @@
         }
       }
       if (options.has("use_item")) {
+        const useItemOffers = (state?.action_offers || []).filter((offer) => (
+          offer.kind === "use_item"
+            && offer?.provider?.id?.startsWith("item:")
+            && offer?.target?.kind === "actor"
+        ));
         const useCandidates = [];
         for (const item of heldUsableItems) {
           usableTargets.forEach((target) => {
+            const offer = useItemOffers.find((candidate) => (
+              candidate.provider.id === `item:${item.id}`
+                && Number(candidate.target.id) === Number(target.id)
+            ));
+            if (!offer) return;
             const request = target.economy?.request || null;
             const requested = Number(request?.item_id || 0) === Number(item.id || 0);
             useCandidates.push({
@@ -5281,6 +5296,7 @@
               targetName: actorLabel(target),
               requested,
               reason: requested ? String(request.reason || "").trim() : "",
+              offer,
             });
           });
         }
@@ -5293,7 +5309,7 @@
           const firstUse = useCandidates[0];
           const oneUse = useCandidates.length === 1;
           const sameItem = useCandidates.every((candidate) => candidate.item.id === firstUse.item.id);
-          const useOffer = offerFor("use_item");
+          const useOffer = firstUse.offer;
           const useAction = {
             ...semanticAction(useOffer, "use"),
             label: "use",
@@ -5774,7 +5790,10 @@
     }
 
     function mergeDuplicateUseCards(builtActions) {
-      const uses = builtActions.filter((action) => action?.offerKinds?.includes("use_item"));
+      const uses = builtActions.filter((action) => (
+        action?.offerKinds?.includes("use_item")
+          || action?.offerKinds?.includes("use_feature")
+      ));
       if (uses.length <= 1) return;
 
       const modes = [];
@@ -6322,7 +6341,7 @@
         return Number(payload.item_id || 0);
       }
       if (["/actions/trade-item", "/actions/theft"].includes(path) && targetKind === "item") return Number(payload.target_item_id || 0);
-      if (["/actions/chat", "/actions/attack", "/actions/give-item", "/actions/create-bond", "/actions/resolve-bond", "/actions/cast-spell", "/actions/influence"].includes(path)
+      if (["/actions/chat", "/actions/attack", "/actions/give-item", "/actions/create-bond", "/actions/resolve-bond", "/actions/cast-spell", "/actions/influence", "/actions/use-item"].includes(path)
           && targetKind === "actor") {
         return Number(payload.target_actor_id || 0);
       }
@@ -6335,7 +6354,12 @@
       const candidates = (state?.action_offers || []).filter((offer) => kinds.includes(offer.kind));
       return candidates.find((offer) => {
         const submittedTarget = offerPayloadTarget(path, offer, payload);
-        return !submittedTarget || !offer?.target?.id || Number(offer.target.id) === submittedTarget;
+        const targetMatches = !submittedTarget
+          || !offer?.target?.id
+          || Number(offer.target.id) === submittedTarget;
+        const providerMatches = path !== "/actions/use-item"
+          || offer?.provider?.id === `item:${Number(payload.item_id || 0)}`;
+        return targetMatches && providerMatches;
       }) || null;
     }
 
@@ -8729,7 +8753,7 @@
           ? `${level} · classless`
           : String(level)),
         ...(identityCards ? [accountRow("campaign identity", identityCards)] : []),
-        accountRow("calling", purpose),
+        accountRow("purpose", purpose),
         accountRow("known for", practiceSummary),
         accountRow("journal", growthSummary),
       ];
