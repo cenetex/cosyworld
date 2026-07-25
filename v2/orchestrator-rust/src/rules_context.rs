@@ -1,9 +1,12 @@
 use super::*;
+use sha2::{Digest, Sha256};
 
 const SCENE_RULES_CONTEXT_SCHEMA_VERSION: u8 = 1;
 
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct ActionCompositionTraceView {
+    pub(super) worldpack_bundle_hash: String,
+    pub(super) pack_versions: Vec<ActionPackVersionView>,
     pub(super) rules_profile: String,
     pub(super) rules_pack_id: String,
     pub(super) rules_pack_version: String,
@@ -17,6 +20,28 @@ pub(super) struct ActionCompositionTraceView {
     pub(super) contextual_offers: Vec<String>,
     pub(super) resolver: String,
     pub(super) state_revision: u64,
+}
+
+impl ActionCompositionTraceView {
+    pub(super) fn certificate(&self) -> String {
+        let bytes =
+            serde_json::to_vec(self).expect("action composition trace must serialize for hashing");
+        format!("sha256:{:x}", Sha256::digest(bytes))
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(super) struct ActionPackVersionView {
+    pub(super) pack_id: String,
+    pub(super) pack_version: String,
+    pub(super) integrity: String,
+}
+
+pub(super) struct ActionCompositionContributions {
+    pub(super) source_card_instances: Vec<ActionSourceCollectibleView>,
+    pub(super) target: Option<ActionTargetView>,
+    pub(super) applied_reskins: Vec<String>,
+    pub(super) contextual_offers: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -50,6 +75,56 @@ impl SceneRulesContextView {
 }
 
 impl RuntimeWorld {
+    pub(super) fn action_composition_trace(
+        &self,
+        location_id: Option<u64>,
+        state_revision: u64,
+        binding: &ResolvedActionBinding,
+        contributions: ActionCompositionContributions,
+    ) -> ActionCompositionTraceView {
+        let content = active_content();
+        let rules_context = location_id
+            .and_then(|location_id| self.scene_rules_context(location_id, state_revision));
+        let mut contributing_pack_ids = BTreeSet::from([binding.pack_id.as_str()]);
+        if let Some(context) = &rules_context {
+            contributing_pack_ids.insert(context.location_pack_id.as_str());
+            contributing_pack_ids.insert(context.selected_by_pack_id.as_str());
+            contributing_pack_ids.insert(context.provider_pack_id.as_str());
+        }
+        contributing_pack_ids.extend(
+            contributions
+                .source_card_instances
+                .iter()
+                .map(|source| source.pack_id.as_str()),
+        );
+        ActionCompositionTraceView {
+            worldpack_bundle_hash: content.manifest.bundle_hash.clone(),
+            pack_versions: content
+                .manifest
+                .packs
+                .iter()
+                .filter(|pack| contributing_pack_ids.contains(pack.id.as_str()))
+                .map(|pack| ActionPackVersionView {
+                    pack_id: pack.id.clone(),
+                    pack_version: pack.version.clone(),
+                    integrity: pack.integrity.clone(),
+                })
+                .collect(),
+            rules_profile: content.manifest.rules_profile.clone(),
+            rules_pack_id: binding.pack_id.clone(),
+            rules_pack_version: binding.pack_version.clone(),
+            rules_context,
+            source_card_instances: contributions.source_card_instances,
+            target: contributions.target,
+            applied_variants: content.manifest.active_rules_variants.clone(),
+            active_extensions: content.manifest.active_rules_extensions.clone(),
+            applied_reskins: contributions.applied_reskins,
+            contextual_offers: contributions.contextual_offers,
+            resolver: binding.resolver.clone(),
+            state_revision,
+        }
+    }
+
     fn scene_location_pack_id(&self, location_id: u64) -> Option<String> {
         self.generated_places
             .get(&location_id)
@@ -205,12 +280,21 @@ mod tests {
         assert_eq!(cottage_context.selected_by_pack_id, "cosyworld.core");
         assert_eq!(cottage_context.capability_id, "cosyworld.core/rules");
         assert!(cottage.action_offers.iter().all(|offer| {
-            offer
-                .composition_trace
-                .rules_context
-                .as_ref()
-                .is_some_and(|context| context == &cottage_context)
+            valid_sha256_digest(&offer.composition_id)
+                && offer.composition_trace.worldpack_bundle_hash
+                    == active_content().manifest.bundle_hash
+                && !offer.composition_trace.pack_versions.is_empty()
+                && offer
+                    .composition_trace
+                    .rules_context
+                    .as_ref()
+                    .is_some_and(|context| context == &cottage_context)
         }));
+        let cottage_compositions = cottage
+            .action_offers
+            .iter()
+            .map(|offer| (offer.kind.clone(), offer.composition_id.clone()))
+            .collect::<BTreeMap<_, _>>();
 
         runtime
             .world
@@ -227,11 +311,22 @@ mod tests {
         assert_eq!(homeroom_context.selected_by_pack_id, "ruby-high.first-bell");
         assert_eq!(homeroom_context.capability_id, "ruby-high.first-bell/rules");
         assert!(homeroom.action_offers.iter().all(|offer| {
-            offer
-                .composition_trace
-                .rules_context
-                .as_ref()
-                .is_some_and(|context| context == &homeroom_context)
+            valid_sha256_digest(&offer.composition_id)
+                && offer
+                    .composition_trace
+                    .pack_versions
+                    .iter()
+                    .any(|pack| pack.pack_id == "ruby-high.first-bell")
+                && offer
+                    .composition_trace
+                    .rules_context
+                    .as_ref()
+                    .is_some_and(|context| context == &homeroom_context)
+        }));
+        assert!(homeroom.action_offers.iter().any(|offer| {
+            cottage_compositions
+                .get(&offer.kind)
+                .is_some_and(|composition_id| composition_id != &offer.composition_id)
         }));
 
         runtime

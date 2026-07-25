@@ -6379,6 +6379,7 @@
         ? await post("/actions/submit", {
             path,
             offer_id: offer.offer_id,
+            composition_id: offer.composition_id,
             kind: offer.kind,
             rules_action: offer.rules_action,
             operation: offer.operation,

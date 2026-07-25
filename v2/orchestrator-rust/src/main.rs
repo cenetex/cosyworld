@@ -2891,6 +2891,7 @@ struct RankedActionOffer {
     source_collectible: Option<ActionSourceCollectibleView>,
     pack_provenance: ActionPackProvenanceView,
     composition_trace: ActionCompositionTraceView,
+    composition_id: String,
     state_revision: u64,
 
     category: String,
@@ -3249,6 +3250,7 @@ struct ActionResponse {
 struct ActionOfferSubmissionRequest {
     path: String,
     offer_id: String,
+    composition_id: String,
     kind: String,
     rules_action: Option<String>,
     operation: Option<String>,
@@ -21184,7 +21186,10 @@ impl RuntimeWorld {
         access: &AccessContext,
     ) -> (PrimaryAction, Vec<RankedActionOffer>) {
         let primary_action = self.primary_action(actor_id, access);
-        let action_offers = self.ranked_action_offers(actor_id, access, &primary_action);
+        let mut action_offers = self.ranked_action_offers(actor_id, access, &primary_action);
+        for offer in &mut action_offers {
+            offer.composition_id = offer.composition_trace.certificate();
+        }
         (primary_action, action_offers)
     }
 
@@ -21310,22 +21315,17 @@ impl RuntimeWorld {
                     pack_version: binding.pack_version.clone(),
                     rules_namespace: binding.namespace.clone(),
                 };
-                let composition_trace = ActionCompositionTraceView {
-                    rules_profile: active_content().manifest.rules_profile.clone(),
-                    rules_pack_id: binding.pack_id.clone(),
-                    rules_pack_version: binding.pack_version.clone(),
-                    rules_context: actor_location_id.and_then(|location_id| {
-                        self.scene_rules_context(location_id, state_revision)
-                    }),
-                    source_card_instances,
-                    target: target.clone(),
-                    applied_variants: active_content().manifest.active_rules_variants.clone(),
-                    active_extensions: active_content().manifest.active_rules_extensions.clone(),
-                    applied_reskins: applied_reskins.clone(),
-                    contextual_offers: contextual_offers.clone(),
-                    resolver: binding.resolver.clone(),
+                let composition_trace = self.action_composition_trace(
+                    actor_location_id,
                     state_revision,
-                };
+                    &binding,
+                    ActionCompositionContributions {
+                        source_card_instances,
+                        target: target.clone(),
+                        applied_reskins: applied_reskins.clone(),
+                        contextual_offers: contextual_offers.clone(),
+                    },
+                );
 
                 RankedActionOffer {
                     id: legacy_id,
@@ -21337,6 +21337,7 @@ impl RuntimeWorld {
                     source_collectible,
                     pack_provenance,
                     composition_trace,
+                    composition_id: String::new(),
                     state_revision,
                     category: action_offer_category(&option.kind).to_string(),
                     intention,
@@ -21394,21 +21395,17 @@ impl RuntimeWorld {
                 pack_version: binding.pack_version.clone(),
                 rules_namespace: binding.namespace.clone(),
             };
-            let composition_trace = ActionCompositionTraceView {
-                rules_profile: active_content().manifest.rules_profile.clone(),
-                rules_pack_id: binding.pack_id.clone(),
-                rules_pack_version: binding.pack_version.clone(),
-                rules_context: actor_location_id
-                    .and_then(|location_id| self.scene_rules_context(location_id, state_revision)),
-                source_card_instances,
-                target: Some(target.clone()),
-                applied_variants: active_content().manifest.active_rules_variants.clone(),
-                active_extensions: active_content().manifest.active_rules_extensions.clone(),
-                applied_reskins: Vec::new(),
-                contextual_offers: Vec::new(),
-                resolver: binding.resolver.clone(),
+            let composition_trace = self.action_composition_trace(
+                actor_location_id,
                 state_revision,
-            };
+                &binding,
+                ActionCompositionContributions {
+                    source_card_instances,
+                    target: Some(target.clone()),
+                    applied_reskins: Vec::new(),
+                    contextual_offers: Vec::new(),
+                },
+            );
             offers.push(RankedActionOffer {
                 id: legacy_id,
                 offer_id,
@@ -21421,6 +21418,7 @@ impl RuntimeWorld {
                 source_collectible,
                 pack_provenance,
                 composition_trace,
+                composition_id: String::new(),
                 state_revision,
                 category: action_offer_category(kind).to_string(),
                 verb,
@@ -21523,6 +21521,17 @@ impl RuntimeWorld {
             pack_version: binding.pack_version.clone(),
             rules_namespace: binding.namespace.clone(),
         };
+        let composition_trace = self.action_composition_trace(
+            None,
+            state_revision,
+            &binding,
+            ActionCompositionContributions {
+                source_card_instances: Vec::new(),
+                target: target.clone(),
+                applied_reskins: Vec::new(),
+                contextual_offers: Vec::new(),
+            },
+        );
         RankedActionOffer {
             id: legacy_id,
             offer_id,
@@ -21532,20 +21541,8 @@ impl RuntimeWorld {
             resolver: binding.resolver.clone(),
             source_collectible: None,
             pack_provenance,
-            composition_trace: ActionCompositionTraceView {
-                rules_profile: active_content().manifest.rules_profile.clone(),
-                rules_pack_id: binding.pack_id,
-                rules_pack_version: binding.pack_version,
-                rules_context: None,
-                source_card_instances: Vec::new(),
-                target: target.clone(),
-                applied_variants: active_content().manifest.active_rules_variants.clone(),
-                active_extensions: active_content().manifest.active_rules_extensions.clone(),
-                applied_reskins: Vec::new(),
-                contextual_offers: Vec::new(),
-                resolver: binding.resolver,
-                state_revision,
-            },
+            composition_trace,
+            composition_id: String::new(),
             state_revision,
             kind: kind.to_string(),
             intention: action_offer_intention(kind).to_string(),
@@ -28902,7 +28899,9 @@ async fn submit_action_offer(
                 "that offer expired; refresh the scene and submit a current offer_id",
             );
         };
-        if offer.kind != submission.kind
+        if offer.composition_id != submission.composition_id {
+            Err("the scene composition changed; refresh and choose a current action")
+        } else if offer.kind != submission.kind
             || offer.rules_action != submission.rules_action
             || offer.operation != submission.operation
             || offer.rules_profile != submission.rules_profile
@@ -57733,6 +57732,7 @@ mod tests {
             Json(ActionOfferSubmissionRequest {
                 path: "/actions/study".to_string(),
                 offer_id: study_offer.offer_id,
+                composition_id: study_offer.composition_id,
                 kind: study_offer.kind,
                 rules_action: study_offer.rules_action,
                 operation: study_offer.operation,
