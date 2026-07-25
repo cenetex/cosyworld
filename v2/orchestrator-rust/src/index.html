@@ -2726,7 +2726,7 @@
       .cmd {
         flex: 1 1 0;
         min-height: 62px;
-        gap: 5px;
+        gap: 3px;
         justify-content: center;
         padding: 3px;
         text-align: center;
@@ -2740,10 +2740,14 @@
       .cmd-copy {
         flex: 1 1 auto;
         min-width: 0;
+        padding-inline: 2px;
       }
       .cmd-label {
         font-size: 12px;
         line-height: 1.1;
+      }
+      .cmd-label .card-emoji {
+        display: none;
       }
       .detail {
         font-size: 10px;
@@ -2779,8 +2783,8 @@
         height: 44px;
       }
       .cmd.has-copy .thumb.location {
-        width: 52px;
-        flex-basis: 52px;
+        width: 40px;
+        flex-basis: 40px;
         height: 32px;
       }
     }
@@ -5917,7 +5921,9 @@
     }
 
     function actionRank(action) {
-      if (Number.isFinite(Number(action.offerRank))) return Number(action.offerRank);
+      if (action.offerRank !== null && action.offerRank !== undefined && Number.isFinite(Number(action.offerRank))) {
+        return Number(action.offerRank);
+      }
       if (Number.isFinite(Number(action.priority))) return Number(action.priority);
       return 500;
     }
