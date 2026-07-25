@@ -95,6 +95,19 @@ export function packDeclaresRuleset(manifest, ruleset) {
   );
 }
 
+export function rulesCompatibilityProfiles(manifest) {
+  if (manifest.rules_compatibility !== undefined) {
+    return Array.isArray(manifest.rules_compatibility?.profiles)
+      ? manifest.rules_compatibility.profiles
+      : [];
+  }
+  return manifest.rules_profile === undefined ? [] : [manifest.rules_profile];
+}
+
+export function packAcceptsRulesProfile(manifest, profileId) {
+  return rulesCompatibilityProfiles(manifest).includes(profileId);
+}
+
 export function rulesContextValidationErrors(manifest, label = "pack.json") {
   const config = manifest.extensions?.["x-cosyworld-rules-context"];
   if (config === undefined) return [];
@@ -201,6 +214,11 @@ export function versionSatisfies(version, range, label = "version range") {
 export function validateContentPackManifest(manifest, label = "pack.json") {
   if (!validateSchema(manifest)) {
     contractError(`${label}: ${formatSchemaErrors(validateSchema.errors ?? [])}`);
+  }
+  if (manifest.rules_profile !== undefined && manifest.rules_compatibility !== undefined) {
+    contractError(
+      `${label}: rules_profile is a legacy one-profile alias and cannot be combined with rules_compatibility`,
+    );
   }
 
   const capabilityIds = new Set();

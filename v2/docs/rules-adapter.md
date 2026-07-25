@@ -27,6 +27,19 @@ Resources remain scoped by pack and namespace. Missing source references,
 attribution, resolvers, replay fixtures, or conflicting identities fail the
 worldpack gate and runtime startup.
 
+Each world selects exactly one `rules_profile`. Its `cosyworld.rules/2`
+provider declares that identity and owns the complete action registry plus one
+conformance row per declared action. The twelve actions in
+`cosyworld.srd5/1` are that profile's tested fixture, not a global adapter
+requirement.
+
+Content packs declare the profiles they accept with
+`rules_compatibility.profiles`. During migration, the existing
+`rules_profile` field remains a one-element alias; a pack cannot declare both.
+Compilation fails when a selected profile has no single provider, when a
+content pack excludes it, or when the provider's action and conformance sets
+differ. Compiled worlds still activate only one profile.
+
 ## Authority boundary
 
 In the reference packs, `reference_only` is authoring context and cannot apply

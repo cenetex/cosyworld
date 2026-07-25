@@ -5,13 +5,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  packAcceptsRulesProfile,
   resolveContentPackGraph,
+  rulesCompatibilityProfiles,
   validateContentPackManifest,
   validateWorldEntityResource,
 } from "../../v2/scripts/content-pack-contract.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const compilerPath = path.join(repoRoot, "v2/scripts/compile-worldpack.mjs");
+const checkerPath = path.join(repoRoot, "v2/scripts/check-worldpack.mjs");
 
 function manifest(id, overrides = {}) {
   return {
@@ -146,6 +149,196 @@ describe("Content Pack Manifest v1", () => {
     expect(() => validateContentPackManifest(manifest("fixture.invalid", {
       surprise: true,
     }))).toThrow(/additional properties/);
+  });
+
+  it("treats rules_profile as a legacy one-profile compatibility alias", () => {
+    const legacy = manifest("fixture.legacy", {
+      rules_profile: "cosyworld.srd5/1",
+    });
+    expect(rulesCompatibilityProfiles(legacy)).toEqual(["cosyworld.srd5/1"]);
+    expect(packAcceptsRulesProfile(legacy, "cosyworld.srd5/1")).toBe(true);
+    expect(packAcceptsRulesProfile(legacy, "fixture.commons/1")).toBe(false);
+
+    const explicit = manifest("fixture.explicit", {
+      rules_compatibility: {
+        profiles: ["cosyworld.srd5/1", "fixture.commons/1"],
+      },
+    });
+    expect(() => validateContentPackManifest(explicit)).not.toThrow();
+    expect(rulesCompatibilityProfiles(explicit)).toEqual([
+      "cosyworld.srd5/1",
+      "fixture.commons/1",
+    ]);
+    expect(packAcceptsRulesProfile(explicit, "fixture.commons/1")).toBe(true);
+
+    expect(() => validateContentPackManifest({
+      ...explicit,
+      rules_profile: "cosyworld.srd5/1",
+    })).toThrow(/legacy one-profile alias/);
+  });
+
+  it("pins the current cosyworld.srd5 profile action declaration as a fixture", () => {
+    const actions = JSON.parse(fs.readFileSync(
+      path.join(repoRoot, "v2/content/rules-profile-srd5/actions.json"),
+      "utf8",
+    ));
+    expect(actions.map((action) => action.id).sort()).toEqual([
+      "srd5.2.1:attack",
+      "srd5.2.1:dash",
+      "srd5.2.1:disengage",
+      "srd5.2.1:dodge",
+      "srd5.2.1:help",
+      "srd5.2.1:hide",
+      "srd5.2.1:influence",
+      "srd5.2.1:magic",
+      "srd5.2.1:ready",
+      "srd5.2.1:search",
+      "srd5.2.1:study",
+      "srd5.2.1:utilize",
+    ]);
+  });
+
+  it("compiles a different selected profile and rejects mismatches consistently", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cosyworld-rules-profile-"));
+    const contentRoot = path.join(root, "content");
+    const worldDir = path.join(root, "worlds/core-only");
+    const sharedWorldDir = path.join(root, "worlds/shared");
+    const outputDir = path.join(contentRoot, "compiled");
+    const fixtureProfile = "fixture.commons/1";
+    const incompatibleProfile = "fixture.other/1";
+    const fixtureProvider = "fixture.rules-profile-commons";
+    const sourceContentRoot = path.join(repoRoot, "v2/content");
+    const sourceWorldDir = path.join(repoRoot, "v2/worlds/core-only");
+    const writeJson = (filePath, value) => {
+      fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
+    };
+    const compile = () => spawnSync(process.execPath, [
+      compilerPath,
+      "--world-dir",
+      worldDir,
+      "--content-root",
+      contentRoot,
+      "--output-dir",
+      outputDir,
+      "--write-lock",
+    ], { cwd: repoRoot, encoding: "utf8" });
+
+    try {
+      fs.mkdirSync(contentRoot, { recursive: true });
+      fs.mkdirSync(worldDir, { recursive: true });
+      fs.mkdirSync(sharedWorldDir, { recursive: true });
+      for (const directory of ["core", "rules-srd-5.2.1"]) {
+        fs.cpSync(
+          path.join(sourceContentRoot, directory),
+          path.join(contentRoot, directory),
+          { recursive: true },
+        );
+      }
+      fs.cpSync(
+        path.join(sourceContentRoot, "rules-profile-srd5"),
+        path.join(contentRoot, "rules-profile-commons"),
+        { recursive: true },
+      );
+      fs.copyFileSync(
+        path.join(sourceWorldDir, "world.json"),
+        path.join(worldDir, "world.json"),
+      );
+      const lock = JSON.parse(fs.readFileSync(
+        path.join(sourceWorldDir, "pack.lock.json"),
+        "utf8",
+      ));
+      const lockedProvider = lock.packs.find(
+        (pack) => pack.id === "cosyworld.rules-profile-srd5",
+      );
+      lockedProvider.id = fixtureProvider;
+      lockedProvider.source.path = "../../content/rules-profile-commons";
+      writeJson(path.join(worldDir, "pack.lock.json"), lock);
+      fs.copyFileSync(
+        path.join(repoRoot, "v2/worlds/shared/cozy-fantasy-avatar-naming.json"),
+        path.join(sharedWorldDir, "cozy-fantasy-avatar-naming.json"),
+      );
+
+      const worldPath = path.join(worldDir, "world.json");
+      const corePackPath = path.join(contentRoot, "core/pack.json");
+      const rulesPackPath = path.join(contentRoot, "rules-profile-commons/pack.json");
+      const profilesPath = path.join(contentRoot, "rules-profile-commons/profiles.json");
+      const actionsPath = path.join(contentRoot, "rules-profile-commons/actions.json");
+      const conformancePath = path.join(contentRoot, "rules-profile-commons/conformance.json");
+      const world = JSON.parse(fs.readFileSync(worldPath, "utf8"));
+      const corePack = JSON.parse(fs.readFileSync(corePackPath, "utf8"));
+      const rulesPack = JSON.parse(fs.readFileSync(rulesPackPath, "utf8"));
+      const profiles = JSON.parse(fs.readFileSync(profilesPath, "utf8"));
+      const actions = JSON.parse(fs.readFileSync(actionsPath, "utf8"))
+        .filter((action) => action.id !== "srd5.2.1:dash");
+      const conformance = JSON.parse(fs.readFileSync(conformancePath, "utf8"))
+        .filter((row) => row.action_id !== "srd5.2.1:dash");
+
+      world.rules_profile = fixtureProfile;
+      world.packs = world.packs.map((packId) => (
+        packId === "cosyworld.rules-profile-srd5" ? fixtureProvider : packId
+      ));
+      delete corePack.rules_profile;
+      corePack.rules_compatibility = {
+        profiles: ["cosyworld.srd5/1", fixtureProfile],
+      };
+      corePack.dependencies[0].id = fixtureProvider;
+      corePack.dependencies[0].capabilities = [`${fixtureProvider}/rules`];
+      rulesPack.id = fixtureProvider;
+      rulesPack.name = "Fixture Commons Rules Profile";
+      rulesPack.capabilities[0].id = `${fixtureProvider}/rules`;
+      rulesPack.rules_profile = fixtureProfile;
+      profiles[0].id = fixtureProfile;
+      writeJson(worldPath, world);
+      writeJson(corePackPath, corePack);
+      writeJson(rulesPackPath, rulesPack);
+      writeJson(profilesPath, profiles);
+      writeJson(actionsPath, actions);
+      writeJson(conformancePath, conformance);
+
+      const selected = compile();
+      expect(selected.status, selected.stderr).toBe(0);
+      const compiled = JSON.parse(fs.readFileSync(
+        path.join(outputDir, "worldpack.json"),
+        "utf8",
+      ));
+      expect(compiled.rules_profile).toBe(fixtureProfile);
+      expect(compiled.packs.find((pack) => pack.id === "cosyworld.core")?.rules_compatibility)
+        .toEqual({ profiles: ["cosyworld.srd5/1", fixtureProfile] });
+      const check = spawnSync(process.execPath, [checkerPath, outputDir], {
+        cwd: repoRoot,
+        encoding: "utf8",
+      });
+      expect(check.status, check.stderr).toBe(0);
+
+      corePack.rules_compatibility = { profiles: [incompatibleProfile] };
+      writeJson(corePackPath, corePack);
+      const incompatible = compile();
+      expect(incompatible.status).not.toBe(0);
+      expect(incompatible.stderr).toContain(fixtureProfile);
+      expect(incompatible.stderr).toContain(incompatibleProfile);
+
+      corePack.rules_compatibility = { profiles: [fixtureProfile] };
+      writeJson(corePackPath, corePack);
+      writeJson(conformancePath, conformance.slice(1));
+      const incomplete = compile();
+      expect(incomplete.status).not.toBe(0);
+      expect(incomplete.stderr).toMatch(/conformance matrix must cover every action/);
+
+      writeJson(conformancePath, conformance);
+      corePack.rules_compatibility = {
+        profiles: ["cosyworld.srd5/1", fixtureProfile],
+      };
+      writeJson(corePackPath, corePack);
+      world.rules_profile = "cosyworld.srd5/1";
+      writeJson(worldPath, world);
+      const wrongWorld = compile();
+      expect(wrongWorld.status).not.toBe(0);
+      expect(wrongWorld.stderr).toContain(fixtureProvider);
+      expect(wrongWorld.stderr).toContain(fixtureProfile);
+      expect(wrongWorld.stderr).toContain("cosyworld.srd5/1");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("types pack and zone rules selectors and rejects equal-precedence conflicts", () => {
