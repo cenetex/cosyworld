@@ -1481,7 +1481,7 @@
     }
     .prompt {
       display: grid;
-      grid-template-columns: auto repeat(3, minmax(0, 1fr)) minmax(86px, 0.58fr);
+      grid-template-columns: auto repeat(2, minmax(0, 1fr));
       gap: 9px;
       align-items: stretch;
       padding: 10px 12px calc(10px + var(--safe-bot));
@@ -1527,7 +1527,7 @@
       font-variant-numeric: tabular-nums;
     }
     .prompt.choice-mode {
-      grid-template-columns: auto repeat(3, minmax(0, 1fr)) minmax(86px, 0.58fr);
+      grid-template-columns: auto repeat(2, minmax(0, 1fr));
     }
     .prompt[hidden] { display: none; }
     .caret {
@@ -1721,11 +1721,9 @@
     @keyframes hand-deal {
       from {
         opacity: 0;
-        transform: translateX(12px);
       }
       to {
         opacity: 1;
-        transform: translateX(0);
       }
     }
     .thumb {
@@ -2710,8 +2708,8 @@
       .prompt {
         display: flex;
         gap: 5px;
-        width: 100vw;
-        max-width: 100vw;
+        width: 100%;
+        max-width: 100%;
         min-width: 0;
         overflow: hidden;
         padding: 8px;
@@ -2730,12 +2728,6 @@
         justify-content: center;
         padding: 3px;
         text-align: center;
-      }
-      .cmd.shuffle {
-        flex: 0 1 62px;
-        min-width: 0;
-        max-width: 62px;
-        margin-right: 6px;
       }
       .cmd-copy {
         flex: 1 1 auto;
@@ -3380,8 +3372,6 @@
       <button class="caret" id="command-toggle" type="button" aria-label="Say something or enter a world command"><span>&gt;</span><small>say</small></button>
       <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
-      <button class="cmd secondary" id="tertiary" data-player-concept="action" data-analytics-event="action.select"></button>
-      <button class="cmd shuffle" id="shuffle" type="button" data-player-concept="action" data-analytics-event="action.redeal"></button>
     </footer>
   </div>
   <div class="command-palette" id="command-palette" hidden>
@@ -10867,7 +10857,7 @@
     }
 
     function handCapacity() {
-      return 3;
+      return 2;
     }
 
     function validActionHandKeySet() {
@@ -10906,7 +10896,7 @@
 
     function reconcileHand() {
       if (state?.branch) {
-        handKeys = actions.slice(0, 3).map(actionHandKey).filter(Boolean);
+        handKeys = actions.slice(0, 2).map(actionHandKey).filter(Boolean);
         discardedHandKeys = [];
         playerPromotedHandKey = "";
         return;
@@ -11126,7 +11116,7 @@
 
     function actionBarActions() {
       if (state?.branch) {
-        return actions.slice(0, 3).map((action, actionIndex) => ({ ...action, actionIndex }));
+        return actions.slice(0, 2).map((action, actionIndex) => ({ ...action, actionIndex }));
       }
       if (!actions.length) return [];
       reconcileHand();
@@ -11168,27 +11158,7 @@
       focusIndex = action.actionIndex;
       focusedKey = action.focusKey || "";
       renderCommands();
-      $((["primary", "secondary", "tertiary"])[next])?.focus();
-    }
-
-    function shuffleAction() {
-      return {
-        label: "all",
-        detail: "all actions",
-        focusKey: "all-actions",
-        cardType: "shuffle",
-        card: cardForLocation(state?.location?.id),
-        shape: "location",
-        run: () => openAllActions(),
-      };
-    }
-
-    function canShowShuffleAction() {
-      if (state?.turn?.enabled && !state.turn.is_current_actor) return false;
-      if (!actorId || !actorSession || state?.primary_action?.kind === "create_avatar" || state?.branch) {
-        return false;
-      }
-      return actions.length > 0;
+      $((["primary", "secondary"])[next])?.focus();
     }
 
     function advanceHandPage() {
@@ -11215,7 +11185,7 @@
 
     function renderCommands() {
       const prompt = document.querySelector(".prompt");
-      const buttonIds = ["primary", "secondary", "tertiary"];
+      const buttonIds = ["primary", "secondary"];
       renderTurnPingPill();
       if (actionBusy) {
         prompt.classList.remove("choice-mode");
@@ -11235,36 +11205,16 @@
           renderButton(id, null);
           $(id).style.display = "none";
         }
-        if (canShowShuffleAction()) {
-          renderButton("shuffle", {
-            label: "all",
-            detail: "all actions",
-            cardType: "shuffle",
-            busy: true,
-          });
-          $("shuffle").style.display = "flex";
-        } else {
-          renderButton("shuffle", null);
-          $("shuffle").style.display = "none";
-        }
         return;
       }
       const choiceMode = Boolean(state?.branch && actions.length > 1);
       prompt.classList.toggle("choice-mode", choiceMode);
       const visibleActions = actionBarActions().slice(0, handCapacity());
-      const showShuffle = canShowShuffleAction();
       for (let index = 0; index < buttonIds.length; index += 1) {
         const id = buttonIds[index];
         const visibleAction = visibleActions[index] || null;
         renderButton(id, visibleAction);
         $(id).style.display = visibleAction ? "flex" : "none";
-      }
-      if (showShuffle) {
-        renderButton("shuffle", shuffleAction());
-        $("shuffle").style.display = "flex";
-      } else {
-        renderButton("shuffle", null);
-        $("shuffle").style.display = "none";
       }
     }
 
@@ -11917,15 +11867,6 @@
     $("secondary").addEventListener("click", () => {
       const action = actionForButton("secondary") || (state?.branch ? actions[1] : null);
       if (action) openActionModal(action);
-    });
-
-    $("tertiary").addEventListener("click", () => {
-      const action = actionForButton("tertiary") || (state?.branch ? actions[2] : null);
-      if (action) openActionModal(action);
-    });
-
-    $("shuffle").addEventListener("click", () => {
-      openAllActions();
     });
 
     $("command-toggle").addEventListener("click", () => openCommandPalette("say "));
