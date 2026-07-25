@@ -119,11 +119,13 @@ impl RuntimeWorld {
             .filter(|job| self.job_status(job) == "active")
             .filter(|job| {
                 requested_target_id
-                    .map(|target_id| job.participant_ids.contains(&target_id))
+                    .map(|target_id| {
+                        encounter_participant_ids_for_job(&job.id).contains(&target_id)
+                    })
                     .unwrap_or(true)
             })
             .find_map(|job| {
-                job.participant_ids
+                encounter_participant_ids_for_job(&job.id)
                     .iter()
                     .copied()
                     .filter(|target_id| {
@@ -155,7 +157,10 @@ impl RuntimeWorld {
     ) -> Option<&CwCombatEncounter> {
         self.world.combat_encounters[..self.world.combat_encounter_count]
             .iter()
-            .filter(|encounter| encounter.status == CW_COMBAT_ENCOUNTER_ACTIVE)
+            .filter(|encounter| {
+                encounter.status == CW_COMBAT_ENCOUNTER_ACTIVE
+                    && self.combat_encounter_job_is_active(encounter.id)
+            })
             .find(|encounter| {
                 encounter.participants[..encounter.participant_count]
                     .iter()
@@ -167,8 +172,28 @@ impl RuntimeWorld {
     }
 
     pub(super) fn active_combat_encounter(&self, encounter_id: u64) -> Option<&CwCombatEncounter> {
-        self.combat_encounter(encounter_id)
-            .filter(|encounter| encounter.status == CW_COMBAT_ENCOUNTER_ACTIVE)
+        self.combat_encounter(encounter_id).filter(|encounter| {
+            encounter.status == CW_COMBAT_ENCOUNTER_ACTIVE
+                && self.combat_encounter_job_is_active(encounter.id)
+        })
+    }
+
+    fn combat_encounter_job_is_active(&self, encounter_id: u64) -> bool {
+        self.combat_job_id_for_encounter(encounter_id)
+            .and_then(|job_id| self.jobs.get(&job_id))
+            .is_some_and(|job| self.job_status(job) == "active")
+    }
+
+    pub(super) fn resolve_active_combat_encounter_for_job(&mut self, job_id: &str) {
+        let encounter_id = combat_encounter_id(job_id);
+        if let Some(encounter) = self.world.combat_encounters[..self.world.combat_encounter_count]
+            .iter_mut()
+            .find(|encounter| {
+                encounter.id == encounter_id && encounter.status == CW_COMBAT_ENCOUNTER_ACTIVE
+            })
+        {
+            encounter.status = CW_COMBAT_ENCOUNTER_RESOLVED;
+        }
     }
 
     pub(super) fn combat_actor_is_participant(&self, encounter_id: u64, actor_id: u64) -> bool {
@@ -270,7 +295,7 @@ impl RuntimeWorld {
     pub(super) fn location_has_unresolved_combat(&self, location_id: u64) -> bool {
         self.location_allows_combat(location_id)
             && self.jobs.values().any(|job| {
-                !job.participant_ids.is_empty()
+                !encounter_participant_ids_for_job(&job.id).is_empty()
                     && job.location_ids.contains(&location_id)
                     && self.job_status(job) == "active"
             })
@@ -809,9 +834,72 @@ pub(super) fn combat_encounter_id(job_id: &str) -> u64 {
     hash.max(1)
 }
 
+pub(super) fn encounter_participant_ids_for_job(job_id: &str) -> &'static [u64] {
+    active_content()
+        .jobs
+        .iter()
+        .find(|job| job.id == job_id)
+        .map(|job| job.participant_ids.as_slice())
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn command_request(actor_id: u64, command: &str) -> CommandRequest {
+        CommandRequest {
+            actor_id,
+            actor_session: None,
+            command: command.to_string(),
+            wallet_address: None,
+            wallet: None,
+            wallet_session: None,
+            owned_card_ids: None,
+            cards: None,
+            envelope: None,
+        }
+    }
+
+    fn discover_seed_exit_for_test(
+        runtime: &mut RuntimeWorld,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) {
+        let destination = runtime
+            .location_name(to_location_id)
+            .unwrap_or_else(|| format!("Location {to_location_id}"));
+        let id = seed_exit_discovered_tag_id(from_location_id, to_location_id);
+        runtime.tags.insert(
+            id.clone(),
+            RpgTagState {
+                id,
+                scope: "room".to_string(),
+                scope_id: from_location_id,
+                label: format!("path to {destination}"),
+                kind: "discovery".to_string(),
+                active: true,
+                source_event_seq: None,
+                expires: None,
+            },
+        );
+        runtime.remember_search_discovery(
+            RATI_ACTOR_ID,
+            from_location_id,
+            SEARCH_MEMORY_KIND_SEED_EXIT,
+            to_location_id,
+            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
+        );
+    }
+
+    fn discover_seed_exit_pair_for_test(
+        runtime: &mut RuntimeWorld,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) {
+        discover_seed_exit_for_test(runtime, from_location_id, to_location_id);
+        discover_seed_exit_for_test(runtime, to_location_id, from_location_id);
+    }
 
     #[test]
     fn new_combat_join_records_declare_the_initiating_side() {
@@ -820,5 +908,179 @@ mod tests {
         assert_eq!(action.actor_id, 5001);
         assert_eq!(action.content_id, 9001);
         assert_eq!(action.modifier, 1);
+    }
+
+    #[test]
+    fn completed_combat_project_clears_combat_actions() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut create = CwAction::default();
+        create.kind = CW_ACTION_CREATE_ACTOR;
+        create.actor_id = 5000;
+        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
+        let mut create_record = JournalRecord::new(create, 7180);
+        create_record.actor_meta_upserts.insert(
+            5000,
+            ActorMeta {
+                name: "Calm Resolver".to_string(),
+                speech_mode: "prose".to_string(),
+                title: "Echo Peacemaker".to_string(),
+                description: "A test avatar checking combat affordances after project resolution."
+                    .to_string(),
+            },
+        );
+        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
+
+        discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
+        let active = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(active
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "attack"));
+        assert!(active
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "defend"));
+        assert!(active
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "flee"));
+
+        let encounter_id = combat_encounter_id(MOONLIT_JOB_ID);
+        let start = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_COMBAT_START,
+                actor_id: 5000,
+                target_actor_id: 1004,
+                content_id: encounter_id,
+                ..CwAction::default()
+            },
+            7181,
+        )
+        .into_system();
+        assert_eq!(runtime.apply_journal_record(&start).0, CW_OK);
+        assert!(runtime.active_combat_encounter(encounter_id).is_some());
+
+        let mut complete_record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            7182,
+        )
+        .into_system();
+        complete_record
+            .projection_mutations
+            .push(ProjectionMutation::AdvanceClock {
+                clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
+                amount: 4,
+                reason: "test_complete".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&complete_record).0, CW_OK);
+
+        let completed = runtime.state_response(Some(5000), &AccessContext::default());
+        assert_eq!(
+            completed
+                .jobs
+                .iter()
+                .find(|job| job.id == "moonlit-trail:quiet-the-echo")
+                .map(|job| job.status.as_str()),
+            Some("completed")
+        );
+        assert_eq!(
+            runtime
+                .combat_encounter(encounter_id)
+                .map(|encounter| encounter.status),
+            Some(CW_COMBAT_ENCOUNTER_RESOLVED)
+        );
+        assert!(runtime.active_combat_encounter(encounter_id).is_none());
+        assert!(completed.combat.is_none());
+        assert!(!completed
+            .primary_action
+            .options
+            .iter()
+            .any(|option| matches!(option.kind.as_str(), "attack" | "defend" | "flee")));
+        assert!(!completed
+            .action_offers
+            .iter()
+            .any(|offer| matches!(offer.kind.as_str(), "attack" | "defend" | "flee")));
+        let replayed = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("quiet encounter snapshot restores");
+        let replayed_state = replayed.state_response(Some(5000), &AccessContext::default());
+        assert!(replayed_state.combat.is_none());
+        assert!(!replayed_state
+            .action_offers
+            .iter()
+            .any(|offer| matches!(offer.kind.as_str(), "attack" | "defend" | "flee")));
+
+        let natural_job_id = natural_investigation_job_id(MOONLIT_TRAIL_LOCATION_ID);
+        let natural_job = runtime
+            .jobs
+            .get_mut(&natural_job_id)
+            .expect("Moonlit Trail natural investigation exists");
+        natural_job.status = "active".to_string();
+        natural_job.participant_ids.push(1004);
+        natural_job.participant_ids.sort_unstable();
+        natural_job.participant_ids.dedup();
+        let natural_progress_clock_id = natural_job.progress_clock_id.clone();
+        let natural_progress = runtime
+            .clocks
+            .get_mut(&natural_progress_clock_id)
+            .expect("natural investigation progress exists");
+        natural_progress.filled = 0;
+        natural_progress.status = "active".to_string();
+        assert_eq!(
+            runtime.job_status(&runtime.jobs[&natural_job_id]),
+            "active",
+            "the non-combat investigation models the stress-path overlap"
+        );
+        assert!(
+            runtime.combat_job_for_actor(5000, None).is_none(),
+            "contributors to an unrelated active project are not combat targets"
+        );
+        assert!(!runtime.location_has_unresolved_combat(MOONLIT_TRAIL_LOCATION_ID));
+        let overlapping_project = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(!overlapping_project
+            .action_offers
+            .iter()
+            .any(|offer| matches!(offer.kind.as_str(), "attack" | "defend" | "flee")));
+
+        let item_count = runtime.world.item_count;
+        let tonic = runtime.world.items[..item_count]
+            .iter_mut()
+            .find(|item| item.id == 2001)
+            .expect("Hearth Tonic exists");
+        tonic.holder_actor_id = 5000;
+        tonic.location_id = 0;
+        tonic.charges = 1;
+        let actor_count = runtime.world.actor_count;
+        runtime.world.actors[..actor_count]
+            .iter_mut()
+            .find(|actor| actor.id == 1004)
+            .expect("Coach exists")
+            .damage = 3;
+        let wounded_quieted = runtime.state_response(Some(5000), &AccessContext::default());
+        assert!(wounded_quieted
+            .primary_action
+            .options
+            .iter()
+            .any(|option| option.kind == "use_item"));
+
+        for command in ["attack Coach", "defend", "flee"] {
+            let resolved = runtime
+                .resolve_command(&command_request(5000, command), &AccessContext::default())
+                .expect("combat command still resolves to a disabled action");
+            assert!(
+                matches!(
+                    resolved.dispatch,
+                    CommandDispatch::Disabled { status: 409, .. }
+                ),
+                "{command} should be disabled after the combat project resolves"
+            );
+        }
     }
 }
