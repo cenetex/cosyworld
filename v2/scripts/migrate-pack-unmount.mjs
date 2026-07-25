@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import Database from "better-sqlite3";
 
 const PACK_MOUNT_STATE_SCHEMA_VERSION = 1;
 
@@ -145,6 +146,27 @@ function targetContentContext(current, targetRegistry, unmountedPackId) {
       .map((reference) => structuredClone(targetReferences.get(reference.canonical_ref))),
     active_rulesets: targetRulesets(targetRegistry),
   };
+}
+
+function registryRuleBinding(registry) {
+  return {
+    rules_profile: registry.manifest?.rules_profile ?? "",
+    active_rules_variants: structuredClone(
+      registry.manifest?.active_rules_variants ?? [],
+    ),
+    active_rules_extensions: structuredClone(
+      registry.manifest?.active_rules_extensions ?? [],
+    ),
+  };
+}
+
+function applyRegistryBinding(snapshot, registry) {
+  const binding = registryRuleBinding(registry);
+  snapshot.worldpack_bundle_hash = registry.manifest.bundle_hash;
+  snapshot.rules_profile = binding.rules_profile;
+  snapshot.active_rules_variants = binding.active_rules_variants;
+  snapshot.active_rules_extensions = binding.active_rules_extensions;
+  return binding;
 }
 
 function packMountState(snapshot, create = false) {
@@ -315,6 +337,7 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
   }
 
   const migrated = structuredClone(snapshot);
+  const sourceRules = registryRuleBinding(sourceRegistry);
   const mountState = packMountState(migrated, true);
   if (mountState.frozen[packId]) {
     throw new Error(`pack ${packId} is already soft-unmounted`);
@@ -549,13 +572,15 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     targetRegistry,
     packId,
   );
-  migrated.worldpack_bundle_hash = targetRegistry.manifest.bundle_hash;
+  const targetRules = applyRegistryBinding(migrated, targetRegistry);
   const transaction = appendTransaction(mountState, {
     operation: "soft_unmount",
     pack_id: packId,
     pack_version: frozen.pack_version,
     source_bundle_hash: frozen.source_bundle_hash,
     target_bundle_hash: frozen.target_bundle_hash,
+    source_rules: sourceRules,
+    target_rules: targetRules,
     state_hash: stateHash,
     counts: removed,
     invalidated: {
@@ -586,6 +611,7 @@ export function migratePackRemount(snapshot, sourceRegistry, packId, targetRegis
     );
   }
   const migrated = structuredClone(snapshot);
+  const sourceRules = registryRuleBinding(sourceRegistry);
   const mountState = packMountState(migrated);
   const frozen = mountState?.frozen?.[packId];
   if (!frozen) {
@@ -619,7 +645,7 @@ export function migratePackRemount(snapshot, sourceRegistry, packId, targetRegis
     restoreNestedMapEntries(migrated.world_simulation, field, entries);
   }
   migrated.content_context = structuredClone(frozen.content_context);
-  migrated.worldpack_bundle_hash = targetRegistry.manifest.bundle_hash;
+  const targetRules = applyRegistryBinding(migrated, targetRegistry);
   delete mountState.frozen[packId];
   const restored = {
     actors: frozen.arrays?.world_actors?.length ?? 0,
@@ -633,6 +659,8 @@ export function migratePackRemount(snapshot, sourceRegistry, packId, targetRegis
     pack_version: frozen.pack_version,
     source_bundle_hash: sourceRegistry.manifest.bundle_hash,
     target_bundle_hash: targetRegistry.manifest.bundle_hash,
+    source_rules: sourceRules,
+    target_rules: targetRules,
     state_hash: frozenStateHash(frozen),
     counts: restored,
   });
@@ -656,6 +684,55 @@ function writeJsonAtomically(output, value) {
   }
 }
 
+function writeWithJournalCheckpoint(eventDbPath, snapshot, output, value) {
+  const checkpoint = snapshot.action_journal_seq ?? 0;
+  if (!eventDbPath) {
+    if (checkpoint !== 0) {
+      throw new Error(
+        "--event-db is required when the snapshot has an action-journal checkpoint",
+      );
+    }
+    writeJsonAtomically(output, value);
+    return null;
+  }
+  if (!Number.isSafeInteger(checkpoint) || checkpoint <= 0) {
+    throw new Error(
+      "snapshot action_journal_seq must be a positive safe integer when --event-db is supplied",
+    );
+  }
+
+  const database = new Database(path.resolve(eventDbPath), {
+    fileMustExist: true,
+  });
+  try {
+    database.pragma("busy_timeout = 5000");
+    return database.transaction(() => {
+      const journalHead = Number(database
+        .prepare("SELECT COALESCE(MAX(journal_seq), 0) FROM action_journal")
+        .pluck()
+        .get());
+      if (checkpoint !== journalHead) {
+        throw new Error(
+          `snapshot action-journal checkpoint ${checkpoint} does not match journal head ${journalHead}`,
+        );
+      }
+      const activeJobs = Number(database
+        .prepare("SELECT COUNT(*) FROM actor_jobs WHERE status IN ('pending', 'running')")
+        .pluck()
+        .get());
+      if (activeJobs !== 0) {
+        throw new Error(
+          `cannot migrate while ${activeJobs} actor job(s) are pending or running`,
+        );
+      }
+      writeJsonAtomically(output, value);
+      return checkpoint;
+    }).immediate();
+  } finally {
+    database.close();
+  }
+}
+
 const scriptPath = fileURLToPath(import.meta.url);
 if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
   try {
@@ -665,10 +742,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
     const output = option(args, "--output");
     const registryPath = option(args, "--registry");
     const targetPath = option(args, "--target-registry");
+    const eventDbPath = option(args, "--event-db");
     const packId = option(args, "--pack");
     if (!input || !output || !registryPath || !targetPath || !packId
         || !["unmount", "remount"].includes(operation)) {
-      throw new Error("usage: migrate-pack-unmount.mjs --operation unmount|remount --input snapshot.json --output migrated.json --registry source-registry.json --target-registry target-registry.json --pack PACK_ID");
+      throw new Error("usage: migrate-pack-unmount.mjs --operation unmount|remount --input snapshot.json --output migrated.json --registry source-registry.json --target-registry target-registry.json --pack PACK_ID [--event-db events.sqlite]");
     }
     const snapshot = JSON.parse(fs.readFileSync(path.resolve(input), "utf8"));
     const registry = JSON.parse(fs.readFileSync(path.resolve(registryPath), "utf8"));
@@ -676,7 +754,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
     const result = operation === "unmount"
       ? migratePackUnmount(snapshot, registry, packId, target)
       : migratePackRemount(snapshot, registry, packId, target);
-    writeJsonAtomically(output, result.snapshot);
+    const checkpoint = writeWithJournalCheckpoint(
+      eventDbPath,
+      snapshot,
+      output,
+      result.snapshot,
+    );
     console.log(`${operation}ed ${packId}: ${JSON.stringify({
       counts: result.removed ?? result.restored,
       transaction: {
@@ -687,6 +770,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
       ...(result.evacuated?.length
         ? { evacuated_actor_ids: result.evacuated.map((entry) => entry.actor_id) }
         : {}),
+      ...(checkpoint === null ? {} : { action_journal_seq: checkpoint }),
     })}`);
   } catch (error) {
     console.error(`pack mount migration failed: ${error.message}`);

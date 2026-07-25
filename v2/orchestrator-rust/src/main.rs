@@ -17,6 +17,7 @@ mod content_registry;
 mod crafting;
 mod generated_places;
 mod hosted_access;
+mod journal_checkpoint;
 mod kernel;
 mod legacy_import;
 mod moderation;
@@ -1703,6 +1704,7 @@ struct RuntimeWorld {
     orb_reward_claims: BTreeSet<String>,
     listen_attempt_claims: BTreeSet<String>,
     pack_mount_state: PackMountState,
+    action_journal_seq: u64,
     presence_states: BTreeMap<u64, bool>,
     event_log: Vec<EventView>,
     recent_room_lines: BTreeMap<u64, Vec<EventView>>,
@@ -1726,6 +1728,8 @@ struct RuntimeSnapshot {
     active_rules_extensions: Vec<String>,
     #[serde(default, skip_serializing_if = "PackMountState::is_empty")]
     pack_mount_state: PackMountState,
+    #[serde(default)]
+    action_journal_seq: u64,
 
     world_version: u32,
     tick: u64,
@@ -5326,10 +5330,13 @@ impl AppState {
         let mut runtime = match event_store_path.as_deref() {
             Some(path) => {
                 match init_event_store(path).and_then(|_| action_journal_has_records(path)) {
-                    Ok(true) => match RuntimeWorld::from_action_journal(path) {
+                    Ok(true) => match journal_checkpoint::replay_journal_continuity!(
+                        path,
+                        snapshot_path.as_deref().map(PathBuf::as_path),
+                    ) {
                         Ok(runtime) => {
                             info!(
-                                "replayed CosyWorld v2 action journal from {}",
+                                "restored CosyWorld v2 journal continuity from {}",
                                 path.display()
                             );
                             runtime
@@ -6179,13 +6186,14 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 9,
+            version: 10,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
             active_rules_variants: active_content().manifest.active_rules_variants.clone(),
             active_rules_extensions: active_content().manifest.active_rules_extensions.clone(),
             pack_mount_state: runtime.pack_mount_state.clone(),
+            action_journal_seq: runtime.action_journal_seq,
 
             world_version: runtime.world.version,
             tick: runtime.world.tick,
@@ -6459,6 +6467,7 @@ impl RuntimeSnapshot {
             orb_reward_claims: self.orb_reward_claims,
             listen_attempt_claims: self.listen_attempt_claims,
             pack_mount_state: self.pack_mount_state,
+            action_journal_seq: self.action_journal_seq,
             presence_states: BTreeMap::new(),
             event_log: self.event_log,
             recent_room_lines: self.recent_room_lines,
@@ -6787,97 +6796,6 @@ impl RuntimeWorld {
         }
     }
 
-    fn from_action_journal(path: &Path) -> io::Result<Self> {
-        let mut runtime = Self::seeded();
-        let records = read_action_journal_with_seq(path)?;
-        let mut canonical_natural_features =
-            read_canonical_natural_feature_reveals_by_journal_seq(path)?;
-        let mut canonical_quest_loot = read_canonical_quest_loot_allocations_by_journal_seq(path)?;
-        let mut pending_natural_features = Vec::new();
-        let mut migrated_bundle_hashes = BTreeSet::new();
-        for (journal_seq, record) in records {
-            let compatibility = persisted_worldpack_replay_compatibility(
-                &record.worldpack_bundle_hash,
-                "action journal",
-            )?;
-            if compatibility == WorldpackReplayCompatibility::DeclaredMigration {
-                migrated_bundle_hashes.insert(record.worldpack_bundle_hash.clone());
-            }
-            validate_persisted_content_context_for_replay(
-                &record.content_context,
-                "action journal",
-                compatibility == WorldpackReplayCompatibility::DeclaredMigration,
-            )?;
-            if !record.rules_profile.is_empty()
-                && record.rules_profile != active_content().manifest.rules_profile
-            {
-                return Err(snapshot_error(format!(
-                    "action journal rules profile {} does not match active rules profile {}",
-                    record.rules_profile,
-                    active_content().manifest.rules_profile
-                )));
-            }
-            if record.active_rules_variants != active_content().manifest.active_rules_variants {
-                return Err(snapshot_error(format!(
-                    "action journal rules variants {:?} do not match active variants {:?}",
-                    record.active_rules_variants,
-                    active_content().manifest.active_rules_variants
-                )));
-            }
-            if record.active_rules_extensions != active_content().manifest.active_rules_extensions {
-                return Err(snapshot_error(format!(
-                    "action journal rules extensions {:?} do not match active extensions {:?}",
-                    record.active_rules_extensions,
-                    active_content().manifest.active_rules_extensions
-                )));
-            }
-            validate_journal_rule_binding(&record)?;
-
-            let _ = runtime.apply_journal_record(&record);
-            if let Some(events) = canonical_natural_features.remove(&journal_seq) {
-                pending_natural_features.extend(events);
-            }
-            runtime.restore_ready_natural_feature_evidence(&mut pending_natural_features)?;
-            if let Some(events) = canonical_quest_loot.remove(&journal_seq) {
-                for event in events {
-                    runtime.restore_canonical_quest_loot_evidence(&record, &event)?;
-                }
-            }
-        }
-        pending_natural_features.extend(canonical_natural_features.into_values().flatten());
-        if !canonical_quest_loot.is_empty() {
-            return Err(snapshot_error(
-                "canonical quest loot evidence has no matching action journal record",
-            ));
-        }
-        if !migrated_bundle_hashes.is_empty() {
-            warn!(
-                "replayed action journal through declared worldpack migration(s) from [{}] to {}",
-                migrated_bundle_hashes
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                active_content().manifest.bundle_hash
-            );
-        }
-        runtime.recompute_counters();
-        runtime.ensure_seed_topology();
-        runtime.ensure_active_actor_rules_facets();
-        runtime.ensure_seed_rpg_projection();
-        runtime.backfill_generated_avatar_flavor();
-        runtime.ensure_actor_autonomy();
-        runtime.restore_ready_natural_feature_evidence(&mut pending_natural_features)?;
-        for event in pending_natural_features {
-            runtime.restore_natural_feature_reveal_evidence(&event)?;
-        }
-        runtime.backfill_generated_place_governance();
-        runtime.backfill_settlement_buildings();
-        let mint_seed = runtime.next_seed;
-        runtime.ensure_canonical_identities(mint_seed);
-        runtime.refresh_all_canonical_events();
-        Ok(runtime)
-    }
-
     fn seeded() -> Self {
         let mut world = CwWorld::default();
 
@@ -6938,6 +6856,7 @@ impl RuntimeWorld {
             orb_reward_claims: BTreeSet::new(),
             listen_attempt_claims: BTreeSet::new(),
             pack_mount_state: PackMountState::default(),
+            action_journal_seq: 0,
             presence_states: BTreeMap::new(),
             event_log: Vec::new(),
             recent_room_lines: BTreeMap::new(),
@@ -39916,7 +39835,7 @@ fn commit_journal_record(
             }
         },
     };
-    let (status, events, _actor_job_inserted, _committed_journal_seq) = if let Some(path) =
+    let (status, events, _actor_job_inserted, committed_journal_seq) = if let Some(path) =
         state.event_store_path.as_deref()
     {
         let mut conn = match open_event_store(path) {
@@ -40256,6 +40175,9 @@ fn commit_journal_record(
     if !events.is_empty() {
         state.mark_activity();
     }
+    if committed_journal_seq > 0 {
+        runtime.action_journal_seq = committed_journal_seq;
+    }
     persist_runtime(state, runtime);
     Ok((status, events))
 }
@@ -40265,7 +40187,10 @@ fn restore_runtime_from_durable_state(
     runtime: &mut RuntimeWorld,
     event_store_path: &Path,
 ) -> io::Result<()> {
-    let mut restored = RuntimeWorld::from_action_journal(event_store_path)?;
+    let mut restored = journal_checkpoint::replay_journal_continuity!(
+        event_store_path,
+        state.snapshot_path.as_deref().map(PathBuf::as_path),
+    )?;
     advance_runtime_next_event_seq_from_store(&mut restored, event_store_path)?;
     hydrate_runtime_canonical_state(&mut restored, event_store_path)?;
     if let Some(path) = state.resident_continuity_path.as_deref() {
@@ -40299,15 +40224,13 @@ fn journal_commit_recovery_error(
 }
 
 fn persist_runtime(state: &AppState, runtime: &RuntimeWorld) {
-    if state.event_store_path.is_none() {
-        if let Some(path) = state.snapshot_path.as_deref() {
-            if let Err(error) = runtime.save_snapshot(path) {
-                warn!(
-                    "failed to persist CosyWorld v2 snapshot {}: {}",
-                    path.display(),
-                    error
-                );
-            }
+    if let Some(path) = state.snapshot_path.as_deref() {
+        if let Err(error) = runtime.save_snapshot(path) {
+            warn!(
+                "failed to persist CosyWorld v2 snapshot {}: {}",
+                path.display(),
+                error
+            );
         }
     }
     if let Some(path) = state.resident_continuity_path.as_deref() {
@@ -41082,20 +41005,28 @@ fn fail_or_retry_actor_job(path: &Path, job: &ActorJob, error: &str) -> io::Resu
 
 #[cfg(test)]
 fn read_action_journal(path: &Path) -> io::Result<Vec<JournalRecord>> {
-    Ok(read_action_journal_with_seq(path)?
+    Ok(read_action_journal_after_seq(path, 0)?
         .into_iter()
         .map(|(_, record)| record)
         .collect())
 }
 
-fn read_action_journal_with_seq(path: &Path) -> io::Result<Vec<(u64, JournalRecord)>> {
+fn read_action_journal_after_seq(
+    path: &Path,
+    after_seq: u64,
+) -> io::Result<Vec<(u64, JournalRecord)>> {
     init_event_store(path)?;
     let conn = open_event_store(path)?;
     let mut stmt = conn
-        .prepare("SELECT journal_seq, record_json FROM action_journal ORDER BY journal_seq ASC")
+        .prepare(
+            "SELECT journal_seq, record_json
+             FROM action_journal
+             WHERE journal_seq > ?1
+             ORDER BY journal_seq ASC",
+        )
         .map_err(sqlite_error)?;
     let rows = stmt
-        .query_map([], |row| {
+        .query_map(params![after_seq as i64], |row| {
             Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
         })
         .map_err(sqlite_error)?;
@@ -41114,22 +41045,35 @@ fn read_action_journal_with_seq(path: &Path) -> io::Result<Vec<(u64, JournalReco
     Ok(records)
 }
 
-fn read_canonical_natural_feature_reveals_by_journal_seq(
+fn read_canonical_natural_feature_reveals_after_journal_seq(
     path: &Path,
+    after_seq: u64,
 ) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
-    read_canonical_events_by_journal_seq(path, "natural_feature.revealed", CW_MAX_LOCATIONS as i64)
+    read_canonical_events_after_journal_seq(
+        path,
+        "natural_feature.revealed",
+        CW_MAX_LOCATIONS as i64,
+        after_seq,
+    )
 }
 
-fn read_canonical_quest_loot_allocations_by_journal_seq(
+fn read_canonical_quest_loot_allocations_after_journal_seq(
     path: &Path,
+    after_seq: u64,
 ) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
-    read_canonical_events_by_journal_seq(path, "quest.loot_allocated", CW_MAX_ITEMS as i64)
+    read_canonical_events_after_journal_seq(
+        path,
+        "quest.loot_allocated",
+        CW_MAX_ITEMS as i64,
+        after_seq,
+    )
 }
 
-fn read_canonical_events_by_journal_seq(
+fn read_canonical_events_after_journal_seq(
     path: &Path,
     event_type: &str,
     limit: i64,
+    after_seq: u64,
 ) -> io::Result<BTreeMap<u64, Vec<EventView>>> {
     init_event_store(path)?;
     let conn = open_event_store(path)?;
@@ -41149,8 +41093,18 @@ fn read_canonical_events_by_journal_seq(
              WHERE events.world_id = ?1
                AND events.world_epoch = ?2
                AND events.event_type = ?3
+               AND COALESCE((
+                   SELECT commits.action_journal_seq
+                   FROM canonical_commits AS commits
+                   WHERE commits.world_id = events.world_id
+                     AND commits.world_epoch = events.world_epoch
+                     AND events.seq BETWEEN commits.first_world_seq AND commits.last_world_seq
+                   ORDER BY (commits.last_world_seq - commits.first_world_seq) ASC,
+                            commits.action_journal_seq ASC
+                   LIMIT 1
+               ), 9223372036854775807) > ?4
              ORDER BY events.seq ASC
-             LIMIT ?4",
+             LIMIT ?5",
         )
         .map_err(sqlite_error)?;
     let rows = stmt
@@ -41159,6 +41113,7 @@ fn read_canonical_events_by_journal_seq(
                 OFFICIAL_WORLD_ID,
                 OFFICIAL_WORLD_EPOCH as i64,
                 event_type,
+                after_seq as i64,
                 limit
             ],
             |row| Ok((row.get::<_, Option<i64>>(0)?, row.get::<_, String>(1)?)),
@@ -44757,8 +44712,26 @@ mod tests {
         );
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn divergent_capacity_processes_converge_without_affinity() {
+    #[test]
+    fn divergent_capacity_processes_converge_without_affinity() {
+        std::thread::Builder::new()
+            .name("capacity-convergence".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(|| {
+                tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(4)
+                    .thread_stack_size(16 * 1024 * 1024)
+                    .enable_all()
+                    .build()
+                    .expect("build capacity convergence runtime")
+                    .block_on(run_divergent_capacity_processes());
+            })
+            .expect("spawn capacity convergence thread")
+            .join()
+            .expect("capacity convergence thread");
+    }
+
+    async fn run_divergent_capacity_processes() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-capacity-convergence-{}-{}.sqlite",
             std::process::id(),
@@ -45241,6 +45214,7 @@ mod tests {
             .spawn(|| {
                 tokio::runtime::Builder::new_multi_thread()
                     .worker_threads(2)
+                    .thread_stack_size(16 * 1024 * 1024)
                     .enable_all()
                     .build()
                     .expect("build hot-room regional chaos runtime")
@@ -52478,6 +52452,16 @@ mod tests {
 
     #[test]
     fn durable_entity_versions_rehydrate_replayed_runtime_before_next_write() {
+        std::thread::Builder::new()
+            .name("durable-version-rehydrate".to_string())
+            .stack_size(16 * 1024 * 1024)
+            .spawn(run_durable_entity_version_rehydration)
+            .expect("spawn durable version rehydration thread")
+            .join()
+            .expect("durable version rehydration thread");
+    }
+
+    fn run_durable_entity_version_rehydration() {
         let path = std::env::temp_dir().join(format!(
             "cosyworld-canonical-version-rehydrate-{}-{}.sqlite",
             std::process::id(),
@@ -60309,6 +60293,7 @@ mod tests {
             .into_runtime()
             .expect("pre-combat-choice snapshot restores");
         assert_eq!(replayed.apply_journal_record(persisted_record).0, CW_OK);
+        replayed.action_journal_seq = runtime.action_journal_seq;
         assert_eq!(
             serde_json::to_value(RuntimeSnapshot::from_runtime(&replayed))
                 .expect("replayed state serializes"),
@@ -71745,7 +71730,7 @@ mod tests {
     }
 
     #[test]
-    fn journal_backed_runtime_skips_redundant_full_snapshot_writes() {
+    fn journal_backed_runtime_writes_checkpoint_snapshots() {
         let runtime = RuntimeWorld::seeded();
         let event_store_path = std::env::temp_dir().join(format!(
             "cosyworld-v2-persist-journal-{}-{}.sqlite",
@@ -71764,8 +71749,11 @@ mod tests {
         state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
         persist_runtime(&state, &runtime);
 
-        assert!(!snapshot_path.exists());
+        let snapshot =
+            RuntimeWorld::load_snapshot(&snapshot_path).expect("journal checkpoint snapshot loads");
+        assert_eq!(snapshot.action_journal_seq, runtime.action_journal_seq);
         let _ = fs::remove_file(event_store_path);
+        let _ = fs::remove_file(snapshot_path);
     }
 
     #[test]

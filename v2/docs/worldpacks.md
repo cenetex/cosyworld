@@ -202,8 +202,8 @@ npm run v2:worldpack:compile
 npm run v2:worldpack
 npm run v2:worldpack:inspect
 npm run v2:content-refs:migrate -- --input legacy.json --output migrated.json
-npm run v2:pack:unmount -- --operation unmount --input snapshot.json --output unmounted.json --registry v2/content/core-only/registry.json --target-registry v2/content/services-only/registry.json --pack cosyworld.core
-npm run v2:pack:unmount -- --operation remount --input unmounted.json --output remounted.json --registry v2/content/services-only/registry.json --target-registry v2/content/core-only/registry.json --pack cosyworld.core
+npm run v2:pack:unmount -- --operation unmount --input snapshot.json --output unmounted.json --event-db events.sqlite --registry v2/content/core-only/registry.json --target-registry v2/content/services-only/registry.json --pack cosyworld.core
+npm run v2:pack:unmount -- --operation remount --input unmounted.json --output remounted.json --event-db events.sqlite --registry v2/content/services-only/registry.json --target-registry v2/content/core-only/registry.json --pack cosyworld.core
 ```
 
 `sync` skips workspace packs and materializes Git-backed packs below `v2/content/imports`. Git sources must use an HTTPS GitHub URL and a full 40-character commit. It never follows a branch or tag at build time.
@@ -309,10 +309,20 @@ state hash, a monotonic sequence, and any completed actor/item evacuation.
 Remount requires the exact frozen source registry and restores the same pack
 identities without undoing the actors' completed evacuation; collisions fail
 without changing the input. Both directions require the snapshot's active
-bundle hash to match the supplied source registry. The CLI writes through a
-same-directory temporary file and atomic rename. Archive the source snapshot
-and stop writers before running it; then start the single authoritative writer
-with the exact target registry supplied to the tool.
+bundle hash to match the supplied source registry, and move the top-level rules
+profile, variants, and extensions to the target composition in the same
+transaction.
+
+With an event store, every committed action writes a snapshot checkpoint tagged
+with its exact `action_journal_seq`. Startup restores that checkpoint and
+replays only the newer journal suffix, so an offline pack migration remains
+authoritative without rewriting historical journal rows. The migration CLI
+requires `--event-db` for a checkpointed snapshot, takes an immediate SQLite
+write lock, verifies the snapshot cursor equals the journal head, and refuses
+to run while actor jobs are pending or running. It writes through a
+same-directory temporary file and atomic rename. Stop the writer and archive
+the source snapshot before running it; then start one authoritative writer with
+the exact target registry supplied to the tool.
 
 ## Runtime discovery and access
 
