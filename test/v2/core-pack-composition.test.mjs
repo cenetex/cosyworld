@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { migrateContentReferenceDocument } from "../../v2/scripts/migrate-content-references.mjs";
-import { migratePackUnmount } from "../../v2/scripts/migrate-pack-unmount.mjs";
+import {
+  migratePackRemount,
+  migratePackUnmount,
+} from "../../v2/scripts/migrate-pack-unmount.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (relativePath) => JSON.parse(fs.readFileSync(path.join(repoRoot, relativePath), "utf8"));
@@ -67,29 +70,51 @@ describe("independently mountable CosyWorld Core", () => {
     expect(handles["pack://cosyworld.core/location/1"]).toBe(1);
   });
 
-  it("allows a safe Core unmount only after every human leaves its locations", () => {
+  it("soft-unmounts and remounts Core without losing identities or card zones", () => {
     const vacant = {
       worldpack_bundle_hash: coreOnly.manifest.bundle_hash,
       world_actors: [{ id: 1001, kind: 2, location_id: 1 }],
-      world_items: [{ id: 2001, location_id: 3 }],
+      world_items: [{
+        id: 2001,
+        location_id: 3,
+        holder_actor_id: 1001,
+        zone: 3,
+        container_item_id: 0,
+      }],
       world_locations: [{ id: 1 }, { id: 3 }],
       world_exits: [{ from_location_id: 1, to_location_id: 3 }],
       world_evolution_tracks: [{ actor_id: 1001 }],
       world_combat_encounters: [{ location_id: 3, participants: [{ actor_id: 1001 }] }],
       actor_meta: { 1001: { name: "Rati" } },
+      equipped_charms: { 1001: [2001] },
+      item_provenance: { 2001: { item_id: 2001, origin: "seed_pack" } },
       natural_affordances: { 3: { location_id: 3 } },
       clocks: { "natural-investigation:3:survey": { scope_id: 3 } },
       jobs: { "natural-investigation:3": { location_ids: [3] } },
       branches: { 1: { actor_id: 5000, target_actor_id: 1001 } },
       bonds: { bond: { actor_id: 5000, target_actor_id: 1001 } },
+      transfer_offers: {
+        gift: {
+          offered_by_actor_id: 5000,
+          offered_to_actor_id: 1001,
+          offered_item_id: 2001,
+        },
+      },
       resident_continuities: { 1001: { resident_id: 1001 } },
       resident_memories: { memory: { carrier_actor_id: 1001, kind: "item", subject_id: 2001, location_id: 3 } },
       search_memories: { search: { actor_id: 5000, kind: "location", subject_id: 3, location_id: 3 } },
       tags: { tag: { scope_id: 3 } },
       world_simulation: { locations: { 3: {} }, factions: { hearthbound: {} } },
-      content_context: { mapping_version: 1, references: coreOnly.content_references.entries.slice(0, 3) },
+      content_context: {
+        mapping_version: 1,
+        references: coreOnly.content_references.entries
+          .filter((entry) => entry.pack_id === "cosyworld.core")
+          .slice(0, 3),
+      },
     };
-    const result = migratePackUnmount(structuredClone(vacant), coreOnly, "cosyworld.core", servicesOnly);
+    const source = structuredClone(vacant);
+    const result = migratePackUnmount(source, coreOnly, "cosyworld.core", servicesOnly);
+    expect(source).toEqual(vacant);
     expect(result.removed).toEqual({ actors: 1, items: 1, locations: 2, exits: 1 });
     expect(result.snapshot.worldpack_bundle_hash).toBe(servicesOnly.manifest.bundle_hash);
     for (const field of ["world_evolution_tracks", "world_combat_encounters"]) {
@@ -99,11 +124,82 @@ describe("independently mountable CosyWorld Core", () => {
       expect(result.snapshot[field]).toEqual({});
     }
     expect(result.snapshot.world_simulation).toEqual({ locations: {}, factions: {} });
+    expect(result.snapshot.transfer_offers).toEqual({});
+    expect(result.snapshot.content_context.references).toEqual([]);
+    expect(result.snapshot.pack_mount_state.history).toEqual([
+      expect.objectContaining({
+        sequence: 1,
+        status: "committed",
+        operation: "soft_unmount",
+        pack_id: "cosyworld.core",
+      }),
+    ]);
+    const frozen = result.snapshot.pack_mount_state.frozen["cosyworld.core"];
+    expect(frozen.arrays.world_items[0].value).toMatchObject({
+      id: 2001,
+      holder_actor_id: 1001,
+      zone: 3,
+    });
+    expect(frozen.maps.equipped_charms).toEqual({ 1001: [2001] });
+    expect(frozen.maps.item_provenance).toEqual({
+      2001: { item_id: 2001, origin: "seed_pack" },
+    });
 
     const occupied = structuredClone(vacant);
     occupied.world_actors.push({ id: 5000, kind: 1, location_id: 1 });
+    const occupiedBefore = structuredClone(occupied);
     expect(() => migratePackUnmount(occupied, coreOnly, "cosyworld.core", servicesOnly))
       .toThrow(/human actors 5000 still occupy/);
+    expect(occupied).toEqual(occupiedBefore);
+
+    const remounted = migratePackRemount(
+      result.snapshot,
+      servicesOnly,
+      "cosyworld.core",
+      coreOnly,
+    );
+    expect(remounted.restored).toEqual(result.removed);
+    expect(remounted.snapshot.worldpack_bundle_hash).toBe(coreOnly.manifest.bundle_hash);
+    for (const field of [
+      "world_actors",
+      "world_items",
+      "world_locations",
+      "world_exits",
+      "world_evolution_tracks",
+      "world_combat_encounters",
+      "actor_meta",
+      "equipped_charms",
+      "item_provenance",
+      "natural_affordances",
+      "clocks",
+      "jobs",
+      "branches",
+      "bonds",
+      "transfer_offers",
+      "resident_continuities",
+      "resident_memories",
+      "search_memories",
+      "tags",
+      "world_simulation",
+      "content_context",
+    ]) expect(remounted.snapshot[field], field).toEqual(vacant[field]);
+    expect(remounted.snapshot.pack_mount_state.frozen).toEqual({});
+    expect(remounted.snapshot.pack_mount_state.history).toHaveLength(2);
+    expect(remounted.transaction).toMatchObject({
+      sequence: 2,
+      status: "committed",
+      operation: "remount",
+      pack_id: "cosyworld.core",
+      state_hash: result.transaction.state_hash,
+    });
+
+    const conflicting = structuredClone(result.snapshot);
+    conflicting.world_items.push({ id: 2001, location_id: 0, zone: 1 });
+    const conflictingBefore = structuredClone(conflicting);
+    expect(() =>
+      migratePackRemount(conflicting, servicesOnly, "cosyworld.core", coreOnly))
+      .toThrow(/world_items identity 2001 is already active/);
+    expect(conflicting).toEqual(conflictingBefore);
   });
 
   it("provides a non-world services composition without silently mounting Core", () => {

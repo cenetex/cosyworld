@@ -65,6 +65,16 @@ pub(super) struct ContentReferenceContext {
     pub(super) active_rulesets: Vec<ActiveRulesetContext>,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(transparent)]
+pub(super) struct PackMountState(pub(super) serde_json::Value);
+
+impl PackMountState {
+    pub(super) fn is_empty(&self) -> bool {
+        self.0.is_null()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum ContentReferenceStatus {
     Available,
@@ -1454,5 +1464,31 @@ mod tests {
         assert_eq!(context.active_rulesets.len(), 1);
         assert_eq!(context.active_rulesets[0].capability_id, "rules-pack/core");
         assert_eq!(context.active_rulesets[0].provider_pack_version, "1.0.0");
+    }
+
+    #[test]
+    fn snapshot_round_trip_preserves_pack_mount_state() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime.pack_mount_state = PackMountState(serde_json::json!({
+            "schema_version": 1,
+            "next_transaction_seq": 2,
+            "frozen": {
+                "example.pack": {
+                    "arrays": {
+                        "world_items": [{
+                            "index": 0,
+                            "value": { "id": 42, "zone": 3 }
+                        }]
+                    }
+                }
+            },
+            "history": [{ "sequence": 1, "operation": "soft_unmount" }]
+        }));
+        let expected = runtime.pack_mount_state.clone();
+
+        let snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        assert_eq!(snapshot.pack_mount_state, expected);
+        let restored = snapshot.into_runtime().expect("snapshot restores");
+        assert_eq!(restored.pack_mount_state, expected);
     }
 }
