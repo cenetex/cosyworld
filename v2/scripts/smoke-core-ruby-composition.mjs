@@ -20,6 +20,7 @@ const coreOnlyRegistryPath = resolve(v2Root, "content/core-only/registry.json");
 const coreRubyRegistryPath = resolve(v2Root, "content/core-ruby/registry.json");
 const contentRoot = resolve(v2Root, "content");
 const packMigrationPath = resolve(v2Root, "scripts/migrate-pack-unmount.mjs");
+const journalInspectionPath = resolve(v2Root, "scripts/inspect-action-journal.mjs");
 const walletAddress = "core-ruby-composition-smoke";
 
 function assert(condition, message) {
@@ -176,6 +177,20 @@ function migratePack(operation, snapshotPath, eventDbPath, sourceRegistry, targe
   return migrated.stdout;
 }
 
+function inspectJournal(eventDbPath, registryPath) {
+  const inspected = spawnSync(process.execPath, [
+    journalInspectionPath,
+    "--event-db",
+    eventDbPath,
+    "--registry",
+    registryPath,
+    "--limit",
+    "500",
+  ], { cwd: resolve(v2Root, ".."), encoding: "utf8" });
+  assert(inspected.status === 0, inspected.stderr || inspected.stdout);
+  return JSON.parse(inspected.stdout);
+}
+
 function assertFrozenStateRestored(frozen, snapshot) {
   for (const [field, entries] of Object.entries(frozen.arrays ?? {})) {
     const active = snapshot[field] ?? [];
@@ -325,6 +340,7 @@ async function main() {
   let second = null;
   let coreOnly = null;
   let remounted = null;
+  let missingRubyRecordHash = null;
 
   try {
     source = await startServer(tempDir, coreOnlyRegistryPath, snapshotPath);
@@ -569,6 +585,21 @@ async function main() {
         frozenSnapshot.pack_mount_state,
       )}`,
     );
+    const degradedJournal = inspectJournal(eventDbPath, coreOnlyRegistryPath);
+    const missingRubyRecord = degradedJournal.records.find((record) =>
+      record.content_references?.some((reference) =>
+        reference.canonical_ref === "pack://ruby-high.first-bell/location/11"
+        && reference.status === "missing_pack"
+        && reference.tombstone === true));
+    assert(
+      degradedJournal.summary.missing_pack_references > 0
+        && missingRubyRecord
+        && missingRubyRecord.replayable === false,
+      `unmounted Ruby journal identity was not inspectable as a tombstone: ${JSON.stringify(
+        degradedJournal.summary,
+      )}`,
+    );
+    missingRubyRecordHash = missingRubyRecord.record_sha256;
 
     coreOnly = await startServer(tempDir, coreOnlyRegistryPath, snapshotPath);
     assert(
@@ -624,6 +655,21 @@ async function main() {
       )}`,
     );
     assertFrozenStateRestored(frozenRuby, restoredSnapshot);
+    const restoredJournal = inspectJournal(eventDbPath, coreRubyRegistryPath);
+    const restoredRubyRecord = restoredJournal.records.find((record) =>
+      record.record_sha256 === missingRubyRecordHash
+      && record.content_references?.some((reference) =>
+        reference.canonical_ref === "pack://ruby-high.first-bell/location/11"
+        && reference.status === "available"
+        && reference.tombstone === undefined));
+    assert(
+      restoredJournal.summary.missing_pack_references === 0
+        && restoredRubyRecord
+        && restoredRubyRecord.replayable === true,
+      `remounted Ruby journal identity did not restore unchanged: ${JSON.stringify(
+        restoredJournal.summary,
+      )}`,
+    );
 
     remounted = await startServer(tempDir, coreRubyRegistryPath, snapshotPath);
     assert(
@@ -677,8 +723,10 @@ async function main() {
         "journal checkpoint replay",
         "The Cosy Cottage",
         "Ruby High soft-unmounted",
+        "Ruby journal tombstone inspected",
         "Core-only action",
         "Ruby High remounted",
+        "Ruby journal reference restored",
         "Homeroom action",
       ],
     }, null, 2));
