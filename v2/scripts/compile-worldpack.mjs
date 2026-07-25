@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   CANONICAL_ID_MAPPING_VERSION,
   CONTENT_PACK_CONTRACT,
+  packDeclaresRuleset,
   resolveContentPackGraph,
   validateContentPackManifest,
   validateWorldEntityResource,
@@ -679,6 +680,12 @@ for (const pack of packs) {
           row,
           `pack ${pack.manifest.id} location ${String(row.id ?? "unknown")}`,
         );
+        if (row.ruleset !== undefined) {
+          assert(
+            typeof row.ruleset === "string" && packDeclaresRuleset(pack.manifest, row.ruleset),
+            `pack ${pack.manifest.id} location ${String(row.id ?? "unknown")} selects unavailable ruleset ${row.ruleset}`,
+          );
+        }
       }
       assert(!row.pack_id || row.pack_id === pack.manifest.id, `pack ${pack.manifest.id} resource ${resource} contains conflicting pack_id ${row.pack_id}`);
       const { requires_packs: requiresPacks = [], ...compiledRow } = row;

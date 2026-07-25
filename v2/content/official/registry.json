@@ -33,7 +33,8 @@
         "sha256:aca13f4075a97d37ffb13c6626eb6247793a87e6f76ac217a84e417c07b687ff",
         "sha256:fd5012d745f00283c16bea59c0d014393dd064e9751c7728b0e2e6ba6a39690c",
         "sha256:02147a6629b038e2e9a28039f829bc6ad67881fe3391a0edabf744fd362427df",
-        "sha256:ef70c61617e4c6f6cf905f049dddbb053e84b520f545ed2d01b3180cf39d75d1"
+        "sha256:ef70c61617e4c6f6cf905f049dddbb053e84b520f545ed2d01b3180cf39d75d1",
+        "sha256:f5cd5ce7a1bb8447811afd5af6a6d31d4709a4f6ee1988a77fc254111d572f17"
       ]
     },
     "rules_profile": "cosyworld.srd5/1",
@@ -619,7 +620,7 @@
         }
       ]
     },
-    "bundle_hash": "sha256:f5cd5ce7a1bb8447811afd5af6a6d31d4709a4f6ee1988a77fc254111d572f17",
+    "bundle_hash": "sha256:5b66ce6369fbf04814b2812f30c5e5940bf6b08100f2aa4bf87be5ddd8d58ecc",
     "packs": [
       {
         "id": "cosyworld.rules-srd-5.2.1",
@@ -2063,7 +2064,7 @@
         "id": "ruby-high.first-bell",
         "name": "Ruby High: First Bell",
         "description": "An independently bootable school world, card catalog, and entitlement-gated First Bell experience.",
-        "version": "1.3.3",
+        "version": "1.3.4",
         "kind": "world",
         "license": "MIT",
         "license_url": "https://opensource.org/license/mit",
@@ -2238,6 +2239,13 @@
         },
         "extensions": {
           "x-cosyworld-rules-context": {
+            "schema_version": 1,
+            "zones": [
+              {
+                "zone": "sanctuary",
+                "ruleset": "ruby-high.first-bell/rules"
+              }
+            ],
             "vocabulary": {
               "actions": [
                 "study",
@@ -2259,7 +2267,7 @@
           "type": "workspace",
           "path": "../../content/ruby-high-first-bell"
         },
-        "integrity": "sha256:ce163cf59c7528bec79a66b243d8b40c6467f4dc9933e086752e8b7ab7c4239b"
+        "integrity": "sha256:c6f4718f7a73bb1debce6e7737514af3fa8f420d5c9a4d529e2cf4aeba9b14b9"
       }
     ],
     "files": {
@@ -5213,6 +5221,7 @@
       },
       {
         "id": 11,
+        "ruleset": "ruby-high.first-bell/rules",
         "name": "Homeroom",
         "title": "Front Door",
         "description": "Morning light crosses rows of desks.",
@@ -13015,8 +13024,8 @@
     },
     {
       "pack_id": "ruby-high.first-bell",
-      "pack_version": "1.3.3",
-      "pack_integrity": "sha256:ce163cf59c7528bec79a66b243d8b40c6467f4dc9933e086752e8b7ab7c4239b",
+      "pack_version": "1.3.4",
+      "pack_integrity": "sha256:c6f4718f7a73bb1debce6e7737514af3fa8f420d5c9a4d529e2cf4aeba9b14b9",
       "provider": "ruby-high.first-bell/assets",
       "mount": "cards",
       "root": "ruby-high-first-bell",
@@ -14752,7 +14761,7 @@
     },
     {
       "pack_id": "ruby-high.first-bell",
-      "pack_version": "1.3.3",
+      "pack_version": "1.3.4",
       "rules_profile": "cosyworld.srd5/1",
       "reskins": [
         {
@@ -14954,7 +14963,7 @@
     {
       "pack_id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
-      "version": "1.3.3",
+      "version": "1.3.4",
       "license_identifier": "MIT",
       "license_url": "https://opensource.org/license/mit",
       "provenance": {
@@ -19543,7 +19552,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/actor-facet/rati-first-bell",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "actor-facet",
         "local_id": "rati-first-bell",
         "runtime_handle": 1038687835420516
@@ -19551,7 +19560,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/card-binding/rati-first-bell-card",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "card-binding",
         "local_id": "rati-first-bell-card",
         "runtime_handle": 3116738573256863
@@ -19559,7 +19568,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/card/location-cafeteria",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "card",
         "local_id": "location-cafeteria",
         "runtime_handle": 3107528363911865
@@ -19567,7 +19576,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/card/location-courtyard",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "card",
         "local_id": "location-courtyard",
         "runtime_handle": 4782402674832957
@@ -19575,7 +19584,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/card/location-greenhouse",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "card",
         "local_id": "location-greenhouse",
         "runtime_handle": 3662976131116729
@@ -19583,7 +19592,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/card/location-homeroom",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "card",
         "local_id": "location-homeroom",
         "runtime_handle": 7084902207358373
@@ -19591,7 +19600,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/card/location-library",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "card",
         "local_id": "location-library",
         "runtime_handle": 6785800264541047
@@ -19599,7 +19608,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/card/location-science-lab",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "card",
         "local_id": "location-science-lab",
         "runtime_handle": 8201462675675638
@@ -19607,7 +19616,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/captain-null",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "captain-null",
         "runtime_handle": 3843573141933674
@@ -19615,7 +19624,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/eliza",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "eliza",
         "runtime_handle": 4124553834845258
@@ -19623,7 +19632,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/indra",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "indra",
         "runtime_handle": 8687099168741216
@@ -19631,7 +19640,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/item-flashcards",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "item-flashcards",
         "runtime_handle": 6148366931632609
@@ -19639,7 +19648,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/item-hall-pass",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "item-hall-pass",
         "runtime_handle": 6154026517662833
@@ -19647,7 +19656,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/item-lab-flask",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "item-lab-flask",
         "runtime_handle": 7444186363202775
@@ -19655,7 +19664,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/item-library-card",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "item-library-card",
         "runtime_handle": 27821797810153
@@ -19663,7 +19672,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/item-lunch-tray",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "item-lunch-tray",
         "runtime_handle": 3064948555071770
@@ -19671,7 +19680,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/item-notebook",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "item-notebook",
         "runtime_handle": 5906680647268123
@@ -19679,7 +19688,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/location-cafeteria",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "location-cafeteria",
         "runtime_handle": 232928798345453
@@ -19687,7 +19696,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/location-courtyard",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "location-courtyard",
         "runtime_handle": 1017422828753302
@@ -19695,7 +19704,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/location-greenhouse",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "location-greenhouse",
         "runtime_handle": 1874830250433117
@@ -19703,7 +19712,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/location-homeroom",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "location-homeroom",
         "runtime_handle": 6928775784641985
@@ -19711,7 +19720,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/location-library",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "location-library",
         "runtime_handle": 8204365461548708
@@ -19719,7 +19728,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/location-science-lab",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "location-science-lab",
         "runtime_handle": 57115334800243
@@ -19727,7 +19736,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/lyra",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "lyra",
         "runtime_handle": 7094866015162716
@@ -19735,7 +19744,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/mika",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "mika",
         "runtime_handle": 4809241939115652
@@ -19743,7 +19752,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/noor",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "noor",
         "runtime_handle": 6643976235743711
@@ -19751,7 +19760,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/professor-edward",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "professor-edward",
         "runtime_handle": 1211962163801060
@@ -19759,7 +19768,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/rati",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "rati",
         "runtime_handle": 8508280633539606
@@ -19767,7 +19776,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/ravi",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "ravi",
         "runtime_handle": 3914282740523084
@@ -19775,7 +19784,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/ruby",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "ruby",
         "runtime_handle": 442578259385801
@@ -19783,7 +19792,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/sally-science",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "sally-science",
         "runtime_handle": 692877066368845
@@ -19791,7 +19800,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/external-card/sami",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "external-card",
         "local_id": "sami",
         "runtime_handle": 5798756249869747
@@ -19799,7 +19808,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/faction/ruby_high",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "faction",
         "local_id": "ruby_high",
         "runtime_handle": 2919627811514647
@@ -19807,7 +19816,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/location/10",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "location",
         "local_id": "10",
         "legacy_runtime_id": 10,
@@ -19816,7 +19825,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/location/11",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "location",
         "local_id": "11",
         "legacy_runtime_id": 11,
@@ -19825,7 +19834,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/location/12",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "location",
         "local_id": "12",
         "legacy_runtime_id": 12,
@@ -19834,7 +19843,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/location/13",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "location",
         "local_id": "13",
         "legacy_runtime_id": 13,
@@ -19843,7 +19852,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/location/14",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "location",
         "local_id": "14",
         "legacy_runtime_id": 14,
@@ -19852,7 +19861,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/location/15",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "location",
         "local_id": "15",
         "legacy_runtime_id": 15,
@@ -19861,7 +19870,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A10",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "room-sheet",
         "local_id": "room:10",
         "runtime_handle": 2574024258005683
@@ -19869,7 +19878,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A11",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "room-sheet",
         "local_id": "room:11",
         "runtime_handle": 944777926762018
@@ -19877,7 +19886,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A12",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "room-sheet",
         "local_id": "room:12",
         "runtime_handle": 8925253377010016
@@ -19885,7 +19894,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A13",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "room-sheet",
         "local_id": "room:13",
         "runtime_handle": 1954150505527197
@@ -19893,7 +19902,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A14",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "room-sheet",
         "local_id": "room:14",
         "runtime_handle": 9002247914113905
@@ -19901,7 +19910,7 @@
       {
         "canonical_ref": "pack://ruby-high.first-bell/room-sheet/room%3A15",
         "pack_id": "ruby-high.first-bell",
-        "pack_version": "1.3.3",
+        "pack_version": "1.3.4",
         "kind": "room-sheet",
         "local_id": "room:15",
         "runtime_handle": 8772787069788936

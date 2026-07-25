@@ -56,6 +56,7 @@ const WORLD_ENTITY_FIELDS = Object.freeze({
     "pack_id",
     "requires_packs",
     "id",
+    "ruleset",
     "name",
     "title",
     "description",
@@ -84,6 +85,59 @@ function formatSchemaErrors(errors) {
   return errors
     .map((error) => `${error.instancePath || "/"} ${error.message}`)
     .join("; ");
+}
+
+export function packDeclaresRuleset(manifest, ruleset) {
+  return manifest.capabilities.some(
+    (capability) => capability.id === ruleset && capability.kind === "rules",
+  ) || (manifest.dependency_requirements ?? manifest.dependencies).some(
+    (dependency) => dependency.capabilities?.includes(ruleset),
+  );
+}
+
+export function rulesContextValidationErrors(manifest, label = "pack.json") {
+  const config = manifest.extensions?.["x-cosyworld-rules-context"];
+  if (config === undefined) return [];
+  const errors = [];
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return [`${label}: x-cosyworld-rules-context must be an object`];
+  }
+  const configFields = new Set(["schema_version", "zones", "vocabulary"]);
+  for (const field of Object.keys(config)) {
+    if (!configFields.has(field)) {
+      errors.push(`${label}: x-cosyworld-rules-context has unknown field ${field}`);
+    }
+  }
+  if (config.schema_version !== 1) {
+    errors.push(`${label}: x-cosyworld-rules-context schema_version must be 1`);
+  }
+  if (!Array.isArray(config.zones)) {
+    errors.push(`${label}: x-cosyworld-rules-context zones must be an array`);
+    return errors;
+  }
+  const zones = new Set();
+  for (const selector of config.zones) {
+    if (!selector || typeof selector !== "object" || Array.isArray(selector)) {
+      errors.push(`${label}: x-cosyworld-rules-context zone selector must be an object`);
+      continue;
+    }
+    for (const field of Object.keys(selector)) {
+      if (!["zone", "ruleset"].includes(field)) {
+        errors.push(`${label}: x-cosyworld-rules-context zone selector has unknown field ${field}`);
+      }
+    }
+    if (typeof selector.zone !== "string" || !/^[a-z][a-z0-9_-]*$/.test(selector.zone)) {
+      errors.push(`${label}: x-cosyworld-rules-context has invalid zone ${selector.zone}`);
+    } else if (zones.has(selector.zone)) {
+      errors.push(`${label}: x-cosyworld-rules-context repeats zone ${selector.zone}`);
+    } else {
+      zones.add(selector.zone);
+    }
+    if (typeof selector.ruleset !== "string" || !packDeclaresRuleset(manifest, selector.ruleset)) {
+      errors.push(`${label}: zone ${selector.zone} ruleset ${selector.ruleset} is not provided or required`);
+    }
+  }
+  return errors;
 }
 
 export function validateWorldEntityResource(packId, resource, row) {
@@ -220,17 +274,14 @@ export function validateContentPackManifest(manifest, label = "pack.json") {
     }
   }
   if (manifest.default_ruleset !== undefined && manifest.default_ruleset !== null) {
-    const local = manifest.capabilities.find(
-      (capability) => capability.id === manifest.default_ruleset && capability.kind === "rules",
-    );
-    const dependency = manifest.dependencies.some((candidate) =>
-      candidate.capabilities.includes(manifest.default_ruleset),
-    );
-    if (!local && !dependency) {
+    if (!packDeclaresRuleset(manifest, manifest.default_ruleset)) {
       contractError(
         `${label}: default_ruleset ${manifest.default_ruleset} is not provided or required`,
       );
     }
+  }
+  for (const error of rulesContextValidationErrors(manifest, label)) {
+    contractError(error);
   }
   return manifest;
 }

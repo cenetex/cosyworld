@@ -591,7 +591,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:851e8eece24c2c5309fc488dffc85a24559fc7c986c629317f616ddac6f88f92",
+  "bundle_hash": "sha256:a3ca02b2d1c688109a4bc3c8228d6f617e193f4f364cf994eea6f7d9d7efb55a",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -755,7 +755,7 @@
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
       "description": "An independently bootable school world, card catalog, and entitlement-gated First Bell experience.",
-      "version": "1.3.3",
+      "version": "1.3.4",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -929,6 +929,13 @@
       },
       "extensions": {
         "x-cosyworld-rules-context": {
+          "schema_version": 1,
+          "zones": [
+            {
+              "zone": "sanctuary",
+              "ruleset": "ruby-high.first-bell/rules"
+            }
+          ],
           "vocabulary": {
             "actions": [
               "study",
@@ -950,7 +957,7 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:ce163cf59c7528bec79a66b243d8b40c6467f4dc9933e086752e8b7ab7c4239b"
+      "integrity": "sha256:c6f4718f7a73bb1debce6e7737514af3fa8f420d5c9a4d529e2cf4aeba9b14b9"
     }
   ],
   "files": {

@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 import {
   CANONICAL_ID_MAPPING_VERSION,
   CONTENT_PACK_CONTRACT,
+  packDeclaresRuleset,
   resolveContentPackGraph,
+  rulesContextValidationErrors,
   validateWorldEntityResource,
 } from "./content-pack-contract.mjs";
 import {
@@ -427,6 +429,9 @@ for (const pack of packs) {
         fail(`pack ${pack.id} owns foreign loot table ${table.id}`);
       }
     }
+  }
+  for (const error of rulesContextValidationErrors(pack, `pack ${pack.id}`)) {
+    fail(error);
   }
   if (!allowedPackKinds.has(pack.kind)) {
     fail(`worldpack pack ${pack.id} has unsupported kind ${pack.kind}`);
@@ -1514,6 +1519,11 @@ for (const location of locations) {
   }
   if (typeof location.allow_combat !== "boolean") {
     fail(`location ${location.id} must declare allow_combat`);
+  }
+  const pack = packs.find((candidate) => candidate.id === location.pack_id);
+  if (location.ruleset !== undefined
+      && (!pack || !packDeclaresRuleset(pack, location.ruleset))) {
+    fail(`location ${location.id} selects unavailable ruleset ${location.ruleset}`);
   }
   for (const error of naturalAffordanceValidationErrors(
     location,

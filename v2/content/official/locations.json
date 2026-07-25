@@ -784,6 +784,7 @@
   },
   {
     "id": 11,
+    "ruleset": "ruby-high.first-bell/rules",
     "name": "Homeroom",
     "title": "Front Door",
     "description": "Morning light crosses rows of desks.",

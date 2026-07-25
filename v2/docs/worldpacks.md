@@ -43,7 +43,8 @@ fail closed. Changing the active registry still changes bundle identity and is
 subject to the persistence rules below. The engine also accepts a non-world
 registry with no entry location, which lets API and persistence services start
 without silently mounting CosyWorld Core. Live ruleset switching is not part of
-this contract.
+the mount contract; location-scoped selection happens only among rules
+capabilities already pinned in the active bundle.
 
 CosyWorld Core is the independently mountable `cosyworld.core` world pack. Its
 manifest declares its default `cosyworld.core/rules` capability and all of its
@@ -83,6 +84,13 @@ Each manifest declares:
   whenever source material was adapted;
 - an attribution file plus any additional bundled license/notice files; and
 - resources, assets, entitlement providers, and attribution where applicable.
+
+Rules selection is typed and most-specific. `default_ruleset` is the pack
+fallback; `extensions.x-cosyworld-rules-context` schema 1 may map a zone to a
+declared rules capability; and a location row may declare `ruleset`. Resolution
+is location, then zone, then pack. Repeated zone selectors and unavailable or
+undeclared capabilities fail compilation, and the selected scope and selector
+are included in the action composition certificate.
 
 The compiler accepts selected packs in any order and emits one deterministic
 topological order. Cycles, missing required packs or capabilities, duplicate

@@ -752,6 +752,8 @@ pub(super) struct SeedLocationContent {
     #[serde(default)]
     pub(super) pack_id: String,
     pub(super) id: u64,
+    #[serde(default)]
+    pub(super) ruleset: Option<String>,
     pub(super) name: String,
     #[serde(default)]
     pub(super) title: String,

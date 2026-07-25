@@ -148,6 +148,50 @@ describe("Content Pack Manifest v1", () => {
     }))).toThrow(/additional properties/);
   });
 
+  it("types pack and zone rules selectors and rejects equal-precedence conflicts", () => {
+    const rulesManifest = manifest("fixture.world", {
+      kind: "world",
+      capabilities: [
+        { id: "fixture.world/world", kind: "world", version: "1.0.0" },
+        { id: "fixture.world/rules", kind: "rules", version: "1.0.0" },
+      ],
+      default_ruleset: "fixture.world/rules",
+      extensions: {
+        "x-cosyworld-rules-context": {
+          schema_version: 1,
+          zones: [{ zone: "sanctuary", ruleset: "fixture.world/rules" }],
+        },
+      },
+    });
+    expect(() => validateContentPackManifest(rulesManifest)).not.toThrow();
+    expect(() => validateWorldEntityResource("fixture.world", "locations", {
+      id: 1,
+      ruleset: "fixture.world/rules",
+      name: "Rules Room",
+    })).not.toThrow();
+    expect(() => validateContentPackManifest({
+      ...rulesManifest,
+      extensions: {
+        "x-cosyworld-rules-context": {
+          schema_version: 1,
+          zones: [
+            { zone: "sanctuary", ruleset: "fixture.world/rules" },
+            { zone: "sanctuary", ruleset: "fixture.world/rules" },
+          ],
+        },
+      },
+    })).toThrow(/repeats zone sanctuary/);
+    expect(() => validateContentPackManifest({
+      ...rulesManifest,
+      extensions: {
+        "x-cosyworld-rules-context": {
+          schema_version: 1,
+          zones: [{ zone: "frontier", ruleset: "fixture.other/rules" }],
+        },
+      },
+    })).toThrow(/not provided or required/);
+  });
+
   it("requires asset mounts to name a declared asset provider", () => {
     expect(() => validateContentPackManifest(manifest("fixture.assets", {
       assets: [{
@@ -357,6 +401,7 @@ describe("Content Pack Manifest v1", () => {
       "sha256:fd5012d745f00283c16bea59c0d014393dd064e9751c7728b0e2e6ba6a39690c",
       "sha256:02147a6629b038e2e9a28039f829bc6ad67881fe3391a0edabf744fd362427df",
       "sha256:ef70c61617e4c6f6cf905f049dddbb053e84b520f545ed2d01b3180cf39d75d1",
+      "sha256:f5cd5ce7a1bb8447811afd5af6a6d31d4709a4f6ee1988a77fc254111d572f17",
     ]);
   });
 
