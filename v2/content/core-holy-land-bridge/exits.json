@@ -1,0 +1,16 @@
+[
+  {
+    "from_location_id": 1,
+    "to_location_id": 700,
+    "flags": 0,
+    "distance": 3,
+    "direction": "north"
+  },
+  {
+    "from_location_id": 700,
+    "to_location_id": 1,
+    "flags": 0,
+    "distance": 3,
+    "direction": "homeward"
+  }
+]

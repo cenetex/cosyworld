@@ -590,7 +590,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:a7b45faa4335fa3a4c5501568eb66346463dd46acdaf233a35676fad10e8b945",
+  "bundle_hash": "sha256:abd0a109c955d8534e8f71b3e897a7535a3c6016e5045c6fc398b3bf6669cf18",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -1666,7 +1666,7 @@
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
       "description": "An independently bootable school world, card catalog, and entitlement-gated First Bell experience.",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -1751,7 +1751,7 @@
         "factions": 1,
         "items": 0,
         "locations": 6,
-        "exits": 24,
+        "exits": 16,
         "hidden_exits": 0,
         "room_features": 1,
         "room_sheets": 6,
@@ -1869,7 +1869,107 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:c6f4718f7a73bb1debce6e7737514af3fa8f420d5c9a4d529e2cf4aeba9b14b9"
+      "integrity": "sha256:e8092c36fb9ef2880a19bfb111385137e9c0b635919ab78bd2f98910a0225847"
+    },
+    {
+      "id": "cosyworld.composition.core-ruby",
+      "name": "CosyWorld Core + Ruby High Bridge",
+      "description": "Composition-owned paths connecting CosyWorld Core and Ruby High.",
+      "version": "1.0.0",
+      "kind": "world",
+      "license": "MIT",
+      "license_url": "https://opensource.org/license/mit",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.composition.core-ruby/world",
+          "kind": "world",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.core",
+        "ruby-high.first-bell",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.3.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        },
+        {
+          "id": "ruby-high.first-bell",
+          "version": ">=1.3.5 <2.0.0",
+          "capabilities": [
+            "ruby-high.first-bell/world"
+          ]
+        },
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5",
+        "cosyworld.core",
+        "ruby-high.first-bell"
+      ],
+      "default_ruleset": null,
+      "entry_points": [],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "CosyWorld official composition",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 8,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 0,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "extensions": {
+        "x-cosyworld-composition": {
+          "schema_version": 1,
+          "role": "bridge"
+        }
+      },
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/core-ruby-bridge"
+      },
+      "integrity": "sha256:af0f833ed3be83ff11e9652514bd14bc0112af0d55e4b55f2bcf725420e918ba"
     }
   ],
   "files": {

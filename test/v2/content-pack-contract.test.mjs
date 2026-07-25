@@ -151,6 +151,41 @@ describe("Content Pack Manifest v1", () => {
     }))).toThrow(/additional properties/);
   });
 
+  it("requires dedicated composition bridges for cross-pack paths", () => {
+    const bridge = manifest("fixture.bridge", {
+      kind: "world",
+      capabilities: [
+        { id: "fixture.bridge/world", kind: "world", version: "1.0.0" },
+      ],
+      dependencies: [
+        {
+          id: "fixture.left",
+          version: ">=1.0.0 <2.0.0",
+          capabilities: ["fixture.left/world"],
+        },
+        {
+          id: "fixture.right",
+          version: ">=1.0.0 <2.0.0",
+          capabilities: ["fixture.right/world"],
+        },
+      ],
+      default_ruleset: null,
+      entry_points: [],
+      resources: { exits: "exits.json" },
+      extensions: {
+        "x-cosyworld-composition": {
+          schema_version: 1,
+          role: "bridge",
+        },
+      },
+    });
+    expect(() => validateContentPackManifest(bridge)).not.toThrow();
+    expect(() => validateContentPackManifest({
+      ...bridge,
+      resources: { exits: "exits.json", actors: "actors.json" },
+    })).toThrow(/may contain only exits or hidden_exits/);
+  });
+
   it("treats rules_profile as a legacy one-profile compatibility alias", () => {
     const legacy = manifest("fixture.legacy", {
       rules_profile: "cosyworld.srd5/1",
@@ -595,6 +630,7 @@ describe("Content Pack Manifest v1", () => {
       "sha256:02147a6629b038e2e9a28039f829bc6ad67881fe3391a0edabf744fd362427df",
       "sha256:ef70c61617e4c6f6cf905f049dddbb053e84b520f545ed2d01b3180cf39d75d1",
       "sha256:f5cd5ce7a1bb8447811afd5af6a6d31d4709a4f6ee1988a77fc254111d572f17",
+      "sha256:5b66ce6369fbf04814b2812f30c5e5940bf6b08100f2aa4bf87be5ddd8d58ecc",
     ]);
   });
 

@@ -10,6 +10,7 @@
   "packs": [
     "cosyworld.core",
     "ruby-high.first-bell",
+    "cosyworld.composition.core-ruby",
     "cosyworld.rules-srd-5.2.1",
     "cosyworld.rules-profile-srd5"
   ]

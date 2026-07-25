@@ -326,20 +326,6 @@
     "pack_id": "cosyworld.core"
   },
   {
-    "from_location_id": 1,
-    "to_location_id": 11,
-    "flags": 0,
-    "direction": "south",
-    "pack_id": "ruby-high.first-bell"
-  },
-  {
-    "from_location_id": 11,
-    "to_location_id": 1,
-    "flags": 0,
-    "direction": "out",
-    "pack_id": "ruby-high.first-bell"
-  },
-  {
     "from_location_id": 10,
     "to_location_id": 11,
     "flags": 0,
@@ -452,12 +438,26 @@
     "pack_id": "ruby-high.first-bell"
   },
   {
+    "from_location_id": 1,
+    "to_location_id": 11,
+    "flags": 0,
+    "direction": "south",
+    "pack_id": "cosyworld.composition.core-ruby"
+  },
+  {
+    "from_location_id": 11,
+    "to_location_id": 1,
+    "flags": 0,
+    "direction": "out",
+    "pack_id": "cosyworld.composition.core-ruby"
+  },
+  {
     "from_location_id": 12,
     "to_location_id": 50,
     "flags": 0,
     "distance": 3,
     "direction": "down",
-    "pack_id": "ruby-high.first-bell"
+    "pack_id": "cosyworld.composition.core-ruby"
   },
   {
     "from_location_id": 50,
@@ -465,7 +465,7 @@
     "flags": 0,
     "distance": 3,
     "direction": "up",
-    "pack_id": "ruby-high.first-bell"
+    "pack_id": "cosyworld.composition.core-ruby"
   },
   {
     "from_location_id": 15,
@@ -473,7 +473,7 @@
     "flags": 0,
     "distance": 4,
     "direction": "up",
-    "pack_id": "ruby-high.first-bell"
+    "pack_id": "cosyworld.composition.core-ruby"
   },
   {
     "from_location_id": 32,
@@ -481,20 +481,20 @@
     "flags": 0,
     "distance": 4,
     "direction": "down",
-    "pack_id": "ruby-high.first-bell"
+    "pack_id": "cosyworld.composition.core-ruby"
   },
   {
     "from_location_id": 44,
     "to_location_id": 14,
     "flags": 0,
     "direction": "south",
-    "pack_id": "ruby-high.first-bell"
+    "pack_id": "cosyworld.composition.core-ruby"
   },
   {
     "from_location_id": 14,
     "to_location_id": 44,
     "flags": 0,
     "direction": "north",
-    "pack_id": "ruby-high.first-bell"
+    "pack_id": "cosyworld.composition.core-ruby"
   }
 ]

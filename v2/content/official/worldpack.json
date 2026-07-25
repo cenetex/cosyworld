@@ -32,7 +32,8 @@
       "sha256:fd5012d745f00283c16bea59c0d014393dd064e9751c7728b0e2e6ba6a39690c",
       "sha256:02147a6629b038e2e9a28039f829bc6ad67881fe3391a0edabf744fd362427df",
       "sha256:ef70c61617e4c6f6cf905f049dddbb053e84b520f545ed2d01b3180cf39d75d1",
-      "sha256:f5cd5ce7a1bb8447811afd5af6a6d31d4709a4f6ee1988a77fc254111d572f17"
+      "sha256:f5cd5ce7a1bb8447811afd5af6a6d31d4709a4f6ee1988a77fc254111d572f17",
+      "sha256:5b66ce6369fbf04814b2812f30c5e5940bf6b08100f2aa4bf87be5ddd8d58ecc"
     ]
   },
   "rules_profile": "cosyworld.srd5/1",
@@ -618,7 +619,7 @@
       }
     ]
   },
-  "bundle_hash": "sha256:5b66ce6369fbf04814b2812f30c5e5940bf6b08100f2aa4bf87be5ddd8d58ecc",
+  "bundle_hash": "sha256:aa077d2657f65b1258f26101d0fd65c6bb672efdf688bc21b28334cd4352d628",
   "packs": [
     {
       "id": "cosyworld.rules-srd-5.2.1",
@@ -1870,100 +1871,10 @@
       "integrity": "sha256:16523d55b283bb0e89a147a1d88bb4b1977a09ae9a75fe76d7a866f9cac7dd65"
     },
     {
-      "id": "cosyworld.lonely-forest.characters",
-      "name": "Lonely Forest Character Art",
-      "description": "Character source art and reviewed slices used by the Lonely Forest residents.",
-      "version": "1.1.1",
-      "kind": "assets",
-      "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
-      "license_url": "https://github.com/cenetex/cosyworld/tree/main/v2/content/lonely-forest",
-      "engine": ">=0.0.20 <0.1.0",
-      "capabilities": [
-        {
-          "id": "cosyworld.lonely-forest.characters/assets",
-          "kind": "assets",
-          "version": "1.0.0"
-        }
-      ],
-      "dependencies": [
-        "cosyworld.core",
-        "cosyworld.rules-profile-srd5"
-      ],
-      "dependency_requirements": [
-        {
-          "id": "cosyworld.core",
-          "version": ">=1.0.0 <2.0.0",
-          "capabilities": [
-            "cosyworld.core/world"
-          ]
-        },
-        {
-          "id": "cosyworld.rules-profile-srd5",
-          "version": ">=1.0.0 <2.0.0",
-          "capabilities": [
-            "cosyworld.rules-profile-srd5/rules"
-          ]
-        }
-      ],
-      "dependency_closure": [
-        "cosyworld.rules-srd-5.2.1",
-        "cosyworld.rules-profile-srd5",
-        "cosyworld.core"
-      ],
-      "default_ruleset": null,
-      "entry_points": [
-        {
-          "kind": "asset_mount",
-          "id": "characters"
-        }
-      ],
-      "provenance": {
-        "author": "Cenetex",
-        "source_name": "Cenetex Lonely Forest character art",
-        "source_url": "https://github.com/cenetex/cosyworld"
-      },
-      "resource_counts": {
-        "actors": 0,
-        "actor_facets": 0,
-        "access_gates": 0,
-        "factions": 0,
-        "items": 0,
-        "locations": 0,
-        "exits": 0,
-        "hidden_exits": 0,
-        "room_features": 0,
-        "room_sheets": 0,
-        "clocks": 0,
-        "jobs": 0,
-        "action_vocabulary": 0,
-        "fronts": 0,
-        "cards": 0,
-        "card_bindings": 0,
-        "lifecycle_hooks": 0,
-        "evolution_tracks": 0,
-        "recipes": 0,
-        "sentences": 0,
-        "external_cards": 0,
-        "assets": 1,
-        "rules": 0,
-        "character_creation": 0,
-        "reskins": 0,
-        "offers": 0,
-        "variants": 0,
-        "extensions": 0
-      },
-      "rules_profile": "cosyworld.srd5/1",
-      "source": {
-        "type": "workspace",
-        "path": "../../content/lonely-forest"
-      },
-      "integrity": "sha256:b0fe32d424fd1fd9d4d99049c711607a90cb3787bb4fce8e99a559473022b2ff"
-    },
-    {
       "id": "cosyworld.the-holy-land",
       "name": "The Holy Land",
       "description": "A watercolor pilgrimage through Gospel-associated places with the Twelve and generative wayside supplicants; Jesus is not depicted as an actor or collectible card.",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -2028,7 +1939,7 @@
         "factions": 0,
         "items": 0,
         "locations": 15,
-        "exits": 32,
+        "exits": 30,
         "hidden_exits": 0,
         "room_features": 15,
         "room_sheets": 15,
@@ -2056,13 +1967,113 @@
         "type": "workspace",
         "path": "../../content/the-holy-land"
       },
-      "integrity": "sha256:bda3362756ed58713d34eb6ded2e54b71c1ecc9463b34d725b9360c01fcbf8ae"
+      "integrity": "sha256:54099f568bf3ec8eb2b5181bf4ecbe08d0d07d4f863b7ad5e982cec3cb0ca4a2"
+    },
+    {
+      "id": "cosyworld.composition.core-holy-land",
+      "name": "CosyWorld Core + Holy Land Bridge",
+      "description": "Composition-owned paths connecting CosyWorld Core and The Holy Land.",
+      "version": "1.0.0",
+      "kind": "world",
+      "license": "MIT",
+      "license_url": "https://opensource.org/license/mit",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.composition.core-holy-land/world",
+          "kind": "world",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.core",
+        "cosyworld.the-holy-land",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.3.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        },
+        {
+          "id": "cosyworld.the-holy-land",
+          "version": ">=1.1.2 <2.0.0",
+          "capabilities": [
+            "cosyworld.the-holy-land/world"
+          ]
+        },
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5",
+        "cosyworld.core",
+        "cosyworld.the-holy-land"
+      ],
+      "default_ruleset": null,
+      "entry_points": [],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "CosyWorld official composition",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 2,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 0,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "extensions": {
+        "x-cosyworld-composition": {
+          "schema_version": 1,
+          "role": "bridge"
+        }
+      },
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/core-holy-land-bridge"
+      },
+      "integrity": "sha256:0ed36b254e7eb3fb588db28f3e9401b31fc9ee1d66efd0f8e80292176c43a913"
     },
     {
       "id": "ruby-high.first-bell",
       "name": "Ruby High: First Bell",
       "description": "An independently bootable school world, card catalog, and entitlement-gated First Bell experience.",
-      "version": "1.3.4",
+      "version": "1.3.5",
       "kind": "world",
       "license": "MIT",
       "license_url": "https://opensource.org/license/mit",
@@ -2147,7 +2158,7 @@
         "factions": 1,
         "items": 0,
         "locations": 6,
-        "exits": 24,
+        "exits": 16,
         "hidden_exits": 0,
         "room_features": 1,
         "room_sheets": 6,
@@ -2265,7 +2276,197 @@
         "type": "workspace",
         "path": "../../content/ruby-high-first-bell"
       },
-      "integrity": "sha256:c6f4718f7a73bb1debce6e7737514af3fa8f420d5c9a4d529e2cf4aeba9b14b9"
+      "integrity": "sha256:e8092c36fb9ef2880a19bfb111385137e9c0b635919ab78bd2f98910a0225847"
+    },
+    {
+      "id": "cosyworld.composition.core-ruby",
+      "name": "CosyWorld Core + Ruby High Bridge",
+      "description": "Composition-owned paths connecting CosyWorld Core and Ruby High.",
+      "version": "1.0.0",
+      "kind": "world",
+      "license": "MIT",
+      "license_url": "https://opensource.org/license/mit",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.composition.core-ruby/world",
+          "kind": "world",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.core",
+        "ruby-high.first-bell",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.3.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        },
+        {
+          "id": "ruby-high.first-bell",
+          "version": ">=1.3.5 <2.0.0",
+          "capabilities": [
+            "ruby-high.first-bell/world"
+          ]
+        },
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5",
+        "cosyworld.core",
+        "ruby-high.first-bell"
+      ],
+      "default_ruleset": null,
+      "entry_points": [],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "CosyWorld official composition",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 8,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 0,
+        "rules": 0,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "extensions": {
+        "x-cosyworld-composition": {
+          "schema_version": 1,
+          "role": "bridge"
+        }
+      },
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/core-ruby-bridge"
+      },
+      "integrity": "sha256:af0f833ed3be83ff11e9652514bd14bc0112af0d55e4b55f2bcf725420e918ba"
+    },
+    {
+      "id": "cosyworld.lonely-forest.characters",
+      "name": "Lonely Forest Character Art",
+      "description": "Character source art and reviewed slices used by the Lonely Forest residents.",
+      "version": "1.1.1",
+      "kind": "assets",
+      "license": "LicenseRef-Cenetex-Lonely-Forest-Art",
+      "license_url": "https://github.com/cenetex/cosyworld/tree/main/v2/content/lonely-forest",
+      "engine": ">=0.0.20 <0.1.0",
+      "capabilities": [
+        {
+          "id": "cosyworld.lonely-forest.characters/assets",
+          "kind": "assets",
+          "version": "1.0.0"
+        }
+      ],
+      "dependencies": [
+        "cosyworld.core",
+        "cosyworld.rules-profile-srd5"
+      ],
+      "dependency_requirements": [
+        {
+          "id": "cosyworld.core",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.core/world"
+          ]
+        },
+        {
+          "id": "cosyworld.rules-profile-srd5",
+          "version": ">=1.0.0 <2.0.0",
+          "capabilities": [
+            "cosyworld.rules-profile-srd5/rules"
+          ]
+        }
+      ],
+      "dependency_closure": [
+        "cosyworld.rules-srd-5.2.1",
+        "cosyworld.rules-profile-srd5",
+        "cosyworld.core"
+      ],
+      "default_ruleset": null,
+      "entry_points": [
+        {
+          "kind": "asset_mount",
+          "id": "characters"
+        }
+      ],
+      "provenance": {
+        "author": "Cenetex",
+        "source_name": "Cenetex Lonely Forest character art",
+        "source_url": "https://github.com/cenetex/cosyworld"
+      },
+      "resource_counts": {
+        "actors": 0,
+        "actor_facets": 0,
+        "access_gates": 0,
+        "factions": 0,
+        "items": 0,
+        "locations": 0,
+        "exits": 0,
+        "hidden_exits": 0,
+        "room_features": 0,
+        "room_sheets": 0,
+        "clocks": 0,
+        "jobs": 0,
+        "action_vocabulary": 0,
+        "fronts": 0,
+        "cards": 0,
+        "card_bindings": 0,
+        "lifecycle_hooks": 0,
+        "evolution_tracks": 0,
+        "recipes": 0,
+        "sentences": 0,
+        "external_cards": 0,
+        "assets": 1,
+        "rules": 0,
+        "character_creation": 0,
+        "reskins": 0,
+        "offers": 0,
+        "variants": 0,
+        "extensions": 0
+      },
+      "rules_profile": "cosyworld.srd5/1",
+      "source": {
+        "type": "workspace",
+        "path": "../../content/lonely-forest"
+      },
+      "integrity": "sha256:b0fe32d424fd1fd9d4d99049c711607a90cb3787bb4fce8e99a559473022b2ff"
     }
   ],
   "files": {

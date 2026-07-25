@@ -1,6 +1,4 @@
 [
-  {"from_location_id": 1, "to_location_id": 700, "flags": 0, "distance": 3, "direction": "north"},
-  {"from_location_id": 700, "to_location_id": 1, "flags": 0, "distance": 3, "direction": "homeward"},
   {"from_location_id": 700, "to_location_id": 712, "flags": 0, "distance": 2, "direction": "north"},
   {"from_location_id": 712, "to_location_id": 700, "flags": 0, "distance": 2, "direction": "south"},
   {"from_location_id": 701, "to_location_id": 703, "flags": 0, "distance": 2, "direction": "northeast"},

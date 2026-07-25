@@ -258,6 +258,7 @@ async function main() {
           "cosyworld.rules-profile-srd5",
           "cosyworld.core",
           "ruby-high.first-bell",
+          "cosyworld.composition.core-ruby",
         ].join(","),
       `wrong mounted packs: ${JSON.stringify(first.meta.worldpack?.packs)}`,
     );
