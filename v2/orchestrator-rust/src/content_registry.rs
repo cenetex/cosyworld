@@ -241,6 +241,25 @@ impl ContentRegistry {
             .map(String::as_str)
     }
 
+    pub(super) fn active_ruleset_for_pack(&self, pack_id: &str) -> Option<&ActiveRulesetContext> {
+        if let Some(selected) = self
+            .active_rulesets
+            .iter()
+            .find(|context| context.selected_by_pack_id == pack_id)
+        {
+            return Some(selected);
+        }
+
+        let pack = self.pack(pack_id)?;
+        let mut inherited = self.active_rulesets.iter().filter(|context| {
+            pack.dependency_closure
+                .iter()
+                .any(|dependency| dependency == &context.selected_by_pack_id)
+        });
+        let selected = inherited.next()?;
+        inherited.next().is_none().then_some(selected)
+    }
+
     pub(super) fn asset_mounts(&self) -> &[SeedAssetMount] {
         &self.content.asset_mounts
     }

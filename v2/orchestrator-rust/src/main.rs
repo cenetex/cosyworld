@@ -26,6 +26,7 @@ mod quest_loot;
 mod rate_limit;
 mod resident_offer_scoring;
 mod routes;
+mod rules_context;
 mod settlement_buildings;
 mod story_metrics;
 mod transfers;
@@ -75,6 +76,7 @@ use qrcode::{render::svg, QrCode};
 use quest_loot::*;
 use rand::{rngs::OsRng, RngCore};
 use rate_limit::*;
+use rules_context::*;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use settlement_buildings::*;
@@ -3007,21 +3009,6 @@ struct ActionPackProvenanceView {
     pack_id: String,
     pack_version: String,
     rules_namespace: String,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct ActionCompositionTraceView {
-    rules_profile: String,
-    rules_pack_id: String,
-    rules_pack_version: String,
-    source_card_instances: Vec<ActionSourceCollectibleView>,
-    target: Option<ActionTargetView>,
-    applied_variants: Vec<String>,
-    active_extensions: Vec<String>,
-    applied_reskins: Vec<String>,
-    contextual_offers: Vec<String>,
-    resolver: String,
-    state_revision: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -10522,6 +10509,8 @@ impl RuntimeWorld {
                 record.initial_origin_id.as_deref(),
                 record.initial_physical_description.as_deref(),
             ));
+            let committed_events = events.clone();
+            events.extend(self.apply_rules_context_transition_projection(&committed_events));
             self.apply_economy_disclosure_projection(&action, &mut events);
             if action.kind == CW_ACTION_RULES_STUDY {
                 if let Some(check) = events.iter().find(|event| {
@@ -21782,15 +21771,13 @@ impl RuntimeWorld {
                 "no_active_avatar",
             )];
         };
-        let zone = self
-            .actor_by_id(actor_id)
-            .map(|actor| {
+        let actor_location_id = self.actor_by_id(actor_id).map(|actor| actor.location_id);
+        let zone = actor_location_id
+            .map(|location_id| {
                 self.room_sheets
-                    .get(&actor.location_id)
+                    .get(&location_id)
                     .map(|sheet| room_sheet_zone(sheet).to_string())
-                    .unwrap_or_else(|| {
-                        default_zone_for_scope("room", actor.location_id).to_string()
-                    })
+                    .unwrap_or_else(|| default_zone_for_scope("room", location_id).to_string())
             })
             .unwrap_or_else(default_zone);
         let options: Vec<ActionOption> = if primary_action.options.is_empty() {
@@ -21888,6 +21875,9 @@ impl RuntimeWorld {
                     rules_profile: active_content().manifest.rules_profile.clone(),
                     rules_pack_id: binding.pack_id.clone(),
                     rules_pack_version: binding.pack_version.clone(),
+                    rules_context: actor_location_id.and_then(|location_id| {
+                        self.scene_rules_context(location_id, state_revision)
+                    }),
                     source_card_instances,
                     target: target.clone(),
                     applied_variants: active_content().manifest.active_rules_variants.clone(),
@@ -21969,6 +21959,8 @@ impl RuntimeWorld {
                 rules_profile: active_content().manifest.rules_profile.clone(),
                 rules_pack_id: binding.pack_id.clone(),
                 rules_pack_version: binding.pack_version.clone(),
+                rules_context: actor_location_id
+                    .and_then(|location_id| self.scene_rules_context(location_id, state_revision)),
                 source_card_instances,
                 target: Some(target.clone()),
                 applied_variants: active_content().manifest.active_rules_variants.clone(),
@@ -22105,6 +22097,7 @@ impl RuntimeWorld {
                 rules_profile: active_content().manifest.rules_profile.clone(),
                 rules_pack_id: binding.pack_id,
                 rules_pack_version: binding.pack_version,
+                rules_context: None,
                 source_card_instances: Vec::new(),
                 target: target.clone(),
                 applied_variants: active_content().manifest.active_rules_variants.clone(),
