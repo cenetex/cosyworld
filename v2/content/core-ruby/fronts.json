@@ -1,0 +1,117 @@
+[
+  {
+    "id": "moonlit-trail:echo-front",
+    "premise": "Coach keeps gathering stray sounds into a shape that can answer back.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      3
+    ],
+    "participant_ids": [
+      1004
+    ],
+    "stakes_questions": [
+      "Can the trail learn to carry quiet again?",
+      "Will the echo become a resident, a warning, or a wound?"
+    ],
+    "portent_clock_id": "moonlit-trail.danger",
+    "job_ids": [
+      "moonlit-trail:quiet-the-echo"
+    ],
+    "impending_outcome": "The trail becomes echo-fractured and every crossing carries a cost.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "solar-abyss:bell-front",
+    "premise": "The solar and abyssal bell songs are close enough to harmonize and proud enough to split.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      36,
+      64,
+      65
+    ],
+    "participant_ids": [
+      1064,
+      1065,
+      1066,
+      1067
+    ],
+    "stakes_questions": [
+      "Can height and depth hear each other before doctrine hardens?",
+      "Which covenant will claim the drowned bell if nobody answers both songs?"
+    ],
+    "portent_clock_id": "solar-abyss.schism",
+    "job_ids": [
+      "solar-abyss:drowned-bell"
+    ],
+    "impending_outcome": "The bell schism hardens and the two paths mistake harmony for betrayal.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "goblin-cave:market-leverage",
+    "premise": "Nib's market can become a place where wanting is named or a trap where wanting is owned.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      34
+    ],
+    "participant_ids": [
+      1070
+    ],
+    "stakes_questions": [
+      "Can a bargain reveal desire without turning it into collateral?",
+      "Will Nib close the loophole after somebody finds it?"
+    ],
+    "portent_clock_id": "goblin-cave.leverage",
+    "job_ids": [
+      "goblin-cave:name-the-price"
+    ],
+    "impending_outcome": "The market treats every promise as collateral and every visitor as inventory.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "haunted-mansion:barred-threshold",
+    "premise": "The Warden is one careless guest away from deciding that hospitality was a mistake.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      42
+    ],
+    "participant_ids": [
+      1040
+    ],
+    "stakes_questions": [
+      "Can a visitor meet the Warden's force without becoming another threat?",
+      "Will the Mansion remember how to welcome someone?"
+    ],
+    "portent_clock_id": "haunted-mansion.warden-rage",
+    "job_ids": [
+      "haunted-mansion:earn-the-threshold"
+    ],
+    "impending_outcome": "The Warden bars every door and the Mansion forgets the difference between shelter and prison.",
+    "pack_id": "cosyworld.core"
+  },
+  {
+    "id": "turgid-swamp:old-grudge",
+    "premise": "Beetle keeps polishing an old slight until it looks like a law the whole swamp must obey.",
+    "zone": "frontier",
+    "status": "active",
+    "location_ids": [
+      60
+    ],
+    "participant_ids": [
+      1063
+    ],
+    "stakes_questions": [
+      "Can strength make room for an honest amendment?",
+      "What will Beetle remember once the grudge is struck through?"
+    ],
+    "portent_clock_id": "turgid-swamp.old-grudge",
+    "job_ids": [
+      "turgid-swamp:amend-the-ledger"
+    ],
+    "impending_outcome": "The old grudge hardens into swamp law and every accident becomes an offense.",
+    "pack_id": "cosyworld.core"
+  }
+]

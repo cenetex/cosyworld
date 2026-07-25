@@ -1,0 +1,635 @@
+[
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "profile",
+    "id": "cosyworld.srd5/1",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Actions",
+    "changes": [
+      "sanctuary actions cannot create combat stakes",
+      "combat is bounded and nonlethal",
+      "skill proficiency is supplied by equipped skill charms",
+      "advancement unlocks loadout slots rather than granting items",
+      "the action hand is a projection of the legal action superset"
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:attack",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Attack [Action]",
+    "changes": [
+      "Only authored frontier combat is legal; resolution is nonlethal and server-authored."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:dash",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Dash [Action]",
+    "changes": [
+      "Ordinary room travel is an operation, not Dash."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:disengage",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Disengage [Action]",
+    "changes": [
+      "Escape is a bounded combat operation until engagement consequences exist."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:dodge",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Dodge [Action]",
+    "changes": [
+      "Dodge supplies bounded project preparation instead of the complete SRD duration model."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:help",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Help [Action]",
+    "changes": [
+      "Help advances an authored project or bond with an explicit recipient."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:hide",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Hide [Action]",
+    "changes": [
+      "No hidden-state resolver is active in profile 1."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:influence",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Influence [Action]",
+    "changes": [
+      "Only authored bounded cooperation changes use Influence; ordinary Chat remains communication."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:magic",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Magic [Action]",
+    "changes": [
+      "Only prepared item-card effects with validated descriptors can create Magic offers."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:ready",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Ready [Action]",
+    "changes": [
+      "Prepare creates one authored, scoped, consumable setup tag rather than a general reaction trigger."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:search",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Search [Action]",
+    "changes": [
+      "Perceptual discovery defaults to Wisdom and preserves learn-once claims."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:study",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Study [Action]",
+    "changes": [
+      "Analytical discovery defaults to Intelligence and preserves learn-once claims."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "action",
+    "id": "srd5.2.1:utilize",
+    "source_reference": "SRD 5.2.1, Rules Glossary: Utilize [Action]",
+    "changes": [
+      "Utilize requires an authored item or room-feature target and validated effect descriptor."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/move",
+    "source_reference": "CosyWorld protocol",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/escape",
+    "source_reference": "CosyWorld combat/3",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/chat",
+    "source_reference": "CosyWorld communication",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/say",
+    "source_reference": "CosyWorld communication",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/take",
+    "source_reference": "CosyWorld kernel",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/drop",
+    "source_reference": "CosyWorld kernel",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/give",
+    "source_reference": "CosyWorld kernel",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/trade",
+    "source_reference": "CosyWorld kernel",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/craft",
+    "source_reference": "CosyWorld kernel",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/rest",
+    "source_reference": "CosyWorld RPG",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/wait",
+    "source_reference": "CosyWorld room turns",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/grow",
+    "source_reference": "CosyWorld RPG",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/create-avatar",
+    "source_reference": "CosyWorld identity",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/deck",
+    "source_reference": "CosyWorld interface",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/report",
+    "source_reference": "CosyWorld moderation",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/theft",
+    "source_reference": "CosyWorld card zones",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/equip",
+    "source_reference": "CosyWorld card zones",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/contain",
+    "source_reference": "CosyWorld card zones",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "operation",
+    "id": "cosyworld.operation/materialize",
+    "source_reference": "CosyWorld collection bridge",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "equipment_profile",
+    "id": "bracelet",
+    "source_reference": "CosyWorld RPG",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "equipment_profile",
+    "id": "weapon_hand",
+    "source_reference": "CosyWorld combat/3",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "equipment_profile",
+    "id": "spell_deck",
+    "source_reference": "CosyWorld RPG",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "equipment_profile",
+    "id": "container_harness",
+    "source_reference": "CosyWorld RPG",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  },
+  {
+    "pack_id": "cosyworld.rules-profile-srd5",
+    "rules_profile": "cosyworld.srd5/1",
+    "source_document": "System Reference Document 5.2.1",
+    "source_version": "5.2.1",
+    "source_pack": "cosyworld.rules-srd-5.2.1",
+    "license": "CC-BY-4.0",
+    "attribution_pack": "cosyworld.rules-profile-srd5",
+    "import_transform": "manual bounded action-profile adaptation",
+    "modification_status": "modified",
+    "resource_type": "magic_effect",
+    "id": "cosyworld.magic/steady-light",
+    "source_reference": "CosyWorld bounded magic",
+    "changes": [
+      "Adapted to the bounded CosyWorld resolver contract."
+    ]
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "id": "cosyworld.core-ruby",
+  "name": "CosyWorld Core + Ruby High",
+  "version": 1,
+  "description": "The Core world and Ruby High mounted together as peer world packs.",
+  "entry_location": "cosyworld.core:location/1",
+  "avatar_naming": "../shared/cozy-fantasy-avatar-naming.json",
+  "rules_profile": "cosyworld.srd5/1",
+  "packs": [
+    "cosyworld.core",
+    "ruby-high.first-bell",
+    "cosyworld.rules-srd-5.2.1",
+    "cosyworld.rules-profile-srd5"
+  ]
+}
