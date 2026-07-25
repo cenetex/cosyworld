@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { constants } from "node:fs";
-import { access, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
+import { isDeepStrictEqual } from "node:util";
 
 import Database from "better-sqlite3";
 
@@ -150,7 +151,58 @@ async function waitForActorJobs(eventDbPath) {
     if (active === 0) return;
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
   }
-  throw new Error("source actor jobs did not become quiescent before cold mount");
+  throw new Error("actor jobs did not become quiescent before pack migration");
+}
+
+function migratePack(operation, snapshotPath, eventDbPath, sourceRegistry, targetRegistry) {
+  const migrated = spawnSync(process.execPath, [
+    packMigrationPath,
+    "--operation",
+    operation,
+    "--input",
+    snapshotPath,
+    "--output",
+    snapshotPath,
+    "--event-db",
+    eventDbPath,
+    "--registry",
+    sourceRegistry,
+    "--target-registry",
+    targetRegistry,
+    "--pack",
+    "ruby-high.first-bell",
+  ], { cwd: resolve(v2Root, ".."), encoding: "utf8" });
+  assert(migrated.status === 0, migrated.stderr || migrated.stdout);
+  return migrated.stdout;
+}
+
+function assertFrozenStateRestored(frozen, snapshot) {
+  for (const [field, entries] of Object.entries(frozen.arrays ?? {})) {
+    const active = snapshot[field] ?? [];
+    for (const entry of entries) {
+      const expected = entry.value ?? entry;
+      assert(
+        active.some((candidate) => isDeepStrictEqual(candidate, expected)),
+        `remount changed frozen ${field} entry ${JSON.stringify(expected)}`,
+      );
+    }
+  }
+  for (const [field, entries] of Object.entries(frozen.maps ?? {})) {
+    for (const [key, value] of Object.entries(entries)) {
+      assert(
+        isDeepStrictEqual(snapshot[field]?.[key], value),
+        `remount changed frozen ${field}.${key}`,
+      );
+    }
+  }
+  for (const [field, entries] of Object.entries(frozen.world_simulation ?? {})) {
+    for (const [key, value] of Object.entries(entries)) {
+      assert(
+        isDeepStrictEqual(snapshot.world_simulation?.[field]?.[key], value),
+        `remount changed frozen world_simulation.${field}.${key}`,
+      );
+    }
+  }
 }
 
 function stateUrl(baseUrl, actorId, actorSession) {
@@ -271,6 +323,8 @@ async function main() {
   let source = null;
   let first = null;
   let second = null;
+  let coreOnly = null;
+  let remounted = null;
 
   try {
     source = await startServer(tempDir, coreOnlyRegistryPath, snapshotPath);
@@ -305,29 +359,18 @@ async function main() {
     await stopServer(source.proc);
     source = null;
 
-    const mounted = spawnSync(process.execPath, [
-      packMigrationPath,
-      "--operation",
+    const mounted = migratePack(
       "mount",
-      "--input",
       snapshotPath,
-      "--output",
-      snapshotPath,
-      "--event-db",
       eventDbPath,
-      "--registry",
       coreOnlyRegistryPath,
-      "--target-registry",
       coreRubyRegistryPath,
-      "--pack",
-      "ruby-high.first-bell",
-    ], { cwd: resolve(v2Root, ".."), encoding: "utf8" });
-    assert(mounted.status === 0, mounted.stderr || mounted.stdout);
+    );
     assert(
-      mounted.stdout.includes(
+      mounted.includes(
         '"mounted_pack_ids":["ruby-high.first-bell","cosyworld.composition.core-ruby"]',
       ),
-      `cold mount transaction was not observable: ${mounted.stdout}`,
+      `cold mount transaction was not observable: ${mounted}`,
     );
 
     first = await startServer(tempDir, coreRubyRegistryPath, snapshotPath);
@@ -495,22 +538,156 @@ async function main() {
       offerVerb: "Notice",
       sourceCard: "cosy-cottage",
     });
+    await command(second.baseUrl, actorId, actorSession, "say core before unmount");
+    await waitForActorJobs(eventDbPath);
+    await stopServer(second.proc);
+    second = null;
+
+    const unmounted = migratePack(
+      "unmount",
+      snapshotPath,
+      eventDbPath,
+      coreRubyRegistryPath,
+      coreOnlyRegistryPath,
+    );
+    assert(
+      unmounted.startsWith("unmounted ruby-high.first-bell:"),
+      `soft unmount transaction was not observable: ${unmounted}`,
+    );
+    const frozenSnapshot = JSON.parse(await readFile(snapshotPath, "utf8"));
+    assert(
+      frozenSnapshot.worldpack_bundle_hash
+        === JSON.parse(await readFile(coreOnlyRegistryPath, "utf8")).manifest.bundle_hash,
+      "soft unmount did not switch to the Core-only bundle",
+    );
+    const frozenRuby = frozenSnapshot.pack_mount_state?.frozen?.["ruby-high.first-bell"];
+    assert(
+      frozenRuby
+        && frozenSnapshot.pack_mount_state.history.map(({ operation }) => operation).join(",")
+          === "cold_mount,soft_unmount",
+      `Ruby state was not frozen behind a committed lifecycle history: ${JSON.stringify(
+        frozenSnapshot.pack_mount_state,
+      )}`,
+    );
+
+    coreOnly = await startServer(tempDir, coreOnlyRegistryPath, snapshotPath);
+    assert(
+      coreOnly.output.some((line) => line.includes("loaded journal checkpoint")),
+      `unmounted restart did not use the journal checkpoint: ${coreOnly.output.slice(-40).join("")}`,
+    );
+    assert(
+      coreOnly.meta.worldpack?.id === "cosyworld.core-only"
+        && !coreOnly.meta.worldpack?.packs?.some((pack) =>
+          pack.id === "ruby-high.first-bell"
+          || pack.id === "cosyworld.composition.core-ruby"),
+      `Ruby or its bridge remained mounted: ${JSON.stringify(coreOnly.meta.worldpack)}`,
+    );
+    const whileUnmounted = await fetchJson(stateUrl(coreOnly.baseUrl, actorId, actorSession));
+    assertContext(whileUnmounted, {
+      location: "The Cosy Cottage",
+      locationPack: "cosyworld.core",
+      selectedBy: "cosyworld.core",
+      capability: "cosyworld.core/rules",
+      offerVerb: "Notice",
+      sourceCard: "cosy-cottage",
+    });
+    assert(
+      whileUnmounted.action_offers?.every((offer) =>
+        offer.composition_trace?.worldpack_bundle_hash
+          === coreOnly.meta.worldpack.bundle_hash
+          && offer.composition_trace?.pack_mount_revision === 2),
+      "unmounted offers did not bind the Core-only composition revision",
+    );
+    await command(coreOnly.baseUrl, actorId, actorSession, "say core while ruby sleeps");
+    await waitForActorJobs(eventDbPath);
+    await stopServer(coreOnly.proc);
+    coreOnly = null;
+
+    const restored = migratePack(
+      "remount",
+      snapshotPath,
+      eventDbPath,
+      coreOnlyRegistryPath,
+      coreRubyRegistryPath,
+    );
+    assert(
+      restored.startsWith("remounted ruby-high.first-bell:"),
+      `remount transaction was not observable: ${restored}`,
+    );
+    const restoredSnapshot = JSON.parse(await readFile(snapshotPath, "utf8"));
+    assert(
+      Object.keys(restoredSnapshot.pack_mount_state?.frozen ?? {}).length === 0
+        && restoredSnapshot.pack_mount_state.history.map(({ operation }) => operation).join(",")
+          === "cold_mount,soft_unmount,remount",
+      `Ruby state did not restore through one committed lifecycle: ${JSON.stringify(
+        restoredSnapshot.pack_mount_state,
+      )}`,
+    );
+    assertFrozenStateRestored(frozenRuby, restoredSnapshot);
+
+    remounted = await startServer(tempDir, coreRubyRegistryPath, snapshotPath);
+    assert(
+      remounted.output.some((line) => line.includes("loaded journal checkpoint")),
+      `remounted restart did not use the journal checkpoint: ${remounted.output.slice(-40).join("")}`,
+    );
+    const afterRemount = await fetchJson(stateUrl(remounted.baseUrl, actorId, actorSession));
+    assertContext(afterRemount, {
+      location: "The Cosy Cottage",
+      locationPack: "cosyworld.core",
+      selectedBy: "cosyworld.core",
+      capability: "cosyworld.core/rules",
+      offerVerb: "Notice",
+      sourceCard: "cosy-cottage",
+    });
+    assert(
+      afterRemount.action_offers?.every((offer) =>
+        offer.composition_trace?.worldpack_bundle_hash
+          === remounted.meta.worldpack.bundle_hash
+          && offer.composition_trace?.pack_mount_revision === 3),
+      "remounted offers did not bind the restored composition revision",
+    );
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_100));
+    const restoredExit = await discoverExit(remounted.baseUrl, actorId, actorSession, 11);
+    assert(
+      restoredExit.exits?.some((exit) =>
+        exit.destination_location_id === 11
+        && exit.accessible === true
+        && exit.locked === false),
+      "remount did not restore the discovered Ruby bridge identity",
+    );
+    await move(remounted.baseUrl, actorId, actorSession, 11);
+    const restoredHomeroom = await fetchJson(stateUrl(remounted.baseUrl, actorId, actorSession));
+    assertContext(restoredHomeroom, {
+      location: "Homeroom",
+      locationPack: "ruby-high.first-bell",
+      selectedBy: "ruby-high.first-bell",
+      capability: "ruby-high.first-bell/rules",
+      offerVerb: "Tune in",
+      sourceCard: "location-homeroom",
+    });
+    await command(remounted.baseUrl, actorId, actorSession, "say ruby restored");
 
     console.log(JSON.stringify({
       ok: true,
-      worldpack: second.meta.worldpack.id,
-      packs: second.meta.worldpack.packs.map((pack) => pack.id),
+      worldpack: remounted.meta.worldpack.id,
+      packs: remounted.meta.worldpack.packs.map((pack) => pack.id),
       loop: [
         "The Cosy Cottage",
         "Homeroom",
         "journal checkpoint replay",
         "The Cosy Cottage",
+        "Ruby High soft-unmounted",
+        "Core-only action",
+        "Ruby High remounted",
+        "Homeroom action",
       ],
     }, null, 2));
   } finally {
     if (source) await stopServer(source.proc);
     if (first) await stopServer(first.proc);
     if (second) await stopServer(second.proc);
+    if (coreOnly) await stopServer(coreOnly.proc);
+    if (remounted) await stopServer(remounted.proc);
     await rm(tempDir, { recursive: true, force: true });
   }
 }
