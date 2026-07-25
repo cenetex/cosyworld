@@ -29,6 +29,7 @@ mod settlement_buildings;
 mod story_metrics;
 mod transfers;
 mod turns;
+mod uses;
 mod views;
 mod world_causality;
 mod world_simulation;
@@ -2758,25 +2759,6 @@ struct AccountView {
     recent_box_receipts: Vec<WoodenBoxReceiptView>,
     recent_pack_openings: Vec<AvatarPackOpeningView>,
     materialization_receipts: Vec<MaterializationReceiptState>,
-}
-
-#[derive(Clone, Debug)]
-struct ResidentFeatureUseCandidate {
-    actor_id: u64,
-    location_id: u64,
-    feature_key: String,
-    feature_name: String,
-    item_id: u64,
-    content: String,
-}
-
-#[derive(Clone, Debug)]
-struct PlayerFeatureUseCandidate {
-    location_id: u64,
-    feature_name: String,
-    item_id: u64,
-    item_name: String,
-    effect: String,
 }
 
 #[derive(Clone, Debug)]
@@ -16934,45 +16916,6 @@ impl RuntimeWorld {
                 .is_none()
     }
 
-    fn resident_feature_use_match_for_item(
-        &self,
-        resident: CwActor,
-        item_id: u64,
-    ) -> Option<ResidentFeatureUseCandidate> {
-        if !Self::actor_is_active_avatar(resident) {
-            return None;
-        }
-        self.room_features(resident.location_id)
-            .into_iter()
-            .filter_map(|feature| {
-                let use_case = feature
-                    .uses
-                    .iter()
-                    .find(|use_case| use_case.item_id == item_id)?;
-                if self.feature_use_claimed(
-                    resident.id,
-                    resident.location_id,
-                    &feature.key,
-                    item_id,
-                ) {
-                    return None;
-                }
-                Some(ResidentFeatureUseCandidate {
-                    actor_id: resident.id,
-                    location_id: resident.location_id,
-                    feature_key: feature.key.clone(),
-                    feature_name: feature.name.clone(),
-                    item_id,
-                    content: use_case.text.clone(),
-                })
-            })
-            .min_by(|left, right| {
-                left.feature_name
-                    .cmp(&right.feature_name)
-                    .then_with(|| left.feature_key.cmp(&right.feature_key))
-            })
-    }
-
     fn resident_local_feature_item_ids(&self, resident: CwActor) -> Vec<u64> {
         if !Self::actor_is_active_avatar(resident) {
             return Vec::new();
@@ -16995,25 +16938,6 @@ impl RuntimeWorld {
         item_ids.sort_unstable();
         item_ids.dedup();
         item_ids
-    }
-
-    fn resident_feature_use_candidate(
-        &self,
-        resident: CwActor,
-    ) -> Option<ResidentFeatureUseCandidate> {
-        let mut candidates: Vec<_> = self
-            .actor_held_items(resident.id)
-            .into_iter()
-            .filter_map(|item| self.resident_feature_use_match_for_item(resident, item.id))
-            .collect();
-        candidates.sort_by_key(|candidate| {
-            (
-                !evolution_item_matches_resident(candidate.item_id, resident.id),
-                candidate.feature_key.clone(),
-                candidate.item_id,
-            )
-        });
-        candidates.into_iter().next()
     }
 
     fn resident_item_is_sought(&self, resident: CwActor, item_id: u64) -> bool {
@@ -20610,52 +20534,6 @@ impl RuntimeWorld {
             .unwrap_or(false)
     }
 
-    fn default_player_feature_use_candidate(
-        &self,
-        actor_id: u64,
-    ) -> Option<PlayerFeatureUseCandidate> {
-        let actor = self.actor_by_id(actor_id)?;
-        if !Self::actor_is_active_avatar(actor) {
-            return None;
-        }
-        let held_item_ids: BTreeSet<u64> = self
-            .actor_held_items(actor_id)
-            .into_iter()
-            .map(|item| item.id)
-            .collect();
-        let mut candidates = Vec::new();
-        for feature in self.room_feature_views(actor.location_id, Some(actor_id)) {
-            for use_case in feature
-                .uses
-                .into_iter()
-                .filter(|use_case| !use_case.used)
-                .filter(|use_case| held_item_ids.contains(&use_case.item_id))
-            {
-                let Some(effect) = use_case.effect.filter(|effect| !effect.trim().is_empty())
-                else {
-                    continue;
-                };
-                let item_name = self
-                    .item_name(use_case.item_id)
-                    .unwrap_or_else(|| format!("Item {}", use_case.item_id));
-                candidates.push(PlayerFeatureUseCandidate {
-                    location_id: actor.location_id,
-                    feature_name: feature.name.clone(),
-                    item_id: use_case.item_id,
-                    item_name,
-                    effect,
-                });
-            }
-        }
-        candidates.sort_by(|left, right| {
-            left.feature_name
-                .cmp(&right.feature_name)
-                .then_with(|| left.item_name.cmp(&right.item_name))
-                .then_with(|| left.item_id.cmp(&right.item_id))
-        });
-        candidates.into_iter().next()
-    }
-
     fn feature_search_claimed(&self, actor_id: u64, location_id: u64, feature_key: &str) -> bool {
         self.tags
             .get(&feature_search_tag_id(actor_id, location_id, feature_key))
@@ -22063,6 +21941,7 @@ impl RuntimeWorld {
             })
             .collect();
         offers = self.expand_item_action_offers(actor_id, offers);
+        offers = self.expand_use_action_offers(actor_id, offers);
         offers = self.expand_transfer_action_offers(actor_id, offers);
         offers = self.expand_route_action_offers(actor_id, access, offers);
         if let Some(target) = self.scout_action_offer_target(actor_id, access) {
@@ -23928,37 +23807,6 @@ impl RuntimeWorld {
         }
     }
 
-    fn has_useful_usable_item(&self, actor_id: u64) -> bool {
-        let Some(actor) = self.actor_by_id(actor_id) else {
-            return false;
-        };
-        let has_charged_potion = self.world.items[..self.world.item_count]
-            .iter()
-            .any(|item| {
-                item.holder_actor_id == actor_id && item.kind == CW_ITEM_POTION && item.charges > 0
-            });
-        has_charged_potion
-            && self.world.actors[..self.world.actor_count]
-                .iter()
-                .any(|target| self.healing_target_is_offerable(&actor, target))
-    }
-
-    fn healing_target_is_offerable(&self, actor: &CwActor, target: &CwActor) -> bool {
-        if target.location_id != actor.location_id {
-            return false;
-        }
-        let needs_healing = target.status == CW_ACTOR_KNOCKED_OUT
-            || (target.status == CW_ACTOR_ACTIVE && target.damage > 0);
-        if !needs_healing {
-            return false;
-        }
-        if target.id == actor.id {
-            return true;
-        }
-        !self.location_has_unresolved_combat(actor.location_id)
-            || self.combat_actors_share_side(actor.id, target.id)
-    }
-
     #[cfg(test)]
     fn force_actor_location(&mut self, actor_id: u64, location_id: u64) {
         let _ = self.place_actor_location(actor_id, location_id, false);
@@ -25107,15 +24955,7 @@ impl RuntimeWorld {
                 CW_ACTION_USE_ITEM => {
                     proposal.item_id == Some(action.item_id)
                         && proposal.target_actor_id.unwrap_or(0) == action.target_actor_id
-                        && offer.target.as_ref().is_some_and(|target| {
-                            target.kind == "actor" && target.id == Some(action.target_actor_id)
-                        })
-                        && offer
-                            .provider
-                            .id
-                            .strip_prefix("item:")
-                            .and_then(|item_id| item_id.parse::<u64>().ok())
-                            == Some(action.item_id)
+                        && Self::use_offer_matches_action(offer, action)
                 }
                 CW_ACTION_DROP_ITEM => {
                     proposal.item_id == Some(action.item_id)
@@ -25174,6 +25014,9 @@ impl RuntimeWorld {
                     action.target_actor_id,
                     action.target_item_id,
                 )
+                .ok()?,
+            CW_ACTION_USE_ITEM => self
+                .plan_use_item_choice_action(actor.id, action.item_id, action.target_actor_id)
                 .ok()?,
             _ => action,
         };
@@ -25426,7 +25269,15 @@ impl RuntimeWorld {
         actor: CwActor,
         seed: u64,
     ) -> Option<JournalRecord> {
-        let candidate = self.resident_feature_use_candidate(actor)?;
+        let preferred = self.resident_feature_use_candidate(actor)?;
+        let candidate = self
+            .plan_feature_use_choice(
+                actor.id,
+                preferred.item_id,
+                preferred.location_id,
+                &preferred.feature_key,
+            )
+            .ok()?;
         let mut record = JournalRecord::new(
             CwAction {
                 kind: CW_ACTION_NONE,
@@ -26167,24 +26018,20 @@ impl RuntimeWorld {
                     && project.strategy_id.as_deref() == Some(intent.strategy.id.as_str())
             });
         }
-        if let Some((item_id, location_id)) =
-            record
-                .projection_mutations
-                .iter()
-                .find_map(|mutation| match mutation {
-                    ProjectionMutation::UseFeature {
-                        item_id,
-                        location_id,
-                        ..
-                    } => Some((*item_id, *location_id)),
-                    _ => None,
-                })
+        if let Some((item_id, location_id, feature_key)) = record
+            .projection_mutations
+            .iter()
+            .find_map(|mutation| match mutation {
+                ProjectionMutation::UseFeature {
+                    item_id,
+                    location_id,
+                    feature_key,
+                    ..
+                } => Some((*item_id, *location_id, feature_key.as_str())),
+                _ => None,
+            })
         {
-            return offer
-                .target
-                .as_ref()
-                .is_some_and(|target| target.kind == "feature" && target.id == Some(location_id))
-                && offer.provider.id == format!("item:{item_id}");
+            return Self::use_offer_matches_feature(offer, item_id, location_id, feature_key);
         }
         match action.kind {
             CW_ACTION_MOVE | CW_ACTION_FLEE | CW_ACTION_COMBAT_ESCAPE => {
@@ -26221,11 +26068,7 @@ impl RuntimeWorld {
             CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM => {
                 Self::transfer_offer_matches_action(offer, action)
             }
-            CW_ACTION_USE_ITEM => {
-                offer.target.as_ref().is_some_and(|target| {
-                    target.kind == "actor" && target.id == Some(action.target_actor_id)
-                }) && offer.provider.id == format!("item:{}", action.item_id)
-            }
+            CW_ACTION_USE_ITEM => Self::use_offer_matches_action(offer, action),
             CW_ACTION_CRAFT => offer.target.as_ref().is_some_and(|target| {
                 target.kind == "recipe" && target.id == Some(action.content_id)
             }),
@@ -30540,7 +30383,7 @@ fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
         "/actions/cast-spell" => kind == "cast_spell",
         "/actions/pick-up" => kind == "pick_up",
         "/actions/drop" => kind == "drop_item",
-        "/actions/use-item" => matches!(kind, "use_item" | "use_feature"),
+        "/actions/use-item" => kind == "use_item",
         "/actions/give-item" => kind == "give_item",
         "/actions/trade-item" => kind == "trade_item",
         "/actions/theft" => kind == "theft",
@@ -30576,7 +30419,8 @@ fn submitted_payload_target(
             | "/actions/create-bond"
             | "/actions/resolve-bond"
             | "/actions/cast-spell"
-            | "/actions/influence",
+            | "/actions/influence"
+            | "/actions/use-item",
             "actor",
         ) => "target_actor_id",
         _ => return None,
@@ -33861,30 +33705,28 @@ async fn command_inner(
                     events: presence_events,
                 });
             }
-            let feature_use_still_valid = runtime
-                .actor_by_id(payload.actor_id)
-                .is_some_and(|actor| actor.location_id == location_id)
-                && runtime.world.items[..runtime.world.item_count]
-                    .iter()
-                    .any(|item| item.id == item_id && item.holder_actor_id == payload.actor_id)
-                && !runtime.feature_use_claimed(
-                    payload.actor_id,
-                    location_id,
-                    &feature_key,
-                    item_id,
-                );
-            if !feature_use_still_valid {
-                return Json(CommandResponse {
-                    ok: false,
-                    status: 409,
-                    command: resolved.command,
-                    verb: resolved.verb,
-                    output: Some("That room feature has already answered this item.".to_string()),
-                    action: resolved.action,
-                    receipt: None,
-                    events: presence_events,
-                });
-            }
+            let candidate = match runtime.plan_feature_use_choice(
+                payload.actor_id,
+                item_id,
+                location_id,
+                &feature_key,
+            ) {
+                Ok(candidate) => candidate,
+                Err(reason) => {
+                    return Json(CommandResponse {
+                        ok: false,
+                        status: 409,
+                        command: resolved.command,
+                        verb: resolved.verb,
+                        output: Some(reason),
+                        action: resolved.action,
+                        receipt: None,
+                        events: presence_events,
+                    });
+                }
+            };
+            debug_assert_eq!(output, candidate.content);
+            let output = candidate.content.clone();
             let mut record = JournalRecord::new(
                 CwAction {
                     kind: CW_ACTION_NONE,
@@ -33898,10 +33740,10 @@ async fn command_inner(
             record
                 .projection_mutations
                 .push(ProjectionMutation::UseFeature {
-                    item_id,
-                    location_id,
-                    feature_key,
-                    content: output.clone(),
+                    item_id: candidate.item_id,
+                    location_id: candidate.location_id,
+                    feature_key: candidate.feature_key,
+                    content: candidate.content,
                     reason: "use_feature".to_string(),
                 });
             let Ok((status, mut events)) = commit_journal_record(&state, &mut runtime, record)
@@ -37996,10 +37838,19 @@ async fn use_item(
     ) {
         return action_rate_limited_response();
     }
-    let item_target_id = payload.item_id.to_string();
-    let contribution_mutations = {
+    let planned = {
         let runtime = state.inner.lock().await;
-        runtime
+        let target_actor_id = payload.target_actor_id.unwrap_or(payload.actor_id);
+        let action = match runtime.plan_use_item_choice_action(
+            payload.actor_id,
+            payload.item_id,
+            target_actor_id,
+        ) {
+            Ok(action) => action,
+            Err(reason) => return action_offer_rejected(reason),
+        };
+        let item_target_id = action.item_id.to_string();
+        let mutations = runtime
             .job_contribution_intent(
                 payload.actor_id,
                 "use_item",
@@ -38009,19 +37860,14 @@ async fn use_item(
             )
             .map(|intent| ProjectionMutation::ResolveJobContribution { intent })
             .into_iter()
-            .collect()
+            .collect();
+        (action, mutations)
     };
     apply_and_broadcast_with_mutations(
         state,
-        CwAction {
-            kind: CW_ACTION_USE_ITEM,
-            actor_id: payload.actor_id,
-            target_actor_id: payload.target_actor_id.unwrap_or(payload.actor_id),
-            item_id: payload.item_id,
-            ..CwAction::default()
-        },
+        planned.0,
         payload.actor_session.as_deref(),
-        contribution_mutations,
+        planned.1,
     )
     .await
 }
@@ -50253,6 +50099,11 @@ mod tests {
             "explore_path"
         ));
         assert!(!action_path_accepts_kind("/actions/explore-path", "search"));
+        assert!(action_path_accepts_kind("/actions/use-item", "use_item"));
+        assert!(!action_path_accepts_kind(
+            "/actions/use-item",
+            "use_feature"
+        ));
     }
 
     #[test]
@@ -53545,7 +53396,7 @@ mod tests {
         assert!(!INDEX_HTML.contains("withActor("));
         assert!(INDEX_HTML.contains("setCreationModalStage(campaignAction, \"species\")"));
         assert!(INDEX_HTML.contains("[\"Then\", \"begin classless at level 0\"]"));
-        assert!(INDEX_HTML.contains("accountRow(\"calling\", purpose)"));
+        assert!(INDEX_HTML.contains("accountRow(\"purpose\", purpose)"));
         assert!(INDEX_HTML.contains("accountRow(\"campaign identity\", identityCards)"));
         assert!(INDEX_HTML.contains("accountRow(\"known for\", practiceSummary)"));
         assert!(!INDEX_HTML.contains("detail: \"choose calling\""));
