@@ -8961,6 +8961,11 @@ async function main() {
         (clock) => clock.id === "moonlit-trail.progress",
       )?.filled || 0),
       quieted: (state?.tags || []).some((tag) => tag.label === "quieted moonlight"),
+      primaryAction: state?.primary_action || null,
+      attackOffers: (state?.action_offers || []).filter((offer) => (
+        ["attack", "defend", "flee"].includes(offer.kind)
+      )),
+      combat: state?.combat || null,
     }));
     if (quietedChatAvailability.hasCoachAttack) {
       assert(

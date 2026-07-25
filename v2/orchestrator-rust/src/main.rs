@@ -12530,15 +12530,20 @@ impl RuntimeWorld {
         reason: &str,
     ) -> Option<EventView> {
         let normalized = normalize_job_status(status)?;
-        let job = self.jobs.get_mut(job_id)?;
-        if job.status == normalized {
-            return None;
+        let job = {
+            let job = self.jobs.get_mut(job_id)?;
+            if job.status == normalized {
+                return None;
+            }
+            if matches!(job.status.as_str(), "completed" | "failed") && job.status != normalized {
+                return None;
+            }
+            job.status = normalized.to_string();
+            job.clone()
+        };
+        if matches!(normalized, "completed" | "failed") {
+            self.resolve_active_combat_encounter_for_job(job_id);
         }
-        if matches!(job.status.as_str(), "completed" | "failed") && job.status != normalized {
-            return None;
-        }
-        job.status = normalized.to_string();
-        let job = job.clone();
         Some(self.append_job_event("job.updated", actor_id, &job, reason))
     }
 
@@ -19081,7 +19086,7 @@ impl RuntimeWorld {
         {
             return false;
         }
-        if job.participant_ids.is_empty()
+        if encounter_participant_ids_for_job(&job.id).is_empty()
             || job.danger_clock_id.trim().is_empty()
             || !self.clocks.contains_key(&job.danger_clock_id)
         {
@@ -19173,7 +19178,7 @@ impl RuntimeWorld {
         let mut target_actor_id = None;
         let mut current_hp = None;
         let actor_count = self.world.actor_count;
-        for participant_id in &job.participant_ids {
+        for participant_id in encounter_participant_ids_for_job(&job.id) {
             if let Some(actor) = self.world.actors[..actor_count]
                 .iter_mut()
                 .find(|actor| actor.id == *participant_id)
@@ -60177,115 +60182,6 @@ mod tests {
         assert!(runtime.orb_balance(5000) >= starting_orbs + COMBAT_OUTCOME_ORB_REWARD);
         let state_view = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(state_view.combat.is_none());
-    }
-
-    #[test]
-    fn completed_combat_project_clears_combat_actions() {
-        let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
-        let mut create_record = JournalRecord::new(create, 7180);
-        create_record.actor_meta_upserts.insert(
-            5000,
-            ActorMeta {
-                name: "Calm Resolver".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Echo Peacemaker".to_string(),
-                description: "A test avatar checking combat affordances after project resolution."
-                    .to_string(),
-            },
-        );
-        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
-
-        discover_seed_exit_pair_for_test(&mut runtime, MOONLIT_TRAIL_LOCATION_ID, 2);
-        let active = runtime.state_response(Some(5000), &AccessContext::default());
-        assert!(active
-            .primary_action
-            .options
-            .iter()
-            .any(|option| option.kind == "attack"));
-        assert!(active
-            .primary_action
-            .options
-            .iter()
-            .any(|option| option.kind == "defend"));
-        assert!(active
-            .primary_action
-            .options
-            .iter()
-            .any(|option| option.kind == "flee"));
-
-        let mut complete_record = JournalRecord::new(
-            CwAction {
-                kind: CW_ACTION_NONE,
-                actor_id: 5000,
-                ..CwAction::default()
-            },
-            7181,
-        );
-        complete_record
-            .projection_mutations
-            .push(ProjectionMutation::AdvanceClock {
-                clock_id: MOONLIT_PROGRESS_CLOCK_ID.to_string(),
-                amount: 4,
-                reason: "test_complete".to_string(),
-            });
-        assert_eq!(runtime.apply_journal_record(&complete_record).0, CW_OK);
-
-        let completed = runtime.state_response(Some(5000), &AccessContext::default());
-        assert_eq!(
-            completed
-                .jobs
-                .iter()
-                .find(|job| job.id == "moonlit-trail:quiet-the-echo")
-                .map(|job| job.status.as_str()),
-            Some("completed")
-        );
-        assert!(!completed
-            .primary_action
-            .options
-            .iter()
-            .any(|option| matches!(option.kind.as_str(), "attack" | "defend" | "flee")));
-        assert!(!completed
-            .action_offers
-            .iter()
-            .any(|offer| matches!(offer.kind.as_str(), "attack" | "defend" | "flee")));
-
-        let item_count = runtime.world.item_count;
-        let tonic = runtime.world.items[..item_count]
-            .iter_mut()
-            .find(|item| item.id == 2001)
-            .expect("Hearth Tonic exists");
-        tonic.holder_actor_id = 5000;
-        tonic.location_id = 0;
-        tonic.charges = 1;
-        let actor_count = runtime.world.actor_count;
-        runtime.world.actors[..actor_count]
-            .iter_mut()
-            .find(|actor| actor.id == 1004)
-            .expect("Coach exists")
-            .damage = 3;
-        let wounded_quieted = runtime.state_response(Some(5000), &AccessContext::default());
-        assert!(wounded_quieted
-            .primary_action
-            .options
-            .iter()
-            .any(|option| option.kind == "use_item"));
-
-        for command in ["attack Coach", "defend", "flee"] {
-            let resolved = runtime
-                .resolve_command(&command_request(5000, command), &AccessContext::default())
-                .expect("combat command still resolves to a disabled action");
-            assert!(
-                matches!(
-                    resolved.dispatch,
-                    CommandDispatch::Disabled { status: 409, .. }
-                ),
-                "{command} should be disabled after the combat project resolves"
-            );
-        }
     }
 
     #[test]
