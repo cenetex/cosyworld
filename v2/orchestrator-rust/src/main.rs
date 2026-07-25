@@ -27,6 +27,7 @@ mod rate_limit;
 mod routes;
 mod settlement_buildings;
 mod story_metrics;
+mod transfers;
 mod turns;
 mod views;
 mod world_causality;
@@ -22062,6 +22063,7 @@ impl RuntimeWorld {
             })
             .collect();
         offers = self.expand_item_action_offers(actor_id, offers);
+        offers = self.expand_transfer_action_offers(actor_id, offers);
         offers = self.expand_route_action_offers(actor_id, access, offers);
         if let Some(target) = self.scout_action_offer_target(actor_id, access) {
             let kind = "explore_path";
@@ -23447,34 +23449,6 @@ impl RuntimeWorld {
             })
     }
 
-    fn has_actor_gift(&self, actor_id: u64) -> bool {
-        self.actor_give_candidate(actor_id).is_some()
-    }
-
-    fn actor_give_candidate(&self, actor_id: u64) -> Option<(CwItem, CwActor)> {
-        let actor = self.actor_by_id(actor_id)?;
-        Self::actor_is_active_avatar(actor).then_some(())?;
-        self.default_actor_gift_candidate(actor_id)
-            .map(|candidate| (candidate.offered_item, candidate.target))
-            .or_else(|| {
-                self.resident_gift_candidate(actor)
-                    .map(|candidate| (candidate.actor_item, candidate.target))
-            })
-            .or_else(|| {
-                let mut held_items = self.actor_held_items(actor_id);
-                held_items.sort_by_key(|item| item.id);
-                let mut targets = self.active_chat_targets(actor_id);
-                targets.sort_by_key(|target| target.id);
-                held_items.into_iter().find_map(|item| {
-                    targets
-                        .iter()
-                        .copied()
-                        .find(|target| self.actor_can_receive_item(*target, item.id))
-                        .map(|target| (item, target))
-                })
-            })
-    }
-
     fn default_actor_gift_candidate(&self, actor_id: u64) -> Option<ResidentPlayerGiftCandidate> {
         let actor = self.actor_by_id(actor_id)?;
         if !Self::actor_is_active_avatar(actor) {
@@ -23610,17 +23584,6 @@ impl RuntimeWorld {
         Ok(())
     }
 
-    fn default_item_trade(&self, actor_id: u64) -> Option<(CwItem, CwActor, CwItem)> {
-        self.default_item_trade_candidate(actor_id)
-            .map(|candidate| {
-                (
-                    candidate.offered_item,
-                    candidate.target,
-                    candidate.target_item,
-                )
-            })
-    }
-
     fn default_item_trade_candidate(&self, actor_id: u64) -> Option<ResidentTradeCandidate> {
         self.accepted_item_trade_candidates(actor_id)
             .into_iter()
@@ -23661,11 +23624,24 @@ impl RuntimeWorld {
         }
 
         let mut targets = self.active_chat_targets(actor_id);
-        targets.retain(|target| self.economy_known_by(actor_id, target.id));
+        targets.retain(|target| {
+            self.economy_known_by(actor_id, target.id)
+                || self.resident_remembers_actor_at(actor_id, target.id, actor.location_id)
+        });
         targets.sort_by_key(|target| target.id);
         let mut candidates = Vec::new();
         for target in targets {
             for target_item in self.actor_held_items(target.id) {
+                if !self.economy_known_by(actor_id, target.id)
+                    && !self.resident_remembers_actor_holding_item_at(
+                        actor_id,
+                        target.id,
+                        target_item.id,
+                        actor.location_id,
+                    )
+                {
+                    continue;
+                }
                 for offered_item in &offered_items {
                     let preference =
                         self.resident_trade_preference(target.id, *offered_item, target_item);
@@ -25121,31 +25097,12 @@ impl RuntimeWorld {
                 CW_ACTION_GIVE_ITEM => {
                     proposal.item_id == Some(action.item_id)
                         && proposal.target_actor_id == Some(action.target_actor_id)
-                        && self
-                            .actor_give_candidate(actor_id)
-                            .is_some_and(|(offered, target)| {
-                                offered.id == action.item_id
-                                    && target.id == action.target_actor_id
-                                    && offer.target.as_ref().is_some_and(|offer_target| {
-                                        offer_target.kind == "actor"
-                                            && offer_target.id == Some(target.id)
-                                    })
-                            })
+                        && Self::transfer_offer_matches_action(offer, action)
                 }
                 CW_ACTION_TRADE_ITEM => {
                     proposal.item_id == Some(action.item_id)
                         && proposal.target_actor_id == Some(action.target_actor_id)
-                        && self.default_item_trade(actor_id).is_some_and(
-                            |(offered, target, requested)| {
-                                offered.id == action.item_id
-                                    && target.id == action.target_actor_id
-                                    && requested.id == action.target_item_id
-                                    && offer.target.as_ref().is_some_and(|offer_target| {
-                                        offer_target.kind == "item"
-                                            && offer_target.id == Some(requested.id)
-                                    })
-                            },
-                        )
+                        && Self::transfer_offer_matches_action(offer, action)
                 }
                 CW_ACTION_USE_ITEM => {
                     proposal.item_id == Some(action.item_id)
@@ -25200,6 +25157,24 @@ impl RuntimeWorld {
                 self.plan_item_choice_action(actor.id, kind, action.item_id, action.target_item_id)
                     .ok()?
             }
+            CW_ACTION_GIVE_ITEM => self
+                .plan_transfer_choice_action(
+                    actor.id,
+                    "give_item",
+                    action.item_id,
+                    action.target_actor_id,
+                    0,
+                )
+                .ok()?,
+            CW_ACTION_TRADE_ITEM => self
+                .plan_transfer_choice_action(
+                    actor.id,
+                    "trade_item",
+                    action.item_id,
+                    action.target_actor_id,
+                    action.target_item_id,
+                )
+                .ok()?,
             _ => action,
         };
         if matches!(action.kind, CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM)
@@ -26243,28 +26218,9 @@ impl RuntimeWorld {
                 .target
                 .as_ref()
                 .is_some_and(|target| target.kind == "item" && target.id == Some(action.item_id)),
-            CW_ACTION_GIVE_ITEM => {
-                self.actor_give_candidate(action.actor_id)
-                    .is_some_and(|(item, target)| {
-                        item.id == action.item_id
-                            && target.id == action.target_actor_id
-                            && offer.target.as_ref().is_some_and(|offer_target| {
-                                offer_target.kind == "actor"
-                                    && offer_target.id == Some(action.target_actor_id)
-                            })
-                    })
+            CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM => {
+                Self::transfer_offer_matches_action(offer, action)
             }
-            CW_ACTION_TRADE_ITEM => self.default_item_trade(action.actor_id).is_some_and(
-                |(item, target, target_item)| {
-                    item.id == action.item_id
-                        && target.id == action.target_actor_id
-                        && target_item.id == action.target_item_id
-                        && offer.target.as_ref().is_some_and(|offer_target| {
-                            offer_target.kind == "item"
-                                && offer_target.id == Some(action.target_item_id)
-                        })
-                },
-            ),
             CW_ACTION_USE_ITEM => {
                 offer.target.as_ref().is_some_and(|target| {
                     target.kind == "actor" && target.id == Some(action.target_actor_id)
@@ -38138,7 +38094,7 @@ async fn give_item(
     ) {
         return action_rate_limited_response();
     }
-    let return_item_id = {
+    let planned_action = {
         let mut runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
             &runtime,
@@ -38149,13 +38105,16 @@ async fn give_item(
             return client_actor_rejected_response();
         }
         let target_actor_id = payload.target_actor_id.unwrap_or_default();
-        if let Err(reason) =
-            runtime.actor_gift_is_legal(payload.actor_id, target_actor_id, payload.item_id)
-        {
-            return action_offer_rejected(reason);
-        }
-        let target = runtime.actor_by_id(target_actor_id);
-        let offered_item = runtime.item_by_id(payload.item_id);
+        let planned_action = match runtime.plan_transfer_choice_action(
+            payload.actor_id,
+            "give_item",
+            payload.item_id,
+            target_actor_id,
+            0,
+        ) {
+            Ok(action) => action,
+            Err(reason) => return action_offer_rejected(reason),
+        };
         if runtime
             .actor_control_mode(target_actor_id)
             .is_direct_input()
@@ -38164,16 +38123,7 @@ async fn give_item(
                 .gift_auto_accept_policy(target_actor_id, payload.actor_id, payload.item_id)
                 .cloned()
             {
-                let mut record = JournalRecord::new(
-                    CwAction {
-                        kind: CW_ACTION_GIVE_ITEM,
-                        actor_id: payload.actor_id,
-                        target_actor_id,
-                        item_id: payload.item_id,
-                        ..CwAction::default()
-                    },
-                    runtime.next_seed_value(),
-                );
+                let mut record = JournalRecord::new(planned_action, runtime.next_seed_value());
                 record
                     .projection_mutations
                     .push(ProjectionMutation::ConsumeGiftAutoAccept {
@@ -38245,27 +38195,10 @@ async fn give_item(
                 payload.actor_id,
             ));
         }
-        target
-            .zip(offered_item)
-            .and_then(|(target, offered_item)| {
-                runtime.resident_player_gift_return_item(target, offered_item)
-            })
-            .map(|item| item.id)
-            .unwrap_or(0)
+        planned_action
     };
-    apply_and_broadcast_with_resident_reply(
-        state,
-        CwAction {
-            kind: CW_ACTION_GIVE_ITEM,
-            actor_id: payload.actor_id,
-            target_actor_id: payload.target_actor_id.unwrap_or(0),
-            item_id: payload.item_id,
-            target_item_id: return_item_id,
-            ..CwAction::default()
-        },
-        payload.actor_session.as_deref(),
-    )
-    .await
+    apply_and_broadcast_with_resident_reply(state, planned_action, payload.actor_session.as_deref())
+        .await
 }
 
 async fn trade_item(
@@ -38282,7 +38215,7 @@ async fn trade_item(
     ) {
         return action_rate_limited_response();
     }
-    {
+    let planned_action = {
         let mut runtime = state.inner.lock().await;
         if !client_actor_authorized_for_state(
             &runtime,
@@ -38297,14 +38230,16 @@ async fn trade_item(
         if !runtime.economy_known_by(payload.actor_id, target_actor_id) {
             return action_offer_rejected("You do not know what that avatar is carrying yet.");
         }
-        if let Err(reason) = runtime.actor_trade_is_legal(
+        let planned_action = match runtime.plan_transfer_choice_action(
             payload.actor_id,
-            target_actor_id,
+            "trade_item",
             payload.item_id,
+            target_actor_id,
             target_item_id,
         ) {
-            return action_offer_rejected(reason);
-        }
+            Ok(action) => action,
+            Err(reason) => return action_offer_rejected(reason),
+        };
         if runtime
             .actor_control_mode(target_actor_id)
             .is_direct_input()
@@ -38358,28 +38293,10 @@ async fn trade_item(
                 payload.actor_id,
             ));
         }
-        if let Err(reason) = runtime.resident_trade_is_willing(
-            payload.actor_id,
-            target_actor_id,
-            payload.item_id,
-            target_item_id,
-        ) {
-            return action_offer_rejected(reason);
-        }
-    }
-    apply_and_broadcast_with_resident_reply(
-        state,
-        CwAction {
-            kind: CW_ACTION_TRADE_ITEM,
-            actor_id: payload.actor_id,
-            target_actor_id: payload.target_actor_id.unwrap_or(0),
-            item_id: payload.item_id,
-            target_item_id: payload.target_item_id.unwrap_or(0),
-            ..CwAction::default()
-        },
-        payload.actor_session.as_deref(),
-    )
-    .await
+        planned_action
+    };
+    apply_and_broadcast_with_resident_reply(state, planned_action, payload.actor_session.as_deref())
+        .await
 }
 
 async fn resolve_transfer_offer(
@@ -42980,6 +42897,9 @@ fn action_offer_hand_group(offer: &RankedActionOffer) -> String {
             .as_ref()
             .map(|project| format!("contribute:{}", project.progress_clock_id))
             .unwrap_or_else(|| "contribute".to_string());
+    }
+    if matches!(offer.kind.as_str(), "give_item" | "trade_item") {
+        return offer.kind.clone();
     }
     if matches!(offer.kind.as_str(), "use_item" | "use_feature") {
         return "use".to_string();
