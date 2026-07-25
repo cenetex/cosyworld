@@ -173,27 +173,6 @@ impl RuntimeWorld {
         !self.healing_use_choices(actor_id).is_empty()
     }
 
-    fn use_source_collectible(&self, item_id: u64) -> Option<ActionSourceCollectibleView> {
-        let card = seed_card_for_subject("item", item_id).or_else(|| {
-            self.materialization_receipts
-                .values()
-                .find(|receipt| receipt.item_id == item_id)
-                .and_then(|receipt| {
-                    active_content()
-                        .cards
-                        .iter()
-                        .find(|card| card.card_id == receipt.card_id)
-                        .map(card_from_seed_content)
-                })
-        })?;
-        Some(ActionSourceCollectibleView {
-            kind: "item".to_string(),
-            instance_id: item_id,
-            card_id: card.card_id,
-            pack_id: card.pack_id.unwrap_or_else(|| "cosyworld.core".to_string()),
-        })
-    }
-
     fn retarget_use_offer(
         &self,
         actor_id: u64,
@@ -274,7 +253,7 @@ impl RuntimeWorld {
         offer.target = Some(target.clone());
         offer.composition_trace.target = Some(target);
         offer.effect = Some(effect);
-        if let Some(source) = self.use_source_collectible(item_id) {
+        if let Some(source) = self.item_source_collectible(item_id) {
             offer.source_collectible = Some(source.clone());
             offer
                 .composition_trace
