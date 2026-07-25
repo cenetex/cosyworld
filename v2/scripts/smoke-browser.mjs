@@ -4794,6 +4794,8 @@ async function main() {
           journalHidden: document.querySelector("#journal-view")?.hidden === true,
           journalRows: [...document.querySelectorAll("#journal-log .journal-row")]
             .map((node) => node.textContent.trim().replace(/\s+/g, " ")),
+          latestJournalRow: [...document.querySelectorAll("#journal-log .journal-row-summary")]
+            .at(-1)?.textContent?.trim().replace(/\s+/g, " ") || "",
           journalSummariesOneLine: [...document.querySelectorAll("#journal-log .journal-row > summary")]
             .every((node) => {
               const style = getComputedStyle(node.querySelector(".journal-row-summary"));
@@ -4912,7 +4914,11 @@ async function main() {
         && result.journalRows.some((row) => /Homeroom|search/i.test(row)),
       `system and discovery history should remain available as compact rows in the closed Journal: ${JSON.stringify(result)}`,
     );
-    assert(/A path to Homeroom opened/i.test(result.roomLatest), `the room headline should follow the card's discovery instead of stale bookkeeping: ${JSON.stringify(result)}`);
+    assert(
+      result.roomLatest === result.latestJournalRow
+        && result.roomLatest === "Thimble Guest — Anyone want to follow the newly opened path?",
+      `the room ticker should mirror the newest Journal row: ${JSON.stringify(result)}`,
+    );
     assert(result.preferredPlayerBeat === "Thimble Guest listened; the room answered", `the collapsed log should keep the player's card beat above derived memories and resident ripples: ${JSON.stringify(result)}`);
     assert(result.preferredReportBeat === "Report submitted for Gust.", `direct safety confirmations should still become the collapsed room headline: ${JSON.stringify(result)}`);
     assert(!result.log.includes("Summit Trail") && !result.log.includes("Lorecraft"), `movement and growth events should stay in the room Log: ${JSON.stringify(result)}`);
@@ -7269,6 +7275,8 @@ async function main() {
       };
       return {
         latest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
+        latestJournalRow: [...document.querySelectorAll("#journal-log .journal-row-summary")]
+          .at(-1)?.textContent?.trim() || "",
         latestVisible: visible(document.querySelector("#room-log-latest")),
         latestHasTrack: Boolean(document.querySelector("#room-log-latest > #room-log-latest-track")),
         latestAriaLive: document.querySelector("#room-log-latest")?.getAttribute("aria-live") || "",
@@ -7293,7 +7301,10 @@ async function main() {
         }),
       };
     });
-    assert(room.latest.length > 8, `${label}: Journal should retain the latest room context: ${JSON.stringify(room)}`);
+    assert(
+      room.latest.length > 8 && room.latest === room.latestJournalRow,
+      `${label}: the ticker should mirror the newest actual Journal row: ${JSON.stringify(room)}`,
+    );
     assert(
       room.latestVisible && room.latestHasTrack && room.latestInsideToggle && !room.latestAriaLive,
       `${label}: the latest event should stay inside the single quiet Journal control without another live region: ${JSON.stringify(room)}`,
