@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
 import { migrateContentReferenceDocument } from "../../v2/scripts/migrate-content-references.mjs";
@@ -424,6 +425,162 @@ describe("independently mountable CosyWorld Core", () => {
       expect(failed.status).not.toBe(0);
       expect(failed.stderr).toContain("destination location 1 is not active");
       expect(fs.existsSync(failedOutputPath)).toBe(false);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("moves the complete rules binding with each composition transaction", () => {
+    const sourceRegistry = structuredClone(coreOnly);
+    const targetRegistry = structuredClone(servicesOnly);
+    sourceRegistry.manifest.rules_profile = "rules/source";
+    sourceRegistry.manifest.active_rules_variants = ["variant/source"];
+    sourceRegistry.manifest.active_rules_extensions = ["extension/source"];
+    targetRegistry.manifest.rules_profile = "rules/target";
+    targetRegistry.manifest.active_rules_variants = ["variant/target"];
+    targetRegistry.manifest.active_rules_extensions = ["extension/target"];
+    const snapshot = {
+      worldpack_bundle_hash: sourceRegistry.manifest.bundle_hash,
+      rules_profile: "rules/source",
+      active_rules_variants: ["variant/source"],
+      active_rules_extensions: ["extension/source"],
+      world_actors: [],
+      world_items: [],
+      world_locations: [],
+      world_exits: [],
+      content_context: {
+        mapping_version: sourceRegistry.content_references.mapping_version,
+        references: [],
+        active_rulesets: [],
+      },
+    };
+
+    const unmounted = migratePackUnmount(
+      snapshot,
+      sourceRegistry,
+      "cosyworld.core",
+      targetRegistry,
+    );
+    expect(unmounted.snapshot).toMatchObject({
+      rules_profile: "rules/target",
+      active_rules_variants: ["variant/target"],
+      active_rules_extensions: ["extension/target"],
+    });
+    expect(unmounted.transaction).toMatchObject({
+      source_rules: {
+        rules_profile: "rules/source",
+        active_rules_variants: ["variant/source"],
+        active_rules_extensions: ["extension/source"],
+      },
+      target_rules: {
+        rules_profile: "rules/target",
+        active_rules_variants: ["variant/target"],
+        active_rules_extensions: ["extension/target"],
+      },
+    });
+
+    const remounted = migratePackRemount(
+      unmounted.snapshot,
+      targetRegistry,
+      "cosyworld.core",
+      sourceRegistry,
+    );
+    expect(remounted.snapshot).toMatchObject({
+      rules_profile: "rules/source",
+      active_rules_variants: ["variant/source"],
+      active_rules_extensions: ["extension/source"],
+    });
+  });
+
+  it("requires an exact quiescent journal checkpoint for durable CLI migration", () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cosyworld-pack-checkpoint-"));
+    const eventDbPath = path.join(tempRoot, "events.sqlite");
+    const inputPath = path.join(tempRoot, "snapshot.json");
+    const outputPath = path.join(tempRoot, "unmounted.json");
+    const snapshot = {
+      action_journal_seq: 1,
+      worldpack_bundle_hash: coreRuby.manifest.bundle_hash,
+      world_actors: [],
+      world_items: [],
+      world_locations: [{ id: 1 }, { id: 11 }],
+      world_exits: [{ from_location_id: 1, to_location_id: 11 }],
+    };
+    const cliArgs = (input, output) => [
+      packMigrationPath,
+      "--operation",
+      "unmount",
+      "--input",
+      input,
+      "--output",
+      output,
+      "--registry",
+      path.join(repoRoot, "v2/content/core-ruby/registry.json"),
+      "--target-registry",
+      path.join(repoRoot, "v2/content/core-only/registry.json"),
+      "--pack",
+      "ruby-high.first-bell",
+    ];
+
+    try {
+      fs.writeFileSync(inputPath, `${JSON.stringify(snapshot, null, 2)}\n`);
+      const database = new Database(eventDbPath);
+      database.exec(`
+        CREATE TABLE action_journal (
+          journal_seq INTEGER PRIMARY KEY AUTOINCREMENT
+        );
+        CREATE TABLE actor_jobs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          status TEXT NOT NULL
+        );
+        INSERT INTO action_journal DEFAULT VALUES;
+      `);
+      database.close();
+
+      const missingDatabase = spawnSync(
+        process.execPath,
+        cliArgs(inputPath, outputPath),
+        { cwd: repoRoot, encoding: "utf8" },
+      );
+      expect(missingDatabase.status).not.toBe(0);
+      expect(missingDatabase.stderr).toContain("--event-db is required");
+      expect(fs.existsSync(outputPath)).toBe(false);
+
+      const migrated = spawnSync(process.execPath, [
+        ...cliArgs(inputPath, outputPath),
+        "--event-db",
+        eventDbPath,
+      ], { cwd: repoRoot, encoding: "utf8" });
+      expect(migrated.status, migrated.stderr).toBe(0);
+      expect(migrated.stdout).toContain('"action_journal_seq":1');
+      expect(JSON.parse(fs.readFileSync(outputPath, "utf8")).action_journal_seq).toBe(1);
+
+      const staleInputPath = path.join(tempRoot, "stale.json");
+      const staleOutputPath = path.join(tempRoot, "stale-output.json");
+      fs.writeFileSync(staleInputPath, `${JSON.stringify({
+        ...snapshot,
+        action_journal_seq: 2,
+      }, null, 2)}\n`);
+      const stale = spawnSync(process.execPath, [
+        ...cliArgs(staleInputPath, staleOutputPath),
+        "--event-db",
+        eventDbPath,
+      ], { cwd: repoRoot, encoding: "utf8" });
+      expect(stale.status).not.toBe(0);
+      expect(stale.stderr).toContain("checkpoint 2 does not match journal head 1");
+      expect(fs.existsSync(staleOutputPath)).toBe(false);
+
+      const busyDatabase = new Database(eventDbPath);
+      busyDatabase.prepare("INSERT INTO actor_jobs (status) VALUES ('pending')").run();
+      busyDatabase.close();
+      const busyOutputPath = path.join(tempRoot, "busy-output.json");
+      const busy = spawnSync(process.execPath, [
+        ...cliArgs(inputPath, busyOutputPath),
+        "--event-db",
+        eventDbPath,
+      ], { cwd: repoRoot, encoding: "utf8" });
+      expect(busy.status).not.toBe(0);
+      expect(busy.stderr).toContain("1 actor job(s) are pending or running");
+      expect(fs.existsSync(busyOutputPath)).toBe(false);
     } finally {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }

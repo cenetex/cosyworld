@@ -106,12 +106,13 @@ async function startServer(tempDir) {
     COSYWORLD_CONTENT_REGISTRY_PATH: registryPath,
     COSYWORLD_CONTENT_ROOT: contentRoot,
     COSYWORLD_DEPLOY_PROFILE: "local",
+    RUST_LOG: "cosyworld_orchestrator=info",
     COSYWORLD_V2_ADDR: `127.0.0.1:${port}`,
     COSYWORLD_DISABLE_CTRL_C_SHUTDOWN: "1",
     COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET: "1",
     COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS: "0",
     COSYWORLD_CANONICAL_LEASE_TTL_MS: "1000",
-    COSYWORLD_V2_SNAPSHOT_PATH: "off",
+    COSYWORLD_V2_SNAPSHOT_PATH: resolve(tempDir, "snapshot.json"),
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
     COSYWORLD_V2_GENERATED_ASSET_DIR: resolve(tempDir, "generated"),
     COSYWORLD_RUBY_HIGH_WALLET_CARDS: JSON.stringify({
@@ -363,6 +364,10 @@ async function main() {
     await stopServer(first.proc);
     first = null;
     second = await startServer(tempDir);
+    assert(
+      second.output.some((line) => line.includes("loaded journal checkpoint")),
+      `restart did not use the journal checkpoint: ${second.output.slice(-40).join("")}`,
+    );
     const replayed = await fetchJson(stateUrl(second.baseUrl, actorId, actorSession));
     assertContext(replayed, {
       location: "Homeroom",
@@ -415,7 +420,7 @@ async function main() {
       loop: [
         "The Cosy Cottage",
         "Homeroom",
-        "journal replay",
+        "journal checkpoint replay",
         "The Cosy Cottage",
       ],
     }, null, 2));
