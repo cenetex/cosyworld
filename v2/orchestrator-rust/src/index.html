@@ -7525,9 +7525,14 @@
       const toggle = $("room-log-toggle");
       const panel = $("room-memory");
       const memory = roomMemoryModel();
-      const latestText = memory.hasLatestEvent
-        ? atmosphericMemoryBeat(memory.latest) || memory.latest.text
-        : "";
+      const latestJournalEvent = narratedTranscriptEvents(
+        logEvents.filter(eventIsJournalEvent),
+      ).at(-1);
+      const latestText = latestJournalEvent
+        ? journalEventSummary(latestJournalEvent)
+        : memory.hasLatestEvent
+          ? atmosphericMemoryBeat(memory.latest) || memory.latest.text
+          : "";
       toggle.hidden = false;
       renderRoomLogLatest(latestText);
       panel.hidden = false;
@@ -7648,13 +7653,24 @@
       return Boolean(meta?.text || sceneCardEventText(event));
     }
 
+    function journalEventSummary(event) {
+      if (event.type === "message.created") {
+        return journalSummary(`${event.actor_name || "CosyWorld"} — ${eventText(event)}`);
+      }
+      if (isRollEvent(event)) {
+        const roll = rollMeta(event);
+        return journalSummary(`${roll.title} · ${roll.result}`);
+      }
+      const meta = statusUpdateMeta(event);
+      return journalSummary(meta?.text || sceneCardEventText(event));
+    }
+
     function journalEventHtml(event) {
       if (event.type === "message.created") {
-        const speaker = event.actor_name || "CosyWorld";
         const text = eventText(event);
         return journalRowHtml({
           label: "chat",
-          summary: `${speaker} — ${text}`,
+          summary: journalEventSummary(event),
           detail: text,
           kind: event.actor_id === actorId ? "you" : "chat",
         });
@@ -7663,13 +7679,13 @@
         const roll = rollMeta(event);
         return journalRowHtml({
           label: roll.label || "roll",
-          summary: `${roll.title} · ${roll.result}`,
+          summary: journalEventSummary(event),
           detail: roll.story || [roll.detail, roll.result].filter(Boolean).join("; "),
           kind: event.success ? "success" : "failure",
         });
       }
       const meta = statusUpdateMeta(event);
-      const summary = meta?.text || sceneCardEventText(event);
+      const summary = journalEventSummary(event);
       if (!summary) return "";
       const exposureId = worldBeatExposureId(event);
       const attrs = exposureId
