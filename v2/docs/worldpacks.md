@@ -197,7 +197,8 @@ npm run v2:worldpack:compile
 npm run v2:worldpack
 npm run v2:worldpack:inspect
 npm run v2:content-refs:migrate -- --input legacy.json --output migrated.json
-npm run v2:pack:unmount -- --input snapshot.json --output migrated.json --registry v2/content/core-only/registry.json --target-registry v2/content/services-only/registry.json --pack cosyworld.core
+npm run v2:pack:unmount -- --operation unmount --input snapshot.json --output unmounted.json --registry v2/content/core-only/registry.json --target-registry v2/content/services-only/registry.json --pack cosyworld.core
+npm run v2:pack:unmount -- --operation remount --input unmounted.json --output remounted.json --registry v2/content/services-only/registry.json --target-registry v2/content/core-only/registry.json --pack cosyworld.core
 ```
 
 `sync` skips workspace packs and materializes Git-backed packs below `v2/content/imports`. Git sources must use an HTTPS GitHub URL and a full 40-character commit. It never follows a branch or tag at build time.
@@ -284,11 +285,15 @@ ids themselves and preserves self-contained contexts for unavailable packs.
 Unmounting a world pack is an explicit offline migration, never an implicit
 runtime fallback. `v2:pack:unmount` refuses to proceed while a human actor still
 occupies a location owned by the pack. Once vacant, it removes the pack-owned
-runtime projection, retains historical journal/event context, filters the live
-snapshot's canonical references, and records the target registry identity and
-ruleset selection. Archive the source snapshot and stop writers before running
-it; then start the single authoritative writer with the exact target registry
-supplied to the tool.
+live projection and freezes the exact entities, item/card zones, projection
+maps, and canonical context in the snapshot's versioned `pack_mount_state`.
+Each committed operation records source/target bundle hashes, counts, a stable
+state hash, and a monotonic sequence. Remount requires the exact frozen source
+registry and restores the same identities; collisions fail without changing
+the input. The CLI writes through a same-directory temporary file and atomic
+rename. Archive the source snapshot and stop writers before running it; then
+start the single authoritative writer with the exact target registry supplied
+to the tool.
 
 ## Runtime discovery and access
 

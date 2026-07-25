@@ -1702,6 +1702,7 @@ struct RuntimeWorld {
     orb_balances: BTreeMap<u64, i32>,
     orb_reward_claims: BTreeSet<String>,
     listen_attempt_claims: BTreeSet<String>,
+    pack_mount_state: PackMountState,
     presence_states: BTreeMap<u64, bool>,
     event_log: Vec<EventView>,
     recent_room_lines: BTreeMap<u64, Vec<EventView>>,
@@ -1723,6 +1724,8 @@ struct RuntimeSnapshot {
     active_rules_variants: Vec<String>,
     #[serde(default)]
     active_rules_extensions: Vec<String>,
+    #[serde(default, skip_serializing_if = "PackMountState::is_empty")]
+    pack_mount_state: PackMountState,
 
     world_version: u32,
     tick: u64,
@@ -6182,6 +6185,7 @@ impl RuntimeSnapshot {
             rules_profile: active_content().manifest.rules_profile.clone(),
             active_rules_variants: active_content().manifest.active_rules_variants.clone(),
             active_rules_extensions: active_content().manifest.active_rules_extensions.clone(),
+            pack_mount_state: runtime.pack_mount_state.clone(),
 
             world_version: runtime.world.version,
             tick: runtime.world.tick,
@@ -6454,6 +6458,7 @@ impl RuntimeSnapshot {
             orb_balances: self.orb_balances,
             orb_reward_claims: self.orb_reward_claims,
             listen_attempt_claims: self.listen_attempt_claims,
+            pack_mount_state: self.pack_mount_state,
             presence_states: BTreeMap::new(),
             event_log: self.event_log,
             recent_room_lines: self.recent_room_lines,
@@ -6932,6 +6937,7 @@ impl RuntimeWorld {
             orb_balances: BTreeMap::new(),
             orb_reward_claims: BTreeSet::new(),
             listen_attempt_claims: BTreeSet::new(),
+            pack_mount_state: PackMountState::default(),
             presence_states: BTreeMap::new(),
             event_log: Vec::new(),
             recent_room_lines: BTreeMap::new(),
