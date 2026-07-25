@@ -202,6 +202,7 @@ npm run v2:worldpack:compile
 npm run v2:worldpack
 npm run v2:worldpack:inspect
 npm run v2:content-refs:migrate -- --input legacy.json --output migrated.json
+npm run v2:journal:inspect -- --event-db events.sqlite --registry v2/content/core-only/registry.json
 npm run v2:pack:mount -- --input core.json --output core-ruby.json --event-db events.sqlite --registry v2/content/core-only/registry.json --target-registry v2/content/core-ruby/registry.json --pack ruby-high.first-bell
 npm run v2:pack:unmount -- --operation unmount --input snapshot.json --output unmounted.json --event-db events.sqlite --registry v2/content/core-only/registry.json --target-registry v2/content/services-only/registry.json --pack cosyworld.core
 npm run v2:pack:unmount -- --operation remount --input unmounted.json --output remounted.json --event-db events.sqlite --registry v2/content/services-only/registry.json --target-registry v2/content/core-only/registry.json --pack cosyworld.core
@@ -333,6 +334,12 @@ to run while actor jobs are pending or running. It writes through a
 same-directory temporary file and atomic rename. Stop the writer and archive
 the source snapshot before running it; then start one authoritative writer with
 the exact target registry supplied to the tool.
+
+`v2:journal:inspect` reads a bounded action-journal window without replaying or
+mutating it. It preserves each raw record's hash and canonical references,
+marks unavailable references as typed tombstones, and reports whether the
+supplied registry can replay the record under the runtime's bundle and mapping
+rules.
 
 ## Runtime discovery and access
 
