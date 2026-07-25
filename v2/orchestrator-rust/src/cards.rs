@@ -931,6 +931,32 @@ pub(super) fn seed_card_for_subject(subject_kind: &str, subject_id: u64) -> Opti
         .map(card_from_seed_content)
 }
 
+impl RuntimeWorld {
+    pub(super) fn item_source_collectible(
+        &self,
+        item_id: u64,
+    ) -> Option<ActionSourceCollectibleView> {
+        let card = seed_card_for_subject("item", item_id).or_else(|| {
+            self.materialization_receipts
+                .values()
+                .find(|receipt| receipt.item_id == item_id)
+                .and_then(|receipt| {
+                    active_content()
+                        .cards
+                        .iter()
+                        .find(|card| card.card_id == receipt.card_id)
+                        .map(card_from_seed_content)
+                })
+        })?;
+        Some(ActionSourceCollectibleView {
+            kind: "item".to_string(),
+            instance_id: item_id,
+            card_id: card.card_id,
+            pack_id: card.pack_id.unwrap_or_else(|| "cosyworld.core".to_string()),
+        })
+    }
+}
+
 pub(super) fn seed_weapon_die_sides(item: &SeedItemContent) -> u8 {
     if item.role != "weapon" {
         return 0;

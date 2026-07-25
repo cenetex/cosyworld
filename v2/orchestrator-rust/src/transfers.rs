@@ -168,6 +168,17 @@ impl RuntimeWorld {
         offer.target = Some(target.clone());
         offer.composition_trace.target = Some(target);
         offer.effect = Some(effect);
+        if let Some(source) = self.item_source_collectible(key.item_id) {
+            offer.source_collectible = Some(source.clone());
+            offer
+                .composition_trace
+                .source_card_instances
+                .retain(|existing| existing.kind != "item");
+            offer
+                .composition_trace
+                .source_card_instances
+                .insert(0, source);
+        }
         offer
     }
 
@@ -454,9 +465,20 @@ mod tests {
             "every exact transfer has a unique offer identity"
         );
         assert!(direct_offers.iter().all(|offer| {
+            let Some(key) = RuntimeWorld::transfer_offer_key(offer) else {
+                return false;
+            };
             offer.provider.kind == "item"
-                && offer.provider.id.starts_with("item:")
-                && RuntimeWorld::transfer_offer_key(offer).is_some()
+                && offer.provider.id == format!("item:{}", key.item_id)
+                && offer
+                    .source_collectible
+                    .as_ref()
+                    .is_some_and(|source| source.instance_id == key.item_id)
+                && offer
+                    .composition_trace
+                    .source_card_instances
+                    .iter()
+                    .any(|source| source.kind == "item" && source.instance_id == key.item_id)
         }));
         let action_hand = compose_action_hand(&direct_offers);
         for kind in ["give_item", "trade_item"] {
@@ -586,6 +608,23 @@ mod tests {
                 .apply_journal_record(&JournalRecord::new(inferred_gift, 98_101))
                 .0,
             CW_OK
+        );
+        let next_offers = runtime.legal_action_candidates(Some(5000), &access).1;
+        assert!(
+            next_offers
+                .iter()
+                .all(|offer| offer.offer_id != inferred_gift_offer.offer_id),
+            "the transferred card's dependent offer expires at the next revision"
+        );
+        assert!(
+            next_offers.iter().all(|offer| {
+                offer
+                    .composition_trace
+                    .source_card_instances
+                    .iter()
+                    .all(|source| source.instance_id != STORY_BUTTON_ITEM_ID)
+            }),
+            "the transferred card no longer contributes to the former holder's offers"
         );
         assert!(runtime
             .plan_transfer_offer_action(5000, &inferred_gift_offer)

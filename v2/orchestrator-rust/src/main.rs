@@ -21970,24 +21970,7 @@ impl RuntimeWorld {
             _ => None,
         };
         if let Some(item) = source_item {
-            let card = seed_card_for_subject("item", item.id).or_else(|| {
-                self.materialization_receipts
-                    .values()
-                    .find(|receipt| receipt.item_id == item.id)
-                    .and_then(|receipt| {
-                        active_content()
-                            .cards
-                            .iter()
-                            .find(|card| card.card_id == receipt.card_id)
-                            .map(card_from_seed_content)
-                    })
-            })?;
-            return Some(ActionSourceCollectibleView {
-                kind: "item".to_string(),
-                instance_id: item.id,
-                card_id: card.card_id,
-                pack_id: card.pack_id.unwrap_or_else(|| "cosyworld.core".to_string()),
-            });
+            return self.item_source_collectible(item.id);
         }
         let actor = self.actor_by_id(actor_id)?;
         let card = seed_card_for_subject("location", actor.location_id)?;
