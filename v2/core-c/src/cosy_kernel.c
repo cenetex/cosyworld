@@ -120,6 +120,14 @@ static const cw_exit *find_exit_const(const cw_world *world, cw_id from_location
   return 0;
 }
 
+static cw_exit *find_exit(cw_world *world, cw_id from_location_id, cw_id to_location_id) {
+  for (size_t i = 0; i < world->exit_count; ++i) {
+    cw_exit *exit = &world->exits[i];
+    if (exit->from_location_id == from_location_id && exit->to_location_id == to_location_id) return exit;
+  }
+  return 0;
+}
+
 static cw_item *find_item(cw_world *world, cw_id item_id) {
   for (size_t i = 0; i < world->item_count; ++i) {
     if (world->items[i].id == item_id) return &world->items[i];
@@ -1136,6 +1144,62 @@ static cw_status apply_search(cw_world *world, const cw_action *action, cw_event
   return CW_OK;
 }
 
+static cw_status apply_unlock_exit(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  if (!find_location(world, action->location_id)
+      || !find_location(world, action->destination_location_id)) {
+    return reject(world, out_events, action, CW_REASON_LOCATION_NOT_FOUND);
+  }
+  cw_exit *exit = find_exit(world, action->location_id, action->destination_location_id);
+  if (!exit) return reject(world, out_events, action, CW_REASON_NO_EXIT);
+  if (!(exit->flags & CW_EXIT_LOCKED)) {
+    return reject(world, out_events, action, CW_REASON_INVALID_ACTION);
+  }
+
+  exit->flags &= ~CW_EXIT_LOCKED;
+  append_event(world, out_events, CW_EVENT_EXIT_UNLOCKED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = action->actor_id;
+    event->location_id = action->location_id;
+    event->destination_location_id = action->destination_location_id;
+  }
+  return CW_OK;
+}
+
+static cw_status apply_reveal_item(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  if (!find_location(world, action->location_id)) {
+    return reject(world, out_events, action, CW_REASON_LOCATION_NOT_FOUND);
+  }
+  cw_item *item = find_item(world, action->item_id);
+  if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
+  if (item->holder_actor_id != 0 || item->location_id != 0 || item->charges == 0) {
+    return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+  }
+  for (size_t i = 0; i < world->item_count; ++i) {
+    const cw_item *floor_item = &world->items[i];
+    if (floor_item->holder_actor_id == 0
+        && floor_item->location_id == action->location_id
+        && floor_item->zone == CW_CARD_ZONE_WORLD) {
+      return reject(world, out_events, action, CW_REASON_CAPACITY_EXCEEDED);
+    }
+  }
+
+  item->location_id = action->location_id;
+  item->held_since_tick = 0;
+  item->zone = CW_CARD_ZONE_WORLD;
+  item->container_item_id = 0;
+  append_event(world, out_events, CW_EVENT_ITEM_REVEALED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = action->actor_id;
+    event->location_id = action->location_id;
+    event->item_id = action->item_id;
+  }
+  return CW_OK;
+}
+
 static int craft_disposition_removes_item(uint8_t disposition) {
   return disposition == CW_CRAFT_INPUT_CONSUMED
       || disposition == CW_CRAFT_INPUT_TRANSFORMED;
@@ -2033,6 +2097,8 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
   cw_combat_encounter *active_encounter = find_active_combat_encounter_for_actor(world, action->actor_id);
   if (active_encounter
       && action->kind != CW_ACTION_SAY
+      && action->kind != CW_ACTION_UNLOCK_EXIT
+      && action->kind != CW_ACTION_REVEAL_ITEM
       && action->kind != CW_ACTION_COMBAT_ATTACK
       && action->kind != CW_ACTION_COMBAT_FINESSE_ATTACK
       && action->kind != CW_ACTION_COMBAT_DODGE
@@ -2128,6 +2194,12 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
       break;
     case CW_ACTION_COMBAT_NEED_TIME:
       status = apply_combat_need_time(world, action, out_events);
+      break;
+    case CW_ACTION_UNLOCK_EXIT:
+      status = apply_unlock_exit(world, action, out_events);
+      break;
+    case CW_ACTION_REVEAL_ITEM:
+      status = apply_reveal_item(world, action, out_events);
       break;
     default:
       status = reject(world, out_events, action, CW_REASON_INVALID_ACTION);
@@ -2297,6 +2369,8 @@ const char *cw_event_type_name(uint8_t type) {
     case CW_EVENT_ITEM_CONSUMED: return "item.consumed";
     case CW_EVENT_ITEM_EXHAUSTED: return "item.exhausted";
     case CW_EVENT_ITEM_TRANSFORMED: return "item.transformed";
+    case CW_EVENT_EXIT_UNLOCKED: return "exit.unlocked";
+    case CW_EVENT_ITEM_REVEALED: return "item.revealed";
     default: return "unknown";
   }
 }

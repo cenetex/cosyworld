@@ -3266,11 +3266,14 @@ fn validate_seed_effect_descriptor(
     label: &str,
     effect: &EffectDescriptor,
     actor_ids: &BTreeSet<u64>,
-    _item_ids: &BTreeSet<u64>,
+    item_ids: &BTreeSet<u64>,
     location_ids: &BTreeSet<u64>,
     clock_ids: &BTreeSet<String>,
     job_ids: &BTreeSet<String>,
 ) -> Result<(), String> {
+    if matches!(effect, EffectDescriptor::Unknown) {
+        return Err(format!("{label} has an unknown effect op"));
+    }
     if effect_descriptor_reason(effect)
         .map(str::trim)
         .unwrap_or("")
@@ -3318,6 +3321,32 @@ fn validate_seed_effect_descriptor(
                 return Err(format!("{label} has invalid job status effect {job_id}"));
             }
         }
+        EffectDescriptor::UnlockExit {
+            from_location_id,
+            to_location_id,
+            ..
+        } => {
+            if from_location_id == to_location_id
+                || !location_ids.contains(from_location_id)
+                || !location_ids.contains(to_location_id)
+            {
+                return Err(format!(
+                    "{label} has invalid unlock exit effect {from_location_id}->{to_location_id}"
+                ));
+            }
+        }
+        EffectDescriptor::RevealItem {
+            item_id,
+            location_id,
+            ..
+        } => {
+            if !item_ids.contains(item_id) || !location_ids.contains(location_id) {
+                return Err(format!(
+                    "{label} has invalid reveal item effect {item_id}@{location_id}"
+                ));
+            }
+        }
+        EffectDescriptor::Unknown => unreachable!("unknown effects reject before validation"),
     }
     Ok(())
 }

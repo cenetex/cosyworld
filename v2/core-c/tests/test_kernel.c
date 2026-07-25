@@ -18,6 +18,17 @@ static cw_actor *test_find_actor(cw_world *world, cw_id actor_id) {
   return 0;
 }
 
+static cw_exit *test_find_exit(cw_world *world, cw_id from_location_id, cw_id to_location_id) {
+  for (size_t i = 0; i < world->exit_count; ++i) {
+    cw_exit *exit = &world->exits[i];
+    if (exit->from_location_id == from_location_id
+        && exit->to_location_id == to_location_id) {
+      return exit;
+    }
+  }
+  return 0;
+}
+
 static void test_kernel_capacities_are_runtime_sized(void) {
   assert(CW_MAX_ACTORS >= 512u);
   assert(CW_MAX_ITEMS >= 1024u);
@@ -1289,6 +1300,50 @@ static void test_search_and_craft_create_without_consuming_inputs(void) {
   assert(test_find_item(&world, 9202)->zone == CW_CARD_ZONE_INSTALLED);
 }
 
+static void test_authoritative_world_effect_actions(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_exit *exit = test_find_exit(&world, 1, 2);
+  assert(exit);
+  exit->flags |= CW_EXIT_LOCKED;
+
+  cw_action unlock = {0};
+  unlock.kind = CW_ACTION_UNLOCK_EXIT;
+  unlock.actor_id = 1001;
+  unlock.location_id = 1;
+  unlock.destination_location_id = 2;
+  assert(cw_world_apply(&world, &unlock, 80, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_EXIT_UNLOCKED);
+  assert(events.events[0].location_id == 1);
+  assert(events.events[0].destination_location_id == 2);
+  assert((exit->flags & CW_EXIT_LOCKED) == 0);
+  assert(cw_world_apply(&world, &unlock, 81, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+
+  cw_action reveal = {0};
+  reveal.kind = CW_ACTION_REVEAL_ITEM;
+  reveal.actor_id = 1001;
+  reveal.location_id = 1;
+  reveal.item_id = 2005;
+  assert(cw_world_apply(&world, &reveal, 82, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].reason == 21);
+  assert(test_find_item(&world, 2005)->location_id == 0);
+
+  test_find_item(&world, 2001)->location_id = 0;
+  assert(cw_world_apply(&world, &reveal, 83, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_REVEALED);
+  assert(events.events[0].item_id == 2005);
+  assert(test_find_item(&world, 2005)->location_id == 1);
+  assert(cw_world_apply(&world, &reveal, 84, &events) == CW_ERR_RULE);
+}
+
 static uint8_t test_combat_side(const cw_combat_encounter *encounter, cw_id actor_id) {
   for (size_t i = 0; i < encounter->participant_count; ++i) {
     if (encounter->participants[i].actor_id == actor_id) {
@@ -1419,6 +1474,7 @@ int main(void) {
   test_npc_pickup_can_evolve_self();
   test_inventory_uses_weight_and_container_capacity();
   test_search_and_craft_create_without_consuming_inputs();
+  test_authoritative_world_effect_actions();
   test_combat_join_preserves_legacy_sides_and_accepts_explicit_sides();
   test_deterministic_replay();
   puts("cosy kernel tests passed");
