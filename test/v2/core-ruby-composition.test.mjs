@@ -8,6 +8,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 const registry = JSON.parse(
   fs.readFileSync(path.join(repoRoot, "v2/content/core-ruby/registry.json"), "utf8"),
 );
+const browser = fs.readFileSync(
+  path.join(repoRoot, "v2/orchestrator-rust/src/index.html"),
+  "utf8",
+);
 
 describe("Core + Ruby High composition", () => {
   it("mounts the peer worlds with only their explicit bridge resources", () => {
@@ -64,5 +68,6 @@ describe("Core + Ruby High composition", () => {
         pack_id: "ruby-high.first-bell",
       }),
     );
+    expect(browser).toContain("composition_id: offer.composition_id");
   });
 });

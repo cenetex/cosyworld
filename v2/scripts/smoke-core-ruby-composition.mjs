@@ -167,6 +167,22 @@ async function move(baseUrl, actorId, actorSession, destinationLocationId) {
   return result;
 }
 
+async function submitOffer(baseUrl, offer, path, payload, compositionId = offer.composition_id) {
+  return postJson(`${baseUrl}/actions/submit`, {
+    path,
+    offer_id: offer.offer_id,
+    composition_id: compositionId,
+    kind: offer.kind,
+    rules_action: offer.rules_action,
+    operation: offer.operation,
+    rules_profile: offer.rules_profile,
+    state_revision: offer.state_revision,
+    target: offer.target,
+    cost: offer.cost,
+    payload,
+  });
+}
+
 async function discoverExit(baseUrl, actorId, actorSession, destinationLocationId) {
   await command(baseUrl, actorId, actorSession, "listen");
   for (let attempt = 0; attempt < 32; attempt += 1) {
@@ -214,6 +230,13 @@ function assertContext(state, {
         card.card_id === sourceCard && card.pack_id === locationPack)),
     `missing ${sourceCard} action-card context at ${location}`,
   );
+  assert(
+    state.action_offers?.every((offer) =>
+      /^sha256:[0-9a-f]{64}$/.test(offer.composition_id)
+      && /^sha256:[0-9a-f]{64}$/.test(offer.composition_trace?.worldpack_bundle_hash)
+      && offer.composition_trace?.pack_versions?.some((pack) => pack.pack_id === locationPack)),
+    `offers are missing composition certificates at ${location}`,
+  );
 }
 
 async function main() {
@@ -258,16 +281,56 @@ async function main() {
     });
     await command(first.baseUrl, actorId, actorSession, "say core side");
     const discovered = await discoverExit(first.baseUrl, actorId, actorSession, 11);
+    const travelOffer = discovered.action_offers?.find((offer) =>
+      offer.kind === "move"
+      && offer.verb === "Travel"
+      && offer.target?.id === 11);
     assert(
-      discovered.action_offers?.some((offer) =>
-        offer.kind === "move"
-        && offer.verb === "Travel"
-        && offer.target?.id === 11),
+      travelOffer,
       `discovered Homeroom path did not become a Core Travel offer: ${JSON.stringify(
         discovered.action_offers,
       )}`,
     );
-    const enteredRuby = await move(first.baseUrl, actorId, actorSession, 11);
+    const travelPayload = {
+      actor_id: actorId,
+      actor_session: actorSession,
+      wallet_address: walletAddress,
+      destination_location_id: 11,
+    };
+    const rejectedTravel = await submitOffer(
+      first.baseUrl,
+      travelOffer,
+      "/actions/move",
+      travelPayload,
+      `sha256:${"0".repeat(64)}`,
+    );
+    assert(
+      rejectedTravel.ok === false
+        && rejectedTravel.status === 409
+        && rejectedTravel.events?.some((event) =>
+          event.type === "action.offer_rejected"
+          && event.content?.includes("scene composition changed")),
+      `tampered composition certificate did not fail closed: ${JSON.stringify(rejectedTravel)}`,
+    );
+    const afterRejectedTravel = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
+    assert(
+      afterRejectedTravel.location?.id === cottage.location.id
+        && afterRejectedTravel.world_seq === discovered.world_seq,
+      `rejected composition certificate mutated the scene: ${JSON.stringify({
+        before: { location: discovered.location, world_seq: discovered.world_seq },
+        after: {
+          location: afterRejectedTravel.location,
+          world_seq: afterRejectedTravel.world_seq,
+        },
+      })}`,
+    );
+    const enteredRuby = await submitOffer(
+      first.baseUrl,
+      travelOffer,
+      "/actions/move",
+      travelPayload,
+    );
+    assert(enteredRuby.ok === true, `certified travel failed: ${JSON.stringify(enteredRuby)}`);
     const firstTransition = enteredRuby.events?.find(
       (event) => event.type === "rules_context.changed",
     );
