@@ -65526,10 +65526,7 @@ mod tests {
             .risk
             .as_deref()
             .is_some_and(|risk| risk.contains("out here may tire you")));
-        assert!(state
-            .action_offers
-            .windows(2)
-            .all(|pair| pair[0].rank <= pair[1].rank));
+        assert_complete_offer_inspector(&state);
         let help_offer = state
             .action_offers
             .iter()
