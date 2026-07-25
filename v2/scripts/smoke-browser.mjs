@@ -7269,6 +7269,10 @@ async function main() {
       };
       return {
         latest: document.querySelector("#room-log-latest")?.textContent?.trim() || "",
+        latestVisible: visible(document.querySelector("#room-log-latest")),
+        latestHasTrack: Boolean(document.querySelector("#room-log-latest > #room-log-latest-track")),
+        latestAriaLive: document.querySelector("#room-log-latest")?.getAttribute("aria-live") || "",
+        latestInsideToggle: document.querySelector("#room-log-latest")?.parentElement?.id === "room-log-toggle",
         expanded: document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") || "",
         journalVisible: visible(document.querySelector("#journal-view")),
         heroVisible: visible(document.querySelector("#room-hero")),
@@ -7290,6 +7294,10 @@ async function main() {
       };
     });
     assert(room.latest.length > 8, `${label}: Journal should retain the latest room context: ${JSON.stringify(room)}`);
+    assert(
+      room.latestVisible && room.latestHasTrack && room.latestInsideToggle && !room.latestAriaLive,
+      `${label}: the latest event should stay inside the single quiet Journal control without another live region: ${JSON.stringify(room)}`,
+    );
     assert(room.expanded === "false" && !room.journalVisible, `${label}: Journal should start closed: ${JSON.stringify(room)}`);
     assert(!room.memoryVisible && !room.questionsVisible && !room.updatesVisible, `${label}: status and story panels must not occupy the room: ${JSON.stringify(room)}`);
     assert(room.heroVisible && room.transcriptVisible && room.promptVisible, `${label}: room mode should show location, chat, and actions: ${JSON.stringify(room)}`);
@@ -7298,6 +7306,63 @@ async function main() {
       room.chatRows > 0 || room.quietScene === 1,
       `${label}: the room should show speech or a single quiet chat invitation: ${JSON.stringify(room)}`,
     );
+
+    const emptyTicker = await page.evaluate(() => {
+      const original = document.querySelector("#room-log-toggle")?.dataset.latest || "";
+      renderRoomLogLatest("");
+      syncJournalMode();
+      const result = {
+        hidden: document.querySelector("#room-log-latest")?.hidden,
+        ariaLabel: document.querySelector("#room-log-toggle")?.getAttribute("aria-label") || "",
+      };
+      renderRoomLogLatest(original);
+      syncJournalMode();
+      return result;
+    });
+    assert(
+      emptyTicker.hidden && emptyTicker.ariaLabel === "Open Journal",
+      `${label}: a room without a Journal event should add no ticker chrome: ${JSON.stringify(emptyTicker)}`,
+    );
+
+    const originalLatest = await page.evaluate(() => {
+      const latest = document.querySelector("#room-log-latest");
+      const original = document.querySelector("#room-log-toggle")?.dataset.latest || "";
+      latest.style.maxWidth = "84px";
+      renderRoomLogLatest(`${original} — ${"the latest Journal event keeps moving through the room header ".repeat(4)}`);
+      return original;
+    });
+    await page.waitForFunction(() => document.querySelector("#room-log-latest")?.classList.contains("is-overflowing"));
+    const movingTicker = await page.evaluate(() => {
+      const latest = document.querySelector("#room-log-latest");
+      const track = document.querySelector("#room-log-latest-track");
+      const style = getComputedStyle(track);
+      return {
+        overflow: track.scrollWidth - latest.clientWidth,
+        animationName: style.animationName,
+        animationPlayState: style.animationPlayState,
+      };
+    });
+    assert(
+      movingTicker.overflow > 4 && movingTicker.animationName === "room-log-scroll",
+      `${label}: a clipped latest event should scroll inside the Journal control: ${JSON.stringify(movingTicker)}`,
+    );
+    await page.locator("#room-log-toggle").hover();
+    const pausedTicker = await page.locator("#room-log-latest-track").evaluate((track) => getComputedStyle(track).animationPlayState);
+    assert(pausedTicker === "paused", `${label}: hovering the Journal control should pause its latest-event ticker`);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const reducedTicker = await page.locator("#room-log-latest-track").evaluate((track) => {
+      const style = getComputedStyle(track);
+      return { animationName: style.animationName, textOverflow: style.textOverflow };
+    });
+    assert(
+      reducedTicker.animationName === "none" && reducedTicker.textOverflow === "ellipsis",
+      `${label}: reduced motion should replace ticker movement with a static ellipsis: ${JSON.stringify(reducedTicker)}`,
+    );
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.evaluate((original) => {
+      document.querySelector("#room-log-latest").style.removeProperty("max-width");
+      renderRoomLogLatest(original);
+    }, originalLatest);
 
     await page.locator("#room-log-toggle").click();
     await page.waitForFunction(() => (

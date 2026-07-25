@@ -2908,22 +2908,25 @@
       grid-template-rows: auto minmax(0, 1fr);
     }
     .room-title-main {
-      flex: 1 1 auto;
+      flex: 0 1 auto;
+      max-width: 52%;
     }
     .room-log-toggle {
-      flex: 0 0 auto;
+      flex: 1 1 0;
       min-width: 0;
       min-height: 44px;
       max-width: none;
+      overflow: hidden;
       border: 0;
       border-bottom: 1px solid transparent;
       border-radius: 0;
       background: transparent;
       color: var(--dim);
       padding: 3px 1px 2px;
-      display: inline-flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
-      gap: 0;
+      gap: 12px;
       font: inherit;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 11px;
@@ -2932,6 +2935,9 @@
       text-transform: none;
       white-space: nowrap;
       cursor: pointer;
+    }
+    .room-log-toggle[hidden] {
+      display: none;
     }
     .room-log-toggle::after {
       content: "";
@@ -2954,15 +2960,53 @@
       text-transform: none;
     }
     .room-log-latest {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      margin: -1px;
-      padding: 0;
+      display: block;
+      min-width: 0;
       overflow: hidden;
-      clip: rect(0 0 0 0);
       white-space: nowrap;
-      border: 0;
+      color: var(--faint);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      text-align: left;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 12px), transparent);
+      mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 12px), transparent);
+    }
+    .room-log-latest[hidden] {
+      display: none;
+    }
+    .room-log-latest-track {
+      display: block;
+      width: max-content;
+      min-width: 100%;
+      overflow: visible;
+      text-overflow: clip;
+    }
+    .room-log-latest.is-overflowing .room-log-latest-track {
+      animation: room-log-scroll var(--room-log-duration, 12s) ease-in-out 1.2s infinite alternate;
+    }
+    .room-log-toggle:hover .room-log-latest-track,
+    .room-log-toggle:focus-visible .room-log-latest-track {
+      animation-play-state: paused;
+    }
+    @keyframes room-log-scroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(calc(-1 * var(--room-log-overflow, 0px))); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .room-log-latest {
+        -webkit-mask-image: none;
+        mask-image: none;
+      }
+      .room-log-latest-track,
+      .room-log-latest.is-overflowing .room-log-latest-track {
+        width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        animation: none;
+        transform: none;
+      }
     }
     .journal-view {
       grid-row: 2;
@@ -3155,17 +3199,19 @@
 
     @media (max-width: 900px) {
       .room-title {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 3px 10px;
+        display: flex;
+        gap: 10px;
+      }
+      .room-title-main {
+        max-width: 56%;
       }
       .room-log-toggle {
-        width: auto;
+        width: 100%;
+        min-width: 88px;
         min-height: 44px;
-        justify-self: end;
       }
       #avatar {
-        grid-column: 1 / -1;
+        display: none;
       }
       .journal-heading,
       .journal-stream {
@@ -3203,7 +3249,7 @@
         </div>
         <div class="room-title">
           <span class="room-title-main"><h1 id="location-name">The Cosy Cottage</h1></span>
-          <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view"><span class="room-log-kicker">Journal</span><span class="room-log-latest" id="room-log-latest"></span></button>
+          <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view"><span class="room-log-latest" id="room-log-latest" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></span><span class="room-log-kicker">Journal</span></button>
           <span id="avatar"></span>
         </div>
         <div class="room-copy" id="location-copy"></div>
@@ -3404,6 +3450,7 @@
     let openingBoxId = "";
     let roomCopyExpanded = false;
     let journalOpen = false;
+    let roomLogTickerFrame = null;
     let lastRoomCopyLocationId = null;
     let economyFlash = null;
     let economyFlashTimer = null;
@@ -7304,7 +7351,8 @@
       journal.hidden = !open;
       terminal?.classList.toggle("journal-open", open);
       toggle.setAttribute("aria-expanded", open ? "true" : "false");
-      toggle.setAttribute("aria-label", open ? "Close Journal" : "Open Journal");
+      const latest = String(toggle.dataset.latest || "").trim();
+      toggle.setAttribute("aria-label", open ? "Close Journal" : latest ? `Open Journal: ${latest}` : "Open Journal");
       toggle.querySelector(".room-log-kicker")?.replaceChildren(document.createTextNode(open ? "Close Journal" : "Journal"));
       document.querySelector(".prompt").hidden = Boolean(panelMode || open);
       if (open) {
@@ -7475,17 +7523,45 @@
 
     function renderRoomMemory() {
       const toggle = $("room-log-toggle");
-      const latest = $("room-log-latest");
       const panel = $("room-memory");
       const memory = roomMemoryModel();
+      const latestText = memory.hasLatestEvent
+        ? atmosphericMemoryBeat(memory.latest) || memory.latest.text
+        : "";
       toggle.hidden = false;
-      latest.textContent = atmosphericMemoryBeat(memory.latest) || memory.latest.text;
+      renderRoomLogLatest(latestText);
       panel.hidden = false;
       panel.innerHTML = journalRowHtml({
         label: "room",
         summary: atmosphericMemoryBeat(memory.latest) || memory.latest.text,
         detail: memory.summary || openingBeat(state),
         kind: "memory",
+      });
+    }
+
+    function renderRoomLogLatest(text) {
+      const toggle = $("room-log-toggle");
+      const latest = $("room-log-latest");
+      const track = $("room-log-latest-track");
+      const value = String(text || "").trim();
+      if (roomLogTickerFrame !== null) {
+        window.cancelAnimationFrame(roomLogTickerFrame);
+        roomLogTickerFrame = null;
+      }
+      toggle.dataset.latest = value;
+      latest.hidden = !value;
+      latest.classList.remove("is-overflowing");
+      latest.style.removeProperty("--room-log-duration");
+      latest.style.removeProperty("--room-log-overflow");
+      track.textContent = value;
+      if (!value) return;
+      roomLogTickerFrame = window.requestAnimationFrame(() => {
+        roomLogTickerFrame = null;
+        const overflow = Math.max(0, Math.ceil(track.scrollWidth - latest.clientWidth));
+        if (overflow <= 4) return;
+        latest.style.setProperty("--room-log-overflow", `${overflow}px`);
+        latest.style.setProperty("--room-log-duration", `${Math.min(28, Math.max(9, 6 + overflow / 22))}s`);
+        latest.classList.add("is-overflowing");
       });
     }
 
@@ -7650,7 +7726,8 @@
         : [];
       if (serverMemory && (serverLatest || serverRecent.length || serverMemory.summary)) {
         const recent = dedupeRoomMemoryEntries([...serverRecent, ...newerLocalEntries]).slice(-8);
-        const latest = preferredRoomLogEntry(recent, serverLatest) || {
+        const latestEvent = preferredRoomLogEntry(recent, serverLatest);
+        const latest = latestEvent || {
           kind: "room",
           label: "room",
           text: openingBeat(state),
@@ -7659,10 +7736,12 @@
           latest,
           recent: recent.length ? recent : [latest],
           summary: String(serverMemory.summary || openingBeat(state)).trim(),
+          hasLatestEvent: Boolean(latestEvent),
         };
       }
       const entries = dedupeRoomMemoryEntries(localEntries);
-      const latest = preferredRoomLogEntry(entries) || {
+      const latestEvent = preferredRoomLogEntry(entries);
+      const latest = latestEvent || {
         kind: "room",
         label: "room",
         text: openingBeat(state),
@@ -7671,6 +7750,7 @@
         latest,
         recent: entries.slice(-5),
         summary: roomMemorySummary(entries),
+        hasLatestEvent: Boolean(latestEvent),
       };
     }
 
@@ -11749,6 +11829,7 @@
     window.addEventListener("resize", () => {
       if (state) {
         renderEconomy();
+        renderRoomLogLatest($("room-log-toggle").dataset.latest || "");
         reconcileHand();
         renderCommands();
         scheduleVisibleClockPresentationReceipts();
