@@ -111,6 +111,9 @@ impl RuntimeWorld {
             if from.same_ruleset(&to) {
                 continue;
             }
+            if !self.transition_actor_rules_facet(actor_id, &from, &to, movement.seq) {
+                continue;
+            }
 
             let transition = SceneRulesContextTransition {
                 schema_version: SCENE_RULES_CONTEXT_SCHEMA_VERSION,
