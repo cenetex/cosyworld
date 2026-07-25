@@ -6,6 +6,7 @@ const SCENE_RULES_CONTEXT_SCHEMA_VERSION: u8 = 1;
 #[derive(Clone, Debug, Serialize)]
 pub(super) struct ActionCompositionTraceView {
     pub(super) worldpack_bundle_hash: String,
+    pub(super) pack_mount_revision: u64,
     pub(super) pack_versions: Vec<ActionPackVersionView>,
     pub(super) rules_profile: String,
     pub(super) rules_pack_id: String,
@@ -101,6 +102,7 @@ impl RuntimeWorld {
         );
         ActionCompositionTraceView {
             worldpack_bundle_hash: content.manifest.bundle_hash.clone(),
+            pack_mount_revision: self.pack_mount_state.composition_revision(),
             pack_versions: content
                 .manifest
                 .packs
@@ -303,6 +305,7 @@ mod tests {
             valid_sha256_digest(&offer.composition_id)
                 && offer.composition_trace.worldpack_bundle_hash
                     == active_content().manifest.bundle_hash
+                && offer.composition_trace.pack_mount_revision == 0
                 && !offer.composition_trace.pack_versions.is_empty()
                 && offer
                     .composition_trace
@@ -389,6 +392,69 @@ mod tests {
         assert_eq!(inherited.location_pack_id, "cosyworld.the-holy-land");
         assert_eq!(inherited.selected_by_pack_id, "cosyworld.core");
         assert_eq!(inherited.capability_id, "cosyworld.core/rules");
+    }
+
+    #[test]
+    fn mount_revision_rejects_pretransaction_offer_without_world_mutation() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Stale Composition Tester",
+        );
+        let offered = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| offer.kind == "check")
+            .expect("the cottage exposes Notice");
+        runtime.pack_mount_state = PackMountState(serde_json::json!({
+            "schema_version": 1,
+            "next_transaction_seq": 3,
+            "frozen": {},
+            "history": [
+                { "sequence": 1, "status": "committed", "operation": "soft_unmount" },
+                { "sequence": 2, "status": "committed", "operation": "remount" }
+            ]
+        }));
+        let current = runtime
+            .legal_action_candidates(Some(5000), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| offer.offer_id == offered.offer_id)
+            .expect("Notice remains available after remount");
+        assert_eq!(current.offer_id, offered.offer_id);
+        assert_eq!(current.state_revision, offered.state_revision);
+        assert_eq!(current.composition_trace.pack_mount_revision, 2);
+        assert_ne!(current.composition_id, offered.composition_id);
+
+        let before = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+            .expect("serialize pre-submission state");
+        let rejected = runtime.validate_action_offer_submission(
+            5000,
+            &AccessContext::default(),
+            &ActionOfferSubmissionRequest {
+                path: "/actions/check".to_string(),
+                offer_id: offered.offer_id,
+                composition_id: offered.composition_id,
+                kind: offered.kind,
+                rules_action: offered.rules_action,
+                operation: offered.operation,
+                rules_profile: offered.rules_profile,
+                state_revision: offered.state_revision,
+                target: offered.target,
+                cost: offered.cost,
+                payload: serde_json::json!({ "actor_id": 5000 }),
+            },
+        );
+        assert_eq!(
+            rejected,
+            Err("the scene composition changed; refresh and choose a current action")
+        );
+        let after = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+            .expect("serialize rejected-submission state");
+        assert_eq!(after, before);
     }
 
     #[test]

@@ -60,6 +60,17 @@ function takeMapValues(map, predicate) {
   return frozen;
 }
 
+function invalidateMapValues(map, predicate, invalidate) {
+  const invalidated = [];
+  if (!map || Array.isArray(map) || typeof map !== "object") return invalidated;
+  for (const [key, value] of Object.entries(map)) {
+    if (!predicate(value, key)) continue;
+    invalidate(value);
+    invalidated.push(key);
+  }
+  return invalidated;
+}
+
 function restoreArrayEntries(snapshot, field, frozen, identity) {
   const restored = [...(snapshot[field] ?? [])];
   const identities = new Set(restored.map(identity));
@@ -341,20 +352,29 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
         || hasId(itemIds, tag.scope_id)
         || hasId(locationIds, tag.scope_id),
   );
-  maps.transfer_offers = takeMapValues(
+  const invalidatedOfferIds = invalidateMapValues(
     migrated.transfer_offers,
     (offer) =>
-      hasId(actorIds, offer.offered_by_actor_id)
-        || hasId(actorIds, offer.offered_to_actor_id)
-        || hasId(itemIds, offer.offered_item_id)
-        || hasId(itemIds, offer.requested_item_id),
+      (offer.status === undefined || offer.status === "pending")
+        && (hasId(actorIds, offer.offered_by_actor_id)
+          || hasId(actorIds, offer.offered_to_actor_id)
+          || hasId(itemIds, offer.offered_item_id)
+          || hasId(itemIds, offer.requested_item_id)),
+    (offer) => {
+      offer.status = "invalidated";
+      delete offer.resolved_by_actor_id;
+    },
   );
-  maps.gift_auto_accepts = takeMapValues(
+  const consumedGiftAutoAcceptIds = invalidateMapValues(
     migrated.gift_auto_accepts,
     (policy) =>
-      hasId(actorIds, policy.recipient_actor_id)
-        || hasId(actorIds, policy.offered_by_actor_id)
-        || hasId(itemIds, policy.item_id),
+      !policy.consumed
+        && (hasId(actorIds, policy.recipient_actor_id)
+          || hasId(actorIds, policy.offered_by_actor_id)
+          || hasId(itemIds, policy.item_id)),
+    (policy) => {
+      policy.consumed = true;
+    },
   );
 
   migrated.world_simulation ??= {};
@@ -380,6 +400,10 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     arrays,
     maps,
     world_simulation: worldSimulation,
+    invalidated: {
+      transfer_offer_ids: invalidatedOfferIds,
+      gift_auto_accept_ids: consumedGiftAutoAcceptIds,
+    },
   };
   const stateHash = frozenStateHash(frozen);
   mountState.frozen[packId] = frozen;
@@ -397,6 +421,10 @@ export function migratePackUnmount(snapshot, sourceRegistry, packId, targetRegis
     target_bundle_hash: frozen.target_bundle_hash,
     state_hash: stateHash,
     counts: removed,
+    invalidated: {
+      transfer_offers: invalidatedOfferIds.length,
+      gift_auto_accepts: consumedGiftAutoAcceptIds.length,
+    },
   });
 
   return { snapshot: migrated, removed, transaction };

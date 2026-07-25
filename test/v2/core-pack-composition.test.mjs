@@ -98,6 +98,15 @@ describe("independently mountable CosyWorld Core", () => {
           offered_by_actor_id: 5000,
           offered_to_actor_id: 1001,
           offered_item_id: 2001,
+          status: "pending",
+        },
+      },
+      gift_auto_accepts: {
+        policy: {
+          recipient_actor_id: 1001,
+          offered_by_actor_id: 5000,
+          item_id: 2001,
+          consumed: false,
         },
       },
       resident_continuities: { 1001: { resident_id: 1001 } },
@@ -124,7 +133,8 @@ describe("independently mountable CosyWorld Core", () => {
       expect(result.snapshot[field]).toEqual({});
     }
     expect(result.snapshot.world_simulation).toEqual({ locations: {}, factions: {} });
-    expect(result.snapshot.transfer_offers).toEqual({});
+    expect(result.snapshot.transfer_offers.gift.status).toBe("invalidated");
+    expect(result.snapshot.gift_auto_accepts.policy.consumed).toBe(true);
     expect(result.snapshot.content_context.references).toEqual([]);
     expect(result.snapshot.pack_mount_state.history).toEqual([
       expect.objectContaining({
@@ -132,6 +142,10 @@ describe("independently mountable CosyWorld Core", () => {
         status: "committed",
         operation: "soft_unmount",
         pack_id: "cosyworld.core",
+        invalidated: {
+          transfer_offers: 1,
+          gift_auto_accepts: 1,
+        },
       }),
     ]);
     const frozen = result.snapshot.pack_mount_state.frozen["cosyworld.core"];
@@ -144,6 +158,12 @@ describe("independently mountable CosyWorld Core", () => {
     expect(frozen.maps.item_provenance).toEqual({
       2001: { item_id: 2001, origin: "seed_pack" },
     });
+    expect(frozen.invalidated).toEqual({
+      transfer_offer_ids: ["gift"],
+      gift_auto_accept_ids: ["policy"],
+    });
+    expect(frozen.maps.transfer_offers).toBeUndefined();
+    expect(frozen.maps.gift_auto_accepts).toBeUndefined();
 
     const occupied = structuredClone(vacant);
     occupied.world_actors.push({ id: 5000, kind: 1, location_id: 1 });
@@ -175,7 +195,6 @@ describe("independently mountable CosyWorld Core", () => {
       "jobs",
       "branches",
       "bonds",
-      "transfer_offers",
       "resident_continuities",
       "resident_memories",
       "search_memories",
@@ -183,6 +202,8 @@ describe("independently mountable CosyWorld Core", () => {
       "world_simulation",
       "content_context",
     ]) expect(remounted.snapshot[field], field).toEqual(vacant[field]);
+    expect(remounted.snapshot.transfer_offers.gift.status).toBe("invalidated");
+    expect(remounted.snapshot.gift_auto_accepts.policy.consumed).toBe(true);
     expect(remounted.snapshot.pack_mount_state.frozen).toEqual({});
     expect(remounted.snapshot.pack_mount_state.history).toHaveLength(2);
     expect(remounted.transaction).toMatchObject({

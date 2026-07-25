@@ -287,6 +287,11 @@ runtime fallback. `v2:pack:unmount` refuses to proceed while a human actor still
 occupies a location owned by the pack. Once vacant, it removes the pack-owned
 live projection and freezes the exact entities, item/card zones, projection
 maps, and canonical context in the snapshot's versioned `pack_mount_state`.
+Pending transfer offers that reference the pack become durable `invalidated`
+tombstones, and matching one-use gift policies become consumed; remount never
+revives either transient authorization. Every action composition certificate
+includes the latest mount transaction sequence, so an action card issued before
+unmount remains stale even after the exact pack and entity identities return.
 Each committed operation records source/target bundle hashes, counts, a stable
 state hash, and a monotonic sequence. Remount requires the exact frozen source
 registry and restores the same identities; collisions fail without changing
