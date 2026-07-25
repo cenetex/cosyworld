@@ -1516,6 +1516,309 @@ pub(super) fn load_account_activity_view(
     Ok(account)
 }
 
+impl RuntimeWorld {
+    pub(super) fn actor_held_items(&self, actor_id: u64) -> Vec<CwItem> {
+        let mut items: Vec<_> = self.world.items[..self.world.item_count]
+            .iter()
+            .copied()
+            .filter(|item| item.holder_actor_id == actor_id)
+            .collect();
+        items.sort_by_key(|item| item.id);
+        items
+    }
+
+    pub(super) fn default_spell_card(&self, actor_id: u64) -> Option<CwItem> {
+        let prepared = self.prepared_spells.get(&actor_id)?;
+        self.actor_held_items(actor_id).into_iter().find(|item| {
+            item.role == CW_ITEM_ROLE_SPELL
+                && item.zone == CW_CARD_ZONE_SPELL_DECK
+                && item.charges > 0
+                && prepared.contains(&item.id)
+        })
+    }
+
+    pub(super) fn equipped_weapon_item(&self, actor_id: u64) -> Option<CwItem> {
+        self.actor_held_items(actor_id)
+            .into_iter()
+            .find(|item| item.role == CW_ITEM_ROLE_WEAPON && item.zone == CW_CARD_ZONE_EQUIPPED)
+    }
+
+    pub(super) fn charm_slot_count(&self, actor_id: u64) -> u8 {
+        self.charm_slots
+            .get(&actor_id)
+            .copied()
+            .unwrap_or(BASE_CHARM_SLOTS)
+            .clamp(BASE_CHARM_SLOTS, MAX_CHARM_SLOTS)
+    }
+
+    pub(super) fn equipped_charm_items(&self, actor_id: u64) -> Vec<CwItem> {
+        self.equipped_charms
+            .get(&actor_id)
+            .into_iter()
+            .flat_map(|item_ids| item_ids.iter())
+            .filter_map(|item_id| self.item_by_id(*item_id))
+            .filter(|item| {
+                item.holder_actor_id == actor_id
+                    && item.role == CW_ITEM_ROLE_SKILL_CHARM
+                    && item.zone == CW_CARD_ZONE_EQUIPPED
+            })
+            .take(usize::from(self.charm_slot_count(actor_id)))
+            .collect()
+    }
+
+    pub(super) fn charm_slot_expansion_candidate(&self, actor_id: u64) -> Option<CwItem> {
+        let slots = self.charm_slot_count(actor_id);
+        if slots >= MAX_CHARM_SLOTS
+            || self.advancement_points_available(actor_id) < usize::from(CHARM_SLOT_COST)
+        {
+            return None;
+        }
+        let equipped = self.equipped_charm_items(actor_id);
+        if equipped.len() != usize::from(slots) {
+            return None;
+        }
+        let equipped_ids = equipped
+            .into_iter()
+            .map(|item| item.id)
+            .collect::<BTreeSet<_>>();
+        self.actor_held_items(actor_id).into_iter().find(|item| {
+            item.role == CW_ITEM_ROLE_SKILL_CHARM
+                && item.zone != CW_CARD_ZONE_EQUIPPED
+                && !equipped_ids.contains(&item.id)
+        })
+    }
+
+    pub(super) fn deck_view(&self, actor_id: Option<u64>) -> DeckView {
+        let Some(actor_id) = actor_id else {
+            return DeckView {
+                actor_id: None,
+                carried_cards: Vec::new(),
+                carried_weight_tenths: 0,
+                base_carrying_capacity_tenths: 0,
+                container_capacity_tenths: 0,
+                carrying_capacity_tenths: 0,
+                bracelet_slots: 0,
+                equipped_charms: Vec::new(),
+                available_charms: Vec::new(),
+                charm_slot_expansion: None,
+                spell_cards: Vec::new(),
+                prepared_spell_cards: Vec::new(),
+                exhausted_spell_cards: Vec::new(),
+                exhausted_cards: Vec::new(),
+                spell_deck_slots: 0,
+                equipped_weapon: None,
+                equipped_containers: Vec::new(),
+                containers: Vec::new(),
+                zone_counts: BTreeMap::new(),
+                validation_errors: Vec::new(),
+                bag_previews: Vec::new(),
+            };
+        };
+        let carried = self.actor_held_items(actor_id);
+        let charm_slot_expansion =
+            self.charm_slot_expansion_candidate(actor_id).map(|charm| {
+                let name = self
+                    .item_name(charm.id)
+                    .unwrap_or_else(|| format!("Item {}", charm.id));
+                let description = self
+                    .items
+                    .get(&charm.id)
+                    .map(|meta| meta.description.trim())
+                    .filter(|description| !description.is_empty())
+                    .unwrap_or("This charm could add another knack to your bracelet.");
+                let advancement = self.advancement_points_available(actor_id);
+                CharmSlotExpansionView {
+                    charm: self.item_view(charm),
+                    label: format!("Make room for {name}"),
+                    explanation: format!(
+                        "{description} Your Journal holds {advancement} earned advancement; spend {CHARM_SLOT_COST} to open one slot. The charm stays carried until you choose to wear it."
+                    ),
+                    advancement_cost: CHARM_SLOT_COST,
+                }
+            });
+        let equipped_ids = self
+            .equipped_charm_items(actor_id)
+            .into_iter()
+            .map(|item| item.id)
+            .collect::<BTreeSet<_>>();
+        let equipped_weapon = carried
+            .iter()
+            .copied()
+            .find(|item| item.role == CW_ITEM_ROLE_WEAPON && item.zone == CW_CARD_ZONE_EQUIPPED)
+            .map(|item| self.item_view(item));
+        let equipped_containers = carried
+            .iter()
+            .copied()
+            .filter(|item| {
+                item.role == CW_ITEM_ROLE_CONTAINER && item.zone == CW_CARD_ZONE_EQUIPPED
+            })
+            .map(|item| self.item_view(item))
+            .collect::<Vec<_>>();
+        let containers = carried
+            .iter()
+            .copied()
+            .filter(|item| item.role == CW_ITEM_ROLE_CONTAINER)
+            .map(|container| {
+                let contract = self.seed_item_contract_for_instance(container.id);
+                ContainerDeckView {
+                    container: self.item_view(container),
+                    contents: carried
+                        .iter()
+                        .copied()
+                        .filter(|item| item.container_item_id == container.id)
+                        .map(|item| self.item_view(item))
+                        .collect(),
+                    opening_size: contract
+                        .and_then(|seed| seed.container_opening_size.clone())
+                        .unwrap_or_else(|| "none".to_string()),
+                    allowed_contents: contract
+                        .map(|seed| seed.allowed_contents.clone())
+                        .unwrap_or_default(),
+                    equipped: container.zone == CW_CARD_ZONE_EQUIPPED,
+                    active_capacity_tenths: if container.zone == CW_CARD_ZONE_EQUIPPED {
+                        container.container_capacity_tenths
+                    } else {
+                        0
+                    },
+                }
+            })
+            .collect::<Vec<_>>();
+        let mut zone_counts = BTreeMap::new();
+        for item in &carried {
+            *zone_counts
+                .entry(card_zone(item.zone, item.holder_actor_id, item.location_id).to_string())
+                .or_insert(0) += 1;
+        }
+        let carried_weight = self.actor_carried_weight_tenths(actor_id);
+        let carrying_capacity = self
+            .actor_carrying_capacity_tenths(actor_id)
+            .unwrap_or_default();
+        let mut validation_errors = Vec::new();
+        if carried_weight > carrying_capacity {
+            let over = carried_weight.saturating_sub(carrying_capacity);
+            let heaviest = carried
+                .iter()
+                .max_by_key(|item| effective_item_weight_tenths(**item))
+                .and_then(|item| self.item_name(item.id))
+                .unwrap_or_else(|| "a carried card".to_string());
+            validation_errors.push(format!(
+                "over capacity by {:.1} lb; {heaviest} is the heaviest carried card and only equipped, uncontained bags add capacity",
+                over as f64 / 10.0
+            ));
+        }
+        let bag_previews = carried
+            .iter()
+            .filter(|item| {
+                item.role == CW_ITEM_ROLE_CONTAINER
+                    && item.zone == CW_CARD_ZONE_CARRIED
+                    && item.container_item_id == 0
+            })
+            .map(|item| {
+                let preview_capacity =
+                    carrying_capacity + u32::from(item.container_capacity_tenths);
+                format!(
+                    "equip {}: capacity becomes {:.1} lb and the carried deck would be {}",
+                    self.item_name(item.id)
+                        .unwrap_or_else(|| format!("Item {}", item.id)),
+                    preview_capacity as f64 / 10.0,
+                    if carried_weight <= preview_capacity {
+                        "legal"
+                    } else {
+                        "overweight"
+                    }
+                )
+            })
+            .collect();
+        DeckView {
+            actor_id: Some(actor_id),
+            carried_cards: carried
+                .iter()
+                .copied()
+                .map(|item| self.item_view(item))
+                .collect(),
+            carried_weight_tenths: carried_weight,
+            base_carrying_capacity_tenths: self
+                .actor_base_carrying_capacity_tenths(actor_id)
+                .unwrap_or_default(),
+            container_capacity_tenths: self.actor_container_capacity_tenths(actor_id),
+            carrying_capacity_tenths: carrying_capacity,
+            bracelet_slots: self.charm_slot_count(actor_id),
+            equipped_charms: carried
+                .iter()
+                .copied()
+                .filter(|item| equipped_ids.contains(&item.id))
+                .map(|item| self.item_view(item))
+                .collect(),
+            available_charms: carried
+                .iter()
+                .copied()
+                .filter(|item| {
+                    item.role == CW_ITEM_ROLE_SKILL_CHARM && !equipped_ids.contains(&item.id)
+                })
+                .map(|item| self.item_view(item))
+                .collect(),
+            charm_slot_expansion,
+            spell_cards: carried
+                .iter()
+                .copied()
+                .filter(|item| item.role == CW_ITEM_ROLE_SPELL)
+                .map(|item| self.item_view(item))
+                .collect(),
+            prepared_spell_cards: carried
+                .iter()
+                .copied()
+                .filter(|item| {
+                    item.role == CW_ITEM_ROLE_SPELL
+                        && item.charges > 0
+                        && self
+                            .prepared_spells
+                            .get(&actor_id)
+                            .is_some_and(|prepared| prepared.contains(&item.id))
+                })
+                .map(|item| self.item_view(item))
+                .collect(),
+            exhausted_spell_cards: carried
+                .iter()
+                .copied()
+                .filter(|item| item.role == CW_ITEM_ROLE_SPELL && item.charges == 0)
+                .map(|item| self.item_view(item))
+                .collect(),
+            exhausted_cards: carried
+                .iter()
+                .copied()
+                .filter(|item| item.zone == CW_CARD_ZONE_EXHAUSTED)
+                .map(|item| self.item_view(item))
+                .collect(),
+            spell_deck_slots: 3,
+            equipped_weapon,
+            equipped_containers,
+            containers,
+            zone_counts,
+            validation_errors,
+            bag_previews,
+        }
+    }
+
+    pub(super) fn loose_items_at_location(&self, location_id: u64) -> Vec<CwItem> {
+        let mut items = self.world.items[..self.world.item_count]
+            .iter()
+            .copied()
+            .filter(|item| {
+                item.holder_actor_id == 0
+                    && item.location_id == location_id
+                    && item.zone == CW_CARD_ZONE_WORLD
+                    && !self.forgotten_search_item_at_location(*item, location_id)
+            })
+            .collect::<Vec<_>>();
+        items.sort_by_key(|item| item.id);
+        items
+    }
+
+    pub(super) fn room_floor_empty(&self, location_id: u64) -> bool {
+        self.loose_items_at_location(location_id).is_empty()
+    }
+}
+
 pub(super) fn card_zone(zone: u8, holder_actor_id: u64, location_id: u64) -> &'static str {
     match zone {
         CW_CARD_ZONE_WORLD => "world",
