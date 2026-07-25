@@ -5,7 +5,9 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+
+import Database from "better-sqlite3";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const v2Root = resolve(scriptDir, "..");
@@ -13,8 +15,10 @@ const orchestratorDir = resolve(v2Root, "orchestrator-rust");
 const binaryPath = process.env.COSYWORLD_COMPOSITION_SMOKE_BINARY
   ? resolve(process.env.COSYWORLD_COMPOSITION_SMOKE_BINARY)
   : resolve(orchestratorDir, "target/debug/cosyworld-orchestrator");
-const registryPath = resolve(v2Root, "content/core-ruby/registry.json");
+const coreOnlyRegistryPath = resolve(v2Root, "content/core-only/registry.json");
+const coreRubyRegistryPath = resolve(v2Root, "content/core-ruby/registry.json");
 const contentRoot = resolve(v2Root, "content");
+const packMigrationPath = resolve(v2Root, "scripts/migrate-pack-unmount.mjs");
 const walletAddress = "core-ruby-composition-smoke";
 
 function assert(condition, message) {
@@ -89,7 +93,7 @@ function stopServer(proc) {
   });
 }
 
-async function startServer(tempDir) {
+async function startServer(tempDir, registryPath, snapshotPath) {
   const port = await freePort();
   const output = [];
   const env = { ...process.env };
@@ -112,7 +116,7 @@ async function startServer(tempDir) {
     COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET: "1",
     COSYWORLD_DEV_AVATAR_CHAT_DELAY_MS: "0",
     COSYWORLD_CANONICAL_LEASE_TTL_MS: "1000",
-    COSYWORLD_V2_SNAPSHOT_PATH: resolve(tempDir, "snapshot.json"),
+    COSYWORLD_V2_SNAPSHOT_PATH: snapshotPath,
     COSYWORLD_V2_EVENT_DB_PATH: resolve(tempDir, "events.sqlite"),
     COSYWORLD_V2_GENERATED_ASSET_DIR: resolve(tempDir, "generated"),
     COSYWORLD_RUBY_HIGH_WALLET_CARDS: JSON.stringify({
@@ -132,6 +136,21 @@ async function startServer(tempDir) {
   const baseUrl = `http://127.0.0.1:${port}`;
   const meta = await waitForMeta(baseUrl, proc, output);
   return { proc, output, baseUrl, meta };
+}
+
+async function waitForActorJobs(eventDbPath) {
+  const deadline = Date.now() + 12_000;
+  while (Date.now() < deadline) {
+    const database = new Database(eventDbPath, { readonly: true });
+    const active = Number(database
+      .prepare("SELECT COUNT(*) FROM actor_jobs WHERE status IN ('pending', 'running')")
+      .pluck()
+      .get());
+    database.close();
+    if (active === 0) return;
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
+  }
+  throw new Error("source actor jobs did not become quiescent before cold mount");
 }
 
 function stateUrl(baseUrl, actorId, actorSession) {
@@ -244,13 +263,78 @@ async function main() {
   await access(binaryPath, constants.X_OK).catch(() => {
     throw new Error(`Missing orchestrator binary at ${binaryPath}. Build it before this smoke.`);
   });
-  await access(registryPath, constants.R_OK);
+  await access(coreOnlyRegistryPath, constants.R_OK);
+  await access(coreRubyRegistryPath, constants.R_OK);
   const tempDir = await mkdtemp(resolve(tmpdir(), "cosyworld-core-ruby-"));
+  const snapshotPath = resolve(tempDir, "snapshot.json");
+  const eventDbPath = resolve(tempDir, "events.sqlite");
+  let source = null;
   let first = null;
   let second = null;
 
   try {
-    first = await startServer(tempDir);
+    source = await startServer(tempDir, coreOnlyRegistryPath, snapshotPath);
+    assert(
+      source.meta.worldpack?.id === "cosyworld.core-only",
+      JSON.stringify(source.meta.worldpack),
+    );
+    const created = await postJson(`${source.baseUrl}/avatar`, {
+      name: "Boundary Walker",
+      wallet_address: walletAddress,
+    });
+    assert(created.ok && created.actor?.id && created.actor_session, JSON.stringify(created));
+    const actorId = created.actor.id;
+    const actorSession = created.actor_session;
+    const sourceCottage = await fetchJson(stateUrl(source.baseUrl, actorId, actorSession));
+    assertContext(sourceCottage, {
+      location: "The Cosy Cottage",
+      locationPack: "cosyworld.core",
+      selectedBy: "cosyworld.core",
+      capability: "cosyworld.core/rules",
+      offerVerb: "Notice",
+      sourceCard: "cosy-cottage",
+    });
+    assert(
+      sourceCottage.action_offers?.every((offer) =>
+        offer.composition_trace?.worldpack_bundle_hash
+          === source.meta.worldpack.bundle_hash
+          && offer.composition_trace?.pack_mount_revision === 0),
+      "source offers did not bind the pre-mount composition",
+    );
+    await waitForActorJobs(eventDbPath);
+    await stopServer(source.proc);
+    source = null;
+
+    const mounted = spawnSync(process.execPath, [
+      packMigrationPath,
+      "--operation",
+      "mount",
+      "--input",
+      snapshotPath,
+      "--output",
+      snapshotPath,
+      "--event-db",
+      eventDbPath,
+      "--registry",
+      coreOnlyRegistryPath,
+      "--target-registry",
+      coreRubyRegistryPath,
+      "--pack",
+      "ruby-high.first-bell",
+    ], { cwd: resolve(v2Root, ".."), encoding: "utf8" });
+    assert(mounted.status === 0, mounted.stderr || mounted.stdout);
+    assert(
+      mounted.stdout.includes(
+        '"mounted_pack_ids":["ruby-high.first-bell","cosyworld.composition.core-ruby"]',
+      ),
+      `cold mount transaction was not observable: ${mounted.stdout}`,
+    );
+
+    first = await startServer(tempDir, coreRubyRegistryPath, snapshotPath);
+    assert(
+      first.output.some((line) => line.includes("loaded journal checkpoint")),
+      `cold mount restart did not use the journal checkpoint: ${first.output.slice(-40).join("")}`,
+    );
     assert(first.meta.worldpack?.id === "cosyworld.core-ruby", JSON.stringify(first.meta.worldpack));
     assert(
       first.meta.worldpack?.packs?.map((pack) => pack.id).join(",")
@@ -264,14 +348,6 @@ async function main() {
       `wrong mounted packs: ${JSON.stringify(first.meta.worldpack?.packs)}`,
     );
 
-    const created = await postJson(`${first.baseUrl}/avatar`, {
-      name: "Boundary Walker",
-      wallet_address: walletAddress,
-    });
-    assert(created.ok && created.actor?.id && created.actor_session, JSON.stringify(created));
-    const actorId = created.actor.id;
-    const actorSession = created.actor_session;
-
     const cottage = await fetchJson(stateUrl(first.baseUrl, actorId, actorSession));
     assertContext(cottage, {
       location: "The Cosy Cottage",
@@ -281,6 +357,13 @@ async function main() {
       offerVerb: "Notice",
       sourceCard: "cosy-cottage",
     });
+    assert(
+      cottage.action_offers?.every((offer) =>
+        offer.composition_trace?.worldpack_bundle_hash
+          === first.meta.worldpack.bundle_hash
+          && offer.composition_trace?.pack_mount_revision === 1),
+      "cold-mounted offers did not bind the committed composition revision",
+    );
     await command(first.baseUrl, actorId, actorSession, "say core side");
     const discovered = await discoverExit(first.baseUrl, actorId, actorSession, 11);
     const travelOffer = discovered.action_offers?.find((offer) =>
@@ -363,7 +446,7 @@ async function main() {
 
     await stopServer(first.proc);
     first = null;
-    second = await startServer(tempDir);
+    second = await startServer(tempDir, coreRubyRegistryPath, snapshotPath);
     assert(
       second.output.some((line) => line.includes("loaded journal checkpoint")),
       `restart did not use the journal checkpoint: ${second.output.slice(-40).join("")}`,
@@ -425,6 +508,7 @@ async function main() {
       ],
     }, null, 2));
   } finally {
+    if (source) await stopServer(source.proc);
     if (first) await stopServer(first.proc);
     if (second) await stopServer(second.proc);
     await rm(tempDir, { recursive: true, force: true });

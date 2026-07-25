@@ -202,6 +202,7 @@ npm run v2:worldpack:compile
 npm run v2:worldpack
 npm run v2:worldpack:inspect
 npm run v2:content-refs:migrate -- --input legacy.json --output migrated.json
+npm run v2:pack:mount -- --input core.json --output core-ruby.json --event-db events.sqlite --registry v2/content/core-only/registry.json --target-registry v2/content/core-ruby/registry.json --pack ruby-high.first-bell
 npm run v2:pack:unmount -- --operation unmount --input snapshot.json --output unmounted.json --event-db events.sqlite --registry v2/content/core-only/registry.json --target-registry v2/content/services-only/registry.json --pack cosyworld.core
 npm run v2:pack:unmount -- --operation remount --input unmounted.json --output remounted.json --event-db events.sqlite --registry v2/content/services-only/registry.json --target-registry v2/content/core-only/registry.json --pack cosyworld.core
 ```
@@ -287,8 +288,17 @@ The runtime enriches legacy database rows in memory, while the explicit
 rebuilds contexts that are already present. The tool never changes the numeric
 ids themselves and preserves self-contained contexts for unavailable packs.
 
-Unmounting a world pack is an explicit offline migration, never an implicit
-runtime fallback. A composition may declare a schema-version-1
+Mounting or unmounting a world pack is an explicit offline migration, never an
+implicit runtime fallback. A cold mount requires a strictly additive target:
+every existing pack keeps the same version and integrity, and the only new
+packs may be the requested pack, its required dependencies, and composition
+bridges that connect it. It refuses while any soft-unmounted pack is still
+frozen. The transaction changes the bundle, rules binding, canonical context,
+and mount revision atomically; on restart the runtime deterministically seeds
+the newly mounted entities and composition-owned paths without rewriting
+existing live state or identities.
+
+A composition may declare a schema-version-1
 `pack_lifecycle.unmount` policy that moves every non-pack-owned occupant and
 their carried or nested items to one public location owned by a pack that
 remains mounted. Controller type does not change the policy. The

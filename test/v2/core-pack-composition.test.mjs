@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { migrateContentReferenceDocument } from "../../v2/scripts/migrate-content-references.mjs";
 import {
+  migratePackMount,
   migratePackRemount,
   migratePackUnmount,
 } from "../../v2/scripts/migrate-pack-unmount.mjs";
@@ -242,6 +243,96 @@ describe("independently mountable CosyWorld Core", () => {
       migratePackRemount(wrongRemountBundle, servicesOnly, "cosyworld.core", coreOnly))
       .toThrow(/snapshot bundle does not match the source registry/);
     expect(wrongRemountBundle).toEqual(wrongRemountBundleBefore);
+  });
+
+  it("cold-mounts one experience and its composition bridge without rewriting live state", () => {
+    const snapshot = {
+      worldpack_bundle_hash: coreOnly.manifest.bundle_hash,
+      rules_profile: coreOnly.manifest.rules_profile,
+      active_rules_variants: coreOnly.manifest.active_rules_variants,
+      active_rules_extensions: coreOnly.manifest.active_rules_extensions,
+      world_actors: [{ id: 5000, kind: 1, location_id: 1 }],
+      world_items: [{ id: 7000, holder_actor_id: 5000, location_id: 1, zone: 3 }],
+      world_locations: [{ id: 1 }],
+      world_exits: [],
+      content_context: {
+        mapping_version: coreOnly.content_references.mapping_version,
+        references: coreOnly.content_references.entries
+          .filter((entry) =>
+            entry.canonical_ref === "pack://cosyworld.core/location/1"),
+        active_rulesets: [],
+      },
+    };
+    const source = structuredClone(snapshot);
+    const result = migratePackMount(
+      source,
+      coreOnly,
+      "ruby-high.first-bell",
+      coreRuby,
+    );
+    expect(source).toEqual(snapshot);
+    expect(result.snapshot.worldpack_bundle_hash).toBe(coreRuby.manifest.bundle_hash);
+    expect(result.snapshot.world_actors).toEqual(snapshot.world_actors);
+    expect(result.snapshot.world_items).toEqual(snapshot.world_items);
+    expect(result.snapshot.world_locations).toEqual(snapshot.world_locations);
+    expect(result.snapshot.content_context.references).toEqual(
+      snapshot.content_context.references,
+    );
+    expect(result.snapshot.content_context.active_rulesets.length).toBeGreaterThan(0);
+    expect(result.transaction).toMatchObject({
+      sequence: 1,
+      status: "committed",
+      operation: "cold_mount",
+      pack_id: "ruby-high.first-bell",
+      pack_version: "1.3.5",
+      source_bundle_hash: coreOnly.manifest.bundle_hash,
+      target_bundle_hash: coreRuby.manifest.bundle_hash,
+      mounted_pack_ids: [
+        "ruby-high.first-bell",
+        "cosyworld.composition.core-ruby",
+      ],
+    });
+    expect(result.transaction.state_hash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(result.mounted).toEqual(Object.fromEntries(
+      ["actors", "items", "locations", "exits"].map((resource) => [
+        resource,
+        coreRuby.resources[resource].filter((row) =>
+          result.transaction.mounted_pack_ids.includes(row.pack_id))
+          .length,
+      ]),
+    ));
+
+    const frozen = structuredClone(snapshot);
+    frozen.pack_mount_state = {
+      schema_version: 1,
+      next_transaction_seq: 2,
+      frozen: { "another.pack": {} },
+      history: [{ sequence: 1, status: "committed", operation: "soft_unmount" }],
+    };
+    const frozenBefore = structuredClone(frozen);
+    expect(() => migratePackMount(
+      frozen,
+      coreOnly,
+      "ruby-high.first-bell",
+      coreRuby,
+    )).toThrow(/soft-unmounted packs await remount/);
+    expect(frozen).toEqual(frozenBefore);
+
+    const changedIdentity = structuredClone(coreRuby);
+    changedIdentity.manifest.packs.find((pack) =>
+      pack.id === "cosyworld.core").version = "9.9.9";
+    expect(() => migratePackMount(
+      snapshot,
+      coreOnly,
+      "ruby-high.first-bell",
+      changedIdentity,
+    )).toThrow(/cannot change source pack identity cosyworld.core/);
+    expect(() => migratePackMount(
+      snapshot,
+      coreOnly,
+      "ruby-high.first-bell",
+      official,
+    )).toThrow(/cold mount target adds unrelated pack/);
   });
 
   it("atomically evacuates occupied expansion rooms through composition policy", () => {

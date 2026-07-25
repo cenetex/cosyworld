@@ -118,6 +118,80 @@ function registryHasPack(registry, packId) {
   return packVersion(registry, packId) !== undefined;
 }
 
+function registryPacks(registry) {
+  return new Map((registry.manifest?.packs ?? []).map((pack) => [pack.id, pack]));
+}
+
+function samePackIdentity(left, right) {
+  return left?.version === right?.version
+    && left?.integrity === right?.integrity;
+}
+
+function requiredMountClosure(targetPacks, packId) {
+  const required = new Set();
+  const pending = [packId];
+  while (pending.length > 0) {
+    const currentId = pending.pop();
+    if (required.has(currentId)) continue;
+    const current = targetPacks.get(currentId);
+    if (!current) {
+      throw new Error(`target registry is missing required pack ${currentId}`);
+    }
+    required.add(currentId);
+    for (const dependency of current.dependency_requirements ?? []) {
+      if (!dependency.optional) pending.push(dependency.id);
+    }
+  }
+  return required;
+}
+
+function additiveMountPlan(sourceRegistry, targetRegistry, packId) {
+  const sourcePacks = registryPacks(sourceRegistry);
+  const targetPacks = registryPacks(targetRegistry);
+  if (sourcePacks.has(packId)) {
+    throw new Error(`source registry already mounts pack ${packId}`);
+  }
+  if (!targetPacks.has(packId)) {
+    throw new Error(`target registry does not mount pack ${packId}`);
+  }
+  for (const [sourcePackId, sourcePack] of sourcePacks) {
+    const targetPack = targetPacks.get(sourcePackId);
+    if (!targetPack) {
+      throw new Error(`cold mount cannot remove source pack ${sourcePackId}`);
+    }
+    if (!samePackIdentity(sourcePack, targetPack)) {
+      throw new Error(
+        `cold mount cannot change source pack identity ${sourcePackId}`,
+      );
+    }
+  }
+
+  const addedPacks = (targetRegistry.manifest?.packs ?? [])
+    .filter((pack) => !sourcePacks.has(pack.id));
+  const required = requiredMountClosure(targetPacks, packId);
+  for (const pack of addedPacks) {
+    const composition = pack.extensions?.["x-cosyworld-composition"];
+    const isRequestedCompositionBridge = composition?.role === "bridge"
+      && (pack.dependency_closure ?? []).includes(packId);
+    if (!required.has(pack.id) && !isRequestedCompositionBridge) {
+      throw new Error(`cold mount target adds unrelated pack ${pack.id}`);
+    }
+  }
+  return addedPacks;
+}
+
+function mountedResourceCounts(targetRegistry, addedPackIds) {
+  const mounted = new Set(addedPackIds);
+  return Object.fromEntries(
+    ["actors", "items", "locations", "exits"].map((resource) => [
+      resource,
+      (targetRegistry.resources?.[resource] ?? [])
+        .filter((row) => mounted.has(row.pack_id))
+        .length,
+    ]),
+  );
+}
+
 function targetRulesets(registry) {
   if (!registry) return [];
   const providers = new Map();
@@ -135,13 +209,13 @@ function targetRulesets(registry) {
   });
 }
 
-function targetContentContext(current, targetRegistry, unmountedPackId) {
+function targetContentContext(current, targetRegistry, removedPackId = null) {
   const targetReferences = new Map((targetRegistry.content_references?.entries ?? [])
     .map((entry) => [entry.canonical_ref, entry]));
   return {
     mapping_version: targetRegistry.content_references?.mapping_version ?? 0,
     references: (current?.references ?? [])
-      .filter((reference) => reference.pack_id !== unmountedPackId)
+      .filter((reference) => reference.pack_id !== removedPackId)
       .filter((reference) => targetReferences.has(reference.canonical_ref))
       .map((reference) => structuredClone(targetReferences.get(reference.canonical_ref))),
     active_rulesets: targetRulesets(targetRegistry),
@@ -667,6 +741,54 @@ export function migratePackRemount(snapshot, sourceRegistry, packId, targetRegis
   return { snapshot: migrated, restored, transaction };
 }
 
+export function migratePackMount(snapshot, sourceRegistry, packId, targetRegistry) {
+  if (!targetRegistry) {
+    throw new Error("cold mount requires a target registry");
+  }
+  if (snapshot.worldpack_bundle_hash !== sourceRegistry.manifest.bundle_hash) {
+    throw new Error(
+      `cannot mount ${packId}: snapshot bundle does not match the source registry`,
+    );
+  }
+  const addedPacks = additiveMountPlan(sourceRegistry, targetRegistry, packId);
+  const migrated = structuredClone(snapshot);
+  const sourceRules = registryRuleBinding(sourceRegistry);
+  const mountState = packMountState(migrated, true);
+  if (mountState.frozen[packId]) {
+    throw new Error(`pack ${packId} has frozen soft-unmount state; use remount`);
+  }
+  const frozenPackIds = Object.keys(mountState.frozen);
+  if (frozenPackIds.length > 0) {
+    throw new Error(
+      `cannot cold-mount while soft-unmounted packs await remount: ${frozenPackIds.join(", ")}`,
+    );
+  }
+
+  migrated.content_context = targetContentContext(
+    migrated.content_context,
+    targetRegistry,
+  );
+  const targetRules = applyRegistryBinding(migrated, targetRegistry);
+  const mountedPackIds = addedPacks.map((pack) => pack.id);
+  const mounted = mountedResourceCounts(targetRegistry, mountedPackIds);
+  const plan = {
+    operation: "cold_mount",
+    pack_id: packId,
+    pack_version: packVersion(targetRegistry, packId),
+    source_bundle_hash: sourceRegistry.manifest.bundle_hash,
+    target_bundle_hash: targetRegistry.manifest.bundle_hash,
+    source_rules: sourceRules,
+    target_rules: targetRules,
+    mounted_pack_ids: mountedPackIds,
+    counts: mounted,
+  };
+  const transaction = appendTransaction(mountState, {
+    ...plan,
+    state_hash: frozenStateHash(plan),
+  });
+  return { snapshot: migrated, mounted, transaction };
+}
+
 function option(args, name) {
   const index = args.indexOf(name);
   return index < 0 ? undefined : args[index + 1];
@@ -745,15 +867,17 @@ if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
     const eventDbPath = option(args, "--event-db");
     const packId = option(args, "--pack");
     if (!input || !output || !registryPath || !targetPath || !packId
-        || !["unmount", "remount"].includes(operation)) {
-      throw new Error("usage: migrate-pack-unmount.mjs --operation unmount|remount --input snapshot.json --output migrated.json --registry source-registry.json --target-registry target-registry.json --pack PACK_ID [--event-db events.sqlite]");
+        || !["mount", "unmount", "remount"].includes(operation)) {
+      throw new Error("usage: migrate-pack-unmount.mjs --operation mount|unmount|remount --input snapshot.json --output migrated.json --registry source-registry.json --target-registry target-registry.json --pack PACK_ID [--event-db events.sqlite]");
     }
     const snapshot = JSON.parse(fs.readFileSync(path.resolve(input), "utf8"));
     const registry = JSON.parse(fs.readFileSync(path.resolve(registryPath), "utf8"));
     const target = JSON.parse(fs.readFileSync(path.resolve(targetPath), "utf8"));
-    const result = operation === "unmount"
-      ? migratePackUnmount(snapshot, registry, packId, target)
-      : migratePackRemount(snapshot, registry, packId, target);
+    const result = operation === "mount"
+      ? migratePackMount(snapshot, registry, packId, target)
+      : operation === "unmount"
+        ? migratePackUnmount(snapshot, registry, packId, target)
+        : migratePackRemount(snapshot, registry, packId, target);
     const checkpoint = writeWithJournalCheckpoint(
       eventDbPath,
       snapshot,
@@ -761,7 +885,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
       result.snapshot,
     );
     console.log(`${operation}ed ${packId}: ${JSON.stringify({
-      counts: result.removed ?? result.restored,
+      counts: result.removed ?? result.restored ?? result.mounted,
       transaction: {
         sequence: result.transaction.sequence,
         status: result.transaction.status,
@@ -769,6 +893,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
       },
       ...(result.evacuated?.length
         ? { evacuated_actor_ids: result.evacuated.map((entry) => entry.actor_id) }
+        : {}),
+      ...(result.transaction.mounted_pack_ids
+        ? { mounted_pack_ids: result.transaction.mounted_pack_ids }
         : {}),
       ...(checkpoint === null ? {} : { action_journal_seq: checkpoint }),
     })}`);
