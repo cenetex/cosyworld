@@ -52,6 +52,8 @@ describe('deploy workflow', () => {
     const loraScaleInput = 'COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT = "lora_scale"';
     const trigger =
       'COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX = "MRQ, cozy storybook trading-card portrait"';
+    const visionModel =
+      'COSYWORLD_AI_VISION_MODEL = "openai/gpt-5-image-mini"';
 
     for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
       expect(config).toContain(model);
@@ -59,6 +61,7 @@ describe('deploy workflow', () => {
       expect(config).toContain(loraInput);
       expect(config).toContain(loraScaleInput);
       expect(config).toContain(trigger);
+      expect(config).toContain(visionModel);
     }
   });
 });

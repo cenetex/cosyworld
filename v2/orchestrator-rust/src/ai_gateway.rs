@@ -320,8 +320,7 @@ pub(crate) async fn request_image_policy_decision(
                                 "creature",
                                 "text",
                                 "logo",
-                                "watermark",
-                                "other"
+                                "watermark"
                             ]
                         }
                     },
@@ -335,7 +334,7 @@ pub(crate) async fn request_image_policy_decision(
         {
             "type": "text",
             "text": format!(
-                "Review this generated image against the following publication policy. Reject ambiguous silhouettes or marks rather than guessing they are harmless. Policy: {}",
+                "Review this generated image against the following publication policy. Reject only clearly visible listed violations; do not invent a catch-all violation or infer one from style alone. Policy: {}",
                 request.policy
             )
         },
@@ -385,7 +384,6 @@ fn parse_image_policy_decision(value: &str) -> Result<ImagePolicyDecision, Strin
         "text",
         "logo",
         "watermark",
-        "other",
     ];
     if raw
         .violations
@@ -903,6 +901,10 @@ mod tests {
         .is_err());
         assert!(parse_image_policy_decision(
             r#"{"allowed":false,"violations":[],"summary":"Nothing visible."}"#
+        )
+        .is_err());
+        assert!(parse_image_policy_decision(
+            r#"{"allowed":false,"violations":["other"],"summary":"An unspecified concern."}"#
         )
         .is_err());
     }

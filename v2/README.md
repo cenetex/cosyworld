@@ -361,7 +361,7 @@ Optional overrides:
 ```sh
 COSYWORLD_AI_BASE_URL=https://api.openai.com/v1
 COSYWORLD_AI_PROVIDER=openrouter
-COSYWORLD_AI_VISION_MODEL=openai/gpt-5.6-luna
+COSYWORLD_AI_VISION_MODEL=openai/gpt-5-image-mini
 ```
 
 Server-side generative world content is separately controlled and defaults to
