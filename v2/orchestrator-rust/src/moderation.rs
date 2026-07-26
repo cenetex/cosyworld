@@ -6,18 +6,20 @@ use axum::{
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::{io, path::Path, time::Duration};
+use std::{fs, io, path::Path, time::Duration};
 use tracing::{error, info, warn};
 
 use crate::{
-    active_actor_ids_for_state, clear_actor_sessions_for_actor, commit_presence_event,
+    active_actor_ids_for_state, broadcast_events, clear_actor_sessions_for_actor,
+    commit_journal_record, commit_presence_event, community_art_generation_key,
     delete_actor_sessions_for_actor, delete_actor_suspension, deployment_config_error,
     event_replay_limit, event_store_scan_limit, init_event_store, no_store_headers, now_millis,
     now_unix_secs, open_event_store, persist_actor_suspension, read_economy_audit,
-    read_event_store, resolve_economy_reconciliation, sqlite_error, tail_event_replay,
-    ActorSuspension, AiUsageLedgerAuditView, AppState, AvatarPackOpeningView,
-    EconomyReconciliationView, EventView, OrbLedgerAuditView, WoodenBoxReceiptView,
-    MAX_EVENT_STORE_SCAN, MODERATION_HTML,
+    read_event_store, resolve_economy_reconciliation, sqlite_error,
+    stored_community_art_content_type_path, stored_community_art_image_path, tail_event_replay,
+    ActorSuspension, AiUsageLedgerAuditView, AppState, AvatarPackOpeningView, CwAction,
+    EconomyReconciliationView, EventView, JournalRecord, OrbLedgerAuditView, ProjectionMutation,
+    WoodenBoxReceiptView, CW_ACTION_NONE, CW_OK, MAX_EVENT_STORE_SCAN, MODERATION_HTML,
 };
 
 pub(crate) const MAX_REPORT_REASON_CHARS: usize = 500;
@@ -506,6 +508,18 @@ pub(crate) struct ModerationActorResponse {
     pub(crate) error: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+pub(crate) struct ModerationCommunityArtResponse {
+    pub(crate) ok: bool,
+    pub(crate) status: u16,
+    pub(crate) subject_kind: String,
+    pub(crate) subject_id: u64,
+    pub(crate) level: Option<u8>,
+    pub(crate) art_status: Option<String>,
+    pub(crate) retryable_without_orbs: bool,
+    pub(crate) error: Option<String>,
+}
+
 pub(crate) async fn moderation_events_view(
     headers: HeaderMap,
     State(state): State<AppState>,
@@ -628,6 +642,159 @@ pub(crate) async fn moderation_economy_view(
             })
         }
     }
+}
+
+pub(crate) async fn moderation_reject_community_art(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+    AxumPath((subject_kind, subject_id)): AxumPath<(String, u64)>,
+) -> Json<ModerationCommunityArtResponse> {
+    let response = |ok,
+                    status,
+                    level,
+                    art_status: Option<&str>,
+                    retryable_without_orbs,
+                    error: Option<&str>| {
+        Json(ModerationCommunityArtResponse {
+            ok,
+            status,
+            subject_kind: subject_kind.clone(),
+            subject_id,
+            level,
+            art_status: art_status.map(ToString::to_string),
+            retryable_without_orbs,
+            error: error.map(ToString::to_string),
+        })
+    };
+    if !moderation_authorized(&state, &headers) {
+        return response(
+            false,
+            403,
+            None,
+            None,
+            false,
+            Some("moderation bearer token required"),
+        );
+    }
+    if subject_id == 0 || !matches!(subject_kind.as_str(), "actor" | "item" | "location") {
+        return response(
+            false,
+            400,
+            None,
+            None,
+            false,
+            Some("valid community-art subject required"),
+        );
+    }
+
+    let (level, retryable_without_orbs, events) = {
+        let mut runtime = state.inner.lock().await;
+        let Some(level) = runtime.community_art_subject_level(&subject_kind, subject_id) else {
+            return response(
+                false,
+                404,
+                None,
+                None,
+                false,
+                Some("community artwork was not found"),
+            );
+        };
+        let key = community_art_generation_key(&subject_kind, subject_id, level);
+        let Some(generation) = runtime.community_art_generations.get(&key) else {
+            return response(
+                false,
+                404,
+                Some(level),
+                None,
+                false,
+                Some("community artwork was not funded"),
+            );
+        };
+        let generation_status = generation.status.clone();
+        let retryable_without_orbs = generation.funded_orbs >= generation.required_orbs;
+        if generation_status == "rejected" {
+            (level, retryable_without_orbs, Vec::new())
+        } else {
+            if generation_status != "ready" {
+                return response(
+                    false,
+                    409,
+                    Some(level),
+                    Some(&generation_status),
+                    retryable_without_orbs,
+                    Some("only ready community artwork can be rejected"),
+                );
+            }
+            let mut record = JournalRecord::new(
+                CwAction {
+                    kind: CW_ACTION_NONE,
+                    actor_id: 0,
+                    ..CwAction::default()
+                },
+                runtime.next_seed_value(),
+            );
+            record
+                .projection_mutations
+                .push(ProjectionMutation::SetCommunityArtStatus {
+                    subject_kind: subject_kind.clone(),
+                    subject_id,
+                    level,
+                    status: "rejected".to_string(),
+                });
+            let Ok((commit_status, events)) = commit_journal_record(&state, &mut runtime, record)
+            else {
+                return response(
+                    false,
+                    500,
+                    Some(level),
+                    Some("ready"),
+                    retryable_without_orbs,
+                    Some("community artwork rejection could not be committed"),
+                );
+            };
+            if commit_status != CW_OK {
+                return response(
+                    false,
+                    500,
+                    Some(level),
+                    Some("ready"),
+                    retryable_without_orbs,
+                    Some("community artwork rejection was refused"),
+                );
+            }
+            (level, retryable_without_orbs, events)
+        }
+    };
+
+    let image_path =
+        stored_community_art_image_path(&state.generated_asset_dir, &subject_kind, subject_id);
+    let content_type_path = stored_community_art_content_type_path(
+        &state.generated_asset_dir,
+        &subject_kind,
+        subject_id,
+    );
+    for path in [&image_path, &content_type_path] {
+        if let Err(error) = fs::remove_file(path) {
+            if error.kind() != io::ErrorKind::NotFound {
+                warn!(
+                    "failed to remove rejected community artwork {}: {}",
+                    path.display(),
+                    error
+                );
+            }
+        }
+    }
+    if !events.is_empty() {
+        broadcast_events(&state, &events);
+    }
+    response(
+        true,
+        200,
+        Some(level),
+        Some("rejected"),
+        retryable_without_orbs,
+        None,
+    )
 }
 
 pub(crate) async fn moderation_resolve_economy_reconciliation(

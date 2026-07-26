@@ -250,6 +250,7 @@ CosyWorld should generalize that into Rust rather than copying the Ruby High Typ
 - Each `{subject kind, subject id, level}` generation is unique and replay-safe. Multiple avatars may pool its exact level-sized cost.
 - The prompt captures public card history through a committed sequence. When the card reaches a later level, its one newly unlocked image can evolve in response to everything that happened since.
 - Fully funded jobs may be retried without another Orb debit. Provider-unavailable requests fail before funding.
+- Location art is published only after a strict vision-policy review finds no people, characters, creatures, text, logos, or watermarks; rejection, review failure, and missing review configuration all leave the deterministic landscape fallback visible.
 - Current implementation stores a durable funding/status projection and serves the ready shared asset from the generated-card route. A generalized object-store-backed `media_jobs` service remains the scaling step.
 
 ## Combat Replaces Quizzes

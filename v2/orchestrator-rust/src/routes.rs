@@ -117,6 +117,10 @@ pub(super) fn app_router(state: AppState) -> Router {
         )
         .route("/moderation/economy", get(moderation_economy_view))
         .route(
+            "/moderation/community-art/{subject_kind}/{subject_id}/reject",
+            post(moderation_reject_community_art),
+        )
+        .route(
             "/moderation/economy/reconciliations/{run_id}/resolve",
             post(moderation_resolve_economy_reconciliation),
         )

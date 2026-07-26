@@ -9766,7 +9766,9 @@
       const needsOrb = remaining > 0;
       const buttonLabel = needsOrb
         ? `add one Orb · ${funded}/${required}`
-        : (status === "failed" ? "try the image again" : "nudge the image workshop");
+        : (status === "rejected"
+          ? "try a different image"
+          : (status === "failed" ? "try the image again" : "nudge the image workshop"));
       const disabled = needsOrb && balance < 1;
       const detail = needsOrb
         ? `${remaining} ${remaining === 1 ? "Orb" : "Orbs"} still needed from the community`
