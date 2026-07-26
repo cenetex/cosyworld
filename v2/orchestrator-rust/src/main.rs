@@ -19530,11 +19530,7 @@ impl RuntimeWorld {
                 }
                 if let Some(pathway) = self.generated_pathway_for_location(subject_id) {
                     return (pathway.art_eligible
-                        && self
-                            .generated_places
-                            .get(&subject_id)
-                            .and_then(|place| place.building_proposal.as_ref())
-                            .is_some())
+                        && self.generated_places.contains_key(&subject_id))
                     .then_some(1);
                 }
                 Some(1)
@@ -47755,6 +47751,9 @@ mod tests {
         let after_first_search = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(after_first_search.cards.locations[&first_waypoint_id]
             .community_art
+            .is_some());
+        assert!(runtime
+            .community_art_subject_level("location", second_waypoint_id)
             .is_none());
         assert!(after_first_search
             .exits
