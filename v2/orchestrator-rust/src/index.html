@@ -3460,6 +3460,9 @@
     let stream = null;
     let refreshInFlight = null;
     let refreshQueued = false;
+    let refreshAttemptId = 0;
+    let recoveryRefreshAttemptId = 0;
+    let transientStatus = null;
     let actionBusy = false;
     let actionSlow = false;
     let actionSlowTimer = null;
@@ -3900,6 +3903,7 @@
     }
 
     async function refresh() {
+      const attemptId = ++refreshAttemptId;
       const previousLocationId = state?.location?.id || null;
       const wasTired = actorIsTired(state);
       const requestedActorId = actorId;
@@ -3949,6 +3953,10 @@
       reconcileHand();
       restoreFocusedAction();
       render();
+      if (recoveryRefreshAttemptId && attemptId >= recoveryRefreshAttemptId) {
+        recoveryRefreshAttemptId = 0;
+        clearTransientStatus("refresh");
+      }
     }
 
     function queueRefresh() {
@@ -3957,7 +3965,16 @@
         return refreshInFlight;
       }
       refreshInFlight = refresh()
-        .catch((error) => setError(String(error.message || error)))
+        .catch((error) => {
+          if (!recoveryRefreshAttemptId) {
+            setError(String(error.message || error));
+          } else if (refreshAttemptId >= recoveryRefreshAttemptId) {
+            setTransientStatus(
+              "refresh",
+              "The room could not catch up. Check your connection and reload to try again.",
+            );
+          }
+        })
         .finally(() => {
           refreshInFlight = null;
           if (refreshQueued) {
@@ -7146,6 +7163,7 @@
     function connectStream() {
       if (stream) stream.close();
       stream = new EventSource(streamPath());
+      stream.addEventListener("open", () => clearTransientStatus("stream"));
       stream.addEventListener("world", (message) => {
         let event = null;
         try {
@@ -7188,10 +7206,17 @@
         logEvents = [];
         seenSeq.clear();
         renderTimelines();
-        setError("The room changed while you were away. Catching up from the latest state.");
+        recoveryRefreshAttemptId = Math.max(
+          recoveryRefreshAttemptId,
+          refreshAttemptId + 1,
+        );
+        setTransientStatus(
+          "refresh",
+          "The room changed while you were away. Catching up from the latest state.",
+        );
         queueRefresh();
       });
-      stream.onerror = () => setError("The live room is reconnecting.");
+      stream.onerror = () => setTransientStatus("stream", "The live room is reconnecting.");
       startPresenceHeartbeat();
     }
 
@@ -11345,14 +11370,41 @@
       return String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     }
 
+    function writeStatus(message, kind = "error") {
+      const node = $("error");
+      const text = String(message || "");
+      const ok = Boolean(text) && kind === "ok";
+      if (node.textContent === text && node.classList.contains("ok") === ok) return;
+      node.textContent = text;
+      node.classList.toggle("ok", ok);
+    }
+
+    function setTransientStatus(kind, message) {
+      const next = { kind, message: String(message || "") };
+      if (
+        transientStatus?.kind === next.kind
+        && transientStatus.message === next.message
+        && $("error").textContent === next.message
+      ) return;
+      transientStatus = next;
+      writeStatus(next.message, "error");
+    }
+
+    function clearTransientStatus(kind) {
+      if (transientStatus?.kind !== kind) return;
+      const message = transientStatus.message;
+      transientStatus = null;
+      if ($("error").textContent === message) writeStatus("");
+    }
+
     function setError(message) {
-      setStatus(message, "error");
+      transientStatus = null;
+      writeStatus(message, "error");
     }
 
     function setStatus(message, kind = "error") {
-      const node = $("error");
-      node.textContent = message;
-      node.classList.toggle("ok", Boolean(message) && kind === "ok");
+      transientStatus = null;
+      writeStatus(message, kind);
     }
 
     function escapeHtml(value) {

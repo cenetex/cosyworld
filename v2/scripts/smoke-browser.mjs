@@ -7365,6 +7365,91 @@ async function main() {
     assert(layout.status.bottom <= layout.prompt.top + 0.5, `${label}: status should end before prompt begins: ${JSON.stringify(layout)}`);
   }
 
+  async function assertGapRecoveryStatusClears() {
+    await page.waitForFunction(() => refreshInFlight === null && refreshQueued === false);
+    await page.evaluate(() => {
+      stream?.close();
+      setError("");
+      window.cosyRecoveryAnnouncements = 0;
+      window.cosyRecoveryObserver?.disconnect();
+      window.cosyRecoveryObserver = new MutationObserver(() => {
+        window.cosyRecoveryAnnouncements += 1;
+      });
+      window.cosyRecoveryObserver.observe(document.querySelector("#error"), {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    });
+
+    let releaseFirst;
+    let releaseRecovery;
+    const firstGate = new Promise((resolve) => { releaseFirst = resolve; });
+    const recoveryGate = new Promise((resolve) => { releaseRecovery = resolve; });
+    let stateRequests = 0;
+    const holdStateRefreshes = async (route) => {
+      stateRequests += 1;
+      if (stateRequests === 1) await firstGate;
+      if (stateRequests === 2) await recoveryGate;
+      await route.continue();
+    };
+    await page.route(/\/state(?:\?|$)/, holdStateRefreshes);
+
+    try {
+      await page.evaluate(() => { void queueRefresh(); });
+      await page.waitForFunction(() => refreshInFlight !== null);
+      await page.evaluate(() => {
+        const gap = new MessageEvent("gap", {
+          data: JSON.stringify({ through_seq: Number(state?.state_revision || 0) + 1 }),
+        });
+        stream.dispatchEvent(gap);
+        stream.dispatchEvent(gap);
+      });
+      await page.waitForFunction(() => (
+        document.querySelector("#error")?.textContent
+          === "The room changed while you were away. Catching up from the latest state."
+      ));
+      const active = await page.evaluate(() => ({
+        announcements: window.cosyRecoveryAnnouncements,
+        display: getComputedStyle(document.querySelector("#error")).display,
+        height: document.querySelector("#error").getBoundingClientRect().height,
+      }));
+      assert(
+        active.announcements === 1 && active.display !== "none" && active.height > 0,
+        `gap recovery should show and announce one active status: ${JSON.stringify(active)}`,
+      );
+
+      releaseFirst();
+      await page.waitForFunction(() => refreshAttemptId >= recoveryRefreshAttemptId);
+      const queued = await page.locator("#error").textContent();
+      assert(
+        queued.includes("Catching up"),
+        `a pre-gap refresh must not clear the queued recovery status: ${queued}`,
+      );
+
+      releaseRecovery();
+      await page.waitForFunction(() => refreshInFlight === null && refreshQueued === false);
+      const recovered = await page.evaluate(() => ({
+        text: document.querySelector("#error")?.textContent || "",
+        display: getComputedStyle(document.querySelector("#error")).display,
+        height: document.querySelector("#error").getBoundingClientRect().height,
+      }));
+      assert(
+        recovered.text === "" && recovered.display === "none" && recovered.height === 0,
+        `successful recovery should clear the status row completely: ${JSON.stringify(recovered)}`,
+      );
+      steps.push({ label: "gap recovery status clears", announcements: active.announcements });
+    } finally {
+      releaseFirst?.();
+      releaseRecovery?.();
+      await page.unroute(/\/state(?:\?|$)/, holdStateRefreshes);
+      await page.evaluate(() => {
+        window.cosyRecoveryObserver?.disconnect();
+        connectStream();
+      });
+    }
+  }
+
   async function assertJournalModeContract(label) {
     await page.evaluate(() => setJournalOpen(false));
     const room = await page.evaluate(() => {
@@ -8674,6 +8759,7 @@ async function main() {
   await assertFailureCopyStaysContextual();
   await assertCompactDescriptionAndCardModal();
   await assertRoomSummaryStaysFlatAndMechanical();
+  await assertGapRecoveryStatusClears();
   await assertStatusBarDoesNotOverlayTranscript("mobile status row");
   await assertJournalModeContract("mobile Journal");
   await assertJournalTickerLayout();
