@@ -258,7 +258,7 @@
       "flame"
     ],
     "look": "The inn's road lantern gutters blue whenever the north door opens.",
-    "search": "Soot inside the cage forms three clean finger marks: lens, key, and oil.",
+    "search": "Rowan's keeper badge hangs inside the cage beside a soot-written note: gone north; bring lens, key, and oil.",
     "pack_id": "cosyworld.campaign.the-lantern-keeper"
   },
   {
@@ -345,7 +345,7 @@
       },
       {
         "item_id": 8404,
-        "text": "The Keeper's Ember seats in the great lens and the road lamps answer one by one."
+        "text": "The Keeper's Ember settles into the great lens, banked beneath the shutter until someone kindles it."
       }
     ],
     "pack_id": "cosyworld.campaign.the-lantern-keeper"

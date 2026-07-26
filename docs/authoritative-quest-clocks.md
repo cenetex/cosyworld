@@ -37,9 +37,10 @@ kernel roll/outcome (when required)
 ```
 
 `job.contribution.resolved` is structured evidence. It records the resolved
-target, outcome, progress components, claim key, source event sequences, rules
-profile and pack, and content pack/version. Browser, text-client, and inspector
-views render this evidence and the authored threshold narration.
+target, outcome, progress components, claim key, exact requirement and
+resolution source-event sequences, rules profile and pack, and content
+pack/version. Browser, text-client, and inspector views render this evidence
+and the authored threshold narration.
 
 ## Status and idempotency
 
@@ -54,10 +55,10 @@ once-scoped contribution cannot duplicate progress or consequences. Snapshots
 persist clocks and claims, while action-journal replay reuses the stored
 strategy intent and kernel seed.
 
-The immediately preceding production worldpack remains replay-compatible.
-Its old Listen/Use lifecycle clock effects are retained as a migration bridge;
-when a record includes an authoritative contribution, matching legacy
-clock effects are excluded so current actions cannot double-count.
+Declared production worldpack epochs remain replay-compatible. Historical
+journal records replay their frozen accepted strategy and projection mutations;
+new records must match the active strategy exactly. Removed lifecycle shortcuts
+therefore remain part of history without remaining legal in the active pack.
 
 ## Authoring rules
 

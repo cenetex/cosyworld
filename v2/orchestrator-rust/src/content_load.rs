@@ -2549,16 +2549,61 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
             for requirement in &strategy.requirements {
                 let valid = match requirement {
                     ContributionRequirement::AtLocation { location_id } => {
-                        location_ids.contains(location_id)
+                        location_ids.contains(location_id) && job.location_ids.contains(location_id)
                     }
                     ContributionRequirement::HeldItem { item_id } => item_ids.contains(item_id),
                     ContributionRequirement::ActiveTag { tag_id } => !tag_id.trim().is_empty(),
                     ContributionRequirement::RoomFeature {
                         location_id,
                         feature_key,
-                    } => content.room_features.iter().any(|feature| {
-                        feature.location_id == *location_id && feature.key == *feature_key
-                    }),
+                    }
+                    | ContributionRequirement::FeatureSearched {
+                        location_id,
+                        feature_key,
+                    } => {
+                        job.location_ids.contains(location_id)
+                            && content.room_features.iter().any(|feature| {
+                                feature.location_id == *location_id && feature.key == *feature_key
+                            })
+                    }
+                    ContributionRequirement::FeatureUsed {
+                        location_id,
+                        feature_key,
+                        item_id,
+                    } => {
+                        item_ids.contains(item_id)
+                            && job.location_ids.contains(location_id)
+                            && content.room_features.iter().any(|feature| {
+                                feature.location_id == *location_id
+                                    && feature.key == *feature_key
+                                    && feature
+                                        .uses
+                                        .iter()
+                                        .any(|feature_use| feature_use.item_id == *item_id)
+                            })
+                    }
+                    ContributionRequirement::EncounterResolved {
+                        job_id,
+                        winning_side,
+                    } => {
+                        (1..=2).contains(winning_side)
+                            && content
+                                .jobs
+                                .iter()
+                                .find(|candidate| candidate.id == *job_id)
+                                .is_some_and(|encounter_job| {
+                                    encounter_job.location_ids.iter().any(|location_id| {
+                                        content.locations.iter().any(|location| {
+                                            location.id == *location_id && location.allow_combat
+                                        }) && encounter_job.participant_ids.iter().any(|actor_id| {
+                                            content.actors.iter().any(|actor| {
+                                                actor.id == *actor_id
+                                                    && actor.location_id == Some(*location_id)
+                                            })
+                                        })
+                                    })
+                                })
+                    }
                 };
                 if !valid {
                     return Err(format!(

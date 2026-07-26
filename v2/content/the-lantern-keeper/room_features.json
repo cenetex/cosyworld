@@ -5,7 +5,7 @@
     "name": "Failing Lantern",
     "aliases": ["lantern", "lamp", "flame"],
     "look": "The inn's road lantern gutters blue whenever the north door opens.",
-    "search": "Soot inside the cage forms three clean finger marks: lens, key, and oil."
+    "search": "Rowan's keeper badge hangs inside the cage beside a soot-written note: gone north; bring lens, key, and oil."
   },
   {
     "location_id": 801,
@@ -45,7 +45,7 @@
       { "item_id": 8401, "text": "The Keeper's Brass Key opens the inner lens cage without waking the tower's old traps." },
       { "item_id": 8402, "text": "The Mothglass Lens reveals Rowan inside the shadow rather than replaced by it." },
       { "item_id": 8403, "text": "Dawn Oil draws a gold boundary between Rowan and the borrowed dark." },
-      { "item_id": 8404, "text": "The Keeper's Ember seats in the great lens and the road lamps answer one by one." }
+      { "item_id": 8404, "text": "The Keeper's Ember settles into the great lens, banked beneath the shutter until someone kindles it." }
     ]
   }
 ]

@@ -2125,6 +2125,19 @@ impl RuntimeWorld {
                             ContributionRequirement::RoomFeature { .. } => {
                                 "Inspect the required room feature first.".to_string()
                             }
+                            ContributionRequirement::FeatureSearched { .. } => {
+                                "Search the earlier clue first.".to_string()
+                            }
+                            ContributionRequirement::FeatureUsed { item_id, .. } => self
+                                .item_name(*item_id)
+                                .map(|name| format!("Use {name} where the journey requires it."))
+                                .unwrap_or_else(|| {
+                                    "Use the required item where the journey requires it."
+                                        .to_string()
+                                }),
+                            ContributionRequirement::EncounterResolved { .. } => {
+                                "Resolve the journey's confrontation first.".to_string()
+                            }
                         };
                         return None;
                     }

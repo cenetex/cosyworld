@@ -1894,6 +1894,52 @@ for (const job of jobs) {
           || !isNonEmptyString(strategy.target?.id))) {
       fail(`job ${job.id} strategy ${strategy.id} must target an item.used outcome`);
     }
+    for (const requirement of strategy.requirements ?? []) {
+      const locationId = requirement.location_id;
+      const feature = roomFeatures.find((candidate) =>
+        candidate.location_id === locationId
+        && candidate.key === requirement.feature_key);
+      let valid = false;
+      switch (requirement.kind) {
+        case "at_location":
+          valid = has(locationIds, locationId)
+            && (job.location_ids ?? []).includes(locationId);
+          break;
+        case "held_item":
+          valid = has(itemIds, requirement.item_id);
+          break;
+        case "active_tag":
+          valid = isNonEmptyString(requirement.tag_id);
+          break;
+        case "room_feature":
+        case "feature_searched":
+          valid = (job.location_ids ?? []).includes(locationId)
+            && feature !== undefined;
+          break;
+        case "feature_used":
+          valid = has(itemIds, requirement.item_id)
+            && (job.location_ids ?? []).includes(locationId)
+            && feature?.uses?.some((use) => use.item_id === requirement.item_id);
+          break;
+        case "encounter_resolved": {
+          const encounterJob = jobs.find((candidate) =>
+            candidate.id === requirement.job_id);
+          valid = [1, 2].includes(requirement.winning_side)
+            && encounterJob !== undefined
+            && (encounterJob.location_ids ?? []).some((encounterLocationId) =>
+              locations.some((location) =>
+                location.id === encounterLocationId && location.allow_combat)
+              && (encounterJob.participant_ids ?? []).some((actorId) =>
+                actorById.get(actorId)?.location_id === encounterLocationId));
+          break;
+        }
+        default:
+          valid = false;
+      }
+      if (!valid) {
+        fail(`job ${job.id} strategy ${strategy.id} has invalid ${requirement.kind} requirement`);
+      }
+    }
   }
   for (const locationId of job.location_ids ?? []) {
     if (!has(locationIds, locationId)) {
