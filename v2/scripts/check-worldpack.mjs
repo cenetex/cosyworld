@@ -1989,6 +1989,30 @@ for (const card of cards) {
   if (!subjectExists) {
     fail(`card ${card.card_id} references missing ${card.subject_kind} ${card.subject_id}`);
   }
+  if (card.asset_status !== "generated_art") continue;
+  if (!isNonEmptyString(card.image_url)) {
+    fail(`generated-art card ${card.card_id} is missing image_url`);
+    continue;
+  }
+  const matchingMounts = assetMounts.filter((mount) => (
+    mount.pack_id === card.pack_id
+      && (card.image_url === mount.public_prefix
+        || card.image_url.startsWith(`${mount.public_prefix}/`))
+  ));
+  if (matchingMounts.length !== 1) {
+    fail(`generated-art card ${card.card_id} image_url is not owned by exactly one pack asset mount`);
+    continue;
+  }
+  const mount = matchingMounts[0];
+  if (mount.optional) continue;
+  const assetDirectory = path.resolve(contentRoot, "..", mount.root, mount.directory);
+  const relativeAssetPath = card.image_url.slice(mount.public_prefix.length + 1);
+  const assetPath = path.resolve(assetDirectory, relativeAssetPath);
+  if (!assetPath.startsWith(`${assetDirectory}${path.sep}`)) {
+    fail(`generated-art card ${card.card_id} image_url escapes its pack asset mount`);
+  } else if (!fs.existsSync(assetPath) || !fs.statSync(assetPath).isFile()) {
+    fail(`generated-art card ${card.card_id} is missing required asset ${assetPath}`);
+  }
 }
 
 const externalCardById = new Map(externalCards.map((card) => [card.card_id, card]));
