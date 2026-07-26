@@ -545,7 +545,7 @@ async function main() {
   }
 
   async function visibleCommandButtons() {
-    return page.locator("footer.prompt button:visible").evaluateAll((nodes) => (
+    return page.locator("footer.prompt button:not(#shuffle):visible").evaluateAll((nodes) => (
       nodes.map((node) => node.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean)
     ));
@@ -559,6 +559,93 @@ async function main() {
       assert(buttons.length === expectedCount, `${label} should expose ${expectedCount} action${expectedCount === 1 ? "" : "s"}: ${JSON.stringify(buttons)}`);
     }
     return buttons;
+  }
+
+  async function assertBrowserDrawReachesEveryLegalAction() {
+    const handSnapshot = () => page.evaluate(() => ({
+      allKeys: [...validActionHandKeySet()],
+      visibleKeys: [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
+        .filter((button) => button.id !== "shuffle" && getComputedStyle(button).display !== "none")
+        .map((button) => button.dataset.handKey)
+        .filter(Boolean),
+      eventSeq: Math.max(0, ...logEvents
+        .filter((event) => event.type === "hand.shuffled")
+        .map((event) => Number(event.seq || 0))),
+      drawVisible: getComputedStyle(document.querySelector("#shuffle")).display !== "none",
+    }));
+    const drawOnce = async (previous) => {
+      const previousSignature = previous.visibleKeys.join("|");
+      const [response] = await Promise.all([
+        page.waitForResponse((candidate) => (
+          candidate.request().method() === "POST"
+          && new URL(candidate.url()).pathname === "/commands"
+          && String(candidate.request().postData() || "").includes("\"command\":\"shuffle\"")
+        )),
+        page.locator("#shuffle").click(),
+      ]);
+      const receipt = await response.json();
+      const drawEvent = (receipt.events || []).find((event) => event.type === "hand.shuffled");
+      assert(receipt.ok && Number(drawEvent?.seq || 0) > previous.eventSeq,
+        `drawing should commit one newer hand.shuffled event: ${JSON.stringify(receipt)}`);
+      await page.waitForFunction(({ signature, eventSeq }) => {
+        const visible = [...document.querySelectorAll("footer.prompt button[data-hand-key]")]
+          .filter((button) => button.id !== "shuffle" && getComputedStyle(button).display !== "none")
+          .map((button) => button.dataset.handKey)
+          .filter(Boolean)
+          .join("|");
+        const latestDraw = Math.max(0, ...logEvents
+          .filter((event) => event.type === "hand.shuffled")
+          .map((event) => Number(event.seq || 0)));
+        return visible !== signature
+          && latestDraw >= eventSeq
+          && document.querySelector("#shuffle")?.disabled === false;
+      }, { signature: previousSignature, eventSeq: Number(drawEvent.seq) });
+      return handSnapshot();
+    };
+
+    const initial = await handSnapshot();
+    assert(initial.allKeys.length > 2, `the opening scene should have actions beyond its first two cards: ${JSON.stringify(initial)}`);
+    assert(initial.drawVisible, "the draw control should appear whenever legal actions remain outside the two-card hand");
+    const initialSignature = initial.visibleKeys.join("|");
+    const seen = new Set();
+    let current = initial;
+    let drawCount = 0;
+    const maxDraws = Math.ceil(initial.allKeys.length / 2) + 1;
+    while (drawCount <= maxDraws) {
+      current.visibleKeys.forEach((key) => seen.add(key));
+      if (initial.allKeys.every((key) => seen.has(key))) break;
+      current = await drawOnce(current);
+      drawCount += 1;
+    }
+    assert(
+      initial.allKeys.every((key) => seen.has(key)),
+      `drawing should surface every legal browser action: ${JSON.stringify({ all: initial.allKeys, seen: [...seen] })}`,
+    );
+
+    while (current.visibleKeys.join("|") !== initialSignature && drawCount <= maxDraws + 1) {
+      current = await drawOnce(current);
+      drawCount += 1;
+    }
+    assert(
+      current.visibleKeys.join("|") === initialSignature,
+      `the hand should cycle deterministically to its first pair: ${JSON.stringify(current.visibleKeys)}`,
+    );
+
+    const layout = await page.evaluate(() => {
+      const prompt = document.querySelector("footer.prompt");
+      const draw = document.querySelector("#shuffle");
+      const rect = draw.getBoundingClientRect();
+      return {
+        promptFits: prompt.scrollWidth <= prompt.clientWidth + 1,
+        drawFits: rect.left >= 0 && rect.right <= window.innerWidth,
+        journaled: logEvents.some((event) => event.type === "hand.shuffled"),
+      };
+    });
+    assert(
+      layout.promptFits && layout.drawFits && layout.journaled,
+      `two cards and their journaled draw control should fit the mobile footer: ${JSON.stringify(layout)}`,
+    );
+    steps.push({ label: "browser draw reaches every legal action", actions: initial.allKeys.length, draws: drawCount });
   }
 
   async function assertFirstThreadGuide() {
@@ -2742,7 +2829,7 @@ async function main() {
       renderCommands();
       try {
         const tradeAction = actions.find((action) => action.label === "trade") || null;
-        const visibleButtons = () => [...document.querySelectorAll("footer.prompt button")]
+        const visibleButtons = () => [...document.querySelectorAll("footer.prompt button:not(#shuffle)")]
             .filter((button) => getComputedStyle(button).display !== "none")
             .map((button) => {
               const label = button.querySelector(".cmd-label")?.cloneNode(true);
@@ -2810,7 +2897,7 @@ async function main() {
           actionLabels: actions.map((action) => `${action.label} ${action.detail || ""}`.trim()),
           visibleHand,
           hasThirdCard: Boolean(document.querySelector("#tertiary")),
-          hasShuffleCard: Boolean(document.querySelector("#shuffle")),
+          hasShuffleCard: getComputedStyle(document.querySelector("#shuffle")).display !== "none",
           semanticBindings,
           giveKindsBeforeRename,
           giveKindsAfterRename,
@@ -2849,7 +2936,7 @@ async function main() {
     assert(result.multiTrade?.rows?.some((row) => row[0] === "Then" && row[1] === "both keepsakes change hands"), `Trade should explain its atomic exchange in plain language: ${JSON.stringify(result)}`);
     assert(!/eager|willingness|accepted/i.test(JSON.stringify(result.tradeCopy)), `trade copy should hide resident-economy state tags: ${JSON.stringify(result)}`);
     assert(result.visibleHand.length === 2, `the authoritative browser hand should expose exactly two actions: ${JSON.stringify(result)}`);
-    assert(!result.hasThirdCard && !result.hasShuffleCard, `the browser hand should have no third or shuffle card: ${JSON.stringify(result)}`);
+    assert(!result.hasThirdCard && result.hasShuffleCard, `the browser hand should keep two action cards beside its draw control: ${JSON.stringify(result)}`);
     assert(result.actionLabels.some((label) => label.startsWith("give ")) && result.actionLabels.some((label) => label.startsWith("trade ")), `actions outside the hand should remain in the complete legal surface: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "give")?.kinds?.includes("give_item"), `Give must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
     assert(result.semanticBindings.find((entry) => entry.label === "trade")?.kinds?.includes("trade_item"), `Trade must bind to the server kind rather than its display label: ${JSON.stringify(result)}`);
@@ -6641,10 +6728,10 @@ async function main() {
     assert(result.look.output.includes("east: Rain-Soft Garden") && result.lookEast.ok === true && result.lookEast.output.includes("Rain-Soft Garden"), `directional look should inspect a compass exit: ${JSON.stringify(result)}`);
     assert(
       result.shuffle.ok === true
-        && result.shuffle.output.includes("A fresh hand appears")
-        && result.shuffle.output.includes("Nothing in the room changes")
-        && result.shuffle.events.length === 0,
-      `shuffle command should be a free local hand hint, not a world event: ${JSON.stringify(result.shuffle)}`,
+        && result.shuffle.output === "You draw a new hand."
+        && result.shuffle.events.some((event) => event.type === "hand.shuffled")
+        && result.shuffle.events.some((event) => event.type === "action.receipt"),
+      `shuffle command should journal one free hand draw with its fresh state receipt: ${JSON.stringify(result.shuffle)}`,
     );
     const searchBlockedByFloorItem = result.search.ok === false
       && result.search.status === 409
@@ -6745,8 +6832,9 @@ async function main() {
   async function assertBrowserCommandEntryAbsent() {
     const before = await visibleCommandButtons();
     assert(
-      await page.locator("#command-toggle, #command-palette, #command-input, #all-actions-modal, #tertiary, #shuffle").count() === 0,
-      "the browser room should expose only two world action controls",
+      await page.locator("#command-toggle, #command-palette, #command-input, #all-actions-modal, #tertiary").count() === 0
+        && await page.locator("#shuffle").count() === 1,
+      "the browser room should expose two world action cards and one compact draw control",
     );
     await page.evaluate(() => document.activeElement?.blur?.());
     await page.keyboard.press("Slash");
@@ -8448,6 +8536,7 @@ async function main() {
   }
   await assertActionBarCapped("normal play", 2);
   await assertFirstThreadGuide();
+  await assertBrowserDrawReachesEveryLegalAction();
   await assertNoComposerOrDebugChrome();
   const collectibleAvailable = await page.evaluate(() => actions.some((action) => (
     [compactActionLabel(action), action?.detail, action?.command]
@@ -9134,7 +9223,7 @@ async function main() {
       branchEvents,
       fleeEvents,
       trailExitEvents,
-      buttons: [...document.querySelectorAll("footer.prompt button")]
+      buttons: [...document.querySelectorAll("footer.prompt button:not(#shuffle)")]
         .filter((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
         .map((button) => button.innerText.trim().replace(/\s+/g, " "))
         .filter(Boolean),

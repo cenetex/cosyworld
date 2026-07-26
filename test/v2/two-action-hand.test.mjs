@@ -11,7 +11,7 @@ const browser = fs.readFileSync(
 );
 
 describe("two-action browser hand", () => {
-  it("keeps the chatroom beside exactly two action slots without command entry or overflow cards", () => {
+  it("keeps exactly two action slots and exposes a turn-free draw control", () => {
     expect(browser).not.toContain('id="command-toggle"');
     expect(browser).not.toContain('id="command-palette"');
     expect(browser).not.toContain('id="command-input"');
@@ -19,8 +19,11 @@ describe("two-action browser hand", () => {
     expect(browser).toContain('id="primary"');
     expect(browser).toContain('id="secondary"');
     expect(browser).not.toContain('id="tertiary"');
-    expect(browser).not.toContain('id="shuffle"');
+    expect(browser).toContain('id="shuffle"');
     expect(browser).toContain('const buttonIds = ["primary", "secondary"];');
+    expect(browser).toContain('command: "shuffle"');
+    expect(browser).toContain("advanceHandPage();");
+    expect(browser).toContain('event.type === "hand.shuffled"');
     expect(browser).toMatch(/function handCapacity\(\) \{\s+return 2;\s+\}/);
   });
 });

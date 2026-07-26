@@ -395,6 +395,62 @@ pub(crate) fn command_action_response_with_events(
     command_action_response_with_prefix_and_events(resolved, response, None, leading_events)
 }
 
+pub(crate) async fn commit_shuffle_hand_command(
+    state: &AppState,
+    payload: &CommandRequest,
+    resolved: ResolvedCommand,
+    leading_events: Vec<EventView>,
+) -> Json<CommandResponse> {
+    let mut runtime = state.inner.lock().await;
+    let location_id = runtime
+        .actor_by_id(payload.actor_id)
+        .map(|actor| actor.location_id)
+        .unwrap_or_default();
+    let mut record = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: payload.actor_id,
+            location_id,
+            ..CwAction::default()
+        },
+        runtime.next_seed_value(),
+    )
+    .into_player_control();
+    record
+        .projection_mutations
+        .push(ProjectionMutation::ShuffleHand {
+            reason: "player_draw".to_string(),
+        });
+    let Ok((status, mut events)) = commit_journal_record(state, &mut runtime, record) else {
+        return Json(CommandResponse {
+            ok: false,
+            status: 500,
+            command: resolved.command,
+            verb: resolved.verb,
+            output: Some(
+                "That choice got lost before the room could answer. Try once more.".to_string(),
+            ),
+            action: resolved.action,
+            receipt: None,
+            events: leading_events,
+        });
+    };
+    if status == CW_OK && !events.is_empty() {
+        append_action_receipt(state, &runtime, payload.actor_id, &mut events);
+    }
+    drop(runtime);
+    broadcast_events(state, &events);
+    command_action_response_with_events(
+        resolved,
+        ActionResponse {
+            ok: status == CW_OK && !events.is_empty(),
+            status: if events.is_empty() { 409 } else { status },
+            events,
+        },
+        leading_events,
+    )
+}
+
 pub(crate) fn command_action_response_with_prefix_and_events(
     resolved: ResolvedCommand,
     mut response: ActionResponse,
@@ -2430,7 +2486,7 @@ impl RuntimeWorld {
                 verb,
                 action: Some(command_action("shuffle_hand", "Shuffle", "shuffle")),
                 dispatch: CommandDispatch::Read {
-                    output: "A fresh hand appears. Nothing in the room changes.".to_string(),
+                    output: "You draw a new hand.".to_string(),
                 },
             }),
             "bank" => {

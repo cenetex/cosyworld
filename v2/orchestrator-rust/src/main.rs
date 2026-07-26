@@ -29392,6 +29392,14 @@ async fn command_inner(
     }
 
     match resolved.dispatch.clone() {
+        CommandDispatch::Read { .. }
+            if resolved
+                .action
+                .as_ref()
+                .is_some_and(|action| action.kind == "shuffle_hand") =>
+        {
+            commit_shuffle_hand_command(&state, &payload, resolved, presence_events).await
+        }
         CommandDispatch::Read { output } => Json(CommandResponse {
             ok: true,
             status: CW_OK,
@@ -49010,7 +49018,7 @@ mod tests {
         assert!(INDEX_HTML.contains("atmosphericMemoryBeat"));
         assert!(INDEX_HTML.contains("room-title-main"));
         assert!(INDEX_HTML.contains("room-avatar-rail"));
-        assert!(!INDEX_HTML.contains("id=\"shuffle\""));
+        assert!(INDEX_HTML.contains("id=\"shuffle\""));
         assert!(INDEX_HTML.contains("function firstThreadModel"));
         assert!(INDEX_HTML.contains("function nextStoryThreadModel"));
         assert!(INDEX_HTML.contains("function firstTaleIsComplete"));
@@ -52336,10 +52344,11 @@ mod tests {
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
-        let (before_tick, before_resident_locations) = {
+        let (before_tick, before_next_event_seq, before_resident_locations) = {
             let runtime = state.inner.lock().await;
             (
                 runtime.world.tick,
+                runtime.world.next_event_seq,
                 [
                     runtime.actor_by_id(RATI_ACTOR_ID).unwrap().location_id,
                     runtime
@@ -52363,20 +52372,22 @@ mod tests {
 
         assert!(response.ok);
         assert_eq!(response.status, CW_OK);
-        assert_eq!(
-            response.output.as_deref(),
-            Some("A fresh hand appears. Nothing in the room changes.")
-        );
-        assert!(!response
+        assert_eq!(response.output.as_deref(), Some("You draw a new hand."));
+        assert!(response
             .events
             .iter()
             .any(|event| event.type_name == "hand.shuffled"));
+        assert!(response
+            .events
+            .iter()
+            .any(|event| event.type_name == "action.receipt"));
         assert!(!response
             .events
             .iter()
             .any(|event| event.type_name == "actor.moved"));
         let runtime = state.inner.lock().await;
         assert_eq!(runtime.world.tick, before_tick);
+        assert_eq!(runtime.world.next_event_seq, before_next_event_seq + 1);
         assert_eq!(
             [
                 runtime.actor_by_id(RATI_ACTOR_ID).unwrap().location_id,
@@ -66289,8 +66300,7 @@ mod tests {
             .expect("shuffle resolves");
         match shuffle.dispatch {
             CommandDispatch::Read { output } => {
-                assert!(output.contains("A fresh hand appears"));
-                assert!(output.contains("Nothing in the room changes"));
+                assert_eq!(output, "You draw a new hand.");
             }
             other => panic!("shuffle should be a free hand redeal hint, got {other:?}"),
         }

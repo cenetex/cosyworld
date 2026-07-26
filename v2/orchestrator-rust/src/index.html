@@ -1529,6 +1529,12 @@
     .prompt.choice-mode {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+    .prompt.has-draw {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(64px, 86px);
+    }
+    .prompt.choice-mode.has-draw {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     .prompt[hidden] { display: none; }
     .cmd {
       --cmd-accent: var(--type-utility);
@@ -2589,6 +2595,10 @@
         padding: 3px;
         text-align: center;
       }
+      .cmd.shuffle {
+        flex: 0 0 72px;
+        min-width: 72px;
+      }
       .cmd-copy {
         flex: 1 1 auto;
         min-width: 0;
@@ -3273,6 +3283,9 @@
       <div class="turn-ping-pill" id="turn-ping-pill" role="status" aria-live="polite" aria-atomic="true" hidden></div>
       <button class="cmd primary" id="primary" data-player-concept="action" data-analytics-event="action.select"></button>
       <button class="cmd secondary" id="secondary" data-player-concept="action" data-analytics-event="action.select"></button>
+      <button class="cmd shuffle type-shuffle" id="shuffle" data-player-concept="draw" data-analytics-event="action.draw" aria-label="Draw two more actions">
+        <span class="shuffle-glyph" aria-hidden="true">•••</span><span class="cmd-label">more</span>
+      </button>
     </footer>
   </div>
   <div class="card-modal" id="card-modal" hidden>
@@ -3418,6 +3431,7 @@
     let handDealNonce = 1;
     let authoritativeHandIdentity = "";
     let playerPromotedHandKey = "";
+    let handShuffleBusy = false;
     let recoveryPromptPending = false;
     let logEvents = [];
     const seenSeq = new Set();
@@ -6329,10 +6343,12 @@
       const clearFirstTaleAfterAction = firstTaleCelebration
         && !/^(?:need[ -]time)$/i.test(command);
       if (/^(shuffle|deal|more|redraw)$/i.test(command)) {
-        await shuffleHand();
-        setStatus("A fresh hand appears.", "ok");
-        pushCommandOutput(command, "A fresh hand appears. Nothing in the room changes.", true, []);
-        return { ok: true, status: 0, command, events: [] };
+        const result = await shuffleHand();
+        if (result?.ok) {
+          setStatus("A fresh hand appears.", "ok");
+          pushCommandOutput(command, "You draw a new hand.", true, result.events || []);
+        }
+        return result;
       }
       const beforeOrbs = economyOrbCount();
       const result = await post("/commands", withAccess({
@@ -10740,8 +10756,8 @@
 
     function authoritativeHandSignature(view = state) {
       return JSON.stringify((view?.action_hand?.entries || []).map((entry) => [
-        String(entry?.offer_id || ""),
         String(entry?.kind || ""),
+        String(entry?.intention || ""),
         String(entry?.provider?.kind || ""),
         String(entry?.provider?.id || ""),
       ]));
@@ -10829,16 +10845,35 @@
         playerPromotedHandKey = "";
         return;
       }
-      const nextAuthoritativeIdentity = (state?.action_hand?.entries || [])
-        .map((offer) => offer.offer_id || `${offer.kind}:${offer.state_revision}`)
-        .join("|");
+      const nextAuthoritativeIdentity = JSON.stringify(
+        orderedActionIndexesForHand().map((index) => actionHandKey(actions[index])),
+      );
+      const compositionChanged = nextAuthoritativeIdentity !== authoritativeHandIdentity;
       authoritativeHandIdentity = nextAuthoritativeIdentity;
-      handKeys = orderedActionIndexesForHand()
-        .slice(0, handCapacity())
-        .map((index) => actionHandKey(actions[index]))
-        .filter(Boolean);
-      discardedHandKeys = [];
-      playerPromotedHandKey = "";
+      const validKeys = validActionHandKeySet();
+      if (compositionChanged) {
+        handKeys = [];
+        discardedHandKeys = [];
+        playerPromotedHandKey = "";
+      } else {
+        pruneDiscardedHandKeys(validKeys);
+        handKeys = handKeys.filter((key) => (
+          validKeys.has(key) && !discardedHandKeys.includes(key)
+        ));
+        if (playerPromotedHandKey && !validKeys.has(playerPromotedHandKey)) {
+          playerPromotedHandKey = "";
+        }
+      }
+      const kept = [];
+      const seen = new Set();
+      for (const key of handKeys) {
+        if (!key || seen.has(key)) continue;
+        kept.push(key);
+        seen.add(key);
+        if (kept.length >= handCapacity()) break;
+      }
+      dealHandKeys(kept, seen, handCapacity());
+      handKeys = kept;
     }
 
     function promoteActionToHand(index, key = "") {
@@ -11103,20 +11138,45 @@
     }
 
     async function shuffleHand() {
-      if (!actorId || !actorSession || state?.primary_action?.kind === "create_avatar") {
+      if (handShuffleBusy
+        || !actorId
+        || !actorSession
+        || state?.primary_action?.kind === "create_avatar") {
         return null;
       }
-      advanceHandPage();
-      renderCommands();
-      return null;
+      const button = $("shuffle");
+      handShuffleBusy = true;
+      button.disabled = true;
+      try {
+        const result = await post("/commands", withAccess({
+          actor_id: actorId,
+          actor_session: actorSession,
+          command: "shuffle",
+          envelope: canonicalCommandEnvelope(),
+        }));
+        pushEvents(result.events || []);
+        if (!result.ok) {
+          setError(commandFailureMessage(result));
+          return result;
+        }
+        advanceHandPage();
+        renderCommands();
+        return result;
+      } finally {
+        handShuffleBusy = false;
+        button.disabled = false;
+      }
     }
 
     function renderCommands() {
       const prompt = document.querySelector(".prompt");
       const buttonIds = ["primary", "secondary"];
+      const drawButton = $("shuffle");
       renderTurnPingPill();
       if (actionBusy) {
         prompt.classList.remove("choice-mode");
+        prompt.classList.remove("has-draw");
+        drawButton.style.display = "none";
         const busyDetail = typeof pendingAction?.busyDetail === "function"
           ? pendingAction.busyDetail()
           : pendingAction?.busyDetail;
@@ -11136,7 +11196,15 @@
         return;
       }
       const choiceMode = Boolean(state?.branch && actions.length > 1);
+      const canDraw = !state?.branch
+        && actorId
+        && actorSession
+        && state?.primary_action?.kind !== "create_avatar"
+        && validActionHandKeySet().size > handCapacity();
       prompt.classList.toggle("choice-mode", choiceMode);
+      prompt.classList.toggle("has-draw", canDraw);
+      drawButton.style.display = canDraw ? "flex" : "none";
+      drawButton.disabled = handShuffleBusy;
       const visibleActions = actionBarActions().slice(0, handCapacity());
       for (let index = 0; index < buttonIds.length; index += 1) {
         const id = buttonIds[index];
@@ -11733,6 +11801,10 @@
     $("secondary").addEventListener("click", () => {
       const action = actionForButton("secondary") || (state?.branch ? actions[1] : null);
       if (action) openActionModal(action);
+    });
+
+    $("shuffle").addEventListener("click", () => {
+      void shuffleHand();
     });
 
     document.addEventListener("keydown", (event) => {
