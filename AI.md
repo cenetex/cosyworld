@@ -75,6 +75,7 @@ Official OpenRouter docs confirm the integration shape:
 - One user-paid action can benefit everyone present because the output is a public event.
 - Autonomous resident actions and swarm jobs use the server budget unless an admin explicitly runs them.
 - The client never decides Orb affordability, image eligibility, model access, combat outcomes, rewards, or inventory use.
+- Another avatar's held items remain absent until an authoritative successful Notice or explicit item speech records disclosure. The inspector renders only those disclosed items, and each item carries the server-computed request, trade, or theft actions that are valid for the current viewer; unknown holdings and invalid consent routes are never inferred in the browser.
 - Orbs may be debited only by the authoritative community-image funding route.
 - No raw OpenRouter key is ever written to logs, event payloads, screenshots, or analytics.
 

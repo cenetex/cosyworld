@@ -2944,6 +2944,112 @@ async function main() {
     assert(JSON.stringify(result.giveKindsBeforeRename) === JSON.stringify(result.giveKindsAfterRename), `renaming display copy must not change semantic execution: ${JSON.stringify(result)}`);
   }
 
+  async function assertAvatarItemsUseDisclosureAndExactActions() {
+    const result = await page.evaluate(() => {
+      const previousState = state;
+      const previousActorId = actorId;
+      const previousActions = actions;
+      try {
+        actorId = 5000;
+        const itemCard = {
+          card_id: "known-brass-key",
+          display_name: "Keeper's Brass Key",
+          role: "item",
+          aspect: "square",
+          image_url: "/known-brass-key.png",
+        };
+        state = {
+          location: { id: 1, name: "The Cosy Cottage" },
+          exits: [{ destination_location_id: 2, destination_location_name: "Rain-Soft Garden" }],
+          actors: [{ id: 5000, name: "Viewer" }],
+          items: [{ id: 9001, name: "Keeper's Brass Key", holder_actor_id: 5001 }],
+          safety: { incoming_offers: [], outgoing_offers: [], gift_auto_accepts: [] },
+          cards: {
+            actors: {},
+            items: { 9001: itemCard },
+            locations: {
+              1: { card_id: "cottage", display_name: "The Cosy Cottage", role: "location", aspect: "wide" },
+              2: { card_id: "garden", display_name: "Rain-Soft Garden", role: "location", aspect: "wide" },
+            },
+          },
+        };
+        actions = [{
+          label: "trade",
+          focusKeys: ["actor:5001", "item:9001"],
+        }, {
+          label: "steal",
+          focusKey: "theft:5002:9001",
+        }];
+        const renderPanel = (actor) => {
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = actorSafetyPanelHtml(actor);
+          return {
+            chips: wrapper.querySelectorAll("[data-avatar-item-toggle]").length,
+            requests: wrapper.querySelectorAll("[data-avatar-gift-request]").length,
+            trades: wrapper.querySelectorAll('[data-avatar-item-action="trade"]').length,
+            steals: wrapper.querySelectorAll('[data-avatar-item-action="steal"]').length,
+            notices: wrapper.querySelectorAll("[data-avatar-notice]").length,
+            safety: wrapper.querySelectorAll(".avatar-safety-strip [data-avatar-safety], .avatar-safety-strip [data-avatar-report]").length,
+            itemText: wrapper.querySelector(".avatar-item-detail")?.textContent.replace(/\s+/g, " ").trim() || "",
+          };
+        };
+        const direct = renderPanel({
+          id: 5001,
+          name: "Direct Holder",
+          control_mode: "direct_input",
+          economy: {
+            held_items: [{
+              item_id: 9001,
+              disposition: "tradeable",
+              reason: "The key was openly shown.",
+              available_actions: ["request", "trade"],
+            }],
+          },
+        });
+        const inference = renderPanel({
+          id: 5002,
+          name: "Resident Holder",
+          control_mode: "reactive_ai",
+          economy: {
+            held_items: [{
+              item_id: 9001,
+              disposition: "attached",
+              reason: "The key was noticed.",
+              available_actions: ["steal"],
+            }],
+          },
+        });
+        const unknown = renderPanel({
+          id: 5003,
+          name: "Unknown Holder",
+          control_mode: "reactive_ai",
+          economy: null,
+        });
+        const nearbyWrapper = document.createElement("div");
+        nearbyWrapper.innerHTML = nearbyLocationPanelHtml(state.cards.locations[1]);
+        return {
+          direct,
+          inference,
+          unknown,
+          nearby: {
+            chips: nearbyWrapper.querySelectorAll(".nearby-keepsake-chip").length,
+            target: nearbyWrapper.querySelector(".nearby-keepsake-chip")?.getAttribute("data-card-key") || "",
+          },
+        };
+      } finally {
+        state = previousState;
+        actorId = previousActorId;
+        actions = previousActions;
+      }
+    });
+    assert(result.direct.chips === 1 && result.direct.requests === 1 && result.direct.trades === 1, `a disclosed direct-player item should become one icon with exact consent actions: ${JSON.stringify(result)}`);
+    assert(result.inference.chips === 1 && result.inference.requests === 0 && result.inference.steals === 1, `an inference-held item must not expose the invalid direct-player request route: ${JSON.stringify(result)}`);
+    assert(result.unknown.chips === 0 && result.unknown.requests === 0 && result.unknown.notices === 1, `unknown holdings must stay hidden behind Notice: ${JSON.stringify(result)}`);
+    assert(result.direct.safety === 3 && result.inference.safety === 3, `safety controls should stay separate from item actions: ${JSON.stringify(result)}`);
+    assert(result.direct.itemText.includes("Keeper's Brass Key") && !result.direct.itemText.includes("request Keeper's Brass Key"), `the item picker should keep names in the selected detail instead of giant verb buttons: ${JSON.stringify(result)}`);
+    assert(result.nearby.chips === 1 && result.nearby.target.includes("garden"), `current location details should expose adjacent keepsakes for image-workshop access: ${JSON.stringify(result)}`);
+  }
+
   async function assertDiscoverySettlementDoesNotSurfaceGrowAction() {
     const result = await page.evaluate(() => {
       const previousState = state;
@@ -8876,6 +8982,7 @@ async function main() {
   await assertKeepsakeLoadoutShapesSceneDeal();
   await assertCarriedDeckUsesWeightLanguage();
   await assertGiveTradeCanBeDrawnFromShuffledDeck();
+  await assertAvatarItemsUseDisclosureAndExactActions();
   await assertDiscoverySettlementDoesNotSurfaceGrowAction();
   await assertCharmSlotExpansionIsDemandDriven();
   await assertBondSurfacesAsCompactRelationshipAction();
