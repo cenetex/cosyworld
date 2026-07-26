@@ -363,6 +363,40 @@ static void test_items_and_combat_gate(void) {
   assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
 }
 
+static void test_rules_utilize_item_records_project_use_without_consuming(void) {
+  cw_world world;
+  cw_event_buffer events;
+  cw_world_init(&world);
+  assert(cw_seed_cosy_cottage(&world, &events) == CW_OK);
+
+  cw_item *item = &world.items[2];
+  assert(item->kind != CW_ITEM_POTION);
+  item->holder_actor_id = 1001;
+  item->location_id = 0;
+  item->zone = CW_CARD_ZONE_CARRIED;
+  item->charges = 3;
+
+  cw_action utilize = {0};
+  utilize.kind = CW_ACTION_RULES_UTILIZE_ITEM;
+  utilize.actor_id = 1001;
+  utilize.item_id = item->id;
+
+  assert(cw_world_apply(&world, &utilize, 56, &events) == CW_OK);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_ITEM_USED);
+  assert(events.events[0].success);
+  assert(events.events[0].actor_id == 1001);
+  assert(events.events[0].item_id == item->id);
+  assert(events.events[0].target_actor_id == 0);
+  assert(item->charges == 3);
+
+  item->holder_actor_id = 1002;
+  assert(cw_world_apply(&world, &utilize, 57, &events) == CW_ERR_RULE);
+  assert(events.count == 1);
+  assert(events.events[0].type == CW_EVENT_RULE_REJECTED);
+  assert(item->charges == 3);
+}
+
 static void test_combat_v2_encounter_turns_dodge_targeting_and_escape(void) {
   cw_world world;
   cw_event_buffer events;
@@ -1462,6 +1496,7 @@ int main(void) {
   test_explicit_tick_control_and_rejected_action_rollback();
   test_d20_roll_modes_bloodied_and_nonlethal_knockout();
   test_items_and_combat_gate();
+  test_rules_utilize_item_records_project_use_without_consuming();
   test_combat_v2_encounter_turns_dodge_targeting_and_escape();
   test_combat_v4_weapon_profile_and_legacy_replay();
   test_card_zones_spell_exhaustion_and_theft_atomicity();

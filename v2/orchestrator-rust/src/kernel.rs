@@ -17,7 +17,7 @@ pub const CW_MAX_COMBAT_ENCOUNTERS: usize = 32;
 pub const CW_MAX_COMBAT_PARTICIPANTS: usize = 16;
 pub const CW_ITEM_DEFAULT_WEIGHT_TENTHS: u16 = 10;
 
-pub const CW_KERNEL_VERSION: u32 = 7;
+pub const CW_KERNEL_VERSION: u32 = 8;
 
 pub const CW_OK: u32 = 0;
 pub const CW_ERR_RULE: u32 = 4;
@@ -106,6 +106,7 @@ pub const CW_ACTION_COMBAT_PASS: u8 = 26;
 pub const CW_ACTION_COMBAT_NEED_TIME: u8 = 27;
 pub const CW_ACTION_UNLOCK_EXIT: u8 = 28;
 pub const CW_ACTION_REVEAL_ITEM: u8 = 29;
+pub const CW_ACTION_RULES_UTILIZE_ITEM: u8 = 30;
 
 pub const CW_EVENT_ACTOR_CREATED: u8 = 2;
 pub const CW_EVENT_ITEM_PICKED_UP: u8 = 7;

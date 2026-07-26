@@ -161,6 +161,7 @@ pub(super) fn app_router(state: AppState) -> Router {
         .route("/actions/attack", post(attack))
         .route("/actions/defend", post(defend))
         .route("/actions/prepare", post(prepare))
+        .route("/actions/contribute", post(contribute))
         .route("/actions/work", post(work))
         .route("/actions/help", post(help_room))
         .route("/actions/rest", post(rest))

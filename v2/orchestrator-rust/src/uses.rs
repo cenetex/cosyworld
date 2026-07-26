@@ -275,6 +275,7 @@ impl RuntimeWorld {
         let mut expanded = Vec::new();
         for offer in offers {
             match offer.kind.as_str() {
+                "use_item" if offer.project.is_some() => expanded.push(offer),
                 "use_item" => expanded.extend(self.healing_use_choices(actor_id).into_iter().map(
                     |(item, target)| {
                         self.retarget_use_offer(

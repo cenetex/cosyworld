@@ -88,6 +88,13 @@ const supportedRulesAdapters = new Map([
 ]);
 const allowedItemRoles = new Set(["generic", "consumable", "weapon", "skill_charm", "spell", "container", "tool", "relic"]);
 const allowedItemSizes = new Set(["tiny", "small", "medium", "large"]);
+const routableJobContributionActionKinds = new Set([
+  "work",
+  "help",
+  "check",
+  "study",
+  "use_item",
+]);
 
 const failures = [];
 const warnings = [];
@@ -1858,6 +1865,35 @@ for (const job of jobs) {
   }
   if (!has(clockIds, job.progress_clock_id) || !has(clockIds, job.danger_clock_id)) {
     fail(`job ${job.id} references missing clock`);
+  }
+  if (job.contribution_schema_version !== 1
+      || !Array.isArray(job.contribution_strategies)
+      || job.contribution_strategies.length === 0) {
+    fail(`job ${job.id} is missing contribution schema v1`);
+  }
+  for (const strategy of job.contribution_strategies ?? []) {
+    if (!routableJobContributionActionKinds.has(strategy.action_kind)) {
+      fail(`job ${job.id} strategy ${strategy.id} has unroutable action_kind ${strategy.action_kind}`);
+      continue;
+    }
+    const resolutionKind = strategy.resolution?.kind;
+    if (["work", "help"].includes(strategy.action_kind) && resolutionKind !== "certain") {
+      fail(`job ${job.id} strategy ${strategy.id} must use certain resolution`);
+    }
+    if (["check", "study"].includes(strategy.action_kind)
+        && (resolutionKind !== "srd_check"
+          || !isNonEmptyString(strategy.resolution?.ability)
+          || !Number.isInteger(strategy.resolution?.dc)
+          || strategy.resolution.dc <= 0)) {
+      fail(`job ${job.id} strategy ${strategy.id} must supply an SRD ability and DC`);
+    }
+    if (strategy.action_kind === "use_item"
+        && (resolutionKind !== "existing_kernel_outcome"
+          || strategy.resolution?.event_type !== "item.used"
+          || strategy.target?.kind !== "item"
+          || !isNonEmptyString(strategy.target?.id))) {
+      fail(`job ${job.id} strategy ${strategy.id} must target an item.used outcome`);
+    }
   }
   for (const locationId of job.location_ids ?? []) {
     if (!has(locationIds, locationId)) {

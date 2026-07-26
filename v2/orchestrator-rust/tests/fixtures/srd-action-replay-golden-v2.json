@@ -51,7 +51,7 @@
   ],
   "expected": {
     "rules_profile": "cosyworld.srd5/1",
-    "kernel_version": 7,
+    "kernel_version": 8,
     "world_tick": 8,
     "next_event_seq": 17,
     "actor": {"id":5000,"location_id":3,"status":1,"damage":0},

@@ -36,10 +36,12 @@ those existing records it derives:
   budget; and
 - `completed_memory` when the authoritative job or clocks have settled it.
 
-Available approaches expose the actual authored target and a readable reason
-when an approach is unavailable. Work and Help remain distinct universal
-verbs under the same project invitation. Avatar identity, controller type,
-Calling, and practice do not grant extra verbs or change legality.
+Available approaches expose the actual authored target and submit through one
+strategy-keyed contribution route. Work, Help, Check, Study, and Use Item stay
+distinct universal approaches under the same project invitation; the server
+derives their rules ability, DC, and item from authored content. Avatar
+identity, controller type, Calling, and practice do not grant extra verbs or
+change legality.
 
 The current situation comes from the most recent reached narrated threshold,
 then the authored initial situation. Completion uses durable memory captured

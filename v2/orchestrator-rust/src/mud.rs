@@ -127,6 +127,11 @@ pub(crate) enum CommandDispatch {
     },
     Defend,
     Prepare,
+    Contribute {
+        job_id: String,
+        strategy_id: String,
+        action_kind: String,
+    },
     Work,
     Help,
     Governance {
@@ -255,6 +260,7 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "listen" | "check" => "listen",
         "study" | "analyze" => "study",
         "prepare" | "ready" => "prepare",
+        "contribute" => "contribute",
         "work" | "repair" => "work",
         "assist" | "aid" => "assist",
         "choice" | "choices" | "decision" | "projects" => "governance",
@@ -522,6 +528,7 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
         CommandDispatch::ResolveBond { .. } => "There is not a friendship ready to remember yet.",
         CommandDispatch::Defend => "There is no need to guard here now.",
         CommandDispatch::Prepare => "There is nothing here to prepare for right now.",
+        CommandDispatch::Contribute { .. } => "That contribution strategy is no longer available.",
         CommandDispatch::Work => "That work is not ready for you right now.",
         CommandDispatch::Help => "No one needs that kind of help here right now.",
         CommandDispatch::Governance { .. } => {
@@ -1279,7 +1286,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, contribute <strategy>, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -2420,6 +2427,83 @@ impl RuntimeWorld {
                     verb,
                     action: Some(command_action("check", "Listen", "listen")),
                     dispatch: CommandDispatch::Check,
+                })
+            }
+            "contribute" => {
+                let intents = self.job_contribution_intents(actor.id, None, None, None, None);
+                let query_key = command_key(rest);
+                let mut matches = intents
+                    .into_iter()
+                    .filter_map(|intent| {
+                        let score = if query_key.is_empty() {
+                            Some(3)
+                        } else {
+                            command_match_score(&intent.strategy.id, &query_key).or_else(|| {
+                                command_match_score(
+                                    &intent.strategy.strategy_label,
+                                    &query_key,
+                                )
+                            })
+                        }?;
+                        Some((score, intent))
+                    })
+                    .collect::<Vec<_>>();
+                matches.sort_by(|(left_score, left), (right_score, right)| {
+                    left_score
+                        .cmp(right_score)
+                        .then_with(|| left.job_id.cmp(&right.job_id))
+                        .then_with(|| left.strategy.id.cmp(&right.strategy.id))
+                });
+                let Some((best_score, contribution)) = matches.first().cloned() else {
+                    return Ok(ResolvedCommand {
+                        command: command.clone(),
+                        verb,
+                        action: Some(command_action(
+                            "contribute",
+                            "Contribute",
+                            &command,
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "There is no matching contribution strategy here."
+                                .to_string(),
+                        },
+                    });
+                };
+                if query_key.is_empty()
+                    && matches
+                        .get(1)
+                        .is_some_and(|(score, _)| *score == best_score)
+                {
+                    return Ok(ResolvedCommand {
+                        command: command.clone(),
+                        verb,
+                        action: Some(command_action(
+                            "contribute",
+                            "Contribute",
+                            &command,
+                        )),
+                        dispatch: CommandDispatch::Disabled {
+                            status: 409,
+                            output: "Choose one of the offered contribution strategies."
+                                .to_string(),
+                        },
+                    });
+                }
+                let canonical = format!("contribute {}", contribution.strategy.id);
+                Ok(ResolvedCommand {
+                    command: canonical.clone(),
+                    verb,
+                    action: Some(command_action(
+                        &contribution.strategy.action_kind,
+                        &contribution.strategy.strategy_label,
+                        &canonical,
+                    )),
+                    dispatch: CommandDispatch::Contribute {
+                        job_id: contribution.job_id,
+                        strategy_id: contribution.strategy.id,
+                        action_kind: contribution.strategy.action_kind,
+                    },
                 })
             }
             "study" => {

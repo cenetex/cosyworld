@@ -15,6 +15,7 @@ mod content_load;
 mod content_packs;
 mod content_policy;
 mod content_registry;
+mod contributions;
 mod crafting;
 mod generated_places;
 mod hosted_access;
@@ -71,6 +72,7 @@ use content_load::*;
 use content_packs::*;
 use content_policy::*;
 use content_registry::*;
+use contributions::*;
 use cosyworld_ai_model::ResidentReplyModelInput;
 use crafting::*;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
@@ -6053,7 +6055,7 @@ fn journal_binding_for_kernel_action(kind: u8) -> Option<ResolvedActionBinding> 
         CW_ACTION_DROP_ITEM => "drop_item",
         CW_ACTION_GIVE_ITEM => "give_item",
         CW_ACTION_TRADE_ITEM => "trade_item",
-        CW_ACTION_USE_ITEM => "use_item",
+        CW_ACTION_USE_ITEM | CW_ACTION_RULES_UTILIZE_ITEM => "use_item",
         CW_ACTION_CRAFT => "craft",
         CW_ACTION_THEFT => "theft",
         CW_ACTION_SAY => "chat",
@@ -12445,65 +12447,6 @@ impl RuntimeWorld {
             .collect()
     }
 
-    fn clear_job_resolved_tags_from_events(&mut self, events: &[EventView]) -> Vec<EventView> {
-        let mut resolved_jobs = Vec::new();
-        for event in events {
-            if event.type_name != "job.updated" {
-                continue;
-            }
-            let Some(content) = event.content.as_deref() else {
-                continue;
-            };
-            let Some(status) = job_status_from_event_content(content) else {
-                continue;
-            };
-            let Some(job_id) = job_id_from_event_content(content) else {
-                continue;
-            };
-            if matches!(status, "completed" | "failed") {
-                resolved_jobs.push((job_id, event.actor_id.unwrap_or(0)));
-            }
-        }
-        let mut cleared = Vec::new();
-        for (job_id, actor_id) in resolved_jobs {
-            cleared.extend(self.clear_job_resolved_tags(&job_id, actor_id, "job_resolved"));
-        }
-        cleared
-    }
-
-    fn clear_job_resolved_tags(
-        &mut self,
-        job_id: &str,
-        actor_id: u64,
-        reason: &str,
-    ) -> Vec<EventView> {
-        let Some(job) = self.jobs.get(job_id).cloned() else {
-            return Vec::new();
-        };
-        let tag_ids: Vec<String> = self
-            .tags
-            .values()
-            .filter(|tag| tag.active && tag.expires.as_deref() == Some("when_job_resolves"))
-            .filter(|tag| match tag.scope.as_str() {
-                "room" => job.location_ids.contains(&tag.scope_id),
-                "actor" => job.location_ids.iter().any(|location_id| {
-                    tag.id
-                        == project_preparation_spent_tag_id(
-                            tag.scope_id,
-                            *location_id,
-                            &job.progress_clock_id,
-                        )
-                }),
-                _ => false,
-            })
-            .map(|tag| tag.id.clone())
-            .collect();
-        tag_ids
-            .into_iter()
-            .filter_map(|tag_id| self.clear_rpg_tag(&tag_id, actor_id, reason))
-            .collect()
-    }
-
     fn set_job_status(
         &mut self,
         job_id: &str,
@@ -14305,14 +14248,6 @@ impl RuntimeWorld {
         if target_actor_id != 0 && !self.economy_notice_target_is_valid(actor_id, target_actor_id) {
             return Err("That avatar is not close enough to notice.".to_string());
         }
-        let mutations = if target_actor_id == 0 {
-            self.job_contribution_intent(actor_id, "check", None, None, None)
-                .map(|intent| ProjectionMutation::ResolveJobContribution { intent })
-                .into_iter()
-                .collect()
-        } else {
-            Vec::new()
-        };
         Ok((
             CwAction {
                 kind: CW_ACTION_RULES_SEARCH,
@@ -14323,7 +14258,7 @@ impl RuntimeWorld {
                 dc: LISTEN_DC,
                 ..CwAction::default()
             },
-            mutations,
+            Vec::new(),
         ))
     }
 
@@ -16550,7 +16485,7 @@ impl RuntimeWorld {
                 }
                 Some(parts.join(" "))
             }
-            CW_ACTION_USE_ITEM => {
+            CW_ACTION_USE_ITEM | CW_ACTION_RULES_UTILIZE_ITEM => {
                 let item_name = self
                     .item_name(action.item_id)
                     .unwrap_or_else(|| format!("Item {}", action.item_id));
@@ -16814,6 +16749,7 @@ impl RuntimeWorld {
             CW_ACTION_RULES_MAGIC => CW_OFFER_USE_ITEM,
             CW_ACTION_PICK_UP_ITEM => CW_OFFER_PICK_UP,
             CW_ACTION_USE_ITEM => CW_OFFER_USE_ITEM,
+            CW_ACTION_RULES_UTILIZE_ITEM => return true,
             CW_ACTION_ATTACK => CW_OFFER_ATTACK,
             CW_ACTION_DEFEND => CW_OFFER_DEFEND,
             CW_ACTION_GIVE_ITEM => CW_OFFER_GIVE_ITEM,
@@ -18418,90 +18354,6 @@ impl RuntimeWorld {
         }
     }
 
-    fn job_contribution_intent(
-        &self,
-        actor_id: u64,
-        action_kind: &str,
-        requested_job_id: Option<&str>,
-        requested_strategy_id: Option<&str>,
-        target_hint: Option<(&str, &str)>,
-    ) -> Option<JobContributionIntent> {
-        let actor = self.actor_by_id(actor_id)?;
-        if !Self::actor_can_act(actor) || self.tired_tag_active(actor_id) {
-            return None;
-        }
-        self.jobs
-            .values()
-            .filter(|job| job.delivery.is_none())
-            .filter(|job| {
-                requested_job_id.is_none_or(|requested| job.id == requested)
-                    && job.location_ids.contains(&actor.location_id)
-                    && self.job_status(job) == "active"
-                    && job.contribution_schema_version == JOB_CONTRIBUTION_SCHEMA_VERSION
-                    && focused_job_action_available(self, actor_id, &job.id, action_kind)
-            })
-            .flat_map(|job| {
-                job.contribution_strategies
-                    .iter()
-                    .map(move |strategy| (job, strategy))
-            })
-            .filter(|(_, strategy)| {
-                strategy.action_kind == action_kind
-                    && requested_strategy_id.is_none_or(|requested| strategy.id == requested)
-                    && self.contribution_strategy_binding_is_active(strategy)
-                    && strategy
-                        .requirements
-                        .iter()
-                        .all(|requirement| self.contribution_requirement_met(actor_id, requirement))
-                    && self
-                        .clocks
-                        .get(&strategy.clock_id)
-                        .is_some_and(|clock| clock.filled < clock.segments)
-            })
-            .filter_map(|(job, strategy)| {
-                let target =
-                    self.resolve_contribution_target(actor_id, job, strategy, target_hint)?;
-                let claim_key = Self::contribution_claim_key(actor_id, &job.id, strategy, &target);
-                if claim_key
-                    .as_ref()
-                    .is_some_and(|claim_key| self.rpg_claims.contains(claim_key))
-                {
-                    return None;
-                }
-                Some(JobContributionIntent {
-                    job_id: job.id.clone(),
-                    strategy: strategy.clone(),
-                    target,
-                })
-            })
-            .min_by(|left, right| {
-                let job_order = self
-                    .jobs
-                    .get(&left.job_id)
-                    .zip(self.jobs.get(&right.job_id))
-                    .map(|(left, right)| self.compare_job_presentation(left, right))
-                    .unwrap_or_else(|| left.job_id.cmp(&right.job_id));
-                job_order
-                    .then_with(|| left.strategy.id.cmp(&right.strategy.id))
-                    .then_with(|| left.target.id.cmp(&right.target.id))
-            })
-    }
-
-    fn contribution_progress_amount(&self, actor_id: u64, intent: &JobContributionIntent) -> u8 {
-        let prepared = self
-            .actor_by_id(actor_id)
-            .is_some_and(|actor| self.prepared_tag_active(actor_id, actor.location_id));
-        intent
-            .strategy
-            .baseline_progress
-            .saturating_add(intent.strategy.success_progress)
-            .saturating_add(if prepared {
-                intent.strategy.prepared_bonus_progress
-            } else {
-                0
-            })
-    }
-
     fn ensure_delivery_need_job(
         &mut self,
         pulse: &WorldPulse,
@@ -20064,7 +19916,10 @@ impl RuntimeWorld {
 
         let mut offers = CwActionOffers::default();
         let status = unsafe { cw_get_action_offers(&self.world, actor_id, &mut offers) };
-        if status != CW_OK || offers.option_flags == 0 {
+        let has_authored_contribution = !self
+            .job_contribution_intents(actor_id, None, None, None, None)
+            .is_empty();
+        if status != CW_OK || (offers.option_flags == 0 && !has_authored_contribution) {
             return PrimaryAction {
                 kind: "wait".to_string(),
                 label: "Wait".to_string(),
@@ -20087,6 +19942,15 @@ impl RuntimeWorld {
         let can_prepare = self.prepare_available(actor_id);
         let can_work = self.work_available(actor_id);
         let can_help = self.help_available(actor_id);
+        let can_check_contribution = self
+            .job_contribution_intent(actor_id, "check", None, None, None)
+            .is_some();
+        let can_study_contribution = self
+            .job_contribution_intent(actor_id, "study", None, None, None)
+            .is_some();
+        let can_use_item_contribution = self
+            .job_contribution_intent(actor_id, "use_item", None, None, None)
+            .is_some();
         let can_rest = self.rest_available(actor_id);
         let can_create_bond = self.default_bondable_resident(actor_id).is_some();
         let can_resolve_bond = self.default_resolvable_bond(actor_id).is_some();
@@ -20109,23 +19973,29 @@ impl RuntimeWorld {
                 command,
             });
         }
-        if offers.option_flags & CW_OFFER_CHECK != 0 {
-            if self.listen_offerable(actor_id) {
-                options.push(ActionOption {
-                    kind: "check".to_string(),
-                    label: "Check".to_string(),
-                    command: "listen".to_string(),
-                });
-            }
-            if let Some(contribution) =
-                self.job_contribution_intent(actor_id, "study", None, None, None)
-            {
-                options.push(ActionOption {
-                    kind: "study".to_string(),
-                    label: contribution.strategy.strategy_label,
-                    command: format!("study {}", contribution.target.label),
-                });
-            }
+        if offers.option_flags & CW_OFFER_CHECK != 0 && self.listen_offerable(actor_id) {
+            options.push(ActionOption {
+                kind: "check".to_string(),
+                label: "Check".to_string(),
+                command: "listen".to_string(),
+            });
+        }
+        if can_check_contribution {
+            options.push(ActionOption {
+                kind: "check".to_string(),
+                label: "Check".to_string(),
+                command: "contribute".to_string(),
+            });
+        }
+        if let Some(contribution) = can_study_contribution
+            .then(|| self.job_contribution_intent(actor_id, "study", None, None, None))
+            .flatten()
+        {
+            options.push(ActionOption {
+                kind: "study".to_string(),
+                label: contribution.strategy.strategy_label,
+                command: format!("contribute {}", contribution.strategy.id),
+            });
         }
         if offers.option_flags & CW_OFFER_MOVE != 0 && self.has_accessible_exit(actor_id, access) {
             options.push(ActionOption {
@@ -20163,6 +20033,13 @@ impl RuntimeWorld {
                 kind: "use_item".to_string(),
                 label: "Use".to_string(),
                 command: "use".to_string(),
+            });
+        }
+        if can_use_item_contribution {
+            options.push(ActionOption {
+                kind: "use_item".to_string(),
+                label: "Use".to_string(),
+                command: "contribute".to_string(),
             });
         }
         if let Some(candidate) = &default_feature_use {
@@ -21966,7 +21843,7 @@ impl RuntimeWorld {
             CW_ACTION_DROP_ITEM => "drop_item",
             CW_ACTION_GIVE_ITEM => "give_item",
             CW_ACTION_TRADE_ITEM => "trade_item",
-            CW_ACTION_USE_ITEM => "use_item",
+            CW_ACTION_USE_ITEM | CW_ACTION_RULES_UTILIZE_ITEM => "use_item",
             _ => return false,
         };
         let (_, offers) = self.legal_action_candidates(Some(actor_id), &AccessContext::default());
@@ -22195,7 +22072,7 @@ impl RuntimeWorld {
                 {
                     return true;
                 }
-                CW_ACTION_USE_ITEM
+                CW_ACTION_USE_ITEM | CW_ACTION_RULES_UTILIZE_ITEM
                     if event.type_name == "item.used"
                         && event.actor_id == Some(action.actor_id)
                         && event.item_id == Some(action.item_id) =>
@@ -22348,7 +22225,12 @@ impl RuntimeWorld {
         offers
             .into_iter()
             .filter(action_offer_is_reachable)
-            .filter(|offer| matches!(offer.kind.as_str(), "prepare" | "work" | "help" | "study"))
+            .filter(|offer| {
+                matches!(
+                    offer.kind.as_str(),
+                    "prepare" | "work" | "help" | "check" | "study" | "use_item"
+                )
+            })
             .find_map(|offer| {
                 let project = offer.project?;
                 let intent = self.job_contribution_intent(
@@ -22373,22 +22255,32 @@ impl RuntimeWorld {
         let intent = self.preferred_job_contribution_intent(actor.id)?;
         let action_kind = intent.strategy.action_kind.clone();
         let clock_id = intent.strategy.clock_id.clone();
-        let action = match action_kind.as_str() {
-            "check" => CwAction {
+        let action = match (action_kind.as_str(), &intent.strategy.resolution) {
+            ("check", ContributionResolutionPolicy::SrdCheck { ability, dc }) => CwAction {
                 kind: CW_ACTION_RULES_SEARCH,
                 actor_id: actor.id,
-                ability: LISTEN_ABILITY,
-                dc: LISTEN_DC,
+                ability: ability_from_string(ability),
+                dc: *dc,
                 ..CwAction::default()
             },
-            "study" => CwAction {
+            ("study", ContributionResolutionPolicy::SrdCheck { ability, dc }) => CwAction {
                 kind: CW_ACTION_RULES_STUDY,
                 actor_id: actor.id,
-                ability: 3,
-                dc: LISTEN_DC,
+                ability: ability_from_string(ability),
+                dc: *dc,
                 ..CwAction::default()
             },
-            "prepare" | "work" | "help" => CwAction {
+            ("use_item", ContributionResolutionPolicy::ExistingKernelOutcome { event_type })
+                if event_type == "item.used" && intent.target.kind == "item" =>
+            {
+                CwAction {
+                    kind: CW_ACTION_RULES_UTILIZE_ITEM,
+                    actor_id: actor.id,
+                    item_id: intent.target.id.parse().ok()?,
+                    ..CwAction::default()
+                }
+            }
+            ("prepare" | "work" | "help", _) => CwAction {
                 kind: CW_ACTION_NONE,
                 actor_id: actor.id,
                 ..CwAction::default()
@@ -22685,7 +22577,7 @@ impl RuntimeWorld {
                     .unwrap_or_else(|| format!("Actor {}", action.target_actor_id));
                 format!("{actor_name} intends to trade {offered} for {requested} with {target}.")
             }
-            CW_ACTION_USE_ITEM => {
+            CW_ACTION_USE_ITEM | CW_ACTION_RULES_UTILIZE_ITEM => {
                 proposed_action.kind = "use".to_string();
                 proposed_action.target_actor_id =
                     (action.target_actor_id != 0).then_some(action.target_actor_id);
@@ -22900,7 +22792,7 @@ impl RuntimeWorld {
             CW_ACTION_DROP_ITEM => "drop_item",
             CW_ACTION_GIVE_ITEM => "give_item",
             CW_ACTION_TRADE_ITEM => "trade_item",
-            CW_ACTION_USE_ITEM => "use_item",
+            CW_ACTION_USE_ITEM | CW_ACTION_RULES_UTILIZE_ITEM => "use_item",
             CW_ACTION_CRAFT => "craft",
             CW_ACTION_ATTACK | CW_ACTION_COMBAT_ATTACK | CW_ACTION_COMBAT_FINESSE_ATTACK => {
                 "attack"
@@ -23012,6 +22904,10 @@ impl RuntimeWorld {
                 Self::transfer_offer_matches_action(offer, action)
             }
             CW_ACTION_USE_ITEM => Self::use_offer_matches_action(offer, action),
+            CW_ACTION_RULES_UTILIZE_ITEM => offer
+                .target
+                .as_ref()
+                .is_some_and(|target| target.kind == "item" && target.id == Some(action.item_id)),
             CW_ACTION_CRAFT => offer.target.as_ref().is_some_and(|target| {
                 target.kind == "recipe" && target.id == Some(action.content_id)
             }),
@@ -23613,6 +23509,7 @@ fn hosted_guest_action_restricted(
         action_kind,
         CW_ACTION_PICK_UP_ITEM
             | CW_ACTION_USE_ITEM
+            | CW_ACTION_RULES_UTILIZE_ITEM
             | CW_ACTION_GIVE_ITEM
             | CW_ACTION_DROP_ITEM
             | CW_ACTION_TRADE_ITEM
@@ -26451,6 +26348,9 @@ fn action_path_accepts_kind(path: &str, kind: &str) -> bool {
         "/actions/attack" => kind == "attack",
         "/actions/defend" => kind == "defend",
         "/actions/prepare" => kind == "prepare",
+        "/actions/contribute" => {
+            matches!(kind, "work" | "help" | "check" | "study" | "use_item")
+        }
         "/actions/work" => kind == "work",
         "/actions/help" => kind == "help",
         "/actions/rest" => kind == "rest",
@@ -26673,6 +26573,14 @@ async fn submit_action_offer(
                 ConnectInfo(client_addr),
                 State(state),
                 Json(parsed!(ActorRequest)),
+            )
+            .await
+        }
+        "/actions/contribute" => {
+            contribute(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(parsed!(JobContributionRequest)),
             )
             .await
         }
@@ -29966,6 +29874,24 @@ async fn command_inner(
                 Json(ActorRequest {
                     actor_id: payload.actor_id,
                     actor_session: payload.actor_session,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
+        }
+        CommandDispatch::Contribute {
+            job_id,
+            strategy_id,
+            ..
+        } => {
+            let Json(response) = contribute(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(JobContributionRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                    job_id: Some(job_id),
+                    strategy_id: Some(strategy_id),
                 }),
             )
             .await;
@@ -36674,7 +36600,7 @@ fn causal_target_conflict_event(
         CW_ACTION_GIVE_ITEM | CW_ACTION_TRADE_ITEM => {
             "That transfer target changed before the write committed. No item moved twice."
         }
-        CW_ACTION_USE_ITEM | CW_ACTION_RULES_MAGIC => {
+        CW_ACTION_USE_ITEM | CW_ACTION_RULES_UTILIZE_ITEM | CW_ACTION_RULES_MAGIC => {
             "That item or target changed before the use committed. No charge was spent twice."
         }
         CW_ACTION_CRAFT => {
@@ -49077,6 +49003,7 @@ mod tests {
         assert!(INDEX_HTML.contains("Chat with someone here or explore the room."));
         assert!(INDEX_HTML.contains("discover the room through play"));
         assert!(INDEX_HTML.contains("options.has(\"check\") || listenKnownUnattempted"));
+        assert!(!INDEX_HTML.contains("hasCheckContribution"));
         assert!(INDEX_HTML.contains("data-story-guide"));
         assert!(INDEX_HTML.contains("const storyGuideLabel"));
         assert!(INDEX_HTML.contains("✦ ${escapeHtml(storyGuideLabel)}"));
@@ -57217,7 +57144,7 @@ mod tests {
             .expect("finish-ready work offer is exposed");
         assert_eq!(finish_offer.label, "Push Quiet the echo");
         assert_eq!(finish_offer.intention, "contribute");
-        assert_eq!(finish_offer.command, "work");
+        assert_eq!(finish_offer.command, "contribute steady-trail");
         assert_eq!(finish_offer.rank, 36);
         assert!(finish_offer
             .effect
@@ -57609,6 +57536,13 @@ mod tests {
         assert_eq!(
             runtime.clocks[FIRST_TALE_PROGRESS_CLOCK_ID].filled, 0,
             "the shared question starts unanswered"
+        );
+        let (_, notice_mutations) = runtime
+            .plan_notice_action(5000, 0)
+            .expect("ambient Notice remains available");
+        assert!(
+            notice_mutations.is_empty(),
+            "ambient Notice cannot silently choose an authored contribution strategy"
         );
 
         let action = CwAction {
@@ -63185,7 +63119,7 @@ mod tests {
         assert_eq!(help_offer.category, "social");
         assert_eq!(help_offer.intention, "contribute");
         assert_eq!(help_offer.verb, "Help");
-        assert_eq!(help_offer.command, "assist");
+        assert_eq!(help_offer.command, "contribute steady-beside-traveler");
         assert!(help_offer.risk.is_none());
         assert!(help_offer
             .effect

@@ -74,6 +74,20 @@ describe("worldpack progression access validation", () => {
     expect(result.stdout).toContain("worldpack ok");
   });
 
+  it("rejects a job contribution strategy with an unroutable action kind", () => {
+    const root = worldpackFixture();
+    const jobs = JSON.parse(fs.readFileSync(path.join(root, "jobs.json"), "utf8"));
+    jobs[0].contribution_strategies[0].action_kind = "dance";
+    writeJson(root, "jobs.json", jobs);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      `job ${jobs[0].id} strategy ${jobs[0].contribution_strategies[0].id} has unroutable action_kind dance`,
+    );
+  });
+
   it("rejects an evolution item seeded behind an undeclared access gate", () => {
     const root = worldpackFixture();
     const items = JSON.parse(fs.readFileSync(path.join(root, "items.json"), "utf8"));

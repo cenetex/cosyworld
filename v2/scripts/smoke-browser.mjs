@@ -8739,15 +8739,52 @@ async function main() {
   steps.push({ label: "authoritative room hand", thread: projectedRoomHand.thread, primary: await primaryText() });
   await travelTo("Rain-Soft Garden");
   await page.waitForFunction(() => state?.first_tale?.phase === "contribute");
+  const contributionCursor = await page.evaluate(async () => {
+    const params = new URLSearchParams({
+      actor_id: localStorage.getItem("cosyworld.actorId") || "0",
+      actor_session: localStorage.getItem("cosyworld.actorSession") || "",
+      wallet_address: "dev-wallet",
+      limit: "1",
+    });
+    const replay = await fetch(`/events?${params}`).then((response) => response.json());
+    return Number(replay.next_after || 0);
+  });
   const firstTaleContribution = await drawPrimaryMatching(
-    "first shared-world contribution",
-    ["push", "clear", "garden", "path"],
+    "first shared-world check contribution",
+    ["inspect", "stones"],
   );
   assert(
-    /push clear the garden path/i.test(firstTaleContribution),
-    `the first tale should offer a certain shared contribution: ${firstTaleContribution}`,
+    /inspect.*stones/i.test(firstTaleContribution),
+    `the first tale should offer its authored check strategy: ${firstTaleContribution}`,
   );
-  await clickPrimary("clear the garden path");
+  await clickPrimary("inspect the washed stones");
+  await page.evaluate(() => refresh());
+  const checkContribution = await page.evaluate(async (after) => {
+    const params = new URLSearchParams({
+      actor_id: localStorage.getItem("cosyworld.actorId") || "0",
+      actor_session: localStorage.getItem("cosyworld.actorSession") || "",
+      wallet_address: "dev-wallet",
+      after: String(after),
+      limit: "200",
+    });
+    const replay = await fetch(`/events?${params}`).then((response) => response.json());
+    return (replay.events || []).find((event) => (
+      event.type === "job.contribution.resolved"
+        && String(event.content || "").includes('"strategy_id":"inspect-washed-stones"')
+        && String(event.content || "").includes('"action_kind":"check"')
+    )) || null;
+  }, contributionCursor);
+  assert(
+    checkContribution,
+    "the browser check choice should resolve through its exact authored strategy",
+  );
+  await drawPrimaryMatching("first shared-world preparation", ["prepare"]);
+  await clickPrimary("prepare the garden work");
+  await drawPrimaryMatching(
+    "second shared-world contribution kind",
+    ["clear", "drain"],
+  );
+  await clickPrimary("clear the garden drain");
   await page.evaluate(() => refresh());
   await page.waitForFunction(() => state?.first_tale?.phase === "complete");
   await finishFirstThreadIfReady();
@@ -8914,7 +8951,7 @@ async function main() {
         }
         const projectHelpPrimary = await drawPrimaryMatching(
           "project safe help",
-          ["help coach", "+1 progress"],
+          ["steady the trail together", "coach"],
         );
         assert(
           projectHelpPrimary.toLowerCase().includes("quiet the echo"),
@@ -8961,10 +8998,10 @@ async function main() {
     await clickPrimary("prepare informed project");
     const projectFinishPrimary = await drawPrimaryMatching("project finish", [
       "quiet the echo",
-      "choose a strategy",
+      "choose an approach",
     ]);
     assert(
-      projectFinishPrimary.toLowerCase().includes("choose a strategy"),
+      projectFinishPrimary.toLowerCase().includes("choose an approach"),
       `the finishing project card should keep Push and Help in one choice: ${projectFinishPrimary}`,
     );
     await clickPrimary("finish informed project");

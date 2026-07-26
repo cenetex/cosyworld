@@ -2446,6 +2446,15 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
         }
         let mut strategy_ids = BTreeSet::new();
         for strategy in &job.contribution_strategies {
+            if !matches!(
+                strategy.action_kind.as_str(),
+                "work" | "help" | "check" | "study" | "use_item"
+            ) {
+                return Err(format!(
+                    "job {} strategy {} has unroutable action_kind {}",
+                    job.id, strategy.id, strategy.action_kind
+                ));
+            }
             let target_identity_count = usize::from(strategy.target.id.is_some())
                 + usize::from(strategy.target.predicate.is_some());
             let pack_matches =
@@ -2497,17 +2506,26 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                 }
             }
             match &strategy.resolution {
-                ContributionResolutionPolicy::Certain => {}
+                ContributionResolutionPolicy::Certain => {
+                    if !matches!(strategy.action_kind.as_str(), "work" | "help") {
+                        return Err(format!(
+                            "job {} strategy {} has incompatible certain resolution",
+                            job.id, strategy.id
+                        ));
+                    }
+                }
                 ContributionResolutionPolicy::SrdCheck { ability, dc } => {
-                    if !matches!(
-                        ability.to_ascii_lowercase().as_str(),
-                        "strength"
-                            | "dexterity"
-                            | "constitution"
-                            | "intelligence"
-                            | "wisdom"
-                            | "charisma"
-                    ) || *dc == 0
+                    if !matches!(strategy.action_kind.as_str(), "check" | "study")
+                        || !matches!(
+                            ability.to_ascii_lowercase().as_str(),
+                            "strength"
+                                | "dexterity"
+                                | "constitution"
+                                | "intelligence"
+                                | "wisdom"
+                                | "charisma"
+                        )
+                        || *dc == 0
                     {
                         return Err(format!(
                             "job {} strategy {} has invalid SRD check",
@@ -2516,9 +2534,13 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                     }
                 }
                 ContributionResolutionPolicy::ExistingKernelOutcome { event_type } => {
-                    if event_type.trim().is_empty() {
+                    if strategy.action_kind != "use_item"
+                        || event_type != "item.used"
+                        || strategy.target.kind != "item"
+                        || strategy.target.id.is_none()
+                    {
                         return Err(format!(
-                            "job {} strategy {} has empty outcome event",
+                            "job {} strategy {} has incompatible outcome event",
                             job.id, strategy.id
                         ));
                     }

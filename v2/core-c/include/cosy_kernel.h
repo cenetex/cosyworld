@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define CW_KERNEL_VERSION 7u
+#define CW_KERNEL_VERSION 8u
 
 #define CW_MAX_ACTORS 512u
 #define CW_MAX_ITEMS 1024u
@@ -155,7 +155,10 @@ typedef enum {
   CW_ACTION_COMBAT_PASS = 26,
   CW_ACTION_COMBAT_NEED_TIME = 27,
   CW_ACTION_UNLOCK_EXIT = 28,
-  CW_ACTION_REVEAL_ITEM = 29
+  CW_ACTION_REVEAL_ITEM = 29,
+  /* Project use records an authored item contribution without inheriting the
+     healing-and-consumption semantics of legacy USE_ITEM journals. */
+  CW_ACTION_RULES_UTILIZE_ITEM = 30
 } cw_action_kind;
 
 typedef enum {
