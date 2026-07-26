@@ -6652,6 +6652,25 @@ async function main() {
     assert(assets.every((status) => status.ok && status.contentType.includes("image/png")), `First Bell card asset fetch failed: ${JSON.stringify(assets)}`);
   }
 
+  async function assertHolyLandCatalogAssetsAvailable() {
+    const assets = await page.evaluate(async () => {
+      const urls = [
+        "/assets/the-holy-land/cards/holy-land-simon-peter.webp",
+        "/assets/the-holy-land/cards/holy-land-jerusalem.webp",
+      ];
+      const statuses = [];
+      for (const url of urls) {
+        const response = await fetch(url);
+        statuses.push({ url, ok: response.ok, contentType: response.headers.get("content-type") || "" });
+      }
+      return statuses;
+    });
+    assert(
+      assets.every((status) => status.ok && status.contentType.includes("image/webp")),
+      `Holy Land card asset fetch failed: ${JSON.stringify(assets)}`,
+    );
+  }
+
   async function assertWorldProjectionAvailable() {
     const world = await page.evaluate(async () => {
       const actorId = localStorage.getItem("cosyworld.actorId");
@@ -8775,6 +8794,7 @@ async function main() {
   await assertClientAuthoredSpeechModerated();
   await assertSeedArtAvailable();
   await assertFirstBellCatalogAssetsAvailable();
+  await assertHolyLandCatalogAssetsAvailable();
   await assertBrowserCommandEntryAbsent();
   await assertAvatarReportControlAvailable();
   await listenAtCurrentLocation();

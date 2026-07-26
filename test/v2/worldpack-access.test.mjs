@@ -166,6 +166,27 @@ describe("worldpack Manifest v1 validation", () => {
     expect(result.stderr).toContain("has unavailable provider fixture.missing/assets");
   });
 
+  it("rejects generated art whose required mounted file is missing", () => {
+    const root = worldpackFixture();
+    const assets = JSON.parse(fs.readFileSync(path.join(root, "assets.json"), "utf8"));
+    const holyLand = assets.find((asset) => asset.pack_id === "cosyworld.the-holy-land");
+    const assetRoot = `${path.basename(root)}-holy-land`;
+    holyLand.root = assetRoot;
+    holyLand.optional = false;
+    fs.mkdirSync(path.join(path.dirname(root), assetRoot, holyLand.directory), {
+      recursive: true,
+    });
+    temporaryRoots.push(path.join(path.dirname(root), assetRoot));
+    writeJson(root, "assets.json", assets);
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "generated-art card holy-land-simon-peter is missing required asset",
+    );
+  });
+
   it("rejects an entitlement authority whose provider is unavailable", () => {
     const root = worldpackFixture();
     const manifest = JSON.parse(fs.readFileSync(path.join(root, "worldpack.json"), "utf8"));

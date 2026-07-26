@@ -128,6 +128,7 @@ function actorPrompt(card, actor) {
 }
 
 function locationPrompt(card, location) {
+  const isJerusalem = location.id === 712;
   return [
     `${LORA_TRIGGER}, rough expressive watercolor landscape on paper.`,
     "Use case: historical-scene",
@@ -137,11 +138,19 @@ function locationPrompt(card, location) {
     `Terrain: ${sentence((location.terrain || []).join(", "))}. Biome: ${sentence(location.biome)}.`,
     `Visual identity: ${LOCATION_VISUAL_NOTES.get(location.id) || "A modest first-century regional landscape with no later monument."}`,
     `Mood/persona: ${sentence(location.persona)}`,
-    "Historical setting: first-century Galilee, Samaria, or Judea as appropriate; modest stone, mud-plaster, timber, reed, cloth, pottery, fishing, farming, roads, and vegetation suited to the named place; avoid modern reconstructions and later monumental church architecture.",
+    isJerusalem
+      ? "Historical setting: pre-70 CE Judea, with Herodian pale-limestone masonry, timber, cloth awnings, pottery, rough stone paving, olive and cypress vegetation, and a dense low ancient city."
+      : "Historical setting: first-century Galilee, Samaria, or Judea as appropriate; modest stone, mud-plaster, timber, reed, cloth, pottery, fishing, farming, roads, and vegetation suited to the named place; avoid modern reconstructions and later monumental church architecture.",
     "Style/medium: unfinished, blotchy traditional watercolor travel-sketch, not polished digital art: broad broken washes, ragged dry-brush edges, large white paper gaps, edges dissolving into raw cold-pressed cotton paper, heavy pigment granulation, uneven pooling, backruns and cauliflower blooms, salt texture, loose searching pencil construction lines, sparse selective detail, imperfect handmade marks; muted lapis, olive green, ochre, umber, and pomegranate accents. Keep architecture and terrain painterly and simplified, never smooth or airbrushed.",
-    "Composition: wide cinematic establishing view, one strong readable landmark, layered depth, generous atmosphere, environment only.",
-    "Period constraint: strictly first-century setting; no church, basilica, chapel, mosque, minaret, dome, golden dome, bell tower, cross, crucifix, modern road, modern city, European village, red tiled roof, glass window, electric light, or later pilgrimage monument.",
-    "Constraints: no people, no characters, no crowds, no visible human figure, no creatures as focal subjects, no photorealism, no cinematic photograph, no 3D render, no glossy digital surfaces, no readable text, no letters, no numbers, no watermark, no logo, no UI, no card border.",
+    isJerusalem
+      ? "Composition: an empty architectural panorama at quiet dawn, centered on the broad rectangular pale-limestone Second Temple platform, stepped courts, colonnades, and tall rectangular sanctuary; low flat-roofed city blocks in the foreground, architecture filling the frame."
+      : "Composition: wide cinematic establishing view, one strong readable landmark, layered depth, generous atmosphere, environment only.",
+    isJerusalem
+      ? "Period constraint: Jerusalem before 70 CE under Herodian rule; rectangular limestone civic and sanctuary architecture, colonnaded courts, flat-roofed homes, unpaved lanes, and oil-lamp-era infrastructure throughout."
+      : "Period constraint: strictly first-century setting; no church, basilica, chapel, mosque, minaret, dome, golden dome, bell tower, cross, crucifix, modern road, modern city, European village, red tiled roof, glass window, electric light, or later pilgrimage monument.",
+    isJerusalem
+      ? "Constraints: a quiet uninhabited architectural study rendered as handmade watercolor; blank walls and gates, simplified matte surfaces, clean paper, and no written markings or interface elements."
+      : "Constraints: no people, no characters, no crowds, no visible human figure, no creatures as focal subjects, no photorealism, no cinematic photograph, no 3D render, no glossy digital surfaces, no readable text, no letters, no numbers, no watermark, no logo, no UI, no card border.",
   ].join("\n");
 }
 
