@@ -139,6 +139,54 @@ async fn location_policy_preflight_uses_a_known_safe_capability_contract() {
     server.abort();
 }
 
+#[test]
+fn location_generation_replaces_portrait_prompt_without_disabling_the_style_lora() {
+    let mut config = test_art_config();
+    config.prompt_prefix = "MRQ, cozy storybook trading-card portrait".to_string();
+    config.lora_url = Some("immanencer/mirquo".to_string());
+    let history = community_art_prompt_history(
+        "location",
+        &[
+            "Mara Bramblebrook leaves Foxglove Turn behind.".to_string(),
+            "Quiet Rise has chalk in my boots already.".to_string(),
+        ],
+    );
+    let plan = CommunityArtPlan {
+        subject_kind: "location".to_string(),
+        subject_id: 181_730,
+        level: 1,
+        generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
+        required_orbs: 1,
+        history_through_seq: 99,
+        prompt: build_community_art_prompt(
+            "location",
+            "Quiet Rise",
+            "Newly Found Path",
+            "Chalky lanes meet a reed-fringed river.",
+            1,
+            "chalky lanes, reed beds, river stones",
+            &history,
+            Some(CommunityArtImagePolicy::LocationLandscape),
+        ),
+        aspect_ratio: "16:9",
+        image_policy: Some(CommunityArtImagePolicy::LocationLandscape),
+    };
+
+    let prompt = community_art_generation_request(&config, &plan);
+
+    assert!(prompt.starts_with(LOCATION_LANDSCAPE_PROMPT_PREFIX));
+    assert!(!prompt.contains("trading-card portrait"));
+    for portrait_leak in [
+        "Collectible card art",
+        "titled",
+        "Mara Bramblebrook",
+        "chalk in my boots",
+    ] {
+        assert!(!prompt.contains(portrait_leak), "{portrait_leak}: {prompt}");
+    }
+    assert_eq!(config.lora_url.as_deref(), Some("immanencer/mirquo"));
+}
+
 #[tokio::test]
 async fn location_policy_400_fails_before_orb_debit_or_replicate_schedule() {
     let mut runtime = RuntimeWorld::seeded();
@@ -253,6 +301,7 @@ async fn location_policy_400_fails_before_orb_debit_or_replicate_schedule() {
             subject_kind: "location".to_string(),
             subject_id: waypoint_id,
             level: 1,
+            generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
             required_orbs: 1,
             history_through_seq: 0,
             prompt: String::new(),
@@ -316,6 +365,7 @@ async fn policy_retry_reuses_the_saved_candidate_without_calling_replicate() {
         subject_kind: "location".to_string(),
         subject_id: 181_728,
         level: 1,
+        generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
         required_orbs: 1,
         history_through_seq: 99,
         prompt: "A quiet rain-soft path with no figures.".to_string(),
@@ -435,6 +485,7 @@ fn provider_attempt_budget_is_journaled_and_survives_serialization() {
                 subject_id: 5000,
                 level: 1,
                 provider_attempt: true,
+                generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
             });
         record
             .projection_mutations
@@ -470,6 +521,141 @@ fn provider_attempt_budget_is_journaled_and_survives_serialization() {
         MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS
     );
     assert!(!community_art_generation_retryable(&restored[&key], false));
+}
+
+#[test]
+fn newer_location_prompt_profile_reopens_a_paid_exhausted_job() {
+    let mut runtime = RuntimeWorld::seeded();
+    create_test_human(
+        &mut runtime,
+        5000,
+        COSY_COTTAGE_LOCATION_ID,
+        "Recovered Patron",
+    );
+    let subject_id = 181_730;
+    let mut funding = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: 5000,
+            ..CwAction::default()
+        },
+        7060,
+    );
+    funding
+        .projection_mutations
+        .push(ProjectionMutation::FundCommunityArt {
+            subject_kind: "location".to_string(),
+            subject_id,
+            level: 1,
+            required_orbs: 1,
+            contributor_actor_id: 5000,
+            intent_id: "test-paid-location-recovery".to_string(),
+            amount: 1,
+            history_through_seq: 7060,
+        });
+    assert_eq!(runtime.apply_journal_record(&funding).0, CW_OK);
+
+    let key = community_art_generation_key("location", subject_id, 1);
+    runtime
+        .community_art_generations
+        .get_mut(&key)
+        .expect("funded generation")
+        .generation_profile_version = LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION;
+    for attempt in 1..=MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS {
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                ..CwAction::default()
+            },
+            7060 + u64::from(attempt),
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::BeginCommunityArtGeneration {
+                subject_kind: "location".to_string(),
+                subject_id,
+                level: 1,
+                provider_attempt: true,
+                generation_profile_version: LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION,
+            });
+        record
+            .projection_mutations
+            .push(ProjectionMutation::CompleteCommunityArtGeneration {
+                subject_kind: "location".to_string(),
+                subject_id,
+                level: 1,
+                status: "policy_rejected".to_string(),
+                prediction_id: Some(format!("legacy-prediction-{attempt}")),
+                error_code: Some("community_art_policy_rejected".to_string()),
+            });
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    }
+
+    let exhausted = &runtime.community_art_generations[&key];
+    assert_eq!(exhausted.funded_orbs, exhausted.required_orbs);
+    assert_eq!(
+        exhausted.provider_attempts,
+        MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS
+    );
+    assert!(!community_art_generation_retryable(exhausted, false));
+    assert!(community_art_generation_retryable_for_profile(
+        exhausted,
+        false,
+        LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION
+    ));
+
+    let mut retry = JournalRecord::new(
+        CwAction {
+            kind: CW_ACTION_NONE,
+            actor_id: 5000,
+            ..CwAction::default()
+        },
+        7064,
+    );
+    retry
+        .projection_mutations
+        .push(ProjectionMutation::BeginCommunityArtGeneration {
+            subject_kind: "location".to_string(),
+            subject_id,
+            level: 1,
+            provider_attempt: true,
+            generation_profile_version: LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION,
+        });
+    assert_eq!(runtime.apply_journal_record(&retry).0, CW_OK);
+
+    let recovered = &runtime.community_art_generations[&key];
+    assert_eq!(
+        recovered.generation_profile_version,
+        LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION
+    );
+    assert_eq!(recovered.provider_attempts, 1);
+    assert_eq!(recovered.funded_orbs, recovered.required_orbs);
+    assert_eq!(recovered.status, "generating");
+}
+
+#[test]
+fn legacy_begin_generation_journal_defaults_to_the_original_prompt_profile() {
+    let mutation: ProjectionMutation = serde_json::from_value(serde_json::json!({
+        "kind": "begin_community_art_generation",
+        "subject_kind": "location",
+        "subject_id": 181730,
+        "level": 1,
+        "provider_attempt": true
+    }))
+    .expect("legacy begin-generation journal remains readable");
+
+    let ProjectionMutation::BeginCommunityArtGeneration {
+        generation_profile_version,
+        ..
+    } = mutation
+    else {
+        panic!("legacy mutation retains its variant");
+    };
+    assert_eq!(
+        generation_profile_version,
+        LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION
+    );
 }
 
 #[tokio::test]

@@ -262,6 +262,11 @@ CosyWorld should generalize that into Rust rather than copying the Ruby High Typ
   generation attempts are journal-counted and capped at three per
   `{subject kind, subject id, level}`. Rejection, review failure, and missing
   review configuration all leave the deterministic landscape fallback visible.
+- Location generation keeps the configured CosyWorld style LoRA but replaces
+  the avatar portrait/card prefix with a landscape-only prefix and reduces
+  public history to environmental traces without actor names or dialogue.
+  Prompt profiles are versioned; advancing a profile reopens one bounded
+  provider budget for an already-funded job without another Orb debit.
 - Current implementation stores a durable funding/status projection and serves the ready shared asset from the generated-card route. A generalized object-store-backed `media_jobs` service remains the scaling step.
 
 ## Combat Replaces Quizzes
