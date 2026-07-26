@@ -18086,27 +18086,6 @@ impl RuntimeWorld {
 
     fn rest_available(&self, actor_id: u64) -> bool {
         self.tired_tag_active(actor_id)
-            && self.frontier_travel_since_rest_count(actor_id)
-                >= self.frontier_travel_since_rest_required(actor_id)
-    }
-
-    fn frontier_travel_since_rest_required(&self, actor_id: u64) -> usize {
-        self.actor_by_id(actor_id)
-            .map(|actor| usize::from(actor.stats.level.clamp(1, 4)))
-            .unwrap_or(1)
-    }
-
-    fn frontier_travel_since_rest_count(&self, actor_id: u64) -> usize {
-        let prefix = frontier_travel_since_rest_tag_prefix(actor_id);
-        self.tags
-            .values()
-            .filter(|tag| {
-                tag.active
-                    && tag.scope == "actor"
-                    && tag.scope_id == actor_id
-                    && tag.id.starts_with(&prefix)
-            })
-            .count()
     }
 
     fn frontier_travel_since_rest_tag_ids(&self, actor_id: u64) -> Vec<String> {
@@ -35248,7 +35227,7 @@ async fn rest(
     let Ok(mutations) = runtime.plan_rest_mutations(payload.actor_id) else {
         return Json(ActionResponse {
             ok: false,
-            status: 409,
+            status: 400,
             events: Vec::new(),
         });
     };
@@ -54768,19 +54747,8 @@ mod tests {
         assert!(tired_state.tags.iter().any(|tag| tag.label == "tired"));
         assert_eq!(tired_state.ledger.unbanked_count, 0);
         assert_eq!(tired_state.ledger.banked_count, 2);
-        assert!(!runtime.rest_available(5000));
-        assert_ne!(tired_state.primary_action.kind, "rest");
-        assert!(!tired_state
-            .primary_action
-            .options
-            .iter()
-            .any(|option| option.kind == "rest"));
-
-        move_test_actor(&mut runtime, 5000, 2, 70861);
-        move_test_actor(&mut runtime, 5000, MOONLIT_TRAIL_LOCATION_ID, 70862);
         assert!(runtime.rest_available(5000));
-        let ready_to_rest_state = runtime.state_response(Some(5000), &AccessContext::default());
-        assert!(ready_to_rest_state
+        assert!(tired_state
             .primary_action
             .options
             .iter()
@@ -56183,11 +56151,11 @@ mod tests {
             .find(|offer| offer.kind == "create_bond")
             .expect("bond offer is available after the first skill step");
         assert!(bond_offer.rank > 0);
-        assert!(!trained_state
+        assert!(trained_state
             .action_offers
             .iter()
             .any(|offer| offer.kind == "rest"));
-        assert!(!runtime.rest_available(5000));
+        assert!(runtime.rest_available(5000));
         assert!(runtime
             .train_skill(5000, "nimble_hands", SKILL_STEP_COST, "advancement")
             .is_empty());
@@ -56236,14 +56204,12 @@ mod tests {
         assert_eq!(roll.modifier, Some(1));
         assert_eq!(roll.total, roll.raw_roll.map(|raw| raw + 1));
 
-        move_test_actor(&mut runtime, 5000, 2, 70961);
-        move_test_actor(&mut runtime, 5000, MOONLIT_TRAIL_LOCATION_ID, 70962);
         let ready_to_rest_state = runtime.state_response(Some(5000), &AccessContext::default());
         let rest_offer = ready_to_rest_state
             .action_offers
             .iter()
             .find(|offer| offer.kind == "rest")
-            .expect("rest offer is exposed after frontier travel");
+            .expect("rest offer is exposed as soon as the actor is tired");
         assert!(rest_offer
             .effect
             .as_deref()
@@ -58827,144 +58793,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn tired_actor_must_rest_before_more_project_exertion() {
+    async fn sanctuary_work_rest_cycle_completes_first_tale_without_frontier_travel() {
         let mut runtime = RuntimeWorld::seeded();
-        let mut create = CwAction::default();
-        create.kind = CW_ACTION_CREATE_ACTOR;
-        create.actor_id = 5000;
-        create.location_id = MOONLIT_TRAIL_LOCATION_ID;
-        let mut create_record = JournalRecord::new(create, 7150);
-        create_record.actor_meta_upserts.insert(
+        create_test_human(
+            &mut runtime,
             5000,
-            ActorMeta {
-                name: "Tired Worker".to_string(),
-                speech_mode: "prose".to_string(),
-                title: "Overextended Helper".to_string(),
-                description: "A test avatar checking tired project gates.".to_string(),
-            },
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Garden Path Worker",
         );
-        assert_eq!(runtime.apply_journal_record(&create_record).0, CW_OK);
 
         let state = test_app_state(runtime, None);
         let (actor_session, _) = issue_actor_session(&state, 5000);
-        assert_eq!(
-            ping_actor_session_for_actor(&state.actor_sessions, 5000, &actor_session),
-            Some(false)
-        );
-
-        let work_response = work(
+        let unneeded_rest = rest(
             ConnectInfo("127.0.0.1:43105".parse().expect("client address")),
             State(state.clone()),
-            Json(JobContributionRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session.clone()),
-                job_id: None,
-                strategy_id: None,
-            }),
-        )
-        .await
-        .0;
-        assert!(work_response.ok);
-        assert_eq!(work_response.status, CW_OK);
-        assert!(work_response.events.iter().any(|event| {
-            event.type_name == "clock.updated"
-                && event.clock_id.as_deref() == Some(MOONLIT_PROGRESS_CLOCK_ID)
-                && event.clock_delta == Some(2)
-        }));
-        assert!(work_response.events.iter().any(|event| {
-            event.type_name == "tag.applied" && event.tag_label.as_deref() == Some("tired")
-        }));
-
-        {
-            let runtime = state.inner.lock().await;
-            let tired_state = runtime.state_response(Some(5000), &AccessContext::default());
-            assert_ne!(tired_state.primary_action.kind, "rest");
-            assert!(!runtime.rest_available(5000));
-            assert!(!tired_state
-                .primary_action
-                .options
-                .iter()
-                .any(|option| option.kind == "rest"));
-            assert!(!tired_state
-                .primary_action
-                .options
-                .iter()
-                .any(|option| matches!(option.kind.as_str(), "prepare" | "work" | "help")));
-            assert!(runtime.tired_tag_active(5000));
-            assert!(!runtime.prepare_available(5000));
-            assert!(!runtime.work_available(5000));
-            assert!(!runtime.help_available(5000));
-        }
-
-        for (label, response) in [
-            (
-                "work",
-                work(
-                    ConnectInfo("127.0.0.1:43106".parse().expect("client address")),
-                    State(state.clone()),
-                    Json(JobContributionRequest {
-                        actor_id: 5000,
-                        actor_session: Some(actor_session.clone()),
-                        job_id: None,
-                        strategy_id: None,
-                    }),
-                )
-                .await
-                .0,
-            ),
-            (
-                "prepare",
-                prepare(
-                    ConnectInfo("127.0.0.1:43107".parse().expect("client address")),
-                    State(state.clone()),
-                    Json(ActorRequest {
-                        actor_id: 5000,
-                        actor_session: Some(actor_session.clone()),
-                    }),
-                )
-                .await
-                .0,
-            ),
-            (
-                "help",
-                help_room(
-                    ConnectInfo("127.0.0.1:43108".parse().expect("client address")),
-                    State(state.clone()),
-                    Json(JobContributionRequest {
-                        actor_id: 5000,
-                        actor_session: Some(actor_session.clone()),
-                        job_id: None,
-                        strategy_id: None,
-                    }),
-                )
-                .await
-                .0,
-            ),
-        ] {
-            assert!(!response.ok, "{label} should be blocked while tired");
-            assert_eq!(response.status, 409, "{label} should reject while tired");
-            assert!(
-                response.events.is_empty(),
-                "{label} should not commit events"
-            );
-        }
-
-        {
-            let mut runtime = state.inner.lock().await;
-            move_test_actor(&mut runtime, 5000, 2, 71501);
-            move_test_actor(&mut runtime, 5000, MOONLIT_TRAIL_LOCATION_ID, 71502);
-            assert!(runtime.rest_available(5000));
-            let ready_state = runtime.state_response(Some(5000), &AccessContext::default());
-            assert!(ready_state
-                .primary_action
-                .options
-                .iter()
-                .any(|option| option.kind == "rest"));
-        }
-
-        let rest_response = rest(
-            ConnectInfo("127.0.0.1:43109".parse().expect("client address")),
-            State(state.clone()),
             Json(ActorRequest {
                 actor_id: 5000,
                 actor_session: Some(actor_session.clone()),
@@ -58972,42 +58814,114 @@ mod tests {
         )
         .await
         .0;
-        assert!(rest_response.ok);
-        assert_eq!(rest_response.status, CW_OK);
-        assert!(rest_response.events.iter().any(|event| {
-            event.type_name == "tag.cleared" && event.tag_label.as_deref() == Some("tired")
-        }));
-        assert!(rest_response.events.iter().any(|event| {
-            event.type_name == "clock.updated"
-                && event.clock_id.as_deref() == Some(MOONLIT_DANGER_CLOCK_ID)
-                && event.clock_delta == Some(1)
-        }));
-
+        assert!(!unneeded_rest.ok);
+        assert_eq!(unneeded_rest.status, 400);
+        assert!(unneeded_rest.events.is_empty());
         {
             let runtime = state.inner.lock().await;
-            let rested_state = runtime.state_response(Some(5000), &AccessContext::default());
-            assert!(!rested_state
-                .primary_action
-                .options
-                .iter()
-                .any(|option| option.kind == "rest"));
+            let command = runtime
+                .resolve_command(&command_request(5000, "rest"), &AccessContext::default())
+                .expect("Rest command resolves while recovery is unnecessary");
+            match command.dispatch {
+                CommandDispatch::Disabled { status, output } => {
+                    assert_eq!(status, 400);
+                    assert_eq!(output, "You are already steady enough to keep going.");
+                }
+                other => panic!("unneeded Rest should be disabled, got {other:?}"),
+            }
         }
 
-        let prepare_response = prepare(
-            ConnectInfo("127.0.0.1:43110".parse().expect("client address")),
-            State(state.clone()),
-            Json(ActorRequest {
-                actor_id: 5000,
-                actor_session: Some(actor_session),
-            }),
-        )
-        .await
-        .0;
-        assert!(prepare_response.ok);
-        assert_eq!(prepare_response.status, CW_OK);
-        assert!(prepare_response.events.iter().any(|event| {
-            event.type_name == "tag.applied" && event.tag_label.as_deref() == Some("prepared")
-        }));
+        for step in 1..=4 {
+            let work_response = work(
+                ConnectInfo(
+                    format!("127.0.0.1:{}", 43_105u16 + u16::from(step))
+                        .parse()
+                        .expect("client address"),
+                ),
+                State(state.clone()),
+                Json(JobContributionRequest {
+                    actor_id: 5000,
+                    actor_session: Some(actor_session.clone()),
+                    job_id: Some(FIRST_TALE_JOB_ID.to_string()),
+                    strategy_id: Some("clear-garden-drain".to_string()),
+                }),
+            )
+            .await
+            .0;
+            assert!(work_response.ok, "garden work {step} should succeed");
+            assert_eq!(work_response.status, CW_OK);
+            assert!(work_response.events.iter().any(|event| {
+                event.type_name == "clock.updated"
+                    && event.clock_id.as_deref() == Some(FIRST_TALE_PROGRESS_CLOCK_ID)
+                    && event.clock_filled == Some(step)
+            }));
+
+            {
+                let runtime = state.inner.lock().await;
+                let actor = runtime.actor_by_id(5000).expect("garden worker remains");
+                assert_eq!(actor.location_id, RAIN_SOFT_GARDEN_LOCATION_ID);
+                assert!(runtime.frontier_travel_since_rest_tag_ids(5000).is_empty());
+                assert!(runtime.tired_tag_active(5000));
+                let tired_state = runtime.state_response(Some(5000), &AccessContext::default());
+                let rest_offer = tired_state
+                    .action_offers
+                    .iter()
+                    .find(|offer| offer.kind == "rest")
+                    .expect("tired sanctuary worker can Rest immediately");
+                assert!(rest_offer.risk.is_none());
+                assert_eq!(rest_offer.effect.as_deref(), Some("helps you feel fresh"));
+                assert!(!tired_state
+                    .primary_action
+                    .options
+                    .iter()
+                    .any(|option| { matches!(option.kind.as_str(), "prepare" | "work" | "help") }));
+            }
+
+            if step == 4 {
+                break;
+            }
+            let rest_response = rest(
+                ConnectInfo(
+                    format!("127.0.0.1:{}", 43_205u16 + u16::from(step))
+                        .parse()
+                        .expect("client address"),
+                ),
+                State(state.clone()),
+                Json(ActorRequest {
+                    actor_id: 5000,
+                    actor_session: Some(actor_session.clone()),
+                }),
+            )
+            .await
+            .0;
+            assert!(rest_response.ok, "garden Rest {step} should succeed");
+            assert_eq!(rest_response.status, CW_OK);
+            assert!(rest_response.events.iter().any(|event| {
+                event.type_name == "tag.cleared" && event.tag_label.as_deref() == Some("tired")
+            }));
+            assert!(!rest_response.events.iter().any(|event| {
+                event.type_name == "clock.updated"
+                    && event.clock_id.as_deref() == Some("rain-soft-garden.path-washes-out")
+            }));
+        }
+
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime.clocks[FIRST_TALE_PROGRESS_CLOCK_ID].filled,
+            runtime.clocks[FIRST_TALE_PROGRESS_CLOCK_ID].segments
+        );
+        assert_eq!(
+            runtime
+                .jobs
+                .get(FIRST_TALE_JOB_ID)
+                .map(|job| runtime.job_status(job)),
+            Some("completed".to_string())
+        );
+        assert_eq!(
+            runtime.actor_by_id(5000).map(|actor| actor.location_id),
+            Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+        );
+        assert!(runtime.frontier_travel_since_rest_tag_ids(5000).is_empty());
     }
 
     #[tokio::test]
@@ -66867,7 +66781,7 @@ mod tests {
         assert_eq!(runtime.apply_journal_record(&tired_record).0, CW_OK);
         let tired_cottage = runtime.state_response(Some(5000), &access);
         assert_eq!(tired_cottage.primary_action.kind, "pick_up");
-        assert!(!tired_cottage
+        assert!(tired_cottage
             .primary_action
             .options
             .iter()
@@ -66878,7 +66792,7 @@ mod tests {
             .find(|offer| offer.kind == "pick_up")
             .expect("take offer remains visible while tired in the cottage");
         assert!(take_offer.rank > 0);
-        assert!(!tired_cottage
+        assert!(tired_cottage
             .action_offers
             .iter()
             .any(|offer| offer.kind == "rest"));

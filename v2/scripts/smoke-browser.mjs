@@ -4146,6 +4146,7 @@ async function main() {
       action: {
         chatCost: actionFailureMessage("/actions/chat", { status: 402 }),
         orbCost: actionFailureMessage("/actions/check", { status: 402 }),
+        restNotNeeded: actionFailureMessage("/actions/rest", { status: 400 }),
         reconnect: actionFailureMessage("/actions/move", { status: 403 }),
         changed: actionFailureMessage("/actions/give-item", { status: 409 }),
         waiting: actionFailureMessage("/actions/chat", { status: 423 }),
@@ -4174,6 +4175,7 @@ async function main() {
     }));
     assert(result.action.chatCost === "That choice did not land. Here are the choices you have now.", `a stale Chat payment error should not imply that Chat costs Orbs: ${JSON.stringify(result)}`);
     assert(result.action.orbCost === "That choice did not land. Here are the choices you have now.", `non-image payment errors should not advertise another Orb sink: ${JSON.stringify(result)}`);
+    assert(result.action.restNotNeeded === "You are already steady enough to keep going.", `Rest rules rejection should say why it is unavailable: ${JSON.stringify(result)}`);
     assert(result.action.changed === "That choice changed while you were deciding. Nothing else happened; check what is here and choose again.", `stale cards should explain the refreshed choice and atomic outcome naturally: ${JSON.stringify(result)}`);
     assert(result.command.changed === "That choice changed while you were deciding. Nothing else happened; look again.", `stale typed commands should explain the atomic outcome naturally: ${JSON.stringify(result)}`);
     assert(result.action.hurry === "The room needs a breath. Try again in a moment.", `rate limits should sound like the room, not infrastructure: ${JSON.stringify(result)}`);

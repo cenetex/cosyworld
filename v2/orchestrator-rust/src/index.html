@@ -6313,6 +6313,7 @@
       }
       if (status === 503 && path.includes("fund-image")) return "The image workshop is unavailable, so no Orb was taken.";
       if (status === 403) return "Your avatar slipped out of reach. Begin again or reconnect your account.";
+      if (status === 400 && path.includes("/actions/rest")) return "You are already steady enough to keep going.";
       if (status === 409) return "That choice changed while you were deciding. Nothing else happened; check what is here and choose again.";
       if (status === 423) return "This is an explicitly ordered scene. The named combat participant acts now; chat and inspection stay available.";
       if (status === 429) return "The room needs a breath. Try again in a moment.";

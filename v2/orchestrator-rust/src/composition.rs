@@ -1539,7 +1539,14 @@ impl RuntimeWorld {
             "rest" if self.trained_since_rest_tag_active(actor_id) => {
                 Some("helps you feel fresh; practice settles into something lasting".to_string())
             }
-            "rest" => Some("helps you feel fresh; trouble may draw nearer out here".to_string()),
+            "rest"
+                if self
+                    .active_danger_clock_id_for_location(actor.location_id)
+                    .is_some_and(|clock_id| self.clock_is_frontier(&clock_id)) =>
+            {
+                Some("helps you feel fresh; trouble may draw nearer out here".to_string())
+            }
+            "rest" => Some("helps you feel fresh".to_string()),
             "move" => Some("takes you to a nearby room".to_string()),
             "flee" => Some("returns from the frontier with something worth remembering".to_string()),
             "search" => self.default_search_target(actor_id).map(|target| {

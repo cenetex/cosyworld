@@ -2513,7 +2513,7 @@ impl RuntimeWorld {
                         verb,
                         action: Some(command_action("rest", "Rest", "rest")),
                         dispatch: CommandDispatch::Disabled {
-                            status: 409,
+                            status: 400,
                             output: "You are already steady enough to keep going.".to_string(),
                         },
                     });
