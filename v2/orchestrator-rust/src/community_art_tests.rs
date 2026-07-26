@@ -74,6 +74,72 @@ async fn location_art_funding_fails_before_debit_without_policy_review() {
 }
 
 #[tokio::test]
+async fn location_policy_preflight_uses_a_known_safe_capability_contract() {
+    let capability_contract_seen = Arc::new(AtomicBool::new(false));
+    let app = Router::new().route(
+        "/chat/completions",
+        post({
+            let capability_contract_seen = capability_contract_seen.clone();
+            move |Json(body): Json<serde_json::Value>| {
+                let capability_contract_seen = capability_contract_seen.clone();
+                async move {
+                    let image_url = body
+                        .pointer("/messages/1/content/1/image_url/url")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default();
+                    let review = body
+                        .pointer("/messages/1/content/0/text")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default();
+                    capability_contract_seen.store(
+                        body.get("model").and_then(serde_json::Value::as_str)
+                            == Some("test-vision-model")
+                            && body
+                                .pointer("/response_format/json_schema/name")
+                                .and_then(serde_json::Value::as_str)
+                                == Some("cosyworld_image_policy")
+                            && image_url == POLICY_PREFLIGHT_IMAGE_URL
+                            && review.contains("uniform solid-green square")
+                            && !review.contains("Publish only a landscape"),
+                        Ordering::SeqCst,
+                    );
+                    Json(serde_json::json!({
+                        "choices": [{
+                            "message": {
+                                "content": r#"{"allowed":true,"violations":[],"summary":"The known-safe capability fixture matches."}"#
+                            }
+                        }]
+                    }))
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind successful policy preflight fixture");
+    let address = listener
+        .local_addr()
+        .expect("successful policy preflight address");
+    let server = tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+    let config = AiConfig {
+        api_key: "test".to_string(),
+        base_url: format!("http://{address}"),
+        model: "test-model".to_string(),
+        vision_model: "test-vision-model".to_string(),
+        reasoning_effort: None,
+    };
+
+    preflight_community_art_policy(Some(&config), CommunityArtImagePolicy::LocationLandscape)
+        .await
+        .expect("known-safe preflight fixture is accepted");
+
+    assert!(capability_contract_seen.load(Ordering::SeqCst));
+    server.abort();
+}
+
+#[tokio::test]
 async fn location_policy_400_fails_before_orb_debit_or_replicate_schedule() {
     let mut runtime = RuntimeWorld::seeded();
     create_test_human(

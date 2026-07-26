@@ -250,9 +250,11 @@ CosyWorld should generalize that into Rust rather than copying the Ruby High Typ
 - Each `{subject kind, subject id, level}` generation is unique and replay-safe. Multiple avatars may pool its exact level-sized cost.
 - The prompt captures public card history through a committed sequence. When the card reaches a later level, its one newly unlocked image can evolve in response to everything that happened since.
 - Fully funded jobs may be retried without another Orb debit. A location job
-  first runs the exact base64-image plus strict-schema policy capability
-  preflight, so a missing or incompatible reviewer fails before either funding
-  or a billable Replicate request.
+  first runs a known-safe solid-color base64 fixture through a matching
+  capability policy and the strict-schema review path, so a missing or
+  incompatible reviewer fails before either funding or a billable Replicate
+  request. The generated image still receives the full landscape publication
+  policy below.
 - Location art is published only after a strict vision-policy review finds no
   people, characters, creatures, text, logos, or watermarks. The downloaded
   candidate is durably stored before review; reviewer outages and restarts

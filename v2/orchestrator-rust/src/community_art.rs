@@ -25,7 +25,7 @@ use crate::{
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
 const COMMUNITY_ART_CANDIDATE_SCHEMA_VERSION: u8 = 1;
-const POLICY_PREFLIGHT_IMAGE_URL: &str =
+pub(super) const POLICY_PREFLIGHT_IMAGE_URL: &str =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XqgWAAAAAElFTkSuQmCC";
 
 pub(super) fn community_art_generation_key(
@@ -97,6 +97,14 @@ impl CommunityArtImagePolicy {
         match self {
             Self::LocationLandscape => {
                 "Publish only a landscape with no visible or implied people, human figures, humanoids, characters, animals, creatures, silhouettes, faces, body parts, statues, portraits, readable text, letters, numbers, logos, or watermarks."
+            }
+        }
+    }
+
+    fn preflight_review(self) -> &'static str {
+        match self {
+            Self::LocationLandscape => {
+                "Allow this image only if it is a uniform solid-green square with no visible person, character, creature, text, logo, or watermark."
             }
         }
     }
@@ -345,7 +353,7 @@ pub(super) async fn preflight_community_art_policy(
         ImagePolicyRequest {
             feature: "media.location_image_policy_preflight",
             image_url: POLICY_PREFLIGHT_IMAGE_URL,
-            policy: policy.review(),
+            policy: policy.preflight_review(),
             timeout: Duration::from_secs(10),
             max_attempts: 1,
             referer: "https://cosyworld.fly.dev",
@@ -355,7 +363,7 @@ pub(super) async fn preflight_community_art_policy(
     .map_err(|error| CommunityArtGenerationError::PolicyReview(error.to_string()))?;
     if !decision.allowed {
         return Err(CommunityArtGenerationError::PolicyReview(format!(
-            "the empty policy preflight image was rejected: {}",
+            "the known-safe policy preflight image was rejected: {}",
             if decision.violations.is_empty() {
                 "unspecified violation".to_string()
             } else {
