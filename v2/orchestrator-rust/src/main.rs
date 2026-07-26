@@ -963,6 +963,8 @@ enum ProjectionMutation {
         subject_id: u64,
         level: u8,
         provider_attempt: bool,
+        #[serde(default = "legacy_community_art_generation_profile_version")]
+        generation_profile_version: u8,
     },
     CompleteCommunityArtGeneration {
         subject_kind: String,
@@ -10338,6 +10340,7 @@ impl RuntimeWorld {
                     subject_id,
                     level,
                     provider_attempt,
+                    generation_profile_version,
                 } => {
                     if let Some(event) = self.apply_begin_community_art_generation_projection(
                         action.actor_id,
@@ -10345,6 +10348,7 @@ impl RuntimeWorld {
                         *subject_id,
                         *level,
                         *provider_attempt,
+                        *generation_profile_version,
                     ) {
                         events.push(event);
                     }
@@ -19436,20 +19440,15 @@ impl RuntimeWorld {
         let generation = self.community_art_generations.get(&key);
         let required_orbs = i32::from(level.max(1));
         let funded_orbs = generation.map(|state| state.funded_orbs).unwrap_or(0);
-        let status = generation
-            .map(|state| state.status.clone())
-            .unwrap_or_else(|| "available".to_string());
+        let status =
+            generation.map_or_else(|| "available".to_string(), |state| state.status.clone());
         let provider_attempts = generation
             .map(|state| state.provider_attempts)
             .unwrap_or_default();
-        let retryable_without_orbs = funded_orbs >= required_orbs
-            && match status.as_str() {
-                "review_failed" | "review_unavailable" | "reviewing" => true,
-                "funded" | "generating" | "failed" | "rejected" | "policy_rejected" => {
-                    provider_attempts < MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS
-                }
-                _ => false,
-            };
+        let generation_profile_version = community_art_generation_profile_version(subject_kind);
+        let retryable_without_orbs = generation.is_some_and(|state| {
+            community_art_generation_retryable_for_profile(state, false, generation_profile_version)
+        });
         if status == "ready" {
             card.image_url = Some(community_art_image_url(
                 subject_kind,
@@ -19694,7 +19693,7 @@ impl RuntimeWorld {
             return Err("That card is not visible from here.".to_string());
         }
         let history_through_seq = self.world.next_event_seq.saturating_sub(1);
-        let history = self
+        let history_entries = self
             .event_log
             .iter()
             .rev()
@@ -19723,27 +19722,23 @@ impl RuntimeWorld {
             .collect::<Vec<_>>()
             .into_iter()
             .rev()
-            .collect::<Vec<_>>()
-            .join("; ");
-        let history = if history.is_empty() {
-            "newly arrived in the shared world".to_string()
-        } else {
-            history
-        };
-        let image_constraints = image_policy
-            .map(CommunityArtImagePolicy::prompt)
-            .unwrap_or("No words, logo, watermark, UI, gore, or photorealism.");
-        let prompt = compact_whitespace(&format!(
-            "Collectible card art for {kind} {name}, titled {title}. {blurb}. Authoritative level {level}. Canonical visual facts: {subject_details}. Let the image visibly remember this public history without adding text: {history}. Preserve the subject's established identity across later levels. {image_constraints}",
-            kind = subject_kind,
-            name = card.display_name,
-            title = card.title,
-            blurb = card.blurb,
-        ));
+            .collect::<Vec<_>>();
+        let history = community_art_prompt_history(subject_kind, &history_entries);
+        let prompt = build_community_art_prompt(
+            subject_kind,
+            &card.display_name,
+            &card.title,
+            &card.blurb,
+            level,
+            &subject_details,
+            &history,
+            image_policy,
+        );
         Ok(CommunityArtPlan {
             subject_kind: subject_kind.to_string(),
             subject_id,
             level,
+            generation_profile_version: community_art_generation_profile_version(subject_kind),
             required_orbs: i32::from(level.max(1)),
             history_through_seq,
             prompt,
@@ -26647,9 +26642,8 @@ async fn fund_community_image(
     let existing = runtime.community_art_generations.get(&key);
     let candidate_exists = community_art_candidate_exists(&state.generated_asset_dir, &plan);
     if existing.is_some_and(|generation| generation.funding_intent_ids.contains(intent_id)) {
-        let retry_generation = existing.is_some_and(|generation| {
-            community_art_generation_retryable(generation, candidate_exists)
-        });
+        let retry_generation = existing
+            .is_some_and(|generation| plan.generation_retryable(generation, candidate_exists));
         drop(runtime);
         if retry_generation {
             schedule_community_art_generation(&state, payload.actor_id, plan);
@@ -26669,7 +26663,7 @@ async fn fund_community_image(
     }
     if existing.is_some_and(|generation| {
         generation.funded_orbs >= generation.required_orbs
-            && !community_art_generation_retryable(generation, candidate_exists)
+            && !plan.generation_retryable(generation, candidate_exists)
     }) {
         return Json(ActionResponse {
             ok: false,
@@ -26738,7 +26732,7 @@ async fn fund_community_image(
     let fully_funded = runtime
         .community_art_generations
         .get(&key)
-        .is_some_and(|generation| community_art_generation_retryable(generation, candidate_exists));
+        .is_some_and(|generation| plan.generation_retryable(generation, candidate_exists));
     drop(runtime);
     if !events.is_empty() {
         broadcast_events(&state, &events);

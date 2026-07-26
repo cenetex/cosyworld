@@ -24,9 +24,25 @@ use crate::{
 };
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
+pub(super) const LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION: u8 = 1;
+pub(super) const LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION: u8 = 2;
+pub(super) const LOCATION_LANDSCAPE_PROMPT_PREFIX: &str =
+    "MRQ, cozy storybook landscape, wide environment establishing view";
 const COMMUNITY_ART_CANDIDATE_SCHEMA_VERSION: u8 = 1;
 pub(super) const POLICY_PREFLIGHT_IMAGE_URL: &str =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XqgWAAAAAElFTkSuQmCC";
+
+pub(super) fn legacy_community_art_generation_profile_version() -> u8 {
+    LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION
+}
+
+pub(super) fn community_art_generation_profile_version(subject_kind: &str) -> u8 {
+    if subject_kind == "location" {
+        LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION
+    } else {
+        LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION
+    }
+}
 
 pub(super) fn community_art_generation_key(
     subject_kind: &str,
@@ -49,6 +65,8 @@ pub(super) struct CommunityArtGenerationState {
     pub(super) subject_kind: String,
     pub(super) subject_id: u64,
     pub(super) level: u8,
+    #[serde(default = "legacy_community_art_generation_profile_version")]
+    pub(super) generation_profile_version: u8,
     pub(super) required_orbs: i32,
     pub(super) funded_orbs: i32,
     #[serde(default)]
@@ -72,11 +90,26 @@ pub(super) struct CommunityArtPlan {
     pub(super) subject_kind: String,
     pub(super) subject_id: u64,
     pub(super) level: u8,
+    pub(super) generation_profile_version: u8,
     pub(super) required_orbs: i32,
     pub(super) history_through_seq: u64,
     pub(super) prompt: String,
     pub(super) aspect_ratio: &'static str,
     pub(super) image_policy: Option<CommunityArtImagePolicy>,
+}
+
+impl CommunityArtPlan {
+    pub(super) fn generation_retryable(
+        &self,
+        generation: &CommunityArtGenerationState,
+        candidate_exists: bool,
+    ) -> bool {
+        community_art_generation_retryable_for_profile(
+            generation,
+            candidate_exists,
+            self.generation_profile_version,
+        )
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -106,6 +139,12 @@ impl CommunityArtImagePolicy {
             Self::LocationLandscape => {
                 "Allow this image only if it is a uniform solid-green square with no visible person, character, creature, text, logo, or watermark."
             }
+        }
+    }
+
+    fn generation_prompt_prefix(self) -> &'static str {
+        match self {
+            Self::LocationLandscape => LOCATION_LANDSCAPE_PROMPT_PREFIX,
         }
     }
 }
@@ -193,6 +232,62 @@ pub(super) fn community_art_generation_retryable(
     }
 }
 
+pub(super) fn community_art_generation_retryable_for_profile(
+    generation: &CommunityArtGenerationState,
+    candidate_exists: bool,
+    generation_profile_version: u8,
+) -> bool {
+    generation.funded_orbs >= generation.required_orbs
+        && (generation_profile_version > generation.generation_profile_version
+            || community_art_generation_retryable(generation, candidate_exists))
+}
+
+pub(super) fn community_art_prompt_history(
+    subject_kind: &str,
+    history_entries: &[String],
+) -> String {
+    if subject_kind == "location" {
+        if history_entries.is_empty() {
+            "newly revealed terrain with no depicted travelers".to_string()
+        } else {
+            format!(
+                "{} recent public moments have left subtle environmental traces such as path wear, tended ground, and changing weather; depict no traveler or written record",
+                history_entries.len()
+            )
+        }
+    } else if history_entries.is_empty() {
+        "newly arrived in the shared world".to_string()
+    } else {
+        history_entries.join("; ")
+    }
+}
+
+#[allow(clippy::too_many_arguments)] // Mirrors the bounded prompt components.
+pub(super) fn build_community_art_prompt(
+    subject_kind: &str,
+    name: &str,
+    title: &str,
+    blurb: &str,
+    level: u8,
+    subject_details: &str,
+    history: &str,
+    image_policy: Option<CommunityArtImagePolicy>,
+) -> String {
+    let image_constraints = image_policy
+        .map(CommunityArtImagePolicy::prompt)
+        .unwrap_or("No words, logo, watermark, UI, gore, or photorealism.");
+    let prompt = if image_policy == Some(CommunityArtImagePolicy::LocationLandscape) {
+        format!(
+            "Wide environment illustration of {name}. {blurb}. Authoritative landscape level {level}. Canonical landscape facts: {subject_details}. Let the terrain and weather remember public history only through environmental detail: {history}. Preserve the established geography across later levels. {image_constraints}"
+        )
+    } else {
+        format!(
+            "Collectible card art for {subject_kind} {name}, titled {title}. {blurb}. Authoritative level {level}. Canonical visual facts: {subject_details}. Let the image visibly remember this public history without adding text: {history}. Preserve the subject's established identity across later levels. {image_constraints}"
+        )
+    };
+    crate::compact_whitespace(&prompt)
+}
+
 impl RuntimeWorld {
     #[allow(clippy::too_many_arguments)] // Mirrors the durable funding mutation fields.
     pub(super) fn apply_fund_community_art_projection(
@@ -214,6 +309,7 @@ impl RuntimeWorld {
                 subject_kind: subject_kind.to_string(),
                 subject_id,
                 level,
+                generation_profile_version: community_art_generation_profile_version(subject_kind),
                 required_orbs: required_orbs.max(1),
                 funded_orbs: 0,
                 contributions: BTreeMap::new(),
@@ -290,9 +386,14 @@ impl RuntimeWorld {
         subject_id: u64,
         level: u8,
         provider_attempt: bool,
+        generation_profile_version: u8,
     ) -> Option<EventView> {
         let key = community_art_generation_key(subject_kind, subject_id, level);
         let generation = self.community_art_generations.get_mut(&key)?;
+        if generation_profile_version > generation.generation_profile_version {
+            generation.generation_profile_version = generation_profile_version;
+            generation.provider_attempts = 0;
+        }
         if provider_attempt {
             generation.provider_attempts = generation.provider_attempts.saturating_add(1);
         }
@@ -383,8 +484,7 @@ pub(super) async fn generate_and_store_community_art(
     let (image, reused_candidate) = match load_community_art_candidate(generated_asset_dir, plan) {
         Ok(Some(image)) => (image, true),
         Ok(None) => {
-            let prompt =
-                crate::compact_whitespace(&format!("{}, {}", config.prompt_prefix, plan.prompt));
+            let prompt = community_art_generation_request(config, plan);
             let image = match request_replicate_art(config, prompt, plan.aspect_ratio).await {
                 Ok(image) => image,
                 Err(error) => {
@@ -455,6 +555,17 @@ pub(super) async fn generate_and_store_community_art(
     }
 }
 
+pub(super) fn community_art_generation_request(
+    config: &ReplicateAvatarArtConfig,
+    plan: &CommunityArtPlan,
+) -> String {
+    let prompt_prefix = plan
+        .image_policy
+        .map(CommunityArtImagePolicy::generation_prompt_prefix)
+        .unwrap_or(&config.prompt_prefix);
+    crate::compact_whitespace(&format!("{prompt_prefix}, {}", plan.prompt))
+}
+
 static COMMUNITY_ART_JOBS: OnceLock<StdMutex<BTreeSet<String>>> = OnceLock::new();
 
 fn community_art_jobs() -> &'static StdMutex<BTreeSet<String>> {
@@ -470,11 +581,14 @@ async fn begin_community_art_generation(
     let mut runtime = state.inner.lock().await;
     let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     let generation = runtime.community_art_generations.get(&key)?;
-    if !community_art_generation_retryable(generation, candidate_exists) {
+    if !plan.generation_retryable(generation, candidate_exists) {
         return None;
     }
     let provider_attempt = !candidate_exists;
-    if provider_attempt && generation.provider_attempts >= MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS {
+    if provider_attempt
+        && plan.generation_profile_version <= generation.generation_profile_version
+        && generation.provider_attempts >= MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS
+    {
         return None;
     }
     let mut record = JournalRecord::new(
@@ -492,6 +606,7 @@ async fn begin_community_art_generation(
             subject_id: plan.subject_id,
             level: plan.level,
             provider_attempt,
+            generation_profile_version: plan.generation_profile_version,
         });
     let (commit_status, events) = commit_journal_record(state, &mut runtime, record).ok()?;
     drop(runtime);
