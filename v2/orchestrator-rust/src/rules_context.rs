@@ -446,6 +446,7 @@ mod tests {
                 operation: offered.operation,
                 rules_profile: offered.rules_profile,
                 state_revision: offered.state_revision,
+                route: offered.route,
                 target: offered.target,
                 cost: offered.cost,
                 payload: serde_json::json!({ "actor_id": 5000 }),

@@ -264,6 +264,7 @@ async function submitOffer(baseUrl, offer, path, payload, compositionId = offer.
     operation: offer.operation,
     rules_profile: offer.rules_profile,
     state_revision: offer.state_revision,
+    route: offer.route,
     target: offer.target,
     cost: offer.cost,
     payload,

@@ -293,6 +293,8 @@ pub(super) struct FactionView {
 
 #[derive(Debug, Serialize)]
 pub(super) struct ExitView {
+    pub(super) route_id: String,
+    pub(super) route_version: u64,
     pub(super) destination_location_id: u64,
     pub(super) destination_location_name: String,
     pub(super) direction: Option<String>,
@@ -510,6 +512,8 @@ pub(super) struct ClockView {
 pub(super) struct SharedQuestionStrategyView {
     pub(super) id: String,
     pub(super) action_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) route: Option<RouteOfferBinding>,
     pub(super) label: String,
     pub(super) target_kind: String,
     pub(super) target_id: Option<String>,
@@ -742,6 +746,7 @@ pub(super) struct ActionInspectorView {
     pub(super) composition_trace: ActionCompositionTraceView,
     pub(super) composition_id: String,
     pub(super) state_revision: u64,
+    pub(super) route: Option<RouteOfferBinding>,
     pub(super) category: String,
     pub(super) label: String,
     pub(super) command: String,
@@ -1655,10 +1660,13 @@ impl RuntimeWorld {
                 self.exit_discovered_for_projection(exit.from_location_id, exit.to_location_id)
             })
             .filter(|exit| exit.flags & CW_EXIT_LOCKED == 0)
-            .map(|exit| {
+            .filter_map(|exit| {
+                let route = self.route_for_edge(exit.from_location_id, exit.to_location_id)?;
                 let access_rule = location_access_rule(exit.to_location_id);
                 let accessible = location_access_allowed(exit.to_location_id, access);
-                ExitView {
+                Some(ExitView {
+                    route_id: route.id.clone(),
+                    route_version: route.entity_version,
                     destination_location_id: exit.to_location_id,
                     destination_location_name: self
                         .location_name(exit.to_location_id)
@@ -1674,7 +1682,7 @@ impl RuntimeWorld {
                     } else {
                         access_rule.reason.map(ToString::to_string)
                     },
-                }
+                })
             })
             .collect()
     }
@@ -2064,9 +2072,15 @@ impl RuntimeWorld {
             let destination = self
                 .location_name(delivery.destination_location_id)
                 .unwrap_or_else(|| format!("Location {}", delivery.destination_location_id));
+            let route = actor_id
+                .and_then(|actor_id| self.actor_by_id(actor_id))
+                .and_then(|actor| {
+                    self.route_offer_binding(actor.location_id, delivery.destination_location_id)
+                });
             return vec![SharedQuestionStrategyView {
                 id: format!("{}:physical-delivery", job.id),
                 action_kind: "carry".to_string(),
+                route,
                 label: job.action_copy.label.clone(),
                 target_kind: "location".to_string(),
                 target_id: Some(delivery.destination_location_id.to_string()),
@@ -2154,6 +2168,7 @@ impl RuntimeWorld {
                 SharedQuestionStrategyView {
                     id: strategy.id.clone(),
                     action_kind: strategy.action_kind.clone(),
+                    route: None,
                     label: strategy.strategy_label.clone(),
                     target_kind: resolved_target
                         .as_ref()
@@ -2561,6 +2576,7 @@ impl RuntimeWorld {
             composition_trace: offer.composition_trace.clone(),
             composition_id: offer.composition_id.clone(),
             state_revision: offer.state_revision,
+            route: offer.route.clone(),
             category: offer.category.clone(),
             label: offer.label.clone(),
             command: offer.command.clone(),

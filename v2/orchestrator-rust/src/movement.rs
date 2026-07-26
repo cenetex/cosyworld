@@ -87,6 +87,7 @@ impl RuntimeWorld {
                     && candidate.state_revision == offered.state_revision
                     && candidate.provider.id == offered.provider.id
                     && candidate.target == offered.target
+                    && candidate.route == offered.route
                     && action_offer_is_reachable(candidate)
             })
     }
@@ -217,6 +218,10 @@ impl RuntimeWorld {
             },
             exit.destination_location_name
         ));
+        offer.route = Some(RouteOfferBinding {
+            route_id: exit.route_id,
+            route_version: exit.route_version,
+        });
         offer.target = Some(target.clone());
         offer.composition_trace.target = Some(target);
         offer
@@ -383,7 +388,7 @@ mod tests {
                         .label
                         .as_deref()
                         .is_some_and(|label| offer.label.contains(label))
-            })
+            }) && offer.route.is_some()
         }));
         assert!(
             direct_offers.iter().all(|offer| {
@@ -516,6 +521,68 @@ mod tests {
     }
 
     #[test]
+    fn stale_route_offer_fails_without_mutating_world_state() {
+        let mut runtime = RuntimeWorld::seeded();
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == RATI_ACTOR_ID)
+            .expect("route actor exists")
+            .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            COSY_COTTAGE_LOCATION_ID,
+        );
+        let offer = runtime
+            .legal_action_candidates(Some(RATI_ACTOR_ID), &AccessContext::default())
+            .1
+            .into_iter()
+            .find(|offer| {
+                offer.kind == "move"
+                    && offer.target.as_ref().and_then(|target| target.id)
+                        == Some(COSY_COTTAGE_LOCATION_ID)
+            })
+            .expect("current route offer");
+        let binding = offer.route.clone().expect("route offer is version-bound");
+        assert!(runtime.transition_route(
+            &binding.route_id,
+            binding.route_version,
+            RouteLifecycle::Blocked,
+        ));
+        runtime.rebuild_kernel_exits_from_routes();
+
+        let before = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+            .expect("serialize route state");
+        let rejected = runtime.validate_action_offer_submission(
+            RATI_ACTOR_ID,
+            &AccessContext::default(),
+            &ActionOfferSubmissionRequest {
+                path: "/actions/move".to_string(),
+                offer_id: offer.offer_id,
+                composition_id: offer.composition_id,
+                kind: offer.kind,
+                rules_action: offer.rules_action,
+                operation: offer.operation,
+                rules_profile: offer.rules_profile,
+                state_revision: offer.state_revision,
+                route: offer.route,
+                target: offer.target,
+                cost: offer.cost,
+                payload: serde_json::json!({
+                    "actor_id": RATI_ACTOR_ID,
+                    "destination_location_id": COSY_COTTAGE_LOCATION_ID,
+                }),
+            },
+        );
+        assert!(rejected.is_err());
+        let after = serde_json::to_value(RuntimeSnapshot::from_runtime(&runtime))
+            .expect("serialize rejected route state");
+        assert_eq!(after, before);
+    }
+
+    #[test]
     fn first_tale_destination_progress_survives_snapshot_and_legacy_backfill() {
         let actor_id = 5000;
         let mut runtime = RuntimeWorld::seeded();
@@ -587,6 +654,7 @@ mod tests {
                 operation: offer.operation,
                 rules_profile: offer.rules_profile,
                 state_revision: offer.state_revision,
+                route: offer.route,
                 target: offer.target,
                 cost: offer.cost,
                 payload: serde_json::Value::Object(payload),
@@ -697,6 +765,7 @@ mod tests {
             let runtime = state.inner.lock().await;
             current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID)
         };
+        assert!(first_scout.route.is_some());
         let first_scout_response = submit_offer_for_test(
             &state,
             &actor_session,
@@ -760,6 +829,7 @@ mod tests {
                     let runtime = state.inner.lock().await;
                     current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID)
                 };
+                assert!(scout.route.is_some(), "step {step} Scout route binding");
                 let scout_response = submit_offer_for_test(
                     &state,
                     &actor_session,
