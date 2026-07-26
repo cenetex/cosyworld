@@ -11,6 +11,56 @@ pub(super) enum MovementPlan {
 }
 
 impl RuntimeWorld {
+    pub(super) fn first_tale_destination_reached(&self, actor_id: u64) -> bool {
+        self.rpg_claims
+            .contains(&first_tale_destination_claim_key(actor_id))
+            || self
+                .actor_by_id(actor_id)
+                .is_some_and(|actor| actor.location_id == RAIN_SOFT_GARDEN_LOCATION_ID)
+    }
+
+    pub(super) fn record_first_tale_destination_arrivals(&mut self, events: &[EventView]) {
+        let actor_ids = events
+            .iter()
+            .filter(|event| {
+                event.success
+                    && event.type_name == "actor.moved"
+                    && (event.location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+                        || event.destination_location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))
+            })
+            .filter_map(|event| event.actor_id)
+            .collect::<BTreeSet<_>>();
+        for actor_id in actor_ids {
+            self.rpg_claims
+                .insert(first_tale_destination_claim_key(actor_id));
+        }
+    }
+
+    pub(super) fn backfill_first_tale_destination_arrivals(&mut self) {
+        let mut actor_ids = self
+            .event_log
+            .iter()
+            .filter(|event| {
+                event.success
+                    && event.type_name == "actor.moved"
+                    && (event.location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID)
+                        || event.destination_location_id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))
+            })
+            .filter_map(|event| event.actor_id)
+            .collect::<BTreeSet<_>>();
+        actor_ids.extend(self.journeys.iter().filter_map(|(actor_id, journey)| {
+            journey
+                .path
+                .get(..=journey.current_step)
+                .is_some_and(|path| path.contains(&RAIN_SOFT_GARDEN_LOCATION_ID))
+                .then_some(*actor_id)
+        }));
+        for actor_id in actor_ids {
+            self.rpg_claims
+                .insert(first_tale_destination_claim_key(actor_id));
+        }
+    }
+
     pub(super) fn current_reachable_offer(
         &self,
         actor_id: u64,
@@ -201,6 +251,12 @@ impl RuntimeWorld {
             .into_iter()
             .any(|exit| exit.accessible && !exit.locked)
     }
+}
+
+fn first_tale_destination_claim_key(actor_id: u64) -> String {
+    format!(
+        "first_tale:v{FIRST_TALE_TRACE_SCHEMA_VERSION}:actor:{actor_id}:destination:{RAIN_SOFT_GARDEN_LOCATION_ID}"
+    )
 }
 
 #[cfg(test)]
@@ -459,6 +515,50 @@ mod tests {
         );
     }
 
+    #[test]
+    fn first_tale_destination_progress_survives_snapshot_and_legacy_backfill() {
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            "Returning Pathfinder",
+        );
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(actor_id, COSY_COTTAGE_LOCATION_ID));
+        let arrival = runtime.append_actor_moved_event(
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
+        runtime.record_first_tale_destination_arrivals(&[arrival]);
+        runtime
+            .world
+            .actors
+            .iter_mut()
+            .find(|actor| actor.id == actor_id)
+            .expect("First Tale actor exists")
+            .location_id = MOONLIT_TRAIL_LOCATION_ID;
+        assert!(runtime.first_tale_view(actor_id).is_none());
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("First Tale progress survives snapshot restore");
+        assert!(restored.first_tale_view(actor_id).is_none());
+
+        let mut legacy_snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        legacy_snapshot
+            .rpg_claims
+            .remove(&first_tale_destination_claim_key(actor_id));
+        let backfilled = legacy_snapshot
+            .into_runtime()
+            .expect("legacy arrival progress backfills from movement");
+        assert!(backfilled.first_tale_view(actor_id).is_none());
+        assert!(backfilled.first_tale_destination_reached(actor_id));
+    }
+
     async fn submit_offer_for_test(
         state: &AppState,
         actor_session: &str,
@@ -503,9 +603,12 @@ mod tests {
         create_test_human(
             &mut runtime,
             actor_id,
-            RAIN_SOFT_GARDEN_LOCATION_ID,
+            COSY_COTTAGE_LOCATION_ID,
             "Offer Pathfinder",
         );
+        runtime
+            .listen_attempt_claims
+            .insert(listen_attempt_claim_key(actor_id, COSY_COTTAGE_LOCATION_ID));
         runtime.callings.insert(
             actor_id,
             CallingState {
@@ -513,6 +616,12 @@ mod tests {
                 statement: EXPLORER_CALLING_STATEMENT.to_string(),
                 source_event_seq: None,
             },
+        );
+        discover_seed_exit_for_actor_for_test(
+            &mut runtime,
+            actor_id,
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
         );
         discover_seed_exit_for_actor_for_test(
             &mut runtime,
@@ -546,6 +655,43 @@ mod tests {
             offer
         };
 
+        {
+            let runtime = state.inner.lock().await;
+            assert_eq!(
+                runtime
+                    .first_tale_view(actor_id)
+                    .expect("the discovered lead is visible")
+                    .phase,
+                "follow_lead"
+            );
+        }
+        let garden_offer = {
+            let runtime = state.inner.lock().await;
+            current_offer(&runtime, "move", RAIN_SOFT_GARDEN_LOCATION_ID)
+        };
+        let garden_response = submit_offer_for_test(
+            &state,
+            &actor_session,
+            "/actions/move",
+            garden_offer,
+            serde_json::json!({
+                "actor_id": actor_id,
+                "destination_location_id": RAIN_SOFT_GARDEN_LOCATION_ID,
+            }),
+        )
+        .await;
+        assert!(garden_response.ok, "{garden_response:?}");
+        {
+            let runtime = state.inner.lock().await;
+            assert_eq!(
+                runtime
+                    .first_tale_view(actor_id)
+                    .expect("arrival advances the First Tale")
+                    .phase,
+                "contribute"
+            );
+        }
+
         let mut final_travel_offer = None;
         let first_scout = {
             let runtime = state.inner.lock().await;
@@ -560,6 +706,10 @@ mod tests {
         )
         .await;
         assert!(first_scout_response.ok, "{first_scout_response:?}");
+        let pathway = {
+            let runtime = state.inner.lock().await;
+            runtime.journeys[&actor_id].path.clone()
+        };
 
         for step in 1..=3 {
             let next_location_id = {
@@ -598,6 +748,13 @@ mod tests {
             )
             .await;
             assert!(travel_response.ok, "step {step}: {travel_response:?}");
+            {
+                let runtime = state.inner.lock().await;
+                assert!(
+                    runtime.first_tale_view(actor_id).is_none(),
+                    "the Garden contribution is hidden when it is not locally actionable"
+                );
+            }
             if step < 3 {
                 let scout = {
                     let runtime = state.inner.lock().await;
@@ -625,6 +782,35 @@ mod tests {
             event.type_name == "journey.completed" && event.actor_id == Some(actor_id)
         }));
         drop(runtime);
+
+        for destination_location_id in pathway[..pathway.len() - 1].iter().rev().copied() {
+            let reverse_offer = {
+                let runtime = state.inner.lock().await;
+                current_offer(&runtime, "move", destination_location_id)
+            };
+            let reverse_response = submit_offer_for_test(
+                &state,
+                &actor_session,
+                "/actions/move",
+                reverse_offer,
+                serde_json::json!({
+                    "actor_id": actor_id,
+                    "destination_location_id": destination_location_id,
+                }),
+            )
+            .await;
+            assert!(reverse_response.ok, "{reverse_response:?}");
+        }
+        {
+            let runtime = state.inner.lock().await;
+            assert_eq!(
+                runtime
+                    .first_tale_view(actor_id)
+                    .expect("the Garden contribution returns on backtracking")
+                    .phase,
+                "contribute"
+            );
+        }
 
         let stale_retry = submit_offer_for_test(
             &state,

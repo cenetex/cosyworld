@@ -920,11 +920,19 @@ impl RuntimeWorld {
         }
         let trace_event_seq = self.first_tale_trace_event_seq(actor_id);
         let has_lead = self.listen_attempt_claimed_at(actor_id, COSY_COTTAGE_LOCATION_ID);
+        let destination_reached = self.first_tale_destination_reached(actor_id);
+        if trace_event_seq.is_none()
+            && has_lead
+            && destination_reached
+            && actor.location_id != RAIN_SOFT_GARDEN_LOCATION_ID
+        {
+            return None;
+        }
         let phase = if trace_event_seq.is_some() {
             "complete"
         } else if !has_lead {
             "notice"
-        } else if actor.location_id != RAIN_SOFT_GARDEN_LOCATION_ID {
+        } else if !destination_reached {
             "follow_lead"
         } else {
             "contribute"
