@@ -5380,44 +5380,6 @@
           run: () => action("/actions/prepare", { actor_id: actorId }),
         });
       }
-      const workOffer = options.has("work") ? offerFor("work") : null;
-      const helpOffer = options.has("help") ? offerFor("help") : null;
-      const contributionProject = workOffer?.project || helpOffer?.project || (activeProgressClock ? {
-        id: String(activeProject?.id || activeProgressClock.id),
-        verb: "Contribute",
-        label: String(activeProject?.action_label || activeProgressClock.label || "the shared work"),
-        summary: String(activeProject?.action_summary || ""),
-        progress_clock_id: String(activeProgressClock.id),
-      } : null);
-      const projectLabel = String(
-        contributionProject?.label
-          || activeProject?.action_label
-          || activeProgressClock?.label
-          || "the shared work"
-      ).trim();
-      const contributionVerb = String(contributionProject?.verb || "Contribute").trim();
-      const contributionStrategies = [];
-      if (options.has("work")
-          && contributionProject
-          && (!workOffer?.project || workOffer.project.progress_clock_id === contributionProject.progress_clock_id)) {
-        const pushVerb = offerVerb(workOffer, "Push");
-        contributionStrategies.push({
-          key: "push",
-          label: `${pushVerb} ${projectLabel}`,
-          detail: [
-            `+${workProgressPreview} progress`,
-            projectWorkFinishes ? "finishes the project" : "faster progress",
-            workOffer?.risk ? friendlyActionText(workOffer.risk) : "may cause fatigue when unprepared",
-          ].filter(Boolean).join(" · "),
-          effect: workOffer?.effect,
-          risk: workOffer?.risk,
-          run: () => action("/actions/work", {
-            actor_id: actorId,
-            job_id: workOffer?.project?.id,
-            strategy_id: workOffer?.project?.strategy_id,
-          }),
-        });
-      }
       const actorTired = (view.tags || []).some((tag) => (
         tag.label === "tired"
         && (!tag.scope_id || Number(tag.scope_id) === Number(actorId))
@@ -5445,70 +5407,108 @@
           run: () => action("/actions/rest", { actor_id: actorId }),
         });
       }
-      if (helpOffer?.project
-          && helpOffer.project.progress_clock_id === contributionProject?.progress_clock_id
-          && String(helpOffer?.target?.label || "").trim()) {
-        const helpVerb = offerVerb(helpOffer, "Help");
-        const avatarName = String(helpOffer.target.label).trim();
-        const relationshipEffect = /deepens Bond|brings you closer/i.test(String(helpOffer?.effect || ""))
-          ? "first contribution strengthens the relationship"
-          : "contribute alongside another avatar";
-        contributionStrategies.push({
-          key: "help",
-          label: `${helpVerb} ${avatarName} with ${projectLabel}`,
-          detail: [
-            `+${helpProgressPreview} progress`,
-            relationshipEffect,
-            helpOffer?.risk ? friendlyActionText(helpOffer.risk) : "slower, usually gentler progress",
-          ].filter(Boolean).join(" · "),
-          effect: helpOffer?.effect,
-          risk: helpOffer?.risk,
-          run: () => action("/actions/help", {
-            actor_id: actorId,
-            job_id: helpOffer?.project?.id,
-            strategy_id: helpOffer?.project?.strategy_id,
-          }),
+      const contributionKinds = new Set(["work", "help", "check", "study", "use_item"]);
+      const contributionOffers = (view.action_offers || []).filter((offer) => (
+        contributionKinds.has(String(offer?.kind || ""))
+          && offer?.project?.id
+          && (offer?.project?.strategy_id || offer.kind === "work" || offer.kind === "help")
+      ));
+      const contributionGroups = new Map();
+      contributionOffers.forEach((offer) => {
+        const projectId = String(offer.project.id);
+        const group = contributionGroups.get(projectId) || [];
+        group.push(offer);
+        contributionGroups.set(projectId, group);
+      });
+      contributionGroups.forEach((group) => {
+        group.sort((left, right) => (
+          Number(left?.rank || 500) - Number(right?.rank || 500)
+          || String(left?.project?.strategy_label || left?.label || "").localeCompare(
+            String(right?.project?.strategy_label || right?.label || ""),
+          )
+        ));
+        const firstOffer = group[0];
+        const contributionProject = firstOffer.project;
+        const projectLabel = String(
+          contributionProject?.label
+            || activeProject?.action_label
+            || activeProgressClock?.label
+            || "the shared work"
+        ).trim();
+        const contributionStrategies = group.map((offer) => {
+          const exactStrategy = Boolean(offer?.project?.strategy_id);
+          const strategyLabel = String(
+            exactStrategy
+              ? (offer?.project?.strategy_label || offer?.label || "Contribute")
+              : (offer.kind === "help"
+                ? `${offerVerb(offer, "Help")} ${String(offer?.target?.label || "another avatar").trim()} with ${projectLabel}`
+                : `${offerVerb(offer, "Push")} ${projectLabel}`)
+          ).trim();
+          const targetLabel = String(offer?.target?.label || "").trim();
+          const relationshipEffect = /deepens Bond|brings you closer/i.test(String(offer?.effect || ""))
+            ? "first contribution strengthens the relationship"
+            : "contribute alongside another avatar";
+          const detail = exactStrategy
+            ? [targetLabel, offer?.risk ? friendlyActionText(offer.risk) : ""]
+              .filter(Boolean)
+              .join(" — ")
+            : (offer.kind === "help"
+              ? [
+                `+${helpProgressPreview} progress`,
+                relationshipEffect,
+                offer?.risk ? friendlyActionText(offer.risk) : "slower, usually gentler progress",
+              ].filter(Boolean).join(" · ")
+              : [
+                `+${workProgressPreview} progress`,
+                projectWorkFinishes ? "finishes the project" : "faster progress",
+                offer?.risk ? friendlyActionText(offer.risk) : "may cause fatigue when unprepared",
+              ].filter(Boolean).join(" · "));
+          const targetId = Number(offer?.target?.id || 0);
+          const card = offer.kind === "use_item"
+            ? cardForItem(targetId)
+            : (offer.kind === "help" ? cardForActor(targetId) : cardForLocation(view.location?.id));
+          return {
+            key: exactStrategy ? String(offer.project.strategy_id) : `legacy:${offer.kind}`,
+            label: strategyLabel,
+            detail: detail || "help the shared work",
+            card,
+            offer,
+          };
         });
-      }
-      if (contributionStrategies.length) {
         const firstStrategy = contributionStrategies[0];
         const oneStrategy = contributionStrategies.length === 1;
         const contributionAction = {
           ...semanticAction(
-            workOffer || helpOffer,
+            firstOffer,
             "contribute",
-            oneStrategy ? firstStrategy.label : `${contributionVerb} to ${projectLabel}`,
+            oneStrategy ? firstStrategy.label : projectLabel,
           ),
-          ...offerHand(workOffer, helpOffer),
+          ...offerHand(group),
           project: contributionProject,
           label: oneStrategy ? firstStrategy.label.toLowerCase() : projectLabel.toLowerCase(),
-          detail: oneStrategy
-            ? firstStrategy.detail
-            : `${contributionStrategies.map((strategy) => strategy.label.split(" ")[0]).join(" or ")} · choose a strategy`,
-          command: oneStrategy ? firstStrategy.key : "contribute",
-          focusKey: `contribute:${contributionProject?.id || contributionProject?.progress_clock_id || activeProgressClock?.id || "project"}`,
+          detail: oneStrategy ? firstStrategy.detail : "choose an approach",
+          command: oneStrategy ? firstOffer.command : "contribute",
+          focusKey: `contribute:${contributionProject.id}`,
           card: cardForLocation(view.location?.id),
           shape: "location",
           priority: Math.min(
             projectWorkFinishes ? 28 : (preparedForRoom ? 33 : (preparationSpentForProject ? 36 : 48)),
             preparedForRoom ? 34 : (preparationSpentForProject ? 37 : 49),
           ),
-          modalTitle: oneStrategy ? firstStrategy.label.toLowerCase() : projectLabel.toLowerCase(),
+          modalTitle: projectLabel.toLowerCase(),
           modalSummary: String(
             contributionProject?.summary
               || activeProject?.action_summary
               || `Choose how to contribute to ${projectLabel}.`
           ),
-          effect: oneStrategy
-            ? firstStrategy.effect
-            : "the chosen strategy advances the same project clock with a different pace and tradeoff",
-          risk: oneStrategy ? firstStrategy.risk : undefined,
+          effect: oneStrategy ? firstOffer.effect : "the chosen approach advances the shared work",
+          risk: oneStrategy ? firstOffer.risk : undefined,
           ...(oneStrategy ? {} : {
             choices: contributionStrategies.map((strategy) => ({
               label: strategy.label,
               detail: strategy.detail,
               value: strategy.key,
-              card: cardForLocation(view.location?.id),
+              card: strategy.card,
             })),
             selectedChoice: firstStrategy.key,
           }),
@@ -5517,15 +5517,31 @@
           const selected = contributionStrategies.find((strategy) => (
             strategy.key === String(contributionAction.selectedChoice || firstStrategy.key)
           )) || firstStrategy;
-          return selected.run();
+          if (!selected.offer.project.strategy_id) {
+            return action(`/actions/${selected.offer.kind}`, {
+              actor_id: actorId,
+              job_id: selected.offer.project.id,
+            });
+          }
+          return action("/actions/contribute", {
+            actor_id: actorId,
+            job_id: selected.offer.project.id,
+            strategy_id: selected.offer.project.strategy_id,
+          });
         };
         built.push(contributionAction);
-      }
+      });
       const listenAttemptedHere = economy.listen_attempted_here === true;
-      const listenHasFreshOutcome = !listenAttemptedHere || options.has("check");
+      const ambientCheckOffer = (view.action_offers || []).find((offer) => (
+        offer.kind === "check" && !offer.project
+      )) || null;
+      const listenHasFreshOutcome = !listenAttemptedHere
+        || Boolean(ambientCheckOffer)
+        || options.has("check");
       const listenKnownUnattempted = economy.listen_attempted_here === false;
-      if ((options.has("check") || listenKnownUnattempted) && listenHasFreshOutcome) {
-        const listenOffer = offerFor("check");
+      if ((options.has("check") || listenKnownUnattempted)
+          && listenHasFreshOutcome) {
+        const listenOffer = ambientCheckOffer;
         const noticeVerb = offerVerb(listenOffer, "Notice");
         built.push({
           ...semanticAction(listenOffer, "notice"),
@@ -5546,29 +5562,6 @@
             : "the room shares one clue it is ready to tell",
           risk: listenAttemptedHere ? listenOffer?.risk : undefined,
           run: () => action("/actions/check", { actor_id: actorId, ability: "wisdom", dc: 12 })
-        });
-      }
-      if (options.has("study")) {
-        const studyOffer = offerFor("study");
-        built.push({
-          ...semanticAction(studyOffer, "study"),
-          label: studyOffer?.label || "study",
-          detail: studyOffer?.target?.label || "the moonlit signs",
-          command: studyOffer?.command || "study the moonlit signs",
-          focusKey: `study:${view.location?.id || "current"}`,
-          card: cardForLocation(view.location?.id),
-          shape: "location",
-          priority: Number(studyOffer?.rank || 61),
-          modalSummary: "Reason through what the signs mean.",
-          effect: studyOffer?.effect || "an understood truth joins your Visit Ledger",
-          risk: studyOffer?.risk,
-          run: () => action("/actions/study", {
-            actor_id: actorId,
-            ability: "intelligence",
-            dc: 12,
-            job_id: studyOffer?.project?.id,
-            strategy_id: studyOffer?.project?.strategy_id,
-          }),
         });
       }
       if (options.has("influence")) {
@@ -6221,6 +6214,7 @@
         "/actions/attack": ["attack"],
         "/actions/defend": ["defend"],
         "/actions/prepare": ["prepare"],
+        "/actions/contribute": ["work", "help", "check", "study", "use_item"],
         "/actions/work": ["work"],
         "/actions/help": ["help"],
         "/actions/rest": ["rest"],
@@ -6257,13 +6251,16 @@
       if (!kinds.length) return null;
       const candidates = (state?.action_offers || []).filter((offer) => kinds.includes(offer.kind));
       return candidates.find((offer) => {
+        const contributionMatches = path !== "/actions/contribute"
+          || (String(offer?.project?.id || "") === String(payload.job_id || "")
+            && String(offer?.project?.strategy_id || "") === String(payload.strategy_id || ""));
         const submittedTarget = offerPayloadTarget(path, offer, payload);
         const targetMatches = !submittedTarget
           || !offer?.target?.id
           || Number(offer.target.id) === submittedTarget;
         const providerMatches = path !== "/actions/use-item"
           || offer?.provider?.id === `item:${Number(payload.item_id || 0)}`;
-        return targetMatches && providerMatches;
+        return contributionMatches && targetMatches && providerMatches;
       }) || null;
     }
 

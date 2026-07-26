@@ -264,7 +264,7 @@ impl RuntimeWorld {
                     .unwrap_or_default();
                 let rank = self.action_offer_rank_for_actor(&option.kind, actor_id);
                 let target = self.action_offer_target(&option.kind, actor_id, access);
-                let project = self.action_offer_project(&option.kind, actor_id);
+                let project = self.action_offer_project(&option.kind, &option.command, actor_id);
                 let intention = action_offer_intention(&option.kind).to_string();
                 let verb = self.action_offer_verb(&option.kind, actor_id);
                 let label = self.action_offer_label(
@@ -375,6 +375,7 @@ impl RuntimeWorld {
             })
             .collect();
         offers = self.expand_item_action_offers(actor_id, offers);
+        offers = self.expand_job_contribution_offers(actor_id, offers);
         offers = self.expand_use_action_offers(actor_id, offers);
         offers = self.expand_transfer_action_offers(actor_id, offers);
         offers = self.expand_route_action_offers(actor_id, access, offers);
@@ -811,9 +812,19 @@ impl RuntimeWorld {
     pub(super) fn action_offer_project(
         &self,
         kind: &str,
+        command: &str,
         actor_id: u64,
     ) -> Option<ActionProjectView> {
-        if !matches!(kind, "prepare" | "work" | "help" | "study") {
+        if !matches!(
+            kind,
+            "prepare" | "work" | "help" | "check" | "study" | "use_item"
+        ) {
+            return None;
+        }
+        if matches!(kind, "check" | "use_item")
+            && canonical_command_verb(command.split_whitespace().next().unwrap_or_default())
+                != "contribute"
+        {
             return None;
         }
         let actor = self.actor_by_id(actor_id)?;
@@ -1369,16 +1380,11 @@ impl RuntimeWorld {
     pub(super) fn action_offer_progress(&self, kind: &str, actor_id: u64) -> Option<u8> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
-            "check" => self
-                .job_contribution_intent(actor_id, "check", None, None, None)
-                .map(|intent| self.contribution_progress_amount(actor_id, &intent))
-                .or_else(|| {
-                    lifecycle_effects_for("on_listen", "room", &actor.location_id.to_string())
-                        .into_iter()
-                        .find_map(|effect| match effect {
-                            EffectDescriptor::AdvanceClock { amount, .. } => Some(amount),
-                            _ => None,
-                        })
+            "check" => lifecycle_effects_for("on_listen", "room", &actor.location_id.to_string())
+                .into_iter()
+                .find_map(|effect| match effect {
+                    EffectDescriptor::AdvanceClock { amount, .. } => Some(amount),
+                    _ => None,
                 }),
             "prepare" => self
                 .job_contribution_intent(actor_id, "prepare", None, None, None)
@@ -1426,14 +1432,6 @@ impl RuntimeWorld {
                     )
                 }),
             "check" => {
-                if let Some(intent) =
-                    self.job_contribution_intent(actor_id, "check", None, None, None)
-                {
-                    return Some(format!(
-                        "lets the room share one useful clue about {}; success helps the shared work through {}",
-                        intent.target.label, intent.strategy.strategy_label
-                    ));
-                }
                 if self.listen_attempt_claimed_at(actor_id, actor.location_id) {
                     return Some(
                         "listens once more, though the room may have nothing new yet"
@@ -1676,7 +1674,7 @@ impl RuntimeWorld {
             "influence" => self
                 .default_chat_target(actor_id)
                 .map(|target| format!("influence:{}:{}:local-lead", actor_id, target.id)),
-            "study" | "work" | "help" | "check" => self
+            "study" | "work" | "help" => self
                 .job_contribution_intent(actor_id, kind, None, None, None)
                 .and_then(|intent| {
                     Self::contribution_claim_key(
@@ -1687,16 +1685,6 @@ impl RuntimeWorld {
                     )
                 })
                 .or_else(|| {
-                    (kind == "check").then(|| {
-                        ability_check_success_claim_key(
-                            actor_id,
-                            actor.location_id,
-                            LISTEN_ABILITY,
-                            LISTEN_DC as i16,
-                        )
-                    })
-                })
-                .or_else(|| {
                     (kind == "help")
                         .then(|| self.job_contribution_intent(actor_id, "help", None, None, None))
                         .flatten()
@@ -1704,6 +1692,12 @@ impl RuntimeWorld {
                         .map(|target_actor_id| help_bond_claim_key(actor_id, target_actor_id))
                         .filter(|claim_key| !self.rpg_claims.contains(claim_key))
                 }),
+            "check" => Some(ability_check_success_claim_key(
+                actor_id,
+                actor.location_id,
+                LISTEN_ABILITY,
+                LISTEN_DC as i16,
+            )),
             "cast_spell" => self
                 .default_spell_card(actor_id)
                 .map(|spell| format!("spell_use:{}:{}", actor_id, spell.id)),

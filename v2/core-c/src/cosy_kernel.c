@@ -877,6 +877,28 @@ static cw_status apply_use_item(cw_world *world, const cw_action *action, cw_eve
   return CW_OK;
 }
 
+static cw_status apply_rules_utilize_item(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
+  cw_actor *actor = 0;
+  cw_status status = require_active_actor(world, action, out_events, &actor);
+  if (status != CW_OK) return status;
+
+  cw_item *item = find_item(world, action->item_id);
+  if (!item) return reject(world, out_events, action, CW_REASON_ITEM_NOT_FOUND);
+  if (item->holder_actor_id != actor->id || item->charges == 0) {
+    return reject(world, out_events, action, CW_REASON_ITEM_NOT_AVAILABLE);
+  }
+
+  append_event(world, out_events, CW_EVENT_ITEM_USED);
+  if (out_events && out_events->count > 0) {
+    cw_event *event = &out_events->events[out_events->count - 1];
+    event->success = 1;
+    event->actor_id = actor->id;
+    event->location_id = actor->location_id;
+    event->item_id = item->id;
+  }
+  return CW_OK;
+}
+
 static cw_status apply_rules_magic(cw_world *world, const cw_action *action, cw_event_buffer *out_events) {
   cw_actor *actor = 0;
   cw_status status = require_active_actor(world, action, out_events, &actor);
@@ -2149,6 +2171,9 @@ cw_status cw_world_apply_with_tick(cw_world *world, const cw_action *action, uin
       break;
     case CW_ACTION_USE_ITEM:
       status = apply_use_item(world, action, out_events);
+      break;
+    case CW_ACTION_RULES_UTILIZE_ITEM:
+      status = apply_rules_utilize_item(world, action, out_events);
       break;
     case CW_ACTION_ATTACK:
       status = apply_attack(world, action, seed, out_events);

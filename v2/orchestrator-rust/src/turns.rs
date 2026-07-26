@@ -464,6 +464,7 @@ pub(super) fn action_concurrency_policy(kind: u8) -> ConcurrencyPolicy {
         CW_ACTION_PICK_UP_ITEM
         | CW_ACTION_DROP_ITEM
         | CW_ACTION_USE_ITEM
+        | CW_ACTION_RULES_UTILIZE_ITEM
         | CW_ACTION_GIVE_ITEM
         | CW_ACTION_TRADE_ITEM
         | CW_ACTION_CRAFT
@@ -476,6 +477,11 @@ pub(super) fn command_concurrency_policy(dispatch: &CommandDispatch) -> Concurre
     match dispatch {
         CommandDispatch::Attack { .. } | CommandDispatch::Defend | CommandDispatch::Flee { .. } => {
             ConcurrencyPolicy::SceneTurn
+        }
+        CommandDispatch::Contribute { action_kind, .. }
+            if matches!(action_kind.as_str(), "work" | "help" | "use_item") =>
+        {
+            ConcurrencyPolicy::TargetSerialized
         }
         CommandDispatch::PickUp { .. }
         | CommandDispatch::Drop { .. }
@@ -1131,6 +1137,7 @@ pub(super) fn actor_action_turn_rejection(
         CW_ACTION_COMBAT_ESCAPE | CW_ACTION_FLEE => "flee",
         CW_ACTION_RULES_SEARCH | CW_ACTION_ABILITY_CHECK => "check",
         CW_ACTION_RULES_STUDY => "study",
+        CW_ACTION_RULES_UTILIZE_ITEM => "use_item",
         _ => "",
     };
     if action.kind == CW_ACTION_SAY
@@ -1184,6 +1191,7 @@ pub(super) fn command_actor_turn_rejection(
         CommandDispatch::Check => "check",
         CommandDispatch::Study => "study",
         CommandDispatch::Prepare => "prepare",
+        CommandDispatch::Contribute { action_kind, .. } => action_kind.as_str(),
         CommandDispatch::Work => "work",
         CommandDispatch::Help => "help",
         _ => "",
