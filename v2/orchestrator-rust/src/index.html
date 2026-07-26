@@ -2342,6 +2342,115 @@
     .avatar-controls button {
       min-height: 36px;
     }
+    .avatar-interactions {
+      display: grid;
+      gap: 8px;
+      border-top: 1px solid rgba(129, 255, 167, 0.18);
+      padding-top: 8px;
+    }
+    .avatar-action-strip,
+    .avatar-safety-strip,
+    .avatar-item-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .avatar-safety-strip {
+      padding-top: 6px;
+      border-top: 1px solid rgba(129, 255, 167, 0.12);
+    }
+    .avatar-icon-action.account-button {
+      min-height: 30px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 7px;
+      font-size: 11px;
+      line-height: 1;
+    }
+    .avatar-icon-action .ui-icon {
+      width: 15px;
+      height: 15px;
+    }
+    .avatar-safety-strip .avatar-icon-action {
+      color: var(--dim);
+      border-color: rgba(129, 255, 167, 0.24);
+      background: transparent;
+    }
+    .avatar-known-items,
+    .nearby-keepsakes {
+      display: grid;
+      gap: 6px;
+    }
+    .avatar-items-label,
+    .nearby-keepsakes-label {
+      color: var(--amber);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .avatar-item-rail,
+    .nearby-keepsake-rail {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    .avatar-item-chip,
+    .nearby-keepsake-chip {
+      width: 50px;
+      min-width: 50px;
+      height: 50px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--terminal-2);
+      color: var(--text);
+      padding: 3px;
+      overflow: hidden;
+    }
+    .avatar-item-chip:hover,
+    .avatar-item-chip[aria-expanded="true"],
+    .nearby-keepsake-chip:hover {
+      border-color: var(--amber);
+      box-shadow: 0 0 0 1px rgba(255, 211, 106, 0.2);
+    }
+    .avatar-item-art,
+    .nearby-keepsake-art {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      border-radius: 3px;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover;
+    }
+    .avatar-item-art .ui-icon,
+    .nearby-keepsake-art .ui-icon {
+      width: 22px;
+      height: 22px;
+    }
+    .avatar-item-detail {
+      display: grid;
+      gap: 6px;
+      border: 1px solid rgba(255, 211, 106, 0.28);
+      border-radius: 5px;
+      background: rgba(255, 211, 106, 0.05);
+      padding: 7px;
+    }
+    .avatar-item-detail[hidden] {
+      display: none;
+    }
+    .avatar-item-detail strong {
+      color: var(--text);
+      font-size: 12px;
+    }
+    .avatar-item-detail small,
+    .avatar-items-empty {
+      color: var(--dim);
+      font-size: 11px;
+      line-height: 1.35;
+    }
     .avatar-offer {
       border-top: 1px solid rgba(129, 255, 167, 0.18);
       padding-top: 7px;
@@ -10297,23 +10406,69 @@
       )) || null;
     }
 
+    function itemActionForActor(kind, targetActorId, itemId) {
+      const actorKey = `actor:${Number(targetActorId || 0)}`;
+      const itemKey = `item:${Number(itemId || 0)}`;
+      return (actions || []).find((candidate) => {
+        if (String(candidate?.label || "").toLowerCase() !== kind) return false;
+        if (kind === "steal") {
+          return candidate?.focusKey === `theft:${Number(targetActorId || 0)}:${Number(itemId || 0)}`;
+        }
+        const focusKeys = candidate?.focusKeys || [];
+        return focusKeys.includes(actorKey) && focusKeys.includes(itemKey);
+      }) || null;
+    }
+
+    function avatarKnownItemsHtml(actor, giftRequests) {
+      if (!actor?.economy) return "";
+      const actorNumericId = Number(actor.id || 0);
+      const heldItems = Array.isArray(actor.economy.held_items) ? actor.economy.held_items : [];
+      if (!heldItems.length) {
+        return `<div class="avatar-known-items"><span class="avatar-items-label">known items</span><span class="avatar-items-empty">No carried keepsakes have been disclosed.</span></div>`;
+      }
+      const chips = [];
+      const details = [];
+      for (const held of heldItems) {
+        const itemId = Number(held.item_id || 0);
+        if (!itemId) continue;
+        const itemName = itemNameForId(itemId);
+        const itemCard = cardForItem(itemId) || {
+          display_name: itemName,
+          role: "item",
+          aspect: "square",
+        };
+        const image = cardImage(itemCard) || fallbackCardImage(itemCard);
+        const actionsAvailable = new Set(held.available_actions || []);
+        const existingRequest = giftRequests.find((request) => Number(request.item_id || 0) === itemId);
+        const actionButtons = [];
+        if (actionsAvailable.has("request")) {
+          actionButtons.push(`<button class="account-button avatar-icon-action" type="button" data-avatar-gift-request="${itemId}" data-avatar-id="${actorNumericId}"${existingRequest ? " disabled" : ""}>${iconSvg("request")}<span>${escapeHtml(existingRequest ? "requested" : "request")}</span></button>`);
+        }
+        if (actionsAvailable.has("trade") && itemActionForActor("trade", actorNumericId, itemId)) {
+          actionButtons.push(`<button class="account-button avatar-icon-action" type="button" data-avatar-item-action="trade" data-avatar-id="${actorNumericId}" data-avatar-item-id="${itemId}">${iconSvg("trade")}<span>trade</span></button>`);
+        }
+        if (actionsAvailable.has("steal") && itemActionForActor("steal", actorNumericId, itemId)) {
+          actionButtons.push(`<button class="account-button avatar-icon-action" type="button" data-avatar-item-action="steal" data-avatar-id="${actorNumericId}" data-avatar-item-id="${itemId}">${iconSvg("steal")}<span>steal</span></button>`);
+        }
+        chips.push(`<button class="avatar-item-chip" type="button" data-avatar-item-toggle="${itemId}" aria-expanded="false" aria-controls="avatar-item-detail-${actorNumericId}-${itemId}" aria-label="${escapeAttr(`Actions for ${itemName}`)}" title="${escapeAttr(itemName)}"><span class="avatar-item-art" aria-hidden="true" style="background-image:url('${escapeAttr(image)}')"></span></button>`);
+        const disposition = cleanEconomyText(held.disposition || "kept close");
+        const reason = cleanEconomyText(held.reason || "");
+        details.push(`<div class="avatar-item-detail" id="avatar-item-detail-${actorNumericId}-${itemId}" data-avatar-item-detail="${itemId}" hidden><strong>${escapeHtml(itemName)}</strong>${disposition || reason ? `<small>${escapeHtml([disposition, reason].filter(Boolean).join(" · "))}</small>` : ""}${actionButtons.length ? `<div class="avatar-item-actions">${actionButtons.join("")}</div>` : `<span class="avatar-items-empty">No action is available for this keepsake right now.</span>`}</div>`);
+      }
+      return `<div class="avatar-known-items"><span class="avatar-items-label">known items</span><div class="avatar-item-rail">${chips.join("")}</div>${details.join("")}</div>`;
+    }
+
     function actorSafetyPanelHtml(actor) {
       if (!actor || Number(actor.id || 0) === Number(actorId || 0)) return "";
       const actorNumericId = Number(actor.id || 0);
       const economyKnown = Boolean(actor?.economy);
       const giftAvailable = Boolean(transferActionForActor("give", actorNumericId));
-      const tradeAvailable = Boolean(transferActionForActor("trade", actorNumericId));
       const incoming = (state?.safety?.incoming_offers || [])
         .filter((offer) => Number(offer.offered_by_actor_id || 0) === actorNumericId);
       const outgoing = (state?.safety?.outgoing_offers || [])
         .filter((offer) => Number(offer.offered_to_actor_id || 0) === actorNumericId);
       const giftRequests = (state?.safety?.gift_auto_accepts || [])
         .filter((request) => Number(request.offered_by_actor_id || 0) === actorNumericId);
-      const giftRequestHtml = (actor?.economy?.held_items || []).map((held) => {
-        const itemId = Number(held.item_id || 0);
-        const existing = giftRequests.find((request) => Number(request.item_id || 0) === itemId);
-        return `<button class="account-button" type="button" data-avatar-gift-request="${itemId}" data-avatar-id="${actorNumericId}"${existing ? " disabled" : ""}>${escapeHtml(existing ? `${itemNameForId(itemId)} requested` : `request ${itemNameForId(itemId)}`)}</button>`;
-      }).join("");
       const offerHtml = [
         ...incoming.map((offer) => {
           const exchange = offer.requested_item_name ? ` for ${offer.requested_item_name}` : "";
@@ -10328,11 +10483,12 @@
       const blockVerb = actor.blocked_by_you ? "unblock" : "block";
       const noticeButton = economyKnown
         ? ""
-        : `<button class="account-button" type="button" data-avatar-notice="${actorNumericId}">notice</button>`;
-      const tradeButton = economyKnown
-        ? `<button class="account-button" type="button" data-avatar-transfer="trade" data-avatar-id="${actorNumericId}"${tradeAvailable ? "" : " disabled"}>offer trade</button>`
+        : `<button class="account-button avatar-icon-action" type="button" data-avatar-notice="${actorNumericId}">${iconSvg("notice")}<span>notice</span></button>`;
+      const giftButton = giftAvailable
+        ? `<button class="account-button avatar-icon-action" type="button" data-avatar-transfer="give" data-avatar-id="${actorNumericId}">${iconSvg("gift")}<span>gift</span></button>`
         : "";
-      return `${offerHtml}<div class="avatar-controls" aria-label="Controls for ${escapeAttr(actorLabel(actor))}">${noticeButton}<button class="account-button" type="button" data-avatar-transfer="give" data-avatar-id="${actorNumericId}"${giftAvailable ? "" : " disabled"}>offer gift</button>${tradeButton}${giftRequestHtml}<button class="account-button" type="button" data-avatar-safety="${muteVerb}" data-avatar-id="${actorNumericId}">${muteVerb}</button><button class="account-button" type="button" data-avatar-safety="${blockVerb}" data-avatar-id="${actorNumericId}">${blockVerb}</button><button class="account-button" type="button" data-avatar-report="${actorNumericId}">report</button></div>`;
+      const primaryActions = `${noticeButton}${giftButton}`;
+      return `${offerHtml}<div class="avatar-interactions" aria-label="Interactions with ${escapeAttr(actorLabel(actor))}">${primaryActions ? `<div class="avatar-action-strip">${primaryActions}</div>` : ""}${avatarKnownItemsHtml(actor, giftRequests)}<div class="avatar-safety-strip" aria-label="Safety controls"><button class="account-button avatar-icon-action" type="button" data-avatar-safety="${muteVerb}" data-avatar-id="${actorNumericId}">${iconSvg("mute")}<span>${muteVerb}</span></button><button class="account-button avatar-icon-action" type="button" data-avatar-safety="${blockVerb}" data-avatar-id="${actorNumericId}">${iconSvg("block")}<span>${blockVerb}</span></button><button class="account-button avatar-icon-action" type="button" data-avatar-report="${actorNumericId}">${iconSvg("report")}<span>report</span></button></div></div>`;
     }
 
     function actorEconomyPanelHtml(actor) {
@@ -10378,18 +10534,23 @@
         const itemName = itemNameForId(soughtItem.item_id);
         rows.push(economyRowHtml("seeks", economyItemSummaryHtml(itemName, soughtItemTags(soughtItem))));
       }
-      for (const heldItem of Array.isArray(economy.held_items) ? economy.held_items : []) {
-        const itemName = itemNameForId(heldItem.item_id);
-        const disposition = String(heldItem.disposition || "held").trim();
-        const dispositionLabel = {
-          attached: "treasured",
-          medicine: "medicine",
-          useful: "useful here",
-          tradeable: "open to trade",
-        }[disposition] || "kept close";
-        rows.push(economyRowHtml("carries", economyItemSummaryHtml(itemName, [dispositionLabel])));
-      }
       return `${rows.join("")}${actorSafetyPanelHtml(actor)}`;
+    }
+
+    function nearbyLocationPanelHtml(card) {
+      const subject = communityArtSubject(card);
+      if (subject?.kind !== "location" || Number(subject.id) !== Number(state?.location?.id || 0)) {
+        return "";
+      }
+      const nearby = (state?.exits || [])
+        .map((exit) => cardForLocation(Number(exit.destination_location_id || 0)))
+        .filter(Boolean);
+      if (!nearby.length) return "";
+      const chips = nearby.map((nearbyCard) => {
+        const image = cardImage(nearbyCard) || fallbackCardImage(nearbyCard);
+        return `<button class="nearby-keepsake-chip" type="button"${cardDataAttr(nearbyCard)} aria-label="${escapeAttr(`Open ${nearbyCard.display_name || "nearby location"} keepsake`)}" title="${escapeAttr(nearbyCard.display_name || "Nearby location")}"><span class="nearby-keepsake-art" aria-hidden="true" style="background-image:url('${escapeAttr(image)}')"></span></button>`;
+      }).join("");
+      return `<div class="nearby-keepsakes"><span class="nearby-keepsakes-label">nearby</span><div class="nearby-keepsake-rail">${chips}</div></div>`;
     }
 
     function openCardModal(card) {
@@ -10417,7 +10578,7 @@
       $("card-modal-keepsake").innerHTML = promise
         ? `<span>when kept close</span>${escapeHtml(promise)}`
         : "";
-      $("card-modal-economy").innerHTML = `${actorEconomyPanelHtml(actor)}${communityArtPanelHtml(card)}`;
+      $("card-modal-economy").innerHTML = `${actorEconomyPanelHtml(actor)}${nearbyLocationPanelHtml(card)}${communityArtPanelHtml(card)}`;
       openModal("card-modal", $("card-modal").querySelector(".card-close"));
       if (dialog) dialog.scrollTop = 0;
       const copy = dialog?.querySelector(".card-copy");
@@ -10461,6 +10622,12 @@
         train: "<circle cx='12' cy='12' r='8.5'/><circle cx='12' cy='12' r='4'/><path d='M12 3.5V7M20.5 12H17M12 20.5V17M3.5 12H7'/>",
         evolve: "<path d='M12 20V10M12 14c-4 0-6-2-6-6 4 0 6 2 6 6zM12 11c4 0 6-2 6-6-4 0-6 2-6 6z'/>",
         trade: "<path d='M4 8h14l-3-3M20 16H6l3 3'/>",
+        gift: "<path d='M4 10h16v10H4zM3 7h18v4H3zM12 7v13'/><path d='M12 7c-2.7 0-5-.7-5-2.3C7 3.5 8 3 9 3c1.6 0 2.5 1.5 3 4zM12 7c2.7 0 5-.7 5-2.3C17 3.5 16 3 15 3c-1.6 0-2.5 1.5-3 4z'/>",
+        request: "<path d='M5 5h14v10H9l-4 4z'/><path d='M9 9h6M12 6v6'/>",
+        steal: "<path d='M7 9V7a5 5 0 0 1 10 0v2M5 9h14l-1 11H6z'/><path d='M9 14h6'/>",
+        mute: "<path d='M4 10h4l5-4v12l-5-4H4zM17 9l4 6M21 9l-4 6'/>",
+        block: "<circle cx='12' cy='12' r='9'/><path d='M6 6l12 12'/>",
+        report: "<path d='M5 21V4h12l-2 4 2 4H5'/><path d='M9 16h6'/>",
         bank: "<path d='M12 3l8 4H4zM6 9v8M10 9v8M14 9v8M18 9v8M4 20h16'/>",
         craft: "<path d='M14.5 5.5l4 4M13 7l4-4 4 4-4 4zM4 20l9-9M3 17l4 4'/>",
         project: "<path d='M5 20V5h11l-2 3 2 3H5'/>",
@@ -12106,6 +12273,49 @@
         runAction(transferAction);
         return;
       }
+      const itemToggle = event.target.closest("[data-avatar-item-toggle]");
+      if (itemToggle) {
+        event.preventDefault();
+        event.stopPropagation();
+        const itemId = String(itemToggle.getAttribute("data-avatar-item-toggle") || "");
+        const controls = itemToggle.closest(".avatar-known-items");
+        if (!controls || !itemId) return;
+        const opening = itemToggle.getAttribute("aria-expanded") !== "true";
+        controls.querySelectorAll("[data-avatar-item-toggle]").forEach((button) => {
+          button.setAttribute("aria-expanded", String(opening && button === itemToggle));
+        });
+        controls.querySelectorAll("[data-avatar-item-detail]").forEach((detail) => {
+          detail.hidden = !(opening && detail.getAttribute("data-avatar-item-detail") === itemId);
+        });
+        return;
+      }
+      const itemActionControl = event.target.closest("[data-avatar-item-action]");
+      if (itemActionControl) {
+        event.preventDefault();
+        event.stopPropagation();
+        const kind = String(itemActionControl.getAttribute("data-avatar-item-action") || "");
+        const targetActorId = Number(itemActionControl.getAttribute("data-avatar-id") || 0);
+        const itemId = Number(itemActionControl.getAttribute("data-avatar-item-id") || 0);
+        const itemAction = itemActionForActor(kind, targetActorId, itemId);
+        if (!itemAction) {
+          setError("That item option is no longer available. The known items were refreshed.");
+          refresh().then(() => {
+            const updated = cardForActor(targetActorId);
+            if (updated) openCardModal(updated);
+          });
+          return;
+        }
+        if (kind === "trade" && Array.isArray(itemAction.choices)) {
+          const choice = itemAction.choices.find((candidate) => {
+            const [candidateActorId, , candidateItemId] = String(candidate?.value || "").split(":");
+            return Number(candidateActorId) === targetActorId && Number(candidateItemId) === itemId;
+          });
+          if (choice) itemAction.selectedChoice = choice.value;
+        }
+        closeCardModal();
+        runAction(itemAction);
+        return;
+      }
       const offerDecision = event.target.closest("[data-transfer-offer-decision]");
       if (offerDecision) {
         event.preventDefault();
@@ -12170,7 +12380,7 @@
         event.stopPropagation();
         const targetActorId = Number(report.getAttribute("data-avatar-report") || 0);
         const target = actorForId(targetActorId);
-        const controls = report.closest(".avatar-controls");
+        const controls = report.closest(".avatar-interactions, .avatar-controls");
         if (!controls || controls.querySelector("[data-avatar-report-form]")) return;
         report.hidden = true;
         controls.insertAdjacentHTML("beforeend", `<form class="avatar-report-form" data-avatar-report-form="${targetActorId}"><label for="avatar-report-reason-${targetActorId}">Why are you reporting ${escapeHtml(actorLabel(target))}?</label><input id="avatar-report-reason-${targetActorId}" name="reason" required maxlength="240" autocomplete="off"><button class="account-button" type="submit">send report</button></form>`);

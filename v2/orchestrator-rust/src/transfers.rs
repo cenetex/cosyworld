@@ -8,6 +8,29 @@ struct TransferOfferKey {
 }
 
 impl RuntimeWorld {
+    pub(super) fn gift_request_is_valid(
+        &self,
+        recipient_actor_id: u64,
+        offered_by_actor_id: u64,
+        item_id: u64,
+    ) -> bool {
+        self.actor_by_id(recipient_actor_id)
+            .zip(self.actor_by_id(offered_by_actor_id))
+            .zip(self.item_by_id(item_id))
+            .is_some_and(|((recipient, holder), item)| {
+                recipient.id != holder.id
+                    && Self::actor_can_act(recipient)
+                    && Self::actor_can_act(holder)
+                    && self.actor_control_mode(recipient.id).is_direct_input()
+                    && self.actor_control_mode(holder.id).is_direct_input()
+                    && recipient.location_id == holder.location_id
+                    && item.holder_actor_id == holder.id
+                    && !self.actors_blocked(recipient.id, holder.id)
+                    && self.economy_known_by(recipient.id, holder.id)
+                    && self.actor_can_receive_item(recipient, item.id)
+            })
+    }
+
     pub(super) fn has_actor_gift(&self, actor_id: u64) -> bool {
         self.actor_give_candidate(actor_id).is_some()
     }
@@ -420,6 +443,49 @@ mod tests {
             },
         );
         assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+    }
+
+    #[test]
+    fn disclosed_item_actions_never_offer_player_consent_for_inference_holders() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_transfer_test_actor(&mut runtime, 5000, "Request Viewer");
+        create_transfer_test_actor(&mut runtime, 5001, "Direct Holder");
+        for item in &mut runtime.world.items[..runtime.world.item_count] {
+            let holder_actor_id = match item.id {
+                STORY_BUTTON_ITEM_ID => Some(5001),
+                DEWBRIGHT_BUTTON_ITEM_ID => Some(RATI_ACTOR_ID),
+                _ => None,
+            };
+            if let Some(holder_actor_id) = holder_actor_id {
+                item.location_id = 0;
+                item.holder_actor_id = holder_actor_id;
+                item.held_since_tick = runtime.world.tick;
+            }
+        }
+        runtime.record_economy_disclosure(5000, 5001);
+        runtime.record_economy_disclosure(5000, RATI_ACTOR_ID);
+        let state = runtime.state_response(Some(5000), &AccessContext::default());
+        let actions_for = |actor_id, item_id| {
+            state
+                .actors
+                .iter()
+                .find(|actor| actor.id == actor_id)
+                .and_then(|actor| actor.resident_economy.as_ref())
+                .and_then(|economy| {
+                    economy
+                        .held_items
+                        .iter()
+                        .find(|item| item.item_id == item_id)
+                })
+                .map(|item| item.available_actions.clone())
+                .unwrap_or_default()
+        };
+        assert!(actions_for(5001, STORY_BUTTON_ITEM_ID)
+            .iter()
+            .any(|action| action == "request"));
+        assert!(actions_for(RATI_ACTOR_ID, DEWBRIGHT_BUTTON_ITEM_ID)
+            .iter()
+            .all(|action| action != "request"));
     }
 
     #[test]

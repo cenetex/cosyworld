@@ -34223,23 +34223,11 @@ async fn request_gift_auto_accept(
     ) {
         return client_actor_rejected_response();
     }
-    let valid = runtime
-        .actor_by_id(payload.actor_id)
-        .zip(runtime.actor_by_id(payload.offered_by_actor_id))
-        .zip(runtime.item_by_id(payload.item_id))
-        .is_some_and(|((recipient, holder), item)| {
-            recipient.id != holder.id
-                && RuntimeWorld::actor_can_act(recipient)
-                && RuntimeWorld::actor_can_act(holder)
-                && runtime.actor_control_mode(recipient.id).is_direct_input()
-                && runtime.actor_control_mode(holder.id).is_direct_input()
-                && recipient.location_id == holder.location_id
-                && item.holder_actor_id == holder.id
-                && !runtime.actors_blocked(recipient.id, holder.id)
-                && runtime.economy_known_by(recipient.id, holder.id)
-                && runtime.actor_can_receive_item(recipient, item.id)
-        });
-    if !valid {
+    if !runtime.gift_request_is_valid(
+        payload.actor_id,
+        payload.offered_by_actor_id,
+        payload.item_id,
+    ) {
         return action_offer_rejected(
             "That exact item and avatar are not available for a gift request.",
         );
@@ -42827,9 +42815,10 @@ mod tests {
         for contract in [
             "data-avatar-notice=",
             "nothing known yet",
-            "target_actor_id: targetActorId",
             "data-avatar-transfer=\"give\"",
-            "data-avatar-transfer=\"trade\"",
+            "data-avatar-item-toggle=",
+            "data-avatar-item-action=\"trade\"",
+            "data-avatar-item-action=\"steal\"",
             "data-avatar-safety=",
             "data-avatar-report=",
             "data-avatar-gift-request=",
@@ -65064,7 +65053,7 @@ mod tests {
             .item_by_id(HEARTH_TONIC_ITEM_ID)
             .expect("Hearth Tonic exists");
         assert!(runtime.resident_item_is_attached(RATI_ACTOR_ID, hearth_tonic));
-        let held_tonic = runtime.resident_held_item_view(rati, hearth_tonic);
+        let held_tonic = runtime.resident_held_item_view(rati, hearth_tonic, None);
         assert_eq!(held_tonic.disposition, "attached");
         assert!(held_tonic.reason.contains("first warm cup"));
 
@@ -65432,7 +65421,7 @@ mod tests {
             .item_by_id(WATCH_BELL_ITEM_ID)
             .expect("Watch Bell exists");
         assert!(!runtime.resident_item_is_attached(RATI_ACTOR_ID, watch_bell));
-        let held_watch = runtime.resident_held_item_view(rati, watch_bell);
+        let held_watch = runtime.resident_held_item_view(rati, watch_bell, None);
         assert_eq!(held_watch.disposition, "tradeable");
         assert!(held_watch.reason.contains("may trade Watch Bell"));
         runtime.world.tick = 20;
@@ -65488,7 +65477,7 @@ mod tests {
             .item_by_id(THREADBARE_MAP_SCRAP_ITEM_ID)
             .expect("Threadbare Map Scrap exists");
         assert!(runtime.resident_item_is_attached(RATI_ACTOR_ID, map));
-        let held_map = runtime.resident_held_item_view(rati, map);
+        let held_map = runtime.resident_held_item_view(rati, map, None);
         assert_eq!(held_map.disposition, "keepsake");
         assert!(held_map.reason.contains("mattered in a room moment"));
     }
@@ -65602,7 +65591,7 @@ mod tests {
         let old_oak = runtime
             .actor_by_id(OLD_OAK_TREE_ACTOR_ID)
             .expect("Old Oak remains present");
-        let held_story = runtime.resident_held_item_view(old_oak, story_button);
+        let held_story = runtime.resident_held_item_view(old_oak, story_button, None);
         assert_eq!(held_story.disposition, "attached");
         assert!(held_story.reason.contains("protects Story Button"));
         assert!(held_story.reason.contains("Hollow"));

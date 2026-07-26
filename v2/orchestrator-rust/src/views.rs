@@ -395,6 +395,7 @@ pub(super) struct ResidentHeldItemView {
     pub(super) disposition: String,
     pub(super) reason: String,
     pub(super) keep_score: i16,
+    pub(super) available_actions: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -1344,6 +1345,7 @@ impl RuntimeWorld {
         &self,
         resident: CwActor,
         item: CwItem,
+        client_actor_id: Option<u64>,
     ) -> ResidentHeldItemView {
         let resident_name = self
             .actor_name(resident.id)
@@ -1400,11 +1402,35 @@ impl RuntimeWorld {
                 format!("{resident_name} may trade {item_name} for something more useful."),
             )
         };
+        let mut available_actions = Vec::new();
+        if let Some(viewer_actor_id) = client_actor_id {
+            if self.gift_request_is_valid(viewer_actor_id, resident.id, item.id) {
+                available_actions.push("request".to_string());
+            }
+            if self
+                .accepted_item_trade_candidates(viewer_actor_id)
+                .into_iter()
+                .any(|candidate| {
+                    candidate.target.id == resident.id && candidate.target_item.id == item.id
+                })
+            {
+                available_actions.push("trade".to_string());
+            }
+            if self
+                .default_theft_candidate(viewer_actor_id)
+                .is_some_and(|(target, candidate)| {
+                    target.id == resident.id && candidate.id == item.id
+                })
+            {
+                available_actions.push("steal".to_string());
+            }
+        }
         ResidentHeldItemView {
             item_id: item.id,
             disposition: disposition.to_string(),
             reason,
             keep_score,
+            available_actions,
         }
     }
 
@@ -1516,7 +1542,7 @@ impl RuntimeWorld {
         let held_items = held_items_raw
             .iter()
             .copied()
-            .map(|item| self.resident_held_item_view(resident, item))
+            .map(|item| self.resident_held_item_view(resident, item, client_actor_id))
             .collect();
         let desired_item_ids = self.resident_desired_item_ids(resident);
         let sought_item_ids = self.resident_sought_item_ids(resident);
