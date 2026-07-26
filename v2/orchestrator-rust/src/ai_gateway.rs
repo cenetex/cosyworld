@@ -295,7 +295,7 @@ pub(crate) async fn request_chat_completion(
         request.feature,
         request.system,
         Value::String(request.user.to_string()),
-        request.temperature,
+        Some(request.temperature),
         request.max_tokens,
         request.timeout,
         request.max_attempts,
@@ -359,7 +359,7 @@ pub(crate) async fn request_image_policy_decision(
         request.feature,
         "You are a strict image publication gate. Inspect only visible pixels. Return the required JSON and no prose.",
         user_content,
-        0.0,
+        None,
         IMAGE_POLICY_MAX_TOKENS,
         request.timeout,
         request.max_attempts,
@@ -420,7 +420,7 @@ async fn request_completion(
     feature: &'static str,
     system: &str,
     user_content: Value,
-    temperature: f64,
+    temperature: Option<f64>,
     max_tokens: u32,
     timeout: Duration,
     max_attempts: u8,
@@ -449,9 +449,11 @@ async fn request_completion(
                 { "role": "system", "content": system },
                 { "role": "user", "content": user_content }
             ],
-            "temperature": temperature,
             "max_tokens": max_tokens
         });
+        if let Some(temperature) = temperature {
+            payload["temperature"] = json!(temperature);
+        }
         if let Some(response_format) = response_format {
             payload["response_format"] = response_format.clone();
             if response_format.get("type").and_then(Value::as_str) == Some("json_schema")
@@ -799,6 +801,7 @@ mod tests {
                             .unwrap_or_default();
                         let correct_request = body.get("model").and_then(Value::as_str)
                             == Some("test-vision-model")
+                            && body.get("temperature").is_none()
                             && body.get("max_tokens").and_then(Value::as_u64)
                                 == Some(u64::from(IMAGE_POLICY_MAX_TOKENS))
                             && body.pointer("/reasoning/effort").and_then(Value::as_str)
