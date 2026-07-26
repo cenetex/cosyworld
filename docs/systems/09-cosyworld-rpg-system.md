@@ -569,6 +569,8 @@ Two economies, kept strictly separate so the core loop is never gated.
 
 Their sole spend is community image generation for eligible generated cards. A card unlocks one generation at each authoritative level, the community pools exactly that level in Orbs, and the prompt incorporates committed public history so later images can evolve with the world. Contributions buy no ownership or rules authority; a fully funded retry costs nothing.
 
+Location imagery is non-authoritative and fails closed: prompts prohibit people, characters, creatures, text, logos, and watermarks; a separate vision-policy decision must approve visible pixels before publication; rejected or unavailable review keeps the deterministic landscape fallback. Moderation can invalidate a ready image without changing topology, presence, funding, or any other world mechanic.
+
 Chat, Say, resident heartbeats, Listen/Notice, Help, bond, travel, combat, access, and progression never spend Orbs. Chat instead spends one banked advancement point to create a new Bond. Reward rules remain claim-key gated and idempotent (next section), so identical actions never mint unlimited Orbs. The negative ledger is equally strict: new actions may use only `community_image_generation`, capped by `{subject, level}`.
 
 ## Claim Keys And Idempotency

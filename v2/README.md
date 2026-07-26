@@ -361,6 +361,7 @@ Optional overrides:
 ```sh
 COSYWORLD_AI_BASE_URL=https://api.openai.com/v1
 COSYWORLD_AI_PROVIDER=openrouter
+COSYWORLD_AI_VISION_MODEL=openai/gpt-5.6-luna
 ```
 
 Server-side generative world content is separately controlled and defaults to
@@ -408,7 +409,11 @@ Avatar art prompts start with the configured LoRA trigger and combine a stable,
 persisted physical description with the avatar's current species, origin,
 class or classless state, level, calling, location, and carried/equipped items.
 Item and location generations likewise include their authoritative card and
-world details plus committed public history.
+world details plus committed public history. Location images are withheld until
+the configured vision model confirms that they contain no people, characters,
+creatures, text, logos, or watermarks. Rejected candidates are regenerated up
+to three times; unavailable or invalid review leaves the deterministic
+landscape fallback visible.
 
 `Chat` appears only when the avatar has banked advancement and an eligible nearby resident can become a new friend. Playing it spends one advancement point, creates the Bond, and passes the room turn; it never accepts human text or spends Orbs. Human-authored room speech is the separate moderated, turn-exempt `say` path.
 
@@ -710,6 +715,7 @@ Dialogue prompts keep the latest 16 spoken lines per room in a bounded, snapshot
 - `GET /moderation/reports?after=12&limit=80` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
 - `POST /moderation/reports/{report_id}/resolve` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
 - `POST /moderation/reports/{report_id}/delete` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
+- `POST /moderation/community-art/{subject_kind}/{subject_id}/reject` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
 - `POST /moderation/actors/{actor_id}/suspend` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
 - `POST /moderation/actors/{actor_id}/unsuspend` with `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`
 - `GET /stream`
@@ -810,6 +816,11 @@ exclusions.
 `/health` is intentionally minimal readiness. `/meta` is the deploy/smoke metadata endpoint: package version, debug/release build profile, deployment profile, canonical `world_id`/`world_epoch`, capacity `process_id`, matching legacy `shard_id`, non-secret dialogue and client-authored-speech feature flags, persistence mode, moderation report retention, ownership-feed mode, current world counters, compiled kernel capacities, and the mounted packs' exact license records. `GET /licenses` exposes those pack versions, license links, provenance, modification notices, and bundled attribution text without authentication. `./v2/mvp.sh status` prints a one-line summary from `/meta`.
 
 Protected operator audit routes require `Authorization: Bearer <COSYWORLD_MODERATION_TOKEN>`. `/moderation` serves a no-store operator console that stores the bearer token in local browser storage and uses the protected report endpoints; loading the page alone does not expose report data. The console can resolve reports, delete resolved reports, suspend the reporter attached to an open report, and suspend a reported target when that target is a human avatar. Report suspension actions also resolve the report with a suspension note, so the open queue reflects the operator action. Report details show current reporter/target suspension state and can unsuspend suspended human actors from open or resolved reports. `/moderation/events` returns bounded all-room event replay, `/moderation/reports` returns bounded player report queue entries, `/moderation/reports/{report_id}/resolve` closes a report with resolution metadata, `/moderation/reports/{report_id}/delete` removes a resolved report, `/moderation/activation` returns first-session activation evidence plus privacy-safe seventh-visit cohorts, return-signal comparisons, and world-health diagnostics, `/moderation/activation/{player_ref}/delete` deletes one pseudonymous player's story-metric rows, and `/moderation/economy` returns bounded Orb ledger, AI usage ledger, Wooden Box receipt, and avatar pack opening rows without exposing player OpenRouter keys.
+
+`POST /moderation/community-art/{subject_kind}/{subject_id}/reject` invalidates
+ready generated art, removes its served bytes, restores the deterministic
+fallback, and preserves full funding so the community can retry without
+spending another Orb.
 
 Public action endpoints accept active human actors only when the matching `actor_session` is present. The Rust orchestrator can commit resident `SAY` events internally for contextual heartbeat replies and audited resident beats. Browser-submitted `say` is limited to the caller's own human avatar, is normalized through the same cozy text hygiene used by other player-authored statements, and cannot act as Rati, Whiskerwind, Skull, other residents, or another human avatar by id alone.
 

@@ -10,6 +10,9 @@ mod canonical_world;
 mod cards;
 mod combat;
 mod communal_governance;
+mod community_art;
+#[cfg(test)]
+mod community_art_tests;
 mod composition;
 mod content_load;
 mod content_packs;
@@ -68,6 +71,7 @@ use canonical_world::*;
 use cards::*;
 use combat::*;
 use communal_governance::*;
+use community_art::*;
 use content_load::*;
 use content_packs::*;
 use content_policy::*;
@@ -374,6 +378,7 @@ struct ReplicateAvatarArtConfig {
 struct DownloadedReplicateImage {
     bytes: Vec<u8>,
     content_type: String,
+    source_url: String,
 }
 
 #[cfg(test)]
@@ -639,6 +644,8 @@ struct CommunityArtGenerationState {
     funding_intent_ids: BTreeSet<String>,
     status: String,
     history_through_seq: u64,
+    #[serde(default)]
+    revision: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -650,6 +657,7 @@ struct CommunityArtPlan {
     history_through_seq: u64,
     prompt: String,
     aspect_ratio: &'static str,
+    image_policy: Option<CommunityArtImagePolicy>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -10311,6 +10319,7 @@ impl RuntimeWorld {
                                     funding_intent_ids: BTreeSet::new(),
                                     status: "funding".to_string(),
                                     history_through_seq: *history_through_seq,
+                                    revision: 0,
                                 });
                         if !intent_id.is_empty()
                             && !generation.funding_intent_ids.insert(intent_id.clone())
@@ -10360,6 +10369,11 @@ impl RuntimeWorld {
                     let Some(generation) = self.community_art_generations.get_mut(&key) else {
                         continue;
                     };
+                    if generation.status != *status
+                        && matches!(status.as_str(), "ready" | "rejected")
+                    {
+                        generation.revision = generation.revision.saturating_add(1);
+                    }
                     generation.status = status.clone();
                     events.push(self.append_async_job_event(
                         &format!("community_art.{status}"),
@@ -13713,7 +13727,7 @@ impl RuntimeWorld {
                 let landmark_name = names[(seed as usize + index) % names.len()].to_string();
                 let id = generated_pathway_location_id(&pathway_id, index);
                 let art_prompt = format!(
-                    "cozy storybook landscape, {landmark_name}, a hidden waypoint along a newly explored pathway between {origin_name} and {destination_name}, stretch {step} of {distance}, {origin_biome} terrain meeting {destination_biome} terrain, {origin} meeting {destination}, no people, no text",
+                    "cozy storybook landscape, {landmark_name}, a hidden waypoint along a newly explored pathway between {origin_name} and {destination_name}, stretch {step} of {distance}, {origin_biome} terrain meeting {destination_biome} terrain, {origin} meeting {destination}, no people, no characters, no creatures, no text, no logo, no watermark",
                     step = index + 1,
                     origin_biome = origin_meta.biome,
                     destination_biome = destination_meta.biome,
@@ -19556,7 +19570,12 @@ impl RuntimeWorld {
             .map(|state| state.status.clone())
             .unwrap_or_else(|| "available".to_string());
         if status == "ready" {
-            card.image_url = Some(community_art_image_url(subject_kind, subject_id, level));
+            card.image_url = Some(community_art_image_url(
+                subject_kind,
+                subject_id,
+                level,
+                generation.map(|state| state.revision).unwrap_or(0),
+            ));
             card.asset_status = "community_art".to_string();
         }
         card.level = level;
@@ -19683,6 +19702,14 @@ impl RuntimeWorld {
         if !meta.terrain.is_empty() {
             facts.push(format!("terrain: {}", meta.terrain.join(", ")));
         }
+        if let Some(art_prompt) = meta
+            .art_prompt
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            facts.push(format!("reviewed landscape brief: {art_prompt}"));
+        }
         if let Some(sheet) = self.room_sheets.get(&location_id) {
             if !sheet.aspects.is_empty() {
                 facts.push(format!("defining aspects: {}", sheet.aspects.join(", ")));
@@ -19710,7 +19737,7 @@ impl RuntimeWorld {
         let level = self
             .community_art_subject_level(subject_kind, subject_id)
             .ok_or_else(|| "That card does not have community-generated art.".to_string())?;
-        let (card, visible, aspect_ratio, subject_details) = match subject_kind {
+        let (card, visible, aspect_ratio, subject_details, image_policy) = match subject_kind {
             "actor" => {
                 let actor = self
                     .actor_by_id(subject_id)
@@ -19733,6 +19760,7 @@ impl RuntimeWorld {
                     actor.location_id == contributor.location_id,
                     "2:3",
                     self.actor_community_art_details(subject_id, &card),
+                    None,
                 )
             }
             "item" => {
@@ -19754,6 +19782,7 @@ impl RuntimeWorld {
                             && item.location_id == contributor.location_id),
                     "1:1",
                     self.item_community_art_details(*item),
+                    None,
                 )
             }
             "location" => {
@@ -19772,6 +19801,7 @@ impl RuntimeWorld {
                     visible,
                     "16:9",
                     self.location_community_art_details(subject_id),
+                    Some(CommunityArtImagePolicy::LocationLandscape),
                 )
             }
             _ => return Err("Unknown community-art subject.".to_string()),
@@ -19816,8 +19846,11 @@ impl RuntimeWorld {
         } else {
             history
         };
+        let image_constraints = image_policy
+            .map(CommunityArtImagePolicy::prompt)
+            .unwrap_or("No words, logo, watermark, UI, gore, or photorealism.");
         let prompt = compact_whitespace(&format!(
-            "Collectible card art for {kind} {name}, titled {title}. {blurb}. Authoritative level {level}. Canonical visual facts: {subject_details}. Let the image visibly remember this public history without adding text: {history}. Preserve the subject's established identity across later levels. No words, logo, watermark, UI, gore, or photorealism.",
+            "Collectible card art for {kind} {name}, titled {title}. {blurb}. Authoritative level {level}. Canonical visual facts: {subject_details}. Let the image visibly remember this public history without adding text: {history}. Preserve the subject's established identity across later levels. {image_constraints}",
             kind = subject_kind,
             name = card.display_name,
             title = card.title,
@@ -19831,6 +19864,7 @@ impl RuntimeWorld {
             history_through_seq,
             prompt,
             aspect_ratio,
+            image_policy,
         })
     }
 
@@ -23941,60 +23975,8 @@ fn stored_avatar_content_type(root: &Path, actor_id: u64) -> String {
         .unwrap_or_else(|| "image/png".to_string())
 }
 
-fn generated_pathway_dir(root: &Path) -> PathBuf {
-    root.join("pathways")
-}
-
 fn community_art_generation_key(subject_kind: &str, subject_id: u64, level: u8) -> String {
     format!("{subject_kind}:{subject_id}:level:{level}")
-}
-
-fn community_art_dir(root: &Path, subject_kind: &str) -> PathBuf {
-    root.join("community-art").join(subject_kind)
-}
-
-fn stored_community_art_image_path(root: &Path, subject_kind: &str, subject_id: u64) -> PathBuf {
-    community_art_dir(root, subject_kind).join(format!("{subject_id}.image"))
-}
-
-fn stored_community_art_content_type_path(
-    root: &Path,
-    subject_kind: &str,
-    subject_id: u64,
-) -> PathBuf {
-    community_art_dir(root, subject_kind).join(format!("{subject_id}.content-type"))
-}
-
-fn stored_community_art_content_type(root: &Path, subject_kind: &str, subject_id: u64) -> String {
-    fs::read_to_string(stored_community_art_content_type_path(
-        root,
-        subject_kind,
-        subject_id,
-    ))
-    .ok()
-    .map(|value| value.trim().to_ascii_lowercase())
-    .filter(|value| is_safe_image_content_type(value))
-    .unwrap_or_else(|| "image/png".to_string())
-}
-
-fn community_art_image_url(subject_kind: &str, subject_id: u64, level: u8) -> String {
-    format!("/assets/generated/community/{subject_kind}/{subject_id}.image?level={level}")
-}
-
-fn stored_pathway_image_path(root: &Path, location_id: u64) -> PathBuf {
-    generated_pathway_dir(root).join(format!("{location_id}.image"))
-}
-
-fn stored_pathway_content_type_path(root: &Path, location_id: u64) -> PathBuf {
-    generated_pathway_dir(root).join(format!("{location_id}.content-type"))
-}
-
-fn stored_pathway_content_type(root: &Path, location_id: u64) -> String {
-    fs::read_to_string(stored_pathway_content_type_path(root, location_id))
-        .ok()
-        .map(|value| value.trim().to_ascii_lowercase())
-        .filter(|value| is_safe_image_content_type(value))
-        .unwrap_or_else(|| "image/png".to_string())
 }
 
 fn is_safe_image_content_type(value: &str) -> bool {
@@ -26722,6 +26704,13 @@ async fn fund_community_image(
             });
         }
     };
+    if plan.image_policy.is_some() && state.ai_config.as_ref().is_none() {
+        return Json(ActionResponse {
+            ok: false,
+            status: 503,
+            events: Vec::new(),
+        });
+    }
     let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     let existing = runtime.community_art_generations.get(&key);
     if existing.is_some_and(|generation| generation.funding_intent_ids.contains(intent_id)) {
@@ -32280,31 +32269,6 @@ fn community_art_jobs() -> &'static StdMutex<BTreeSet<String>> {
     COMMUNITY_ART_JOBS.get_or_init(|| StdMutex::new(BTreeSet::new()))
 }
 
-async fn generate_and_store_community_art(
-    config: &ReplicateAvatarArtConfig,
-    generated_asset_dir: &Path,
-    plan: &CommunityArtPlan,
-) -> Result<(), String> {
-    let prompt = compact_whitespace(&format!("{}, {}", config.prompt_prefix, plan.prompt));
-    let image = request_replicate_art(config, prompt, plan.aspect_ratio).await?;
-    let path =
-        stored_community_art_image_path(generated_asset_dir, &plan.subject_kind, plan.subject_id);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-    fs::write(&path, image.bytes).map_err(|error| error.to_string())?;
-    fs::write(
-        stored_community_art_content_type_path(
-            generated_asset_dir,
-            &plan.subject_kind,
-            plan.subject_id,
-        ),
-        image.content_type,
-    )
-    .map_err(|error| error.to_string())?;
-    Ok(())
-}
-
 async fn commit_community_art_status(
     state: &AppState,
     actor_id: u64,
@@ -32353,13 +32317,22 @@ fn schedule_community_art_generation(state: &AppState, actor_id: u64, plan: Comm
     let state = state.clone();
     tokio::spawn(async move {
         let started_at = Instant::now();
-        let result =
-            generate_and_store_community_art(&config, &state.generated_asset_dir, &plan).await;
+        let result = generate_and_store_community_art(
+            &config,
+            state.ai_config.as_ref().as_ref(),
+            &state.generated_asset_dir,
+            &plan,
+        )
+        .await;
         let (status, error_code) = match result {
             Ok(()) => ("ready", None),
             Err(error) => {
-                warn!("community art generation failed for {}: {}", key, error);
-                ("failed", Some("community_art_generation_failed"))
+                warn!(
+                    "community art generation failed for {}: {}",
+                    key,
+                    error.message()
+                );
+                (error.status(), Some(error.code()))
             }
         };
         let events = commit_community_art_status(&state, actor_id, &plan, status).await;
@@ -32562,6 +32535,7 @@ async fn download_replicate_image(
     Ok(DownloadedReplicateImage {
         bytes,
         content_type,
+        source_url: output_url.to_string(),
     })
 }
 
@@ -32992,7 +32966,7 @@ fn apply_generated_waypoint_content(
     waypoint.meta.description = content.description;
     waypoint.meta.persona = content.persona;
     waypoint.meta.art_prompt = Some(format!(
-        "cozy storybook landscape, {detail}, {name}, {biome}, terrain of {terrain}, no people, no character, no text, no logo, no watermark",
+        "cozy storybook landscape, {detail}, {name}, {biome}, terrain of {terrain}, no people, no characters, no creatures, no text, no logo, no watermark",
         detail = content.visual_detail,
         name = content.name,
         biome = waypoint.meta.biome,
@@ -37252,21 +37226,6 @@ async fn generated_pathway_asset(
     if location_id < GENERATED_PATHWAY_LOCATION_ID_BASE {
         return (StatusCode::NOT_FOUND, "unknown pathway").into_response();
     }
-    if let Ok(bytes) = fs::read(stored_pathway_image_path(
-        &state.generated_asset_dir,
-        location_id,
-    )) {
-        let content_type = stored_pathway_content_type(&state.generated_asset_dir, location_id);
-        return (
-            StatusCode::OK,
-            [
-                (header::CONTENT_TYPE, content_type),
-                (header::CACHE_CONTROL, "public, max-age=86400".to_string()),
-            ],
-            bytes,
-        )
-            .into_response();
-    }
     let waypoint = {
         let runtime = state.inner.lock().await;
         runtime
@@ -37297,37 +37256,6 @@ async fn generated_pathway_asset(
             (header::CACHE_CONTROL, "public, max-age=86400"),
         ],
         svg,
-    )
-        .into_response()
-}
-
-async fn generated_community_art_asset(
-    State(state): State<AppState>,
-    AxumPath((subject_kind, asset_file)): AxumPath<(String, String)>,
-) -> impl IntoResponse {
-    if !matches!(subject_kind.as_str(), "actor" | "item" | "location") {
-        return (StatusCode::NOT_FOUND, "unknown community artwork").into_response();
-    }
-    let Some(subject_id) = asset_file
-        .strip_suffix(".image")
-        .and_then(|value| value.parse::<u64>().ok())
-    else {
-        return (StatusCode::NOT_FOUND, "unknown community artwork").into_response();
-    };
-    let path =
-        stored_community_art_image_path(&state.generated_asset_dir, &subject_kind, subject_id);
-    let Ok(bytes) = fs::read(path) else {
-        return (StatusCode::NOT_FOUND, "community artwork is not ready").into_response();
-    };
-    let content_type =
-        stored_community_art_content_type(&state.generated_asset_dir, &subject_kind, subject_id);
-    (
-        StatusCode::OK,
-        [
-            (header::CONTENT_TYPE, content_type),
-            (header::CACHE_CONTROL, "public, max-age=86400".to_string()),
-        ],
-        bytes,
     )
         .into_response()
 }
@@ -47540,7 +47468,11 @@ mod tests {
             .as_deref()
             .expect("validated visual detail becomes a bounded art prompt");
         assert!(art_prompt.contains("no people"));
+        assert!(art_prompt.contains("no characters"));
+        assert!(art_prompt.contains("no creatures"));
         assert!(art_prompt.contains("no text"));
+        assert!(art_prompt.contains("no logo"));
+        assert!(art_prompt.contains("no watermark"));
         assert!(art_prompt.contains(&biome));
 
         set_pathway_generation_provenance(&mut pathway, GenerationMode::AutoBounded, None, "ai", 2);
@@ -47617,6 +47549,7 @@ mod tests {
             api_key: "test".to_string(),
             base_url: format!("http://{address}"),
             model: "test-structured-model".to_string(),
+            vision_model: "test-vision-model".to_string(),
             reasoning_effort: None,
         }));
         state.generation_controls = Arc::new(
@@ -47748,6 +47681,27 @@ mod tests {
             first_card.image_url.as_deref(),
             Some(format!("/assets/generated/pathways/{first_waypoint_id}.svg").as_str())
         );
+        let first_art_plan = runtime
+            .community_art_plan(5000, "location", first_waypoint_id)
+            .expect("revealed pathway builds a location-art plan");
+        assert_eq!(
+            first_art_plan.image_policy,
+            Some(CommunityArtImagePolicy::LocationLandscape)
+        );
+        for forbidden in [
+            "No people",
+            "characters",
+            "creatures",
+            "text",
+            "logos",
+            "watermarks",
+        ] {
+            assert!(
+                first_art_plan.prompt.contains(forbidden),
+                "pathway location prompt should forbid {forbidden}: {}",
+                first_art_plan.prompt
+            );
+        }
         let after_first_search = runtime.state_response(Some(5000), &AccessContext::default());
         assert!(after_first_search.cards.locations[&first_waypoint_id]
             .community_art
@@ -54040,7 +53994,7 @@ mod tests {
         assert_eq!(card.community_art.as_ref().map(|art| art.level), Some(2));
         assert_eq!(
             card.image_url.as_deref(),
-            Some("/assets/generated/community/actor/5000.image?level=2")
+            Some("/assets/generated/community/actor/5000.image?level=2&revision=1")
         );
     }
 

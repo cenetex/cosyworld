@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{collections::BTreeMap, fmt, time::Duration};
 use tokio::time::{sleep, Instant};
@@ -99,6 +100,7 @@ pub(crate) struct AiConfig {
     pub(crate) api_key: String,
     pub(crate) base_url: String,
     pub(crate) model: String,
+    pub(crate) vision_model: String,
     pub(crate) reasoning_effort: Option<String>,
 }
 
@@ -138,6 +140,13 @@ impl AiConfig {
                     DEFAULT_OPENAI_CHAT_MODEL.to_string()
                 }
             });
+        let vision_model = std::env::var("COSYWORLD_AI_VISION_MODEL")
+            .ok()
+            .or_else(|| std::env::var("OPENROUTER_VISION_MODEL").ok())
+            .or_else(|| std::env::var("OPENAI_VISION_MODEL").ok())
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| model.clone());
         let reasoning_effort = using_openrouter
             .then(|| std::env::var("OPENROUTER_REASONING_EFFORT").ok())
             .flatten()
@@ -148,6 +157,7 @@ impl AiConfig {
             api_key,
             base_url,
             model,
+            vision_model,
             reasoning_effort,
         })
     }
@@ -241,34 +251,197 @@ pub(crate) struct AiCompletion {
     pub(crate) latency: Duration,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ImagePolicyRequest<'a> {
+    pub(crate) feature: &'static str,
+    pub(crate) image_url: &'a str,
+    pub(crate) policy: &'a str,
+    pub(crate) timeout: Duration,
+    pub(crate) max_attempts: u8,
+    pub(crate) referer: &'a str,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ImagePolicyDecision {
+    pub(crate) allowed: bool,
+    pub(crate) violations: Vec<String>,
+    pub(crate) summary: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawImagePolicyDecision {
+    allowed: bool,
+    violations: Vec<String>,
+    summary: String,
+}
+
 pub(crate) async fn request_chat_completion(
     config: &AiConfig,
     request: ChatCompletionRequest<'_>,
 ) -> Result<AiCompletion, AiGatewayError> {
+    request_completion(
+        config,
+        request.feature,
+        request.system,
+        Value::String(request.user.to_string()),
+        request.temperature,
+        request.max_tokens,
+        request.timeout,
+        request.max_attempts,
+        request.referer,
+        request.response_format,
+        &config.model,
+    )
+    .await
+}
+
+pub(crate) async fn request_image_policy_decision(
+    config: &AiConfig,
+    request: ImagePolicyRequest<'_>,
+) -> Result<ImagePolicyDecision, AiGatewayError> {
+    let response_format = json!({
+        "type": "json_schema",
+        "json_schema": {
+            "name": "cosyworld_image_policy",
+            "strict": true,
+            "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "allowed": { "type": "boolean" },
+                    "violations": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "person",
+                                "character",
+                                "creature",
+                                "text",
+                                "logo",
+                                "watermark",
+                                "other"
+                            ]
+                        }
+                    },
+                    "summary": { "type": "string", "maxLength": 240 }
+                },
+                "required": ["allowed", "violations", "summary"]
+            }
+        }
+    });
+    let user_content = json!([
+        {
+            "type": "text",
+            "text": format!(
+                "Review this generated image against the following publication policy. Reject ambiguous silhouettes or marks rather than guessing they are harmless. Policy: {}",
+                request.policy
+            )
+        },
+        {
+            "type": "image_url",
+            "image_url": { "url": request.image_url }
+        }
+    ]);
+    let completion = request_completion(
+        config,
+        request.feature,
+        "You are a strict image publication gate. Inspect only visible pixels. Return the required JSON and no prose.",
+        user_content,
+        0.0,
+        120,
+        request.timeout,
+        request.max_attempts,
+        request.referer,
+        Some(&response_format),
+        &config.vision_model,
+    )
+    .await?;
+    parse_image_policy_decision(&completion.text).map_err(|message| AiGatewayError {
+        kind: AiFailureKind::InvalidResponse,
+        message,
+        attempts: completion.attempts,
+        latency: completion.latency,
+    })
+}
+
+fn parse_image_policy_decision(value: &str) -> Result<ImagePolicyDecision, String> {
+    let raw: RawImagePolicyDecision = serde_json::from_str(value.trim())
+        .map_err(|error| format!("image policy response was not valid strict JSON: {error}"))?;
+    let summary = raw.summary.split_whitespace().collect::<Vec<_>>().join(" ");
+    if summary.is_empty()
+        || summary.chars().count() > 240
+        || summary
+            .chars()
+            .any(|character| character.is_control() && !character.is_whitespace())
+    {
+        return Err("image policy response had an invalid summary".to_string());
+    }
+    const ALLOWED_VIOLATIONS: &[&str] = &[
+        "person",
+        "character",
+        "creature",
+        "text",
+        "logo",
+        "watermark",
+        "other",
+    ];
+    if raw
+        .violations
+        .iter()
+        .any(|violation| !ALLOWED_VIOLATIONS.contains(&violation.as_str()))
+    {
+        return Err("image policy response named an unknown violation".to_string());
+    }
+    if raw.allowed != raw.violations.is_empty() {
+        return Err("image policy response contradicted its violation list".to_string());
+    }
+    Ok(ImagePolicyDecision {
+        allowed: raw.allowed,
+        violations: raw.violations,
+        summary,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn request_completion(
+    config: &AiConfig,
+    feature: &'static str,
+    system: &str,
+    user_content: Value,
+    temperature: f64,
+    max_tokens: u32,
+    timeout: Duration,
+    max_attempts: u8,
+    referer: &str,
+    response_format: Option<&Value>,
+    model: &str,
+) -> Result<AiCompletion, AiGatewayError> {
     let started_at = Instant::now();
     let client = reqwest::Client::builder()
-        .timeout(request.timeout)
+        .timeout(timeout)
         .build()
         .map_err(|error| AiGatewayError {
             kind: AiFailureKind::Client,
-            message: format!("{} client setup failed: {error}", request.feature),
+            message: format!("{feature} client setup failed: {error}"),
             attempts: 0,
             latency: started_at.elapsed(),
         })?;
     let url = format!("{}/chat/completions", config.base_url);
-    let max_attempts = request.max_attempts.max(1);
+    let max_attempts = max_attempts.max(1);
 
     for attempt in 1..=max_attempts {
         let mut payload = json!({
-            "model": config.model,
+            "model": model,
             "messages": [
-                { "role": "system", "content": request.system },
-                { "role": "user", "content": request.user }
+                { "role": "system", "content": system },
+                { "role": "user", "content": user_content }
             ],
-            "temperature": request.temperature,
-            "max_tokens": request.max_tokens
+            "temperature": temperature,
+            "max_tokens": max_tokens
         });
-        if let Some(response_format) = request.response_format {
+        if let Some(response_format) = response_format {
             payload["response_format"] = response_format.clone();
         }
         if let Some(reasoning_effort) = config.reasoning_effort.as_deref() {
@@ -277,7 +450,7 @@ pub(crate) async fn request_chat_completion(
         let response = client
             .post(&url)
             .bearer_auth(&config.api_key)
-            .header("HTTP-Referer", request.referer)
+            .header("HTTP-Referer", referer)
             .header("X-OpenRouter-Title", "CosyWorld v2")
             .header("X-Title", "CosyWorld v2")
             .json(&payload)
@@ -299,7 +472,7 @@ pub(crate) async fn request_chat_completion(
                 }
                 return Err(AiGatewayError {
                     kind,
-                    message: format!("{} request failed: {error}", request.feature),
+                    message: format!("{feature} request failed: {error}"),
                     attempts: attempt,
                     latency: started_at.elapsed(),
                 });
@@ -315,7 +488,7 @@ pub(crate) async fn request_chat_completion(
             }
             return Err(AiGatewayError {
                 kind: AiFailureKind::Provider,
-                message: format!("{} provider returned HTTP {status}", request.feature),
+                message: format!("{feature} provider returned HTTP {status}"),
                 attempts: attempt,
                 latency: started_at.elapsed(),
             });
@@ -323,7 +496,7 @@ pub(crate) async fn request_chat_completion(
 
         let body: serde_json::Value = response.json().await.map_err(|error| AiGatewayError {
             kind: AiFailureKind::InvalidResponse,
-            message: format!("{} response was not valid JSON: {error}", request.feature),
+            message: format!("{feature} response was not valid JSON: {error}"),
             attempts: attempt,
             latency: started_at.elapsed(),
         })?;
@@ -338,18 +511,15 @@ pub(crate) async fn request_chat_completion(
             .map(ToString::to_string)
             .ok_or_else(|| AiGatewayError {
                 kind: AiFailureKind::InvalidResponse,
-                message: format!(
-                    "{} response did not include message content",
-                    request.feature
-                ),
+                message: format!("{feature} response did not include message content"),
                 attempts: attempt,
                 latency: started_at.elapsed(),
             })?;
 
         tracing::info!(
-            feature = request.feature,
+            feature,
             provider = ai_provider_name(Some(config)),
-            model = config.model,
+            model,
             attempts = attempt,
             latency_ms = started_at.elapsed().as_millis() as u64,
             "CosyWorld AI inference completed"
@@ -397,6 +567,7 @@ pub(crate) fn ai_model_name(config: Option<&AiConfig>) -> String {
 mod tests {
     use super::*;
     use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
+    use base64::Engine;
     use std::sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
@@ -409,6 +580,7 @@ mod tests {
             api_key: "test".to_string(),
             base_url: base_url.to_string(),
             model: "test-model".to_string(),
+            vision_model: "test-vision-model".to_string(),
             reasoning_effort: None,
         };
         assert_eq!(
@@ -518,6 +690,7 @@ mod tests {
             api_key: "test".to_string(),
             base_url: format!("http://{addr}"),
             model: "test-model".to_string(),
+            vision_model: "test-vision-model".to_string(),
             reasoning_effort: Some("none".to_string()),
         };
         let response_format = json!({
@@ -552,5 +725,90 @@ mod tests {
         assert!(structured_format_seen.load(Ordering::SeqCst));
         assert!(reasoning_none_seen.load(Ordering::SeqCst));
         server.abort();
+    }
+
+    #[tokio::test]
+    async fn visible_person_fixture_fails_the_pathway_image_policy() {
+        let request_seen = Arc::new(AtomicBool::new(false));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let request_seen = request_seen.clone();
+                move |Json(body): Json<Value>| {
+                    let request_seen = request_seen.clone();
+                    async move {
+                        let image_url = body
+                            .pointer("/messages/1/content/1/image_url/url")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default();
+                        let correct_request = body.get("model").and_then(Value::as_str)
+                            == Some("test-vision-model")
+                            && body
+                                .pointer("/response_format/json_schema/name")
+                                .and_then(Value::as_str)
+                                == Some("cosyworld_image_policy")
+                            && image_url.starts_with("data:image/svg+xml;base64,");
+                        request_seen.store(correct_request, Ordering::SeqCst);
+                        Json(json!({
+                            "choices": [{
+                                "message": {
+                                    "content": r#"{"allowed":false,"violations":["person"],"summary":"A standing human figure is visible beside the path."}"#
+                                }
+                            }]
+                        }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind image policy test server");
+        let addr = listener.local_addr().expect("image policy test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let fixture = include_bytes!("test-fixtures/pathway-visible-person.svg");
+        let image_url = format!(
+            "data:image/svg+xml;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(fixture)
+        );
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{addr}"),
+            model: "test-model".to_string(),
+            vision_model: "test-vision-model".to_string(),
+            reasoning_effort: None,
+        };
+
+        let decision = request_image_policy_decision(
+            &config,
+            ImagePolicyRequest {
+                feature: "media.pathway_policy",
+                image_url: &image_url,
+                policy: "Landscape only; no people, characters, or creatures.",
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect("fixture review should return a strict decision");
+
+        assert!(!decision.allowed);
+        assert_eq!(decision.violations, vec!["person"]);
+        assert!(request_seen.load(Ordering::SeqCst));
+        server.abort();
+    }
+
+    #[test]
+    fn image_policy_decision_fails_closed_on_contradictory_json() {
+        assert!(parse_image_policy_decision(
+            r#"{"allowed":true,"violations":["person"],"summary":"A person is visible."}"#
+        )
+        .is_err());
+        assert!(parse_image_policy_decision(
+            r#"{"allowed":false,"violations":[],"summary":"Nothing visible."}"#
+        )
+        .is_err());
     }
 }
