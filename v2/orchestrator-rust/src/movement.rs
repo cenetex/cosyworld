@@ -212,6 +212,20 @@ mod tests {
         from_location_id: u64,
         to_location_id: u64,
     ) {
+        discover_seed_exit_for_actor_for_test(
+            runtime,
+            RATI_ACTOR_ID,
+            from_location_id,
+            to_location_id,
+        );
+    }
+
+    fn discover_seed_exit_for_actor_for_test(
+        runtime: &mut RuntimeWorld,
+        actor_id: u64,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) {
         let destination = runtime
             .location_name(to_location_id)
             .unwrap_or_else(|| format!("Location {to_location_id}"));
@@ -230,7 +244,7 @@ mod tests {
             },
         );
         runtime.remember_search_discovery(
-            RATI_ACTOR_ID,
+            actor_id,
             from_location_id,
             SEARCH_MEMORY_KIND_SEED_EXIT,
             to_location_id,
@@ -443,5 +457,187 @@ mod tests {
                 .is_none(),
             "the exact reverse offer cannot bypass immediate-return protection"
         );
+    }
+
+    async fn submit_offer_for_test(
+        state: &AppState,
+        actor_session: &str,
+        path: &str,
+        offer: RankedActionOffer,
+        payload: serde_json::Value,
+    ) -> ActionResponse {
+        let mut payload = payload.as_object().cloned().unwrap_or_default();
+        payload.insert(
+            "actor_session".to_string(),
+            serde_json::Value::String(actor_session.to_string()),
+        );
+        payload.insert(
+            "wallet_address".to_string(),
+            serde_json::Value::String("dev-wallet".to_string()),
+        );
+        submit_action_offer(
+            ConnectInfo("127.0.0.1:44030".parse().expect("client address")),
+            State(state.clone()),
+            Json(ActionOfferSubmissionRequest {
+                path: path.to_string(),
+                offer_id: offer.offer_id,
+                composition_id: offer.composition_id,
+                kind: offer.kind,
+                rules_action: offer.rules_action,
+                operation: offer.operation,
+                rules_profile: offer.rules_profile,
+                state_revision: offer.state_revision,
+                target: offer.target,
+                cost: offer.cost,
+                payload: serde_json::Value::Object(payload),
+            }),
+        )
+        .await
+        .0
+    }
+
+    #[tokio::test]
+    async fn current_offers_traverse_a_generated_pathway_through_completion() {
+        let actor_id = 5000;
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            actor_id,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            "Offer Pathfinder",
+        );
+        runtime.callings.insert(
+            actor_id,
+            CallingState {
+                actor_id,
+                statement: EXPLORER_CALLING_STATEMENT.to_string(),
+                source_event_seq: None,
+            },
+        );
+        discover_seed_exit_for_actor_for_test(
+            &mut runtime,
+            actor_id,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+            MOONLIT_TRAIL_LOCATION_ID,
+        );
+        let state = test_app_state(runtime, None);
+        let (actor_session, _) = issue_actor_session(&state, actor_id);
+
+        let current_offer = |runtime: &RuntimeWorld, kind: &str, target_id: u64| {
+            let view = runtime.state_response(Some(actor_id), &AccessContext::default());
+            let offer = view
+                .action_offers
+                .into_iter()
+                .find(|offer| {
+                    offer.kind == kind
+                        && offer
+                            .target
+                            .as_ref()
+                            .is_some_and(|target| target.id == Some(target_id))
+                })
+                .unwrap_or_else(|| panic!("{kind} offer for {target_id} should be current"));
+            assert!(
+                view.action_hand
+                    .entries
+                    .iter()
+                    .any(|entry| entry.offer_id == offer.offer_id),
+                "{kind} offer for {target_id} should use the browser hand identity"
+            );
+            offer
+        };
+
+        let mut final_travel_offer = None;
+        let first_scout = {
+            let runtime = state.inner.lock().await;
+            current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID)
+        };
+        let first_scout_response = submit_offer_for_test(
+            &state,
+            &actor_session,
+            "/actions/explore-path",
+            first_scout,
+            serde_json::json!({ "actor_id": actor_id }),
+        )
+        .await;
+        assert!(first_scout_response.ok, "{first_scout_response:?}");
+
+        for step in 1..=3 {
+            let next_location_id = {
+                let runtime = state.inner.lock().await;
+                runtime.journeys[&actor_id].path[step]
+            };
+            let travel = {
+                let runtime = state.inner.lock().await;
+                current_offer(&runtime, "move", next_location_id)
+            };
+            if step == 3 {
+                final_travel_offer = Some(travel.clone());
+                let mut runtime = state.inner.lock().await;
+                runtime.append_async_job_event(
+                    "pathway.refined",
+                    RATI_ACTOR_ID,
+                    None,
+                    Some("unrelated background refinement".to_string()),
+                );
+                runtime.append_async_job_event(
+                    "pathway.refined",
+                    RATI_ACTOR_ID,
+                    None,
+                    Some("another unrelated background refinement".to_string()),
+                );
+            }
+            let travel_response = submit_offer_for_test(
+                &state,
+                &actor_session,
+                "/actions/move",
+                travel,
+                serde_json::json!({
+                    "actor_id": actor_id,
+                    "destination_location_id": next_location_id,
+                }),
+            )
+            .await;
+            assert!(travel_response.ok, "step {step}: {travel_response:?}");
+            if step < 3 {
+                let scout = {
+                    let runtime = state.inner.lock().await;
+                    current_offer(&runtime, "explore_path", MOONLIT_TRAIL_LOCATION_ID)
+                };
+                let scout_response = submit_offer_for_test(
+                    &state,
+                    &actor_session,
+                    "/actions/explore-path",
+                    scout,
+                    serde_json::json!({ "actor_id": actor_id }),
+                )
+                .await;
+                assert!(scout_response.ok, "step {step}: {scout_response:?}");
+            }
+        }
+
+        let runtime = state.inner.lock().await;
+        assert_eq!(
+            runtime.actor_by_id(actor_id).map(|actor| actor.location_id),
+            Some(MOONLIT_TRAIL_LOCATION_ID)
+        );
+        assert!(!runtime.journeys.contains_key(&actor_id));
+        assert!(runtime.event_log.iter().any(|event| {
+            event.type_name == "journey.completed" && event.actor_id == Some(actor_id)
+        }));
+        drop(runtime);
+
+        let stale_retry = submit_offer_for_test(
+            &state,
+            &actor_session,
+            "/actions/move",
+            final_travel_offer.expect("final travel offer was captured"),
+            serde_json::json!({
+                "actor_id": actor_id,
+                "destination_location_id": MOONLIT_TRAIL_LOCATION_ID,
+            }),
+        )
+        .await;
+        assert!(!stale_retry.ok);
+        assert_eq!(stale_retry.status, 409);
     }
 }
