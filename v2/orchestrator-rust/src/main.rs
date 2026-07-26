@@ -47421,7 +47421,7 @@ mod tests {
             base_url: format!("http://{address}"),
             model: "test-structured-model".to_string(),
             vision_model: "test-vision-model".to_string(),
-            reasoning_effort: None,
+            ..AiConfig::default()
         }));
         state.generation_controls = Arc::new(
             GenerationControls::from_values(
