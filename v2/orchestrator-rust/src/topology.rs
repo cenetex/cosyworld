@@ -18,12 +18,21 @@ pub(super) struct RouteEdgeState {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct RouteDiscoveryState {
+    pub(super) actor_id: u64,
+    pub(super) event_seq: u64,
+    pub(super) reason: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(super) struct RouteRecordState {
     pub(super) id: String,
     pub(super) edges: Vec<RouteEdgeState>,
     pub(super) owner: String,
     pub(super) provenance: String,
     pub(super) lifecycle: RouteLifecycle,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) discovery: Option<RouteDiscoveryState>,
     pub(super) entity_version: u64,
 }
 
@@ -105,6 +114,7 @@ impl RuntimeWorld {
                     owner: format!("worldpack:{}", active_content().manifest.id),
                     provenance: "authored_exit".to_string(),
                     lifecycle: RouteLifecycle::Open,
+                    discovery: None,
                     entity_version: 1,
                 })
                 .edges
@@ -138,6 +148,7 @@ impl RuntimeWorld {
                 owner: format!("worldpack:{}", active_content().manifest.id),
                 provenance: hidden.source.clone(),
                 lifecycle: RouteLifecycle::Latent,
+                discovery: None,
                 entity_version: 1,
             });
         }
@@ -184,8 +195,174 @@ impl RuntimeWorld {
                 owner,
                 provenance: format!("generated_pathway:{}", pathway.id),
                 lifecycle,
+                discovery: None,
                 entity_version: 1,
             });
+        }
+    }
+
+    pub(super) fn route_discovered_for_edge(
+        &self,
+        from_location_id: u64,
+        to_location_id: u64,
+    ) -> bool {
+        self.route_for_edge_in_any_lifecycle(from_location_id, to_location_id)
+            .is_some_and(|route| route.discovery.is_some())
+    }
+
+    pub(super) fn mark_route_discovered_for_edge(
+        &mut self,
+        from_location_id: u64,
+        to_location_id: u64,
+        actor_id: u64,
+        event_seq: u64,
+        reason: &str,
+    ) -> bool {
+        let Some(route_id) = self
+            .route_for_edge_in_any_lifecycle(from_location_id, to_location_id)
+            .map(|route| route.id.clone())
+        else {
+            return false;
+        };
+        let route = self
+            .routes
+            .get_mut(&route_id)
+            .expect("resolved route remains present");
+        if route.discovery.is_some() {
+            return false;
+        }
+        route.discovery = Some(RouteDiscoveryState {
+            actor_id,
+            event_seq,
+            reason: reason.to_string(),
+        });
+        route.entity_version = route.entity_version.saturating_add(1).max(1);
+        true
+    }
+
+    pub(super) fn plan_direct_authored_route_discovery(
+        &self,
+        actor_id: u64,
+        destination_location_id: u64,
+    ) -> Option<(CwAction, ProjectionMutation, JourneyNarrationPlan)> {
+        let actor = self.actor_by_id(actor_id)?;
+        let exit = self.seed_exit_by_locations(actor.location_id, destination_location_id)?;
+        if exit.distance > 1
+            || self.seed_exit_discovered(exit.from_location_id, exit.to_location_id)
+        {
+            return None;
+        }
+        let destination_name = self
+            .location_name(destination_location_id)
+            .unwrap_or_else(|| format!("Location {destination_location_id}"));
+        Some((
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id,
+                ..CwAction::default()
+            },
+            ProjectionMutation::DiscoverSeedExit {
+                from_location_id: actor.location_id,
+                to_location_id: destination_location_id,
+                reason: "scout_direct_route".to_string(),
+            },
+            JourneyNarrationPlan {
+                actor_name: self
+                    .actor_name(actor_id)
+                    .unwrap_or_else(|| "The traveller".to_string()),
+                from_name: self
+                    .location_name(actor.location_id)
+                    .unwrap_or_else(|| "the path's edge".to_string()),
+                to_name: destination_name.clone(),
+                destination_name,
+                current_step: 1,
+                total_steps: 1,
+                discovery: true,
+            },
+        ))
+    }
+
+    pub(super) fn backfill_route_discovery_from_tags(&mut self) {
+        let mut discoveries = BTreeMap::<String, RouteDiscoveryState>::new();
+        for exit in &active_content().exits {
+            let Some(tag) = self
+                .tags
+                .get(&seed_exit_discovered_tag_id(
+                    exit.from_location_id,
+                    exit.to_location_id,
+                ))
+                .filter(|tag| tag.active)
+            else {
+                continue;
+            };
+            let event_seq = tag.source_event_seq.unwrap_or(0);
+            let actor_id = self
+                .event_log
+                .iter()
+                .find(|event| event.seq == event_seq)
+                .and_then(|event| event.actor_id)
+                .unwrap_or(0);
+            discoveries
+                .entry(authored_route_id(
+                    exit.from_location_id,
+                    exit.to_location_id,
+                ))
+                .or_insert_with(|| RouteDiscoveryState {
+                    actor_id,
+                    event_seq,
+                    reason: "legacy_discovery_tag".to_string(),
+                });
+        }
+        for hidden_exit in &active_content().hidden_exits {
+            let Some(tag) = self
+                .tags
+                .get(&hidden_exit_discovered_tag_id(&hidden_exit.id))
+                .filter(|tag| tag.active)
+            else {
+                continue;
+            };
+            let event_seq = tag.source_event_seq.unwrap_or(0);
+            let actor_id = self
+                .event_log
+                .iter()
+                .find(|event| event.seq == event_seq)
+                .and_then(|event| event.actor_id)
+                .unwrap_or(0);
+            discoveries
+                .entry(hidden_route_id(&hidden_exit.id))
+                .or_insert_with(|| RouteDiscoveryState {
+                    actor_id,
+                    event_seq,
+                    reason: "legacy_discovery_tag".to_string(),
+                });
+        }
+        for (route_id, route) in &self.routes {
+            let Some(pathway_id) = route.provenance.strip_prefix("generated_pathway:") else {
+                continue;
+            };
+            if route.lifecycle != RouteLifecycle::Open || route.discovery.is_some() {
+                continue;
+            }
+            let actor_id = self
+                .generated_pathways
+                .get(pathway_id)
+                .map(|pathway| pathway.created_by_actor_id)
+                .unwrap_or(0);
+            discoveries
+                .entry(route_id.clone())
+                .or_insert_with(|| RouteDiscoveryState {
+                    actor_id,
+                    event_seq: 0,
+                    reason: "legacy_generated_pathway".to_string(),
+                });
+        }
+        for (route_id, discovery) in discoveries {
+            let Some(route) = self.routes.get_mut(&route_id) else {
+                continue;
+            };
+            if route.discovery.is_none() {
+                route.discovery = Some(discovery);
+            }
         }
     }
 
@@ -400,6 +577,17 @@ impl RuntimeWorld {
                                     .map(Self::binding_for_route)
                                 })
                         }),
+                    ProjectionMutation::DiscoverSeedExit {
+                        from_location_id,
+                        to_location_id,
+                        ..
+                    } => self
+                        .route_for_edge_in_any_lifecycle(*from_location_id, *to_location_id)
+                        .map(Self::binding_for_route),
+                    ProjectionMutation::DiscoverHiddenExit { hidden_exit_id, .. } => self
+                        .routes
+                        .get(&hidden_route_id(hidden_exit_id))
+                        .map(Self::binding_for_route),
                     ProjectionMutation::RendezvousActor {
                         actor_id,
                         location_id,
@@ -537,5 +725,213 @@ mod tests {
         runtime.decay_search_memories();
         assert_eq!(runtime.routes, routes);
         assert_eq!(&runtime.world.exits[..runtime.world.exit_count], exits);
+    }
+
+    #[test]
+    fn discovered_routes_survive_memory_decay_for_later_actors_and_replay() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Forgetful Finder",
+        );
+        let access = AccessContext::default();
+
+        assert!(runtime
+            .seed_exit_candidate_for_search(COSY_COTTAGE_LOCATION_ID)
+            .is_some_and(|exit| exit.to_location_id == RAIN_SOFT_GARDEN_LOCATION_ID));
+
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: 5000,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                ..CwAction::default()
+            },
+            91_001,
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::DiscoverSeedExit {
+                from_location_id: COSY_COTTAGE_LOCATION_ID,
+                to_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                reason: "search_feature".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+        assert!(
+            runtime.seed_exit_discovered(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+        );
+        let discovery = runtime
+            .route_for_edge(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+            .and_then(|route| route.discovery.clone())
+            .expect("the shared route records discovery provenance");
+        assert_eq!(discovery.actor_id, 5000);
+        assert_eq!(discovery.reason, "search_feature");
+        assert!(discovery.event_seq > 0);
+
+        runtime.world.tick = runtime
+            .world
+            .tick
+            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
+        runtime.decay_search_memories();
+
+        assert!(
+            runtime.seed_exit_discovered(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+        );
+        assert!(runtime
+            .seed_exit_candidate_for_search(COSY_COTTAGE_LOCATION_ID)
+            .is_none_or(|exit| exit.to_location_id != RAIN_SOFT_GARDEN_LOCATION_ID));
+
+        create_test_human(
+            &mut runtime,
+            5001,
+            COSY_COTTAGE_LOCATION_ID,
+            "Later Traveller",
+        );
+        let later_state = runtime.state_response(Some(5001), &access);
+        assert!(later_state
+            .action_offers
+            .iter()
+            .any(|offer| offer.kind == "move"
+                && offer
+                    .target
+                    .as_ref()
+                    .is_some_and(|target| target.id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))));
+        assert!(!later_state
+            .action_offers
+            .iter()
+            .any(|offer| offer.kind == "explore_path"
+                && offer
+                    .target
+                    .as_ref()
+                    .is_some_and(|target| target.id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))));
+
+        let restored = RuntimeSnapshot::from_runtime(&runtime)
+            .into_runtime()
+            .expect("durable route discovery replays");
+        assert_eq!(
+            restored
+                .route_for_edge(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+                .and_then(|route| route.discovery.as_ref()),
+            Some(&discovery)
+        );
+    }
+
+    #[test]
+    fn direct_authored_secret_scouts_once_without_a_generated_journey() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Direct Scout");
+        let access = AccessContext::default();
+        let initial = runtime.state_response(Some(5000), &access);
+        let offer = initial
+            .action_offers
+            .iter()
+            .find(|offer| {
+                offer.kind == "explore_path"
+                    && offer
+                        .target
+                        .as_ref()
+                        .is_some_and(|target| target.id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))
+            })
+            .cloned()
+            .expect("the adjacent undiscovered route offers Scout");
+        let (action, mutation, _) = runtime
+            .plan_scout_offer(5000, &offer)
+            .expect("the exact Scout offer plans");
+        assert_eq!(action.kind, CW_ACTION_NONE);
+        assert!(matches!(
+            mutation,
+            ProjectionMutation::DiscoverSeedExit {
+                from_location_id: COSY_COTTAGE_LOCATION_ID,
+                to_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                ..
+            }
+        ));
+
+        let mut record = JournalRecord::new(action, 91_003);
+        record.bind_offer_kind("explore_path");
+        record.projection_mutations.push(mutation);
+        let (status, events) = runtime.apply_journal_record(&record);
+        assert_eq!(status, CW_OK);
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| event.type_name == "exit.discovered")
+                .count(),
+            1
+        );
+        let route_version = runtime
+            .route_for_edge(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+            .expect("discovered route remains canonical")
+            .entity_version;
+        let (repeat_status, repeat_events) = runtime.apply_journal_record(&record);
+        assert_eq!(repeat_status, CW_OK);
+        assert!(repeat_events.is_empty());
+        assert_eq!(
+            runtime
+                .route_for_edge(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+                .expect("replayed discovery keeps the route")
+                .entity_version,
+            route_version
+        );
+        assert!(runtime.generated_pathways.is_empty());
+        let settled = runtime.state_response(Some(5000), &access);
+        assert!(settled.action_offers.iter().any(|offer| {
+            offer.kind == "move"
+                && offer
+                    .target
+                    .as_ref()
+                    .is_some_and(|target| target.id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))
+        }));
+        assert!(!settled.action_offers.iter().any(|offer| {
+            offer.kind == "explore_path"
+                && offer
+                    .target
+                    .as_ref()
+                    .is_some_and(|target| target.id == Some(RAIN_SOFT_GARDEN_LOCATION_ID))
+        }));
+    }
+
+    #[test]
+    fn legacy_snapshot_backfills_route_discovery_from_durable_tags() {
+        let mut runtime = RuntimeWorld::seeded();
+        let mut record = JournalRecord::new(
+            CwAction {
+                kind: CW_ACTION_NONE,
+                actor_id: RATI_ACTOR_ID,
+                location_id: COSY_COTTAGE_LOCATION_ID,
+                ..CwAction::default()
+            },
+            31_700,
+        );
+        record
+            .projection_mutations
+            .push(ProjectionMutation::DiscoverSeedExit {
+                from_location_id: COSY_COTTAGE_LOCATION_ID,
+                to_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
+                reason: "legacy_fixture".to_string(),
+            });
+        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
+
+        let mut snapshot = RuntimeSnapshot::from_runtime(&runtime);
+        snapshot.version = 11;
+        let route = snapshot
+            .routes
+            .values_mut()
+            .find(|route| {
+                route.contains_edge(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+            })
+            .expect("authored route persists");
+        route.discovery = None;
+
+        let restored = snapshot.into_runtime().expect("legacy discovery migrates");
+        let discovery = restored
+            .route_for_edge(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
+            .and_then(|route| route.discovery.as_ref())
+            .expect("legacy tag becomes canonical route discovery");
+        assert_eq!(discovery.actor_id, RATI_ACTOR_ID);
+        assert!(discovery.event_seq > 0);
+        assert_eq!(discovery.reason, "legacy_discovery_tag");
     }
 }

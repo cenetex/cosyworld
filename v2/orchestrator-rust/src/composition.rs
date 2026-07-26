@@ -964,9 +964,10 @@ impl RuntimeWorld {
                     .iter()
                     .find(|exit| {
                         exit.from_location_id == actor.location_id
-                            && exit.distance > 1
                             && exit.flags & CW_EXIT_LOCKED == 0
                             && location_access_allowed(exit.to_location_id, access)
+                            && !self
+                                .seed_exit_discovered(exit.from_location_id, exit.to_location_id)
                             && self
                                 .pathway_for_anchors(actor.location_id, exit.to_location_id)
                                 .is_none()

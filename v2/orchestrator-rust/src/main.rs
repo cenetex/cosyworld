@@ -6132,7 +6132,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 11,
+            version: 12,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6214,6 +6214,7 @@ impl RuntimeSnapshot {
     }
 
     fn into_runtime(self) -> io::Result<RuntimeWorld> {
+        let snapshot_version = self.version;
         let compatibility =
             persisted_worldpack_replay_compatibility(&self.worldpack_bundle_hash, "snapshot")?;
         if compatibility == WorldpackReplayCompatibility::DeclaredMigration {
@@ -6423,9 +6424,14 @@ impl RuntimeSnapshot {
             next_content_id: self.next_content_id,
             next_seed: self.next_seed,
         })
-        .map(|mut runtime| {
+        .map(move |mut runtime| {
             runtime.backfill_recent_room_lines();
             runtime.ensure_seed_topology();
+            if snapshot_version < 12 {
+                runtime.backfill_route_discovery_from_tags();
+                runtime.ensure_discovered_hidden_exits();
+                runtime.rebuild_kernel_exits_from_routes();
+            }
             runtime.ensure_active_actor_rules_facets();
             runtime.ensure_seed_rpg_projection();
             runtime.backfill_generated_avatar_flavor();
@@ -10470,6 +10476,15 @@ impl RuntimeWorld {
                         narration,
                         journey_destination,
                     );
+                    for (from_location_id, to_location_id) in reveal_edges {
+                        self.mark_route_discovered_for_edge(
+                            *from_location_id,
+                            *to_location_id,
+                            action.actor_id,
+                            event.seq,
+                            event_type,
+                        );
+                    }
                     self.record_generated_place_discovery(
                         &next_pathway,
                         reveal_edges,
@@ -10660,6 +10675,13 @@ impl RuntimeWorld {
                         *to_location_id,
                         content,
                     );
+                    self.mark_route_discovered_for_edge(
+                        *from_location_id,
+                        *to_location_id,
+                        action.actor_id,
+                        event.seq,
+                        reason,
+                    );
                     events.push(event.clone());
 
                     let mut discovered_exits = vec![exit];
@@ -10718,6 +10740,13 @@ impl RuntimeWorld {
                         hidden_exit.from_location_id,
                         hidden_exit.to_location_id,
                         hidden_exit.discovery_text.clone(),
+                    );
+                    self.mark_route_discovered_for_edge(
+                        hidden_exit.from_location_id,
+                        hidden_exit.to_location_id,
+                        action.actor_id,
+                        event.seq,
+                        reason,
                     );
                     events.push(event.clone());
                     self.remember_search_discovery_for_witnesses(
@@ -14404,6 +14433,11 @@ impl RuntimeWorld {
             }
             return self.plan_pathway_search(actor_id);
         }
+        if let Some(plan) =
+            self.plan_direct_authored_route_discovery(actor_id, destination_location_id)
+        {
+            return Ok(plan);
+        }
         self.plan_journey_move(actor_id, destination_location_id)?
             .ok_or_else(|| "Scout needs a route longer than one open step.".to_string())
     }
@@ -14696,12 +14730,14 @@ impl RuntimeWorld {
     }
 
     fn seed_exit_discovered(&self, from_location_id: u64, to_location_id: u64) -> bool {
-        self.search_discovery_remembered(
-            SEARCH_MEMORY_KIND_SEED_EXIT,
-            from_location_id,
-            to_location_id,
-            &seed_exit_search_memory_subject_key(from_location_id, to_location_id),
-        )
+        self.route_discovered_for_edge(from_location_id, to_location_id)
+            || self
+                .tags
+                .get(&seed_exit_discovered_tag_id(
+                    from_location_id,
+                    to_location_id,
+                ))
+                .is_some_and(|tag| tag.active)
     }
 
     fn seed_exit_candidate_for_search(&self, location_id: u64) -> Option<&'static SeedExitContent> {
@@ -14765,12 +14801,11 @@ impl RuntimeWorld {
     }
 
     fn hidden_exit_discovered(&self, hidden_exit: &SeedHiddenExitContent) -> bool {
-        self.search_discovery_remembered(
-            SEARCH_MEMORY_KIND_HIDDEN_EXIT,
-            hidden_exit.from_location_id,
-            hidden_exit.to_location_id,
-            &hidden_exit.id,
-        )
+        self.route_discovered_for_edge(hidden_exit.from_location_id, hidden_exit.to_location_id)
+            || self
+                .tags
+                .get(&hidden_exit_discovered_tag_id(&hidden_exit.id))
+                .is_some_and(|tag| tag.active)
     }
 
     fn hidden_exit_between(
@@ -14887,22 +14922,6 @@ impl RuntimeWorld {
         let confidence = memory.confidence.saturating_sub(confidence_loss);
         let salience = memory.salience.saturating_sub(salience_loss);
         (confidence > 0 && salience > 0).then_some((confidence, salience))
-    }
-
-    fn search_discovery_remembered(
-        &self,
-        kind: &str,
-        location_id: u64,
-        subject_id: u64,
-        subject_key: &str,
-    ) -> bool {
-        self.search_memories.values().any(|memory| {
-            memory.kind == kind
-                && memory.location_id == location_id
-                && memory.subject_id == subject_id
-                && memory.subject_key == subject_key
-                && self.search_memory_active(memory)
-        })
     }
 
     fn search_item_remembered(&self, item_id: u64) -> bool {
@@ -22749,6 +22768,16 @@ impl RuntimeWorld {
                             "{actor_name} intends to scout toward {destination}."
                         ))
                     }
+                    ProjectionMutation::DiscoverSeedExit { to_location_id, .. } => {
+                        proposed_action.kind = "scout".to_string();
+                        proposed_action.destination_location_id = Some(*to_location_id);
+                        let destination = self
+                            .location_name(*to_location_id)
+                            .unwrap_or_else(|| format!("Location {to_location_id}"));
+                        Some(format!(
+                            "{actor_name} intends to scout toward {destination}."
+                        ))
+                    }
                     ProjectionMutation::UseFeature {
                         item_id,
                         location_id,
@@ -22873,6 +22902,7 @@ impl RuntimeWorld {
                         "explore_path"
                     })
                 }
+                ProjectionMutation::DiscoverSeedExit { .. } => Some("explore_path"),
                 ProjectionMutation::ClearTag { reason, .. } if reason == "rest" => Some("rest"),
                 _ => None,
             })
@@ -22921,6 +22951,9 @@ impl RuntimeWorld {
                         journey: Some(journey),
                         ..
                     } if action.kind != CW_ACTION_MOVE => Some(journey.destination_location_id),
+                    ProjectionMutation::DiscoverSeedExit { to_location_id, .. } => {
+                        Some(*to_location_id)
+                    }
                     _ => None,
                 })
         {
@@ -47650,6 +47683,11 @@ mod tests {
             RAIN_SOFT_GARDEN_LOCATION_ID,
             "Pathfinder",
         );
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
         runtime.callings.insert(
             5000,
             CallingState {
@@ -62723,66 +62761,6 @@ mod tests {
     }
 
     #[test]
-    fn search_discovered_paths_return_to_pool_when_forgotten() {
-        let mut runtime = RuntimeWorld::seeded();
-        create_test_human(
-            &mut runtime,
-            5000,
-            COSY_COTTAGE_LOCATION_ID,
-            "Forgetful Finder",
-        );
-        let access = AccessContext::default();
-
-        assert!(runtime
-            .seed_exit_candidate_for_search(COSY_COTTAGE_LOCATION_ID)
-            .is_some_and(|exit| exit.to_location_id == RAIN_SOFT_GARDEN_LOCATION_ID));
-
-        let mut record = JournalRecord::new(
-            CwAction {
-                kind: CW_ACTION_NONE,
-                actor_id: 5000,
-                location_id: COSY_COTTAGE_LOCATION_ID,
-                ..CwAction::default()
-            },
-            91_001,
-        );
-        record
-            .projection_mutations
-            .push(ProjectionMutation::DiscoverSeedExit {
-                from_location_id: COSY_COTTAGE_LOCATION_ID,
-                to_location_id: RAIN_SOFT_GARDEN_LOCATION_ID,
-                reason: "search_feature".to_string(),
-            });
-        assert_eq!(runtime.apply_journal_record(&record).0, CW_OK);
-        assert!(
-            runtime.seed_exit_discovered(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
-        );
-        assert!(runtime
-            .state_response(Some(5000), &access)
-            .exits
-            .iter()
-            .any(|exit| exit.destination_location_id == RAIN_SOFT_GARDEN_LOCATION_ID));
-
-        runtime.world.tick = runtime
-            .world
-            .tick
-            .saturating_add(SEARCH_MEMORY_TIME_DECAY_INTERVAL_TICKS * 64);
-        runtime.decay_search_memories();
-
-        assert!(
-            !runtime.seed_exit_discovered(COSY_COTTAGE_LOCATION_ID, RAIN_SOFT_GARDEN_LOCATION_ID)
-        );
-        assert!(!runtime
-            .state_response(Some(5000), &access)
-            .exits
-            .iter()
-            .any(|exit| exit.destination_location_id == RAIN_SOFT_GARDEN_LOCATION_ID));
-        assert!(runtime
-            .seed_exit_candidate_for_search(COSY_COTTAGE_LOCATION_ID)
-            .is_some_and(|exit| exit.to_location_id == RAIN_SOFT_GARDEN_LOCATION_ID));
-    }
-
-    #[test]
     fn search_revealed_avatars_return_to_pool_when_forgotten() {
         let mut runtime = RuntimeWorld::seeded();
         create_test_human(&mut runtime, 5000, DARK_ABYSS_LOCATION_ID, "Abyss Witness");
@@ -67675,6 +67653,11 @@ mod tests {
             .find(|actor| actor.id == RATI_ACTOR_ID)
             .expect("Rati exists")
             .location_id = RAIN_SOFT_GARDEN_LOCATION_ID;
+        discover_seed_exit_pair_for_test(
+            &mut runtime,
+            COSY_COTTAGE_LOCATION_ID,
+            RAIN_SOFT_GARDEN_LOCATION_ID,
+        );
         runtime
             .actor_autonomy
             .entry(RATI_ACTOR_ID)
