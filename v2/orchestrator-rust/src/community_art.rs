@@ -30,7 +30,7 @@ pub(super) const LOCATION_LANDSCAPE_PROMPT_PREFIX: &str =
     "MRQ, cozy storybook landscape, wide environment establishing view";
 const COMMUNITY_ART_CANDIDATE_SCHEMA_VERSION: u8 = 1;
 pub(super) const POLICY_PREFLIGHT_IMAGE_URL: &str =
-    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XqgWAAAAAElFTkSuQmCC";
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAQMAAACQp+OdAAAAA1BMVEUA/wA0XsCoAAAAD0lEQVQoz2NgGAWjgHwAAAJAAAGMxat3AAAAAElFTkSuQmCC";
 
 pub(super) fn legacy_community_art_generation_profile_version() -> u8 {
     LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION

@@ -1,5 +1,6 @@
 use super::*;
 use axum::{response::IntoResponse as _, routing::post, Router};
+use base64::Engine as _;
 use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc,
@@ -17,6 +18,20 @@ fn test_art_config() -> ReplicateAvatarArtConfig {
         prompt_prefix: "cozy card art".to_string(),
         output_format: "png".to_string(),
     }
+}
+
+#[test]
+fn policy_preflight_fixture_is_a_real_sized_png() {
+    let encoded = POLICY_PREFLIGHT_IMAGE_URL
+        .strip_prefix("data:image/png;base64,")
+        .expect("preflight fixture is an inline PNG");
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .expect("preflight fixture decodes");
+    assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
+    assert_eq!(&bytes[12..16], b"IHDR");
+    assert_eq!(u32::from_be_bytes(bytes[16..20].try_into().unwrap()), 64);
+    assert_eq!(u32::from_be_bytes(bytes[20..24].try_into().unwrap()), 64);
 }
 
 #[tokio::test]
