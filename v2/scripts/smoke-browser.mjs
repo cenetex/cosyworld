@@ -4256,6 +4256,59 @@ async function main() {
       await closeCardModal();
     }
 
+    const pathwayContract = await page.evaluate(() => {
+      const previousState = state;
+      const pathwayId = 990001;
+      const pathwayCard = {
+        card_id: "generated-pathway-contract-smoke",
+        display_name: "Mossy Verge",
+        title: "Newly Found Path",
+        blurb: "A revealed stretch whose community image is waiting to be funded.",
+        rarity: "everyday",
+        role: "location",
+        aspect: "wide",
+        image_url: `/assets/generated/pathways/${pathwayId}.svg`,
+        community_art: {
+          level: 1,
+          required_orbs: 1,
+          funded_orbs: 0,
+          remaining_orbs: 1,
+          status: "available",
+        },
+      };
+      try {
+        state = {
+          ...previousState,
+          economy: { ...(previousState?.economy || {}), orbs: 4 },
+          cards: {
+            ...(previousState?.cards || {}),
+            locations: {
+              ...(previousState?.cards?.locations || {}),
+              [pathwayId]: pathwayCard,
+            },
+          },
+        };
+        openCardModal(pathwayCard);
+        const button = document.querySelector("#card-modal [data-fund-community-image]");
+        return {
+          subject: button?.getAttribute("data-fund-community-image") || "",
+          label: button?.textContent?.trim() || "",
+          disabled: button?.disabled ?? true,
+          copy: document.querySelector("#card-modal-economy")?.textContent?.replace(/\s+/g, " ").trim() || "",
+        };
+      } finally {
+        closeCardModal();
+        state = previousState;
+      }
+    });
+    assert(
+      pathwayContract.subject === "location:990001"
+        && pathwayContract.label === "add one Orb · 0/1"
+        && pathwayContract.disabled === false
+        && pathwayContract.copy.includes("1 Orb still needed from the community"),
+      `a revealed generated pathway keepsake should expose its Orb image contract: ${JSON.stringify(pathwayContract)}`,
+    );
+
     await page.locator(".room-avatar-pfp[data-card-key]").first().click();
     await page.waitForSelector("#card-modal:not([hidden])");
     const actorCardName = await page.locator("#card-modal-name").innerText();
