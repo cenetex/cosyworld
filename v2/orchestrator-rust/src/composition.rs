@@ -34,6 +34,13 @@ fn submitted_offer_legacy_id(submission: &ActionOfferSubmissionRequest) -> Optio
     submission.offer_id.strip_prefix(&prefix)
 }
 
+fn action_offer_kind_requires_actor_target(kind: &str) -> bool {
+    matches!(
+        kind,
+        "chat" | "influence" | "attack" | "defend" | "give_item" | "create_bond" | "resolve_bond"
+    )
+}
+
 fn offer_composition_matches_at_submitted_revision(
     offer: &RankedActionOffer,
     submission: &ActionOfferSubmissionRequest,
@@ -52,13 +59,28 @@ fn offer_composition_matches_at_submitted_revision(
 }
 
 impl RuntimeWorld {
+    #[cfg(test)]
     pub(super) fn validate_action_offer_submission(
         &self,
         actor_id: u64,
         access: &AccessContext,
         submission: &ActionOfferSubmissionRequest,
     ) -> Result<(), &'static str> {
-        let (_, offers) = self.legal_action_candidates(Some(actor_id), access);
+        self.validate_action_offer_submission_with_presence(actor_id, access, submission, None)
+    }
+
+    pub(super) fn validate_action_offer_submission_with_presence(
+        &self,
+        actor_id: u64,
+        access: &AccessContext,
+        submission: &ActionOfferSubmissionRequest,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> Result<(), &'static str> {
+        let (_, offers) = self.legal_action_candidates_with_presence(
+            Some(actor_id),
+            access,
+            active_direct_actor_ids,
+        );
         let exact_offer = offers
             .iter()
             .find(|offer| offer.offer_id == submission.offer_id);
@@ -180,17 +202,82 @@ impl RuntimeWorld {
         actor_id: Option<u64>,
         access: &AccessContext,
     ) -> (PrimaryAction, Vec<RankedActionOffer>) {
+        self.legal_action_candidates_with_presence(actor_id, access, None)
+    }
+
+    pub(super) fn legal_action_candidates_with_presence(
+        &self,
+        actor_id: Option<u64>,
+        access: &AccessContext,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> (PrimaryAction, Vec<RankedActionOffer>) {
         let mut primary_action = self.primary_action(actor_id, access);
-        let mut action_offers = self.ranked_action_offers(actor_id, access, &primary_action);
+        let mut action_offers =
+            self.ranked_action_offers(actor_id, access, &primary_action, active_direct_actor_ids);
+        action_offers.retain(|offer| {
+            if action_offer_kind_requires_actor_target(&offer.kind)
+                && !offer
+                    .target
+                    .as_ref()
+                    .is_some_and(|target| target.kind == "actor" && target.id.is_some())
+            {
+                return false;
+            }
+            let Some(target) = offer
+                .target
+                .as_ref()
+                .filter(|target| target.kind == "actor")
+            else {
+                return true;
+            };
+            target
+                .id
+                .and_then(|target_actor_id| self.actor_by_id(target_actor_id))
+                .is_some_and(|target_actor| {
+                    self.actor_visible_in_projection(
+                        target_actor,
+                        actor_id,
+                        active_direct_actor_ids,
+                    )
+                })
+        });
+
+        primary_action.options.retain_mut(|option| {
+            let Some(offer) = action_offers.iter().find(|offer| offer.kind == option.kind) else {
+                return false;
+            };
+            if option.kind == "create_bond" {
+                option.command = offer.command.clone();
+            }
+            true
+        });
         let primary_offer_kind = match primary_action.kind.as_str() {
             "travel" => "move",
             kind => kind,
         };
-        if let Some(offer) = action_offers
+        let selected_offer = action_offers
             .iter()
             .find(|offer| offer.kind == primary_offer_kind)
-        {
+            .or_else(|| action_offers.first());
+        if let Some(offer) = selected_offer {
+            if offer.kind != primary_offer_kind {
+                primary_action.kind = match offer.kind.as_str() {
+                    "move" => "travel",
+                    kind => kind,
+                }
+                .to_string();
+                primary_action.label = offer.verb.clone();
+                primary_action.disabled = offer.disabled;
+            }
             primary_action.command = offer.command.clone();
+        } else {
+            primary_action = PrimaryAction {
+                kind: "wait".to_string(),
+                label: "Wait".to_string(),
+                command: "wait".to_string(),
+                disabled: true,
+                options: Vec::new(),
+            };
         }
         for offer in &mut action_offers {
             offer.composition_trace.focused_encounter = actor_id
@@ -205,6 +292,7 @@ impl RuntimeWorld {
         actor_id: Option<u64>,
         access: &AccessContext,
         primary_action: &PrimaryAction,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
     ) -> Vec<RankedActionOffer> {
         let Some(actor_id) = actor_id else {
             return vec![self.ranked_offer_from_parts(
@@ -263,8 +351,22 @@ impl RuntimeWorld {
                     .map(|action_id| self.contextual_action_contributions(actor_id, action_id))
                     .unwrap_or_default();
                 let rank = self.action_offer_rank_for_actor(&option.kind, actor_id);
-                let target = self.action_offer_target(&option.kind, actor_id, access);
-                let project = self.action_offer_project(&option.kind, &option.command, actor_id);
+                let target = self.action_offer_target(
+                    &option.kind,
+                    actor_id,
+                    access,
+                    active_direct_actor_ids,
+                );
+                let command = if option.kind == "create_bond" {
+                    target
+                        .as_ref()
+                        .and_then(|target| target.label.as_deref())
+                        .map(|label| format!("chat {label}"))
+                        .unwrap_or_else(|| option.command.clone())
+                } else {
+                    option.command.clone()
+                };
+                let project = self.action_offer_project(&option.kind, &command, actor_id);
                 let intention = action_offer_intention(&option.kind).to_string();
                 let verb = self.action_offer_verb(&option.kind, actor_id);
                 let label = self.action_offer_label(
@@ -284,9 +386,11 @@ impl RuntimeWorld {
                 );
                 let cost = self.action_offer_cost(&option.kind, actor_id);
                 let risk = self.action_offer_risk(&option.kind, actor_id);
-                let effect = self.action_offer_effect(&option.kind, actor_id);
+                let effect =
+                    self.action_offer_effect(&option.kind, actor_id, active_direct_actor_ids);
                 let progress = self.action_offer_progress(&option.kind, actor_id);
-                let claim_key = self.action_offer_claim_key(&option.kind, actor_id);
+                let claim_key =
+                    self.action_offer_claim_key(&option.kind, actor_id, active_direct_actor_ids);
                 let provider = self.action_offer_provider(
                     &option.kind,
                     actor_id,
@@ -306,11 +410,7 @@ impl RuntimeWorld {
                         source_card_instances.push(location_source);
                     }
                 }
-                let legacy_id = format!(
-                    "{}:{}",
-                    option.kind,
-                    normalize_command_text(&option.command)
-                );
+                let legacy_id = format!("{}:{}", option.kind, normalize_command_text(&command));
                 let offer_id = format!(
                     "{}:{}:{}",
                     active_content().manifest.rules_profile,
@@ -354,7 +454,7 @@ impl RuntimeWorld {
                     label,
                     accessible_label,
 
-                    command: option.command,
+                    command,
                     rank,
                     disabled: primary_action.disabled,
                     disabled_reason: primary_action
@@ -1136,6 +1236,7 @@ impl RuntimeWorld {
         kind: &str,
         actor_id: u64,
         access: &AccessContext,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
     ) -> Option<ActionTargetView> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
@@ -1298,14 +1399,13 @@ impl RuntimeWorld {
                         label: Some(exit.destination_location_name),
                     })
             }
-            "create_bond" => {
-                self.default_bondable_resident(actor_id)
-                    .map(|target| ActionTargetView {
-                        kind: "actor".to_string(),
-                        id: Some(target.id),
-                        label: self.actor_name(target.id),
-                    })
-            }
+            "create_bond" => self
+                .default_bondable_resident_with_presence(actor_id, active_direct_actor_ids)
+                .map(|target| ActionTargetView {
+                    kind: "actor".to_string(),
+                    id: Some(target.id),
+                    label: self.actor_name(target.id),
+                }),
             "resolve_bond" => self
                 .default_resolvable_bond(actor_id)
                 .map(|bond| ActionTargetView {
@@ -1416,7 +1516,12 @@ impl RuntimeWorld {
         }
     }
 
-    pub(super) fn action_offer_effect(&self, kind: &str, actor_id: u64) -> Option<String> {
+    pub(super) fn action_offer_effect(
+        &self,
+        kind: &str,
+        actor_id: u64,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> Option<String> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
             "chat" => self
@@ -1583,10 +1688,12 @@ impl RuntimeWorld {
                     format!("creates {output} from the two present keepsakes")
                 }
             }),
-            "create_bond" => self.default_bondable_resident(actor_id).and_then(|target| {
-                self.actor_name(target.id)
-                    .map(|name| format!("a friendship with {name} begins"))
-            }),
+            "create_bond" => self
+                .default_bondable_resident_with_presence(actor_id, active_direct_actor_ids)
+                .and_then(|target| {
+                    self.actor_name(target.id)
+                        .map(|name| format!("a friendship with {name} begins"))
+                }),
             "resolve_bond" => self.default_resolvable_bond(actor_id).and_then(|bond| {
                 self.actor_name(bond.target_actor_id)
                     .map(|name| format!("keeps what mattered with {name}; leaves you something to remember"))
@@ -1667,7 +1774,12 @@ impl RuntimeWorld {
         }
     }
 
-    pub(super) fn action_offer_claim_key(&self, kind: &str, actor_id: u64) -> Option<String> {
+    pub(super) fn action_offer_claim_key(
+        &self,
+        kind: &str,
+        actor_id: u64,
+        active_direct_actor_ids: Option<&BTreeSet<u64>>,
+    ) -> Option<String> {
         let actor = self.actor_by_id(actor_id)?;
         match kind {
             "chat" => None,
@@ -1706,7 +1818,7 @@ impl RuntimeWorld {
                 .map(|(target, item)| format!("theft:{}:{}:{}", actor_id, target.id, item.id)),
             "rest" => Some(tired_tag_id(actor_id)),
             "create_bond" => self
-                .default_bondable_resident(actor_id)
+                .default_bondable_resident_with_presence(actor_id, active_direct_actor_ids)
                 .map(|target| bond_id(actor_id, target.id)),
             "resolve_bond" => self
                 .default_resolvable_bond(actor_id)

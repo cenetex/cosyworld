@@ -17,6 +17,12 @@ checks, inventory rules, bonds, combat participation, evolution, or deed
 projection. Session ownership decides who may submit a direct choice; it is an
 authorization boundary, not an RPG rule.
 
+Actor-targeted offers and the room roster share one projection-visibility
+policy. A `direct_input` avatar whose presence has lapsed is absent from both;
+an offer issued while they were active fails closed if submitted after they
+leave. Present co-located avatars and inference-controlled residents remain
+targetable when the underlying world rule allows the action.
+
 Room-card reactions rotate through every present active avatar in stable card
 order. An inference controller may speak and update its own continuity. A
 generated line for a `direct_input` avatar is public proxy speech on that
