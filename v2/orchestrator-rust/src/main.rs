@@ -6415,6 +6415,7 @@ impl RuntimeSnapshot {
             runtime.ensure_seed_rpg_projection();
             runtime.backfill_generated_avatar_flavor();
             runtime.backfill_listen_attempt_claims_from_events();
+            runtime.backfill_first_tale_destination_arrivals();
             runtime.refresh_all_resident_continuities();
             runtime.ensure_actor_autonomy();
             runtime.backfill_generated_place_governance();
@@ -6428,7 +6429,6 @@ impl RuntimeSnapshot {
         })
     }
 }
-
 impl ResidentContinuitySnapshot {
     fn from_runtime(runtime: &RuntimeWorld) -> Self {
         Self {
@@ -6440,7 +6440,6 @@ impl ResidentContinuitySnapshot {
         }
     }
 }
-
 fn default_zone() -> String {
     ZONE_SANCTUARY.to_string()
 }
@@ -10079,6 +10078,7 @@ impl RuntimeWorld {
             let committed_events = events.clone();
             events.extend(self.apply_influence_projection(&action, &committed_events));
             self.reinforce_search_memories_from_events(&events);
+            self.record_first_tale_destination_arrivals(&events);
             let committed_events = events.clone();
             events.extend(self.apply_event_lifecycle_hooks(
                 &action,
