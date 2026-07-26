@@ -7285,6 +7285,9 @@ async function main() {
         avatarCards: [...document.querySelectorAll(".room-avatar-pfp[data-card-key]")]
           .map((node) => ({ tag: node.tagName, tabIndex: node.tabIndex })),
         heroImage: document.querySelector("#room-hero-image")?.getAttribute("src") || "",
+        iconCount: document.querySelectorAll(".ui-icon").length,
+        decorativeIcons: [...document.querySelectorAll(".ui-icon")]
+          .every((icon) => icon.getAttribute("aria-hidden") === "true" && icon.getAttribute("focusable") === "false"),
       };
     });
     assert(!/maximum-scale/i.test(base.viewport), `${label}: mobile viewport should allow zoom: ${JSON.stringify(base)}`);
@@ -7299,6 +7302,7 @@ async function main() {
     assert(base.heroCard?.tag === "BUTTON" && base.heroCard.visible, `${label}: room art should open through a native button: ${JSON.stringify(base)}`);
     assert(base.avatarCards.length > 0 && base.avatarCards.every((target) => target.tag === "BUTTON" && target.tabIndex === 0), `${label}: avatar portraits should be keyboard buttons: ${JSON.stringify(base)}`);
     assert(base.heroImage && !base.heroImage.startsWith("data:image/svg+xml"), `${label}: campaign room should use reviewed art instead of the abstract fallback: ${JSON.stringify(base)}`);
+    assert(base.iconCount >= 5 && base.decorativeIcons, `${label}: shell icons should be decorative SVGs inside named controls: ${JSON.stringify(base)}`);
 
     const modalOpened = await page.evaluate(() => {
       const trigger = document.querySelector("#primary");
@@ -7347,6 +7351,9 @@ async function main() {
       label: document.querySelector("#log")?.getAttribute("aria-label") || "",
       heading: document.querySelector("#account-panel-title")?.textContent?.trim() || "",
       copy: document.querySelector(".account-panel")?.textContent?.replace(/\s+/g, " ").trim() || "",
+      iconCount: document.querySelectorAll(".menu-nav .ui-icon").length,
+      decorativeIcons: [...document.querySelectorAll(".menu-nav .ui-icon")]
+        .every((icon) => icon.getAttribute("aria-hidden") === "true"),
     }));
     assert(JSON.stringify(menuDeck.sections) === JSON.stringify([
       { id: "deck", label: "deck" },
@@ -7356,6 +7363,7 @@ async function main() {
       { id: "journal", label: "journal" },
       { id: "settings", label: "orbs & settings" },
     ]), `${label}: Menu should separate deck, collection, identity, worlds, journal, and settings: ${JSON.stringify(menuDeck)}`);
+    assert(menuDeck.iconCount === 6 && menuDeck.decorativeIcons, `${label}: every named Menu section should have one decorative icon: ${JSON.stringify(menuDeck)}`);
     assert(menuDeck.role === "region" && menuDeck.label === "Your avatar and collection" && menuDeck.heading === "your deck", `${label}: Deck should be a dedicated semantic panel: ${JSON.stringify(menuDeck)}`);
     assert(/physical cards, not a fixed card count/i.test(menuDeck.copy) && /carried weight/i.test(menuDeck.copy) && /skill charms/i.test(menuDeck.copy) && /spell deck/i.test(menuDeck.copy) && /exhausted \/ discard/i.test(menuDeck.copy), `${label}: Deck should explain weight, loadout, charms, spells, and exhausted cards: ${JSON.stringify(menuDeck)}`);
     await page.locator('[data-menu-section="world"]').click();
@@ -7368,9 +7376,55 @@ async function main() {
       promptHidden: document.querySelector(".prompt")?.hidden || false,
       heading: document.querySelector(".library-heading h2")?.textContent?.trim() || "",
       intro: document.querySelector(".library-intro")?.textContent?.trim() || "",
+      featured: document.querySelector(".library-grid.featured") !== null,
+      packIconCount: document.querySelectorAll(".library-pack-name .ui-icon").length,
+      supportingDisclosure: document.querySelector(".library-system-packs") !== null,
     }));
     assert(library.role === "region" && library.label === "World Library" && !library.live && library.roomHidden && library.promptHidden, `${label}: library should be a dedicated semantic panel: ${JSON.stringify(library)}`);
-    assert(library.heading === "world library" && /where your story can travel/i.test(library.intro), `${label}: library should lead with player-facing copy: ${JSON.stringify(library)}`);
+    assert(library.heading === "Worlds" && /continue through an open world/i.test(library.intro), `${label}: library should lead with player-facing copy: ${JSON.stringify(library)}`);
+    assert(library.featured && library.packIconCount > 0 && library.supportingDisclosure, `${label}: library should separate playable worlds from supporting packs: ${JSON.stringify(library)}`);
+
+    await page.locator('[data-menu-section="settings"]').click();
+    await page.waitForFunction(() => document.querySelector("#account-panel-title")?.textContent?.trim() === "orbs & settings");
+    const preferenceBaseline = await page.evaluate(() => Number.parseFloat(getComputedStyle(document.body).fontSize));
+    await page.locator('[data-ui-setting="largeText"]').check();
+    await page.locator('[data-ui-setting="reduceMotion"]').check();
+    const preferences = await page.evaluate(() => {
+      document.body.classList.remove("large-text", "reduce-motion");
+      applyUiPreferences();
+      return {
+        largeTextStored: localStorage.getItem("cosyworld.ui.largeText"),
+        reduceMotionStored: localStorage.getItem("cosyworld.ui.reduceMotion"),
+        largeTextApplied: document.body.classList.contains("large-text"),
+        reduceMotionApplied: document.body.classList.contains("reduce-motion"),
+        bodyFontSize: Number.parseFloat(getComputedStyle(document.body).fontSize),
+        animationDuration: getComputedStyle(document.querySelector("#brand")).animationDuration,
+      };
+    });
+    assert(
+      preferences.largeTextStored === "true"
+        && preferences.reduceMotionStored === "true"
+        && preferences.largeTextApplied
+        && preferences.reduceMotionApplied
+        && preferences.bodyFontSize > preferenceBaseline
+        && preferences.animationDuration !== "",
+      `${label}: accessibility preferences should persist and apply to the live shell: ${JSON.stringify({ preferenceBaseline, preferences })}`,
+    );
+    await page.locator('[data-ui-setting="largeText"]').uncheck();
+    await page.locator('[data-ui-setting="reduceMotion"]').uncheck();
+    const preferencesReset = await page.evaluate(() => ({
+      largeText: document.body.classList.contains("large-text"),
+      reduceMotion: document.body.classList.contains("reduce-motion"),
+      largeTextStored: localStorage.getItem("cosyworld.ui.largeText"),
+      reduceMotionStored: localStorage.getItem("cosyworld.ui.reduceMotion"),
+    }));
+    assert(
+      !preferencesReset.largeText
+        && !preferencesReset.reduceMotion
+        && preferencesReset.largeTextStored === "false"
+        && preferencesReset.reduceMotionStored === "false",
+      `${label}: accessibility preferences should be reversible: ${JSON.stringify(preferencesReset)}`,
+    );
     await page.locator("#brand").click();
     await page.waitForFunction(() => !document.querySelector(".terminal")?.classList.contains("panel-open"));
 
@@ -7806,6 +7860,7 @@ async function main() {
             ariaLabel: button.getAttribute("aria-label") || "",
             hasMiniCard: Boolean(thumb?.classList.contains("action-mini-card")),
             hasImage: Boolean(thumb && getComputedStyle(thumb).backgroundImage !== "none"),
+            hasIcon: Boolean(button.querySelector(".cmd-label .ui-icon")),
             width: button.getBoundingClientRect().width,
             labelClipped: Boolean(labelNode && labelNode.scrollWidth > labelNode.clientWidth + 1),
           };
@@ -7820,7 +7875,9 @@ async function main() {
       return {
         viewport: `${window.innerWidth}x${window.innerHeight}`,
         menuText: document.querySelector("#brand")?.textContent?.trim().replace(/\s+/g, " ") || "",
-        economyText: document.querySelector("#economy")?.textContent?.trim().replace(/\s+/g, " ") || "",
+        economyText: document.querySelector("#economy")?.getAttribute("aria-label")
+          || document.querySelector("#economy")?.textContent?.trim().replace(/\s+/g, " ")
+          || "",
         locationName: document.querySelector("#location-name")?.textContent?.trim() || "",
         roomCollapsed: document.querySelector(".room")?.classList.contains("collapsed") || false,
         avatarSubtitleVisible: visible(avatarSubtitle),
@@ -7882,6 +7939,7 @@ async function main() {
     const actionButtons = shell.buttons.filter((button) => ["primary", "secondary"].includes(button.id));
     assert(actionButtons.length >= 1 && actionButtons.length <= 2, `${label}: shell should expose at most two action cards: ${JSON.stringify(shell.buttons)}`);
     assert(actionButtons.every((button) => button.hasMiniCard && button.hasImage), `${label}: action hand should use mini card images: ${JSON.stringify(shell.buttons)}`);
+    assert(actionButtons.every((button) => button.hasIcon), `${label}: action names should use the recovered SVG icon system: ${JSON.stringify(shell.buttons)}`);
     if (shell.viewport.startsWith("430x")) {
       assert(actionButtons.length === 2, `${label}: narrow screens should preserve both authoritative suggestions: ${JSON.stringify(shell.buttons)}`);
       assert(actionButtons.every((button) => button.width >= 60 && !button.labelClipped), `${label}: mobile card verbs should remain readable: ${JSON.stringify(shell.buttons)}`);

@@ -3251,6 +3251,306 @@
         padding-right: 18px;
       }
     }
+
+    /* Issue #387: production-safe recovery of the local UI polish. */
+    body.large-text {
+      font-size: 17px;
+    }
+    body.large-text .room-copy,
+    body.large-text .line,
+    body.large-text .journal-row-summary,
+    body.large-text .journal-row-detail p,
+    body.large-text .library-pack-copy,
+    body.large-text .account-row {
+      font-size: 1rem;
+    }
+    body.reduce-motion *,
+    body.reduce-motion *::before,
+    body.reduce-motion *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.001ms !important;
+    }
+    .ui-icon {
+      width: 1.2em;
+      height: 1.2em;
+      display: inline-block;
+      flex: 0 0 auto;
+      vertical-align: -0.2em;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .topbar {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas: "brand location economy";
+      min-width: 0;
+    }
+    .brand {
+      grid-area: brand;
+      display: inline-flex;
+      align-items: center;
+      justify-self: start;
+      gap: 7px;
+      min-width: 88px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 760;
+    }
+    .brand::before {
+      content: none;
+    }
+    .economy {
+      grid-area: economy;
+      justify-self: end;
+      justify-content: flex-end;
+      gap: 10px;
+      max-width: none;
+    }
+    .economy-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      color: var(--dim);
+    }
+    .economy-stat strong {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    .economy-stat.orbs .ui-icon {
+      color: var(--amber);
+    }
+    .economy-stat.carry .ui-icon {
+      color: var(--blue);
+    }
+    .location-pill {
+      grid-area: location;
+      justify-self: center;
+      justify-content: center;
+      max-width: min(50vw, 520px);
+      padding: 0 10px;
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .room-log-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .room-log-icon {
+      display: inline-flex;
+      color: var(--amber);
+    }
+    .cmd-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text);
+      text-transform: none;
+    }
+    .cmd-label .ui-icon {
+      color: var(--cmd-accent);
+    }
+    .menu-nav {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+    }
+    .menu-nav button {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-width: 0;
+      padding: 7px 10px;
+      color: var(--dim);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .menu-nav button.active {
+      color: var(--text);
+    }
+    .menu-nav button .ui-icon {
+      color: var(--amber);
+    }
+    .account-panel {
+      width: 100%;
+      max-width: 1180px;
+      margin-inline: auto;
+      padding: clamp(12px, 2vw, 20px);
+    }
+    .account-title,
+    .library-heading {
+      font-size: 18px;
+      text-transform: none;
+    }
+    .account-title h2,
+    .library-heading h2 {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 23px;
+      font-weight: 500;
+      text-transform: none;
+    }
+    .account-section-title {
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 750;
+      text-transform: none;
+    }
+    .menu-disclosure {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: rgba(17, 16, 13, 0.42);
+    }
+    .menu-disclosure > summary {
+      min-height: 48px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      gap: 9px;
+      align-items: center;
+      padding: 9px 11px;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 700;
+      list-style: none;
+    }
+    .menu-disclosure > summary::-webkit-details-marker {
+      display: none;
+    }
+    .menu-disclosure > summary::after {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-right: 1.5px solid var(--amber);
+      border-bottom: 1.5px solid var(--amber);
+      transform: rotate(45deg);
+      transition: transform 160ms ease;
+    }
+    .menu-disclosure[open] > summary::after {
+      transform: rotate(225deg);
+    }
+    .menu-disclosure > summary small {
+      color: var(--dim);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .menu-disclosure-body {
+      border-top: 1px solid var(--line);
+      padding: 12px;
+    }
+    .setting-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .setting-row {
+      min-height: 54px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 9px 11px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .setting-copy {
+      display: grid;
+      gap: 2px;
+    }
+    .setting-copy small {
+      color: var(--dim);
+      font-size: 12px;
+    }
+    .setting-row input {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--amber);
+    }
+    .library-grid.featured {
+      grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+    }
+    .library-pack {
+      border-radius: 7px;
+      padding: 13px;
+    }
+    .library-pack-name {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 16px;
+    }
+    .library-pack-name .ui-icon {
+      color: var(--amber);
+    }
+    .library-system-packs .library-grid {
+      padding: 0;
+    }
+    .card-close,
+    .wallet-close {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      font-size: 0;
+    }
+    .brand .ui-icon,
+    .card-close .ui-icon,
+    .wallet-close .ui-icon {
+      width: 20px;
+      height: 20px;
+    }
+    .action-confirm,
+    .action-cancel,
+    .account-button {
+      min-height: 44px;
+    }
+    @media (max-width: 900px) {
+      .topbar {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas: "brand location economy";
+        gap: 5px;
+        padding: 0 7px;
+      }
+      .brand {
+        width: 44px;
+        min-width: 44px;
+        justify-content: center;
+        font-size: 0;
+      }
+      .location-pill {
+        max-width: 100%;
+        justify-self: stretch;
+        min-width: 0;
+        padding: 0 4px;
+        font-size: 13px;
+      }
+      .economy {
+        max-width: none;
+        font-size: 12px;
+      }
+      .economy-unit,
+      .economy-stat.carry {
+        display: none;
+      }
+      .cmd-label .ui-icon {
+        width: 14px;
+        height: 14px;
+      }
+      .menu-nav button {
+        padding-inline: 5px;
+        font-size: 12px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -3273,7 +3573,7 @@
         </div>
         <div class="room-title">
           <span class="room-title-main"><h1 id="location-name">The Cosy Cottage</h1></span>
-          <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view"><span class="room-log-kicker">Journal</span></button>
+          <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view"><span class="room-log-icon" aria-hidden="true"></span><span class="room-log-kicker">Journal</span></button>
           <span id="avatar"></span>
         </div>
         <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
@@ -7238,9 +7538,12 @@
       $("subtitle").textContent = location.name || "Unknown";
       const brand = $("brand");
       const menuOpen = libraryPanelPinned || accountPanelPinned;
-      brand.textContent = menuOpen ? "close menu" : "menu";
+      brand.innerHTML = `${iconSvg(menuOpen ? "close" : "menu")}<span>${menuOpen ? "close menu" : "menu"}</span>`;
       brand.setAttribute("aria-label", menuOpen ? "Close Menu" : "Open Menu");
       brand.setAttribute("aria-expanded", menuOpen ? "true" : "false");
+      $("room-log-toggle").querySelector(".room-log-icon").innerHTML = iconSvg("journal");
+      $("card-modal").querySelector(".card-close").innerHTML = iconSvg("close");
+      $("wallet-modal").querySelector(".wallet-close").innerHTML = iconSvg("close");
       renderEconomy();
       $("avatar").textContent = me ? `${actorLabel(me)}, ${me.title || "traveler"}` : "";
       $("location-name").textContent = location.name || "Unknown";
@@ -7261,7 +7564,9 @@
     function renderEconomy() {
       const economy = state?.economy || {};
       const orbs = Number.isFinite(Number(economy.orbs)) ? Number(economy.orbs) : 0;
-      const parts = [`<strong>${orbs}</strong> orbs`];
+      const parts = [
+        `<span class="economy-stat orbs">${iconSvg("orb")}<strong>${orbs}</strong> <span class="economy-unit">Orbs</span></span>`,
+      ];
       const boxes = Array.isArray(state?.account?.active_box_ids) ? state.account.active_box_ids.length : 0;
       const packs = Array.isArray(state?.account?.unopened_pack_ids) ? state.account.unopened_pack_ids.length : 0;
       const compact = window.matchMedia("(max-width: 900px)").matches;
@@ -7271,14 +7576,14 @@
       if (!compact && state?.deck?.actor_id) {
         const carried = Number(state.deck.carried_weight_tenths || 0) / 10;
         const capacity = Number(state.deck.carrying_capacity_tenths || 0) / 10;
-        parts.push(`${carried.toFixed(1)}/${capacity.toFixed(1)} lb`);
+        parts.push(`<span class="economy-stat carry">${iconSvg("bag")}<strong>${carried.toFixed(1)}</strong> <span>/ ${capacity.toFixed(1)} lb</span></span>`);
       }
       if (!compact) {
-        if (boxes) parts.push(`${boxes} ${boxes === 1 ? "box" : "boxes"}`);
-        if (packs) parts.push(`${packs} ${packs === 1 ? "bundle" : "bundles"}`);
+        if (boxes) parts.push(`<span class="economy-stat">${iconSvg("box")}<strong>${boxes}</strong> <span>${boxes === 1 ? "Box" : "Boxes"}</span></span>`);
+        if (packs) parts.push(`<span class="economy-stat">${iconSvg("cards")}<strong>${packs}</strong> <span>${packs === 1 ? "bundle" : "bundles"}</span></span>`);
       }
       const economyNode = $("economy");
-      economyNode.innerHTML = parts.join(" · ");
+      economyNode.innerHTML = parts.join("");
       economyNode.setAttribute("aria-label", `${orbs} Orbs and carried deck status`);
     }
 
@@ -8332,11 +8637,19 @@
         ["journal", "journal"],
         ["settings", "orbs & settings"],
       ];
+      const icons = {
+        deck: "cards",
+        collection: "collection",
+        identity: "key",
+        world: "world",
+        journal: "journal",
+        settings: "settings",
+      };
       return `<nav class="menu-nav" aria-label="Menu sections">${entries.map(([id, label]) => {
         const worldPackAttrs = id === "world"
           ? ' data-player-concept="world-pack" data-analytics-event="world_pack.library.open"'
           : "";
-        return `<button type="button" class="${id === active ? "active" : ""}" data-menu-section="${id}"${worldPackAttrs}>${label}</button>`;
+        return `<button type="button" class="${id === active ? "active" : ""}" data-menu-section="${id}"${worldPackAttrs}>${iconSvg(icons[id])}<span>${label}</span></button>`;
       }).join("")}</nav>`;
     }
 
@@ -8422,21 +8735,32 @@
 
     function settingsPanelHtml() {
       const economy = state?.economy || {};
-      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div>${accountRow("Orbs", "fund community images only")}${accountRow("Chat", "appears when advancement can begin a friendship")}${accountRow("room voices", "one contextual reply per armed card heartbeat")}${accountRow("AI", economy.openrouter_connected ? "connected" : "world default")}${accountRow("carried deck", `${deckWeightLabel(economy.carried_weight_tenths)} / ${deckWeightLabel(economy.carrying_capacity_tenths)}`)}`;
+      const deck = state?.deck || {};
+      const largeText = localStorage.getItem("cosyworld.ui.largeText") === "true";
+      const reduceMotion = localStorage.getItem("cosyworld.ui.reduceMotion") === "true";
+      return `<div class="account-title"><h2 id="account-panel-title">orbs & settings</h2><span class="account-wallet">${escapeHtml(String(economy.orbs || 0))} Orbs</span></div><div class="setting-list"><label class="setting-row"><span class="setting-copy"><strong>Larger text</strong><small>Increase interface and story text throughout the game.</small></span><input type="checkbox" data-ui-setting="largeText"${largeText ? " checked" : ""} /></label><label class="setting-row"><span class="setting-copy"><strong>Reduce motion</strong><small>Minimize dealing, pulsing, and transition animation.</small></span><input type="checkbox" data-ui-setting="reduceMotion"${reduceMotion ? " checked" : ""} /></label></div><div class="account-section"><div class="account-section-title">About Orbs</div><div class="keepsake-note">Orbs fund community images only. They do not buy stronger actions.</div>${accountRow("Chat", "appears when advancement can begin a friendship")}${accountRow("room voices", "one contextual reply per armed card heartbeat")}${accountRow("AI", economy.openrouter_connected ? "connected" : "world default")}${accountRow("carried deck", `${deckWeightLabel(deck.carried_weight_tenths)} / ${deckWeightLabel(deck.carrying_capacity_tenths)}`)}</div>`;
     }
 
     function libraryPanelHtml() {
       if (!libraryPanelPinned) return "";
       const packs = Array.isArray(contentPacks?.packs) ? contentPacks.packs.filter((pack) => pack.visible !== false) : [];
       if (!packs.length) {
-        return `<section class="account-panel library-panel" aria-labelledby="world-library-title">${menuNavHtml("world")}<div class="library-heading"><h2 id="world-library-title">world library</h2></div><div class="library-intro">The worlds are still gathering. Try again in a moment.</div></section>`;
+        return `<section class="account-panel library-panel" aria-labelledby="world-library-title">${menuNavHtml("world")}<div class="library-heading"><h2 id="world-library-title">Worlds</h2></div><div class="library-intro">The worlds are still gathering. Try again in a moment.</div></section>`;
       }
       const bundle = compactAssetId(contentPacks?.bundle_hash || "");
-      const cards = packs.map(libraryPackHtml).join("");
+      const playable = packs.filter((pack) => ["world", "campaign"].includes(String(pack.kind || "").toLowerCase()));
+      const supporting = packs.filter((pack) => !playable.includes(pack));
+      const cards = playable.length
+        ? playable.map(libraryPackHtml).join("")
+        : `<div class="account-empty">No playable world is available yet.</div>`;
+      const supportingCards = supporting.map(libraryPackHtml).join("");
       const bundleDetails = bundle
         ? `<details class="library-technical"><summary>bundle details</summary><code>${escapeHtml(bundle)}</code></details>`
         : "";
-      return `<section class="account-panel library-panel" aria-labelledby="world-library-title">${menuNavHtml("world")}<div class="library-heading"><h2 id="world-library-title">world library</h2><small>${escapeHtml(`${packs.length} world packs mounted`)}</small></div><div class="library-intro">See where your story can travel. Open worlds are ready now; locked places name the pass or access they need.</div>${worldChronicleHtml()}<div class="library-grid">${cards}</div>${bundleDetails}</section>`;
+      const systemPacks = supportingCards
+        ? `<details class="menu-disclosure library-system-packs"><summary>${iconSvg("settings")}<span>About this world</span><small>${escapeHtml(`${supporting.length} supporting ${supporting.length === 1 ? "pack" : "packs"}`)}</small></summary><div class="menu-disclosure-body"><div class="library-grid">${supportingCards}</div>${bundleDetails}</div></details>`
+        : bundleDetails;
+      return `<section class="account-panel library-panel" aria-labelledby="world-library-title">${menuNavHtml("world")}<div class="library-heading"><h2 id="world-library-title">Worlds</h2><small>${escapeHtml(`${playable.length} playable ${playable.length === 1 ? "world" : "worlds"} · ${packs.length} world packs mounted`)}</small></div><div class="library-intro">Continue through an open world, or see which keepsake unlocks a new place.</div>${worldChronicleHtml()}<div class="library-grid featured">${cards}</div>${systemPacks}</section>`;
     }
 
     function worldChronicleHtml() {
@@ -8495,7 +8819,9 @@
       const technicalDetails = technical
         ? `<details class="library-technical"><summary>technical details</summary><div>${escapeHtml(technical)}</div></details>`
         : "";
-      return `<article class="library-pack" data-player-concept="world-pack"><div class="library-pack-top"><div><div class="library-pack-name">${escapeHtml(pack.name || pack.id)}</div><div class="library-pack-meta">${escapeHtml(pack.kind || "world pack")}</div></div><span class="library-access-badge ${escapeAttr(stateName)}">${escapeHtml(badgeLabel)}</span></div><div class="library-pack-copy">${escapeHtml(pack.description || "No description yet.")}</div><div class="library-pack-counts">${escapeHtml(libraryPackCountSummary(pack.resource_counts || {}))}</div><div class="library-pack-access">${escapeHtml(pack.access_summary || "Included with this world.")}</div>${locationList}${technicalDetails}</article>`;
+      const kind = String(pack.kind || "world pack").toLowerCase();
+      const icon = ["world", "campaign"].includes(kind) ? "world" : (kind === "assets" ? "collection" : "settings");
+      return `<article class="library-pack" data-player-concept="world-pack"><div class="library-pack-top"><div><div class="library-pack-name">${iconSvg(icon)}${escapeHtml(pack.name || pack.id)}</div><div class="library-pack-meta">${escapeHtml(kind)}</div></div><span class="library-access-badge ${escapeAttr(stateName)}">${escapeHtml(badgeLabel)}</span></div><div class="library-pack-copy">${escapeHtml(pack.description || "No description yet.")}</div><div class="library-pack-counts">${escapeHtml(libraryPackCountSummary(pack.resource_counts || {}))}</div><div class="library-pack-access">${escapeHtml(pack.access_summary || "Included with this world.")}</div>${locationList}${technicalDetails}</article>`;
     }
 
     function libraryPackAuthoritySummary(pack) {
@@ -10074,7 +10400,7 @@
       dialog?.classList.toggle("portrait-card", shapeForCard(card) === "avatar");
       $("card-modal-image").src = image;
       $("card-modal-image").alt = card.display_name || "CosyWorld keepsake";
-      $("card-modal-name").innerHTML = `${emojiHtml(cardEmoji(card))}${escapeHtml(card.display_name || "CosyWorld Keepsake")}`;
+      $("card-modal-name").innerHTML = `${iconSvg(cardRoleIconName(card))}${escapeHtml(card.display_name || "CosyWorld Keepsake")}`;
       $("card-modal-title").textContent = card.title || card.role || "";
       $("card-modal-blurb").textContent = card.blurb || "";
       const meta = [
@@ -10112,6 +10438,50 @@
       return fallback;
     }
 
+    function iconSvg(name, extraClass = "") {
+      const paths = {
+        menu: "<path d='M4 7h16M4 12h16M4 17h16'/>",
+        close: "<path d='M6 6l12 12M18 6L6 18'/>",
+        orb: "<circle cx='12' cy='12' r='4.5'/><path d='M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4'/>",
+        bag: "<path d='M6 8.5h12l1.5 11H4.5z'/><path d='M9 9V6.5a3 3 0 0 1 6 0V9'/>",
+        journal: "<path d='M4 5.5c2.8-.8 5.5-.3 8 1.4v12c-2.5-1.7-5.2-2.2-8-1.4zM20 5.5c-2.8-.8-5.5-.3-8 1.4v12c2.5-1.7 5.2-2.2 8-1.4z'/>",
+        character: "<circle cx='12' cy='8' r='3.2'/><path d='M5.5 20c.8-4 3-6 6.5-6s5.7 2 6.5 6'/>",
+        world: "<circle cx='12' cy='12' r='8.5'/><path d='M3.7 12h16.6M12 3.5c2.5 2.3 3.7 5.1 3.7 8.5s-1.2 6.2-3.7 8.5M12 3.5C9.5 5.8 8.3 8.6 8.3 12s1.2 6.2 3.7 8.5'/>",
+        settings: "<path d='M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6'/>",
+        cards: "<rect x='5' y='4' width='13' height='16' rx='2'/><path d='M8 7h7M8 10h5M3 8v10a2 2 0 0 0 2 2'/>",
+        collection: "<rect x='4' y='4' width='6' height='6' rx='1'/><rect x='14' y='4' width='6' height='6' rx='1'/><rect x='4' y='14' width='6' height='6' rx='1'/><rect x='14' y='14' width='6' height='6' rx='1'/>",
+        key: "<circle cx='8' cy='15' r='3.5'/><path d='M10.5 12.5L19 4m-3 3l3 3m-6-1l2 2'/>",
+        travel: "<path d='M5 18c3-5 6-8 9-8h5'/><path d='M16 6l3 4-3 4'/><circle cx='6' cy='18' r='1.5'/>",
+        notice: "<path d='M2.8 12s3.4-5.5 9.2-5.5 9.2 5.5 9.2 5.5-3.4 5.5-9.2 5.5S2.8 12 2.8 12z'/><circle cx='12' cy='12' r='2.5'/>",
+        inspect: "<circle cx='10.5' cy='10.5' r='6'/><path d='M15 15l5 5'/>",
+        scout: "<circle cx='12' cy='12' r='8.5'/><path d='M15.5 8.5l-2 5-5 2 2-5z'/>",
+        chat: "<path d='M4 5.5h16v11H9l-5 3z'/><path d='M8 10h8M8 13h5'/>",
+        bond: "<path d='M12 20S4 15.3 4 9.2A4.2 4.2 0 0 1 12 7a4.2 4.2 0 0 1 8 2.2C20 15.3 12 20 12 20z'/>",
+        listen: "<path d='M7 10a5 5 0 1 1 9.5 2.2c-.8 1.6-2.5 2.1-3.2 3.5-.4.8-.6 2.3-2.3 2.3-1.4 0-2.5-1-2.5-2.4'/><path d='M10 10a2 2 0 0 1 4 0c0 2-2 2.2-2 4'/>",
+        train: "<circle cx='12' cy='12' r='8.5'/><circle cx='12' cy='12' r='4'/><path d='M12 3.5V7M20.5 12H17M12 20.5V17M3.5 12H7'/>",
+        evolve: "<path d='M12 20V10M12 14c-4 0-6-2-6-6 4 0 6 2 6 6zM12 11c4 0 6-2 6-6-4 0-6 2-6 6z'/>",
+        trade: "<path d='M4 8h14l-3-3M20 16H6l3 3'/>",
+        bank: "<path d='M12 3l8 4H4zM6 9v8M10 9v8M14 9v8M18 9v8M4 20h16'/>",
+        craft: "<path d='M14.5 5.5l4 4M13 7l4-4 4 4-4 4zM4 20l9-9M3 17l4 4'/>",
+        project: "<path d='M5 20V5h11l-2 3 2 3H5'/>",
+        item: "<path d='M5 8l7-4 7 4v9l-7 4-7-4zM5 8l7 4 7-4M12 12v9'/>",
+        combat: "<path d='M6 4l12 16M18 4L6 20M4 6l2-2 2 4M20 6l-2-2-2 4'/>",
+        shield: "<path d='M12 3l7 3v5c0 4.6-2.7 8.1-7 10-4.3-1.9-7-5.4-7-10V6z'/><path d='M9 12l2 2 4-5'/>",
+        danger: "<path d='M12 3l10 18H2z'/><path d='M12 9v5M12 18h.01'/>",
+        utility: "<path d='M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z'/><path d='M18 16l.7 2.3L21 19l-2.3.7L18 22l-.7-2.3L15 19l2.3-.7z'/>",
+        box: "<path d='M4 9h16v11H4zM3 5h18v4H3zM12 5v15'/>",
+      };
+      const path = paths[name] || paths.utility;
+      return `<svg class="ui-icon${extraClass ? ` ${escapeAttr(extraClass)}` : ""}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${path}</svg>`;
+    }
+
+    function cardRoleIconName(card, fallbackShape = "item") {
+      const shape = shapeForCard(card, fallbackShape);
+      if (shape === "location") return "world";
+      if (shape === "avatar") return "character";
+      return "item";
+    }
+
     function cardEmoji(card, fallbackShape = "item") {
       const explicit = String(card?.emoji || card?.icon || "").trim();
       if (explicit) return Array.from(explicit)[0] || explicit;
@@ -10137,6 +10507,32 @@
         shuffle: "🔄", utility: "🪄",
       };
       return byType[actionCardType(action)] || cardEmoji(action?.card, action?.shape);
+    }
+
+    function actionIconName(action) {
+      const label = String(action?.label || action?.command || "").trim().toLowerCase();
+      if (label === "dodge") return "shield";
+      if (label === "escape" || label === "flee") return "travel";
+      const byType = {
+        travel: "travel",
+        notice: "notice",
+        inspect: "inspect",
+        scout: "scout",
+        chat: "chat",
+        bond: "bond",
+        listen: "listen",
+        train: "train",
+        evolve: "evolve",
+        trade: "trade",
+        bank: "bank",
+        craft: "craft",
+        project: "project",
+        item: "item",
+        combat: "combat",
+        danger: "danger",
+        utility: "utility",
+      };
+      return byType[actionCardType(action)] || cardRoleIconName(action?.card, action?.shape);
     }
 
     function emojiHtml(emoji) {
@@ -11116,7 +11512,7 @@
       );
       if (cardType === "shuffle") {
         button.classList.add("has-copy");
-        button.innerHTML = `<span class="shuffle-glyph" aria-hidden="true">•••</span><span class="cmd-label">${emojiHtml(actionEmoji(action))}${escapeHtml(compactActionLabel(action) || "all")}</span>`;
+        button.innerHTML = `<span class="shuffle-glyph" aria-hidden="true">•••</span><span class="cmd-label">${iconSvg("cards")}${escapeHtml(compactActionLabel(action) || "all")}</span>`;
         return;
       }
       const thumb = thumbnailHtml(action, false, "action-mini-card");
@@ -11136,7 +11532,7 @@
       const busyHtml = action.busy
         ? `<span class="action-progress" role="progressbar" aria-label="Action in progress" aria-valuetext="in progress"></span>`
         : "";
-      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-label">${emojiHtml(actionEmoji(action))}${escapeHtml(labelText)}</span>${detailHtml}${providerHtml}${storyHtml || keepsakeHtml}</span>${busyHtml}`;
+      button.innerHTML = `${thumb}<span class="cmd-copy"><span class="cmd-label">${iconSvg(actionIconName(action))}${escapeHtml(labelText)}</span>${detailHtml}${providerHtml}${storyHtml || keepsakeHtml}</span>${busyHtml}`;
     }
 
     function actionBarActions() {
@@ -11426,6 +11822,17 @@
       writeStatus(message, kind);
     }
 
+    function applyUiPreferences() {
+      document.body.classList.toggle(
+        "large-text",
+        localStorage.getItem("cosyworld.ui.largeText") === "true",
+      );
+      document.body.classList.toggle(
+        "reduce-motion",
+        localStorage.getItem("cosyworld.ui.reduceMotion") === "true",
+      );
+    }
+
     function escapeHtml(value) {
       return String(value)
         .replaceAll("&", "&amp;")
@@ -11640,6 +12047,15 @@
           run: () => openPack(packId),
         });
       }
+    });
+
+    $("log").addEventListener("change", (event) => {
+      const setting = event.target.closest("[data-ui-setting]");
+      if (!setting) return;
+      const key = setting.getAttribute("data-ui-setting") || "";
+      if (!["largeText", "reduceMotion"].includes(key)) return;
+      localStorage.setItem(`cosyworld.ui.${key}`, setting.checked ? "true" : "false");
+      applyUiPreferences();
     });
 
     $("room-log-toggle").addEventListener("click", () => {
@@ -12015,6 +12431,8 @@
         scheduleVisibleClockPresentationReceipts();
       }
     });
+
+    applyUiPreferences();
 
     (async function boot() {
       try {
