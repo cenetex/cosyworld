@@ -79,18 +79,55 @@ impl RuntimeWorld {
         action: &CwAction,
         events: &[EventView],
     ) -> Vec<EventView> {
-        let Some(encounter_id) = events.iter().find_map(|event| {
-            (event.type_name == "combat.encounter.resolved"
-                && event.success
-                && event.total == Some(1))
-            .then_some(event.content_id)
-            .flatten()
-        }) else {
+        let Some((encounter_id, winning_side, source_event_seq, location_id)) =
+            events.iter().find_map(|event| {
+                (event.type_name == "combat.encounter.resolved" && event.success)
+                    .then(|| {
+                        Some((
+                            event.content_id?,
+                            event.total?,
+                            event.seq,
+                            event.location_id?,
+                        ))
+                    })
+                    .flatten()
+            })
+        else {
             return Vec::new();
         };
         let Some(job_id) = self.combat_job_id_for_encounter(encounter_id) else {
             return Vec::new();
         };
+        let gates_progress = self.jobs.get(&job_id).is_some_and(|job| {
+            job.contribution_strategies.iter().any(|strategy| {
+                strategy.requirements.iter().any(|requirement| {
+                    matches!(
+                        requirement,
+                        ContributionRequirement::EncounterResolved {
+                            job_id: required_job_id,
+                            ..
+                        } if required_job_id == &job_id
+                    )
+                })
+            })
+        });
+        let evidence = RpgTagState {
+            id: combat_resolution_tag_id(&job_id, winning_side),
+            scope: "room".to_string(),
+            scope_id: location_id,
+            label: format!("combat resolved for {job_id}"),
+            kind: "combat".to_string(),
+            active: true,
+            source_event_seq: Some(source_event_seq),
+            expires: None,
+        };
+        let mut projected = self
+            .set_rpg_tag(evidence, action.actor_id, "combat_resolved")
+            .into_iter()
+            .collect::<Vec<_>>();
+        if gates_progress || winning_side != 1 {
+            return projected;
+        }
         let Some((clock_id, remaining)) = self.jobs.get(&job_id).and_then(|job| {
             self.clocks.get(&job.progress_clock_id).map(|clock| {
                 (
@@ -99,12 +136,18 @@ impl RuntimeWorld {
                 )
             })
         }) else {
-            return Vec::new();
+            return projected;
         };
         if remaining == 0 {
-            return Vec::new();
+            return projected;
         }
-        self.advance_clock(&clock_id, remaining, action.actor_id, "combat_resolved")
+        projected.extend(self.advance_clock(
+            &clock_id,
+            remaining,
+            action.actor_id,
+            "combat_resolved",
+        ));
+        projected
     }
 
     pub(super) fn combat_job_for_actor(

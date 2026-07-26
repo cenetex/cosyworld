@@ -696,6 +696,7 @@ mod tests {
             },
             &[check],
             &intent,
+            true,
         )
     }
 

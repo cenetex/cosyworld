@@ -2,7 +2,360 @@ use super::*;
 
 const ROUTABLE_CONTRIBUTION_KINDS: [&str; 5] = ["work", "help", "check", "study", "use_item"];
 
+pub(super) fn room_feature_use_tag_id(location_id: u64, feature_key: &str, item_id: u64) -> String {
+    format!("room:{location_id}:feature_use:{feature_key}:{item_id}")
+}
+
+pub(super) fn combat_resolution_tag_id(job_id: &str, winning_side: i16) -> String {
+    format!("job:{job_id}:combat_resolved:side:{winning_side}")
+}
+
 impl RuntimeWorld {
+    pub(super) fn refresh_authored_job_contracts(&mut self) {
+        for authored_job in &active_content().jobs {
+            if let Some(existing_job) = self.jobs.get_mut(&authored_job.id) {
+                let status = existing_job.status.clone();
+                let focused_encounter = existing_job.focused_encounter.clone();
+                *existing_job = authored_job.clone();
+                existing_job.status = status;
+                existing_job.focused_encounter = focused_encounter;
+            } else {
+                self.jobs
+                    .insert(authored_job.id.clone(), authored_job.clone());
+            }
+        }
+    }
+
+    pub(super) fn backfill_room_feature_use_evidence(&mut self) {
+        let mut backfilled = BTreeMap::new();
+        for tag in self.tags.values().filter(|tag| tag.active) {
+            let Some(source_event_seq) = tag.source_event_seq else {
+                continue;
+            };
+            let Some(rest) = tag.id.strip_prefix("actor:") else {
+                continue;
+            };
+            let Some((prefix, item_id)) = rest.rsplit_once(':') else {
+                continue;
+            };
+            let mut parts = prefix.splitn(4, ':');
+            let Some(actor_id) = parts.next().and_then(|part| part.parse::<u64>().ok()) else {
+                continue;
+            };
+            if parts.next() != Some("feature_use") {
+                continue;
+            }
+            let Some(location_id) = parts.next().and_then(|part| part.parse::<u64>().ok()) else {
+                continue;
+            };
+            let Some(feature_key) = parts.next().filter(|part| !part.is_empty()) else {
+                continue;
+            };
+            let Some(item_id) = item_id.parse::<u64>().ok() else {
+                continue;
+            };
+            if tag.scope != "actor" || tag.scope_id != actor_id {
+                continue;
+            }
+            let room_tag_id = room_feature_use_tag_id(location_id, feature_key, item_id);
+            let candidate = RpgTagState {
+                id: room_tag_id.clone(),
+                scope: "room".to_string(),
+                scope_id: location_id,
+                label: tag.label.clone(),
+                kind: "discovery".to_string(),
+                active: true,
+                source_event_seq: Some(source_event_seq),
+                expires: None,
+            };
+            backfilled
+                .entry(room_tag_id)
+                .and_modify(|existing: &mut RpgTagState| {
+                    if existing.source_event_seq > candidate.source_event_seq {
+                        *existing = candidate.clone();
+                    }
+                })
+                .or_insert(candidate);
+        }
+        for (tag_id, tag) in backfilled {
+            self.tags.entry(tag_id).or_insert(tag);
+        }
+    }
+
+    pub(super) fn contribution_strategy_binding_is_active(
+        &self,
+        strategy: &JobContributionStrategy,
+    ) -> bool {
+        let Some(binding) = resolved_action_binding(&strategy.action_kind) else {
+            return false;
+        };
+        let pack_matches = active_content()
+            .manifest
+            .packs
+            .iter()
+            .any(|pack| pack.id == strategy.pack_id && pack.version == strategy.pack_version);
+        strategy.version == JOB_CONTRIBUTION_SCHEMA_VERSION
+            && strategy.rules_profile == active_content().manifest.rules_profile
+            && strategy.rules_action == binding.rules_action
+            && strategy.operation == binding.operation
+            && strategy.rules_pack_id == binding.pack_id
+            && strategy.rules_pack_version == binding.pack_version
+            && pack_matches
+    }
+
+    pub(super) fn contribution_requirement_met(
+        &self,
+        actor_id: u64,
+        requirement: &ContributionRequirement,
+    ) -> bool {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return false;
+        };
+        match requirement {
+            ContributionRequirement::AtLocation { location_id } => {
+                actor.location_id == *location_id
+            }
+            ContributionRequirement::HeldItem { item_id } => self
+                .item_by_id(*item_id)
+                .is_some_and(|item| item.holder_actor_id == actor_id),
+            ContributionRequirement::ActiveTag { tag_id } => {
+                self.tags.get(tag_id).is_some_and(|tag| tag.active)
+            }
+            ContributionRequirement::RoomFeature {
+                location_id,
+                feature_key,
+            } => {
+                actor.location_id == *location_id
+                    && active_content().room_features.iter().any(|feature| {
+                        feature.location_id == *location_id && feature.key == *feature_key
+                    })
+            }
+            ContributionRequirement::FeatureSearched {
+                location_id,
+                feature_key,
+            } => self
+                .tags
+                .get(&room_feature_search_tag_id(*location_id, feature_key))
+                .is_some_and(|tag| tag.active),
+            ContributionRequirement::FeatureUsed {
+                location_id,
+                feature_key,
+                item_id,
+            } => self
+                .tags
+                .get(&room_feature_use_tag_id(
+                    *location_id,
+                    feature_key,
+                    *item_id,
+                ))
+                .is_some_and(|tag| tag.active),
+            ContributionRequirement::EncounterResolved {
+                job_id,
+                winning_side,
+            } => self
+                .tags
+                .get(&combat_resolution_tag_id(job_id, *winning_side))
+                .is_some_and(|tag| tag.active),
+        }
+    }
+
+    pub(super) fn contribution_requirement_source_event_seq(
+        &self,
+        requirement: &ContributionRequirement,
+    ) -> Option<u64> {
+        let tag_id = match requirement {
+            ContributionRequirement::ActiveTag { tag_id } => tag_id.clone(),
+            ContributionRequirement::FeatureSearched {
+                location_id,
+                feature_key,
+            } => room_feature_search_tag_id(*location_id, feature_key),
+            ContributionRequirement::FeatureUsed {
+                location_id,
+                feature_key,
+                item_id,
+            } => room_feature_use_tag_id(*location_id, feature_key, *item_id),
+            ContributionRequirement::EncounterResolved {
+                job_id,
+                winning_side,
+            } => combat_resolution_tag_id(job_id, *winning_side),
+            ContributionRequirement::AtLocation { .. }
+            | ContributionRequirement::HeldItem { .. }
+            | ContributionRequirement::RoomFeature { .. } => return None,
+        };
+        self.tags
+            .get(&tag_id)
+            .filter(|tag| tag.active)
+            .and_then(|tag| tag.source_event_seq)
+    }
+
+    pub(super) fn resolve_contribution_target(
+        &self,
+        actor_id: u64,
+        job: &JobState,
+        strategy: &JobContributionStrategy,
+        target_hint: Option<(&str, &str)>,
+    ) -> Option<ResolvedContributionTarget> {
+        let actor = self.actor_by_id(actor_id)?;
+        let descriptor = &strategy.target;
+        if let Some(id) = descriptor.id.as_deref() {
+            if target_hint
+                .is_some_and(|(kind, target_id)| kind != descriptor.kind || target_id != id)
+            {
+                return None;
+            }
+            let available = match descriptor.kind.as_str() {
+                "job" => id == job.id,
+                "room" => id
+                    .parse::<u64>()
+                    .ok()
+                    .is_some_and(|location_id| actor.location_id == location_id),
+                "feature" => job.location_ids.contains(&actor.location_id),
+                "actor" => id.parse::<u64>().ok().is_some_and(|target_actor_id| {
+                    target_actor_id != actor_id
+                        && self.actor_by_id(target_actor_id).is_some_and(|target| {
+                            Self::actor_can_act(target)
+                                && target.location_id == actor.location_id
+                                && self.actor_visible_in_projection(target, Some(actor_id), None)
+                                && !self.actors_blocked(actor_id, target_actor_id)
+                        })
+                }),
+                "item" => id.parse::<u64>().ok().is_some_and(|item_id| {
+                    self.item_by_id(item_id).is_some_and(|item| {
+                        item.holder_actor_id == actor_id || item.location_id == actor.location_id
+                    })
+                }),
+                _ => false,
+            };
+            return available.then(|| ResolvedContributionTarget {
+                kind: descriptor.kind.clone(),
+                id: id.to_string(),
+                label: descriptor.label.clone(),
+            });
+        }
+
+        match descriptor.predicate.as_deref()? {
+            "current_room" => Some(ResolvedContributionTarget {
+                kind: "room".to_string(),
+                id: actor.location_id.to_string(),
+                label: self
+                    .location_name(actor.location_id)
+                    .unwrap_or_else(|| descriptor.label.clone()),
+            }),
+            "job_participant_here" => job
+                .participant_ids
+                .iter()
+                .filter_map(|target_actor_id| self.actor_by_id(*target_actor_id))
+                .find(|target| {
+                    target.id != actor_id
+                        && Self::actor_can_act(*target)
+                        && target.location_id == actor.location_id
+                        && self.actor_visible_in_projection(*target, Some(actor_id), None)
+                        && !self.actors_blocked(actor_id, target.id)
+                })
+                .map(|target| ResolvedContributionTarget {
+                    kind: "actor".to_string(),
+                    id: target.id.to_string(),
+                    label: self
+                        .actor_name(target.id)
+                        .unwrap_or_else(|| descriptor.label.clone()),
+                }),
+            "co_present_avatar" => self.world.actors[..self.world.actor_count]
+                .iter()
+                .find(|target| {
+                    target.id != actor_id
+                        && Self::actor_can_act(**target)
+                        && target.location_id == actor.location_id
+                        && self.actor_visible_in_projection(**target, Some(actor_id), None)
+                        && !self.actors_blocked(actor_id, target.id)
+                })
+                .map(|target| ResolvedContributionTarget {
+                    kind: "actor".to_string(),
+                    id: target.id.to_string(),
+                    label: self
+                        .actor_name(target.id)
+                        .unwrap_or_else(|| descriptor.label.clone()),
+                }),
+            _ => None,
+        }
+    }
+
+    pub(super) fn job_contribution_record_preconditions_hold(
+        &self,
+        record: &JournalRecord,
+    ) -> bool {
+        let has_contribution = record
+            .projection_mutations
+            .iter()
+            .any(|mutation| matches!(mutation, ProjectionMutation::ResolveJobContribution { .. }));
+        if !has_contribution {
+            return true;
+        }
+        if record.worldpack_bundle_hash != active_content().manifest.bundle_hash {
+            return record.worldpack_bundle_hash.is_empty()
+                || active_content()
+                    .manifest
+                    .persistence_compatibility
+                    .replay_compatible_bundle_hashes
+                    .contains(&record.worldpack_bundle_hash);
+        }
+        record
+            .projection_mutations
+            .iter()
+            .filter_map(|mutation| match mutation {
+                ProjectionMutation::ResolveJobContribution { intent } => Some(intent),
+                _ => None,
+            })
+            .all(|intent| {
+                self.job_contribution_intent_preconditions_hold(record.action.actor_id, intent)
+            })
+    }
+
+    pub(super) fn job_contribution_intent_preconditions_hold(
+        &self,
+        actor_id: u64,
+        intent: &JobContributionIntent,
+    ) -> bool {
+        let Some(actor) = self.actor_by_id(actor_id) else {
+            return false;
+        };
+        let Some(job) = self.jobs.get(&intent.job_id) else {
+            return false;
+        };
+        let Some(current_strategy) = job
+            .contribution_strategies
+            .iter()
+            .find(|strategy| strategy.id == intent.strategy.id)
+        else {
+            return false;
+        };
+        if !Self::actor_can_act(actor)
+            || self.tired_tag_active(actor_id)
+            || !job.location_ids.contains(&actor.location_id)
+            || self.job_status(job) != "active"
+            || current_strategy != &intent.strategy
+            || !focused_job_action_available(self, actor_id, &job.id, &intent.strategy.action_kind)
+            || !intent
+                .strategy
+                .requirements
+                .iter()
+                .all(|requirement| self.contribution_requirement_met(actor_id, requirement))
+            || self
+                .clocks
+                .get(&intent.strategy.clock_id)
+                .is_none_or(|clock| clock.filled >= clock.segments)
+        {
+            return false;
+        }
+        let target_hint = (intent.target.kind.as_str(), intent.target.id.as_str());
+        if self.resolve_contribution_target(actor_id, job, &intent.strategy, Some(target_hint))
+            != Some(intent.target.clone())
+        {
+            return false;
+        }
+        Self::contribution_claim_key(actor_id, &intent.job_id, &intent.strategy, &intent.target)
+            .is_none_or(|claim_key| !self.rpg_claims.contains(&claim_key))
+    }
+
     pub(super) fn job_contribution_intents(
         &self,
         actor_id: u64,
@@ -258,10 +611,24 @@ impl RuntimeWorld {
                 expanded.push(offer);
                 continue;
             }
-            let intents =
-                self.job_contribution_intents(actor_id, Some(&offer.kind), None, None, None);
+            let intents = self.job_contribution_intents(
+                actor_id,
+                Some(&offer.kind),
+                offer.project.as_ref().map(|project| project.id.as_str()),
+                None,
+                None,
+            );
             if intents.is_empty() {
-                expanded.push(offer);
+                let schema_backed = offer
+                    .project
+                    .as_ref()
+                    .and_then(|project| self.jobs.get(&project.id))
+                    .is_some_and(|job| {
+                        job.contribution_schema_version == JOB_CONTRIBUTION_SCHEMA_VERSION
+                    });
+                if !schema_backed {
+                    expanded.push(offer);
+                }
             } else {
                 expanded.extend(intents.into_iter().map(|intent| {
                     self.retarget_job_contribution_offer(actor_id, offer.clone(), intent)

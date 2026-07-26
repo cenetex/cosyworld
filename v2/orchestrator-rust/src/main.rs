@@ -25,6 +25,8 @@ mod hosted_access;
 mod jobs;
 mod journal_checkpoint;
 mod kernel;
+#[cfg(test)]
+mod lantern_keeper_tests;
 mod legacy_import;
 mod moderation;
 mod movement;
@@ -714,6 +716,19 @@ enum ContributionRequirement {
         location_id: u64,
         feature_key: String,
     },
+    FeatureSearched {
+        location_id: u64,
+        feature_key: String,
+    },
+    FeatureUsed {
+        location_id: u64,
+        feature_key: String,
+        item_id: u64,
+    },
+    EncounterResolved {
+        job_id: String,
+        winning_side: i16,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -809,6 +824,8 @@ struct JobContributionTrace {
     total_progress: u8,
     clock_id: String,
     claim_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    requirement_source_event_seqs: Vec<u64>,
     source_event_seqs: Vec<u64>,
     rules_profile: String,
     rules_pack_id: String,
@@ -7473,11 +7490,8 @@ impl RuntimeWorld {
                 }
             }
         }
-        for job in &active_content().jobs {
-            self.jobs
-                .entry(job.id.clone())
-                .or_insert_with(|| job.clone());
-        }
+        self.refresh_authored_job_contracts();
+        self.backfill_room_feature_use_evidence();
         self.ensure_authored_natural_affordances();
         self.ensure_revealed_generated_natural_affordances();
     }
@@ -9965,9 +9979,12 @@ impl RuntimeWorld {
     fn apply_journal_record(&mut self, record: &JournalRecord) -> (u32, Vec<EventView>) {
         if !focused_encounter_journal_context_is_supported(self, record)
             || !self.route_record_preconditions_hold(record)
+            || !self.job_contribution_record_preconditions_hold(record)
         {
             return (CW_ERR_RULE, Vec::new());
         }
+        let enforce_active_contribution_contract =
+            record.worldpack_bundle_hash == active_content().manifest.bundle_hash;
         self.expire_transfer_offers();
         for (actor_id, meta) in &record.actor_meta_upserts {
             self.actors.insert(*actor_id, meta.clone());
@@ -10070,6 +10087,7 @@ impl RuntimeWorld {
                 &action,
                 &committed_events,
                 &record.projection_mutations,
+                enforce_active_contribution_contract,
             ));
             events.extend(self.apply_focused_job_record(record));
             self.refresh_craft_event_presentation(&mut events);
@@ -10190,6 +10208,7 @@ impl RuntimeWorld {
         action: &CwAction,
         committed_events: &[EventView],
         mutations: &[ProjectionMutation],
+        enforce_active_contribution_contract: bool,
     ) -> Vec<EventView> {
         let mut events = Vec::new();
         for mutation in mutations {
@@ -10897,6 +10916,19 @@ impl RuntimeWorld {
                     if let Some(tag_event) = self.set_rpg_tag(tag, action.actor_id, reason) {
                         events.push(tag_event);
                     }
+                    let room_tag = RpgTagState {
+                        id: room_feature_use_tag_id(*location_id, feature_key, *item_id),
+                        scope: "room".to_string(),
+                        scope_id: *location_id,
+                        label: format!("used {item_name}"),
+                        kind: "discovery".to_string(),
+                        active: true,
+                        source_event_seq: Some(event.seq),
+                        expires: None,
+                    };
+                    if let Some(tag_event) = self.set_rpg_tag(room_tag, action.actor_id, reason) {
+                        events.push(tag_event);
+                    }
                     if let Some(ledger_event) = self.mark_visit_ledger(
                         action.actor_id,
                         "feature",
@@ -10919,6 +10951,7 @@ impl RuntimeWorld {
                         action,
                         &contribution_sources,
                         intent,
+                        enforce_active_contribution_contract,
                     ));
                 }
                 ProjectionMutation::ApplyGovernance {
@@ -12201,22 +12234,17 @@ impl RuntimeWorld {
         action: &CwAction,
         committed_events: &[EventView],
         intent: &JobContributionIntent,
+        enforce_active_contract: bool,
     ) -> Vec<EventView> {
+        if enforce_active_contract
+            && !self.job_contribution_intent_preconditions_hold(action.actor_id, intent)
+        {
+            return Vec::new();
+        }
         let Some(job) = self.jobs.get(&intent.job_id).cloned() else {
             return Vec::new();
         };
-        let Some(current_strategy) = job
-            .contribution_strategies
-            .iter()
-            .find(|strategy| strategy.id == intent.strategy.id)
-        else {
-            return Vec::new();
-        };
-        if current_strategy.version != intent.strategy.version
-            || current_strategy.action_kind != intent.strategy.action_kind
-            || current_strategy.clock_id != intent.strategy.clock_id
-            || self.job_status(&job) != "active"
-        {
+        if self.job_status(&job) != "active" {
             return Vec::new();
         }
         let Some(clock) = self.clocks.get(&intent.strategy.clock_id) else {
@@ -12239,7 +12267,15 @@ impl RuntimeWorld {
             return Vec::new();
         }
 
-        let (resolution, outcome, resolved, source_event_seqs) =
+        let mut requirement_source_event_seqs = intent
+            .strategy
+            .requirements
+            .iter()
+            .filter_map(|requirement| self.contribution_requirement_source_event_seq(requirement))
+            .collect::<Vec<_>>();
+        requirement_source_event_seqs.sort_unstable();
+        requirement_source_event_seqs.dedup();
+        let (resolution, outcome, resolved, resolution_source_event_seqs) =
             match &intent.strategy.resolution {
                 ContributionResolutionPolicy::Certain => ("certain", "certain", true, Vec::new()),
                 ContributionResolutionPolicy::SrdCheck { ability, dc } => {
@@ -12300,6 +12336,10 @@ impl RuntimeWorld {
                     )
                 }
             };
+        let mut source_event_seqs = requirement_source_event_seqs.clone();
+        source_event_seqs.extend(resolution_source_event_seqs);
+        source_event_seqs.sort_unstable();
+        source_event_seqs.dedup();
 
         if let Some(claim_key) = claim_key.as_ref() {
             if !self.rpg_claims.insert(claim_key.clone()) {
@@ -12349,6 +12389,7 @@ impl RuntimeWorld {
             total_progress,
             clock_id: intent.strategy.clock_id.clone(),
             claim_key: claim_key.clone(),
+            requirement_source_event_seqs,
             source_event_seqs: source_event_seqs.clone(),
             rules_profile: intent.strategy.rules_profile.clone(),
             rules_pack_id: intent.strategy.rules_pack_id.clone(),
@@ -18227,145 +18268,6 @@ impl RuntimeWorld {
                 ))
             })
             .then_with(|| left.id.cmp(&right.id))
-    }
-
-    fn contribution_strategy_binding_is_active(&self, strategy: &JobContributionStrategy) -> bool {
-        let Some(binding) = resolved_action_binding(&strategy.action_kind) else {
-            return false;
-        };
-        let pack_matches = active_content()
-            .manifest
-            .packs
-            .iter()
-            .any(|pack| pack.id == strategy.pack_id && pack.version == strategy.pack_version);
-        strategy.version == JOB_CONTRIBUTION_SCHEMA_VERSION
-            && strategy.rules_profile == active_content().manifest.rules_profile
-            && strategy.rules_action == binding.rules_action
-            && strategy.operation == binding.operation
-            && strategy.rules_pack_id == binding.pack_id
-            && strategy.rules_pack_version == binding.pack_version
-            && pack_matches
-    }
-
-    fn contribution_requirement_met(
-        &self,
-        actor_id: u64,
-        requirement: &ContributionRequirement,
-    ) -> bool {
-        let Some(actor) = self.actor_by_id(actor_id) else {
-            return false;
-        };
-        match requirement {
-            ContributionRequirement::AtLocation { location_id } => {
-                actor.location_id == *location_id
-            }
-            ContributionRequirement::HeldItem { item_id } => self
-                .item_by_id(*item_id)
-                .is_some_and(|item| item.holder_actor_id == actor_id),
-            ContributionRequirement::ActiveTag { tag_id } => {
-                self.tags.get(tag_id).is_some_and(|tag| tag.active)
-            }
-            ContributionRequirement::RoomFeature {
-                location_id,
-                feature_key,
-            } => {
-                actor.location_id == *location_id
-                    && active_content().room_features.iter().any(|feature| {
-                        feature.location_id == *location_id && feature.key == *feature_key
-                    })
-            }
-        }
-    }
-
-    fn resolve_contribution_target(
-        &self,
-        actor_id: u64,
-        job: &JobState,
-        strategy: &JobContributionStrategy,
-        target_hint: Option<(&str, &str)>,
-    ) -> Option<ResolvedContributionTarget> {
-        let actor = self.actor_by_id(actor_id)?;
-        let descriptor = &strategy.target;
-        if let Some(id) = descriptor.id.as_deref() {
-            if target_hint
-                .is_some_and(|(kind, target_id)| kind != descriptor.kind || target_id != id)
-            {
-                return None;
-            }
-            let available = match descriptor.kind.as_str() {
-                "job" => id == job.id,
-                "room" => id
-                    .parse::<u64>()
-                    .ok()
-                    .is_some_and(|location_id| actor.location_id == location_id),
-                "feature" => job.location_ids.contains(&actor.location_id),
-                "actor" => id.parse::<u64>().ok().is_some_and(|target_actor_id| {
-                    target_actor_id != actor_id
-                        && self.actor_by_id(target_actor_id).is_some_and(|target| {
-                            Self::actor_can_act(target)
-                                && target.location_id == actor.location_id
-                                && self.actor_visible_in_projection(target, Some(actor_id), None)
-                                && !self.actors_blocked(actor_id, target_actor_id)
-                        })
-                }),
-                "item" => id.parse::<u64>().ok().is_some_and(|item_id| {
-                    self.item_by_id(item_id).is_some_and(|item| {
-                        item.holder_actor_id == actor_id || item.location_id == actor.location_id
-                    })
-                }),
-                _ => false,
-            };
-            return available.then(|| ResolvedContributionTarget {
-                kind: descriptor.kind.clone(),
-                id: id.to_string(),
-                label: descriptor.label.clone(),
-            });
-        }
-
-        match descriptor.predicate.as_deref()? {
-            "current_room" => Some(ResolvedContributionTarget {
-                kind: "room".to_string(),
-                id: actor.location_id.to_string(),
-                label: self
-                    .location_name(actor.location_id)
-                    .unwrap_or_else(|| descriptor.label.clone()),
-            }),
-            "job_participant_here" => job
-                .participant_ids
-                .iter()
-                .filter_map(|target_actor_id| self.actor_by_id(*target_actor_id))
-                .find(|target| {
-                    target.id != actor_id
-                        && Self::actor_can_act(*target)
-                        && target.location_id == actor.location_id
-                        && self.actor_visible_in_projection(*target, Some(actor_id), None)
-                        && !self.actors_blocked(actor_id, target.id)
-                })
-                .map(|target| ResolvedContributionTarget {
-                    kind: "actor".to_string(),
-                    id: target.id.to_string(),
-                    label: self
-                        .actor_name(target.id)
-                        .unwrap_or_else(|| descriptor.label.clone()),
-                }),
-            "co_present_avatar" => self.world.actors[..self.world.actor_count]
-                .iter()
-                .find(|target| {
-                    target.id != actor_id
-                        && Self::actor_can_act(**target)
-                        && target.location_id == actor.location_id
-                        && self.actor_visible_in_projection(**target, Some(actor_id), None)
-                        && !self.actors_blocked(actor_id, target.id)
-                })
-                .map(|target| ResolvedContributionTarget {
-                    kind: "actor".to_string(),
-                    id: target.id.to_string(),
-                    label: self
-                        .actor_name(target.id)
-                        .unwrap_or_else(|| descriptor.label.clone()),
-                }),
-            _ => None,
-        }
     }
 
     fn ensure_delivery_need_job(
@@ -52914,7 +52816,8 @@ mod tests {
                 .iter()
                 .position(|candidate| candidate.id == actor.id)
                 .expect("campaign avatar remains mounted");
-            runtime.world.actors[actor_index].location_id = 801;
+            runtime.world.actors[actor_index].location_id = 804;
+            lantern_keeper_tests::install_lantern_finale_evidence(&mut runtime, actor.id);
         }
 
         let readiness_events = {
@@ -57233,7 +57136,8 @@ mod tests {
             .filled;
         let mut retry_record = study_record.clone();
         retry_record.seed = 82_002;
-        let (_, retry_events) = runtime.apply_journal_record(&retry_record);
+        let (retry_status, retry_events) = runtime.apply_journal_record(&retry_record);
+        assert_eq!(retry_status, CW_ERR_RULE);
         assert!(!retry_events
             .iter()
             .any(|event| event.type_name == "job.contribution.resolved"));
@@ -57258,7 +57162,7 @@ mod tests {
             .into_runtime()
             .expect("pre-contribution snapshot restores");
         assert_eq!(replayed.apply_journal_record(&study_record).0, CW_OK);
-        assert_eq!(replayed.apply_journal_record(&retry_record).0, CW_OK);
+        assert_eq!(replayed.apply_journal_record(&retry_record).0, CW_ERR_RULE);
         assert_eq!(quest_projection_signature(&replayed), expected);
     }
 
@@ -57613,7 +57517,8 @@ mod tests {
             .expect("finishing Work returns one causal receipt");
         assert!(completion_receipt.contains("Progress: 4/4."));
         assert!(completion_receipt.contains("The shared question is settled."));
-        let (_, third_events) = runtime.apply_journal_record(&third_record);
+        let (third_status, third_events) = runtime.apply_journal_record(&third_record);
+        assert_eq!(third_status, CW_ERR_RULE);
         assert!(!third_events
             .iter()
             .any(|event| event.type_name == "job.contribution.resolved"));
@@ -57666,9 +57571,10 @@ mod tests {
         let mut replayed = replay_base
             .into_runtime()
             .expect("work replay base restores");
-        for record in [&first_record, &second_record, &third_record] {
+        for record in [&first_record, &second_record] {
             assert_eq!(replayed.apply_journal_record(record).0, CW_OK);
         }
+        assert_eq!(replayed.apply_journal_record(&third_record).0, CW_ERR_RULE);
         assert_eq!(quest_projection_signature(&replayed), expected);
         let replayed_question = replayed
             .shared_question_views(MOONLIT_TRAIL_LOCATION_ID, Some(5000))
@@ -61830,7 +61736,7 @@ mod tests {
         );
         assert_eq!(content.fronts.len(), 6);
         assert_eq!(content.cards.len(), 118);
-        assert_eq!(content.lifecycle_hooks.len(), 27);
+        assert_eq!(content.lifecycle_hooks.len(), 21);
         assert_eq!(content.evolution_tracks.len(), 3);
         assert_eq!(content.recipes.len(), 8);
         assert_eq!(content.rules.len(), 3);
