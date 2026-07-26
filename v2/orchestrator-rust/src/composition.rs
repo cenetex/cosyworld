@@ -179,8 +179,18 @@ impl RuntimeWorld {
         actor_id: Option<u64>,
         access: &AccessContext,
     ) -> (PrimaryAction, Vec<RankedActionOffer>) {
-        let primary_action = self.primary_action(actor_id, access);
+        let mut primary_action = self.primary_action(actor_id, access);
         let mut action_offers = self.ranked_action_offers(actor_id, access, &primary_action);
+        let primary_offer_kind = match primary_action.kind.as_str() {
+            "travel" => "move",
+            kind => kind,
+        };
+        if let Some(offer) = action_offers
+            .iter()
+            .find(|offer| offer.kind == primary_offer_kind)
+        {
+            primary_action.command = offer.command.clone();
+        }
         for offer in &mut action_offers {
             offer.composition_trace.focused_encounter = actor_id
                 .and_then(|actor_id| focused_encounter_offer_context(self, actor_id, &offer.kind));
@@ -375,6 +385,10 @@ impl RuntimeWorld {
             let label = self.action_offer_label(kind, &verb, "Scout", Some(&target), None);
             let accessible_label =
                 self.action_offer_accessible_label(kind, &verb, &label, Some(&target), None);
+            let command = format!(
+                "scout {}",
+                target.label.as_deref().unwrap_or("the journey destination")
+            );
             let provider = self.action_offer_provider(kind, actor_id, Some(&target), None);
             let state_revision = self.world.next_event_seq.saturating_sub(1);
             let source_collectible = self.location_source_collectible(actor_id);
@@ -420,7 +434,7 @@ impl RuntimeWorld {
                 verb,
                 label,
                 accessible_label,
-                command: "explore path".to_string(),
+                command,
                 rank: action_offer_rank(kind),
                 disabled: false,
                 disabled_reason: None,
@@ -1690,5 +1704,94 @@ impl RuntimeWorld {
                 .map(|bond| format!("bond_resolved:{}", bond.id)),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn command_request(actor_id: u64, command: &str) -> CommandRequest {
+        CommandRequest {
+            actor_id,
+            actor_session: None,
+            command: command.to_string(),
+            wallet_address: None,
+            wallet: None,
+            wallet_session: None,
+            owned_card_ids: None,
+            cards: None,
+            envelope: None,
+        }
+    }
+
+    #[test]
+    fn composed_offers_advertise_commands_the_typed_client_can_resolve() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "Offer Tester");
+        let access = AccessContext::default();
+        let (primary, offers) = runtime.legal_action_candidates(Some(5000), &access);
+
+        for offer in &offers {
+            runtime
+                .resolve_command(&command_request(5000, &offer.command), &access)
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{} advertised unroutable command {:?}: {}",
+                        offer.offer_id, offer.command, error.output
+                    )
+                });
+        }
+        runtime
+            .resolve_command(&command_request(5000, &primary.command), &access)
+            .expect("the primary action advertises a routable command");
+        assert!(offers.iter().any(|offer| offer.command == primary.command));
+
+        let offer = offers
+            .iter()
+            .find(|offer| {
+                offer
+                    .composition_trace
+                    .contextual_offers
+                    .iter()
+                    .any(|id| id == "cosyworld.core:cottage-ask-local-lead")
+            })
+            .expect("the core pack contributes its Cottage offer");
+        assert_eq!(offer.label, "Ask for a local lead");
+        assert_eq!(offer.command, "influence Rati");
+        let resolved = runtime
+            .resolve_command(&command_request(5000, &offer.command), &access)
+            .expect("the advertised contextual command resolves");
+        assert_eq!(resolved.command, offer.command);
+        assert!(matches!(
+            resolved.dispatch,
+            CommandDispatch::Influence {
+                target_actor_id: RATI_ACTOR_ID
+            }
+        ));
+
+        let scout = offers
+            .iter()
+            .find(|offer| offer.kind == "explore_path")
+            .expect("the seeded long journey exposes Scout");
+        let destination_location_id = scout
+            .target
+            .as_ref()
+            .and_then(|target| target.id)
+            .expect("Scout advertises its destination");
+        let destination_label = scout
+            .target
+            .as_ref()
+            .and_then(|target| target.label.as_deref())
+            .expect("Scout advertises its destination label");
+        assert_eq!(scout.command, format!("scout {destination_label}"));
+        assert!(matches!(
+            runtime
+                .resolve_command(&command_request(5000, &scout.command), &access)
+                .expect("the advertised Scout command resolves")
+                .dispatch,
+            CommandDispatch::Scout
+        ));
+        assert!(destination_location_id > 0);
     }
 }

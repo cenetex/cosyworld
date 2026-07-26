@@ -58,6 +58,7 @@ pub(crate) enum CommandDispatch {
     Move {
         destination_location_id: u64,
     },
+    Scout,
     Flee {
         destination_location_id: u64,
     },
@@ -230,6 +231,7 @@ pub(crate) fn canonical_command_verb(verb: &str) -> String {
         "i" | "inv" | "inventory" | "deck" => "inventory",
         "who" | "where" => "who",
         "go" | "move" | "travel" => "go",
+        "scout" | "explore" => "scout",
         "get" | "take" | "pick" => "take",
         "give" | "gift" => "give",
         "trade" | "swap" | "barter" => "trade",
@@ -490,6 +492,7 @@ pub(crate) fn command_action_failure_output(resolved: &ResolvedCommand, status: 
     }
     match &resolved.dispatch {
         CommandDispatch::Move { .. } => "That path is not open from here right now.",
+        CommandDispatch::Scout => "That route can no longer be scouted from here.",
         CommandDispatch::Flee { .. } => "The room has calmed; flee is not needed.",
         CommandDispatch::Check => "The room did not catch that Listen. Try once more.",
         CommandDispatch::Study => "There is no authored subject to Study here now.",
@@ -1276,7 +1279,7 @@ impl RuntimeWorld {
                 verb,
                 action: None,
                 dispatch: CommandDispatch::Read {
-                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
+                            output: "Try: look, search, study, who, choice, support <project>, choose <project>, delegate choice to <avatar>, deck, wear <skill charm>, remove <skill charm>, wield <weapon-or-bag>, unwield <weapon-or-bag>, stow <item> in <bag>, unstow <item>, prepare-spell <spell>, unprepare-spell <spell>, cast <spell>, go <place>, scout <place>, say <message>, emote <action>, take <item>, drop <item>, give <item> to <avatar>, request <item> from <avatar>, trade <item> with <avatar> for <item>, offers, accept <offer>, decline <offer>, withdraw <offer>, mute <avatar>, unmute <avatar>, block <avatar>, unblock <avatar>, use <item> on <target>, chat <avatar>, influence <avatar>, listen, prepare, work, assist, rest, more, purpose <what draws you in>, friendship <avatar>: <why they matter>, remember <avatar>, attack <target>, defend, flee <place>, pass, need time, or report <actor>: <reason>.".to_string(),
                 },
             }),
             "look" => Ok(ResolvedCommand {
@@ -1688,9 +1691,9 @@ impl RuntimeWorld {
                 })
             }
             "go" => {
-                let destination = self.resolve_exit_destination(actor, rest, access).map_err(|output| {
-                    command_error(&command, "go", 404, output)
-                })?;
+                let destination = self
+                    .resolve_exit_destination(actor, rest, access)
+                    .map_err(|output| command_error(&command, "go", 404, output))?;
                 Ok(ResolvedCommand {
                     command: format!("go {}", self.location_name(destination).unwrap_or_else(|| destination.to_string())),
                     verb,
@@ -1698,6 +1701,47 @@ impl RuntimeWorld {
                     dispatch: CommandDispatch::Move {
                         destination_location_id: destination,
                     },
+                })
+            }
+            "scout" => {
+                let target = self
+                    .scout_action_offer_target(actor.id, access)
+                    .ok_or_else(|| {
+                        command_error(
+                            &command,
+                            "scout",
+                            404,
+                            "There is no route to Scout here.",
+                        )
+                    })?;
+                let destination = target.id.ok_or_else(|| {
+                    command_error(
+                        &command,
+                        "scout",
+                        409,
+                        "The current journey has no destination.",
+                    )
+                })?;
+                let target_label = target
+                    .label
+                    .unwrap_or_else(|| self.location_name(destination).unwrap_or_default());
+                let query = trim_command_filler(rest);
+                if !query.is_empty()
+                    && command_match_score(&target_label, &command_key(query)).is_none()
+                {
+                    return Err(command_error(
+                        &command,
+                        "scout",
+                        404,
+                        "No current journey destination matches that command.",
+                    ));
+                }
+                let canonical = format!("scout {target_label}");
+                Ok(ResolvedCommand {
+                    command: canonical.clone(),
+                    verb,
+                    action: Some(command_action("explore_path", "Scout", &canonical)),
+                    dispatch: CommandDispatch::Scout,
                 })
             }
             "flee" => {

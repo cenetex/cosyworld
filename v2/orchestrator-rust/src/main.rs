@@ -20112,10 +20112,14 @@ impl RuntimeWorld {
         if can_influence {
             let (authored_label, _, _) =
                 self.contextual_action_contributions(actor_id, "srd5.2.1:influence");
+            let command = self
+                .default_chat_target(actor_id)
+                .map(|target| format!("influence {}", self.actor_view(target).name))
+                .unwrap_or_else(|| "influence".to_string());
             options.push(ActionOption {
                 kind: "influence".to_string(),
                 label: authored_label.unwrap_or_else(|| "Influence".to_string()),
-                command: "ask for a local lead".to_string(),
+                command,
             });
         }
         if offers.option_flags & CW_OFFER_CHECK != 0 {
@@ -20288,11 +20292,12 @@ impl RuntimeWorld {
             });
         }
 
-        let selected_kind = options
+        let (selected_kind, selected_command) = options
             .iter()
             .min_by_key(|option| self.action_offer_rank_for_actor(&option.kind, actor_id))
-            .map(|option| option.kind.as_str())
-            .unwrap_or("act");
+            .map(|option| (option.kind.clone(), option.command.clone()))
+            .unwrap_or_else(|| ("act".to_string(), "look".to_string()));
+        let selected_kind = selected_kind.as_str();
 
         PrimaryAction {
             kind: match selected_kind {
@@ -20328,38 +20333,7 @@ impl RuntimeWorld {
                 _ => "Act",
             }
             .to_string(),
-            command: match selected_kind {
-                "chat" => "chat".to_string(),
-                "influence" => "ask for a local lead".to_string(),
-                "move" => "go".to_string(),
-                "flee" => "flee".to_string(),
-                "give_item" => "give".to_string(),
-                "trade_item" => "trade".to_string(),
-                "theft" => "steal".to_string(),
-                "use_item" => "use".to_string(),
-                "use_feature" => default_feature_use
-                    .as_ref()
-                    .map(|candidate| {
-                        format!("use {} on {}", candidate.item_name, candidate.feature_name)
-                    })
-                    .unwrap_or_else(|| "use".to_string()),
-                "rest" => "rest".to_string(),
-                "attack" => "attack".to_string(),
-                "defend" => "defend".to_string(),
-                "pick_up" => "take".to_string(),
-                "drop_item" => "drop".to_string(),
-                "check" => "listen".to_string(),
-                "study" => "study the moonlit signs".to_string(),
-                "cast_spell" => "cast steady light".to_string(),
-                "prepare" => "prepare".to_string(),
-                "work" => "work".to_string(),
-                "help" => "assist".to_string(),
-                "create_bond" => self
-                    .default_bond_command(actor_id)
-                    .unwrap_or_else(|| "bond".to_string()),
-                "resolve_bond" => "remember".to_string(),
-                _ => "look".to_string(),
-            },
+            command: selected_command,
             disabled: false,
             options,
         }
@@ -29439,6 +29413,18 @@ async fn command_inner(
             )
             .await;
             command_action_response_with_events(resolved, response.into_action(), presence_events)
+        }
+        CommandDispatch::Scout => {
+            let Json(response) = explore_pathway(
+                ConnectInfo(client_addr),
+                State(state),
+                Json(ActorRequest {
+                    actor_id: payload.actor_id,
+                    actor_session: payload.actor_session,
+                }),
+            )
+            .await;
+            command_action_response_with_events(resolved, response, presence_events)
         }
         CommandDispatch::Flee {
             destination_location_id,
@@ -66861,7 +66847,7 @@ mod tests {
         let state = runtime.state_response(Some(5000), &access);
         assert_eq!(state.primary_action.kind, "pick_up");
         assert_eq!(state.primary_action.label, "Take");
-        assert_eq!(state.primary_action.command, "take");
+        assert_eq!(state.primary_action.command, "take Hearth Tonic");
         assert!(!state
             .primary_action
             .options
