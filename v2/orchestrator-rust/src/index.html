@@ -8026,6 +8026,7 @@
 
     function eventIsLowSignalStatus(event) {
       return event?.type === "world.reset"
+        || event?.type === "action.offer_rejected"
         || event?.type === "advancement.spent"
         || String(event?.type || "").startsWith("community_art.");
     }

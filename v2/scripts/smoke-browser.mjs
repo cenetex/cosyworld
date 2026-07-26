@@ -4164,6 +4164,13 @@ async function main() {
           output: "There is no need to fight here now.",
         }),
       },
+      rejectedOffer: {
+        lowSignal: eventIsLowSignalStatus({ type: "action.offer_rejected" }),
+        journaled: eventIsJournalEvent({
+          type: "action.offer_rejected",
+          content: "that offer expired; refresh the scene",
+        }),
+      },
     }));
     assert(result.action.chatCost === "That choice did not land. Here are the choices you have now.", `a stale Chat payment error should not imply that Chat costs Orbs: ${JSON.stringify(result)}`);
     assert(result.action.orbCost === "That choice did not land. Here are the choices you have now.", `non-image payment errors should not advertise another Orb sink: ${JSON.stringify(result)}`);
@@ -4171,6 +4178,10 @@ async function main() {
     assert(result.command.changed === "That choice changed while you were deciding. Nothing else happened; look again.", `stale typed commands should explain the atomic outcome naturally: ${JSON.stringify(result)}`);
     assert(result.action.hurry === "The room needs a breath. Try again in a moment.", `rate limits should sound like the room, not infrastructure: ${JSON.stringify(result)}`);
     assert(result.command.serverGuidance === "There is no need to fight here now.", `typed commands should preserve contextual server guidance: ${JSON.stringify(result)}`);
+    assert(
+      result.rejectedOffer.lowSignal && !result.rejectedOffer.journaled,
+      `offer rejection telemetry should stay out of the player Journal: ${JSON.stringify(result.rejectedOffer)}`,
+    );
     const visibleCopy = [...Object.values(result.action), ...Object.values(result.command)];
     assert(!/session expired|action bar|command could not|action could not|write committed|current state|status 4|status 5/i.test(visibleCopy.join(" ")), `failure feedback should not leak implementation language: ${JSON.stringify(result)}`);
   }

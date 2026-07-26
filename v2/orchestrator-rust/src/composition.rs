@@ -26,6 +26,31 @@ fn submitted_payload_target(
     payload.get(key).and_then(serde_json::Value::as_u64)
 }
 
+fn submitted_offer_legacy_id(submission: &ActionOfferSubmissionRequest) -> Option<&str> {
+    let prefix = format!(
+        "{}:{}:",
+        submission.rules_profile, submission.state_revision
+    );
+    submission.offer_id.strip_prefix(&prefix)
+}
+
+fn offer_composition_matches_at_submitted_revision(
+    offer: &RankedActionOffer,
+    submission: &ActionOfferSubmissionRequest,
+) -> bool {
+    if offer.state_revision <= submission.state_revision {
+        return false;
+    }
+    // Unrelated world events advance every offer envelope. Rebind only that
+    // volatile revision so the certificate still detects real scene changes.
+    let mut trace = offer.composition_trace.clone();
+    trace.state_revision = submission.state_revision;
+    if let Some(rules_context) = trace.rules_context.as_mut() {
+        rules_context.state_revision = submission.state_revision;
+    }
+    trace.certificate() == submission.composition_id
+}
+
 impl RuntimeWorld {
     pub(super) fn validate_action_offer_submission(
         &self,
@@ -34,19 +59,29 @@ impl RuntimeWorld {
         submission: &ActionOfferSubmissionRequest,
     ) -> Result<(), &'static str> {
         let (_, offers) = self.legal_action_candidates(Some(actor_id), access);
-        let Some(offer) = offers
+        let exact_offer = offers
             .iter()
-            .find(|offer| offer.offer_id == submission.offer_id)
-        else {
+            .find(|offer| offer.offer_id == submission.offer_id);
+        let stable_offer = exact_offer.or_else(|| {
+            let legacy_id = submitted_offer_legacy_id(submission)?;
+            offers
+                .iter()
+                .find(|offer| offer.id == legacy_id && offer.kind == submission.kind)
+        });
+        let Some(offer) = stable_offer else {
             return Err("that offer expired; refresh the scene and submit a current offer_id");
         };
-        if offer.composition_id != submission.composition_id {
+        let revision_rebound = exact_offer.is_none()
+            && offer_composition_matches_at_submitted_revision(offer, submission);
+        if !revision_rebound
+            && (exact_offer.is_none() || offer.composition_id != submission.composition_id)
+        {
             Err("the scene composition changed; refresh and choose a current action")
         } else if offer.kind != submission.kind
             || offer.rules_action != submission.rules_action
             || offer.operation != submission.operation
             || offer.rules_profile != submission.rules_profile
-            || offer.state_revision != submission.state_revision
+            || (offer.state_revision != submission.state_revision && !revision_rebound)
             || offer.target != submission.target
             || offer.cost != submission.cost
             || offer.disabled
