@@ -1,5 +1,44 @@
 use super::*;
 
+pub(super) fn initialize_test_event_store(path: &Path) {
+    init_event_store(path).expect("initialize complete test event-store schema");
+    let conn = open_event_store(path).expect("verify test event-store schema");
+    for table in [
+        "world_events",
+        "action_journal",
+        "actor_jobs",
+        "canonical_store_identity",
+        "canonical_commits",
+    ] {
+        let exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?1
+                 )",
+                [table],
+                |row| row.get(0),
+            )
+            .expect("query test event-store schema");
+        assert!(exists, "test event-store schema is missing {table}");
+    }
+}
+
+pub(super) fn spawn_test_app_server(
+    listener: TcpListener,
+    state: AppState,
+    context: &'static str,
+) -> tokio::task::JoinHandle<()> {
+    let app = routes::app_router(state);
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        .expect(context);
+    })
+}
+
 pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<PathBuf>) -> AppState {
     let (tx, _) = broadcast::channel(32);
     let canonical_fanout_seq = runtime.world.next_event_seq.saturating_sub(1);
