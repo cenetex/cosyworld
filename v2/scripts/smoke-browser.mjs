@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spentPreparationTagBelongsToJob } from "./smoke-project-tags.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const defaultUrl = "http://127.0.0.1:3102/?wallet=dev-wallet&reset=1";
@@ -9171,9 +9172,9 @@ async function main() {
     ));
     assert(
       !(completedProjectState.tags || []).some(
-        (tag) => tag.label === "spent preparation",
+        (tag) => spentPreparationTagBelongsToJob(tag, completedMoonlitJob),
       ),
-      `resolved projects should clear spent-preparation helper tags: ${JSON.stringify(completedProjectState.tags)}`,
+      `resolved projects should clear their spent-preparation helper tags: ${JSON.stringify(completedProjectState.tags)}`,
     );
     assert(
       !(completedProjectState.primary_action?.options || []).some((option) =>
