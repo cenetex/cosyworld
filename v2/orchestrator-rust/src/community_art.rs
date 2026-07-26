@@ -25,7 +25,7 @@ use crate::{
 
 pub(super) const MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS: u8 = 3;
 pub(super) const LEGACY_COMMUNITY_ART_GENERATION_PROFILE_VERSION: u8 = 1;
-pub(super) const LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION: u8 = 2;
+pub(super) const LOCATION_LANDSCAPE_GENERATION_PROFILE_VERSION: u8 = 3;
 pub(super) const LOCATION_LANDSCAPE_PROMPT_PREFIX: &str =
     "MRQ, cozy storybook landscape, wide environment establishing view";
 const COMMUNITY_ART_CANDIDATE_SCHEMA_VERSION: u8 = 1;
