@@ -7,6 +7,7 @@ pub(crate) const DEFAULT_OPENROUTER_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 pub(crate) const DEFAULT_OPENAI_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 pub(crate) const GENERATION_DEFAULT_MODE_ENV: &str = "COSYWORLD_GENERATION_DEFAULT_MODE";
 pub(crate) const GENERATION_FEATURE_MODES_ENV: &str = "COSYWORLD_GENERATION_FEATURE_MODES_JSON";
+const IMAGE_POLICY_MAX_TOKENS: u32 = 2_048;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum GenerationMode {
@@ -95,13 +96,14 @@ impl GenerationControls {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct AiConfig {
     pub(crate) api_key: String,
     pub(crate) base_url: String,
     pub(crate) model: String,
     pub(crate) vision_model: String,
     pub(crate) reasoning_effort: Option<String>,
+    pub(crate) vision_reasoning_effort: Option<String>,
 }
 
 impl AiConfig {
@@ -152,6 +154,13 @@ impl AiConfig {
             .flatten()
             .map(|effort| effort.trim().to_ascii_lowercase())
             .filter(|effort| !effort.is_empty());
+        let vision_reasoning_effort = std::env::var("COSYWORLD_AI_VISION_REASONING_EFFORT")
+            .ok()
+            .or_else(|| std::env::var("OPENROUTER_VISION_REASONING_EFFORT").ok())
+            .or_else(|| std::env::var("OPENAI_VISION_REASONING_EFFORT").ok())
+            .map(|effort| effort.trim().to_ascii_lowercase())
+            .filter(|effort| !effort.is_empty())
+            .or_else(|| reasoning_effort.clone());
 
         Some(Self {
             api_key,
@@ -159,6 +168,7 @@ impl AiConfig {
             model,
             vision_model,
             reasoning_effort,
+            vision_reasoning_effort,
         })
     }
 }
@@ -292,6 +302,7 @@ pub(crate) async fn request_chat_completion(
         request.referer,
         request.response_format,
         &config.model,
+        config.reasoning_effort.as_deref(),
     )
     .await
 }
@@ -349,12 +360,13 @@ pub(crate) async fn request_image_policy_decision(
         "You are a strict image publication gate. Inspect only visible pixels. Return the required JSON and no prose.",
         user_content,
         0.0,
-        120,
+        IMAGE_POLICY_MAX_TOKENS,
         request.timeout,
         request.max_attempts,
         request.referer,
         Some(&response_format),
         &config.vision_model,
+        config.vision_reasoning_effort.as_deref(),
     )
     .await?;
     parse_image_policy_decision(&completion.text).map_err(|message| AiGatewayError {
@@ -415,6 +427,7 @@ async fn request_completion(
     referer: &str,
     response_format: Option<&Value>,
     model: &str,
+    reasoning_effort: Option<&str>,
 ) -> Result<AiCompletion, AiGatewayError> {
     let started_at = Instant::now();
     let client = reqwest::Client::builder()
@@ -447,7 +460,7 @@ async fn request_completion(
                 payload["provider"] = json!({ "require_parameters": true });
             }
         }
-        if let Some(reasoning_effort) = config.reasoning_effort.as_deref() {
+        if let Some(reasoning_effort) = reasoning_effort {
             payload["reasoning"] = json!({ "effort": reasoning_effort });
         }
         let response = client
@@ -623,6 +636,7 @@ mod tests {
             model: "test-model".to_string(),
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: None,
+            vision_reasoning_effort: None,
         };
         assert_eq!(
             ai_provider_name(Some(&config("https://openrouter.ai/api/v1"))),
@@ -733,6 +747,7 @@ mod tests {
             model: "test-model".to_string(),
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: Some("none".to_string()),
+            vision_reasoning_effort: Some("low".to_string()),
         };
         let response_format = json!({
             "type": "json_schema",
@@ -784,6 +799,10 @@ mod tests {
                             .unwrap_or_default();
                         let correct_request = body.get("model").and_then(Value::as_str)
                             == Some("test-vision-model")
+                            && body.get("max_tokens").and_then(Value::as_u64)
+                                == Some(u64::from(IMAGE_POLICY_MAX_TOKENS))
+                            && body.pointer("/reasoning/effort").and_then(Value::as_str)
+                                == Some("low")
                             && body
                                 .pointer("/response_format/json_schema/name")
                                 .and_then(Value::as_str)
@@ -819,6 +838,7 @@ mod tests {
             model: "test-model".to_string(),
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: None,
+            vision_reasoning_effort: Some("low".to_string()),
         };
 
         let decision = request_image_policy_decision(
@@ -870,6 +890,7 @@ mod tests {
             model: "test-model".to_string(),
             vision_model: "test-vision-model".to_string(),
             reasoning_effort: None,
+            vision_reasoning_effort: None,
         };
 
         let error = request_image_policy_decision(

@@ -54,6 +54,8 @@ describe('deploy workflow', () => {
       'COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX = "MRQ, cozy storybook trading-card portrait"';
     const visionModel =
       'COSYWORLD_AI_VISION_MODEL = "openai/gpt-5-image-mini"';
+    const visionReasoning =
+      'COSYWORLD_AI_VISION_REASONING_EFFORT = "low"';
 
     for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
       expect(config).toContain(model);
@@ -62,6 +64,7 @@ describe('deploy workflow', () => {
       expect(config).toContain(loraScaleInput);
       expect(config).toContain(trigger);
       expect(config).toContain(visionModel);
+      expect(config).toContain(visionReasoning);
     }
   });
 });
