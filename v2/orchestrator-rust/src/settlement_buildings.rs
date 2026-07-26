@@ -920,6 +920,8 @@ impl RuntimeWorld {
                 }],
                 delivery: None,
                 loot: None,
+                focused_profile: None,
+                focused_encounter: None,
             });
         if let Some(job) = self.jobs.get_mut(&building.construction_job_id) {
             job.status = if building.status == SettlementBuildingStatus::Completed {
@@ -1012,6 +1014,8 @@ impl RuntimeWorld {
             narrated_thresholds: Vec::new(),
             delivery: None,
             loot: None,
+            focused_profile: None,
+            focused_encounter: None,
         });
         if let Some(sheet) = self.room_sheets.get_mut(&building.location_id) {
             if !sheet.projects.contains(&job_id) {
@@ -1114,6 +1118,8 @@ impl RuntimeWorld {
                 .then(|| building.loot_table_id.as_deref())
                 .flatten()
                 .and_then(|table_id| loot_spec_for_table(table_id, template_id)),
+            focused_profile: None,
+            focused_encounter: None,
         });
         if let Some(sheet) = self.room_sheets.get_mut(&building.location_id) {
             if !sheet.projects.contains(&job_id) {
@@ -1178,6 +1184,8 @@ impl RuntimeWorld {
             narrated_thresholds: Vec::new(),
             delivery: None,
             loot: None,
+            focused_profile: None,
+            focused_encounter: None,
         });
         if let Some(sheet) = self.room_sheets.get_mut(&location_id) {
             if !sheet.projects.contains(&job_id) {

@@ -17,6 +17,7 @@ mod content_registry;
 mod crafting;
 mod generated_places;
 mod hosted_access;
+mod jobs;
 mod journal_checkpoint;
 mod kernel;
 mod legacy_import;
@@ -73,6 +74,7 @@ use crafting::*;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use generated_places::*;
 use hosted_access::*;
+use jobs::*;
 use kernel::*;
 use legacy_import::*;
 use moderation::*;
@@ -886,82 +888,6 @@ struct RpgTagState {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(untagged)]
-enum JobReward {
-    Label(String),
-    Details {
-        #[serde(default)]
-        label: String,
-        #[serde(default)]
-        orbs: i32,
-    },
-}
-
-impl JobReward {
-    fn label(&self) -> &str {
-        match self {
-            JobReward::Label(label) => label,
-            JobReward::Details { label, .. } => label,
-        }
-    }
-
-    fn orbs(&self) -> i32 {
-        match self {
-            JobReward::Label(_) => 0,
-            JobReward::Details { orbs, .. } => *orbs,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct JobState {
-    #[serde(default)]
-    pack_id: String,
-    id: String,
-    premise: String,
-    stakes: String,
-    location_ids: Vec<u64>,
-    participant_ids: Vec<u64>,
-    progress_clock_id: String,
-    danger_clock_id: String,
-    #[serde(default)]
-    status: String,
-    reward: JobReward,
-    consequence: String,
-    #[serde(default)]
-    memory_summary: String,
-    #[serde(default)]
-    action_copy: JobActionCopy,
-    #[serde(default)]
-    contribution_schema_version: u8,
-    #[serde(default)]
-    contribution_strategies: Vec<JobContributionStrategy>,
-    #[serde(default)]
-    narrated_thresholds: Vec<JobNarratedThreshold>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    delivery: Option<DeliveryJobSpec>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    loot: Option<JobLootSpec>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-struct DeliveryJobSpec {
-    resource: String,
-    origin_location_id: u64,
-    destination_location_id: u64,
-    created_world_tick: u64,
-    updated_world_tick: u64,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-struct JobActionCopy {
-    #[serde(default)]
-    label: String,
-    #[serde(default)]
-    summary: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
 struct RoomSheetState {
     id: String,
     location_id: u64,
@@ -1006,6 +932,9 @@ enum ProjectionMutation {
     },
     ShuffleHand {
         reason: String,
+    },
+    FocusedControl {
+        control: String,
     },
     ChatStatus {
         target_actor_id: u64,
@@ -1837,6 +1766,7 @@ enum JournalOrigin {
     #[default]
     Legacy,
     PlayerCard,
+    PlayerControl,
     Speech,
     ActorConsequence,
     System,
@@ -1936,6 +1866,10 @@ struct JournalRecord {
     resident_decision: Option<ResidentDecisionTrace>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     focused_encounter: Option<FocusedEncounterJournalContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    offer_kind: Option<String>,
+    #[serde(default)]
+    focused_policy_version: u8,
     action: CwAction,
     seed: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1970,7 +1904,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 9;
+const JOURNAL_RECORD_VERSION: u32 = 10;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -2008,6 +1942,8 @@ impl JournalRecord {
             source_location_id: None,
             resident_decision: None,
             focused_encounter,
+            offer_kind: None,
+            focused_policy_version: 1,
             action,
             seed,
             ripple_source: None,
@@ -2060,6 +1996,7 @@ impl JournalRecord {
     }
 
     fn bind_offer_kind(&mut self, kind: &str) {
+        self.offer_kind = Some(kind.to_string());
         if let Some(binding) = resolved_action_binding(kind) {
             self.rules_action = binding.rules_action;
             self.operation = binding.operation;
@@ -2094,6 +2031,11 @@ impl JournalRecord {
 
     fn into_player_card(mut self) -> Self {
         self.origin = JournalOrigin::PlayerCard;
+        self
+    }
+
+    fn into_player_control(mut self) -> Self {
+        self.origin = JournalOrigin::PlayerControl;
         self
     }
 
@@ -7953,6 +7895,8 @@ impl RuntimeWorld {
             ],
             delivery: None,
             loot: None,
+            focused_profile: None,
+            focused_encounter: None,
         });
         if revealed {
             if let Some(clock) = self.clocks.get_mut(&state.investigation_clock_id) {
@@ -10017,7 +9961,7 @@ impl RuntimeWorld {
     }
 
     fn apply_journal_record(&mut self, record: &JournalRecord) -> (u32, Vec<EventView>) {
-        if !focused_encounter_journal_context_is_supported(record) {
+        if !focused_encounter_journal_context_is_supported(self, record) {
             return (CW_ERR_RULE, Vec::new());
         }
         self.expire_transfer_offers();
@@ -10123,6 +10067,7 @@ impl RuntimeWorld {
                 &committed_events,
                 &record.projection_mutations,
             ));
+            events.extend(self.apply_focused_job_record(record));
             self.refresh_craft_event_presentation(&mut events);
             events.extend(self.apply_class_readiness_projection(record, &action, &events));
             let committed_events = events.clone();
@@ -10314,6 +10259,7 @@ impl RuntimeWorld {
                 ProjectionMutation::ShuffleHand { reason } => {
                     events.push(self.append_hand_shuffled_event(action.actor_id, reason));
                 }
+                ProjectionMutation::FocusedControl { .. } => {}
                 ProjectionMutation::ChatStatus {
                     target_actor_id,
                     status,
@@ -18271,6 +18217,9 @@ impl RuntimeWorld {
             return true;
         }
         let clock_id = if let Some(job) = self.active_job_for_location(actor.location_id) {
+            if !focused_job_action_available(self, actor_id, &job.id, "prepare") {
+                return false;
+            }
             if !job
                 .contribution_strategies
                 .iter()
@@ -18545,6 +18494,7 @@ impl RuntimeWorld {
                     && job.location_ids.contains(&actor.location_id)
                     && self.job_status(job) == "active"
                     && job.contribution_schema_version == JOB_CONTRIBUTION_SCHEMA_VERSION
+                    && focused_job_action_available(self, actor_id, &job.id, action_kind)
             })
             .flat_map(|job| {
                 job.contribution_strategies
@@ -18797,6 +18747,8 @@ impl RuntimeWorld {
                     updated_world_tick: pulse.source_world_tick,
                 }),
                 loot: None,
+                focused_profile: None,
+                focused_encounter: None,
             },
         );
         Some(self.append_world_history_event(
@@ -22988,6 +22940,9 @@ impl RuntimeWorld {
     }
 
     fn resident_record_offer_kind(record: &JournalRecord) -> String {
+        if let Some(kind) = record.offer_kind.as_ref() {
+            return kind.clone();
+        }
         if let Some(kind) = record
             .projection_mutations
             .iter()
@@ -23798,6 +23753,7 @@ fn hosted_guest_progression_mutation_restricted(mutation: &ProjectionMutation) -
             | ProjectionMutation::DiscoverAvatar { .. }
             | ProjectionMutation::RememberSearchItem { .. }
             | ProjectionMutation::UseFeature { .. }
+            | ProjectionMutation::FocusedControl { .. }
             | ProjectionMutation::AdvanceClock { .. }
             | ProjectionMutation::SetJobStatus { .. }
             | ProjectionMutation::LegacyAcceptQuest { .. }
@@ -23820,17 +23776,19 @@ fn hosted_guest_record_restricted(
     runtime: &RuntimeWorld,
     record: &JournalRecord,
 ) -> bool {
-    record.origin == JournalOrigin::PlayerCard
-        && (hosted_guest_action_restricted(
-            state,
-            runtime,
-            record.action.actor_id,
-            record.action.kind,
-        ) || (record
-            .projection_mutations
-            .iter()
-            .any(hosted_guest_progression_mutation_restricted)
-            && actor_is_restricted_hosted_guest(state, runtime, record.action.actor_id)))
+    matches!(
+        record.origin,
+        JournalOrigin::PlayerCard | JournalOrigin::PlayerControl
+    ) && (hosted_guest_action_restricted(
+        state,
+        runtime,
+        record.action.actor_id,
+        record.action.kind,
+    ) || (record
+        .projection_mutations
+        .iter()
+        .any(hosted_guest_progression_mutation_restricted)
+        && actor_is_restricted_hosted_guest(state, runtime, record.action.actor_id)))
 }
 
 async fn reconcile_hosted_access(state: &AppState) -> Vec<EventView> {
@@ -34850,7 +34808,7 @@ async fn prepare(
     let turn_location_id = runtime
         .actor_by_id(payload.actor_id)
         .map(|actor| actor.location_id);
-    if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
+    if let Some(response) = actor_offer_turn_rejection(&runtime, payload.actor_id, "prepare") {
         return response;
     }
     let contribution_intent =
@@ -34869,6 +34827,8 @@ async fn prepare(
             events: Vec::new(),
         });
     };
+    let focused_setup =
+        focused_encounter_offer_context(&runtime, payload.actor_id, "prepare").is_some();
     let mut record = JournalRecord::new(
         CwAction {
             kind: CW_ACTION_NONE,
@@ -34876,8 +34836,12 @@ async fn prepare(
             ..CwAction::default()
         },
         runtime.next_seed_value(),
-    )
-    .into_player_card();
+    );
+    record = if focused_setup {
+        record.into_player_control()
+    } else {
+        record.into_player_card()
+    };
     record.bind_offer_kind("prepare");
     if let Some(intent) = contribution_intent {
         let clock_id = intent.strategy.clock_id.clone();
@@ -34965,7 +34929,7 @@ async fn work(
     let turn_location_id = runtime
         .actor_by_id(payload.actor_id)
         .map(|actor| actor.location_id);
-    if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
+    if let Some(response) = actor_offer_turn_rejection(&runtime, payload.actor_id, "work") {
         return response;
     }
     if !runtime.work_available(payload.actor_id) {
@@ -35123,7 +35087,7 @@ async fn help_room(
     let turn_location_id = runtime
         .actor_by_id(payload.actor_id)
         .map(|actor| actor.location_id);
-    if let Some(response) = actor_turn_rejection(&state, &runtime, payload.actor_id) {
+    if let Some(response) = actor_offer_turn_rejection(&runtime, payload.actor_id, "help") {
         return response;
     }
     if !runtime.help_available(payload.actor_id) {
@@ -36852,6 +36816,18 @@ async fn apply_and_broadcast_with_resident_reply_and_hosted_access_and_mutations
     }
     let mut record = JournalRecord::new(action, runtime.next_seed_value());
     record.projection_mutations.extend(mutations);
+    if let Some(kind) = record
+        .projection_mutations
+        .iter()
+        .find_map(|mutation| match mutation {
+            ProjectionMutation::ResolveJobContribution { intent } => {
+                Some(intent.strategy.action_kind.clone())
+            }
+            _ => None,
+        })
+    {
+        record.bind_offer_kind(&kind);
+    }
     if action_is_discovery_check(&record.action) {
         record
             .projection_mutations
@@ -39464,6 +39440,7 @@ fn commit_journal_record(
     runtime: &mut RuntimeWorld,
     mut record: JournalRecord,
 ) -> io::Result<(u32, Vec<EventView>)> {
+    bind_focused_encounter_context(runtime, &mut record);
     if hosted_guest_record_restricted(state, runtime, &record) {
         return Ok((CW_ERR_RULE, Vec::new()));
     }
