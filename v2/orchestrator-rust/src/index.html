@@ -2918,25 +2918,22 @@
       grid-template-rows: auto minmax(0, 1fr);
     }
     .room-title-main {
-      flex: 0 1 auto;
-      max-width: 52%;
+      flex: 1 1 auto;
+      max-width: none;
     }
     .room-log-toggle {
-      flex: 1 1 0;
-      min-width: 0;
+      flex: 0 0 auto;
+      min-width: auto;
       min-height: 44px;
       max-width: none;
-      overflow: hidden;
       border: 0;
       border-bottom: 1px solid transparent;
       border-radius: 0;
       background: transparent;
       color: var(--dim);
       padding: 3px 1px 2px;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      display: inline-flex;
       align-items: center;
-      gap: 12px;
       font: inherit;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 11px;
@@ -2971,14 +2968,25 @@
     }
     .room-log-latest {
       display: block;
+      width: 100%;
       min-width: 0;
+      margin: 0;
       overflow: hidden;
+      border: 0;
+      border-bottom: 1px solid transparent;
+      border-radius: 0;
+      background: transparent;
+      padding: 4px 1px 5px;
       white-space: nowrap;
       color: var(--faint);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 10px;
       font-weight: 500;
       letter-spacing: 0.01em;
       text-align: left;
+      cursor: pointer;
+    }
+    .room-log-latest.is-overflowing {
       -webkit-mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 12px), transparent);
       mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 12px), transparent);
     }
@@ -2995,8 +3003,14 @@
     .room-log-latest.is-overflowing .room-log-latest-track {
       animation: room-log-scroll var(--room-log-duration, 12s) ease-in-out 1.2s infinite alternate;
     }
-    .room-log-toggle:hover .room-log-latest-track,
-    .room-log-toggle:focus-visible .room-log-latest-track {
+    .room-log-latest:hover,
+    .room-log-latest:focus-visible {
+      border-bottom-color: var(--line-strong);
+      color: var(--dim);
+      outline: 0;
+    }
+    .room-log-latest:hover .room-log-latest-track,
+    .room-log-latest:focus-visible .room-log-latest-track {
       animation-play-state: paused;
     }
     @keyframes room-log-scroll {
@@ -3004,7 +3018,7 @@
       to { transform: translateX(calc(-1 * var(--room-log-overflow, 0px))); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .room-log-latest {
+      .room-log-latest.is-overflowing {
         -webkit-mask-image: none;
         mask-image: none;
       }
@@ -3213,11 +3227,11 @@
         gap: 10px;
       }
       .room-title-main {
-        max-width: 56%;
+        max-width: none;
       }
       .room-log-toggle {
-        width: 100%;
-        min-width: 88px;
+        width: auto;
+        min-width: auto;
         min-height: 44px;
       }
       #avatar {
@@ -3259,9 +3273,10 @@
         </div>
         <div class="room-title">
           <span class="room-title-main"><h1 id="location-name">The Cosy Cottage</h1></span>
-          <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view"><span class="room-log-latest" id="room-log-latest" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></span><span class="room-log-kicker">Journal</span></button>
+          <button class="room-log-toggle" id="room-log-toggle" type="button" aria-expanded="false" aria-controls="journal-view"><span class="room-log-kicker">Journal</span></button>
           <span id="avatar"></span>
         </div>
+        <button class="room-log-latest" id="room-log-latest" type="button" aria-controls="journal-view" hidden><span class="room-log-latest-track" id="room-log-latest-track"></span></button>
         <div class="room-copy" id="location-copy"></div>
       </section>
       <section class="journal-view" id="journal-view" aria-label="Journal" hidden>
@@ -7364,11 +7379,14 @@
       const terminal = document.querySelector(".terminal");
       const journal = $("journal-view");
       const toggle = $("room-log-toggle");
+      const latestControl = $("room-log-latest");
       journal.hidden = !open;
       terminal?.classList.toggle("journal-open", open);
       toggle.setAttribute("aria-expanded", open ? "true" : "false");
       const latest = String(toggle.dataset.latest || "").trim();
-      toggle.setAttribute("aria-label", open ? "Close Journal" : latest ? `Open Journal: ${latest}` : "Open Journal");
+      toggle.setAttribute("aria-label", open ? "Close Journal" : "Open Journal");
+      latestControl.setAttribute("aria-expanded", open ? "true" : "false");
+      latestControl.setAttribute("aria-label", open ? "Close Journal, latest entry" : `Open Journal, latest: ${latest}`);
       toggle.querySelector(".room-log-kicker")?.replaceChildren(document.createTextNode(open ? "Close Journal" : "Journal"));
       document.querySelector(".prompt").hidden = Boolean(panelMode || open);
       if (open) {
@@ -11554,6 +11572,9 @@
     });
 
     $("room-log-toggle").addEventListener("click", () => {
+      setJournalOpen(!journalOpen);
+    });
+    $("room-log-latest").addEventListener("click", () => {
       setJournalOpen(!journalOpen);
     });
 

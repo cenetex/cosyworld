@@ -7368,7 +7368,7 @@ async function main() {
         latestVisible: visible(document.querySelector("#room-log-latest")),
         latestHasTrack: Boolean(document.querySelector("#room-log-latest > #room-log-latest-track")),
         latestAriaLive: document.querySelector("#room-log-latest")?.getAttribute("aria-live") || "",
-        latestInsideToggle: document.querySelector("#room-log-latest")?.parentElement?.id === "room-log-toggle",
+        latestBelowTitle: document.querySelector("#room-log-latest")?.previousElementSibling?.classList.contains("room-title") || false,
         expanded: document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") || "",
         journalVisible: visible(document.querySelector("#journal-view")),
         heroVisible: visible(document.querySelector("#room-hero")),
@@ -7394,8 +7394,8 @@ async function main() {
       `${label}: the ticker should mirror the newest actual Journal row: ${JSON.stringify(room)}`,
     );
     assert(
-      room.latestVisible && room.latestHasTrack && room.latestInsideToggle && !room.latestAriaLive,
-      `${label}: the latest event should stay inside the single quiet Journal control without another live region: ${JSON.stringify(room)}`,
+      room.latestVisible && room.latestHasTrack && room.latestBelowTitle && !room.latestAriaLive,
+      `${label}: the latest event should occupy one quiet line below the title without another live region: ${JSON.stringify(room)}`,
     );
     assert(room.expanded === "false" && !room.journalVisible, `${label}: Journal should start closed: ${JSON.stringify(room)}`);
     assert(!room.memoryVisible && !room.questionsVisible && !room.updatesVisible, `${label}: status and story panels must not occupy the room: ${JSON.stringify(room)}`);
@@ -7445,9 +7445,9 @@ async function main() {
       movingTicker.overflow > 4 && movingTicker.animationName === "room-log-scroll",
       `${label}: a clipped latest event should scroll inside the Journal control: ${JSON.stringify(movingTicker)}`,
     );
-    await page.locator("#room-log-toggle").hover();
+    await page.locator("#room-log-latest").hover();
     const pausedTicker = await page.locator("#room-log-latest-track").evaluate((track) => getComputedStyle(track).animationPlayState);
-    assert(pausedTicker === "paused", `${label}: hovering the Journal control should pause its latest-event ticker`);
+    assert(pausedTicker === "paused", `${label}: hovering the latest-event line should pause its ticker`);
     await page.emulateMedia({ reducedMotion: "reduce" });
     const reducedTicker = await page.locator("#room-log-latest-track").evaluate((track) => {
       const style = getComputedStyle(track);
@@ -7463,7 +7463,7 @@ async function main() {
       renderRoomLogLatest(original);
     }, originalLatest);
 
-    await page.locator("#room-log-toggle").click();
+    await page.locator("#room-log-latest").click();
     await page.waitForFunction(() => (
       document.querySelector("#room-log-toggle")?.getAttribute("aria-expanded") === "true"
       && document.querySelector("#journal-view")?.hidden === false
@@ -7547,6 +7547,52 @@ async function main() {
       };
     });
     assert(restored.hero && restored.chat && restored.prompt, `${label}: closing Journal should restore the chatroom intact: ${JSON.stringify(restored)}`);
+  }
+
+  async function assertJournalTickerLayout() {
+    const originalViewport = page.viewportSize();
+    for (const width of [390, 768, 1280]) {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 800 });
+      await page.waitForTimeout(50);
+      const layout = await page.evaluate(() => {
+        const rect = (selector) => {
+          const bounds = document.querySelector(selector)?.getBoundingClientRect();
+          return bounds
+            ? { top: bounds.top, bottom: bounds.bottom, left: bounds.left, right: bounds.right, width: bounds.width }
+            : null;
+        };
+        return {
+          title: rect(".room-title"),
+          name: rect(".room-title-main"),
+          toggle: rect("#room-log-toggle"),
+          latest: rect("#room-log-latest"),
+          latestLabel: document.querySelector("#room-log-latest")?.getAttribute("aria-label") || "",
+          toggleLabel: document.querySelector("#room-log-toggle")?.getAttribute("aria-label") || "",
+        };
+      });
+      assert(
+        layout.title && layout.name && layout.toggle && layout.latest,
+        `${width}px: title, Journal control, and latest-event line should all render: ${JSON.stringify(layout)}`,
+      );
+      assert(
+        layout.name.right <= layout.toggle.left + 0.5,
+        `${width}px: location name must not overlap the Journal control: ${JSON.stringify(layout)}`,
+      );
+      assert(
+        layout.latest.top >= layout.title.bottom - 0.5,
+        `${width}px: latest-event line should sit below the title row: ${JSON.stringify(layout)}`,
+      );
+      assert(
+        Math.abs(layout.latest.left - layout.title.left) <= 1
+          && Math.abs(layout.latest.right - layout.title.right) <= 1,
+        `${width}px: latest-event line should use the full room content width: ${JSON.stringify(layout)}`,
+      );
+      assert(
+        /^Open Journal, latest: .+/.test(layout.latestLabel) && layout.toggleLabel === "Open Journal",
+        `${width}px: both Journal entry points need clear accessible names: ${JSON.stringify(layout)}`,
+      );
+    }
+    if (originalViewport) await page.setViewportSize(originalViewport);
   }
 
   async function assertMudShellVisualContract(label) {
@@ -8617,6 +8663,7 @@ async function main() {
   await assertRoomSummaryStaysFlatAndMechanical();
   await assertStatusBarDoesNotOverlayTranscript("mobile status row");
   await assertJournalModeContract("mobile Journal");
+  await assertJournalTickerLayout();
   await assertUiAccessibilityContract("mobile accessibility and navigation");
   await assertMudShellVisualContract(runLivingWorldStress ? "mobile visual shell stress" : "mobile visual shell");
   await assertTimelineAccessibilityBase();
