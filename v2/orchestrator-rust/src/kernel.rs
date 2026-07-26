@@ -191,7 +191,7 @@ pub struct CwLocation {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CwExit {
     pub from_location_id: u64,
     pub to_location_id: u64,

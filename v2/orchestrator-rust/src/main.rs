@@ -38,6 +38,7 @@ mod settlement_buildings;
 mod story_metrics;
 #[cfg(test)]
 mod test_support;
+mod topology;
 mod transfers;
 mod turns;
 mod uses;
@@ -119,6 +120,7 @@ use tokio_stream::{
     wrappers::{errors::BroadcastStreamRecvError, BroadcastStream},
     StreamExt,
 };
+use topology::*;
 use tracing::{error, info, warn};
 use turns::*;
 use views::*;
@@ -982,6 +984,7 @@ enum ProjectionMutation {
         location_id: u64,
         invite_id: String,
     },
+    SetRouteLifecycle(RouteLifecycleMutation),
     JourneyTransition {
         pathway: GeneratedPathwayState,
         journey: Option<JourneyState>,
@@ -1568,6 +1571,7 @@ struct RuntimeWorld {
     tags: BTreeMap<String, RpgTagState>,
     jobs: BTreeMap<String, JobState>,
     room_sheets: BTreeMap<u64, RoomSheetState>,
+    routes: BTreeMap<String, RouteRecordState>,
     generated_pathways: BTreeMap<String, GeneratedPathwayState>,
     generated_places: BTreeMap<u64, GeneratedPlaceState>,
     governance_decisions: BTreeMap<String, GovernanceDecisionState>,
@@ -1646,6 +1650,8 @@ struct RuntimeSnapshot {
     world_locations: Vec<CwLocation>,
     #[serde(default)]
     world_exits: Vec<CwExit>,
+    #[serde(default)]
+    routes: BTreeMap<String, RouteRecordState>,
     #[serde(default)]
     world_evolution_tracks: Vec<CwEvolutionTrack>,
     #[serde(default)]
@@ -1872,6 +1878,8 @@ struct JournalRecord {
     #[serde(default)]
     focused_policy_version: u8,
     action: CwAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    route_binding: Option<RouteOfferBinding>,
     seed: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     ripple_source: Option<RippleSource>,
@@ -1905,7 +1913,7 @@ struct JournalRecord {
     orb_deltas: Vec<OrbDelta>,
 }
 
-const JOURNAL_RECORD_VERSION: u32 = 10;
+const JOURNAL_RECORD_VERSION: u32 = 11;
 
 impl JournalRecord {
     fn new(action: CwAction, seed: u64) -> Self {
@@ -1946,6 +1954,7 @@ impl JournalRecord {
             offer_kind: None,
             focused_policy_version: 1,
             action,
+            route_binding: None,
             seed,
             ripple_source: None,
             queued_actor_job: None,
@@ -2831,6 +2840,8 @@ struct RankedActionOffer {
     composition_trace: ActionCompositionTraceView,
     composition_id: String,
     state_revision: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    route: Option<RouteOfferBinding>,
 
     category: String,
     verb: String,
@@ -3194,6 +3205,8 @@ struct ActionOfferSubmissionRequest {
     operation: Option<String>,
     rules_profile: String,
     state_revision: u64,
+    #[serde(default)]
+    route: Option<RouteOfferBinding>,
     target: Option<ActionTargetView>,
     cost: Option<ActionCostView>,
     payload: serde_json::Value,
@@ -6119,7 +6132,7 @@ impl RuntimeSnapshot {
             )
             .collect::<Vec<_>>();
         Self {
-            version: 10,
+            version: 11,
             worldpack_bundle_hash: active_content().manifest.bundle_hash.clone(),
             content_context: content_registry().content_reference_context(content_handles),
             rules_profile: active_content().manifest.rules_profile.clone(),
@@ -6137,6 +6150,7 @@ impl RuntimeSnapshot {
             world_items: runtime.world.items[..runtime.world.item_count].to_vec(),
             world_locations: runtime.world.locations[..runtime.world.location_count].to_vec(),
             world_exits: runtime.world.exits[..runtime.world.exit_count].to_vec(),
+            routes: runtime.routes.clone(),
             world_evolution_tracks: runtime.world.evolution_tracks
                 [..runtime.world.evolution_track_count]
                 .to_vec(),
@@ -6361,6 +6375,7 @@ impl RuntimeSnapshot {
             tags: self.tags,
             jobs: self.jobs,
             room_sheets: self.room_sheets,
+            routes: self.routes,
             generated_pathways: self.generated_pathways,
             generated_places: self.generated_places,
             governance_decisions: self.governance_decisions,
@@ -6749,6 +6764,7 @@ impl RuntimeWorld {
             tags: BTreeMap::new(),
             jobs: BTreeMap::new(),
             room_sheets: BTreeMap::new(),
+            routes: BTreeMap::new(),
             generated_pathways: BTreeMap::new(),
             generated_places: BTreeMap::new(),
             governance_decisions: BTreeMap::new(),
@@ -6824,15 +6840,11 @@ impl RuntimeWorld {
                 .or_insert_with(|| location.name.clone());
         }
 
-        // Treat the Rust seed topology as authoritative so old snapshots migrate
-        // away from the cottage-as-global-hub layout.
-        self.world.exit_count = 0;
-
-        for exit in &active_content().exits {
-            self.ensure_exit(exit.from_location_id, exit.to_location_id, exit.flags);
-        }
+        self.ensure_authored_route_records();
+        self.ensure_hidden_route_records();
         self.ensure_discovered_hidden_exits();
         self.ensure_generated_pathway_topology();
+        self.rebuild_kernel_exits_from_routes();
         self.ensure_seed_residents();
         self.ensure_seed_items();
         self.normalize_card_zones();
@@ -8228,42 +8240,12 @@ impl RuntimeWorld {
         self.world.item_count += 1;
     }
 
-    fn ensure_exit(&mut self, from_location_id: u64, to_location_id: u64, flags: u32) {
-        if self.world.exits[..self.world.exit_count]
-            .iter()
-            .any(|exit| {
-                exit.from_location_id == from_location_id && exit.to_location_id == to_location_id
-            })
-        {
-            return;
-        }
-        if self.world.exit_count >= CW_MAX_EXITS {
-            return;
-        }
-        let has_from = self.world.locations[..self.world.location_count]
-            .iter()
-            .any(|location| location.id == from_location_id);
-        let has_to = self.world.locations[..self.world.location_count]
-            .iter()
-            .any(|location| location.id == to_location_id);
-        if !has_from || !has_to {
-            return;
-        }
-        self.world.exits[self.world.exit_count] = CwExit {
-            from_location_id,
-            to_location_id,
-            flags,
-        };
-        self.world.exit_count += 1;
-    }
-
     fn ensure_discovered_hidden_exits(&mut self) {
         for hidden_exit in &active_content().hidden_exits {
             if !self.hidden_exit_discovered(hidden_exit) {
                 continue;
             }
-            self.ensure_exit(hidden_exit.from_location_id, hidden_exit.to_location_id, 0);
-            self.ensure_exit(hidden_exit.to_location_id, hidden_exit.from_location_id, 0);
+            self.open_hidden_route(&hidden_exit.id);
         }
     }
 
@@ -8315,6 +8297,7 @@ impl RuntimeWorld {
             .cloned()
             .collect::<Vec<_>>();
         for pathway in pathways {
+            self.ensure_generated_pathway_route_records(&pathway);
             for edge in &pathway.revealed_edges {
                 let Some((from_location_id, to_location_id)) = parse_pathway_edge_key(edge) else {
                     continue;
@@ -8347,8 +8330,8 @@ impl RuntimeWorld {
                 .entry(waypoint.id)
                 .or_insert_with(|| waypoint.meta.clone());
         }
-        self.ensure_exit(from_location_id, to_location_id, 0);
-        self.ensure_exit(to_location_id, from_location_id, 0);
+        self.open_generated_pathway_route(pathway, from_location_id, to_location_id);
+        self.rebuild_kernel_exits_from_routes();
         let pack_id = "cosyworld.core";
         let pack_version = self.active_pack_version(pack_id);
         for location_id in [from_location_id, to_location_id] {
@@ -9964,7 +9947,9 @@ impl RuntimeWorld {
     }
 
     fn apply_journal_record(&mut self, record: &JournalRecord) -> (u32, Vec<EventView>) {
-        if !focused_encounter_journal_context_is_supported(self, record) {
+        if !focused_encounter_journal_context_is_supported(self, record)
+            || !self.route_record_preconditions_hold(record)
+        {
             return (CW_ERR_RULE, Vec::new());
         }
         self.expire_transfer_offers();
@@ -10431,6 +10416,17 @@ impl RuntimeWorld {
                         }
                     }
                 }
+                ProjectionMutation::SetRouteLifecycle(transition) => {
+                    if let Some(event) = self.apply_route_lifecycle_mutation(
+                        action.actor_id,
+                        &transition.route_id,
+                        transition.expected_version,
+                        transition.lifecycle,
+                        &transition.reason,
+                    ) {
+                        events.push(event);
+                    }
+                }
                 ProjectionMutation::JourneyTransition {
                     pathway,
                     journey,
@@ -10443,6 +10439,7 @@ impl RuntimeWorld {
                         .get(&pathway.id)
                         .cloned()
                         .unwrap_or_else(|| pathway.clone());
+                    self.ensure_generated_pathway_route_records(&next_pathway);
                     for (from_location_id, to_location_id) in reveal_edges {
                         next_pathway
                             .revealed_edges
@@ -10650,17 +10647,9 @@ impl RuntimeWorld {
                     if self.seed_exit_discovered(*from_location_id, *to_location_id) {
                         continue;
                     }
-                    self.ensure_exit(exit.from_location_id, exit.to_location_id, exit.flags);
                     let reverse_exit = self
                         .seed_exit_by_locations(*to_location_id, *from_location_id)
                         .cloned();
-                    if let Some(reverse) = reverse_exit.as_ref() {
-                        self.ensure_exit(
-                            reverse.from_location_id,
-                            reverse.to_location_id,
-                            reverse.flags,
-                        );
-                    }
                     let destination = self
                         .location_name(*to_location_id)
                         .unwrap_or_else(|| format!("Location {}", to_location_id));
@@ -10722,8 +10711,8 @@ impl RuntimeWorld {
                     if self.hidden_exit_discovered(hidden_exit) {
                         continue;
                     }
-                    self.ensure_exit(hidden_exit.from_location_id, hidden_exit.to_location_id, 0);
-                    self.ensure_exit(hidden_exit.to_location_id, hidden_exit.from_location_id, 0);
+                    self.open_hidden_route(hidden_exit_id);
+                    self.rebuild_kernel_exits_from_routes();
                     let event = self.append_exit_discovered_event(
                         action.actor_id,
                         hidden_exit.from_location_id,
@@ -39385,6 +39374,10 @@ fn commit_journal_record(
     mut record: JournalRecord,
 ) -> io::Result<(u32, Vec<EventView>)> {
     bind_focused_encounter_context(runtime, &mut record);
+    runtime.bind_route_precondition(&mut record);
+    if !runtime.route_record_preconditions_hold(&record) {
+        return Ok((CW_ERR_RULE, Vec::new()));
+    }
     if hosted_guest_record_restricted(state, runtime, &record) {
         return Ok((CW_ERR_RULE, Vec::new()));
     }
@@ -55279,6 +55272,7 @@ mod tests {
                 operation: study_offer.operation,
                 rules_profile: study_offer.rules_profile,
                 state_revision: study_offer.state_revision,
+                route: study_offer.route,
                 target: study_offer.target,
                 cost: study_offer.cost,
                 payload: serde_json::json!({

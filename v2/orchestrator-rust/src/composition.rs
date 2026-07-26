@@ -82,6 +82,7 @@ impl RuntimeWorld {
             || offer.operation != submission.operation
             || offer.rules_profile != submission.rules_profile
             || (offer.state_revision != submission.state_revision && !revision_rebound)
+            || offer.route != submission.route
             || offer.target != submission.target
             || offer.cost != submission.cost
             || offer.disabled
@@ -345,6 +346,7 @@ impl RuntimeWorld {
                     composition_trace,
                     composition_id: String::new(),
                     state_revision,
+                    route: None,
                     category: action_offer_category(&option.kind).to_string(),
                     intention,
                     kind: option.kind,
@@ -416,6 +418,9 @@ impl RuntimeWorld {
                     contextual_offers: Vec::new(),
                 },
             );
+            let route = target.id.and_then(|destination_location_id| {
+                self.scout_route_offer_binding(actor_id, destination_location_id)
+            });
             offers.push(RankedActionOffer {
                 id: legacy_id,
                 offer_id,
@@ -430,6 +435,7 @@ impl RuntimeWorld {
                 composition_trace,
                 composition_id: String::new(),
                 state_revision,
+                route,
                 category: action_offer_category(kind).to_string(),
                 verb,
                 label,
@@ -554,6 +560,7 @@ impl RuntimeWorld {
             composition_trace,
             composition_id: String::new(),
             state_revision,
+            route: None,
             kind: kind.to_string(),
             intention: action_offer_intention(kind).to_string(),
             category: action_offer_category(kind).to_string(),
@@ -1774,6 +1781,7 @@ mod tests {
             .iter()
             .find(|offer| offer.kind == "explore_path")
             .expect("the seeded long journey exposes Scout");
+        assert!(scout.route.is_some(), "Scout is bound to its route version");
         let destination_location_id = scout
             .target
             .as_ref()
