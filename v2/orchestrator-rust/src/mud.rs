@@ -207,6 +207,13 @@ pub(crate) fn normalize_command_text(input: &str) -> String {
         .join(" ")
 }
 
+const ADVANCEMENT_NEXT_STEP: &str =
+    "Try listen or study; a successful discovery banks advancement automatically.";
+
+fn advancement_gate_output(subject: &str) -> String {
+    format!("{subject} needs one banked advancement point. {ADVANCEMENT_NEXT_STEP}")
+}
+
 fn normalize_emote_message(input: &str) -> Option<String> {
     let mut content = normalize_human_message(input)?;
     let has_terminal_punctuation = content
@@ -2319,9 +2326,9 @@ impl RuntimeWorld {
                         action: Some(command_action("create_bond", "Chat", &chat_command)),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: format!(
-                                "Earn advancement first, then Chat can begin a friendship with {target_name}."
-                            ),
+                            output: advancement_gate_output(&format!(
+                                "Chat with {target_name}"
+                            )),
                         },
                     });
                 }
@@ -2623,7 +2630,9 @@ impl RuntimeWorld {
                     verb,
                     action: None,
                     dispatch: CommandDispatch::Read {
-                        output: "That standalone progress command has retired. A successful Notice or Study records and settles earned advancement in the same action; older unsettled memories join that settlement once.".to_string(),
+                        output: format!(
+                            "That standalone progress command has retired. {ADVANCEMENT_NEXT_STEP}"
+                        ),
                     },
                 })
             }
@@ -2736,8 +2745,7 @@ impl RuntimeWorld {
                         action: Some(command_action("revise_calling", "Change Purpose", &payload.command)),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Earn advancement first, then you can choose a new purpose."
-                                .to_string(),
+                            output: advancement_gate_output("Choosing a new purpose"),
                         },
                     });
                 }
@@ -2828,9 +2836,9 @@ impl RuntimeWorld {
                             )),
                             dispatch: CommandDispatch::Disabled {
                                 status: 409,
-                                output: format!(
-                                    "Earn advancement first, then you can grow closer to {target_name}."
-                                ),
+                                output: advancement_gate_output(&format!(
+                                    "Growing closer to {target_name}"
+                                )),
                             },
                         });
                     }
@@ -2859,8 +2867,9 @@ impl RuntimeWorld {
                         )),
                         dispatch: CommandDispatch::Disabled {
                             status: 409,
-                            output: "Earn advancement first, then you can see this friendship differently."
-                                .to_string(),
+                            output: advancement_gate_output(
+                                "Seeing this friendship differently",
+                            ),
                         },
                     });
                 }
@@ -3710,5 +3719,115 @@ impl RuntimeWorld {
             .into_iter()
             .find(|exit| exit.accessible)
             .map(|exit| exit.destination_location_id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::create_test_human;
+
+    fn command_request(command: &str) -> CommandRequest {
+        CommandRequest {
+            actor_id: 5000,
+            actor_session: None,
+            command: command.to_string(),
+            wallet_address: None,
+            wallet: None,
+            wallet_session: None,
+            owned_card_ids: None,
+            cards: None,
+            envelope: None,
+        }
+    }
+
+    fn disabled_output(runtime: &RuntimeWorld, command: &str) -> String {
+        let resolved = runtime
+            .resolve_command(&command_request(command), &AccessContext::default())
+            .unwrap_or_else(|error| panic!("{command} should resolve: {error:?}"));
+        match resolved.dispatch {
+            CommandDispatch::Disabled { status, output } => {
+                assert_eq!(status, 409, "{command} should be advancement-gated");
+                output
+            }
+            other => panic!("{command} should be disabled, got {other:?}"),
+        }
+    }
+
+    fn assert_actionable_advancement_gate(output: &str) {
+        assert!(output.contains("one banked advancement point"));
+        assert!(output.contains("listen or study"));
+        assert!(output.contains("banks advancement automatically"));
+        assert!(!output.contains("Grow first"));
+    }
+
+    #[test]
+    fn zero_point_social_and_calling_gates_name_a_reachable_next_action() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(&mut runtime, 5000, COSY_COTTAGE_LOCATION_ID, "New Friend");
+        assert_eq!(runtime.advancement_points_available(5000), 0);
+
+        for command in [
+            "chat Rati",
+            "purpose I listen for odd jobs.",
+            "friendship Rati: I bring small kindnesses to Rati.",
+        ] {
+            assert_actionable_advancement_gate(&disabled_output(&runtime, command));
+        }
+
+        let friendship_id = bond_id(5000, RATI_ACTOR_ID);
+        runtime.bonds.insert(
+            friendship_id.clone(),
+            BondState {
+                id: friendship_id,
+                actor_id: 5000,
+                target_actor_id: RATI_ACTOR_ID,
+                statement: "I bring small kindnesses to Rati.".to_string(),
+                strength: 1,
+                status: "active".to_string(),
+                source_event_seq: Some(90_407),
+                updated_event_seq: Some(90_407),
+            },
+        );
+        assert_actionable_advancement_gate(&disabled_output(
+            &runtime,
+            "friendship Rati: I listen when Rati needs company.",
+        ));
+    }
+
+    #[test]
+    fn retired_growth_aliases_are_actionable_but_absent_from_help() {
+        let mut runtime = RuntimeWorld::seeded();
+        create_test_human(
+            &mut runtime,
+            5000,
+            COSY_COTTAGE_LOCATION_ID,
+            "Journal Reader",
+        );
+
+        for command in ["grow", "bank"] {
+            let resolved = runtime
+                .resolve_command(&command_request(command), &AccessContext::default())
+                .unwrap_or_else(|error| panic!("{command} should resolve: {error:?}"));
+            match resolved.dispatch {
+                CommandDispatch::Read { output } => {
+                    assert!(output.contains("has retired"));
+                    assert!(output.contains("listen or study"));
+                    assert!(output.contains("banks advancement automatically"));
+                }
+                other => panic!("{command} should explain its retirement, got {other:?}"),
+            }
+        }
+
+        let help = runtime
+            .resolve_command(&command_request("help"), &AccessContext::default())
+            .expect("help should resolve");
+        match help.dispatch {
+            CommandDispatch::Read { output } => {
+                assert!(!output.contains(", grow"));
+                assert!(!output.contains(", bank"));
+            }
+            other => panic!("help should be read-only, got {other:?}"),
+        }
     }
 }
