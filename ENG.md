@@ -1,10 +1,10 @@
 # CosyWorld Engineering Plan
 
-Last major revision: 2026-07-02. This document replaces the CosyWorld 2.0 engineering plan, which was written before the V2 runtime existed. The architecture it proposed is now built and live-tested with simultaneous players; this document describes that architecture as it stands and sets the engineering priorities from here — including the one-slot world, non-consuming arrangement evolution, and crafting adopted in `PRD.md`.
+Last major revision: 2026-07-25. This document replaces the CosyWorld 2.0 engineering plan, which was written before the V2 runtime existed. The architecture it proposed is now built and live-tested with simultaneous players; this document describes that architecture as it stands and sets the engineering priorities from here — including the card-composed world, non-consuming arrangement evolution, and crafting adopted in `PRD.md`.
 
 Companion documents:
 
-- `PRD.md` — product direction this plan serves, including The One-Slot World rules.
+- `PRD.md` — product direction this plan serves, including the Card-Composed World rules.
 - `docs/systems/09-cosyworld-rpg-system.md` (the RPG Bible) — authoritative RPG mechanics design, phase status, on-fill descriptor spec, claim-key spec, and ownership-chain design.
 - `AI.md` — AI gateway, payer modes, and media pipeline design detail.
 - `ECONOMY.md` — economy and NFT-bridge design detail.
@@ -84,24 +84,13 @@ Ordered. Priorities 1–3 are the foundation everything else builds on.
 - `cards.rs` — card projection and asset resolution.
 - `economy/` — Orb ledger, claim sets, Box/pack flows.
 - `rpg/` — clocks, tags, bonds, journal, jobs, fronts (and later covenants).
-- `ai_gateway/` — see priority 4.
+- `ai_gateway/` — see priority 3.
 - `persistence.rs` — journal, events, snapshot, sessions.
 - `moderation.rs` — reports, suspension, protected views.
 
-Rule going forward: **no major new system lands in `main.rs`.** `npm run v2:architecture` ratchets its total physical line count, including inline tests, and the Rust clippy warning count. Extracted systems take their tests with them. A deliberate exception must raise the matching ceiling in the same reviewed diff; every shrink lowers it again. The one-slot kernel work, crafting, media jobs, and the ownership chain each arrive as modules. Decomposition is mechanical (move code, keep tests green under `./v2/mvp.sh check`), not a rewrite.
+Rule going forward: **no major new system lands in `main.rs`.** `npm run v2:architecture` ratchets its total physical line count, including inline tests, and the Rust clippy warning count. Extracted systems take their tests with them. A deliberate exception must raise the matching ceiling in the same reviewed diff; every shrink lowers it again. Card-zone and scene-composition work, crafting, media jobs, and the ownership chain each arrive as modules. Decomposition is mechanical (move code, keep tests green under `./v2/mvp.sh check`), not a rewrite.
 
-### 2. The one-slot world
-
-Implements PRD "Now" #1 — the kernel-level cut that fixes room exhaustion and creates the circulating economy:
-
-- Kernel: avatar inventory capacity 1; location floor capacity 1; take becomes swap-with-room (atomic: held ↔ floor); drop requires an empty floor.
-- Kernel: a `search` action that can reveal an item onto an empty floor, drawn from the room's pool (worldpack-seeded, later craft-fed). The gate is floor emptiness — world state, not a claim key. The faucet is balanced by occupied slots, not by deleting items.
-- Projection: listen absorbs bank — a listen resolves the truth check *and* settles unbanked marks into growth in one action; the standalone bank card retires. Keep the growth moment loud in the transcript.
-- Item effects are non-consuming by default: use/craft/evolution may decrement readiness, set tags, emit events, mint cards, create new physical items, or require recharge, but must not remove physical input instances from the world. Physical item creation must be paired with declared new capacity or demand so the one-slot economy stays balanced.
-- Evolution moves from item-gain counting to placement-pattern satisfaction. During migration, the existing item-gain hook can be one trigger for re-checking satisfaction, but the target rule is "does the current world arrangement match the track?" rather than "did this actor gain enough items?"
-- Migration is a world reset, shipped as one package: kernel changes + worldpack item-pool schema + smoke rework (evolution ceremony as a two-actor flow) + updated visual baselines. Half a one-slot world must never be deployed.
-
-### 3. Economy circulation
+### 2. Economy circulation
 
 Implements PRD "Now" #4, from the live economy audit:
 
@@ -111,15 +100,15 @@ Implements PRD "Now" #4, from the live economy audit:
 - Season scoping: claim keys fold in a season id that increments on played world-ticks, so exhausted faucets (listen rewards, encounter rewards) reopen through play — never through a scheduler.
 - Enforce the decided Orbs identity: the only negative mutation is a pooled community image contribution; tune faucets against level-based image demand.
 
-### 4. Finish `ai_gateway`
+### 3. Finish `ai_gateway`
 
 `v2/orchestrator-rust/src/ai_gateway.rs` owns OpenAI-compatible/OpenRouter text configuration, bounded retries, stable failure codes, and tracing. Dialogue inference fails closed without substitute speech and never touches Orbs. Card commits persist a delayed player-tick observation; one pending/running job per room coalesces rapid plays, and the resident prompt combines the triggering event with recent room-log/card history, recent speech, cast, place, goals, and continuity. The first community card-art worker validates a durable level-scoped pool before calling Replicate; remaining gateway work is a provider-neutral durable queue, object storage, recovery of funded jobs after restart, usage-ledger ownership, and model capability discovery. Design detail: `AI.md`.
 
-### 5. Media pipeline
+### 4. Media pipeline
 
 Durable `media_jobs`/`media_assets` (idempotent, contributor-attributed, intent-typed) replacing the current inline Replicate community-card worker. First intents: `avatar_card_art`, `item_card_art`, `location_card_art`; scene media remains system-funded. Provider order: OpenRouter image models → Replicate (already integrated) → deterministic placeholder. Generated media attached to a shared card is public world media. Schemas and backlog: `AI.md`, `docs/backlog/community-art-evolution.md`.
 
-### 6. Moderation and abuse hardening
+### 5. Moderation and abuse hardening
 
 The gap between "operator console exists" and "open public traffic":
 
@@ -128,7 +117,7 @@ The gap between "operator console exists" and "open public traffic":
 - Turn legibility: visible ping countdowns on both sides, a "you've been pinged — play or pass" signal for the current player, and collapsed/updating rows for repeated turn events.
 - Operator workflow with a resolution-time target; richer mute/timeout primitives between "nothing" and suspension; per-room AI spend budgets; a written abuse-response runbook before wide traffic.
 
-### 7. RPG runtime: covenants, the living frontier, and arrangement evolution
+### 6. RPG runtime: covenants, the living frontier, and arrangement evolution
 
 Implements PRD "Next", per RPG Bible Phases 4–6 plus the arrangement-evolution adoption:
 
@@ -140,25 +129,25 @@ Implements PRD "Next", per RPG Bible Phases 4–6 plus the arrangement-evolution
 - On-fill cascade guard (bounded depth, visited set) before content authors get cascading clocks.
 - Conflict objectives: objective clocks in danger rooms, durability-absorbs-harm, nonlethal outcomes (Phase 6).
 
-### 8. Crafting and generated content
+### 7. Crafting and generated content
 
 Implements PRD "Next" #1 — item meets room:
 
 - `recipes.json` in the worldpack: tag-keyed inputs (`warm + bright`, `thread + button`), output templates with fixed type/tags/rules, optional room requirements (forge at hearth), and a `balance` declaration for any new physical item. `check-worldpack.mjs` gains recipe validation: every recipe's inputs are producible, every output's tags resolve, no orphan chains, and every item-creating recipe declares the location/avatar/covenant/evolution capacity it unlocks or feeds.
 - Kernel: a `craft` action validates that the actor holds one input and the room floor holds the other, then emits a deterministic craft event keyed by recipe and input item ids. If the recipe creates a physical item, the kernel creates it only into a legal empty slot declared by the recipe: usually the floor of a newly unlocked location, sometimes an existing empty floor or a newly available avatar/resident hand. Inputs are never deleted.
 - Projection/AI: the whimsical name and blurb are AI proposals in the Adjective-Noun house voice, sanitized, with authored fallback names per recipe. Craft events can set room/item tags, unlock exits, reveal locations, call residents, and feed the media pipeline for card art.
-- Ownership tie-in: a craft result is both a physical world item when the recipe declares one and a native card mint bound to the craft event with `parent_merkle` lineage from both ingredients — the play-side mint faucet of the provenance log (priority 9). The card collection and the physical item slot remain separate surfaces.
-- Balance and anti-deadlock: search tables bias toward ingredients and arrangement needs not currently represented nearby; any item can always be placed on an empty floor. Economy balance comes from one-slot saturation, player logistics, and content-ratio validation: as expansions add crafted items, they must also add or unlock enough locations, avatar/resident hands, and arrangement needs for those items to circulate.
+- Ownership tie-in: a craft result is both a physical world item when the recipe declares one and a native card mint bound to the craft event with `parent_merkle` lineage from both ingredients — the play-side mint faucet of the provenance log (priority 8). The card collection and the physical item slot remain separate surfaces.
+- Balance and anti-deadlock: search tables bias toward ingredients and arrangement needs not currently represented nearby. Authored supply, claim keys, and played-time seasons bound faucets; weight, size, containers, typed slots, exhaustion, readiness, recharge, access, and placement bound usable supply. Every recipe that creates a physical item must declare the capacity, desire, route, or story possibility it adds, and content-ratio validation must prove that output has a reachable use.
 
-### 9. Native ownership chain
+### 8. Native ownership chain
 
 The signed provenance log from the RPG Bible: Ed25519 identities, content-addressed card types, `card_events` (mint/transfer/gift/swap) signed per authority, ownership as a verified fold over the log, gifting, world-bound co-signed trading, and commit-reveal poem claims. Reuse the sibling `signal` project's `chain_log`/`signal_verify` substrate. Run federated (operator authority, quorum 1) first. The kernel stays out of it entirely; mints bind to kernel world events by `because: event_id` — pack reveals and craft events are the two mint faucets. Schemas and route shapes: `ECONOMY.md` and the RPG Bible.
 
-### 10. Content pipeline
+### 9. Content pipeline
 
 The worldpack is the designer contract. Keep `check-worldpack.mjs` strict and extend it as schemas grow (recipes, recipe balance declarations, placement patterns, item pools, and covenants). Add migration support for content id changes, and grow the `--report-json` inspector toward designer tooling. Kernel ids stay stable across content revisions; generated content (quest lists, crafted names) is committed content once accepted, subject to the same validation as authored content.
 
-### 11. Production operations
+### 10. Production operations
 
 - The container is host-agnostic: the root `Dockerfile` builds the release orchestrator; the current deployment target is **AWS** (with `fly.toml` retained for Fly). The contract is identical everywhere: a persistent volume at `/data`, the production-profile env (protected ownership feed + bearer, SQLite event store, moderation token, shard id), and `/meta` as the deploy smoke surface.
 - Restore Ruby High's upstream Solana RPC capacity, deploy the ownership-feed health telemetry, and rerun the hosted smoke against the actual protected export. The hosted path is configured and has been exercised, but the export currently fails on upstream RPC quota exhaustion.
@@ -194,12 +183,12 @@ Standing rules for new work:
 - Every new core world verb demonstrates its deterministic non-AI path and declares its turn taxonomy. Dialogue capabilities demonstrate visible, uncharged failure when inference is unavailable.
 - New persistent state is added to snapshot/journal handling in the same change (a claim set that isn't persisted re-mints on restart).
 - Generated-content paths (crafted names, quest lists) ship with their compiler rejection tests: an invalid proposal must fail closed to the authored fallback, visibly in the audit trail.
-- The one-slot migration lands with reworked multi-actor smoke coverage (two-player non-consuming ceremony, swap semantics, search-faucet cycling, craft-created item placed in a legal new/empty slot, craft-event mint without input deletion) in the same change as the kernel cut.
+- The multi-card carrying migration lands with weight/size/container coverage, multiple loose room items, capacity-aware search and drop behavior, non-consuming two-player ceremonies, and craft-event mints without input deletion.
 - UI changes that alter the shell update visual baselines deliberately, never as drive-by churn.
 
 ## Deployment and Scale
 
-`COSYWORLD_DEPLOY_PROFILE=production` refuses to boot without the protected remote ownership feed + bearer, the SQLite event store, a moderation token, a shard id, and with any dev shortcut enabled. Kernel capacities are compiled (512 actors, 1024 items, 256 locations, 1024 exits) and exposed with live counters on `/meta`; approaching them is a sharding conversation, not a hot patch. Note the one-slot world changes item-count pressure: total live items trend toward locations + actors, far under the compiled cap.
+`COSYWORLD_DEPLOY_PROFILE=production` refuses to boot without the protected remote ownership feed + bearer, the SQLite event store, a moderation token, a shard id, and with any dev shortcut enabled. Kernel capacities are compiled (512 actors, 1024 items, 256 locations, 1024 exits) and exposed with live counters on `/meta`; approaching them is a sharding conversation, not a hot patch. Track live-item growth against authored faucet bounds and content-ratio validation; raise a capacity or retention decision before the item counter approaches its compiled cap.
 
 Scale model: one shard per process, isolated stores, route players to their shard at a layer above. Revisit only when a single world's concurrency actually demands it.
 
