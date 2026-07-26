@@ -73,6 +73,9 @@ pub(super) struct CommunityArtView {
     pub(super) remaining_orbs: i32,
     pub(super) status: String,
     pub(super) history_through_seq: u64,
+    pub(super) provider_attempts: u8,
+    pub(super) max_provider_attempts: u8,
+    pub(super) retryable_without_orbs: bool,
 }
 
 #[derive(Debug, Serialize)]

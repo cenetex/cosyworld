@@ -411,9 +411,15 @@ class or classless state, level, calling, location, and carried/equipped items.
 Item and location generations likewise include their authoritative card and
 world details plus committed public history. Location images are withheld until
 the configured vision model confirms that they contain no people, characters,
-creatures, text, logos, or watermarks. Rejected candidates are regenerated up
-to three times; unavailable or invalid review leaves the deterministic
-landscape fallback visible.
+creatures, text, logos, or watermarks. Before funding can complete, the server
+checks that the configured reviewer accepts the exact base64-image and strict
+JSON-schema request. Each downloaded candidate is stored before review, so a
+review outage or restart retries the saved bytes without another Replicate
+prediction. Policy-rejected candidates may be replaced, but provider attempts
+are journaled and capped at three for that card level; after the cap, the
+browser disables retry and states that no more provider credits will be used.
+Unavailable or invalid review leaves the deterministic landscape fallback
+visible.
 
 `Chat` appears only when the avatar has banked advancement and an eligible nearby resident can become a new friend. Playing it spends one advancement point, creates the Bond, and passes the room turn; it never accepts human text or spends Orbs. Human-authored room speech is the separate moderated, turn-exempt `say` path.
 

@@ -377,12 +377,6 @@ struct ReplicateAvatarArtConfig {
     output_format: String,
 }
 
-struct DownloadedReplicateImage {
-    bytes: Vec<u8>,
-    content_type: String,
-    source_url: String,
-}
-
 #[cfg(test)]
 #[derive(Clone, Debug)]
 struct AmbientConfig {
@@ -631,35 +625,6 @@ struct GeneratedPathwayState {
     art_eligible: bool,
     #[serde(default)]
     familiar: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct CommunityArtGenerationState {
-    subject_kind: String,
-    subject_id: u64,
-    level: u8,
-    required_orbs: i32,
-    funded_orbs: i32,
-    #[serde(default)]
-    contributions: BTreeMap<u64, i32>,
-    #[serde(default)]
-    funding_intent_ids: BTreeSet<String>,
-    status: String,
-    history_through_seq: u64,
-    #[serde(default)]
-    revision: u32,
-}
-
-#[derive(Clone, Debug)]
-struct CommunityArtPlan {
-    subject_kind: String,
-    subject_id: u64,
-    level: u8,
-    required_orbs: i32,
-    history_through_seq: u64,
-    prompt: String,
-    aspect_ratio: &'static str,
-    image_policy: Option<CommunityArtImagePolicy>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -992,6 +957,22 @@ enum ProjectionMutation {
         subject_id: u64,
         level: u8,
         status: String,
+    },
+    BeginCommunityArtGeneration {
+        subject_kind: String,
+        subject_id: u64,
+        level: u8,
+        provider_attempt: bool,
+    },
+    CompleteCommunityArtGeneration {
+        subject_kind: String,
+        subject_id: u64,
+        level: u8,
+        status: String,
+        #[serde(default)]
+        prediction_id: Option<String>,
+        #[serde(default)]
+        error_code: Option<String>,
     },
     RefinePathway {
         pathway: GeneratedPathwayState,
@@ -10323,60 +10304,18 @@ impl RuntimeWorld {
                     amount,
                     history_through_seq,
                 } => {
-                    let key = community_art_generation_key(subject_kind, *subject_id, *level);
-                    let funding_reason = {
-                        let generation =
-                            self.community_art_generations
-                                .entry(key)
-                                .or_insert_with(|| CommunityArtGenerationState {
-                                    subject_kind: subject_kind.clone(),
-                                    subject_id: *subject_id,
-                                    level: *level,
-                                    required_orbs: (*required_orbs).max(1),
-                                    funded_orbs: 0,
-                                    contributions: BTreeMap::new(),
-                                    funding_intent_ids: BTreeSet::new(),
-                                    status: "funding".to_string(),
-                                    history_through_seq: *history_through_seq,
-                                    revision: 0,
-                                });
-                        if !intent_id.is_empty()
-                            && !generation.funding_intent_ids.insert(intent_id.clone())
-                        {
-                            continue;
-                        }
-                        let accepted = (*amount).max(0).min(
-                            generation
-                                .required_orbs
-                                .saturating_sub(generation.funded_orbs),
-                        );
-                        if accepted > 0 {
-                            generation.funded_orbs += accepted;
-                            *generation
-                                .contributions
-                                .entry(*contributor_actor_id)
-                                .or_insert(0) += accepted;
-                            generation.history_through_seq =
-                                generation.history_through_seq.max(*history_through_seq);
-                            if generation.funded_orbs >= generation.required_orbs {
-                                generation.status = "funded".to_string();
-                            }
-                        }
-                        format!(
-                            "{}:{}:level:{}:{}/{}",
-                            subject_kind,
-                            subject_id,
-                            level,
-                            generation.funded_orbs,
-                            generation.required_orbs
-                        )
-                    };
-                    events.push(self.append_async_job_event(
-                        "community_art.funded",
+                    if let Some(event) = self.apply_fund_community_art_projection(
+                        subject_kind,
+                        *subject_id,
+                        *level,
+                        *required_orbs,
                         *contributor_actor_id,
-                        None,
-                        Some(funding_reason),
-                    ));
+                        intent_id,
+                        *amount,
+                        *history_through_seq,
+                    ) {
+                        events.push(event);
+                    }
                 }
                 ProjectionMutation::SetCommunityArtStatus {
                     subject_kind,
@@ -10384,22 +10323,51 @@ impl RuntimeWorld {
                     level,
                     status,
                 } => {
-                    let key = community_art_generation_key(subject_kind, *subject_id, *level);
-                    let Some(generation) = self.community_art_generations.get_mut(&key) else {
-                        continue;
-                    };
-                    if generation.status != *status
-                        && matches!(status.as_str(), "ready" | "rejected")
-                    {
-                        generation.revision = generation.revision.saturating_add(1);
-                    }
-                    generation.status = status.clone();
-                    events.push(self.append_async_job_event(
-                        &format!("community_art.{status}"),
+                    if let Some(event) = self.apply_legacy_community_art_status_projection(
                         action.actor_id,
-                        None,
-                        Some(format!("{}:{}:level:{}", subject_kind, subject_id, level)),
-                    ));
+                        subject_kind,
+                        *subject_id,
+                        *level,
+                        status,
+                    ) {
+                        events.push(event);
+                    }
+                }
+                ProjectionMutation::BeginCommunityArtGeneration {
+                    subject_kind,
+                    subject_id,
+                    level,
+                    provider_attempt,
+                } => {
+                    if let Some(event) = self.apply_begin_community_art_generation_projection(
+                        action.actor_id,
+                        subject_kind,
+                        *subject_id,
+                        *level,
+                        *provider_attempt,
+                    ) {
+                        events.push(event);
+                    }
+                }
+                ProjectionMutation::CompleteCommunityArtGeneration {
+                    subject_kind,
+                    subject_id,
+                    level,
+                    status,
+                    prediction_id,
+                    error_code,
+                } => {
+                    if let Some(event) = self.apply_complete_community_art_generation_projection(
+                        action.actor_id,
+                        subject_kind,
+                        *subject_id,
+                        *level,
+                        status,
+                        prediction_id.as_deref(),
+                        error_code.as_deref(),
+                    ) {
+                        events.push(event);
+                    }
                 }
                 ProjectionMutation::RefinePathway { pathway } => {
                     let mut refined = pathway.clone();
@@ -19471,6 +19439,17 @@ impl RuntimeWorld {
         let status = generation
             .map(|state| state.status.clone())
             .unwrap_or_else(|| "available".to_string());
+        let provider_attempts = generation
+            .map(|state| state.provider_attempts)
+            .unwrap_or_default();
+        let retryable_without_orbs = funded_orbs >= required_orbs
+            && match status.as_str() {
+                "review_failed" | "review_unavailable" | "reviewing" => true,
+                "funded" | "generating" | "failed" | "rejected" | "policy_rejected" => {
+                    provider_attempts < MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS
+                }
+                _ => false,
+            };
         if status == "ready" {
             card.image_url = Some(community_art_image_url(
                 subject_kind,
@@ -19491,6 +19470,9 @@ impl RuntimeWorld {
             history_through_seq: generation
                 .map(|state| state.history_through_seq)
                 .unwrap_or_else(|| self.world.next_event_seq.saturating_sub(1)),
+            provider_attempts,
+            max_provider_attempts: MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS,
+            retryable_without_orbs,
         });
         card
     }
@@ -23877,10 +23859,6 @@ fn stored_avatar_content_type(root: &Path, actor_id: u64) -> String {
         .unwrap_or_else(|| "image/png".to_string())
 }
 
-fn community_art_generation_key(subject_kind: &str, subject_id: u64, level: u8) -> String {
-    format!("{subject_kind}:{subject_id}:level:{level}")
-}
-
 fn is_safe_image_content_type(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 96
@@ -26583,6 +26561,65 @@ async fn fund_community_image(
         });
     }
 
+    let initial_plan = {
+        let runtime = state.inner.lock().await;
+        if !client_actor_authorized_for_state(
+            &runtime,
+            &state,
+            payload.actor_id,
+            payload.actor_session.as_deref(),
+        ) {
+            return client_actor_rejected_response();
+        }
+        match runtime.community_art_plan(
+            payload.actor_id,
+            payload.subject_kind.trim(),
+            payload.subject_id,
+        ) {
+            Ok(plan) => plan,
+            Err(_) => {
+                return Json(ActionResponse {
+                    ok: false,
+                    status: 404,
+                    events: Vec::new(),
+                });
+            }
+        }
+    };
+    if let Some(policy) = initial_plan.image_policy {
+        let started_at = Instant::now();
+        if let Err(error) =
+            preflight_community_art_policy(state.ai_config.as_ref().as_ref(), policy).await
+        {
+            warn!(
+                "community art policy preflight failed for {}: {}",
+                community_art_generation_key(
+                    &initial_plan.subject_kind,
+                    initial_plan.subject_id,
+                    initial_plan.level
+                ),
+                error.message()
+            );
+            record_ai_usage(
+                &state,
+                Some(payload.actor_id),
+                "community_image_policy_preflight",
+                "cosyworld_system",
+                state.ai_config.as_ref().as_ref(),
+                "failed",
+                None,
+                0,
+                Some(error.code()),
+                started_at.elapsed(),
+            );
+            return Json(ActionResponse {
+                ok: false,
+                status: 503,
+                events: Vec::new(),
+            });
+        }
+    }
+
     let mut runtime = state.inner.lock().await;
     if !client_actor_authorized_for_state(
         &runtime,
@@ -26606,18 +26643,12 @@ async fn fund_community_image(
             });
         }
     };
-    if plan.image_policy.is_some() && state.ai_config.as_ref().is_none() {
-        return Json(ActionResponse {
-            ok: false,
-            status: 503,
-            events: Vec::new(),
-        });
-    }
     let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
     let existing = runtime.community_art_generations.get(&key);
+    let candidate_exists = community_art_candidate_exists(&state.generated_asset_dir, &plan);
     if existing.is_some_and(|generation| generation.funding_intent_ids.contains(intent_id)) {
         let retry_generation = existing.is_some_and(|generation| {
-            generation.status != "ready" && generation.funded_orbs >= generation.required_orbs
+            community_art_generation_retryable(generation, candidate_exists)
         });
         drop(runtime);
         if retry_generation {
@@ -26630,6 +26661,16 @@ async fn fund_community_image(
         });
     }
     if existing.is_some_and(|generation| generation.status == "ready") {
+        return Json(ActionResponse {
+            ok: false,
+            status: 409,
+            events: Vec::new(),
+        });
+    }
+    if existing.is_some_and(|generation| {
+        generation.funded_orbs >= generation.required_orbs
+            && !community_art_generation_retryable(generation, candidate_exists)
+    }) {
         return Json(ActionResponse {
             ok: false,
             status: 409,
@@ -26697,7 +26738,7 @@ async fn fund_community_image(
     let fully_funded = runtime
         .community_art_generations
         .get(&key)
-        .is_some_and(|generation| generation.funded_orbs >= generation.required_orbs);
+        .is_some_and(|generation| community_art_generation_retryable(generation, candidate_exists));
     drop(runtime);
     if !events.is_empty() {
         broadcast_events(&state, &events);
@@ -32165,97 +32206,6 @@ async fn request_ai_avatar_identity(
         .ok_or_else(|| "AI avatar identity response was not usable JSON".to_string())
 }
 
-static COMMUNITY_ART_JOBS: OnceLock<StdMutex<BTreeSet<String>>> = OnceLock::new();
-
-fn community_art_jobs() -> &'static StdMutex<BTreeSet<String>> {
-    COMMUNITY_ART_JOBS.get_or_init(|| StdMutex::new(BTreeSet::new()))
-}
-
-async fn commit_community_art_status(
-    state: &AppState,
-    actor_id: u64,
-    plan: &CommunityArtPlan,
-    status: &str,
-) -> Vec<EventView> {
-    let mut runtime = state.inner.lock().await;
-    let mut record = JournalRecord::new(
-        CwAction {
-            kind: CW_ACTION_NONE,
-            actor_id,
-            ..CwAction::default()
-        },
-        runtime.next_seed_value(),
-    );
-    record
-        .projection_mutations
-        .push(ProjectionMutation::SetCommunityArtStatus {
-            subject_kind: plan.subject_kind.clone(),
-            subject_id: plan.subject_id,
-            level: plan.level,
-            status: status.to_string(),
-        });
-    let Ok((commit_status, events)) = commit_journal_record(state, &mut runtime, record) else {
-        return Vec::new();
-    };
-    drop(runtime);
-    if commit_status == CW_OK {
-        broadcast_events(state, &events);
-        events
-    } else {
-        Vec::new()
-    }
-}
-
-fn schedule_community_art_generation(state: &AppState, actor_id: u64, plan: CommunityArtPlan) {
-    let Some(config) = state.avatar_art_config.as_ref().clone() else {
-        return;
-    };
-    let key = community_art_generation_key(&plan.subject_kind, plan.subject_id, plan.level);
-    if let Ok(mut jobs) = community_art_jobs().lock() {
-        if !jobs.insert(key.clone()) {
-            return;
-        }
-    }
-    let state = state.clone();
-    tokio::spawn(async move {
-        let started_at = Instant::now();
-        let result = generate_and_store_community_art(
-            &config,
-            state.ai_config.as_ref().as_ref(),
-            &state.generated_asset_dir,
-            &plan,
-        )
-        .await;
-        let (status, error_code) = match result {
-            Ok(()) => ("ready", None),
-            Err(error) => {
-                warn!(
-                    "community art generation failed for {}: {}",
-                    key,
-                    error.message()
-                );
-                (error.status(), Some(error.code()))
-            }
-        };
-        let events = commit_community_art_status(&state, actor_id, &plan, status).await;
-        record_ai_usage(
-            &state,
-            Some(actor_id),
-            "community_image_generation",
-            "community_orbs",
-            None,
-            if status == "ready" { "ok" } else { "failed" },
-            events.first().map(|event| event.seq),
-            0,
-            error_code,
-            started_at.elapsed(),
-        );
-        if let Ok(mut jobs) = community_art_jobs().lock() {
-            jobs.remove(&key);
-        }
-    });
-}
-
 const MAX_REPLICATE_AVATAR_IMAGE_BYTES: u64 = 8 * 1024 * 1024;
 
 async fn request_replicate_art(
@@ -32323,7 +32273,13 @@ async fn request_replicate_art(
 
     for _ in 0..30 {
         if let Some(output_url) = replicate_output_url(&prediction) {
-            return download_replicate_image(&client, &output_url).await;
+            let prediction_id = prediction
+                .get("id")
+                .and_then(|value| value.as_str())
+                .map(ToString::to_string);
+            let mut image = download_replicate_image(&client, &output_url).await?;
+            image.prediction_id = prediction_id;
+            return Ok(image);
         }
         let status = prediction
             .get("status")
@@ -32438,6 +32394,7 @@ async fn download_replicate_image(
         bytes,
         content_type,
         source_url: output_url.to_string(),
+        prediction_id: None,
     })
 }
 
@@ -38895,6 +38852,35 @@ fn record_ai_usage(
     error_code: Option<&str>,
     latency: Duration,
 ) {
+    record_ai_usage_for_provider(
+        state,
+        actor_id,
+        feature,
+        payer_mode,
+        ai_provider_name(config),
+        &ai_model_name(config),
+        status,
+        source_event_id,
+        orb_delta,
+        error_code,
+        latency,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn record_ai_usage_for_provider(
+    state: &AppState,
+    actor_id: Option<u64>,
+    feature: &str,
+    payer_mode: &str,
+    provider: &str,
+    model: &str,
+    status: &str,
+    source_event_id: Option<u64>,
+    orb_delta: i32,
+    error_code: Option<&str>,
+    latency: Duration,
+) {
     let Some(path) = state.event_store_path.as_deref() else {
         return;
     };
@@ -38906,8 +38892,8 @@ fn record_ai_usage(
         actor_id,
         feature: feature.to_string(),
         payer_mode: payer_mode.to_string(),
-        provider: ai_provider_name(config).to_string(),
-        model: ai_model_name(config),
+        provider: provider.to_string(),
+        model: model.to_string(),
         status: status.to_string(),
         source_event_id,
         orb_delta,
@@ -48992,6 +48978,10 @@ mod tests {
         assert!(!INDEX_HTML.contains("one Orb for the whole exchange"));
         assert!(INDEX_HTML.contains("/actions/fund-image"));
         assert!(INDEX_HTML.contains("fund community images only"));
+        assert!(INDEX_HTML.contains("retry the saved image review"));
+        assert!(INDEX_HTML.contains("no new image will be bought while review is unavailable"));
+        assert!(INDEX_HTML.contains("no more provider credits will be used"));
+        assert!(INDEX_HTML.contains("art.retryable_without_orbs"));
         assert!(INDEX_HTML.contains("Inspect ${searchTarget} for one hidden thing."));
         assert!(INDEX_HTML.contains("into your keeping"));
         assert!(INDEX_HTML.contains("function smallNumberWord"));
