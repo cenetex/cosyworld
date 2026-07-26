@@ -657,6 +657,12 @@ pub(super) fn focused_job_action_available(
     job_id: &str,
     offer_kind: &str,
 ) -> bool {
+    if !runtime
+        .actor_by_id(actor_id)
+        .is_some_and(RuntimeWorld::actor_can_act)
+    {
+        return false;
+    }
     let Some(job) = runtime.jobs.get(job_id) else {
         return false;
     };
@@ -710,7 +716,7 @@ fn focused_job_contributors(runtime: &RuntimeWorld, job: &JobState, location_id:
         .iter()
         .filter_map(|contribution| {
             let actor = runtime.actor_by_id(contribution.actor_id)?;
-            (RuntimeWorld::actor_is_active_avatar(actor)
+            (RuntimeWorld::actor_can_act(actor)
                 && actor.location_id == location_id
                 && seen.insert(actor.id))
             .then_some(actor.id)
@@ -948,6 +954,12 @@ pub(super) fn focused_encounter_offer_context(
     actor_id: u64,
     offer_kind: &str,
 ) -> Option<FocusedEncounterOfferContext> {
+    if !runtime
+        .actor_by_id(actor_id)
+        .is_some_and(RuntimeWorld::actor_can_act)
+    {
+        return None;
+    }
     let activation_step = match offer_kind {
         "prepare" => FocusedActivationStep::Setup,
         "attack" | "defend" | "flee" | "check" | "study" | "work" | "help" => {
@@ -1306,8 +1318,14 @@ pub(super) async fn recover_available_focused_job_turns(
                 },
             );
             let active_direct_actors = active_actor_ids_for_focused_grace(state, grace_period_ms);
+            let current_can_act = runtime
+                .actor_by_id(current_actor_id)
+                .is_some_and(RuntimeWorld::actor_can_act);
             let inference_controlled = runtime.actor_uses_inference(current_actor_id);
-            if !inference_controlled && active_direct_actors.contains(&current_actor_id) {
+            if current_can_act
+                && !inference_controlled
+                && active_direct_actors.contains(&current_actor_id)
+            {
                 break;
             }
             let another_available = focused
@@ -1316,10 +1334,13 @@ pub(super) async fn recover_available_focused_job_turns(
                 .copied()
                 .filter(|actor_id| *actor_id != current_actor_id)
                 .any(|actor_id| {
-                    runtime.actor_uses_inference(actor_id)
-                        || active_direct_actors.contains(&actor_id)
+                    runtime
+                        .actor_by_id(actor_id)
+                        .is_some_and(RuntimeWorld::actor_can_act)
+                        && (runtime.actor_uses_inference(actor_id)
+                            || active_direct_actors.contains(&actor_id))
                 });
-            let inference_record = if inference_controlled {
+            let inference_record = if current_can_act && inference_controlled {
                 runtime.actor_by_id(current_actor_id).and_then(|actor| {
                     runtime
                         .resident_job_autonomy_record(actor, runtime.next_seed_value())
@@ -1997,6 +2018,30 @@ mod tests {
             "a focused job with nobody available must not churn Pass records"
         );
 
+        let (downed_session, _) = issue_actor_session(&state, 5000);
+        assert_eq!(
+            actor_for_session(&state.actor_sessions, &downed_session),
+            Some(5000)
+        );
+        {
+            let mut runtime = state.inner.lock().await;
+            let actor_count = runtime.world.actor_count;
+            let downed = runtime
+                .world
+                .actors
+                .iter_mut()
+                .take(actor_count)
+                .find(|actor| actor.id == 5000)
+                .expect("current worker exists");
+            downed.status = CW_ACTOR_KNOCKED_OUT;
+            downed.conditions |= CW_CONDITION_UNCONSCIOUS;
+            assert!(!focused_job_action_available(
+                &runtime,
+                5000,
+                FIRST_TALE_JOB_ID,
+                "work"
+            ));
+        }
         let (session, _) = issue_actor_session(&state, 5001);
         assert_eq!(
             actor_for_session(&state.actor_sessions, &session),
@@ -2041,6 +2086,17 @@ mod tests {
             5001
         );
 
+        {
+            let mut runtime = state.inner.lock().await;
+            let active = runtime
+                .world
+                .actors
+                .iter_mut()
+                .find(|actor| actor.id == 5000)
+                .expect("first worker remains in the scene");
+            active.status = CW_ACTOR_ACTIVE;
+            active.conditions &= !CW_CONDITION_UNCONSCIOUS;
+        }
         let (waiting_session, _) = issue_actor_session(&state, 5000);
         assert_eq!(
             actor_for_session(&state.actor_sessions, &waiting_session),

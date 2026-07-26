@@ -33,7 +33,7 @@ impl RuntimeWorld {
     ) -> Vec<FeatureUseCandidate> {
         let Some(actor) = self
             .actor_by_id(actor_id)
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
         else {
             return Vec::new();
         };
@@ -116,7 +116,7 @@ impl RuntimeWorld {
     }
 
     pub(super) fn healing_target_is_offerable(&self, actor: &CwActor, target: &CwActor) -> bool {
-        if target.location_id != actor.location_id {
+        if !Self::actor_is_present(*target) || target.location_id != actor.location_id {
             return false;
         }
         let needs_healing = target.status == CW_ACTOR_KNOCKED_OUT
@@ -134,7 +134,7 @@ impl RuntimeWorld {
     fn healing_use_choices(&self, actor_id: u64) -> Vec<(CwItem, CwActor)> {
         let Some(actor) = self
             .actor_by_id(actor_id)
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
         else {
             return Vec::new();
         };

@@ -915,7 +915,7 @@ pub(super) fn faction_refs_for_location(location_id: u64) -> Vec<FactionRefView>
 impl RuntimeWorld {
     pub(super) fn first_tale_view(&self, actor_id: u64) -> Option<FirstTaleView> {
         let actor = self.actor_by_id(actor_id)?;
-        if !Self::actor_is_active_avatar(actor) {
+        if !Self::actor_can_act(actor) {
             return None;
         }
         let trace_event_seq = self.first_tale_trace_event_seq(actor_id);
@@ -1465,7 +1465,7 @@ impl RuntimeWorld {
         holder_actor_id: u64,
     ) -> Option<ResidentRequestView> {
         let holder = self.actor_by_id(holder_actor_id)?;
-        if !Self::actor_is_active_avatar(holder) || holder.location_id != resident.location_id {
+        if !Self::actor_can_act(holder) || holder.location_id != resident.location_id {
             return None;
         }
 
@@ -1489,7 +1489,7 @@ impl RuntimeWorld {
         resident: CwActor,
         client_actor_id: Option<u64>,
     ) -> Option<ResidentEconomyView> {
-        if !Self::actor_is_active_avatar(resident) {
+        if !Self::actor_can_act(resident) {
             return None;
         }
         if let Some(viewer_actor_id) = client_actor_id {
@@ -1687,7 +1687,7 @@ impl RuntimeWorld {
         active_direct_actor_ids: Option<&BTreeSet<u64>>,
         _openrouter_connected: bool,
     ) -> StateResponse {
-        let client_actor_id = actor_id.filter(|id| self.client_actor_can_submit(*id));
+        let client_actor_id = actor_id.filter(|id| self.client_actor_can_observe(*id));
         let actor = client_actor_id.and_then(|id| self.actor_by_id(id));
         let location_id = actor.map(|actor| actor.location_id).unwrap_or(1);
         let location = self.location_view(location_id);
@@ -3001,7 +3001,7 @@ impl RuntimeWorld {
             .iter()
             .filter(|target| {
                 target.id != actor_id
-                    && Self::actor_is_active_avatar(**target)
+                    && Self::actor_can_act(**target)
                     && target.location_id == location_id
                     && self
                         .rpg_claims
@@ -3028,7 +3028,7 @@ impl RuntimeWorld {
         access: &AccessContext,
         active_direct_actor_ids: Option<&BTreeSet<u64>>,
     ) -> WorldResponse {
-        let client_actor_id = actor_id.filter(|id| self.client_actor_can_submit(*id));
+        let client_actor_id = actor_id.filter(|id| self.client_actor_can_observe(*id));
         let current_location_id = client_actor_id
             .and_then(|id| self.actor_by_id(id))
             .map(|actor| actor.location_id);

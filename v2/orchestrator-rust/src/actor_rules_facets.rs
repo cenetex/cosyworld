@@ -234,7 +234,7 @@ impl RuntimeWorld {
         }
         let Some(actor_index) = self.world.actors[..self.world.actor_count]
             .iter()
-            .position(|actor| actor.id == actor_id && Self::actor_is_active_avatar(*actor))
+            .position(|actor| actor.id == actor_id && Self::actor_can_act(*actor))
         else {
             return Vec::new();
         };

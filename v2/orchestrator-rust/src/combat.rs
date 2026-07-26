@@ -135,7 +135,7 @@ impl RuntimeWorld {
                     })
                     .find(|target_id| {
                         self.actor_by_id(*target_id).is_some_and(|target| {
-                            Self::actor_is_active_avatar(target)
+                            Self::actor_can_act(target)
                                 && target.location_id == actor.location_id
                                 && !self.actor_control_mode(target.id).is_direct_input()
                                 && !self.actors_blocked(actor.id, target.id)
@@ -285,7 +285,7 @@ impl RuntimeWorld {
                     .unwrap_or(true);
                 actor_can_act
                     && self.actor_by_id(target_id).is_some_and(|target| {
-                        Self::actor_is_active_avatar(target)
+                        Self::actor_can_act(target)
                             && target.location_id == actor.location_id
                             && self.actor_visible_in_projection(target, Some(actor_id), None)
                     })
@@ -420,7 +420,7 @@ impl RuntimeWorld {
     ) -> Option<JournalRecord> {
         let actor_id = self.combat_current_actor_id(encounter_id)?;
         let actor = self.actor_by_id(actor_id)?;
-        if !Self::actor_is_active_avatar(actor) || !self.actor_uses_inference(actor_id) {
+        if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor_id) {
             return None;
         }
         let offers = self
@@ -643,7 +643,7 @@ pub(super) async fn apply_combat_choice(
             events: Vec::new(),
         });
     };
-    if !RuntimeWorld::actor_is_active_avatar(actor) {
+    if !RuntimeWorld::actor_can_act(actor) {
         drop(runtime);
         broadcast_events(&state, &released_events);
         return Json(ActionResponse {

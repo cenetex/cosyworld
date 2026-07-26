@@ -14,7 +14,7 @@ impl RuntimeWorld {
 
     pub(super) fn actor_give_candidate(&self, actor_id: u64) -> Option<(CwItem, CwActor)> {
         let actor = self.actor_by_id(actor_id)?;
-        Self::actor_is_active_avatar(actor).then_some(())?;
+        Self::actor_can_act(actor).then_some(())?;
         self.default_actor_gift_candidate(actor_id)
             .map(|candidate| (candidate.offered_item, candidate.target))
             .or_else(|| {
@@ -50,7 +50,7 @@ impl RuntimeWorld {
     fn gift_offer_choices(&self, actor_id: u64) -> Vec<(CwItem, CwActor)> {
         let Some(actor) = self
             .actor_by_id(actor_id)
-            .filter(|actor| Self::actor_is_active_avatar(*actor))
+            .filter(|actor| Self::actor_can_act(*actor))
         else {
             return Vec::new();
         };

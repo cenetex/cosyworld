@@ -20,7 +20,7 @@ impl RuntimeWorld {
     }
 
     fn resident_economy_autonomy_records(&self, actor: CwActor, seed: u64) -> Vec<JournalRecord> {
-        if !Self::actor_is_active_avatar(actor) || !self.actor_uses_inference(actor.id) {
+        if !Self::actor_can_act(actor) || !self.actor_uses_inference(actor.id) {
             return Vec::new();
         }
 
