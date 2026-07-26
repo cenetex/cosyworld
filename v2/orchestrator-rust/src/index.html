@@ -9759,20 +9759,37 @@
       const funded = Math.max(0, Number(art.funded_orbs || 0));
       const remaining = Math.max(0, Number(art.remaining_orbs ?? (required - funded)));
       const status = String(art.status || "available");
+      const providerAttempts = Math.max(0, Number(art.provider_attempts || 0));
+      const maxProviderAttempts = Math.max(1, Number(art.max_provider_attempts || 3));
+      const retryableWithoutOrbs = Boolean(art.retryable_without_orbs);
       if (status === "ready") {
         return `<div class="economy-row"><span>community image</span><strong>level ${level} complete</strong></div><div class="economy-row"><span>next image</span><strong>unlocks at the next level</strong></div>`;
       }
       const balance = Math.max(0, Number(state?.economy?.orbs || 0));
       const needsOrb = remaining > 0;
+      const working = status === "generating" || status === "reviewing";
       const buttonLabel = needsOrb
         ? `add one Orb · ${funded}/${required}`
-        : (status === "rejected"
-          ? "try a different image"
-          : (status === "failed" ? "try the image again" : "nudge the image workshop"));
-      const disabled = needsOrb && balance < 1;
+        : (working
+          ? (status === "reviewing" ? "check the saved image review" : "check the image workshop")
+          : (status === "review_failed" || status === "review_unavailable"
+            ? (retryableWithoutOrbs ? "retry the saved image review" : "image review unavailable")
+            : (status === "rejected" || status === "policy_rejected"
+              ? (retryableWithoutOrbs ? "try a different image" : "image withheld")
+              : (status === "failed"
+                ? (retryableWithoutOrbs ? "try the image again" : "image workshop unavailable")
+                : "start the image workshop"))));
+      const disabled = (needsOrb && balance < 1)
+        || (!needsOrb && !retryableWithoutOrbs);
       const detail = needsOrb
         ? `${remaining} ${remaining === 1 ? "Orb" : "Orbs"} still needed from the community`
-        : "fully funded; no more Orbs will be taken";
+        : (working
+          ? "fully funded; the saved job is still in progress"
+          : (status === "review_failed" || status === "review_unavailable"
+            ? "candidate saved; no new image will be bought while review is unavailable"
+            : (!retryableWithoutOrbs && providerAttempts >= maxProviderAttempts
+              ? `stopped after ${providerAttempts} image ${providerAttempts === 1 ? "attempt" : "attempts"}; no more provider credits will be used`
+              : "fully funded; no more Orbs will be taken")));
       return `<div class="economy-row"><span>level ${level} image</span><strong>${escapeHtml(detail)}</strong></div><button class="account-button" type="button" data-fund-community-image="${escapeAttr(subject.kind)}:${subject.id}"${disabled ? " disabled" : ""}>${escapeHtml(buttonLabel)}</button>`;
     }
 

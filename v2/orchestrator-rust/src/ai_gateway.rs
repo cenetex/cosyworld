@@ -443,6 +443,11 @@ async fn request_completion(
         });
         if let Some(response_format) = response_format {
             payload["response_format"] = response_format.clone();
+            if response_format.get("type").and_then(Value::as_str) == Some("json_schema")
+                && config.base_url.contains("openrouter.ai")
+            {
+                payload["provider"] = json!({ "require_parameters": true });
+            }
         }
         if let Some(reasoning_effort) = config.reasoning_effort.as_deref() {
             payload["reasoning"] = json!({ "effort": reasoning_effort });
@@ -486,9 +491,16 @@ async fn request_completion(
                 sleep(retry_delay(attempt)).await;
                 continue;
             }
+            let detail = provider_error_detail(response).await;
             return Err(AiGatewayError {
                 kind: AiFailureKind::Provider,
-                message: format!("{feature} provider returned HTTP {status}"),
+                message: format!(
+                    "{feature} provider returned HTTP {status}{}",
+                    detail
+                        .as_deref()
+                        .map(|detail| format!(": {detail}"))
+                        .unwrap_or_default()
+                ),
                 attempts: attempt,
                 latency: started_at.elapsed(),
             });
@@ -532,6 +544,37 @@ async fn request_completion(
     }
 
     unreachable!("the bounded AI attempt loop always returns")
+}
+
+async fn provider_error_detail(response: reqwest::Response) -> Option<String> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > 64 * 1024)
+    {
+        return Some("provider error body exceeded the diagnostic limit".to_string());
+    }
+    let body = response.text().await.ok()?;
+    let value = serde_json::from_str::<Value>(&body).ok()?;
+    let message = value
+        .pointer("/error/message")
+        .and_then(Value::as_str)
+        .or_else(|| value.pointer("/error/code").and_then(Value::as_str))
+        .or_else(|| value.get("message").and_then(Value::as_str))?;
+    let summary = message
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(320)
+        .collect::<String>();
+    if summary.is_empty() {
+        None
+    } else if summary.contains("data:image") || summary.contains("Bearer ") {
+        Some("provider rejected the request; sensitive echoed input was redacted".to_string())
+    } else {
+        Some(summary)
+    }
 }
 
 fn retry_delay(attempt: u8) -> Duration {
@@ -797,6 +840,58 @@ mod tests {
         assert!(!decision.allowed);
         assert_eq!(decision.violations, vec!["person"]);
         assert!(request_seen.load(Ordering::SeqCst));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn provider_4xx_includes_safe_image_policy_diagnostics() {
+        let app = Router::new().route(
+            "/chat/completions",
+            post(|| async {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": {
+                            "code": "unsupported_capability",
+                            "message": "test-vision-model does not support image_url with json_schema"
+                        }
+                    })),
+                )
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind image policy diagnostic server");
+        let addr = listener.local_addr().expect("AI gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{addr}"),
+            model: "test-model".to_string(),
+            vision_model: "test-vision-model".to_string(),
+            reasoning_effort: None,
+        };
+
+        let error = request_image_policy_decision(
+            &config,
+            ImagePolicyRequest {
+                feature: "media.location_image_policy",
+                image_url: "data:image/png;base64,dGVzdA==",
+                policy: "Landscape only.",
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+            },
+        )
+        .await
+        .expect_err("provider capability mismatch must fail closed");
+        let message = error.to_string();
+
+        assert!(message.contains("HTTP 400 Bad Request"));
+        assert!(message.contains("does not support image_url with json_schema"));
+        assert!(!message.contains("dGVzdA=="));
         server.abort();
     }
 

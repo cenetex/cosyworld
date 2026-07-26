@@ -16,10 +16,11 @@ use crate::{
     event_replay_limit, event_store_scan_limit, init_event_store, no_store_headers, now_millis,
     now_unix_secs, open_event_store, persist_actor_suspension, read_economy_audit,
     read_event_store, resolve_economy_reconciliation, sqlite_error,
-    stored_community_art_content_type_path, stored_community_art_image_path, tail_event_replay,
-    ActorSuspension, AiUsageLedgerAuditView, AppState, AvatarPackOpeningView, CwAction,
-    EconomyReconciliationView, EventView, JournalRecord, OrbLedgerAuditView, ProjectionMutation,
-    WoodenBoxReceiptView, CW_ACTION_NONE, CW_OK, MAX_EVENT_STORE_SCAN, MODERATION_HTML,
+    stored_community_art_content_type_path, stored_community_art_image_path,
+    stored_community_art_metadata_path, tail_event_replay, ActorSuspension, AiUsageLedgerAuditView,
+    AppState, AvatarPackOpeningView, CwAction, EconomyReconciliationView, EventView, JournalRecord,
+    OrbLedgerAuditView, ProjectionMutation, WoodenBoxReceiptView, CW_ACTION_NONE, CW_OK,
+    MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS, MAX_EVENT_STORE_SCAN, MODERATION_HTML,
 };
 
 pub(crate) const MAX_REPORT_REASON_CHARS: usize = 500;
@@ -711,7 +712,9 @@ pub(crate) async fn moderation_reject_community_art(
             );
         };
         let generation_status = generation.status.clone();
-        let retryable_without_orbs = generation.funded_orbs >= generation.required_orbs;
+        let last_prediction_id = generation.last_prediction_id.clone();
+        let retryable_without_orbs = generation.funded_orbs >= generation.required_orbs
+            && generation.provider_attempts < MAX_COMMUNITY_ART_PROVIDER_ATTEMPTS;
         if generation_status == "rejected" {
             (level, retryable_without_orbs, Vec::new())
         } else {
@@ -735,11 +738,13 @@ pub(crate) async fn moderation_reject_community_art(
             );
             record
                 .projection_mutations
-                .push(ProjectionMutation::SetCommunityArtStatus {
+                .push(ProjectionMutation::CompleteCommunityArtGeneration {
                     subject_kind: subject_kind.clone(),
                     subject_id,
                     level,
                     status: "rejected".to_string(),
+                    prediction_id: last_prediction_id,
+                    error_code: Some("community_art_moderation_rejected".to_string()),
                 });
             let Ok((commit_status, events)) = commit_journal_record(&state, &mut runtime, record)
             else {
@@ -773,7 +778,9 @@ pub(crate) async fn moderation_reject_community_art(
         &subject_kind,
         subject_id,
     );
-    for path in [&image_path, &content_type_path] {
+    let metadata_path =
+        stored_community_art_metadata_path(&state.generated_asset_dir, &subject_kind, subject_id);
+    for path in [&image_path, &content_type_path, &metadata_path] {
         if let Err(error) = fs::remove_file(path) {
             if error.kind() != io::ErrorKind::NotFound {
                 warn!(
